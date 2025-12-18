@@ -312,8 +312,8 @@ export function createKeystoneTenant(tenantData) {
   return new Promise((resolve) => {
     setTimeout(() => {
       const newTenant = {
-        uuid: generateUUID(),
         ...tenantData,
+        uuid: tenantData.uuid || generateUUID(), // Use provided UUID or generate new one
         mappedProducts: {}
       };
 

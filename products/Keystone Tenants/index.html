@@ -365,12 +365,28 @@
           form.style.gap = '16px';
           form.style.minWidth = '500px';
 
+          // Generate UUID for new tenant
+          const newUuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+          });
+
           form.innerHTML = `
             <vaadin-text-field
               id="newTenantName"
               label="Keystone Tenant Name"
               required
               theme="outlined">
+            </vaadin-text-field>
+
+            <vaadin-text-field
+              id="newTenantUuid"
+              label="UUID"
+              value="${newUuid}"
+              readonly
+              theme="outlined"
+              style="font-family: 'Courier New', monospace; font-size: 12px;">
             </vaadin-text-field>
 
             <vaadin-text-field
@@ -386,24 +402,32 @@
               theme="outlined">
             </vaadin-text-field>
 
-            <vaadin-text-field
-              id="newCity"
-              label="City"
-              required
-              theme="outlined">
-            </vaadin-text-field>
+            <div class="form-row">
+              <div class="form-field city">
+                <vaadin-text-field
+                  id="newCity"
+                  label="City"
+                  required
+                  theme="outlined">
+                </vaadin-text-field>
+              </div>
 
-            <vaadin-select
-              id="newState"
-              label="State/Province"
-              theme="outlined">
-            </vaadin-select>
+              <div class="form-field state">
+                <vaadin-select
+                  id="newState"
+                  label="State/Province"
+                  theme="outlined">
+                </vaadin-select>
+              </div>
 
-            <vaadin-text-field
-              id="newPostalCode"
-              label="Postal Code"
-              theme="outlined">
-            </vaadin-text-field>
+              <div class="form-field postal-code">
+                <vaadin-text-field
+                  id="newPostalCode"
+                  label="Postal Code"
+                  theme="outlined">
+                </vaadin-text-field>
+              </div>
+            </div>
 
             <vaadin-select
               id="newCountry"
@@ -431,15 +455,23 @@
       createTenantDialog.footerRenderer = function(root) {
         if (!root.firstElementChild) {
           const buttonContainer = document.createElement('div');
+          buttonContainer.className = 'dialog-footer-buttons';
           buttonContainer.style.display = 'flex';
-          buttonContainer.style.gap = '8px';
-          buttonContainer.style.justifyContent = 'flex-end';
+          buttonContainer.style.width = '100%';
+          buttonContainer.style.justifyContent = 'space-between';
+          buttonContainer.style.alignItems = 'center';
 
           const cancelButton = document.createElement('vaadin-button');
           cancelButton.textContent = 'Cancel';
+          cancelButton.style.marginRight = 'auto';
           cancelButton.addEventListener('click', () => {
             createTenantDialog.opened = false;
           });
+
+          const rightButtons = document.createElement('div');
+          rightButtons.style.display = 'flex';
+          rightButtons.style.gap = '8px';
+          rightButtons.style.marginLeft = 'auto';
 
           const saveAndAddButton = document.createElement('vaadin-button');
           saveAndAddButton.textContent = 'Save and Add Another';
@@ -455,9 +487,11 @@
             handleCreateTenant(false);
           });
 
+          rightButtons.appendChild(saveAndAddButton);
+          rightButtons.appendChild(saveButton);
+
           buttonContainer.appendChild(cancelButton);
-          buttonContainer.appendChild(saveAndAddButton);
-          buttonContainer.appendChild(saveButton);
+          buttonContainer.appendChild(rightButtons);
           root.appendChild(buttonContainer);
         }
       };
@@ -467,6 +501,7 @@
     async function handleCreateTenant(addAnother) {
       const form = document.getElementById('createTenantForm');
       const formData = {
+        uuid: form.querySelector('#newTenantUuid').value,
         name: form.querySelector('#newTenantName').value,
         address1: form.querySelector('#newAddress1').value,
         address2: form.querySelector('#newAddress2').value,
@@ -489,8 +524,16 @@
         showNotification('Tenant created successfully', 'success');
 
         if (addAnother) {
+          // Generate new UUID
+          const newUuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+          });
+
           // Clear form
           form.reset();
+          form.querySelector('#newTenantUuid').value = newUuid;
           form.querySelector('#newState').value = 'CA';
           form.querySelector('#newCountry').value = 'United States';
           form.querySelector('#newTenantName').focus();
