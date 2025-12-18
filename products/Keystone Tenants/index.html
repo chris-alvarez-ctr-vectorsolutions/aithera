@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Keystone Tenants - Vector Solutions</title>
+
+  <!-- Vector Web Components CSS -->
+  <script
+    type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.5.1/core.iife.js">
+  </script>
+
+  <!-- Vector Web Components JavaScript -->
+  <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.1.1/styles.js">
+  </script>
+
+  <!-- Open Sans Font -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+  />
+
+  <!-- Font Awesome 6 Icons -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+  />
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Page Header -->
+    <header class="page-header">
+      <h1 class="page-title">Keystone Tenants</h1>
+    </header>
+
+    <!-- Grid Controls -->
+    <div class="grid-controls">
+      <div class="search-container">
+        <vaadin-text-field
+          id="searchField"
+          placeholder="Search by name, city, or state..."
+          theme="outlined"
+          clear-button-visible>
+          <i slot="prefix" class="fa-solid fa-magnifying-glass"></i>
+        </vaadin-text-field>
+      </div>
+      <div class="actions-container">
+        <vaadin-button id="createTenantBtn" theme="primary">
+          <i class="fa-solid fa-plus" style="margin-right: 8px;"></i>
+          Create New Keystone Tenant
+        </vaadin-button>
+      </div>
+    </div>
+
+    <!-- Tenant Grid -->
+    <div class="tenant-grid-container">
+      <table class="tenant-grid" role="grid">
+        <thead>
+          <tr role="row">
+            <th class="sortable" data-column="name" role="columnheader" tabindex="0">
+              Keystone Tenant Name
+              <span class="sort-indicator"></span>
+            </th>
+            <th class="sortable" data-column="city" role="columnheader" tabindex="0">
+              City
+              <span class="sort-indicator"></span>
+            </th>
+            <th class="sortable" data-column="state" role="columnheader" tabindex="0">
+              State
+              <span class="sort-indicator"></span>
+            </th>
+            <th class="sortable" data-column="uuid" role="columnheader" tabindex="0">
+              UUID
+              <span class="sort-indicator"></span>
+            </th>
+            <th class="sortable" data-column="mappedCount" role="columnheader" tabindex="0">
+              Mapped Products
+              <span class="sort-indicator"></span>
+            </th>
+          </tr>
+        </thead>
+        <tbody id="tenantGridBody" role="rowgroup">
+          <!-- Rows will be populated by JavaScript -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="loading-container hidden">
+      <vwc-spinner></vwc-spinner>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="empty-state hidden">
+      <div class="empty-state-icon">
+        <i class="fa-solid fa-building"></i>
+      </div>
+      <div class="empty-state-title">No tenants found</div>
+      <div class="empty-state-description">
+        Try adjusting your search or create a new tenant
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Tenant Dialog -->
+  <vaadin-dialog id="createTenantDialog" aria-label="Create Keystone Tenant"></vaadin-dialog>
+
+  <!-- Notification -->
+  <vaadin-notification
+    id="notification"
+    duration="3000"
+    position="bottom-start">
+  </vaadin-notification>
+
+  <!-- JavaScript Modules -->
+  <script type="module">
+    import {
+      getAllKeystoneTenants,
+      createKeystoneTenant,
+      getMappedProductCount,
+      getStates,
+      getCountries
+    } from './api.js';
+
+    import {
+      navigateToTenantDetails,
+      saveGridState,
+      loadGridState
+    } from './state.js';
+
+    // State
+    let allTenants = [];
+    let filteredTenants = [];
+    let currentSort = { column: 'name', direction: 'asc' };
+    let selectedRowIndex = -1;
+
+    // Elements
+    const searchField = document.getElementById('searchField');
+    const tenantGridBody = document.getElementById('tenantGridBody');
+    const createTenantBtn = document.getElementById('createTenantBtn');
+    const createTenantDialog = document.getElementById('createTenantDialog');
+    const loadingState = document.getElementById('loadingState');
+    const emptyState = document.getElementById('emptyState');
+    const tenantGridContainer = document.querySelector('.tenant-grid-container');
+    const notification = document.getElementById('notification');
+
+    // Load initial data
+    async function loadTenants() {
+      showLoading();
+      try {
+        allTenants = await getAllKeystoneTenants();
+        filteredTenants = [...allTenants];
+
+        // Restore grid state
+        const savedState = loadGridState();
+        if (savedState) {
+          currentSort = {
+            column: savedState.sortColumn,
+            direction: savedState.sortDirection
+          };
+          searchField.value = savedState.searchQuery;
+          selectedRowIndex = savedState.selectedRowIndex;
+        }
+
+        applyFiltersAndSort();
+        hideLoading();
+      } catch (error) {
+        console.error('Failed to load tenants:', error);
+        showNotification('Failed to load tenants', 'error');
+        hideLoading();
+      }
+    }
+
+    // Apply filters and sorting
+    function applyFiltersAndSort() {
+      const searchQuery = searchField.value.toLowerCase().trim();
+
+      // Filter
+      if (searchQuery) {
+        filteredTenants = allTenants.filter(tenant =>
+          tenant.name.toLowerCase().includes(searchQuery) ||
+          tenant.city.toLowerCase().includes(searchQuery) ||
+          tenant.state.toLowerCase().includes(searchQuery)
+        );
+      } else {
+        filteredTenants = [...allTenants];
+      }
+
+      // Sort
+      filteredTenants.sort((a, b) => {
+        let aVal, bVal;
+
+        if (currentSort.column === 'mappedCount') {
+          aVal = getMappedProductCount(a.uuid);
+          bVal = getMappedProductCount(b.uuid);
+        } else {
+          aVal = a[currentSort.column] || '';
+          bVal = b[currentSort.column] || '';
+        }
+
+        if (typeof aVal === 'string') {
+          aVal = aVal.toLowerCase();
+          bVal = bVal.toLowerCase();
+        }
+
+        if (aVal < bVal) return currentSort.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return currentSort.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      renderGrid();
+      updateSortIndicators();
+    }
+
+    // Render grid
+    function renderGrid() {
+      tenantGridBody.innerHTML = '';
+
+      if (filteredTenants.length === 0) {
+        tenantGridContainer.classList.add('hidden');
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      tenantGridContainer.classList.remove('hidden');
+      emptyState.classList.add('hidden');
+
+      filteredTenants.forEach((tenant, index) => {
+        const row = document.createElement('tr');
+        row.setAttribute('role', 'row');
+        row.setAttribute('tabindex', '0');
+        row.dataset.uuid = tenant.uuid;
+        row.dataset.index = index;
+
+        if (index === selectedRowIndex) {
+          row.classList.add('selected');
+        }
+
+        const mappedCount = getMappedProductCount(tenant.uuid);
+
+        row.innerHTML = `
+          <td role="gridcell">${escapeHtml(tenant.name)}</td>
+          <td role="gridcell">${escapeHtml(tenant.city)}</td>
+          <td role="gridcell">${escapeHtml(tenant.state)}</td>
+          <td class="uuid" role="gridcell">${escapeHtml(tenant.uuid)}</td>
+          <td role="gridcell">
+            ${mappedCount > 0 ? `<span class="mapping-count-badge">${mappedCount}</span>` : '—'}
+          </td>
+        `;
+
+        // Click handler
+        row.addEventListener('click', () => {
+          handleRowClick(tenant.uuid, index);
+        });
+
+        // Keyboard handler
+        row.addEventListener('keydown', (e) => {
+          handleRowKeydown(e, tenant.uuid, index);
+        });
+
+        tenantGridBody.appendChild(row);
+      });
+    }
+
+    // Handle row click
+    function handleRowClick(uuid, index) {
+      console.log('Row clicked - UUID:', uuid, 'Index:', index);
+      selectedRowIndex = index;
+      saveCurrentGridState();
+      console.log('Navigating to tenant details...');
+      navigateToTenantDetails(uuid);
+    }
+
+    // Handle row keyboard navigation
+    function handleRowKeydown(e, uuid, index) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        handleRowClick(uuid, index);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const nextRow = e.target.nextElementSibling;
+        if (nextRow) nextRow.focus();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prevRow = e.target.previousElementSibling;
+        if (prevRow) prevRow.focus();
+      }
+    }
+
+    // Update sort indicators
+    function updateSortIndicators() {
+      document.querySelectorAll('.sort-indicator').forEach(indicator => {
+        indicator.textContent = '';
+      });
+
+      const activeHeader = document.querySelector(`th[data-column="${currentSort.column}"]`);
+      if (activeHeader) {
+        const indicator = activeHeader.querySelector('.sort-indicator');
+        indicator.textContent = currentSort.direction === 'asc' ? '↑' : '↓';
+      }
+    }
+
+    // Handle column sort
+    document.querySelectorAll('th.sortable').forEach(header => {
+      header.addEventListener('click', () => {
+        const column = header.dataset.column;
+        if (currentSort.column === column) {
+          currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+          currentSort.column = column;
+          currentSort.direction = 'asc';
+        }
+        applyFiltersAndSort();
+        saveCurrentGridState();
+      });
+
+      // Keyboard support for column headers
+      header.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          header.click();
+        }
+      });
+    });
+
+    // Search handler
+    searchField.addEventListener('input', () => {
+      applyFiltersAndSort();
+      saveCurrentGridState();
+    });
+
+    // Support Enter key in search field
+    searchField.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        applyFiltersAndSort();
+      }
+    });
+
+    // Save current grid state
+    function saveCurrentGridState() {
+      saveGridState({
+        searchQuery: searchField.value,
+        sortColumn: currentSort.column,
+        sortDirection: currentSort.direction,
+        selectedRowIndex: selectedRowIndex
+      });
+    }
+
+    // Create Tenant Dialog
+    function setupCreateTenantDialog() {
+      createTenantDialog.headerTitle = 'Create New Keystone Tenant';
+
+      createTenantDialog.renderer = function(root) {
+        if (!root.firstElementChild) {
+          const form = document.createElement('form');
+          form.id = 'createTenantForm';
+          form.style.padding = '0 24px 16px';
+          form.style.display = 'flex';
+          form.style.flexDirection = 'column';
+          form.style.gap = '16px';
+          form.style.minWidth = '500px';
+
+          form.innerHTML = `
+            <vaadin-text-field
+              id="newTenantName"
+              label="Keystone Tenant Name"
+              required
+              theme="outlined">
+            </vaadin-text-field>
+
+            <vaadin-text-field
+              id="newAddress1"
+              label="Address Line 1"
+              required
+              theme="outlined">
+            </vaadin-text-field>
+
+            <vaadin-text-field
+              id="newAddress2"
+              label="Address Line 2"
+              theme="outlined">
+            </vaadin-text-field>
+
+            <vaadin-text-field
+              id="newCity"
+              label="City"
+              required
+              theme="outlined">
+            </vaadin-text-field>
+
+            <vaadin-select
+              id="newState"
+              label="State/Province"
+              theme="outlined">
+            </vaadin-select>
+
+            <vaadin-text-field
+              id="newPostalCode"
+              label="Postal Code"
+              theme="outlined">
+            </vaadin-text-field>
+
+            <vaadin-select
+              id="newCountry"
+              label="Country"
+              theme="outlined">
+            </vaadin-select>
+          `;
+
+          root.appendChild(form);
+
+          // Populate state dropdown
+          const stateSelect = form.querySelector('#newState');
+          const states = getStates();
+          stateSelect.items = states.map(s => ({ label: s.name, value: s.code }));
+          stateSelect.value = 'CA'; // Default to California
+
+          // Populate country dropdown
+          const countrySelect = form.querySelector('#newCountry');
+          const countries = getCountries();
+          countrySelect.items = countries.map(c => ({ label: c.name, value: c.name }));
+          countrySelect.value = 'United States'; // Default to United States
+        }
+      };
+
+      createTenantDialog.footerRenderer = function(root) {
+        if (!root.firstElementChild) {
+          const buttonContainer = document.createElement('div');
+          buttonContainer.style.display = 'flex';
+          buttonContainer.style.gap = '8px';
+          buttonContainer.style.justifyContent = 'flex-end';
+
+          const cancelButton = document.createElement('vaadin-button');
+          cancelButton.textContent = 'Cancel';
+          cancelButton.addEventListener('click', () => {
+            createTenantDialog.opened = false;
+          });
+
+          const saveAndAddButton = document.createElement('vaadin-button');
+          saveAndAddButton.textContent = 'Save and Add Another';
+          saveAndAddButton.setAttribute('theme', 'secondary');
+          saveAndAddButton.addEventListener('click', () => {
+            handleCreateTenant(true);
+          });
+
+          const saveButton = document.createElement('vaadin-button');
+          saveButton.textContent = 'Save';
+          saveButton.setAttribute('theme', 'primary');
+          saveButton.addEventListener('click', () => {
+            handleCreateTenant(false);
+          });
+
+          buttonContainer.appendChild(cancelButton);
+          buttonContainer.appendChild(saveAndAddButton);
+          buttonContainer.appendChild(saveButton);
+          root.appendChild(buttonContainer);
+        }
+      };
+    }
+
+    // Handle create tenant
+    async function handleCreateTenant(addAnother) {
+      const form = document.getElementById('createTenantForm');
+      const formData = {
+        name: form.querySelector('#newTenantName').value,
+        address1: form.querySelector('#newAddress1').value,
+        address2: form.querySelector('#newAddress2').value,
+        city: form.querySelector('#newCity').value,
+        state: form.querySelector('#newState').value,
+        postalCode: form.querySelector('#newPostalCode').value,
+        country: form.querySelector('#newCountry').value
+      };
+
+      // Validate required fields
+      if (!formData.name || !formData.address1 || !formData.city || !formData.state || !formData.country) {
+        showNotification('Please fill in all required fields', 'error');
+        return;
+      }
+
+      try {
+        const newTenant = await createKeystoneTenant(formData);
+        allTenants.push(newTenant);
+
+        showNotification('Tenant created successfully', 'success');
+
+        if (addAnother) {
+          // Clear form
+          form.reset();
+          form.querySelector('#newState').value = 'CA';
+          form.querySelector('#newCountry').value = 'United States';
+          form.querySelector('#newTenantName').focus();
+        } else {
+          createTenantDialog.opened = false;
+          // Select the new tenant and navigate to details
+          applyFiltersAndSort();
+          const newIndex = filteredTenants.findIndex(t => t.uuid === newTenant.uuid);
+          if (newIndex !== -1) {
+            selectedRowIndex = newIndex;
+            saveCurrentGridState();
+            navigateToTenantDetails(newTenant.uuid);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to create tenant:', error);
+        showNotification('Failed to create tenant', 'error');
+      }
+    }
+
+    // Open create dialog
+    createTenantBtn.addEventListener('click', () => {
+      setupCreateTenantDialog();
+      createTenantDialog.opened = true;
+      document.body.classList.add('dialog-open');
+    });
+
+    // Remove dialog-open class when dialog closes
+    createTenantDialog.addEventListener('opened-changed', (e) => {
+      if (!e.detail.value) {
+        document.body.classList.remove('dialog-open');
+      }
+    });
+
+    // Show notification
+    function showNotification(message, theme = 'primary') {
+      notification.renderer = function(root) {
+        root.textContent = message;
+      };
+      notification.setAttribute('theme', theme);
+      notification.opened = true;
+    }
+
+    // Loading states
+    function showLoading() {
+      tenantGridContainer.classList.add('hidden');
+      emptyState.classList.add('hidden');
+      loadingState.classList.remove('hidden');
+    }
+
+    function hideLoading() {
+      loadingState.classList.add('hidden');
+    }
+
+    // Utility: Escape HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Initialize
+    loadTenants();
+  </script>
+</body>
+</html>

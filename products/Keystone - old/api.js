@@ -12,11 +12,11 @@
 // Product definitions (6 products)
 const PRODUCTS = [
   { code: 'product_1', name: 'TargetSolutions' },
-  { code: 'product_2', name: 'Vector LMS' },
-  { code: 'product_3', name: 'Vector Training' },
-  { code: 'product_4', name: 'Vector Compliance' },
-  { code: 'product_5', name: 'Vector Scheduling' },
-  { code: 'product_6', name: 'Vector Analytics' },
+  { code: 'product_2', name: 'Scheduling' },
+  { code: 'product_3', name: 'Check IT' },
+  { code: 'product_4', name: 'EV+' },
+  { code: 'product_5', name: 'Guardian Tracking' },
+  { code: 'product_6', name: 'Frontline' },
 ];
 
 // Mock Keystone Tenants
@@ -56,25 +56,55 @@ let keystoneTenants = [
   },
 ];
 
-// Mock Product Tenants (for each product)
-const productTenants = [
-  // TargetSolutions
-  { id: 'pt-001', productCode: 'product_1', name: 'Acme TS Tenant' },
-  { id: 'pt-002', productCode: 'product_1', name: 'Global TS Tenant' },
-  { id: 'pt-003', productCode: 'product_1', name: 'Tech TS Tenant' },
-  // Vector LMS
-  { id: 'pt-004', productCode: 'product_2', name: 'Acme LMS Tenant' },
-  { id: 'pt-005', productCode: 'product_2', name: 'Global LMS Tenant' },
-  // Vector Training
-  { id: 'pt-006', productCode: 'product_3', name: 'Acme Training Tenant' },
-  { id: 'pt-007', productCode: 'product_3', name: 'Tech Training Tenant' },
-  // Vector Compliance
-  { id: 'pt-008', productCode: 'product_4', name: 'Global Compliance Tenant' },
-  // Vector Scheduling
-  { id: 'pt-009', productCode: 'product_5', name: 'Tech Scheduling Tenant' },
-  // Vector Analytics
-  { id: 'pt-010', productCode: 'product_6', name: 'Acme Analytics Tenant' },
-];
+// Mock Product Tenants (generate many for each product to simulate thousands)
+function generateProductTenants() {
+  const tenants = [];
+  const companyNames = [
+    'Acme', 'Global', 'Tech', 'United', 'Premier', 'Elite', 'Metro', 'Regional',
+    'National', 'Summit', 'Apex', 'Crown', 'Delta', 'Eagle', 'Falcon', 'Genesis',
+    'Horizon', 'Icon', 'Jade', 'Keystone', 'Liberty', 'Magna', 'Nova', 'Omega',
+    'Phoenix', 'Quantum', 'Royal', 'Sterling', 'Titan', 'Unity', 'Vertex', 'Zenith',
+    'Alliance', 'Beacon', 'Cascade', 'Dynasty', 'Everest', 'Fortress', 'Galaxy',
+    'Harbor', 'Infinity', 'Jupiter', 'Kingdom', 'Landmark', 'Matrix', 'Neptune',
+    'Olympus', 'Paramount', 'Quest', 'Renaissance', 'Stellar', 'Triumph', 'Utopia',
+    'Vanguard', 'Westwind', 'Xcel', 'Yosemite', 'Zephyr'
+  ];
+
+  const suffixes = [
+    'Corporation', 'Industries', 'Enterprises', 'Group', 'Solutions', 'Services',
+    'Systems', 'Holdings', 'International', 'Inc', 'LLC', 'Ltd', 'Partners', 'Co'
+  ];
+
+  const locations = [
+    'North', 'South', 'East', 'West', 'Central', 'Midwest', 'Pacific', 'Atlantic'
+  ];
+
+  let idCounter = 1;
+
+  // Generate tenants for each product
+  PRODUCTS.forEach(product => {
+    // Generate 100-200 tenants per product
+    const count = 100 + Math.floor(Math.random() * 100);
+    for (let i = 0; i < count; i++) {
+      const company = companyNames[Math.floor(Math.random() * companyNames.length)];
+      const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+      const location = Math.random() > 0.5 ? locations[Math.floor(Math.random() * locations.length)] + ' ' : '';
+
+      tenants.push({
+        id: `pt-${String(idCounter).padStart(5, '0')}`,
+        productCode: product.code,
+        name: `${location}${company} ${suffix}`,
+        city: ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'San Francisco'][Math.floor(Math.random() * 6)],
+        state: ['CA', 'TX', 'NY', 'IL', 'AZ', 'FL'][Math.floor(Math.random() * 6)]
+      });
+      idCounter++;
+    }
+  });
+
+  return tenants;
+}
+
+const productTenants = generateProductTenants();
 
 // Mock Keystone Tenant <> Product Tenant Mappings
 let tenantMappings = [
