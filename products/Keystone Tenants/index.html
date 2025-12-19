@@ -35,10 +35,18 @@
   <div class="app-container">
     <!-- Page Header -->
     <header class="page-header">
-      <h1 class="page-title">Keystone Tenants</h1>
+      <h1 class="page-title">Keystone Admin</h1>
     </header>
 
-    <!-- Grid Controls -->
+    <!-- Tabs -->
+    <vaadin-tabs id="mainTabs" style="margin-bottom: 24px;">
+      <vaadin-tab id="tenantsTab">Keystone Tenants</vaadin-tab>
+      <vaadin-tab id="usersTab">Keystone Users</vaadin-tab>
+    </vaadin-tabs>
+
+    <!-- Tenants Tab Content -->
+    <div id="tenantsTabContent">
+      <!-- Grid Controls -->
     <div class="grid-controls">
       <div class="search-container">
         <vaadin-text-field
@@ -105,10 +113,81 @@
         Try adjusting your search or create a new tenant
       </div>
     </div>
+    </div><!-- End Tenants Tab Content -->
+
+    <!-- Users Tab Content -->
+    <div id="usersTabContent" class="hidden">
+      <!-- Grid Controls -->
+      <div class="grid-controls">
+        <div class="search-container">
+          <vaadin-text-field
+            id="userSearchField"
+            placeholder="Search by name or email..."
+            theme="outlined"
+            clear-button-visible>
+            <i slot="prefix" class="fa-solid fa-magnifying-glass"></i>
+          </vaadin-text-field>
+        </div>
+        <div class="actions-container">
+          <vaadin-button id="createUserBtn" theme="primary">
+            <i class="fa-solid fa-plus" style="margin-right: 8px;"></i>
+            Add New User
+          </vaadin-button>
+        </div>
+      </div>
+
+      <!-- Users Grid -->
+      <div class="tenant-grid-container">
+        <table class="tenant-grid" role="grid">
+          <thead>
+            <tr role="row">
+              <th class="sortable" data-column="firstName" role="columnheader" tabindex="0">
+                First Name
+                <span class="sort-indicator"></span>
+              </th>
+              <th class="sortable" data-column="lastName" role="columnheader" tabindex="0">
+                Last Name
+                <span class="sort-indicator"></span>
+              </th>
+              <th class="sortable" data-column="email" role="columnheader" tabindex="0">
+                Email
+                <span class="sort-indicator"></span>
+              </th>
+              <th class="sortable" data-column="mappedCount" role="columnheader" tabindex="0">
+                Mapped Users
+                <span class="sort-indicator"></span>
+              </th>
+            </tr>
+          </thead>
+          <tbody id="userGridBody" role="rowgroup">
+            <!-- Rows will be populated by JavaScript -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Loading State -->
+      <div id="userLoadingState" class="loading-container hidden">
+        <vwc-spinner></vwc-spinner>
+      </div>
+
+      <!-- Empty State -->
+      <div id="userEmptyState" class="empty-state hidden">
+        <div class="empty-state-icon">
+          <i class="fa-solid fa-users"></i>
+        </div>
+        <div class="empty-state-title">No users found</div>
+        <div class="empty-state-description">
+          Try adjusting your search
+        </div>
+      </div>
+    </div><!-- End Users Tab Content -->
   </div>
 
   <!-- Create Tenant Dialog -->
   <vaadin-dialog id="createTenantDialog" aria-label="Create Keystone Tenant"></vaadin-dialog>
+
+  <!-- Create User Dialog -->
+  <vaadin-dialog id="createUserDialog" aria-label="Add New User"></vaadin-dialog>
 
   <!-- Notification -->
   <vaadin-notification
@@ -133,15 +212,48 @@
       loadGridState
     } from './state.js';
 
-    // State
+    // Tab Elements
+    const mainTabs = document.getElementById('mainTabs');
+    const tenantsTab = document.getElementById('tenantsTab');
+    const usersTab = document.getElementById('usersTab');
+    const tenantsTabContent = document.getElementById('tenantsTabContent');
+    const usersTabContent = document.getElementById('usersTabContent');
+
+    // Tab switching
+    mainTabs.addEventListener('selected-changed', () => {
+      const selectedIndex = mainTabs.selected;
+      if (selectedIndex === 0) {
+        // Tenants tab
+        tenantsTabContent.classList.remove('hidden');
+        usersTabContent.classList.add('hidden');
+      } else if (selectedIndex === 1) {
+        // Users tab
+        tenantsTabContent.classList.add('hidden');
+        usersTabContent.classList.remove('hidden');
+        if (allUsers.length === 0) {
+          loadUsers();
+        }
+      }
+    });
+
+    // Tenants State
     let allTenants = [];
     let filteredTenants = [];
     let currentSort = { column: 'name', direction: 'asc' };
     let selectedRowIndex = -1;
 
-    // Elements
+    // Users State
+    let allUsers = [];
+    let filteredUsers = [];
+    let currentUserSort = { column: 'firstName', direction: 'asc' };
+
+    // Tenants Elements
     const searchField = document.getElementById('searchField');
     const tenantGridBody = document.getElementById('tenantGridBody');
+
+    // Users Elements
+    const userSearchField = document.getElementById('userSearchField');
+    const userGridBody = document.getElementById('userGridBody');
     const createTenantBtn = document.getElementById('createTenantBtn');
     const createTenantDialog = document.getElementById('createTenantDialog');
     const loadingState = document.getElementById('loadingState');
@@ -594,6 +706,298 @@
       div.textContent = text;
       return div.innerHTML;
     }
+
+    // ===== USERS TAB FUNCTIONALITY =====
+
+    // Load users
+    async function loadUsers() {
+      const userLoadingState = document.getElementById('userLoadingState');
+      const userEmptyState = document.getElementById('userEmptyState');
+
+      userLoadingState.classList.remove('hidden');
+      userEmptyState.classList.add('hidden');
+
+      try {
+        // Mock data for now - will be replaced with actual API call
+        allUsers = [
+          {
+            id: 'user1',
+            firstName: 'John',
+            lastName: 'Doe',
+            email: 'john.doe@example.com',
+            productTenantName: 'Acme Corp',
+            userId: 'U12345',
+            productTenantId: 'PT001',
+            mappedCount: 3
+          },
+          {
+            id: 'user2',
+            firstName: 'Jane',
+            lastName: 'Smith',
+            email: 'jane.smith@example.com',
+            productTenantName: 'Beta Industries',
+            userId: 'U67890',
+            productTenantId: 'PT002',
+            mappedCount: 2
+          }
+        ];
+
+        filteredUsers = [...allUsers];
+        renderUserGrid();
+        userLoadingState.classList.add('hidden');
+      } catch (error) {
+        console.error('Failed to load users:', error);
+        userLoadingState.classList.add('hidden');
+      }
+    }
+
+    // Render user grid
+    function renderUserGrid() {
+      const userEmptyState = document.getElementById('userEmptyState');
+
+      if (filteredUsers.length === 0) {
+        userGridBody.innerHTML = '';
+        userEmptyState.classList.remove('hidden');
+        return;
+      }
+
+      userEmptyState.classList.add('hidden');
+      userGridBody.innerHTML = '';
+
+      filteredUsers.forEach((user, index) => {
+        const row = document.createElement('tr');
+        row.setAttribute('role', 'row');
+        row.setAttribute('tabindex', '0');
+        row.dataset.userId = user.id;
+
+        row.innerHTML = `
+          <td>${escapeHtml(user.firstName)}</td>
+          <td>${escapeHtml(user.lastName)}</td>
+          <td>${escapeHtml(user.email)}</td>
+          <td style="text-align: center;">${user.mappedCount}</td>
+        `;
+
+        // Click handler
+        row.addEventListener('click', () => {
+          navigateToUserDetails(user.id);
+        });
+
+        // Keyboard handler
+        row.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            navigateToUserDetails(user.id);
+          }
+        });
+
+        userGridBody.appendChild(row);
+      });
+    }
+
+    // Navigate to user details
+    function navigateToUserDetails(userId) {
+      sessionStorage.setItem('selectedUserId', userId);
+      window.location.href = 'user-details.html';
+    }
+
+    // User search
+    if (userSearchField) {
+      userSearchField.addEventListener('input', () => {
+        const searchTerm = userSearchField.value.toLowerCase().trim();
+
+        filteredUsers = allUsers.filter(user => {
+          const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
+          const email = user.email.toLowerCase();
+          return fullName.includes(searchTerm) || email.includes(searchTerm);
+        });
+
+        renderUserGrid();
+      });
+    }
+
+    // Create User Dialog
+    const createUserDialog = document.getElementById('createUserDialog');
+
+    function setupCreateUserDialog() {
+      createUserDialog.headerTitle = 'Add New User';
+
+      createUserDialog.renderer = function(root) {
+        if (!root.firstElementChild) {
+          const form = document.createElement('form');
+          form.id = 'createUserForm';
+          form.style.padding = '0 24px 16px';
+          form.style.display = 'flex';
+          form.style.flexDirection = 'column';
+          form.style.gap = '16px';
+          form.style.minWidth = '500px';
+
+          // Generate User ID for new user
+          const newUserId = 'U' + Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+          const newProductTenantId = 'PT' + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+
+          form.innerHTML = `
+            <vaadin-text-field
+              id="newUserFirstName"
+              label="First Name"
+              required
+              theme="outlined">
+            </vaadin-text-field>
+
+            <vaadin-text-field
+              id="newUserLastName"
+              label="Last Name"
+              required
+              theme="outlined">
+            </vaadin-text-field>
+
+            <vaadin-text-field
+              id="newUserEmail"
+              label="Email"
+              type="email"
+              required
+              theme="outlined">
+            </vaadin-text-field>
+
+            <vaadin-text-field
+              id="newUserProductTenantName"
+              label="Product Tenant Name"
+              required
+              theme="outlined">
+            </vaadin-text-field>
+
+            <vaadin-text-field
+              id="newUserUserId"
+              label="User ID"
+              value="${newUserId}"
+              readonly
+              theme="outlined"
+              style="font-family: 'Courier New', monospace; font-size: 12px;">
+            </vaadin-text-field>
+
+            <vaadin-text-field
+              id="newUserProductTenantId"
+              label="Product Tenant ID"
+              value="${newProductTenantId}"
+              readonly
+              theme="outlined"
+              style="font-family: 'Courier New', monospace; font-size: 12px;">
+            </vaadin-text-field>
+          `;
+
+          root.appendChild(form);
+        }
+      };
+
+      createUserDialog.footerRenderer = function(root) {
+        if (!root.firstElementChild) {
+          const buttonContainer = document.createElement('div');
+          buttonContainer.className = 'dialog-footer-buttons';
+          buttonContainer.style.display = 'flex';
+          buttonContainer.style.width = '100%';
+          buttonContainer.style.justifyContent = 'space-between';
+          buttonContainer.style.alignItems = 'center';
+
+          const cancelButton = document.createElement('vaadin-button');
+          cancelButton.textContent = 'Cancel';
+          cancelButton.style.marginRight = 'auto';
+          cancelButton.addEventListener('click', () => {
+            createUserDialog.opened = false;
+          });
+
+          const rightButtons = document.createElement('div');
+          rightButtons.style.display = 'flex';
+          rightButtons.style.gap = '8px';
+          rightButtons.style.marginLeft = 'auto';
+
+          const saveAndAddButton = document.createElement('vaadin-button');
+          saveAndAddButton.textContent = 'Save and Add Another';
+          saveAndAddButton.setAttribute('theme', 'secondary');
+          saveAndAddButton.addEventListener('click', () => {
+            handleCreateUser(true);
+          });
+
+          const saveButton = document.createElement('vaadin-button');
+          saveButton.textContent = 'Save';
+          saveButton.setAttribute('theme', 'primary');
+          saveButton.addEventListener('click', () => {
+            handleCreateUser(false);
+          });
+
+          rightButtons.appendChild(saveAndAddButton);
+          rightButtons.appendChild(saveButton);
+
+          buttonContainer.appendChild(cancelButton);
+          buttonContainer.appendChild(rightButtons);
+          root.appendChild(buttonContainer);
+        }
+      };
+    }
+
+    // Handle create user
+    async function handleCreateUser(addAnother) {
+      const form = document.getElementById('createUserForm');
+      const formData = {
+        id: 'user' + Date.now(), // Generate unique ID
+        firstName: form.querySelector('#newUserFirstName').value,
+        lastName: form.querySelector('#newUserLastName').value,
+        email: form.querySelector('#newUserEmail').value,
+        productTenantName: form.querySelector('#newUserProductTenantName').value,
+        userId: form.querySelector('#newUserUserId').value,
+        productTenantId: form.querySelector('#newUserProductTenantId').value,
+        mappedCount: 0
+      };
+
+      // Validate required fields
+      if (!formData.firstName || !formData.lastName || !formData.email || !formData.productTenantName) {
+        showNotification('Please fill in all required fields', 'error');
+        return;
+      }
+
+      try {
+        // In real app, would save to backend
+        allUsers.push(formData);
+        filteredUsers = [...allUsers];
+
+        showNotification('User added successfully', 'success');
+
+        if (addAnother) {
+          // Generate new IDs
+          const newUserId = 'U' + Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+          const newProductTenantId = 'PT' + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+
+          // Clear form
+          form.reset();
+          form.querySelector('#newUserUserId').value = newUserId;
+          form.querySelector('#newUserProductTenantId').value = newProductTenantId;
+          form.querySelector('#newUserFirstName').focus();
+        } else {
+          createUserDialog.opened = false;
+          // Navigate to user details
+          renderUserGrid();
+          navigateToUserDetails(formData.id);
+        }
+      } catch (error) {
+        console.error('Failed to create user:', error);
+        showNotification('Failed to create user', 'error');
+      }
+    }
+
+    // Add New User button handler
+    const createUserBtn = document.getElementById('createUserBtn');
+    if (createUserBtn) {
+      createUserBtn.addEventListener('click', () => {
+        setupCreateUserDialog();
+        createUserDialog.opened = true;
+        document.body.classList.add('dialog-open');
+      });
+    }
+
+    // Remove dialog-open class when user dialog closes
+    createUserDialog.addEventListener('opened-changed', (e) => {
+      if (!e.detail.value) {
+        document.body.classList.remove('dialog-open');
+      }
+    });
 
     // Initialize
     loadTenants();
