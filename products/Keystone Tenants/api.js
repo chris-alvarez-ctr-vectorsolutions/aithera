@@ -234,6 +234,11 @@ function initializeData() {
       if (availableProductTenants.length > 0) {
         const productTenant = randomItem(availableProductTenants);
 
+        // Update the product tenant name to match the Keystone tenant name
+        productTenant.name = ksTenant.name;
+        productTenant.city = ksTenant.city;
+        productTenant.state = ksTenant.state;
+
         // Create the mapping
         ksTenant.mappedProducts[product] = {
           productTenantId: productTenant.id,
@@ -391,6 +396,11 @@ export function mapProductTenant(ksUuid, productName, productTenantId) {
         reject(new Error('Product Tenant is already mapped'));
         return;
       }
+
+      // Update the product tenant name to match the Keystone tenant name
+      productTenant.name = ksTenant.name;
+      productTenant.city = ksTenant.city;
+      productTenant.state = ksTenant.state;
 
       // Create the mapping
       ksTenant.mappedProducts[productName] = {

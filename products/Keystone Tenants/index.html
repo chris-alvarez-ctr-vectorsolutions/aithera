@@ -463,6 +463,72 @@
       });
     }
 
+    // Postal Code Lookup Reference Table
+    // This is a sample reference table - in production, this would be much more comprehensive
+    const postalCodeLookup = {
+      // California
+      '90001': { city: 'Los Angeles', state: 'CA' },
+      '90210': { city: 'Beverly Hills', state: 'CA' },
+      '94102': { city: 'San Francisco', state: 'CA' },
+      '92101': { city: 'San Diego', state: 'CA' },
+      '95112': { city: 'San Jose', state: 'CA' },
+      '94501': { city: 'Alameda', state: 'CA' },
+      '94601': { city: 'Oakland', state: 'CA' },
+      '92626': { city: 'Costa Mesa', state: 'CA' },
+      '92780': { city: 'Tustin', state: 'CA' },
+
+      // New York
+      '10001': { city: 'New York', state: 'NY' },
+      '10013': { city: 'New York', state: 'NY' },
+      '11201': { city: 'Brooklyn', state: 'NY' },
+      '14201': { city: 'Buffalo', state: 'NY' },
+
+      // Texas
+      '75201': { city: 'Dallas', state: 'TX' },
+      '77001': { city: 'Houston', state: 'TX' },
+      '78701': { city: 'Austin', state: 'TX' },
+      '78205': { city: 'San Antonio', state: 'TX' },
+
+      // Florida
+      '33101': { city: 'Miami', state: 'FL' },
+      '33301': { city: 'Fort Lauderdale', state: 'FL' },
+      '32801': { city: 'Orlando', state: 'FL' },
+      '33602': { city: 'Tampa', state: 'FL' },
+
+      // Illinois
+      '60601': { city: 'Chicago', state: 'IL' },
+      '60007': { city: 'Elk Grove Village', state: 'IL' },
+
+      // Washington
+      '98101': { city: 'Seattle', state: 'WA' },
+      '99201': { city: 'Spokane', state: 'WA' },
+
+      // Massachusetts
+      '02101': { city: 'Boston', state: 'MA' },
+      '02138': { city: 'Cambridge', state: 'MA' },
+
+      // Colorado
+      '80201': { city: 'Denver', state: 'CO' },
+      '80301': { city: 'Boulder', state: 'CO' },
+
+      // Arizona
+      '85001': { city: 'Phoenix', state: 'AZ' },
+      '85701': { city: 'Tucson', state: 'AZ' },
+
+      // Georgia
+      '30301': { city: 'Atlanta', state: 'GA' },
+      '31401': { city: 'Savannah', state: 'GA' }
+    };
+
+    // Function to look up location by postal code
+    function lookupLocationByPostalCode(postalCode) {
+      // Remove any spaces or dashes from postal code
+      const cleanedPostalCode = postalCode.replace(/[\s-]/g, '');
+
+      // Look up in reference table
+      return postalCodeLookup[cleanedPostalCode] || null;
+    }
+
     // Create Tenant Dialog
     function setupCreateTenantDialog() {
       createTenantDialog.headerTitle = 'Create New Keystone Tenant';
@@ -561,6 +627,25 @@
           const countries = getCountries();
           countrySelect.items = countries.map(c => ({ label: c.name, value: c.name }));
           countrySelect.value = 'United States'; // Default to United States
+
+          // Setup postal code autopopulate
+          const postalCodeField = form.querySelector('#newPostalCode');
+          const cityField = form.querySelector('#newCity');
+
+          postalCodeField.addEventListener('input', (e) => {
+            const postalCode = e.target.value.trim();
+
+            // Look up city and state by postal code
+            const location = lookupLocationByPostalCode(postalCode);
+
+            if (location) {
+              // Autopopulate city
+              cityField.value = location.city;
+
+              // Autopopulate state
+              stateSelect.value = location.state;
+            }
+          });
         }
       };
 
@@ -833,7 +918,6 @@
 
           // Generate User ID for new user
           const newUserId = 'U' + Math.floor(Math.random() * 100000).toString().padStart(5, '0');
-          const newProductTenantId = 'PT' + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
 
           form.innerHTML = `
             <vaadin-text-field
@@ -859,25 +943,9 @@
             </vaadin-text-field>
 
             <vaadin-text-field
-              id="newUserProductTenantName"
-              label="Product Tenant Name"
-              required
-              theme="outlined">
-            </vaadin-text-field>
-
-            <vaadin-text-field
               id="newUserUserId"
               label="User ID"
               value="${newUserId}"
-              readonly
-              theme="outlined"
-              style="font-family: 'Courier New', monospace; font-size: 12px;">
-            </vaadin-text-field>
-
-            <vaadin-text-field
-              id="newUserProductTenantId"
-              label="Product Tenant ID"
-              value="${newProductTenantId}"
               readonly
               theme="outlined"
               style="font-family: 'Courier New', monospace; font-size: 12px;">
@@ -941,14 +1009,14 @@
         firstName: form.querySelector('#newUserFirstName').value,
         lastName: form.querySelector('#newUserLastName').value,
         email: form.querySelector('#newUserEmail').value,
-        productTenantName: form.querySelector('#newUserProductTenantName').value,
         userId: form.querySelector('#newUserUserId').value,
-        productTenantId: form.querySelector('#newUserProductTenantId').value,
+        productTenantName: '',
+        productTenantId: '',
         mappedCount: 0
       };
 
       // Validate required fields
-      if (!formData.firstName || !formData.lastName || !formData.email || !formData.productTenantName) {
+      if (!formData.firstName || !formData.lastName || !formData.email) {
         showNotification('Please fill in all required fields', 'error');
         return;
       }
@@ -961,14 +1029,12 @@
         showNotification('User added successfully', 'success');
 
         if (addAnother) {
-          // Generate new IDs
+          // Generate new ID
           const newUserId = 'U' + Math.floor(Math.random() * 100000).toString().padStart(5, '0');
-          const newProductTenantId = 'PT' + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
 
           // Clear form
           form.reset();
           form.querySelector('#newUserUserId').value = newUserId;
-          form.querySelector('#newUserProductTenantId').value = newProductTenantId;
           form.querySelector('#newUserFirstName').focus();
         } else {
           createUserDialog.opened = false;
