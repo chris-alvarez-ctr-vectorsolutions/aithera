@@ -151,7 +151,7 @@ export async function confirmNavigationWithUnsavedChanges() {
         });
 
         const cancelButton = document.createElement('vaadin-button');
-        cancelButton.textContent = 'Cancel';
+        cancelButton.textContent = 'Go Back';
         cancelButton.addEventListener('click', () => {
           dialog.opened = false;
           resolve('cancel');
