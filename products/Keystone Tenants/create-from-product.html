@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create From Product Tenant - Keystone Admin</title>
+
+  <!-- Vector Web Components CSS -->
+  <script
+    type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.5.1/core.iife.js">
+  </script>
+
+  <!-- Vector Web Components JavaScript -->
+  <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.1.1/styles.js">
+  </script>
+
+  <!-- Our Standard font face - Open Sans -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+  />
+
+  <!-- Font Awesome 6 Icons -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+  />
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Open Sans', sans-serif;
+      background-color: #f5f5f5;
+      padding: 24px;
+    }
+
+    .app-container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .page-header {
+      margin-bottom: 24px;
+    }
+
+    .page-title {
+      font-size: 32px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    .back-button-container {
+      margin-bottom: 16px;
+    }
+
+    .filters-container {
+      background: white;
+      padding: 24px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      border: 1px solid #d1d5db;
+    }
+
+    .filters-row {
+      display: flex;
+      gap: 16px;
+      align-items: flex-end;
+    }
+
+    .filter-field {
+      flex: 1;
+      max-width: 300px;
+    }
+
+    .tenant-grid-container {
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      overflow: hidden;
+    }
+
+    .tenant-grid {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .tenant-grid thead {
+      background-color: #f9fafb;
+      border-bottom: 2px solid #e5e7eb;
+    }
+
+    .tenant-grid th {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .tenant-grid tbody tr {
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .tenant-grid tbody tr:hover {
+      background-color: #f9fafb;
+    }
+
+    .tenant-grid tbody tr:hover .create-tenant-btn {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .tenant-grid td {
+      padding: 16px;
+      font-size: 14px;
+      color: #374151;
+    }
+
+    .tenant-grid td.button-cell {
+      text-align: right;
+      padding-right: 16px;
+    }
+
+    .create-tenant-btn {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .empty-state {
+      padding: 64px 24px;
+      text-align: center;
+      color: #6b7280;
+    }
+
+    .empty-state i {
+      font-size: 48px;
+      margin-bottom: 16px;
+      color: #9ca3af;
+    }
+
+    .empty-state-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #374151;
+    }
+
+    .empty-state-text {
+      font-size: 14px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    /* Dialog styles */
+    .dialog-content {
+      padding: 24px;
+    }
+
+    .form-section {
+      margin-bottom: 24px;
+    }
+
+    .form-section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .form-field {
+      margin-bottom: 16px;
+    }
+
+    .readonly-field {
+      margin-bottom: 12px;
+    }
+
+    .readonly-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+
+    .readonly-value {
+      font-size: 14px;
+      color: #374151;
+    }
+
+    .dialog-footer-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .info-message {
+      background-color: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 4px;
+      padding: 12px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #1e40af;
+    }
+
+    .info-message i {
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Back Button -->
+    <div class="back-button-container">
+      <vaadin-button id="backButton" theme="tertiary">
+        <i class="fa-solid fa-arrow-left" style="margin-right: 8px;"></i>
+        Back to Keystone Tenants
+      </vaadin-button>
+    </div>
+
+    <!-- Page Header -->
+    <header class="page-header">
+      <h1 class="page-title">Create From Existing Product Tenant</h1>
+    </header>
+
+    <!-- Filters -->
+    <div class="filters-container">
+      <div class="filters-row">
+        <div class="filter-field">
+          <vaadin-select
+            id="productFilter"
+            label="Product"
+            placeholder="Select a product"
+            theme="outlined">
+          </vaadin-select>
+        </div>
+        <div class="filter-field">
+          <vaadin-select
+            id="stateFilter"
+            label="State/Province"
+            placeholder="Select a state"
+            theme="outlined">
+          </vaadin-select>
+        </div>
+        <vaadin-button id="applyFiltersBtn" theme="primary">
+          Apply Filters
+        </vaadin-button>
+      </div>
+    </div>
+
+    <!-- Product Tenant Grid -->
+    <div class="tenant-grid-container">
+      <div id="emptyState" class="empty-state">
+        <i class="fa-solid fa-filter"></i>
+        <div class="empty-state-title">Select Filters to View Product Tenants</div>
+        <div class="empty-state-text">
+          Please select a product and state/province above to display product tenants.
+        </div>
+      </div>
+
+      <table id="productTenantGrid" class="tenant-grid hidden" role="grid">
+        <thead>
+          <tr role="row">
+            <th>Name</th>
+            <th>Product</th>
+            <th>City</th>
+            <th>State/Province</th>
+            <th>Product Tenant ID</th>
+            <th style="width: 200px;"></th>
+          </tr>
+        </thead>
+        <tbody id="productTenantGridBody">
+          <!-- Rows populated by JavaScript -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Create Tenant Dialog -->
+  <vaadin-dialog id="createTenantDialog" aria-label="Create Keystone Tenant"></vaadin-dialog>
+
+  <!-- Notification -->
+  <vaadin-notification id="notification" duration="3000" position="bottom-center"></vaadin-notification>
+
+  <script type="module">
+    import {
+      VECTOR_PRODUCTS,
+      getProductTenants,
+      createKeystoneTenant,
+      getStates,
+      getCountries
+    } from './api.js';
+
+    // DOM Elements
+    const backButton = document.getElementById('backButton');
+    const productFilter = document.getElementById('productFilter');
+    const stateFilter = document.getElementById('stateFilter');
+    const applyFiltersBtn = document.getElementById('applyFiltersBtn');
+    const emptyState = document.getElementById('emptyState');
+    const productTenantGrid = document.getElementById('productTenantGrid');
+    const productTenantGridBody = document.getElementById('productTenantGridBody');
+    const createTenantDialog = document.getElementById('createTenantDialog');
+    const notification = document.getElementById('notification');
+
+    // State
+    let productTenants = [];
+    let selectedProductTenant = null;
+
+    // Initialize
+    function init() {
+      setupFilters();
+      setupEventListeners();
+    }
+
+    // Setup filters
+    function setupFilters() {
+      // Populate product filter
+      productFilter.items = VECTOR_PRODUCTS.map(product => ({
+        label: product,
+        value: product
+      }));
+
+      // Populate state filter
+      const states = getStates();
+      stateFilter.items = states.map(state => ({
+        label: state.name,
+        value: state.code
+      }));
+    }
+
+    // Setup event listeners
+    function setupEventListeners() {
+      backButton.addEventListener('click', () => {
+        window.location.href = 'index.html';
+      });
+
+      applyFiltersBtn.addEventListener('click', async () => {
+        await loadProductTenants();
+      });
+    }
+
+    // Load product tenants with filters
+    async function loadProductTenants() {
+      const selectedProduct = productFilter.value;
+      const selectedState = stateFilter.value;
+
+      if (!selectedProduct || !selectedState) {
+        showNotification('Please select both a product and a state/province', 'warning');
+        return;
+      }
+
+      try {
+        // Get all product tenants for the selected product
+        const allTenants = await getProductTenants(selectedProduct, true); // Only unmapped
+
+        // Filter by state
+        productTenants = allTenants.filter(tenant => tenant.state === selectedState);
+
+        renderProductTenants();
+      } catch (error) {
+        console.error('Failed to load product tenants:', error);
+        showNotification('Failed to load product tenants', 'error');
+      }
+    }
+
+    // Render product tenants
+    function renderProductTenants() {
+      productTenantGridBody.innerHTML = '';
+
+      if (productTenants.length === 0) {
+        emptyState.querySelector('.empty-state-title').textContent = 'No Product Tenants Found';
+        emptyState.querySelector('.empty-state-text').textContent = 'No unmapped product tenants match your selected filters.';
+        emptyState.classList.remove('hidden');
+        productTenantGrid.classList.add('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      productTenantGrid.classList.remove('hidden');
+
+      productTenants.forEach(tenant => {
+        const row = document.createElement('tr');
+        row.setAttribute('role', 'row');
+
+        // Check for CJIS badge
+        const nameLower = tenant.name.toLowerCase();
+        const hasCJIS = nameLower.includes('police') || nameLower.includes('sheriff') || nameLower.includes('public safety');
+        const cjisBadge = hasCJIS ? '<span style="display: inline-block; margin-left: 24px; padding: 2px 8px; background-color: #f3f4f6; color: #6b7280; font-size: 11px; font-weight: 600; border-radius: 4px;">CJIS</span>' : '';
+
+        row.innerHTML = `
+          <td>${escapeHtml(tenant.name)}${cjisBadge}</td>
+          <td>${escapeHtml(tenant.product)}</td>
+          <td>${escapeHtml(tenant.city)}</td>
+          <td>${escapeHtml(tenant.state)}</td>
+          <td style="font-family: 'Courier New', monospace; font-size: 12px; color: #6b7280;">${escapeHtml(tenant.id)}</td>
+          <td class="button-cell"></td>
+        `;
+
+        // Create button (shown on hover)
+        const createBtn = document.createElement('vaadin-button');
+        createBtn.textContent = 'Create Keystone Tenant';
+        createBtn.setAttribute('theme', 'secondary small');
+        createBtn.className = 'create-tenant-btn';
+        createBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openCreateTenantDialog(tenant);
+        });
+
+        row.querySelector('td:last-child').appendChild(createBtn);
+        productTenantGridBody.appendChild(row);
+      });
+    }
+
+    // Open create tenant dialog
+    function openCreateTenantDialog(productTenant) {
+      selectedProductTenant = productTenant;
+      createTenantDialog.opened = true;
+    }
+
+    // Setup create tenant dialog
+    function setupCreateTenantDialog() {
+      createTenantDialog.headerTitle = 'Create Keystone Tenant';
+
+      createTenantDialog.renderer = function(root) {
+        if (!root.firstElementChild) {
+          const container = document.createElement('div');
+          container.className = 'dialog-content';
+
+          container.innerHTML = `
+            <div class="info-message">
+              <i class="fa-solid fa-circle-info"></i>
+              Creating a Keystone tenant from this product tenant. Review the details below and fill in any additional required fields.
+            </div>
+
+            <form id="createTenantForm">
+              <div class="form-section">
+                <div class="form-section-title">Product Tenant Information</div>
+                <div class="readonly-field">
+                  <div class="readonly-label">Product</div>
+                  <div class="readonly-value" id="displayProduct">—</div>
+                </div>
+                <div class="readonly-field">
+                  <div class="readonly-label">Product Tenant ID</div>
+                  <div class="readonly-value" id="displayProductTenantId" style="font-family: 'Courier New', monospace; font-size: 12px;">—</div>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <div class="form-section-title">Keystone Tenant Details</div>
+
+                <div class="readonly-field">
+                  <div class="readonly-label">UUID (Auto-generated)</div>
+                  <div class="readonly-value" id="displayUuid" style="font-family: 'Courier New', monospace; font-size: 12px;">—</div>
+                </div>
+
+                <div class="form-field">
+                  <vaadin-text-field
+                    id="newName"
+                    label="Organization Name"
+                    required
+                    theme="outlined"
+                    style="width: 100%;">
+                  </vaadin-text-field>
+                </div>
+
+                <div class="form-field">
+                  <vaadin-text-field
+                    id="newAddress1"
+                    label="Address Line 1"
+                    theme="outlined"
+                    style="width: 100%;">
+                  </vaadin-text-field>
+                </div>
+
+                <div class="form-field">
+                  <vaadin-text-field
+                    id="newAddress2"
+                    label="Address Line 2"
+                    theme="outlined"
+                    style="width: 100%;">
+                  </vaadin-text-field>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                  <div class="form-field">
+                    <vaadin-text-field
+                      id="newCity"
+                      label="City"
+                      required
+                      theme="outlined"
+                      style="width: 100%;">
+                    </vaadin-text-field>
+                  </div>
+
+                  <div class="form-field">
+                    <vaadin-select
+                      id="newState"
+                      label="State/Province"
+                      required
+                      theme="outlined"
+                      style="width: 100%;">
+                    </vaadin-select>
+                  </div>
+
+                  <div class="form-field">
+                    <vaadin-text-field
+                      id="newPostalCode"
+                      label="Postal Code"
+                      theme="outlined"
+                      style="width: 100%;">
+                    </vaadin-text-field>
+                  </div>
+                </div>
+
+                <div class="form-field">
+                  <vaadin-select
+                    id="newCountry"
+                    label="Country"
+                    required
+                    theme="outlined"
+                    style="width: 100%;">
+                  </vaadin-select>
+                </div>
+              </div>
+            </form>
+          `;
+
+          root.appendChild(container);
+
+          // Populate state dropdown
+          const stateSelect = container.querySelector('#newState');
+          const states = getStates();
+          stateSelect.items = states.map(s => ({ label: s.name, value: s.code }));
+
+          // Populate country dropdown
+          const countrySelect = container.querySelector('#newCountry');
+          const countries = getCountries();
+          countrySelect.items = countries.map(c => ({ label: c.name, value: c.name }));
+          countrySelect.value = 'United States';
+        }
+
+        // Populate with product tenant data
+        if (selectedProductTenant) {
+          const newUuid = generateUUID();
+          root.querySelector('#displayProduct').textContent = selectedProductTenant.product;
+          root.querySelector('#displayProductTenantId').textContent = selectedProductTenant.id;
+          root.querySelector('#displayUuid').textContent = newUuid;
+          root.querySelector('#newName').value = selectedProductTenant.name;
+          root.querySelector('#newCity').value = selectedProductTenant.city;
+          root.querySelector('#newState').value = selectedProductTenant.state;
+        }
+      };
+
+      createTenantDialog.footerRenderer = function(root) {
+        if (!root.firstElementChild) {
+          const buttonContainer = document.createElement('div');
+          buttonContainer.className = 'dialog-footer-buttons';
+
+          const cancelBtn = document.createElement('vaadin-button');
+          cancelBtn.textContent = 'Cancel';
+          cancelBtn.addEventListener('click', () => {
+            createTenantDialog.opened = false;
+            selectedProductTenant = null;
+          });
+
+          const submitBtn = document.createElement('vaadin-button');
+          submitBtn.textContent = 'Create Tenant';
+          submitBtn.setAttribute('theme', 'primary');
+          submitBtn.addEventListener('click', async () => {
+            await handleCreateTenant();
+          });
+
+          buttonContainer.appendChild(cancelBtn);
+          buttonContainer.appendChild(submitBtn);
+          root.appendChild(buttonContainer);
+        }
+      };
+    }
+
+    // Handle create tenant
+    async function handleCreateTenant() {
+      const form = document.getElementById('createTenantForm');
+      const uuid = document.getElementById('displayUuid').textContent;
+      const name = document.getElementById('newName').value;
+      const address1 = document.getElementById('newAddress1').value;
+      const address2 = document.getElementById('newAddress2').value;
+      const city = document.getElementById('newCity').value;
+      const state = document.getElementById('newState').value;
+      const postalCode = document.getElementById('newPostalCode').value;
+      const country = document.getElementById('newCountry').value;
+
+      // Basic validation
+      if (!name || !city || !state || !country) {
+        showNotification('Please fill in all required fields', 'warning');
+        return;
+      }
+
+      try {
+        // Create the tenant with the UUID
+        const newTenant = await createKeystoneTenant({
+          uuid: uuid,
+          name: name,
+          address1: address1,
+          address2: address2,
+          city: city,
+          state: state,
+          postalCode: postalCode,
+          country: country
+        });
+
+        showNotification('Keystone Tenant created successfully', 'success');
+        createTenantDialog.opened = false;
+
+        // Navigate back to main page after a short delay
+        setTimeout(() => {
+          window.location.href = 'index.html';
+        }, 1500);
+      } catch (error) {
+        console.error('Failed to create tenant:', error);
+        showNotification('Failed to create tenant', 'error');
+      }
+    }
+
+    // Generate UUID
+    function generateUUID() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+
+    // Escape HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Show notification
+    function showNotification(message, type = 'info') {
+      notification.renderer = function(root) {
+        root.textContent = message;
+      };
+
+      if (type === 'error') {
+        notification.setAttribute('theme', 'error');
+      } else if (type === 'success') {
+        notification.setAttribute('theme', 'success');
+      } else if (type === 'warning') {
+        notification.setAttribute('theme', 'contrast');
+      } else {
+        notification.removeAttribute('theme');
+      }
+
+      notification.open();
+    }
+
+    // Initialize dialog
+    setupCreateTenantDialog();
+
+    // Initialize app
+    init();
+  </script>
+</body>
+</html>
