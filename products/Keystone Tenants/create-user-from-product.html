@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create From Product User - Keystone Admin</title>
+
+  <!-- Vector Web Components CSS -->
+  <script
+    type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.5.1/core.iife.js">
+  </script>
+
+  <!-- Vector Web Components JavaScript -->
+  <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.1.1/styles.js">
+  </script>
+
+  <!-- Our Standard font face - Open Sans -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+  />
+
+  <!-- Font Awesome 6 Icons -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+  />
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Open Sans', sans-serif;
+      background-color: #f5f5f5;
+      padding: 24px;
+    }
+
+    .app-container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .page-header {
+      margin-bottom: 24px;
+    }
+
+    .page-title {
+      font-size: 32px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    .back-button-container {
+      margin-bottom: 16px;
+    }
+
+    .filters-container {
+      background: white;
+      padding: 24px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      border: 1px solid #d1d5db;
+    }
+
+    .filters-row {
+      display: flex;
+      gap: 16px;
+      align-items: flex-end;
+    }
+
+    .filter-field {
+      flex: 1;
+      max-width: 300px;
+    }
+
+    .user-grid-container {
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      overflow: hidden;
+    }
+
+    .user-grid {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .user-grid thead {
+      background-color: #f9fafb;
+      border-bottom: 2px solid #e5e7eb;
+    }
+
+    .user-grid th {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .user-grid tbody tr {
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .user-grid tbody tr:hover {
+      background-color: #f9fafb;
+    }
+
+    .user-grid tbody tr:hover .create-user-btn {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .user-grid td {
+      padding: 16px;
+      font-size: 14px;
+      color: #374151;
+    }
+
+    .user-grid td.button-cell {
+      text-align: right;
+      padding-right: 16px;
+    }
+
+    .create-user-btn {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .empty-state {
+      padding: 64px 24px;
+      text-align: center;
+      color: #6b7280;
+    }
+
+    .empty-state i {
+      font-size: 48px;
+      margin-bottom: 16px;
+      color: #9ca3af;
+    }
+
+    .empty-state-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #374151;
+    }
+
+    .empty-state-text {
+      font-size: 14px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    /* Dialog styles */
+    .dialog-content {
+      padding: 24px;
+    }
+
+    .form-section {
+      margin-bottom: 24px;
+    }
+
+    .form-section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .form-field {
+      margin-bottom: 16px;
+    }
+
+    .readonly-field {
+      margin-bottom: 12px;
+    }
+
+    .readonly-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+
+    .readonly-value {
+      font-size: 14px;
+      color: #374151;
+    }
+
+    .dialog-footer-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .info-message {
+      background-color: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 4px;
+      padding: 12px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #1e40af;
+    }
+
+    .info-message i {
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Back Button -->
+    <div class="back-button-container">
+      <vaadin-button id="backButton" theme="tertiary">
+        <i class="fa-solid fa-arrow-left" style="margin-right: 8px;"></i>
+        Back to Keystone Users
+      </vaadin-button>
+    </div>
+
+    <!-- Page Header -->
+    <header class="page-header">
+      <h1 class="page-title">Create From Existing Product User</h1>
+    </header>
+
+    <!-- Filters -->
+    <div class="filters-container">
+      <div class="filters-row">
+        <div class="filter-field">
+          <vaadin-select
+            id="productFilter"
+            label="Product"
+            placeholder="Select a product"
+            theme="outlined">
+          </vaadin-select>
+        </div>
+        <div class="filter-field">
+          <vaadin-select
+            id="stateFilter"
+            label="State/Province"
+            placeholder="Select a state"
+            theme="outlined">
+          </vaadin-select>
+        </div>
+        <vaadin-button id="applyFiltersBtn" theme="primary">
+          Apply Filters
+        </vaadin-button>
+      </div>
+    </div>
+
+    <!-- Product User Grid -->
+    <div class="user-grid-container">
+      <div id="emptyState" class="empty-state">
+        <i class="fa-solid fa-filter"></i>
+        <div class="empty-state-title">Select Filters to View Product Users</div>
+        <div class="empty-state-text">
+          Please select a product and state/province above to display product users.
+        </div>
+      </div>
+
+      <table id="productUserGrid" class="user-grid hidden" role="grid">
+        <thead>
+          <tr role="row">
+            <th>Name</th>
+            <th>Email</th>
+            <th>Product</th>
+            <th>Product User ID</th>
+            <th style="width: 200px;"></th>
+          </tr>
+        </thead>
+        <tbody id="productUserGridBody">
+          <!-- Rows populated by JavaScript -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Create User Dialog -->
+  <vaadin-dialog id="createUserDialog" aria-label="Create Keystone User"></vaadin-dialog>
+
+  <!-- Notification -->
+  <vaadin-notification id="notification" duration="3000" position="bottom-center"></vaadin-notification>
+
+  <script type="module">
+    import { VECTOR_PRODUCTS, getStates } from './api.js';
+
+    // DOM Elements
+    const backButton = document.getElementById('backButton');
+    const productFilter = document.getElementById('productFilter');
+    const stateFilter = document.getElementById('stateFilter');
+    const applyFiltersBtn = document.getElementById('applyFiltersBtn');
+    const emptyState = document.getElementById('emptyState');
+    const productUserGrid = document.getElementById('productUserGrid');
+    const productUserGridBody = document.getElementById('productUserGridBody');
+    const createUserDialog = document.getElementById('createUserDialog');
+    const notification = document.getElementById('notification');
+
+    // State
+    let productUsers = [];
+    let selectedProductUser = null;
+
+    // Mock product users data (in a real app, this would come from an API)
+    const mockProductUsers = {
+      'TargetSolutions': [
+        { id: 'TS-U12345', firstName: 'Alice', lastName: 'Johnson', email: 'alice.j@targetsolutions.com', product: 'TargetSolutions', state: 'CA' },
+        { id: 'TS-U67890', firstName: 'Bob', lastName: 'Williams', email: 'bob.w@targetsolutions.com', product: 'TargetSolutions', state: 'CA' },
+        { id: 'TS-U11111', firstName: 'Carol', lastName: 'Davis', email: 'carol.d@targetsolutions.com', product: 'TargetSolutions', state: 'NY' },
+        { id: 'TS-U22222', firstName: 'David', lastName: 'Brown', email: 'david.b@targetsolutions.com', product: 'TargetSolutions', state: 'TX' },
+      ],
+      'Scheduling': [
+        { id: 'SCH-U33333', firstName: 'Emma', lastName: 'Miller', email: 'emma.m@scheduling.com', product: 'Scheduling', state: 'CA' },
+        { id: 'SCH-U44444', firstName: 'Frank', lastName: 'Wilson', email: 'frank.w@scheduling.com', product: 'Scheduling', state: 'NY' },
+        { id: 'SCH-U55555', firstName: 'Grace', lastName: 'Moore', email: 'grace.m@scheduling.com', product: 'Scheduling', state: 'FL' },
+      ],
+      'Check IT': [
+        { id: 'CHK-U66666', firstName: 'Henry', lastName: 'Taylor', email: 'henry.t@checkit.com', product: 'Check IT', state: 'CA' },
+        { id: 'CHK-U77777', firstName: 'Iris', lastName: 'Anderson', email: 'iris.a@checkit.com', product: 'Check IT', state: 'TX' },
+      ],
+      'EV+': [
+        { id: 'EV-U88888', firstName: 'Jack', lastName: 'Thomas', email: 'jack.t@evplus.com', product: 'EV+', state: 'NY' },
+        { id: 'EV-U99999', firstName: 'Karen', lastName: 'Jackson', email: 'karen.j@evplus.com', product: 'EV+', state: 'CA' },
+      ],
+      'Guardian Tracking': [
+        { id: 'GT-U00000', firstName: 'Liam', lastName: 'White', email: 'liam.w@guardiantracking.com', product: 'Guardian Tracking', state: 'FL' },
+        { id: 'GT-U12121', firstName: 'Maria', lastName: 'Garcia', email: 'maria.g@guardiantracking.com', product: 'Guardian Tracking', state: 'CA' },
+      ],
+      'Frontline': [
+        { id: 'FL-U34343', firstName: 'Nathan', lastName: 'Martinez', email: 'nathan.m@frontline.com', product: 'Frontline', state: 'TX' },
+        { id: 'FL-U56565', firstName: 'Olivia', lastName: 'Lee', email: 'olivia.l@frontline.com', product: 'Frontline', state: 'NY' },
+      ]
+    };
+
+    // Initialize
+    function init() {
+      setupFilters();
+      setupEventListeners();
+    }
+
+    // Setup filters
+    function setupFilters() {
+      // Populate product filter
+      productFilter.items = VECTOR_PRODUCTS.map(product => ({
+        label: product,
+        value: product
+      }));
+
+      // Populate state filter
+      const states = getStates();
+      stateFilter.items = states.map(state => ({
+        label: state.name,
+        value: state.code
+      }));
+    }
+
+    // Setup event listeners
+    function setupEventListeners() {
+      backButton.addEventListener('click', () => {
+        window.location.href = 'index.html#users';
+      });
+
+      applyFiltersBtn.addEventListener('click', async () => {
+        await loadProductUsers();
+      });
+    }
+
+    // Load product users with filters
+    async function loadProductUsers() {
+      const selectedProduct = productFilter.value;
+      const selectedState = stateFilter.value;
+
+      if (!selectedProduct || !selectedState) {
+        showNotification('Please select both a product and a state/province', 'warning');
+        return;
+      }
+
+      try {
+        // Get all product users for the selected product (mock data)
+        const allUsers = mockProductUsers[selectedProduct] || [];
+
+        // Filter by state
+        productUsers = allUsers.filter(user => user.state === selectedState);
+
+        renderProductUsers();
+      } catch (error) {
+        console.error('Failed to load product users:', error);
+        showNotification('Failed to load product users', 'error');
+      }
+    }
+
+    // Render product users
+    function renderProductUsers() {
+      productUserGridBody.innerHTML = '';
+
+      if (productUsers.length === 0) {
+        emptyState.querySelector('.empty-state-title').textContent = 'No Product Users Found';
+        emptyState.querySelector('.empty-state-text').textContent = 'No product users match your selected filters.';
+        emptyState.classList.remove('hidden');
+        productUserGrid.classList.add('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      productUserGrid.classList.remove('hidden');
+
+      productUsers.forEach(user => {
+        const row = document.createElement('tr');
+        row.setAttribute('role', 'row');
+
+        row.innerHTML = `
+          <td>${escapeHtml(user.firstName)} ${escapeHtml(user.lastName)}</td>
+          <td>${escapeHtml(user.email)}</td>
+          <td>${escapeHtml(user.product)}</td>
+          <td style="font-family: 'Courier New', monospace; font-size: 12px; color: #6b7280;">${escapeHtml(user.id)}</td>
+          <td class="button-cell"></td>
+        `;
+
+        // Create button (shown on hover)
+        const createBtn = document.createElement('vaadin-button');
+        createBtn.textContent = 'Create Keystone User';
+        createBtn.setAttribute('theme', 'secondary small');
+        createBtn.className = 'create-user-btn';
+        createBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openCreateUserDialog(user);
+        });
+
+        row.querySelector('td:last-child').appendChild(createBtn);
+        productUserGridBody.appendChild(row);
+      });
+    }
+
+    // Open create user dialog
+    function openCreateUserDialog(productUser) {
+      selectedProductUser = productUser;
+      createUserDialog.opened = true;
+    }
+
+    // Setup create user dialog
+    function setupCreateUserDialog() {
+      createUserDialog.headerTitle = 'Create Keystone User';
+
+      createUserDialog.renderer = function(root) {
+        if (!root.firstElementChild) {
+          const container = document.createElement('div');
+          container.className = 'dialog-content';
+
+          container.innerHTML = `
+            <div class="info-message">
+              <i class="fa-solid fa-circle-info"></i>
+              Creating a Keystone user from this product user. Review the details below and fill in any additional required fields.
+            </div>
+
+            <form id="createUserForm">
+              <div class="form-section">
+                <div class="form-section-title">Product User Information</div>
+                <div class="readonly-field">
+                  <div class="readonly-label">Product</div>
+                  <div class="readonly-value" id="displayProduct">—</div>
+                </div>
+                <div class="readonly-field">
+                  <div class="readonly-label">Product User ID</div>
+                  <div class="readonly-value" id="displayProductUserId" style="font-family: 'Courier New', monospace; font-size: 12px;">—</div>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <div class="form-section-title">Keystone User Details</div>
+
+                <div class="readonly-field">
+                  <div class="readonly-label">User ID (Auto-generated)</div>
+                  <div class="readonly-value" id="displayUserId" style="font-family: 'Courier New', monospace; font-size: 12px;">—</div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                  <div class="form-field">
+                    <vaadin-text-field
+                      id="newFirstName"
+                      label="First Name"
+                      required
+                      theme="outlined"
+                      style="width: 100%;">
+                    </vaadin-text-field>
+                  </div>
+
+                  <div class="form-field">
+                    <vaadin-text-field
+                      id="newLastName"
+                      label="Last Name"
+                      required
+                      theme="outlined"
+                      style="width: 100%;">
+                    </vaadin-text-field>
+                  </div>
+                </div>
+
+                <div class="form-field">
+                  <vaadin-text-field
+                    id="newEmail"
+                    label="Email"
+                    required
+                    type="email"
+                    theme="outlined"
+                    style="width: 100%;">
+                  </vaadin-text-field>
+                </div>
+              </div>
+            </form>
+          `;
+
+          root.appendChild(container);
+        }
+
+        // Populate with product user data
+        if (selectedProductUser) {
+          const newUserId = generateUserId();
+          root.querySelector('#displayProduct').textContent = selectedProductUser.product;
+          root.querySelector('#displayProductUserId').textContent = selectedProductUser.id;
+          root.querySelector('#displayUserId').textContent = newUserId;
+          root.querySelector('#newFirstName').value = selectedProductUser.firstName;
+          root.querySelector('#newLastName').value = selectedProductUser.lastName;
+          root.querySelector('#newEmail').value = selectedProductUser.email;
+        }
+      };
+
+      createUserDialog.footerRenderer = function(root) {
+        if (!root.firstElementChild) {
+          const buttonContainer = document.createElement('div');
+          buttonContainer.className = 'dialog-footer-buttons';
+
+          const cancelBtn = document.createElement('vaadin-button');
+          cancelBtn.textContent = 'Cancel';
+          cancelBtn.addEventListener('click', () => {
+            createUserDialog.opened = false;
+            selectedProductUser = null;
+          });
+
+          const submitBtn = document.createElement('vaadin-button');
+          submitBtn.textContent = 'Create User';
+          submitBtn.setAttribute('theme', 'primary');
+          submitBtn.addEventListener('click', async () => {
+            await handleCreateUser();
+          });
+
+          buttonContainer.appendChild(cancelBtn);
+          buttonContainer.appendChild(submitBtn);
+          root.appendChild(buttonContainer);
+        }
+      };
+    }
+
+    // Handle create user
+    async function handleCreateUser() {
+      const form = document.getElementById('createUserForm');
+      const userId = document.getElementById('displayUserId').textContent;
+      const firstName = document.getElementById('newFirstName').value;
+      const lastName = document.getElementById('newLastName').value;
+      const email = document.getElementById('newEmail').value;
+
+      // Basic validation
+      if (!firstName || !lastName || !email) {
+        showNotification('Please fill in all required fields', 'warning');
+        return;
+      }
+
+      try {
+        // In a real app, would call API to create the user
+        // For now, just show success message
+        showNotification('Keystone User created successfully', 'success');
+        createUserDialog.opened = false;
+
+        // Navigate back to main page after a short delay
+        setTimeout(() => {
+          window.location.href = 'index.html#users';
+        }, 1500);
+      } catch (error) {
+        console.error('Failed to create user:', error);
+        showNotification('Failed to create user', 'error');
+      }
+    }
+
+    // Generate User ID
+    function generateUserId() {
+      return 'U' + Math.floor(Math.random() * 90000 + 10000);
+    }
+
+    // Escape HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Show notification
+    function showNotification(message, type = 'info') {
+      notification.renderer = function(root) {
+        root.textContent = message;
+      };
+
+      if (type === 'error') {
+        notification.setAttribute('theme', 'error');
+      } else if (type === 'success') {
+        notification.setAttribute('theme', 'success');
+      } else if (type === 'warning') {
+        notification.setAttribute('theme', 'contrast');
+      } else {
+        notification.removeAttribute('theme');
+      }
+
+      notification.open();
+    }
+
+    // Initialize dialog
+    setupCreateUserDialog();
+
+    // Initialize app
+    init();
+  </script>
+</body>
+</html>
