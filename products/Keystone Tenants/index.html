@@ -100,6 +100,7 @@
           <!-- Rows will be populated by JavaScript -->
         </tbody>
       </table>
+      <vwc-paginator id="tenantPaginator" size="0" page-size="100" page="1" style="margin-top: 16px;"></vwc-paginator>
     </div>
 
     <!-- Loading State -->
@@ -171,6 +172,7 @@
             <!-- Rows will be populated by JavaScript -->
           </tbody>
         </table>
+        <vwc-paginator id="userPaginator" size="0" page-size="100" page="1" style="margin-top: 16px;"></vwc-paginator>
       </div>
 
       <!-- Loading State -->
@@ -249,19 +251,25 @@
     let filteredTenants = [];
     let currentSort = { column: 'name', direction: 'asc' };
     let selectedRowIndex = -1;
+    let tenantCurrentPage = 1;
+    let tenantPageSize = 100;
 
     // Users State
     let allUsers = [];
     let filteredUsers = [];
     let currentUserSort = { column: 'firstName', direction: 'asc' };
+    let userCurrentPage = 1;
+    let userPageSize = 100;
 
     // Tenants Elements
     const searchField = document.getElementById('searchField');
     const tenantGridBody = document.getElementById('tenantGridBody');
+    const tenantPaginator = document.getElementById('tenantPaginator');
 
     // Users Elements
     const userSearchField = document.getElementById('userSearchField');
     const userGridBody = document.getElementById('userGridBody');
+    const userPaginator = document.getElementById('userPaginator');
     const createTenantBtn = document.getElementById('createTenantBtn');
     const createTenantDialog = document.getElementById('createTenantDialog');
     const loadingState = document.getElementById('loadingState');
@@ -344,20 +352,32 @@
       if (filteredTenants.length === 0) {
         tenantGridContainer.classList.add('hidden');
         emptyState.classList.remove('hidden');
+        tenantPaginator.style.display = 'none';
         return;
       }
 
       tenantGridContainer.classList.remove('hidden');
       emptyState.classList.add('hidden');
+      tenantPaginator.style.display = 'block';
 
-      filteredTenants.forEach((tenant, index) => {
+      // Update paginator
+      tenantPaginator.size = filteredTenants.length;
+      tenantPaginator.page = tenantCurrentPage;
+
+      // Calculate pagination
+      const startIndex = (tenantCurrentPage - 1) * tenantPageSize;
+      const endIndex = Math.min(startIndex + tenantPageSize, filteredTenants.length);
+      const pageItems = filteredTenants.slice(startIndex, endIndex);
+
+      pageItems.forEach((tenant, pageIndex) => {
+        const globalIndex = startIndex + pageIndex;
         const row = document.createElement('tr');
         row.setAttribute('role', 'row');
         row.setAttribute('tabindex', '0');
         row.dataset.uuid = tenant.uuid;
-        row.dataset.index = index;
+        row.dataset.index = globalIndex;
 
-        if (index === selectedRowIndex) {
+        if (globalIndex === selectedRowIndex) {
           row.classList.add('selected');
         }
 
@@ -375,12 +395,12 @@
 
         // Click handler
         row.addEventListener('click', () => {
-          handleRowClick(tenant.uuid, index);
+          handleRowClick(tenant.uuid, globalIndex);
         });
 
         // Keyboard handler
         row.addEventListener('keydown', (e) => {
-          handleRowKeydown(e, tenant.uuid, index);
+          handleRowKeydown(e, tenant.uuid, globalIndex);
         });
 
         tenantGridBody.appendChild(row);
@@ -450,6 +470,7 @@
 
     // Search handler
     searchField.addEventListener('input', () => {
+      tenantCurrentPage = 1; // Reset to first page on search
       applyFiltersAndSort();
       saveCurrentGridState();
     });
@@ -459,6 +480,12 @@
       if (e.key === 'Enter') {
         applyFiltersAndSort();
       }
+    });
+
+    // Tenant paginator handler
+    tenantPaginator.addEventListener('page-change', (e) => {
+      tenantCurrentPage = e.detail.page;
+      renderGrid();
     });
 
     // Save current grid state
@@ -857,13 +884,24 @@
       if (filteredUsers.length === 0) {
         userGridBody.innerHTML = '';
         userEmptyState.classList.remove('hidden');
+        userPaginator.style.display = 'none';
         return;
       }
 
       userEmptyState.classList.add('hidden');
+      userPaginator.style.display = 'block';
       userGridBody.innerHTML = '';
 
-      filteredUsers.forEach((user, index) => {
+      // Update paginator
+      userPaginator.size = filteredUsers.length;
+      userPaginator.page = userCurrentPage;
+
+      // Calculate pagination
+      const startIndex = (userCurrentPage - 1) * userPageSize;
+      const endIndex = Math.min(startIndex + userPageSize, filteredUsers.length);
+      const pageItems = filteredUsers.slice(startIndex, endIndex);
+
+      pageItems.forEach((user, pageIndex) => {
         const row = document.createElement('tr');
         row.setAttribute('role', 'row');
         row.setAttribute('tabindex', '0');
@@ -903,6 +941,7 @@
     if (userSearchField) {
       userSearchField.addEventListener('input', () => {
         const searchTerm = userSearchField.value.toLowerCase().trim();
+        userCurrentPage = 1; // Reset to first page on search
 
         filteredUsers = allUsers.filter(user => {
           const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
@@ -910,6 +949,14 @@
           return fullName.includes(searchTerm) || email.includes(searchTerm);
         });
 
+        renderUserGrid();
+      });
+    }
+
+    // User paginator handler
+    if (userPaginator) {
+      userPaginator.addEventListener('page-change', (e) => {
+        userCurrentPage = e.detail.page;
         renderUserGrid();
       });
     }

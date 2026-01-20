@@ -287,6 +287,7 @@
           <!-- Rows populated by JavaScript -->
         </tbody>
       </table>
+      <vwc-paginator id="productUserPaginator" size="0" page-size="100" page="1" class="hidden" style="margin-top: 16px;"></vwc-paginator>
     </div>
   </div>
 
@@ -307,12 +308,15 @@
     const emptyState = document.getElementById('emptyState');
     const productUserGrid = document.getElementById('productUserGrid');
     const productUserGridBody = document.getElementById('productUserGridBody');
+    const productUserPaginator = document.getElementById('productUserPaginator');
     const createUserDialog = document.getElementById('createUserDialog');
     const notification = document.getElementById('notification');
 
     // State
     let productUsers = [];
     let selectedProductUser = null;
+    let currentPage = 1;
+    let pageSize = 100;
 
     // Mock product users data (in a real app, this would come from an API)
     const mockProductUsers = {
@@ -374,7 +378,14 @@
       });
 
       applyFiltersBtn.addEventListener('click', async () => {
+        currentPage = 1; // Reset to first page when filtering
         await loadProductUsers();
+      });
+
+      // Paginator handler
+      productUserPaginator.addEventListener('page-change', (e) => {
+        currentPage = e.detail.page;
+        renderProductUsers();
       });
     }
 
@@ -411,13 +422,24 @@
         emptyState.querySelector('.empty-state-text').textContent = 'No product users match your selected filters.';
         emptyState.classList.remove('hidden');
         productUserGrid.classList.add('hidden');
+        productUserPaginator.classList.add('hidden');
         return;
       }
 
       emptyState.classList.add('hidden');
       productUserGrid.classList.remove('hidden');
+      productUserPaginator.classList.remove('hidden');
 
-      productUsers.forEach(user => {
+      // Update paginator
+      productUserPaginator.size = productUsers.length;
+      productUserPaginator.page = currentPage;
+
+      // Calculate pagination
+      const startIndex = (currentPage - 1) * pageSize;
+      const endIndex = Math.min(startIndex + pageSize, productUsers.length);
+      const pageItems = productUsers.slice(startIndex, endIndex);
+
+      pageItems.forEach(user => {
         const row = document.createElement('tr');
         row.setAttribute('role', 'row');
 

@@ -299,6 +299,7 @@
             <!-- Product tenant rows will be populated by JavaScript -->
           </tbody>
         </table>
+        <vwc-paginator id="productTenantPaginator" size="0" page-size="100" page="1" style="margin-top: 16px; display: none;"></vwc-paginator>
       </div>
 
       <div id="productTenantsEmpty" class="empty-state hidden">
@@ -351,6 +352,8 @@
     let isEditMode = false;
     let pendingMappingChanges = []; // Track pending map/unmap operations
     let hasPendingMappingChanges = false;
+    let productTenantCurrentPage = 1;
+    let productTenantPageSize = 100;
 
     // Elements
     const backButton = document.getElementById('backButton');
@@ -371,6 +374,7 @@
     const productTenantSearch = document.getElementById('productTenantSearch');
     const productTenantGridBody = document.getElementById('productTenantGridBody');
     const productTenantsEmpty = document.getElementById('productTenantsEmpty');
+    const productTenantPaginator = document.getElementById('productTenantPaginator');
     const loadingState = document.getElementById('loadingState');
     const notification = document.getElementById('notification');
     const copyUuidBtn = document.getElementById('copyUuidBtn');
@@ -648,6 +652,7 @@
         productTenantsEmpty.querySelector('.empty-state-title').textContent = 'Select a State/Province to View Product Tenants';
         productTenantsEmpty.querySelector('.empty-state-description').textContent = 'Please select a state/province above to display product tenants';
         productTenantsEmpty.classList.remove('hidden');
+        productTenantPaginator.style.display = 'none';
         return;
       }
 
@@ -668,12 +673,23 @@
         productTenantsEmpty.querySelector('.empty-state-title').textContent = 'No Product Tenants Found';
         productTenantsEmpty.querySelector('.empty-state-description').textContent = 'No unmapped product tenants match your selected filters';
         productTenantsEmpty.classList.remove('hidden');
+        productTenantPaginator.style.display = 'none';
         return;
       }
 
       productTenantsEmpty.classList.add('hidden');
+      productTenantPaginator.style.display = 'block';
 
-      filteredProductTenants.forEach((tenant, index) => {
+      // Update paginator
+      productTenantPaginator.size = filteredProductTenants.length;
+      productTenantPaginator.page = productTenantCurrentPage;
+
+      // Calculate pagination
+      const startIndex = (productTenantCurrentPage - 1) * productTenantPageSize;
+      const endIndex = Math.min(startIndex + productTenantPageSize, filteredProductTenants.length);
+      const pageItems = filteredProductTenants.slice(startIndex, endIndex);
+
+      pageItems.forEach((tenant, index) => {
         const row = document.createElement('tr');
         row.setAttribute('tabindex', '0');
         row.dataset.productTenantId = tenant.id;
@@ -781,11 +797,19 @@
     // Product tenant state filter
     const productTenantStateFilter = document.getElementById('productTenantStateFilter');
     productTenantStateFilter.addEventListener('change', () => {
+      productTenantCurrentPage = 1; // Reset to first page when filtering
       renderProductTenantGrid();
     });
 
     // Product tenant search
     productTenantSearch.addEventListener('input', () => {
+      productTenantCurrentPage = 1; // Reset to first page on search
+      renderProductTenantGrid();
+    });
+
+    // Product tenant paginator handler
+    productTenantPaginator.addEventListener('page-change', (e) => {
+      productTenantCurrentPage = e.detail.page;
       renderProductTenantGrid();
     });
 

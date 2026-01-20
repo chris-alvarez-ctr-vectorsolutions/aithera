@@ -248,6 +248,7 @@
             <!-- Product user rows will be populated by JavaScript -->
           </tbody>
         </table>
+        <vwc-paginator id="productUserPaginator" size="0" page-size="100" page="1" style="margin-top: 16px; display: none;"></vwc-paginator>
       </div>
 
       <div id="productUsersEmpty" class="empty-state hidden">
@@ -302,6 +303,7 @@
             <!-- Tenant rows will be populated by JavaScript -->
           </tbody>
         </table>
+        <vwc-paginator id="tenantPaginator" size="0" page-size="100" page="1" style="margin-top: 16px; display: none;"></vwc-paginator>
       </div>
 
       <div id="tenantsEmpty" class="empty-state hidden">
@@ -338,6 +340,10 @@
     let allTenants = [];
     let filteredTenants = [];
     let selectedTenantUuids = new Set();
+    let productUserCurrentPage = 1;
+    let productUserPageSize = 100;
+    let tenantCurrentPage = 1;
+    let tenantPageSize = 100;
 
     // Products list
     const VECTOR_PRODUCTS = ['TargetSolutions', 'Scheduling', 'Check IT', 'EV+', 'Guardian Tracking', 'Frontline'];
@@ -372,6 +378,8 @@
     const tenantsEmpty = document.getElementById('tenantsEmpty');
     const saveTenantSelectionsBtn = document.getElementById('saveTenantSelectionsBtn');
     const editAssociatedTenantsList = document.getElementById('editAssociatedTenantsList');
+    const productUserPaginator = document.getElementById('productUserPaginator');
+    const tenantPaginator = document.getElementById('tenantPaginator');
 
     // Add browser navigation guard for pending mapping changes
     window.addEventListener('beforeunload', (e) => {
@@ -890,12 +898,23 @@
 
       if (filteredProductUsers.length === 0) {
         productUsersEmpty.classList.remove('hidden');
+        productUserPaginator.style.display = 'none';
         return;
       }
 
       productUsersEmpty.classList.add('hidden');
+      productUserPaginator.style.display = 'block';
 
-      filteredProductUsers.forEach(user => {
+      // Update paginator
+      productUserPaginator.size = filteredProductUsers.length;
+      productUserPaginator.page = productUserCurrentPage;
+
+      // Calculate pagination
+      const startIndex = (productUserCurrentPage - 1) * productUserPageSize;
+      const endIndex = Math.min(startIndex + productUserPageSize, filteredProductUsers.length);
+      const pageItems = filteredProductUsers.slice(startIndex, endIndex);
+
+      pageItems.forEach(user => {
         const row = document.createElement('tr');
         const isSelected = selectedProductUser && selectedProductUser.id === user.id;
 
@@ -965,6 +984,7 @@
     // Search product users
     productUserSearch.addEventListener('input', (e) => {
       const searchTerm = e.target.value.toLowerCase().trim();
+      productUserCurrentPage = 1; // Reset to first page on search
 
       if (!searchTerm) {
         filteredProductUsers = [...allProductUsers];
@@ -978,6 +998,12 @@
         });
       }
 
+      renderProductUserGrid();
+    });
+
+    // Product user paginator handler
+    productUserPaginator.addEventListener('page-change', (e) => {
+      productUserCurrentPage = e.detail.page;
       renderProductUserGrid();
     });
 
@@ -1042,12 +1068,23 @@
 
       if (filteredTenants.length === 0) {
         tenantsEmpty.classList.remove('hidden');
+        tenantPaginator.style.display = 'none';
         return;
       }
 
       tenantsEmpty.classList.add('hidden');
+      tenantPaginator.style.display = 'block';
 
-      filteredTenants.forEach(tenant => {
+      // Update paginator
+      tenantPaginator.size = filteredTenants.length;
+      tenantPaginator.page = tenantCurrentPage;
+
+      // Calculate pagination
+      const startIndex = (tenantCurrentPage - 1) * tenantPageSize;
+      const endIndex = Math.min(startIndex + tenantPageSize, filteredTenants.length);
+      const pageItems = filteredTenants.slice(startIndex, endIndex);
+
+      pageItems.forEach(tenant => {
         const row = document.createElement('tr');
         row.style.cursor = 'pointer';
 
@@ -1103,6 +1140,7 @@
     // Search tenants
     tenantSearch.addEventListener('input', (e) => {
       const searchTerm = e.target.value.toLowerCase().trim();
+      tenantCurrentPage = 1; // Reset to first page on search
 
       if (!searchTerm) {
         filteredTenants = [...allTenants];
@@ -1114,6 +1152,12 @@
         });
       }
 
+      renderTenantGrid();
+    });
+
+    // Tenant paginator handler
+    tenantPaginator.addEventListener('page-change', (e) => {
+      tenantCurrentPage = e.detail.page;
       renderTenantGrid();
     });
 
