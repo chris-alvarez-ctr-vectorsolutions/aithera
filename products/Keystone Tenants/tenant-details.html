@@ -299,7 +299,14 @@
             <!-- Product tenant rows will be populated by JavaScript -->
           </tbody>
         </table>
-        <vwc-paginator id="productTenantPaginator" size="0" page-size="100" page="1" style="margin-top: 16px; display: none;"></vwc-paginator>
+        <vwc-paginator
+          id="productTenantPaginator"
+          size="0"
+          page-size="100"
+          page="1"
+          page-sizes="25,50,100,200"
+          style="margin-top: 16px; display: none;">
+        </vwc-paginator>
       </div>
 
       <div id="productTenantsEmpty" class="empty-state hidden">
@@ -683,22 +690,12 @@
       // Update paginator
       productTenantPaginator.size = filteredProductTenants.length;
       productTenantPaginator.page = productTenantCurrentPage;
+      productTenantPaginator.setAttribute('page-size', productTenantPageSize);
 
       // Calculate pagination
       const startIndex = (productTenantCurrentPage - 1) * productTenantPageSize;
       const endIndex = Math.min(startIndex + productTenantPageSize, filteredProductTenants.length);
       const pageItems = filteredProductTenants.slice(startIndex, endIndex);
-
-      // Debug logging
-      console.log('=== Product Tenant Grid Debug ===');
-      console.log('Total filtered tenants:', filteredProductTenants.length);
-      console.log('Current page:', productTenantCurrentPage);
-      console.log('Page size:', productTenantPageSize);
-      console.log('Start index:', startIndex);
-      console.log('End index:', endIndex);
-      console.log('Page items:', pageItems.length);
-      console.log('Grid body element:', productTenantGridBody);
-      console.log('================================');
 
       pageItems.forEach((tenant, index) => {
         const row = document.createElement('tr');
@@ -742,10 +739,7 @@
         });
 
         productTenantGridBody.appendChild(row);
-        console.log(`Row ${index + 1} appended for tenant:`, tenant.name);
       });
-
-      console.log('Total rows in grid body after render:', productTenantGridBody.children.length);
     }
 
     // Handle map product tenant
@@ -821,15 +815,18 @@
       renderProductTenantGrid();
     });
 
-    // Product tenant paginator handler
+    // Product tenant paginator handlers
     productTenantPaginator.addEventListener('page-change', (e) => {
       const newPage = e.detail.page;
       // Ignore invalid page numbers (0 or less)
-      if (newPage < 1) {
-        console.log('Ignoring invalid page change event:', newPage);
-        return;
-      }
+      if (newPage < 1) return;
       productTenantCurrentPage = newPage;
+      renderProductTenantGrid();
+    });
+
+    productTenantPaginator.addEventListener('page-size-change', (e) => {
+      productTenantPageSize = e.detail.pageSize;
+      productTenantCurrentPage = 1; // Reset to first page when changing page size
       renderProductTenantGrid();
     });
 
