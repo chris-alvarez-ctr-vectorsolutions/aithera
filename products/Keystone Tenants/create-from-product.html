@@ -70,13 +70,7 @@
 
     .filters-row {
       display: flex;
-      gap: 16px;
       align-items: flex-end;
-    }
-
-    .filter-field {
-      flex: 1;
-      max-width: 300px;
     }
 
     .tenant-grid-container {
@@ -240,25 +234,33 @@
     <!-- Filters -->
     <div class="filters-container">
       <div class="filters-row">
-        <div class="filter-field">
-          <vaadin-select
-            id="productFilter"
-            label="Product"
-            placeholder="Select a product"
-            theme="outlined">
-          </vaadin-select>
-        </div>
-        <div class="filter-field">
-          <vaadin-select
-            id="stateFilter"
-            label="State/Province"
-            placeholder="Select a state"
-            theme="outlined">
-          </vaadin-select>
-        </div>
-        <vaadin-button id="applyFiltersBtn" theme="primary">
+        <vaadin-multi-select-combo-box
+          id="productFilter"
+          label="Product"
+          placeholder="Select products"
+          clear-button-visible
+          theme="outlined"
+          style="width: 300px;">
+        </vaadin-multi-select-combo-box>
+        <vaadin-multi-select-combo-box
+          id="stateFilter"
+          label="State/Province"
+          placeholder="Select states"
+          clear-button-visible
+          theme="outlined"
+          style="width: 300px; margin-left: 24px;">
+        </vaadin-multi-select-combo-box>
+        <vaadin-button id="applyFiltersBtn" theme="primary" disabled style="margin-left: 24px;">
           Apply Filters
         </vaadin-button>
+        <vaadin-text-field
+          id="searchField"
+          placeholder="Search tenants..."
+          clear-button-visible
+          theme="outlined"
+          style="flex: 1; margin-left: 64px;">
+          <i slot="prefix" class="fa-solid fa-magnifying-glass"></i>
+        </vaadin-text-field>
       </div>
     </div>
 
@@ -310,6 +312,7 @@
     const productFilter = document.getElementById('productFilter');
     const stateFilter = document.getElementById('stateFilter');
     const applyFiltersBtn = document.getElementById('applyFiltersBtn');
+    const searchField = document.getElementById('searchField');
     const emptyState = document.getElementById('emptyState');
     const productTenantGrid = document.getElementById('productTenantGrid');
     const productTenantGridBody = document.getElementById('productTenantGridBody');
@@ -318,7 +321,11 @@
 
     // State
     let productTenants = [];
+    let filteredProductTenants = [];
     let selectedProductTenant = null;
+    let appliedProduct = [];
+    let appliedState = [];
+    let stateNameToCodeMap = {}; // Map state names to codes
 
     // Initialize
     function init() {
@@ -328,18 +335,17 @@
 
     // Setup filters
     function setupFilters() {
-      // Populate product filter
-      productFilter.items = VECTOR_PRODUCTS.map(product => ({
-        label: product,
-        value: product
-      }));
+      // Populate product filter - multi-select-combo-box uses array of strings
+      productFilter.items = VECTOR_PRODUCTS;
 
-      // Populate state filter
+      // Populate state filter - multi-select-combo-box uses array of strings
       const states = getStates();
-      stateFilter.items = states.map(state => ({
-        label: state.name,
-        value: state.code
-      }));
+      stateFilter.items = states.map(state => state.name);
+
+      // Build state name to code mapping
+      states.forEach(state => {
+        stateNameToCodeMap[state.name] = state.code;
+      });
     }
 
     // Setup event listeners
@@ -348,29 +354,110 @@
         window.location.href = 'index.html';
       });
 
+      // Filter change handlers - enable/disable apply button
+      productFilter.addEventListener('selected-items-changed', () => {
+        updateApplyButtonState();
+      });
+
+      stateFilter.addEventListener('selected-items-changed', () => {
+        updateApplyButtonState();
+      });
+
+      // Apply filters button
       applyFiltersBtn.addEventListener('click', async () => {
+        appliedProduct = productFilter.selectedItems || [];
+        appliedState = stateFilter.selectedItems || [];
         await loadProductTenants();
       });
+
+      // Search field handler
+      searchField.addEventListener('input', async () => {
+        const searchTerm = searchField.value.trim();
+        const hasFilters = (appliedProduct && appliedProduct.length > 0) || (appliedState && appliedState.length > 0);
+
+        // If search is cleared and no filters applied, reset to empty state
+        if (!searchTerm && !hasFilters) {
+          productTenants = [];
+          filteredProductTenants = [];
+          renderProductTenants();
+          return;
+        }
+
+        // Load tenants if not already loaded, then apply search
+        if (productTenants.length === 0 && !hasFilters) {
+          // First search without filters - load all tenants
+          await loadProductTenants();
+        } else {
+          // Just apply search to existing loaded tenants
+          applySearch();
+        }
+      });
+    }
+
+    // Update apply button state
+    function updateApplyButtonState() {
+      const hasProductFilter = productFilter.selectedItems && productFilter.selectedItems.length > 0;
+      const hasStateFilter = stateFilter.selectedItems && stateFilter.selectedItems.length > 0;
+      const hasAnyFilter = hasProductFilter || hasStateFilter;
+
+      applyFiltersBtn.disabled = !hasAnyFilter;
+    }
+
+    // Apply search to current product tenants
+    function applySearch() {
+      const searchTerm = searchField.value.toLowerCase().trim();
+
+      if (!searchTerm) {
+        // No search term - show all tenants based on current filters
+        filteredProductTenants = [...productTenants];
+      } else {
+        // Search within product tenants (already filtered by applied filters)
+        filteredProductTenants = productTenants.filter(tenant => {
+          return tenant.name.toLowerCase().includes(searchTerm) ||
+                 tenant.city.toLowerCase().includes(searchTerm) ||
+                 tenant.state.toLowerCase().includes(searchTerm) ||
+                 tenant.id.toLowerCase().includes(searchTerm);
+        });
+      }
+
+      renderProductTenants();
     }
 
     // Load product tenants with filters
     async function loadProductTenants() {
-      const selectedProduct = productFilter.value;
-      const selectedState = stateFilter.value;
-
-      if (!selectedProduct || !selectedState) {
-        showNotification('Please select both a product and a state/province', 'warning');
-        return;
-      }
-
       try {
-        // Get all product tenants for the selected product
-        const allTenants = await getProductTenants(selectedProduct, true); // Only unmapped
+        // Reset product tenants
+        productTenants = [];
 
-        // Filter by state
-        productTenants = allTenants.filter(tenant => tenant.state === selectedState);
+        const hasProductFilter = appliedProduct && appliedProduct.length > 0;
+        const hasStateFilter = appliedState && appliedState.length > 0;
 
-        renderProductTenants();
+        // Determine which products to query
+        const productsToQuery = hasProductFilter ? appliedProduct : VECTOR_PRODUCTS;
+
+        // Convert state names to codes for filtering
+        const stateCodes = hasStateFilter
+          ? appliedState.map(stateName => stateNameToCodeMap[stateName])
+          : [];
+
+        // Build list of all tenants from selected products that match filters
+        for (const product of productsToQuery) {
+          const allTenants = await getProductTenants(product, true); // Only unmapped
+
+          if (hasStateFilter) {
+            // Filter by selected states (using state codes)
+            const filteredTenants = allTenants.filter(tenant =>
+              stateCodes.includes(tenant.state)
+            );
+            productTenants.push(...filteredTenants);
+          } else {
+            // No state filter - add all tenants from this product
+            productTenants.push(...allTenants);
+          }
+        }
+
+        // Apply search if there is a search term
+        applySearch();
       } catch (error) {
         console.error('Failed to load product tenants:', error);
         showNotification('Failed to load product tenants', 'error');
@@ -381,9 +468,26 @@
     function renderProductTenants() {
       productTenantGridBody.innerHTML = '';
 
-      if (productTenants.length === 0) {
-        emptyState.querySelector('.empty-state-title').textContent = 'No Product Tenants Found';
-        emptyState.querySelector('.empty-state-text').textContent = 'No unmapped product tenants match your selected filters.';
+      // Determine what to show based on filters and search
+      const hasAppliedFilters = (appliedProduct && appliedProduct.length > 0) || (appliedState && appliedState.length > 0);
+      const hasSearchTerm = searchField.value && searchField.value.trim() !== '';
+
+      if (filteredProductTenants.length === 0) {
+        // Show appropriate empty state message
+        if (!hasAppliedFilters && !hasSearchTerm) {
+          emptyState.querySelector('.empty-state-title').textContent = 'Select Filters to View Product Tenants';
+          emptyState.querySelector('.empty-state-text').textContent = 'Please apply filters or use the search field to display product tenants.';
+        } else if (hasSearchTerm && !hasAppliedFilters) {
+          emptyState.querySelector('.empty-state-title').textContent = 'No Search Results';
+          emptyState.querySelector('.empty-state-text').textContent = 'No product tenants match your search term.';
+        } else if (hasAppliedFilters && hasSearchTerm) {
+          emptyState.querySelector('.empty-state-title').textContent = 'No Search Results';
+          emptyState.querySelector('.empty-state-text').textContent = 'No product tenants match your search term within the applied filters.';
+        } else {
+          emptyState.querySelector('.empty-state-title').textContent = 'No Product Tenants Found';
+          emptyState.querySelector('.empty-state-text').textContent = 'No unmapped product tenants match your selected filters.';
+        }
+
         emptyState.classList.remove('hidden');
         productTenantGrid.classList.add('hidden');
         return;
@@ -392,7 +496,7 @@
       emptyState.classList.add('hidden');
       productTenantGrid.classList.remove('hidden');
 
-      productTenants.forEach(tenant => {
+      filteredProductTenants.forEach(tenant => {
         const row = document.createElement('tr');
         row.setAttribute('role', 'row');
 

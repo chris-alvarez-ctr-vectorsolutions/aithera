@@ -106,6 +106,8 @@
         page-size="100"
         page="1"
         page-sizes="25,50,100,200"
+        show-page-input
+        show-range
         style="margin-top: 16px;">
       </vwc-paginator>
     </div>
@@ -185,6 +187,8 @@
           page-size="100"
           page="1"
           page-sizes="25,50,100,200"
+          show-page-input
+          show-range
           style="margin-top: 16px;">
         </vwc-paginator>
       </div>
@@ -378,6 +382,9 @@
       tenantPaginator.size = filteredTenants.length;
       tenantPaginator.page = tenantCurrentPage;
       tenantPaginator.setAttribute('page-size', tenantPageSize);
+      // Enable page input via JavaScript property
+      tenantPaginator.showPageInput = true;
+      tenantPaginator.showRange = true;
 
       // Calculate pagination
       const startIndex = (tenantCurrentPage - 1) * tenantPageSize;
@@ -875,20 +882,41 @@
             firstName: 'John',
             lastName: 'Doe',
             email: 'john.doe@example.com',
-            productTenantName: 'Acme Corp',
-            userId: 'U12345',
-            productTenantId: 'PT001',
-            mappedCount: 3
+            mappedUsers: [
+              {
+                email: 'john.doe@lafd.org',
+                product: 'TargetSolutions',
+                productUserId: '12345'
+              },
+              {
+                email: 'j.doe@sfpublicsafety.gov',
+                product: 'Scheduling',
+                productUserId: '67890'
+              },
+              {
+                email: 'john.d@nycfire.gov',
+                product: 'Check IT',
+                productUserId: 'CHK-98765'
+              }
+            ]
           },
           {
             id: 'user2',
             firstName: 'Jane',
             lastName: 'Smith',
             email: 'jane.smith@example.com',
-            productTenantName: 'Beta Industries',
-            userId: 'U67890',
-            productTenantId: 'PT002',
-            mappedCount: 2
+            mappedUsers: [
+              {
+                email: 'jane.smith@cityofboston.gov',
+                product: 'TargetSolutions',
+                productUserId: 'TS-54321'
+              },
+              {
+                email: 'j.smith@miamidade.gov',
+                product: 'EV+',
+                productUserId: 'EV-11111'
+              }
+            ]
           }
         ];
 
@@ -920,6 +948,9 @@
       userPaginator.size = filteredUsers.length;
       userPaginator.page = userCurrentPage;
       userPaginator.setAttribute('page-size', userPageSize);
+      // Enable page input via JavaScript property
+      userPaginator.showPageInput = true;
+      userPaginator.showRange = true;
 
       // Calculate pagination
       const startIndex = (userCurrentPage - 1) * userPageSize;
@@ -932,11 +963,22 @@
         row.setAttribute('tabindex', '0');
         row.dataset.userId = user.id;
 
+        // Format mapped users details
+        let mappedUsersHTML = '—';
+        if (user.mappedUsers && user.mappedUsers.length > 0) {
+          mappedUsersHTML = user.mappedUsers.map(mappedUser => {
+            const email = escapeHtml(mappedUser.email);
+            const product = escapeHtml(mappedUser.product);
+            const productUserId = escapeHtml(mappedUser.productUserId);
+            return `${email} ${product} ID #${productUserId}`;
+          }).join('<br>');
+        }
+
         row.innerHTML = `
           <td>${escapeHtml(user.firstName)}</td>
           <td>${escapeHtml(user.lastName)}</td>
           <td>${escapeHtml(user.email)}</td>
-          <td style="text-align: center;">${user.mappedCount}</td>
+          <td style="line-height: 1.6;">${mappedUsersHTML}</td>
         `;
 
         // Click handler
@@ -971,7 +1013,20 @@
         filteredUsers = allUsers.filter(user => {
           const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
           const email = user.email.toLowerCase();
-          return fullName.includes(searchTerm) || email.includes(searchTerm);
+
+          // Search in mapped users' product-specific IDs, emails, and products
+          const mappedUsersMatch = user.mappedUsers && user.mappedUsers.some(mappedUser => {
+            const mappedEmail = mappedUser.email.toLowerCase();
+            const mappedProduct = mappedUser.product.toLowerCase();
+            const mappedProductUserId = mappedUser.productUserId.toLowerCase();
+            return mappedEmail.includes(searchTerm) ||
+                   mappedProduct.includes(searchTerm) ||
+                   mappedProductUserId.includes(searchTerm);
+          });
+
+          return fullName.includes(searchTerm) ||
+                 email.includes(searchTerm) ||
+                 mappedUsersMatch;
         });
 
         renderUserGrid();
@@ -1105,9 +1160,7 @@
         lastName: form.querySelector('#newUserLastName').value,
         email: form.querySelector('#newUserEmail').value,
         userId: form.querySelector('#newUserUserId').value,
-        productTenantName: '',
-        productTenantId: '',
-        mappedCount: 0
+        mappedUsers: []
       };
 
       // Validate required fields

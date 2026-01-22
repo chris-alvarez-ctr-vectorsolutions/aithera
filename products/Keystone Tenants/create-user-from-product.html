@@ -70,13 +70,7 @@
 
     .filters-row {
       display: flex;
-      gap: 16px;
       align-items: flex-end;
-    }
-
-    .filter-field {
-      flex: 1;
-      max-width: 300px;
     }
 
     .user-grid-container {
@@ -240,25 +234,33 @@
     <!-- Filters -->
     <div class="filters-container">
       <div class="filters-row">
-        <div class="filter-field">
-          <vaadin-select
-            id="productFilter"
-            label="Product"
-            placeholder="Select a product"
-            theme="outlined">
-          </vaadin-select>
-        </div>
-        <div class="filter-field">
-          <vaadin-select
-            id="stateFilter"
-            label="State/Province"
-            placeholder="Select a state"
-            theme="outlined">
-          </vaadin-select>
-        </div>
-        <vaadin-button id="applyFiltersBtn" theme="primary">
+        <vaadin-multi-select-combo-box
+          id="productFilter"
+          label="Product"
+          placeholder="Select products"
+          clear-button-visible
+          theme="outlined"
+          style="width: 300px;">
+        </vaadin-multi-select-combo-box>
+        <vaadin-multi-select-combo-box
+          id="stateFilter"
+          label="State/Province"
+          placeholder="Select states"
+          clear-button-visible
+          theme="outlined"
+          style="width: 300px; margin-left: 24px;">
+        </vaadin-multi-select-combo-box>
+        <vaadin-button id="applyFiltersBtn" theme="primary" disabled style="margin-left: 24px;">
           Apply Filters
         </vaadin-button>
+        <vaadin-text-field
+          id="searchField"
+          placeholder="Search users..."
+          clear-button-visible
+          theme="outlined"
+          style="flex: 1; margin-left: 64px;">
+          <i slot="prefix" class="fa-solid fa-magnifying-glass"></i>
+        </vaadin-text-field>
       </div>
     </div>
 
@@ -293,8 +295,10 @@
         page-size="100"
         page="1"
         page-sizes="25,50,100,200"
+        show-page-input
+        show-range
         class="hidden"
-        style="margin-top: 16px;">
+        style="margin-top: 16px; display: flex; justify-content: center; align-items: center;">
       </vwc-paginator>
     </div>
   </div>
@@ -313,6 +317,7 @@
     const productFilter = document.getElementById('productFilter');
     const stateFilter = document.getElementById('stateFilter');
     const applyFiltersBtn = document.getElementById('applyFiltersBtn');
+    const searchField = document.getElementById('searchField');
     const emptyState = document.getElementById('emptyState');
     const productUserGrid = document.getElementById('productUserGrid');
     const productUserGridBody = document.getElementById('productUserGridBody');
@@ -322,9 +327,13 @@
 
     // State
     let productUsers = [];
+    let filteredProductUsers = [];
     let selectedProductUser = null;
     let currentPage = 1;
     let pageSize = 100;
+    let appliedProduct = [];
+    let appliedState = [];
+    let stateNameToCodeMap = {}; // Map state names to codes
 
     // Mock product users data (in a real app, this would come from an API)
     const mockProductUsers = {
@@ -365,18 +374,17 @@
 
     // Setup filters
     function setupFilters() {
-      // Populate product filter
-      productFilter.items = VECTOR_PRODUCTS.map(product => ({
-        label: product,
-        value: product
-      }));
+      // Populate product filter - multi-select-combo-box uses array of strings
+      productFilter.items = VECTOR_PRODUCTS;
 
-      // Populate state filter
+      // Populate state filter - multi-select-combo-box uses array of strings
       const states = getStates();
-      stateFilter.items = states.map(state => ({
-        label: state.name,
-        value: state.code
-      }));
+      stateFilter.items = states.map(state => state.name);
+
+      // Build state name to code mapping
+      states.forEach(state => {
+        stateNameToCodeMap[state.name] = state.code;
+      });
     }
 
     // Setup event listeners
@@ -385,9 +393,45 @@
         window.location.href = 'index.html#users';
       });
 
+      // Filter change handlers - enable/disable apply button
+      productFilter.addEventListener('selected-items-changed', () => {
+        updateApplyButtonState();
+      });
+
+      stateFilter.addEventListener('selected-items-changed', () => {
+        updateApplyButtonState();
+      });
+
+      // Apply filters button
       applyFiltersBtn.addEventListener('click', async () => {
         currentPage = 1; // Reset to first page when filtering
+        appliedProduct = productFilter.selectedItems || [];
+        appliedState = stateFilter.selectedItems || [];
         await loadProductUsers();
+      });
+
+      // Search field handler
+      searchField.addEventListener('input', async () => {
+        currentPage = 1; // Reset to first page when searching
+        const searchTerm = searchField.value.trim();
+        const hasFilters = (appliedProduct && appliedProduct.length > 0) || (appliedState && appliedState.length > 0);
+
+        // If search is cleared and no filters applied, reset to empty state
+        if (!searchTerm && !hasFilters) {
+          productUsers = [];
+          filteredProductUsers = [];
+          renderProductUsers();
+          return;
+        }
+
+        // Load users if not already loaded, then apply search
+        if (productUsers.length === 0 && !hasFilters) {
+          // First search without filters - load all users
+          await loadProductUsers();
+        } else {
+          // Just apply search to existing loaded users
+          applySearch();
+        }
       });
 
       // Paginator handlers
@@ -406,24 +450,71 @@
       });
     }
 
-    // Load product users with filters
-    async function loadProductUsers() {
-      const selectedProduct = productFilter.value;
-      const selectedState = stateFilter.value;
+    // Update apply button state
+    function updateApplyButtonState() {
+      const hasProductFilter = productFilter.selectedItems && productFilter.selectedItems.length > 0;
+      const hasStateFilter = stateFilter.selectedItems && stateFilter.selectedItems.length > 0;
+      const hasAnyFilter = hasProductFilter || hasStateFilter;
 
-      if (!selectedProduct || !selectedState) {
-        showNotification('Please select both a product and a state/province', 'warning');
-        return;
+      applyFiltersBtn.disabled = !hasAnyFilter;
+    }
+
+    // Apply search to current product users
+    function applySearch() {
+      const searchTerm = searchField.value.toLowerCase().trim();
+
+      if (!searchTerm) {
+        // No search term - show all users based on current filters
+        filteredProductUsers = [...productUsers];
+      } else {
+        // Search within product users (already filtered by applied filters)
+        filteredProductUsers = productUsers.filter(user => {
+          return user.firstName.toLowerCase().includes(searchTerm) ||
+                 user.lastName.toLowerCase().includes(searchTerm) ||
+                 user.email.toLowerCase().includes(searchTerm) ||
+                 user.productTenant.toLowerCase().includes(searchTerm) ||
+                 user.id.toLowerCase().includes(searchTerm);
+        });
       }
 
+      renderProductUsers();
+    }
+
+    // Load product users with filters
+    async function loadProductUsers() {
       try {
-        // Get all product users for the selected product (mock data)
-        const allUsers = mockProductUsers[selectedProduct] || [];
+        // Reset product users
+        productUsers = [];
 
-        // Filter by state
-        productUsers = allUsers.filter(user => user.state === selectedState);
+        const hasProductFilter = appliedProduct && appliedProduct.length > 0;
+        const hasStateFilter = appliedState && appliedState.length > 0;
 
-        renderProductUsers();
+        // Determine which products to query
+        const productsToQuery = hasProductFilter ? appliedProduct : VECTOR_PRODUCTS;
+
+        // Convert state names to codes for filtering
+        const stateCodes = hasStateFilter
+          ? appliedState.map(stateName => stateNameToCodeMap[stateName])
+          : [];
+
+        // Build list of all users from selected products that match filters
+        productsToQuery.forEach(product => {
+          const allUsers = mockProductUsers[product] || [];
+
+          if (hasStateFilter) {
+            // Filter by selected states (using state codes)
+            const filteredUsers = allUsers.filter(user =>
+              stateCodes.includes(user.state)
+            );
+            productUsers.push(...filteredUsers);
+          } else {
+            // No state filter - add all users from this product
+            productUsers.push(...allUsers);
+          }
+        });
+
+        // Apply search if there is a search term
+        applySearch();
       } catch (error) {
         console.error('Failed to load product users:', error);
         showNotification('Failed to load product users', 'error');
@@ -434,9 +525,26 @@
     function renderProductUsers() {
       productUserGridBody.innerHTML = '';
 
-      if (productUsers.length === 0) {
-        emptyState.querySelector('.empty-state-title').textContent = 'No Product Users Found';
-        emptyState.querySelector('.empty-state-text').textContent = 'No product users match your selected filters.';
+      // Determine what to show based on filters and search
+      const hasAppliedFilters = (appliedProduct && appliedProduct.length > 0) || (appliedState && appliedState.length > 0);
+      const hasSearchTerm = searchField.value && searchField.value.trim() !== '';
+
+      if (filteredProductUsers.length === 0) {
+        // Show appropriate empty state message
+        if (!hasAppliedFilters && !hasSearchTerm) {
+          emptyState.querySelector('.empty-state-title').textContent = 'Select Filters to View Product Users';
+          emptyState.querySelector('.empty-state-text').textContent = 'Please apply filters or use the search field to display product users.';
+        } else if (hasSearchTerm && !hasAppliedFilters) {
+          emptyState.querySelector('.empty-state-title').textContent = 'No Search Results';
+          emptyState.querySelector('.empty-state-text').textContent = 'No product users match your search term.';
+        } else if (hasAppliedFilters && hasSearchTerm) {
+          emptyState.querySelector('.empty-state-title').textContent = 'No Search Results';
+          emptyState.querySelector('.empty-state-text').textContent = 'No product users match your search term within the applied filters.';
+        } else {
+          emptyState.querySelector('.empty-state-title').textContent = 'No Product Users Found';
+          emptyState.querySelector('.empty-state-text').textContent = 'No product users match your selected filters.';
+        }
+
         emptyState.classList.remove('hidden');
         productUserGrid.classList.add('hidden');
         productUserPaginator.classList.add('hidden');
@@ -448,14 +556,17 @@
       productUserPaginator.classList.remove('hidden');
 
       // Update paginator
-      productUserPaginator.size = productUsers.length;
+      productUserPaginator.size = filteredProductUsers.length;
       productUserPaginator.page = currentPage;
       productUserPaginator.setAttribute('page-size', pageSize);
+      // Enable page input via JavaScript property
+      productUserPaginator.showPageInput = true;
+      productUserPaginator.showRange = true;
 
       // Calculate pagination
       const startIndex = (currentPage - 1) * pageSize;
-      const endIndex = Math.min(startIndex + pageSize, productUsers.length);
-      const pageItems = productUsers.slice(startIndex, endIndex);
+      const endIndex = Math.min(startIndex + pageSize, filteredProductUsers.length);
+      const pageItems = filteredProductUsers.slice(startIndex, endIndex);
 
       pageItems.forEach(user => {
         const row = document.createElement('tr');
