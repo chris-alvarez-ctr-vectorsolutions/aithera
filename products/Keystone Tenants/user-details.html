@@ -188,7 +188,6 @@
               <tr role="row">
                 <th role="columnheader">Product</th>
                 <th role="columnheader">Mapped Product User</th>
-                <th role="columnheader" style="width: 200px; text-align: center;"></th>
                 <th role="columnheader" style="width: 120px; text-align: center;">Actions</th>
               </tr>
             </thead>
@@ -242,7 +241,6 @@
               <th>Name</th>
               <th>Email</th>
               <th>Product Tenant</th>
-              <th>Product Tenant ID</th>
               <th>User ID</th>
             </tr>
           </thead>
@@ -364,7 +362,6 @@
     let productUserPageSize = 100;
     let tenantCurrentPage = 1;
     let tenantPageSize = 100;
-    let autoMappingDisabled = {}; // Track which products have auto-mapping disabled
 
     // Products list
     const VECTOR_PRODUCTS = ['TargetSolutions', 'Scheduling', 'Check IT', 'EV+', 'Guardian Tracking', 'Frontline'];
@@ -779,7 +776,6 @@
       VECTOR_PRODUCTS.forEach(product => {
         const mapping = userProductMappings[product];
         const isMapped = mapping && mapping.user;
-        const isAutoMappingDisabled = autoMappingDisabled[product];
         const row = document.createElement('tr');
         row.setAttribute('role', 'row');
 
@@ -803,46 +799,6 @@
           mappingCell.innerHTML = '<span style="color: #9ca3af; font-style: italic;">Not mapped</span>';
         }
         row.appendChild(mappingCell);
-
-        // Auto-mapping status badge column
-        const badgeCell = document.createElement('td');
-        badgeCell.setAttribute('role', 'gridcell');
-        badgeCell.style.textAlign = 'center';
-
-        if (isAutoMappingDisabled) {
-          const badge = document.createElement('span');
-          badge.textContent = 'Auto-mapping disabled';
-          badge.style.cssText = `
-            display: inline-flex;
-            align-items: center;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 500;
-            background-color: #fef3c7;
-            color: #92400e;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            white-space: nowrap;
-          `;
-          badge.title = 'Click to re-enable auto-mapping';
-
-          badge.addEventListener('mouseenter', () => {
-            badge.style.backgroundColor = '#fde68a';
-          });
-
-          badge.addEventListener('mouseleave', () => {
-            badge.style.backgroundColor = '#fef3c7';
-          });
-
-          badge.addEventListener('click', () => {
-            showReEnableAutoMappingDialog(product);
-          });
-
-          badgeCell.appendChild(badge);
-        }
-
-        row.appendChild(badgeCell);
 
         // Actions
         const actionsCell = document.createElement('td');
@@ -872,195 +828,18 @@
       });
     }
 
-    // Handle unmap user - show modal with options
+    // Handle unmap user
     function handleUnmapUser(product) {
-      showUnmapDialog(product);
-    }
+      // Add to pending changes instead of saving immediately
+      addPendingMappingChange('unmap', product);
 
-    // Show re-enable auto-mapping dialog
-    function showReEnableAutoMappingDialog(product) {
-      return new Promise((resolve) => {
-        const dialog = document.createElement('vaadin-dialog');
-        dialog.headerTitle = 'Re-enable Auto-Mapping';
+      // Update local state for preview
+      if (userProductMappings[product]) {
+        delete userProductMappings[product];
+      }
 
-        dialog.renderer = function(root) {
-          if (!root.firstElementChild) {
-            const content = document.createElement('div');
-            content.style.padding = '16px 24px';
-            content.innerHTML = `
-              <p style="margin: 0; line-height: 1.5;">
-                Would you like to re-enable auto-mapping for <strong>${product}</strong>?
-              </p>
-              <p style="margin: 12px 0 0 0; font-size: 13px; color: #6b7280; line-height: 1.5;">
-                When auto-mapping is enabled, the system will automatically map this product user when email addresses match during the auto-check process.
-              </p>
-            `;
-            root.appendChild(content);
-          }
-        };
-
-        dialog.footerRenderer = function(root) {
-          if (!root.firstElementChild) {
-            const footer = document.createElement('div');
-            footer.style.display = 'flex';
-            footer.style.gap = '8px';
-            footer.style.justifyContent = 'flex-end';
-
-            const cancelBtn = document.createElement('vaadin-button');
-            cancelBtn.textContent = 'Cancel';
-            cancelBtn.addEventListener('click', () => {
-              dialog.opened = false;
-              resolve(false);
-            });
-
-            const enableBtn = document.createElement('vaadin-button');
-            enableBtn.textContent = 'Re-enable Auto-Mapping';
-            enableBtn.setAttribute('theme', 'primary');
-            enableBtn.addEventListener('click', () => {
-              dialog.opened = false;
-
-              // Re-enable auto-mapping for this product
-              delete autoMappingDisabled[product];
-
-              showNotification(`Auto-mapping re-enabled for ${product}`, 'success');
-              renderProductList();
-              resolve(true);
-            });
-
-            footer.appendChild(cancelBtn);
-            footer.appendChild(enableBtn);
-            root.appendChild(footer);
-          }
-        };
-
-        document.body.appendChild(dialog);
-        dialog.opened = true;
-
-        dialog.addEventListener('opened-changed', (e) => {
-          if (!e.detail.value) {
-            dialog.remove();
-          }
-        });
-      });
-    }
-
-    // Show unmap dialog with radio button options
-    function showUnmapDialog(product) {
-      return new Promise((resolve) => {
-        const dialog = document.createElement('vaadin-dialog');
-        dialog.headerTitle = 'Unmap Product User';
-
-        let selectedOption = 'unmap'; // default option
-
-        dialog.renderer = function(root) {
-          if (!root.firstElementChild) {
-            const content = document.createElement('div');
-            content.style.padding = '16px 24px';
-            content.innerHTML = `
-              <p style="margin: 0 0 16px 0; line-height: 1.5;">
-                Choose how you would like to unmap this product user:
-              </p>
-              <div style="display: flex; flex-direction: column; gap: 12px;">
-                <label style="display: flex; align-items: start; cursor: pointer; padding: 12px; border: 2px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
-                  <input type="radio" name="unmapOption" value="unmap" checked style="margin-top: 2px; margin-right: 12px; cursor: pointer;">
-                  <div>
-                    <div style="font-weight: 500; margin-bottom: 4px;">Unmap</div>
-                    <div style="font-size: 13px; color: #6b7280; line-height: 1.4;">
-                      Remove the current mapping. Auto-mapping will continue to work for this product.
-                    </div>
-                  </div>
-                </label>
-                <label style="display: flex; align-items: start; cursor: pointer; padding: 12px; border: 2px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
-                  <input type="radio" name="unmapOption" value="unmap-disable" style="margin-top: 2px; margin-right: 12px; cursor: pointer;">
-                  <div>
-                    <div style="font-weight: 500; margin-bottom: 4px;">Unmap and disable auto-mapping</div>
-                    <div style="font-size: 13px; color: #6b7280; line-height: 1.4;">
-                      Remove the current mapping and prevent auto-mapping in the future. You can still manually map this product.
-                    </div>
-                  </div>
-                </label>
-              </div>
-            `;
-            root.appendChild(content);
-
-            // Add event listeners to radio buttons
-            const radioButtons = content.querySelectorAll('input[type="radio"]');
-            const labels = content.querySelectorAll('label');
-
-            radioButtons.forEach((radio, index) => {
-              radio.addEventListener('change', (e) => {
-                selectedOption = e.target.value;
-                // Update label styling
-                labels.forEach(label => {
-                  label.style.borderColor = '#e5e7eb';
-                  label.style.backgroundColor = 'transparent';
-                });
-                labels[index].style.borderColor = 'var(--lumo-primary-color)';
-                labels[index].style.backgroundColor = 'var(--lumo-primary-color-10pct)';
-              });
-            });
-
-            // Set initial styling for checked option
-            labels[0].style.borderColor = 'var(--lumo-primary-color)';
-            labels[0].style.backgroundColor = 'var(--lumo-primary-color-10pct)';
-          }
-        };
-
-        dialog.footerRenderer = function(root) {
-          if (!root.firstElementChild) {
-            const footer = document.createElement('div');
-            footer.style.display = 'flex';
-            footer.style.gap = '8px';
-            footer.style.justifyContent = 'flex-end';
-
-            const cancelBtn = document.createElement('vaadin-button');
-            cancelBtn.textContent = 'Cancel';
-            cancelBtn.addEventListener('click', () => {
-              dialog.opened = false;
-              resolve(null);
-            });
-
-            const confirmBtn = document.createElement('vaadin-button');
-            confirmBtn.textContent = 'Confirm';
-            confirmBtn.setAttribute('theme', 'primary');
-            confirmBtn.addEventListener('click', () => {
-              dialog.opened = false;
-
-              // Add to pending changes instead of saving immediately
-              addPendingMappingChange('unmap', product);
-
-              // Update local state for preview
-              if (userProductMappings[product]) {
-                delete userProductMappings[product];
-              }
-
-              // If user selected to disable auto-mapping
-              if (selectedOption === 'unmap-disable') {
-                autoMappingDisabled[product] = true;
-                showNotification(`Unmapping queued for ${product} and auto-mapping disabled.`, 'primary');
-              } else {
-                showNotification(`Unmapping queued for ${product}. Click "Save Mappings" to apply changes.`, 'primary');
-              }
-
-              renderProductList();
-              resolve(selectedOption);
-            });
-
-            footer.appendChild(cancelBtn);
-            footer.appendChild(confirmBtn);
-            root.appendChild(footer);
-          }
-        };
-
-        document.body.appendChild(dialog);
-        dialog.opened = true;
-
-        dialog.addEventListener('opened-changed', (e) => {
-          if (!e.detail.value) {
-            dialog.remove();
-          }
-        });
-      });
+      showNotification(`Unmapping queued for ${product}. Click "Save Mappings" to apply changes.`, 'primary');
+      renderProductList();
     }
 
     // Open product user selection drawer
@@ -1093,29 +872,29 @@
         // Mock data - in real app would fetch from backend
         const mockProductUsers = {
           'TargetSolutions': [
-            { id: 'ts1', firstName: 'Alice', lastName: 'Johnson', email: 'alice.j@targetsolutions.com', userId: 'TS12345', productTenant: 'City of Los Angeles Fire Department', productTenantId: 'PT-LAFD-001' },
-            { id: 'ts2', firstName: 'Bob', lastName: 'Williams', email: 'bob.w@targetsolutions.com', userId: 'TS67890', productTenant: 'City of San Francisco Fire Department', productTenantId: 'PT-SFFD-002' },
-            { id: 'ts3', firstName: 'Carol', lastName: 'Davis', email: 'carol.d@targetsolutions.com', userId: 'TS11111', productTenant: 'City of New York Fire Department', productTenantId: 'PT-NYFD-003' }
+            { id: 'ts1', firstName: 'Alice', lastName: 'Johnson', email: 'alice.j@targetsolutions.com', userId: 'TS12345', productTenant: 'City of Los Angeles Fire Department' },
+            { id: 'ts2', firstName: 'Bob', lastName: 'Williams', email: 'bob.w@targetsolutions.com', userId: 'TS67890', productTenant: 'City of San Francisco Fire Department' },
+            { id: 'ts3', firstName: 'Carol', lastName: 'Davis', email: 'carol.d@targetsolutions.com', userId: 'TS11111', productTenant: 'City of New York Fire Department' }
           ],
           'Scheduling': [
-            { id: 'sch1', firstName: 'David', lastName: 'Miller', email: 'david.m@scheduling.com', userId: 'SCH22222', productTenant: 'City of San Diego Emergency Services', productTenantId: 'PT-SDES-004' },
-            { id: 'sch2', firstName: 'Emma', lastName: 'Wilson', email: 'emma.w@scheduling.com', userId: 'SCH33333', productTenant: 'City of Buffalo Public Safety', productTenantId: 'PT-BFPS-005' }
+            { id: 'sch1', firstName: 'David', lastName: 'Miller', email: 'david.m@scheduling.com', userId: 'SCH22222', productTenant: 'City of San Diego Emergency Services' },
+            { id: 'sch2', firstName: 'Emma', lastName: 'Wilson', email: 'emma.w@scheduling.com', userId: 'SCH33333', productTenant: 'City of Buffalo Public Safety' }
           ],
           'Check IT': [
-            { id: 'chk1', firstName: 'Frank', lastName: 'Moore', email: 'frank.m@checkit.com', userId: 'CHK67890', productTenant: 'County of Orange Fire Authority', productTenantId: 'PT-OCFA-006' },
-            { id: 'chk2', firstName: 'Grace', lastName: 'Taylor', email: 'grace.t@checkit.com', userId: 'CHK44444', productTenant: 'City of Dallas Fire Department', productTenantId: 'PT-DLFD-007' }
+            { id: 'chk1', firstName: 'Frank', lastName: 'Moore', email: 'frank.m@checkit.com', userId: 'CHK67890', productTenant: 'County of Orange Fire Authority' },
+            { id: 'chk2', firstName: 'Grace', lastName: 'Taylor', email: 'grace.t@checkit.com', userId: 'CHK44444', productTenant: 'City of Dallas Fire Department' }
           ],
           'EV+': [
-            { id: 'ev1', firstName: 'Henry', lastName: 'Anderson', email: 'henry.a@evplus.com', userId: 'EV55555', productTenant: 'City of Brooklyn Fire Department', productTenantId: 'PT-BKFD-008' },
-            { id: 'ev2', firstName: 'Iris', lastName: 'Thomas', email: 'iris.t@evplus.com', userId: 'EV66666', productTenant: 'City of Sacramento Fire Department', productTenantId: 'PT-SCFD-009' }
+            { id: 'ev1', firstName: 'Henry', lastName: 'Anderson', email: 'henry.a@evplus.com', userId: 'EV55555', productTenant: 'City of Brooklyn Fire Department' },
+            { id: 'ev2', firstName: 'Iris', lastName: 'Thomas', email: 'iris.t@evplus.com', userId: 'EV66666', productTenant: 'City of Sacramento Fire Department' }
           ],
           'Guardian Tracking': [
-            { id: 'gt1', firstName: 'Jack', lastName: 'Jackson', email: 'jack.j@guardiantracking.com', userId: 'GT77777', productTenant: 'City of Tampa Emergency Services', productTenantId: 'PT-TPES-010' },
-            { id: 'gt2', firstName: 'Karen', lastName: 'White', email: 'karen.w@guardiantracking.com', userId: 'GT88888', productTenant: 'City of Oakland Fire Department', productTenantId: 'PT-OKFD-011' }
+            { id: 'gt1', firstName: 'Jack', lastName: 'Jackson', email: 'jack.j@guardiantracking.com', userId: 'GT77777', productTenant: 'City of Tampa Emergency Services' },
+            { id: 'gt2', firstName: 'Karen', lastName: 'White', email: 'karen.w@guardiantracking.com', userId: 'GT88888', productTenant: 'City of Oakland Fire Department' }
           ],
           'Frontline': [
-            { id: 'fl1', firstName: 'Liam', lastName: 'Brown', email: 'liam.b@frontline.com', userId: 'FL99999', productTenant: 'City of Austin Fire Department', productTenantId: 'PT-ATFD-012' },
-            { id: 'fl2', firstName: 'Maria', lastName: 'Garcia', email: 'maria.g@frontline.com', userId: 'FL00000', productTenant: 'City of Albany Public Safety', productTenantId: 'PT-ABPS-013' }
+            { id: 'fl1', firstName: 'Liam', lastName: 'Brown', email: 'liam.b@frontline.com', userId: 'FL99999', productTenant: 'City of Austin Fire Department' },
+            { id: 'fl2', firstName: 'Maria', lastName: 'Garcia', email: 'maria.g@frontline.com', userId: 'FL00000', productTenant: 'City of Albany Public Safety' }
           ]
         };
 
@@ -1169,7 +948,6 @@
           <td>${user.firstName} ${user.lastName}</td>
           <td>${user.email}</td>
           <td>${user.productTenant}</td>
-          <td>${user.productTenantId}</td>
           <td>${user.userId}</td>
         `;
 
