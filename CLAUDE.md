@@ -96,33 +96,13 @@ The reference file provides faster lookup for common components and usage patter
 
 For the complete list with props and examples, see `CORE-CONTEXT.md`
 
-#### 3. Include Required Resources
-Always include in your HTML:
-```html
-<!-- Vector Web Components CSS -->
-<script
-type="module"
-src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.5.1/core.iife.js">
-</script>
+#### 3. For a NEW mock
 
-<!-- Vector Web Components JavaScript -->
- <!-- Important! This should always be imported as script -->
-<script
-src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.1.1/styles.js">
-</script>
+1. Create a new directory under the product directory specified. If no mock name is given, ask and use that for the directory name.
+2. Copy the index.html from /base-template as your starting point.
+3. If no details about the mock description are given, simply copy the index.html and then ask about where to start with the new mock.
 
-<!-- Our Standard font face - Open Sans -->
-<link
-  rel="stylesheet"
-  href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
-/>
-
-<!-- Font Awesome 6 Icons (Default Icon Library) -->
-<link
-  rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
-/>
-```
+Required resources are provided in the header to load Core and Themes bundles from the CDN plus the main font and icon set.
 
 ### Style Guidelines
 
