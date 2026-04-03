@@ -1,0 +1,1614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UX-2474 — Rethinking Scheduling</title>
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Open Sans', sans-serif; font-size: 13px; background: #f3f4f6; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* ── TOP NAV ── */
+    .topnav { height: 40px; background: #0F2D3A; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; color: white; flex-shrink: 0; }
+    .topnav-left { display: flex; align-items: center; gap: 12px; }
+    .topnav-avatar { width: 26px; height: 26px; border-radius: 50%; background: #6B7280; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; flex-shrink: 0; }
+    .topnav-user { display: flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer; }
+    .topnav-actions { display: flex; align-items: center; gap: 10px; }
+    .topnav-actions button { background: none; border: none; color: #9CA3AF; cursor: pointer; font-size: 11px; display: flex; align-items: center; gap: 3px; }
+    .topnav-actions button:hover { color: white; }
+    .badge-admin { background: #F97316; color: white; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 3px; }
+    .topnav-org { display: flex; align-items: center; gap: 5px; }
+    .topnav-org-icon { width: 20px; height: 20px; background: white; border-radius: 3px; display: flex; align-items: center; justify-content: center; }
+    .topnav-org-icon i { color: #DC2626; font-size: 11px; }
+    .topnav-org span { font-size: 11px; color: #9CA3AF; }
+    .topnav-logo { display: flex; flex-direction: column; align-items: flex-end; }
+    .topnav-logo .brand { font-size: 14px; letter-spacing: -0.3px; line-height: 1; }
+    .topnav-logo .brand span:first-child { font-weight: 300; }
+    .topnav-logo .brand span:last-child { font-weight: 700; }
+    .topnav-logo small { font-size: 9px; color: #6B7280; letter-spacing: 0.5px; }
+
+    /* ── APP BODY ── */
+    .app-body { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── SIDE NAV ── */
+    .sidenav { width: 48px; background: #1a2332; display: flex; flex-direction: column; align-items: center; padding: 8px 0; gap: 2px; flex-shrink: 0; }
+    .sidenav a { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 5px; color: #9CA3AF; text-decoration: none; font-size: 14px; transition: all 0.12s; }
+    .sidenav a:hover { color: white; background: #374151; }
+    .sidenav a.active { background: #2563EB; color: white; }
+    .sidenav .spacer { flex: 1; }
+
+    /* ── MAIN ── */
+    .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+    /* ── TOOLBAR ── */
+    .toolbar { background: white; border-bottom: 1px solid #E5E7EB; display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; flex-shrink: 0; gap: 8px; }
+    .toolbar-left { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .toolbar-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .btn-tb { display: flex; align-items: center; gap: 5px; padding: 4px 8px; border: 1px solid #D1D5DB; border-radius: 5px; background: white; font-size: 11px; cursor: pointer; color: #374151; font-family: inherit; white-space: nowrap; }
+    .btn-tb:hover { background: #F9FAFB; }
+    .btn-tb.active { background: #EFF6FF; border-color: #93C5FD; color: #1D4ED8; }
+    .btn-icon-sm { padding: 4px 5px; border: none; background: none; cursor: pointer; color: #6B7280; font-family: inherit; }
+    .btn-icon-sm:hover { background: #F3F4F6; border-radius: 4px; }
+    .tb-search { position: relative; }
+    .tb-search i { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #9CA3AF; font-size: 10px; pointer-events: none; }
+    .tb-search input { padding: 4px 8px 4px 24px; border: 1px solid #D1D5DB; border-radius: 5px; font-size: 11px; width: 200px; outline: none; font-family: inherit; }
+    .btn-view-grp { display: flex; border: 1px solid #D1D5DB; border-radius: 5px; overflow: hidden; }
+    .btn-view-grp button { padding: 4px 8px; border: none; border-right: 1px solid #D1D5DB; background: white; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px; white-space: nowrap; font-family: inherit; color: #374151; }
+    .btn-view-grp button:last-child { border-right: none; }
+    .btn-view-grp button.active { background: #F3F4F6; }
+    .btn-view-grp button:hover:not(.active) { background: #F9FAFB; }
+    .btn-legend { display: flex; align-items: center; gap: 5px; padding: 4px 10px; border: 1px solid #3B82F6; border-radius: 5px; background: #EFF6FF; font-size: 11px; cursor: pointer; color: #2563EB; font-family: inherit; font-weight: 600; }
+    .btn-legend:hover { background: #DBEAFE; }
+
+    /* ── DATE NAV ── */
+    .date-nav { display: flex; align-items: center; padding: 5px 12px; flex-shrink: 0; gap: 8px; position: relative; transition: background 0.3s; }
+    .date-nav-left { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    /* buttons on colored shift background use white bg */
+    .btn-sm { padding: 4px 8px; border: none; border-radius: 4px; background: rgba(255,255,255,0.92); font-size: 11px; cursor: pointer; font-family: inherit; white-space: nowrap; color: #111827; font-weight: 500; }
+    .btn-sm:hover { background: white; }
+    .btn-nav-grp { display: flex; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,0.92); }
+    .btn-nav-grp button { padding: 4px 10px; border: none; border-right: 1px solid rgba(0,0,0,0.1); background: transparent; font-size: 12px; cursor: pointer; font-family: inherit; color: #111827; font-weight: 600; }
+    .btn-nav-grp button:last-child { border-right: none; }
+    .btn-nav-grp button:hover { background: rgba(0,0,0,0.06); }
+    .next-shift-btn { display: flex; align-items: center; gap: 4px; padding: 4px 8px; border: none; border-radius: 4px; background: rgba(255,255,255,0.92); font-size: 11px; cursor: pointer; font-family: inherit; color: #111827; font-weight: 500; }
+    .next-shift-btn:hover { background: white; }
+    .shift-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }
+    /* center */
+    .date-nav-center { display: flex; align-items: center; gap: 8px; position: absolute; left: 50%; transform: translateX(-50%); }
+    .date-btn { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 5px; cursor: pointer; color: #111827; font-size: 12px; background: rgba(255,255,255,0.92); border: none; font-family: inherit; font-weight: 500; }
+    .date-btn:hover { background: white; }
+    .shift-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; color: white; white-space: nowrap; background: rgba(0,0,0,0.22); }
+    /* right */
+    .date-nav-right { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-shrink: 0; }
+    .day-dropdown { display: flex; align-items: center; gap: 3px; padding: 4px 8px; border: none; border-radius: 4px; background: rgba(255,255,255,0.92); font-size: 11px; cursor: pointer; font-family: inherit; color: #111827; font-weight: 500; }
+    .day-dropdown:hover { background: white; }
+    .zoom-controls { display: flex; align-items: center; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,0.92); }
+    .zoom-controls button { padding: 4px 7px; border: none; border-right: 1px solid rgba(0,0,0,0.1); background: transparent; font-size: 11px; cursor: pointer; color: #111827; font-family: inherit; font-weight: 600; }
+    .zoom-controls button:last-child { border-right: none; }
+    .zoom-controls .zoom-pct { width: 38px; padding: 4px 0; font-size: 11px; border-right: 1px solid rgba(0,0,0,0.1); color: #111827; user-select: none; font-weight: 500; text-align: center; }
+    .zoom-controls button:hover { background: rgba(0,0,0,0.06); }
+
+    /* ── SCHEDULE BODY ── */
+    .schedule-body { flex: 1; display: flex; overflow: hidden; }
+    .schedule-scroll { flex: 1; overflow-x: hidden; overflow-y: auto; display: flex; flex-direction: column; }
+    .schedule-inner { display: flex; flex-direction: column; }
+    .columns-wrapper { padding: 12px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; align-content: flex-start; }
+
+    /* ── SCHEDULING COLUMN ── */
+    .sched-col { width: 270px; flex-shrink: 0; background: white; border-radius: 7px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 2px solid transparent; overflow: hidden; }
+    .sched-col-header { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; }
+    .sched-col-header h3 { font-size: 12px; font-weight: 600; color: #111827; }
+    .sched-col-toggle { background: none; border: none; cursor: pointer; padding: 2px 4px; border-radius: 3px; }
+    .sched-col-toggle:hover { background: rgba(0,0,0,0.08); }
+    .sched-col-body { padding: 6px; display: flex; flex-direction: column; gap: 6px; }
+
+    /* ── ASSIGNMENT SECTION ── */
+    .assign-sect { background: white; border: 1px solid #E5E7EB; border-radius: 7px; padding: 7px; }
+    .assign-sect.dark { background: #2C3E50; border-color: #4B5563; }
+    .assign-sect.tinted-purple { background: #FAF5FF; }
+    .assign-sect.tinted-amber { background: #FFFBEB; }
+    .assign-sect.tinted-rose { background: #FFF1F2; }
+    .assign-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .assign-hdr h4 { font-size: 13px; font-weight: 700; color: #111827; }
+    .assign-sect.dark .assign-hdr h4 { color: white; }
+    .assign-sect.tinted-purple .assign-hdr h4,
+    .assign-sect.tinted-amber .assign-hdr h4,
+    .assign-sect.tinted-rose .assign-hdr h4 { color: #111827; }
+    .assign-hdr-right { display: flex; align-items: center; gap: 5px; }
+    .assign-count { font-size: 12px; font-weight: 700; }
+    .count-g { color: #15803D; }
+    .count-r { color: #B91C1C; }
+    .assign-sect.dark .count-g { color: #4ADE80; }
+    .assign-sect.dark .count-r { color: #FCA5A5; }
+    .assign-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 5px; }
+    .assign-time { font-size: 12px; font-weight: 600; color: #111827; }
+    .assign-sect.dark .assign-time { color: white; }
+    .assign-sect.tinted-purple .assign-time,
+    .assign-sect.tinted-amber .assign-time,
+    .assign-sect.tinted-rose .assign-time { color: #111827; }
+    .lbl-badge { font-size: 10px; font-weight: 600; color: white; padding: 1px 6px; border-radius: 3px; }
+    .assign-cards { display: flex; flex-direction: column; gap: 3px; }
+    .btn-more { background: none; border: none; cursor: pointer; padding: 2px 3px; color: #111827; border-radius: 3px; }
+    .btn-more:hover { background: rgba(0,0,0,0.07); }
+    .assign-sect.dark .btn-more { color: white; }
+    .assign-sect.dark .btn-more:hover { background: rgba(255,255,255,0.12); }
+
+    /* ── STAFF CARD ── */
+    .staff-card { border-radius: 6px; border-left: 4px solid; padding: 4px 7px 5px; }
+    .sc-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+    .qual-badges { display: flex; flex-wrap: wrap; gap: 3px; min-height: 20px; }
+    .qb { display: inline-flex; align-items: center; gap: 2px; padding: 1px 5px; border-radius: 3px; font-size: 10px; font-weight: 700; }
+    .sc-name { font-size: 13px; font-weight: 700; color: #111827; margin-bottom: 3px; line-height: 1.2; }
+    .sc-name.dark { color: white; }
+    .sc-time { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #111827; }
+    .sc-time.dark { color: white; }
+    .partial-wrap { display: inline-flex; align-items: center; gap: 5px; padding: 2px 6px; border-radius: 4px; border: 2px solid #F97316; background: #FFEDD5; }
+    .partial-p { background: #EA580C; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; color: white; flex-shrink: 0; }
+    .partial-text { font-weight: 700; color: #7C2D12; font-size: 11px; }
+    .partial-dur { color: #92400E; font-size: 10px; }
+    .btn-expand { background: none; border: none; cursor: pointer; padding: 2px; border-radius: 3px; flex-shrink: 0; }
+    .btn-expand:hover { background: rgba(0,0,0,0.07); }
+    .extra-badges { display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 3px; }
+    .group-b { display: inline-flex; align-items: center; gap: 2px; padding: 1px 6px; border-radius: 50px; font-size: 10px; font-weight: 700; font-style: italic; background: #991B1B; color: white; }
+    .tag-b { display: inline-flex; align-items: center; gap: 2px; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; background: #6B7280; color: white; }
+    .notice-bar { background: #FEF08A; color: #422006; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 3px; margin-bottom: 5px; }
+    .card-info { margin-top: 5px; padding-top: 5px; border-top: 1px solid #E5E7EB; font-size: 11px; }
+    .card-info.dark { border-color: rgba(255,255,255,0.2); }
+    .ci-row { margin-bottom: 2px; color: #111827; }
+    .ci-row.dark { color: white; }
+    .ci-row strong { color: #111827; }
+    .ci-row.dark strong { color: white; }
+
+    /* concurrent shift icon */
+    .concurrent-icon { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: #F06500; flex-shrink: 0; }
+    .concurrent-icon i { font-size: 8px; color: white; }
+
+    /* status icons */
+    .si-warn { display: inline-flex; align-items: center; justify-content: center; background: #FEF08A; border-radius: 50%; width: 13px; height: 13px; border: 1px solid #78350F; flex-shrink: 0; }
+    .si-warn i { font-size: 7px; color: #78350F; }
+    .si-exp { display: inline-flex; align-items: center; justify-content: center; background: #DC2626; border-radius: 50%; width: 13px; height: 13px; border: 1px solid rgba(255,255,255,0.6); flex-shrink: 0; }
+    .si-exp i { font-size: 7px; color: white; font-weight: 900; }
+    .si-miss { display: inline-flex; align-items: center; justify-content: center; background: #DC2626; border-radius: 50%; width: 13px; height: 13px; border: 1px dashed rgba(255,255,255,0.8); flex-shrink: 0; font-size: 9px; font-weight: 900; color: white; }
+
+    /* ── OPEN SLOT ── */
+    .open-slot { width: 100%; background: #FEF9C3; border-radius: 5px; padding: 5px 8px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 700; color: #111827; border: none; cursor: pointer; transition: background 0.12s; }
+    .open-slot:hover { background: #FEF08A; }
+
+    /* ── EVENT EDIT MODAL ── */
+    .color-swatch { width: 26px; height: 26px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; transition: transform 0.1s; }
+    .color-swatch:hover { transform: scale(1.15); }
+    .color-swatch.active { border-color: #111827; box-shadow: 0 0 0 2px white inset; }
+    .attendee-row { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border: 1px solid #E5E7EB; border-radius: 5px; background: white; }
+    .attendee-name { flex: 1; font-size: 12px; color: #111827; border: none; outline: none; font-family: inherit; background: transparent; }
+    .attendee-flag { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: #F06500; flex-shrink: 0; cursor: pointer; }
+    .attendee-flag i { font-size: 8px; color: white; }
+    .attendee-flag.off { background: #E5E7EB; }
+    .attendee-flag.off i { color: #9CA3AF; }
+    .attendee-remove { background: none; border: none; cursor: pointer; color: #9CA3AF; padding: 2px; font-size: 12px; }
+    .attendee-remove:hover { color: #DC2626; }
+
+    /* ── LEGEND MODAL ── */
+    .legend-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 1000; align-items: flex-start; justify-content: center; padding-top: 80px; }
+    .legend-overlay.open { display: flex; }
+    .legend-modal { background: white; border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); width: 420px; max-width: 95vw; overflow: hidden; }
+    .legend-modal-hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 12px; }
+    .legend-modal-hdr h2 { font-size: 14px; font-weight: 700; color: #111827; }
+    .legend-close { background: none; border: none; cursor: pointer; color: #6B7280; font-size: 16px; padding: 2px 4px; border-radius: 4px; line-height: 1; }
+    .legend-close:hover { background: #F3F4F6; color: #111827; }
+    .legend-body { padding: 0 16px 16px; }
+    .legend-row { padding: 12px 0; display: flex; align-items: center; gap: 10px; }
+    .legend-row + .legend-row { border-top: 1px solid #E5E7EB; }
+    .legend-row-label { font-size: 12px; font-weight: 700; color: #111827; min-width: 110px; flex-shrink: 0; }
+    .legend-items { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #374151; }
+    .legend-warn-icon { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; flex-shrink: 0; }
+    .legend-warn-icon img, .legend-warn-icon svg { width: 100%; height: 100%; }
+    .legend-group-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 50px; font-size: 11px; font-weight: 700; font-style: italic; background: #991B1B; color: white; }
+    .legend-label-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 5px; font-size: 11px; font-weight: 700; background: #6B7280; color: white; }
+    .legend-partial-ex { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 5px; border: 2px solid #F97316; background: #FFEDD5; font-size: 11px; font-weight: 700; color: #7C2D12; }
+    .legend-partial-ex span { color: #EA580C; font-weight: 700; }
+    .legend-concurrent-icon { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: #F97316; color: white; font-size: 9px; flex-shrink: 0; }
+
+    /* ── RIGHT SIDEBAR ── */
+    .right-sidebar { width: 300px; flex-shrink: 0; background: white; border-left: 1px solid #E5E7EB; display: flex; flex-direction: column; overflow: hidden; }
+    .right-sidebar.collapsed { width: auto; }
+    .rs-inner { flex: 1; overflow-y: auto; padding: 0 10px 8px; }
+    .rs-top { display: flex; align-items: center; justify-content: space-between; padding: 5px 0 6px; }
+    .btn-panel { background: #F3F4F6; border: none; padding: 5px 7px; border-radius: 4px; cursor: pointer; color: #374151; }
+    .btn-panel:hover { background: #E5E7EB; }
+    .btn-toggle-all { background: none; border: none; cursor: pointer; font-size: 11px; font-weight: 500; color: #374151; display: flex; align-items: center; gap: 5px; padding: 3px 7px; border-radius: 4px; font-family: inherit; }
+    .btn-toggle-all:hover { background: #F9FAFB; }
+    .rs-sect { margin-bottom: 6px; }
+    .rs-sect-hdr { background: #EFF6FF; display: flex; align-items: center; justify-content: space-between; padding: 4px 10px; margin: 0 -10px; cursor: pointer; user-select: none; }
+    .rs-sect-hdr:hover { background: #DBEAFE; }
+    .rs-sect-hdr-left { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #1F2937; }
+    .rs-sect-count { font-size: 11px; font-weight: 500; color: #374151; }
+    .rs-search { position: relative; margin: 6px 0; }
+    .rs-search i { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #9CA3AF; font-size: 11px; pointer-events: none; }
+    .rs-search input { width: 100%; padding: 5px 8px 5px 26px; border: 1px solid #D1D5DB; border-radius: 4px; font-size: 11px; font-family: inherit; outline: none; }
+    .rs-search input:focus { border-color: #3B82F6; }
+    .btn-add { width: 100%; background: #FEF9C3; border: none; border-radius: 4px; padding: 5px; font-size: 11px; font-weight: 500; color: #374151; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; margin-top: 5px; font-family: inherit; }
+    .btn-add:hover { background: #FEF08A; }
+    .emp-list { display: flex; flex-direction: column; gap: 5px; max-height: 260px; overflow-y: auto; padding-right: 2px; margin-bottom: 5px; }
+
+    /* Employee off card */
+    .emp-card { border: 1px solid #E5E7EB; border-radius: 5px; padding: 6px 8px; }
+    .emp-name { font-size: 11px; font-weight: 700; color: #111827; margin-bottom: 1px; }
+    .emp-detail { font-size: 10px; color: #6B7280; margin-bottom: 1px; }
+
+    /* Event card */
+    .event-list { max-height: 420px; overflow-y: auto; padding-right: 2px; margin-bottom: 5px; }
+    .event-card { border-left: 3px solid #7C3AED; border-radius: 0 5px 5px 0; background: #FAF5FF; padding: 8px 10px; margin-bottom: 6px; }
+    .event-card.signup { border-left-color: #F97316; background: white; cursor: pointer; }
+    .event-card.signup:hover { background: #FFF7ED; }
+    .event-hdr { display: flex; align-items: flex-start; justify-content: space-between; gap: 4px; margin-bottom: 2px; }
+    .event-title { font-size: 12px; font-weight: 700; color: #111827; flex: 1; line-height: 1.3; display: flex; align-items: center; gap: 5px; }
+    .event-title i { color: #7C3AED; font-size: 11px; flex-shrink: 0; }
+    .event-hdr-right { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .badge-ts { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: #F06500; flex-shrink: 0; }
+    .badge-ts i { font-size: 8px; color: white; }
+    .btn-evt-toggle { background: none; border: none; cursor: pointer; color: #6B7280; padding: 1px; }
+    .event-meta { font-size: 11px; color: #6B7280; margin-bottom: 3px; }
+    .event-meta .evt-hours { color: #9CA3AF; }
+    .event-sub { font-size: 11px; color: #6B7280; margin-bottom: 6px; }
+    .person-list { display: flex; flex-direction: column; gap: 3px; }
+    .person-row { display: flex; align-items: center; gap: 8px; font-size: 12px; background: white; border: 1px solid #E5E7EB; border-radius: 5px; padding: 5px 8px; }
+    .person-row.assigned { font-weight: 600; color: #111827; }
+    .person-row.unassigned { color: #374151; }
+    .person-flag { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: #F06500; flex-shrink: 0; }
+    .person-flag i { font-size: 8px; color: white; }
+    .person-flag-placeholder { width: 18px; flex-shrink: 0; }
+    .evt-section-lbl { font-size: 11px; font-weight: 600; color: #374151; margin: 8px 0 5px; }
+    .evt-divider { border: none; border-top: 1px solid #E5E7EB; margin: 8px 0; }
+    .lock-icon { color: #7C3AED; font-size: 11px; }
+  </style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<div class="topnav">
+  <div class="topnav-left">
+    <div class="topnav-user">
+      <div class="topnav-avatar">VP</div>
+      <span style="font-size:11px;margin-left:4px">Virginia Pollock</span>
+      <i class="fa-solid fa-chevron-down" style="font-size:9px;color:#9CA3AF;margin-left:2px"></i>
+    </div>
+    <div class="topnav-actions">
+      <button>Quick <i class="fa-solid fa-chevron-down"></i></button>
+      <button><i class="fa-regular fa-calendar"></i></button>
+      <button><i class="fa-regular fa-bell"></i></button>
+      <button><i class="fa-regular fa-circle-question"></i></button>
+    </div>
+    <span class="badge-admin">admin</span>
+    <div class="topnav-org">
+      <div class="topnav-org-icon"><i class="fa-solid fa-wrench"></i></div>
+      <span>Los Pinos Fire Protection District</span>
+    </div>
+  </div>
+  <div class="topnav-logo">
+    <div class="brand"><span>Vector</span><span>Solutions</span></div>
+    <small>Vector Solutions</small>
+  </div>
+</div>
+
+<!-- APP BODY -->
+<div class="app-body">
+
+  <!-- SIDE NAV -->
+  <nav class="sidenav">
+    <a href="#" title="Dashboard"><i class="fa-solid fa-house"></i></a>
+    <a href="#" class="active" title="Schedule"><i class="fa-regular fa-calendar"></i></a>
+    <a href="#" title="Staff"><i class="fa-solid fa-users"></i></a>
+    <a href="#" title="Reports"><i class="fa-solid fa-chart-bar"></i></a>
+    <a href="#" title="Phone"><i class="fa-solid fa-phone"></i></a>
+    <a href="#" title="Mail"><i class="fa-regular fa-envelope"></i></a>
+    <a href="#" title="Documents"><i class="fa-regular fa-file-lines"></i></a>
+    <a href="#" title="Assets"><i class="fa-solid fa-briefcase"></i></a>
+    <a href="#" title="Shuffle"><i class="fa-solid fa-shuffle"></i></a>
+    <a href="#" title="Calendar"><i class="fa-solid fa-calendar-check"></i></a>
+    <a href="#" title="Media"><i class="fa-regular fa-image"></i></a>
+    <a href="#" title="Files"><i class="fa-solid fa-layer-group"></i></a>
+    <div class="spacer"></div>
+    <a href="#" title="Settings"><i class="fa-solid fa-gear"></i></a>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
+
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <button class="btn-tb"><i class="fa-solid fa-filter" style="font-size:10px"></i> Filters <i class="fa-solid fa-chevron-down" style="font-size:9px"></i></button>
+        <div class="tb-search">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" placeholder="Search...">
+        </div>
+      </div>
+      <div class="toolbar-right">
+        <div class="btn-view-grp">
+          <button class="active"><i class="fa-regular fa-calendar" style="font-size:10px"></i> CalendarView</button>
+          <button><i class="fa-solid fa-bars" style="font-size:10px"></i> TimelineView</button>
+          <button><i class="fa-solid fa-list" style="font-size:10px"></i> ListView</button>
+        </div>
+        <button class="btn-tb"><i class="fa-solid fa-rotate-right" style="font-size:10px"></i> Bulk Change</button>
+        <button class="btn-tb">More options <i class="fa-solid fa-chevron-down" style="font-size:9px"></i></button>
+        <button class="btn-icon-sm"><i class="fa-solid fa-print" style="font-size:11px"></i></button>
+        <button class="btn-icon-sm"><i class="fa-regular fa-circle-question" style="font-size:11px"></i></button>
+        <button class="btn-icon-sm"><i class="fa-solid fa-maximize" style="font-size:11px"></i></button>
+        <button class="btn-legend" id="btn-legend-open"><i class="fa-solid fa-key" style="font-size:10px"></i> Legend</button>
+      </div>
+    </div>
+
+    <!-- DATE NAV -->
+    <div class="date-nav">
+      <div class="date-nav-left">
+        <button class="btn-sm" id="btn-today">today</button>
+        <div class="btn-nav-grp">
+          <button id="btn-prev"><i class="fa-solid fa-chevron-left" style="font-size:10px"></i></button>
+          <button id="btn-next-arrow"><i class="fa-solid fa-chevron-right" style="font-size:10px"></i></button>
+        </div>
+        <button class="next-shift-btn" id="btn-next-shift">
+          Next <span class="shift-dot" id="shift-dot"></span> day
+        </button>
+      </div>
+
+      <div class="date-nav-center">
+        <button class="date-btn">
+          <i class="fa-regular fa-calendar" style="font-size:13px;color:#374151"></i>
+          <span id="date-text" style="font-size:12px;font-weight:500">Friday, February 27, 2026</span>
+        </button>
+        <span class="shift-badge" id="shift-badge">C SHIFT</span>
+      </div>
+
+      <div class="date-nav-right">
+        <button class="day-dropdown">day <i class="fa-solid fa-chevron-down" style="font-size:9px"></i></button>
+        <div class="zoom-controls">
+          <button id="btn-zoom-out" title="Zoom out"><i class="fa-solid fa-minus" style="font-size:10px"></i></button>
+          <span class="zoom-pct" id="zoom-pct">100%</span>
+          <button id="btn-zoom-in" title="Zoom in"><i class="fa-solid fa-plus" style="font-size:10px"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCHEDULE BODY -->
+    <div class="schedule-body">
+
+      <!-- SCROLL AREA -->
+      <div class="schedule-scroll">
+        <div class="schedule-inner">
+          <div class="columns-wrapper" id="columns-wrapper">
+
+            <!-- ═══ COLUMN: SENIOR STAFF ═══ -->
+            <div class="sched-col" style="border-color:#C53030">
+              <div class="sched-col-header" style="background:#C53030">
+                <h3>Senior Staff</h3>
+                <button class="sched-col-toggle" onclick="toggleCol(this)"><i class="fa-solid fa-chevron-down" style="color:#111827;font-size:11px"></i></button>
+              </div>
+              <div class="sched-col-body">
+                <div class="assign-sect">
+                  <div class="assign-hdr">
+                    <h4>Command Staff</h4>
+                    <div class="assign-hdr-right">
+                      <span class="assign-count count-g">2/2</span>
+                      <button class="btn-more" onclick="toggleSection(this)"><i class="fa-solid fa-chevron-up" style="font-size:11px"></i></button>
+                      <button class="btn-more"><i class="fa-solid fa-ellipsis-vertical" style="font-size:11px"></i></button>
+                    </div>
+                  </div>
+                  <div class="assign-meta"><span class="assign-time">8am - 8am (24 hrs)</span></div>
+                  <div class="assign-cards">
+                    <div class="notice-bar">Owens Duty Chief</div>
+                    <!-- Jim Owens -->
+                    <div class="staff-card" style="background:#FCE7F3;border-left-color:#EC4899">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#6D28D9;color:white"><span class="si-warn"><i class="fa-solid fa-triangle-exclamation"></i></span>BC</span>
+                          <span class="qb" style="background:#047857;color:white"><span class="si-exp"><i class="fa-solid fa-xmark"></i></span>PM</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name" style="display:flex;align-items:center;gap:5px" data-concurrent="Time off"><span class="concurrent-icon"><i class="fa-solid fa-flag"></i></span>Jim Owens</div>
+                      <div class="sc-time"><i class="fa-regular fa-clock" style="font-size:11px;color:#6B7280"></i><span>8am-8am</span><span style="color:#6B7280">(24h)</span></div>
+                    </div>
+                    <!-- Scot Davis -->
+                    <div class="staff-card" style="background:#2C3E50;border-left-color:#34495E">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#6D28D9;color:white">BC</span>
+                          <span class="qb" style="background:#047857;color:white">PM</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#D1D5DB"></i></button>
+                      </div>
+                      <div class="sc-name dark">Scot Davis</div>
+                      <div class="sc-time dark"><i class="fa-regular fa-clock" style="font-size:11px;color:#9CA3AF"></i><span>8am-8am</span><span style="color:#9CA3AF">(24h)</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ COLUMN: OPERATIONS ═══ -->
+            <div class="sched-col" style="border-color:#8B5A3C">
+              <div class="sched-col-header" style="background:#8B5A3C">
+                <h3>Operations</h3>
+                <button class="sched-col-toggle" onclick="toggleCol(this)"><i class="fa-solid fa-chevron-down" style="color:#111827;font-size:11px"></i></button>
+              </div>
+              <div class="sched-col-body">
+                <div class="assign-sect">
+                  <div class="assign-hdr">
+                    <h4>Ops Team</h4>
+                    <div class="assign-hdr-right">
+                      <span class="assign-count count-g">3/3</span>
+                      <button class="btn-more" onclick="toggleSection(this)"><i class="fa-solid fa-chevron-up" style="font-size:11px"></i></button>
+                      <button class="btn-more"><i class="fa-solid fa-ellipsis-vertical" style="font-size:11px"></i></button>
+                    </div>
+                  </div>
+                  <div class="assign-meta"><span class="assign-time">8am - 5pm (9 hrs)</span></div>
+                  <div class="assign-cards">
+                    <div class="staff-card" style="background:#E0F2FE;border-left-color:#06B6D4">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#6D28D9;color:white">OC</span>
+                          <span class="qb" style="background:#B91C1C;color:white">FF</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name">Greg Thompson</div>
+                      <div class="sc-time">
+                        <div class="partial-wrap"><span class="partial-p"><i class="fa-regular fa-clock" style="font-size:8px"></i></span><span class="partial-text">8am-5pm</span><span class="partial-dur">(9h)</span></div>
+                      </div>
+                    </div>
+                    <div class="staff-card" style="background:#FEF3C7;border-left-color:#F59E0B">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#B91C1C;color:white">FF</span>
+                          <span class="qb" style="background:#0369A1;color:white">D</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name">Michael Chen</div>
+                      <div class="sc-time"><div class="partial-wrap"><span class="partial-p"><i class="fa-regular fa-clock" style="font-size:8px"></i></span><span class="partial-text">8am-5pm</span><span class="partial-dur">(9h)</span></div></div>
+                    </div>
+                    <div class="staff-card" style="background:#F3E8FF;border-left-color:#A855F7">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#B91C1C;color:white">FF</span>
+                          <span class="qb" style="background:#047857;color:white">PM</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name">Sarah Williams</div>
+                      <div class="sc-time"><div class="partial-wrap"><span class="partial-p"><i class="fa-regular fa-clock" style="font-size:8px"></i></span><span class="partial-text">8am-5pm</span><span class="partial-dur">(9h)</span></div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ COLUMN: LOGISTICS ═══ -->
+            <div class="sched-col" style="border-color:#6B7280">
+              <div class="sched-col-header" style="background:#6B7280">
+                <h3>Logistics</h3>
+                <button class="sched-col-toggle" onclick="toggleCol(this)"><i class="fa-solid fa-chevron-down" style="color:#111827;font-size:11px"></i></button>
+              </div>
+              <div class="sched-col-body">
+                <div class="assign-sect">
+                  <div class="assign-hdr">
+                    <h4>Logistics Team</h4>
+                    <div class="assign-hdr-right">
+                      <span class="assign-count count-g">1/1</span>
+                      <button class="btn-more" onclick="toggleSection(this)"><i class="fa-solid fa-chevron-up" style="font-size:11px"></i></button>
+                      <button class="btn-more"><i class="fa-solid fa-ellipsis-vertical" style="font-size:11px"></i></button>
+                    </div>
+                  </div>
+                  <div class="assign-meta"><span class="assign-time">9am - 5pm (8 hrs)</span></div>
+                  <div class="assign-cards">
+                    <div class="staff-card" style="background:#F3E8FF;border-left-color:#A855F7">
+                      <div class="sc-top">
+                        <div class="qual-badges"><span class="qb" style="background:#475569;color:white">LM</span></div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name">Karen Martinez</div>
+                      <div class="sc-time"><div class="partial-wrap"><span class="partial-p"><i class="fa-regular fa-clock" style="font-size:8px"></i></span><span class="partial-text">9am-5pm</span><span class="partial-dur">(8h)</span></div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ COLUMN: DEVELOPMENT TEAM ═══ -->
+            <div class="sched-col" style="border-color:#D4A017">
+              <div class="sched-col-header" style="background:#D4A017">
+                <h3>Development Team</h3>
+                <button class="sched-col-toggle" onclick="toggleCol(this)"><i class="fa-solid fa-chevron-down" style="color:#111827;font-size:11px"></i></button>
+              </div>
+              <div class="sched-col-body">
+                <div class="assign-sect tinted-purple">
+                  <div class="assign-hdr">
+                    <h4>Admin</h4>
+                    <div class="assign-hdr-right">
+                      <span class="assign-count count-g">3/3</span>
+                      <button class="btn-more" onclick="toggleSection(this)"><i class="fa-solid fa-chevron-up" style="font-size:11px"></i></button>
+                      <button class="btn-more"><i class="fa-solid fa-ellipsis-vertical" style="font-size:11px"></i></button>
+                    </div>
+                  </div>
+                  <div class="assign-meta">
+                    <span class="lbl-badge" style="background:#2563EB">Battalion 3</span>
+                    <span class="assign-time">7am - 7am (24 hrs)</span>
+                  </div>
+                  <div class="assign-cards">
+                    <div class="staff-card" style="background:#EFF6FF;border-left-color:#3B82F6">
+                      <div class="sc-top">
+                        <div class="qual-badges"><span class="qb" style="background:#B91C1C;color:white">FF</span></div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name">Mike Johnson</div>
+                      <div class="sc-time"><i class="fa-regular fa-clock" style="font-size:11px;color:#6B7280"></i><span>8am-8am</span><span style="color:#6B7280">(24h)</span></div>
+                    </div>
+                    <div class="staff-card" style="background:#F0FDF4;border-left-color:#22C55E">
+                      <div class="sc-top">
+                        <div class="qual-badges"><span class="qb" style="background:#047857;color:white">PM</span></div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name">Sarah Williams</div>
+                      <div class="sc-time"><div class="partial-wrap"><span class="partial-p"><i class="fa-regular fa-clock" style="font-size:8px"></i></span><span class="partial-text">8am-5pm</span><span class="partial-dur">(9h)</span></div></div>
+                    </div>
+                    <div class="staff-card" style="background:#27AE60;border-left-color:#229954">
+                      <div class="sc-top">
+                        <div class="qual-badges"><span class="qb" style="background:#6D28D9;color:white">BC</span></div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#D1D5DB"></i></button>
+                      </div>
+                      <div class="sc-name dark" style="display:flex;align-items:center;gap:5px" data-concurrent="TargetSolutions event"><span class="concurrent-icon"><i class="fa-solid fa-flag"></i></span>Evan Garcia</div>
+                      <div class="extra-badges">
+                        <span class="group-b"><i class="fa-solid fa-users" style="font-size:8px"></i>EMT</span>
+                        <span class="tag-b"><i class="fa-solid fa-tag" style="font-size:8px"></i>New</span>
+                      </div>
+                      <div class="sc-time dark"><i class="fa-regular fa-clock" style="font-size:11px;color:#A7F3D0"></i><span>8am-8am</span><span style="color:#A7F3D0">(24h)</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ COLUMN: ADMINISTRATIVE STAFF ═══ -->
+            <div class="sched-col" style="border-color:#F4A261">
+              <div class="sched-col-header" style="background:#F4A261">
+                <h3>Administrative Staff</h3>
+                <button class="sched-col-toggle" onclick="toggleCol(this)"><i class="fa-solid fa-chevron-down" style="color:#111827;font-size:11px"></i></button>
+              </div>
+              <div class="sched-col-body">
+                <div class="assign-sect dark">
+                  <div class="assign-hdr">
+                    <h4>Admin</h4>
+                    <div class="assign-hdr-right">
+                      <span class="assign-count" style="color:#4ADE80;font-size:11px;font-weight:700">2/2</span>
+                      <button class="btn-more" onclick="toggleSection(this)"><i class="fa-solid fa-chevron-up" style="font-size:11px"></i></button>
+                      <button class="btn-more"><i class="fa-solid fa-ellipsis-vertical" style="font-size:11px"></i></button>
+                    </div>
+                  </div>
+                  <div class="assign-meta"><span class="assign-time">9am - 5pm (8 hrs)</span></div>
+                  <div class="assign-cards">
+                    <div class="staff-card" style="background:#FEF3C7;border-left-color:#F59E0B">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#B91C1C;color:white">FF</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name">Emily Davis</div>
+                      <div class="sc-time"><i class="fa-regular fa-clock" style="font-size:11px;color:#6B7280"></i><span>8am-8am</span><span style="color:#6B7280">(24h)</span></div>
+                    </div>
+                    <div class="staff-card" style="background:#E0F2FE;border-left-color:#06B6D4">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#B91C1C;color:white"><span class="si-exp"><i class="fa-solid fa-xmark"></i></span>FF</span>
+                          <span class="qb" style="background:#047857;color:white"><span class="si-warn"><i class="fa-solid fa-triangle-exclamation"></i></span>PM</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name" style="display:flex;align-items:center;gap:5px" data-concurrent="TargetSolutions event"><span class="concurrent-icon"><i class="fa-solid fa-flag"></i></span>John Smith</div>
+                      <div class="sc-time"><i class="fa-regular fa-clock" style="font-size:11px;color:#6B7280"></i><span>8am-8am</span><span style="color:#6B7280">(24h)</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="assign-sect">
+                  <div class="assign-hdr">
+                    <h4>Support</h4>
+                    <div class="assign-hdr-right">
+                      <span class="assign-count count-r">1/2</span>
+                      <button class="btn-more" onclick="toggleSection(this)"><i class="fa-solid fa-chevron-up" style="font-size:11px"></i></button>
+                      <button class="btn-more"><i class="fa-solid fa-ellipsis-vertical" style="font-size:11px"></i></button>
+                    </div>
+                  </div>
+                  <div class="assign-cards">
+                    <div class="staff-card" style="background:#7F1D1D;border-left-color:#991B1B">
+                      <div class="sc-top">
+                        <div class="qual-badges"><span class="qb" style="background:#B91C1C;color:white">FF</span></div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#D1D5DB"></i></button>
+                      </div>
+                      <div class="sc-name dark">James Wilson</div>
+                      <div class="sc-time dark">
+                        <div class="partial-wrap"><span class="partial-p"><i class="fa-regular fa-clock" style="font-size:8px"></i></span><span class="partial-text">8am-5pm</span><span class="partial-dur">(9h)</span></div>
+                      </div>
+                    </div>
+                    <button class="open-slot">Open slot <div style="display:flex;gap:3px"><span class="qb" style="background:#B91C1C;color:white;font-size:10px">FF</span></div></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ COLUMN: WILDLAND DIVISION I ═══ -->
+            <div class="sched-col" style="border-color:#7CBF84">
+              <div class="sched-col-header" style="background:#7CBF84">
+                <h3>Wildland Division I</h3>
+                <button class="sched-col-toggle" onclick="toggleCol(this)"><i class="fa-solid fa-chevron-down" style="color:#111827;font-size:11px"></i></button>
+              </div>
+              <div class="sched-col-body">
+                <div class="assign-sect">
+                  <div class="assign-hdr">
+                    <h4>Engine 27</h4>
+                    <div class="assign-hdr-right">
+                      <span class="assign-count count-r">0/4</span>
+                      <button class="btn-more" onclick="toggleSection(this)"><i class="fa-solid fa-chevron-up" style="font-size:11px"></i></button>
+                      <button class="btn-more"><i class="fa-solid fa-ellipsis-vertical" style="font-size:11px"></i></button>
+                    </div>
+                  </div>
+                  <div class="assign-meta"><span class="assign-time">7am - 5pm (10 hrs)</span></div>
+                  <div class="assign-cards">
+                    <button class="open-slot">Open slot <div style="display:flex;gap:3px"><span class="qb" style="background:#B91C1C;color:white;font-size:10px">FF</span><span class="qb" style="background:#047857;color:white;font-size:10px">PM</span></div></button>
+                    <button class="open-slot">Open slot <div style="display:flex;gap:3px"><span class="qb" style="background:#B91C1C;color:white;font-size:10px">FF</span></div></button>
+                    <button class="open-slot">Open slot <div style="display:flex;gap:3px"><span class="qb" style="background:#B91C1C;color:white;font-size:10px">FF</span></div></button>
+                    <button class="open-slot">Open slot <div style="display:flex;gap:3px"><span class="qb" style="background:#B91C1C;color:white;font-size:10px">FF</span></div></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ COLUMN: STATION 1 ═══ -->
+            <div class="sched-col" style="border-color:#EF4444">
+              <div class="sched-col-header" style="background:#E5E7EB">
+                <h3>Station 1</h3>
+                <button class="sched-col-toggle" onclick="toggleCol(this)"><i class="fa-solid fa-chevron-down" style="color:#111827;font-size:11px"></i></button>
+              </div>
+              <div class="sched-col-body">
+                <!-- Engine 27 -->
+                <div class="assign-sect">
+                  <div class="assign-hdr">
+                    <h4>Engine 27</h4>
+                    <div class="assign-hdr-right">
+                      <span class="assign-count count-g">4/4</span>
+                      <button class="btn-more" onclick="toggleSection(this)"><i class="fa-solid fa-chevron-up" style="font-size:11px"></i></button>
+                      <button class="btn-more"><i class="fa-solid fa-ellipsis-vertical" style="font-size:11px"></i></button>
+                    </div>
+                  </div>
+                  <div class="assign-meta">
+                    <span class="lbl-badge" style="background:#2563EB">Battalion 3</span>
+                    <span class="assign-time">7am - 7am (24 hrs)</span>
+                  </div>
+                  <div class="assign-cards">
+                    <div class="staff-card" style="background:#8E44AD;border-left-color:#7D3C98">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#4338CA;color:white">Cpt</span>
+                          <span class="qb" style="background:#047857;color:white"><span class="si-miss">?</span>PM</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#D1D5DB"></i></button>
+                      </div>
+                      <div class="sc-name dark">Robert Johnson</div>
+                      <div class="extra-badges"><span class="group-b"><i class="fa-solid fa-users" style="font-size:8px"></i>Engine</span></div>
+                      <div class="sc-time dark">
+                        <div class="partial-wrap"><span class="partial-p"><i class="fa-regular fa-clock" style="font-size:8px"></i></span><span class="partial-text">8am-5pm</span><span class="partial-dur">(9h)</span></div>
+                      </div>
+                    </div>
+                    <div class="staff-card" style="background:#FEE2E2;border-left-color:#EF4444">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#B91C1C;color:white"><span class="si-warn"><i class="fa-solid fa-triangle-exclamation"></i></span>FF</span>
+                          <span class="qb" style="background:#0369A1;color:white">D</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name" style="display:flex;align-items:center;gap:5px" data-concurrent="Time off"><span class="concurrent-icon"><i class="fa-solid fa-flag"></i></span>Maria Rodriguez</div>
+                      <div class="extra-badges"><span class="tag-b"><i class="fa-solid fa-tag" style="font-size:8px"></i>New</span></div>
+                      <div class="sc-time"><i class="fa-regular fa-clock" style="font-size:11px;color:#6B7280"></i><span>8am-8am</span><span style="color:#6B7280">(24h)</span></div>
+                    </div>
+                    <div class="staff-card" style="background:#FEF3C7;border-left-color:#F59E0B">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#B91C1C;color:white"><span class="si-exp"><i class="fa-solid fa-xmark"></i></span>FF</span>
+                          <span class="qb" style="background:#C2410C;color:white"><span class="si-exp"><i class="fa-solid fa-xmark"></i></span>Eng</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name">Chris Anderson</div>
+                      <div class="extra-badges">
+                        <span class="group-b"><i class="fa-solid fa-users" style="font-size:8px"></i>Engine</span>
+                        <span class="tag-b"><i class="fa-solid fa-tag" style="font-size:8px"></i>Probation</span>
+                      </div>
+                      <div class="sc-time"><i class="fa-regular fa-clock" style="font-size:11px;color:#6B7280"></i><span>8am-8am</span><span style="color:#6B7280">(24h)</span></div>
+                    </div>
+                    <div class="staff-card" style="background:#FCE7F3;border-left-color:#EC4899">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#B45309;color:white"><span class="si-miss">?</span>FFOP</span>
+                          <span class="qb" style="background:#166534;color:white"><span class="si-warn"><i class="fa-solid fa-triangle-exclamation"></i></span>EMT</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name">Jessica Taylor</div>
+                      <div class="sc-time"><i class="fa-regular fa-clock" style="font-size:11px;color:#6B7280"></i><span>8am-8am</span><span style="color:#6B7280">(24h)</span></div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Truck 5 -->
+                <div class="assign-sect tinted-amber">
+                  <div class="assign-hdr">
+                    <h4>Truck 5</h4>
+                    <div class="assign-hdr-right">
+                      <span class="assign-count count-r">2/3</span>
+                      <button class="btn-more" onclick="toggleSection(this)"><i class="fa-solid fa-chevron-up" style="font-size:11px"></i></button>
+                      <button class="btn-more"><i class="fa-solid fa-ellipsis-vertical" style="font-size:11px"></i></button>
+                    </div>
+                  </div>
+                  <div class="assign-meta">
+                    <span class="lbl-badge" style="background:#DC2626">Battalion 1</span>
+                    <span class="assign-time">7am - 7am (24 hrs)</span>
+                  </div>
+                  <div class="assign-cards">
+                    <div class="staff-card" style="background:#F3E8FF;border-left-color:#A855F7">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#0E7490;color:white">Lt</span>
+                          <span class="qb" style="background:#FBBF24;color:#000"><span class="si-warn"><i class="fa-solid fa-triangle-exclamation"></i></span>W</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name">Ryan Martinez</div>
+                      <div class="extra-badges"><span class="group-b"><i class="fa-solid fa-users" style="font-size:8px"></i>Truck</span></div>
+                      <div class="sc-time"><i class="fa-regular fa-clock" style="font-size:11px;color:#6B7280"></i><span>8am-8am</span><span style="color:#6B7280">(24h)</span></div>
+                    </div>
+                    <div class="staff-card" style="background:#FEE2E2;border-left-color:#EF4444">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#B91C1C;color:white">FF</span>
+                          <span class="qb" style="background:#854D0E;color:white"><span class="si-exp"><i class="fa-solid fa-xmark"></i></span>TR</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name">Nicole Parker</div>
+                      <div class="extra-badges"><span class="tag-b"><i class="fa-solid fa-tag" style="font-size:8px"></i>Probation</span></div>
+                      <div class="sc-time"><i class="fa-regular fa-clock" style="font-size:11px;color:#6B7280"></i><span>8am-8am</span><span style="color:#6B7280">(24h)</span></div>
+                    </div>
+                    <button class="open-slot">Open slot <div style="display:flex;gap:3px"><span class="qb" style="background:#B91C1C;color:white;font-size:10px">FF</span><span class="qb" style="background:#047857;color:white;font-size:10px">PM</span></div></button>
+                  </div>
+                </div>
+                <!-- Medic 3 -->
+                <div class="assign-sect">
+                  <div class="assign-hdr">
+                    <h4>Medic 3</h4>
+                    <div class="assign-hdr-right">
+                      <span class="assign-count count-g">2/2</span>
+                      <button class="btn-more" onclick="toggleSection(this)"><i class="fa-solid fa-chevron-up" style="font-size:11px"></i></button>
+                      <button class="btn-more"><i class="fa-solid fa-ellipsis-vertical" style="font-size:11px"></i></button>
+                    </div>
+                  </div>
+                  <div class="assign-meta"><span class="assign-time">7am - 7am (24 hrs)</span></div>
+                  <div class="assign-cards">
+                    <div class="staff-card" style="background:#E0F2FE;border-left-color:#06B6D4">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#047857;color:white"><span class="si-miss">?</span>PM</span>
+                          <span class="qb" style="background:#166534;color:white">EMT</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name" style="display:flex;align-items:center;gap:5px" data-concurrent="TargetSolutions event"><span class="concurrent-icon"><i class="fa-solid fa-flag"></i></span>David Kim</div>
+                      <div class="sc-time"><i class="fa-regular fa-clock" style="font-size:11px;color:#6B7280"></i><span>8am-8am</span><span style="color:#6B7280">(24h)</span></div>
+                    </div>
+                    <div class="staff-card" style="background:#F0FDF4;border-left-color:#22C55E">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#166534;color:white">EMT</span>
+                          <span class="qb" style="background:#B91C1C;color:white">FF</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name">Amanda Foster</div>
+                      <div class="sc-time"><i class="fa-regular fa-clock" style="font-size:11px;color:#6B7280"></i><span>8am-8am</span><span style="color:#6B7280">(24h)</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ COLUMN: STATION 5 ═══ -->
+            <div class="sched-col" style="border-color:#2F80ED">
+              <div class="sched-col-header" style="background:#2F80ED">
+                <h3>Station 5</h3>
+                <button class="sched-col-toggle" onclick="toggleCol(this)"><i class="fa-solid fa-chevron-down" style="color:white;font-size:11px"></i></button>
+              </div>
+              <div class="sched-col-body">
+                <!-- Engine 5 -->
+                <div class="assign-sect">
+                  <div class="assign-hdr">
+                    <h4>Engine 5</h4>
+                    <div class="assign-hdr-right">
+                      <span class="assign-count count-g">5/5</span>
+                      <button class="btn-more" onclick="toggleSection(this)"><i class="fa-solid fa-chevron-up" style="font-size:11px"></i></button>
+                      <button class="btn-more"><i class="fa-solid fa-ellipsis-vertical" style="font-size:11px"></i></button>
+                    </div>
+                  </div>
+                  <div class="assign-meta">
+                    <span class="lbl-badge" style="background:#DC2626">Battalion 1</span>
+                    <span class="assign-time">7am - 7am (24 hrs)</span>
+                  </div>
+                  <div class="assign-cards">
+                    <div class="staff-card" style="background:#2C3E50;border-left-color:#34495E">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#0E7490;color:white"><span class="si-warn"><i class="fa-solid fa-triangle-exclamation"></i></span>Lt</span>
+                          <span class="qb" style="background:#FBBF24;color:#000"><span class="si-exp"><i class="fa-solid fa-xmark"></i></span>W</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#D1D5DB"></i></button>
+                      </div>
+                      <div class="sc-name dark">Brandon Lewis</div>
+                      <div class="sc-time dark"><i class="fa-regular fa-clock" style="font-size:11px;color:#9CA3AF"></i><span>8am-8am</span><span style="color:#9CA3AF">(24h)</span></div>
+                    </div>
+                    <div class="staff-card" style="background:#DBEAFE;border-left-color:#0EA5E9">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#B91C1C;color:white"><span class="si-miss">?</span>FF</span>
+                          <span class="qb" style="background:#854D0E;color:white">TR</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name">Samantha Wright</div>
+                      <div class="sc-time"><i class="fa-regular fa-clock" style="font-size:11px;color:#6B7280"></i><span>8am-8am</span><span style="color:#6B7280">(24h)</span></div>
+                    </div>
+                    <div class="staff-card" style="background:#E67E22;border-left-color:#D35400">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#B91C1C;color:white"><span class="si-exp"><i class="fa-solid fa-xmark"></i></span>FF</span>
+                          <span class="qb" style="background:#475569;color:white"><span class="si-warn"><i class="fa-solid fa-triangle-exclamation"></i></span>A/O</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#D1D5DB"></i></button>
+                      </div>
+                      <div class="sc-name dark">Matthew Harris</div>
+                      <div class="sc-time dark"><i class="fa-regular fa-clock" style="font-size:11px;color:#D1D5DB"></i><span>8am-8am</span><span style="color:#FECACA">(24h)</span></div>
+                    </div>
+                    <div class="staff-card" style="background:#F3E8FF;border-left-color:#A855F7">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#B91C1C;color:white">FF</span>
+                          <span class="qb" style="background:#0369A1;color:white"><span class="si-miss">?</span>D</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name">Olivia Bennett</div>
+                      <div class="sc-time"><i class="fa-regular fa-clock" style="font-size:11px;color:#6B7280"></i><span>8am-8am</span><span style="color:#6B7280">(24h)</span></div>
+                    </div>
+                    <div class="staff-card" style="background:#F0FDF4;border-left-color:#22C55E">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#B91C1C;color:white"><span class="si-warn"><i class="fa-solid fa-triangle-exclamation"></i></span>FF</span>
+                          <span class="qb" style="background:#047857;color:white"><span class="si-exp"><i class="fa-solid fa-xmark"></i></span>PM</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name">Nathan Cooper</div>
+                      <div class="sc-time"><i class="fa-regular fa-clock" style="font-size:11px;color:#6B7280"></i><span>8am-8am</span><span style="color:#6B7280">(24h)</span></div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Medic 8 -->
+                <div class="assign-sect tinted-rose">
+                  <div class="assign-hdr">
+                    <h4>Medic 8</h4>
+                    <div class="assign-hdr-right">
+                      <span class="assign-count count-g">2/2</span>
+                      <button class="btn-more" onclick="toggleSection(this)"><i class="fa-solid fa-chevron-up" style="font-size:11px"></i></button>
+                      <button class="btn-more"><i class="fa-solid fa-ellipsis-vertical" style="font-size:11px"></i></button>
+                    </div>
+                  </div>
+                  <div class="assign-meta"><span class="assign-time">7am - 7am (24 hrs)</span></div>
+                  <div class="assign-cards">
+                    <div class="staff-card" style="background:#DBEAFE;border-left-color:#0EA5E9">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#047857;color:white">PM</span>
+                          <span class="qb" style="background:#166534;color:white">EMT</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name">Emily Garcia</div>
+                      <div class="sc-time"><i class="fa-regular fa-clock" style="font-size:11px;color:#6B7280"></i><span>8am-8am</span><span style="color:#6B7280">(24h)</span></div>
+                    </div>
+                    <div class="staff-card" style="background:#F0FDF4;border-left-color:#22C55E">
+                      <div class="sc-top">
+                        <div class="qual-badges">
+                          <span class="qb" style="background:#166534;color:white">EMT</span>
+                          <span class="qb" style="background:#B91C1C;color:white">FF</span>
+                        </div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#6B7280"></i></button>
+                      </div>
+                      <div class="sc-name">Marcus Johnson</div>
+                      <div class="sc-time"><i class="fa-regular fa-clock" style="font-size:11px;color:#6B7280"></i><span>8am-8am</span><span style="color:#6B7280">(24h)</span></div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Reserve -->
+                <div class="assign-sect">
+                  <div class="assign-hdr">
+                    <h4>Reserve</h4>
+                    <div class="assign-hdr-right">
+                      <span class="assign-count count-r">1/2</span>
+                      <button class="btn-more" onclick="toggleSection(this)"><i class="fa-solid fa-chevron-up" style="font-size:11px"></i></button>
+                      <button class="btn-more"><i class="fa-solid fa-ellipsis-vertical" style="font-size:11px"></i></button>
+                    </div>
+                  </div>
+                  <div class="assign-cards">
+                    <div class="staff-card" style="background:#E67E22;border-left-color:#D35400">
+                      <div class="sc-top">
+                        <div class="qual-badges"><span class="qb" style="background:#B91C1C;color:white">FF</span></div>
+                        <button class="btn-expand" onclick="toggleCardInfo(this)"><i class="fa-solid fa-chevron-down" style="font-size:11px;color:#D1D5DB"></i></button>
+                      </div>
+                      <div class="sc-name dark">Alex Rodriguez</div>
+                      <div class="sc-time dark"><i class="fa-regular fa-clock" style="font-size:11px;color:#D1D5DB"></i><span>8am-8am</span><span style="color:#FECACA">(24h)</span></div>
+                    </div>
+                    <button class="open-slot">Open slot <div style="display:flex;gap:3px"><span class="qb" style="background:#B91C1C;color:white;font-size:10px">FF</span></div></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- end columns-wrapper -->
+
+        </div><!-- end schedule-inner -->
+      </div><!-- end schedule-scroll -->
+
+      <!-- RIGHT SIDEBAR -->
+      <div class="right-sidebar" id="right-sidebar">
+        <div class="rs-inner">
+          <div class="rs-top">
+            <button class="btn-panel" onclick="collapseSidebar()" title="Collapse panel">
+              <i class="fa-solid fa-angles-right" style="font-size:12px"></i>
+            </button>
+            <button class="btn-toggle-all" onclick="toggleAllSections()">
+              <i class="fa-solid fa-angles-up" id="rs-toggle-icon" style="font-size:11px"></i>
+              <span id="rs-toggle-label">Collapse All</span>
+            </button>
+          </div>
+
+          <!-- Employees Off -->
+          <div class="rs-sect">
+            <div class="rs-sect-hdr" onclick="toggleRsSection('emp-off', this)">
+              <div class="rs-sect-hdr-left"><i class="fa-solid fa-chevron-down" style="font-size:10px;color:#6B7280"></i> Employees Off</div>
+              <span class="rs-sect-count">4</span>
+            </div>
+            <div id="emp-off">
+              <div class="rs-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" placeholder="Search employees..." oninput="filterEmps(this.value)">
+              </div>
+              <div class="emp-list" id="emp-list">
+                <div class="emp-card">
+                  <div class="emp-name">Alissa Mendez</div>
+                  <div class="emp-detail">Sick [E04]</div>
+                  <div class="emp-detail">From assignment: Station 1</div>
+                  <div class="emp-detail"><i class="fa-regular fa-clock" style="font-size:10px"></i> 02/27 07:00 – 02/27 13:00</div>
+                </div>
+                <div class="emp-card">
+                  <div class="emp-name">Scot Davis</div>
+                  <div class="emp-detail">Vacation [E03]</div>
+                  <div class="emp-detail">From assignment: Senior Staff</div>
+                  <div class="emp-detail"><i class="fa-regular fa-clock" style="font-size:10px"></i> 02/27 13:30 – 02/27 16:30</div>
+                </div>
+                <div class="emp-card">
+                  <div class="emp-name">Josh Lorenzen</div>
+                  <div class="emp-detail">Vacation [E03]</div>
+                  <div class="emp-detail">From assignment: Senior Staff</div>
+                  <div class="emp-detail"><i class="fa-regular fa-clock" style="font-size:10px"></i> 02/27 07:00 – 02/27 17:00</div>
+                </div>
+                <div class="emp-card">
+                  <div class="emp-name">Laura Rodriguez</div>
+                  <div class="emp-detail">Vacation [E03]</div>
+                  <div class="emp-detail">From assignment: Administrative Staff</div>
+                  <div class="emp-detail"><i class="fa-regular fa-clock" style="font-size:10px"></i> 02/27 13:00 – 02/27 17:00</div>
+                </div>
+              </div>
+              <button class="btn-add"><i class="fa-solid fa-plus" style="font-size:11px"></i> Add</button>
+            </div>
+          </div>
+
+          <!-- Events -->
+          <div class="rs-sect" style="margin-top:6px">
+            <div class="rs-sect-hdr" onclick="toggleRsSection('evt-sect', this)">
+              <div class="rs-sect-hdr-left"><i class="fa-solid fa-chevron-down" style="font-size:10px;color:#6B7280"></i> Events</div>
+            </div>
+            <div id="evt-sect">
+              <div class="event-list">
+                <p class="evt-section-lbl">TargetSolutions events</p>
+                <!-- CAAHEP -->
+                <div class="event-card">
+                  <div class="event-hdr">
+                    <span class="event-title"><i class="fa-solid fa-lock"></i> CAAHEP-accredited program</span>
+                    <div class="event-hdr-right">
+                      <button class="btn-evt-toggle" onclick="toggleEvt(this)"><i class="fa-solid fa-chevron-up" style="font-size:10px;color:#6B7280"></i></button>
+                    </div>
+                  </div>
+                  <div class="event-meta">9am – 5pm <span class="evt-hours">(8 hours)</span></div>
+                  <div class="person-list" id="caahep-people">
+                    <div class="person-row assigned"><span class="person-flag"><i class="fa-solid fa-flag"></i></span>Thomas Barnes</div>
+                    <div class="person-row unassigned"><span class="person-flag-placeholder"></span>Lucas Brown</div>
+                    <div class="person-row unassigned"><span class="person-flag-placeholder"></span>Scot Davis</div>
+                    <div class="person-row assigned"><span class="person-flag"><i class="fa-solid fa-flag"></i></span>Rebecca Flinders</div>
+                    <div class="person-row assigned"><span class="person-flag"><i class="fa-solid fa-flag"></i></span>Matt Fudala</div>
+                    <div class="person-row assigned"><span class="person-flag"><i class="fa-solid fa-flag"></i></span>Kevin Griego</div>
+                    <div class="person-row assigned"><span class="person-flag"><i class="fa-solid fa-flag"></i></span>Zackary Hartwig</div>
+                    <div class="person-row assigned"><span class="person-flag"><i class="fa-solid fa-flag"></i></span>Keaton Ingram</div>
+                    <div class="person-row unassigned"><span class="person-flag-placeholder"></span>Jim Owens</div>
+                    <div class="person-row unassigned"><span class="person-flag-placeholder"></span>Laura Rodriguez</div>
+                    <div class="person-row unassigned"><span class="person-flag-placeholder"></span>Justin Shoopman</div>
+                  </div>
+                </div>
+                <!-- HazMat -->
+                <div class="event-card">
+                  <div class="event-hdr">
+                    <span class="event-title"><i class="fa-solid fa-lock"></i> Hazardous Materials (HazMat)</span>
+                    <div class="event-hdr-right">
+                      <button class="btn-evt-toggle" onclick="toggleEvt(this)"><i class="fa-solid fa-chevron-down" style="font-size:10px;color:#6B7280"></i></button>
+                    </div>
+                  </div>
+                  <div class="event-meta">11am – 7pm <span class="evt-hours">(8 hours)</span></div>
+                  <div class="event-sub" id="hazmat-sub">Work Type: Overtime [OT] &nbsp;&nbsp; Sub Type: Operations</div>
+                  <div class="person-list" id="hazmat-people">
+                    <div class="person-row unassigned"><span class="person-flag-placeholder"></span>Blake Anderson</div>
+                    <div class="person-row assigned"><span class="person-flag"><i class="fa-solid fa-flag"></i></span>John Smith</div>
+                    <div class="person-row unassigned"><span class="person-flag-placeholder"></span>Mason Brooks</div>
+                    <div class="person-row unassigned"><span class="person-flag-placeholder"></span>Nova Carter</div>
+                    <div class="person-row assigned"><span class="person-flag"><i class="fa-solid fa-flag"></i></span>Jasper Cole</div>
+                    <div class="person-row assigned"><span class="person-flag"><i class="fa-solid fa-flag"></i></span>Scarlett Hayes</div>
+                    <div class="person-row assigned"><span class="person-flag"><i class="fa-solid fa-flag"></i></span>Owen Lane</div>
+                    <div class="person-row unassigned"><span class="person-flag-placeholder"></span>Sage Martinez</div>
+                    <div class="person-row unassigned"><span class="person-flag-placeholder"></span>Luna Mitchell</div>
+                    <div class="person-row assigned"><span class="person-flag"><i class="fa-solid fa-flag"></i></span>Evelyn Reed</div>
+                    <div class="person-row unassigned"><span class="person-flag-placeholder"></span>River Thompson</div>
+                    <div class="person-row assigned"><span class="person-flag"><i class="fa-solid fa-flag"></i></span>Finley Ward</div>
+                  </div>
+                </div>
+                <hr class="evt-divider">
+                <p class="evt-section-lbl">Sign-up event</p>
+                <!-- Sign-up event -->
+                <div class="event-card signup" onclick="openEventEdit(this)">
+                  <div class="event-hdr">
+                    <span class="event-title"><i class="fa-regular fa-calendar" style="color:#F97316"></i> CAAHEP-accredited program version 2</span>
+                    <div class="event-hdr-right">
+                      <button class="btn-evt-toggle" onclick="toggleEvt(this)"><i class="fa-solid fa-chevron-up" style="font-size:10px;color:#6B7280"></i></button>
+                    </div>
+                  </div>
+                  <div class="event-meta">9am – 5pm <span class="evt-hours">(8 hours)</span></div>
+                  <div class="person-list" id="signup-people">
+                    <div class="person-row assigned"><span class="person-flag"><i class="fa-solid fa-flag"></i></span>Aurora Banks</div>
+                    <div class="person-row unassigned"><span class="person-flag-placeholder"></span>Luna Bell</div>
+                    <div class="person-row assigned"><span class="person-flag"><i class="fa-solid fa-flag"></i></span>Jasper Cole</div>
+                    <div class="person-row unassigned"><span class="person-flag-placeholder"></span>Asher Cook</div>
+                    <div class="person-row assigned"><span class="person-flag"><i class="fa-solid fa-flag"></i></span>Scarlett Hayes</div>
+                    <div class="person-row assigned"><span class="person-flag"><i class="fa-solid fa-flag"></i></span>Hazel King</div>
+                    <div class="person-row assigned"><span class="person-flag"><i class="fa-solid fa-flag"></i></span>Owen Lane</div>
+                    <div class="person-row assigned"><span class="person-flag"><i class="fa-solid fa-flag"></i></span>Evelyn Reed</div>
+                    <div class="person-row assigned"><span class="person-flag"><i class="fa-solid fa-flag"></i></span>Finley Ward</div>
+                  </div>
+                </div>
+              </div>
+              <button class="btn-add"><i class="fa-solid fa-plus" style="font-size:11px"></i> Add</button>
+            </div>
+          </div>
+
+          <!-- Misc -->
+          <div class="rs-sect" style="margin-top:6px">
+            <div class="rs-sect-hdr" onclick="toggleRsSection('misc-sect', this)">
+              <div class="rs-sect-hdr-left"><i class="fa-solid fa-chevron-down" style="font-size:10px;color:#6B7280"></i> Misc</div>
+            </div>
+            <div id="misc-sect">
+              <button class="btn-add" style="margin-top:6px"><i class="fa-solid fa-plus" style="font-size:11px"></i> Add</button>
+            </div>
+          </div>
+
+        </div><!-- rs-inner -->
+      </div>
+
+      <!-- COLLAPSED SIDEBAR -->
+      <div id="collapsed-sidebar" style="display:none;background:white;border-left:1px solid #E5E7EB;padding:8px">
+        <button class="btn-panel" onclick="expandSidebar()" title="Expand panel">
+          <i class="fa-solid fa-angles-left" style="font-size:12px"></i>
+        </button>
+      </div>
+
+    </div><!-- schedule-body -->
+  </div><!-- main-content -->
+</div><!-- app-body -->
+
+<!-- EVENT EDIT MODAL -->
+<div class="legend-overlay" id="event-edit-overlay" onclick="closeEventEditOnOverlay(event)">
+  <div class="legend-modal" style="width:500px;max-width:95vw" onclick="event.stopPropagation()">
+    <div class="legend-modal-hdr" style="border-bottom:1px solid #E5E7EB;padding-bottom:12px">
+      <h2>Edit Event</h2>
+      <button class="legend-close" onclick="closeEventEdit()">&times;</button>
+    </div>
+    <div class="legend-body" style="padding:16px">
+
+      <!-- Event Name -->
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Event Name</label>
+        <input id="ee-name" type="text" value="CAAHEP-accredited program version 2"
+          style="width:100%;padding:7px 10px;border:1px solid #D1D5DB;border-radius:6px;font-size:13px;font-family:inherit;outline:none;color:#111827"
+          onfocus="this.style.borderColor='#7C3AED'" onblur="this.style.borderColor='#D1D5DB'">
+      </div>
+
+      <!-- Event Color -->
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:6px">Event Color</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap" id="ee-colors">
+          <button onclick="selectColor(this,'#F97316')" class="color-swatch active" style="background:#F97316" title="Orange"></button>
+          <button onclick="selectColor(this,'#7C3AED')" class="color-swatch" style="background:#7C3AED" title="Purple"></button>
+          <button onclick="selectColor(this,'#2563EB')" class="color-swatch" style="background:#2563EB" title="Blue"></button>
+          <button onclick="selectColor(this,'#16A34A')" class="color-swatch" style="background:#16A34A" title="Green"></button>
+          <button onclick="selectColor(this,'#DC2626')" class="color-swatch" style="background:#DC2626" title="Red"></button>
+          <button onclick="selectColor(this,'#0891B2')" class="color-swatch" style="background:#0891B2" title="Cyan"></button>
+          <button onclick="selectColor(this,'#D97706')" class="color-swatch" style="background:#D97706" title="Amber"></button>
+          <button onclick="selectColor(this,'#DB2777')" class="color-swatch" style="background:#DB2777" title="Pink"></button>
+          <button onclick="selectColor(this,'#6B7280')" class="color-swatch" style="background:#6B7280" title="Gray"></button>
+        </div>
+      </div>
+
+      <!-- Event Details -->
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Event Details</label>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div style="flex:1">
+            <label style="font-size:11px;color:#6B7280;display:block;margin-bottom:3px">Start Time</label>
+            <input id="ee-start" type="text" value="9am"
+              style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:5px;font-size:12px;font-family:inherit;outline:none"
+              onfocus="this.style.borderColor='#7C3AED'" onblur="this.style.borderColor='#D1D5DB'">
+          </div>
+          <div style="flex:1">
+            <label style="font-size:11px;color:#6B7280;display:block;margin-bottom:3px">End Time</label>
+            <input id="ee-end" type="text" value="5pm"
+              style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:5px;font-size:12px;font-family:inherit;outline:none"
+              onfocus="this.style.borderColor='#7C3AED'" onblur="this.style.borderColor='#D1D5DB'">
+          </div>
+          <div style="flex:1">
+            <label style="font-size:11px;color:#6B7280;display:block;margin-bottom:3px">Duration</label>
+            <input id="ee-dur" type="text" value="8 hours"
+              style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:5px;font-size:12px;font-family:inherit;outline:none;background:#F9FAFB;color:#6B7280" readonly>
+          </div>
+        </div>
+        <div>
+          <label style="font-size:11px;color:#6B7280;display:block;margin-bottom:3px">Notes</label>
+          <textarea id="ee-notes" rows="2" placeholder="Add notes about this event..."
+            style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:5px;font-size:12px;font-family:inherit;outline:none;resize:vertical"
+            onfocus="this.style.borderColor='#7C3AED'" onblur="this.style.borderColor='#D1D5DB'"></textarea>
+        </div>
+      </div>
+
+      <!-- Attendees -->
+      <div style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <label style="font-size:12px;font-weight:600;color:#374151">Attendees</label>
+          <button onclick="addAttendee()" style="display:flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid #D1D5DB;border-radius:4px;background:white;font-size:11px;cursor:pointer;font-family:inherit;color:#374151">
+            <i class="fa-solid fa-plus" style="font-size:9px"></i> Add person
+          </button>
+        </div>
+        <div id="ee-attendees" style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto">
+          <!-- populated by JS -->
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="display:flex;justify-content:flex-end;gap:8px;border-top:1px solid #E5E7EB;padding-top:12px">
+        <button onclick="closeEventEdit()" style="padding:6px 14px;border:1px solid #D1D5DB;border-radius:6px;background:white;font-size:12px;cursor:pointer;font-family:inherit;color:#374151">Cancel</button>
+        <button onclick="saveEventEdit()" style="padding:6px 14px;border:none;border-radius:6px;background:#7C3AED;font-size:12px;cursor:pointer;font-family:inherit;color:white;font-weight:600">Save changes</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- LEGEND MODAL -->
+<div class="legend-overlay" id="legend-overlay" onclick="closeLegendOnOverlay(event)">
+  <div class="legend-modal">
+    <div class="legend-modal-hdr">
+      <h2>Legend</h2>
+      <button class="legend-close" onclick="closeLegend()" aria-label="Close">&times;</button>
+    </div>
+    <div class="legend-body">
+      <!-- Credential Status -->
+      <div class="legend-row">
+        <span class="legend-row-label">Credential Status:</span>
+        <div class="legend-items">
+          <div class="legend-item">
+            <span class="legend-warn-icon">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L1 21h22L12 2z" fill="#FBBF24" stroke="#78350F" stroke-width="1.2"/>
+                <path d="M12 9v5M12 16.5v.5" stroke="#78350F" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <span>Expiring Soon/ Missing</span>
+          </div>
+          <div class="legend-item">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#DC2626;flex-shrink:0">
+              <i class="fa-solid fa-xmark" style="font-size:10px;color:white;font-weight:900"></i>
+            </span>
+            <span>Expired</span>
+          </div>
+        </div>
+      </div>
+      <!-- Badge Types -->
+      <div class="legend-row">
+        <span class="legend-row-label">Badge Types:</span>
+        <div class="legend-items">
+          <div class="legend-item">
+            <span class="legend-group-badge"><i class="fa-solid fa-users" style="font-size:9px"></i> Group</span>
+            <span>Group</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-label-badge"><i class="fa-solid fa-tag" style="font-size:9px"></i> Labels</span>
+            <span>Label</span>
+          </div>
+        </div>
+      </div>
+      <!-- Shift Status -->
+      <div class="legend-row">
+        <span class="legend-row-label">Shift Status:</span>
+        <div class="legend-items">
+          <div class="legend-item">
+            <span class="legend-partial-ex">8am-5pm <span>(9h)</span></span>
+            <span>Partial</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-concurrent-icon"><i class="fa-solid fa-flag" style="font-size:8px"></i></span>
+            <span>Concurrent</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── DATE / SHIFT STATE ──
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const SHIFT_COLORS = { A: '#EF4444', B: '#3B82F6', C: '#22C55E' };
+  const SHIFT_BG     = { A: '#FEE2E2', B: '#DBEAFE', C: '#DCFCE7' };
+
+  let currentDate = new Date(2026, 1, 27); // Feb 27 2026
+
+  function getShift(d) {
+    const base = new Date(2024, 0, 1);
+    const diff = Math.floor((d - base) / 86400000);
+    return ['A','B','C'][((diff % 3) + 3) % 3];
+  }
+
+  function updateDate() {
+    const d = currentDate;
+    const shift = getShift(d);
+    document.getElementById('date-text').textContent =
+      `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+    document.querySelector('.date-nav').style.background = SHIFT_COLORS[shift];
+    document.getElementById('shift-dot').style.background = SHIFT_COLORS[shift];
+    const badge = document.getElementById('shift-badge');
+    badge.textContent = `${shift} SHIFT`;
+  }
+
+  document.getElementById('btn-today').onclick      = () => { currentDate = new Date(); updateDate(); };
+  document.getElementById('btn-prev').onclick       = () => { currentDate.setDate(currentDate.getDate()-1); updateDate(); };
+  document.getElementById('btn-next-arrow').onclick = () => { currentDate.setDate(currentDate.getDate()+1); updateDate(); };
+  document.getElementById('btn-next-shift').onclick = () => { currentDate.setDate(currentDate.getDate()+1); updateDate(); };
+
+  updateDate();
+
+  // ── ZOOM ──
+  let zoomLevel = 100;
+  function updateZoom() {
+    document.getElementById('zoom-pct').textContent = zoomLevel + '%';
+    document.getElementById('columns-wrapper').style.zoom = (zoomLevel / 100);
+  }
+  document.getElementById('btn-zoom-in').onclick  = () => { zoomLevel = Math.min(200, zoomLevel+10); updateZoom(); };
+  document.getElementById('btn-zoom-out').onclick = () => { zoomLevel = Math.max(25, zoomLevel-10); updateZoom(); };
+
+  // ── COLUMN COLLAPSE ──
+  function toggleCol(btn) {
+    const col = btn.closest('.sched-col');
+    const body = col.querySelector('.sched-col-body');
+    const icon = btn.querySelector('i');
+    const hidden = body.style.display === 'none';
+    body.style.display = hidden ? '' : 'none';
+    icon.className = hidden ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-right';
+    icon.style.fontSize = '11px';
+  }
+
+  // ── SECTION COLLAPSE ──
+  function toggleSection(btn) {
+    const sect = btn.closest('.assign-sect');
+    const cards = sect.querySelector('.assign-cards');
+    const meta  = sect.querySelector('.assign-meta');
+    const icon  = btn.querySelector('i');
+    const hidden = cards.style.display === 'none';
+    cards.style.display = hidden ? '' : 'none';
+    if (meta) meta.style.display = hidden ? '' : 'none';
+    icon.className = (hidden ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down') + ' ';
+    icon.style.fontSize = '11px';
+  }
+
+  // ── CARD EXPAND ──
+  function toggleCardInfo(btn) {
+    const card = btn.closest('.staff-card');
+    let info = card.querySelector('.card-info');
+    const icon = btn.querySelector('i');
+    if (info) {
+      info.remove();
+      icon.className = 'fa-solid fa-chevron-down';
+      icon.style.fontSize = '11px';
+      return;
+    }
+
+    const bgColor = card.style.backgroundColor || '#ffffff';
+    const isDark = isColorDark(bgColor);
+    const d = isDark ? ' dark' : '';
+
+    // Build credential status rows from qualifier badges
+    let credRows = '';
+    card.querySelectorAll('.qual-badges .qb').forEach(badge => {
+      const hasExp  = badge.querySelector('.si-exp');
+      const hasWarn = badge.querySelector('.si-warn');
+      const hasMiss = badge.querySelector('.si-miss');
+      if (!hasExp && !hasWarn && !hasMiss) return;
+
+      // Extract label text (strip icon child text)
+      const label = badge.textContent.trim().replace(/[^\w\/]/g, '').replace('?','');
+      const badgeStyle = badge.getAttribute('style') || '';
+
+      let statusText = '';
+      let statusIcon = '';
+      if (hasExp) {
+        statusIcon = `<span class="si-exp"><i class="fa-solid fa-xmark"></i></span>`;
+        statusText = `Expired on: <strong style="color:${isDark?'#FCA5A5':'#DC2626'}">11/11/2025</strong>`;
+      } else if (hasWarn) {
+        statusIcon = `<span class="si-warn"><i class="fa-solid fa-triangle-exclamation"></i></span>`;
+        statusText = `Expiring on: <strong style="color:${isDark?'white':'#111827'}">12/5/2026</strong>`;
+      } else if (hasMiss) {
+        statusIcon = `<span class="si-miss">?</span>`;
+        statusText = `<strong style="color:${isDark?'#FCA5A5':'#DC2626'}">Missing</strong>`;
+      }
+
+      credRows += `<div class="ci-row${d}" style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+        <span class="qb" style="${badgeStyle}">${statusIcon}${label}</span>
+        <span>${statusText}</span>
+      </div>`;
+    });
+
+    // Concurrent shift
+    const nameEl = card.querySelector('[data-concurrent]');
+    let concurrentRow = '';
+    if (nameEl) {
+      const type = nameEl.dataset.concurrent;
+      concurrentRow = `<div class="ci-row${d}" style="display:flex;align-items:center;gap:6px;margin-top:4px">
+        <span class="concurrent-icon"><i class="fa-solid fa-flag"></i></span>
+        <span><strong>Concurrent shift:</strong> ${type}</span>
+      </div>`;
+    }
+
+    info = document.createElement('div');
+    info.className = 'card-info' + d;
+    info.innerHTML = `
+      <div class="ci-row${d}"><strong>Work type:</strong> Regular Time [RT]</div>
+      ${credRows || concurrentRow ? `<div style="border-top:1px solid ${isDark?'#4B5563':'#E5E7EB'};margin:5px 0"></div>` : ''}
+      ${credRows}
+      ${concurrentRow}
+      ${credRows || concurrentRow ? `<div style="border-top:1px solid ${isDark?'#4B5563':'#E5E7EB'};margin:5px 0"></div>` : ''}
+      <div class="ci-row${d}" style="margin-top:2px"><strong>Last modified by:</strong> Battalion Chief Davis</div>
+      <div class="ci-row${d}"><strong>On:</strong> 09/29/2025 6:20am</div>
+      <div class="ci-row${d}"><strong>Last update:</strong> 09/29/2025 6:20am</div>
+      <div class="ci-row${d}"><strong>Recurrence start:</strong> 01/03/2026</div>
+      <div class="ci-row${d}"><strong>Lists:</strong> All Employees, Firefighter, Paramedic</div>
+      <div class="ci-row${d}"><strong>Phone:</strong> (555) 456-7890</div>
+    `;
+    card.appendChild(info);
+    icon.className = 'fa-solid fa-chevron-up';
+    icon.style.fontSize = '11px';
+  }
+
+  function isColorDark(color) {
+    const m = color.match(/\d+/g);
+    if (!m || m.length < 3) {
+      // try hex
+      const hex = color.replace('#','');
+      if (hex.length === 6) {
+        const r=parseInt(hex.slice(0,2),16), g=parseInt(hex.slice(2,4),16), b=parseInt(hex.slice(4,6),16);
+        return (0.299*r+0.587*g+0.114*b)/255 < 0.55;
+      }
+      return false;
+    }
+    return (0.299*+m[0]+0.587*+m[1]+0.114*+m[2])/255 < 0.55;
+  }
+
+  // ── EVENT COLLAPSE ──
+  function toggleEvt(btn) {
+    const card = btn.closest('.event-card');
+    const people = card.querySelector('.person-list');
+    const sub = card.querySelector('.event-sub');
+    const icon = btn.querySelector('i');
+    if (!people) return;
+    const hidden = people.style.display === 'none';
+    people.style.display = hidden ? '' : 'none';
+    if (sub) sub.style.display = hidden ? '' : 'none';
+    icon.className = hidden ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
+    icon.style.fontSize = '10px';
+    icon.style.color = '#6B7280';
+  }
+
+  // ── SIDEBAR ──
+  let rsExpanded = true;
+  function collapseSidebar() { document.getElementById('right-sidebar').style.display='none'; document.getElementById('collapsed-sidebar').style.display='block'; }
+  function expandSidebar()   { document.getElementById('right-sidebar').style.display=''; document.getElementById('collapsed-sidebar').style.display='none'; }
+
+  function toggleAllSections() {
+    rsExpanded = !rsExpanded;
+    ['emp-off','evt-sect','misc-sect'].forEach(id => { const el=document.getElementById(id); if(el) el.style.display = rsExpanded?'':'none'; });
+    document.getElementById('rs-toggle-icon').className = rsExpanded ? 'fa-solid fa-angles-up' : 'fa-solid fa-angles-down';
+    document.getElementById('rs-toggle-icon').style.fontSize = '11px';
+    document.getElementById('rs-toggle-label').textContent = rsExpanded ? 'Collapse All' : 'Expand All';
+  }
+
+  function toggleRsSection(id, hdr) {
+    const el = document.getElementById(id);
+    const icon = hdr.querySelector('i');
+    const hidden = el.style.display === 'none';
+    el.style.display = hidden ? '' : 'none';
+    icon.className = hidden ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-right';
+    icon.style.fontSize = '10px';
+    icon.style.color = '#6B7280';
+  }
+
+  // ── EMPLOYEE FILTER ──
+  function filterEmps(q) {
+    document.querySelectorAll('#emp-list .emp-card').forEach(c => {
+      c.style.display = c.querySelector('.emp-name').textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
+    });
+  }
+
+  // ── EVENT EDIT MODAL ──
+  let currentEventCard = null;
+  let selectedColor = '#F97316';
+
+  const defaultAttendees = [
+    { name: 'Aurora Banks',   assigned: true },
+    { name: 'Luna Bell',      assigned: false },
+    { name: 'Jasper Cole',    assigned: true },
+    { name: 'Asher Cook',     assigned: false },
+    { name: 'Scarlett Hayes', assigned: true },
+    { name: 'Hazel King',     assigned: true },
+    { name: 'Owen Lane',      assigned: true },
+    { name: 'Evelyn Reed',    assigned: true },
+    { name: 'Finley Ward',    assigned: true },
+  ];
+
+  function openEventEdit(card) {
+    currentEventCard = card;
+    const title = card.querySelector('.event-title');
+    const nameText = title ? title.textContent.trim() : '';
+    document.getElementById('ee-name').value = nameText;
+
+    const borderColor = card.style.borderLeftColor || '#F97316';
+    selectedColor = borderColor;
+    document.querySelectorAll('.color-swatch').forEach(s => {
+      s.classList.toggle('active', s.style.background === borderColor || s.dataset.hex === borderColor);
+    });
+
+    renderAttendees(defaultAttendees);
+    document.getElementById('event-edit-overlay').classList.add('open');
+  }
+
+  function renderAttendees(list) {
+    const container = document.getElementById('ee-attendees');
+    container.innerHTML = '';
+    list.forEach((a, i) => {
+      const row = document.createElement('div');
+      row.className = 'attendee-row';
+      row.innerHTML = `
+        <span class="attendee-flag ${a.assigned ? '' : 'off'}" title="${a.assigned ? 'Assigned' : 'Unassigned'}" onclick="toggleAttendeeFlag(this)">
+          <i class="fa-solid fa-flag"></i>
+        </span>
+        <input class="attendee-name" type="text" value="${a.name}">
+        <button class="attendee-remove" onclick="removeAttendee(this)" title="Remove"><i class="fa-solid fa-xmark"></i></button>
+      `;
+      container.appendChild(row);
+    });
+  }
+
+  function toggleAttendeeFlag(el) {
+    el.classList.toggle('off');
+    el.title = el.classList.contains('off') ? 'Unassigned' : 'Assigned';
+  }
+
+  function removeAttendee(btn) {
+    btn.closest('.attendee-row').remove();
+  }
+
+  function addAttendee() {
+    const container = document.getElementById('ee-attendees');
+    const row = document.createElement('div');
+    row.className = 'attendee-row';
+    row.innerHTML = `
+      <span class="attendee-flag off" title="Unassigned" onclick="toggleAttendeeFlag(this)">
+        <i class="fa-solid fa-flag"></i>
+      </span>
+      <input class="attendee-name" type="text" placeholder="Name..." style="color:#111827">
+      <button class="attendee-remove" onclick="removeAttendee(this)" title="Remove"><i class="fa-solid fa-xmark"></i></button>
+    `;
+    container.appendChild(row);
+    row.querySelector('input').focus();
+  }
+
+  function selectColor(btn, hex) {
+    selectedColor = hex;
+    document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  function saveEventEdit() {
+    if (!currentEventCard) return;
+    const newName = document.getElementById('ee-name').value.trim();
+    const start   = document.getElementById('ee-start').value.trim();
+    const end     = document.getElementById('ee-end').value.trim();
+
+    // Update card border color
+    currentEventCard.style.borderLeftColor = selectedColor;
+
+    // Update title (preserve icon)
+    const titleEl = currentEventCard.querySelector('.event-title');
+    if (titleEl) {
+      titleEl.innerHTML = `<i class="fa-regular fa-calendar" style="color:${selectedColor}"></i> ${newName}`;
+    }
+
+    // Update time
+    const metaEl = currentEventCard.querySelector('.event-meta');
+    if (metaEl) metaEl.innerHTML = `${start} – ${end} <span class="evt-hours">(8 hours)</span>`;
+
+    // Update attendee list in the card's person-list
+    const personList = currentEventCard.querySelector('.person-list');
+    if (personList) {
+      personList.innerHTML = '';
+      document.querySelectorAll('#ee-attendees .attendee-row').forEach(row => {
+        const name = row.querySelector('.attendee-name').value.trim();
+        const assigned = !row.querySelector('.attendee-flag').classList.contains('off');
+        if (!name) return;
+        const div = document.createElement('div');
+        div.className = `person-row ${assigned ? 'assigned' : 'unassigned'}`;
+        div.innerHTML = assigned
+          ? `<span class="person-flag"><i class="fa-solid fa-flag"></i></span>${name}`
+          : `<span class="person-flag-placeholder"></span>${name}`;
+        personList.appendChild(div);
+      });
+    }
+
+    closeEventEdit();
+  }
+
+  function closeEventEdit() { document.getElementById('event-edit-overlay').classList.remove('open'); }
+  function closeEventEditOnOverlay(e) { if (e.target === document.getElementById('event-edit-overlay')) closeEventEdit(); }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeEventEdit(); closeLegend(); } });
+
+  // ── LEGEND MODAL ──
+  document.getElementById('btn-legend-open').addEventListener('click', () => {
+    document.getElementById('legend-overlay').classList.add('open');
+  });
+  function closeLegend() { document.getElementById('legend-overlay').classList.remove('open'); }
+  function closeLegendOnOverlay(e) { if (e.target === document.getElementById('legend-overlay')) closeLegend(); }
+</script>
+</body>
+</html>
