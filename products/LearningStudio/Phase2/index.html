@@ -1,0 +1,2473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Content Studio — Learning Object Manager</title>
+
+  <script type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+  </script>
+  <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+  </script>
+  <link rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+  <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Open Sans', -apple-system, sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      color: #0f2e3d;
+      font-size: 13px;
+    }
+
+    /* App shell — matches globals.css gradient */
+    #app {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background:
+        linear-gradient(140.604deg, rgba(125,205,238,0.35) 4%, rgba(213,236,181,0.35) 100%),
+        #f0f7fb;
+    }
+
+    /* =====================================================================
+       WIZARD HEADER
+    ===================================================================== */
+    #wizard-header {
+      height: 56px;
+      background: white;
+      border-bottom: 1px solid rgba(28,55,90,0.12);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      gap: 0;
+      flex-shrink: 0;
+      z-index: 40;
+      position: relative;
+    }
+
+    .wh-left { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+    .wh-center { flex-shrink: 0; padding: 0 12px; }
+    .wh-right { display: flex; align-items: center; gap: 16px; flex: 1; justify-content: flex-end; }
+
+    .wh-back {
+      width: 34px; height: 34px; border: none; background: none; border-radius: 6px;
+      cursor: pointer; color: #0271ce; display: flex; align-items: center;
+      justify-content: center; font-size: 13px; flex-shrink: 0;
+    }
+    .wh-back:hover { background: #f0f9ff; }
+
+    .wh-divider { width: 1px; height: 22px; background: #e5e7eb; flex-shrink: 0; margin: 0 4px; }
+
+    .wh-title-group { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .wh-section { font-size: 10.5px; color: #6b7280; white-space: nowrap; }
+    .wh-lo-title {
+      font-size: 13px; font-weight: 600; color: #111827;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px;
+    }
+
+    .wh-icon-btn {
+      width: 30px; height: 30px; border: none; background: none; border-radius: 5px;
+      cursor: pointer; color: #6b7280; display: flex; align-items: center;
+      justify-content: center; font-size: 12px; flex-shrink: 0; position: relative;
+    }
+    .wh-icon-btn:hover { background: #f3f4f6; color: #374151; }
+    .wh-icon-btn.sky { color: #0284c7; }
+    .wh-icon-btn.sky:hover { background: #e0f2fe; }
+    .wh-icon-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .wh-icon-btn:disabled:hover { background: none; }
+
+    .wh-search {
+      position: relative; width: 300px;
+    }
+    .wh-search i {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      color: #9ca3af; font-size: 11px; pointer-events: none;
+    }
+    .wh-search input {
+      width: 100%; height: 34px; padding: 0 10px 0 30px;
+      border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px;
+      background: #f9fafb; color: #374151; outline: none; font-family: inherit;
+    }
+    .wh-search input::placeholder { color: #9ca3af; }
+    .wh-search input:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,0.1); }
+
+    .save-status { display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: #6b7280; }
+    .save-status i { color: #16a34a; }
+
+    /* =====================================================================
+       MAIN CONTENT AREA
+    ===================================================================== */
+    #main-content { display: flex; flex: 1; overflow: hidden; }
+
+    /* =====================================================================
+       LEFT SIDEBAR
+    ===================================================================== */
+    #left-sidebar {
+      width: 64px; background: white;
+      border-right: 1px solid #e5e7eb;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 12px 0; gap: 4px; flex-shrink: 0;
+      box-shadow: 2px 0 8px rgba(0,0,0,0.04); z-index: 20;
+    }
+
+    .sb-btn {
+      width: 48px; height: 48px; border: none; border-radius: 8px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 17px; background: none; color: #6b7280;
+      position: relative; transition: background 0.12s, color 0.12s;
+    }
+    .sb-btn:hover { background: #f3f4f6; color: #374151; }
+    .sb-btn.active { background: #e0f2fe; color: #0284c7; }
+
+    .sb-btn::after {
+      content: attr(data-tip); position: absolute; left: calc(100% + 10px);
+      top: 50%; transform: translateY(-50%); background: #1f2937; color: white;
+      font-size: 11px; font-weight: 500; padding: 4px 8px; border-radius: 5px;
+      white-space: nowrap; pointer-events: none; opacity: 0;
+      transition: opacity 0.15s; z-index: 200;
+    }
+    .sb-btn:hover::after { opacity: 1; }
+
+    /* =====================================================================
+       SLIDE-OUT PANELS
+    ===================================================================== */
+    .slide-panel {
+      width: 420px; height: 100%; display: flex; flex-direction: column;
+      flex-shrink: 0; z-index: 10; overflow: hidden;
+      border-right: 2px solid rgba(255,255,255,0.7);
+      background: rgba(240,249,255,0.96);
+      box-shadow: 0 8px 32px rgba(14,165,233,0.15), 0 4px 16px rgba(14,165,233,0.1);
+    }
+    .slide-panel.hidden { display: none; }
+
+    .panel-header {
+      padding: 12px 14px; border-bottom: 1px solid rgba(14,165,233,0.1);
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0; background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .ph-left { display: flex; align-items: center; gap: 6px; }
+    .ph-close {
+      width: 26px; height: 26px; border: none; background: none; border-radius: 4px;
+      cursor: pointer; color: #9ca3af; display: flex; align-items: center;
+      justify-content: center; font-size: 11px;
+    }
+    .ph-close:hover { background: #f3f4f6; color: #374151; }
+    .panel-title { font-size: 13.5px; font-weight: 700; color: #0f2e3d; }
+    .panel-badge {
+      background: rgba(14,165,233,0.12); border-radius: 4px;
+      padding: 1px 7px; font-size: 11px; color: #0284c7; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 3px;
+    }
+
+    .panel-add-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 12px; border-radius: 6px; background: #0ea5e9; color: white;
+      font-size: 11.5px; font-weight: 600; border: none; cursor: pointer; font-family: inherit;
+    }
+    .panel-add-btn:hover { background: #0284c7; }
+
+    .view-toggle {
+      display: flex; background: rgba(14,165,233,0.08);
+      border: 1px solid rgba(14,165,233,0.18); border-radius: 6px; padding: 2px; gap: 1px;
+    }
+    .vt-btn {
+      width: 26px; height: 22px; border: none; background: none; border-radius: 4px;
+      cursor: pointer; color: #6b7280; display: flex; align-items: center;
+      justify-content: center; font-size: 11px;
+    }
+    .vt-btn.active { background: white; color: #0284c7; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+
+    .panel-body {
+      flex: 1; overflow-y: auto; padding: 14px;
+    }
+    .panel-body::-webkit-scrollbar { width: 4px; }
+    .panel-body::-webkit-scrollbar-track { background: transparent; }
+    .panel-body::-webkit-scrollbar-thumb { background: rgba(14,165,233,0.2); border-radius: 2px; }
+
+    /* =====================================================================
+       GENERATE ALL AUDIO BUTTON
+    ===================================================================== */
+    .gen-all-btn {
+      width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px;
+      padding: 8px 12px; border: 1.5px solid rgba(14,165,233,0.25); border-radius: 8px;
+      background: rgba(240,249,255,0.7); color: #0284c7;
+      font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+      margin-bottom: 14px; transition: all 0.12s;
+    }
+    .gen-all-btn:hover { background: rgba(14,165,233,0.08); border-color: rgba(14,165,233,0.45); }
+
+    /* =====================================================================
+       SCENE CARDS (text view)
+    ===================================================================== */
+    .scene-wrapper {
+      position: relative; margin-bottom: 14px;
+    }
+
+    /* +Add buttons appear on hover */
+    .add-before-btn, .add-after-btn {
+      position: absolute; width: 22px; height: 22px; border-radius: 50%;
+      background: #0ea5e9; color: white; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; font-size: 11px;
+      box-shadow: 0 2px 6px rgba(14,165,233,0.4); z-index: 5;
+      opacity: 0; transition: opacity 0.15s, transform 0.15s;
+    }
+    .add-before-btn { top: -9px; left: 8px; }
+    .add-after-btn { bottom: -9px; left: 8px; }
+    .scene-wrapper:hover .add-before-btn,
+    .scene-wrapper:hover .add-after-btn { opacity: 1; }
+    .add-before-btn:hover, .add-after-btn:hover { transform: scale(1.15); }
+
+    .scene-card {
+      border-radius: 12px; padding: 13px; cursor: pointer;
+      background: rgba(255,255,255,0.55);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.9);
+      box-shadow: 0 6px 24px rgba(14,165,233,0.12), 0 2px 8px rgba(14,165,233,0.08),
+                  inset 0 0 20px rgba(255,255,255,0.4);
+      transition: all 0.18s;
+    }
+    .scene-card.inactive { opacity: 0.82; }
+    .scene-card.inactive:hover { opacity: 0.96; }
+    .scene-card.active {
+      border-left: 4px solid #9ca3af; opacity: 1;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.12), 0 8px 28px rgba(0,0,0,0.08),
+                  inset 0 1px 0 rgba(255,255,255,0.9);
+    }
+
+    .sc-header { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; flex-wrap: wrap; }
+
+    .sc-number {
+      min-width: 38px; min-height: 38px; padding: 4px 8px;
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700; flex-shrink: 0;
+      background: rgba(255,255,255,0.6); border: 2px solid rgba(255,255,255,0.5); color: #374151;
+    }
+    .scene-card.active .sc-number { background: #374151; color: white; border-color: #374151; }
+
+    .sc-inline-actions { display: flex; gap: 4px; }
+
+    .sc-actions { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+
+    .sc-duration { display: flex; align-items: center; gap: 3px; font-size: 11px; color: #6b7280; }
+
+    .sc-btn {
+      width: 30px; height: 30px; border-radius: 6px; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; font-size: 12px;
+      background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.4);
+      color: #374151; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .sc-btn:hover { background: rgba(255,255,255,0.8); }
+    .sc-btn.complete { background: #22c55e; border-color: #16a34a; color: white; }
+    .sc-btn.complete:hover { background: #16a34a; }
+
+    .sc-transcript-preview {
+      min-height: 80px; padding: 9px 11px; border-radius: 8px;
+      background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.3);
+      font-size: 12px; color: rgba(15,46,61,0.78); line-height: 1.55;
+    }
+
+    .sc-transcript-textarea {
+      width: 100%; min-height: 90px; padding: 9px 11px; border-radius: 8px;
+      background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.4);
+      font-size: 12px; color: #0f2e3d; line-height: 1.55; resize: none;
+      outline: none; font-family: inherit;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.07);
+    }
+    .sc-transcript-textarea:focus {
+      background: rgba(255,255,255,0.72); border-color: rgba(14,165,233,0.4);
+    }
+
+    .sc-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 9px; }
+
+    .sc-status-select {
+      font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 5px;
+      border: 1px solid; cursor: pointer; background: none; font-family: inherit;
+      appearance: none; -webkit-appearance: none;
+    }
+    .sc-status-select.in-progress { color: #1d4ed8; background: #eff6ff; border-color: #bfdbfe; }
+    .sc-status-select.in-review   { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+    .sc-status-select.ready       { color: #15803d; background: #f0fdf4; border-color: #bbf7d0; }
+
+    /* Add scene button */
+    .add-scene-footer-btn {
+      width: 100%; margin-top: 6px; padding: 9px;
+      border: 1.5px dashed rgba(14,165,233,0.3); border-radius: 10px;
+      background: rgba(240,249,255,0.4); color: #0284c7;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      font-family: inherit; transition: all 0.12s;
+    }
+    .add-scene-footer-btn:hover { background: rgba(14,165,233,0.07); border-color: rgba(14,165,233,0.5); }
+
+    /* =====================================================================
+       SCENE THUMBNAIL CARDS (media view)
+    ===================================================================== */
+    .sc-thumb {
+      display: flex; gap: 10px; padding: 10px; border-radius: 10px; cursor: pointer;
+      background: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.9);
+      box-shadow: 0 3px 12px rgba(14,165,233,0.1); margin-bottom: 8px;
+      transition: all 0.15s;
+    }
+    .sc-thumb:hover { box-shadow: 0 5px 18px rgba(14,165,233,0.18); }
+    .sc-thumb.active { border-left: 3px solid #9ca3af; }
+
+    .sc-thumb img {
+      width: 84px; height: 56px; border-radius: 6px; object-fit: cover;
+      background: #e5e7eb; flex-shrink: 0;
+    }
+    .sc-thumb-info { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+    .sc-thumb-title { font-size: 12px; font-weight: 600; color: #374151; }
+    .sc-thumb-dur { font-size: 10.5px; color: #9ca3af; }
+
+    /* Status badge (read-only) */
+    .status-badge {
+      display: inline-block; font-size: 10px; font-weight: 600;
+      padding: 2px 7px; border-radius: 4px; border: 1px solid;
+    }
+    .status-badge.in-progress { color: #1d4ed8; background: #eff6ff; border-color: #bfdbfe; }
+    .status-badge.in-review   { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+    .status-badge.ready       { color: #15803d; background: #f0fdf4; border-color: #bbf7d0; }
+
+    /* =====================================================================
+       EMPTY STATE
+    ===================================================================== */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 48px 24px; text-align: center; color: #9ca3af;
+    }
+    .empty-state i { font-size: 36px; opacity: 0.25; margin-bottom: 12px; }
+    .empty-state p { font-size: 13px; margin-bottom: 4px; color: #6b7280; }
+    .empty-state small { font-size: 11.5px; }
+
+    /* Citations */
+    .citation-item {
+      background: white; border-radius: 8px; border: 1px solid #e5e7eb;
+      padding: 11px 13px; margin-bottom: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .citation-num { font-size: 10px; font-weight: 700; color: #9ca3af; margin-bottom: 3px; }
+    .citation-text { font-size: 12px; color: #374151; line-height: 1.55; }
+
+    /* =====================================================================
+       CANVAS AREA
+    ===================================================================== */
+    #canvas-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+    #canvas-toolbar {
+      height: 46px; background: white; border-bottom: 1px solid #e5e7eb;
+      display: flex; align-items: center; padding: 0 14px; gap: 6px; flex-shrink: 0;
+    }
+    .toolbar-sep { width: 1px; height: 20px; background: #e5e7eb; margin: 0 4px; }
+
+    .tb-btn {
+      display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px;
+      border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
+      font-family: inherit; border: none; transition: opacity 0.12s;
+    }
+    .tb-btn:hover { opacity: 0.85; }
+    .tb-btn.outline { background: white; color: #374151; border: 1.5px solid #d1d5db; }
+    .tb-btn.purple  { background: linear-gradient(135deg, #8b5cf6, #a855f7); color: white; }
+    .tb-btn.green   { background: #16a34a; color: white; }
+    .tb-btn.green.done { background: #15803d; }
+
+    #preview-area {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      padding: 20px; overflow: hidden;
+    }
+
+    .canvas-frame {
+      width: 100%; max-width: 900px; aspect-ratio: 16 / 9;
+      border-radius: 14px; overflow: hidden; position: relative;
+      background: #111;
+      box-shadow: 0 12px 48px rgba(14,165,233,0.2), 0 4px 16px rgba(0,0,0,0.15);
+    }
+
+    #canvas-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    #canvas-overlay { position: absolute; inset: 0; }
+
+    /* Template overlays */
+    .tpl-text-overlay {
+      position: absolute; top: 0; bottom: 0; width: 33%;
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    .tpl-text-overlay.left { left: 0; }
+    .tpl-text-overlay.right { right: 0; }
+    .tpl-overlay-text { font-size: clamp(10px,1.4vw,18px); font-weight: 500; text-align: center; line-height: 1.4; }
+
+    .tpl-lower-third {
+      position: absolute; left: 0; right: 0; padding: 12px 28px;
+    }
+    .tpl-lower-third.bottom { bottom: 0; }
+    .tpl-lower-third.top { top: 0; }
+    .tpl-lower-title { font-size: clamp(10px,1.3vw,16px); font-weight: 700; }
+    .tpl-lower-sub { font-size: clamp(8px,1vw,13px); opacity: 0.88; margin-top: 2px; }
+
+    /* =====================================================================
+       TIMELINE
+    ===================================================================== */
+    #timeline-panel {
+      background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
+      border-top: 1px solid rgba(148,163,184,0.2);
+      box-shadow: 0 -4px 16px rgba(14,165,233,0.08);
+      flex-shrink: 0;
+    }
+
+    .tl-header {
+      height: 36px; display: flex; align-items: center; padding: 0 14px; gap: 8px;
+      border-bottom: 1px solid rgba(148,163,184,0.12);
+    }
+    .tl-collapse-btn {
+      display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600;
+      color: #475569; background: none; border: none; cursor: pointer; padding: 3px 6px;
+      border-radius: 4px; font-family: inherit;
+    }
+    .tl-collapse-btn:hover { background: rgba(14,165,233,0.07); }
+    .tl-time { font-size: 12px; font-weight: 600; color: #0f2e3d; font-family: 'Courier New', monospace; }
+    .tl-playback { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+    .tl-btn {
+      width: 26px; height: 26px; border: none; background: none; border-radius: 4px;
+      cursor: pointer; color: #475569; display: flex; align-items: center;
+      justify-content: center; font-size: 12px;
+    }
+    .tl-btn:hover { background: rgba(14,165,233,0.1); color: #0284c7; }
+    .tl-play-btn {
+      width: 30px; height: 30px; border: none; background: #0ea5e9;
+      border-radius: 6px; cursor: pointer; color: white;
+      display: flex; align-items: center; justify-content: center; font-size: 12px;
+    }
+    .tl-play-btn:hover { background: #0284c7; }
+
+    .tl-tracks { padding: 8px 14px 6px; }
+    .tl-tracks.collapsed { display: none; }
+
+    .tracks-row { display: flex; gap: 8px; }
+    .track-labels { width: 88px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
+    .track-label-cell { height: 26px; display: flex; align-items: center; font-size: 10.5px; font-weight: 500; color: #6b7280; }
+    .tracks-col { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+
+    .track {
+      height: 26px; position: relative; background: rgba(14,165,233,0.05);
+      border-radius: 6px; border: 1px solid rgba(148,163,184,0.15);
+      overflow: hidden; cursor: pointer;
+    }
+    .track-clip {
+      position: absolute; top: 3px; bottom: 3px; border-radius: 4px;
+      display: flex; align-items: center; padding: 0 8px;
+      font-size: 9.5px; font-weight: 600; color: rgba(0,0,0,0.55); white-space: nowrap;
+      overflow: hidden;
+    }
+    .clip-audio    { background: rgba(96,165,250,0.65); }
+    .clip-media    { background: rgba(248,113,113,0.65); }
+    .clip-template { background: rgba(190,242,100,0.75); }
+
+    /* waveform bars in audio track */
+    .waveform {
+      position: absolute; inset: 0; display: flex; align-items: center;
+      padding: 0 4px; gap: 1px; pointer-events: none;
+    }
+    .wf-bar { flex: 1; background: rgba(96,165,250,0.45); border-radius: 1px; min-width: 1px; }
+
+    .playhead {
+      position: absolute; top: 0; bottom: 0; width: 2px;
+      background: #ef4444; z-index: 10; pointer-events: none;
+    }
+    .playhead-cap {
+      width: 0; height: 0; position: absolute; top: 0; left: 50%;
+      transform: translateX(-50%) translateY(-100%);
+      border-left: 5px solid transparent; border-right: 5px solid transparent;
+      border-top: 7px solid #ef4444;
+    }
+
+    /* time ruler */
+    .time-ruler { display: flex; margin-top: 4px; padding-left: 96px; }
+    .time-ruler-ticks { flex: 1; display: flex; }
+    .tick { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+    .tick-line { width: 1px; height: 4px; background: #d1d5db; }
+    .tick-label { font-size: 8.5px; color: #9ca3af; font-family: 'Courier New', monospace; }
+
+    /* =====================================================================
+       DROPDOWN MENUS
+    ===================================================================== */
+    .dropdown {
+      position: fixed; background: white; border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.07);
+      z-index: 1000; min-width: 180px; padding: 4px; display: none;
+    }
+    .dropdown.show { display: block; }
+    .dd-item {
+      display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+      border-radius: 5px; font-size: 12.5px; color: #374151; cursor: pointer;
+      background: none; border: none; width: 100%; text-align: left;
+      font-family: inherit; transition: background 0.1s;
+    }
+    .dd-item:hover { background: #f3f4f6; }
+    .dd-item.danger { color: #dc2626; }
+    .dd-item.danger:hover { background: #fef2f2; }
+    .dd-sep { height: 1px; background: #f3f4f6; margin: 3px 0; }
+
+    /* =====================================================================
+       MODALS
+    ===================================================================== */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      display: flex; align-items: center; justify-content: center; z-index: 500;
+    }
+    .modal-backdrop.hidden { display: none; }
+
+    .modal {
+      background: white; border-radius: 12px; width: 100%;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.18), 0 8px 24px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .modal-sm { max-width: 460px; }
+    .modal-lg { max-width: 580px; }
+
+    .modal-header { padding: 18px 22px 14px; border-bottom: 1px solid #f3f4f6; }
+    .modal-title { font-size: 15px; font-weight: 700; color: #0f2e3d; margin-bottom: 3px; }
+    .modal-desc { font-size: 12px; color: #6b7280; }
+    .modal-body { padding: 14px 22px; }
+    .modal-footer {
+      padding: 12px 22px 18px; display: flex; justify-content: flex-end;
+      gap: 8px; border-top: 1px solid #f3f4f6;
+    }
+
+    .btn-cancel {
+      padding: 7px 14px; border-radius: 6px; background: white; color: #374151;
+      border: 1.5px solid #d1d5db; font-size: 12.5px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+    }
+    .btn-cancel:hover { background: #f9fafb; }
+
+    .btn-primary {
+      padding: 7px 14px; border-radius: 6px; background: #0ea5e9; color: white;
+      border: none; font-size: 12.5px; font-weight: 600; cursor: pointer;
+      font-family: inherit; display: inline-flex; align-items: center; gap: 5px;
+    }
+    .btn-primary:hover { background: #0284c7; }
+    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .form-group { margin-bottom: 13px; }
+    .form-label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 5px; }
+    .form-input, .form-textarea, .form-select {
+      width: 100%; padding: 7px 10px; border: 1.5px solid #d1d5db; border-radius: 6px;
+      font-size: 12.5px; color: #0f2e3d; outline: none; font-family: inherit;
+    }
+    .form-input:focus, .form-textarea:focus, .form-select:focus {
+      border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,0.1);
+    }
+    .form-textarea { resize: none; min-height: 80px; line-height: 1.5; }
+    .form-tip { font-size: 11px; color: #9ca3af; margin-top: 4px; line-height: 1.4; }
+
+    /* Voice grid */
+    .voice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+    .voice-opt {
+      padding: 8px 10px; border-radius: 7px; border: 1.5px solid #e5e7eb;
+      cursor: pointer; transition: all 0.12s;
+    }
+    .voice-opt:hover { border-color: #0ea5e9; background: #f0f9ff; }
+    .voice-opt.selected { border-color: #0ea5e9; background: #e0f2fe; }
+    .voice-name { font-size: 12.5px; font-weight: 600; color: #0f2e3d; }
+    .voice-desc { font-size: 10.5px; color: #9ca3af; }
+
+    .btn-preview-audio {
+      width: 100%; padding: 7px; border-radius: 6px; background: white;
+      border: 1.5px solid #d1d5db; color: #374151; font-size: 12px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      gap: 6px; font-family: inherit; margin-top: 4px;
+    }
+    .btn-preview-audio:hover { background: #f9fafb; }
+
+    /* =====================================================================
+       QUESTION CARDS (in left panel)
+    ===================================================================== */
+    .question-card {
+      border-radius: 12px; padding: 12px 13px; cursor: pointer; margin-bottom: 10px;
+      background: rgba(255,255,255,0.55);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.9);
+      box-shadow: 0 4px 16px rgba(14,165,233,0.1), 0 2px 6px rgba(14,165,233,0.06),
+                  inset 0 0 20px rgba(255,255,255,0.4);
+      transition: all 0.18s;
+    }
+    .question-card.inactive { opacity: 0.82; }
+    .question-card.inactive:hover { opacity: 0.96; }
+    .question-card.active {
+      border-left: 4px solid #9ca3af; opacity: 1;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.12), 0 8px 28px rgba(0,0,0,0.08),
+                  inset 0 1px 0 rgba(255,255,255,0.9);
+    }
+
+    .qc-header { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; }
+
+    .qc-number {
+      min-width: 32px; min-height: 32px; border-radius: 7px; display: flex; align-items: center;
+      justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0;
+      background: rgba(255,255,255,0.6); border: 2px solid rgba(255,255,255,0.5); color: #374151;
+    }
+    .question-card.active .qc-number { background: #374151; color: white; border-color: #374151; }
+
+    .qc-type-badge {
+      font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px;
+      background: rgba(14,165,233,0.1); color: #0284c7; border: 1px solid rgba(14,165,233,0.2);
+      white-space: nowrap;
+    }
+
+    .qc-actions { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+
+    .qc-text {
+      font-size: 12px; color: rgba(15,46,61,0.78); line-height: 1.45;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+      margin-bottom: 6px;
+    }
+
+    .add-question-footer-btn {
+      width: 100%; margin-top: 6px; padding: 9px;
+      border: 1.5px dashed rgba(14,165,233,0.3); border-radius: 10px;
+      background: rgba(240,249,255,0.4); color: #0284c7;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      font-family: inherit; transition: all 0.12s;
+    }
+    .add-question-footer-btn:hover { background: rgba(14,165,233,0.07); border-color: rgba(14,165,233,0.5); }
+
+    /* =====================================================================
+       QUESTION EDITOR (main area)
+    ===================================================================== */
+    #question-editor {
+      flex: 1; display: none; flex-direction: column; overflow: hidden; min-width: 0;
+    }
+    #question-editor.visible { display: flex; }
+
+    .qe-empty {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 48px 24px; text-align: center;
+    }
+    .qe-empty i { font-size: 52px; opacity: 0.18; margin-bottom: 16px; color: #64748b; }
+    .qe-empty p { font-size: 14px; color: #6b7280; margin-bottom: 6px; font-weight: 500; }
+    .qe-empty small { font-size: 12px; color: #9ca3af; }
+
+    #qe-toolbar {
+      height: 46px; background: white; border-bottom: 1px solid #e5e7eb;
+      display: flex; align-items: center; padding: 0 14px; gap: 6px; flex-shrink: 0;
+    }
+
+    .qe-type-btn {
+      display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px;
+      border-radius: 6px; font-size: 11.5px; font-weight: 600; cursor: pointer;
+      font-family: inherit; border: 1.5px solid #e5e7eb; background: white; color: #6b7280;
+      transition: all 0.12s;
+    }
+    .qe-type-btn.active { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+    .qe-type-btn:hover:not(.active) { background: #f9fafb; border-color: #d1d5db; }
+
+    #qe-active { flex: 1; flex-direction: column; overflow: hidden; }
+
+    /* Editor card wrapper */
+    .editor-card {
+      background: white; border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05), 0 0 0 0.5px rgba(0,0,0,0.02);
+      overflow: hidden;
+    }
+    .editor-card-body { padding: 20px; }
+    .editor-section { display: flex; flex-direction: column; gap: 12px; }
+    .editor-divider { height: 1px; background: #f0f0f0; margin: 4px 0; }
+
+    #qe-content {
+      flex: 1; overflow-y: auto; padding: 20px 24px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    #qe-content::-webkit-scrollbar { width: 5px; }
+    #qe-content::-webkit-scrollbar-thumb { background: rgba(14,165,233,0.2); border-radius: 3px; }
+
+    .qe-label {
+      display: block; font-size: 11px; font-weight: 700; color: #6b7280;
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px;
+    }
+
+    .qe-question-textarea {
+      width: 100%; min-height: 88px; padding: 10px 12px; border-radius: 8px;
+      border: 1.5px solid #e5e7eb; font-size: 14px; color: #0f2e3d; line-height: 1.6;
+      resize: none; outline: none; font-family: inherit; background: #fafafa;
+    }
+    .qe-question-textarea:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,0.1); }
+
+    .qe-options { display: flex; flex-direction: column; gap: 8px; }
+
+    .qe-option {
+      display: flex; align-items: center; gap: 10px; padding: 10px 13px;
+      border-radius: 9px; border: 1.5px solid #e5e7eb; background: white;
+      transition: all 0.12s; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .qe-option.correct { border-color: #16a34a; background: #f0fdf4; }
+
+    .qe-option-letter {
+      width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0;
+      background: #f1f5f9; color: #64748b; border: 1.5px solid #e2e8f0;
+    }
+    .qe-option.correct .qe-option-letter { background: #16a34a; color: white; border-color: #16a34a; }
+
+    .qe-option-input {
+      flex: 1; border: none; outline: none; font-size: 13px; color: #374151;
+      font-family: inherit; background: transparent;
+    }
+
+    .qe-mark-correct {
+      font-size: 10.5px; font-weight: 600; padding: 3px 9px; border-radius: 5px;
+      border: 1px solid #d1d5db; background: white; color: #6b7280; cursor: pointer;
+      font-family: inherit; white-space: nowrap; flex-shrink: 0; transition: all 0.1s;
+    }
+    .qe-option.correct .qe-mark-correct { background: #dcfce7; border-color: #86efac; color: #15803d; }
+    .qe-mark-correct:hover { background: #f0fdf4; border-color: #86efac; color: #15803d; }
+
+    .qe-del-opt {
+      width: 24px; height: 24px; border: none; background: none; border-radius: 4px;
+      cursor: pointer; color: #cbd5e1; display: flex; align-items: center;
+      justify-content: center; font-size: 11px; flex-shrink: 0; transition: all 0.1s;
+    }
+    .qe-del-opt:hover { color: #ef4444; background: #fee2e2; }
+
+    .qe-add-opt {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 9px; border-radius: 9px; border: 1.5px dashed #cbd5e1;
+      background: #f8fafc; color: #64748b; font-size: 12.5px; font-weight: 600;
+      cursor: pointer; font-family: inherit; width: 100%; transition: all 0.12s; margin-top: 2px;
+    }
+    .qe-add-opt:hover { border-color: #94a3b8; color: #374151; background: #f1f5f9; }
+
+    .qe-feedback-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .qe-feedback-grid > div > label {
+      display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #6b7280;
+    }
+    .qe-feedback-grid > div > label.correct-lbl { color: #15803d; }
+    .qe-feedback-grid > div > label.incorrect-lbl { color: #b45309; }
+
+    .qe-feedback-input {
+      width: 100%; padding: 9px 11px; border-radius: 8px; border: 1.5px solid #e5e7eb;
+      font-size: 12.5px; color: #374151; outline: none; font-family: inherit;
+      resize: none; line-height: 1.5; transition: border-color 0.12s; background: white;
+    }
+    .qe-feedback-input:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,0.08); }
+
+    .qe-settings-row { display: flex; align-items: center; gap: 16px; }
+    .qe-points-field { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #374151; }
+    .qe-points-field label { font-weight: 600; }
+    .qe-points-input {
+      width: 54px; padding: 5px 8px; border-radius: 6px; border: 1.5px solid #e5e7eb;
+      font-size: 13px; color: #0f2e3d; text-align: center; outline: none;
+      font-family: inherit; background: white;
+    }
+    .qe-points-input:focus { border-color: #0ea5e9; }
+
+    /* =====================================================================
+       CITATION EDITOR (main area)
+    ===================================================================== */
+    #citation-editor {
+      flex: 1; display: none; flex-direction: column; overflow: hidden; min-width: 0;
+    }
+    #citation-editor.visible { display: flex; }
+
+    #ce-active { flex: 1; flex-direction: column; overflow: hidden; }
+
+    #ce-toolbar {
+      height: 46px; background: white; border-bottom: 1px solid #e5e7eb;
+      display: flex; align-items: center; padding: 0 14px; gap: 8px; flex-shrink: 0;
+    }
+
+    .ce-type-select {
+      padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
+      border: 1.5px solid #e5e7eb; background: white; color: #374151;
+      cursor: pointer; font-family: inherit; outline: none;
+    }
+    .ce-type-select:focus { border-color: #0ea5e9; }
+
+    #ce-content {
+      flex: 1; overflow-y: auto; padding: 20px 24px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    #ce-content::-webkit-scrollbar { width: 5px; }
+    #ce-content::-webkit-scrollbar-thumb { background: rgba(14,165,233,0.2); border-radius: 3px; }
+
+    .ce-form-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+    }
+    .ce-form-grid .ce-full { grid-column: 1 / -1; }
+    .ce-form-grid > div > label {
+      display: block; font-size: 11px; font-weight: 600; color: #6b7280; margin-bottom: 5px;
+    }
+
+    .ce-input {
+      width: 100%; padding: 9px 12px; border-radius: 8px; border: 1.5px solid #e5e7eb;
+      font-size: 13px; color: #0f2e3d; outline: none; font-family: inherit;
+      background: white; transition: border-color 0.12s;
+    }
+    .ce-input:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,0.08); }
+
+    .ce-preview-box {
+      font-size: 13px; color: #374151; line-height: 1.75; min-height: 24px;
+    }
+
+    .cc-author {
+      font-size: 11.5px; font-weight: 600; color: #374151; margin-bottom: 2px;
+    }
+
+    .btn-danger {
+      display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px;
+      border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
+      font-family: inherit; border: 1.5px solid #fecaca; background: white;
+      color: #dc2626; transition: all 0.12s;
+    }
+    .btn-danger:hover { background: #fef2f2; border-color: #f87171; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===================================================================
+       WIZARD HEADER
+  =================================================================== -->
+  <header id="wizard-header">
+    <div class="wh-left">
+      <button class="wh-back" title="Course Overview">
+        <i class="fa-solid fa-arrow-left"></i>
+      </button>
+      <div class="wh-divider"></div>
+
+      <div class="wh-title-group">
+        <span class="wh-section" id="section-label">Getting Started</span>
+        <span class="wh-lo-title" id="lo-title">Introduction to Video Creation</span>
+      </div>
+
+      <button class="wh-icon-btn" title="Edit Title / Objective" onclick="openEditLOModal()">
+        <i class="fa-solid fa-pencil"></i>
+      </button>
+      <div class="wh-divider"></div>
+
+      <button class="wh-icon-btn" id="nav-prev" title="Previous Learning Object" onclick="navigateLO('prev')">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+      <button class="wh-icon-btn" id="nav-next" title="Next Learning Object" onclick="navigateLO('next')">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
+      <button class="wh-icon-btn sky" title="Preview Learning Object">
+        <i class="fa-solid fa-play"></i>
+      </button>
+      <button class="wh-icon-btn" title="More Actions" onclick="toggleDropdown('dd-lo', this)">
+        <i class="fa-solid fa-ellipsis-vertical"></i>
+      </button>
+
+      <!-- LO actions dropdown -->
+      <div id="dd-lo" class="dropdown">
+        <button class="dd-item" onclick="toggleLOComplete(); closeAllDropdowns()">
+          <i class="fa-regular fa-circle-check"></i>
+          <span id="lo-complete-lbl">Mark Complete</span>
+        </button>
+        <div class="dd-sep"></div>
+        <button class="dd-item" onclick="closeAllDropdowns()">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Regenerate Learning Object
+        </button>
+        <button class="dd-item" onclick="closeAllDropdowns()">
+          <i class="fa-solid fa-network-wired"></i> Open Flow Map
+        </button>
+      </div>
+    </div>
+
+    <div class="wh-center">
+      <div class="wh-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" id="search-input" placeholder="Search scenes, transcripts, and media..." oninput="onSearchInput(this.value)" />
+      </div>
+    </div>
+
+    <div class="wh-right">
+      <div class="save-status">
+        <i class="fa-solid fa-circle-check"></i>
+        <span id="save-text">Saved just now</span>
+      </div>
+      <button class="wh-icon-btn" title="Comments">
+        <i class="fa-regular fa-comment"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===================================================================
+       MAIN
+  =================================================================== -->
+  <div id="main-content">
+
+    <!-- Left Sidebar -->
+    <nav id="left-sidebar">
+      <button class="sb-btn active" id="sb-scenes"         data-tip="Scenes"           onclick="togglePanel('scenes')">
+        <i class="fa-solid fa-list-ul"></i>
+      </button>
+      <button class="sb-btn" id="sb-knowledge-checks" data-tip="Knowledge Checks"  onclick="togglePanel('knowledge-checks')">
+        <i class="fa-solid fa-brain"></i>
+      </button>
+      <button class="sb-btn" id="sb-assessment"       data-tip="Assessment"         onclick="togglePanel('assessment')">
+        <i class="fa-solid fa-clipboard-check"></i>
+      </button>
+      <button class="sb-btn" id="sb-citations"        data-tip="Citations"          onclick="togglePanel('citations')">
+        <i class="fa-solid fa-book-open"></i>
+      </button>
+    </nav>
+
+    <!-- ---- SCENES PANEL ---- -->
+    <div id="panel-scenes" class="slide-panel">
+      <div class="panel-header">
+        <div class="ph-left">
+          <button class="ph-close" onclick="togglePanel('scenes')"><i class="fa-solid fa-chevron-left"></i></button>
+          <span class="panel-title">Scenes</span>
+          <span class="panel-badge" id="scenes-dur-badge">
+            <i class="fa-regular fa-clock"></i> <span id="total-dur">22s</span>
+          </span>
+        </div>
+        <div class="view-toggle">
+          <button class="vt-btn active" id="vt-text"  title="Text view"      onclick="setView('text')"><i class="fa-solid fa-align-left"></i></button>
+          <button class="vt-btn"        id="vt-media" title="Thumbnail view" onclick="setView('media')"><i class="fa-regular fa-image"></i></button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <button class="gen-all-btn" onclick="openAudioModal()">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Generate All Audio
+        </button>
+        <div id="scene-list-text"></div>
+        <div id="scene-list-media" style="display:none;"></div>
+        <button class="add-scene-footer-btn" onclick="addScene()">
+          <i class="fa-solid fa-plus"></i> Add Scene
+        </button>
+      </div>
+    </div>
+
+    <!-- ---- KNOWLEDGE CHECKS PANEL ---- -->
+    <div id="panel-knowledge-checks" class="slide-panel hidden">
+      <div class="panel-header">
+        <div class="ph-left">
+          <button class="ph-close" onclick="togglePanel('knowledge-checks')"><i class="fa-solid fa-chevron-left"></i></button>
+          <span class="panel-title">Knowledge Checks</span>
+          <span class="panel-badge" id="kc-badge">0</span>
+        </div>
+        <button class="panel-add-btn" onclick="addQuestion('kc')"><i class="fa-solid fa-plus"></i> Add</button>
+      </div>
+      <div class="panel-body">
+        <div id="kc-question-list"></div>
+        <button class="add-question-footer-btn" onclick="addQuestion('kc')">
+          <i class="fa-solid fa-plus"></i> Add Question
+        </button>
+      </div>
+    </div>
+
+    <!-- ---- ASSESSMENT PANEL ---- -->
+    <div id="panel-assessment" class="slide-panel hidden">
+      <div class="panel-header">
+        <div class="ph-left">
+          <button class="ph-close" onclick="togglePanel('assessment')"><i class="fa-solid fa-chevron-left"></i></button>
+          <span class="panel-title">Assessment</span>
+          <span class="panel-badge" id="assess-badge">0</span>
+        </div>
+        <button class="panel-add-btn" onclick="addQuestion('assess')"><i class="fa-solid fa-plus"></i> Add</button>
+      </div>
+      <div class="panel-body">
+        <div id="assess-question-list"></div>
+        <button class="add-question-footer-btn" onclick="addQuestion('assess')">
+          <i class="fa-solid fa-plus"></i> Add Question
+        </button>
+      </div>
+    </div>
+
+    <!-- ---- CITATIONS PANEL ---- -->
+    <div id="panel-citations" class="slide-panel hidden">
+      <div class="panel-header">
+        <div class="ph-left">
+          <button class="ph-close" onclick="togglePanel('citations')"><i class="fa-solid fa-chevron-left"></i></button>
+          <span class="panel-title">Citations</span>
+          <span class="panel-badge" id="cit-badge">0</span>
+        </div>
+        <button class="panel-add-btn" onclick="addCitation()"><i class="fa-solid fa-plus"></i> Add</button>
+      </div>
+      <div class="panel-body">
+        <div id="citations-list"></div>
+        <button class="add-question-footer-btn" onclick="addCitation()">
+          <i class="fa-solid fa-plus"></i> Add Citation
+        </button>
+      </div>
+    </div>
+
+    <!-- ---- CANVAS AREA ---- -->
+    <div id="canvas-area">
+
+      <!-- Toolbar -->
+      <div id="canvas-toolbar">
+        <button class="tb-btn outline"><i class="fa-solid fa-upload"></i> Upload</button>
+        <button class="tb-btn outline"><i class="fa-regular fa-image"></i> Stock</button>
+        <button class="tb-btn purple"><i class="fa-solid fa-sparkles"></i> Generate (AI)</button>
+        <div style="flex:1;"></div>
+        <button class="tb-btn outline"><i class="fa-solid fa-play"></i> Preview</button>
+        <button class="tb-btn green" id="complete-btn" onclick="toggleActiveComplete()">
+          <i class="fa-solid fa-check"></i> Complete Scene
+        </button>
+      </div>
+
+      <!-- Preview Canvas -->
+      <div id="preview-area">
+        <div class="canvas-frame">
+          <img id="canvas-bg" alt="Scene preview" />
+          <div id="canvas-overlay"></div>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div id="timeline-panel">
+        <div class="tl-header">
+          <button class="tl-collapse-btn" onclick="toggleTimeline()">
+            <i class="fa-solid fa-chevron-down" id="tl-chevron"></i> Timeline
+          </button>
+          <span class="tl-time" id="tl-time">0:00.00 / 0:22.00</span>
+          <div class="tl-playback">
+            <button class="tl-btn" onclick="seekToStart()" title="Reset to start">
+              <i class="fa-solid fa-backward-step"></i>
+            </button>
+            <button class="tl-play-btn" id="play-btn" onclick="togglePlay()">
+              <i class="fa-solid fa-play" id="play-icon"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="tl-tracks" id="tl-tracks">
+          <div class="tracks-row">
+            <div class="track-labels">
+              <div class="track-label-cell">Audio</div>
+              <div class="track-label-cell">Background</div>
+              <div class="track-label-cell">Template</div>
+            </div>
+            <div class="tracks-col">
+              <!-- Audio track with waveform -->
+              <div class="track" id="track-audio" onclick="trackClick(event,this)">
+                <div class="waveform" id="waveform"></div>
+                <div class="playhead" id="ph-audio" style="left:0%">
+                  <div class="playhead-cap"></div>
+                </div>
+              </div>
+              <!-- Background track -->
+              <div class="track" id="track-bg" onclick="trackClick(event,this)">
+                <div class="track-clip clip-media" id="clip-bg" style="left:0%;width:100%;">Background Media</div>
+                <div class="playhead" id="ph-bg" style="left:0%"></div>
+              </div>
+              <!-- Template track -->
+              <div class="track" id="track-tpl" onclick="trackClick(event,this)">
+                <div class="track-clip clip-template" id="clip-tpl" style="left:0%;width:100%;"></div>
+                <div class="playhead" id="ph-tpl" style="left:0%"></div>
+              </div>
+            </div>
+          </div>
+          <div class="time-ruler">
+            <div class="time-ruler-ticks" id="time-ruler"></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /canvas-area -->
+
+    <!-- ---- QUESTION EDITOR ---- -->
+    <div id="question-editor">
+
+      <!-- Empty state: no question selected -->
+      <div id="qe-empty-state" class="qe-empty">
+        <i class="fa-regular fa-circle-question"></i>
+        <p>No question selected</p>
+        <small>Select a question from the panel, or click "Add Question"</small>
+      </div>
+
+      <!-- Active: question in edit mode -->
+      <div id="qe-active" style="display:none;">
+
+        <!-- Toolbar -->
+        <div id="qe-toolbar">
+          <button class="qe-type-btn" id="qe-type-mc" onclick="setQType('multiple-choice')">
+            <i class="fa-solid fa-list-ul"></i> Multiple Choice
+          </button>
+          <button class="qe-type-btn" id="qe-type-tf" onclick="setQType('true-false')">
+            <i class="fa-regular fa-circle-dot"></i> True / False
+          </button>
+          <button class="qe-type-btn" id="qe-type-fb" onclick="setQType('fill-blank')">
+            <i class="fa-solid fa-i-cursor"></i> Fill in Blank
+          </button>
+          <div style="flex:1;"></div>
+          <select id="qe-status-select" class="sc-status-select in-progress" onchange="updateQStatus(this.value)">
+            <option value="in-progress">In Progress</option>
+            <option value="in-review">In Review</option>
+            <option value="ready">Marked as Ready</option>
+          </select>
+          <button class="tb-btn green" id="qe-complete-btn" onclick="toggleQComplete()">
+            <i class="fa-solid fa-check"></i> Complete Question
+          </button>
+        </div>
+
+        <!-- Scrollable editor body -->
+        <div id="qe-content">
+
+          <div class="editor-card">
+            <div class="editor-card-body">
+
+              <!-- Question text -->
+              <div class="editor-section">
+                <span class="qe-label">Question</span>
+                <textarea class="qe-question-textarea" id="qe-question-text"
+                  placeholder="Enter your question here..."
+                  oninput="updateQText(this.value)"></textarea>
+              </div>
+
+              <div class="editor-divider"></div>
+
+              <!-- Answer options -->
+              <div class="editor-section" id="qe-options-section">
+                <span class="qe-label">Answer Options</span>
+                <div class="qe-options" id="qe-options-list"></div>
+                <button class="qe-add-opt" id="qe-add-option-btn" onclick="addQOption()">
+                  <i class="fa-solid fa-plus"></i> Add Option
+                </button>
+              </div>
+
+              <div class="editor-divider"></div>
+
+              <!-- Feedback -->
+              <div class="editor-section">
+                <span class="qe-label">Feedback</span>
+                <div class="qe-feedback-grid">
+                  <div>
+                    <label class="correct-lbl"><i class="fa-solid fa-circle-check"></i> Correct Answer</label>
+                    <textarea class="qe-feedback-input" id="qe-feedback-correct" rows="3"
+                      placeholder="Feedback shown when the learner answers correctly..."
+                      onchange="updateQFeedback('correct',this.value)"></textarea>
+                  </div>
+                  <div>
+                    <label class="incorrect-lbl"><i class="fa-solid fa-circle-xmark"></i> Incorrect Answer</label>
+                    <textarea class="qe-feedback-input" id="qe-feedback-incorrect" rows="3"
+                      placeholder="Feedback shown when the learner answers incorrectly..."
+                      onchange="updateQFeedback('incorrect',this.value)"></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <div class="editor-divider"></div>
+
+              <!-- Settings -->
+              <div class="editor-section">
+                <span class="qe-label">Settings</span>
+                <div class="qe-settings-row">
+                  <div class="qe-points-field">
+                    <label for="qe-points">Points:</label>
+                    <input type="number" class="qe-points-input" id="qe-points"
+                      min="0" max="100" value="1" onchange="updateQPoints(this.value)" />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div><!-- /qe-content -->
+      </div><!-- /qe-active -->
+
+    </div><!-- /question-editor -->
+
+    <!-- ---- CITATION EDITOR ---- -->
+    <div id="citation-editor">
+
+      <!-- Empty state: no citation selected -->
+      <div id="ce-empty-state" class="qe-empty">
+        <i class="fa-solid fa-book-open"></i>
+        <p>No citation selected</p>
+        <small>Select a citation from the panel, or click "Add Citation"</small>
+      </div>
+
+      <!-- Active: citation in edit mode -->
+      <div id="ce-active" style="display:none;">
+
+        <!-- Toolbar -->
+        <div id="ce-toolbar">
+          <i class="fa-solid fa-quote-right" style="color:#9ca3af; font-size:13px;"></i>
+          <select class="ce-type-select" id="ce-type-select" onchange="updateCitationType(this.value)">
+            <option value="journal">Journal Article</option>
+            <option value="book">Book</option>
+            <option value="website">Website</option>
+            <option value="other">Other</option>
+          </select>
+          <div style="flex:1;"></div>
+          <button class="btn-danger" onclick="deleteCitation()">
+            <i class="fa-solid fa-trash-can"></i> Delete
+          </button>
+        </div>
+
+        <!-- Scrollable form body -->
+        <div id="ce-content">
+
+          <div class="editor-card">
+            <div class="editor-card-body">
+
+              <!-- Fields -->
+              <div class="editor-section">
+                <span class="qe-label">Citation Details</span>
+                <div class="ce-form-grid">
+                  <div class="ce-full">
+                    <label>Author(s)</label>
+                    <input class="ce-input" id="ce-author" type="text"
+                      placeholder="e.g. Smith, J. &amp; Doe, A."
+                      oninput="updateCitationField('author',this.value)" />
+                  </div>
+                  <div class="ce-full">
+                    <label>Title</label>
+                    <input class="ce-input" id="ce-title" type="text"
+                      placeholder="Title of the work"
+                      oninput="updateCitationField('title',this.value)" />
+                  </div>
+                  <div>
+                    <label>Year</label>
+                    <input class="ce-input" id="ce-year" type="text"
+                      placeholder="e.g. 2024"
+                      oninput="updateCitationField('year',this.value)" />
+                  </div>
+                  <div>
+                    <label id="ce-source-label">Journal</label>
+                    <input class="ce-input" id="ce-source" type="text"
+                      placeholder="Source name"
+                      oninput="updateCitationField('source',this.value)" />
+                  </div>
+                  <div id="ce-vol-field">
+                    <label>Volume &amp; Issue</label>
+                    <input class="ce-input" id="ce-volume" type="text"
+                      placeholder="e.g. 45(3)"
+                      oninput="updateCitationField('volume',this.value)" />
+                  </div>
+                  <div id="ce-pages-field">
+                    <label>Pages</label>
+                    <input class="ce-input" id="ce-pages" type="text"
+                      placeholder="e.g. 234–256"
+                      oninput="updateCitationField('pages',this.value)" />
+                  </div>
+                  <div class="ce-full" id="ce-url-field" style="display:none;">
+                    <label>URL</label>
+                    <input class="ce-input" id="ce-url" type="url"
+                      placeholder="https://..."
+                      oninput="updateCitationField('url',this.value)" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="editor-divider"></div>
+
+              <!-- Preview -->
+              <div class="editor-section">
+                <span class="qe-label">Formatted Citation (APA)</span>
+                <div class="ce-preview-box" id="ce-preview"></div>
+              </div>
+
+            </div>
+          </div>
+
+        </div><!-- /ce-content -->
+      </div><!-- /ce-active -->
+
+    </div><!-- /citation-editor -->
+
+  </div><!-- /main-content -->
+</div><!-- /app -->
+
+<!-- ===================================================================
+     SCENE CONTEXT DROPDOWN
+=================================================================== -->
+<div id="dd-scene" class="dropdown">
+  <button class="dd-item" onclick="openRegenModal(); closeAllDropdowns()">
+    <i class="fa-solid fa-wand-magic-sparkles"></i> AI Regenerate Transcript
+  </button>
+  <button class="dd-item" onclick="openAudioModal(); closeAllDropdowns()">
+    <i class="fa-solid fa-play-circle"></i> Preview Audio
+  </button>
+  <div class="dd-sep"></div>
+  <button class="dd-item danger" id="dd-delete-btn" onclick="deleteActiveScene(); closeAllDropdowns()">
+    <i class="fa-solid fa-trash-can"></i> Delete Scene
+  </button>
+</div>
+
+<!-- ===================================================================
+     GENERATE AUDIO MODAL
+=================================================================== -->
+<div id="modal-audio" class="modal-backdrop hidden">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title">Generate Audio</div>
+      <div class="modal-desc">Select a voice and edit phonetic text to improve pronunciation.</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Voice</label>
+        <div class="voice-grid" id="voice-grid"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phonetic Text</label>
+        <textarea class="form-textarea" id="phonetic-text" rows="6"
+          style="font-family:'Courier New',monospace; font-size:12px;" placeholder="Enter phonetic text..."></textarea>
+        <p class="form-tip">Tip: Spell words phonetically (e.g., "data" as "day-tuh"), use hyphens for pauses, or write numbers as words.</p>
+      </div>
+      <button class="btn-preview-audio" id="preview-audio-btn" onclick="previewAudio()">
+        <i class="fa-solid fa-play"></i> <span id="preview-voice-label">Preview with Sarah</span>
+      </button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-audio')">Cancel</button>
+      <button class="btn-primary" id="gen-audio-btn" onclick="generateAudio()">
+        <i class="fa-solid fa-volume-high"></i> Generate Audio
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================
+     AI REGENERATE TRANSCRIPT MODAL
+=================================================================== -->
+<div id="modal-regen" class="modal-backdrop hidden">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">Regenerate Transcript</div>
+      <div class="modal-desc">Describe how you'd like to modify the transcript text.</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <input class="form-input" id="regen-prompt" type="text"
+          placeholder="e.g., Make it more professional and concise..."
+          onkeydown="if(event.key==='Enter') regenTranscript()" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-regen')">Cancel</button>
+      <button class="btn-primary" id="regen-btn" onclick="regenTranscript()">
+        <i class="fa-solid fa-sparkles"></i> Regenerate
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================
+     EDIT LEARNING OBJECT MODAL
+=================================================================== -->
+<div id="modal-edit-lo" class="modal-backdrop hidden">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title">Edit Learning Object</div>
+      <div class="modal-desc">Update the title and objective for this learning object.</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Title</label>
+        <input class="form-input" id="edit-lo-title" type="text" placeholder="Learning Object Title" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Learning Objective</label>
+        <textarea class="form-textarea" id="edit-lo-obj" rows="4"
+          placeholder="Enter learning objective..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-edit-lo')">Cancel</button>
+      <button class="btn-primary" onclick="saveEditLO()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================
+     JAVASCRIPT
+=================================================================== -->
+<script>
+/* -----------------------------------------------------------------------
+   DATA
+----------------------------------------------------------------------- */
+const VOICES = [
+  { id:'alloy',   name:'Sarah',   desc:'Neutral and balanced' },
+  { id:'echo',    name:'Michael', desc:'Warm and friendly' },
+  { id:'fable',   name:'Emma',    desc:'Expressive British' },
+  { id:'onyx',    name:'James',   desc:'Deep and authoritative' },
+  { id:'nova',    name:'Emily',   desc:'Energetic and youthful' },
+  { id:'shimmer', name:'Sophia',  desc:'Soft and gentle' },
+];
+
+let citations = [
+  { id:1, type:'journal',  author:'Smith, J.',             title:'The Future of Video Production: AI and Automation',                         year:'2023', source:'Journal of Media Technology',  volume:'45(3)', pages:'234–256', url:'' },
+  { id:2, type:'journal',  author:'Johnson, M. & Lee, S.', title:'Transforming Content Creation with Artificial Intelligence',                 year:'2024', source:'Digital Media Quarterly',       volume:'12(1)', pages:'78–95',  url:'' },
+  { id:3, type:'book',     author:'Brown, A.',             title:'Video Editing in the Modern Age',                                           year:'2023', source:'Media Press',                   volume:'',      pages:'',       url:'' },
+  { id:4, type:'website',  author:'Williams, K.',          title:'AI-Powered Media Generation: Best Practices and Case Studies',               year:'2024', source:'Content Creation Research',     volume:'',      pages:'',       url:'https://www.contentcreationresearch.org/ai-media' },
+];
+
+let knowledgeChecks = [
+  {
+    id: 1, type: 'multiple-choice',
+    question: 'What is the primary advantage of AI-powered video creation tools?',
+    options: ['Speed and efficiency', 'Better color grading', 'Larger file sizes', 'More complex workflows'],
+    correctIndices: [0],
+    feedback: { correct: 'Correct! AI tools dramatically speed up content production.', incorrect: 'Not quite. Think about what AI does best in content workflows.' },
+    status: 'in-progress', completed: false, points: 1,
+  },
+  {
+    id: 2, type: 'true-false',
+    question: 'AI-generated video can fully replace the need for professional scriptwriters.',
+    options: ['True', 'False'],
+    correctIndices: [1],
+    feedback: { correct: "Correct! AI assists but doesn't replace human creativity.", incorrect: 'Actually, AI is a tool that assists writers, not a replacement.' },
+    status: 'ready', completed: true, points: 1,
+  },
+];
+
+let assessmentQuestions = [
+  {
+    id: 1, type: 'multiple-choice',
+    question: 'Which three factors does our platform use to deliver superior video creation experiences?',
+    options: ['Speed, Quality, Ease of Use', 'Price, Features, Support', 'Templates, Assets, Rendering', 'Automation, Collaboration, Export'],
+    correctIndices: [0],
+    feedback: { correct: "Great job! Speed, Quality, and Ease of Use are our core advantages.", incorrect: "Review the content about our platform's core advantages." },
+    status: 'in-review', completed: false, points: 2,
+  },
+  {
+    id: 2, type: 'multiple-choice',
+    question: 'What feature allows teams to collaborate on video projects simultaneously?',
+    options: ['AI Regeneration', 'Team Collaboration', 'Template Library', 'Audio Generation'],
+    correctIndices: [1],
+    feedback: { correct: 'Correct! Team Collaboration enables real-time co-editing.', incorrect: 'Try again. Think about the feature covered in Scene 3.' },
+    status: 'in-progress', completed: false, points: 1,
+  },
+  {
+    id: 3, type: 'true-false',
+    question: 'The platform automatically saves your work at regular intervals.',
+    options: ['True', 'False'],
+    correctIndices: [0],
+    feedback: { correct: "That's right! Auto-save keeps your work protected.", incorrect: 'This is actually true — look for the save indicator in the header.' },
+    status: 'in-progress', completed: false, points: 1,
+  },
+];
+
+const ALL_LOS = [
+  { id:1, title:'Introduction to Video Creation',        section:'Getting Started' },
+  { id:2, title:'Advanced Template Customization',       section:'Advanced Techniques' },
+  { id:3, title:'AI-Powered Media Generation',           section:'Advanced Techniques' },
+];
+
+let scenes = [
+  { id:1, transcript:"Welcome to our presentation. Today we'll be discussing the future of video creation and how AI is transforming the industry.",
+    img:'https://images.unsplash.com/photo-1764663908321-495a7145ad3b?w=900&q=80',
+    tpl:'text-overlay', tplParams:{ placement:'left', color:'#1e40af', text:'Your Message Here' },
+    duration:5, completed:false, status:'in-progress' },
+  { id:2, transcript:"Our platform offers three main advantages: speed, quality, and ease of use. Let's explore each of these in detail.",
+    img:'https://images.unsplash.com/photo-1764663908343-f0ec582a527a?w=900&q=80',
+    tpl:'lower-third', tplParams:{ position:'bottom', color:'#1e40af', title:'Key Advantages', subtitle:'Speed · Quality · Ease of Use' },
+    duration:7, completed:false, status:'in-review' },
+  { id:3, transcript:"Work seamlessly with your team. Share projects, get feedback, and iterate faster than ever before.",
+    img:'https://images.unsplash.com/photo-1758873272921-4b64aef3c32b?w=900&q=80',
+    tpl:'text-overlay', tplParams:{ placement:'right', color:'#064e3b', text:'Team Collaboration' },
+    duration:6, completed:false, status:'ready' },
+  { id:4, transcript:"Thank you for watching. Start creating professional videos today and transform your content strategy.",
+    img:'https://images.unsplash.com/photo-1627244714766-94dab62ed964?w=900&q=80',
+    tpl:'lower-third', tplParams:{ position:'bottom', color:'#4c1d95', title:'Get Started Today', subtitle:'Transform your content strategy' },
+    duration:4, completed:false, status:'in-progress' },
+];
+
+let activeSceneId = 1;
+let activePanel = 'scenes';
+let activeKCId = null;
+let activeAssessId = null;
+let activeCitationId = null;
+let view = 'text';
+let tlCollapsed = false;
+let currentTime = 0;
+let isPlaying = false;
+let playTimer = null;
+let selectedVoice = 'alloy';
+let loCompleted = false;
+let currentLOId = 1;
+let contextSceneId = null;
+let lastSaved = Date.now();
+let lo = { title:'Introduction to Video Creation', objective:'Learn how to create professional video content using AI-powered tools and templates to enhance your content strategy and engage your audience effectively.' };
+
+/* -----------------------------------------------------------------------
+   INIT
+----------------------------------------------------------------------- */
+document.addEventListener('DOMContentLoaded', () => {
+  renderAll();
+  buildVoiceGrid();
+  buildWaveform();
+  buildTimeRuler();
+  startSaveTimer();
+  updateCanvas();
+  updateNavBtns();
+  document.getElementById('kc-badge').textContent = knowledgeChecks.length;
+  document.getElementById('assess-badge').textContent = assessmentQuestions.length;
+  document.getElementById('cit-badge').textContent = citations.length;
+});
+
+function renderAll() {
+  renderTextList();
+  renderMediaList();
+  updateDuration();
+  updateCompleteBtn();
+}
+
+/* -----------------------------------------------------------------------
+   PANEL TOGGLE
+----------------------------------------------------------------------- */
+const PANELS = ['scenes','knowledge-checks','assessment','citations'];
+
+function togglePanel(id) {
+  if (activePanel === id) {
+    document.getElementById(`panel-${id}`).classList.add('hidden');
+    document.getElementById(`sb-${id}`).classList.remove('active');
+    activePanel = null;
+    showCanvasForPanel(null);
+  } else {
+    PANELS.forEach(p => {
+      document.getElementById(`panel-${p}`).classList.add('hidden');
+      document.getElementById(`sb-${p}`).classList.remove('active');
+    });
+    activePanel = id;
+    document.getElementById(`panel-${id}`).classList.remove('hidden');
+    document.getElementById(`sb-${id}`).classList.add('active');
+    showCanvasForPanel(id);
+  }
+}
+
+function showCanvasForPanel(panelId) {
+  const isQPanel = panelId === 'knowledge-checks' || panelId === 'assessment';
+  const isCitPanel = panelId === 'citations';
+  document.getElementById('canvas-area').style.display = (isQPanel || isCitPanel) ? 'none' : '';
+
+  const qEditor = document.getElementById('question-editor');
+  const cEditor = document.getElementById('citation-editor');
+
+  if (isQPanel) {
+    qEditor.classList.add('visible');
+    cEditor.classList.remove('visible');
+    const panel = panelId === 'knowledge-checks' ? 'kc' : 'assess';
+    const list = getQList(panel);
+    if (!getActiveQId(panel) && list.length) setActiveQId(panel, list[0].id);
+    renderQEditor(panel);
+  } else if (isCitPanel) {
+    qEditor.classList.remove('visible');
+    cEditor.classList.add('visible');
+    if (!activeCitationId && citations.length) activeCitationId = citations[0].id;
+    renderCitationEditor();
+  } else {
+    qEditor.classList.remove('visible');
+    cEditor.classList.remove('visible');
+  }
+}
+
+/* -----------------------------------------------------------------------
+   QUESTION DATA HELPERS
+----------------------------------------------------------------------- */
+function getQList(panel) { return panel === 'kc' ? knowledgeChecks : assessmentQuestions; }
+function getActiveQId(panel) { return panel === 'kc' ? activeKCId : activeAssessId; }
+function setActiveQId(panel, id) { if (panel === 'kc') activeKCId = id; else activeAssessId = id; }
+function qTypeLabel(type) {
+  return type === 'multiple-choice' ? 'Multiple Choice'
+       : type === 'true-false'      ? 'True / False'
+       :                              'Fill in Blank';
+}
+
+/* -----------------------------------------------------------------------
+   QUESTION LIST RENDERING (left panel)
+----------------------------------------------------------------------- */
+function renderQList(panel) {
+  const list = getQList(panel);
+  const activeId = getActiveQId(panel);
+  const listElId = panel === 'kc' ? 'kc-question-list' : 'assess-question-list';
+  const listEl = document.getElementById(listElId);
+
+  document.getElementById(panel === 'kc' ? 'kc-badge' : 'assess-badge').textContent = list.length;
+
+  if (!list.length) {
+    const icon = panel === 'kc' ? 'fa-regular fa-circle-question' : 'fa-solid fa-clipboard-check';
+    listEl.innerHTML = `<div class="empty-state">
+      <i class="${icon}"></i>
+      <p>No questions yet</p>
+      <small>Click "Add Question" to get started</small>
+    </div>`;
+    return;
+  }
+
+  listEl.innerHTML = list.map((q, idx) => {
+    const isActive = q.id === activeId;
+    return `
+<div class="question-card ${isActive ? 'active' : 'inactive'}" onclick="selectQuestion('${panel}',${q.id})">
+  <div class="qc-header">
+    <div class="qc-number">${idx + 1}</div>
+    <span class="qc-type-badge">${qTypeLabel(q.type)}</span>
+    <div class="qc-actions">
+      <button class="sc-btn${q.completed ? ' complete' : ''}"
+        title="${q.completed ? 'Mark Incomplete' : 'Mark Complete'}"
+        onclick="event.stopPropagation();toggleQCompleteInList('${panel}',${q.id})">
+        <i class="fa-${q.completed ? 'solid fa-circle-check' : 'regular fa-circle'}"></i>
+      </button>
+    </div>
+  </div>
+  <div class="qc-text">${q.question || 'Enter question text...'}</div>
+  <span class="status-badge ${q.status}">${statusLabel(q.status)}</span>
+</div>`;
+  }).join('');
+}
+
+function selectQuestion(panel, id) {
+  setActiveQId(panel, id);
+  renderQList(panel);
+  renderQEditor(panel);
+}
+
+/* -----------------------------------------------------------------------
+   QUESTION EDITOR RENDERING (main area)
+----------------------------------------------------------------------- */
+function renderQEditor(panel) {
+  const activeId = getActiveQId(panel);
+  const list = getQList(panel);
+  const emptyEl = document.getElementById('qe-empty-state');
+  const activeEl = document.getElementById('qe-active');
+
+  renderQList(panel);
+
+  const q = list.find(x => x.id === activeId);
+  if (!q) {
+    emptyEl.style.display = 'flex';
+    activeEl.style.display = 'none';
+    return;
+  }
+
+  emptyEl.style.display = 'none';
+  activeEl.style.display = 'flex';
+
+  // Type buttons
+  document.getElementById('qe-type-mc').classList.toggle('active', q.type === 'multiple-choice');
+  document.getElementById('qe-type-tf').classList.toggle('active', q.type === 'true-false');
+  document.getElementById('qe-type-fb').classList.toggle('active', q.type === 'fill-blank');
+
+  // Question text
+  document.getElementById('qe-question-text').value = q.question;
+
+  // Options
+  renderQOptions(q, panel);
+
+  // Feedback
+  document.getElementById('qe-feedback-correct').value = q.feedback?.correct || '';
+  document.getElementById('qe-feedback-incorrect').value = q.feedback?.incorrect || '';
+
+  // Points
+  document.getElementById('qe-points').value = q.points || 1;
+
+  // Status
+  const sel = document.getElementById('qe-status-select');
+  sel.value = q.status;
+  sel.className = `sc-status-select ${q.status}`;
+
+  // Complete button
+  updateQCompleteBtn(q);
+}
+
+function renderQOptions(q, panel) {
+  const listEl = document.getElementById('qe-options-list');
+  const addBtn = document.getElementById('qe-add-option-btn');
+  const letters = ['A','B','C','D','E','F'];
+
+  if (q.type === 'fill-blank') {
+    listEl.innerHTML = `
+<div class="qe-option correct">
+  <div class="qe-option-letter"><i class="fa-solid fa-pen-line" style="font-size:10px;"></i></div>
+  <input class="qe-option-input" type="text" value="${q.options[0] || ''}"
+    placeholder="Enter the correct answer..."
+    onchange="updateQOption('${panel}',0,this.value)" />
+</div>`;
+    addBtn.style.display = 'none';
+    return;
+  }
+
+  const isTF = q.type === 'true-false';
+  listEl.innerHTML = q.options.map((opt, i) => {
+    const isCorrect = q.correctIndices.includes(i);
+    return `
+<div class="qe-option${isCorrect ? ' correct' : ''}">
+  <div class="qe-option-letter">${isTF ? (i === 0 ? 'T' : 'F') : letters[i]}</div>
+  <input class="qe-option-input" type="text" value="${opt}"
+    ${isTF ? 'readonly' : ''}
+    onchange="updateQOption('${panel}',${i},this.value)" />
+  <button class="qe-mark-correct" onclick="setCorrect('${panel}',${i})">
+    ${isCorrect ? '<i class="fa-solid fa-check"></i> Correct' : 'Mark Correct'}
+  </button>
+  ${!isTF ? `<button class="qe-del-opt" onclick="removeQOption('${panel}',${i})" title="Remove option">
+    <i class="fa-solid fa-xmark"></i>
+  </button>` : ''}
+</div>`;
+  }).join('');
+
+  addBtn.style.display = isTF ? 'none' : '';
+}
+
+/* -----------------------------------------------------------------------
+   QUESTION ACTIONS
+----------------------------------------------------------------------- */
+function setCorrect(panel, idx) {
+  const q = getQList(panel).find(x => x.id === getActiveQId(panel));
+  if (!q) return;
+  q.correctIndices = [idx];
+  renderQOptions(q, panel);
+}
+
+function addQOption() {
+  const panel = activePanel === 'knowledge-checks' ? 'kc' : 'assess';
+  const q = getQList(panel).find(x => x.id === getActiveQId(panel));
+  if (!q || q.options.length >= 6) return;
+  q.options.push('');
+  renderQOptions(q, panel);
+}
+
+function removeQOption(panel, idx) {
+  const q = getQList(panel).find(x => x.id === getActiveQId(panel));
+  if (!q || q.options.length <= 2) return;
+  q.options.splice(idx, 1);
+  q.correctIndices = q.correctIndices
+    .map(i => i > idx ? i - 1 : i)
+    .filter(i => i >= 0 && i < q.options.length);
+  if (!q.correctIndices.length) q.correctIndices = [0];
+  renderQOptions(q, panel);
+}
+
+function updateQOption(panel, idx, val) {
+  const q = getQList(panel).find(x => x.id === getActiveQId(panel));
+  if (q) q.options[idx] = val;
+}
+
+function updateQText(val) {
+  const panel = activePanel === 'knowledge-checks' ? 'kc' : 'assess';
+  const q = getQList(panel).find(x => x.id === getActiveQId(panel));
+  if (!q) return;
+  q.question = val;
+  // Lightweight update to card preview
+  const listId = panel === 'kc' ? 'kc-question-list' : 'assess-question-list';
+  const preview = document.querySelector(`#${listId} .question-card.active .qc-text`);
+  if (preview) preview.textContent = val || 'Enter question text...';
+}
+
+function updateQFeedback(type, val) {
+  const panel = activePanel === 'knowledge-checks' ? 'kc' : 'assess';
+  const q = getQList(panel).find(x => x.id === getActiveQId(panel));
+  if (q) q.feedback[type] = val;
+}
+
+function updateQPoints(val) {
+  const panel = activePanel === 'knowledge-checks' ? 'kc' : 'assess';
+  const q = getQList(panel).find(x => x.id === getActiveQId(panel));
+  if (q) q.points = parseInt(val) || 1;
+}
+
+function updateQStatus(val) {
+  const panel = activePanel === 'knowledge-checks' ? 'kc' : 'assess';
+  const q = getQList(panel).find(x => x.id === getActiveQId(panel));
+  if (!q) return;
+  q.status = val;
+  document.getElementById('qe-status-select').className = `sc-status-select ${val}`;
+  renderQList(panel);
+}
+
+function setQType(type) {
+  const panel = activePanel === 'knowledge-checks' ? 'kc' : 'assess';
+  const q = getQList(panel).find(x => x.id === getActiveQId(panel));
+  if (!q) return;
+  q.type = type;
+  if (type === 'true-false') { q.options = ['True', 'False']; q.correctIndices = [0]; }
+  else if (type === 'fill-blank') { q.options = ['']; q.correctIndices = [0]; }
+  else if (q.options.length < 2) { q.options = ['', '', '', '']; q.correctIndices = [0]; }
+  renderQEditor(panel);
+}
+
+function toggleQComplete() {
+  const panel = activePanel === 'knowledge-checks' ? 'kc' : 'assess';
+  const q = getQList(panel).find(x => x.id === getActiveQId(panel));
+  if (!q) return;
+  q.completed = !q.completed;
+  updateQCompleteBtn(q);
+  renderQList(panel);
+}
+
+function toggleQCompleteInList(panel, id) {
+  const q = getQList(panel).find(x => x.id === id);
+  if (!q) return;
+  q.completed = !q.completed;
+  renderQList(panel);
+  if (getActiveQId(panel) === id) updateQCompleteBtn(q);
+}
+
+function updateQCompleteBtn(q) {
+  const btn = document.getElementById('qe-complete-btn');
+  btn.className = `tb-btn green${q.completed ? ' done' : ''}`;
+  btn.innerHTML = q.completed
+    ? '<i class="fa-solid fa-circle-check"></i> Question Complete'
+    : '<i class="fa-solid fa-check"></i> Complete Question';
+}
+
+function addQuestion(panel) {
+  const list = getQList(panel);
+  const newQ = {
+    id: list.length ? Math.max(...list.map(q => q.id)) + 1 : 1,
+    type: 'multiple-choice',
+    question: '',
+    options: ['', '', '', ''],
+    correctIndices: [0],
+    feedback: { correct: '', incorrect: '' },
+    status: 'in-progress',
+    completed: false,
+    points: 1,
+  };
+  list.push(newQ);
+  selectQuestion(panel, newQ.id);
+}
+
+/* -----------------------------------------------------------------------
+   HELPERS
+----------------------------------------------------------------------- */
+function fmt(secs) {
+  const m = Math.floor(secs/60), s = secs%60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+function fmtTL(secs) {
+  const m = Math.floor(secs/60), s = Math.floor(secs%60), ms = Math.floor((secs%1)*100);
+  return `${m}:${String(s).padStart(2,'0')}.${String(ms).padStart(2,'0')}`;
+}
+function totalDur() { return scenes.reduce((a,s)=>a+s.duration,0); }
+function getActive() { return scenes.find(s=>s.id===activeSceneId) || scenes[0]; }
+function lum(hex) {
+  const h=hex.replace('#',''), r=parseInt(h.slice(0,2),16)/255, g=parseInt(h.slice(2,4),16)/255, b=parseInt(h.slice(4,6),16)/255;
+  return 0.299*r+0.587*g+0.114*b;
+}
+function statusClass(s) { return s==='in-progress'?'in-progress':s==='in-review'?'in-review':'ready'; }
+function statusLabel(s) { return s==='in-progress'?'In Progress':s==='in-review'?'In Review':'Marked as Ready'; }
+
+/* -----------------------------------------------------------------------
+   SCENE RENDERING — TEXT VIEW
+----------------------------------------------------------------------- */
+function renderTextList(filter='') {
+  const wrap = document.getElementById('scene-list-text');
+  const list = filter
+    ? scenes.filter(s => s.transcript.toLowerCase().includes(filter.toLowerCase()))
+    : scenes;
+
+  if (!list.length && filter) {
+    wrap.innerHTML = `<div class="empty-state"><i class="fa-solid fa-magnifying-glass"></i><p>No scenes match "${filter}"</p></div>`;
+    return;
+  }
+
+  wrap.innerHTML = list.map((sc, idx) => {
+    const isActive = sc.id === activeSceneId;
+    const displayNum = scenes.indexOf(sc) + 1;
+    return `
+<div class="scene-wrapper" id="sw-${sc.id}">
+  <button class="add-before-btn" onclick="addBefore(${sc.id})" title="Add scene before"><i class="fa-solid fa-plus"></i></button>
+
+  <div class="scene-card ${isActive?'active':'inactive'}" id="sc-${sc.id}" onclick="selectScene(${sc.id})">
+    <div class="sc-header">
+      <div class="sc-number">${displayNum}</div>
+
+      ${isActive ? `<div class="sc-inline-actions">
+        <button class="sc-btn" title="Generate Audio" onclick="event.stopPropagation();openAudioForScene(${sc.id})">
+          <i class="fa-solid fa-volume-high"></i>
+        </button>
+        <button class="sc-btn" title="More Options" onclick="event.stopPropagation();openSceneMenu(event,${sc.id})">
+          <i class="fa-solid fa-ellipsis-h"></i>
+        </button>
+      </div>` : ''}
+
+      <div class="sc-actions">
+        ${!isActive ? `<div class="sc-duration"><i class="fa-regular fa-clock"></i> ${fmt(sc.duration)}</div>` : ''}
+        <button class="sc-btn${sc.completed?' complete':''}"
+          title="${sc.completed?'Mark Incomplete':'Mark Complete'}"
+          onclick="event.stopPropagation();toggleComplete(${sc.id})">
+          <i class="fa-${sc.completed?'solid fa-circle-check':'regular fa-circle'}"></i>
+        </button>
+      </div>
+    </div>
+
+    ${isActive
+      ? `<textarea class="sc-transcript-textarea" rows="4"
+           onchange="updateTranscript(${sc.id},this.value)">${sc.transcript}</textarea>
+         <div class="sc-footer">
+           <select class="sc-status-select ${statusClass(sc.status)}" onclick="event.stopPropagation()">
+             <option value="in-progress"${sc.status==='in-progress'?' selected':''}>In Progress</option>
+             <option value="in-review"${sc.status==='in-review'?' selected':''}>In Review</option>
+             <option value="ready"${sc.status==='ready'?' selected':''}>Marked as Ready</option>
+           </select>
+           <div class="sc-duration"><i class="fa-regular fa-clock"></i> ${fmt(sc.duration)}</div>
+         </div>`
+      : `<div class="sc-transcript-preview">${sc.transcript||'Enter scene transcript...'}</div>`
+    }
+  </div>
+
+  <button class="add-after-btn" onclick="addAfter(${sc.id})" title="Add scene after"><i class="fa-solid fa-plus"></i></button>
+</div>`;
+  }).join('');
+
+  // Fix status select class names (hyphens to nothing — CSS uses literal class .in-progress etc.)
+  // Actually CSS classes with hyphens work fine, reverting select onchange to keep hyphenated value
+  wrap.querySelectorAll('.sc-status-select').forEach(sel => {
+    sel.onchange = function() {
+      const scId = parseInt(this.closest('[id^="sw-"]').id.split('-')[1]);
+      updateStatus(scId, this.value);
+      this.className = `sc-status-select ${this.value}`;
+    };
+  });
+}
+
+/* -----------------------------------------------------------------------
+   SCENE RENDERING — MEDIA/THUMBNAIL VIEW
+----------------------------------------------------------------------- */
+function renderMediaList() {
+  const wrap = document.getElementById('scene-list-media');
+  wrap.innerHTML = scenes.map((sc, idx) => {
+    const isActive = sc.id === activeSceneId;
+    return `
+<div class="sc-thumb${isActive?' active':''}" onclick="selectScene(${sc.id})">
+  <img src="${sc.img}" alt="${idx+1}" onerror="this.style.background='#e5e7eb';this.removeAttribute('src')" />
+  <div class="sc-thumb-info">
+    <div class="sc-thumb-title">${idx+1}. Scene ${idx+1}</div>
+    <div class="sc-thumb-dur">${fmt(sc.duration)}</div>
+    <span class="status-badge ${statusClass(sc.status)}">${statusLabel(sc.status)}</span>
+  </div>
+</div>`;
+  }).join('');
+}
+
+function updateDuration() {
+  const t = totalDur();
+  document.getElementById('total-dur').textContent = fmt(t);
+  document.getElementById('tl-time').textContent = `${fmtTL(currentTime)} / ${fmtTL(t)}`;
+}
+
+/* -----------------------------------------------------------------------
+   VIEW TOGGLE
+----------------------------------------------------------------------- */
+function setView(v) {
+  view = v;
+  document.getElementById('scene-list-text').style.display  = v==='text'?'':'none';
+  document.getElementById('scene-list-media').style.display = v==='media'?'':'none';
+  document.getElementById('vt-text').classList.toggle('active',  v==='text');
+  document.getElementById('vt-media').classList.toggle('active', v==='media');
+  if (v==='media') renderMediaList();
+}
+
+/* -----------------------------------------------------------------------
+   SCENE ACTIONS
+----------------------------------------------------------------------- */
+function selectScene(id) {
+  activeSceneId = id;
+  renderAll();
+  updateCanvas();
+  updateTimelineClips();
+}
+
+function toggleComplete(id) {
+  const sc = scenes.find(s=>s.id===id);
+  if (sc) sc.completed = !sc.completed;
+  renderAll();
+  updateCanvas();
+}
+
+function updateTranscript(id, val) {
+  const sc = scenes.find(s=>s.id===id);
+  if (sc) sc.transcript = val;
+}
+
+function updateStatus(id, status) {
+  const sc = scenes.find(s=>s.id===id);
+  if (sc) { sc.status = status; renderMediaList(); }
+}
+
+function newScene() {
+  return {
+    id: Math.max(...scenes.map(s=>s.id)) + 1,
+    transcript:'', status:'in-progress', completed:false, duration:5,
+    img:'https://images.unsplash.com/photo-1524758631624-e2822e304c36?w=900&q=80',
+    tpl:null, tplParams:null
+  };
+}
+
+function addScene()     { const s=newScene(); scenes.push(s); selectScene(s.id); }
+function addBefore(id)  { const s=newScene(), i=scenes.findIndex(x=>x.id===id); scenes.splice(i,0,s); selectScene(s.id); }
+function addAfter(id)   { const s=newScene(), i=scenes.findIndex(x=>x.id===id); scenes.splice(i+1,0,s); selectScene(s.id); }
+
+function deleteActiveScene() {
+  if (scenes.length<=1) return;
+  const i = scenes.findIndex(s=>s.id===activeSceneId);
+  scenes = scenes.filter(s=>s.id!==activeSceneId);
+  selectScene(scenes[Math.max(0,i-1)].id);
+}
+
+/* -----------------------------------------------------------------------
+   CANVAS PREVIEW
+----------------------------------------------------------------------- */
+function updateCanvas() {
+  const sc = getActive();
+  document.getElementById('canvas-bg').src = sc.img || '';
+  renderOverlay(sc);
+  updateCompleteBtn();
+}
+
+function renderOverlay(sc) {
+  const el = document.getElementById('canvas-overlay');
+  if (!sc.tpl || !sc.tplParams) { el.innerHTML=''; return; }
+  const p = sc.tplParams;
+  const tc = lum(p.color) > 0.55 ? '#000' : '#fff';
+
+  if (sc.tpl === 'text-overlay') {
+    el.innerHTML = `<div class="tpl-text-overlay ${p.placement||'left'}" style="background:${p.color};opacity:0.92;">
+      <div class="tpl-overlay-text" style="color:${tc};">${p.text||''}</div>
+    </div>`;
+  } else if (sc.tpl === 'lower-third') {
+    el.innerHTML = `<div class="tpl-lower-third ${p.position||'bottom'}" style="background:${p.color};">
+      <div class="tpl-lower-title" style="color:${tc};">${p.title||''}</div>
+      <div class="tpl-lower-sub"   style="color:${tc};">${p.subtitle||''}</div>
+    </div>`;
+  } else {
+    el.innerHTML = '';
+  }
+}
+
+function updateCompleteBtn() {
+  const sc = getActive();
+  const btn = document.getElementById('complete-btn');
+  btn.className = `tb-btn green${sc.completed?' done':''}`;
+  btn.innerHTML = sc.completed
+    ? '<i class="fa-solid fa-circle-check"></i> Scene Complete'
+    : '<i class="fa-solid fa-check"></i> Complete Scene';
+}
+
+function toggleActiveComplete() {
+  const sc = getActive();
+  sc.completed = !sc.completed;
+  renderAll();
+  updateCanvas();
+}
+
+/* -----------------------------------------------------------------------
+   TIMELINE
+----------------------------------------------------------------------- */
+function toggleTimeline() {
+  tlCollapsed = !tlCollapsed;
+  document.getElementById('tl-tracks').classList.toggle('collapsed', tlCollapsed);
+  document.getElementById('tl-chevron').className = tlCollapsed ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
+}
+
+function buildWaveform() {
+  const wf = document.getElementById('waveform');
+  const bars = Array.from({length:120},(_,i)=>{
+    const h = 20 + Math.abs(Math.sin(i*0.4)*55) + Math.random()*20;
+    return `<div class="wf-bar" style="height:${h}%;"></div>`;
+  }).join('');
+  wf.innerHTML = bars;
+}
+
+function buildTimeRuler() {
+  const t = totalDur();
+  const step = t>30?5:t>10?2:1;
+  let html='';
+  for (let i=0; i<=t; i+=step) {
+    const m=Math.floor(i/60), s=i%60;
+    html+=`<div class="tick"><div class="tick-line"></div><div class="tick-label">${m}:${String(s).padStart(2,'0')}</div></div>`;
+  }
+  document.getElementById('time-ruler').innerHTML = html;
+}
+
+function updateTimelineClips() {
+  const sc = getActive();
+  const clip = document.getElementById('clip-tpl');
+  if (sc.tpl) {
+    const label = sc.tplParams?.title || sc.tplParams?.text || `Scene ${scenes.indexOf(sc)+1}`;
+    clip.textContent = label;
+    clip.style.display = '';
+  } else {
+    clip.style.display = 'none';
+  }
+}
+
+function trackClick(e, el) {
+  const r = el.getBoundingClientRect();
+  const pct = (e.clientX - r.left) / r.width;
+  currentTime = Math.max(0, Math.min(totalDur(), pct * totalDur()));
+  updatePlayheads();
+  updateDuration();
+}
+
+function updatePlayheads() {
+  const t = totalDur();
+  const pct = t>0 ? (currentTime/t)*100 : 0;
+  ['ph-audio','ph-bg','ph-tpl'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.left = `${pct}%`;
+  });
+}
+
+function togglePlay() {
+  isPlaying = !isPlaying;
+  document.getElementById('play-icon').className = isPlaying ? 'fa-solid fa-pause' : 'fa-solid fa-play';
+  if (isPlaying) {
+    playTimer = setInterval(() => {
+      const t = totalDur();
+      currentTime += 0.1;
+      if (currentTime >= t) { currentTime = 0; isPlaying = false; document.getElementById('play-icon').className='fa-solid fa-play'; clearInterval(playTimer); }
+      updatePlayheads();
+      updateDuration();
+    }, 100);
+  } else {
+    clearInterval(playTimer);
+  }
+}
+
+function seekToStart() { currentTime = 0; updatePlayheads(); updateDuration(); }
+
+/* -----------------------------------------------------------------------
+   SEARCH
+----------------------------------------------------------------------- */
+function onSearchInput(q) {
+  if (view === 'text') renderTextList(q);
+}
+
+/* -----------------------------------------------------------------------
+   LO NAVIGATION
+----------------------------------------------------------------------- */
+function navigateLO(dir) {
+  const i = ALL_LOS.findIndex(l=>l.id===currentLOId);
+  const ni = dir==='next' ? i+1 : i-1;
+  if (ni<0 || ni>=ALL_LOS.length) return;
+  currentLOId = ALL_LOS[ni].id;
+  const newLO = ALL_LOS[ni];
+  document.getElementById('lo-title').textContent   = newLO.title;
+  document.getElementById('section-label').textContent = newLO.section;
+  lo.title = newLO.title;
+  updateNavBtns();
+}
+
+function updateNavBtns() {
+  const i = ALL_LOS.findIndex(l=>l.id===currentLOId);
+  document.getElementById('nav-prev').disabled = i===0;
+  document.getElementById('nav-next').disabled = i===ALL_LOS.length-1;
+}
+
+function toggleLOComplete() {
+  loCompleted = !loCompleted;
+  document.getElementById('lo-complete-lbl').textContent = loCompleted ? 'Mark Incomplete' : 'Mark Complete';
+}
+
+/* -----------------------------------------------------------------------
+   EDIT LO MODAL
+----------------------------------------------------------------------- */
+function openEditLOModal() {
+  document.getElementById('edit-lo-title').value = document.getElementById('lo-title').textContent;
+  document.getElementById('edit-lo-obj').value   = lo.objective;
+  openModal('modal-edit-lo');
+}
+
+function saveEditLO() {
+  const t = document.getElementById('edit-lo-title').value.trim();
+  const o = document.getElementById('edit-lo-obj').value.trim();
+  if (t) {
+    document.getElementById('lo-title').textContent = t;
+    lo.title = t; lo.objective = o;
+  }
+  closeModal('modal-edit-lo');
+}
+
+/* -----------------------------------------------------------------------
+   DROPDOWNS
+----------------------------------------------------------------------- */
+function toggleDropdown(id, btn) {
+  const menu = document.getElementById(id);
+  const open = menu.classList.contains('show');
+  closeAllDropdowns();
+  if (!open) {
+    const r = btn.getBoundingClientRect();
+    menu.style.left = r.left + 'px';
+    menu.style.top  = (r.bottom + 4) + 'px';
+    menu.classList.add('show');
+  }
+}
+
+function openSceneMenu(e, id) {
+  contextSceneId = id;
+  const menu = document.getElementById('dd-scene');
+  closeAllDropdowns();
+  // Position near cursor but stay in viewport
+  const x = Math.min(e.clientX, window.innerWidth - 200);
+  menu.style.left = x + 'px';
+  menu.style.top  = e.clientY + 'px';
+  document.getElementById('dd-delete-btn').style.display = scenes.length > 1 ? '' : 'none';
+  menu.classList.add('show');
+}
+
+function closeAllDropdowns() {
+  document.querySelectorAll('.dropdown').forEach(m => m.classList.remove('show'));
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.dropdown') && !e.target.closest('.wh-icon-btn') && !e.target.closest('.sc-btn')) {
+    closeAllDropdowns();
+  }
+});
+
+/* -----------------------------------------------------------------------
+   MODALS
+----------------------------------------------------------------------- */
+function openModal(id)  { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('modal-backdrop')) closeModal(e.target.id);
+});
+
+/* -----------------------------------------------------------------------
+   AUDIO MODAL
+----------------------------------------------------------------------- */
+function openAudioModal() {
+  const sc = getActive();
+  document.getElementById('phonetic-text').value = sc.transcript || '';
+  openModal('modal-audio');
+}
+
+function openAudioForScene(id) {
+  activeSceneId = id;
+  openAudioModal();
+}
+
+function buildVoiceGrid() {
+  document.getElementById('voice-grid').innerHTML = VOICES.map(v => `
+    <div class="voice-opt${v.id===selectedVoice?' selected':''}" onclick="selectVoice('${v.id}')">
+      <div class="voice-name">${v.name}</div>
+      <div class="voice-desc">${v.desc}</div>
+    </div>`).join('');
+}
+
+function selectVoice(id) {
+  selectedVoice = id;
+  buildVoiceGrid();
+  const v = VOICES.find(x=>x.id===id);
+  document.getElementById('preview-voice-label').textContent = `Preview with ${v.name}`;
+}
+
+function previewAudio() {
+  const btn = document.getElementById('preview-audio-btn');
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Previewing...';
+  btn.disabled = true;
+  setTimeout(() => {
+    btn.innerHTML = `<i class="fa-solid fa-play"></i> <span id="preview-voice-label">Preview with ${VOICES.find(v=>v.id===selectedVoice)?.name}</span>`;
+    btn.disabled = false;
+  }, 2000);
+}
+
+function generateAudio() {
+  const btn = document.getElementById('gen-audio-btn');
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+  btn.disabled = true;
+  setTimeout(() => {
+    btn.innerHTML = '<i class="fa-solid fa-volume-high"></i> Generate Audio';
+    btn.disabled = false;
+    closeModal('modal-audio');
+    lastSaved = Date.now();
+  }, 2000);
+}
+
+/* -----------------------------------------------------------------------
+   REGENERATE MODAL
+----------------------------------------------------------------------- */
+function openRegenModal() {
+  document.getElementById('regen-prompt').value = '';
+  openModal('modal-regen');
+}
+
+function regenTranscript() {
+  const prompt = document.getElementById('regen-prompt').value.trim();
+  if (!prompt) return;
+  const btn = document.getElementById('regen-btn');
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Regenerating...';
+  btn.disabled = true;
+  setTimeout(() => {
+    const samples = [
+      "This scene showcases the power of AI-driven content creation. With advanced natural language processing, we can generate engaging narratives effortlessly.",
+      "Experience seamless video production with our innovative platform. Transform your ideas into professional content in minutes, not hours.",
+      "Discover how cutting-edge technology meets creative storytelling. Our AI assistant helps you craft compelling narratives that resonate with your audience.",
+    ];
+    const id = contextSceneId || activeSceneId;
+    const sc = scenes.find(s=>s.id===id);
+    if (sc) sc.transcript = samples[Math.floor(Math.random()*samples.length)];
+    renderAll();
+    btn.innerHTML = '<i class="fa-solid fa-sparkles"></i> Regenerate';
+    btn.disabled = false;
+    closeModal('modal-regen');
+  }, 1500);
+}
+
+/* -----------------------------------------------------------------------
+   CITATIONS
+----------------------------------------------------------------------- */
+function citTypeLabel(type) {
+  return type === 'journal' ? 'Journal' : type === 'book' ? 'Book'
+       : type === 'website' ? 'Website' : 'Other';
+}
+
+function formatCitation(c) {
+  const a = c.author || '[Author]';
+  const y = c.year   ? `(${c.year})` : '';
+  const t = c.title  || '[Title]';
+  const s = c.source || '';
+  if (c.type === 'journal') {
+    const vol   = c.volume ? `, <em>${c.volume}</em>` : '';
+    const pages = c.pages  ? `, ${c.pages}`           : '';
+    return `${a} ${y}. ${t}. <em>${s}</em>${vol}${pages}.`;
+  }
+  if (c.type === 'book') {
+    return `${a} ${y}. <em>${t}</em>. ${s}.`;
+  }
+  if (c.type === 'website') {
+    const urlPart = c.url ? ` Retrieved from <a href="${c.url}" style="color:#0284c7;">${c.url}</a>` : '';
+    return `${a} ${y}. ${t}. ${s}.${urlPart}`;
+  }
+  return `${a} ${y}. ${t}. ${s}.`;
+}
+
+function renderCitationList() {
+  const listEl = document.getElementById('citations-list');
+  document.getElementById('cit-badge').textContent = citations.length;
+
+  if (!citations.length) {
+    listEl.innerHTML = `<div class="empty-state">
+      <i class="fa-solid fa-book-open"></i>
+      <p>No citations yet</p>
+      <small>Click "Add Citation" to get started</small>
+    </div>`;
+    return;
+  }
+
+  listEl.innerHTML = citations.map((c, idx) => {
+    const isActive = c.id === activeCitationId;
+    const byline   = c.author && c.year ? `${c.author} (${c.year})` : c.author || 'No author';
+    return `
+<div class="question-card ${isActive ? 'active' : 'inactive'}" onclick="selectCitation(${c.id})">
+  <div class="qc-header">
+    <div class="qc-number">[${idx + 1}]</div>
+    <span class="qc-type-badge">${citTypeLabel(c.type)}</span>
+  </div>
+  <div class="cc-author">${byline}</div>
+  <div class="qc-text">${c.title || 'No title'}</div>
+</div>`;
+  }).join('');
+}
+
+function selectCitation(id) {
+  activeCitationId = id;
+  renderCitationList();
+  renderCitationEditor();
+}
+
+function renderCitationEditor() {
+  const emptyEl  = document.getElementById('ce-empty-state');
+  const activeEl = document.getElementById('ce-active');
+
+  renderCitationList();
+
+  const c = citations.find(x => x.id === activeCitationId);
+  if (!c) { emptyEl.style.display = 'flex'; activeEl.style.display = 'none'; return; }
+
+  emptyEl.style.display = 'none';
+  activeEl.style.display = 'flex';
+
+  document.getElementById('ce-type-select').value = c.type;
+  document.getElementById('ce-author').value       = c.author  || '';
+  document.getElementById('ce-title').value        = c.title   || '';
+  document.getElementById('ce-year').value         = c.year    || '';
+  document.getElementById('ce-source').value       = c.source  || '';
+  document.getElementById('ce-volume').value       = c.volume  || '';
+  document.getElementById('ce-pages').value        = c.pages   || '';
+  document.getElementById('ce-url').value          = c.url     || '';
+
+  setCitationTypeFields(c.type);
+  updateCitationPreview(c);
+}
+
+function setCitationTypeFields(type) {
+  const isJournal = type === 'journal';
+  const isWebsite = type === 'website';
+  document.getElementById('ce-vol-field').style.display   = isJournal ? '' : 'none';
+  document.getElementById('ce-pages-field').style.display = isJournal ? '' : 'none';
+  document.getElementById('ce-url-field').style.display   = isWebsite ? '' : 'none';
+  document.getElementById('ce-source-label').textContent  =
+    type === 'book' ? 'Publisher' : type === 'website' ? 'Website / Organization' : 'Journal';
+}
+
+function updateCitationPreview(c) {
+  document.getElementById('ce-preview').innerHTML = formatCitation(c);
+}
+
+function updateCitationField(field, val) {
+  const c = citations.find(x => x.id === activeCitationId);
+  if (!c) return;
+  c[field] = val;
+  updateCitationPreview(c);
+  // Lightweight card update
+  const card = document.querySelector('#citations-list .question-card.active');
+  if (card) {
+    const byline = c.author && c.year ? `${c.author} (${c.year})` : c.author || 'No author';
+    const authorEl = card.querySelector('.cc-author');
+    const titleEl  = card.querySelector('.qc-text');
+    if (authorEl) authorEl.textContent = byline;
+    if (titleEl)  titleEl.textContent  = c.title || 'No title';
+  }
+}
+
+function updateCitationType(type) {
+  const c = citations.find(x => x.id === activeCitationId);
+  if (!c) return;
+  c.type = type;
+  setCitationTypeFields(type);
+  updateCitationPreview(c);
+  renderCitationList();
+}
+
+function deleteCitation() {
+  if (!activeCitationId) return;
+  const idx = citations.findIndex(x => x.id === activeCitationId);
+  citations = citations.filter(x => x.id !== activeCitationId);
+  activeCitationId = citations.length ? citations[Math.max(0, idx - 1)].id : null;
+  renderCitationEditor();
+}
+
+function addCitation() {
+  const newC = {
+    id: citations.length ? Math.max(...citations.map(c => c.id)) + 1 : 1,
+    type: 'journal', author: '', title: '', year: '', source: '', volume: '', pages: '', url: '',
+  };
+  citations.push(newC);
+  selectCitation(newC.id);
+}
+
+/* -----------------------------------------------------------------------
+   AUTO-SAVE TIMER
+----------------------------------------------------------------------- */
+function startSaveTimer() {
+  setInterval(() => {
+    const d = Math.floor((Date.now()-lastSaved)/1000);
+    const lbl = d<10?'just now':d<60?`${d}s ago`:d<3600?`${Math.floor(d/60)}m ago`:`${Math.floor(d/3600)}h ago`;
+    document.getElementById('save-text').textContent = `Saved ${lbl}`;
+  }, 1000);
+  setInterval(() => { lastSaved = Date.now(); }, 30000);
+}
+</script>
+</body>
+</html>
