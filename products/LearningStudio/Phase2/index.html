@@ -129,6 +129,8 @@
     .sb-btn:hover { background: #f3f4f6; color: #374151; }
     .sb-btn.active { background: #e0f2fe; color: #0284c7; }
 
+    .sb-btn.last-active { background: #e0f2fe; color: #0284c7; }
+
     .sb-btn::after {
       content: attr(data-tip); position: absolute; left: calc(100% + 10px);
       top: 50%; transform: translateY(-50%); background: #1f2937; color: white;
@@ -364,26 +366,39 @@
     ===================================================================== */
     #canvas-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 
-    #canvas-toolbar {
-      height: 46px; background: white; border-bottom: 1px solid #e5e7eb;
-      display: flex; align-items: center; padding: 0 14px; gap: 6px; flex-shrink: 0;
+    /* Floating toolbar shared style */
+    .floating-toolbar {
+      position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.9);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1), 0 1px 4px rgba(0,0,0,0.07);
+      border-radius: 10px; padding: 6px 8px;
+      z-index: 30; white-space: nowrap;
     }
-    .toolbar-sep { width: 1px; height: 20px; background: #e5e7eb; margin: 0 4px; }
+    .toolbar-sep { width: 1px; height: 18px; background: rgba(0,0,0,0.1); margin: 0 2px; }
 
     .tb-btn {
-      display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px;
+      display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px;
       border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
-      font-family: inherit; border: none; transition: opacity 0.12s;
+      font-family: inherit; border: none; transition: all 0.12s;
     }
     .tb-btn:hover { opacity: 0.85; }
-    .tb-btn.outline { background: white; color: #374151; border: 1.5px solid #d1d5db; }
+    .tb-btn.outline {
+      background: white; color: #374151; border: 1.5px solid #d1d5db;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .tb-btn.outline:hover { background: #f9fafb; border-color: #9ca3af; }
     .tb-btn.purple  { background: linear-gradient(135deg, #8b5cf6, #a855f7); color: white; }
     .tb-btn.green   { background: #16a34a; color: white; }
     .tb-btn.green.done { background: #15803d; }
 
+    #canvas-area { position: relative; }
+
     #preview-area {
       flex: 1; display: flex; align-items: center; justify-content: center;
-      padding: 20px; overflow: hidden;
+      padding: 60px 20px 20px; overflow: hidden;
     }
 
     .canvas-frame {
@@ -658,10 +673,7 @@
     .qe-empty p { font-size: 14px; color: #6b7280; margin-bottom: 6px; font-weight: 500; }
     .qe-empty small { font-size: 12px; color: #9ca3af; }
 
-    #qe-toolbar {
-      height: 46px; background: white; border-bottom: 1px solid #e5e7eb;
-      display: flex; align-items: center; padding: 0 14px; gap: 6px; flex-shrink: 0;
-    }
+    #question-editor { position: relative; }
 
     .qe-type-btn {
       display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px;
@@ -686,7 +698,7 @@
     .editor-divider { height: 1px; background: #f0f0f0; margin: 4px 0; }
 
     #qe-content {
-      flex: 1; overflow-y: auto; padding: 20px 24px;
+      flex: 1; overflow-y: auto; padding: 72px 24px 20px;
       display: flex; flex-direction: column; gap: 16px;
     }
     #qe-content::-webkit-scrollbar { width: 5px; }
@@ -780,12 +792,8 @@
     }
     #citation-editor.visible { display: flex; }
 
+    #citation-editor { position: relative; }
     #ce-active { flex: 1; flex-direction: column; overflow: hidden; }
-
-    #ce-toolbar {
-      height: 46px; background: white; border-bottom: 1px solid #e5e7eb;
-      display: flex; align-items: center; padding: 0 14px; gap: 8px; flex-shrink: 0;
-    }
 
     .ce-type-select {
       padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
@@ -795,7 +803,7 @@
     .ce-type-select:focus { border-color: #0ea5e9; }
 
     #ce-content {
-      flex: 1; overflow-y: auto; padding: 20px 24px;
+      flex: 1; overflow-y: auto; padding: 72px 24px 20px;
       display: flex; flex-direction: column; gap: 16px;
     }
     #ce-content::-webkit-scrollbar { width: 5px; }
@@ -831,6 +839,267 @@
       color: #dc2626; transition: all 0.12s;
     }
     .btn-danger:hover { background: #fef2f2; border-color: #f87171; }
+
+    /* =====================================================================
+       TEMPLATE PROPERTIES PANEL (right side)
+    ===================================================================== */
+    .tpl-props-panel {
+      width: 260px; height: 100%; display: flex; flex-direction: column;
+      flex-shrink: 0; background: white;
+      border-left: 1px solid #e5e7eb;
+      box-shadow: -2px 0 12px rgba(0,0,0,0.06);
+      z-index: 15; overflow: hidden;
+    }
+    .tpl-props-panel.hidden { display: none; }
+
+    .tpl-prop-section { padding: 0 0 4px; }
+    .tpl-prop-label {
+      font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: #9ca3af; margin-bottom: 8px;
+    }
+    .tpl-prop-divider { height: 1px; background: #f3f4f6; margin: 12px 0; }
+
+    .tpl-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .tpl-type-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+      padding: 10px 6px; border-radius: 8px; border: 1.5px solid #e5e7eb;
+      background: #f9fafb; cursor: pointer; font-family: inherit; font-size: 11px;
+      color: #6b7280; transition: all 0.12s;
+    }
+    .tpl-type-btn i { font-size: 14px; }
+    .tpl-type-btn:hover { border-color: #8b5cf6; background: #f5f3ff; color: #7c3aed; }
+    .tpl-type-btn.active { border-color: #8b5cf6; background: #ede9fe; color: #7c3aed; font-weight: 600; }
+
+    .tpl-pos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+    .tpl-pos-btn {
+      display: flex; align-items: center; gap: 6px; padding: 7px 9px;
+      border-radius: 6px; border: 1.5px solid #e5e7eb; background: #f9fafb;
+      cursor: pointer; font-family: inherit; font-size: 11.5px; color: #6b7280;
+      transition: all 0.12s;
+    }
+    .tpl-pos-btn i { font-size: 11px; width: 14px; text-align: center; }
+    .tpl-pos-btn:hover { border-color: #8b5cf6; background: #f5f3ff; color: #7c3aed; }
+    .tpl-pos-btn.active { border-color: #8b5cf6; background: #ede9fe; color: #7c3aed; font-weight: 600; }
+
+    .tpl-color-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .tpl-color-swatches { display: flex; gap: 5px; flex-wrap: wrap; }
+    .tpl-swatch {
+      width: 24px; height: 24px; border-radius: 5px; cursor: pointer;
+      border: 2px solid transparent; transition: transform 0.1s, border-color 0.1s;
+    }
+    .tpl-swatch:hover { transform: scale(1.15); }
+    .tpl-swatch.active { border-color: #374151; }
+    .tpl-custom-color-wrap { position: relative; cursor: pointer; }
+    .tpl-custom-color-wrap input[type="color"] {
+      position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer;
+    }
+    .tpl-custom-color-btn {
+      width: 24px; height: 24px; border-radius: 5px; background: #f3f4f6;
+      border: 1.5px solid #e5e7eb; display: flex; align-items: center;
+      justify-content: center; font-size: 11px; color: #6b7280;
+    }
+
+    /* Rich text editor */
+    .rte-field { margin-bottom: 14px; }
+    .rte-field:last-child { margin-bottom: 0; }
+    .rte-label { display: block; font-size: 11px; color: #6b7280; margin-bottom: 5px; font-weight: 600; }
+
+    .rte-toolbar {
+      display: flex; align-items: center; gap: 2px; flex-wrap: wrap;
+      padding: 4px 5px; border: 1.5px solid #e5e7eb; border-bottom: none;
+      border-radius: 7px 7px 0 0; background: #f9fafb;
+    }
+    .rte-btn {
+      width: 26px; height: 26px; border: none; border-radius: 4px; background: none;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 11.5px; color: #6b7280; transition: all 0.1s; flex-shrink: 0;
+    }
+    .rte-btn:hover { background: #ede9fe; color: #7c3aed; }
+    .rte-btn.active { background: #ede9fe; color: #7c3aed; }
+    .rte-sep { width: 1px; height: 16px; background: #e5e7eb; margin: 0 2px; flex-shrink: 0; }
+
+    .rte-font-size {
+      width: 42px; padding: 2px 5px; border-radius: 4px; border: 1px solid #e5e7eb;
+      font-size: 11px; color: #374151; background: white; outline: none;
+      font-family: inherit; text-align: center; cursor: pointer;
+    }
+    .rte-font-size:focus { border-color: #8b5cf6; }
+
+    .rte-color-wrap { position: relative; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .rte-color-wrap input[type="color"] {
+      position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer;
+    }
+    .rte-color-indicator {
+      width: 26px; height: 26px; border-radius: 4px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 1px;
+    }
+    .rte-color-indicator i { font-size: 11px; color: #6b7280; }
+    .rte-color-bar { width: 14px; height: 3px; border-radius: 1px; background: #000; }
+
+    .rte-body {
+      min-height: 64px; padding: 8px 10px;
+      border: 1.5px solid #e5e7eb; border-radius: 0 0 7px 7px;
+      font-size: 13px; color: #0f2e3d; line-height: 1.5;
+      outline: none; background: white; font-family: 'Open Sans', sans-serif;
+      overflow-y: auto; max-height: 140px; word-break: break-word;
+    }
+    .rte-body:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,0.1); }
+
+    /* =====================================================================
+       ADD MEDIA MODAL — segmented control + dynamic content
+    ===================================================================== */
+    .modal-xl { max-width: 680px; }
+
+    .seg-control {
+      display: flex; background: #f3f4f6; border-radius: 8px;
+      padding: 3px; gap: 2px; margin-bottom: 18px;
+    }
+    .seg-btn {
+      flex: 1; padding: 7px 10px; border-radius: 6px; border: none;
+      background: none; cursor: pointer; font-family: inherit;
+      font-size: 12.5px; font-weight: 600; color: #6b7280;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: all 0.15s;
+    }
+    .seg-btn.active {
+      background: white; color: #0f2e3d;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 0 0 0.5px rgba(0,0,0,0.05);
+    }
+    .seg-btn:hover:not(.active) { color: #374151; }
+
+    .media-pane { display: none; }
+    .media-pane.active { display: block; }
+
+    /* AI Generate pane */
+    .ai-gen-preview {
+      width: 100%; aspect-ratio: 16/5; border-radius: 10px; background: #f3f4f6;
+      border: 1.5px dashed #d1d5db; display: flex; align-items: center;
+      justify-content: center; margin-bottom: 14px; overflow: hidden; position: relative;
+    }
+    .ai-gen-preview img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+    .ai-gen-placeholder { text-align: center; color: #9ca3af; }
+    .ai-gen-placeholder i { font-size: 28px; display: block; margin-bottom: 6px; opacity: 0.4; }
+    .ai-gen-placeholder span { font-size: 12px; }
+    .ai-style-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 14px; }
+    .ai-style-opt {
+      padding: 8px 4px; border-radius: 7px; border: 1.5px solid #e5e7eb;
+      background: #f9fafb; cursor: pointer; text-align: center; font-size: 11px;
+      color: #6b7280; font-weight: 600; transition: all 0.12s;
+    }
+    .ai-style-opt:hover { border-color: #0ea5e9; background: #f0f9ff; color: #0284c7; }
+    .ai-style-opt.selected { border-color: #0ea5e9; background: #e0f2fe; color: #0284c7; }
+    .ai-style-opt i { display: block; font-size: 16px; margin-bottom: 4px; }
+
+    /* Upload pane */
+    .upload-dropzone {
+      width: 100%; padding: 36px 20px; border-radius: 10px;
+      border: 2px dashed #d1d5db; background: #f9fafb; text-align: center;
+      cursor: pointer; transition: all 0.15s; margin-bottom: 14px;
+    }
+    .upload-dropzone:hover { border-color: #0ea5e9; background: #f0f9ff; }
+    .upload-dropzone i { font-size: 32px; color: #9ca3af; display: block; margin-bottom: 10px; }
+    .upload-dropzone p { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 4px; }
+    .upload-dropzone small { font-size: 11px; color: #9ca3af; }
+    .upload-file-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 16px; border-radius: 6px; background: #0ea5e9; color: white;
+      font-size: 12.5px; font-weight: 600; border: none; cursor: pointer;
+      font-family: inherit; margin-top: 10px;
+    }
+    .upload-file-btn:hover { background: #0284c7; }
+    .upload-recent-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .upload-recent-item {
+      border-radius: 7px; overflow: hidden; cursor: pointer; position: relative;
+      border: 2px solid transparent; transition: border-color 0.12s;
+      aspect-ratio: 16/9; background: #e5e7eb;
+    }
+    .upload-recent-item:hover { border-color: #0ea5e9; }
+    .upload-recent-item.selected { border-color: #0ea5e9; }
+    .upload-recent-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .upload-recent-item .sel-check {
+      position: absolute; top: 4px; right: 4px; width: 18px; height: 18px;
+      border-radius: 50%; background: #0ea5e9; color: white; font-size: 9px;
+      display: none; align-items: center; justify-content: center;
+    }
+    .upload-recent-item.selected .sel-check { display: flex; }
+
+    /* Stock Library pane */
+    .stock-search-row { display: flex; gap: 8px; margin-bottom: 14px; }
+    .stock-search-input {
+      flex: 1; padding: 7px 12px; border-radius: 6px; border: 1.5px solid #e5e7eb;
+      font-size: 12.5px; color: #374151; outline: none; font-family: inherit;
+      background: #fafafa;
+    }
+    .stock-search-input:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,0.1); }
+    .stock-search-btn {
+      padding: 7px 14px; border-radius: 6px; background: #0ea5e9; color: white;
+      border: none; font-size: 12.5px; font-weight: 600; cursor: pointer;
+      font-family: inherit; display: flex; align-items: center; gap: 5px;
+    }
+    .stock-search-btn:hover { background: #0284c7; }
+    .stock-filter-row { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+    .stock-filter-chip {
+      padding: 4px 11px; border-radius: 20px; border: 1.5px solid #e5e7eb;
+      background: white; cursor: pointer; font-size: 11.5px; font-weight: 600;
+      color: #6b7280; transition: all 0.12s;
+    }
+    .stock-filter-chip:hover { border-color: #0ea5e9; color: #0284c7; }
+    .stock-filter-chip.active { border-color: #0ea5e9; background: #e0f2fe; color: #0284c7; }
+    .stock-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-height: 260px; overflow-y: auto; }
+    .stock-grid::-webkit-scrollbar { width: 4px; }
+    .stock-grid::-webkit-scrollbar-thumb { background: rgba(14,165,233,0.2); border-radius: 2px; }
+    .stock-item {
+      border-radius: 7px; overflow: hidden; cursor: pointer; position: relative;
+      border: 2px solid transparent; transition: border-color 0.12s; aspect-ratio: 16/9;
+      background: #e5e7eb;
+    }
+    .stock-item:hover { border-color: #0ea5e9; }
+    .stock-item.selected { border-color: #0ea5e9; }
+    .stock-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .stock-item .sel-check {
+      position: absolute; top: 4px; right: 4px; width: 18px; height: 18px;
+      border-radius: 50%; background: #0ea5e9; color: white; font-size: 9px;
+      display: none; align-items: center; justify-content: center;
+    }
+    .stock-item.selected .sel-check { display: flex; }
+
+    /* =====================================================================
+       PREVIEW MODAL
+    ===================================================================== */
+    .modal-preview { max-width: 820px; }
+    .preview-canvas-wrap {
+      width: 100%; aspect-ratio: 16/9; border-radius: 10px; overflow: hidden;
+      position: relative; background: #111;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      margin-bottom: 16px;
+    }
+    .preview-canvas-wrap img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+    .preview-canvas-wrap .preview-overlay { position: absolute; inset: 0; pointer-events: none; }
+    .preview-playbar {
+      display: flex; align-items: center; gap: 10px; padding: 4px 0 2px;
+    }
+    .preview-play-btn {
+      width: 32px; height: 32px; border-radius: 7px; background: #0ea5e9;
+      border: none; color: white; font-size: 12px; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .preview-play-btn:hover { background: #0284c7; }
+    .preview-progress {
+      flex: 1; height: 4px; background: #e5e7eb; border-radius: 2px;
+      position: relative; cursor: pointer;
+    }
+    .preview-progress-fill { height: 100%; background: #0ea5e9; border-radius: 2px; width: 0%; transition: width 0.1s linear; }
+    .preview-time { font-size: 11.5px; color: #6b7280; font-family: 'Courier New', monospace; white-space: nowrap; }
+    .preview-tracks-summary {
+      display: flex; gap: 8px; flex-wrap: wrap; padding-top: 2px;
+    }
+    .preview-track-chip {
+      display: flex; align-items: center; gap: 5px; padding: 4px 10px;
+      border-radius: 20px; font-size: 11.5px; font-weight: 600;
+    }
+    .preview-track-chip.audio { background: rgba(96,165,250,0.15); color: #2563eb; }
+    .preview-track-chip.media { background: rgba(248,113,113,0.15); color: #dc2626; }
+    .preview-track-chip.template { background: rgba(132,204,22,0.15); color: #65a30d; }
   </style>
 </head>
 <body>
@@ -1008,16 +1277,11 @@
     <!-- ---- CANVAS AREA ---- -->
     <div id="canvas-area">
 
-      <!-- Toolbar -->
-      <div id="canvas-toolbar">
-        <button class="tb-btn outline"><i class="fa-solid fa-upload"></i> Upload</button>
-        <button class="tb-btn outline"><i class="fa-regular fa-image"></i> Stock</button>
-        <button class="tb-btn purple"><i class="fa-solid fa-sparkles"></i> Generate (AI)</button>
-        <div style="flex:1;"></div>
-        <button class="tb-btn outline"><i class="fa-solid fa-play"></i> Preview</button>
-        <button class="tb-btn green" id="complete-btn" onclick="toggleActiveComplete()">
-          <i class="fa-solid fa-check"></i> Complete Scene
-        </button>
+      <!-- Floating Toolbar -->
+      <div id="canvas-toolbar" class="floating-toolbar">
+        <button class="tb-btn outline" onclick="openAddMediaModal()"><i class="fa-regular fa-image"></i> Add Media</button>
+        <button class="tb-btn outline" onclick="addTemplate()"><i class="fa-solid fa-table-columns"></i> Add Template</button>
+        <button class="tb-btn outline" onclick="openPreviewModal()"><i class="fa-solid fa-play"></i> Preview</button>
       </div>
 
       <!-- Preview Canvas -->
@@ -1080,6 +1344,65 @@
 
     </div><!-- /canvas-area -->
 
+    <!-- ---- TEMPLATE PROPERTIES PANEL (right side) ---- -->
+    <div id="panel-template" class="tpl-props-panel hidden">
+      <div class="panel-header">
+        <div class="ph-left">
+          <i class="fa-solid fa-table-columns" style="color:#8b5cf6; font-size:13px;"></i>
+          <span class="panel-title">Template Properties</span>
+        </div>
+        <button class="ph-close" onclick="closeTemplatePanel()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="panel-body">
+
+        <!-- Template type picker -->
+        <div class="tpl-prop-section">
+          <div class="tpl-prop-label">Template Type</div>
+          <div class="tpl-type-grid" id="tpl-type-grid">
+            <button class="tpl-type-btn" id="tpltype-text-overlay" onclick="setTplType('text-overlay')">
+              <i class="fa-solid fa-align-left"></i>
+              <span>Text Overlay</span>
+            </button>
+            <button class="tpl-type-btn" id="tpltype-lower-third" onclick="setTplType('lower-third')">
+              <i class="fa-solid fa-minus"></i>
+              <span>Lower Third</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="tpl-prop-divider"></div>
+
+        <!-- Positioning -->
+        <div class="tpl-prop-section" id="tpl-position-section">
+          <div class="tpl-prop-label">Position</div>
+          <div class="tpl-pos-grid" id="tpl-pos-grid"></div>
+        </div>
+
+        <div class="tpl-prop-divider"></div>
+
+        <!-- Color -->
+        <div class="tpl-prop-section">
+          <div class="tpl-prop-label">Background Color</div>
+          <div class="tpl-color-row">
+            <div class="tpl-color-swatches" id="tpl-color-swatches"></div>
+            <label class="tpl-custom-color-wrap" title="Custom color">
+              <input type="color" id="tpl-custom-color" oninput="setTplColor(this.value)" />
+              <div class="tpl-custom-color-btn"><i class="fa-solid fa-palette"></i></div>
+            </label>
+          </div>
+        </div>
+
+        <div class="tpl-prop-divider"></div>
+
+        <!-- Rich text fields -->
+        <div class="tpl-prop-section" id="tpl-text-section">
+          <div class="tpl-prop-label">Text</div>
+          <div id="tpl-rte-fields"></div>
+        </div>
+
+      </div>
+    </div><!-- /panel-template -->
+
     <!-- ---- QUESTION EDITOR ---- -->
     <div id="question-editor">
 
@@ -1093,8 +1416,8 @@
       <!-- Active: question in edit mode -->
       <div id="qe-active" style="display:none;">
 
-        <!-- Toolbar -->
-        <div id="qe-toolbar">
+        <!-- Floating Toolbar -->
+        <div id="qe-toolbar" class="floating-toolbar">
           <button class="qe-type-btn" id="qe-type-mc" onclick="setQType('multiple-choice')">
             <i class="fa-solid fa-list-ul"></i> Multiple Choice
           </button>
@@ -1104,7 +1427,6 @@
           <button class="qe-type-btn" id="qe-type-fb" onclick="setQType('fill-blank')">
             <i class="fa-solid fa-i-cursor"></i> Fill in Blank
           </button>
-          <div style="flex:1;"></div>
           <select id="qe-status-select" class="sc-status-select in-progress" onchange="updateQStatus(this.value)">
             <option value="in-progress">In Progress</option>
             <option value="in-review">In Review</option>
@@ -1196,8 +1518,8 @@
       <!-- Active: citation in edit mode -->
       <div id="ce-active" style="display:none;">
 
-        <!-- Toolbar -->
-        <div id="ce-toolbar">
+        <!-- Floating Toolbar -->
+        <div id="ce-toolbar" class="floating-toolbar">
           <i class="fa-solid fa-quote-right" style="color:#9ca3af; font-size:13px;"></i>
           <select class="ce-type-select" id="ce-type-select" onchange="updateCitationType(this.value)">
             <option value="journal">Journal Article</option>
@@ -1205,7 +1527,6 @@
             <option value="website">Website</option>
             <option value="other">Other</option>
           </select>
-          <div style="flex:1;"></div>
           <button class="btn-danger" onclick="deleteCitation()">
             <i class="fa-solid fa-trash-can"></i> Delete
           </button>
@@ -1299,6 +1620,152 @@
   <button class="dd-item danger" id="dd-delete-btn" onclick="deleteActiveScene(); closeAllDropdowns()">
     <i class="fa-solid fa-trash-can"></i> Delete Scene
   </button>
+</div>
+
+<!-- ===================================================================
+     ADD MEDIA MODAL
+=================================================================== -->
+<div id="modal-add-media" class="modal-backdrop hidden">
+  <div class="modal modal-xl">
+    <div class="modal-header">
+      <div class="modal-title">Add Media</div>
+      <div class="modal-desc">Choose how to add background media for this scene.</div>
+    </div>
+    <div class="modal-body">
+
+      <!-- Segmented control -->
+      <div class="seg-control">
+        <button class="seg-btn active" id="seg-ai" onclick="switchMediaTab('ai')">
+          <i class="fa-solid fa-sparkles"></i> Generate with AI
+        </button>
+        <button class="seg-btn" id="seg-upload" onclick="switchMediaTab('upload')">
+          <i class="fa-solid fa-upload"></i> Upload
+        </button>
+        <button class="seg-btn" id="seg-stock" onclick="switchMediaTab('stock')">
+          <i class="fa-regular fa-images"></i> Stock Library
+        </button>
+      </div>
+
+      <!-- AI Generate pane -->
+      <div class="media-pane active" id="pane-ai">
+        <div class="ai-gen-preview" id="ai-gen-preview">
+          <div class="ai-gen-placeholder" id="ai-gen-placeholder">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <span>Your generated image will appear here</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Describe the scene</label>
+          <div style="display:flex; gap:8px;">
+            <input class="form-input" id="ai-prompt" type="text"
+              placeholder="e.g., Modern office with people collaborating around a table..."
+              style="flex:1;" onkeydown="if(event.key==='Enter') runAIGenerate()" />
+            <button class="upload-file-btn" onclick="runAIGenerate()" id="ai-gen-btn">
+              <i class="fa-solid fa-sparkles"></i> Generate
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Style</label>
+          <div class="ai-style-grid">
+            <div class="ai-style-opt selected" onclick="selectAIStyle(this, 'photorealistic')">
+              <i class="fa-solid fa-camera"></i> Photorealistic
+            </div>
+            <div class="ai-style-opt" onclick="selectAIStyle(this, 'illustration')">
+              <i class="fa-solid fa-pen-nib"></i> Illustration
+            </div>
+            <div class="ai-style-opt" onclick="selectAIStyle(this, 'cinematic')">
+              <i class="fa-solid fa-film"></i> Cinematic
+            </div>
+            <div class="ai-style-opt" onclick="selectAIStyle(this, 'abstract')">
+              <i class="fa-solid fa-shapes"></i> Abstract
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload pane -->
+      <div class="media-pane" id="pane-upload">
+        <div class="upload-dropzone" onclick="document.getElementById('file-upload-input').click()">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+          <p>Drag &amp; drop your image or video here</p>
+          <small>Supports JPG, PNG, GIF, MP4, MOV — up to 500 MB</small>
+          <button class="upload-file-btn" type="button">
+            <i class="fa-solid fa-folder-open"></i> Browse Files
+          </button>
+          <input type="file" id="file-upload-input" accept="image/*,video/*" style="display:none;" onchange="handleFileUpload(this)" />
+        </div>
+        <div class="tpl-prop-label" style="margin: 12px 0 8px;">Recent Uploads</div>
+        <div class="upload-recent-grid" id="upload-recent-grid"></div>
+      </div>
+
+      <!-- Stock Library pane -->
+      <div class="media-pane" id="pane-stock">
+        <div class="stock-search-row">
+          <input class="stock-search-input" id="stock-search" type="text"
+            placeholder="Search millions of stock photos and videos..."
+            onkeydown="if(event.key==='Enter') searchStock()" />
+          <button class="stock-search-btn" onclick="searchStock()">
+            <i class="fa-solid fa-magnifying-glass"></i> Search
+          </button>
+        </div>
+        <div class="stock-filter-row">
+          <div class="stock-filter-chip active" onclick="setStockFilter(this, 'all')">All</div>
+          <div class="stock-filter-chip" onclick="setStockFilter(this, 'photos')">Photos</div>
+          <div class="stock-filter-chip" onclick="setStockFilter(this, 'videos')">Videos</div>
+          <div class="stock-filter-chip" onclick="setStockFilter(this, 'vectors')">Vectors</div>
+          <div class="stock-filter-chip" onclick="setStockFilter(this, 'illustrations')">Illustrations</div>
+        </div>
+        <div class="stock-grid" id="stock-grid"></div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-add-media')">Cancel</button>
+      <button class="btn-primary" id="apply-media-btn" onclick="applySelectedMedia()" disabled>
+        <i class="fa-solid fa-check"></i> Apply to Scene
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================
+     PREVIEW MODAL
+=================================================================== -->
+<div id="modal-preview" class="modal-backdrop hidden">
+  <div class="modal modal-preview">
+    <div class="modal-header">
+      <div class="modal-title">Scene Preview</div>
+      <div class="modal-desc" id="preview-modal-desc">Previewing Scene 1 — composed view</div>
+    </div>
+    <div class="modal-body">
+      <!-- Canvas preview -->
+      <div class="preview-canvas-wrap">
+        <img id="preview-modal-bg" alt="Scene background" />
+        <div class="preview-overlay" id="preview-modal-overlay"></div>
+      </div>
+
+      <!-- Playback bar -->
+      <div class="preview-playbar">
+        <button class="preview-play-btn" id="preview-play-btn" onclick="togglePreviewPlay()">
+          <i class="fa-solid fa-play" id="preview-play-icon"></i>
+        </button>
+        <div class="preview-progress" id="preview-progress-bar" onclick="seekPreview(event)">
+          <div class="preview-progress-fill" id="preview-progress-fill"></div>
+        </div>
+        <span class="preview-time" id="preview-time">0:00 / 0:05</span>
+      </div>
+
+      <!-- Composition summary chips -->
+      <div class="preview-tracks-summary" id="preview-tracks-summary"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closePreviewModal()">Close</button>
+      <button class="btn-primary" onclick="closePreviewModal()">
+        <i class="fa-solid fa-circle-check"></i> Done
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- ===================================================================
@@ -1494,7 +1961,6 @@ let selectedVoice = 'alloy';
 let loCompleted = false;
 let currentLOId = 1;
 let contextSceneId = null;
-let lastSaved = Date.now();
 let lo = { title:'Introduction to Video Creation', objective:'Learn how to create professional video content using AI-powered tools and templates to enhance your content strategy and engage your audience effectively.' };
 
 /* -----------------------------------------------------------------------
@@ -1505,7 +1971,6 @@ document.addEventListener('DOMContentLoaded', () => {
   buildVoiceGrid();
   buildWaveform();
   buildTimeRuler();
-  startSaveTimer();
   updateCanvas();
   updateNavBtns();
   document.getElementById('kc-badge').textContent = knowledgeChecks.length;
@@ -1517,7 +1982,6 @@ function renderAll() {
   renderTextList();
   renderMediaList();
   updateDuration();
-  updateCompleteBtn();
 }
 
 /* -----------------------------------------------------------------------
@@ -1528,17 +1992,24 @@ const PANELS = ['scenes','knowledge-checks','assessment','citations'];
 function togglePanel(id) {
   if (activePanel === id) {
     document.getElementById(`panel-${id}`).classList.add('hidden');
-    document.getElementById(`sb-${id}`).classList.remove('active');
+    const btn = document.getElementById(`sb-${id}`);
+    btn.classList.remove('active');
+    btn.classList.add('last-active');
     activePanel = null;
     showCanvasForPanel(null);
   } else {
     PANELS.forEach(p => {
       document.getElementById(`panel-${p}`).classList.add('hidden');
-      document.getElementById(`sb-${p}`).classList.remove('active');
+      const b = document.getElementById(`sb-${p}`);
+      b.classList.remove('active');
+      // Only keep last-active on the one being closed, not unrelated ones
+      if (p !== id) b.classList.remove('last-active');
     });
     activePanel = id;
+    const btn = document.getElementById(`sb-${id}`);
+    btn.classList.remove('last-active');
+    btn.classList.add('active');
     document.getElementById(`panel-${id}`).classList.remove('hidden');
-    document.getElementById(`sb-${id}`).classList.add('active');
     showCanvasForPanel(id);
   }
 }
@@ -1547,6 +2018,10 @@ function showCanvasForPanel(panelId) {
   const isQPanel = panelId === 'knowledge-checks' || panelId === 'assessment';
   const isCitPanel = panelId === 'citations';
   document.getElementById('canvas-area').style.display = (isQPanel || isCitPanel) ? 'none' : '';
+  // Hide template panel when switching to non-canvas views
+  if (isQPanel || isCitPanel) {
+    document.getElementById('panel-template').classList.add('hidden');
+  }
 
   const qEditor = document.getElementById('question-editor');
   const cEditor = document.getElementById('citation-editor');
@@ -2019,7 +2494,6 @@ function updateCanvas() {
   const sc = getActive();
   document.getElementById('canvas-bg').src = sc.img || '';
   renderOverlay(sc);
-  updateCompleteBtn();
 }
 
 function renderOverlay(sc) {
@@ -2040,15 +2514,6 @@ function renderOverlay(sc) {
   } else {
     el.innerHTML = '';
   }
-}
-
-function updateCompleteBtn() {
-  const sc = getActive();
-  const btn = document.getElementById('complete-btn');
-  btn.className = `tb-btn green${sc.completed?' done':''}`;
-  btn.innerHTML = sc.completed
-    ? '<i class="fa-solid fa-circle-check"></i> Scene Complete'
-    : '<i class="fa-solid fa-check"></i> Complete Scene';
 }
 
 function toggleActiveComplete() {
@@ -2230,7 +2695,10 @@ function openModal(id)  { document.getElementById(id).classList.remove('hidden')
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
 document.addEventListener('click', e => {
-  if (e.target.classList.contains('modal-backdrop')) closeModal(e.target.id);
+  if (e.target.classList.contains('modal-backdrop')) {
+    if (e.target.id === 'modal-preview') closePreviewModal();
+    else closeModal(e.target.id);
+  }
 });
 
 /* -----------------------------------------------------------------------
@@ -2280,7 +2748,6 @@ function generateAudio() {
     btn.innerHTML = '<i class="fa-solid fa-volume-high"></i> Generate Audio';
     btn.disabled = false;
     closeModal('modal-audio');
-    lastSaved = Date.now();
   }, 2000);
 }
 
@@ -2457,16 +2924,495 @@ function addCitation() {
   selectCitation(newC.id);
 }
 
+
 /* -----------------------------------------------------------------------
-   AUTO-SAVE TIMER
+   TEMPLATE PANEL
 ----------------------------------------------------------------------- */
-function startSaveTimer() {
-  setInterval(() => {
-    const d = Math.floor((Date.now()-lastSaved)/1000);
-    const lbl = d<10?'just now':d<60?`${d}s ago`:d<3600?`${Math.floor(d/60)}m ago`:`${Math.floor(d/3600)}h ago`;
-    document.getElementById('save-text').textContent = `Saved ${lbl}`;
-  }, 1000);
-  setInterval(() => { lastSaved = Date.now(); }, 30000);
+const TPL_COLORS = ['#1e40af','#1d4ed8','#0284c7','#0891b2','#059669','#16a34a','#ca8a04','#b45309','#dc2626','#9333ea','#7c3aed','#374151','#1f2937','#000000'];
+
+const TPL_POS = {
+  'text-overlay': [
+    { key:'left',   icon:'fa-align-left',   label:'Left' },
+    { key:'right',  icon:'fa-align-right',  label:'Right' },
+    { key:'center', icon:'fa-align-center', label:'Center' },
+  ],
+  'lower-third': [
+    { key:'bottom', icon:'fa-arrow-down',   label:'Bottom' },
+    { key:'top',    icon:'fa-arrow-up',     label:'Top' },
+  ],
+};
+
+const TPL_TEXT_FIELDS = {
+  'text-overlay': ['text'],
+  'lower-third':  ['title','subtitle'],
+};
+
+function addTemplate() {
+  const sc = getActive();
+  if (!sc.tpl) {
+    sc.tpl = 'text-overlay';
+    sc.tplParams = { placement:'left', color:'#1e40af', text:'Your Message Here' };
+    updateCanvas();
+    updateTimelineClips();
+  }
+  openTemplatePanel();
+}
+
+function openTemplatePanel() {
+  document.getElementById('panel-template').classList.remove('hidden');
+  refreshTplPanel();
+}
+
+function closeTemplatePanel() {
+  document.getElementById('panel-template').classList.add('hidden');
+}
+
+// Which field currently has focus in the RTE panel
+let rteActiveField = null;
+
+function rteCmd(cmd, val) {
+  document.execCommand(cmd, false, val ?? null);
+  if (rteActiveField) syncRteField(rteActiveField);
+  updateRteToolbarState();
+}
+
+function syncRteField(field) {
+  const sc = getActive();
+  const el = document.getElementById(`rte-body-${field}`);
+  if (el) sc.tplParams[field] = el.innerHTML;
+  updateCanvas();
+}
+
+function updateRteToolbarState(field) {
+  const f = field || rteActiveField;
+  if (!f) return;
+  const cmds = ['bold','italic','underline','strikeThrough','insertUnorderedList','insertOrderedList'];
+  cmds.forEach(cmd => {
+    const btn = document.querySelector(`[data-rte-field="${f}"] .rte-btn[data-cmd="${cmd}"]`);
+    if (btn) btn.classList.toggle('active', document.queryCommandState(cmd));
+  });
+  // Font size
+  const sizeEl = document.querySelector(`[data-rte-field="${f}"] .rte-font-size`);
+  if (sizeEl) {
+    const val = document.queryCommandValue('fontSize');
+    // execCommand fontSize uses 1–7, map back to px for display
+    const pxMap = {'1':10,'2':13,'3':16,'4':18,'5':24,'6':32,'7':48};
+    sizeEl.value = pxMap[val] || 16;
+  }
+  // Text color
+  const colorEl = document.querySelector(`[data-rte-field="${f}"] .rte-text-color`);
+  if (colorEl) {
+    const c = document.queryCommandValue('foreColor');
+    const hex = rgbToHex(c);
+    const bar = document.querySelector(`[data-rte-field="${f}"] .rte-color-bar`);
+    if (bar && hex) bar.style.background = hex;
+    if (colorEl) colorEl.value = hex || '#000000';
+  }
+}
+
+function rgbToHex(rgb) {
+  if (!rgb || rgb === 'false') return null;
+  const m = rgb.match(/\d+/g);
+  if (!m || m.length < 3) return null;
+  return '#' + m.slice(0,3).map(n => parseInt(n).toString(16).padStart(2,'0')).join('');
+}
+
+function buildRteField(field, label, htmlContent) {
+  const pxMap = [10,13,16,18,24,32,48];
+  const sizeOptions = pxMap.map(px => `<option value="${px}">${px}</option>`).join('');
+  return `
+<div class="rte-field" data-rte-field="${field}">
+  <label class="rte-label">${label}</label>
+  <div class="rte-toolbar">
+    <button class="rte-btn" data-cmd="bold" title="Bold" onmousedown="event.preventDefault(); rteCmd('bold')"><i class="fa-solid fa-bold"></i></button>
+    <button class="rte-btn" data-cmd="italic" title="Italic" onmousedown="event.preventDefault(); rteCmd('italic')"><i class="fa-solid fa-italic"></i></button>
+    <button class="rte-btn" data-cmd="underline" title="Underline" onmousedown="event.preventDefault(); rteCmd('underline')"><i class="fa-solid fa-underline"></i></button>
+    <button class="rte-btn" data-cmd="strikeThrough" title="Strikethrough" onmousedown="event.preventDefault(); rteCmd('strikeThrough')"><i class="fa-solid fa-strikethrough"></i></button>
+    <div class="rte-sep"></div>
+    <button class="rte-btn" data-cmd="justifyLeft" title="Align Left" onmousedown="event.preventDefault(); rteCmd('justifyLeft')"><i class="fa-solid fa-align-left"></i></button>
+    <button class="rte-btn" data-cmd="justifyCenter" title="Align Center" onmousedown="event.preventDefault(); rteCmd('justifyCenter')"><i class="fa-solid fa-align-center"></i></button>
+    <button class="rte-btn" data-cmd="justifyRight" title="Align Right" onmousedown="event.preventDefault(); rteCmd('justifyRight')"><i class="fa-solid fa-align-right"></i></button>
+    <div class="rte-sep"></div>
+    <button class="rte-btn" data-cmd="insertUnorderedList" title="Bullet list" onmousedown="event.preventDefault(); rteCmd('insertUnorderedList')"><i class="fa-solid fa-list-ul"></i></button>
+    <button class="rte-btn" data-cmd="insertOrderedList" title="Numbered list" onmousedown="event.preventDefault(); rteCmd('insertOrderedList')"><i class="fa-solid fa-list-ol"></i></button>
+    <div class="rte-sep"></div>
+    <select class="rte-font-size" title="Font size"
+      onmousedown="rteActiveField='${field}'"
+      onchange="event.preventDefault(); rteCmd('fontSize', fontSizePxToLevel(this.value)); this.blur()">
+      ${sizeOptions}
+    </select>
+    <div class="rte-sep"></div>
+    <label class="rte-color-wrap" title="Text color">
+      <input type="color" class="rte-text-color" value="#ffffff"
+        onmousedown="rteActiveField='${field}'"
+        oninput="rteCmd('foreColor', this.value)" />
+      <div class="rte-color-indicator">
+        <i class="fa-solid fa-font"></i>
+        <div class="rte-color-bar"></div>
+      </div>
+    </label>
+    <button class="rte-btn" data-cmd="removeFormat" title="Clear formatting" onmousedown="event.preventDefault(); rteCmd('removeFormat')"><i class="fa-solid fa-eraser"></i></button>
+  </div>
+  <div class="rte-body" id="rte-body-${field}" contenteditable="true"
+    onfocus="rteActiveField='${field}'; updateRteToolbarState('${field}')"
+    onkeyup="syncRteField('${field}'); updateRteToolbarState('${field}')"
+    onmouseup="updateRteToolbarState('${field}')"
+  >${htmlContent}</div>
+</div>`;
+}
+
+function fontSizePxToLevel(px) {
+  const levels = [[10,1],[13,2],[16,3],[18,4],[24,5],[32,6],[48,7]];
+  const n = parseInt(px);
+  return (levels.find(([p]) => n <= p) || [48,7])[1];
+}
+
+function refreshTplPanel() {
+  const sc = getActive();
+  if (!sc.tpl) return;
+  const p = sc.tplParams;
+
+  // Type buttons
+  document.querySelectorAll('.tpl-type-btn').forEach(b => b.classList.remove('active'));
+  const activeTypeBtn = document.getElementById(`tpltype-${sc.tpl}`);
+  if (activeTypeBtn) activeTypeBtn.classList.add('active');
+
+  // Position buttons
+  const posGrid = document.getElementById('tpl-pos-grid');
+  const positions = TPL_POS[sc.tpl] || [];
+  const currentPos = sc.tpl === 'text-overlay' ? p.placement : p.position;
+  posGrid.innerHTML = positions.map(pos => `
+    <button class="tpl-pos-btn${currentPos===pos.key?' active':''}" onclick="setTplPos('${pos.key}')">
+      <i class="fa-solid ${pos.icon}"></i> ${pos.label}
+    </button>`).join('');
+
+  // Color swatches
+  const swatchEl = document.getElementById('tpl-color-swatches');
+  swatchEl.innerHTML = TPL_COLORS.map(c => `
+    <div class="tpl-swatch${p.color===c?' active':''}"
+      style="background:${c};" onclick="setTplColor('${c}')" title="${c}"></div>`).join('');
+  document.getElementById('tpl-custom-color').value = p.color || '#1e40af';
+
+  // Rich text fields — rebuild only when switching template type, preserve on minor updates
+  const rteContainer = document.getElementById('tpl-rte-fields');
+  const fields = TPL_TEXT_FIELDS[sc.tpl] || [];
+  const existingFields = [...rteContainer.querySelectorAll('[data-rte-field]')].map(el => el.dataset.rteField);
+  const sameFields = fields.length === existingFields.length && fields.every((f, i) => f === existingFields[i]);
+
+  if (!sameFields) {
+    rteContainer.innerHTML = fields.map(f => {
+      const label = f.charAt(0).toUpperCase() + f.slice(1);
+      return buildRteField(f, label, p[f] || '');
+    }).join('');
+  }
+}
+
+function setTplType(type) {
+  const sc = getActive();
+  sc.tpl = type;
+  if (type === 'text-overlay') {
+    sc.tplParams = { ...sc.tplParams, placement:'left', text: sc.tplParams?.text || '<p>Your Message Here</p>' };
+    delete sc.tplParams.position; delete sc.tplParams.title; delete sc.tplParams.subtitle;
+  } else if (type === 'lower-third') {
+    sc.tplParams = { ...sc.tplParams, position:'bottom',
+      title: sc.tplParams?.title || sc.tplParams?.text || '<p>Title</p>',
+      subtitle: sc.tplParams?.subtitle || '' };
+    delete sc.tplParams.placement; delete sc.tplParams.text;
+  }
+  updateCanvas();
+  updateTimelineClips();
+  refreshTplPanel();
+}
+
+function setTplPos(key) {
+  const sc = getActive();
+  const p = sc.tplParams;
+  if (sc.tpl === 'text-overlay') p.placement = key;
+  else p.position = key;
+  updateCanvas();
+  refreshTplPanel();
+}
+
+function setTplColor(hex) {
+  const sc = getActive();
+  sc.tplParams.color = hex;
+  updateCanvas();
+  refreshTplPanel();
+}
+
+window.renderOverlay = function(sc) {
+  const el = document.getElementById('canvas-overlay');
+  if (!sc.tpl || !sc.tplParams) { el.innerHTML=''; return; }
+  const p = sc.tplParams;
+  const tc = lum(p.color) > 0.55 ? '#000' : '#fff';
+
+  const wrapStyle = `color:${tc}; font-family:'Open Sans',sans-serif; font-size:clamp(10px,1.4vw,18px);`;
+
+  if (sc.tpl === 'text-overlay') {
+    el.innerHTML = `<div class="tpl-text-overlay ${p.placement||'left'}" style="background:${p.color};opacity:0.92;">
+      <div class="tpl-overlay-text" style="${wrapStyle}">${p.text||''}</div>
+    </div>`;
+  } else if (sc.tpl === 'lower-third') {
+    el.innerHTML = `<div class="tpl-lower-third ${p.position||'bottom'}" style="background:${p.color};">
+      <div class="tpl-lower-title" style="${wrapStyle} font-weight:700;">${p.title||''}</div>
+      ${p.subtitle ? `<div class="tpl-lower-sub" style="${wrapStyle} opacity:0.88;">${p.subtitle}</div>` : ''}
+    </div>`;
+  } else {
+    el.innerHTML = '';
+  }
+};
+
+/* -----------------------------------------------------------------------
+   ADD MEDIA MODAL
+----------------------------------------------------------------------- */
+const STOCK_IMAGES = [
+  'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&q=70',
+  'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&q=70',
+  'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=400&q=70',
+  'https://images.unsplash.com/photo-1556761175-4b46a572b786?w=400&q=70',
+  'https://images.unsplash.com/photo-1552664730-d307ca884978?w=400&q=70',
+  'https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=400&q=70',
+  'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=400&q=70',
+  'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=400&q=70',
+  'https://images.unsplash.com/photo-1524758631624-e2822e304c36?w=400&q=70',
+  'https://images.unsplash.com/photo-1513530534585-c7b1394c6d51?w=400&q=70',
+  'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=400&q=70',
+  'https://images.unsplash.com/photo-1573496546038-82f9c39f6365?w=400&q=70',
+];
+
+const RECENT_UPLOADS = [
+  'https://images.unsplash.com/photo-1764663908321-495a7145ad3b?w=400&q=70',
+  'https://images.unsplash.com/photo-1764663908343-f0ec582a527a?w=400&q=70',
+  'https://images.unsplash.com/photo-1758873272921-4b64aef3c32b?w=400&q=70',
+  'https://images.unsplash.com/photo-1627244714766-94dab62ed964?w=400&q=70',
+];
+
+let selectedMediaUrl = null;
+let currentMediaTab = 'ai';
+
+function openAddMediaModal() {
+  selectedMediaUrl = null;
+  document.getElementById('apply-media-btn').disabled = true;
+  document.getElementById('ai-prompt').value = '';
+  // Reset AI preview
+  const preview = document.getElementById('ai-gen-preview');
+  preview.innerHTML = '<div class="ai-gen-placeholder" id="ai-gen-placeholder"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Your generated image will appear here</span></div>';
+  // Populate stock grid
+  renderStockGrid(STOCK_IMAGES);
+  // Populate recent uploads
+  renderRecentUploads(RECENT_UPLOADS);
+  // Switch to AI tab by default
+  switchMediaTab('ai');
+  openModal('modal-add-media');
+}
+
+function switchMediaTab(tab) {
+  currentMediaTab = tab;
+  ['ai','upload','stock'].forEach(t => {
+    document.getElementById(`seg-${t}`).classList.toggle('active', t===tab);
+    document.getElementById(`pane-${t}`).classList.toggle('active', t===tab);
+  });
+}
+
+function selectAIStyle(el, style) {
+  document.querySelectorAll('.ai-style-opt').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function runAIGenerate() {
+  const prompt = document.getElementById('ai-prompt').value.trim();
+  if (!prompt) return;
+  const btn = document.getElementById('ai-gen-btn');
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+  btn.disabled = true;
+
+  const sampleImages = [
+    'https://images.unsplash.com/photo-1497366216548-37526070297c?w=900&q=80',
+    'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=900&q=80',
+    'https://images.unsplash.com/photo-1556761175-4b46a572b786?w=900&q=80',
+    'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=900&q=80',
+  ];
+  const img = sampleImages[Math.floor(Math.random()*sampleImages.length)];
+
+  setTimeout(() => {
+    const preview = document.getElementById('ai-gen-preview');
+    preview.innerHTML = `<img src="${img}" alt="Generated" />`;
+    selectedMediaUrl = img;
+    document.getElementById('apply-media-btn').disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-sparkles"></i> Generate';
+    btn.disabled = false;
+  }, 2000);
+}
+
+function renderStockGrid(images) {
+  const grid = document.getElementById('stock-grid');
+  grid.innerHTML = images.map((src, i) => `
+    <div class="stock-item" id="stock-item-${i}" onclick="selectStockItem(${i}, '${src}')">
+      <img src="${src}" alt="Stock ${i+1}" />
+      <div class="sel-check"><i class="fa-solid fa-check"></i></div>
+    </div>`).join('');
+}
+
+function selectStockItem(idx, url) {
+  document.querySelectorAll('.stock-item').forEach(el => el.classList.remove('selected'));
+  document.getElementById(`stock-item-${idx}`).classList.add('selected');
+  selectedMediaUrl = url.replace('w=400', 'w=900');
+  document.getElementById('apply-media-btn').disabled = false;
+}
+
+function searchStock() {
+  const q = document.getElementById('stock-search').value.trim();
+  // Simulate a search by shuffling the stock images
+  const shuffled = [...STOCK_IMAGES].sort(() => Math.random() - 0.5);
+  renderStockGrid(shuffled);
+}
+
+function setStockFilter(el, filter) {
+  document.querySelectorAll('.stock-filter-chip').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+  renderStockGrid(STOCK_IMAGES);
+}
+
+function renderRecentUploads(images) {
+  const grid = document.getElementById('upload-recent-grid');
+  grid.innerHTML = images.map((src, i) => `
+    <div class="upload-recent-item" id="upload-item-${i}" onclick="selectUploadItem(${i}, '${src}')">
+      <img src="${src}" alt="Upload ${i+1}" />
+      <div class="sel-check"><i class="fa-solid fa-check"></i></div>
+    </div>`).join('');
+}
+
+function selectUploadItem(idx, url) {
+  document.querySelectorAll('.upload-recent-item').forEach(el => el.classList.remove('selected'));
+  document.getElementById(`upload-item-${idx}`).classList.add('selected');
+  selectedMediaUrl = url.replace('w=400', 'w=900');
+  document.getElementById('apply-media-btn').disabled = false;
+}
+
+function handleFileUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  // For prototype — create object URL and treat as selected
+  const url = URL.createObjectURL(file);
+  selectedMediaUrl = url;
+  document.getElementById('apply-media-btn').disabled = false;
+  // Show filename feedback
+  const dz = document.querySelector('.upload-dropzone p');
+  if (dz) dz.textContent = file.name;
+}
+
+function applySelectedMedia() {
+  if (!selectedMediaUrl) return;
+  const sc = getActive();
+  sc.img = selectedMediaUrl;
+  updateCanvas();
+  renderMediaList();
+  closeModal('modal-add-media');
+  lastSaved = Date.now();
+}
+
+/* -----------------------------------------------------------------------
+   PREVIEW MODAL
+----------------------------------------------------------------------- */
+let previewPlaying = false;
+let previewTimer = null;
+let previewTime = 0;
+
+function openPreviewModal() {
+  const sc = getActive();
+  const idx = scenes.indexOf(sc);
+  document.getElementById('preview-modal-desc').textContent =
+    `Previewing Scene ${idx+1} — composed view`;
+
+  // Set background
+  document.getElementById('preview-modal-bg').src = sc.img || '';
+
+  // Render overlay — reuse the same renderOverlay logic into the preview element
+  const overlayEl = document.getElementById('preview-modal-overlay');
+  if (!sc.tpl || !sc.tplParams) {
+    overlayEl.innerHTML = '';
+  } else {
+    const p = sc.tplParams;
+    const tc = lum(p.color) > 0.55 ? '#000' : '#fff';
+    const wrapStyle = `color:${tc}; font-family:'Open Sans',sans-serif; font-size:clamp(10px,1.4vw,18px);`;
+    if (sc.tpl === 'text-overlay') {
+      overlayEl.innerHTML = `<div class="tpl-text-overlay ${p.placement||'left'}" style="background:${p.color};opacity:0.92;">
+        <div class="tpl-overlay-text" style="${wrapStyle}">${p.text||''}</div>
+      </div>`;
+    } else if (sc.tpl === 'lower-third') {
+      overlayEl.innerHTML = `<div class="tpl-lower-third ${p.position||'bottom'}" style="background:${p.color};">
+        <div class="tpl-lower-title" style="${wrapStyle} font-weight:700;">${p.title||''}</div>
+        ${p.subtitle ? `<div class="tpl-lower-sub" style="${wrapStyle} opacity:0.88;">${p.subtitle}</div>` : ''}
+      </div>`;
+    }
+  }
+
+  // Reset playback
+  previewTime = 0;
+  previewPlaying = false;
+  clearInterval(previewTimer);
+  document.getElementById('preview-play-icon').className = 'fa-solid fa-play';
+  document.getElementById('preview-progress-fill').style.width = '0%';
+  document.getElementById('preview-time').textContent = `0:00 / ${fmt(sc.duration)}`;
+
+  // Composition chips
+  const chips = document.getElementById('preview-tracks-summary');
+  const hasAudio = true; // prototype always shows audio chip
+  const hasTpl = !!sc.tpl;
+  chips.innerHTML = `
+    <div class="preview-track-chip audio">
+      <i class="fa-solid fa-volume-high"></i> Audio${hasAudio ? ' — ready' : ' — none'}
+    </div>
+    <div class="preview-track-chip media">
+      <i class="fa-regular fa-image"></i> Background — ${sc.img ? 'set' : 'none'}
+    </div>
+    ${hasTpl ? `<div class="preview-track-chip template">
+      <i class="fa-solid fa-table-columns"></i> Template — ${sc.tpl === 'text-overlay' ? 'Text Overlay' : 'Lower Third'}
+    </div>` : ''}`;
+
+  openModal('modal-preview');
+}
+
+function closePreviewModal() {
+  clearInterval(previewTimer);
+  previewPlaying = false;
+  document.getElementById('preview-play-icon').className = 'fa-solid fa-play';
+  closeModal('modal-preview');
+}
+
+function togglePreviewPlay() {
+  const sc = getActive();
+  previewPlaying = !previewPlaying;
+  document.getElementById('preview-play-icon').className =
+    previewPlaying ? 'fa-solid fa-pause' : 'fa-solid fa-play';
+  if (previewPlaying) {
+    previewTimer = setInterval(() => {
+      previewTime += 0.1;
+      if (previewTime >= sc.duration) {
+        previewTime = sc.duration;
+        previewPlaying = false;
+        clearInterval(previewTimer);
+        document.getElementById('preview-play-icon').className = 'fa-solid fa-play';
+      }
+      const pct = (previewTime / sc.duration) * 100;
+      document.getElementById('preview-progress-fill').style.width = `${pct}%`;
+      document.getElementById('preview-time').textContent =
+        `${fmtTL(previewTime)} / ${fmtTL(sc.duration)}`;
+    }, 100);
+  } else {
+    clearInterval(previewTimer);
+  }
+}
+
+function seekPreview(e) {
+  const sc = getActive();
+  const bar = document.getElementById('preview-progress-bar');
+  const r = bar.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+  previewTime = pct * sc.duration;
+  document.getElementById('preview-progress-fill').style.width = `${pct*100}%`;
+  document.getElementById('preview-time').textContent =
+    `${fmtTL(previewTime)} / ${fmtTL(sc.duration)}`;
 }
 </script>
 </body>
