@@ -68,8 +68,16 @@
 
     .wh-divider { width: 1px; height: 22px; background: #e5e7eb; flex-shrink: 0; margin: 0 4px; }
 
-    .wh-title-group { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-    .wh-section { font-size: 10.5px; color: #6b7280; white-space: nowrap; }
+    .wh-title-group {
+      display: flex; flex-direction: column; gap: 1px; min-width: 0;
+      /* Clickable — reset button defaults */
+      background: none; border: none; font-family: inherit; text-align: left;
+      padding: 4px 7px; border-radius: 6px; cursor: pointer;
+      transition: background 0.12s;
+    }
+    .wh-title-group:hover { background: #f3f4f6; }
+    .wh-title-group:hover .wh-section { color: #374151; }
+    .wh-section { font-size: 10.5px; color: #6b7280; white-space: nowrap; transition: color 0.12s; }
     .wh-lo-title {
       font-size: 13px; font-weight: 600; color: #111827;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px;
@@ -144,13 +152,31 @@
        SLIDE-OUT PANELS
     ===================================================================== */
     .slide-panel {
-      width: 420px; height: 100%; display: flex; flex-direction: column;
+      width: min(420px, 30vw); height: 100%; display: flex; flex-direction: column;
       flex-shrink: 0; z-index: 10; overflow: hidden;
       border-right: 2px solid rgba(255,255,255,0.7);
       background: rgba(240,249,255,0.96);
       box-shadow: 0 8px 32px rgba(14,165,233,0.15), 0 4px 16px rgba(14,165,233,0.1);
+      position: relative;
     }
     .slide-panel.hidden { display: none; }
+
+    /* Drag handle on the right edge of each left panel */
+    .panel-resize-handle {
+      position: absolute; top: 0; right: 0; bottom: 0; width: 6px;
+      cursor: ew-resize; z-index: 20; flex-shrink: 0;
+    }
+    .panel-resize-handle::after {
+      content: ''; position: absolute; top: 50%; right: 1px;
+      transform: translateY(-50%);
+      width: 2px; height: 32px; border-radius: 2px;
+      background: rgba(14,165,233,0.25);
+      transition: background 0.15s, height 0.15s;
+    }
+    .panel-resize-handle:hover::after,
+    .panel-resize-handle.dragging::after {
+      background: #0ea5e9; height: 48px;
+    }
 
     .panel-header {
       padding: 12px 14px; border-bottom: 1px solid rgba(14,165,233,0.1);
@@ -427,11 +453,32 @@
       border-top: 1px solid rgba(148,163,184,0.2);
       box-shadow: 0 -4px 16px rgba(14,165,233,0.08);
       flex-shrink: 0;
+      /* Height is controlled by JS resize; default collapses to header+footer only */
+      display: flex; flex-direction: column;
+      min-height: 0;
     }
 
+    /* Drag handle — sits at the very top of the panel, above the header */
+    #tl-resize-handle {
+      height: 6px; cursor: ns-resize; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: transparent;
+      /* Subtle grip dots */
+    }
+    #tl-resize-handle::before {
+      content: '';
+      display: block; width: 32px; height: 3px; border-radius: 2px;
+      background: rgba(148,163,184,0.45);
+      transition: background 0.15s;
+    }
+    #tl-resize-handle:hover::before,
+    #tl-resize-handle.dragging::before { background: #0ea5e9; }
+
+    /* Header row */
     .tl-header {
       height: 36px; display: flex; align-items: center; padding: 0 14px; gap: 8px;
       border-bottom: 1px solid rgba(148,163,184,0.12);
+      flex-shrink: 0;
     }
     .tl-collapse-btn {
       display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600;
@@ -454,13 +501,49 @@
     }
     .tl-play-btn:hover { background: #0284c7; }
 
-    .tl-tracks { padding: 8px 14px 6px; }
+    /* Tracks area — no vertical scroll; vertical size is fixed by panel resize */
+    .tl-tracks { padding: 8px 14px 6px; flex: 1; overflow: hidden; min-height: 0; }
     .tl-tracks.collapsed { display: none; }
 
-    .tracks-row { display: flex; gap: 8px; }
-    .track-labels { width: 88px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
-    .track-label-cell { height: 26px; display: flex; align-items: center; font-size: 10.5px; font-weight: 500; color: #6b7280; }
-    .tracks-col { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+    /* Outer row: labels and scroll area always share the same height */
+    .tracks-row { display: flex; gap: 0; align-items: stretch; }
+    .track-labels {
+      width: 88px; flex-shrink: 0; display: flex; flex-direction: column;
+      gap: 6px; padding-right: 8px; z-index: 2;
+    }
+    .track-label-cell { height: 26px; display: flex; align-items: center; font-size: 10.5px; font-weight: 500; color: #6b7280; gap: 4px; }
+    .tpl-track-del {
+      flex-shrink: 0; width: 14px; height: 14px; border: none; border-radius: 3px;
+      background: none; color: #9ca3af; cursor: pointer; padding: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 9px;
+      opacity: 0; transition: opacity 0.1s;
+    }
+    .track-label-cell:hover .tpl-track-del { opacity: 1; }
+    .tpl-track-del:hover { background: #fee2e2; color: #dc2626; }
+
+    /* Scrollable container — clips and ruler scroll together */
+    .tracks-scroll-area {
+      flex: 1; overflow-x: auto; overflow-y: hidden;
+      /* Hide scrollbar on Chrome/Safari but keep functional */
+      scrollbar-width: thin;
+      scrollbar-color: #cbd5e1 transparent;
+    }
+    .tracks-scroll-area::-webkit-scrollbar { height: 5px; }
+    .tracks-scroll-area::-webkit-scrollbar-track { background: transparent; }
+    .tracks-scroll-area::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+    /* Inner canvas — clips and ruler are children of this.
+       min-width: 100% fills the scroll viewport by default.
+       JS overrides min-width with a pixel value (time or word density)
+       so the canvas expands for readability and both tracks + ruler
+       stay in sync as one scrollable unit. */
+    .track-canvas {
+      min-width: 100%; display: flex; flex-direction: column; gap: 0;
+    }
+
+    .tracks-col { width: 100%; display: flex; flex-direction: column; gap: 6px; position: relative; }
+    /* Template tracks container matches parent gap so each track stays aligned with labels */
+    #template-tracks-container { display: flex; flex-direction: column; gap: 6px; }
 
     .track {
       height: 26px; position: relative; background: rgba(14,165,233,0.05);
@@ -471,7 +554,11 @@
       position: absolute; top: 3px; bottom: 3px; border-radius: 4px;
       display: flex; align-items: center; padding: 0 8px;
       font-size: 9.5px; font-weight: 600; color: rgba(0,0,0,0.55); white-space: nowrap;
-      overflow: hidden;
+      overflow: hidden; gap: 0;
+    }
+    .clip-label {
+      flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      pointer-events: none; z-index: 1; position: relative;
     }
     .clip-audio    { background: rgba(96,165,250,0.65); }
     .clip-media    { background: rgba(248,113,113,0.65); }
@@ -479,8 +566,8 @@
 
     /* waveform bars in audio track */
     .waveform {
-      position: absolute; inset: 0; display: flex; align-items: center;
-      padding: 0 4px; gap: 1px; pointer-events: none;
+      flex: 1; display: flex; align-items: center;
+      gap: 1px; pointer-events: none; overflow: hidden; min-width: 0;
     }
     .wf-bar { flex: 1; background: rgba(96,165,250,0.45); border-radius: 1px; min-width: 1px; }
 
@@ -495,12 +582,72 @@
       border-top: 7px solid #ef4444;
     }
 
-    /* time ruler */
-    .time-ruler { display: flex; margin-top: 4px; padding-left: 96px; }
-    .time-ruler-ticks { flex: 1; display: flex; }
-    .tick { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+    /* time ruler — lives inside .track-canvas, no left padding needed */
+    .time-ruler { margin-top: 4px; min-height: 20px; position: relative; width: 100%; }
+    .time-ruler-ticks { width: 100%; display: block; position: relative; height: 20px; }
+    /* Ticks are absolutely positioned within .time-ruler-ticks */
+    .tick { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 1px; }
     .tick-line { width: 1px; height: 4px; background: #d1d5db; }
-    .tick-label { font-size: 8.5px; color: #9ca3af; font-family: 'Courier New', monospace; }
+    .tick-label { font-size: 8.5px; color: #000000; font-family: 'Courier New', monospace; }
+
+    /* word-caption ruler */
+    .word-ruler-wrap { flex: 1; position: relative; height: 20px; overflow: hidden; }
+    .word-tick {
+      position: absolute; top: 0; bottom: 0; display: flex; flex-direction: column;
+      align-items: flex-start; border-left: 1px solid #d1d5db; padding-left: 2px;
+    }
+    .word-tick-line { width: 1px; height: 4px; background: #d1d5db; display: none; }
+    .word-tick-label {
+      font-size: 8px; color: #6b7280; white-space: nowrap; line-height: 1;
+      max-width: 60px; overflow: hidden; text-overflow: ellipsis;
+    }
+    .word-tick.active-word .word-tick-label { color: #0284c7; font-weight: 700; }
+
+    /* snap indicator — vertical line shown during drag near a word boundary */
+    .snap-line {
+      position: absolute; top: -200px; bottom: -40px; width: 1px;
+      background: #0ea5e9; opacity: 0; pointer-events: none;
+      z-index: 20; transition: opacity 0.08s;
+    }
+    .snap-line.visible { opacity: 1; }
+
+    /* Scale mode toggle in timeline header */
+    .tl-scale-toggle {
+      display: flex; background: rgba(14,165,233,0.08);
+      border: 1px solid rgba(14,165,233,0.18); border-radius: 6px;
+      padding: 2px; gap: 1px; flex-shrink: 0;
+    }
+    .tl-scale-btn {
+      display: flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border: none; border-radius: 4px;
+      font-size: 11px; font-weight: 600; cursor: pointer;
+      font-family: inherit; color: #6b7280; background: none;
+      white-space: nowrap;
+    }
+    .tl-scale-btn.active { background: white; color: #0284c7; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+
+    /* clip drag/resize cursor overrides */
+    .track-clip.dragging { cursor: grabbing !important; opacity: 0.85; }
+    .track-clip { cursor: grab; }
+    .clip-trim-handle { cursor: ew-resize !important; }
+
+    /* clip body — the grabbable middle area between handles */
+    .clip-body {
+      flex: 1; display: flex; align-items: center; overflow: hidden;
+      min-width: 0; cursor: grab; user-select: none;
+    }
+    .clip-body:active { cursor: grabbing; }
+
+    /* duration readout shown while dragging */
+    .clip-duration-badge {
+      position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
+      background: #0f2e3d; color: white; font-size: 10px; font-weight: 600;
+      padding: 2px 6px; border-radius: 4px; white-space: nowrap;
+      pointer-events: none; z-index: 30; opacity: 0;
+      transition: opacity 0.1s;
+    }
+    .track-clip.dragging .clip-duration-badge,
+    .track-clip.resizing .clip-duration-badge { opacity: 1; }
 
     /* =====================================================================
        DROPDOWN MENUS
@@ -571,6 +718,49 @@
       gap: 6px; font-family: inherit; margin-top: 4px;
     }
     .btn-preview-audio:hover { background: #f9fafb; }
+
+    /* =====================================================================
+       BULK AUDIO MODAL
+    ===================================================================== */
+    .bulk-audio-pane { display: none; }
+    .bulk-audio-pane.active { display: block; }
+
+    /* Single-voice pane: reuses existing voice-grid styles */
+
+    /* Per-scene pane */
+    .bulk-scene-list {
+      display: flex; flex-direction: column; gap: 0;
+      max-height: 320px; overflow-y: auto;
+      border: 1px solid #e5e7eb; border-radius: 8px;
+    }
+    .bulk-scene-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px; border-bottom: 1px solid #f3f4f6;
+    }
+    .bulk-scene-row:last-child { border-bottom: none; }
+    .bulk-scene-num {
+      width: 22px; height: 22px; border-radius: 5px; flex-shrink: 0;
+      background: rgba(255,255,255,0.6); border: 1.5px solid #d1d5db;
+      font-size: 11px; font-weight: 700; color: #374151;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .bulk-scene-transcript {
+      flex: 1; font-size: 11.5px; color: #6b7280;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      min-width: 0;
+    }
+    .bulk-voice-select {
+      flex-shrink: 0; width: 148px;
+      font-size: 11.5px; font-weight: 600; padding: 5px 8px;
+      border-radius: 6px; border: 1.5px solid #e5e7eb;
+      background: white; color: #0f2e3d; font-family: inherit;
+      cursor: pointer; appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239ca3af'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 8px center;
+      padding-right: 24px;
+    }
+    .bulk-voice-select:focus { outline: none; border-color: #0ea5e9; }
+    .bulk-voice-select.skip { color: #9ca3af; font-style: italic; }
 
     /* =====================================================================
        QUESTION CARDS (in left panel)
@@ -798,7 +988,7 @@
        TEMPLATE PROPERTIES PANEL (right side)
     ===================================================================== */
     .tpl-props-panel {
-      width: 260px; height: 100%; display: flex; flex-direction: column;
+      width: min(260px, 20vw); height: 100%; display: flex; flex-direction: column;
       flex-shrink: 0; background: white;
       border-left: 1px solid #e5e7eb;
       box-shadow: -2px 0 12px rgba(0,0,0,0.06);
@@ -999,6 +1189,163 @@
     .stock-item.selected .sel-check { display: flex; }
 
     /* =====================================================================
+       TIMELINE CLIP SELECTION
+    ===================================================================== */
+    .track-clip {
+      cursor: pointer;
+      transition: outline 0.1s, box-shadow 0.1s;
+    }
+    .track-clip:hover {
+      outline: 2px solid rgba(0,0,0,0.3);
+      outline-offset: 1px;
+    }
+    .track-clip.selected {
+      outline: 2px solid #0ea5e9;
+      outline-offset: 1px;
+      box-shadow: 0 0 0 3px rgba(14,165,233,0.25);
+    }
+    .track.has-selected {
+      background: rgba(14,165,233,0.08);
+    }
+
+    /* =====================================================================
+       MEDIA PROPERTIES PANEL (right side)
+    ===================================================================== */
+    .media-props-panel {
+      width: 260px; height: 100%; display: flex; flex-direction: column;
+      flex-shrink: 0; background: white;
+      border-left: 1px solid #e5e7eb;
+      box-shadow: -2px 0 12px rgba(0,0,0,0.06);
+      z-index: 15; overflow: hidden;
+    }
+    .media-props-panel.hidden { display: none; }
+
+    .mpp-section { padding: 0 0 4px; }
+    .mpp-label {
+      font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: #9ca3af; margin-bottom: 8px;
+    }
+    .mpp-divider { height: 1px; background: #f3f4f6; margin: 12px 0; }
+
+    /* Numeric input row */
+    .mpp-row {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 8px;
+    }
+    .mpp-field {
+      display: flex; align-items: center; gap: 5px; flex: 1;
+    }
+    .mpp-field label {
+      font-size: 10.5px; color: #9ca3af; font-weight: 600; width: 14px; text-align: center; flex-shrink: 0;
+    }
+    .mpp-input {
+      flex: 1; height: 28px; padding: 0 7px; border-radius: 5px;
+      border: 1.5px solid #e5e7eb; font-size: 12px; color: #374151;
+      background: #f9fafb; outline: none; font-family: inherit; text-align: center;
+      transition: border-color 0.12s;
+    }
+    .mpp-input:focus { border-color: #0ea5e9; background: white; }
+    .mpp-unit {
+      font-size: 10px; color: #9ca3af; width: 20px; text-align: left; flex-shrink: 0;
+    }
+
+    /* Scale slider */
+    .mpp-slider-row {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    }
+    .mpp-slider {
+      flex: 1; accent-color: #0ea5e9; height: 4px; cursor: pointer;
+    }
+    .mpp-slider-val {
+      font-size: 12px; color: #37513b; font-weight: 600;
+      width: 38px; text-align: right; flex-shrink: 0;
+    }
+
+    /* Crop grid */
+    .mpp-crop-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    }
+    .mpp-crop-field {
+      display: flex; flex-direction: column; gap: 3px;
+    }
+    .mpp-crop-field label {
+      font-size: 10px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+
+    /* Fit/fill mode buttons */
+    .mpp-mode-group {
+      display: flex; gap: 4px;
+    }
+    .mpp-mode-btn {
+      flex: 1; padding: 6px 4px; border-radius: 6px; border: 1.5px solid #e5e7eb;
+      background: #f9fafb; cursor: pointer; font-family: inherit; font-size: 11px;
+      color: #6b7280; text-align: center; transition: all 0.12s;
+    }
+    .mpp-mode-btn:hover { border-color: #0ea5e9; color: #0284c7; background: #f0f9ff; }
+    .mpp-mode-btn.active { border-color: #0ea5e9; background: #e0f2fe; color: #0284c7; font-weight: 600; }
+
+    /* Reset link */
+    .mpp-reset {
+      font-size: 11px; color: #0284c7; cursor: pointer; background: none;
+      border: none; padding: 0; font-family: inherit; text-decoration: underline;
+    }
+    .mpp-reset:hover { color: #0369a1; }
+
+    /* =====================================================================
+       TRANSITION CONTROLS (shared between media + template panels)
+    ===================================================================== */
+    .trans-row {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+    }
+    .trans-side-label {
+      font-size: 11px; font-weight: 600; color: #374151;
+      width: 36px; flex-shrink: 0;
+    }
+    .trans-type-select {
+      flex: 1; height: 28px; padding: 0 7px; border-radius: 5px;
+      border: 1.5px solid #e5e7eb; font-size: 11.5px; color: #374151;
+      background: white; outline: none; font-family: inherit; cursor: pointer;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239ca3af'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 7px center;
+      padding-right: 22px;
+    }
+    .trans-type-select:focus { border-color: #0ea5e9; }
+    .trans-dur-input {
+      width: 48px; height: 28px; padding: 0 6px; border-radius: 5px;
+      border: 1.5px solid #e5e7eb; font-size: 12px; color: #374151;
+      background: #f9fafb; outline: none; font-family: inherit; text-align: center;
+    }
+    .trans-dur-input:focus { border-color: #0ea5e9; background: white; }
+    .trans-dur-unit {
+      font-size: 10px; color: #9ca3af; flex-shrink: 0;
+    }
+
+    /* Timeline trim handles (visual indicator of in/out points) */
+    .clip-trim-handle {
+      position: absolute; top: 0; bottom: 0; width: 6px; cursor: ew-resize;
+      background: rgba(0,0,0,0.25); z-index: 5;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.1s;
+    }
+    .clip-trim-handle.left { left: 0; border-radius: 4px 0 0 4px; }
+    .clip-trim-handle.right { right: 0; border-radius: 0 4px 4px 0; }
+    .clip-trim-handle i { font-size: 7px; color: white; pointer-events: none; }
+    .track-clip:hover .clip-trim-handle,
+    .track-clip.selected .clip-trim-handle { opacity: 1; }
+
+    /* Transition indicator stripes on clip edges */
+    .clip-trans-in, .clip-trans-out {
+      position: absolute; top: 0; bottom: 0; width: 0;
+      pointer-events: none; overflow: hidden;
+      background: repeating-linear-gradient(
+        45deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px
+      );
+      transition: width 0.2s;
+    }
+    .clip-trans-in { left: 0; border-radius: 4px 0 0 4px; }
+    .clip-trans-out { right: 0; border-radius: 0 4px 4px 0; }
+
+    /* =====================================================================
        PREVIEW MODAL
     ===================================================================== */
     .modal-preview { max-width: 820px; }
@@ -1035,9 +1382,406 @@
     .preview-track-chip.audio { background: rgba(96,165,250,0.15); color: #2563eb; }
     .preview-track-chip.media { background: rgba(248,113,113,0.15); color: #dc2626; }
     .preview-track-chip.template { background: rgba(132,204,22,0.15); color: #65a30d; }
+
+    /* =====================================================================
+       COMMENT PANEL OVERLAY
+       Fixed-position scrim + sliding panel at the highest z-index layer
+       so they always appear above every app element.
+    ===================================================================== */
+
+    /* Scrim covers the full viewport */
+    #comment-scrim {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 2000;
+      display: none;
+    }
+    #comment-scrim.open { display: block; }
+
+    /* Slide-in panel — fixed to the right edge */
+    #comment-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 400px;
+      background: white;
+      box-shadow: -4px 0 24px rgba(0, 0, 0, 0.16);
+      z-index: 2001;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.22s ease;
+      overflow: hidden;
+    }
+    #comment-panel.open { transform: translateX(0); }
+
+    /* Panel header */
+    #comment-panel-header {
+      flex-shrink: 0;
+    }
+
+    /* Panel body scrolls */
+    #comment-panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    #comment-panel-body::-webkit-scrollbar { width: 4px; }
+    #comment-panel-body::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
+
+    /* ---- Thread list ---- */
+    .cp-threads { display: flex; flex-direction: column; gap: 0; }
+
+    .cp-thread {
+      border-bottom: 1px solid #f0f0f0;
+      padding: 14px 0;
+    }
+    .cp-thread:first-child { padding-top: 0; }
+    .cp-thread:last-child { border-bottom: none; }
+
+    /* Thread header row */
+    .cp-thread-header {
+      display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px;
+    }
+    .cp-avatar {
+      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: white;
+    }
+    .cp-avatar.blue   { background: #0271ce; }
+    .cp-avatar.green  { background: #158444; }
+    .cp-avatar.purple { background: #7c3aed; }
+    .cp-avatar.orange { background: #e0782e; }
+
+    .cp-meta { flex: 1; min-width: 0; }
+    .cp-author { font-size: 12px; font-weight: 600; color: #111827; }
+    .cp-time   { font-size: 11px; color: #9ca3af; margin-top: 1px; }
+
+    .cp-thread-actions { display: flex; gap: 2px; }
+    .cp-thr-btn {
+      width: 26px; height: 26px; border: none; background: none; border-radius: 4px;
+      cursor: pointer; color: #9ca3af; display: flex; align-items: center;
+      justify-content: center; font-size: 11px;
+    }
+    .cp-thr-btn:hover { background: #f3f4f6; color: #374151; }
+
+    /* Thread context tag (which scene this relates to) */
+    .cp-context-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: #f0f7fb; border: 1px solid #dbeafe;
+      border-radius: 4px; padding: 2px 7px;
+      font-size: 10.5px; color: #0271ce; font-weight: 500;
+      margin-bottom: 6px;
+    }
+
+    /* Comment bubble */
+    .cp-bubble {
+      background: #f9fafb; border: 1px solid #f0f0f0; border-radius: 8px;
+      padding: 9px 11px; font-size: 12.5px; color: #374151; line-height: 1.5;
+    }
+    .cp-bubble.resolved {
+      background: #f0fdf4; border-color: #bbf7d0; color: #15803d;
+    }
+
+    /* Thread reply indent */
+    .cp-replies { padding-left: 40px; margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+
+    .cp-reply { display: flex; gap: 8px; align-items: flex-start; }
+    .cp-reply-avatar {
+      width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700; color: white;
+    }
+    .cp-reply-body { flex: 1; }
+    .cp-reply-author { font-size: 11.5px; font-weight: 600; color: #111827; }
+    .cp-reply-time   { font-size: 10.5px; color: #9ca3af; margin-left: 6px; }
+    .cp-reply-text   {
+      font-size: 12px; color: #374151; line-height: 1.5; margin-top: 3px;
+    }
+
+    /* Reply input row */
+    .cp-reply-input-row {
+      padding-left: 40px; margin-top: 6px; display: flex; gap: 6px; align-items: center;
+    }
+    .cp-reply-input {
+      flex: 1; height: 30px; border: 1px solid #e5e7eb; border-radius: 6px;
+      padding: 0 10px; font-size: 12px; color: #374151; outline: none;
+      font-family: inherit; background: #f9fafb;
+    }
+    .cp-reply-input:focus { border-color: #0ea5e9; background: white; }
+    .cp-reply-send {
+      width: 30px; height: 30px; border: none; background: #0271ce; color: white;
+      border-radius: 6px; cursor: pointer; display: flex; align-items: center;
+      justify-content: center; font-size: 12px;
+    }
+    .cp-reply-send:hover { background: #0259a8; }
+
+    /* "New comment" compose area at top */
+    .cp-compose {
+      border-bottom: 1px solid #f0f0f0; padding-bottom: 16px; margin-bottom: 4px;
+    }
+    .cp-compose-textarea {
+      width: 100%; min-height: 72px; border: 1px solid #e5e7eb; border-radius: 8px;
+      padding: 9px 11px; font-size: 12.5px; color: #374151; resize: none;
+      outline: none; font-family: inherit; background: #f9fafb; line-height: 1.5;
+    }
+    .cp-compose-textarea:focus { border-color: #0ea5e9; background: white; box-shadow: 0 0 0 3px rgba(14,165,233,0.1); }
+    .cp-compose-actions {
+      display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;
+    }
+
+    /* Resolved badge */
+    .cp-resolved-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px;
+      padding: 2px 8px; font-size: 10.5px; color: #15803d; font-weight: 600;
+    }
+
+    /* Filter tabs */
+    .cp-filter-tabs {
+      display: flex; gap: 4px; margin-bottom: 14px;
+    }
+    .cp-filter-tab {
+      padding: 4px 12px; border-radius: 16px; border: 1px solid #e5e7eb;
+      font-size: 11.5px; font-weight: 500; cursor: pointer; background: white;
+      color: #6b7280;
+    }
+    .cp-filter-tab.active {
+      background: #0271ce; color: white; border-color: #0271ce;
+    }
+
+    /* Comment panel header */
+    .cdh-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .cdh-title-group { display: flex; align-items: center; gap: 8px; }
+    .cdh-title { font-size: 15px; font-weight: 700; color: #111827; }
+    .cdh-count {
+      background: #0271ce; color: white; border-radius: 10px;
+      padding: 1px 7px; font-size: 11px; font-weight: 700;
+    }
+    .cdh-close {
+      width: 30px; height: 30px; border: none; background: none; border-radius: 6px;
+      cursor: pointer; color: #6b7280; display: flex; align-items: center;
+      justify-content: center; font-size: 14px;
+    }
+    .cdh-close:hover { background: #f3f4f6; color: #374151; }
+
+    /* Comment icon badge (unread count) */
+    .wh-icon-btn .comment-badge {
+      position: absolute; top: 2px; right: 2px;
+      width: 14px; height: 14px; background: #e71d13; color: white;
+      border-radius: 50%; font-size: 9px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+
+    /* =====================================================================
+       RESPONSIVE — laptop / smaller viewport support
+       Strategy:
+       - #wizard-header is a column child of #app, so it is always 100vw.
+       - #main-content uses overflow:hidden; panels must not push past 100vw.
+       - Panels use min() so they are fluid below their pixel caps (see rules
+         on .slide-panel and .tpl-props-panel above).
+       - The canvas (flex:1, min-width:0) fills whatever space remains.
+    ===================================================================== */
+
+    /* Header search: shrinks on narrower viewports */
+    .wh-search { width: clamp(120px, 20vw, 300px); }
+
+    /* Title truncation: always constrained */
+    .wh-lo-title { max-width: clamp(100px, 15vw, 240px); }
+
+    /* Medium laptops: ~1280px — tighten header padding */
+    @media (max-width: 1280px) {
+      #wizard-header { padding: 0 16px; }
+    }
+
+    /* Smaller laptops: ~1100px */
+    @media (max-width: 1100px) {
+      #wizard-header { padding: 0 12px; }
+      .wh-right { gap: 8px; }
+      .wh-icon-btn { width: 26px; height: 26px; font-size: 11px; }
+    }
   </style>
 </head>
 <body>
+
+<!-- ── Comment panel scrim (full-viewport backdrop) ── -->
+<div id="comment-scrim"></div>
+
+<!-- ── Comment panel (slides in from right) ── -->
+<div id="comment-panel">
+
+  <!-- Panel header -->
+  <div id="comment-panel-header">
+    <div class="cdh-row">
+      <div class="cdh-title-group">
+        <i class="fa-regular fa-comments" style="font-size:15px; color:#0271ce;"></i>
+        <span class="cdh-title">Comments</span>
+        <span class="cdh-count">4</span>
+      </div>
+      <button class="cdh-close" id="btn-close-comments" title="Close comments">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Panel body -->
+  <div id="comment-panel-body">
+
+    <!-- New comment compose -->
+    <div class="cp-compose">
+      <textarea class="cp-compose-textarea" placeholder="Add a comment… (use @name to mention someone)"></textarea>
+      <div class="cp-compose-actions">
+        <vaadin-button theme="secondary small">Cancel</vaadin-button>
+        <vaadin-button theme="primary small">Post</vaadin-button>
+      </div>
+    </div>
+
+    <!-- Filter tabs -->
+    <div class="cp-filter-tabs">
+      <button class="cp-filter-tab active">All (4)</button>
+      <button class="cp-filter-tab">Open (3)</button>
+      <button class="cp-filter-tab">Resolved (1)</button>
+    </div>
+
+    <!-- Thread list -->
+    <div class="cp-threads">
+
+      <!-- Thread 1 — open, 2 replies -->
+      <div class="cp-thread">
+        <div class="cp-thread-header">
+          <div class="cp-avatar blue">JL</div>
+          <div class="cp-meta">
+            <div class="cp-author">Jamie Liu</div>
+            <div class="cp-time">Today at 9:14 AM</div>
+          </div>
+          <div class="cp-thread-actions">
+            <button class="cp-thr-btn" title="Resolve"><i class="fa-regular fa-circle-check"></i></button>
+            <button class="cp-thr-btn" title="More"><i class="fa-solid fa-ellipsis"></i></button>
+          </div>
+        </div>
+        <div class="cp-context-tag">
+          <i class="fa-solid fa-film" style="font-size:10px;"></i> Scene 3 — Intro to Taxonomy
+        </div>
+        <div class="cp-bubble">
+          The transcript here cuts off mid-sentence. Can we get the full line from the SME? It should end with "…and apply it to real-world scenarios."
+        </div>
+        <div class="cp-replies">
+          <div class="cp-reply">
+            <div class="cp-reply-avatar" style="background:#0284c7;">MR</div>
+            <div class="cp-reply-body">
+              <span class="cp-reply-author">Maria R.</span>
+              <span class="cp-reply-time">9:32 AM</span>
+              <div class="cp-reply-text">Confirmed — I'll pull the full transcript from the recording and update by EOD.</div>
+            </div>
+          </div>
+          <div class="cp-reply">
+            <div class="cp-reply-avatar" style="background:#7c3aed;">JL</div>
+            <div class="cp-reply-body">
+              <span class="cp-reply-author">Jamie Liu</span>
+              <span class="cp-reply-time">9:45 AM</span>
+              <div class="cp-reply-text">Thanks! Leaving this open until the transcript is updated.</div>
+            </div>
+          </div>
+        </div>
+        <div class="cp-reply-input-row">
+          <input class="cp-reply-input" type="text" placeholder="Reply…" />
+          <button class="cp-reply-send"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+      </div>
+
+      <!-- Thread 2 — open, no replies -->
+      <div class="cp-thread">
+        <div class="cp-thread-header">
+          <div class="cp-avatar orange">DK</div>
+          <div class="cp-meta">
+            <div class="cp-author">Devon Kim</div>
+            <div class="cp-time">Yesterday at 4:07 PM</div>
+          </div>
+          <div class="cp-thread-actions">
+            <button class="cp-thr-btn" title="Resolve"><i class="fa-regular fa-circle-check"></i></button>
+            <button class="cp-thr-btn" title="More"><i class="fa-solid fa-ellipsis"></i></button>
+          </div>
+        </div>
+        <div class="cp-context-tag">
+          <i class="fa-solid fa-film" style="font-size:10px;"></i> Scene 6 — Drag &amp; Drop Activity
+        </div>
+        <div class="cp-bubble">
+          The drag-and-drop interaction should have an accessible fallback for keyboard users. Let's discuss before we finalize the scene layout.
+        </div>
+        <div class="cp-reply-input-row">
+          <input class="cp-reply-input" type="text" placeholder="Reply…" />
+          <button class="cp-reply-send"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+      </div>
+
+      <!-- Thread 3 — open, 1 reply -->
+      <div class="cp-thread">
+        <div class="cp-thread-header">
+          <div class="cp-avatar purple">SC</div>
+          <div class="cp-meta">
+            <div class="cp-author">Sofia Chen</div>
+            <div class="cp-time">Apr 11 at 2:22 PM</div>
+          </div>
+          <div class="cp-thread-actions">
+            <button class="cp-thr-btn" title="Resolve"><i class="fa-regular fa-circle-check"></i></button>
+            <button class="cp-thr-btn" title="More"><i class="fa-solid fa-ellipsis"></i></button>
+          </div>
+        </div>
+        <div class="cp-context-tag">
+          <i class="fa-solid fa-film" style="font-size:10px;"></i> Scene 1 — Learning Objectives
+        </div>
+        <div class="cp-bubble">
+          Objective #2 should align with Bloom's "Evaluate" not "Understand." Can you update the verb in this scene and in the assessment rubric?
+        </div>
+        <div class="cp-replies">
+          <div class="cp-reply">
+            <div class="cp-reply-avatar" style="background:#158444;">JL</div>
+            <div class="cp-reply-body">
+              <span class="cp-reply-author">Jamie Liu</span>
+              <span class="cp-reply-time">Apr 11 at 3:01 PM</span>
+              <div class="cp-reply-text">Good catch — updated scene 1. Still need to sync the assessment rubric, assigning to @Devon.</div>
+            </div>
+          </div>
+        </div>
+        <div class="cp-reply-input-row">
+          <input class="cp-reply-input" type="text" placeholder="Reply…" />
+          <button class="cp-reply-send"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+      </div>
+
+      <!-- Thread 4 — resolved -->
+      <div class="cp-thread">
+        <div class="cp-thread-header">
+          <div class="cp-avatar green">MR</div>
+          <div class="cp-meta">
+            <div class="cp-author">Maria R.</div>
+            <div class="cp-time">Apr 10 at 11:15 AM</div>
+          </div>
+          <div class="cp-thread-actions">
+            <span class="cp-resolved-badge"><i class="fa-solid fa-circle-check"></i> Resolved</span>
+          </div>
+        </div>
+        <div class="cp-context-tag">
+          <i class="fa-solid fa-film" style="font-size:10px;"></i> Scene 4 — Knowledge Check
+        </div>
+        <div class="cp-bubble resolved">
+          <i class="fa-solid fa-circle-check" style="margin-right:4px;"></i>
+          Distractor options updated per feedback. Answer key confirmed correct.
+        </div>
+      </div>
+
+    </div><!-- /.cp-threads -->
+  </div><!-- /comment-panel-body -->
+
+</div><!-- /#comment-panel -->
+
 <div id="app" data-file="products/LearningStudio/Phase2/index.html" data-line="1041">
 
   <!-- ===================================================================
@@ -1050,13 +1794,9 @@
       </button>
       <div class="wh-divider"></div>
 
-      <div class="wh-title-group" data-file="products/LearningStudio/Phase2/index.html" data-line="1053">
+      <button class="wh-title-group" title="Edit title &amp; objective" onclick="openEditLOModal()" data-file="products/LearningStudio/Phase2/index.html" data-line="1053">
         <span class="wh-section" id="section-label" data-file="products/LearningStudio/Phase2/index.html" data-line="1054">Getting Started</span>
         <span class="wh-lo-title" id="lo-title" data-file="products/LearningStudio/Phase2/index.html" data-line="1055">Introduction to Video Creation</span>
-      </div>
-
-      <button class="wh-icon-btn" title="Edit Title / Objective" onclick="openEditLOModal()" data-file="products/LearningStudio/Phase2/index.html" data-line="1058">
-        <i class="fa-solid fa-pencil"></i>
       </button>
       <div class="wh-divider"></div>
 
@@ -1101,8 +1841,9 @@
         <i class="fa-solid fa-circle-check"></i>
         <span id="save-text" data-file="products/LearningStudio/Phase2/index.html" data-line="1102">Saved just now</span>
       </div>
-      <button class="wh-icon-btn" title="Comments" data-file="products/LearningStudio/Phase2/index.html" data-line="1104">
+      <button class="wh-icon-btn sky" id="btn-open-comments" title="Comments">
         <i class="fa-regular fa-comment"></i>
+        <span class="comment-badge">4</span>
       </button>
     </div>
   </header>
@@ -1130,6 +1871,7 @@
 
     <!-- ---- SCENES PANEL ---- -->
     <div id="panel-scenes" class="slide-panel" data-file="products/LearningStudio/Phase2/index.html" data-line="1132">
+      <div class="panel-resize-handle" aria-hidden="true"></div>
       <div class="panel-header" data-file="products/LearningStudio/Phase2/index.html" data-line="1133">
         <div class="ph-left" data-file="products/LearningStudio/Phase2/index.html" data-line="1134">
           <button class="ph-close" onclick="togglePanel('scenes')" data-file="products/LearningStudio/Phase2/index.html" data-line="1135"><i class="fa-solid fa-chevron-left"></i></button>
@@ -1139,7 +1881,7 @@
           </span>
         </div>
         <div style="display:flex; align-items:center; gap:6px;">
-          <button class="ph-audio-btn" title="Generate All Audio" onclick="openAudioModal()" data-file="products/LearningStudio/Phase2/index.html" data-line="1142"><i class="fa-solid fa-wave-square"></i></button>
+          <button class="ph-audio-btn" title="Generate All Audio" onclick="openBulkAudioModal()" data-file="products/LearningStudio/Phase2/index.html" data-line="1142"><i class="fa-solid fa-wave-square"></i></button>
           <div class="view-toggle" data-file="products/LearningStudio/Phase2/index.html" data-line="1143">
             <button class="vt-btn active" id="vt-text"  title="Text view"      onclick="setView('text')" data-file="products/LearningStudio/Phase2/index.html" data-line="1144"><i class="fa-solid fa-align-left"></i></button>
             <button class="vt-btn"        id="vt-media" title="Thumbnail view" onclick="setView('media')" data-file="products/LearningStudio/Phase2/index.html" data-line="1145"><i class="fa-regular fa-image"></i></button>
@@ -1157,6 +1899,7 @@
 
     <!-- ---- KNOWLEDGE CHECKS PANEL ---- -->
     <div id="panel-knowledge-checks" class="slide-panel hidden" data-file="products/LearningStudio/Phase2/index.html" data-line="1159">
+      <div class="panel-resize-handle" aria-hidden="true"></div>
       <div class="panel-header" data-file="products/LearningStudio/Phase2/index.html" data-line="1160">
         <div class="ph-left" data-file="products/LearningStudio/Phase2/index.html" data-line="1161">
           <button class="ph-close" onclick="togglePanel('knowledge-checks')" data-file="products/LearningStudio/Phase2/index.html" data-line="1162"><i class="fa-solid fa-chevron-left"></i></button>
@@ -1175,6 +1918,7 @@
 
     <!-- ---- ASSESSMENT PANEL ---- -->
     <div id="panel-assessment" class="slide-panel hidden" data-file="products/LearningStudio/Phase2/index.html" data-line="1177">
+      <div class="panel-resize-handle" aria-hidden="true"></div>
       <div class="panel-header" data-file="products/LearningStudio/Phase2/index.html" data-line="1178">
         <div class="ph-left" data-file="products/LearningStudio/Phase2/index.html" data-line="1179">
           <button class="ph-close" onclick="togglePanel('assessment')" data-file="products/LearningStudio/Phase2/index.html" data-line="1180"><i class="fa-solid fa-chevron-left"></i></button>
@@ -1193,6 +1937,7 @@
 
     <!-- ---- CITATIONS PANEL ---- -->
     <div id="panel-citations" class="slide-panel hidden" data-file="products/LearningStudio/Phase2/index.html" data-line="1195">
+      <div class="panel-resize-handle" aria-hidden="true"></div>
       <div class="panel-header" data-file="products/LearningStudio/Phase2/index.html" data-line="1196">
         <div class="ph-left" data-file="products/LearningStudio/Phase2/index.html" data-line="1197">
           <button class="ph-close" onclick="togglePanel('citations')" data-file="products/LearningStudio/Phase2/index.html" data-line="1198"><i class="fa-solid fa-chevron-left"></i></button>
@@ -1228,67 +1973,109 @@
       </div>
 
       <!-- Timeline -->
-      <div id="timeline-panel" data-file="products/LearningStudio/Phase2/index.html" data-line="1231">
-        <div class="tl-header" data-file="products/LearningStudio/Phase2/index.html" data-line="1232">
-          <button class="tl-collapse-btn" onclick="toggleTimeline()" data-file="products/LearningStudio/Phase2/index.html" data-line="1233">
+      <div id="timeline-panel">
+        <!-- Drag this to resize the panel vertically -->
+        <div id="tl-resize-handle" role="separator" aria-label="Resize timeline panel" aria-orientation="horizontal"></div>
+
+        <div class="tl-header">
+          <button class="tl-collapse-btn" onclick="toggleTimeline()" aria-expanded="true" aria-controls="tl-tracks" id="tl-collapse-btn">
             <i class="fa-solid fa-chevron-down" id="tl-chevron"></i> Timeline
           </button>
-          <span class="tl-time" id="tl-time" data-file="products/LearningStudio/Phase2/index.html" data-line="1236">0:00.00 / 0:22.00</span>
-          <div class="tl-playback" data-file="products/LearningStudio/Phase2/index.html" data-line="1237">
-            <button class="tl-btn" onclick="seekToStart()" title="Reset to start" data-file="products/LearningStudio/Phase2/index.html" data-line="1238">
+          <span class="tl-time" id="tl-time">0:00.00 / 0:22.00</span>
+
+          <!-- Scale mode toggle -->
+          <div class="tl-scale-toggle" style="margin-left:10px;">
+            <button class="tl-scale-btn active" id="tl-scale-time" onclick="setTimelineScale('time')" title="Linear time scale" aria-pressed="true">
+              <i class="fa-regular fa-clock"></i> Time
+            </button>
+            <button class="tl-scale-btn" id="tl-scale-words" onclick="setTimelineScale('words')" title="Caption / word scale" aria-pressed="false">
+              <i class="fa-solid fa-closed-captioning"></i> Captions
+            </button>
+          </div>
+
+          <div class="tl-playback">
+            <button class="tl-btn" onclick="seekToStart()" title="Reset to start" aria-label="Seek to start">
               <i class="fa-solid fa-backward-step"></i>
             </button>
-            <button class="tl-play-btn" id="play-btn" onclick="togglePlay()" data-file="products/LearningStudio/Phase2/index.html" data-line="1241">
+            <button class="tl-play-btn" id="play-btn" onclick="togglePlay()" aria-label="Play">
               <i class="fa-solid fa-play" id="play-icon"></i>
             </button>
           </div>
         </div>
 
-        <div class="tl-tracks" id="tl-tracks" data-file="products/LearningStudio/Phase2/index.html" data-line="1247">
-          <div class="tracks-row" data-file="products/LearningStudio/Phase2/index.html" data-line="1248">
-            <div class="track-labels" data-file="products/LearningStudio/Phase2/index.html" data-line="1249">
-              <div class="track-label-cell" data-file="products/LearningStudio/Phase2/index.html" data-line="1250">Audio</div>
-              <div class="track-label-cell" data-file="products/LearningStudio/Phase2/index.html" data-line="1251">Background</div>
-              <div class="track-label-cell" data-file="products/LearningStudio/Phase2/index.html" data-line="1252">Template</div>
+        <div class="tl-tracks" id="tl-tracks">
+          <div class="tracks-row">
+            <!-- Pinned track labels — stays in view while track area scrolls -->
+            <div class="track-labels" id="track-labels-col">
+              <div class="track-label-cell">Audio</div>
+              <div class="track-label-cell">Background</div>
+              <!-- Template labels injected here by updateTimelineClips() -->
             </div>
-            <div class="tracks-col" data-file="products/LearningStudio/Phase2/index.html" data-line="1254">
-              <!-- Audio track with waveform -->
-              <div class="track" id="track-audio" onclick="trackClick(event,this)" data-file="products/LearningStudio/Phase2/index.html" data-line="1256">
-                <div class="waveform" id="waveform" data-file="products/LearningStudio/Phase2/index.html" data-line="1257"></div>
-                <div class="playhead" id="ph-audio" style="left:0%" data-file="products/LearningStudio/Phase2/index.html" data-line="1258">
-                  <div class="playhead-cap"></div>
+
+            <!-- Scrollable area: tracks + ruler scroll together horizontally -->
+            <div class="tracks-scroll-area" id="tracks-scroll-area">
+              <div class="track-canvas" id="track-canvas">
+                <div class="tracks-col" id="tracks-col">
+                  <!-- snap line overlay (shared across all tracks) -->
+                  <div class="snap-line" id="snap-line"></div>
+
+                  <!-- Audio track with waveform -->
+                  <div class="track" id="track-audio" onclick="trackClick(event,this)">
+                    <div class="track-clip clip-audio" id="clip-audio" style="left:0%;width:100%;">
+                      <div class="clip-duration-badge" id="clip-audio-badge"></div>
+                      <div class="clip-trans-in" id="clip-audio-trans-in"></div>
+                      <div class="clip-trim-handle left" data-clip="audio" data-side="left"><i class="fa-solid fa-grip-lines-vertical"></i></div>
+                      <div class="clip-body" data-clip="audio">
+                        <div class="waveform" id="waveform"></div>
+                      </div>
+                      <div class="clip-trim-handle right" data-clip="audio" data-side="right"><i class="fa-solid fa-grip-lines-vertical"></i></div>
+                      <div class="clip-trans-out" id="clip-audio-trans-out"></div>
+                    </div>
+                    <div class="playhead" id="ph-audio" style="left:0%">
+                      <div class="playhead-cap"></div>
+                    </div>
+                  </div>
+                  <!-- Background track -->
+                  <div class="track" id="track-bg" onclick="trackClick(event,this)">
+                    <div class="track-clip clip-media" id="clip-bg" style="left:0%;width:100%;">
+                      <div class="clip-duration-badge" id="clip-bg-badge"></div>
+                      <div class="clip-trans-in" id="clip-bg-trans-in"></div>
+                      <div class="clip-trim-handle left" data-clip="bg" data-side="left"><i class="fa-solid fa-grip-lines-vertical"></i></div>
+                      <div class="clip-body" data-clip="bg">
+                        <span class="clip-label">Background Media</span>
+                      </div>
+                      <div class="clip-trim-handle right" data-clip="bg" data-side="right"><i class="fa-solid fa-grip-lines-vertical"></i></div>
+                      <div class="clip-trans-out" id="clip-bg-trans-out"></div>
+                    </div>
+                    <div class="playhead" id="ph-bg" style="left:0%"></div>
+                  </div>
+                  <!-- Template tracks injected here by updateTimelineClips() -->
+                  <div id="template-tracks-container"></div>
                 </div>
-              </div>
-              <!-- Background track -->
-              <div class="track" id="track-bg" onclick="trackClick(event,this)" data-file="products/LearningStudio/Phase2/index.html" data-line="1263">
-                <div class="track-clip clip-media" id="clip-bg" style="left:0%;width:100%;" data-file="products/LearningStudio/Phase2/index.html" data-line="1264">Background Media</div>
-                <div class="playhead" id="ph-bg" style="left:0%" data-file="products/LearningStudio/Phase2/index.html" data-line="1265"></div>
-              </div>
-              <!-- Template track -->
-              <div class="track" id="track-tpl" onclick="trackClick(event,this)" data-file="products/LearningStudio/Phase2/index.html" data-line="1268">
-                <div class="track-clip clip-template" id="clip-tpl" style="left:0%;width:100%;" data-file="products/LearningStudio/Phase2/index.html" data-line="1269"></div>
-                <div class="playhead" id="ph-tpl" style="left:0%" data-file="products/LearningStudio/Phase2/index.html" data-line="1270"></div>
-              </div>
-            </div>
-          </div>
-          <div class="time-ruler" data-file="products/LearningStudio/Phase2/index.html" data-line="1274">
-            <div class="time-ruler-ticks" id="time-ruler" data-file="products/LearningStudio/Phase2/index.html" data-line="1275"></div>
-          </div>
-        </div>
-      </div>
+
+                <!-- Ruler lives inside the canvas so it scrolls in sync with tracks -->
+                <div class="time-ruler" id="time-ruler-wrap">
+                  <div class="time-ruler-ticks" id="time-ruler"></div>
+                </div>
+              </div><!-- /track-canvas -->
+            </div><!-- /tracks-scroll-area -->
+          </div><!-- /tracks-row -->
+        </div><!-- /tl-tracks -->
+
+      </div><!-- /timeline-panel -->
 
     </div><!-- /canvas-area -->
 
     <!-- ---- TEMPLATE PROPERTIES PANEL (right side) ---- -->
-    <div id="panel-template" class="tpl-props-panel hidden" data-file="products/LearningStudio/Phase2/index.html" data-line="1283">
-      <div class="panel-header" data-file="products/LearningStudio/Phase2/index.html" data-line="1284">
-        <div class="ph-left" data-file="products/LearningStudio/Phase2/index.html" data-line="1285">
+    <div id="panel-template" class="tpl-props-panel hidden">
+      <div class="panel-header">
+        <div class="ph-left">
           <i class="fa-solid fa-table-columns" style="color:#8b5cf6; font-size:13px;"></i>
-          <span class="panel-title" data-file="products/LearningStudio/Phase2/index.html" data-line="1287">Template Properties</span>
+          <span class="panel-title">Template Properties</span>
         </div>
-        <button class="ph-close" onclick="closeTemplatePanel()" title="Close" data-file="products/LearningStudio/Phase2/index.html" data-line="1289"><i class="fa-solid fa-xmark"></i></button>
+        <button class="ph-close" onclick="closeTemplatePanel()" title="Close"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <div class="panel-body" data-file="products/LearningStudio/Phase2/index.html" data-line="1291">
+      <div class="panel-body">
 
         <!-- Template type picker -->
         <div class="tpl-prop-section" data-file="products/LearningStudio/Phase2/index.html" data-line="1294">
@@ -1330,13 +2117,227 @@
         <div class="tpl-prop-divider"></div>
 
         <!-- Rich text fields -->
-        <div class="tpl-prop-section" id="tpl-text-section" data-file="products/LearningStudio/Phase2/index.html" data-line="1333">
-          <div class="tpl-prop-label" data-file="products/LearningStudio/Phase2/index.html" data-line="1334">Text</div>
-          <div id="tpl-rte-fields" data-file="products/LearningStudio/Phase2/index.html" data-line="1335"></div>
+        <div class="tpl-prop-section" id="tpl-text-section">
+          <div class="tpl-prop-label">Template Text</div>
+          <div id="tpl-rte-fields"></div>
+        </div>
+
+        <div class="tpl-prop-divider"></div>
+
+        <!-- Transition In / Out -->
+        <div class="tpl-prop-section">
+          <div class="tpl-prop-label">Transitions</div>
+          <div class="trans-row">
+            <span class="trans-side-label">In</span>
+            <select class="trans-type-select" id="tpl-trans-in-type" onchange="updateTplTransition('in','type',this.value)">
+              <option value="none">None</option>
+              <option value="fade">Fade In</option>
+              <option value="slide-left">Slide from Left</option>
+              <option value="slide-right">Slide from Right</option>
+              <option value="slide-up">Slide from Bottom</option>
+              <option value="zoom-in">Zoom In</option>
+              <option value="wipe">Wipe</option>
+            </select>
+            <input type="number" class="trans-dur-input" id="tpl-trans-in-dur" min="0" max="5" step="0.1" value="0.5"
+              onchange="updateTplTransition('in','dur',this.value)" />
+            <span class="trans-dur-unit">s</span>
+          </div>
+          <div class="trans-row">
+            <span class="trans-side-label">Out</span>
+            <select class="trans-type-select" id="tpl-trans-out-type" onchange="updateTplTransition('out','type',this.value)">
+              <option value="none">None</option>
+              <option value="fade">Fade Out</option>
+              <option value="slide-left">Slide to Left</option>
+              <option value="slide-right">Slide to Right</option>
+              <option value="slide-down">Slide to Bottom</option>
+              <option value="zoom-out">Zoom Out</option>
+              <option value="wipe">Wipe</option>
+            </select>
+            <input type="number" class="trans-dur-input" id="tpl-trans-out-dur" min="0" max="5" step="0.1" value="0.5"
+              onchange="updateTplTransition('out','dur',this.value)" />
+            <span class="trans-dur-unit">s</span>
+          </div>
         </div>
 
       </div>
     </div><!-- /panel-template -->
+
+    <!-- ---- MEDIA PROPERTIES PANEL (right side) ---- -->
+    <div id="panel-media" class="media-props-panel hidden">
+      <div class="panel-header">
+        <div class="ph-left">
+          <i class="fa-regular fa-image" style="color:#ef4444; font-size:13px;"></i>
+          <span class="panel-title">Media Properties</span>
+        </div>
+        <button class="ph-close" onclick="closeMediaPanel()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="panel-body">
+
+        <!-- Fit / Fill mode -->
+        <div class="mpp-section">
+          <div class="mpp-label">Fit Mode</div>
+          <div class="mpp-mode-group" id="mpp-mode-group">
+            <button class="mpp-mode-btn active" id="mpp-mode-fill" onclick="setMediaMode('fill')">
+              <i class="fa-solid fa-expand"></i><br>Fill
+            </button>
+            <button class="mpp-mode-btn" id="mpp-mode-fit" onclick="setMediaMode('fit')">
+              <i class="fa-solid fa-compress"></i><br>Fit
+            </button>
+            <button class="mpp-mode-btn" id="mpp-mode-custom" onclick="setMediaMode('custom')">
+              <i class="fa-solid fa-sliders"></i><br>Custom
+            </button>
+          </div>
+        </div>
+
+        <div class="mpp-divider"></div>
+
+        <!-- Position -->
+        <div class="mpp-section">
+          <div class="mpp-label">Position</div>
+          <div class="mpp-row">
+            <div class="mpp-field">
+              <label>X</label>
+              <input type="number" class="mpp-input" id="mpp-pos-x" value="0"
+                onchange="updateMediaProp('posX', this.value)" />
+              <span class="mpp-unit">px</span>
+            </div>
+            <div class="mpp-field">
+              <label>Y</label>
+              <input type="number" class="mpp-input" id="mpp-pos-y" value="0"
+                onchange="updateMediaProp('posY', this.value)" />
+              <span class="mpp-unit">px</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mpp-divider"></div>
+
+        <!-- Scale -->
+        <div class="mpp-section">
+          <div class="mpp-label">Scale</div>
+          <div class="mpp-slider-row">
+            <input type="range" class="mpp-slider" id="mpp-scale" min="10" max="300" value="100"
+              oninput="updateMediaScale(this.value)" />
+            <span class="mpp-slider-val" id="mpp-scale-val">100%</span>
+          </div>
+        </div>
+
+        <div class="mpp-divider"></div>
+
+        <!-- Rotation -->
+        <div class="mpp-section">
+          <div class="mpp-label">Rotation</div>
+          <div class="mpp-slider-row">
+            <input type="range" class="mpp-slider" id="mpp-rotation" min="-180" max="180" value="0"
+              oninput="updateMediaRotation(this.value)" />
+            <span class="mpp-slider-val" id="mpp-rotation-val">0°</span>
+          </div>
+        </div>
+
+        <div class="mpp-divider"></div>
+
+        <!-- Zoom & Pan -->
+        <div class="mpp-section">
+          <div class="mpp-label">Zoom & Pan</div>
+          <div style="margin-bottom:6px;">
+            <div style="font-size:11px; color:#6b7280; margin-bottom:4px; font-weight:600;">Zoom</div>
+            <div class="mpp-slider-row">
+              <input type="range" class="mpp-slider" id="mpp-zoom" min="100" max="400" value="100"
+                oninput="updateMediaZoom(this.value)" />
+              <span class="mpp-slider-val" id="mpp-zoom-val">1×</span>
+            </div>
+          </div>
+          <div class="mpp-row" style="margin-bottom:4px;">
+            <div class="mpp-field">
+              <label>↔</label>
+              <input type="number" class="mpp-input" id="mpp-pan-x" value="0" min="-100" max="100"
+                onchange="updateMediaProp('panX', this.value)" />
+              <span class="mpp-unit">%</span>
+            </div>
+            <div class="mpp-field">
+              <label>↕</label>
+              <input type="number" class="mpp-input" id="mpp-pan-y" value="0" min="-100" max="100"
+                onchange="updateMediaProp('panY', this.value)" />
+              <span class="mpp-unit">%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mpp-divider"></div>
+
+        <!-- Crop -->
+        <div class="mpp-section">
+          <div class="mpp-label">Crop</div>
+          <div class="mpp-crop-grid">
+            <div class="mpp-crop-field">
+              <label>Top</label>
+              <input type="number" class="mpp-input" id="mpp-crop-t" value="0" min="0" max="99"
+                onchange="updateMediaProp('cropT', this.value)" />
+            </div>
+            <div class="mpp-crop-field">
+              <label>Right</label>
+              <input type="number" class="mpp-input" id="mpp-crop-r" value="0" min="0" max="99"
+                onchange="updateMediaProp('cropR', this.value)" />
+            </div>
+            <div class="mpp-crop-field">
+              <label>Bottom</label>
+              <input type="number" class="mpp-input" id="mpp-crop-b" value="0" min="0" max="99"
+                onchange="updateMediaProp('cropB', this.value)" />
+            </div>
+            <div class="mpp-crop-field">
+              <label>Left</label>
+              <input type="number" class="mpp-input" id="mpp-crop-l" value="0" min="0" max="99"
+                onchange="updateMediaProp('cropL', this.value)" />
+            </div>
+          </div>
+          <div style="margin-top:8px; font-size:10.5px; color:#9ca3af;">Values in % of frame edge</div>
+        </div>
+
+        <div class="mpp-divider"></div>
+
+        <!-- Transition In / Out -->
+        <div class="mpp-section">
+          <div class="mpp-label">Transitions</div>
+          <div class="trans-row">
+            <span class="trans-side-label">In</span>
+            <select class="trans-type-select" id="mpp-trans-in-type" onchange="updateMediaTransition('in','type',this.value)">
+              <option value="none">None</option>
+              <option value="fade">Fade In</option>
+              <option value="zoom-in">Zoom In</option>
+              <option value="slide-left">Slide from Left</option>
+              <option value="slide-right">Slide from Right</option>
+              <option value="dissolve">Dissolve</option>
+            </select>
+            <input type="number" class="trans-dur-input" id="mpp-trans-in-dur" min="0" max="5" step="0.1" value="0.5"
+              onchange="updateMediaTransition('in','dur',this.value)" />
+            <span class="trans-dur-unit">s</span>
+          </div>
+          <div class="trans-row">
+            <span class="trans-side-label">Out</span>
+            <select class="trans-type-select" id="mpp-trans-out-type" onchange="updateMediaTransition('out','type',this.value)">
+              <option value="none">None</option>
+              <option value="fade">Fade Out</option>
+              <option value="zoom-out">Zoom Out</option>
+              <option value="slide-left">Slide to Left</option>
+              <option value="slide-right">Slide to Right</option>
+              <option value="dissolve">Dissolve</option>
+            </select>
+            <input type="number" class="trans-dur-input" id="mpp-trans-out-dur" min="0" max="5" step="0.1" value="0.5"
+              onchange="updateMediaTransition('out','dur',this.value)" />
+            <span class="trans-dur-unit">s</span>
+          </div>
+        </div>
+
+        <div class="mpp-divider"></div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <button class="mpp-reset" onclick="resetMediaProps()">
+            <i class="fa-solid fa-rotate-left"></i> Reset to defaults
+          </button>
+        </div>
+
+      </div>
+    </div><!-- /panel-media -->
 
     <!-- ---- QUESTION EDITOR ---- -->
     <div id="question-editor" data-file="products/LearningStudio/Phase2/index.html" data-line="1342">
@@ -1725,6 +2726,53 @@
 </div>
 
 <!-- ===================================================================
+     BULK GENERATE AUDIO MODAL
+=================================================================== -->
+<div id="modal-bulk-audio" class="modal-backdrop hidden">
+  <div class="modal modal-xl">
+    <div class="modal-header">
+      <div class="modal-title">Generate All Audio</div>
+      <div class="modal-desc">Apply a single voice across all scenes, or assign a different voice per scene.</div>
+    </div>
+    <div class="modal-body">
+
+      <!-- Mode toggle -->
+      <div class="seg-control">
+        <button class="seg-btn active" id="bulk-seg-single" onclick="switchBulkTab('single')">
+          <i class="fa-solid fa-microphone"></i> Single Voice
+        </button>
+        <button class="seg-btn" id="bulk-seg-per-scene" onclick="switchBulkTab('per-scene')">
+          <i class="fa-solid fa-list-ul"></i> Per Scene
+        </button>
+      </div>
+
+      <!-- Single voice pane -->
+      <div class="bulk-audio-pane active" id="bulk-pane-single">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Voice — applied to all scenes</label>
+          <div class="voice-grid" id="bulk-voice-grid"></div>
+        </div>
+      </div>
+
+      <!-- Per-scene pane -->
+      <div class="bulk-audio-pane" id="bulk-pane-per-scene">
+        <div class="form-group" style="margin-bottom:8px;">
+          <label class="form-label">Assign a voice to each scene</label>
+        </div>
+        <div class="bulk-scene-list" id="bulk-scene-list"></div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <vaadin-button theme="secondary" onclick="closeModal('modal-bulk-audio')">Cancel</vaadin-button>
+      <vaadin-button theme="primary" id="bulk-gen-btn" onclick="generateBulkAudio()">
+        <i class="fa-solid fa-volume-high"></i> Generate Audio
+      </vaadin-button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================
      GENERATE AUDIO MODAL
 =================================================================== -->
 <div id="modal-audio" class="modal-backdrop hidden" data-file="products/LearningStudio/Phase2/index.html" data-line="1730">
@@ -1896,24 +2944,33 @@ const ALL_LOS = [
 let scenes = [
   { id:1, transcript:"Welcome to our presentation. Today we'll be discussing the future of video creation and how AI is transforming the industry.",
     img:'https://images.unsplash.com/photo-1764663908321-495a7145ad3b?w=900&q=80',
-    tpl:'text-overlay', tplParams:{ placement:'left', color:'#1e40af', text:'Your Message Here' },
+    templates:[
+      { id:'t1a', tpl:'text-overlay', tplParams:{ placement:'left', color:'#1e40af', text:'Your Message Here' }, tplTransition:null, clipState:{ left:0, width:100 } }
+    ],
     duration:5, completed:false, status:'in-progress' },
   { id:2, transcript:"Our platform offers three main advantages: speed, quality, and ease of use. Let's explore each of these in detail.",
     img:'https://images.unsplash.com/photo-1764663908343-f0ec582a527a?w=900&q=80',
-    tpl:'lower-third', tplParams:{ position:'bottom', color:'#1e40af', title:'Key Advantages', subtitle:'Speed · Quality · Ease of Use' },
+    templates:[
+      { id:'t2a', tpl:'lower-third', tplParams:{ position:'bottom', color:'#1e40af', title:'Key Advantages', subtitle:'Speed · Quality · Ease of Use' }, tplTransition:null, clipState:{ left:0, width:100 } }
+    ],
     duration:7, completed:false, status:'in-review' },
   { id:3, transcript:"Work seamlessly with your team. Share projects, get feedback, and iterate faster than ever before.",
     img:'https://images.unsplash.com/photo-1758873272921-4b64aef3c32b?w=900&q=80',
-    tpl:'text-overlay', tplParams:{ placement:'right', color:'#064e3b', text:'Team Collaboration' },
+    templates:[
+      { id:'t3a', tpl:'text-overlay', tplParams:{ placement:'right', color:'#064e3b', text:'Team Collaboration' }, tplTransition:null, clipState:{ left:0, width:100 } }
+    ],
     duration:6, completed:false, status:'ready' },
   { id:4, transcript:"Thank you for watching. Start creating professional videos today and transform your content strategy.",
     img:'https://images.unsplash.com/photo-1627244714766-94dab62ed964?w=900&q=80',
-    tpl:'lower-third', tplParams:{ position:'bottom', color:'#4c1d95', title:'Get Started Today', subtitle:'Transform your content strategy' },
+    templates:[
+      { id:'t4a', tpl:'lower-third', tplParams:{ position:'bottom', color:'#4c1d95', title:'Get Started Today', subtitle:'Transform your content strategy' }, tplTransition:null, clipState:{ left:0, width:100 } }
+    ],
     duration:4, completed:false, status:'in-progress' },
 ];
 
 let activeSceneId = 1;
 let activePanel = 'scenes';
+let _tplIdSeq = 100; // counter for unique template instance IDs
 let activeKCId = null;
 let activeAssessId = null;
 let activeCitationId = null;
@@ -1935,8 +2992,11 @@ document.addEventListener('DOMContentLoaded', () => {
   renderAll();
   buildVoiceGrid();
   buildWaveform();
-  buildTimeRuler();
+  buildRuler();
   updateCanvas();
+  updateTimelineClips(); // also calls initClipInteractions() + buildRuler()
+  initTimelineResize();
+  initPanelResize();
   updateNavBtns();
   document.getElementById('kc-badge').textContent = knowledgeChecks.length;
   document.getElementById('assess-badge').textContent = assessmentQuestions.length;
@@ -2420,9 +3480,13 @@ function setView(v) {
 ----------------------------------------------------------------------- */
 function selectScene(id) {
   activeSceneId = id;
+  // Close properties panels when switching scenes
+  document.getElementById('panel-template').classList.add('hidden');
+  document.getElementById('panel-media').classList.add('hidden');
+  deselectTimelineClips();
   renderAll();
   updateCanvas();
-  updateTimelineClips();
+  updateTimelineClips(); // also re-wires clip interactions internally
 }
 
 function toggleComplete(id) {
@@ -2447,7 +3511,7 @@ function newScene() {
     id: Math.max(...scenes.map(s=>s.id)) + 1,
     transcript:'', status:'in-progress', completed:false, duration:5,
     img:'https://images.unsplash.com/photo-1524758631624-e2822e304c36?w=900&q=80',
-    tpl:null, tplParams:null
+    templates:[]
   };
 }
 
@@ -2468,27 +3532,9 @@ function deleteActiveScene() {
 function updateCanvas() {
   const sc = getActive();
   document.getElementById('canvas-bg').src = sc.img || '';
-  renderOverlay(sc);
-}
-
-function renderOverlay(sc) {
-  const el = document.getElementById('canvas-overlay');
-  if (!sc.tpl || !sc.tplParams) { el.innerHTML=''; return; }
-  const p = sc.tplParams;
-  const tc = lum(p.color) > 0.55 ? '#000' : '#fff';
-
-  if (sc.tpl === 'text-overlay') {
-    el.innerHTML = `<div class="tpl-text-overlay ${p.placement||'left'}" style="background:${p.color};opacity:0.92;">
-      <div class="tpl-overlay-text" style="color:${tc};">${p.text||''}</div>
-    </div>`;
-  } else if (sc.tpl === 'lower-third') {
-    el.innerHTML = `<div class="tpl-lower-third ${p.position||'bottom'}" style="background:${p.color};">
-      <div class="tpl-lower-title" style="color:${tc};">${p.title||''}</div>
-      <div class="tpl-lower-sub"   style="color:${tc};">${p.subtitle||''}</div>
-    </div>`;
-  } else {
-    el.innerHTML = '';
-  }
+  // renderOverlay is assigned as window.renderOverlay later in the file;
+  // by the time this function is called at runtime it will be available.
+  window.renderOverlay(sc);
 }
 
 function toggleActiveComplete() {
@@ -2505,6 +3551,110 @@ function toggleTimeline() {
   tlCollapsed = !tlCollapsed;
   document.getElementById('tl-tracks').classList.toggle('collapsed', tlCollapsed);
   document.getElementById('tl-chevron').className = tlCollapsed ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
+  document.getElementById('tl-collapse-btn').setAttribute('aria-expanded', String(!tlCollapsed));
+  // When collapsing, release explicit height so panel shrinks to header+footer
+  if (tlCollapsed) {
+    document.getElementById('timeline-panel').style.height = '';
+  }
+}
+
+/* -----------------------------------------------------------------------
+   TIMELINE VERTICAL RESIZE
+   Drag #tl-resize-handle upward to expand, downward to shrink.
+   Called from DOMContentLoaded below.
+----------------------------------------------------------------------- */
+const TL_MIN_H  = 120;  // header + footer + handle + one track row
+const getTLMaxH = () => Math.floor(window.innerHeight * 0.62);
+
+let tlResizing = false;
+let tlResizeStartY = 0;
+let tlResizeStartH = 0;
+
+/* -----------------------------------------------------------------------
+   Panel resize — drag the right edge of any .slide-panel to resize it.
+   One shared mousemove/mouseup listener on document keeps it simple.
+----------------------------------------------------------------------- */
+const PANEL_MIN_W = 220;
+const PANEL_MAX_W = 640;
+
+let panelResizing     = false;
+let panelResizeEl     = null;
+let panelResizeHandle = null;
+let panelResizeStartX = 0;
+let panelResizeStartW = 0;
+
+function initPanelResize() {
+  document.querySelectorAll('.slide-panel .panel-resize-handle').forEach(handle => {
+    handle.addEventListener('mousedown', e => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      panelResizeEl     = handle.closest('.slide-panel');
+      panelResizeHandle = handle;
+      panelResizeStartX = e.clientX;
+      panelResizeStartW = panelResizeEl.offsetWidth;
+      panelResizing     = true;
+      handle.classList.add('dragging');
+      document.body.style.cursor     = 'ew-resize';
+      document.body.style.userSelect = 'none';
+    });
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!panelResizing) return;
+    const dx   = e.clientX - panelResizeStartX;
+    const newW = Math.min(PANEL_MAX_W, Math.max(PANEL_MIN_W, panelResizeStartW + dx));
+    panelResizeEl.style.width = `${newW}px`;
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!panelResizing) return;
+    panelResizing = false;
+    panelResizeHandle.classList.remove('dragging');
+    panelResizeEl     = null;
+    panelResizeHandle = null;
+    document.body.style.cursor     = '';
+    document.body.style.userSelect = '';
+  });
+}
+
+function initTimelineResize() {
+  const handle = document.getElementById('tl-resize-handle');
+  const panel  = document.getElementById('timeline-panel');
+  if (!handle || !panel) return;
+
+  handle.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    tlResizing      = true;
+    tlResizeStartY  = e.clientY;
+    tlResizeStartH  = panel.offsetHeight;
+    handle.classList.add('dragging');
+    document.body.style.cursor    = 'ns-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!tlResizing) return;
+    // Dragging upward (negative dy) → panel gets taller
+    const dy   = e.clientY - tlResizeStartY;
+    const newH = Math.min(getTLMaxH(), Math.max(TL_MIN_H, tlResizeStartH - dy));
+    panel.style.height = `${newH}px`;
+    // Auto-expand if collapsed and user drags upward
+    if (tlCollapsed && newH > TL_MIN_H - 20) {
+      tlCollapsed = false;
+      document.getElementById('tl-tracks').classList.remove('collapsed');
+      document.getElementById('tl-chevron').className = 'fa-solid fa-chevron-down';
+      document.getElementById('tl-collapse-btn').setAttribute('aria-expanded', 'true');
+    }
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!tlResizing) return;
+    tlResizing = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor    = '';
+    document.body.style.userSelect = '';
+  });
 }
 
 function buildWaveform() {
@@ -2516,43 +3666,432 @@ function buildWaveform() {
   wf.innerHTML = bars;
 }
 
+/* -----------------------------------------------------------------------
+   TIMELINE SCALE MODE  ('time' | 'words')
+----------------------------------------------------------------------- */
+let tlScaleMode = 'time';
+
+function setTimelineScale(mode) {
+  tlScaleMode = mode;
+  const timeBtn  = document.getElementById('tl-scale-time');
+  const wordsBtn = document.getElementById('tl-scale-words');
+  timeBtn.classList.toggle('active',  mode === 'time');
+  wordsBtn.classList.toggle('active', mode === 'words');
+  timeBtn.setAttribute('aria-pressed',  String(mode === 'time'));
+  wordsBtn.setAttribute('aria-pressed', String(mode === 'words'));
+  buildRuler();
+}
+
+function buildRuler() {
+  if (tlScaleMode === 'words') buildWordRuler();
+  else buildTimeRuler();
+}
+
+// Minimum pixels per second for the time ruler — keeps ticks legible
+const TIME_PX_PER_SEC = 52;
+
+function setCanvasMinWidth(px) {
+  const canvas = document.getElementById('track-canvas');
+  if (!canvas) return;
+  // Ensure canvas is at least the scroll viewport width AND at least px wide
+  if (px > 0) {
+    canvas.style.minWidth = `max(100%, ${px}px)`;
+  } else {
+    canvas.style.minWidth = '100%';
+  }
+}
+
 function buildTimeRuler() {
   const t = totalDur();
-  const step = t>30?5:t>10?2:1;
-  let html='';
-  for (let i=0; i<=t; i+=step) {
-    const m=Math.floor(i/60), s=i%60;
-    html+=`<div class="tick"><div class="tick-line"></div><div class="tick-label">${m}:${String(s).padStart(2,'0')}</div></div>`;
+  // Expand canvas so each second is at least TIME_PX_PER_SEC wide
+  setCanvasMinWidth(t * TIME_PX_PER_SEC);
+
+  const step = t > 30 ? 5 : t > 10 ? 2 : 1;
+  // Use absolute positioning so ticks sit at proportional positions
+  const rulerEl = document.getElementById('time-ruler');
+  rulerEl.style.position = 'relative';
+  rulerEl.style.height = '20px';
+
+  let html = '';
+  for (let i = 0; i <= t; i += step) {
+    const pct = t > 0 ? (i / t) * 100 : 0;
+    const m = Math.floor(i / 60), s = i % 60;
+    html += `<div class="tick" style="position:absolute;left:${pct}%;transform:translateX(-50%);">
+      <div class="tick-line"></div>
+      <div class="tick-label">${m}:${String(s).padStart(2,'0')}</div>
+    </div>`;
   }
-  document.getElementById('time-ruler').innerHTML = html;
+  rulerEl.innerHTML = html;
+}
+
+// Tokenise transcript into timed words (evenly distributed over scene duration)
+function getSceneWords(sc) {
+  const raw = sc.transcript || '';
+  const words = raw.split(/\s+/).filter(w => w.length > 0);
+  if (!words.length) return [];
+  const dur = sc.duration;
+  // Assign each word a start time proportional to its index
+  return words.map((w, i) => ({
+    word: w.replace(/[.,!?;:""''—–-]+$/, ''), // strip trailing punctuation for label
+    startSec: (i / words.length) * dur,
+    pct: i / words.length,      // 0–1 within this scene
+  }));
+}
+
+// Minimum pixels per word in caption mode — keeps words readable
+const WORD_PX_EACH = 52;
+
+function buildWordRuler() {
+  const sc = getActive();
+  const words = getSceneWords(sc);
+  const ruler = document.getElementById('time-ruler');
+
+  if (!words.length) {
+    setCanvasMinWidth(0); // let CSS handle 100% fallback
+    ruler.innerHTML = '<div class="tick"><div class="tick-label" style="color:#9ca3af;">No transcript</div></div>';
+    return;
+  }
+
+  // Expand canvas so each word gets at least WORD_PX_EACH pixels
+  setCanvasMinWidth(words.length * WORD_PX_EACH);
+
+  // Render one tick per word positioned by its pct
+  ruler.style.position = 'relative';
+  ruler.style.height = '20px';
+  ruler.style.display = 'block';
+
+  ruler.innerHTML = words.map((w, i) => {
+    const leftPct = w.pct * 100;
+    return `<div class="word-tick" style="left:${leftPct}%;" data-word-idx="${i}" data-word-pct="${w.pct}">
+      <div class="word-tick-label" title="${w.word}">${w.word}</div>
+    </div>`;
+  }).join('');
+}
+
+// Return word boundaries as pct values for snap targets
+function getWordSnapPoints() {
+  const sc = getActive();
+  const words = getSceneWords(sc);
+  return words.map(w => w.pct);
+}
+
+// Snap pct to nearest word boundary if within threshold (in pct units)
+const SNAP_THRESHOLD_PCT = 0.025; // ~2.5% of total width = ~0.5s on 20s scene
+
+function snapToWord(pct) {
+  if (tlScaleMode !== 'words') return pct;
+  const pts = getWordSnapPoints();
+  let best = pct, bestDist = SNAP_THRESHOLD_PCT;
+  for (const p of pts) {
+    const d = Math.abs(pct - p);
+    if (d < bestDist) { bestDist = d; best = p; }
+  }
+  return best;
+}
+
+function showSnapLine(pct) {
+  const line = document.getElementById('snap-line');
+  if (!line) return;
+  // Position relative to the track canvas (snap-line is inside tracks-col which is full-canvas-width)
+  const canvasW = getTrackWidth();
+  line.style.left = `${pct * canvasW}px`;
+  line.classList.add('visible');
+}
+
+function hideSnapLine() {
+  const line = document.getElementById('snap-line');
+  if (line) line.classList.remove('visible');
+}
+
+/* Return or initialise clip state for the active scene (audio + bg only).
+   Template clip states live on each template instance in sc.templates[]. */
+function getClipState(sc) {
+  if (!sc.clipState) {
+    sc.clipState = {
+      audio: { left: 0, width: 100 },
+      bg:    { left: 0, width: 100 },
+    };
+  }
+  return sc.clipState;
+}
+
+/* Helper: get template instance by id from active scene */
+function getTplInstance(tplId) {
+  const sc = getActive();
+  return (sc.templates || []).find(t => t.id === tplId) || null;
+}
+
+/* Helper: generate a unique DOM-safe id string from a template instance id */
+function tplElId(tplId, suffix) {
+  return `clip-tpl-${tplId}${suffix ? '-' + suffix : ''}`;
 }
 
 function updateTimelineClips() {
   const sc = getActive();
-  const clip = document.getElementById('clip-tpl');
-  if (sc.tpl) {
-    const label = sc.tplParams?.title || sc.tplParams?.text || `Scene ${scenes.indexOf(sc)+1}`;
-    clip.textContent = label;
-    clip.style.display = '';
-  } else {
-    clip.style.display = 'none';
+  const cs = getClipState(sc);
+
+  // Fixed clips: audio + bg
+  ['audio', 'bg'].forEach(key => {
+    const el = document.getElementById(`clip-${key}`);
+    if (!el) return;
+    el.style.left  = `${cs[key].left}%`;
+    el.style.width = `${cs[key].width}%`;
+  });
+
+  // Rebuild dynamic template tracks + labels
+  const templates = sc.templates || [];
+  const container = document.getElementById('template-tracks-container');
+  const labelsCol  = document.getElementById('track-labels-col');
+
+  // Remove old template label cells (everything after the first 2 fixed cells)
+  const allLabelCells = labelsCol.querySelectorAll('.track-label-cell');
+  allLabelCells.forEach((cell, i) => { if (i >= 2) cell.remove(); });
+
+  // Validate selectedTplId still exists on this scene
+  if (selectedTplId && !templates.find(t => t.id === selectedTplId)) {
+    selectedTplId = null;
+    selectedClip  = null;
+    document.getElementById('panel-template').classList.add('hidden');
   }
+
+  // Build one track row per template instance
+  container.innerHTML = templates.map(tpl => {
+    const { id, tplParams, clipState } = tpl;
+    const raw = tplParams?.title || tplParams?.text || 'Template';
+    const div = document.createElement('div');
+    div.innerHTML = raw;
+    const label = div.textContent || div.innerText || 'Template';
+    const isSelected = (selectedClip === 'template' && selectedTplId === id);
+    const clipW = clipState?.width ?? 100;
+    const clipL = clipState?.left  ?? 0;
+
+    return `<div class="track${isSelected ? ' has-selected' : ''}" id="track-tpl-${id}" onclick="trackClick(event,this)">
+      <div class="track-clip clip-template${isSelected ? ' selected' : ''}" id="clip-tpl-${id}" style="left:${clipL}%;width:${clipW}%;">
+        <div class="clip-duration-badge" id="clip-tpl-${id}-badge"></div>
+        <div class="clip-trans-in" id="clip-tpl-${id}-trans-in"></div>
+        <div class="clip-trim-handle left" data-clip="template" data-tpl-id="${id}" data-side="left"><i class="fa-solid fa-grip-lines-vertical"></i></div>
+        <div class="clip-body" data-clip="template" data-tpl-id="${id}">
+          <span class="clip-label">${label}</span>
+        </div>
+        <div class="clip-trim-handle right" data-clip="template" data-tpl-id="${id}" data-side="right"><i class="fa-solid fa-grip-lines-vertical"></i></div>
+        <div class="clip-trans-out" id="clip-tpl-${id}-trans-out"></div>
+      </div>
+      <div class="playhead ph-tpl" id="ph-tpl-${id}" style="left:0%"></div>
+    </div>`;
+  }).join('');
+
+  // Add matching label cells for each template track
+  templates.forEach((tpl, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'track-label-cell track-label-tpl';
+    cell.dataset.tplId = tpl.id;
+    cell.innerHTML = `<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="Template ${i+1}">Tpl ${i+1}</span>
+      <button class="tpl-track-del" title="Remove template" onclick="removeTemplate('${tpl.id}')"><i class="fa-solid fa-xmark"></i></button>`;
+    labelsCol.appendChild(cell);
+  });
+
+  // Re-wire drag interactions for newly created template clips
+  initClipInteractions();
+
+  buildRuler();
+  updateAllTransStripes();
 }
 
 function trackClick(e, el) {
-  const r = el.getBoundingClientRect();
-  const pct = (e.clientX - r.left) / r.width;
+  // Only seek if the click was directly on the track (not a clip child)
+  if (e.target !== el && !e.target.classList.contains('track')) return;
+  const scrollArea = document.getElementById('tracks-scroll-area');
+  const canvas = document.getElementById('track-canvas');
+  if (!canvas || !scrollArea) return;
+  // Account for horizontal scroll offset so click maps to correct timeline position
+  const canvasRect = canvas.getBoundingClientRect();
+  const clickXInCanvas = e.clientX - canvasRect.left;
+  const pct = clickXInCanvas / canvas.offsetWidth;
   currentTime = Math.max(0, Math.min(totalDur(), pct * totalDur()));
   updatePlayheads();
   updateDuration();
 }
 
+/* -----------------------------------------------------------------------
+   CLIP DRAG (move) + RESIZE (trim) — unified pointer-event system
+----------------------------------------------------------------------- */
+// dragState: { type, clipKey, tplId?, startX, startLeft, startWidth, trackWidth }
+let dragState = null;
+
+function initClipInteractions() {
+  // Remove previous listeners cleanly by replacing the container
+  // (we rebuild template track HTML on every updateTimelineClips call — event delegation
+  //  is used for template clips via the container; fixed clips reuse the same nodes)
+
+  // Fixed clip bodies (audio, bg) — remove old handler by cloning node
+  document.querySelectorAll('.clip-body[data-clip="audio"], .clip-body[data-clip="bg"]').forEach(body => {
+    const fresh = body.cloneNode(true);
+    body.parentNode.replaceChild(fresh, body);
+    fresh.addEventListener('mousedown', e => {
+      e.preventDefault(); e.stopPropagation();
+      const clipKey = fresh.dataset.clip;
+      selectTimelineClip(clipKey);
+      startClipDrag(e, clipKey, null, 'move');
+    });
+  });
+
+  // Fixed trim handles (audio, bg)
+  document.querySelectorAll('.clip-trim-handle[data-clip="audio"], .clip-trim-handle[data-clip="bg"]').forEach(handle => {
+    const fresh = handle.cloneNode(true);
+    handle.parentNode.replaceChild(fresh, handle);
+    fresh.addEventListener('mousedown', e => {
+      e.preventDefault(); e.stopPropagation();
+      const clipKey = fresh.dataset.clip;
+      const side    = fresh.dataset.side;
+      selectTimelineClip(clipKey);
+      startClipDrag(e, clipKey, null, side === 'left' ? 'resize-left' : 'resize-right');
+    });
+  });
+
+  // Template clip bodies and handles (rebuilt DOM each time — just attach directly)
+  document.querySelectorAll('.clip-body[data-clip="template"]').forEach(body => {
+    body.addEventListener('mousedown', e => {
+      e.preventDefault(); e.stopPropagation();
+      const tplId = body.dataset.tplId;
+      selectTimelineClip('template', tplId);
+      startClipDrag(e, 'template', tplId, 'move');
+    });
+  });
+
+  document.querySelectorAll('.clip-trim-handle[data-clip="template"]').forEach(handle => {
+    handle.addEventListener('mousedown', e => {
+      e.preventDefault(); e.stopPropagation();
+      const tplId = handle.dataset.tplId;
+      const side  = handle.dataset.side;
+      selectTimelineClip('template', tplId);
+      startClipDrag(e, 'template', tplId, side === 'left' ? 'resize-left' : 'resize-right');
+    });
+  });
+}
+
+function getTrackWidth() {
+  // Use the full canvas width (may be wider than the viewport due to scroll)
+  const canvas = document.getElementById('track-canvas');
+  return canvas ? canvas.offsetWidth : 400;
+}
+
+/* Get the clipState object for a given clipKey (and optional tplId for template clips) */
+function getDragClipState(sc, clipKey, tplId) {
+  if (clipKey === 'template') {
+    const tpl = (sc.templates || []).find(t => t.id === tplId);
+    return tpl ? tpl.clipState : null;
+  }
+  return getClipState(sc)[clipKey];
+}
+
+function startClipDrag(e, clipKey, tplId, type) {
+  const sc    = getActive();
+  const state = getDragClipState(sc, clipKey, tplId);
+  if (!state) return;
+  const trackW = getTrackWidth();
+
+  dragState = {
+    type, clipKey, tplId: tplId || null,
+    startX: e.clientX,
+    startLeft:  state.left,
+    startWidth: state.width,
+    trackWidth: trackW,
+  };
+
+  const elId = clipKey === 'template' ? `clip-tpl-${tplId}` : `clip-${clipKey}`;
+  document.getElementById(elId)?.classList.add(type === 'move' ? 'dragging' : 'resizing');
+
+  document.addEventListener('mousemove', onClipDragMove);
+  document.addEventListener('mouseup',   onClipDragEnd);
+}
+
+function onClipDragMove(e) {
+  if (!dragState) return;
+  const { type, clipKey, tplId, startX, startLeft, startWidth, trackWidth } = dragState;
+  const dx   = e.clientX - startX;
+  const dPct = (dx / trackWidth) * 100;
+
+  const sc    = getActive();
+  const state = getDragClipState(sc, clipKey, tplId);
+  if (!state) return;
+
+  const MIN_WIDTH = 4;
+  let newLeft  = startLeft;
+  let newWidth = startWidth;
+
+  if (type === 'move') {
+    newLeft = Math.max(0, Math.min(100 - startWidth, startLeft + dPct));
+    const snappedPct  = snapToWord(newLeft / 100);
+    const snappedLeft = snappedPct * 100;
+    if (Math.abs(snappedLeft - newLeft) < SNAP_THRESHOLD_PCT * 100) {
+      showSnapLine(snappedPct); newLeft = snappedLeft;
+    } else hideSnapLine();
+  } else if (type === 'resize-left') {
+    const rawLeft  = startLeft + dPct;
+    const snappedPct  = snapToWord(rawLeft / 100);
+    const snappedLeft = snappedPct * 100;
+    const wasSnapped  = Math.abs(snappedLeft - rawLeft) < SNAP_THRESHOLD_PCT * 100;
+    newLeft  = Math.max(0, wasSnapped ? snappedLeft : rawLeft);
+    newWidth = startWidth + (startLeft - newLeft);
+    if (wasSnapped) showSnapLine(snappedPct); else hideSnapLine();
+    if (newWidth < MIN_WIDTH) { newWidth = MIN_WIDTH; newLeft = startLeft + startWidth - MIN_WIDTH; }
+  } else { // resize-right
+    const rawRight   = (startLeft + startWidth) + dPct;
+    const snappedPct = snapToWord(rawRight / 100);
+    const snappedRight = snappedPct * 100;
+    const wasSnapped   = Math.abs(snappedRight - rawRight) < SNAP_THRESHOLD_PCT * 100;
+    const right = wasSnapped ? snappedRight : rawRight;
+    if (wasSnapped) showSnapLine(snappedPct); else hideSnapLine();
+    newLeft  = startLeft;
+    newWidth = Math.min(100 - startLeft, Math.max(MIN_WIDTH, right - startLeft));
+  }
+
+  state.left  = newLeft;
+  state.width = newWidth;
+
+  const elId = clipKey === 'template' ? `clip-tpl-${tplId}` : `clip-${clipKey}`;
+  const el = document.getElementById(elId);
+  if (el) {
+    el.style.left  = `${newLeft}%`;
+    el.style.width = `${newWidth}%`;
+    const dur = totalDur();
+    const clipDur   = (newWidth / 100) * dur;
+    const clipStart = (newLeft  / 100) * dur;
+    const badge = document.getElementById(`${elId}-badge`);
+    if (badge) badge.textContent = `${fmtTL(clipStart)} → ${fmtTL(clipStart + clipDur)} (${clipDur.toFixed(1)}s)`;
+  }
+
+  updateAllTransStripes();
+}
+
+function onClipDragEnd() {
+  if (!dragState) return;
+  const { clipKey, tplId, type } = dragState;
+  const elId = clipKey === 'template' ? `clip-tpl-${tplId}` : `clip-${clipKey}`;
+  document.getElementById(elId)?.classList.remove('dragging', 'resizing');
+  hideSnapLine();
+  dragState = null;
+
+  document.removeEventListener('mousemove', onClipDragMove);
+  document.removeEventListener('mouseup',   onClipDragEnd);
+
+  if (selectedClip === clipKey) {
+    if (clipKey === 'template') refreshTplPanel();
+    else refreshMediaPanel(clipKey);
+  }
+}
+
 function updatePlayheads() {
   const t = totalDur();
-  const pct = t>0 ? (currentTime/t)*100 : 0;
-  ['ph-audio','ph-bg','ph-tpl'].forEach(id => {
+  const pct = t > 0 ? (currentTime / t) * 100 : 0;
+  // Fixed playheads
+  ['ph-audio', 'ph-bg'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.left = `${pct}%`;
+  });
+  // Dynamic template playheads
+  document.querySelectorAll('.ph-tpl').forEach(el => {
+    el.style.left = `${pct}%`;
   });
 }
 
@@ -2724,6 +4263,95 @@ function generateAudio() {
     btn.disabled = false;
     closeModal('modal-audio');
   }, 2000);
+}
+
+/* -----------------------------------------------------------------------
+   BULK AUDIO MODAL
+----------------------------------------------------------------------- */
+let bulkAudioTab = 'single';
+let bulkVoiceSelected = 'alloy'; // selected voice for single-voice pane
+
+function openBulkAudioModal() {
+  bulkAudioTab = 'single';
+  bulkVoiceSelected = selectedVoice;
+  switchBulkTab('single');
+  buildBulkVoiceGrid();
+  buildBulkSceneList();
+  openModal('modal-bulk-audio');
+}
+
+function switchBulkTab(tab) {
+  bulkAudioTab = tab;
+  document.getElementById('bulk-seg-single').classList.toggle('active', tab === 'single');
+  document.getElementById('bulk-seg-per-scene').classList.toggle('active', tab === 'per-scene');
+  document.getElementById('bulk-pane-single').classList.toggle('active', tab === 'single');
+  document.getElementById('bulk-pane-per-scene').classList.toggle('active', tab === 'per-scene');
+}
+
+function buildBulkVoiceGrid() {
+  document.getElementById('bulk-voice-grid').innerHTML = VOICES.map(v => `
+    <div class="voice-opt${v.id === bulkVoiceSelected ? ' selected' : ''}"
+         onclick="selectBulkVoice('${v.id}')">
+      <div class="voice-name">${v.name}</div>
+      <div class="voice-desc">${v.desc}</div>
+    </div>`).join('');
+}
+
+function selectBulkVoice(id) {
+  bulkVoiceSelected = id;
+  buildBulkVoiceGrid();
+}
+
+function buildBulkSceneList() {
+  const voiceOptions = VOICES.map(v =>
+    `<option value="${v.id}">${v.name} — ${v.desc}</option>`
+  ).join('');
+  const skipOption = `<option value="skip">— Skip scene —</option>`;
+
+  document.getElementById('bulk-scene-list').innerHTML = scenes.map((sc, idx) => {
+    const preview = sc.transcript
+      ? sc.transcript.substring(0, 60) + (sc.transcript.length > 60 ? '…' : '')
+      : 'No transcript';
+    return `
+<div class="bulk-scene-row">
+  <div class="bulk-scene-num">${idx + 1}</div>
+  <div class="bulk-scene-transcript" title="${sc.transcript || ''}">${preview}</div>
+  <select class="bulk-voice-select" id="bulk-select-${sc.id}"
+          onchange="this.classList.toggle('skip', this.value==='skip')">
+    ${voiceOptions}
+    ${skipOption}
+  </select>
+</div>`;
+  }).join('');
+
+  // Default each scene to the currently selected voice
+  scenes.forEach(sc => {
+    const sel = document.getElementById(`bulk-select-${sc.id}`);
+    if (sel) sel.value = selectedVoice;
+  });
+}
+
+function generateBulkAudio() {
+  const btn = document.getElementById('bulk-gen-btn');
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+  btn.disabled = true;
+
+  // Determine how many scenes will actually be generated (for feedback copy)
+  let count;
+  if (bulkAudioTab === 'single') {
+    count = scenes.length;
+  } else {
+    count = scenes.filter(sc => {
+      const sel = document.getElementById(`bulk-select-${sc.id}`);
+      return sel && sel.value !== 'skip';
+    }).length;
+  }
+
+  setTimeout(() => {
+    btn.innerHTML = '<i class="fa-solid fa-volume-high"></i> Generate Audio';
+    btn.disabled = false;
+    closeModal('modal-bulk-audio');
+  }, Math.max(1500, count * 400));
 }
 
 /* -----------------------------------------------------------------------
@@ -2924,13 +4552,31 @@ const TPL_TEXT_FIELDS = {
 
 function addTemplate() {
   const sc = getActive();
-  if (!sc.tpl) {
-    sc.tpl = 'text-overlay';
-    sc.tplParams = { placement:'left', color:'#1e40af', text:'Your Message Here' };
-    updateCanvas();
-    updateTimelineClips();
+  if (!sc.templates) sc.templates = [];
+  const id = `tpl${++_tplIdSeq}`;
+  sc.templates.push({
+    id,
+    tpl: 'text-overlay',
+    tplParams: { placement:'left', color:'#1e40af', text:'Your Message Here' },
+    tplTransition: null,
+    clipState: { left: 0, width: 50 }, // default to 50% width so multiple are visible
+  });
+  updateCanvas();
+  updateTimelineClips();
+  // Select the new template's clip
+  selectTimelineClip('template', id);
+}
+
+function removeTemplate(tplId) {
+  const sc = getActive();
+  sc.templates = (sc.templates || []).filter(t => t.id !== tplId);
+  if (selectedTplId === tplId) {
+    selectedTplId = null;
+    selectedClip  = null;
+    document.getElementById('panel-template').classList.add('hidden');
   }
-  openTemplatePanel();
+  updateCanvas();
+  updateTimelineClips();
 }
 
 function openTemplatePanel() {
@@ -2940,6 +4586,7 @@ function openTemplatePanel() {
 
 function closeTemplatePanel() {
   document.getElementById('panel-template').classList.add('hidden');
+  deselectTimelineClips();
 }
 
 // Which field currently has focus in the RTE panel
@@ -2952,9 +4599,10 @@ function rteCmd(cmd, val) {
 }
 
 function syncRteField(field) {
-  const sc = getActive();
+  const tpl = getTplInstance(selectedTplId);
+  if (!tpl) return;
   const el = document.getElementById(`rte-body-${field}`);
-  if (el) sc.tplParams[field] = el.innerHTML;
+  if (el) tpl.tplParams[field] = el.innerHTML;
   updateCanvas();
 }
 
@@ -3043,19 +4691,26 @@ function fontSizePxToLevel(px) {
 }
 
 function refreshTplPanel() {
+  if (!selectedTplId) return;
+  const tpl = getTplInstance(selectedTplId);
+  if (!tpl) return;
+  const { tpl: tplType, tplParams: p } = tpl;
+
+  // Update panel title to show which template instance is selected
   const sc = getActive();
-  if (!sc.tpl) return;
-  const p = sc.tplParams;
+  const tplIdx = (sc.templates || []).findIndex(t => t.id === selectedTplId) + 1;
+  const totalTpls = (sc.templates || []).length;
+  const titleEl = document.querySelector('#panel-template .panel-title');
+  if (titleEl) titleEl.textContent = totalTpls > 1 ? `Template ${tplIdx} of ${totalTpls}` : 'Template Properties';
 
   // Type buttons
   document.querySelectorAll('.tpl-type-btn').forEach(b => b.classList.remove('active'));
-  const activeTypeBtn = document.getElementById(`tpltype-${sc.tpl}`);
-  if (activeTypeBtn) activeTypeBtn.classList.add('active');
+  document.getElementById(`tpltype-${tplType}`)?.classList.add('active');
 
   // Position buttons
   const posGrid = document.getElementById('tpl-pos-grid');
-  const positions = TPL_POS[sc.tpl] || [];
-  const currentPos = sc.tpl === 'text-overlay' ? p.placement : p.position;
+  const positions = TPL_POS[tplType] || [];
+  const currentPos = tplType === 'text-overlay' ? p.placement : p.position;
   posGrid.innerHTML = positions.map(pos => `
     <button class="tpl-pos-btn${currentPos===pos.key?' active':''}" onclick="setTplPos('${pos.key}')">
       <i class="fa-solid ${pos.icon}"></i> ${pos.label}
@@ -3068,9 +4723,9 @@ function refreshTplPanel() {
       style="background:${c};" onclick="setTplColor('${c}')" title="${c}"></div>`).join('');
   document.getElementById('tpl-custom-color').value = p.color || '#1e40af';
 
-  // Rich text fields — rebuild only when switching template type, preserve on minor updates
+  // Rich text fields — rebuild only when switching template type
   const rteContainer = document.getElementById('tpl-rte-fields');
-  const fields = TPL_TEXT_FIELDS[sc.tpl] || [];
+  const fields = TPL_TEXT_FIELDS[tplType] || [];
   const existingFields = [...rteContainer.querySelectorAll('[data-rte-field]')].map(el => el.dataset.rteField);
   const sameFields = fields.length === existingFields.length && fields.every((f, i) => f === existingFields[i]);
 
@@ -3080,19 +4735,22 @@ function refreshTplPanel() {
       return buildRteField(f, label, p[f] || '');
     }).join('');
   }
+
+  refreshTplTransitions();
 }
 
 function setTplType(type) {
-  const sc = getActive();
-  sc.tpl = type;
+  const tpl = getTplInstance(selectedTplId);
+  if (!tpl) return;
+  tpl.tpl = type;
   if (type === 'text-overlay') {
-    sc.tplParams = { ...sc.tplParams, placement:'left', text: sc.tplParams?.text || '<p>Your Message Here</p>' };
-    delete sc.tplParams.position; delete sc.tplParams.title; delete sc.tplParams.subtitle;
+    tpl.tplParams = { ...tpl.tplParams, placement:'left', text: tpl.tplParams?.text || '<p>Your Message Here</p>' };
+    delete tpl.tplParams.position; delete tpl.tplParams.title; delete tpl.tplParams.subtitle;
   } else if (type === 'lower-third') {
-    sc.tplParams = { ...sc.tplParams, position:'bottom',
-      title: sc.tplParams?.title || sc.tplParams?.text || '<p>Title</p>',
-      subtitle: sc.tplParams?.subtitle || '' };
-    delete sc.tplParams.placement; delete sc.tplParams.text;
+    tpl.tplParams = { ...tpl.tplParams, position:'bottom',
+      title: tpl.tplParams?.title || tpl.tplParams?.text || '<p>Title</p>',
+      subtitle: tpl.tplParams?.subtitle || '' };
+    delete tpl.tplParams.placement; delete tpl.tplParams.text;
   }
   updateCanvas();
   updateTimelineClips();
@@ -3100,41 +4758,287 @@ function setTplType(type) {
 }
 
 function setTplPos(key) {
-  const sc = getActive();
-  const p = sc.tplParams;
-  if (sc.tpl === 'text-overlay') p.placement = key;
+  const tpl = getTplInstance(selectedTplId);
+  if (!tpl) return;
+  const p = tpl.tplParams;
+  if (tpl.tpl === 'text-overlay') p.placement = key;
   else p.position = key;
   updateCanvas();
   refreshTplPanel();
 }
 
 function setTplColor(hex) {
-  const sc = getActive();
-  sc.tplParams.color = hex;
+  const tpl = getTplInstance(selectedTplId);
+  if (!tpl) return;
+  tpl.tplParams.color = hex;
   updateCanvas();
   refreshTplPanel();
 }
 
+/* -----------------------------------------------------------------------
+   TIMELINE CLIP SELECTION
+----------------------------------------------------------------------- */
+let selectedClip  = null;    // 'audio' | 'bg' | 'template' | null
+let selectedTplId = null;    // id of the template instance currently selected
+
+// Default media properties per scene (stored on scene object as `mediaProps`)
+function defaultMediaProps() {
+  return {
+    mode: 'fill',      // 'fill' | 'fit' | 'custom'
+    posX: 0, posY: 0,
+    scale: 100,        // percent
+    rotation: 0,       // degrees
+    zoom: 100,         // percent (100 = no zoom)
+    panX: 0, panY: 0,  // pan offsets %
+    cropT: 0, cropR: 0, cropB: 0, cropL: 0,
+    transIn:  { type: 'none', dur: 0.5 },
+    transOut: { type: 'none', dur: 0.5 },
+  };
+}
+
+// Default template transition properties (stored on scene object as `tplTransition`)
+function defaultTplTransition() {
+  return {
+    transIn:  { type: 'none', dur: 0.5 },
+    transOut: { type: 'none', dur: 0.5 },
+  };
+}
+
+function selectTimelineClip(clipType, tplId) {
+  selectedClip  = clipType;
+  selectedTplId = (clipType === 'template') ? (tplId || null) : null;
+
+  // Deselect fixed clips
+  ['audio', 'bg'].forEach(key => {
+    document.getElementById(`clip-${key}`)?.classList.toggle('selected', clipType === key);
+    document.getElementById(`track-${key}`)?.classList.toggle('has-selected', clipType === key);
+  });
+
+  // Deselect all template clips, re-select the chosen one
+  document.querySelectorAll('.track-clip.clip-template').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('.track[id^="track-tpl-"]').forEach(el => el.classList.remove('has-selected'));
+  if (clipType === 'template' && selectedTplId) {
+    document.getElementById(`clip-tpl-${selectedTplId}`)?.classList.add('selected');
+    document.getElementById(`track-tpl-${selectedTplId}`)?.classList.add('has-selected');
+  }
+
+  // Show/hide correct panel
+  const tplPanel   = document.getElementById('panel-template');
+  const mediaPanel = document.getElementById('panel-media');
+
+  if (clipType === 'template') {
+    mediaPanel.classList.add('hidden');
+    tplPanel.classList.remove('hidden');
+    refreshTplPanel();
+  } else if (clipType === 'bg' || clipType === 'audio') {
+    tplPanel.classList.add('hidden');
+    mediaPanel.classList.remove('hidden');
+    refreshMediaPanel(clipType);
+  }
+}
+
+function deselectTimelineClips() {
+  selectedClip  = null;
+  selectedTplId = null;
+  ['audio','bg'].forEach(key => {
+    document.getElementById(`clip-${key}`)?.classList.remove('selected');
+    document.getElementById(`track-${key}`)?.classList.remove('has-selected');
+  });
+  document.querySelectorAll('.track-clip.clip-template').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('.track[id^="track-tpl-"]').forEach(el => el.classList.remove('has-selected'));
+}
+
+/* -----------------------------------------------------------------------
+   MEDIA PROPERTIES PANEL
+----------------------------------------------------------------------- */
+function getMediaProps(clipType) {
+  const sc = getActive();
+  const key = clipType === 'audio' ? 'audioProps' : 'mediaProps';
+  if (!sc[key]) sc[key] = defaultMediaProps();
+  return sc[key];
+}
+
+function refreshMediaPanel(clipType) {
+  const p = getMediaProps(clipType);
+
+  // Fit mode buttons
+  ['fill','fit','custom'].forEach(m => {
+    document.getElementById(`mpp-mode-${m}`).classList.toggle('active', p.mode === m);
+  });
+
+  // Position
+  document.getElementById('mpp-pos-x').value = p.posX;
+  document.getElementById('mpp-pos-y').value = p.posY;
+
+  // Scale
+  document.getElementById('mpp-scale').value = p.scale;
+  document.getElementById('mpp-scale-val').textContent = `${p.scale}%`;
+
+  // Rotation
+  document.getElementById('mpp-rotation').value = p.rotation;
+  document.getElementById('mpp-rotation-val').textContent = `${p.rotation}°`;
+
+  // Zoom & Pan
+  document.getElementById('mpp-zoom').value = p.zoom;
+  document.getElementById('mpp-zoom-val').textContent = `${(p.zoom / 100).toFixed(1)}×`;
+  document.getElementById('mpp-pan-x').value = p.panX;
+  document.getElementById('mpp-pan-y').value = p.panY;
+
+  // Crop
+  document.getElementById('mpp-crop-t').value = p.cropT;
+  document.getElementById('mpp-crop-r').value = p.cropR;
+  document.getElementById('mpp-crop-b').value = p.cropB;
+  document.getElementById('mpp-crop-l').value = p.cropL;
+
+  // Transitions
+  document.getElementById('mpp-trans-in-type').value  = p.transIn.type;
+  document.getElementById('mpp-trans-in-dur').value   = p.transIn.dur;
+  document.getElementById('mpp-trans-out-type').value = p.transOut.type;
+  document.getElementById('mpp-trans-out-dur').value  = p.transOut.dur;
+
+  updateAllTransStripes();
+}
+
+function setMediaMode(mode) {
+  const p = getMediaProps(selectedClip);
+  p.mode = mode;
+  refreshMediaPanel(selectedClip);
+}
+
+function updateMediaProp(prop, val) {
+  const p = getMediaProps(selectedClip);
+  p[prop] = parseFloat(val) || 0;
+}
+
+function updateMediaScale(val) {
+  const p = getMediaProps(selectedClip);
+  p.scale = parseInt(val);
+  document.getElementById('mpp-scale-val').textContent = `${val}%`;
+}
+
+function updateMediaRotation(val) {
+  const p = getMediaProps(selectedClip);
+  p.rotation = parseInt(val);
+  document.getElementById('mpp-rotation-val').textContent = `${val}°`;
+}
+
+function updateMediaZoom(val) {
+  const p = getMediaProps(selectedClip);
+  p.zoom = parseInt(val);
+  document.getElementById('mpp-zoom-val').textContent = `${(val / 100).toFixed(1)}×`;
+}
+
+function updateMediaTransition(side, prop, val) {
+  const p = getMediaProps(selectedClip);
+  const key = side === 'in' ? 'transIn' : 'transOut';
+  p[key][prop] = prop === 'dur' ? parseFloat(val) : val;
+  updateAllTransStripes();
+}
+
+function resetMediaProps() {
+  const sc = getActive();
+  const key = selectedClip === 'audio' ? 'audioProps' : 'mediaProps';
+  sc[key] = defaultMediaProps();
+  refreshMediaPanel(selectedClip);
+}
+
+function closeMediaPanel() {
+  document.getElementById('panel-media').classList.add('hidden');
+  deselectTimelineClips();
+}
+
+/* -----------------------------------------------------------------------
+   TEMPLATE TRANSITION UPDATES
+----------------------------------------------------------------------- */
+function getTplTransition() {
+  const tpl = getTplInstance(selectedTplId);
+  if (!tpl) return defaultTplTransition();
+  if (!tpl.tplTransition) tpl.tplTransition = defaultTplTransition();
+  return tpl.tplTransition;
+}
+
+function refreshTplTransitions() {
+  const t = getTplTransition();
+  document.getElementById('tpl-trans-in-type').value  = t.transIn.type;
+  document.getElementById('tpl-trans-in-dur').value   = t.transIn.dur;
+  document.getElementById('tpl-trans-out-type').value = t.transOut.type;
+  document.getElementById('tpl-trans-out-dur').value  = t.transOut.dur;
+}
+
+function updateTplTransition(side, prop, val) {
+  const t = getTplTransition();
+  const key = side === 'in' ? 'transIn' : 'transOut';
+  t[key][prop] = prop === 'dur' ? parseFloat(val) : val;
+  updateAllTransStripes();
+}
+
+/* -----------------------------------------------------------------------
+   TRANSITION STRIPE VISUALIZATION
+   Shows diagonal stripe pattern at clip edges proportional to duration
+----------------------------------------------------------------------- */
+function updateAllTransStripes() {
+  const sc = getActive();
+  const totalPx = document.getElementById('track-bg')?.offsetWidth || 200;
+
+  const bgProps = sc.mediaProps || defaultMediaProps();
+  setTransStripe('clip-bg-trans-in',    bgProps.transIn.dur,  totalPx);
+  setTransStripe('clip-bg-trans-out',   bgProps.transOut.dur, totalPx);
+
+  const audioProps = sc.audioProps || defaultMediaProps();
+  setTransStripe('clip-audio-trans-in',  audioProps.transIn.dur,  totalPx);
+  setTransStripe('clip-audio-trans-out', audioProps.transOut.dur, totalPx);
+
+  // One set of stripes per template instance
+  (sc.templates || []).forEach(tpl => {
+    const trans = tpl.tplTransition || defaultTplTransition();
+    setTransStripe(`clip-tpl-${tpl.id}-trans-in`,  trans.transIn.dur,  totalPx);
+    setTransStripe(`clip-tpl-${tpl.id}-trans-out`, trans.transOut.dur, totalPx);
+  });
+}
+
+function setTransStripe(elId, durSec, totalPx) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const totalDuration = totalDur();
+  if (totalDuration <= 0 || durSec <= 0) { el.style.width = '0'; return; }
+  const pct = Math.min(durSec / totalDuration, 0.4); // max 40% of clip
+  el.style.width = `${pct * 100}%`;
+}
+
 window.renderOverlay = function(sc) {
   const el = document.getElementById('canvas-overlay');
-  if (!sc.tpl || !sc.tplParams) { el.innerHTML=''; return; }
-  const p = sc.tplParams;
-  const tc = lum(p.color) > 0.55 ? '#000' : '#fff';
+  const templates = sc.templates || [];
+  if (!templates.length) { el.innerHTML = ''; return; }
 
-  const wrapStyle = `color:${tc}; font-family:'Open Sans',sans-serif; font-size:clamp(10px,1.4vw,18px);`;
+  // Render all template instances that cover currentTime
+  const dur = sc.duration || 1;
+  const fragments = templates.map(tpl => {
+    const cs = tpl.clipState || { left: 0, width: 100 };
+    const clipStart = (cs.left  / 100) * dur;
+    const clipEnd   = ((cs.left + cs.width) / 100) * dur;
+    // Show this template only if currentTime is within its clip range
+    // (During editing show all; during playback filter by time)
+    const inRange = (currentTime >= clipStart && currentTime < clipEnd) || !isPlaying;
+    if (!inRange) return '';
 
-  if (sc.tpl === 'text-overlay') {
-    el.innerHTML = `<div class="tpl-text-overlay ${p.placement||'left'}" style="background:${p.color};opacity:0.92;">
-      <div class="tpl-overlay-text" style="${wrapStyle}">${p.text||''}</div>
-    </div>`;
-  } else if (sc.tpl === 'lower-third') {
-    el.innerHTML = `<div class="tpl-lower-third ${p.position||'bottom'}" style="background:${p.color};">
-      <div class="tpl-lower-title" style="${wrapStyle} font-weight:700;">${p.title||''}</div>
-      ${p.subtitle ? `<div class="tpl-lower-sub" style="${wrapStyle} opacity:0.88;">${p.subtitle}</div>` : ''}
-    </div>`;
-  } else {
-    el.innerHTML = '';
-  }
+    const p  = tpl.tplParams || {};
+    const tc = lum(p.color || '#000000') > 0.55 ? '#000' : '#fff';
+    const wrapStyle = `color:${tc}; font-family:'Open Sans',sans-serif; font-size:clamp(10px,1.4vw,18px);`;
+
+    if (tpl.tpl === 'text-overlay') {
+      return `<div class="tpl-text-overlay ${p.placement||'left'}" style="background:${p.color||'#1e40af'};opacity:0.92;">
+        <div class="tpl-overlay-text" style="${wrapStyle}">${p.text||''}</div>
+      </div>`;
+    } else if (tpl.tpl === 'lower-third') {
+      return `<div class="tpl-lower-third ${p.position||'bottom'}" style="background:${p.color||'#1e40af'};">
+        <div class="tpl-lower-title" style="${wrapStyle} font-weight:700;">${p.title||''}</div>
+        ${p.subtitle ? `<div class="tpl-lower-sub" style="${wrapStyle} opacity:0.88;">${p.subtitle}</div>` : ''}
+      </div>`;
+    }
+    return '';
+  }).join('');
+
+  el.innerHTML = fragments;
 };
 
 /* -----------------------------------------------------------------------
@@ -3302,25 +5206,30 @@ function openPreviewModal() {
   // Set background
   document.getElementById('preview-modal-bg').src = sc.img || '';
 
-  // Render overlay — reuse the same renderOverlay logic into the preview element
+  // Render overlay — reuse renderOverlay which handles templates[]
   const overlayEl = document.getElementById('preview-modal-overlay');
-  if (!sc.tpl || !sc.tplParams) {
-    overlayEl.innerHTML = '';
-  } else {
-    const p = sc.tplParams;
-    const tc = lum(p.color) > 0.55 ? '#000' : '#fff';
+  // Temporarily swap canvas-overlay so renderOverlay targets the preview element
+  const realOverlay = document.getElementById('canvas-overlay');
+  const origParent  = realOverlay.parentNode;
+  overlayEl.innerHTML = '';
+  // Clone renderOverlay logic for preview (avoid DOM swap complexity)
+  const templates = sc.templates || [];
+  overlayEl.innerHTML = templates.map(tpl => {
+    const p  = tpl.tplParams || {};
+    const tc = lum(p.color || '#000000') > 0.55 ? '#000' : '#fff';
     const wrapStyle = `color:${tc}; font-family:'Open Sans',sans-serif; font-size:clamp(10px,1.4vw,18px);`;
-    if (sc.tpl === 'text-overlay') {
-      overlayEl.innerHTML = `<div class="tpl-text-overlay ${p.placement||'left'}" style="background:${p.color};opacity:0.92;">
+    if (tpl.tpl === 'text-overlay') {
+      return `<div class="tpl-text-overlay ${p.placement||'left'}" style="background:${p.color||'#1e40af'};opacity:0.92;">
         <div class="tpl-overlay-text" style="${wrapStyle}">${p.text||''}</div>
       </div>`;
-    } else if (sc.tpl === 'lower-third') {
-      overlayEl.innerHTML = `<div class="tpl-lower-third ${p.position||'bottom'}" style="background:${p.color};">
+    } else if (tpl.tpl === 'lower-third') {
+      return `<div class="tpl-lower-third ${p.position||'bottom'}" style="background:${p.color||'#1e40af'};">
         <div class="tpl-lower-title" style="${wrapStyle} font-weight:700;">${p.title||''}</div>
         ${p.subtitle ? `<div class="tpl-lower-sub" style="${wrapStyle} opacity:0.88;">${p.subtitle}</div>` : ''}
       </div>`;
     }
-  }
+    return '';
+  }).join('');
 
   // Reset playback
   previewTime = 0;
@@ -3332,17 +5241,16 @@ function openPreviewModal() {
 
   // Composition chips
   const chips = document.getElementById('preview-tracks-summary');
-  const hasAudio = true; // prototype always shows audio chip
-  const hasTpl = !!sc.tpl;
+  const tplCount = templates.length;
   chips.innerHTML = `
     <div class="preview-track-chip audio">
-      <i class="fa-solid fa-volume-high"></i> Audio${hasAudio ? ' — ready' : ' — none'}
+      <i class="fa-solid fa-volume-high"></i> Audio — ready
     </div>
     <div class="preview-track-chip media">
       <i class="fa-regular fa-image"></i> Background — ${sc.img ? 'set' : 'none'}
     </div>
-    ${hasTpl ? `<div class="preview-track-chip template">
-      <i class="fa-solid fa-table-columns"></i> Template — ${sc.tpl === 'text-overlay' ? 'Text Overlay' : 'Lower Third'}
+    ${tplCount ? `<div class="preview-track-chip template">
+      <i class="fa-solid fa-table-columns"></i> ${tplCount} Template${tplCount > 1 ? 's' : ''}
     </div>` : ''}`;
 
   openModal('modal-preview');
@@ -3391,6 +5299,8 @@ function seekPreview(e) {
 }
 </script>
 
+</div><!-- /#app -->
+
 <!-- ===================================================================
      SOURCE INSPECTOR — Alt+click any element to open it in VS Code
 =================================================================== -->
@@ -3423,6 +5333,33 @@ document.addEventListener('click', function (e) {
   a.href = url;
   a.click();
 });
+</script>
+
+<script>
+  // ---- Comment panel toggle ----
+  (function () {
+    const scrim          = document.getElementById('comment-scrim');
+    const panel          = document.getElementById('comment-panel');
+    const btnOpen        = document.getElementById('btn-open-comments');
+    const btnClose       = document.getElementById('btn-close-comments');
+
+    function openPanel() {
+      scrim.classList.add('open');
+      panel.classList.add('open');
+      btnOpen.classList.add('active');
+    }
+
+    function closePanel() {
+      scrim.classList.remove('open');
+      panel.classList.remove('open');
+      btnOpen.classList.remove('active');
+    }
+
+    btnOpen.addEventListener('click', openPanel);
+    btnClose.addEventListener('click', closePanel);
+    // Click scrim to dismiss
+    scrim.addEventListener('click', closePanel);
+  })();
 </script>
 </body>
 </html>
