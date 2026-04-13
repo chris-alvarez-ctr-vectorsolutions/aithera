@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rules Engine — AI-Powered Overtime Ranking</title>
+    <script
+        type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+    </script>
+    <script
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+    </script>
+    <link
+        rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+    />
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    />
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Open Sans', sans-serif;
+            background: var(--vsp-color-neutral-50, #f5f6f8);
+            color: var(--vsp-color-neutral-900, #1a1d23);
+            min-height: 100vh;
+        }
+
+        /* ── Layout ── */
+        .app-shell { display: flex; flex-direction: column; height: 100vh; }
+        .main-layout { display: flex; flex: 1; overflow: hidden; }
+
+        /* Sidenav */
+        .sidenav {
+            width: 240px;
+            background: var(--vsp-color-neutral-900, #1a1d23);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            padding: 20px 0;
+        }
+        .sidenav-section {
+            padding: 8px 16px 4px;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--vsp-color-neutral-400, #9ba3ae);
+        }
+        .sidenav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 16px;
+            font-size: 13.5px;
+            color: var(--vsp-color-neutral-300, #c4c9d0);
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .sidenav-item:hover { background: rgba(255,255,255,0.07); color: #fff; }
+        .sidenav-item.active {
+            background: rgba(255,255,255,0.12);
+            color: #fff;
+            font-weight: 600;
+            border-left: 3px solid var(--vsp-color-primary-400, #5b8ef0);
+        }
+        .sidenav-item i { width: 16px; text-align: center; font-size: 13px; }
+
+        .sidenav-item .ai-spark {
+            margin-left: auto;
+            font-size: 10px;
+            background: linear-gradient(135deg, #7c3aed, #2563eb);
+            color: #fff;
+            padding: 1px 5px;
+            border-radius: 999px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+
+        /* Page content */
+        .page-content { flex: 1; overflow-y: auto; padding: 28px 32px; }
+
+        /* ── Page header ── */
+        .page-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+        .page-header-left h1 {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--vsp-color-neutral-900, #1a1d23);
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .ai-label {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #7c3aed22, #2563eb22);
+            color: #5b21b6;
+            border: 1px solid #c4b5fd;
+            letter-spacing: 0.04em;
+        }
+        .page-header-left p {
+            font-size: 13.5px;
+            color: var(--vsp-color-neutral-500, #6b7280);
+        }
+        .header-actions { display: flex; gap: 10px; align-items: center; }
+
+        /* ── AI import banner ── */
+        .ai-banner {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            background: linear-gradient(135deg, #f5f3ff, #eff6ff);
+            border: 1px solid #c4b5fd;
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+        }
+        .ai-banner-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #7c3aed, #2563eb);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        .ai-banner-body { flex: 1; }
+        .ai-banner-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #4c1d95;
+            margin-bottom: 4px;
+        }
+        .ai-banner-desc {
+            font-size: 13px;
+            color: #5b21b6;
+            line-height: 1.5;
+        }
+        .ai-banner-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+        /* ── Stat cards ── */
+        .stat-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: #fff;
+            border: 1px solid var(--vsp-color-neutral-200, #e5e7eb);
+            border-radius: 8px;
+            padding: 16px 20px;
+        }
+        .stat-card-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--vsp-color-neutral-500, #6b7280);
+            margin-bottom: 8px;
+        }
+        .stat-card-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--vsp-color-neutral-900, #1a1d23);
+            line-height: 1;
+        }
+        .stat-card-sub { font-size: 12px; color: var(--vsp-color-neutral-400, #9ba3ae); margin-top: 4px; }
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 999px;
+            margin-top: 6px;
+        }
+        .stat-badge.warning { background: #fef3c7; color: #b45309; }
+        .stat-badge.success { background: #d1fae5; color: #065f46; }
+        .stat-badge.ai { background: #ede9fe; color: #5b21b6; }
+
+        /* ── Conflict banner ── */
+        .conflict-banner {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-bottom: 20px;
+        }
+        .conflict-banner i { color: #ea580c; margin-top: 1px; flex-shrink: 0; }
+        .conflict-banner-title { font-size: 13.5px; font-weight: 600; color: #9a3412; margin-bottom: 2px; }
+        .conflict-banner-desc { font-size: 12.5px; color: #c2410c; }
+
+        /* ── Tabs ── */
+        .tab-bar {
+            display: flex;
+            border-bottom: 1px solid var(--vsp-color-neutral-200, #e5e7eb);
+            margin-bottom: 0;
+            background: #fff;
+            border-radius: 8px 8px 0 0;
+            padding: 0 20px;
+        }
+        .tab {
+            padding: 14px 18px;
+            font-size: 13.5px;
+            font-weight: 500;
+            color: var(--vsp-color-neutral-500, #6b7280);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            white-space: nowrap;
+        }
+        .tab:hover { color: var(--vsp-color-neutral-900, #1a1d23); }
+        .tab.active { color: var(--vsp-color-primary-600, #2563eb); border-bottom-color: var(--vsp-color-primary-600, #2563eb); font-weight: 600; }
+
+        /* ── Panel ── */
+        .panel {
+            background: #fff;
+            border: 1px solid var(--vsp-color-neutral-200, #e5e7eb);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+        .panel-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--vsp-color-neutral-100, #f3f4f6);
+        }
+        .search-box {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--vsp-color-neutral-50, #f5f6f8);
+            border: 1px solid var(--vsp-color-neutral-200, #e5e7eb);
+            border-radius: 6px;
+            padding: 7px 12px;
+            font-size: 13px;
+            color: var(--vsp-color-neutral-500, #6b7280);
+            width: 240px;
+        }
+        .filter-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--vsp-color-neutral-50, #f5f6f8);
+            border: 1px solid var(--vsp-color-neutral-200, #e5e7eb);
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 12.5px;
+            color: var(--vsp-color-neutral-700, #374151);
+            cursor: pointer;
+        }
+        .filter-pill.active {
+            background: var(--vsp-color-primary-50, #eff6ff);
+            border-color: var(--vsp-color-primary-300, #93c5fd);
+            color: var(--vsp-color-primary-700, #1d4ed8);
+        }
+        .toolbar-spacer { flex: 1; }
+
+        /* ── Table ── */
+        table { width: 100%; border-collapse: collapse; }
+        thead tr { background: var(--vsp-color-neutral-50, #f5f6f8); }
+        th {
+            text-align: left;
+            padding: 10px 20px;
+            font-size: 11.5px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--vsp-color-neutral-500, #6b7280);
+            white-space: nowrap;
+        }
+        td {
+            padding: 13px 20px;
+            font-size: 13.5px;
+            color: var(--vsp-color-neutral-800, #1f2937);
+            border-bottom: 1px solid var(--vsp-color-neutral-100, #f3f4f6);
+            vertical-align: middle;
+        }
+        tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background: var(--vsp-color-neutral-50, #f9fafb); cursor: pointer; }
+
+        .rule-name { font-weight: 600; color: var(--vsp-color-neutral-900, #111827); }
+        .rule-desc { font-size: 12px; color: var(--vsp-color-neutral-400, #9ca3af); margin-top: 2px; }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11.5px;
+            font-weight: 600;
+            padding: 3px 9px;
+            border-radius: 999px;
+        }
+        .badge.published { background: #d1fae5; color: #065f46; }
+        .badge.draft { background: #fef3c7; color: #92400e; }
+        .badge.conflict { background: #fee2e2; color: #991b1b; }
+        .badge.inactive { background: var(--vsp-color-neutral-100); color: var(--vsp-color-neutral-500); }
+        .badge.pending-review { background: #ede9fe; color: #5b21b6; }
+
+        /* Rule type tags */
+        .rule-type {
+            font-size: 11.5px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: var(--vsp-color-neutral-100);
+            color: var(--vsp-color-neutral-600);
+        }
+        .rule-type.callback { background: #ede9fe; color: #5b21b6; }
+        .rule-type.overtime { background: #dbeafe; color: #1e40af; }
+        .rule-type.fatigue { background: #ffedd5; color: #9a3412; }
+        .rule-type.union { background: #fce7f3; color: #9d174d; }
+        .rule-type.seniority { background: #d1fae5; color: #065f46; }
+        .rule-type.ai-gen { background: linear-gradient(135deg, #ede9fe, #dbeafe); color: #4c1d95; }
+
+        /* Priority */
+        .priority {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .priority.high { background: #fee2e2; color: #b91c1c; }
+        .priority.medium { background: #fef3c7; color: #b45309; }
+        .priority.low { background: #d1fae5; color: #065f46; }
+
+        /* AI chip on rows */
+        .ai-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 10.5px;
+            font-weight: 600;
+            padding: 1px 6px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #7c3aed22, #2563eb22);
+            color: #5b21b6;
+            border: 1px solid #c4b5fd;
+        }
+
+        /* Row actions */
+        .row-actions { display: flex; align-items: center; gap: 4px; opacity: 0; transition: opacity 0.15s; }
+        tbody tr:hover .row-actions { opacity: 1; }
+        .icon-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            color: var(--vsp-color-neutral-500, #6b7280);
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .icon-btn:hover { background: var(--vsp-color-neutral-100); color: var(--vsp-color-neutral-900); }
+
+        /* ── Drawer ── */
+        .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 100; display: none; }
+        .drawer-overlay.open { display: block; }
+        .drawer-panel {
+            position: fixed;
+            top: 0; right: 0; bottom: 0;
+            width: 600px;
+            background: #fff;
+            box-shadow: -4px 0 24px rgba(0,0,0,0.12);
+            z-index: 101;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(100%);
+            transition: transform 0.25s ease;
+        }
+        .drawer-panel.open { transform: translateX(0); }
+        .drawer-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--vsp-color-neutral-200);
+        }
+        .drawer-header h2 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+        .drawer-body { flex: 1; overflow-y: auto; padding: 24px; }
+        .drawer-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--vsp-color-neutral-200);
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        /* ── Detail sections ── */
+        .detail-section { margin-bottom: 24px; }
+        .detail-section-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--vsp-color-neutral-400);
+            margin-bottom: 10px;
+        }
+
+        /* Condition block */
+        .condition-block {
+            background: var(--vsp-color-neutral-50);
+            border: 1px solid var(--vsp-color-neutral-200);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .condition-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            font-size: 13px;
+            border-bottom: 1px solid var(--vsp-color-neutral-100);
+        }
+        .condition-row:last-child { border-bottom: none; }
+        .condition-connector {
+            font-size: 10px;
+            font-weight: 700;
+            background: #dbeafe;
+            color: #1d4ed8;
+            padding: 2px 6px;
+            border-radius: 4px;
+            min-width: 32px;
+            text-align: center;
+        }
+        .condition-field { font-weight: 600; color: var(--vsp-color-neutral-700); }
+        .condition-op { color: var(--vsp-color-neutral-400); font-size: 12px; }
+        .condition-value { font-weight: 600; color: #1d4ed8; }
+
+        /* Ranking factors */
+        .ranking-list { display: flex; flex-direction: column; gap: 8px; }
+        .ranking-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            background: var(--vsp-color-neutral-50);
+            border: 1px solid var(--vsp-color-neutral-200);
+            border-radius: 8px;
+        }
+        .ranking-order {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--vsp-color-neutral-200);
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .ranking-item-name { font-size: 13px; font-weight: 600; flex: 1; }
+        .ranking-item-detail { font-size: 12px; color: var(--vsp-color-neutral-400); }
+        .ranking-weight { font-size: 12px; font-weight: 700; color: #2563eb; }
+
+        /* Explainability trace */
+        .explain-card {
+            border: 1px solid var(--vsp-color-neutral-200);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .explain-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--vsp-color-neutral-100);
+            font-size: 13px;
+        }
+        .explain-row:last-child { border-bottom: none; }
+        .explain-rank {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+        .explain-row.excluded .explain-rank { background: #fee2e2; color: #b91c1c; }
+        .explain-name { font-weight: 600; width: 150px; flex-shrink: 0; }
+        .explain-breakdown { flex: 1; }
+        .explain-factor {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11.5px;
+            background: var(--vsp-color-neutral-100);
+            border-radius: 4px;
+            padding: 2px 7px;
+            margin: 2px 3px 2px 0;
+        }
+        .explain-factor .val { font-weight: 700; color: #1d4ed8; }
+        .explain-score { font-size: 12px; font-weight: 700; color: #065f46; white-space: nowrap; }
+        .explain-row.excluded .explain-score { color: #b91c1c; }
+        .explain-row.excluded .explain-factor { background: #fee2e2; color: #9a3412; }
+
+        /* Audit log */
+        .audit-log { display: flex; flex-direction: column; }
+        .audit-entry {
+            display: flex;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--vsp-color-neutral-100);
+        }
+        .audit-entry:last-child { border-bottom: none; }
+        .audit-dot { width: 8px; height: 8px; border-radius: 50%; background: #60a5fa; margin-top: 5px; flex-shrink: 0; }
+        .audit-entry-text { font-size: 12.5px; color: var(--vsp-color-neutral-700); margin-bottom: 2px; }
+        .audit-entry-meta { font-size: 11.5px; color: var(--vsp-color-neutral-400); }
+
+        /* AI import modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: none; align-items: center; justify-content: center; }
+        .modal-overlay.open { display: flex; }
+        .modal-box {
+            background: #fff;
+            border-radius: 12px;
+            width: 600px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--vsp-color-neutral-200);
+        }
+        .modal-header h2 { font-size: 16px; font-weight: 700; }
+        .modal-body { padding: 24px; overflow-y: auto; flex: 1; }
+        .modal-footer { padding: 16px 24px; border-top: 1px solid var(--vsp-color-neutral-200); display: flex; gap: 10px; justify-content: flex-end; }
+
+        /* MOU upload area */
+        .upload-area {
+            border: 2px dashed #c4b5fd;
+            border-radius: 10px;
+            padding: 32px;
+            text-align: center;
+            background: linear-gradient(135deg, #f5f3ff, #eff6ff);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .upload-area:hover { background: linear-gradient(135deg, #ede9fe, #dbeafe); }
+        .upload-area i { font-size: 28px; color: #7c3aed; margin-bottom: 10px; display: block; }
+        .upload-area .upload-title { font-size: 14px; font-weight: 600; color: #4c1d95; margin-bottom: 4px; }
+        .upload-area .upload-sub { font-size: 12.5px; color: #6d28d9; }
+
+        .mou-textarea {
+            width: 100%;
+            height: 120px;
+            margin-top: 12px;
+            padding: 12px;
+            border: 1px solid var(--vsp-color-neutral-200);
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: 'Open Sans', sans-serif;
+            resize: vertical;
+            color: var(--vsp-color-neutral-700);
+        }
+        .mou-textarea:focus { outline: 2px solid #7c3aed; border-color: #7c3aed; }
+
+        /* AI generated rule preview */
+        .ai-generated-preview {
+            background: linear-gradient(135deg, #f5f3ff, #eff6ff);
+            border: 1px solid #c4b5fd;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+        .ai-generated-preview-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #4c1d95;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .confidence-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            color: var(--vsp-color-neutral-600);
+            margin-bottom: 12px;
+        }
+        .confidence-track {
+            flex: 1;
+            height: 6px;
+            background: var(--vsp-color-neutral-200);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .confidence-fill {
+            height: 100%;
+            width: 87%;
+            background: linear-gradient(90deg, #7c3aed, #2563eb);
+            border-radius: 999px;
+        }
+
+        /* Override section */
+        .override-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            background: var(--vsp-color-neutral-50);
+            border: 1px solid var(--vsp-color-neutral-200);
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        .override-row-left { flex: 1; }
+        .override-name { font-size: 13px; font-weight: 600; }
+        .override-meta { font-size: 12px; color: var(--vsp-color-neutral-400); margin-top: 2px; }
+        .override-tag {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 4px;
+        }
+        .override-tag.temp { background: #fef3c7; color: #92400e; }
+        .override-tag.perm { background: #fee2e2; color: #991b1b; }
+
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+    </style>
+</head>
+<body>
+
+<div class="app-shell">
+    <vwc-topnav></vwc-topnav>
+
+    <div class="main-layout">
+
+        <!-- Sidenav -->
+        <nav class="sidenav">
+            <div class="sidenav-section">Scheduling</div>
+            <a class="sidenav-item" href="#">
+                <i class="fa-solid fa-calendar-days"></i> Schedule View
+            </a>
+            <a class="sidenav-item" href="#">
+                <i class="fa-solid fa-users"></i> Staff Management
+            </a>
+            <a class="sidenav-item active" href="#">
+                <i class="fa-solid fa-sliders"></i> Rules Engine
+                <span class="ai-spark">AI</span>
+            </a>
+            <a class="sidenav-item" href="#">
+                <i class="fa-solid fa-bell"></i> Callbacks
+            </a>
+            <a class="sidenav-item" href="#">
+                <i class="fa-solid fa-business-time"></i> Overtime
+            </a>
+            <div class="sidenav-section" style="margin-top: 16px;">Configuration</div>
+            <a class="sidenav-item" href="#">
+                <i class="fa-solid fa-building"></i> Departments
+            </a>
+            <a class="sidenav-item" href="#">
+                <i class="fa-solid fa-file-lines"></i> Audit Logs
+            </a>
+            <a class="sidenav-item" href="#">
+                <i class="fa-solid fa-gears"></i> Settings
+            </a>
+        </nav>
+
+        <!-- Main content -->
+        <main class="page-content">
+
+            <!-- Page header -->
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h1>
+                        Rules Engine
+                        <span class="ai-label"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-Powered</span>
+                    </h1>
+                    <p>Define, manage, and validate overtime ranking rules from your MOU agreements</p>
+                </div>
+                <div class="header-actions">
+                    <vaadin-button theme="secondary" onclick="openSimulationDrawer()">
+                        <i class="fa-solid fa-flask" slot="prefix"></i>
+                        Test Rules
+                    </vaadin-button>
+                    <vaadin-button theme="secondary" onclick="openMOUModal()">
+                        <i class="fa-solid fa-wand-magic-sparkles" slot="prefix"></i>
+                        Import MOU
+                    </vaadin-button>
+                    <vaadin-button theme="primary" onclick="openRuleDetail('new')">
+                        <i class="fa-solid fa-plus" slot="prefix"></i>
+                        New Rule
+                    </vaadin-button>
+                </div>
+            </div>
+
+            <!-- AI banner: pending review -->
+            <div class="ai-banner">
+                <div class="ai-banner-icon">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+                <div class="ai-banner-body">
+                    <div class="ai-banner-title">2 AI-Generated Rules Awaiting Your Review</div>
+                    <div class="ai-banner-desc">
+                        The AI analyzed your MOU for Local 47 and suggested 2 new ranking rules.
+                        Review and approve them before they become active — you can edit any generated rule in the Rules Builder.
+                    </div>
+                    <div class="ai-banner-actions">
+                        <vaadin-button theme="primary" onclick="openRuleDetail('ai-review')">
+                            <i class="fa-solid fa-check-circle" slot="prefix"></i>
+                            Review & Approve
+                        </vaadin-button>
+                        <vaadin-button theme="secondary">Dismiss</vaadin-button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conflict warning -->
+            <div class="conflict-banner">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <div style="flex:1;">
+                    <div class="conflict-banner-title">2 Rule Conflicts Detected</div>
+                    <div class="conflict-banner-desc">
+                        "Union Local 47 – Rest Period" and "Holiday Callback Override" may produce conflicting outcomes for employees with &lt;10 hrs rest.
+                        <a href="#" style="color:#c2410c; font-weight:600; margin-left:6px;" onclick="openRuleDetail('union-rest'); return false;">Review conflicts →</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stat cards -->
+            <div class="stat-row">
+                <div class="stat-card">
+                    <div class="stat-card-label">Active Rules</div>
+                    <div class="stat-card-value">14</div>
+                    <div class="stat-card-sub">Across 4 categories</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-label">Pending Review</div>
+                    <div class="stat-card-value">2</div>
+                    <div class="stat-badge ai"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-generated</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-label">Conflicts</div>
+                    <div class="stat-card-value">2</div>
+                    <div class="stat-badge warning"><i class="fa-solid fa-triangle-exclamation"></i> Needs attention</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-label">Last Published</div>
+                    <div class="stat-card-value" style="font-size:18px; padding-top:4px;">Apr 3, 2026</div>
+                    <div class="stat-badge success"><i class="fa-solid fa-check"></i> No issues at publish</div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tab-bar">
+                <div class="tab active" onclick="switchTab(this,'tab-all')">All Rules</div>
+                <div class="tab" onclick="switchTab(this,'tab-overtime')">Overtime</div>
+                <div class="tab" onclick="switchTab(this,'tab-callback')">Callback</div>
+                <div class="tab" onclick="switchTab(this,'tab-fatigue')">Fatigue / Rest</div>
+                <div class="tab" onclick="switchTab(this,'tab-union')">Union Agreements</div>
+                <div class="tab" onclick="switchTab(this,'tab-overrides')">Overrides</div>
+            </div>
+
+            <!-- All Rules tab -->
+            <div id="tab-all" class="tab-pane active panel">
+                <div class="panel-toolbar">
+                    <div class="search-box">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        Search rules…
+                    </div>
+                    <div class="filter-pill active" onclick="this.classList.toggle('active')">
+                        <i class="fa-solid fa-circle-dot"></i> Published
+                    </div>
+                    <div class="filter-pill" onclick="this.classList.toggle('active')">
+                        <i class="fa-regular fa-file"></i> Drafts
+                    </div>
+                    <div class="filter-pill" onclick="this.classList.toggle('active')">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> AI-Generated
+                    </div>
+                    <div class="filter-pill" onclick="this.classList.toggle('active')">
+                        <i class="fa-solid fa-triangle-exclamation"></i> Conflicts
+                    </div>
+                    <div class="toolbar-spacer"></div>
+                    <vaadin-button theme="tertiary">
+                        <i class="fa-solid fa-sort" slot="prefix"></i>
+                        Sort by Priority
+                    </vaadin-button>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:36px;"></th>
+                            <th>Rule Name</th>
+                            <th>Type</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>Effective Date</th>
+                            <th>Modified By</th>
+                            <th style="width:100px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- AI-generated rule pending review -->
+                        <tr onclick="openRuleDetail('ai-review')" style="background:#faf5ff;">
+                            <td><i class="fa-solid fa-grip-vertical" style="color:#d1d5db; cursor:grab;"></i></td>
+                            <td>
+                                <div class="rule-name">
+                                    Local 47 – Seniority + Rotation Hybrid
+                                    <span class="ai-chip"><i class="fa-solid fa-wand-magic-sparkles"></i> AI</span>
+                                </div>
+                                <div class="rule-desc">Blends seniority rank with rotational fairness per Article 12 §3</div>
+                            </td>
+                            <td><span class="rule-type ai-gen">AI · Overtime</span></td>
+                            <td><span class="priority high">1</span></td>
+                            <td><span class="badge pending-review"><i class="fa-solid fa-circle-pause" style="font-size:8px;"></i> Pending Review</span></td>
+                            <td>—</td>
+                            <td>AI · Apr 7, 2026</td>
+                            <td>
+                                <div class="row-actions">
+                                    <button class="icon-btn" title="Approve"><i class="fa-solid fa-check"></i></button>
+                                    <button class="icon-btn" title="Edit"><i class="fa-solid fa-pencil"></i></button>
+                                    <button class="icon-btn" title="More"><i class="fa-solid fa-ellipsis"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr onclick="openRuleDetail('ai-review-2')" style="background:#faf5ff;">
+                            <td><i class="fa-solid fa-grip-vertical" style="color:#d1d5db; cursor:grab;"></i></td>
+                            <td>
+                                <div class="rule-name">
+                                    Local 47 – Rest Period Exclusion
+                                    <span class="ai-chip"><i class="fa-solid fa-wand-magic-sparkles"></i> AI</span>
+                                </div>
+                                <div class="rule-desc">Hard exclusion for employees with &lt;10 hrs rest per CBA Article 8</div>
+                            </td>
+                            <td><span class="rule-type ai-gen">AI · Union</span></td>
+                            <td><span class="priority high">2</span></td>
+                            <td><span class="badge pending-review"><i class="fa-solid fa-circle-pause" style="font-size:8px;"></i> Pending Review</span></td>
+                            <td>—</td>
+                            <td>AI · Apr 7, 2026</td>
+                            <td>
+                                <div class="row-actions">
+                                    <button class="icon-btn" title="Approve"><i class="fa-solid fa-check"></i></button>
+                                    <button class="icon-btn" title="Edit"><i class="fa-solid fa-pencil"></i></button>
+                                    <button class="icon-btn" title="More"><i class="fa-solid fa-ellipsis"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr onclick="openRuleDetail('seniority-basic')">
+                            <td><i class="fa-solid fa-grip-vertical" style="color:#d1d5db; cursor:grab;"></i></td>
+                            <td>
+                                <div class="rule-name">Seniority – Base Ranking</div>
+                                <div class="rule-desc">Primary sort by department seniority date</div>
+                            </td>
+                            <td><span class="rule-type seniority">Seniority</span></td>
+                            <td><span class="priority high">3</span></td>
+                            <td><span class="badge published"><i class="fa-solid fa-circle" style="font-size:7px;"></i> Published</span></td>
+                            <td>Jan 1, 2026</td>
+                            <td>J. Martinez</td>
+                            <td>
+                                <div class="row-actions">
+                                    <button class="icon-btn" title="Edit"><i class="fa-solid fa-pencil"></i></button>
+                                    <button class="icon-btn" title="Duplicate"><i class="fa-regular fa-copy"></i></button>
+                                    <button class="icon-btn" title="More"><i class="fa-solid fa-ellipsis"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr onclick="openRuleDetail('callback-rotational')">
+                            <td><i class="fa-solid fa-grip-vertical" style="color:#d1d5db; cursor:grab;"></i></td>
+                            <td>
+                                <div class="rule-name">Callback – Rotational Fairness</div>
+                                <div class="rule-desc">Deprioritizes employees who received recent callbacks</div>
+                            </td>
+                            <td><span class="rule-type callback">Callback</span></td>
+                            <td><span class="priority high">4</span></td>
+                            <td><span class="badge published"><i class="fa-solid fa-circle" style="font-size:7px;"></i> Published</span></td>
+                            <td>Feb 18, 2026</td>
+                            <td>T. Brooks</td>
+                            <td>
+                                <div class="row-actions">
+                                    <button class="icon-btn" title="Edit"><i class="fa-solid fa-pencil"></i></button>
+                                    <button class="icon-btn" title="Duplicate"><i class="fa-regular fa-copy"></i></button>
+                                    <button class="icon-btn" title="More"><i class="fa-solid fa-ellipsis"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr onclick="openRuleDetail('union-rest')">
+                            <td><i class="fa-solid fa-grip-vertical" style="color:#d1d5db; cursor:grab;"></i></td>
+                            <td>
+                                <div class="rule-name">Union Local 47 – Rest Period</div>
+                                <div class="rule-desc">Excludes employees with &lt;10 hrs rest since last shift</div>
+                            </td>
+                            <td><span class="rule-type union">Union</span></td>
+                            <td><span class="priority high">5</span></td>
+                            <td><span class="badge conflict"><i class="fa-solid fa-triangle-exclamation" style="font-size:9px;"></i> Conflict</span></td>
+                            <td>Mar 14, 2026</td>
+                            <td>R. Thompson</td>
+                            <td>
+                                <div class="row-actions">
+                                    <button class="icon-btn" title="Edit"><i class="fa-solid fa-pencil"></i></button>
+                                    <button class="icon-btn" title="Duplicate"><i class="fa-regular fa-copy"></i></button>
+                                    <button class="icon-btn" title="More"><i class="fa-solid fa-ellipsis"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr onclick="openRuleDetail('fatigue-48')">
+                            <td><i class="fa-solid fa-grip-vertical" style="color:#d1d5db; cursor:grab;"></i></td>
+                            <td>
+                                <div class="rule-name">Fatigue – 48-Hour Rolling Cap</div>
+                                <div class="rule-desc">Hard block for employees exceeding 48 hrs in rolling window</div>
+                            </td>
+                            <td><span class="rule-type fatigue">Fatigue</span></td>
+                            <td><span class="priority medium">6</span></td>
+                            <td><span class="badge published"><i class="fa-solid fa-circle" style="font-size:7px;"></i> Published</span></td>
+                            <td>Feb 20, 2026</td>
+                            <td>J. Martinez</td>
+                            <td>
+                                <div class="row-actions">
+                                    <button class="icon-btn" title="Edit"><i class="fa-solid fa-pencil"></i></button>
+                                    <button class="icon-btn" title="Duplicate"><i class="fa-regular fa-copy"></i></button>
+                                    <button class="icon-btn" title="More"><i class="fa-solid fa-ellipsis"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr onclick="openRuleDetail('holiday-override')">
+                            <td><i class="fa-solid fa-grip-vertical" style="color:#d1d5db; cursor:grab;"></i></td>
+                            <td>
+                                <div class="rule-name">Holiday Callback Override</div>
+                                <div class="rule-desc">Adjusts ranking weights on designated holidays</div>
+                            </td>
+                            <td><span class="rule-type callback">Callback</span></td>
+                            <td><span class="priority medium">7</span></td>
+                            <td><span class="badge conflict"><i class="fa-solid fa-triangle-exclamation" style="font-size:9px;"></i> Conflict</span></td>
+                            <td>Apr 3, 2026</td>
+                            <td>S. Patel</td>
+                            <td>
+                                <div class="row-actions">
+                                    <button class="icon-btn" title="Edit"><i class="fa-solid fa-pencil"></i></button>
+                                    <button class="icon-btn" title="Duplicate"><i class="fa-regular fa-copy"></i></button>
+                                    <button class="icon-btn" title="More"><i class="fa-solid fa-ellipsis"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr onclick="openRuleDetail('ot-voluntary')">
+                            <td><i class="fa-solid fa-grip-vertical" style="color:#d1d5db; cursor:grab;"></i></td>
+                            <td>
+                                <div class="rule-name">Overtime – Voluntary First</div>
+                                <div class="rule-desc">Prioritizes staff who have opted into voluntary OT lists</div>
+                            </td>
+                            <td><span class="rule-type overtime">Overtime</span></td>
+                            <td><span class="priority medium">8</span></td>
+                            <td><span class="badge published"><i class="fa-solid fa-circle" style="font-size:7px;"></i> Published</span></td>
+                            <td>Mar 5, 2026</td>
+                            <td>T. Brooks</td>
+                            <td>
+                                <div class="row-actions">
+                                    <button class="icon-btn" title="Edit"><i class="fa-solid fa-pencil"></i></button>
+                                    <button class="icon-btn" title="Duplicate"><i class="fa-regular fa-copy"></i></button>
+                                    <button class="icon-btn" title="More"><i class="fa-solid fa-ellipsis"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><i class="fa-solid fa-grip-vertical" style="color:#d1d5db; cursor:grab;"></i></td>
+                            <td>
+                                <div class="rule-name">Overtime – Hour Equalization</div>
+                                <div class="rule-desc">Balances total OT hours across eligible employees over 30 days</div>
+                            </td>
+                            <td><span class="rule-type overtime">Overtime</span></td>
+                            <td><span class="priority low">9</span></td>
+                            <td><span class="badge draft"><i class="fa-solid fa-circle" style="font-size:7px;"></i> Draft</span></td>
+                            <td>—</td>
+                            <td>S. Patel</td>
+                            <td>
+                                <div class="row-actions">
+                                    <button class="icon-btn" title="Edit"><i class="fa-solid fa-pencil"></i></button>
+                                    <button class="icon-btn" title="Duplicate"><i class="fa-regular fa-copy"></i></button>
+                                    <button class="icon-btn" title="More"><i class="fa-solid fa-ellipsis"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Placeholder tab panes -->
+            <div id="tab-overtime" class="tab-pane panel" style="padding:40px; text-align:center; color:#9ca3af;">
+                <i class="fa-solid fa-business-time" style="font-size:32px; margin-bottom:12px;"></i>
+                <p style="font-size:14px;">Overtime rules — filtered view</p>
+            </div>
+            <div id="tab-callback" class="tab-pane panel" style="padding:40px; text-align:center; color:#9ca3af;">
+                <i class="fa-solid fa-phone-volume" style="font-size:32px; margin-bottom:12px;"></i>
+                <p style="font-size:14px;">Callback rules — filtered view</p>
+            </div>
+            <div id="tab-fatigue" class="tab-pane panel" style="padding:40px; text-align:center; color:#9ca3af;">
+                <i class="fa-solid fa-battery-quarter" style="font-size:32px; margin-bottom:12px;"></i>
+                <p style="font-size:14px;">Fatigue and rest rules — filtered view</p>
+            </div>
+            <div id="tab-union" class="tab-pane panel" style="padding:40px; text-align:center; color:#9ca3af;">
+                <i class="fa-solid fa-handshake" style="font-size:32px; margin-bottom:12px;"></i>
+                <p style="font-size:14px;">Union agreement rules — filtered view</p>
+            </div>
+
+            <!-- Overrides tab -->
+            <div id="tab-overrides" class="tab-pane panel">
+                <div class="panel-toolbar">
+                    <span style="font-size:13.5px; color: var(--vsp-color-neutral-600);">
+                        <i class="fa-solid fa-shield-halved" style="color:#ea580c;"></i>
+                        &nbsp;Manual overrides are fully audited and require permission
+                    </span>
+                    <div class="toolbar-spacer"></div>
+                    <vaadin-button theme="primary">
+                        <i class="fa-solid fa-plus" slot="prefix"></i>
+                        Add Override
+                    </vaadin-button>
+                </div>
+                <div style="padding: 16px 20px;">
+                    <div class="override-row">
+                        <div class="override-row-left">
+                            <div class="override-name">Davis, K. — Rank Bump (Night Shift, Apr 10)</div>
+                            <div class="override-meta">Approved by J. Martinez · Added Apr 7, 2026 · Reason: Equipment certification required</div>
+                        </div>
+                        <span class="override-tag temp">Temporary</span>
+                    </div>
+                    <div class="override-row">
+                        <div class="override-row-left">
+                            <div class="override-name">Smith, R. — Excluded from Callback Pool</div>
+                            <div class="override-meta">Approved by T. Brooks · Added Mar 2, 2026 · Reason: Medical restriction on file</div>
+                        </div>
+                        <span class="override-tag perm">Permanent</span>
+                    </div>
+                    <div class="override-row">
+                        <div class="override-row-left">
+                            <div class="override-name">Garcia, M. — Voluntary OT Opt-Out</div>
+                            <div class="override-meta">Approved by S. Patel · Added Feb 28, 2026 · Reason: Employee request</div>
+                        </div>
+                        <span class="override-tag perm">Permanent</span>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+
+<!-- ── Rule Detail / Explanation Drawer ── -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+
+<div class="drawer-panel" id="ruleDetailDrawer">
+    <div class="drawer-header">
+        <div>
+            <h2 id="drawerTitle">Callback – Rotational Fairness</h2>
+            <div style="font-size:12px; color:#9ca3af; margin-top:4px; display:flex; align-items:center; gap:8px;">
+                <span class="rule-type callback" id="drawerType">Callback</span>
+                <span>· Last modified Apr 1, 2026 by T. Brooks</span>
+            </div>
+        </div>
+        <button class="icon-btn" onclick="closeDrawer()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <div class="drawer-body">
+
+        <!-- Ranking result with explainability -->
+        <div class="detail-section">
+            <div class="detail-section-title">
+                <i class="fa-solid fa-magnifying-glass" style="color:#7c3aed;"></i>
+                &nbsp;Ranking Explanation — Night Shift, Apr 8, 2026
+            </div>
+            <div class="explain-card">
+                <div class="explain-row">
+                    <div class="explain-rank">1</div>
+                    <div class="explain-name">Williams, Dana</div>
+                    <div class="explain-breakdown">
+                        <span class="explain-factor">Seniority <span class="val">11 yrs</span></span>
+                        <span class="explain-factor">Last callback <span class="val">14 days ago</span></span>
+                        <span class="explain-factor">30-day OT <span class="val">8 hrs</span></span>
+                    </div>
+                    <div class="explain-score">Score 94.2</div>
+                </div>
+                <div class="explain-row">
+                    <div class="explain-rank">2</div>
+                    <div class="explain-name">Okafor, Chidi</div>
+                    <div class="explain-breakdown">
+                        <span class="explain-factor">Seniority <span class="val">9 yrs</span></span>
+                        <span class="explain-factor">Last callback <span class="val">21 days ago</span></span>
+                        <span class="explain-factor">30-day OT <span class="val">12 hrs</span></span>
+                    </div>
+                    <div class="explain-score">Score 89.1</div>
+                </div>
+                <div class="explain-row">
+                    <div class="explain-rank">3</div>
+                    <div class="explain-name">Reyes, Maria</div>
+                    <div class="explain-breakdown">
+                        <span class="explain-factor">Seniority <span class="val">9 yrs</span></span>
+                        <span class="explain-factor">Last callback <span class="val">8 days ago</span></span>
+                        <span class="explain-factor">30-day OT <span class="val">6 hrs</span></span>
+                    </div>
+                    <div class="explain-score">Score 78.5</div>
+                </div>
+                <div class="explain-row excluded">
+                    <div class="explain-rank"><i class="fa-solid fa-ban" style="font-size:10px;"></i></div>
+                    <div class="explain-name">Torres, Luis</div>
+                    <div class="explain-breakdown">
+                        <span class="explain-factor"><i class="fa-solid fa-triangle-exclamation"></i> Rest period <span class="val">8.5 hrs</span> (min 10 required)</span>
+                    </div>
+                    <div class="explain-score">Excluded</div>
+                </div>
+            </div>
+            <div style="margin-top:8px; font-size:12px; color:var(--vsp-color-neutral-400);">
+                <i class="fa-solid fa-circle-info"></i>
+                &nbsp;Scores calculated using active ranking weights. Rules applied: Seniority Base (P3), Rotational Fairness (P4), Rest Period (P5).
+            </div>
+        </div>
+
+        <!-- Conditions -->
+        <div class="detail-section">
+            <div class="detail-section-title">Eligibility Conditions</div>
+            <div class="condition-block">
+                <div class="condition-row">
+                    <span class="condition-connector">IF</span>
+                    <span class="condition-field">Employee Status</span>
+                    <span class="condition-op">is</span>
+                    <span class="condition-value">Active</span>
+                </div>
+                <div class="condition-row">
+                    <span class="condition-connector">AND</span>
+                    <span class="condition-field">Hours Since Last Shift</span>
+                    <span class="condition-op">≥</span>
+                    <span class="condition-value">10 hours</span>
+                </div>
+                <div class="condition-row">
+                    <span class="condition-connector">AND</span>
+                    <span class="condition-field">Rolling 48-hr Hours Worked</span>
+                    <span class="condition-op">&lt;</span>
+                    <span class="condition-value">48 hours</span>
+                </div>
+                <div class="condition-row">
+                    <span class="condition-connector">AND</span>
+                    <span class="condition-field">Required Certifications</span>
+                    <span class="condition-op">includes</span>
+                    <span class="condition-value">Role Skill Set</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ranking factors / weights -->
+        <div class="detail-section">
+            <div class="detail-section-title">Ranking Factors &amp; Weights</div>
+            <div class="ranking-list">
+                <div class="ranking-item">
+                    <span class="ranking-order">1</span>
+                    <div style="flex:1;">
+                        <div class="ranking-item-name">Seniority Date</div>
+                        <div class="ranking-item-detail">Ascending by department hire date</div>
+                    </div>
+                    <span class="ranking-weight">40%</span>
+                </div>
+                <div class="ranking-item">
+                    <span class="ranking-order">2</span>
+                    <div style="flex:1;">
+                        <div class="ranking-item-name">Days Since Last Callback</div>
+                        <div class="ranking-item-detail">Longest since last = higher rank</div>
+                    </div>
+                    <span class="ranking-weight">35%</span>
+                </div>
+                <div class="ranking-item">
+                    <span class="ranking-order">3</span>
+                    <div style="flex:1;">
+                        <div class="ranking-item-name">Total OT Hours (30-day)</div>
+                        <div class="ranking-item-detail">Fewest hours = higher rank</div>
+                    </div>
+                    <span class="ranking-weight">25%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audit / change history -->
+        <div class="detail-section">
+            <div class="detail-section-title">Change History</div>
+            <div class="audit-log">
+                <div class="audit-entry">
+                    <div class="audit-dot"></div>
+                    <div>
+                        <div class="audit-entry-text">Ranking weight for <strong>Days Since Last Callback</strong> changed: 30% → 35%</div>
+                        <div class="audit-entry-meta">T. Brooks · Apr 1, 2026, 2:14 PM</div>
+                    </div>
+                </div>
+                <div class="audit-entry">
+                    <div class="audit-dot"></div>
+                    <div>
+                        <div class="audit-entry-text">Condition added: <strong>Rolling 48-hr Hours Worked &lt; 48</strong></div>
+                        <div class="audit-entry-meta">J. Martinez · Mar 5, 2026, 9:40 AM</div>
+                    </div>
+                </div>
+                <div class="audit-entry">
+                    <div class="audit-dot"></div>
+                    <div>
+                        <div class="audit-entry-text">Rule published to production</div>
+                        <div class="audit-entry-meta">T. Brooks · Feb 18, 2026, 11:22 AM</div>
+                    </div>
+                </div>
+                <div class="audit-entry">
+                    <div class="audit-dot" style="background:#d1d5db;"></div>
+                    <div>
+                        <div class="audit-entry-text">Rule created as draft</div>
+                        <div class="audit-entry-meta">T. Brooks · Feb 10, 2026, 3:05 PM</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="drawer-footer">
+        <vaadin-button theme="tertiary" onclick="closeDrawer()">Close</vaadin-button>
+        <vaadin-button theme="secondary">
+            <i class="fa-solid fa-flask" slot="prefix"></i>
+            Run Simulation
+        </vaadin-button>
+        <vaadin-button theme="primary">
+            <i class="fa-solid fa-pencil" slot="prefix"></i>
+            Edit in Rules Builder
+        </vaadin-button>
+    </div>
+</div>
+
+
+<!-- ── AI Import MOU Modal ── -->
+<div class="modal-overlay" id="mouModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <div>
+                <h2><i class="fa-solid fa-wand-magic-sparkles" style="color:#7c3aed; margin-right:8px;"></i>Import MOU with AI</h2>
+                <p style="font-size:12.5px; color:#6b7280; margin-top:3px;">Paste your MOU text or upload a document — the AI will generate draft rules for your review</p>
+            </div>
+            <button class="icon-btn" onclick="closeMOUModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+
+            <div class="upload-area" id="uploadArea" onclick="showMOUText()">
+                <i class="fa-solid fa-file-arrow-up"></i>
+                <div class="upload-title">Upload MOU document</div>
+                <div class="upload-sub">PDF, DOCX, or TXT · or paste text below</div>
+            </div>
+
+            <textarea
+                class="mou-textarea"
+                id="mouText"
+                placeholder="Or paste MOU language here… e.g. 'Article 12 §3: Overtime shall be offered to qualified employees in descending order of seniority, provided the employee has not worked overtime in the preceding 5 calendar days…'"
+            ></textarea>
+
+            <!-- AI-generated preview (shown after "analyze") -->
+            <div class="ai-generated-preview" id="aiPreview" style="display:none;">
+                <div class="ai-generated-preview-title">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    AI Rule Suggestions — Review before approving
+                </div>
+                <div class="confidence-bar">
+                    <span>Confidence</span>
+                    <div class="confidence-track"><div class="confidence-fill"></div></div>
+                    <span style="font-weight:700; color:#5b21b6;">87%</span>
+                </div>
+
+                <div style="background:#fff; border:1px solid #c4b5fd; border-radius:6px; padding:12px; margin-bottom:8px;">
+                    <div style="font-size:13px; font-weight:700; margin-bottom:4px;">
+                        <span class="ai-chip"><i class="fa-solid fa-wand-magic-sparkles"></i> AI</span>
+                        &nbsp;Local 47 – Seniority + Rotation Hybrid
+                    </div>
+                    <div style="font-size:12px; color:#6b7280;">Conditions: Active · ≥10 hrs rest · Certs match</div>
+                    <div style="font-size:12px; color:#6b7280; margin-top:2px;">Ranking: Seniority (40%) · Days since callback (35%) · 30-day OT (25%)</div>
+                    <div style="font-size:11.5px; color:#5b21b6; margin-top:6px;">
+                        <i class="fa-solid fa-quote-left"></i>
+                        Source: Article 12 §3 — "offered to qualified employees in descending order of seniority…"
+                    </div>
+                </div>
+
+                <div style="background:#fff; border:1px solid #c4b5fd; border-radius:6px; padding:12px;">
+                    <div style="font-size:13px; font-weight:700; margin-bottom:4px;">
+                        <span class="ai-chip"><i class="fa-solid fa-wand-magic-sparkles"></i> AI</span>
+                        &nbsp;Local 47 – Rest Period Exclusion
+                    </div>
+                    <div style="font-size:12px; color:#6b7280;">Hard exclusion: Hours since last shift &lt; 10 hrs → ineligible</div>
+                    <div style="font-size:11.5px; color:#5b21b6; margin-top:6px;">
+                        <i class="fa-solid fa-quote-left"></i>
+                        Source: Article 8 — "No employee shall be required to report for overtime with less than 10 hours…"
+                    </div>
+                </div>
+
+                <div style="font-size:12px; color:#6d28d9; margin-top:10px;">
+                    <i class="fa-solid fa-circle-info"></i>
+                    &nbsp;These are drafts only. Review and edit in the Rules Builder before publishing.
+                </div>
+            </div>
+
+        </div>
+        <div class="modal-footer">
+            <vaadin-button theme="tertiary" onclick="closeMOUModal()">Cancel</vaadin-button>
+            <vaadin-button theme="secondary" id="analyzeBtn" onclick="analyzeWithAI()">
+                <i class="fa-solid fa-wand-magic-sparkles" slot="prefix"></i>
+                Analyze with AI
+            </vaadin-button>
+            <vaadin-button theme="primary" id="approveBtn" style="display:none;" onclick="closeMOUModal()">
+                <i class="fa-solid fa-check" slot="prefix"></i>
+                Send for Review
+            </vaadin-button>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    function switchTab(tabEl, paneId) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        tabEl.classList.add('active');
+        document.getElementById(paneId).classList.add('active');
+    }
+
+    function openRuleDetail(ruleId) {
+        const titles = {
+            'ai-review': 'Local 47 – Seniority + Rotation Hybrid',
+            'ai-review-2': 'Local 47 – Rest Period Exclusion',
+            'seniority-basic': 'Seniority – Base Ranking',
+            'callback-rotational': 'Callback – Rotational Fairness',
+            'union-rest': 'Union Local 47 – Rest Period',
+            'fatigue-48': 'Fatigue – 48-Hour Rolling Cap',
+            'holiday-override': 'Holiday Callback Override',
+            'ot-voluntary': 'Overtime – Voluntary First',
+            'new': 'New Rule',
+        };
+        document.getElementById('drawerTitle').textContent = titles[ruleId] || 'Rule Detail';
+        document.getElementById('drawerOverlay').classList.add('open');
+        document.getElementById('ruleDetailDrawer').classList.add('open');
+    }
+
+    function openSimulationDrawer() {
+        document.getElementById('drawerTitle').textContent = 'Test Rules — Simulation';
+        document.getElementById('drawerOverlay').classList.add('open');
+        document.getElementById('ruleDetailDrawer').classList.add('open');
+    }
+
+    function closeDrawer() {
+        document.getElementById('drawerOverlay').classList.remove('open');
+        document.getElementById('ruleDetailDrawer').classList.remove('open');
+    }
+
+    function openMOUModal() {
+        document.getElementById('mouModal').classList.add('open');
+        document.getElementById('aiPreview').style.display = 'none';
+        document.getElementById('approveBtn').style.display = 'none';
+        document.getElementById('analyzeBtn').style.display = '';
+    }
+
+    function closeMOUModal() {
+        document.getElementById('mouModal').classList.remove('open');
+    }
+
+    function showMOUText() {
+        document.getElementById('mouText').focus();
+    }
+
+    function analyzeWithAI() {
+        const btn = document.getElementById('analyzeBtn');
+        btn.textContent = 'Analyzing…';
+        btn.disabled = true;
+        setTimeout(() => {
+            document.getElementById('aiPreview').style.display = 'block';
+            document.getElementById('approveBtn').style.display = '';
+            btn.style.display = 'none';
+        }, 1400);
+    }
+</script>
+
+</body>
+</html>
