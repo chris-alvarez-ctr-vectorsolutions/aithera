@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Media Gen Form — Component Work</title>
+
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: 'Open Sans', sans-serif;
+      background: var(--lumo-contrast-10pct, #e8e8e8);
+      padding: 32px 24px;
+    }
+
+    /* ── Page header ── */
+    .page-header {
+      max-width: 1200px;
+      margin: 0 auto 32px;
+    }
+    .page-header .eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--lumo-secondary-text-color);
+      margin: 0 0 4px;
+    }
+    .page-header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--lumo-body-text-color);
+      margin: 0;
+    }
+
+    /* ── States grid ── */
+    .states-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* ── State label ── */
+    .state-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--lumo-secondary-text-color);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .state-label .state-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--lumo-primary-color);
+      color: var(--lumo-primary-contrast-color);
+      font-size: 10px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* ── Toolbar above each frame ── */
+    .frame-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .frame-toolbar label {
+      font-size: 11px;
+      color: var(--lumo-secondary-text-color);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .frame-toolbar input[type="number"] {
+      width: 70px;
+      height: 28px;
+      padding: 0 8px;
+      border: 1px solid var(--lumo-contrast-20pct, #ccc);
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: inherit;
+      color: var(--lumo-body-text-color);
+      background: var(--lumo-base-color, #fff);
+    }
+    .frame-toolbar input[type="number"]:focus {
+      outline: 2px solid var(--lumo-primary-color);
+      outline-offset: -1px;
+    }
+    .lock-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 28px;
+      padding: 0 10px;
+      border: 1px solid var(--lumo-contrast-20pct, #ccc);
+      border-radius: 4px;
+      background: var(--lumo-base-color, #fff);
+      font-size: 11px;
+      font-family: inherit;
+      color: var(--lumo-secondary-text-color);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .lock-btn:hover {
+      background: var(--lumo-contrast-5pct);
+    }
+    .lock-btn.is-locked {
+      background: var(--lumo-primary-color-10pct, #e8f0fe);
+      border-color: var(--lumo-primary-color);
+      color: var(--lumo-primary-color);
+    }
+    .frame-toolbar .hint {
+      font-size: 10px;
+      color: var(--lumo-tertiary-text-color);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+    }
+
+    /* ── Resizable outer frame ── */
+    .resize-frame {
+      resize: both;
+      overflow: hidden;
+      min-width: 300px;
+      min-height: 120px;
+      max-width: 100%;
+      width: 560px;
+      background: var(--lumo-base-color, #fff);
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.06);
+      /* always flex column so header/footer stick and body scrolls */
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── frame-inner: padding shell, never scrolls itself ── */
+    .frame-inner {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      container-type: inline-size;
+    }
+
+    /* ── Component structure: fills frame-inner, header+footer sticky ── */
+    .mgf-content {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* header area — never scrolls */
+    .mgf-headline {
+      flex-shrink: 0;
+    }
+
+    /* scrollable middle */
+    .mgf-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 8px 0;
+      gap: 16px;
+      min-height: 0;
+      overflow-y: auto;
+    }
+
+    /* footer — always pinned at bottom */
+    .mgf-footer {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 16px 0 0;
+      border-top: 1px solid var(--lumo-contrast-10pct);
+      flex-shrink: 0;
+    }
+    .mgf-footer-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    /* ── Headline block ── */
+    .mgf-headline {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+    .mgf-headline-icon {
+      color: var(--lumo-primary-color);
+      font-size: 20px;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+    .mgf-headline-text h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--lumo-body-text-color);
+      margin: 0 0 2px;
+    }
+    .mgf-headline-text p {
+      font-size: 13px;
+      color: var(--lumo-secondary-text-color);
+      margin: 0;
+    }
+
+    /* ── Secondary headline ── */
+    .mgf-secondary-headline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .mgf-secondary-headline-icon {
+      color: var(--lumo-primary-color);
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .mgf-secondary-headline h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--lumo-body-text-color);
+      margin: 0;
+      flex: 1;
+    }
+
+    /* ── Preview image wrapper ──
+       Outer div clamps the height between 240–480px.
+       Inner div enforces 16:9 aspect-ratio; when the outer clamp
+       kicks in, the inner overflows and is hidden — the image
+       uses object-fit:contain so it always shows fully. ── */
+    .mgf-preview-wrap {
+      width: 100%;
+      min-height: 240px;
+      max-height: 480px;
+      border-radius: 12px;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: #000;
+    }
+    .mgf-preview-ratio {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      /* Must be at least as tall as the outer min-height so the
+         image is never squashed below natural 16:9 at narrow widths */
+      min-height: 240px;
+    }
+    .mgf-preview-ratio img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    /* ── Preview selector (n of m) ── */
+    .mgf-preview-selector {
+      display: flex;
+      width: 100%;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      font-size: 13px;
+      color: var(--lumo-secondary-text-color);
+      flex-shrink: 0;
+    }
+
+    /* ── Progress bar ── */
+    .mgf-progress-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .mgf-progress-label {
+      font-size: 12px;
+      color: var(--lumo-secondary-text-color);
+    }
+
+    /* ── Warning badge ── */
+    .mgf-warning-badge {
+      display: inline-flex;
+      align-items: flex-start;
+      gap: 6px;
+      background: var(--lumo-warning-color-10pct, #fff3cd);
+      color: var(--lumo-warning-text-color, #856404);
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 12px;
+      width: fit-content;
+      flex-shrink: 0;
+    }
+
+    /* ── Preview info message ── */
+    .mgf-preview-info {
+      align-self: center;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--lumo-secondary-text-color);
+      flex-shrink: 0;
+    }
+    .mgf-preview-info-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--lumo-primary-color);
+      color: var(--lumo-primary-contrast-color);
+      font-size: 10px;
+      flex-shrink: 0;
+    }
+
+    /* ══════════════════════════════════════════════════════
+       STATE 5 — Chat/content layout
+       Left: fixed-width sidebar with header, scrollable form,
+       pinned footer. Right: image fills remaining space.
+    ══════════════════════════════════════════════════════ */
+
+    /* Full frame wrapper — dark, column flex */
+    .s5-frame {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      background: #1a1c20;
+      border-radius: inherit;
+      /* Dark mode tokens cascade to all children */
+      --lumo-base-color: #1a1c20;
+      --lumo-body-text-color: rgba(255,255,255,0.87);
+      --lumo-secondary-text-color: rgba(255,255,255,0.54);
+      --lumo-tertiary-text-color: rgba(255,255,255,0.36);
+      --lumo-contrast-10pct: rgba(255,255,255,0.08);
+      --lumo-contrast-20pct: rgba(255,255,255,0.14);
+      --lumo-contrast-5pct: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.87);
+    }
+
+    /* Full-width header */
+    .s5-header {
+      flex-shrink: 0;
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+      position: relative;
+      z-index: 2;
+    }
+    .s5-header .mgf-headline-text h2 {
+      color: rgba(255,255,255,0.92);
+    }
+    .s5-header .mgf-headline-text p {
+      color: rgba(255,255,255,0.50);
+    }
+
+    /* Two-column split — fills remaining space between header and footer */
+    .s5-layout {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Left sidebar — scrollable form only */
+    .s5-sidebar {
+      width: 320px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      border-right: 1px solid rgba(255,255,255,0.08);
+    }
+
+    /* Sidebar scrollable form */
+    .s5-sidebar-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 16px 20px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Full-width footer */
+    .s5-footer {
+      flex-shrink: 0;
+      padding: 14px 24px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 -4px 14px rgba(0,0,0,0.5);
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .s5-footer-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Right image pane — radial gradient depth */
+    .s5-image-pane {
+      flex: 1;
+      min-width: 0;
+      background:
+        radial-gradient(ellipse at center, #2a2d35 0%, #0d0e11 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+    .s5-image-pane img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    /* Image counter chip */
+    .s5-image-counter {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(4px);
+      border-radius: 20px;
+      padding: 4px 8px 4px 4px;
+    }
+    .s5-image-counter vaadin-button {
+      color: #fff;
+    }
+    .s5-image-counter span {
+      font-size: 12px;
+      color: #fff;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* Section dividers — shared with s6 */
+    .mgf-form-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .mgf-form-section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.36);
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .mgf-form-row {
+      display: flex;
+      gap: 12px;
+    }
+    .mgf-form-row > * {
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* ══════════════════════════════════════════════════════
+       STATE 6 — Full-width pinned header+image, scrollable form,
+       full-width pinned footer. All three bands sit directly
+       inside .resize-frame (no padding) so they are truly edge-
+       to-edge. The scrollable form lives in its own padded zone.
+    ══════════════════════════════════════════════════════ */
+
+    /* Override: State 6 frame-inner is not used — structure is
+       built directly in resize-frame with s6-* elements */
+    .s6-frame {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* ── Full-bleed header band ── */
+    .s6-header {
+      flex-shrink: 0;
+      padding: 20px 24px 16px;
+      background: var(--lumo-base-color, #fff);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+      position: relative;
+      z-index: 3;
+    }
+
+    /* ── Full-bleed image band ── */
+    .s6-image {
+      flex-shrink: 0;
+      background: #000;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+      position: relative;
+      z-index: 2;
+    }
+    .s6-image .mgf-preview-wrap {
+      border-radius: 0;
+      min-height: 0;
+      max-height: 340px;
+    }
+    .s6-image .mgf-preview-ratio {
+      min-height: 0;
+    }
+
+    /* Nav bar sits below the image inside the band */
+    .s6-image-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 12px;
+      background: rgba(0,0,0,0.50);
+      backdrop-filter: blur(4px);
+    }
+    .s6-image-nav-counter {
+      font-size: 12px;
+      color: #fff;
+      font-weight: 600;
+    }
+    .s6-image-nav-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    /* ── Scrollable form zone ── */
+    .s6-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 20px 24px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── Full-bleed footer band ── */
+    .s6-footer {
+      flex-shrink: 0;
+      padding: 14px 24px;
+      background: var(--lumo-base-color, #fff);
+      border-top: 1px solid var(--lumo-contrast-10pct);
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.10);
+      position: relative;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .s6-footer-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    /* ── Generating overlay ── */
+    .mgf-generating-overlay {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 48px 0;
+      color: var(--lumo-secondary-text-color);
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page-header">
+    <p class="eyebrow">Learning Studio — Component Work</p>
+    <h1>Media Gen Form — UI States</h1>
+  </div>
+
+  <div class="states-grid">
+
+    <!-- ══════════════════════════════════════════
+         STATE 1: Prompt
+    ══════════════════════════════════════════ -->
+    <div class="state-section">
+      <div class="state-label">
+        <span class="state-number">1</span>
+        Prompt — Initial state, user describes the image
+      </div>
+      <div class="frame-toolbar">
+        <label>
+          W <input type="number" class="w-input" value="560" min="300" step="10">
+        </label>
+        <label>
+          H <input type="number" class="h-input" placeholder="auto" min="120" step="10">
+        </label>
+        <button class="lock-btn">
+          <i class="fa-solid fa-lock-open"></i> Lock height
+        </button>
+        <span class="hint"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> Drag corner to resize</span>
+      </div>
+      <div class="resize-frame">
+        <div class="frame-inner">
+          <div class="mgf-content">
+            <div class="mgf-headline">
+              <i class="fa-solid fa-wand-magic-sparkles mgf-headline-icon"></i>
+              <div class="mgf-headline-text">
+                <h2>Describe the image you want to create</h2>
+              </div>
+            </div>
+            <div class="mgf-body">
+              <vaadin-text-area theme="outlined" label="Description" placeholder="Describe the visual style and aesthetic..." required style="width: 100%;"></vaadin-text-area>
+              <vaadin-select theme="outlined" label="Style" style="width: 100%;"></vaadin-select>
+            </div>
+            <div class="mgf-footer">
+              <div></div>
+              <div class="mgf-footer-actions">
+                <vaadin-button theme="secondary">Cancel</vaadin-button>
+                <vaadin-button theme="primary">Generate</vaadin-button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         STATE 1b: Prompt — Generating
+    ══════════════════════════════════════════ -->
+    <div class="state-section">
+      <div class="state-label">
+        <span class="state-number">1</span>
+        Prompt — Generating (loading state)
+      </div>
+      <div class="frame-toolbar">
+        <label>W <input type="number" class="w-input" value="560" min="300" step="10"></label>
+        <label>H <input type="number" class="h-input" placeholder="auto" min="120" step="10"></label>
+        <button class="lock-btn"><i class="fa-solid fa-lock-open"></i> Lock height</button>
+        <span class="hint"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> Drag corner to resize</span>
+      </div>
+      <div class="resize-frame">
+        <div class="frame-inner">
+          <div class="mgf-content">
+            <div class="mgf-headline">
+              <i class="fa-solid fa-wand-magic-sparkles mgf-headline-icon"></i>
+              <div class="mgf-headline-text">
+                <h2>Describe the image you want to create</h2>
+              </div>
+            </div>
+            <div class="mgf-body">
+              <vaadin-text-area theme="outlined" label="Description" value="A professional headshot of a person in a modern office" required style="width: 100%;"></vaadin-text-area>
+              <vaadin-select theme="outlined" label="Style" style="width: 100%;"></vaadin-select>
+            </div>
+            <div class="mgf-footer">
+              <div class="mgf-progress-wrapper">
+                <span class="mgf-progress-label">Generating Image...</span>
+                <vaadin-progress-bar indeterminate style="width: 100%;"></vaadin-progress-bar>
+              </div>
+              <div class="mgf-footer-actions">
+                <vaadin-button theme="secondary" disabled>Cancel</vaadin-button>
+                <vaadin-button theme="primary" disabled>Generate</vaadin-button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         STATE 2: Preview
+    ══════════════════════════════════════════ -->
+    <div class="state-section">
+      <div class="state-label">
+        <span class="state-number">2</span>
+        Preview — Image generated, user can confirm or edit
+      </div>
+      <div class="frame-toolbar">
+        <label>W <input type="number" class="w-input" value="560" min="300" step="10"></label>
+        <label>H <input type="number" class="h-input" placeholder="auto" min="120" step="10"></label>
+        <button class="lock-btn"><i class="fa-solid fa-lock-open"></i> Lock height</button>
+        <span class="hint"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> Drag corner to resize</span>
+      </div>
+      <div class="resize-frame">
+        <div class="frame-inner">
+          <div class="mgf-content">
+            <div class="mgf-headline">
+              <i class="fa-solid fa-wand-magic-sparkles mgf-headline-icon"></i>
+              <div class="mgf-headline-text">
+                <h2>Preview and Enhance</h2>
+                <p>Leverage AI to enhance your media</p>
+              </div>
+            </div>
+            <div class="mgf-body">
+              <div class="mgf-preview-selector">
+                <vaadin-button theme="icon" aria-label="Previous image"><i class="fa-solid fa-chevron-left"></i></vaadin-button>
+                <span>1 of 1</span>
+                <vaadin-button theme="icon" aria-label="Next image"><i class="fa-solid fa-chevron-right"></i></vaadin-button>
+              </div>
+              <div class="mgf-preview-wrap">
+                <div class="mgf-preview-ratio">
+                  <img src="https://picsum.photos/seed/mediaform/960/540" alt="Generated image preview">
+                </div>
+              </div>
+              <div class="mgf-secondary-headline">
+                <i class="fa-solid fa-wand-magic-sparkles mgf-secondary-headline-icon"></i>
+                <h3>Describe how you want to edit this image</h3>
+                <vaadin-button theme="secondary">Generate Changes</vaadin-button>
+              </div>
+              <vaadin-text-area theme="outlined" label="Description" placeholder="Describe your changes..." style="width: 100%;"></vaadin-text-area>
+            </div>
+            <div class="mgf-footer">
+              <vaadin-button theme="secondary">Back</vaadin-button>
+              <div class="mgf-footer-actions">
+                <vaadin-button theme="secondary">Cancel</vaadin-button>
+                <vaadin-button theme="secondary">
+                  <i class="fa-solid fa-wand-magic-sparkles" slot="prefix" style="color: var(--lumo-primary-color);"></i>
+                  Animate Image
+                </vaadin-button>
+                <vaadin-button theme="primary">Confirm</vaadin-button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         STATE 2b: Preview — Regenerating
+    ══════════════════════════════════════════ -->
+    <div class="state-section">
+      <div class="state-label">
+        <span class="state-number">2</span>
+        Preview — Regenerating (loading state)
+      </div>
+      <div class="frame-toolbar">
+        <label>W <input type="number" class="w-input" value="560" min="300" step="10"></label>
+        <label>H <input type="number" class="h-input" placeholder="auto" min="120" step="10"></label>
+        <button class="lock-btn"><i class="fa-solid fa-lock-open"></i> Lock height</button>
+        <span class="hint"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> Drag corner to resize</span>
+      </div>
+      <div class="resize-frame">
+        <div class="frame-inner">
+          <div class="mgf-content">
+            <div class="mgf-headline">
+              <i class="fa-solid fa-wand-magic-sparkles mgf-headline-icon"></i>
+              <div class="mgf-headline-text">
+                <h2>Preview and Enhance</h2>
+                <p>Leverage AI to enhance your media</p>
+              </div>
+            </div>
+            <div class="mgf-body">
+              <div class="mgf-preview-selector">
+                <vaadin-button theme="icon" aria-label="Previous image" disabled><i class="fa-solid fa-chevron-left"></i></vaadin-button>
+                <span>1 of 1</span>
+                <vaadin-button theme="icon" aria-label="Next image" disabled><i class="fa-solid fa-chevron-right"></i></vaadin-button>
+              </div>
+              <div class="mgf-generating-overlay">
+                <vaadin-progress-bar indeterminate style="width: 100%; max-width: 240px;"></vaadin-progress-bar>
+                <span>Generating Image...</span>
+              </div>
+              <div class="mgf-secondary-headline">
+                <i class="fa-solid fa-wand-magic-sparkles mgf-secondary-headline-icon"></i>
+                <h3>Describe how you want to edit this image</h3>
+                <vaadin-button theme="secondary" disabled>Generate Changes</vaadin-button>
+              </div>
+              <vaadin-text-area theme="outlined" label="Description" value="Make the background a modern city skyline" style="width: 100%;"></vaadin-text-area>
+            </div>
+            <div class="mgf-footer">
+              <vaadin-button theme="secondary" disabled>Back</vaadin-button>
+              <div class="mgf-footer-actions">
+                <vaadin-button theme="secondary" disabled>Cancel</vaadin-button>
+                <vaadin-button theme="secondary" disabled>
+                  <i class="fa-solid fa-wand-magic-sparkles" slot="prefix" style="color: var(--lumo-primary-color);"></i>
+                  Animate Image
+                </vaadin-button>
+                <vaadin-button theme="primary" disabled>Confirm</vaadin-button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         STATE 3: Animate
+    ══════════════════════════════════════════ -->
+    <div class="state-section">
+      <div class="state-label">
+        <span class="state-number">3</span>
+        Animate — User describes how to animate the image
+      </div>
+      <div class="frame-toolbar">
+        <label>W <input type="number" class="w-input" value="560" min="300" step="10"></label>
+        <label>H <input type="number" class="h-input" placeholder="auto" min="120" step="10"></label>
+        <button class="lock-btn"><i class="fa-solid fa-lock-open"></i> Lock height</button>
+        <span class="hint"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> Drag corner to resize</span>
+      </div>
+      <div class="resize-frame">
+        <div class="frame-inner">
+          <div class="mgf-content">
+            <div class="mgf-headline">
+              <i class="fa-solid fa-wand-magic-sparkles mgf-headline-icon"></i>
+              <div class="mgf-headline-text">
+                <h2>Animate</h2>
+                <p>Generate short form videos from your existing images</p>
+              </div>
+            </div>
+            <div class="mgf-body">
+              <div class="mgf-preview-wrap">
+                <div class="mgf-preview-ratio">
+                  <img src="https://picsum.photos/seed/mediaform/960/540" alt="Source image">
+                </div>
+              </div>
+              <div class="mgf-secondary-headline">
+                <i class="fa-solid fa-wand-magic-sparkles mgf-secondary-headline-icon"></i>
+                <h3>Describe how you want to animate this image</h3>
+                <vaadin-button theme="secondary">Generate Animation</vaadin-button>
+              </div>
+              <div class="mgf-warning-badge">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                Include only animation details in prompt. To make changes to the image, select 'Edit Original Image' below.
+              </div>
+              <vaadin-text-area theme="outlined" label="Description" placeholder="Describe your animation..." style="width: 100%;"></vaadin-text-area>
+            </div>
+            <div class="mgf-footer">
+              <div></div>
+              <div class="mgf-footer-actions">
+                <vaadin-button theme="secondary">Cancel</vaadin-button>
+                <vaadin-button theme="secondary">Edit Original Image</vaadin-button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         STATE 3b: Animate — Generating
+    ══════════════════════════════════════════ -->
+    <div class="state-section">
+      <div class="state-label">
+        <span class="state-number">3</span>
+        Animate — Generating animation (loading state)
+      </div>
+      <div class="frame-toolbar">
+        <label>W <input type="number" class="w-input" value="560" min="300" step="10"></label>
+        <label>H <input type="number" class="h-input" placeholder="auto" min="120" step="10"></label>
+        <button class="lock-btn"><i class="fa-solid fa-lock-open"></i> Lock height</button>
+        <span class="hint"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> Drag corner to resize</span>
+      </div>
+      <div class="resize-frame">
+        <div class="frame-inner">
+          <div class="mgf-content">
+            <div class="mgf-headline">
+              <i class="fa-solid fa-wand-magic-sparkles mgf-headline-icon"></i>
+              <div class="mgf-headline-text">
+                <h2>Animate</h2>
+                <p>Generate short form videos from your existing images</p>
+              </div>
+            </div>
+            <div class="mgf-body">
+              <div class="mgf-preview-wrap">
+                <div class="mgf-preview-ratio">
+                  <img src="https://picsum.photos/seed/mediaform/960/540" alt="Source image">
+                </div>
+              </div>
+              <div class="mgf-secondary-headline">
+                <i class="fa-solid fa-wand-magic-sparkles mgf-secondary-headline-icon"></i>
+                <h3>Describe how you want to animate this image</h3>
+                <vaadin-button theme="secondary" disabled>Generate Animation</vaadin-button>
+              </div>
+              <div class="mgf-warning-badge">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                Include only animation details in prompt. To make changes to the image, select 'Edit Original Image' below.
+              </div>
+              <vaadin-text-area theme="outlined" label="Description" value="Slowly zoom into the center of the image" style="width: 100%;"></vaadin-text-area>
+            </div>
+            <div class="mgf-footer">
+              <div class="mgf-progress-wrapper">
+                <span class="mgf-progress-label">Generating Animation...</span>
+                <vaadin-progress-bar indeterminate style="width: 100%;"></vaadin-progress-bar>
+              </div>
+              <div class="mgf-footer-actions">
+                <vaadin-button theme="secondary" disabled>Cancel</vaadin-button>
+                <vaadin-button theme="secondary" disabled>Edit Original Image</vaadin-button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         STATE 4: Animation Preview
+    ══════════════════════════════════════════ -->
+    <div class="state-section">
+      <div class="state-label">
+        <span class="state-number">4</span>
+        Animation Preview — Review generated animation
+      </div>
+      <div class="frame-toolbar">
+        <label>W <input type="number" class="w-input" value="560" min="300" step="10"></label>
+        <label>H <input type="number" class="h-input" placeholder="auto" min="120" step="10"></label>
+        <button class="lock-btn"><i class="fa-solid fa-lock-open"></i> Lock height</button>
+        <span class="hint"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> Drag corner to resize</span>
+      </div>
+      <div class="resize-frame">
+        <div class="frame-inner">
+          <div class="mgf-content">
+            <div class="mgf-headline">
+              <i class="fa-solid fa-wand-magic-sparkles mgf-headline-icon"></i>
+              <div class="mgf-headline-text">
+                <h2>Preview</h2>
+                <p>Preview your animated video content</p>
+              </div>
+            </div>
+            <div class="mgf-body">
+              <div class="mgf-preview-selector">
+                <vaadin-button theme="icon" aria-label="Previous animation"><i class="fa-solid fa-chevron-left"></i></vaadin-button>
+                <span>1 of 1</span>
+                <vaadin-button theme="icon" aria-label="Next animation"><i class="fa-solid fa-chevron-right"></i></vaadin-button>
+              </div>
+              <div class="mgf-preview-wrap">
+                <div class="mgf-preview-ratio">
+                  <img src="https://picsum.photos/seed/mediaform/960/540" alt="Generated animation preview">
+                </div>
+              </div>
+              <div class="mgf-preview-info">
+                <span class="mgf-preview-info-icon"><i class="fa-solid fa-info"></i></span>
+                Not quite what you were expecting? Select 'New Animation' below to prompt a new animation.
+              </div>
+            </div>
+            <div class="mgf-footer">
+              <div></div>
+              <div class="mgf-footer-actions">
+                <vaadin-button theme="secondary">Cancel</vaadin-button>
+                <vaadin-button theme="secondary">New Animation</vaadin-button>
+                <vaadin-button theme="primary">Confirm</vaadin-button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         STATE 5: Pinned preview + long-form inputs
+    ══════════════════════════════════════════ -->
+    <div class="state-section">
+      <div class="state-label">
+        <span class="state-number">5</span>
+        Advanced Edit — Pinned image with scrollable parameter form
+      </div>
+      <div class="frame-toolbar">
+        <label>W <input type="number" class="w-input" value="800" min="300" step="10"></label>
+        <label>H <input type="number" class="h-input" value="600" min="120" step="10"></label>
+        <button class="lock-btn is-locked"><i class="fa-solid fa-lock"></i> Unlock height</button>
+        <span class="hint"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> Drag corner to resize</span>
+      </div>
+      <div class="resize-frame" style="width: 800px; height: 600px;">
+        <div class="s5-frame">
+
+          <!-- Full-width header -->
+          <div class="s5-header">
+            <div class="mgf-headline">
+              <i class="fa-solid fa-wand-magic-sparkles mgf-headline-icon"></i>
+              <div class="mgf-headline-text">
+                <h2>Refine Your Image</h2>
+                <p>Adjust parameters to guide the next generation</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Two-column split -->
+          <div class="s5-layout">
+
+            <!-- Left: scrollable form -->
+            <div class="s5-sidebar">
+              <div class="s5-sidebar-scroll">
+
+                <div class="mgf-form-section">
+                  <div class="mgf-form-section-label">Subject</div>
+                  <vaadin-text-area theme="outlined" label="Subject description" value="A professional headshot of a person in their late 30s" style="width: 100%;"></vaadin-text-area>
+                  <div class="mgf-form-row">
+                    <vaadin-select theme="outlined" label="Gender presentation" style="width: 100%;"></vaadin-select>
+                    <vaadin-select theme="outlined" label="Age range" style="width: 100%;"></vaadin-select>
+                  </div>
+                  <vaadin-text-field theme="outlined" label="Clothing description" value="Dark navy blazer, white shirt" style="width: 100%;"></vaadin-text-field>
+                </div>
+
+                <div class="mgf-form-section">
+                  <div class="mgf-form-section-label">Setting &amp; Composition</div>
+                  <vaadin-select theme="outlined" label="Background" style="width: 100%;"></vaadin-select>
+                  <div class="mgf-form-row">
+                    <vaadin-select theme="outlined" label="Shot type" style="width: 100%;"></vaadin-select>
+                    <vaadin-select theme="outlined" label="Camera angle" style="width: 100%;"></vaadin-select>
+                  </div>
+                  <vaadin-text-field theme="outlined" label="Background detail" placeholder="e.g. blurred bookshelf, city skyline..." style="width: 100%;"></vaadin-text-field>
+                </div>
+
+                <div class="mgf-form-section">
+                  <div class="mgf-form-section-label">Lighting &amp; Mood</div>
+                  <div class="mgf-form-row">
+                    <vaadin-select theme="outlined" label="Lighting style" style="width: 100%;"></vaadin-select>
+                    <vaadin-select theme="outlined" label="Color temperature" style="width: 100%;"></vaadin-select>
+                  </div>
+                  <vaadin-select theme="outlined" label="Overall mood" style="width: 100%;"></vaadin-select>
+                </div>
+
+                <div class="mgf-form-section">
+                  <div class="mgf-form-section-label">Style &amp; Rendering</div>
+                  <div class="mgf-form-row">
+                    <vaadin-select theme="outlined" label="Visual style" style="width: 100%;"></vaadin-select>
+                    <vaadin-select theme="outlined" label="Detail level" style="width: 100%;"></vaadin-select>
+                  </div>
+                  <vaadin-checkbox-group label="Enhancements" theme="vertical">
+                    <vaadin-checkbox value="skin" label="Skin smoothing"></vaadin-checkbox>
+                    <vaadin-checkbox value="background" label="Background blur"></vaadin-checkbox>
+                    <vaadin-checkbox value="eyes" label="Eye enhancement"></vaadin-checkbox>
+                    <vaadin-checkbox value="color" label="Color grading"></vaadin-checkbox>
+                  </vaadin-checkbox-group>
+                </div>
+
+                <div class="mgf-form-section">
+                  <div class="mgf-form-section-label">Additional instructions</div>
+                  <vaadin-text-area theme="outlined" label="Free-form notes" placeholder="Any other specific details or adjustments..." style="width: 100%;"></vaadin-text-area>
+                </div>
+
+              </div><!-- /s5-sidebar-scroll -->
+            </div><!-- /s5-sidebar -->
+
+            <!-- Right: image pane -->
+            <div class="s5-image-pane">
+              <img src="https://picsum.photos/seed/mediaform/960/540" alt="Current image">
+              <div class="s5-image-counter">
+                <vaadin-button theme="icon tertiary" aria-label="Previous image">
+                  <i class="fa-solid fa-chevron-left" style="color:#fff;"></i>
+                </vaadin-button>
+                <span>1 of 3</span>
+                <vaadin-button theme="icon tertiary" aria-label="Next image">
+                  <i class="fa-solid fa-chevron-right" style="color:#fff;"></i>
+                </vaadin-button>
+              </div>
+            </div>
+
+          </div><!-- /s5-layout -->
+
+          <!-- Full-width footer -->
+          <div class="s5-footer">
+            <vaadin-button theme="secondary">Back</vaadin-button>
+            <div class="s5-footer-actions">
+              <vaadin-button theme="secondary">Cancel</vaadin-button>
+              <vaadin-button theme="primary">
+                <i class="fa-solid fa-wand-magic-sparkles" slot="prefix"></i>
+                Generate
+              </vaadin-button>
+            </div>
+          </div>
+
+        </div><!-- /s5-frame -->
+      </div><!-- /resize-frame -->
+    </div><!-- /state-section -->
+
+    <!-- ══════════════════════════════════════════
+         STATE 5b: Dark split — basic prompt (no parameters)
+    ══════════════════════════════════════════ -->
+    <div class="state-section">
+      <div class="state-label">
+        <span class="state-number">5</span>
+        Dark Split — Basic prompt, image right
+      </div>
+      <div class="frame-toolbar">
+        <label>W <input type="number" class="w-input" value="800" min="300" step="10"></label>
+        <label>H <input type="number" class="h-input" value="500" min="120" step="10"></label>
+        <button class="lock-btn is-locked"><i class="fa-solid fa-lock"></i> Unlock height</button>
+        <span class="hint"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> Drag corner to resize</span>
+      </div>
+      <div class="resize-frame" style="width: 800px; height: 500px;">
+        <div class="s5-frame">
+
+          <!-- Full-width header -->
+          <div class="s5-header">
+            <div class="mgf-headline">
+              <i class="fa-solid fa-wand-magic-sparkles mgf-headline-icon"></i>
+              <div class="mgf-headline-text">
+                <h2>Describe the image you want to create</h2>
+                <p>Generate a new image using AI</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Two-column split -->
+          <div class="s5-layout">
+
+            <!-- Left: prompt only -->
+            <div class="s5-sidebar">
+              <div class="s5-sidebar-scroll">
+
+                <div class="mgf-form-section">
+                  <vaadin-text-area
+                    theme="outlined"
+                    label="Description"
+                    placeholder="Describe the visual style, subject, setting, and mood..."
+                    style="width: 100%; min-height: 160px;"
+                  ></vaadin-text-area>
+                  <vaadin-select theme="outlined" label="Style" style="width: 100%;"></vaadin-select>
+                </div>
+
+              </div><!-- /s5-sidebar-scroll -->
+            </div><!-- /s5-sidebar -->
+
+            <!-- Right: image pane -->
+            <div class="s5-image-pane">
+              <img src="https://picsum.photos/seed/mediaform/960/540" alt="Generated image preview">
+              <div class="s5-image-counter">
+                <vaadin-button theme="icon tertiary" aria-label="Previous image">
+                  <i class="fa-solid fa-chevron-left" style="color:#fff;"></i>
+                </vaadin-button>
+                <span>1 of 1</span>
+                <vaadin-button theme="icon tertiary" aria-label="Next image">
+                  <i class="fa-solid fa-chevron-right" style="color:#fff;"></i>
+                </vaadin-button>
+              </div>
+            </div>
+
+          </div><!-- /s5-layout -->
+
+          <!-- Full-width footer -->
+          <div class="s5-footer">
+            <vaadin-button theme="secondary">Cancel</vaadin-button>
+            <div class="s5-footer-actions">
+              <vaadin-button theme="primary">
+                <i class="fa-solid fa-wand-magic-sparkles" slot="prefix"></i>
+                Generate
+              </vaadin-button>
+            </div>
+          </div>
+
+        </div><!-- /s5-frame -->
+      </div><!-- /resize-frame -->
+    </div><!-- /state-section -->
+
+    <!-- ══════════════════════════════════════════
+         STATE 6: Full-width pinned image, scrollable form below
+    ══════════════════════════════════════════ -->
+    <div class="state-section">
+      <div class="state-label">
+        <span class="state-number">6</span>
+        Advanced Edit — Full-width pinned image, form scrolls below
+      </div>
+      <div class="frame-toolbar">
+        <label>W <input type="number" class="w-input" value="560" min="300" step="10"></label>
+        <label>H <input type="number" class="h-input" value="640" min="120" step="10"></label>
+        <button class="lock-btn is-locked"><i class="fa-solid fa-lock"></i> Unlock height</button>
+        <span class="hint"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> Drag corner to resize</span>
+      </div>
+      <div class="resize-frame" style="height: 640px;">
+        <div class="s6-frame">
+
+          <!-- Full-bleed header band -->
+          <div class="s6-header">
+            <div class="mgf-headline">
+              <i class="fa-solid fa-wand-magic-sparkles mgf-headline-icon"></i>
+              <div class="mgf-headline-text">
+                <h2>Refine Your Image</h2>
+                <p>Adjust parameters to guide the next generation</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Full-bleed image band -->
+          <div class="s6-image">
+            <div class="mgf-preview-wrap">
+              <div class="mgf-preview-ratio">
+                <img src="https://picsum.photos/seed/mediaform/960/540" alt="Current image">
+              </div>
+            </div>
+            <div class="s6-image-nav">
+              <vaadin-button theme="icon tertiary" aria-label="Previous image">
+                <i class="fa-solid fa-chevron-left" style="color:#fff;"></i>
+              </vaadin-button>
+              <span class="s6-image-nav-counter">Image 1 of 3</span>
+              <div class="s6-image-nav-actions">
+                <vaadin-button theme="icon tertiary" aria-label="Next image">
+                  <i class="fa-solid fa-chevron-right" style="color:#fff;"></i>
+                </vaadin-button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Scrollable form -->
+          <div class="s6-scroll">
+
+            <div class="mgf-form-section">
+              <div class="mgf-form-section-label">Subject</div>
+              <vaadin-text-area theme="outlined" label="Subject description" value="A professional headshot of a person in their late 30s" style="width: 100%;"></vaadin-text-area>
+              <div class="mgf-form-row">
+                <vaadin-select theme="outlined" label="Gender presentation" style="width: 100%;"></vaadin-select>
+                <vaadin-select theme="outlined" label="Age range" style="width: 100%;"></vaadin-select>
+              </div>
+              <vaadin-text-field theme="outlined" label="Clothing description" value="Dark navy blazer, white shirt" style="width: 100%;"></vaadin-text-field>
+            </div>
+
+            <div class="mgf-form-section">
+              <div class="mgf-form-section-label">Setting &amp; Composition</div>
+              <vaadin-select theme="outlined" label="Background" style="width: 100%;"></vaadin-select>
+              <div class="mgf-form-row">
+                <vaadin-select theme="outlined" label="Shot type" style="width: 100%;"></vaadin-select>
+                <vaadin-select theme="outlined" label="Camera angle" style="width: 100%;"></vaadin-select>
+              </div>
+              <vaadin-text-field theme="outlined" label="Background detail" placeholder="e.g. blurred bookshelf, city skyline..." style="width: 100%;"></vaadin-text-field>
+            </div>
+
+            <div class="mgf-form-section">
+              <div class="mgf-form-section-label">Lighting &amp; Mood</div>
+              <div class="mgf-form-row">
+                <vaadin-select theme="outlined" label="Lighting style" style="width: 100%;"></vaadin-select>
+                <vaadin-select theme="outlined" label="Color temperature" style="width: 100%;"></vaadin-select>
+              </div>
+              <vaadin-select theme="outlined" label="Overall mood" style="width: 100%;"></vaadin-select>
+            </div>
+
+            <div class="mgf-form-section">
+              <div class="mgf-form-section-label">Style &amp; Rendering</div>
+              <div class="mgf-form-row">
+                <vaadin-select theme="outlined" label="Visual style" style="width: 100%;"></vaadin-select>
+                <vaadin-select theme="outlined" label="Detail level" style="width: 100%;"></vaadin-select>
+              </div>
+              <vaadin-checkbox-group label="Enhancements" theme="vertical">
+                <vaadin-checkbox value="skin" label="Skin smoothing"></vaadin-checkbox>
+                <vaadin-checkbox value="background" label="Background blur"></vaadin-checkbox>
+                <vaadin-checkbox value="eyes" label="Eye enhancement"></vaadin-checkbox>
+                <vaadin-checkbox value="color" label="Color grading"></vaadin-checkbox>
+              </vaadin-checkbox-group>
+            </div>
+
+            <div class="mgf-form-section">
+              <div class="mgf-form-section-label">Additional instructions</div>
+              <vaadin-text-area theme="outlined" label="Free-form notes" placeholder="Any other specific details or adjustments..." style="width: 100%;"></vaadin-text-area>
+            </div>
+
+          </div><!-- /s6-scroll -->
+
+          <!-- Full-bleed footer band -->
+          <div class="s6-footer">
+            <vaadin-button theme="secondary">Back</vaadin-button>
+            <div class="s6-footer-actions">
+              <vaadin-button theme="secondary">Cancel</vaadin-button>
+              <vaadin-button theme="primary">
+                <i class="fa-solid fa-wand-magic-sparkles" slot="prefix"></i>
+                Generate
+              </vaadin-button>
+            </div>
+          </div>
+
+        </div><!-- /s6-frame -->
+      </div><!-- /resize-frame -->
+    </div><!-- /state-section -->
+
+  </div><!-- /states-grid -->
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+      // Populate all selects
+      // State 5 selects
+      const selectMap = {
+        'Style': [
+          { label: '--none--',     value: '0' },
+          { label: 'Professional', value: '1' },
+          { label: 'Cartoon',      value: '2' },
+          { label: 'Realistic',    value: '3' },
+        ],
+        'Gender presentation': [
+          { label: 'Not specified', value: '' },
+          { label: 'Feminine', value: 'feminine' },
+          { label: 'Masculine', value: 'masculine' },
+          { label: 'Neutral', value: 'neutral' },
+        ],
+        'Age range': [
+          { label: 'Not specified', value: '' },
+          { label: '20s', value: '20s' },
+          { label: '30s', value: '30s' },
+          { label: '40s', value: '40s' },
+          { label: '50s+', value: '50s' },
+        ],
+        'Background': [
+          { label: 'Office interior', value: 'office' },
+          { label: 'Studio (plain)', value: 'studio' },
+          { label: 'Outdoor', value: 'outdoor' },
+          { label: 'Abstract / gradient', value: 'abstract' },
+        ],
+        'Shot type': [
+          { label: 'Headshot', value: 'headshot' },
+          { label: 'Upper body', value: 'upper' },
+          { label: 'Three-quarter', value: 'threequarter' },
+          { label: 'Full body', value: 'fullbody' },
+        ],
+        'Camera angle': [
+          { label: 'Eye level', value: 'eyelevel' },
+          { label: 'Slightly above', value: 'above' },
+          { label: 'Slightly below', value: 'below' },
+        ],
+        'Lighting style': [
+          { label: 'Natural', value: 'natural' },
+          { label: 'Studio soft box', value: 'softbox' },
+          { label: 'Rembrandt', value: 'rembrandt' },
+          { label: 'Ring light', value: 'ring' },
+        ],
+        'Color temperature': [
+          { label: 'Neutral', value: 'neutral' },
+          { label: 'Warm', value: 'warm' },
+          { label: 'Cool', value: 'cool' },
+        ],
+        'Overall mood': [
+          { label: 'Confident & approachable', value: 'confident' },
+          { label: 'Formal & authoritative', value: 'formal' },
+          { label: 'Relaxed & friendly', value: 'relaxed' },
+          { label: 'Creative & dynamic', value: 'creative' },
+        ],
+        'Visual style': [
+          { label: 'Photorealistic', value: 'photo' },
+          { label: 'Editorial', value: 'editorial' },
+          { label: 'Illustrated', value: 'illustrated' },
+        ],
+        'Detail level': [
+          { label: 'Standard', value: 'standard' },
+          { label: 'High detail', value: 'high' },
+          { label: 'Maximum', value: 'max' },
+        ],
+      };
+      document.querySelectorAll('vaadin-select').forEach(sel => {
+        const key = sel.getAttribute('label');
+        if (selectMap[key]) {
+          sel.items = selectMap[key];
+          sel.value = selectMap[key][0].value;
+        }
+      });
+
+      // Wire up each state section's toolbar
+      document.querySelectorAll('.state-section').forEach(section => {
+        const frame   = section.querySelector('.resize-frame');
+        const wInput  = section.querySelector('.w-input');
+        const hInput  = section.querySelector('.h-input');
+        const lockBtn = section.querySelector('.lock-btn');
+        let locked = lockBtn.classList.contains('is-locked');
+
+        function applyWidth(val) {
+          const w = parseInt(val, 10);
+          if (!isNaN(w) && w >= 300) frame.style.width = w + 'px';
+        }
+
+        function applyHeight(val) {
+          const h = parseInt(val, 10);
+          if (!isNaN(h) && h >= 120) frame.style.height = h + 'px';
+        }
+
+        function unlock() {
+          locked = false;
+          frame.style.height = '';
+          lockBtn.classList.remove('is-locked');
+          lockBtn.innerHTML = '<i class="fa-solid fa-lock-open"></i> Lock height';
+        }
+
+        wInput.addEventListener('change', () => applyWidth(wInput.value));
+        wInput.addEventListener('keydown', e => { if (e.key === 'Enter') applyWidth(wInput.value); });
+
+        hInput.addEventListener('change', () => { if (locked) applyHeight(hInput.value); });
+        hInput.addEventListener('keydown', e => { if (e.key === 'Enter' && locked) applyHeight(hInput.value); });
+
+        lockBtn.addEventListener('click', () => {
+          if (locked) {
+            unlock();
+          } else {
+            if (!hInput.value) {
+              hInput.value = Math.round(frame.getBoundingClientRect().height);
+            }
+            locked = true;
+            lockBtn.classList.add('is-locked');
+            lockBtn.innerHTML = '<i class="fa-solid fa-lock"></i> Unlock height';
+            applyHeight(hInput.value);
+          }
+        });
+
+        // Sync inputs when frame is drag-resized
+        const ro = new ResizeObserver(entries => {
+          for (const entry of entries) {
+            wInput.value = Math.round(entry.borderBoxSize[0].inlineSize);
+            if (locked) hInput.value = Math.round(entry.borderBoxSize[0].blockSize);
+          }
+        });
+        ro.observe(frame);
+      });
+    });
+  </script>
+
+</body>
+</html>
