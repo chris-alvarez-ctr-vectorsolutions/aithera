@@ -69,14 +69,22 @@ for lineno, line in enumerate(lines, start=1):
     stripped = line.strip()
 
     if re.match(r'<style[\s>]', stripped, re.IGNORECASE):
+        # Single-line <style ...></style> — don't enter style mode
+        if re.search(r'</style>', stripped, re.IGNORECASE):
+            output.append(line)
+            continue
         in_style = True
     if re.match(r'</style>', stripped, re.IGNORECASE):
         in_style = False
     if re.match(r'<script[\s>]', stripped, re.IGNORECASE):
+        # Single-line <script ...></script> — don't enter script mode
+        if re.search(r'</script>', stripped, re.IGNORECASE):
+            output.append(line)
+            continue
         in_script = True
         output.append(line)
         continue
-    if re.match(r'</script>', stripped, re.IGNORECASE):
+    if re.search(r'</script>', stripped, re.IGNORECASE):
         in_script = False
         output.append(line)
         continue
