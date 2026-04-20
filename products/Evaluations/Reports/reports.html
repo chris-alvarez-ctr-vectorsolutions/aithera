@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ratings by Question Over Time — EV+ Reports</title>
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Open Sans', sans-serif;
+            font-size: 14px;
+            color: var(--lumo-body-text-color);
+            background: #ffffff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── Top Nav ── */
+        vwc-topnav {
+            flex-shrink: 0;
+            z-index: 100;
+        }
+
+        /* ── App Shell ── */
+        .app-shell {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ── Report Nav (left accordion list) ── */
+        .report-nav {
+            width: 220px;
+            flex-shrink: 0;
+            background: #ffffff;
+            border-right: 1px solid #e5e7eb;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .report-nav-group {
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .report-nav-group-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            cursor: pointer;
+            user-select: none;
+            border-left: 3px solid transparent;
+        }
+
+        .report-nav-group-header:hover {
+            background: #f3f4f6;
+        }
+
+        .report-nav-group-header .chevron {
+            font-size: 10px;
+            color: #6b7280;
+            transition: transform 0.15s;
+        }
+
+        .report-nav-group-header.open .chevron {
+            transform: rotate(90deg);
+        }
+
+        .report-nav-group-header .count {
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 400;
+        }
+
+        .report-nav-items {
+            display: none;
+        }
+
+        .report-nav-items.open {
+            display: block;
+        }
+
+        .report-nav-item {
+            padding: 7px 12px 7px 24px;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+        }
+
+        .report-nav-item:hover {
+            background: #f3f4f6;
+        }
+
+        .report-nav-item.active {
+            background: #eff6ff;
+            border-left-color: var(--lumo-primary-color, #1a56db);
+        }
+
+        .report-nav-item .item-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #111827;
+            line-height: 1.3;
+        }
+
+        .report-nav-item.active .item-name {
+            color: var(--lumo-primary-color, #1a56db);
+        }
+
+        .report-nav-item .item-desc {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 2px;
+            line-height: 1.3;
+        }
+
+        /* ── Main Content ── */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── Report Header ── */
+        .report-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            flex-shrink: 0;
+        }
+
+        .report-header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .report-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ── Filter Bar (horizontal, below header) ── */
+        .filter-bar {
+            background: #ffffff;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 10px 20px 8px;
+            flex-shrink: 0;
+        }
+
+        .filter-bar-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 140px;
+        }
+
+        .filter-group-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .filter-select-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .filter-select {
+            appearance: none;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            padding: 5px 28px 5px 10px;
+            font-size: 13px;
+            font-family: inherit;
+            color: #111827;
+            background: white;
+            cursor: pointer;
+            min-width: 140px;
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: var(--lumo-primary-color, #1a56db);
+            box-shadow: 0 0 0 2px rgba(26, 86, 219, 0.15);
+        }
+
+        .filter-select-wrapper::after {
+            content: '';
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 5px solid #6b7280;
+            pointer-events: none;
+        }
+
+        /* Users filter with tag chip */
+        .filter-users-control {
+            display: flex;
+            align-items: center;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            padding: 3px 6px;
+            background: white;
+            gap: 6px;
+            min-width: 180px;
+        }
+
+        .filter-tag-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #dbeafe;
+            color: #1d4ed8;
+            font-size: 12px;
+            border-radius: 3px;
+            padding: 2px 6px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .filter-tag-chip .remove {
+            cursor: pointer;
+            font-size: 11px;
+            opacity: 0.7;
+            line-height: 1;
+        }
+
+        .filter-tag-chip .remove:hover { opacity: 1; }
+
+        .filter-users-chevron {
+            margin-left: auto;
+            color: #6b7280;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        .filter-date-sub {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+
+        .filter-checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding-top: 4px;
+        }
+
+        .filter-checkbox-row input[type="checkbox"] {
+            accent-color: var(--lumo-primary-color, #1a56db);
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+        }
+
+        .filter-checkbox-row label {
+            font-size: 13px;
+            color: #374151;
+            cursor: pointer;
+        }
+
+        /* ── Report Body ── */
+        .report-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+            background: #ffffff;
+        }
+
+        .report-meta {
+            font-size: 12px;
+            color: #6b7280;
+            text-align: right;
+            margin-bottom: 12px;
+            font-style: italic;
+        }
+
+        /* ── Visualization Card ── */
+        .viz-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #ffffff;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .viz-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px 10px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .viz-card-title-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .viz-card-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .date-range-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #eff6ff;
+            color: #2563eb;
+            font-size: 12px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            width: fit-content;
+        }
+
+        .viz-card-body {
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        /* ── User section ── */
+        .user-section {
+            margin-bottom: 28px;
+        }
+
+        .viz-user-heading {
+            font-size: 15px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 16px;
+            /* aligned over the cells column, not the label column */
+            text-align: left;
+            padding-left: 0;
+        }
+
+        /* ── Heatmap grid ── */
+        .heatmap-section {
+            margin-bottom: 20px;
+        }
+
+        /* Wrapper scrolls horizontally if content is wider than the card */
+        .heatmap-table-wrap {
+            overflow-x: auto;
+        }
+
+        .heatmap-table {
+            border-collapse: collapse;
+            /* Natural width — do NOT set width: 100% here */
+        }
+
+        .heatmap-table td,
+        .heatmap-table th {
+            padding: 0;
+        }
+
+        /* Label column: fixed min-width so the table has a defined left region */
+        .heatmap-row-label {
+            text-align: right;
+            padding-right: 14px;
+            font-size: 13px;
+            color: #374151;
+            vertical-align: middle;
+            white-space: nowrap;
+            min-width: 340px;
+        }
+
+        /* Header spacer matches the label column */
+        .heatmap-label-spacer {
+            min-width: 340px;
+        }
+
+        /* Each data column is fixed width */
+        .heatmap-col {
+            width: 44px;
+        }
+
+        .heatmap-cell {
+            width: 44px;
+            height: 40px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .heatmap-cell.distinguished  { background: #16a34a; }
+        .heatmap-cell.proficient     { background: #4ade80; }
+        .heatmap-cell.basic          { background: #fde047; }
+        .heatmap-cell.unsatisfactory { background: #fca5a5; }
+        .heatmap-cell.not-observed   { background: #fca5a5; }
+        .heatmap-cell.observed       { background: #16a34a; }
+        .heatmap-cell.no-data        { background: #f3f4f6; }
+
+        .heatmap-date-header {
+            width: 44px;
+            font-size: 11px;
+            color: #6b7280;
+            text-align: left;
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            padding: 4px 12px 4px 0;
+            height: 100px;
+            vertical-align: bottom;
+            white-space: nowrap;
+            font-weight: 400;
+        }
+
+        /* ── Heatmap legend ── */
+        .heatmap-legend {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: #374151;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .legend-dot.distinguished { background: #16a34a; }
+        .legend-dot.proficient    { background: #4ade80; }
+        .legend-dot.basic         { background: #fde047; }
+        .legend-dot.unsatisfactory{ background: #fca5a5; }
+        .legend-dot.not-observed  { background: #fca5a5; }
+        .legend-dot.observed      { background: #16a34a; }
+        .legend-dot.no-data       { background: #d1d5db; }
+
+        .heatmap-section-divider {
+            border: none;
+            border-top: 1px solid #e5e7eb;
+            margin: 20px 0;
+        }
+
+        /* ── Export / Generate bar at top right of header ── */
+        vaadin-button + vaadin-button {
+            margin-left: 4px;
+        }
+
+        /* ── Filter icon button ── */
+        .icon-btn {
+            background: none;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            width: 30px;
+            height: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #374151;
+            font-size: 13px;
+            position: relative;
+        }
+        .icon-btn:hover { background: #f3f4f6; }
+        .icon-btn.active {
+            border-color: var(--lumo-primary-color, #1a56db);
+            color: var(--lumo-primary-color, #1a56db);
+            background: #eff6ff;
+        }
+
+        /* Badge on filter button showing count of active advanced filters */
+        .icon-btn .filter-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: var(--lumo-primary-color, #1a56db);
+            color: white;
+            font-size: 9px;
+            font-weight: 700;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+
+        /* Expand icon (fullscreen) */
+        .icon-btn.expand { font-size: 11px; }
+
+        /* ── Advanced Filters Drawer ── */
+        .adv-filters-panel {
+            position: fixed;
+            top: 0;
+            right: -340px;
+            width: 320px;
+            height: 100vh;
+            background: #ffffff;
+            border-left: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            z-index: 200;
+            transition: right 0.2s ease;
+            box-shadow: -4px 0 16px rgba(0,0,0,0.08);
+        }
+
+        .adv-filters-panel.open {
+            right: 0;
+        }
+
+        .adv-filters-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            border-bottom: 1px solid #e5e7eb;
+            flex-shrink: 0;
+        }
+
+        .adv-filters-header h2 {
+            font-size: 15px;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .adv-filters-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #6b7280;
+            font-size: 16px;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            border-radius: 4px;
+        }
+        .adv-filters-close:hover { background: #f3f4f6; color: #111827; }
+
+        .adv-filters-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .adv-filter-group {
+            margin-bottom: 20px;
+        }
+
+        .adv-filter-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .adv-filter-select {
+            appearance: none;
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            padding: 7px 28px 7px 10px;
+            font-size: 13px;
+            font-family: inherit;
+            color: #111827;
+            background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E") no-repeat right 10px center;
+            cursor: pointer;
+        }
+        .adv-filter-select:focus {
+            outline: none;
+            border-color: var(--lumo-primary-color, #1a56db);
+            box-shadow: 0 0 0 2px rgba(26,86,219,0.15);
+        }
+
+        vwc-divider {
+            margin: 4px 0 16px;
+        }
+
+        .adv-filters-footer {
+            padding: 12px 16px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        /* Overlay backdrop */
+        .adv-filters-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.25);
+            z-index: 199;
+        }
+        .adv-filters-backdrop.open { display: block; }
+    </style>
+</head>
+<body>
+
+<!-- Top Navigation -->
+<vwc-topnav id="topnav"></vwc-topnav>
+
+<!-- App Shell -->
+<div class="app-shell">
+
+    <!-- ── Report Navigation (left accordion) ── -->
+    <nav class="report-nav" aria-label="Report navigation">
+
+        <div class="report-nav-group">
+            <div class="report-nav-group-header open" data-group="progress">
+                <i class="chevron fa-solid fa-chevron-right"></i>
+                Progress
+                <span class="count">(3)</span>
+            </div>
+            <div class="report-nav-items open" id="group-progress">
+                <div class="report-nav-item">
+                    <div class="item-name">Total Recorded Data</div>
+                </div>
+                <div class="report-nav-item">
+                    <div class="item-name">Progress Tracking Detail</div>
+                </div>
+                <div class="report-nav-item">
+                    <div class="item-name">Forms Submitted by Due Date</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="report-nav-group">
+            <div class="report-nav-group-header" data-group="observations">
+                <i class="chevron fa-solid fa-chevron-right"></i>
+                Observations
+                <span class="count">(3)</span>
+            </div>
+            <div class="report-nav-items" id="group-observations">
+                <div class="report-nav-item">
+                    <div class="item-name">Observations by Evaluator</div>
+                </div>
+                <div class="report-nav-item">
+                    <div class="item-name">Observations by Evaluee</div>
+                </div>
+                <div class="report-nav-item">
+                    <div class="item-name">Detailed Report</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="report-nav-group">
+            <div class="report-nav-group-header open" data-group="performance">
+                <i class="chevron fa-solid fa-chevron-right"></i>
+                Performance
+                <span class="count">(6)</span>
+            </div>
+            <div class="report-nav-items open" id="group-performance">
+                <div class="report-nav-item">
+                    <div class="item-name">Ratings by Tag</div>
+                    <div class="item-desc">Count of rating levels for level in selected form.</div>
+                </div>
+                <div class="report-nav-item">
+                    <div class="item-name">Ratings by Question</div>
+                    <div class="item-desc">Count of rating levels for questions in selected form.</div>
+                </div>
+                <div class="report-nav-item active">
+                    <div class="item-name">Ratings by Question Over Time</div>
+                    <div class="item-desc">Rating levels for questions for each recorded form.</div>
+                </div>
+                <div class="report-nav-item">
+                    <div class="item-name">Performance Comparison by Tag</div>
+                    <div class="item-desc">Table comparing evaluee performance using average rating by tag.</div>
+                </div>
+                <div class="report-nav-item">
+                    <div class="item-name">Overall Pass/Fail Statuses</div>
+                    <div class="item-desc">Pass/fail status for each recorded form.</div>
+                </div>
+                <div class="report-nav-item">
+                    <div class="item-name">Pass/Fail Status Attempts Summary</div>
+                    <div class="item-desc">Summary of attempts by pass/fail status for each form, with most recent pass/fail status.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="report-nav-group">
+            <div class="report-nav-group-header" data-group="search">
+                <i class="chevron fa-solid fa-chevron-right"></i>
+                Search Data
+                <span class="count">(2)</span>
+            </div>
+            <div class="report-nav-items" id="group-search"></div>
+        </div>
+
+        <div class="report-nav-group">
+            <div class="report-nav-group-header" data-group="schools">
+                <i class="chevron fa-solid fa-chevron-right"></i>
+                Schools
+                <span class="count">(1)</span>
+            </div>
+            <div class="report-nav-items" id="group-schools"></div>
+        </div>
+
+        <div class="report-nav-group">
+            <div class="report-nav-group-header" data-group="pd">
+                <i class="chevron fa-solid fa-chevron-right"></i>
+                PD Tracking
+                <span class="count">(12)</span>
+            </div>
+            <div class="report-nav-items" id="group-pd"></div>
+        </div>
+
+        <div class="report-nav-group">
+            <div class="report-nav-group-header" data-group="plans">
+                <i class="chevron fa-solid fa-chevron-right"></i>
+                Plans
+                <span class="count">(1)</span>
+            </div>
+            <div class="report-nav-items" id="group-plans"></div>
+        </div>
+
+        <div class="report-nav-group">
+            <div class="report-nav-group-header" data-group="activity">
+                <i class="chevron fa-solid fa-chevron-right"></i>
+                User Activity
+                <span class="count">(1)</span>
+            </div>
+            <div class="report-nav-items" id="group-activity"></div>
+        </div>
+
+        <div class="report-nav-group">
+            <div class="report-nav-group-header" data-group="badges">
+                <i class="chevron fa-solid fa-chevron-right"></i>
+                Badges
+                <span class="count">(1)</span>
+            </div>
+            <div class="report-nav-items" id="group-badges"></div>
+        </div>
+
+    </nav>
+
+    <!-- ── Main Content ── -->
+    <div class="main-content">
+
+        <!-- Report Header -->
+        <div class="report-header">
+            <h1>Ratings by Question Over Time</h1>
+            <div class="report-header-actions">
+                <vaadin-button theme="secondary">
+                    <i class="fa-solid fa-download" slot="prefix"></i>
+                    Export
+                </vaadin-button>
+                <vaadin-button theme="primary">Generate Report</vaadin-button>
+                <button class="icon-btn" id="adv-filter-btn" title="Advanced filters" aria-label="Advanced filters" aria-expanded="false">
+                    <i class="fa-solid fa-filter"></i>
+                </button>
+                <button class="icon-btn expand" title="Expand" aria-label="Expand view">
+                    <i class="fa-solid fa-expand"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar" role="region" aria-label="Report filters">
+            <div class="filter-bar-row">
+
+                <!-- Users -->
+                <div class="filter-group">
+                    <span class="filter-group-label">Users</span>
+                    <div class="filter-users-control">
+                        <span class="filter-tag-chip">
+                            All Users
+                            <span class="remove" aria-label="Remove All Users filter">×</span>
+                        </span>
+                        <i class="filter-users-chevron fa-solid fa-chevron-down"></i>
+                    </div>
+                </div>
+
+                <!-- Date Range -->
+                <div class="filter-group">
+                    <span class="filter-group-label">Date Range</span>
+                    <div class="filter-select-wrapper">
+                        <select class="filter-select" aria-label="Date range">
+                            <option selected>Current Year</option>
+                            <option>Last 30 Days</option>
+                            <option>Last 90 Days</option>
+                            <option>Last Year</option>
+                            <option>Custom Range</option>
+                        </select>
+                    </div>
+                    <div class="filter-date-sub">Aug 1, 2025 – Jul 31, 2026</div>
+                </div>
+
+                <!-- Form -->
+                <div class="filter-group">
+                    <span class="filter-group-label">Form</span>
+                    <div class="filter-select-wrapper">
+                        <select class="filter-select" aria-label="Form">
+                            <option selected>Classroom Observation</option>
+                            <option>Walkthrough</option>
+                            <option>Self-Evaluation</option>
+                            <option>End of Year</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Minimum Form Status -->
+                <div class="filter-group">
+                    <span class="filter-group-label">Minimum Form Status</span>
+                    <div class="filter-select-wrapper">
+                        <select class="filter-select" aria-label="Minimum form status">
+                            <option selected>Created</option>
+                            <option>In Progress</option>
+                            <option>Shared</option>
+                            <option>Signed</option>
+                            <option>Completed</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Exclude Self-Authored -->
+                <div class="filter-group">
+                    <span class="filter-group-label">Exclude Self-Authored</span>
+                    <div class="filter-checkbox-row">
+                        <input type="checkbox" id="exclude-self" checked>
+                        <label for="exclude-self">Exclude</label>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Report Body -->
+        <div class="report-body">
+
+            <p class="report-meta">(8 users have data recorded)</p>
+
+            <!-- Visualization Card -->
+            <div class="viz-card">
+                <div class="viz-card-header">
+                    <div class="viz-card-title-group">
+                        <span class="viz-card-title">Ratings by Question Over Time</span>
+                        <span class="date-range-badge">
+                            <i class="fa-regular fa-calendar fa-xs"></i>
+                            Aug 1, 2025 – Jul 31, 2026
+                        </span>
+                    </div>
+                </div>
+
+                <div class="viz-card-body">
+                    <div class="user-section">
+                        <h2 class="viz-user-heading">Chris Bell</h2>
+
+                        <!-- Section 1: Danielson Framework ratings -->
+                        <div class="heatmap-section">
+                            <div class="heatmap-table-wrap">
+                                <table class="heatmap-table" aria-label="Danielson Framework ratings — Chris Bell">
+                                    <colgroup>
+                                        <col><!-- label col, takes remaining space -->
+                                        <col class="heatmap-col">
+                                        <col class="heatmap-col">
+                                    </colgroup>
+                                    <thead>
+                                        <tr>
+                                            <td class="heatmap-label-spacer"></td>
+                                            <th class="heatmap-date-header" scope="col">Sep 9, 2025 10:28a</th>
+                                            <th class="heatmap-date-header" scope="col">Oct 23, 2025 1:05p</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td class="heatmap-row-label">Domain 3 Learning Experiences</td>
+                                            <td class="heatmap-cell distinguished" title="Distinguished"></td>
+                                            <td class="heatmap-cell distinguished" title="Distinguished"></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="heatmap-row-label">3b. Using Questioning and Discussion Techniques</td>
+                                            <td class="heatmap-cell proficient" title="Proficient"></td>
+                                            <td class="heatmap-cell basic" title="Basic"></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="heatmap-row-label">3c. Engaging Students in Learning</td>
+                                            <td class="heatmap-cell proficient" title="Proficient"></td>
+                                            <td class="heatmap-cell proficient" title="Proficient"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="heatmap-legend">
+                                <div class="legend-item"><span class="legend-dot no-data"></span> No Data</div>
+                                <div class="legend-item"><span class="legend-dot unsatisfactory"></span> Unsatisfactory</div>
+                                <div class="legend-item"><span class="legend-dot basic"></span> Basic</div>
+                                <div class="legend-item"><span class="legend-dot proficient"></span> Proficient</div>
+                                <div class="legend-item"><span class="legend-dot distinguished"></span> Distinguished</div>
+                            </div>
+                        </div>
+
+                        <hr class="heatmap-section-divider">
+
+                        <!-- Section 2: Instructional strategies -->
+                        <div class="heatmap-section">
+                            <div class="heatmap-table-wrap">
+                                <table class="heatmap-table" aria-label="Instructional Strategy ratings — Chris Bell">
+                                    <colgroup>
+                                        <col>
+                                        <col class="heatmap-col">
+                                        <col class="heatmap-col">
+                                    </colgroup>
+                                    <thead>
+                                        <tr>
+                                            <td class="heatmap-label-spacer"></td>
+                                            <th class="heatmap-date-header" scope="col">Sep 9, 2025 10:28a</th>
+                                            <th class="heatmap-date-header" scope="col">Oct 23, 2025 1:05p</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td class="heatmap-row-label">Identifying Similarities and Differences</td>
+                                            <td class="heatmap-cell distinguished" title="Distinguished"></td>
+                                            <td class="heatmap-cell distinguished" title="Distinguished"></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="heatmap-row-label">Technology Infusion</td>
+                                            <td class="heatmap-cell unsatisfactory" title="Not Observed"></td>
+                                            <td class="heatmap-cell observed" title="Observed"></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="heatmap-row-label">Higher Order Thinking and Questioning</td>
+                                            <td class="heatmap-cell observed" title="Observed"></td>
+                                            <td class="heatmap-cell distinguished" title="Distinguished"></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="heatmap-row-label">Use of Questions, Prompts, and Cues to Scaffold Learning</td>
+                                            <td class="heatmap-cell distinguished" title="Distinguished"></td>
+                                            <td class="heatmap-cell distinguished" title="Distinguished"></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="heatmap-row-label">Differentiation to Meet Student Needs</td>
+                                            <td class="heatmap-cell unsatisfactory" title="Not Observed"></td>
+                                            <td class="heatmap-cell observed" title="Observed"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="heatmap-legend">
+                                <div class="legend-item"><span class="legend-dot no-data"></span> No Data</div>
+                                <div class="legend-item"><span class="legend-dot not-observed"></span> Not Observed</div>
+                                <div class="legend-item"><span class="legend-dot observed"></span> Observed</div>
+                            </div>
+                        </div>
+                    </div><!-- /user-section -->
+                </div>
+            </div>
+
+        </div>
+        <!-- /report-body -->
+
+    </div>
+    <!-- /main-content -->
+
+</div>
+<!-- /app-shell -->
+
+<!-- ── Advanced Filters Backdrop ── -->
+<div class="adv-filters-backdrop" id="adv-filters-backdrop"></div>
+
+<!-- ── Advanced Filters Drawer ── -->
+<aside class="adv-filters-panel" id="adv-filters-panel" aria-label="Advanced filters" role="complementary">
+    <div class="adv-filters-header">
+        <h2>Advanced Filters</h2>
+        <button class="adv-filters-close" id="adv-filters-close" aria-label="Close advanced filters">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+
+    <div class="adv-filters-body">
+
+        <div class="adv-filter-group">
+            <label class="adv-filter-label" for="adv-school">School</label>
+            <select class="adv-filter-select" id="adv-school">
+                <option value="">All Schools</option>
+                <option>Lincoln Elementary</option>
+                <option>Washington Middle School</option>
+                <option>Jefferson High School</option>
+                <option>Roosevelt Academy</option>
+            </select>
+        </div>
+
+        <vwc-divider></vwc-divider>
+
+        <div class="adv-filter-group">
+            <label class="adv-filter-label" for="adv-subject">Subject</label>
+            <select class="adv-filter-select" id="adv-subject">
+                <option value="">All Subjects</option>
+                <option>Math</option>
+                <option>English Language Arts</option>
+                <option>Science</option>
+                <option>Social Studies</option>
+                <option>Special Education</option>
+                <option>Physical Education</option>
+                <option>Arts</option>
+            </select>
+        </div>
+
+        <vwc-divider></vwc-divider>
+
+        <div class="adv-filter-group">
+            <label class="adv-filter-label" for="adv-job">Job</label>
+            <select class="adv-filter-select" id="adv-job">
+                <option value="">All Jobs</option>
+                <option>Teacher</option>
+                <option>Specialist</option>
+                <option>Instructional Coach</option>
+                <option>Department Head</option>
+                <option>Support Staff</option>
+            </select>
+        </div>
+
+        <vwc-divider></vwc-divider>
+
+        <div class="adv-filter-group">
+            <label class="adv-filter-label" for="adv-team">Team</label>
+            <select class="adv-filter-select" id="adv-team">
+                <option value="">All Teams</option>
+                <option>Grade K–2</option>
+                <option>Grade 3–5</option>
+                <option>Middle School Core</option>
+                <option>Electives</option>
+                <option>Support Services</option>
+            </select>
+        </div>
+
+        <vwc-divider></vwc-divider>
+
+        <div class="adv-filter-group">
+            <label class="adv-filter-label" for="adv-prof-status">Professional Status</label>
+            <select class="adv-filter-select" id="adv-prof-status">
+                <option value="">All Statuses</option>
+                <option>Tenured</option>
+                <option>Non-Tenured</option>
+                <option>Probationary</option>
+                <option>Long-Term Substitute</option>
+            </select>
+        </div>
+
+        <vwc-divider></vwc-divider>
+
+        <div class="adv-filter-group">
+            <label class="adv-filter-label" for="adv-dept">Department</label>
+            <select class="adv-filter-select" id="adv-dept">
+                <option value="">All Departments</option>
+                <option>Curriculum &amp; Instruction</option>
+                <option>Special Services</option>
+                <option>Career &amp; Technical Education</option>
+                <option>Athletics</option>
+            </select>
+        </div>
+
+        <vwc-divider></vwc-divider>
+
+        <div class="adv-filter-group">
+            <label class="adv-filter-label" for="adv-region">Region</label>
+            <select class="adv-filter-select" id="adv-region">
+                <option value="">All Regions</option>
+                <option>North District</option>
+                <option>South District</option>
+                <option>East District</option>
+                <option>West District</option>
+            </select>
+        </div>
+
+    </div>
+
+    <div class="adv-filters-footer">
+        <vaadin-button theme="primary" id="adv-apply-btn" style="flex:1">Apply Filters</vaadin-button>
+        <vaadin-button theme="tertiary" id="adv-reset-btn">Reset</vaadin-button>
+    </div>
+</aside>
+
+<script>
+    // ── Topnav setup ──
+    const topnav = document.getElementById('topnav');
+    topnav.logo = { src: '', alt: 'Vector SOLUTIONS' };
+
+    // ── Report nav accordion toggle ──
+    document.querySelectorAll('.report-nav-group-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const group = header.dataset.group;
+            const items = document.getElementById('group-' + group);
+            if (!items) return;
+            const isOpen = items.classList.contains('open');
+            items.classList.toggle('open', !isOpen);
+            header.classList.toggle('open', !isOpen);
+        });
+    });
+
+    // ── Report nav item selection ──
+    document.querySelectorAll('.report-nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+            document.querySelectorAll('.report-nav-item').forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+        });
+    });
+
+    // ── Advanced Filters drawer ──
+    const advPanel     = document.getElementById('adv-filters-panel');
+    const advBackdrop  = document.getElementById('adv-filters-backdrop');
+    const advFilterBtn = document.getElementById('adv-filter-btn');
+    const advCloseBtn  = document.getElementById('adv-filters-close');
+    const advApplyBtn  = document.getElementById('adv-apply-btn');
+    const advResetBtn  = document.getElementById('adv-reset-btn');
+    const advSelects   = advPanel.querySelectorAll('.adv-filter-select');
+
+    function openAdvFilters() {
+        advPanel.classList.add('open');
+        advBackdrop.classList.add('open');
+        advFilterBtn.setAttribute('aria-expanded', 'true');
+        advFilterBtn.classList.add('active');
+    }
+
+    function closeAdvFilters() {
+        advPanel.classList.remove('open');
+        advBackdrop.classList.remove('open');
+        advFilterBtn.setAttribute('aria-expanded', 'false');
+        advFilterBtn.classList.remove('active');
+    }
+
+    function updateFilterBadge() {
+        const active = Array.from(advSelects).filter(s => s.value !== '').length;
+        let badge = advFilterBtn.querySelector('.filter-badge');
+        if (active > 0) {
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'filter-badge';
+                advFilterBtn.appendChild(badge);
+            }
+            badge.textContent = active;
+        } else {
+            if (badge) badge.remove();
+        }
+    }
+
+    advFilterBtn.addEventListener('click', () => {
+        advPanel.classList.contains('open') ? closeAdvFilters() : openAdvFilters();
+    });
+    advCloseBtn.addEventListener('click', closeAdvFilters);
+    advBackdrop.addEventListener('click', closeAdvFilters);
+
+    advApplyBtn.addEventListener('click', () => {
+        updateFilterBadge();
+        closeAdvFilters();
+    });
+
+    advResetBtn.addEventListener('click', () => {
+        advSelects.forEach(s => s.value = '');
+        updateFilterBadge();
+    });
+
+    // Escape key closes
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && advPanel.classList.contains('open')) closeAdvFilters();
+    });
+</script>
+</body>
+</html>
