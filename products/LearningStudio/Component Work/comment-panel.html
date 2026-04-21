@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comment Panel — Component Work</title>
+
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: 'Open Sans', sans-serif;
+      background: var(--lumo-contrast-10pct, #e8e8e8);
+    }
+
+    /* ── Pinned page header ── */
+    .page-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--lumo-base-color, #fff);
+      border-bottom: 1px solid var(--lumo-contrast-10pct, #e0e0e0);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .page-header-title {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .page-header .eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--lumo-secondary-text-color);
+      margin: 0;
+    }
+    .page-header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--lumo-body-text-color);
+      margin: 0;
+      line-height: 1.2;
+    }
+
+    /* ── Page content wrapper ── */
+    .page-content {
+      padding: 32px 24px;
+    }
+
+    /* ── States grid ── */
+    .states-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* ── Group heading ── */
+    .group-heading {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--lumo-primary-color);
+      margin-bottom: 0;
+    }
+    .group-heading h2 {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--lumo-primary-color);
+      margin: 0;
+    }
+    .group-heading .group-badge {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--lumo-secondary-text-color);
+      background: var(--lumo-contrast-10pct, #e8e8e8);
+      border-radius: 10px;
+      padding: 2px 10px;
+    }
+
+    /* ── State label ── */
+    .state-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--lumo-secondary-text-color);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .state-label .state-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--lumo-primary-color);
+      color: var(--lumo-primary-contrast-color);
+      font-size: 10px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* ── Toolbar above each frame ── */
+    .frame-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .frame-toolbar label {
+      font-size: 11px;
+      color: var(--lumo-secondary-text-color);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .frame-toolbar input[type="number"] {
+      width: 70px;
+      height: 28px;
+      padding: 0 8px;
+      border: 1px solid var(--lumo-contrast-20pct, #ccc);
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: inherit;
+      color: var(--lumo-body-text-color);
+      background: var(--lumo-base-color, #fff);
+    }
+    .frame-toolbar input[type="number"]:focus {
+      outline: 2px solid var(--lumo-primary-color);
+      outline-offset: -1px;
+    }
+    .lock-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 28px;
+      padding: 0 10px;
+      border: 1px solid var(--lumo-contrast-20pct, #ccc);
+      border-radius: 4px;
+      background: var(--lumo-base-color, #fff);
+      font-size: 11px;
+      font-family: inherit;
+      color: var(--lumo-secondary-text-color);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .lock-btn:hover { background: var(--lumo-contrast-5pct); }
+    .lock-btn.is-locked {
+      background: var(--lumo-primary-color-10pct, #e8f0fe);
+      border-color: var(--lumo-primary-color);
+      color: var(--lumo-primary-color);
+    }
+    .frame-toolbar .hint {
+      font-size: 10px;
+      color: var(--lumo-tertiary-text-color);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+    }
+
+    /* ── Resizable outer frame ── */
+    .resize-frame {
+      resize: both;
+      overflow: hidden;
+      min-width: 300px;
+      min-height: 200px;
+      max-width: 100%;
+      width: 400px;
+      height: 600px;
+      background: var(--lumo-base-color, #fff);
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.06);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── frame-inner: fills the resize-frame ── */
+    .frame-inner {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      container-type: inline-size;
+    }
+
+    /* ════════════════════════════════
+       COMMENT PANEL COMPONENT STYLES
+    ════════════════════════════════ */
+
+    .cp-panel {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Header */
+    .cp-header {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--lumo-contrast-10pct);
+    }
+    .cp-header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .cp-header-left h2 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--lumo-body-text-color);
+      margin: 0;
+    }
+    .cp-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .cp-count-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 20px;
+      border-radius: 10px;
+      background: var(--lumo-primary-color);
+      color: var(--lumo-primary-contrast-color, #fff);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 0 6px;
+    }
+
+    /* Filter bar */
+    .cp-filter-bar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--lumo-contrast-10pct);
+      background: var(--lumo-contrast-5pct, #fafafa);
+    }
+    .cp-filter-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      height: 26px;
+      padding: 0 10px;
+      border: 1px solid var(--lumo-contrast-20pct, #ccc);
+      border-radius: 13px;
+      font-size: 12px;
+      font-family: inherit;
+      color: var(--lumo-secondary-text-color);
+      background: var(--lumo-base-color, #fff);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .cp-filter-chip:hover {
+      background: var(--lumo-contrast-5pct);
+    }
+    .cp-filter-chip.active {
+      background: var(--lumo-primary-color);
+      border-color: var(--lumo-primary-color);
+      color: var(--lumo-primary-contrast-color, #fff);
+      font-weight: 600;
+    }
+    .cp-filter-spacer { flex: 1; }
+
+    /* Scrollable comment list */
+    .cp-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    /* Individual comment thread */
+    .cp-thread {
+      border-bottom: 1px solid var(--lumo-contrast-10pct);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .cp-thread-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: space-between;
+    }
+    .cp-thread-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      transition: transform 0.2s;
+    }
+    .cp-thread.collapsed .cp-thread-toggle {
+      transform: rotate(-90deg);
+    }
+    .cp-unread-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--lumo-error-text-color, #d32f2f);
+      background: var(--lumo-error-color-10pct, #ffebee);
+      border-radius: 3px;
+      padding: 2px 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .cp-thread:hover {
+      background: var(--lumo-contrast-5pct, #fafafa);
+    }
+    .cp-thread.active {
+      background: var(--lumo-primary-color-10pct, #e8f0fe);
+    }
+    .cp-thread.resolved {
+      opacity: 0.55;
+    }
+
+    .cp-comment {
+      display: flex;
+      gap: 10px;
+    }
+
+    .cp-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .cp-avatar--blue   { background: #3b82f6; }
+    .cp-avatar--green  { background: #10b981; }
+    .cp-avatar--orange { background: #f59e0b; }
+    .cp-avatar--purple { background: #8b5cf6; }
+    .cp-avatar--red    { background: #ef4444; }
+
+    .cp-comment-body {
+      flex: 1;
+      min-width: 0;
+    }
+    .cp-comment-meta {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin-bottom: 3px;
+    }
+    .cp-comment-author {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--lumo-body-text-color);
+    }
+    .cp-comment-time {
+      font-size: 11px;
+      color: var(--lumo-tertiary-text-color);
+    }
+    .cp-comment-text {
+      font-size: 13px;
+      color: var(--lumo-body-text-color);
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .cp-comment-text.muted {
+      color: var(--lumo-secondary-text-color);
+    }
+
+    .cp-thread-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-left: 38px;
+    }
+    .cp-reply-count {
+      font-size: 11px;
+      color: var(--lumo-primary-color);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .cp-resolved-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--lumo-success-text-color, #1a7f37);
+      background: var(--lumo-success-color-10pct, #dcfce7);
+      border-radius: 4px;
+      padding: 2px 7px;
+    }
+
+    /* Expanded thread replies */
+    .cp-replies {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-left: 38px;
+      padding-top: 4px;
+    }
+
+    /* Inline reply composer inside thread */
+    .cp-inline-reply {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding-left: 38px;
+      padding-top: 4px;
+    }
+    .cp-inline-reply textarea {
+      flex: 1;
+      resize: none;
+      border: 1px solid var(--lumo-contrast-30pct, #bbb);
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--lumo-body-text-color);
+      background: var(--lumo-base-color, #fff);
+      padding: 7px 10px;
+      line-height: 1.45;
+      outline: none;
+      min-height: 56px;
+    }
+    .cp-inline-reply textarea:focus {
+      border-color: var(--lumo-primary-color);
+      box-shadow: 0 0 0 2px var(--lumo-primary-color-50pct, rgba(26,115,232,0.18));
+    }
+    .cp-inline-reply-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    /* Empty state */
+    .cp-empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 40px 24px;
+      color: var(--lumo-secondary-text-color);
+      text-align: center;
+    }
+    .cp-empty-icon {
+      font-size: 36px;
+      color: var(--lumo-contrast-30pct, #ccc);
+    }
+    .cp-empty h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--lumo-secondary-text-color);
+      margin: 0;
+    }
+    .cp-empty p {
+      font-size: 12px;
+      color: var(--lumo-tertiary-text-color);
+      margin: 0;
+    }
+
+    /* Loading skeleton */
+    .cp-skeleton {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .cp-skeleton-row {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--lumo-contrast-10pct);
+      display: flex;
+      gap: 10px;
+    }
+    .cp-skeleton-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--lumo-contrast-10pct);
+      flex-shrink: 0;
+    }
+    .cp-skeleton-lines {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding-top: 4px;
+    }
+    .cp-skeleton-line {
+      height: 10px;
+      border-radius: 5px;
+      background: linear-gradient(90deg, var(--lumo-contrast-10pct) 25%, var(--lumo-contrast-5pct) 50%, var(--lumo-contrast-10pct) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+    }
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* Compose footer */
+    .cp-compose {
+      flex-shrink: 0;
+      border-top: 1px solid var(--lumo-contrast-10pct);
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .cp-compose-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .cp-compose textarea {
+      flex: 1;
+      resize: none;
+      border: 1px solid var(--lumo-contrast-30pct, #bbb);
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--lumo-body-text-color);
+      background: var(--lumo-base-color, #fff);
+      padding: 8px 10px;
+      line-height: 1.45;
+      outline: none;
+      height: 60px;
+    }
+    .cp-compose textarea:focus {
+      border-color: var(--lumo-primary-color);
+      box-shadow: 0 0 0 2px var(--lumo-primary-color-50pct, rgba(26,115,232,0.18));
+    }
+    .cp-compose textarea::placeholder {
+      color: var(--lumo-tertiary-text-color);
+    }
+    .cp-compose-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .cp-compose-hint {
+      font-size: 11px;
+      color: var(--lumo-tertiary-text-color);
+    }
+
+    /* ── Mention chip in comment text ── */
+    .cp-mention {
+      display: inline;
+      color: var(--lumo-primary-color);
+      font-weight: 600;
+    }
+
+    /* ── Demo-only: live badge ── */
+    .demo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #fff;
+      background: #10b981;
+      border-radius: 6px;
+      padding: 3px 10px;
+    }
+
+    /* ── Demo section styling ── */
+    .demo-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .demo-section-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--lumo-primary-color);
+    }
+    .demo-section-label h2 {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--lumo-primary-color);
+      margin: 0;
+    }
+
+    /* States layout: row of narrower panels */
+    .states-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 32px;
+      align-items: flex-start;
+    }
+    .state-col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Pinned page header -->
+  <div class="page-header">
+    <div class="page-header-title">
+      <p class="eyebrow">Learning Studio — Component Work</p>
+      <h1>Comment Panel — UI States</h1>
+    </div>
+  </div>
+
+  <div class="page-content">
+    <div class="states-grid">
+
+      <!-- ══════════════════════════════════════════════════════
+           LIVE DEMO — Fully interactive
+      ══════════════════════════════════════════════════════ -->
+      <div class="demo-section">
+        <div class="demo-section-label">
+          <h2>Live Demo</h2>
+          <span class="demo-badge"><i class="fa-solid fa-circle" style="font-size:7px;"></i> Interactive</span>
+          <span class="group-badge" style="font-size:11px;font-weight:600;color:var(--lumo-secondary-text-color);background:var(--lumo-contrast-10pct);border-radius:10px;padding:2px 10px;">Click threads to expand · Reply · Resolve</span>
+        </div>
+
+        <div class="frame-toolbar">
+          <label>W <input type="number" class="w-input" value="400" min="300" step="10"></label>
+          <label>H <input type="number" class="h-input" value="600" min="200" step="10"></label>
+          <button class="lock-btn"><i class="fa-solid fa-lock-open"></i> Lock height</button>
+          <span class="hint"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> Drag corner to resize</span>
+        </div>
+
+        <div class="resize-frame" id="demo-frame">
+          <div class="frame-inner">
+            <div class="cp-panel">
+
+              <!-- Header -->
+              <div class="cp-header">
+                <div class="cp-header-left">
+                  <h2>Comments</h2>
+                  <span class="cp-count-badge" id="demo-count">4</span>
+                </div>
+                <div class="cp-header-actions">
+                  <vaadin-button theme="icon" aria-label="Sort comments" title="Sort"><i class="fa-solid fa-arrow-up-wide-short"></i></vaadin-button>
+                  <vaadin-button theme="icon" aria-label="More options" title="More"><i class="fa-solid fa-ellipsis"></i></vaadin-button>
+                </div>
+              </div>
+
+              <!-- Filter bar -->
+              <div class="cp-filter-bar">
+                <button class="cp-filter-chip active" onclick="demoFilter(this,'all')">All</button>
+                <button class="cp-filter-chip" onclick="demoFilter(this,'open')">Open</button>
+                <button class="cp-filter-chip" onclick="demoFilter(this,'resolved')">Resolved</button>
+              </div>
+
+              <!-- Comment list -->
+              <div class="cp-list" id="demo-list">
+
+                <!-- Thread 1 — expanded with reply -->
+                <div class="cp-thread active" id="thread-1" onclick="toggleThread(1)">
+                  <div class="cp-thread-header">
+                    <div class="cp-comment" style="flex:1;">
+                      <div class="cp-avatar cp-avatar--blue">JM</div>
+                      <div class="cp-comment-body">
+                        <div class="cp-comment-meta">
+                          <span class="cp-comment-author">Jordan Mills</span>
+                          <span class="cp-comment-time">2h ago</span>
+                        </div>
+                        <div class="cp-comment-text">The header copy here feels too technical. <span class="cp-mention">@Sarah Chen</span> can you take a look and suggest something simpler?</div>
+                      </div>
+                    </div>
+                    <div class="cp-thread-toggle"><i class="fa-solid fa-chevron-down"></i></div>
+                  </div>
+                  <!-- Replies -->
+                  <div class="cp-replies" id="replies-1">
+                    <div class="cp-comment">
+                      <div class="cp-avatar cp-avatar--green">SC</div>
+                      <div class="cp-comment-body">
+                        <div class="cp-comment-meta">
+                          <span class="cp-comment-author">Sarah Chen</span>
+                          <span class="cp-comment-time">1h ago</span>
+                        </div>
+                        <div class="cp-comment-text">Agreed — how about "Get started with your first lesson"? Much friendlier.</div>
+                      </div>
+                    </div>
+                    <!-- Inline reply composer -->
+                    <div class="cp-inline-reply">
+                      <div class="cp-avatar cp-avatar--orange" style="margin-top:2px;">AK</div>
+                      <textarea placeholder="Reply…" rows="2" onclick="event.stopPropagation()"></textarea>
+                      <div class="cp-inline-reply-actions">
+                        <vaadin-button theme="primary" onclick="event.stopPropagation()">Send</vaadin-button>
+                        <vaadin-button theme="tertiary" onclick="event.stopPropagation(); markResolved(1)">
+                          <i class="fa-solid fa-check"></i>
+                        </vaadin-button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Thread 2 — collapsed, unread -->
+                <div class="cp-thread collapsed" id="thread-2" onclick="toggleThread(2)">
+                  <div class="cp-thread-header">
+                    <div class="cp-comment" style="flex:1;">
+                      <div class="cp-avatar cp-avatar--purple">LT</div>
+                      <div class="cp-comment-body">
+                        <div class="cp-comment-meta">
+                          <span class="cp-comment-author">Lee Torres</span>
+                          <span class="cp-comment-time">4h ago</span>
+                        </div>
+                        <div class="cp-comment-text">Progress bar on this step needs a label — it's not clear how many steps are left.</div>
+                      </div>
+                    </div>
+                    <div class="cp-thread-toggle"><i class="fa-solid fa-chevron-down"></i></div>
+                  </div>
+                  <div class="cp-thread-meta">
+                    <span class="cp-reply-count"><i class="fa-solid fa-reply"></i> 3 replies</span>
+                    <span class="cp-unread-tag"><i class="fa-solid fa-circle" style="font-size:4px;"></i> Unread</span>
+                  </div>
+                  <!-- Replies hidden initially -->
+                  <div class="cp-replies" id="replies-2" style="display:none;">
+                    <div class="cp-comment">
+                      <div class="cp-avatar cp-avatar--blue">JM</div>
+                      <div class="cp-comment-body">
+                        <div class="cp-comment-meta">
+                          <span class="cp-comment-author">Jordan Mills</span>
+                          <span class="cp-comment-time">3h ago</span>
+                        </div>
+                        <div class="cp-comment-text">Good catch. I'll update the stepper to show "Step X of Y".</div>
+                      </div>
+                    </div>
+                    <div class="cp-inline-reply">
+                      <div class="cp-avatar cp-avatar--orange" style="margin-top:2px;">AK</div>
+                      <textarea placeholder="Reply…" rows="2" onclick="event.stopPropagation()"></textarea>
+                      <div class="cp-inline-reply-actions">
+                        <vaadin-button theme="primary" onclick="event.stopPropagation()">Send</vaadin-button>
+                        <vaadin-button theme="tertiary" onclick="event.stopPropagation(); markResolved(2)">
+                          <i class="fa-solid fa-check"></i>
+                        </vaadin-button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Thread 3 — resolved -->
+                <div class="cp-thread resolved collapsed" id="thread-3" onclick="toggleThread(3)">
+                  <div class="cp-thread-header">
+                    <div class="cp-comment" style="flex:1;">
+                      <div class="cp-avatar cp-avatar--green">SC</div>
+                      <div class="cp-comment-body">
+                        <div class="cp-comment-meta">
+                          <span class="cp-comment-author">Sarah Chen</span>
+                          <span class="cp-comment-time">Yesterday</span>
+                        </div>
+                        <div class="cp-comment-text">Confirm the button label — is it "Save" or "Publish"?</div>
+                      </div>
+                    </div>
+                    <div class="cp-thread-toggle"><i class="fa-solid fa-chevron-down"></i></div>
+                  </div>
+                  <div class="cp-thread-meta">
+                    <span class="cp-resolved-tag"><i class="fa-solid fa-circle-check"></i> Resolved</span>
+                  </div>
+                </div>
+
+                <!-- Thread 4 — collapsed, unread, no replies yet -->
+                <div class="cp-thread collapsed" id="thread-4" onclick="toggleThread(4)">
+                  <div class="cp-thread-header">
+                    <div class="cp-comment" style="flex:1;">
+                      <div class="cp-avatar cp-avatar--red">MR</div>
+                      <div class="cp-comment-body">
+                        <div class="cp-comment-meta">
+                          <span class="cp-comment-author">Marcus Reid</span>
+                          <span class="cp-comment-time">Just now</span>
+                        </div>
+                        <div class="cp-comment-text">The empty state illustration here could be more on-brand. Let's revisit with the brand team.</div>
+                      </div>
+                    </div>
+                    <div class="cp-thread-toggle"><i class="fa-solid fa-chevron-down"></i></div>
+                  </div>
+                  <div class="cp-thread-meta">
+                    <span class="cp-reply-count" style="color:var(--lumo-tertiary-text-color);font-weight:400;"><i class="fa-regular fa-comment"></i> No replies yet</span>
+                    <span class="cp-unread-tag"><i class="fa-solid fa-circle" style="font-size:4px;"></i> Unread</span>
+                  </div>
+                  <div class="cp-replies" id="replies-4" style="display:none;">
+                    <div class="cp-inline-reply">
+                      <div class="cp-avatar cp-avatar--orange" style="margin-top:2px;">AK</div>
+                      <textarea placeholder="Reply…" rows="2" onclick="event.stopPropagation()"></textarea>
+                      <div class="cp-inline-reply-actions">
+                        <vaadin-button theme="primary" onclick="event.stopPropagation()">Send</vaadin-button>
+                        <vaadin-button theme="tertiary" onclick="event.stopPropagation(); markResolved(4)">
+                          <i class="fa-solid fa-check"></i>
+                        </vaadin-button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div><!-- /cp-list -->
+
+              <!-- Compose new comment -->
+              <div class="cp-compose">
+                <div class="cp-compose-row">
+                  <div class="cp-avatar cp-avatar--orange" style="margin-top:4px;">AK</div>
+                  <textarea id="demo-compose" placeholder="Add a comment… Use @ to mention someone" onclick="event.stopPropagation()"></textarea>
+                </div>
+                <div class="cp-compose-actions">
+                  <span class="cp-compose-hint"><i class="fa-solid fa-at" style="font-size:10px;"></i> Mention · <i class="fa-solid fa-paperclip" style="font-size:10px;"></i> Attach</span>
+                  <vaadin-button theme="primary" id="demo-post-btn" onclick="demoPostComment()">Post</vaadin-button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div><!-- /demo-section -->
+
+
+      <!-- ══════════════════════════════════════════════════════
+           INDIVIDUAL STATES
+      ══════════════════════════════════════════════════════ -->
+      <div>
+        <div class="group-heading">
+          <h2>Individual States</h2>
+          <span class="group-badge">Static snapshots</span>
+        </div>
+      </div>
+
+      <div class="states-row">
+
+        <!-- STATE 1: Empty -->
+        <div class="state-col">
+          <div class="state-label">
+            <span class="state-number">1</span>
+            Empty — No comments yet
+          </div>
+          <div class="frame-toolbar">
+            <label>W <input type="number" class="w-input" value="360" min="300" step="10"></label>
+            <label>H <input type="number" class="h-input" value="480" min="200" step="10"></label>
+            <button class="lock-btn"><i class="fa-solid fa-lock-open"></i> Lock height</button>
+            <span class="hint"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> Resize</span>
+          </div>
+          <div class="resize-frame" style="width:360px;height:480px;">
+            <div class="frame-inner">
+              <div class="cp-panel">
+                <div class="cp-header">
+                  <div class="cp-header-left">
+                    <h2>Comments</h2>
+                  </div>
+                  <div class="cp-header-actions">
+                    <vaadin-button theme="icon" aria-label="Sort"><i class="fa-solid fa-arrow-up-wide-short"></i></vaadin-button>
+                  </div>
+                </div>
+                <div class="cp-list">
+                  <div class="cp-empty">
+                    <div class="cp-empty-icon"><i class="fa-regular fa-comments"></i></div>
+                    <h3>No comments yet</h3>
+                    <p>Be the first to leave a comment on this item.</p>
+                  </div>
+                </div>
+                <div class="cp-compose">
+                  <div class="cp-compose-row">
+                    <div class="cp-avatar cp-avatar--orange" style="margin-top:4px;">AK</div>
+                    <textarea placeholder="Add a comment…"></textarea>
+                  </div>
+                  <div class="cp-compose-actions">
+                    <span class="cp-compose-hint"><i class="fa-solid fa-at" style="font-size:10px;"></i> Mention</span>
+                    <vaadin-button theme="primary" disabled>Post</vaadin-button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STATE 2: Loading -->
+        <div class="state-col">
+          <div class="state-label">
+            <span class="state-number">2</span>
+            Loading — Fetching comments
+          </div>
+          <div class="frame-toolbar">
+            <label>W <input type="number" class="w-input" value="360" min="300" step="10"></label>
+            <label>H <input type="number" class="h-input" value="480" min="200" step="10"></label>
+            <button class="lock-btn"><i class="fa-solid fa-lock-open"></i> Lock height</button>
+            <span class="hint"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> Resize</span>
+          </div>
+          <div class="resize-frame" style="width:360px;height:480px;">
+            <div class="frame-inner">
+              <div class="cp-panel">
+                <div class="cp-header">
+                  <div class="cp-header-left">
+                    <h2>Comments</h2>
+                  </div>
+                  <div class="cp-header-actions">
+                    <vwc-spinner style="--vwc-spinner-size:18px;"></vwc-spinner>
+                  </div>
+                </div>
+                <div class="cp-list">
+                  <div class="cp-skeleton">
+                    <div class="cp-skeleton-row">
+                      <div class="cp-skeleton-avatar"></div>
+                      <div class="cp-skeleton-lines">
+                        <div class="cp-skeleton-line" style="width:55%;"></div>
+                        <div class="cp-skeleton-line" style="width:90%;"></div>
+                        <div class="cp-skeleton-line" style="width:70%;"></div>
+                      </div>
+                    </div>
+                    <div class="cp-skeleton-row">
+                      <div class="cp-skeleton-avatar"></div>
+                      <div class="cp-skeleton-lines">
+                        <div class="cp-skeleton-line" style="width:45%;"></div>
+                        <div class="cp-skeleton-line" style="width:80%;"></div>
+                      </div>
+                    </div>
+                    <div class="cp-skeleton-row">
+                      <div class="cp-skeleton-avatar"></div>
+                      <div class="cp-skeleton-lines">
+                        <div class="cp-skeleton-line" style="width:60%;"></div>
+                        <div class="cp-skeleton-line" style="width:85%;"></div>
+                        <div class="cp-skeleton-line" style="width:50%;"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STATE 3: Active thread expanded -->
+        <div class="state-col">
+          <div class="state-label">
+            <span class="state-number">3</span>
+            Thread Expanded — Replying inline
+          </div>
+          <div class="frame-toolbar">
+            <label>W <input type="number" class="w-input" value="360" min="300" step="10"></label>
+            <label>H <input type="number" class="h-input" value="540" min="200" step="10"></label>
+            <button class="lock-btn"><i class="fa-solid fa-lock-open"></i> Lock height</button>
+            <span class="hint"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> Resize</span>
+          </div>
+          <div class="resize-frame" style="width:360px;height:540px;">
+            <div class="frame-inner">
+              <div class="cp-panel">
+                <div class="cp-header">
+                  <div class="cp-header-left">
+                    <h2>Comments</h2>
+                    <span class="cp-count-badge">3</span>
+                  </div>
+                  <div class="cp-header-actions">
+                    <vaadin-button theme="icon" aria-label="Sort"><i class="fa-solid fa-arrow-up-wide-short"></i></vaadin-button>
+                  </div>
+                </div>
+                <div class="cp-filter-bar">
+                  <button class="cp-filter-chip active">All</button>
+                  <button class="cp-filter-chip">Open</button>
+                  <button class="cp-filter-chip">Resolved</button>
+                </div>
+                <div class="cp-list">
+                  <div class="cp-thread active">
+                    <div class="cp-thread-header">
+                      <div class="cp-comment" style="flex:1;">
+                        <div class="cp-avatar cp-avatar--blue">JM</div>
+                        <div class="cp-comment-body">
+                          <div class="cp-comment-meta">
+                            <span class="cp-comment-author">Jordan Mills</span>
+                            <span class="cp-comment-time">2h ago</span>
+                          </div>
+                          <div class="cp-comment-text">This copy feels too technical — can we simplify?</div>
+                        </div>
+                      </div>
+                      <div class="cp-thread-toggle"><i class="fa-solid fa-chevron-down"></i></div>
+                    </div>
+                    <div class="cp-replies">
+                      <div class="cp-comment">
+                        <div class="cp-avatar cp-avatar--green">SC</div>
+                        <div class="cp-comment-body">
+                          <div class="cp-comment-meta">
+                            <span class="cp-comment-author">Sarah Chen</span>
+                            <span class="cp-comment-time">1h ago</span>
+                          </div>
+                          <div class="cp-comment-text">Agreed. How about "Get started with your first lesson"?</div>
+                        </div>
+                      </div>
+                      <div class="cp-inline-reply">
+                        <div class="cp-avatar cp-avatar--orange" style="margin-top:2px;">AK</div>
+                        <textarea placeholder="Reply…" rows="2"></textarea>
+                        <div class="cp-inline-reply-actions">
+                          <vaadin-button theme="primary">Send</vaadin-button>
+                          <vaadin-button theme="tertiary"><i class="fa-solid fa-check"></i></vaadin-button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="cp-thread collapsed">
+                    <div class="cp-thread-header">
+                      <div class="cp-comment" style="flex:1;">
+                        <div class="cp-avatar cp-avatar--purple">LT</div>
+                        <div class="cp-comment-body">
+                          <div class="cp-comment-meta">
+                            <span class="cp-comment-author">Lee Torres</span>
+                            <span class="cp-comment-time">4h ago</span>
+                          </div>
+                          <div class="cp-comment-text">Progress bar needs a label.</div>
+                        </div>
+                      </div>
+                      <div class="cp-thread-toggle"><i class="fa-solid fa-chevron-down"></i></div>
+                    </div>
+                    <div class="cp-thread-meta">
+                      <span class="cp-reply-count"><i class="fa-solid fa-reply"></i> 1 reply</span>
+                      <span class="cp-unread-tag"><i class="fa-solid fa-circle" style="font-size:4px;"></i> Unread</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="cp-compose">
+                  <div class="cp-compose-row">
+                    <div class="cp-avatar cp-avatar--orange" style="margin-top:4px;">AK</div>
+                    <textarea placeholder="Add a comment…"></textarea>
+                  </div>
+                  <div class="cp-compose-actions">
+                    <span class="cp-compose-hint"><i class="fa-solid fa-at" style="font-size:10px;"></i> Mention</span>
+                    <vaadin-button theme="primary">Post</vaadin-button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STATE 4: All resolved -->
+        <div class="state-col">
+          <div class="state-label">
+            <span class="state-number">4</span>
+            All Resolved — Filter active
+          </div>
+          <div class="frame-toolbar">
+            <label>W <input type="number" class="w-input" value="360" min="300" step="10"></label>
+            <label>H <input type="number" class="h-input" value="480" min="200" step="10"></label>
+            <button class="lock-btn"><i class="fa-solid fa-lock-open"></i> Lock height</button>
+            <span class="hint"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> Resize</span>
+          </div>
+          <div class="resize-frame" style="width:360px;height:480px;">
+            <div class="frame-inner">
+              <div class="cp-panel">
+                <div class="cp-header">
+                  <div class="cp-header-left">
+                    <h2>Comments</h2>
+                    <span class="cp-count-badge" style="background:var(--lumo-success-color,#10b981);">3</span>
+                  </div>
+                  <div class="cp-header-actions">
+                    <vaadin-button theme="icon" aria-label="Sort"><i class="fa-solid fa-arrow-up-wide-short"></i></vaadin-button>
+                  </div>
+                </div>
+                <div class="cp-filter-bar">
+                  <button class="cp-filter-chip">All</button>
+                  <button class="cp-filter-chip">Open</button>
+                  <button class="cp-filter-chip active">Resolved</button>
+                </div>
+                <div class="cp-list">
+                  <div class="cp-thread resolved collapsed">
+                    <div class="cp-thread-header">
+                      <div class="cp-comment" style="flex:1;">
+                        <div class="cp-avatar cp-avatar--blue">JM</div>
+                        <div class="cp-comment-body">
+                          <div class="cp-comment-meta">
+                            <span class="cp-comment-author">Jordan Mills</span>
+                            <span class="cp-comment-time">Yesterday</span>
+                          </div>
+                          <div class="cp-comment-text muted">Header copy — simplify the language.</div>
+                        </div>
+                      </div>
+                      <div class="cp-thread-toggle"><i class="fa-solid fa-chevron-down"></i></div>
+                    </div>
+                    <div class="cp-thread-meta">
+                      <span class="cp-resolved-tag"><i class="fa-solid fa-circle-check"></i> Resolved</span>
+                    </div>
+                  </div>
+                  <div class="cp-thread resolved collapsed">
+                    <div class="cp-thread-header">
+                      <div class="cp-comment" style="flex:1;">
+                        <div class="cp-avatar cp-avatar--green">SC</div>
+                        <div class="cp-comment-body">
+                          <div class="cp-comment-meta">
+                            <span class="cp-comment-author">Sarah Chen</span>
+                            <span class="cp-comment-time">Yesterday</span>
+                          </div>
+                          <div class="cp-comment-text muted">Confirm the button label — "Save" or "Publish"?</div>
+                        </div>
+                      </div>
+                      <div class="cp-thread-toggle"><i class="fa-solid fa-chevron-down"></i></div>
+                    </div>
+                    <div class="cp-thread-meta">
+                      <span class="cp-resolved-tag"><i class="fa-solid fa-circle-check"></i> Resolved</span>
+                    </div>
+                  </div>
+                  <div class="cp-thread resolved collapsed">
+                    <div class="cp-thread-header">
+                      <div class="cp-comment" style="flex:1;">
+                        <div class="cp-avatar cp-avatar--purple">LT</div>
+                        <div class="cp-comment-body">
+                          <div class="cp-comment-meta">
+                            <span class="cp-comment-author">Lee Torres</span>
+                            <span class="cp-comment-time">2 days ago</span>
+                          </div>
+                          <div class="cp-comment-text muted">Progress bar needs a step count label.</div>
+                        </div>
+                      </div>
+                      <div class="cp-thread-toggle"><i class="fa-solid fa-chevron-down"></i></div>
+                    </div>
+                    <div class="cp-thread-meta">
+                      <span class="cp-resolved-tag"><i class="fa-solid fa-circle-check"></i> Resolved</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="cp-compose">
+                  <div class="cp-compose-row">
+                    <div class="cp-avatar cp-avatar--orange" style="margin-top:4px;">AK</div>
+                    <textarea placeholder="Add a comment…"></textarea>
+                  </div>
+                  <div class="cp-compose-actions">
+                    <span class="cp-compose-hint"><i class="fa-solid fa-at" style="font-size:10px;"></i> Mention</span>
+                    <vaadin-button theme="primary">Post</vaadin-button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /states-row -->
+
+    </div><!-- /states-grid -->
+  </div><!-- /page-content -->
+
+  <script>
+    /* ── Resize controls ── */
+    document.querySelectorAll('.frame-toolbar').forEach(toolbar => {
+      const frame    = toolbar.nextElementSibling;
+      const wInput   = toolbar.querySelector('.w-input');
+      const hInput   = toolbar.querySelector('.h-input');
+      const lockBtn  = toolbar.querySelector('.lock-btn');
+      let   locked   = false;
+
+      if (wInput) {
+        wInput.addEventListener('input', () => {
+          frame.style.width = wInput.value + 'px';
+        });
+      }
+      if (hInput) {
+        hInput.addEventListener('input', () => {
+          if (locked) frame.style.height = hInput.value + 'px';
+        });
+      }
+      if (lockBtn) {
+        lockBtn.addEventListener('click', () => {
+          locked = !locked;
+          lockBtn.classList.toggle('is-locked', locked);
+          lockBtn.innerHTML = locked
+            ? '<i class="fa-solid fa-lock"></i> Locked'
+            : '<i class="fa-solid fa-lock-open"></i> Lock height';
+          if (locked && hInput) {
+            const current = frame.getBoundingClientRect().height;
+            hInput.value = Math.round(current);
+            frame.style.height = current + 'px';
+          } else {
+            frame.style.height = '';
+          }
+        });
+      }
+    });
+
+    /* ── Demo: filter chips ── */
+    function demoFilter(btn, filter) {
+      btn.closest('.cp-filter-bar').querySelectorAll('.cp-filter-chip').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+
+      const list = document.getElementById('demo-list');
+      list.querySelectorAll('.cp-thread').forEach(thread => {
+        const isResolved = thread.classList.contains('resolved');
+        if (filter === 'all')      thread.style.display = '';
+        else if (filter === 'open')     thread.style.display = isResolved ? 'none' : '';
+        else if (filter === 'resolved') thread.style.display = isResolved ? '' : 'none';
+      });
+    }
+
+    /* ── Demo: toggle thread expand / collapse ── */
+    function toggleThread(id) {
+      const thread  = document.getElementById('thread-' + id);
+      const replies = document.getElementById('replies-' + id);
+      const meta    = thread.querySelector('.cp-thread-meta');
+
+      thread.classList.toggle('active');
+      thread.classList.toggle('collapsed');
+
+      if (replies) {
+        const isOpen = thread.classList.contains('active');
+        replies.style.display = isOpen ? 'flex' : 'none';
+        if (meta) meta.style.display = isOpen ? 'none' : 'flex';
+      }
+    }
+
+    /* ── Demo: mark thread resolved ── */
+    function markResolved(id) {
+      const thread = document.getElementById('thread-' + id);
+      if (!thread) return;
+
+      thread.classList.add('resolved');
+      thread.classList.remove('active');
+
+      const replies = document.getElementById('replies-' + id);
+      if (replies) replies.style.display = 'none';
+
+      let meta = thread.querySelector('.cp-thread-meta');
+      if (!meta) {
+        meta = document.createElement('div');
+        meta.className = 'cp-thread-meta';
+        thread.appendChild(meta);
+      }
+      meta.style.display = 'flex';
+      meta.innerHTML = '<span class="cp-resolved-tag"><i class="fa-solid fa-circle-check"></i> Resolved</span>';
+
+      updateDemoCount();
+    }
+
+    /* ── Demo: post a new comment ── */
+    function demoPostComment() {
+      const textarea = document.getElementById('demo-compose');
+      const text = textarea.value.trim();
+      if (!text) return;
+
+      const list = document.getElementById('demo-list');
+      const id   = 'thread-demo-' + Date.now();
+
+      const thread = document.createElement('div');
+      thread.className = 'cp-thread';
+      thread.id = id;
+      thread.innerHTML = `
+        <div class="cp-comment">
+          <div class="cp-avatar cp-avatar--orange">AK</div>
+          <div class="cp-comment-body">
+            <div class="cp-comment-meta">
+              <span class="cp-comment-author">Alex Kim</span>
+              <span class="cp-comment-time">Just now</span>
+            </div>
+            <div class="cp-comment-text">${escapeHtml(text)}</div>
+          </div>
+        </div>
+        <div class="cp-thread-meta">
+          <span class="cp-reply-count" style="color:var(--lumo-tertiary-text-color);font-weight:400;">
+            <i class="fa-regular fa-comment"></i> No replies yet
+          </span>
+        </div>
+      `;
+      list.insertBefore(thread, list.firstChild);
+      textarea.value = '';
+      updateDemoCount();
+    }
+
+    function updateDemoCount() {
+      const total = document.getElementById('demo-list').querySelectorAll('.cp-thread:not(.resolved)').length;
+      document.getElementById('demo-count').textContent = total;
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    /* ── Enable Post button only when compose has text ── */
+    const composeArea = document.getElementById('demo-compose');
+    const postBtn     = document.getElementById('demo-post-btn');
+    if (composeArea && postBtn) {
+      composeArea.addEventListener('input', () => {
+        postBtn.disabled = composeArea.value.trim().length === 0;
+      });
+      postBtn.disabled = true;
+    }
+  </script>
+</body>
+</html>
