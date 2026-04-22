@@ -400,7 +400,7 @@
     /* =====================================================================
        CANVAS AREA
     ===================================================================== */
-    #canvas-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+    #canvas-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; position: relative; }
 
     /* =====================================================================
        SHARED LEARNING OBJECT BANNER
@@ -463,7 +463,7 @@
 
     #preview-area {
       flex: 1; display: flex; align-items: flex-start; justify-content: center;
-      padding: 0 20px 20px; overflow: hidden;
+      padding: 0 20px 20px; overflow: hidden; position: relative;
     }
 
     .canvas-frame {
@@ -1138,29 +1138,38 @@
     .rte-body:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,0.1); }
 
     /* =====================================================================
-       ADD MEDIA MODAL — segmented control + dynamic content
+       ADD MEDIA — dropdown menu + per-type modals
     ===================================================================== */
     .modal-xl { max-width: 680px; }
+    .modal-md { max-width: 520px; }
 
-    .seg-control {
-      display: flex; background: #f3f4f6; border-radius: 8px;
-      padding: 3px; gap: 2px; margin-bottom: 18px;
+    /* Add Media dropdown menu */
+    .add-media-wrap { position: relative; display: inline-block; }
+    .add-media-menu {
+      display: none; position: absolute; top: calc(100% + 6px); left: 0;
+      background: white; border: 1px solid #e5e7eb; border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+      min-width: 220px; z-index: 200; overflow: hidden;
     }
-    .seg-btn {
-      flex: 1; padding: 7px 10px; border-radius: 6px; border: none;
-      background: none; cursor: pointer; font-family: inherit;
-      font-size: 12.5px; font-weight: 600; color: #6b7280;
-      display: flex; align-items: center; justify-content: center; gap: 6px;
-      transition: all 0.15s;
+    .add-media-menu.open { display: block; }
+    .add-media-menu-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 16px; cursor: pointer; transition: background 0.12s;
+      border: none; background: none; width: 100%; text-align: left;
+      font-family: inherit;
     }
-    .seg-btn.active {
-      background: white; color: #0f2e3d;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 0 0 0.5px rgba(0,0,0,0.05);
+    .add-media-menu-item:hover { background: #f3f4f6; }
+    .add-media-menu-item + .add-media-menu-item { border-top: 1px solid #f3f4f6; }
+    .add-media-menu-icon {
+      width: 34px; height: 34px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0;
     }
-    .seg-btn:hover:not(.active) { color: #374151; }
-
-    .media-pane { display: none; }
-    .media-pane.active { display: block; }
+    .add-media-menu-icon.ai { background: #ede9fe; color: #7c3aed; }
+    .add-media-menu-icon.upload { background: #dbeafe; color: #2563eb; }
+    .add-media-menu-icon.stock { background: #dcfce7; color: #16a34a; }
+    .add-media-menu-label { font-size: 13px; font-weight: 600; color: #111827; }
+    .add-media-menu-desc { font-size: 11px; color: #6b7280; margin-top: 1px; }
 
     /* AI Generate pane */
     .ai-gen-preview {
@@ -1235,6 +1244,138 @@
       display: none; align-items: center; justify-content: center;
     }
     .stock-item.selected .sel-check { display: flex; }
+
+    /* =====================================================================
+       GENERATE MODAL — minimize button
+    ===================================================================== */
+    .modal-header-row {
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+    }
+    .modal-minimize-btn {
+      flex-shrink: 0; width: 28px; height: 28px; border-radius: 6px;
+      border: 1px solid #e5e7eb; background: #f9fafb; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: #6b7280; font-size: 13px; transition: all 0.12s;
+      position: relative;
+    }
+    .modal-minimize-btn:hover { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
+    .modal-minimize-btn:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+
+    .modal-minimize-btn .minimize-tooltip {
+      display: none; position: absolute; top: calc(100% + 7px); right: 0;
+      background: #1f2937; color: white; font-size: 11px; font-weight: 500;
+      padding: 5px 9px; border-radius: 6px; white-space: nowrap;
+      pointer-events: none; line-height: 1.3; z-index: 10;
+    }
+    .modal-minimize-btn .minimize-tooltip::after {
+      content: ''; position: absolute; bottom: 100%; right: 9px;
+      border: 5px solid transparent; border-bottom-color: #1f2937;
+    }
+    .modal-minimize-btn:hover .minimize-tooltip { display: block; }
+
+    /* =====================================================================
+       GENERATION WIDGET
+    ===================================================================== */
+    #gen-widget {
+      position: absolute; bottom: 20px; right: 20px;
+      display: flex; flex-direction: row; align-items: center;
+      background: white; border: 1px solid #e5e7eb; border-radius: 12px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.13), 0 2px 8px rgba(0,0,0,0.07);
+      z-index: 90; overflow: hidden; width: 300px;
+      transform: translateY(16px) scale(0.97);
+      opacity: 0;
+      transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s ease;
+      pointer-events: none;
+    }
+    #gen-widget.visible {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Left thumbnail */
+    .gen-widget-thumb {
+      width: 72px; min-width: 72px; height: 52px;
+      background: #f3f4f6; position: relative; overflow: hidden; flex-shrink: 0;
+    }
+    .gen-widget-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .gen-widget-thumb:hover { cursor: pointer; opacity: 0.9; }
+    .gen-widget-thumb-placeholder {
+      width: 100%; height: 100%; display: flex; align-items: center;
+      justify-content: center; color: #d1d5db; font-size: 18px;
+    }
+    /* shimmer while generating */
+    .gen-widget-thumb::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%);
+      background-size: 200% 100%;
+      opacity: 0;
+    }
+    #gen-widget.state-generating .gen-widget-thumb::after {
+      opacity: 1;
+      animation: widgetShimmer 1.6s ease-in-out infinite;
+    }
+    @keyframes widgetShimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* Middle text area */
+    .gen-widget-body {
+      flex: 1; min-width: 0; padding: 0 10px;
+    }
+    .gen-widget-status {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 2px;
+    }
+    .gen-widget-spinner {
+      width: 12px; height: 12px; border: 2px solid #ede9fe;
+      border-top-color: #7c3aed; border-radius: 50%;
+      flex-shrink: 0; display: none;
+    }
+    #gen-widget.state-generating .gen-widget-spinner {
+      display: block;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .gen-widget-status-text {
+      font-size: 11.5px; font-weight: 600; color: #7c3aed;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #gen-widget.state-complete .gen-widget-status-text { color: #16a34a; }
+    #gen-widget.state-error    .gen-widget-status-text { color: #dc2626; }
+    #gen-widget.state-idle     .gen-widget-status-text { color: #6b7280; }
+
+    /* spinner only visible while generating */
+
+    /* green dot — only shown in complete state, placed after the status text */
+    .gen-widget-ready-dot {
+      display: none; width: 8px; height: 8px; border-radius: 50%;
+      background: #16a34a; flex-shrink: 0; margin-left: 2px;
+      box-shadow: 0 0 0 2px rgba(22,163,74,0.2);
+    }
+    #gen-widget.state-complete .gen-widget-ready-dot { display: block; }
+    .gen-widget-prompt {
+      font-size: 10.5px; color: #9ca3af; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; line-height: 1.3;
+    }
+
+    /* Right icon actions */
+    .gen-widget-actions {
+      display: flex; align-items: center; gap: 2px;
+      padding: 0 10px 0 6px; flex-shrink: 0;
+    }
+    .gen-widget-icon-btn {
+      width: 30px; height: 30px; border-radius: 7px; border: none;
+      background: none; cursor: pointer; display: flex; align-items: center;
+      justify-content: center; font-size: 13px; color: #6b7280;
+      transition: background 0.12s, color 0.12s;
+    }
+    .gen-widget-icon-btn:hover { background: #f3f4f6; }
+    .gen-widget-icon-btn.expand { color: #7c3aed; }
+    .gen-widget-icon-btn.expand:hover { background: #ede9fe; }
+    .gen-widget-icon-btn.cancel { color: #9ca3af; }
+    .gen-widget-icon-btn.cancel:hover { background: #fff1f2; color: #dc2626; }
+    #gen-widget.state-idle .gen-widget-icon-btn.cancel { display: none; }
 
     /* =====================================================================
        TIMELINE CLIP SELECTION
@@ -1473,9 +1614,10 @@
     /* Sticky compose zone — sits between header and scrolling list */
     #comment-panel-compose {
       flex-shrink: 0;
-      background: #f0f5fb;
-      border-bottom: 1px solid #d6e4f5;
+      background: white;
       padding: 10px 16px 12px;
+      box-shadow: var(--lumo-box-shadow-xs);
+      position: relative; z-index: 2;
     }
 
     /* Panel body scrolls */
@@ -1510,46 +1652,64 @@
     }
     .cdh-close:hover { background: #f3f4f6; color: #374151; }
 
-    /* ---- Scope nav bar ---- */
+    /* ---- Scope nav bar — chevron breadcrumb tabs ---- */
+    /*
+      Bar background acts as the "border" between tabs — inactive tabs are
+      white so the bar color shows through the negative-margin gap as a
+      visible divider, no actual CSS border needed on clip-path shapes.
+    */
     .cp-scope-bar {
       display: flex; align-items: center; gap: 0;
-      background: #f8fafc; border-bottom: 1px solid #f0f0f0;
-      padding: 0 16px; height: 36px;
-      flex-shrink: 0;
+      background: #FFFFFF;
+      border-bottom: 1px solid #dde4ee;
+      padding: 0 8px;
+      flex-shrink: 0; overflow: hidden;
     }
     .cp-scope-btn {
       display: flex; align-items: center; gap: 5px;
-      padding: 4px 8px; border-radius: 5px; border: none; background: none;
-      font-size: 11.5px; font-weight: 500; color: #6b7280; cursor: pointer;
-      white-space: nowrap;
+      height: 36px;
+      border: none; cursor: pointer; font-family: inherit;
+      font-size: 11px; font-weight: 500;
+      background: white; color: #1e3a52;
+      white-space: nowrap; position: relative;
+      transition: background 0.15s, color 0.15s;
     }
-    .cp-scope-btn:hover { background: #e9eef5; color: #374151; }
+    /* Tab 1: flat left, arrow right */
+    .cp-scope-btn:first-child {
+      padding: 0 22px 0 10px;
+      clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 50%, calc(100% - 9px) 100%, 0 100%);
+    }
+    /* Tab 2: right-pointing indent on left, arrow on right */
+    .cp-scope-btn:not(:first-child):not(:last-child) {
+      padding: 0 22px 0 20px;
+      clip-path: polygon(0 0, 9px 50%, 0 100%, calc(100% - 9px) 100%, 100% 50%, calc(100% - 9px) 0);
+      margin-left: -9px;
+    }
+    /* Tab 3: right-pointing indent on left, arrow on right */
+    .cp-scope-btn:last-child {
+      padding: 0 22px 0 20px;
+      clip-path: polygon(0 0, 9px 50%, 0 100%, calc(100% - 9px) 100%, 100% 50%, calc(100% - 9px) 0);
+      margin-left: -9px;
+    }
+    .cp-scope-btn:hover { background: #e8f0fb; color: #0271ce; }
+    /* Active: light blue fill, science blue text + inset bottom border — #0271ce on #e8f4ff = 4.7:1 ✓ AA */
     .cp-scope-btn.active {
-      background: #e8f0fb; color: #0271ce; font-weight: 600;
+      background: #e8f4ff; color: #0271ce; font-weight: 700;
+      box-shadow: inset 0 -3px 0 #0271ce;
     }
+    .cp-scope-btn.active:hover { background: #d6ecff; }
     .cp-scope-btn .cp-scope-unread {
-      background: #e71d13; color: white; border-radius: 8px;
-      padding: 0 5px; font-size: 9.5px; font-weight: 700; line-height: 15px;
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #e71d13; flex-shrink: 0;
     }
-    .cp-scope-sep {
-      color: #d1d5db; font-size: 11px; padding: 0 2px; pointer-events: none;
-    }
+    .cp-scope-sep { display: none; }
 
-    /* ---- Search icon button (lives in panel header) ---- */
-    .cdh-search-btn {
-      width: 30px; height: 30px; border: none; background: none; border-radius: 6px;
-      cursor: pointer; color: #6b7280; display: flex; align-items: center;
-      justify-content: center; font-size: 13px; flex-shrink: 0;
-    }
-    .cdh-search-btn:hover { background: #f3f4f6; color: #374151; }
-    .cdh-search-btn.active { background: #e8f0fb; color: #0271ce; }
-
-    /* ---- Search expansion panel (drops below header when active) ---- */
+    /* ---- Search panel — elevated above scrolling list ---- */
     #cp-search-panel {
-      background: white; border-bottom: 1px solid #e9eef5;
-      padding: 10px 16px; display: none; flex-shrink: 0;
+      background: #f0f5fb;
+      border-bottom: 1px solid #ccddf5;
+      padding: 10px 16px; display: block; flex-shrink: 0;
     }
-    #cp-search-panel.open { display: block; }
     .cp-search-wrap {
       position: relative; display: flex; align-items: center;
     }
@@ -1645,20 +1805,16 @@
     .cp-thread:first-child { padding-top: 0; }
     .cp-thread:last-child { border-bottom: none; }
 
-    /* Unread tag */
-    .cp-unread-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
-      font-size: 9px;
-      font-weight: 700;
-      color: #ca150c;
-      background: #e71d131a;
-      border-radius: 3px;
-      padding: 2px 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-left: 8px;
+    /* Unread indicator — red dot after username */
+    .cp-thread.unread .cp-author::after {
+      content: '';
+      display: inline-block;
+      width: 7px; height: 7px;
+      background: #e71d13;
+      border-radius: 50%;
+      margin-left: 5px;
+      vertical-align: middle;
+      flex-shrink: 0;
     }
 
     /* Collapse/expand toggle */
@@ -1797,6 +1953,7 @@
     /* Thread context tag (which scene/LO this relates to) */
     .cp-context-tag {
       display: inline-flex; align-items: center; gap: 4px;
+      width: fit-content;
       background: #f0f7fb; border: 1px solid #dbeafe;
       border-radius: 4px; padding: 2px 7px;
       font-size: 10.5px; color: #0271ce; font-weight: 500;
@@ -1858,15 +2015,16 @@
 
     /* "New comment" collapsed trigger */
     .cp-compose-trigger {
-      display: flex; align-items: center; gap: 8px;
-      width: 100%; padding: 7px 10px; border-radius: 8px;
-      border: 1px dashed #c7d9ef; background: transparent;
-      cursor: text; font-family: inherit;
-      transition: border-color 0.15s, background 0.15s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 9px 14px; border-radius: 8px;
+      border: none; background: #0271ce;
+      cursor: pointer; font-family: inherit;
+      transition: background 0.15s, box-shadow 0.15s;
+      box-shadow: 0 1px 3px rgba(2,113,206,0.3);
     }
-    .cp-compose-trigger:hover { border-color: #93bfdf; background: rgba(2,113,206,0.03); }
-    .cp-compose-trigger i { font-size: 12px; color: #9ca3af; flex-shrink: 0; }
-    .cp-compose-trigger span { font-size: 12px; color: #9ca3af; }
+    .cp-compose-trigger:hover { background: #0259a8; box-shadow: 0 2px 6px rgba(2,113,206,0.35); }
+    .cp-compose-trigger i { font-size: 13px; color: white; flex-shrink: 0; }
+    .cp-compose-trigger span { font-size: 13px; font-weight: 600; color: white; }
 
     /* Expanded compose box */
     .cp-compose {
@@ -1940,9 +2098,7 @@
     /* Filter tabs row — sticky inside compose zone */
     .cp-filter-row {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 8px 16px 10px;
-      border-bottom: 1px solid #f0f0f0;
-      margin: 0 -16px;
+      padding: 8px 0 0;
     }
     .cp-filter-tabs {
       display: flex; gap: 4px;
@@ -1956,12 +2112,10 @@
       background: #0271ce; color: white; border-color: #0271ce;
     }
     .cp-filter-tab .cp-tab-unread {
-      background: #e71d13; color: white; border-radius: 8px;
-      padding: 0 4px; font-size: 9px; font-weight: 700; line-height: 14px;
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #e71d13; display: inline-block; flex-shrink: 0;
     }
-    .cp-filter-tab.active .cp-tab-unread {
-      background: rgba(255,255,255,0.35);
-    }
+    .cp-filter-tab.active .cp-tab-unread { background: #e71d13; }
     /* Sort button */
     .cp-sort-btn {
       width: 26px; height: 26px; border: 1px solid #e5e7eb; background: white;
@@ -2169,9 +2323,6 @@
         <span class="cdh-unread-dot" title="You have unread comments"></span>
       </div>
       <div style="display:flex; align-items:center; gap:2px;">
-        <button class="cdh-search-btn" id="btn-toggle-search" title="Search comments" onclick="cpToggleSearch()">
-          <i class="fa-solid fa-magnifying-glass"></i>
-        </button>
         <button class="cdh-close" id="btn-close-comments" title="Close comments">
           <i class="fa-solid fa-xmark"></i>
         </button>
@@ -2183,13 +2334,13 @@
       <button class="cp-scope-btn" id="cp-scope-course" onclick="cpSetScope('course')">
         <i class="fa-solid fa-graduation-cap" style="font-size:10px;"></i>
         Course
-        <span class="cp-scope-unread">5</span>
+        <span class="cp-scope-unread"></span>
       </button>
       <span class="cp-scope-sep"><i class="fa-solid fa-chevron-right" style="font-size:8px;"></i></span>
       <button class="cp-scope-btn" id="cp-scope-lo" onclick="cpSetScope('lo')">
         <i class="fa-solid fa-film" style="font-size:10px;"></i>
         Intro to Video Creation
-        <span class="cp-scope-unread">3</span>
+        <span class="cp-scope-unread"></span>
       </button>
       <span class="cp-scope-sep"><i class="fa-solid fa-chevron-right" style="font-size:8px;"></i></span>
       <button class="cp-scope-btn active" id="cp-scope-scene" onclick="cpSetScope('scene')">
@@ -2221,16 +2372,6 @@
 
   <!-- Sticky compose zone — filters + compose trigger, never scrolls away -->
   <div id="comment-panel-compose">
-
-    <!-- Sticky filter row — scoped filters per view -->
-    <div class="cp-filter-row" id="cp-sticky-filter-row">
-      <div class="cp-filter-tabs" id="cp-sticky-filter-tabs">
-        <button class="cp-filter-tab active">All (4)</button>
-        <button class="cp-filter-tab">Open (3) <span class="cp-tab-unread">2</span></button>
-        <button class="cp-filter-tab">Resolved (1)</button>
-      </div>
-      <button class="cp-sort-btn" title="Sort comments"><i class="fa-solid fa-arrow-down-wide-short"></i></button>
-    </div>
 
     <!-- Shared tag picker — moved into the active compose box by JS on expand -->
     <div id="cp-tag-wrap" style="display:none; position:relative;">
@@ -2280,8 +2421,8 @@
     <!-- Scene scope compose -->
     <div id="cp-compose-scene">
       <button class="cp-compose-trigger" id="cp-compose-scene-trigger" onclick="cpExpandCompose('scene')">
-        <i class="fa-regular fa-comment"></i>
-        <span>Add a comment…</span>
+        <i class="fa-solid fa-plus"></i>
+        <span>Add Comment</span>
       </button>
       <div class="cp-compose" id="cp-compose-scene-box" style="display:none;">
         <textarea class="cp-compose-textarea" id="cp-compose-scene-textarea" placeholder="Add a comment… (use @name to mention someone)"></textarea>
@@ -2299,8 +2440,8 @@
     <!-- LO scope compose -->
     <div id="cp-compose-lo" style="display:none;">
       <button class="cp-compose-trigger" id="cp-compose-lo-trigger" onclick="cpExpandCompose('lo')">
-        <i class="fa-regular fa-comment"></i>
-        <span>Add a comment…</span>
+        <i class="fa-solid fa-plus"></i>
+        <span>Add Comment</span>
       </button>
       <div class="cp-compose" id="cp-compose-lo-box" style="display:none;">
         <textarea class="cp-compose-textarea" id="cp-compose-lo-textarea" placeholder="Add a comment…"></textarea>
@@ -2317,8 +2458,8 @@
     <!-- Course scope compose -->
     <div id="cp-compose-course" style="display:none;">
       <button class="cp-compose-trigger" id="cp-compose-course-trigger" onclick="cpExpandCompose('course')">
-        <i class="fa-regular fa-comment"></i>
-        <span>Add a comment…</span>
+        <i class="fa-solid fa-plus"></i>
+        <span>Add Comment</span>
       </button>
       <div class="cp-compose" id="cp-compose-course-box" style="display:none;">
         <textarea class="cp-compose-textarea" id="cp-compose-course-textarea" placeholder="Add a comment…"></textarea>
@@ -2330,6 +2471,16 @@
           <vaadin-button theme="primary small">Post</vaadin-button>
         </div>
       </div>
+    </div>
+
+    <!-- Sticky filter row — scoped filters per view -->
+    <div class="cp-filter-row" id="cp-sticky-filter-row">
+      <div class="cp-filter-tabs" id="cp-sticky-filter-tabs">
+        <button class="cp-filter-tab active">All (4)</button>
+        <button class="cp-filter-tab">Open (3) <span class="cp-tab-unread"></span></button>
+        <button class="cp-filter-tab">Resolved (1)</button>
+      </div>
+      <button class="cp-sort-btn" title="Sort comments"><i class="fa-solid fa-arrow-down-wide-short"></i></button>
     </div>
 
   </div><!-- /#comment-panel-compose -->
@@ -2360,7 +2511,6 @@
               <button class="cp-thr-btn" title="Resolve"><i class="fa-regular fa-circle-check"></i></button>
               <button class="cp-thr-btn cp-thr-ellipsis" title="More options" onclick="cpOpenThreadMenu(event, this)"><i class="fa-solid fa-ellipsis"></i></button>
             </div>
-            <span class="cp-unread-tag"><i class="fa-solid fa-circle" style="font-size:4px;"></i> Unread</span>
           </div>
           <div class="cp-context-tag">
             <i class="fa-solid fa-film" style="font-size:10px;"></i> Scene 3 — Intro to Taxonomy
@@ -2444,7 +2594,6 @@
               <button class="cp-thr-btn" title="Resolve"><i class="fa-regular fa-circle-check"></i></button>
               <button class="cp-thr-btn cp-thr-ellipsis" title="More options" onclick="cpOpenThreadMenu(event, this)"><i class="fa-solid fa-ellipsis"></i></button>
             </div>
-            <span class="cp-unread-tag"><i class="fa-solid fa-circle" style="font-size:4px;"></i> Unread</span>
           </div>
           <div class="cp-context-tag">
             <i class="fa-solid fa-film" style="font-size:10px;"></i> Scene 6 — Drag &amp; Drop Activity
@@ -2577,7 +2726,6 @@
               <button class="cp-thr-btn" title="Resolve"><i class="fa-regular fa-circle-check"></i></button>
               <button class="cp-thr-btn cp-thr-ellipsis" title="More options" onclick="cpOpenThreadMenu(event, this)"><i class="fa-solid fa-ellipsis"></i></button>
             </div>
-            <span class="cp-unread-tag"><i class="fa-solid fa-circle" style="font-size:4px;"></i> Unread</span>
           </div>
           <!-- Clicking the context tag navigates to that scene -->
           <div class="cp-context-tag" title="Navigate to this scene">
@@ -2607,7 +2755,6 @@
               <button class="cp-thr-btn" title="Resolve"><i class="fa-regular fa-circle-check"></i></button>
               <button class="cp-thr-btn cp-thr-ellipsis" title="More options" onclick="cpOpenThreadMenu(event, this)"><i class="fa-solid fa-ellipsis"></i></button>
             </div>
-            <span class="cp-unread-tag"><i class="fa-solid fa-circle" style="font-size:4px;"></i> Unread</span>
           </div>
           <div class="cp-context-tag" title="Navigate to this scene">
             <i class="fa-solid fa-film" style="font-size:10px;"></i> Scene 3 — Intro to Taxonomy
@@ -2770,8 +2917,7 @@
                 <button class="cp-thr-btn" title="Resolve"><i class="fa-regular fa-circle-check"></i></button>
                 <button class="cp-thr-btn cp-thr-ellipsis" title="More options" onclick="cpOpenThreadMenu(event, this)"><i class="fa-solid fa-ellipsis"></i></button>
               </div>
-              <span class="cp-unread-tag"><i class="fa-solid fa-circle" style="font-size:4px;"></i> Unread</span>
-            </div>
+              </div>
             <div class="cp-context-tag" style="background:#faf5ff; border-color:#e9d5ff; color:#7c3aed;">
               <i class="fa-solid fa-graduation-cap" style="font-size:10px;"></i> Course
             </div>
@@ -2837,8 +2983,7 @@
                 <button class="cp-thr-btn" title="Resolve"><i class="fa-regular fa-circle-check"></i></button>
                 <button class="cp-thr-btn cp-thr-ellipsis" title="More options" onclick="cpOpenThreadMenu(event, this)"><i class="fa-solid fa-ellipsis"></i></button>
               </div>
-              <span class="cp-unread-tag"><i class="fa-solid fa-circle" style="font-size:4px;"></i> Unread</span>
-            </div>
+              </div>
             <div class="cp-context-tag">
               <i class="fa-solid fa-film" style="font-size:10px;"></i> Scene 3 — Intro to Taxonomy
             </div>
@@ -2863,8 +3008,7 @@
                 <button class="cp-thr-btn" title="Resolve"><i class="fa-regular fa-circle-check"></i></button>
                 <button class="cp-thr-btn cp-thr-ellipsis" title="More options" onclick="cpOpenThreadMenu(event, this)"><i class="fa-solid fa-ellipsis"></i></button>
               </div>
-              <span class="cp-unread-tag"><i class="fa-solid fa-circle" style="font-size:4px;"></i> Unread</span>
-            </div>
+              </div>
             <div class="cp-context-tag">
               <i class="fa-solid fa-film" style="font-size:10px;"></i> Scene 6 — Drag &amp; Drop Activity
             </div>
@@ -2928,8 +3072,7 @@
                 <button class="cp-thr-btn" title="Resolve"><i class="fa-regular fa-circle-check"></i></button>
                 <button class="cp-thr-btn cp-thr-ellipsis" title="More options" onclick="cpOpenThreadMenu(event, this)"><i class="fa-solid fa-ellipsis"></i></button>
               </div>
-              <span class="cp-unread-tag"><i class="fa-solid fa-circle" style="font-size:4px;"></i> Unread</span>
-            </div>
+              </div>
             <div class="cp-context-tag">
               <i class="fa-solid fa-film" style="font-size:10px;"></i> Scene 2 — Color Grading
             </div>
@@ -2954,8 +3097,7 @@
                 <button class="cp-thr-btn" title="Resolve"><i class="fa-regular fa-circle-check"></i></button>
                 <button class="cp-thr-btn cp-thr-ellipsis" title="More options" onclick="cpOpenThreadMenu(event, this)"><i class="fa-solid fa-ellipsis"></i></button>
               </div>
-              <span class="cp-unread-tag"><i class="fa-solid fa-circle" style="font-size:4px;"></i> Unread</span>
-            </div>
+              </div>
             <div class="cp-context-tag">
               <i class="fa-solid fa-film" style="font-size:10px;"></i> Scene 5 — Export Settings
             </div>
@@ -3216,7 +3358,32 @@
 
       <!-- Floating Toolbar -->
       <div id="canvas-toolbar" class="floating-toolbar" data-file="products/LearningStudio/Phase2/index.html" data-line="1216">
-        <button class="tb-btn outline" onclick="openAddMediaModal()" data-file="products/LearningStudio/Phase2/index.html" data-line="1217"><i class="fa-regular fa-image"></i> Add Media</button>
+        <div class="add-media-wrap">
+          <button class="tb-btn outline" onclick="toggleAddMediaMenu(event)" data-file="products/LearningStudio/Phase2/index.html" data-line="1217"><i class="fa-regular fa-image"></i> Add Media <i class="fa-solid fa-chevron-down" style="font-size:9px; margin-left:2px;"></i></button>
+          <div class="add-media-menu" id="add-media-menu">
+            <button class="add-media-menu-item" onclick="openGenerateMediaModal()">
+              <div class="add-media-menu-icon ai"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+              <div>
+                <div class="add-media-menu-label">Generate with AI</div>
+                <div class="add-media-menu-desc">Create images from a text prompt</div>
+              </div>
+            </button>
+            <button class="add-media-menu-item" onclick="openUploadMediaModal()">
+              <div class="add-media-menu-icon upload"><i class="fa-solid fa-upload"></i></div>
+              <div>
+                <div class="add-media-menu-label">Upload</div>
+                <div class="add-media-menu-desc">Use your own image or video file</div>
+              </div>
+            </button>
+            <button class="add-media-menu-item" onclick="openStockMediaModal()">
+              <div class="add-media-menu-icon stock"><i class="fa-regular fa-images"></i></div>
+              <div>
+                <div class="add-media-menu-label">Stock Library</div>
+                <div class="add-media-menu-desc">Browse millions of stock photos &amp; videos</div>
+              </div>
+            </button>
+          </div>
+        </div>
         <button class="tb-btn outline" onclick="addTemplate()" data-file="products/LearningStudio/Phase2/index.html" data-line="1218"><i class="fa-solid fa-table-columns"></i> Add Template</button>
         <button class="tb-btn outline" onclick="openPreviewModal()" data-preview data-file="products/LearningStudio/Phase2/index.html" data-line="1219"><i class="fa-solid fa-play"></i> Preview</button>
       </div>
@@ -3226,6 +3393,31 @@
         <div class="canvas-frame" data-file="products/LearningStudio/Phase2/index.html" data-line="1224">
           <img id="canvas-bg" alt="Scene preview" / data-file="products/LearningStudio/Phase2/index.html" data-line="1225">
           <div id="canvas-overlay" data-file="products/LearningStudio/Phase2/index.html" data-line="1226"></div>
+        </div>
+
+        <!-- Generation Widget — pinned bottom-right of preview area -->
+        <div id="gen-widget" class="state-idle" aria-live="polite">
+          <div class="gen-widget-thumb" onclick="expandGenerateWidget()">
+            <div class="gen-widget-thumb-placeholder" id="gen-widget-thumb-inner">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </div>
+          </div>
+          <div class="gen-widget-body">
+            <div class="gen-widget-status">
+              <div class="gen-widget-spinner"></div>
+              <div class="gen-widget-status-text" id="gen-widget-status-text">Waiting to generate</div>
+              <div class="gen-widget-ready-dot"></div>
+            </div>
+            <div class="gen-widget-prompt" id="gen-widget-prompt">No prompt yet</div>
+          </div>
+          <div class="gen-widget-actions">
+            <button class="gen-widget-icon-btn cancel" onclick="cancelGenerateWidget()" title="Cancel generation" aria-label="Cancel generation">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+            <button class="gen-widget-icon-btn expand" id="gen-widget-expand-btn" onclick="expandGenerateWidget()" title="Expand" aria-label="Expand">
+              <i class="fa-solid fa-up-right-and-down-left-from-center"></i>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -3847,110 +4039,143 @@
 </div>
 
 <!-- ===================================================================
-     ADD MEDIA MODAL
+     GENERATE WITH AI MODAL
 =================================================================== -->
-<div id="modal-add-media" class="modal-backdrop hidden" data-file="products/LearningStudio/Phase2/index.html" data-line="1580">
-  <div class="modal modal-xl" data-file="products/LearningStudio/Phase2/index.html" data-line="1581">
-    <div class="modal-header" data-file="products/LearningStudio/Phase2/index.html" data-line="1582">
-      <div class="modal-title" data-file="products/LearningStudio/Phase2/index.html" data-line="1583">Add Media</div>
-      <div class="modal-desc" data-file="products/LearningStudio/Phase2/index.html" data-line="1584">Choose how to add background media for this scene.</div>
+<div id="modal-media-generate" class="modal-backdrop hidden">
+  <div class="modal modal-xl">
+    <div class="modal-header">
+      <div class="modal-header-row">
+        <div>
+          <div class="modal-title"><i class="fa-solid fa-sparkles" style="color:#7c3aed; margin-right:8px;"></i>Generate with AI</div>
+          <div class="modal-desc">Describe a scene and AI will create the background image for you.</div>
+        </div>
+        <button class="modal-minimize-btn" onclick="minimizeGenerateModal()" aria-label="Minimize" id="gen-minimize-btn">
+          <i class="fa-regular fa-window-minimize"></i>
+          <div class="minimize-tooltip">Generation will continue in the background</div>
+        </button>
+      </div>
     </div>
-    <div class="modal-body" data-file="products/LearningStudio/Phase2/index.html" data-line="1586">
+    <div class="modal-body">
 
-      <!-- Segmented control -->
-      <div class="seg-control" data-file="products/LearningStudio/Phase2/index.html" data-line="1589">
-        <button class="seg-btn active" id="seg-ai" onclick="switchMediaTab('ai')" data-file="products/LearningStudio/Phase2/index.html" data-line="1590">
-          <i class="fa-solid fa-sparkles"></i> Generate with AI
-        </button>
-        <button class="seg-btn" id="seg-upload" onclick="switchMediaTab('upload')" data-file="products/LearningStudio/Phase2/index.html" data-line="1593">
-          <i class="fa-solid fa-upload"></i> Upload
-        </button>
-        <button class="seg-btn" id="seg-stock" onclick="switchMediaTab('stock')" data-file="products/LearningStudio/Phase2/index.html" data-line="1596">
-          <i class="fa-regular fa-images"></i> Stock Library
-        </button>
-      </div>
-
-      <!-- AI Generate pane -->
-      <div class="media-pane active" id="pane-ai" data-file="products/LearningStudio/Phase2/index.html" data-line="1602">
-        <div class="ai-gen-preview" id="ai-gen-preview" data-file="products/LearningStudio/Phase2/index.html" data-line="1603">
-          <div class="ai-gen-placeholder" id="ai-gen-placeholder" data-file="products/LearningStudio/Phase2/index.html" data-line="1604">
-            <i class="fa-solid fa-wand-magic-sparkles"></i>
-            <span>Your generated image will appear here</span>
-          </div>
-        </div>
-        <div class="form-group" data-file="products/LearningStudio/Phase2/index.html" data-line="1609">
-          <label class="form-label" data-file="products/LearningStudio/Phase2/index.html" data-line="1610">Describe the scene</label>
-          <div style="display:flex; gap:8px; align-items:flex-end;">
-            <vaadin-text-field id="ai-prompt" theme="outlined" data-file="products/LearningStudio/Phase2/index.html" data-line="1612"
-              placeholder="e.g., Modern office with people collaborating around a table..."
-              style="flex:1; width:100%;"
-              onkeydown="if(event.key==='Enter') runAIGenerate()">
-            </vaadin-text-field>
-            <vaadin-button theme="primary" onclick="runAIGenerate()" id="ai-gen-btn" data-file="products/LearningStudio/Phase2/index.html" data-line="1617">
-              <i class="fa-solid fa-sparkles"></i> Generate
-            </vaadin-button>
-          </div>
-        </div>
-        <div class="form-group" data-file="products/LearningStudio/Phase2/index.html" data-line="1622">
-          <label class="form-label" data-file="products/LearningStudio/Phase2/index.html" data-line="1623">Style</label>
-          <div class="ai-style-grid" data-file="products/LearningStudio/Phase2/index.html" data-line="1624">
-            <div class="ai-style-opt selected" onclick="selectAIStyle(this, 'photorealistic')" data-file="products/LearningStudio/Phase2/index.html" data-line="1625">
-              <i class="fa-solid fa-camera"></i> Photorealistic
-            </div>
-            <div class="ai-style-opt" onclick="selectAIStyle(this, 'illustration')" data-file="products/LearningStudio/Phase2/index.html" data-line="1628">
-              <i class="fa-solid fa-pen-nib"></i> Illustration
-            </div>
-            <div class="ai-style-opt" onclick="selectAIStyle(this, 'cinematic')" data-file="products/LearningStudio/Phase2/index.html" data-line="1631">
-              <i class="fa-solid fa-film"></i> Cinematic
-            </div>
-            <div class="ai-style-opt" onclick="selectAIStyle(this, 'abstract')" data-file="products/LearningStudio/Phase2/index.html" data-line="1634">
-              <i class="fa-solid fa-shapes"></i> Abstract
-            </div>
-          </div>
+      <div class="ai-gen-preview" id="ai-gen-preview">
+        <div class="ai-gen-placeholder" id="ai-gen-placeholder">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+          <span>Your generated image will appear here</span>
         </div>
       </div>
 
-      <!-- Upload pane -->
-      <div class="media-pane" id="pane-upload" data-file="products/LearningStudio/Phase2/index.html" data-line="1642">
-        <div class="upload-dropzone" onclick="document.getElementById('file-upload-input').click()" data-file="products/LearningStudio/Phase2/index.html" data-line="1643">
-          <i class="fa-solid fa-cloud-arrow-up"></i>
-          <p>Drag &amp; drop your image or video here</p>
-          <small>Supports JPG, PNG, GIF, MP4, MOV — up to 500 MB</small>
-          <vaadin-button theme="secondary" type="button" data-file="products/LearningStudio/Phase2/index.html" data-line="1647">
-            <i class="fa-solid fa-folder-open"></i> Browse Files
-          </vaadin-button>
-          <input type="file" id="file-upload-input" accept="image/*,video/*" style="display:none;" onchange="handleFileUpload(this)" / data-file="products/LearningStudio/Phase2/index.html" data-line="1650">
-        </div>
-        <div class="tpl-prop-label" style="margin: 12px 0 8px;" data-file="products/LearningStudio/Phase2/index.html" data-line="1652">Recent Uploads</div>
-        <div class="upload-recent-grid" id="upload-recent-grid" data-file="products/LearningStudio/Phase2/index.html" data-line="1653"></div>
-      </div>
-
-      <!-- Stock Library pane -->
-      <div class="media-pane" id="pane-stock" data-file="products/LearningStudio/Phase2/index.html" data-line="1657">
-        <div class="stock-search-row" data-file="products/LearningStudio/Phase2/index.html" data-line="1658">
-          <vaadin-text-field id="stock-search" theme="outlined" data-file="products/LearningStudio/Phase2/index.html" data-line="1659"
-            placeholder="Search millions of stock photos and videos..."
+      <div class="form-group">
+        <label class="form-label">Describe the scene</label>
+        <div style="display:flex; gap:8px; align-items:flex-end;">
+          <vaadin-text-field id="ai-prompt" theme="outlined"
+            placeholder="e.g., Modern office with people collaborating around a table..."
             style="flex:1; width:100%;"
-            onkeydown="if(event.key==='Enter') searchStock()">
+            onkeydown="if(event.key==='Enter') runAIGenerate()">
           </vaadin-text-field>
-          <vaadin-button theme="primary" onclick="searchStock()" style="align-self:flex-end;" data-file="products/LearningStudio/Phase2/index.html" data-line="1664">
-            <i class="fa-solid fa-magnifying-glass"></i> Search
+          <vaadin-button theme="primary" onclick="runAIGenerate()" id="ai-gen-btn">
+            <i class="fa-solid fa-sparkles"></i> Generate
           </vaadin-button>
         </div>
-        <div class="stock-filter-row" data-file="products/LearningStudio/Phase2/index.html" data-line="1668">
-          <div class="stock-filter-chip active" onclick="setStockFilter(this, 'all')" data-file="products/LearningStudio/Phase2/index.html" data-line="1669">All</div>
-          <div class="stock-filter-chip" onclick="setStockFilter(this, 'photos')" data-file="products/LearningStudio/Phase2/index.html" data-line="1670">Photos</div>
-          <div class="stock-filter-chip" onclick="setStockFilter(this, 'videos')" data-file="products/LearningStudio/Phase2/index.html" data-line="1671">Videos</div>
-          <div class="stock-filter-chip" onclick="setStockFilter(this, 'vectors')" data-file="products/LearningStudio/Phase2/index.html" data-line="1672">Vectors</div>
-          <div class="stock-filter-chip" onclick="setStockFilter(this, 'illustrations')" data-file="products/LearningStudio/Phase2/index.html" data-line="1673">Illustrations</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Style</label>
+        <div class="ai-style-grid">
+          <div class="ai-style-opt selected" onclick="selectAIStyle(this, 'photorealistic')">
+            <i class="fa-solid fa-camera"></i> Photorealistic
+          </div>
+          <div class="ai-style-opt" onclick="selectAIStyle(this, 'illustration')">
+            <i class="fa-solid fa-pen-nib"></i> Illustration
+          </div>
+          <div class="ai-style-opt" onclick="selectAIStyle(this, 'cinematic')">
+            <i class="fa-solid fa-film"></i> Cinematic
+          </div>
+          <div class="ai-style-opt" onclick="selectAIStyle(this, 'abstract')">
+            <i class="fa-solid fa-shapes"></i> Abstract
+          </div>
         </div>
-        <div class="stock-grid" id="stock-grid" data-file="products/LearningStudio/Phase2/index.html" data-line="1675"></div>
       </div>
 
     </div>
-    <div class="modal-footer" data-file="products/LearningStudio/Phase2/index.html" data-line="1679">
-      <vaadin-button theme="secondary" onclick="closeModal('modal-add-media')" data-file="products/LearningStudio/Phase2/index.html" data-line="1680">Cancel</vaadin-button>
-      <vaadin-button theme="primary" id="apply-media-btn" onclick="applySelectedMedia()" disabled data-file="products/LearningStudio/Phase2/index.html" data-line="1681">
+    <div class="modal-footer">
+      <vaadin-button theme="secondary" onclick="closeModal('modal-media-generate')">Cancel</vaadin-button>
+      <vaadin-button theme="primary" id="apply-generate-btn" onclick="applySelectedMedia('modal-media-generate')" disabled>
+        <i class="fa-solid fa-check"></i> Apply to Scene
+      </vaadin-button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================
+     UPLOAD MEDIA MODAL
+=================================================================== -->
+<div id="modal-media-upload" class="modal-backdrop hidden">
+  <div class="modal modal-md">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-upload" style="color:#2563eb; margin-right:8px;"></i>Upload Media</div>
+      <div class="modal-desc">Upload an image or video file to use as the scene background.</div>
+    </div>
+    <div class="modal-body">
+
+      <div class="upload-dropzone" onclick="document.getElementById('file-upload-input').click()">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+        <p>Drag &amp; drop your image or video here</p>
+        <small>Supports JPG, PNG, GIF, MP4, MOV — up to 500 MB</small>
+        <vaadin-button theme="secondary" type="button">
+          <i class="fa-solid fa-folder-open"></i> Browse Files
+        </vaadin-button>
+        <input type="file" id="file-upload-input" accept="image/*,video/*" style="display:none;" onchange="handleFileUpload(this)">
+      </div>
+
+      <div class="tpl-prop-label" style="margin: 12px 0 8px;">Recent Uploads</div>
+      <div class="upload-recent-grid" id="upload-recent-grid"></div>
+
+    </div>
+    <div class="modal-footer">
+      <vaadin-button theme="secondary" onclick="closeModal('modal-media-upload')">Cancel</vaadin-button>
+      <vaadin-button theme="primary" id="apply-upload-btn" onclick="applySelectedMedia('modal-media-upload')" disabled>
+        <i class="fa-solid fa-check"></i> Apply to Scene
+      </vaadin-button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================
+     STOCK LIBRARY MODAL
+=================================================================== -->
+<div id="modal-media-stock" class="modal-backdrop hidden">
+  <div class="modal modal-xl">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-regular fa-images" style="color:#16a34a; margin-right:8px;"></i>Stock Library</div>
+      <div class="modal-desc">Search and browse millions of royalty-free photos and videos.</div>
+    </div>
+    <div class="modal-body">
+
+      <div class="stock-search-row">
+        <vaadin-text-field id="stock-search" theme="outlined"
+          placeholder="Search millions of stock photos and videos..."
+          style="flex:1; width:100%;"
+          onkeydown="if(event.key==='Enter') searchStock()">
+        </vaadin-text-field>
+        <vaadin-button theme="primary" onclick="searchStock()" style="align-self:flex-end;">
+          <i class="fa-solid fa-magnifying-glass"></i> Search
+        </vaadin-button>
+      </div>
+
+      <div class="stock-filter-row">
+        <div class="stock-filter-chip active" onclick="setStockFilter(this, 'all')">All</div>
+        <div class="stock-filter-chip" onclick="setStockFilter(this, 'photos')">Photos</div>
+        <div class="stock-filter-chip" onclick="setStockFilter(this, 'videos')">Videos</div>
+        <div class="stock-filter-chip" onclick="setStockFilter(this, 'vectors')">Vectors</div>
+        <div class="stock-filter-chip" onclick="setStockFilter(this, 'illustrations')">Illustrations</div>
+      </div>
+
+      <div class="stock-grid" id="stock-grid"></div>
+
+    </div>
+    <div class="modal-footer">
+      <vaadin-button theme="secondary" onclick="closeModal('modal-media-stock')">Cancel</vaadin-button>
+      <vaadin-button theme="primary" id="apply-stock-btn" onclick="applySelectedMedia('modal-media-stock')" disabled>
         <i class="fa-solid fa-check"></i> Apply to Scene
       </vaadin-button>
     </div>
@@ -5582,6 +5807,9 @@ document.addEventListener('click', e => {
   if (!e.target.closest('.dropdown') && !e.target.closest('.wh-icon-btn') && !e.target.closest('.sc-btn')) {
     closeAllDropdowns();
   }
+  if (!e.target.closest('.add-media-wrap')) {
+    closeAddMediaMenu();
+  }
 });
 
 /* -----------------------------------------------------------------------
@@ -6449,31 +6677,54 @@ const RECENT_UPLOADS = [
 ];
 
 let selectedMediaUrl = null;
-let currentMediaTab = 'ai';
+let genWidgetTimer = null;       // active setTimeout handle
+let genWidgetResult = null;      // url of completed generation, or null
+let genWidgetPrompt = '';        // prompt text for widget display
 
-function openAddMediaModal() {
+function toggleAddMediaMenu(e) {
+  e.stopPropagation();
+  document.getElementById('add-media-menu').classList.toggle('open');
+}
+
+function closeAddMediaMenu() {
+  document.getElementById('add-media-menu').classList.remove('open');
+}
+
+function openGenerateMediaModal() {
+  closeAddMediaMenu();
+  // If a completed result is waiting in the widget, restore it into the modal
+  if (genWidgetResult) {
+    _restoreWidgetResultToModal();
+    openModal('modal-media-generate');
+    return;
+  }
   selectedMediaUrl = null;
-  document.getElementById('apply-media-btn').disabled = true;
+  document.getElementById('apply-generate-btn').disabled = true;
   document.getElementById('ai-prompt').value = '';
-  // Reset AI preview
   const preview = document.getElementById('ai-gen-preview');
   preview.innerHTML = '<div class="ai-gen-placeholder" id="ai-gen-placeholder"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Your generated image will appear here</span></div>';
-  // Populate stock grid
-  renderStockGrid(STOCK_IMAGES);
-  // Populate recent uploads
-  renderRecentUploads(RECENT_UPLOADS);
-  // Switch to AI tab by default
-  switchMediaTab('ai');
-  openModal('modal-add-media');
+  document.querySelectorAll('.ai-style-opt').forEach((el, i) => el.classList.toggle('selected', i === 0));
+  openModal('modal-media-generate');
 }
 
-function switchMediaTab(tab) {
-  currentMediaTab = tab;
-  ['ai','upload','stock'].forEach(t => {
-    document.getElementById(`seg-${t}`).classList.toggle('active', t===tab);
-    document.getElementById(`pane-${t}`).classList.toggle('active', t===tab);
-  });
+function openUploadMediaModal() {
+  closeAddMediaMenu();
+  selectedMediaUrl = null;
+  document.getElementById('apply-upload-btn').disabled = true;
+  renderRecentUploads(RECENT_UPLOADS);
+  openModal('modal-media-upload');
 }
+
+function openStockMediaModal() {
+  closeAddMediaMenu();
+  selectedMediaUrl = null;
+  document.getElementById('apply-stock-btn').disabled = true;
+  renderStockGrid(STOCK_IMAGES);
+  openModal('modal-media-stock');
+}
+
+/* Legacy — kept for any lingering references */
+function openAddMediaModal() { openGenerateMediaModal(); }
 
 function selectAIStyle(el, style) {
   document.querySelectorAll('.ai-style-opt').forEach(e => e.classList.remove('selected'));
@@ -6483,9 +6734,21 @@ function selectAIStyle(el, style) {
 function runAIGenerate() {
   const prompt = document.getElementById('ai-prompt').value.trim();
   if (!prompt) return;
+
+  // Cancel any in-progress widget job before starting a new one
+  _cancelWidgetJob();
+
   const btn = document.getElementById('ai-gen-btn');
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
   btn.disabled = true;
+
+  // Reset previous result in modal
+  genWidgetResult = null;
+  genWidgetPrompt = prompt;
+  selectedMediaUrl = null;
+  document.getElementById('apply-generate-btn').disabled = true;
+  const preview = document.getElementById('ai-gen-preview');
+  preview.innerHTML = '<div class="ai-gen-placeholder" id="ai-gen-placeholder"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Your generated image will appear here</span></div>';
 
   const sampleImages = [
     'https://images.unsplash.com/photo-1497366216548-37526070297c?w=900&q=80',
@@ -6493,16 +6756,130 @@ function runAIGenerate() {
     'https://images.unsplash.com/photo-1556761175-4b46a572b786?w=900&q=80',
     'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=900&q=80',
   ];
-  const img = sampleImages[Math.floor(Math.random()*sampleImages.length)];
+  const img = sampleImages[Math.floor(Math.random() * sampleImages.length)];
 
-  setTimeout(() => {
-    const preview = document.getElementById('ai-gen-preview');
-    preview.innerHTML = `<img src="${img}" alt="Generated" />`;
-    selectedMediaUrl = img;
-    document.getElementById('apply-media-btn').disabled = false;
-    btn.innerHTML = '<i class="fa-solid fa-sparkles"></i> Generate';
-    btn.disabled = false;
-  }, 2000);
+  genWidgetTimer = setTimeout(() => {
+    genWidgetTimer = null;
+    genWidgetResult = img;
+
+    const modalOpen = !document.getElementById('modal-media-generate').classList.contains('hidden');
+    if (modalOpen) {
+      // User stayed in modal — show result there directly
+      preview.innerHTML = `<img src="${img}" alt="Generated" />`;
+      selectedMediaUrl = img;
+      document.getElementById('apply-generate-btn').disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-sparkles"></i> Generate';
+      btn.disabled = false;
+    } else {
+      // User minimized — update widget to complete state
+      _setWidgetComplete(img);
+    }
+  }, 10000);
+}
+
+/* -----------------------------------------------------------------------
+   GENERATION WIDGET
+----------------------------------------------------------------------- */
+
+function minimizeGenerateModal() {
+  const prompt = document.getElementById('ai-prompt').value.trim();
+  closeModal('modal-media-generate');
+  _showWidget(prompt || genWidgetPrompt);
+}
+
+function _showWidget(prompt) {
+  const w = document.getElementById('gen-widget');
+  const state = genWidgetResult ? 'complete' : genWidgetTimer ? 'generating' : 'idle';
+
+  document.getElementById('gen-widget-prompt').textContent = prompt ? `"${prompt}"` : 'No prompt yet';
+
+  const expandBtn = document.getElementById('gen-widget-expand-btn');
+  if (state === 'complete') {
+    document.getElementById('gen-widget-status-text').textContent = 'Ready to review';
+    expandBtn.title = 'View result'; expandBtn.setAttribute('aria-label', 'View result');
+    const thumbInner = document.getElementById('gen-widget-thumb-inner');
+    if (thumbInner) {
+      thumbInner.outerHTML = `<img src="${genWidgetResult}" alt="Generated" id="gen-widget-thumb-inner" style="width:100%;height:100%;object-fit:cover;display:block;">`;
+    }
+  } else if (state === 'generating') {
+    document.getElementById('gen-widget-status-text').textContent = 'Generating...';
+    expandBtn.title = 'Expand'; expandBtn.setAttribute('aria-label', 'Expand');
+  } else {
+    document.getElementById('gen-widget-status-text').textContent = 'Waiting to generate';
+    expandBtn.title = 'Expand'; expandBtn.setAttribute('aria-label', 'Expand');
+  }
+
+  w.className = `state-${state} visible`;
+
+  // Directly kill spinner and shimmer when not generating
+  const spinner = w.querySelector('.gen-widget-spinner');
+  if (spinner) {
+    const active = state === 'generating';
+    spinner.style.display = active ? '' : 'none';
+    spinner.style.animation = active ? '' : 'none';
+  }
+}
+
+function _setWidgetComplete(imgUrl) {
+  genWidgetResult = imgUrl;
+  const w = document.getElementById('gen-widget');
+  if (!w.classList.contains('visible')) return;
+
+  w.className = 'state-complete visible';
+
+  // Force spinner and shimmer off — belt-and-suspenders against cached CSS
+  const spinner = w.querySelector('.gen-widget-spinner');
+  if (spinner) { spinner.style.display = 'none'; spinner.style.animation = 'none'; }
+  const thumb = w.querySelector('.gen-widget-thumb');
+  if (thumb) thumb.style.setProperty('--shimmer-opacity', '0');
+
+  document.getElementById('gen-widget-status-text').textContent = 'Ready to review';
+  const expandBtn = document.getElementById('gen-widget-expand-btn');
+  expandBtn.title = 'View result'; expandBtn.setAttribute('aria-label', 'View result');
+
+  const thumbInner = document.getElementById('gen-widget-thumb-inner');
+  if (thumbInner) {
+    thumbInner.outerHTML = `<img src="${imgUrl}" alt="Generated" id="gen-widget-thumb-inner" style="width:100%;height:100%;object-fit:cover;display:block;">`;
+  }
+}
+
+function expandGenerateWidget() {
+  const w = document.getElementById('gen-widget');
+  // Animate out
+  w.style.transform = 'translateY(16px) scale(0.97)';
+  w.style.opacity = '0';
+  setTimeout(() => { w.className = 'state-idle'; w.style.transform = ''; w.style.opacity = ''; }, 250);
+
+  // Restore state into modal
+  if (genWidgetResult) {
+    _restoreWidgetResultToModal();
+  }
+  openModal('modal-media-generate');
+}
+
+function _restoreWidgetResultToModal() {
+  const preview = document.getElementById('ai-gen-preview');
+  preview.innerHTML = `<img src="${genWidgetResult}" alt="Generated" />`;
+  selectedMediaUrl = genWidgetResult;
+  document.getElementById('apply-generate-btn').disabled = false;
+  document.getElementById('ai-prompt').value = genWidgetPrompt;
+  const btn = document.getElementById('ai-gen-btn');
+  btn.innerHTML = '<i class="fa-solid fa-sparkles"></i> Generate';
+  btn.disabled = false;
+}
+
+function cancelGenerateWidget() {
+  _cancelWidgetJob();
+  const w = document.getElementById('gen-widget');
+  w.style.transform = 'translateY(16px) scale(0.97)';
+  w.style.opacity = '0';
+  setTimeout(() => { w.className = 'state-idle'; w.style.transform = ''; w.style.opacity = ''; }, 250);
+}
+
+function _cancelWidgetJob() {
+  if (genWidgetTimer) { clearTimeout(genWidgetTimer); genWidgetTimer = null; }
+  genWidgetResult = null;
+  genWidgetPrompt = '';
 }
 
 function renderStockGrid(images) {
@@ -6518,7 +6895,7 @@ function selectStockItem(idx, url) {
   document.querySelectorAll('.stock-item').forEach(el => el.classList.remove('selected'));
   document.getElementById(`stock-item-${idx}`).classList.add('selected');
   selectedMediaUrl = url.replace('w=400', 'w=900');
-  document.getElementById('apply-media-btn').disabled = false;
+  document.getElementById('apply-stock-btn').disabled = false;
 }
 
 function searchStock() {
@@ -6547,28 +6924,28 @@ function selectUploadItem(idx, url) {
   document.querySelectorAll('.upload-recent-item').forEach(el => el.classList.remove('selected'));
   document.getElementById(`upload-item-${idx}`).classList.add('selected');
   selectedMediaUrl = url.replace('w=400', 'w=900');
-  document.getElementById('apply-media-btn').disabled = false;
+  document.getElementById('apply-upload-btn').disabled = false;
 }
 
 function handleFileUpload(input) {
   const file = input.files[0];
   if (!file) return;
-  // For prototype — create object URL and treat as selected
   const url = URL.createObjectURL(file);
   selectedMediaUrl = url;
-  document.getElementById('apply-media-btn').disabled = false;
-  // Show filename feedback
+  document.getElementById('apply-upload-btn').disabled = false;
   const dz = document.querySelector('.upload-dropzone p');
   if (dz) dz.textContent = file.name;
 }
 
-function applySelectedMedia() {
+function applySelectedMedia(modalId) {
   if (!selectedMediaUrl) return;
   const sc = getActive();
   sc.img = selectedMediaUrl;
   updateCanvas();
   renderMediaList();
-  closeModal('modal-add-media');
+  closeModal(modalId || 'modal-media-generate');
+  // Clear widget if the applied media came from a generation
+  if (modalId === 'modal-media-generate') _cancelWidgetJob();
   lastSaved = Date.now();
 }
 
@@ -6814,19 +7191,6 @@ document.addEventListener('click', function (e) {
     if (body) body.scrollTop = 0;
   }
 
-  // ---- Search toggle ----
-  function cpToggleSearch() {
-    const panel = document.getElementById('cp-search-panel');
-    const btn   = document.getElementById('btn-toggle-search');
-    const isOpen = panel.classList.toggle('open');
-    btn.classList.toggle('active', isOpen);
-    if (isOpen) {
-      setTimeout(() => document.getElementById('cp-search').focus(), 0);
-    } else {
-      cpClearSearch();
-    }
-  }
-
   // ---- Sticky filter state per scope/subpage ----
   const CP_FILTER_STATES = {
     scene:          { tabs: [['All', 4], ['Open', 3, 2], ['Resolved', 1]] },
@@ -6846,7 +7210,7 @@ document.addEventListener('click', function (e) {
       const label = t[0];
       const count = t[1];
       const unread = t[2];
-      const unreadBadge = unread ? `<span class="cp-tab-unread">${unread}</span>` : '';
+      const unreadBadge = unread ? `<span class="cp-tab-unread"></span>` : '';
       const countStr = count !== undefined ? ` (${count})` : '';
       return `<button class="cp-filter-tab${i === 0 ? ' active' : ''}">${label}${countStr}${unreadBadge}</button>`;
     }).join('');
