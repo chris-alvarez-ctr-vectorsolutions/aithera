@@ -289,6 +289,18 @@
     }
     .vt-btn.active { background: var(--lumo-base-color); color: var(--lumo-primary-color); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
 
+    .seg-control {
+      display: flex; background: rgba(14,165,233,0.08);
+      border: 1px solid rgba(14,165,233,0.18); border-radius: 6px; padding: 2px; gap: 1px;
+    }
+    .seg-btn {
+      height: 26px; padding: 0 12px; border: none; background: none; border-radius: 4px;
+      cursor: pointer; color: var(--lumo-secondary-text-color); display: flex; align-items: center;
+      justify-content: center; font-size: 11.5px; font-weight: 600; gap: 5px; font-family: inherit;
+      white-space: nowrap;
+    }
+    .seg-btn.active { background: var(--lumo-base-color); color: var(--lumo-primary-color); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+
     .panel-body {
       flex: 1; overflow-y: auto; overflow-x: hidden; padding: 14px; padding-top: 20px;
     }
@@ -427,21 +439,47 @@
        SCENE THUMBNAIL CARDS (media view)
     ===================================================================== */
     .sc-thumb {
-      display: flex; gap: 10px; padding: 10px; border-radius: 10px; cursor: pointer;
-      background: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.9);
-      box-shadow: 0 3px 12px rgba(14,165,233,0.1); margin-bottom: 8px;
+      position: relative; border-radius: 10px; cursor: pointer; overflow: hidden;
+      aspect-ratio: 16/9; margin-bottom: 8px;
+      background: var(--lumo-contrast-10pct);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
       transition: all 0.15s;
     }
-    .sc-thumb:hover { box-shadow: 0 5px 18px rgba(14,165,233,0.18); }
-    .sc-thumb.active { border-left: 3px solid var(--lumo-disabled-text-color); }
+    .sc-thumb:hover { box-shadow: 0 5px 18px rgba(0,0,0,0.25); transform: translateY(-1px); }
+    .sc-thumb.active { outline: 2.5px solid var(--lumo-primary-color); outline-offset: 0; }
 
     .sc-thumb img {
-      width: 84px; height: 56px; border-radius: 6px; object-fit: cover;
-      background: var(--lumo-contrast-10pct); flex-shrink: 0;
+      width: 100%; height: 100%; object-fit: cover; display: block;
     }
-    .sc-thumb-info { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
-    .sc-thumb-title { font-size: 12px; font-weight: 600; color: var(--lumo-body-text-color); }
-    .sc-thumb-dur { font-size: 10.5px; color: var(--lumo-disabled-text-color); }
+
+    /* Dark gradient at bottom for overlay legibility */
+    .sc-thumb::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, transparent 35%, transparent 55%, rgba(0,0,0,0.55) 100%);
+      pointer-events: none;
+    }
+
+    /* Scene number — top-left pill */
+    .sc-thumb-num {
+      position: absolute; top: 7px; left: 7px; z-index: 2;
+      width: 24px; height: 24px; border-radius: 50%;
+      background: rgba(0,0,0,0.55); color: #fff;
+      font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    }
+    .sc-thumb.active .sc-thumb-num {
+      background: var(--lumo-primary-color);
+    }
+
+    /* Duration badge — bottom-right */
+    .sc-thumb-dur {
+      position: absolute; bottom: 7px; right: 7px; z-index: 2;
+      background: rgba(0,0,0,0.55); color: #fff;
+      font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 5px;
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+      display: flex; align-items: center; gap: 4px;
+    }
 
     /* Clickable badge wrapper for active scene — badge visible, select layered over it */
     .status-badge-select-wrap {
@@ -632,15 +670,19 @@
     }
     .tl-play-btn:hover { background: var(--lumo-primary-color); }
 
-    /* Tracks area — no vertical scroll; vertical size is fixed by panel resize */
-    .tl-tracks { padding: 8px 14px 6px; flex: 1; overflow: hidden; min-height: 0; }
+    /* Tracks area — vertical scroll handled by .tracks-row when content overflows */
+    .tl-tracks { padding: 8px 14px 6px; flex: 1; overflow: hidden; min-height: 0; display: flex; flex-direction: column; }
     .tl-tracks.collapsed { display: none; }
 
-    /* Outer row: labels and scroll area always share the same height */
-    .tracks-row { display: flex; gap: 0; align-items: stretch; }
+    /* Outer row: scrolls vertically when tracks exceed panel height */
+    .tracks-row { display: flex; gap: 0; align-items: stretch; flex: 1; overflow-y: auto; min-height: 0;
+      scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+    .tracks-row::-webkit-scrollbar { width: 5px; }
+    .tracks-row::-webkit-scrollbar-track { background: transparent; }
+    .tracks-row::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
     .track-labels {
       width: 88px; flex-shrink: 0; display: flex; flex-direction: column;
-      gap: 6px; padding-right: 8px; z-index: 2;
+      gap: 6px; padding-right: 8px; z-index: 2; align-self: flex-start;
     }
     .track-label-cell { height: 26px; display: flex; align-items: center; font-size: 10.5px; font-weight: 500; color: var(--lumo-secondary-text-color); gap: 4px; }
     .tpl-track-del {
@@ -652,10 +694,9 @@
     .track-label-cell:hover .tpl-track-del { opacity: 1; }
     .tpl-track-del:hover { background: #fee2e2; color: var(--lumo-error-color); }
 
-    /* Scrollable container — clips and ruler scroll together */
+    /* Scrollable container — clips and ruler scroll together horizontally */
     .tracks-scroll-area {
-      flex: 1; overflow-x: auto; overflow-y: hidden;
-      /* Hide scrollbar on Chrome/Safari but keep functional */
+      flex: 1; overflow-x: auto; overflow-y: visible;
       scrollbar-width: thin;
       scrollbar-color: #cbd5e1 transparent;
     }
@@ -713,8 +754,9 @@
       border-top: 7px solid var(--lumo-error-color);
     }
 
-    /* time ruler — lives inside .track-canvas, no left padding needed */
-    .time-ruler { margin-top: 4px; min-height: 20px; position: relative; width: 100%; }
+    /* time ruler — lives inside .track-canvas, sticks to bottom when tracks scroll vertically */
+    .time-ruler { margin-top: 4px; min-height: 20px; position: sticky; bottom: 0; width: 100%;
+      background: var(--lumo-base-color); z-index: 3; }
     .time-ruler-ticks { width: 100%; display: block; position: relative; height: 20px; }
     /* Ticks are absolutely positioned within .time-ruler-ticks */
     .tick { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 1px; }
@@ -856,29 +898,59 @@
     .bulk-audio-pane { display: none; }
     .bulk-audio-pane.active { display: block; }
 
+    /* Bulk audio modal — two top-level views */
+    .bulk-view { display: none; }
+    .bulk-view.active { display: block; }
+
+    /* Scene detail back bar */
+    .bulk-detail-back {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 14px; padding-bottom: 12px;
+      border-bottom: 1px solid var(--lumo-contrast-10pct);
+    }
+    .bulk-detail-back-btn {
+      display: flex; align-items: center; gap: 5px;
+      background: none; border: none; cursor: pointer; padding: 0;
+      font-size: 12px; font-weight: 600; color: var(--lumo-primary-color);
+      font-family: inherit;
+    }
+    .bulk-detail-back-btn:hover { text-decoration: underline; }
+    .bulk-detail-scene-label {
+      font-size: 12px; color: var(--lumo-secondary-text-color);
+      margin-left: auto;
+    }
+
+    /* Scene detail two-column layout */
+    .bulk-detail-body {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start;
+    }
+    .bulk-detail-col { display: flex; flex-direction: column; gap: 0; }
+
     /* Single-voice pane: reuses existing voice-grid styles */
 
     /* Per-scene pane */
     .bulk-scene-list {
       display: flex; flex-direction: column; gap: 0;
-      max-height: 320px; overflow-y: auto;
+      max-height: 420px; overflow-y: auto;
       border: 1px solid var(--lumo-contrast-10pct); border-radius: 8px;
     }
     .bulk-scene-row {
-      display: flex; align-items: center; gap: 10px;
-      padding: 9px 12px; border-bottom: 1px solid #f3f4f6;
+      display: flex; flex-direction: column; gap: 0;
+      padding: 10px 12px; border-bottom: 1px solid #f3f4f6;
     }
     .bulk-scene-row:last-child { border-bottom: none; }
+    .bulk-scene-row-header {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 5px;
+    }
     .bulk-scene-num {
       width: 22px; height: 22px; border-radius: 5px; flex-shrink: 0;
       background: rgba(255,255,255,0.6); border: 1.5px solid var(--lumo-contrast-20pct);
       font-size: 11px; font-weight: 700; color: var(--lumo-body-text-color);
       display: flex; align-items: center; justify-content: center;
     }
-    .bulk-scene-transcript {
-      flex: 1; font-size: 11.5px; color: var(--lumo-secondary-text-color);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      min-width: 0;
+    .bulk-scene-label {
+      flex: 1; font-size: 12px; font-weight: 600; color: var(--lumo-body-text-color);
+      min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .bulk-voice-select {
       flex-shrink: 0; width: 148px;
@@ -892,6 +964,17 @@
     }
     .bulk-voice-select:focus { outline: none; border-color: #0ea5e9; }
     .bulk-voice-select.skip { color: var(--lumo-disabled-text-color); font-style: italic; }
+    .bulk-scene-edit-btn {
+      flex-shrink: 0; width: 26px; height: 26px; border-radius: 5px; border: none;
+      background: none; cursor: pointer; display: flex; align-items: center;
+      justify-content: center; font-size: 11px; color: var(--lumo-secondary-text-color);
+      transition: background 0.12s, color 0.12s;
+    }
+    .bulk-scene-edit-btn:hover { background: rgba(14,165,233,0.1); color: var(--lumo-primary-color); }
+    .bulk-scene-transcript {
+      font-size: 11.5px; color: var(--lumo-secondary-text-color); line-height: 1.45;
+      padding-left: 30px;
+    }
 
     /* =====================================================================
        QUESTION CARDS (in left panel)
@@ -1224,6 +1307,7 @@
        ADD MEDIA — dropdown menu + per-type modals
     ===================================================================== */
     .modal-xl { max-width: 680px; }
+    .modal-2xl { max-width: 820px; }
     .modal-md { max-width: 520px; }
 
     /* Add Media dropdown menu */
@@ -1459,6 +1543,113 @@
     .gen-widget-icon-btn.cancel { color: var(--lumo-disabled-text-color); }
     .gen-widget-icon-btn.cancel:hover { background: #fff1f2; color: var(--lumo-error-color); }
     #gen-widget.state-idle .gen-widget-icon-btn.cancel { display: none; }
+
+    /* =====================================================================
+       AUDIO PROGRESS WIDGET — pinned to bottom of scenes panel
+    ===================================================================== */
+    #audio-widget {
+      flex-shrink: 0;
+      border-top: 1px solid rgba(14,165,233,0.18);
+      background: var(--lumo-base-color);
+      overflow: hidden;
+      transform: translateY(100%);
+      opacity: 0;
+      transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s ease;
+      pointer-events: none;
+    }
+    #audio-widget.visible {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .audio-widget-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 12px; cursor: pointer; position: relative;
+      user-select: none;
+    }
+    .audio-widget-header:hover { background: rgba(14,165,233,0.04); }
+    .audio-widget-icon {
+      width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0;
+      background: rgba(14,165,233,0.1); color: var(--lumo-primary-color);
+      display: flex; align-items: center; justify-content: center; font-size: 13px;
+    }
+    #audio-widget.state-generating .audio-widget-icon { color: var(--lumo-primary-color); }
+    #audio-widget.state-complete   .audio-widget-icon { background: rgba(21,132,68,0.1); color: var(--lumo-success-color); }
+    #audio-widget.state-error      .audio-widget-icon { background: rgba(231,29,19,0.1); color: var(--lumo-error-color); }
+    .audio-widget-title {
+      flex: 1; font-size: 12px; font-weight: 600; color: var(--lumo-body-text-color);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #audio-widget.state-generating .audio-widget-title { color: var(--lumo-primary-color); }
+    #audio-widget.state-complete   .audio-widget-title { color: var(--lumo-success-text-color); }
+    #audio-widget.state-error      .audio-widget-title { color: var(--lumo-error-text-color); }
+    .audio-widget-actions {
+      display: flex; align-items: center; gap: 2px; flex-shrink: 0;
+    }
+    .audio-widget-icon-btn {
+      width: 26px; height: 26px; border-radius: 5px; border: none;
+      background: none; cursor: pointer; display: flex; align-items: center;
+      justify-content: center; font-size: 12px; color: var(--lumo-secondary-text-color);
+      transition: background 0.12s, color 0.12s;
+    }
+    .audio-widget-icon-btn:hover { background: #f3f4f6; }
+    .audio-widget-icon-btn.aw-expand { color: var(--lumo-primary-color); }
+    .audio-widget-icon-btn.aw-expand:hover { background: rgba(14,165,233,0.1); }
+    .audio-widget-icon-btn.aw-cancel:hover { background: #fff1f2; color: var(--lumo-error-color); }
+    /* progress bar strip along bottom of header */
+    .audio-widget-progress {
+      height: 3px; width: 100%; background: rgba(14,165,233,0.12);
+      position: absolute; bottom: 0; left: 0;
+    }
+    .audio-widget-progress-fill {
+      height: 100%; background: var(--lumo-primary-color);
+      width: 0%; transition: width 0.4s ease;
+    }
+    #audio-widget.state-generating .audio-widget-progress-fill {
+      animation: awProgressIndeterminate 1.6s ease-in-out infinite;
+    }
+    @keyframes awProgressIndeterminate {
+      0%   { width: 0%;   margin-left: 0%; }
+      50%  { width: 60%;  margin-left: 20%; }
+      100% { width: 0%;   margin-left: 100%; }
+    }
+    #audio-widget.state-complete .audio-widget-progress-fill {
+      width: 100%; background: var(--lumo-success-color); animation: none;
+    }
+    /* collapsible body */
+    .audio-widget-body {
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.25s ease;
+    }
+    .audio-widget-body.open { max-height: 280px; }
+    .audio-widget-scene-rows {
+      display: flex; flex-direction: column; gap: 0;
+      border-top: 1px solid var(--lumo-contrast-10pct);
+      max-height: 220px; overflow-y: auto;
+    }
+    .audio-widget-scene-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 12px; border-bottom: 1px solid #f3f4f6; font-size: 11.5px;
+    }
+    .audio-widget-scene-row:last-child { border-bottom: none; }
+    .audio-widget-scene-num {
+      width: 20px; height: 20px; border-radius: 4px; flex-shrink: 0;
+      background: rgba(255,255,255,0.6); border: 1.5px solid var(--lumo-contrast-20pct);
+      font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    }
+    .audio-widget-scene-name {
+      flex: 1; color: var(--lumo-body-text-color); white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; min-width: 0;
+    }
+    .audio-widget-scene-status {
+      flex-shrink: 0; font-size: 11px; color: var(--lumo-secondary-text-color);
+    }
+    .audio-widget-scene-status.done  { color: var(--lumo-success-color); }
+    .audio-widget-scene-status.error { color: var(--lumo-error-color); }
+    .audio-widget-footer-actions {
+      padding: 8px 12px; display: flex; justify-content: flex-end;
+      border-top: 1px solid var(--lumo-contrast-10pct);
+    }
 
     /* =====================================================================
        TIMELINE CLIP SELECTION
@@ -3584,6 +3775,39 @@
           <i class="fa-solid fa-plus"></i> Add Scene
         </button>
       </div>
+
+      <!-- Audio generation progress widget — pinned to bottom of scenes panel -->
+      <div id="audio-widget" class="state-idle" aria-live="polite">
+        <div class="audio-widget-header" onclick="toggleAudioWidget()">
+          <div class="audio-widget-icon">
+            <i class="fa-solid fa-wave-square"></i>
+          </div>
+          <div class="audio-widget-title" id="audio-widget-title">Generating Audio…</div>
+          <div class="audio-widget-actions">
+            <button class="audio-widget-icon-btn aw-expand" id="audio-widget-expand-btn"
+                    title="Open" aria-label="Open bulk audio modal"
+                    onclick="event.stopPropagation(); expandAudioWidget()">
+              <i class="fa-solid fa-up-right-and-down-left-from-center"></i>
+            </button>
+            <button class="audio-widget-icon-btn aw-cancel"
+                    title="Cancel" aria-label="Cancel generation"
+                    onclick="event.stopPropagation(); cancelAudioWidget()">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <div class="audio-widget-progress">
+            <div class="audio-widget-progress-fill" id="audio-widget-progress-fill"></div>
+          </div>
+        </div>
+        <div class="audio-widget-body" id="audio-widget-body">
+          <div class="audio-widget-scene-rows" id="audio-widget-scene-rows"></div>
+          <div class="audio-widget-footer-actions" id="audio-widget-footer-actions" style="display:none;">
+            <vaadin-button theme="primary small" onclick="closeAudioWidget()">
+              <i class="fa-solid fa-circle-check"></i> Done
+            </vaadin-button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ---- KNOWLEDGE CHECKS PANEL ---- -->
@@ -4515,44 +4739,113 @@
      BULK GENERATE AUDIO MODAL
 =================================================================== -->
 <div id="modal-bulk-audio" class="modal-backdrop hidden">
-  <div class="modal modal-xl">
+  <div class="modal modal-2xl">
     <div class="modal-header">
-      <div class="modal-title">Generate All Audio</div>
-      <div class="modal-desc">Apply a single voice across all scenes, or assign a different voice per scene.</div>
+      <div class="modal-header-row">
+        <div>
+          <div class="modal-title" id="bulk-modal-title">Generate All Audio</div>
+          <div class="modal-desc" id="bulk-modal-desc">Apply a single voice across all scenes, or assign a different voice per scene.</div>
+        </div>
+        <button class="modal-minimize-btn" onclick="minimizeBulkAudioModal()" aria-label="Minimize" id="bulk-minimize-btn">
+          <i class="fa-regular fa-window-minimize"></i>
+          <div class="minimize-tooltip">Generation will continue in the background</div>
+        </button>
+      </div>
     </div>
     <div class="modal-body">
 
-      <!-- Mode toggle -->
-      <div class="seg-control">
-        <button class="seg-btn active" id="bulk-seg-single" onclick="switchBulkTab('single')">
-          <i class="fa-solid fa-microphone"></i> Single Voice
-        </button>
-        <button class="seg-btn" id="bulk-seg-per-scene" onclick="switchBulkTab('per-scene')">
-          <i class="fa-solid fa-list-ul"></i> Per Scene
-        </button>
+      <!-- ── ALL SCENES VIEW ── -->
+      <div class="bulk-view active" id="bulk-view-all">
+
+        <!-- Mode toggle -->
+        <div class="seg-control" style="margin-bottom:14px;">
+          <button class="seg-btn active" id="bulk-seg-single" onclick="switchBulkTab('single')">
+            <i class="fa-solid fa-microphone"></i> Single Voice
+          </button>
+          <button class="seg-btn" id="bulk-seg-per-scene" onclick="switchBulkTab('per-scene')">
+            <i class="fa-solid fa-list-ul"></i> Per Scene
+          </button>
+        </div>
+
+        <!-- Single voice pane -->
+        <div class="bulk-audio-pane active" id="bulk-pane-single">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Voice — applied to all scenes</label>
+            <div class="voice-grid" id="bulk-voice-grid"></div>
+          </div>
+        </div>
+
+        <!-- Per-scene pane -->
+        <div class="bulk-audio-pane" id="bulk-pane-per-scene">
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label">Assign a voice to each scene</label>
+          </div>
+          <div class="bulk-scene-list" id="bulk-scene-list"></div>
+        </div>
+
       </div>
 
-      <!-- Single voice pane -->
-      <div class="bulk-audio-pane active" id="bulk-pane-single">
-        <div class="form-group" style="margin-bottom:0;">
-          <label class="form-label">Voice — applied to all scenes</label>
-          <div class="voice-grid" id="bulk-voice-grid"></div>
-        </div>
-      </div>
+      <!-- ── SCENE DETAIL VIEW ── -->
+      <div class="bulk-view" id="bulk-view-detail">
 
-      <!-- Per-scene pane -->
-      <div class="bulk-audio-pane" id="bulk-pane-per-scene">
-        <div class="form-group" style="margin-bottom:8px;">
-          <label class="form-label">Assign a voice to each scene</label>
+        <!-- Back nav -->
+        <div class="bulk-detail-back">
+          <button class="bulk-detail-back-btn" onclick="closeBulkSceneDetail()">
+            <i class="fa-solid fa-arrow-left"></i> Back to All Scenes
+          </button>
+          <span class="bulk-detail-scene-label" id="bulk-detail-scene-label">Scene 1 of 6</span>
         </div>
-        <div class="bulk-scene-list" id="bulk-scene-list"></div>
+
+        <!-- Two-column body: left = voice + preview, right = transcript + phonetic -->
+        <div class="bulk-detail-body">
+
+          <div class="bulk-detail-col">
+            <div class="form-group">
+              <label class="form-label">Voice</label>
+              <div class="voice-grid" id="bulk-detail-voice-grid"></div>
+            </div>
+            <button class="btn-preview-audio" id="bulk-preview-btn" onclick="previewBulkSceneAudio()">
+              <i class="fa-solid fa-play"></i>
+              <span id="bulk-preview-label">Preview with Sarah</span>
+            </button>
+          </div>
+
+          <div class="bulk-detail-col">
+            <div class="form-group">
+              <label class="form-label">Transcript</label>
+              <vaadin-text-area id="bulk-detail-transcript" theme="outlined"
+                placeholder="Enter scene transcript..."
+                style="width:100%; --vaadin-text-area-height:130px;">
+              </vaadin-text-area>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Phonetic Text</label>
+              <vaadin-text-area id="bulk-detail-phonetic" theme="outlined"
+                placeholder="Enter phonetic overrides (optional)..."
+                style="width:100%; --vaadin-text-area-height:100px; font-family:'Courier New',monospace; font-size:12px;">
+              </vaadin-text-area>
+              <p class="form-tip">Tip: Spell words phonetically (e.g., "data" as "day-tuh"), use hyphens for pauses.</p>
+            </div>
+          </div>
+
+        </div>
       </div>
 
     </div>
-    <div class="modal-footer">
+    <!-- Footer: all-scenes state -->
+    <div class="modal-footer" id="bulk-footer-all">
       <vaadin-button theme="secondary" onclick="closeModal('modal-bulk-audio')">Cancel</vaadin-button>
       <vaadin-button theme="primary" id="bulk-gen-btn" onclick="generateBulkAudio()">
         <i class="fa-solid fa-volume-high"></i> Generate Audio
+      </vaadin-button>
+    </div>
+    <!-- Footer: scene-detail state -->
+    <div class="modal-footer" id="bulk-footer-detail" style="display:none;">
+      <vaadin-button theme="secondary" onclick="closeBulkSceneDetail()">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </vaadin-button>
+      <vaadin-button theme="primary" onclick="saveBulkSceneDetail()">
+        <i class="fa-solid fa-floppy-disk"></i> Save &amp; Close
       </vaadin-button>
     </div>
   </div>
@@ -5273,12 +5566,9 @@ function renderMediaList() {
     const isActive = sc.id === activeSceneId;
     return `
 <div class="sc-thumb${isActive?' active':''}" onclick="selectScene(${sc.id})">
-  <img src="${sc.img}" alt="${idx+1}" onerror="this.style.background='#e5e7eb';this.removeAttribute('src')" />
-  <div class="sc-thumb-info">
-    <div class="sc-thumb-title">${idx+1}. Scene ${idx+1}</div>
-    <div class="sc-thumb-dur">${fmt(sc.duration)}</div>
-    ${statusBadge(sc.status)}
-  </div>
+  <img src="${sc.img}" alt="Scene ${idx+1}" onerror="this.style.background='#e5e7eb';this.removeAttribute('src')" />
+  <div class="sc-thumb-num">${idx+1}</div>
+  <div class="sc-thumb-dur"><i class="fa-solid fa-clock" style="font-size:8px;opacity:0.8;"></i>${fmt(sc.duration)}</div>
 </div>`;
   }).join('');
 }
@@ -6501,14 +6791,98 @@ function generateAudio() {
 ----------------------------------------------------------------------- */
 let bulkAudioTab = 'single';
 let bulkVoiceSelected = 'alloy'; // selected voice for single-voice pane
+let bulkActiveSceneId = null;    // scene being edited in detail view
+// per-scene voice overrides: { [sceneId]: voiceId }
+let bulkSceneVoices = {};
 
 function openBulkAudioModal() {
   bulkAudioTab = 'single';
   bulkVoiceSelected = selectedVoice;
+  _setBulkView('all');
   switchBulkTab('single');
   buildBulkVoiceGrid();
   buildBulkSceneList();
   openModal('modal-bulk-audio');
+}
+
+function _setBulkView(view) {
+  document.getElementById('bulk-view-all').classList.toggle('active', view === 'all');
+  document.getElementById('bulk-view-detail').classList.toggle('active', view === 'detail');
+  document.getElementById('bulk-footer-all').style.display = view === 'all' ? '' : 'none';
+  document.getElementById('bulk-footer-detail').style.display = view === 'detail' ? '' : 'none';
+  if (view === 'all') {
+    document.getElementById('bulk-modal-title').textContent = 'Generate All Audio';
+    document.getElementById('bulk-modal-desc').textContent = 'Apply a single voice across all scenes, or assign a different voice per scene.';
+    document.getElementById('bulk-minimize-btn').disabled = false;
+  }
+}
+
+function openBulkSceneDetail(sceneId) {
+  const sc = scenes.find(s => s.id === sceneId);
+  if (!sc) return;
+  bulkActiveSceneId = sceneId;
+
+  const idx = scenes.indexOf(sc);
+  document.getElementById('bulk-detail-scene-label').textContent = `Scene ${idx + 1} of ${scenes.length}`;
+  document.getElementById('bulk-modal-title').textContent = `Scene ${idx + 1} — Audio Setup`;
+  document.getElementById('bulk-modal-desc').textContent = 'Edit transcript and phonetic text, then preview before generating.';
+  document.getElementById('bulk-minimize-btn').disabled = true;
+
+  // Populate transcript and phonetic fields
+  document.getElementById('bulk-detail-transcript').value = sc.transcript || '';
+  document.getElementById('bulk-detail-phonetic').value = sc.phonetic || '';
+
+  // Build voice grid for this scene, defaulting to per-scene override or global voice
+  const sceneVoice = bulkSceneVoices[sceneId] || bulkVoiceSelected;
+  _buildBulkDetailVoiceGrid(sceneVoice);
+
+  _setBulkView('detail');
+}
+
+function _buildBulkDetailVoiceGrid(activeVoiceId) {
+  document.getElementById('bulk-detail-voice-grid').innerHTML = VOICES.map(v => `
+    <div class="voice-opt${v.id === activeVoiceId ? ' selected' : ''}"
+         onclick="selectBulkDetailVoice('${v.id}')">
+      <div class="voice-name">${v.name}</div>
+      <div class="voice-desc">${v.desc}</div>
+    </div>`).join('');
+  const v = VOICES.find(x => x.id === activeVoiceId) || VOICES[0];
+  document.getElementById('bulk-preview-label').textContent = `Preview with ${v.name}`;
+}
+
+function selectBulkDetailVoice(id) {
+  _buildBulkDetailVoiceGrid(id);
+  // Store the override so it persists if the user navigates back
+  if (bulkActiveSceneId !== null) bulkSceneVoices[bulkActiveSceneId] = id;
+}
+
+function previewBulkSceneAudio() {
+  const btn = document.getElementById('bulk-preview-btn');
+  const labelEl = document.getElementById('bulk-preview-label');
+  btn.disabled = true;
+  btn.querySelector('i').className = 'fa-solid fa-spinner fa-spin';
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.querySelector('i').className = 'fa-solid fa-play';
+    const activeVoice = bulkSceneVoices[bulkActiveSceneId] || bulkVoiceSelected;
+    const v = VOICES.find(x => x.id === activeVoice) || VOICES[0];
+    labelEl.textContent = `Preview with ${v.name}`;
+  }, 2000);
+}
+
+function saveBulkSceneDetail() {
+  const sc = scenes.find(s => s.id === bulkActiveSceneId);
+  if (sc) {
+    sc.transcript = document.getElementById('bulk-detail-transcript').value;
+    sc.phonetic   = document.getElementById('bulk-detail-phonetic').value;
+  }
+  closeBulkSceneDetail();
+}
+
+function closeBulkSceneDetail() {
+  bulkActiveSceneId = null;
+  buildBulkSceneList(); // refresh list to reflect any saved transcript changes
+  _setBulkView('all');
 }
 
 function switchBulkTab(tab) {
@@ -6540,18 +6914,25 @@ function buildBulkSceneList() {
   const skipOption = `<option value="skip">— Skip scene —</option>`;
 
   document.getElementById('bulk-scene-list').innerHTML = scenes.map((sc, idx) => {
-    const preview = sc.transcript
-      ? sc.transcript.substring(0, 60) + (sc.transcript.length > 60 ? '…' : '')
+    const transcript = sc.transcript || 'No transcript';
+    const label = sc.transcript
+      ? sc.transcript.substring(0, 40) + (sc.transcript.length > 40 ? '…' : '')
       : 'No transcript';
     return `
 <div class="bulk-scene-row">
-  <div class="bulk-scene-num">${idx + 1}</div>
-  <div class="bulk-scene-transcript" title="${sc.transcript || ''}">${preview}</div>
-  <select class="bulk-voice-select" id="bulk-select-${sc.id}"
-          onchange="this.classList.toggle('skip', this.value==='skip')">
-    ${voiceOptions}
-    ${skipOption}
-  </select>
+  <div class="bulk-scene-row-header">
+    <div class="bulk-scene-num">${idx + 1}</div>
+    <div class="bulk-scene-label" title="${sc.transcript || ''}">${label}</div>
+    <select class="bulk-voice-select" id="bulk-select-${sc.id}"
+            onchange="this.classList.toggle('skip', this.value==='skip')">
+      ${voiceOptions}
+      ${skipOption}
+    </select>
+    <button class="bulk-scene-edit-btn" title="Edit scene audio" onclick="openBulkSceneDetail(${sc.id})">
+      <i class="fa-solid fa-pen"></i>
+    </button>
+  </div>
+  <div class="bulk-scene-transcript">${transcript}</div>
 </div>`;
   }).join('');
 
@@ -6563,26 +6944,138 @@ function buildBulkSceneList() {
 }
 
 function generateBulkAudio() {
-  const btn = document.getElementById('bulk-gen-btn');
-  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
-  btn.disabled = true;
-
-  // Determine how many scenes will actually be generated (for feedback copy)
-  let count;
+  // Build the job list before closing the modal
+  let jobScenes;
   if (bulkAudioTab === 'single') {
-    count = scenes.length;
+    jobScenes = scenes.map(sc => ({ id: sc.id, voice: bulkVoiceSelected, transcript: sc.transcript }));
   } else {
-    count = scenes.filter(sc => {
-      const sel = document.getElementById(`bulk-select-${sc.id}`);
-      return sel && sel.value !== 'skip';
-    }).length;
+    jobScenes = scenes
+      .filter(sc => {
+        const sel = document.getElementById(`bulk-select-${sc.id}`);
+        return sel && sel.value !== 'skip';
+      })
+      .map(sc => {
+        const sel = document.getElementById(`bulk-select-${sc.id}`);
+        return { id: sc.id, voice: sel ? sel.value : bulkVoiceSelected, transcript: sc.transcript };
+      });
   }
 
+  closeModal('modal-bulk-audio');
+  _showAudioWidget(jobScenes);
+}
+
+/* -----------------------------------------------------------------------
+   AUDIO PROGRESS WIDGET
+----------------------------------------------------------------------- */
+let _audioWidgetTimer = null;
+let _audioWidgetJob   = [];      // array of { id, voice, transcript }
+let _audioWidgetDone  = 0;
+let _audioWidgetExpanded = false;
+
+function _showAudioWidget(jobScenes) {
+  _audioWidgetJob  = jobScenes;
+  _audioWidgetDone = 0;
+
+  const w = document.getElementById('audio-widget');
+  const rowsEl = document.getElementById('audio-widget-scene-rows');
+
+  // Build per-scene status rows
+  rowsEl.innerHTML = jobScenes.map((j, idx) => {
+    const sc = scenes.find(s => s.id === j.id);
+    const label = sc && sc.transcript
+      ? sc.transcript.substring(0, 35) + (sc.transcript.length > 35 ? '…' : '')
+      : `Scene ${idx + 1}`;
+    return `
+<div class="audio-widget-scene-row" id="aw-row-${j.id}">
+  <div class="audio-widget-scene-num">${scenes.indexOf(sc) + 1}</div>
+  <div class="audio-widget-scene-name">${label}</div>
+  <div class="audio-widget-scene-status" id="aw-status-${j.id}">
+    <i class="fa-solid fa-spinner fa-spin"></i>
+  </div>
+</div>`;
+  }).join('');
+
+  document.getElementById('audio-widget-title').textContent = `Generating Audio… (0 of ${jobScenes.length})`;
+  document.getElementById('audio-widget-footer-actions').style.display = 'none';
+  w.className = 'state-generating visible';
+
+  // Simulate per-scene completion
+  let completed = 0;
+  jobScenes.forEach((j, idx) => {
+    _audioWidgetTimer = setTimeout(() => {
+      completed++;
+      const statusEl = document.getElementById(`aw-status-${j.id}`);
+      if (statusEl) {
+        statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+        statusEl.className = 'audio-widget-scene-status done';
+      }
+      document.getElementById('audio-widget-title').textContent =
+        `Generating Audio… (${completed} of ${jobScenes.length})`;
+
+      if (completed === jobScenes.length) {
+        _completeAudioWidget();
+      }
+    }, (idx + 1) * 600);
+  });
+}
+
+function _completeAudioWidget() {
+  const w = document.getElementById('audio-widget');
+  w.className = 'state-complete visible';
+  document.getElementById('audio-widget-title').textContent = 'Audio Ready';
+  document.getElementById('audio-widget-footer-actions').style.display = 'flex';
+  _audioWidgetTimer = null;
+}
+
+function toggleAudioWidget() {
+  _audioWidgetExpanded = !_audioWidgetExpanded;
+  document.getElementById('audio-widget-body').classList.toggle('open', _audioWidgetExpanded);
+}
+
+function expandAudioWidget() {
+  // Re-open the bulk audio modal (resets to all-scenes view so user can adjust and re-generate)
+  openBulkAudioModal();
+  closeAudioWidget();
+}
+
+function cancelAudioWidget() {
+  if (_audioWidgetTimer) { clearTimeout(_audioWidgetTimer); _audioWidgetTimer = null; }
+  _audioWidgetJob  = [];
+  _audioWidgetDone = 0;
+  const w = document.getElementById('audio-widget');
+  w.style.transform = 'translateY(100%)';
+  w.style.opacity   = '0';
   setTimeout(() => {
-    btn.innerHTML = '<i class="fa-solid fa-volume-high"></i> Generate Audio';
-    btn.disabled = false;
-    closeModal('modal-bulk-audio');
-  }, Math.max(1500, count * 400));
+    w.className = 'state-idle';
+    w.style.transform = '';
+    w.style.opacity   = '';
+    document.getElementById('audio-widget-body').classList.remove('open');
+    _audioWidgetExpanded = false;
+  }, 250);
+}
+
+function closeAudioWidget() {
+  cancelAudioWidget();
+}
+
+function minimizeBulkAudioModal() {
+  // Capture current job config from the modal state, then close and show widget
+  let jobScenes;
+  if (bulkAudioTab === 'single') {
+    jobScenes = scenes.map(sc => ({ id: sc.id, voice: bulkVoiceSelected, transcript: sc.transcript }));
+  } else {
+    jobScenes = scenes
+      .filter(sc => {
+        const sel = document.getElementById(`bulk-select-${sc.id}`);
+        return sel && sel.value !== 'skip';
+      })
+      .map(sc => {
+        const sel = document.getElementById(`bulk-select-${sc.id}`);
+        return { id: sc.id, voice: sel ? sel.value : bulkVoiceSelected, transcript: sc.transcript };
+      });
+  }
+  closeModal('modal-bulk-audio');
+  _showAudioWidget(jobScenes);
 }
 
 /* -----------------------------------------------------------------------
