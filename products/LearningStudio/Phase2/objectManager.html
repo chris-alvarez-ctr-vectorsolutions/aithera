@@ -873,16 +873,48 @@
     .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--lumo-body-text-color); margin-bottom: 5px; }
     .form-tip { font-size: 11px; color: var(--lumo-disabled-text-color); margin-top: 4px; line-height: 1.4; }
 
-    /* Voice grid */
-    .voice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
-    .voice-opt {
-      padding: 8px 10px; border-radius: 7px; border: 1.5px solid var(--lumo-contrast-10pct);
-      cursor: pointer; transition: all 0.12s;
+    /* Custom voice dropdown */
+    .voice-select-wrap { position: relative; margin-bottom: 8px; }
+    .voice-select-trigger {
+      width: 100%; display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 10px; border-radius: 7px;
+      border: 1.5px solid var(--lumo-contrast-20pct);
+      background: var(--lumo-base-color); cursor: pointer;
+      font-family: inherit; text-align: left; transition: border-color 0.12s;
     }
-    .voice-opt:hover { border-color: #0ea5e9; background: #f0f9ff; }
-    .voice-opt.selected { border-color: #0ea5e9; background: #e0f2fe; }
-    .voice-name { font-size: 12.5px; font-weight: 600; color: #0f2e3d; }
-    .voice-desc { font-size: 10.5px; color: var(--lumo-disabled-text-color); }
+    .voice-select-trigger:hover,
+    .voice-select-trigger:focus { border-color: #0ea5e9; outline: none; }
+    .voice-select-trigger.open { border-color: #0ea5e9; }
+    .voice-select-trigger-text { display: flex; flex-direction: column; gap: 1px; }
+    .voice-select-name { font-size: 12.5px; font-weight: 600; color: #0f2e3d; }
+    .voice-select-desc { font-size: 10.5px; color: var(--lumo-secondary-text-color); }
+    .voice-select-chevron { font-size: 10px; color: var(--lumo-secondary-text-color); transition: transform 0.15s; flex-shrink: 0; margin-left: 8px; }
+    .voice-select-trigger.open .voice-select-chevron { transform: rotate(180deg); }
+    /* Dropdown is portalled to <body> and positioned via JS */
+    .voice-select-dropdown {
+      display: none; position: fixed; z-index: 9999;
+      background: var(--lumo-base-color);
+      border: 1.5px solid #0ea5e9;
+      border-radius: 7px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.14);
+      max-height: 220px; overflow-y: auto;
+    }
+    .voice-select-dropdown.vsd-open { display: block; }
+    .voice-select-opt {
+      display: flex; flex-direction: column; gap: 1px;
+      padding: 8px 10px; cursor: pointer; transition: background 0.1s;
+      border-bottom: 1px solid var(--lumo-contrast-5pct);
+    }
+    .voice-select-opt:last-child { border-bottom: none; }
+    .voice-select-opt:hover { background: #f0f9ff; }
+    .voice-select-opt.selected { background: #e0f2fe; }
+    .voice-select-opt .voice-select-name { color: #0f2e3d; }
+    /* Narrow trigger for single-voice pane */
+    #bulk-voice-select-wrap .voice-select-trigger { max-width: 280px; }
+    .voice-scene-count {
+      font-size: 11.5px; color: var(--lumo-secondary-text-color);
+      margin-bottom: 10px; margin-top: 2px;
+    }
 
     .btn-preview-audio {
       width: 100%; padding: 7px; border-radius: 6px; background: var(--lumo-base-color);
@@ -926,8 +958,6 @@
     }
     .bulk-detail-col { display: flex; flex-direction: column; gap: 0; }
 
-    /* Single-voice pane: reuses existing voice-grid styles */
-
     /* Per-scene pane */
     .bulk-scene-list {
       display: flex; flex-direction: column; gap: 0;
@@ -952,18 +982,9 @@
       flex: 1; font-size: 12px; font-weight: 600; color: var(--lumo-body-text-color);
       min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .bulk-voice-select {
-      flex-shrink: 0; width: 148px;
-      font-size: 11.5px; font-weight: 600; padding: 5px 8px;
-      border-radius: 6px; border: 1.5px solid var(--lumo-contrast-10pct);
-      background: var(--lumo-base-color); color: #0f2e3d; font-family: inherit;
-      cursor: pointer; appearance: none; -webkit-appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239ca3af'/%3E%3C/svg%3E");
-      background-repeat: no-repeat; background-position: right 8px center;
-      padding-right: 24px;
-    }
-    .bulk-voice-select:focus { outline: none; border-color: #0ea5e9; }
-    .bulk-voice-select.skip { color: var(--lumo-disabled-text-color); font-style: italic; }
+    .vst-skip .voice-select-name { color: var(--lumo-secondary-text-color); }
+    .vso-skip .voice-select-name { color: var(--lumo-secondary-text-color); }
+    .vso-voice:first-of-type { border-top: 1px solid var(--lumo-contrast-10pct); }
     .bulk-scene-edit-btn {
       flex-shrink: 0; width: 26px; height: 26px; border-radius: 5px; border: none;
       background: none; cursor: pointer; display: flex; align-items: center;
@@ -1438,7 +1459,7 @@
       content: ''; position: absolute; bottom: 100%; right: 9px;
       border: 5px solid transparent; border-bottom-color: #1f2937;
     }
-    .modal-minimize-btn:hover .minimize-tooltip { display: block; }
+    .modal-minimize-btn .minimize-tooltip.visible { display: block; }
 
     /* =====================================================================
        GENERATION WIDGET
@@ -1548,108 +1569,69 @@
        AUDIO PROGRESS WIDGET — pinned to bottom of scenes panel
     ===================================================================== */
     #audio-widget {
-      flex-shrink: 0;
-      border-top: 1px solid rgba(14,165,233,0.18);
-      background: var(--lumo-base-color);
-      overflow: hidden;
-      transform: translateY(100%);
+      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(16px) scale(0.97);
+      display: flex; flex-direction: row; align-items: center;
+      background: var(--lumo-base-color); border: 1px solid var(--lumo-contrast-10pct); border-radius: 12px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.13), 0 2px 8px rgba(0,0,0,0.07);
+      z-index: 90; overflow: hidden; width: 300px;
       opacity: 0;
       transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s ease;
       pointer-events: none;
     }
     #audio-widget.visible {
-      transform: translateY(0);
+      transform: translateX(-50%) translateY(0) scale(1);
       opacity: 1;
       pointer-events: auto;
     }
-    .audio-widget-header {
-      display: flex; align-items: center; gap: 8px;
-      padding: 9px 12px; cursor: pointer; position: relative;
-      user-select: none;
-    }
-    .audio-widget-header:hover { background: rgba(14,165,233,0.04); }
     .audio-widget-icon {
-      width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0;
-      background: rgba(14,165,233,0.1); color: var(--lumo-primary-color);
-      display: flex; align-items: center; justify-content: center; font-size: 13px;
+      width: 52px; min-width: 52px; height: 52px; flex-shrink: 0;
+      background: rgba(14,165,233,0.08); color: var(--lumo-primary-color);
+      display: flex; align-items: center; justify-content: center; font-size: 18px;
+      position: relative; overflow: hidden;
     }
-    #audio-widget.state-generating .audio-widget-icon { color: var(--lumo-primary-color); }
-    #audio-widget.state-complete   .audio-widget-icon { background: rgba(21,132,68,0.1); color: var(--lumo-success-color); }
-    #audio-widget.state-error      .audio-widget-icon { background: rgba(231,29,19,0.1); color: var(--lumo-error-color); }
+    /* shimmer while generating */
+    .audio-widget-icon::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%);
+      background-size: 200% 100%; opacity: 0;
+    }
+    #audio-widget.state-generating .audio-widget-icon::after {
+      opacity: 1; animation: awShimmer 1.6s ease-in-out infinite;
+    }
+    @keyframes awShimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .audio-widget-body {
+      flex: 1; min-width: 0; padding: 0 10px;
+    }
     .audio-widget-title {
-      flex: 1; font-size: 12px; font-weight: 600; color: var(--lumo-body-text-color);
+      font-size: 11.5px; font-weight: 600; color: var(--lumo-primary-color);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-bottom: 2px;
     }
-    #audio-widget.state-generating .audio-widget-title { color: var(--lumo-primary-color); }
-    #audio-widget.state-complete   .audio-widget-title { color: var(--lumo-success-text-color); }
-    #audio-widget.state-error      .audio-widget-title { color: var(--lumo-error-text-color); }
+    .audio-widget-subtitle {
+      font-size: 10.5px; color: var(--lumo-disabled-text-color);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3;
+    }
     .audio-widget-actions {
-      display: flex; align-items: center; gap: 2px; flex-shrink: 0;
+      display: flex; align-items: center; gap: 2px;
+      padding: 0 10px 0 6px; flex-shrink: 0;
     }
     .audio-widget-icon-btn {
-      width: 26px; height: 26px; border-radius: 5px; border: none;
+      width: 30px; height: 30px; border-radius: 7px; border: none;
       background: none; cursor: pointer; display: flex; align-items: center;
-      justify-content: center; font-size: 12px; color: var(--lumo-secondary-text-color);
+      justify-content: center; font-size: 13px; color: var(--lumo-secondary-text-color);
       transition: background 0.12s, color 0.12s;
     }
     .audio-widget-icon-btn:hover { background: #f3f4f6; }
     .audio-widget-icon-btn.aw-expand { color: var(--lumo-primary-color); }
     .audio-widget-icon-btn.aw-expand:hover { background: rgba(14,165,233,0.1); }
+    .audio-widget-icon-btn.aw-cancel { color: var(--lumo-disabled-text-color); }
     .audio-widget-icon-btn.aw-cancel:hover { background: #fff1f2; color: var(--lumo-error-color); }
-    /* progress bar strip along bottom of header */
-    .audio-widget-progress {
-      height: 3px; width: 100%; background: rgba(14,165,233,0.12);
-      position: absolute; bottom: 0; left: 0;
-    }
-    .audio-widget-progress-fill {
-      height: 100%; background: var(--lumo-primary-color);
-      width: 0%; transition: width 0.4s ease;
-    }
-    #audio-widget.state-generating .audio-widget-progress-fill {
-      animation: awProgressIndeterminate 1.6s ease-in-out infinite;
-    }
-    @keyframes awProgressIndeterminate {
-      0%   { width: 0%;   margin-left: 0%; }
-      50%  { width: 60%;  margin-left: 20%; }
-      100% { width: 0%;   margin-left: 100%; }
-    }
-    #audio-widget.state-complete .audio-widget-progress-fill {
-      width: 100%; background: var(--lumo-success-color); animation: none;
-    }
-    /* collapsible body */
-    .audio-widget-body {
-      max-height: 0; overflow: hidden;
-      transition: max-height 0.25s ease;
-    }
-    .audio-widget-body.open { max-height: 280px; }
-    .audio-widget-scene-rows {
-      display: flex; flex-direction: column; gap: 0;
-      border-top: 1px solid var(--lumo-contrast-10pct);
-      max-height: 220px; overflow-y: auto;
-    }
-    .audio-widget-scene-row {
-      display: flex; align-items: center; gap: 8px;
-      padding: 7px 12px; border-bottom: 1px solid #f3f4f6; font-size: 11.5px;
-    }
-    .audio-widget-scene-row:last-child { border-bottom: none; }
-    .audio-widget-scene-num {
-      width: 20px; height: 20px; border-radius: 4px; flex-shrink: 0;
-      background: rgba(255,255,255,0.6); border: 1.5px solid var(--lumo-contrast-20pct);
-      font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center;
-    }
-    .audio-widget-scene-name {
-      flex: 1; color: var(--lumo-body-text-color); white-space: nowrap;
-      overflow: hidden; text-overflow: ellipsis; min-width: 0;
-    }
-    .audio-widget-scene-status {
-      flex-shrink: 0; font-size: 11px; color: var(--lumo-secondary-text-color);
-    }
+    /* scene-row styles kept for JS-built rows (not shown in widget body anymore) */
     .audio-widget-scene-status.done  { color: var(--lumo-success-color); }
     .audio-widget-scene-status.error { color: var(--lumo-error-color); }
-    .audio-widget-footer-actions {
-      padding: 8px 12px; display: flex; justify-content: flex-end;
-      border-top: 1px solid var(--lumo-contrast-10pct);
-    }
 
     /* =====================================================================
        TIMELINE CLIP SELECTION
@@ -3646,16 +3628,15 @@
 
       <!-- LO actions dropdown -->
       <div id="dd-lo" class="dropdown" data-file="products/LearningStudio/Phase2/index.html" data-line="1077">
-        <button class="dd-item" onclick="toggleLOComplete(); closeAllDropdowns()" data-file="products/LearningStudio/Phase2/index.html" data-line="1078">
-          <i class="fa-regular fa-circle-check"></i>
-          <span id="lo-complete-lbl" data-file="products/LearningStudio/Phase2/index.html" data-line="1080">Mark Complete</span>
-        </button>
-        <div class="dd-sep"></div>
         <button class="dd-item" onclick="closeAllDropdowns()" data-file="products/LearningStudio/Phase2/index.html" data-line="1083">
           <i class="fa-solid fa-wand-magic-sparkles"></i> Regenerate Learning Object
         </button>
         <button class="dd-item" onclick="closeAllDropdowns()" data-file="products/LearningStudio/Phase2/index.html" data-line="1086">
           <i class="fa-solid fa-network-wired"></i> Open Flow Map
+        </button>
+        <div class="dd-sep"></div>
+        <button class="dd-item danger" onclick="closeAllDropdowns()">
+          <i class="fa-solid fa-trash"></i> Delete Learning Object
         </button>
       </div>
     </div>
@@ -3771,41 +3752,36 @@
       <div class="panel-body" data-file="products/LearningStudio/Phase2/index.html" data-line="1149">
         <div id="scene-list-text" data-file="products/LearningStudio/Phase2/index.html" data-line="1150"></div>
         <div id="scene-list-media" style="display:none;" data-file="products/LearningStudio/Phase2/index.html" data-line="1151"></div>
+        <div id="scenes-search-empty" class="empty-state" style="display:none;">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <p>No scenes match your search</p>
+          <small>Try a different keyword</small>
+        </div>
         <button class="add-scene-footer-btn" onclick="addScene()" data-file="products/LearningStudio/Phase2/index.html" data-line="1152">
           <i class="fa-solid fa-plus"></i> Add Scene
         </button>
       </div>
 
-      <!-- Audio generation progress widget — pinned to bottom of scenes panel -->
+      <!-- Audio generation progress widget — floating centered at bottom of scenes panel -->
       <div id="audio-widget" class="state-idle" aria-live="polite">
-        <div class="audio-widget-header" onclick="toggleAudioWidget()">
-          <div class="audio-widget-icon">
-            <i class="fa-solid fa-wave-square"></i>
-          </div>
-          <div class="audio-widget-title" id="audio-widget-title">Generating Audio…</div>
-          <div class="audio-widget-actions">
-            <button class="audio-widget-icon-btn aw-expand" id="audio-widget-expand-btn"
-                    title="Open" aria-label="Open bulk audio modal"
-                    onclick="event.stopPropagation(); expandAudioWidget()">
-              <i class="fa-solid fa-up-right-and-down-left-from-center"></i>
-            </button>
-            <button class="audio-widget-icon-btn aw-cancel"
-                    title="Cancel" aria-label="Cancel generation"
-                    onclick="event.stopPropagation(); cancelAudioWidget()">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </div>
-          <div class="audio-widget-progress">
-            <div class="audio-widget-progress-fill" id="audio-widget-progress-fill"></div>
-          </div>
+        <div class="audio-widget-icon" id="audio-widget-icon">
+          <i class="fa-solid fa-wave-square"></i>
         </div>
-        <div class="audio-widget-body" id="audio-widget-body">
-          <div class="audio-widget-scene-rows" id="audio-widget-scene-rows"></div>
-          <div class="audio-widget-footer-actions" id="audio-widget-footer-actions" style="display:none;">
-            <vaadin-button theme="primary small" onclick="closeAudioWidget()">
-              <i class="fa-solid fa-circle-check"></i> Done
-            </vaadin-button>
-          </div>
+        <div class="audio-widget-body">
+          <div class="audio-widget-title" id="audio-widget-title">Generating Audio…</div>
+          <div class="audio-widget-subtitle" id="audio-widget-subtitle"></div>
+        </div>
+        <div class="audio-widget-actions">
+          <button class="audio-widget-icon-btn aw-expand" id="audio-widget-expand-btn"
+                  title="Open" aria-label="Open bulk audio modal"
+                  onclick="expandAudioWidget()">
+            <i class="fa-solid fa-up-right-and-down-left-from-center"></i>
+          </button>
+          <button class="audio-widget-icon-btn aw-cancel"
+                  title="Cancel" aria-label="Cancel generation"
+                  onclick="cancelAudioWidget()">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
         </div>
       </div>
     </div>
@@ -3823,6 +3799,11 @@
       </div>
       <div class="panel-body" data-file="products/LearningStudio/Phase2/index.html" data-line="1168">
         <div id="kc-question-list" data-file="products/LearningStudio/Phase2/index.html" data-line="1169"></div>
+        <div id="kc-search-empty" class="empty-state" style="display:none;">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <p>No knowledge checks match your search</p>
+          <small>Try a different keyword</small>
+        </div>
         <button class="add-question-footer-btn" onclick="addQuestion('kc')" data-file="products/LearningStudio/Phase2/index.html" data-line="1170">
           <i class="fa-solid fa-plus"></i> Add Question
         </button>
@@ -3842,6 +3823,11 @@
       </div>
       <div class="panel-body" data-file="products/LearningStudio/Phase2/index.html" data-line="1186">
         <div id="assess-question-list" data-file="products/LearningStudio/Phase2/index.html" data-line="1187"></div>
+        <div id="assess-search-empty" class="empty-state" style="display:none;">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <p>No assessment questions match your search</p>
+          <small>Try a different keyword</small>
+        </div>
         <button class="add-question-footer-btn" onclick="addQuestion('assess')" data-file="products/LearningStudio/Phase2/index.html" data-line="1188">
           <i class="fa-solid fa-plus"></i> Add Question
         </button>
@@ -3861,6 +3847,11 @@
       </div>
       <div class="panel-body" data-file="products/LearningStudio/Phase2/index.html" data-line="1204">
         <div id="citations-list" data-file="products/LearningStudio/Phase2/index.html" data-line="1205"></div>
+        <div id="citations-search-empty" class="empty-state" style="display:none;">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <p>No citations match your search</p>
+          <small>Try a different keyword</small>
+        </div>
         <button class="add-question-footer-btn" onclick="addCitation()" data-file="products/LearningStudio/Phase2/index.html" data-line="1206">
           <i class="fa-solid fa-plus"></i> Add Citation
         </button>
@@ -4758,7 +4749,7 @@
       <div class="bulk-view active" id="bulk-view-all">
 
         <!-- Mode toggle -->
-        <div class="seg-control" style="margin-bottom:14px;">
+        <div class="seg-control" style="margin-bottom:14px; width:fit-content;">
           <button class="seg-btn active" id="bulk-seg-single" onclick="switchBulkTab('single')">
             <i class="fa-solid fa-microphone"></i> Single Voice
           </button>
@@ -4771,7 +4762,17 @@
         <div class="bulk-audio-pane active" id="bulk-pane-single">
           <div class="form-group" style="margin-bottom:0;">
             <label class="form-label">Voice — applied to all scenes</label>
-            <div class="voice-grid" id="bulk-voice-grid"></div>
+            <div class="voice-select-wrap" id="bulk-voice-select-wrap">
+              <button class="voice-select-trigger" onclick="toggleVoiceDropdown('bulk-voice-select-wrap')">
+                <span class="voice-select-trigger-text">
+                  <span class="voice-select-name" id="bulk-voice-select-name"></span>
+                  <span class="voice-select-desc" id="bulk-voice-select-desc"></span>
+                </span>
+                <i class="fa-solid fa-chevron-down voice-select-chevron"></i>
+              </button>
+              <div class="voice-select-dropdown" id="bulk-voice-dropdown"></div>
+            </div>
+            <div class="voice-scene-count" id="bulk-scene-count"></div>
           </div>
         </div>
 
@@ -4802,7 +4803,16 @@
           <div class="bulk-detail-col">
             <div class="form-group">
               <label class="form-label">Voice</label>
-              <div class="voice-grid" id="bulk-detail-voice-grid"></div>
+              <div class="voice-select-wrap" id="bulk-detail-voice-select-wrap">
+                <button class="voice-select-trigger" onclick="toggleVoiceDropdown('bulk-detail-voice-select-wrap')">
+                  <span class="voice-select-trigger-text">
+                    <span class="voice-select-name" id="bulk-detail-voice-select-name"></span>
+                    <span class="voice-select-desc" id="bulk-detail-voice-select-desc"></span>
+                  </span>
+                  <i class="fa-solid fa-chevron-down voice-select-chevron"></i>
+                </button>
+                <div class="voice-select-dropdown" id="bulk-detail-voice-dropdown"></div>
+              </div>
             </div>
             <button class="btn-preview-audio" id="bulk-preview-btn" onclick="previewBulkSceneAudio()">
               <i class="fa-solid fa-play"></i>
@@ -4841,11 +4851,9 @@
     </div>
     <!-- Footer: scene-detail state -->
     <div class="modal-footer" id="bulk-footer-detail" style="display:none;">
-      <vaadin-button theme="secondary" onclick="closeBulkSceneDetail()">
-        <i class="fa-solid fa-arrow-left"></i> Back
-      </vaadin-button>
+      <vaadin-button theme="secondary" onclick="closeBulkSceneDetail()">Cancel</vaadin-button>
       <vaadin-button theme="primary" onclick="saveBulkSceneDetail()">
-        <i class="fa-solid fa-floppy-disk"></i> Save &amp; Close
+        <i class="fa-solid fa-floppy-disk"></i> Save Changes
       </vaadin-button>
     </div>
   </div>
@@ -4863,7 +4871,16 @@
     <div class="modal-body" data-file="products/LearningStudio/Phase2/index.html" data-line="1736">
       <div class="form-group" data-file="products/LearningStudio/Phase2/index.html" data-line="1737">
         <label class="form-label" data-file="products/LearningStudio/Phase2/index.html" data-line="1738">Voice</label>
-        <div class="voice-grid" id="voice-grid" data-file="products/LearningStudio/Phase2/index.html" data-line="1739"></div>
+        <div class="voice-select-wrap" id="voice-select-wrap">
+          <button class="voice-select-trigger" id="voice-select-trigger" onclick="toggleVoiceDropdown('voice-select-wrap')">
+            <span class="voice-select-trigger-text">
+              <span class="voice-select-name" id="voice-select-name"></span>
+              <span class="voice-select-desc" id="voice-select-desc"></span>
+            </span>
+            <i class="fa-solid fa-chevron-down voice-select-chevron"></i>
+          </button>
+          <div class="voice-select-dropdown" id="voice-dropdown"></div>
+        </div>
       </div>
       <div class="form-group" data-file="products/LearningStudio/Phase2/index.html" data-line="1741">
         <label class="form-label" data-file="products/LearningStudio/Phase2/index.html" data-line="1742">Phonetic Text</label>
@@ -5104,6 +5121,13 @@ let lo = { title:'Introduction to Video Creation', objective:'Learn how to creat
    INIT
 ----------------------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', () => {
+  ['gen-minimize-btn', 'bulk-minimize-btn'].forEach(id => {
+    const btn = document.getElementById(id);
+    const tip = btn.querySelector('.minimize-tooltip');
+    btn.addEventListener('mouseenter', () => { if (!btn.disabled) tip.classList.add('visible'); });
+    btn.addEventListener('mouseleave', () => tip.classList.remove('visible'));
+  });
+
   renderAll();
   buildVoiceGrid();
   buildWaveform();
@@ -6512,6 +6536,20 @@ function applySearchHighlights() {
       dot.style.transform = show ? 'scale(1)' : 'scale(0)';
     }
   });
+
+  // --- Panel empty states ---
+  const kcMatchCount   = aiSearchMatches.questions.filter(id => knowledgeChecks.some(q => q.id === id)).length;
+  const assessMatchCount = aiSearchMatches.questions.filter(id => assessmentQuestions.some(q => q.id === id)).length;
+  const emptyMap = {
+    'scenes-search-empty':   { count: aiSearchMatches.scenes.length },
+    'kc-search-empty':       { count: kcMatchCount },
+    'assess-search-empty':   { count: assessMatchCount },
+    'citations-search-empty':{ count: aiSearchMatches.citations.length },
+  };
+  Object.entries(emptyMap).forEach(([id, { count }]) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (hasQuery && count === 0) ? '' : 'none';
+  });
 }
 
 function injectSparkleOnSceneCard(wrapper, scId) {
@@ -6721,6 +6759,9 @@ document.addEventListener('click', e => {
   if (!e.target.closest('.add-media-wrap')) {
     closeAddMediaMenu();
   }
+  if (!e.target.closest('.voice-select-wrap')) {
+    _closeAllVoiceDropdowns();
+  }
 });
 
 /* -----------------------------------------------------------------------
@@ -6750,18 +6791,71 @@ function openAudioForScene(id) {
   openAudioModal();
 }
 
-function buildVoiceGrid() {
-  document.getElementById('voice-grid').innerHTML = VOICES.map(v => `
-    <div class="voice-opt${v.id===selectedVoice?' selected':''}" onclick="selectVoice('${v.id}')">
-      <div class="voice-name">${v.name}</div>
-      <div class="voice-desc">${v.desc}</div>
+let _activeVoiceDropdown = null; // { wrap, trigger, dropdown }
+
+function toggleVoiceDropdown(wrapId) {
+  const wrap = document.getElementById(wrapId);
+  const trigger = wrap.querySelector('.voice-select-trigger');
+  const dropdown = wrap.querySelector('.voice-select-dropdown');
+
+  // If this dropdown is already open, close it
+  if (_activeVoiceDropdown && _activeVoiceDropdown.wrap === wrap) {
+    _closeAllVoiceDropdowns();
+    return;
+  }
+
+  // Close any currently open dropdown
+  _closeAllVoiceDropdowns();
+
+  // Portal dropdown to body so it escapes overflow:hidden modal
+  document.body.appendChild(dropdown);
+
+  const rect = trigger.getBoundingClientRect();
+  dropdown.style.top    = (rect.bottom + 2) + 'px';
+  dropdown.style.left   = rect.left + 'px';
+  dropdown.style.width  = rect.width + 'px';
+
+  dropdown.classList.add('vsd-open');
+  trigger.classList.add('open');
+  _activeVoiceDropdown = { wrap, trigger, dropdown };
+}
+
+function _closeAllVoiceDropdowns() {
+  if (_activeVoiceDropdown) {
+    const { wrap, trigger, dropdown } = _activeVoiceDropdown;
+    dropdown.classList.remove('vsd-open');
+    trigger.classList.remove('open');
+    // Return dropdown to its wrap so it stays with component state
+    wrap.appendChild(dropdown);
+    _activeVoiceDropdown = null;
+  }
+}
+
+function _buildVoiceDropdown(dropdownId, selectedId, onSelectFn) {
+  document.getElementById(dropdownId).innerHTML = VOICES.map(v => `
+    <div class="voice-select-opt${v.id === selectedId ? ' selected' : ''}"
+         onclick="${onSelectFn}('${v.id}')">
+      <span class="voice-select-name">${v.name}</span>
+      <span class="voice-select-desc">${v.desc}</span>
     </div>`).join('');
+}
+
+function _setVoiceTrigger(nameId, descId, voiceId) {
+  const v = VOICES.find(x => x.id === voiceId) || VOICES[0];
+  document.getElementById(nameId).textContent = v.name;
+  document.getElementById(descId).textContent = v.desc;
+}
+
+function buildVoiceGrid() {
+  _buildVoiceDropdown('voice-dropdown', selectedVoice, 'selectVoice');
+  _setVoiceTrigger('voice-select-name', 'voice-select-desc', selectedVoice);
 }
 
 function selectVoice(id) {
   selectedVoice = id;
+  _closeAllVoiceDropdowns();
   buildVoiceGrid();
-  const v = VOICES.find(x=>x.id===id);
+  const v = VOICES.find(x => x.id === id);
   document.getElementById('preview-voice-label').textContent = `Preview with ${v.name}`;
 }
 
@@ -6840,19 +6934,15 @@ function openBulkSceneDetail(sceneId) {
 }
 
 function _buildBulkDetailVoiceGrid(activeVoiceId) {
-  document.getElementById('bulk-detail-voice-grid').innerHTML = VOICES.map(v => `
-    <div class="voice-opt${v.id === activeVoiceId ? ' selected' : ''}"
-         onclick="selectBulkDetailVoice('${v.id}')">
-      <div class="voice-name">${v.name}</div>
-      <div class="voice-desc">${v.desc}</div>
-    </div>`).join('');
+  _buildVoiceDropdown('bulk-detail-voice-dropdown', activeVoiceId, 'selectBulkDetailVoice');
+  _setVoiceTrigger('bulk-detail-voice-select-name', 'bulk-detail-voice-select-desc', activeVoiceId);
   const v = VOICES.find(x => x.id === activeVoiceId) || VOICES[0];
   document.getElementById('bulk-preview-label').textContent = `Preview with ${v.name}`;
 }
 
 function selectBulkDetailVoice(id) {
+  _closeAllVoiceDropdowns();
   _buildBulkDetailVoiceGrid(id);
-  // Store the override so it persists if the user navigates back
   if (bulkActiveSceneId !== null) bulkSceneVoices[bulkActiveSceneId] = id;
 }
 
@@ -6894,40 +6984,54 @@ function switchBulkTab(tab) {
 }
 
 function buildBulkVoiceGrid() {
-  document.getElementById('bulk-voice-grid').innerHTML = VOICES.map(v => `
-    <div class="voice-opt${v.id === bulkVoiceSelected ? ' selected' : ''}"
-         onclick="selectBulkVoice('${v.id}')">
-      <div class="voice-name">${v.name}</div>
-      <div class="voice-desc">${v.desc}</div>
-    </div>`).join('');
+  _buildVoiceDropdown('bulk-voice-dropdown', bulkVoiceSelected, 'selectBulkVoice');
+  _setVoiceTrigger('bulk-voice-select-name', 'bulk-voice-select-desc', bulkVoiceSelected);
+  const countEl = document.getElementById('bulk-scene-count');
+  if (countEl) countEl.textContent = `${scenes.length} scene${scenes.length !== 1 ? 's' : ''} will use this voice`;
 }
 
 function selectBulkVoice(id) {
   bulkVoiceSelected = id;
+  _closeAllVoiceDropdowns();
   buildBulkVoiceGrid();
 }
 
 function buildBulkSceneList() {
-  const voiceOptions = VOICES.map(v =>
-    `<option value="${v.id}">${v.name} — ${v.desc}</option>`
-  ).join('');
-  const skipOption = `<option value="skip">— Skip scene —</option>`;
-
   document.getElementById('bulk-scene-list').innerHTML = scenes.map((sc, idx) => {
     const transcript = sc.transcript || 'No transcript';
     const label = sc.transcript
       ? sc.transcript.substring(0, 40) + (sc.transcript.length > 40 ? '…' : '')
       : 'No transcript';
+    const activeVoiceId = bulkSceneVoices[sc.id] || bulkVoiceSelected;
+    const activeVoice = VOICES.find(v => v.id === activeVoiceId) || VOICES[0];
+    const isSkip = activeVoiceId === 'skip';
     return `
 <div class="bulk-scene-row">
   <div class="bulk-scene-row-header">
     <div class="bulk-scene-num">${idx + 1}</div>
     <div class="bulk-scene-label" title="${sc.transcript || ''}">${label}</div>
-    <select class="bulk-voice-select" id="bulk-select-${sc.id}"
-            onchange="this.classList.toggle('skip', this.value==='skip')">
-      ${voiceOptions}
-      ${skipOption}
-    </select>
+    <div class="voice-select-wrap bulk-scene-voice-wrap" id="bulk-scene-voice-wrap-${sc.id}" style="flex-shrink:0; width:200px;">
+      <button class="voice-select-trigger${isSkip ? ' vst-skip' : ''}" onclick="toggleVoiceDropdown('bulk-scene-voice-wrap-${sc.id}')">
+        <span class="voice-select-trigger-text">
+          <span class="voice-select-name">${isSkip ? 'Skip Scene' : activeVoice.name}</span>
+          <span class="voice-select-desc">${isSkip ? 'Keep existing audio, no changes' : activeVoice.desc}</span>
+        </span>
+        <i class="fa-solid fa-chevron-down voice-select-chevron"></i>
+      </button>
+      <div class="voice-select-dropdown" id="bulk-scene-voice-dropdown-${sc.id}">
+        <div class="voice-select-opt vso-skip${isSkip ? ' selected' : ''}"
+             onclick="selectBulkSceneVoice(${sc.id}, 'skip')">
+          <span class="voice-select-name">Skip Scene</span>
+          <span class="voice-select-desc">Keep existing audio, no changes</span>
+        </div>
+        ${VOICES.map(v => `
+          <div class="voice-select-opt vso-voice${v.id === activeVoiceId ? ' selected' : ''}"
+               onclick="selectBulkSceneVoice(${sc.id}, '${v.id}')">
+            <span class="voice-select-name">${v.name}</span>
+            <span class="voice-select-desc">${v.desc}</span>
+          </div>`).join('')}
+      </div>
+    </div>
     <button class="bulk-scene-edit-btn" title="Edit scene audio" onclick="openBulkSceneDetail(${sc.id})">
       <i class="fa-solid fa-pen"></i>
     </button>
@@ -6935,12 +7039,35 @@ function buildBulkSceneList() {
   <div class="bulk-scene-transcript">${transcript}</div>
 </div>`;
   }).join('');
+}
 
-  // Default each scene to the currently selected voice
-  scenes.forEach(sc => {
-    const sel = document.getElementById(`bulk-select-${sc.id}`);
-    if (sel) sel.value = selectedVoice;
-  });
+function selectBulkSceneVoice(sceneId, voiceId) {
+  bulkSceneVoices[sceneId] = voiceId;
+  _closeAllVoiceDropdowns();
+  // Rebuild just this row's trigger label
+  const wrap = document.getElementById(`bulk-scene-voice-wrap-${sceneId}`);
+  if (!wrap) return;
+  const trigger = wrap.querySelector('.voice-select-trigger');
+  const nameEl  = trigger.querySelector('.voice-select-name');
+  const descEl  = trigger.querySelector('.voice-select-desc');
+  const isSkip  = voiceId === 'skip';
+  const v = VOICES.find(x => x.id === voiceId);
+  nameEl.textContent = isSkip ? 'Skip Scene' : v.name;
+  const descTarget = descEl || (() => {
+    const d = document.createElement('span');
+    d.className = 'voice-select-desc';
+    trigger.querySelector('.voice-select-trigger-text').appendChild(d);
+    return d;
+  })();
+  descTarget.textContent = isSkip ? 'Keep existing audio, no changes' : v.desc;
+  trigger.classList.toggle('vst-skip', isSkip);
+  // Update selected state in dropdown options
+  const dropdown = wrap.querySelector('.voice-select-dropdown');
+  dropdown.querySelectorAll('.voice-select-opt').forEach(opt => opt.classList.remove('selected'));
+  const match = [...dropdown.querySelectorAll('.voice-select-opt')].find(opt =>
+    opt.getAttribute('onclick') === `selectBulkSceneVoice(${sceneId}, '${voiceId}')`
+  );
+  if (match) match.classList.add('selected');
 }
 
 function generateBulkAudio() {
@@ -6950,14 +7077,8 @@ function generateBulkAudio() {
     jobScenes = scenes.map(sc => ({ id: sc.id, voice: bulkVoiceSelected, transcript: sc.transcript }));
   } else {
     jobScenes = scenes
-      .filter(sc => {
-        const sel = document.getElementById(`bulk-select-${sc.id}`);
-        return sel && sel.value !== 'skip';
-      })
-      .map(sc => {
-        const sel = document.getElementById(`bulk-select-${sc.id}`);
-        return { id: sc.id, voice: sel ? sel.value : bulkVoiceSelected, transcript: sc.transcript };
-      });
+      .filter(sc => (bulkSceneVoices[sc.id] || bulkVoiceSelected) !== 'skip')
+      .map(sc => ({ id: sc.id, voice: bulkSceneVoices[sc.id] || bulkVoiceSelected, transcript: sc.transcript }));
   }
 
   closeModal('modal-bulk-audio');
@@ -6977,26 +7098,9 @@ function _showAudioWidget(jobScenes) {
   _audioWidgetDone = 0;
 
   const w = document.getElementById('audio-widget');
-  const rowsEl = document.getElementById('audio-widget-scene-rows');
 
-  // Build per-scene status rows
-  rowsEl.innerHTML = jobScenes.map((j, idx) => {
-    const sc = scenes.find(s => s.id === j.id);
-    const label = sc && sc.transcript
-      ? sc.transcript.substring(0, 35) + (sc.transcript.length > 35 ? '…' : '')
-      : `Scene ${idx + 1}`;
-    return `
-<div class="audio-widget-scene-row" id="aw-row-${j.id}">
-  <div class="audio-widget-scene-num">${scenes.indexOf(sc) + 1}</div>
-  <div class="audio-widget-scene-name">${label}</div>
-  <div class="audio-widget-scene-status" id="aw-status-${j.id}">
-    <i class="fa-solid fa-spinner fa-spin"></i>
-  </div>
-</div>`;
-  }).join('');
-
-  document.getElementById('audio-widget-title').textContent = `Generating Audio… (0 of ${jobScenes.length})`;
-  document.getElementById('audio-widget-footer-actions').style.display = 'none';
+  document.getElementById('audio-widget-title').textContent = 'Generating Audio…';
+  document.getElementById('audio-widget-subtitle').textContent = `0 of ${jobScenes.length} scenes`;
   w.className = 'state-generating visible';
 
   // Simulate per-scene completion
@@ -7004,13 +7108,8 @@ function _showAudioWidget(jobScenes) {
   jobScenes.forEach((j, idx) => {
     _audioWidgetTimer = setTimeout(() => {
       completed++;
-      const statusEl = document.getElementById(`aw-status-${j.id}`);
-      if (statusEl) {
-        statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
-        statusEl.className = 'audio-widget-scene-status done';
-      }
-      document.getElementById('audio-widget-title').textContent =
-        `Generating Audio… (${completed} of ${jobScenes.length})`;
+      document.getElementById('audio-widget-subtitle').textContent =
+        `${completed} of ${jobScenes.length} scenes`;
 
       if (completed === jobScenes.length) {
         _completeAudioWidget();
@@ -7022,15 +7121,34 @@ function _showAudioWidget(jobScenes) {
 function _completeAudioWidget() {
   const w = document.getElementById('audio-widget');
   w.className = 'state-complete visible';
-  document.getElementById('audio-widget-title').textContent = 'Audio Ready';
-  document.getElementById('audio-widget-footer-actions').style.display = 'flex';
+
+  // Apply all visual changes as direct DOM/style mutations so the browser
+  // paints them immediately rather than deferring to a hover-triggered repaint
+  const titleEl = document.getElementById('audio-widget-title');
+  titleEl.textContent = 'Audio Generation Complete';
+  titleEl.style.color = 'var(--lumo-success-text-color)';
+
+  document.getElementById('audio-widget-subtitle').textContent = 'All scenes processed';
+
+  const iconEl = document.getElementById('audio-widget-icon');
+  iconEl.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+  iconEl.style.background = 'rgba(21,132,68,0.1)';
+  iconEl.style.color = 'var(--lumo-success-color)';
+
+  const expandBtn = document.querySelector('#audio-widget .aw-expand');
+  if (expandBtn) expandBtn.style.display = 'none';
+
+  const cancelBtn = document.querySelector('#audio-widget .aw-cancel');
+  if (cancelBtn) {
+    cancelBtn.style.color = 'var(--lumo-secondary-text-color)';
+    cancelBtn.title = 'Dismiss';
+    cancelBtn.setAttribute('aria-label', 'Dismiss');
+  }
+
   _audioWidgetTimer = null;
 }
 
-function toggleAudioWidget() {
-  _audioWidgetExpanded = !_audioWidgetExpanded;
-  document.getElementById('audio-widget-body').classList.toggle('open', _audioWidgetExpanded);
-}
+function toggleAudioWidget() { /* no-op — flat card has no collapsible body */ }
 
 function expandAudioWidget() {
   // Re-open the bulk audio modal (resets to all-scenes view so user can adjust and re-generate)
@@ -7043,13 +7161,33 @@ function cancelAudioWidget() {
   _audioWidgetJob  = [];
   _audioWidgetDone = 0;
   const w = document.getElementById('audio-widget');
-  w.style.transform = 'translateY(100%)';
+  w.style.transform = 'translateX(-50%) translateY(16px) scale(0.97)';
   w.style.opacity   = '0';
   setTimeout(() => {
     w.className = 'state-idle';
     w.style.transform = '';
     w.style.opacity   = '';
-    document.getElementById('audio-widget-body').classList.remove('open');
+
+    const titleEl = document.getElementById('audio-widget-title');
+    titleEl.textContent = 'Generating Audio…';
+    titleEl.style.color = '';
+
+    document.getElementById('audio-widget-subtitle').textContent = '';
+
+    const iconEl = document.getElementById('audio-widget-icon');
+    iconEl.innerHTML = '<i class="fa-solid fa-wave-square"></i>';
+    iconEl.style.background = '';
+    iconEl.style.color = '';
+
+    const expandBtn = document.querySelector('#audio-widget .aw-expand');
+    if (expandBtn) expandBtn.style.display = '';
+
+    const cancelBtn = document.querySelector('#audio-widget .aw-cancel');
+    if (cancelBtn) {
+      cancelBtn.style.color = '';
+      cancelBtn.title = 'Cancel';
+      cancelBtn.setAttribute('aria-label', 'Cancel generation');
+    }
     _audioWidgetExpanded = false;
   }, 250);
 }
@@ -7065,14 +7203,8 @@ function minimizeBulkAudioModal() {
     jobScenes = scenes.map(sc => ({ id: sc.id, voice: bulkVoiceSelected, transcript: sc.transcript }));
   } else {
     jobScenes = scenes
-      .filter(sc => {
-        const sel = document.getElementById(`bulk-select-${sc.id}`);
-        return sel && sel.value !== 'skip';
-      })
-      .map(sc => {
-        const sel = document.getElementById(`bulk-select-${sc.id}`);
-        return { id: sc.id, voice: sel ? sel.value : bulkVoiceSelected, transcript: sc.transcript };
-      });
+      .filter(sc => (bulkSceneVoices[sc.id] || bulkVoiceSelected) !== 'skip')
+      .map(sc => ({ id: sc.id, voice: bulkSceneVoices[sc.id] || bulkVoiceSelected, transcript: sc.transcript }));
   }
   closeModal('modal-bulk-audio');
   _showAudioWidget(jobScenes);

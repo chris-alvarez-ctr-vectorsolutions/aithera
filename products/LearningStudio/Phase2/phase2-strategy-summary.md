@@ -38,11 +38,12 @@ The prototype implements the **Customize Content** flow — an action that sever
 **Status:** ✅ Confirmed and implemented in prototype.
 
 ### 2.4 Header Architecture
-The header is organized into four distinct zones:
+The header is organized into three distinct zones:
 - **Context** — LO title, breadcrumb navigation
 - **View Switching** — Author / Map toggle
 - **Workspace Utilities** — Search, Save state, Comments
-- **Lifecycle Actions** — Finalize, Publish (via overflow for destructive/infrequent actions)
+
+Lifecycle actions (Finalize, Publish) are not header-level actions. Finalize is a conditional state triggered by the aggregate status of scenes, not a manual user action from the header. Mark Complete has been removed from the prototype.
 
 **Status:** ✅ Confirmed in prototype. Header anatomy reflects the defined model.
 
@@ -51,15 +52,7 @@ The timeline is scoped to individual scenes, not the LO globally. It supports au
 
 **Status:** ✅ Confirmed in prototype.
 
-### 2.6 Action Distribution Model
-Actions are distributed by frequency and context:
-- **Workspace-level** — editing, preview, scene-level regeneration
-- **Header** — Finalize, Publish
-- **Overflow** — Delete, Regenerate LO, Duplicate, Customize Content
-
-**Status:** ✅ Confirmed in prototype. "Regenerate Learning Object" and "Open Flow Map" are correctly placed as header-level actions.
-
-### 2.7 Save + Comment System
+### 2.6 Save + Comment System
 Autosave with visible state is implemented. Comments are a workspace utility — a toggleable panel, not embedded in content state. The comment system supports threaded discussions scoped at Course, LO, and Scene levels with Open/Resolved states.
 
 **Status:** ✅ Confirmed in prototype. Comment system is well-developed and multi-user ready.
@@ -71,25 +64,19 @@ Autosave with visible state is implemented. Comments are a workspace utility —
 The following systems are present in the prototype but represent **baseline or AI-generated solutions** that do not yet meet Phase 2 quality standards. These are flagged as UX design concerns. They are not currently tied to active feature priority requests, but they represent a ceiling on content quality and authoring experience that should be addressed before or alongside any broader rollout.
 
 ### 3.1 Question System (Knowledge Checks + Assessments)
-The prototype includes a working question editor supporting Multiple Choice, True/False, and Fill in Blank types. Workflow states (In Progress → In Review → Marked as Ready → Complete) are present. Answer options, feedback fields, and point values are accessible.
+The prototype includes a generic question editor UI — Multiple Choice, True/False, and Fill in Blank types with answer options, feedback fields, and point values. This UI was generated to give the prototype surface-level coverage of the content types the studio will need to support.
 
-**Concern:** This is a baseline implementation. The question system as designed does not reflect the depth expected for Phase 2:
-- Question card anatomy has not been fully defined
-- The relationship between Knowledge Check questions and Assessment questions — and how they differ in behavior, states, and permissions — is not yet modeled
-- Integration with the Search → Remediation workflow is not represented
-- Question-level state management (how question states interact with LO-level states) is undefined in the UX
-
-This is an area where the prototype provides scaffolding, but the design intent is incomplete.
+**Concern:** No enhancements to question creation have been planned for Phase 2. The prototype UI is a placeholder — it does not reflect a designed solution or a feature direction. More critically, the current production question creation experience will put a ceiling on the interaction quality the studio can deliver, similar to the template system risk. AI-assisted question generation is only as good as the authoring model behind it. Without investment in how questions are structured, edited, and validated within the studio, the quality of AI-generated assessments will be constrained by the same limitations that exist today. This area needs dedicated planning before it can be scoped for development.
 
 ### 3.2 Citation System
-The prototype includes a citation editor supporting Journal Article, Book, Website, and Other types with APA formatting. This was not part of the original Phase 2 planning documents and appears to have been introduced as part of the prototype generation.
+The prototype includes a generic citation editor UI — Journal Article, Book, Website, and Other types with APA formatting. Like the question system, this UI was generated as a placeholder and was not part of the original Phase 2 planning documentation.
 
-**Concern:** The citation system exists as a functional UI element but has no documented design rationale, integration model with scenes/questions, or defined relationship to content output. Its role in the LO authoring workflow — when citations are added, how they surface in rendered output, how they interact with AI-generated content — is undefined. This needs a design pass before it can be considered Phase 2 standard.
+**Concern:** The current production citation implementation is a baseline feature that carries low value in its present state. No enhancements have been planned or requested. Until there is a clear case for investing in citation management, this should be treated as a low-priority area — present in the product but not a meaningful part of the Phase 2 story.
 
 ### 3.3 Template System
-The prototype reflects generic template types (Text Overlay, Lower Third) with basic property controls for position, color, and transitions.
+The prototype reflects a generic, placeholder template system — basic types with simple property controls. It does not represent any planned template design or the current production template library.
 
-**Concern:** This is a significant area of risk. The current template system in the prototype does **not** reflect the actual available template library, nor does it account for any planned enhancements to the template system. Templates are a primary lever for visual and instructional quality in AI-assisted content generation. Without a template system that reflects real production options and design constraints, the quality ceiling on Phase 2 content output remains tied to the limitations of the current (Phase 1) template set. This should be treated as a blocking concern for any quality claims made about Phase 2 output.
+**Concern:** This is a significant area of risk. The current template capabilities in production will put a ceiling on the quality of content the studio can generate, regardless of how well the authoring experience is designed. AI-assisted content generation is only as strong as the templates it has to work with. Without enhancements to the template system that expand visual variety, instructional flexibility, and production quality, Phase 2 output quality will be constrained by the same limitations that exist today. The prototype does not address this — it is a generic placeholder — but the underlying concern applies to the real system.
 
 ---
 
@@ -107,9 +94,9 @@ These systems have been conceptually defined and have clear design intent, but n
 ### 4.2 Search → Remediation Workflow
 **Intent:** AI-powered search across transcript, media, and questions that creates a **trackable work queue** — not just a result list. Search results carry states (Unreviewed → Reviewed → Updated), and the working set drives a banner-based context layer across the authoring UI. This enables bulk content governance at scale (e.g., policy updates, brand changes, compliance sweeps).
 
-**Current state:** Search is present in the prototype with a result count and basic filtering. The work queue, result states, and banner-driven context system are not implemented. The design intent is well-documented in the planning materials.
+**Current state:** Search → Remediation is already in production. The prototype does not currently represent this feature. As the studio evolves its lifecycle and state management systems, some adjustments may be needed to keep the remediation workflow in sync — particularly around how result states interact with LO-level workflow states and how remediation sessions behave against content that is locked or finalized.
 
-**What needs to be designed:** UX for result state transitions, banner behavior and dismissal, cross-content application model (how a remediation session spans multiple scenes/questions), and integration with workflow states.
+**What needs to be evaluated:** Integration points between the existing remediation feature and any new state or lifecycle model introduced in Phase 2.
 
 ---
 
@@ -133,7 +120,7 @@ The studio requires a **multi-layer state model** that separates distinct types 
 
 **UX requirements from these states:**
 - Users must always understand *why* something is locked or uneditable — the system should surface the responsible state, not just a generic lock indicator
-- Ownership state must be visible near the LO title, not buried in settings
+- Ownership state must be surface-level and immediately visible — currently surfaced via a dedicated banner; exact placement TBD but must not be buried in settings
 - Pipeline states should be transient and non-blocking where possible — background generation should not halt editing of unrelated content
 - Workflow states should be user-settable; pipeline and lock states are system-controlled
 
@@ -170,27 +157,6 @@ The studio requires a **multi-layer state model** that separates distinct types 
 | Search → Remediation | 🔲 Theoretical | Design intent strong; no prototype implementation |
 | State Management | 🔲 Engineering-driven | UX intent documented; implementation TBD |
 | LO Lifecycle | 🔲 Engineering-driven | UX intent documented; implementation TBD |
-
----
-
-## 7. Recommended Focus for Next Phase
-
-Based on the current state of the prototype and the feature priority context, the following framing is recommended for the next development phase:
-
-**Resolve before scaling production use:**
-- Template System — the gap between prototype templates and real production templates is a quality risk that compounds with every piece of AI-generated content produced
-
-**Design sprints needed (not current priority requests, but noted as future debt):**
-- Question System depth — card anatomy, state integration, Knowledge Check vs. Assessment differentiation
-- Citation System — rationale, integration, output model
-
-**Engineering design required (UX intent provided above):**
-- State Management System
-- LO Lifecycle Management
-
-**Next major UX design effort:**
-- Map View / Flow Map — required before scenario-based learning work can begin
-- Search → Remediation workflow — well-defined conceptually; ready to move into UX design
 
 ---
 
