@@ -1,0 +1,4286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>LyrndalApp</title>
+
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+
+  <style>
+    /* ─── Dark theme overrides ───────────────────────────────────────────── */
+    :root {
+      --app-bg:           #0d0f14;
+      --app-surface:      #161a22;
+      --app-surface-2:    #1e2330;
+      --app-border:       rgba(255,255,255,0.08);
+      --app-text:         #f0f2f5;
+      --app-text-muted:   rgba(240,242,245,0.55);
+      --app-text-subtle:  rgba(240,242,245,0.35);
+      --app-accent:       #3db5e6;
+      --app-accent-ui:    #3db5e6;
+      --app-accent-glow:  rgba(61,181,230,0.35);
+      --app-accent-video: #0271ce;
+      --app-success:      #3cbfae;
+      --app-nav-height:   64px;
+      --app-safe-bottom:  env(safe-area-inset-bottom, 0px);
+
+      /* Vector token overrides for dark */
+      --lumo-base-color:          #161a22;
+      --lumo-body-text-color:     #f0f2f5;
+      --lumo-secondary-text-color: rgba(240,242,245,0.55);
+      --lumo-primary-color:       #3db5e6;
+      --lumo-contrast-10pct:      rgba(255,255,255,0.08);
+      --lumo-contrast-20pct:      rgba(255,255,255,0.14);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--app-bg);
+      color: var(--app-text);
+      font-family: 'Open Sans', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
+    }
+
+    /* ─── App shell ──────────────────────────────────────────────────────── */
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      max-width: 430px;    /* mobile frame */
+      margin: 0 auto;
+      position: relative;
+      overflow: hidden;
+      background: var(--app-bg);
+      box-shadow: 0 0 60px rgba(0,0,0,0.6);
+    }
+
+    /* ─── Top header ─────────────────────────────────────────────────────── */
+    .app-header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding-top: calc(14px + env(safe-area-inset-top, 0px));
+      pointer-events: none; /* let taps pass through to feed except on children */
+    }
+
+    .app-header > * {
+      pointer-events: auto;
+    }
+
+    /* Logo pill: flush left edge, full radius on right only */
+    .app-header-logo {
+      display: inline-flex;
+      align-items: center;
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--app-text);
+      letter-spacing: -0.3px;
+      background: rgba(13,15,20,0.72);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.1);
+      /* right side fully rounded, left side flush with viewport edge */
+      border-radius: 0 100px 100px 0;
+      border-left: none;
+      padding: 8px 18px 8px 20px;
+      line-height: 1;
+    }
+
+    .app-header-logo span {
+      color: var(--app-accent);
+    }
+
+    .app-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding-right: 12px;
+    }
+
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(13,15,20,0.72);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      color: var(--app-text);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 17px;
+      transition: background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .icon-btn:hover, .icon-btn:focus-visible {
+      background: rgba(255,255,255,0.1);
+    }
+
+    .icon-btn:focus-visible {
+      outline: 2px solid var(--app-accent);
+      outline-offset: 2px;
+    }
+
+    .notif-btn {
+      position: relative;
+    }
+
+    .notif-badge {
+      position: absolute;
+      top: 7px;
+      right: 7px;
+      width: 8px;
+      height: 8px;
+      background: var(--app-accent-video);
+      border-radius: 50%;
+      border: 2px solid var(--app-bg);
+    }
+
+    /* ─── Feed scroll area ───────────────────────────────────────────────── */
+    .feed {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scroll-snap-type: y mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .feed::-webkit-scrollbar { display: none; }
+
+    /* ─── Feed card ──────────────────────────────────────────────────────── */
+    .feed-card {
+      position: relative;
+      width: 100%;
+      height: 100dvh;
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+      overflow: hidden;
+      background: #000;
+    }
+
+    /* Thumbnail fills card */
+    .feed-card__thumb {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    /* Gradient overlay for readability */
+    .feed-card__overlay {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 40%, transparent 65%),
+        linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 25%);
+      pointer-events: none;
+    }
+
+    /* Play button centered */
+    .feed-card__play {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 64px;
+      height: 64px;
+      background: rgba(255,255,255,0.18);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1.5px solid rgba(255,255,255,0.35);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .feed-card__play:hover, .feed-card__play:focus-visible {
+      background: rgba(255,255,255,0.28);
+      transform: translate(-50%, -50%) scale(1.07);
+    }
+
+    .feed-card__play:focus-visible {
+      outline: 2px solid var(--app-accent);
+      outline-offset: 3px;
+    }
+
+    .feed-card__play i {
+      font-size: 22px;
+      color: #fff;
+      margin-left: 3px; /* optical center for play icon */
+    }
+
+    /* Content info at bottom */
+    .feed-card__info {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 72px; /* leave room for action rail */
+      padding: 0 20px 24px;
+      padding-bottom: calc(24px + var(--app-nav-height) + var(--app-safe-bottom));
+    }
+
+    .feed-card__collection {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--app-accent-video);
+      background: rgba(2,113,206,0.18);
+      border: 1px solid rgba(2,113,206,0.35);
+      border-radius: 20px;
+      padding: 4px 10px;
+      margin-bottom: 10px;
+    }
+
+    .feed-card__collection i {
+      font-size: 10px;
+    }
+
+    .feed-card__title {
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.3;
+      color: #fff;
+      margin-bottom: 6px;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.4);
+    }
+
+    .feed-card__meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.7);
+      margin-bottom: 14px;
+    }
+
+    .feed-card__meta-dot {
+      width: 3px;
+      height: 3px;
+      background: rgba(255,255,255,0.4);
+      border-radius: 50%;
+    }
+
+    /* Progress bar row */
+    .feed-card__progress-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .feed-card__progress-label {
+      font-size: 11px;
+      color: rgba(255,255,255,0.6);
+      white-space: nowrap;
+    }
+
+    .feed-card__progress-track {
+      flex: 1;
+      height: 3px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .feed-card__progress-fill {
+      height: 100%;
+      background: var(--app-accent-video);
+      border-radius: 2px;
+      transition: width 0.3s;
+    }
+
+    /* CTA button */
+    .feed-card__cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--app-accent-video);
+      color: #fff;
+      border: none;
+      border-radius: 24px;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Open Sans', sans-serif;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .feed-card__cta:hover, .feed-card__cta:focus-visible {
+      background: #025faa;
+      transform: scale(1.02);
+    }
+
+    .feed-card__cta:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 2px;
+    }
+
+    .feed-card__cta--secondary {
+      background: rgba(255,255,255,0.12);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .feed-card__cta--secondary:hover, .feed-card__cta--secondary:focus-visible {
+      background: rgba(255,255,255,0.2);
+    }
+
+    .feed-card__ctas {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* ─── Action rail (right side) ───────────────────────────────────────── */
+    .feed-card__actions {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 72px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      padding-bottom: calc(28px + var(--app-nav-height) + var(--app-safe-bottom));
+    }
+
+    .action-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .action-btn {
+      width: 44px;
+      height: 44px;
+      border: none;
+      background: rgba(255,255,255,0.12);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #fff;
+      font-size: 18px;
+      transition: background 0.15s, transform 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .action-btn:hover, .action-btn:focus-visible {
+      background: rgba(255,255,255,0.22);
+      transform: scale(1.08);
+    }
+
+    .action-btn:focus-visible {
+      outline: 2px solid var(--app-accent);
+      outline-offset: 2px;
+    }
+
+    .action-btn.is-liked {
+      background: rgba(231,29,19,0.25);
+      color: #ff6b6b;
+    }
+
+    .action-btn.is-saved {
+      background: rgba(2,113,206,0.25);
+      color: var(--app-accent);
+    }
+
+    .action-label {
+      font-size: 11px;
+      color: rgba(255,255,255,0.7);
+      font-weight: 500;
+    }
+
+    /* ─── Progress nudge banner ──────────────────────────────────────────── */
+    .nudge-banner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: calc(100% - 40px);
+      background: rgba(22,26,34,0.92);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 20px;
+      z-index: 50;
+      display: none;
+    }
+
+    .nudge-banner.is-visible {
+      display: block;
+    }
+
+    .nudge-banner__close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: none;
+      border: none;
+      color: var(--app-text-muted);
+      cursor: pointer;
+      font-size: 14px;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .nudge-banner__close:hover { background: rgba(255,255,255,0.08); }
+
+    .nudge-banner__heading {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .nudge-banner__body {
+      font-size: 13px;
+      color: var(--app-text-muted);
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    .nudge-banner__cta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .nudge-collection-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      background: rgba(255,255,255,0.06);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+
+    .nudge-collection-thumb {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+
+    .nudge-collection-name {
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .nudge-collection-progress {
+      font-size: 11px;
+      color: var(--app-text-muted);
+    }
+
+    .nudge-btn {
+      background: var(--app-accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Open Sans', sans-serif;
+      cursor: pointer;
+      white-space: nowrap;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ─── Bottom navigation ──────────────────────────────────────────────── */
+    .bottom-nav {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 200;
+      height: calc(var(--app-nav-height) + var(--app-safe-bottom));
+      background: rgba(13,15,20,0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid var(--app-border);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-around;
+      padding-top: 10px;
+      padding-bottom: var(--app-safe-bottom);
+    }
+
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--app-text-muted);
+      padding: 0 4px;
+      -webkit-tap-highlight-color: transparent;
+      transition: color 0.15s;
+    }
+
+    .nav-item:focus-visible {
+      outline: 2px solid var(--app-accent);
+      outline-offset: -2px;
+      border-radius: 8px;
+    }
+
+    .nav-item.is-active {
+      color: var(--app-text);
+    }
+
+    .nav-item__icon {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      font-size: 20px;
+      position: relative;
+      transition: background 0.15s;
+    }
+
+    .nav-item.is-active .nav-item__icon {
+      background: rgba(2,113,206,0.18);
+      color: var(--app-accent);
+    }
+
+
+    .nav-item__label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+
+    .nav-item__badge {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ff6450;
+      border: 2px solid var(--app-bg);
+    }
+
+    /* ─── Scroll indicator dots ──────────────────────────────────────────── */
+    .scroll-dots {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 90;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      pointer-events: none;
+    }
+
+    .scroll-dot {
+      width: 3px;
+      height: 3px;
+      background: rgba(255,255,255,0.25);
+      border-radius: 2px;
+      transition: all 0.2s;
+    }
+
+    .scroll-dot.is-active {
+      height: 16px;
+      background: #fff;
+    }
+
+    /* ─── Screen switching ───────────────────────────────────────────────── */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+    }
+
+    .screen.is-active {
+      display: flex;
+    }
+
+    /* ─── Explore screen ─────────────────────────────────────────────────── */
+    .explore {
+      flex: 1;
+      min-height: 0;
+      background: var(--app-bg);
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+      padding-bottom: calc(var(--app-nav-height) + var(--app-safe-bottom) + 16px);
+    }
+
+    .explore::-webkit-scrollbar { display: none; }
+
+    #screen-explore {
+      overflow: hidden;
+    }
+
+    /* Explore header — standard (non-floating) */
+    .explore-header {
+      padding: calc(18px + env(safe-area-inset-top, 0px)) 20px 0;
+      flex-shrink: 0;
+    }
+
+    .explore-header__top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .explore-header__title {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--app-text);
+    }
+
+    /* Search bar */
+    .explore-search {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--app-surface);
+      border: 1px solid var(--app-border);
+      border-radius: 14px;
+      padding: 11px 16px;
+      margin-bottom: 24px;
+      cursor: text;
+    }
+
+    .explore-search i {
+      color: var(--app-text-muted);
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .explore-search__placeholder {
+      font-size: 14px;
+      color: var(--app-text-subtle);
+    }
+
+    /* Section heading */
+    .explore-section {
+      margin-bottom: 28px;
+    }
+
+    .explore-section__heading {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--app-text-muted);
+      padding: 0 20px;
+      margin-bottom: 12px;
+    }
+
+    /* ── Goal chips (outcome-first entry) ─────────────────────────────── */
+    .goal-chips {
+      display: flex;
+      gap: 10px;
+      padding: 0 20px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .goal-chips::-webkit-scrollbar { display: none; }
+
+    .goal-chip {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+      background: var(--app-surface);
+      border: 1px solid var(--app-border);
+      border-radius: 16px;
+      padding: 14px 16px;
+      width: 140px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+      text-align: left;
+    }
+
+    .goal-chip:hover, .goal-chip:focus-visible {
+      border-color: var(--app-accent);
+      background: var(--app-surface-2);
+    }
+
+    .goal-chip:focus-visible {
+      outline: 2px solid var(--app-accent);
+      outline-offset: 2px;
+    }
+
+    .goal-chip.is-selected {
+      border-color: var(--app-accent);
+      background: rgba(61,181,230,0.1);
+    }
+
+    .goal-chip__icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      margin-bottom: 2px;
+    }
+
+    .goal-chip__label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--app-text);
+      line-height: 1.2;
+    }
+
+    .goal-chip__sub {
+      font-size: 11px;
+      color: var(--app-text-muted);
+      line-height: 1.3;
+    }
+
+    /* ── Topic pills (skill-based entry) ──────────────────────────────── */
+    .topic-pills {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 8px;
+      padding: 0 20px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .topic-pills::-webkit-scrollbar { display: none; }
+
+    .topic-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--app-surface);
+      border: 1px solid var(--app-border);
+      border-radius: 100px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--app-text);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .topic-pill:hover, .topic-pill:focus-visible {
+      border-color: var(--app-accent);
+      background: var(--app-surface-2);
+    }
+
+    .topic-pill:focus-visible {
+      outline: 2px solid var(--app-accent);
+      outline-offset: 2px;
+    }
+
+    .topic-pill.is-selected {
+      background: var(--app-accent);
+      border-color: var(--app-accent);
+      color: #0d0f14;
+    }
+
+    .topic-pill i {
+      font-size: 12px;
+      color: var(--app-text-muted);
+    }
+
+    .topic-pill.is-selected i {
+      color: #0d0f14;
+    }
+
+    /* ── Collection cards (horizontal scroll row) ─────────────────────── */
+    .collection-row {
+      display: flex;
+      gap: 12px;
+      padding: 0 20px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .collection-row::-webkit-scrollbar { display: none; }
+
+    .collection-card {
+      flex-shrink: 0;
+      width: 200px;
+      background: var(--app-surface);
+      border: 1px solid var(--app-border);
+      border-radius: 16px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: border-color 0.15s, transform 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .collection-card:hover, .collection-card:focus-visible {
+      border-color: rgba(255,255,255,0.2);
+      transform: scale(1.02);
+    }
+
+    .collection-card:focus-visible {
+      outline: 2px solid var(--app-accent);
+      outline-offset: 2px;
+    }
+
+    .collection-card__thumb {
+      width: 100%;
+      height: 110px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .collection-card__body {
+      padding: 12px 14px 14px;
+    }
+
+    .collection-card__title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--app-text);
+      line-height: 1.3;
+      margin-bottom: 5px;
+    }
+
+    .collection-card__meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--app-text-muted);
+    }
+
+    .collection-card__dot {
+      width: 2px;
+      height: 2px;
+      background: var(--app-text-subtle);
+      border-radius: 50%;
+    }
+
+    .collection-card__progress {
+      margin-top: 10px;
+    }
+
+    .collection-card__progress-track {
+      height: 3px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 4px;
+    }
+
+    .collection-card__progress-fill {
+      height: 100%;
+      background: var(--app-accent-video);
+      border-radius: 2px;
+    }
+
+    .collection-card__progress-label {
+      font-size: 10px;
+      color: var(--app-text-muted);
+    }
+
+    /* ── Featured collection (full-width) ─────────────────────────────── */
+    .featured-collection {
+      margin: 0 20px;
+      border-radius: 20px;
+      overflow: hidden;
+      position: relative;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      min-height: 180px;
+    }
+
+    .featured-collection:focus-visible {
+      outline: 2px solid var(--app-accent);
+      outline-offset: 3px;
+    }
+
+    .featured-collection__thumb {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .featured-collection__overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.2) 60%, transparent 100%);
+    }
+
+    .featured-collection__badge {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #0d0f14;
+      background: var(--app-accent);
+      border-radius: 100px;
+      padding: 4px 10px;
+    }
+
+    .featured-collection__body {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 14px 16px;
+    }
+
+    .featured-collection__title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.25;
+      margin-bottom: 6px;
+    }
+
+    .featured-collection__meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.72);
+      margin-bottom: 12px;
+    }
+
+    .featured-collection__cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--app-accent-video);
+      color: #fff;
+      border: none;
+      border-radius: 100px;
+      padding: 8px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Open Sans', sans-serif;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ── Credential track cards ───────────────────────────────────────── */
+    .credential-card {
+      margin: 0 20px;
+      background: var(--app-surface);
+      border: 1px solid var(--app-border);
+      border-radius: 12px;
+      padding: 11px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .credential-card + .credential-card {
+      margin-top: 8px;
+    }
+
+    .credential-card:hover, .credential-card:focus-visible {
+      border-color: rgba(255,255,255,0.2);
+    }
+
+    .credential-card:focus-visible {
+      outline: 2px solid var(--app-accent);
+      outline-offset: 2px;
+    }
+
+    .credential-card__icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .credential-card__body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .credential-card__title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--app-text);
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .credential-card__meta {
+      font-size: 11px;
+      color: var(--app-text-muted);
+    }
+
+    .credential-card__arrow {
+      color: var(--app-text-subtle);
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    .credential-card__progress-track {
+      height: 3px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .credential-card__progress-fill {
+      height: 100%;
+      border-radius: 2px;
+    }
+
+    .credential-card__progress-label {
+      font-size: 10px;
+      color: var(--app-text-muted);
+      margin-top: 3px;
+    }
+
+    /* View all credentials button */
+    .credentials-view-all {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin: 12px 20px 0;
+      padding: 11px;
+      background: transparent;
+      border: 1px solid var(--app-border);
+      border-radius: 12px;
+      color: var(--app-accent);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Open Sans', sans-serif;
+      cursor: pointer;
+      width: calc(100% - 40px);
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .credentials-view-all:hover, .credentials-view-all:focus-visible {
+      background: rgba(61,181,230,0.08);
+      border-color: var(--app-accent);
+    }
+
+    .credentials-view-all:focus-visible {
+      outline: 2px solid var(--app-accent);
+      outline-offset: 2px;
+    }
+
+    /* ── Credentials panel (slide-in) ─────────────────────────────────── */
+    .credentials-panel {
+      position: fixed;
+      top: 0;
+      left: max(0px, calc(50vw - 215px));
+      width: min(430px, 100vw);
+      height: 100dvh;
+      background: var(--app-bg);
+      z-index: 400;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+    }
+
+    .credentials-panel.is-open {
+      transform: translateX(0);
+    }
+
+    .credentials-panel__header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: calc(14px + env(safe-area-inset-top, 0px)) 20px 14px;
+      border-bottom: 1px solid var(--app-border);
+      flex-shrink: 0;
+    }
+
+    .credentials-panel__back {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid var(--app-border);
+      background: none;
+      color: var(--app-text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 15px;
+      flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .credentials-panel__back:hover { background: rgba(255,255,255,0.06); }
+    .credentials-panel__back:focus-visible {
+      outline: 2px solid var(--app-accent);
+      outline-offset: 2px;
+    }
+
+    .credentials-panel__title {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--app-text);
+      letter-spacing: -0.3px;
+    }
+
+    .credentials-panel__scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+      padding: 16px 20px calc(var(--app-nav-height) + var(--app-safe-bottom) + 16px);
+    }
+
+    .credentials-panel__scroll::-webkit-scrollbar { display: none; }
+
+    /* Full credential card used inside the panel */
+    .cred-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--app-border);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .cred-item:last-child { border-bottom: none; }
+
+    .cred-item__icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .cred-item__body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .cred-item__title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--app-text);
+      margin-bottom: 3px;
+    }
+
+    .cred-item__meta {
+      font-size: 12px;
+      color: var(--app-text-muted);
+      margin-bottom: 8px;
+    }
+
+    .cred-item__progress-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cred-item__progress-track {
+      flex: 1;
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .cred-item__progress-fill {
+      height: 100%;
+      border-radius: 2px;
+    }
+
+    .cred-item__progress-label {
+      font-size: 11px;
+      color: var(--app-text-muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .cred-item__cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 10px;
+      padding: 6px 14px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: 'Open Sans', sans-serif;
+      cursor: pointer;
+      border: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .cred-item__cta--start {
+      background: var(--app-accent-video);
+      color: #fff;
+    }
+
+    .cred-item__cta--continue {
+      background: rgba(61,181,230,0.15);
+      color: var(--app-accent);
+    }
+
+    .cred-item__cta--complete {
+      background: rgba(60,191,174,0.15);
+      color: #3cbfae;
+    }
+
+    /* ── Explore detail panel (slide-in on topic/goal tap) ────────────── */
+    .explore-detail {
+      position: absolute;
+      inset: 0;
+      background: var(--app-bg);
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow-y: auto;
+      scrollbar-width: none;
+      padding-bottom: calc(var(--app-nav-height) + var(--app-safe-bottom));
+    }
+
+    .explore-detail::-webkit-scrollbar { display: none; }
+
+    .explore-detail.is-open {
+      transform: translateX(0);
+    }
+
+    .explore-detail__hero {
+      position: relative;
+      height: 220px;
+      flex-shrink: 0;
+    }
+
+    .explore-detail__hero-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .explore-detail__hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, var(--app-bg) 0%, transparent 60%);
+    }
+
+    .explore-detail__back {
+      position: absolute;
+      top: calc(14px + env(safe-area-inset-top, 0px));
+      left: 14px;
+      width: 38px;
+      height: 38px;
+      background: rgba(13,15,20,0.72);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--app-text);
+      font-size: 15px;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .explore-detail__back:focus-visible {
+      outline: 2px solid var(--app-accent);
+      outline-offset: 2px;
+    }
+
+    .explore-detail__content {
+      padding: 0 20px 20px;
+    }
+
+    .explore-detail__topic-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--app-accent);
+      margin-bottom: 6px;
+    }
+
+    .explore-detail__title {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.4px;
+      color: var(--app-text);
+      margin-bottom: 8px;
+      line-height: 1.2;
+    }
+
+    .explore-detail__desc {
+      font-size: 13px;
+      color: var(--app-text-muted);
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    .explore-detail__stats {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .explore-detail__stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .explore-detail__stat-value {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--app-text);
+    }
+
+    .explore-detail__stat-label {
+      font-size: 11px;
+      color: var(--app-text-muted);
+    }
+
+    .explore-detail__section-heading {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--app-text-muted);
+      margin-bottom: 12px;
+    }
+
+    /* Collection list inside detail */
+    .detail-collection-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--app-border);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .detail-collection-item:last-child {
+      border-bottom: none;
+    }
+
+    .detail-collection-item__thumb {
+      width: 52px;
+      height: 52px;
+      border-radius: 10px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+
+    .detail-collection-item__body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .detail-collection-item__title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--app-text);
+      margin-bottom: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .detail-collection-item__meta {
+      font-size: 12px;
+      color: var(--app-text-muted);
+    }
+
+    .detail-collection-item__action {
+      flex-shrink: 0;
+    }
+
+    .detail-cta-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--app-accent-video);
+      color: #fff;
+      border: none;
+      border-radius: 100px;
+      padding: 7px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: 'Open Sans', sans-serif;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .detail-cta-pill--ghost {
+      background: transparent;
+      border: 1px solid var(--app-border);
+      color: var(--app-text);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       LEARN SCREEN
+    ══════════════════════════════════════════════════════════════════════════ */
+
+    /* ─── Learn scroll container ──────────────────────────────────────────── */
+    .learn {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+      padding-bottom: calc(var(--app-nav-height) + var(--app-safe-bottom) + 16px);
+    }
+    .learn::-webkit-scrollbar { display: none; }
+
+    #screen-learn { overflow: hidden; }
+
+    /* ─── Learn header ────────────────────────────────────────────────────── */
+    .learn-header {
+      padding: calc(18px + env(safe-area-inset-top, 0px)) 20px 0;
+      flex-shrink: 0;
+    }
+    .learn-header__title {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--app-text);
+      letter-spacing: -0.4px;
+    }
+
+    /* ─── Continue Learning (primary hero) ───────────────────────────────── */
+    .learn-continue {
+      margin: 20px 20px 0;
+      border-radius: 18px;
+      overflow: hidden;
+      position: relative;
+      background: var(--app-surface);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .learn-continue__hero {
+      position: relative;
+      height: 140px;
+      overflow: hidden;
+    }
+    .learn-continue__img {
+      width: 100%;
+      height: 140px;
+      object-fit: cover;
+      display: block;
+    }
+    .learn-continue__overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(13,15,20,0) 30%, rgba(13,15,20,0.85) 100%);
+      pointer-events: none;
+    }
+    .learn-continue__body {
+      padding: 14px 16px 16px;
+    }
+    .learn-continue__eyebrow {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--app-accent);
+      margin-bottom: 4px;
+    }
+    .learn-continue__title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--app-text);
+      letter-spacing: -0.2px;
+      margin-bottom: 6px;
+    }
+    .learn-continue__meta {
+      font-size: 12px;
+      color: var(--app-text-muted);
+      margin-bottom: 14px;
+    }
+    .learn-continue__progress-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .learn-continue__progress-track {
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.12);
+      overflow: hidden;
+    }
+    .learn-continue__progress-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--app-accent);
+    }
+    .learn-continue__progress-label {
+      font-size: 11px;
+      color: var(--app-text-muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .learn-continue__cta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--app-accent);
+      color: #fff;
+      border: none;
+      border-radius: 50px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .learn-continue__cta:active { opacity: 0.85; }
+
+    /* ─── Assigned Learning banner ───────────────────────────────────────── */
+    .learn-assigned-banner {
+      margin: 16px 20px 0;
+      border-radius: 14px;
+      background: rgba(255, 100, 80, 0.10);
+      border: 1px solid rgba(255, 100, 80, 0.22);
+      padding: 14px 16px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .learn-assigned-banner__icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(255,100,80,0.15);
+      color: #ff6450;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+    .learn-assigned-banner__body { flex: 1; min-width: 0; }
+    .learn-assigned-banner__label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      color: #ff6450;
+      margin-bottom: 2px;
+    }
+    .learn-assigned-banner__title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--app-text);
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .learn-assigned-banner__due {
+      font-size: 12px;
+      color: rgba(255,100,80,0.85);
+    }
+    .learn-assigned-banner__arrow {
+      color: var(--app-text-subtle);
+      font-size: 13px;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    /* ─── Section heading ─────────────────────────────────────────────────── */
+    .learn-section-heading {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      color: var(--app-text-muted);
+      padding: 20px 20px 10px;
+    }
+
+    /* ─── In-progress collection card ────────────────────────────────────── */
+    .lc-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 20px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .lc-card:active { background: rgba(255,255,255,0.03); }
+    .lc-card__thumb {
+      width: 58px;
+      height: 58px;
+      border-radius: 12px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .lc-card__body { flex: 1; min-width: 0; }
+    .lc-card__title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--app-text);
+      letter-spacing: -0.1px;
+      margin-bottom: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .lc-card__meta {
+      font-size: 12px;
+      color: var(--app-text-muted);
+      margin-bottom: 7px;
+    }
+    .lc-card__progress-track {
+      height: 3px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.10);
+      overflow: hidden;
+    }
+    .lc-card__progress-fill {
+      height: 100%;
+      border-radius: 2px;
+    }
+    .lc-card__badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 20px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      align-self: flex-start;
+      margin-top: 4px;
+    }
+    .lc-card__badge--assigned {
+      background: rgba(255,100,80,0.15);
+      color: #ff6450;
+    }
+    .lc-card__badge--almost {
+      background: rgba(61,181,230,0.15);
+      color: var(--app-accent);
+    }
+
+    /* ─── View all button ─────────────────────────────────────────────────── */
+    .learn-view-all {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 6px 20px 0;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--app-border);
+      background: none;
+      color: var(--app-text-muted);
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      width: calc(100% - 40px);
+      text-align: left;
+    }
+    .learn-view-all:hover { background: rgba(255,255,255,0.04); }
+
+    /* ─── Recently Started (collapsed) ───────────────────────────────────── */
+    .learn-recent {
+      margin: 16px 20px 0;
+      border-radius: 14px;
+      border: 1px solid var(--app-border);
+      overflow: hidden;
+    }
+    .learn-recent__toggle {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
+      background: none;
+      border: none;
+      color: var(--app-text-muted);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .learn-recent__toggle-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.06);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .learn-recent__toggle-label { flex: 1; }
+    .learn-recent__toggle-count {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.08);
+    }
+    .learn-recent__toggle-chevron {
+      font-size: 11px;
+      transition: transform 0.2s ease;
+    }
+    .learn-recent.is-open .learn-recent__toggle-chevron {
+      transform: rotate(180deg);
+    }
+    .learn-recent__list {
+      display: none;
+      border-top: 1px solid var(--app-border);
+    }
+    .learn-recent.is-open .learn-recent__list { display: block; }
+    .learn-recent__item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--app-border);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .learn-recent__item:last-child { border-bottom: none; }
+    .learn-recent__thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      object-fit: cover;
+      flex-shrink: 0;
+      opacity: 0.7;
+    }
+    .learn-recent__body { flex: 1; min-width: 0; }
+    .learn-recent__title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--app-text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+    .learn-recent__meta { font-size: 11px; color: var(--app-text-subtle); }
+    .learn-recent__resume {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--app-accent);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* ─── Learn collection detail panel (slides in) ──────────────────────── */
+    .learn-detail {
+      position: fixed;
+      top: 0;
+      left: max(0px, calc(50vw - 215px));
+      width: min(430px, 100vw);
+      height: 100dvh;
+      background: var(--app-bg);
+      z-index: 400;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow-y: auto;
+      scrollbar-width: none;
+      padding-bottom: calc(var(--app-nav-height) + var(--app-safe-bottom));
+    }
+    .learn-detail::-webkit-scrollbar { display: none; }
+    .learn-detail.is-open { transform: translateX(0); }
+
+    .learn-detail__hero {
+      position: relative;
+      height: 200px;
+      flex-shrink: 0;
+    }
+    .learn-detail__hero-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .learn-detail__hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(13,15,20,0.4) 0%, rgba(13,15,20,0.85) 100%);
+    }
+    .learn-detail__back {
+      position: absolute;
+      top: calc(14px + env(safe-area-inset-top, 0px));
+      left: 16px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(13,15,20,0.6);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 14px;
+      -webkit-tap-highlight-color: transparent;
+      backdrop-filter: blur(8px);
+    }
+
+    .learn-detail__content { padding: 20px 20px 0; }
+    .learn-detail__eyebrow {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--app-accent);
+      margin-bottom: 6px;
+    }
+    .learn-detail__title {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--app-text);
+      letter-spacing: -0.4px;
+      margin-bottom: 8px;
+    }
+    .learn-detail__progress-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .learn-detail__progress-track {
+      flex: 1;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.12);
+      overflow: hidden;
+    }
+    .learn-detail__progress-fill {
+      height: 100%;
+      border-radius: 3px;
+    }
+    .learn-detail__progress-label {
+      font-size: 12px;
+      color: var(--app-text-muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .learn-detail__ctas {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .learn-detail__cta-primary {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--app-accent);
+      color: #fff;
+      border: none;
+      border-radius: 50px;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .learn-detail__cta-secondary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: none;
+      color: var(--app-text-muted);
+      border: 1px solid var(--app-border);
+      border-radius: 50px;
+      padding: 12px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .learn-detail__section-heading {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--app-text-muted);
+      padding: 0 0 12px;
+    }
+    .learn-detail__video-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--app-border);
+      cursor: pointer;
+    }
+    .learn-detail__video-item:last-child { border-bottom: none; }
+    .learn-detail__video-num {
+      width: 24px;
+      font-size: 12px;
+      color: var(--app-text-subtle);
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .learn-detail__video-thumb {
+      width: 56px;
+      height: 40px;
+      border-radius: 8px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .learn-detail__video-body { flex: 1; min-width: 0; }
+    .learn-detail__video-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--app-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+    .learn-detail__video-meta { font-size: 11px; color: var(--app-text-muted); }
+    .learn-detail__video-status {
+      flex-shrink: 0;
+      font-size: 14px;
+    }
+    .learn-detail__video-status--done { color: var(--app-success); }
+    .learn-detail__video-status--active { color: var(--app-accent); }
+    .learn-detail__video-status--locked { color: var(--app-text-subtle); }
+
+    /* ─── Soft-start toast ────────────────────────────────────────────────── */
+    .learn-toast {
+      position: fixed;
+      bottom: calc(var(--app-nav-height) + var(--app-safe-bottom) + 12px);
+      left: max(12px, calc(50vw - 203px));
+      width: min(406px, calc(100vw - 24px));
+      background: var(--app-surface-2);
+      border: 1px solid var(--app-border);
+      border-radius: 14px;
+      padding: 12px 14px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      z-index: 500;
+      transform: translateY(16px);
+      opacity: 0;
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .learn-toast.is-visible {
+      display: flex;
+      transform: translateY(0);
+      opacity: 1;
+    }
+    .learn-toast__text {
+      flex: 1;
+      font-size: 13px;
+      color: var(--app-text);
+    }
+    .learn-toast__undo {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--app-accent);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      padding: 0;
+    }
+    .learn-toast__close {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      color: var(--app-text-subtle);
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       PROFILE SCREEN
+    ══════════════════════════════════════════════════════════════════════════ */
+
+    #screen-profile { overflow: hidden; }
+
+    .profile {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+      padding-bottom: calc(var(--app-nav-height) + var(--app-safe-bottom) + 16px);
+    }
+    .profile::-webkit-scrollbar { display: none; }
+
+    /* ─── Profile header ─────────────────────────────────────────────────── */
+    .profile-header {
+      padding: calc(24px + env(safe-area-inset-top, 0px)) 20px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .profile-header__avatar {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+      border: 2px solid var(--app-accent);
+    }
+    .profile-header__info { flex: 1; min-width: 0; }
+    .profile-header__name {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--app-text);
+      letter-spacing: -0.3px;
+      margin-bottom: 2px;
+    }
+    .profile-header__role {
+      font-size: 13px;
+      color: var(--app-text-muted);
+    }
+    .profile-header__settings-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid var(--app-border);
+      background: none;
+      color: var(--app-text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 15px;
+      flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .profile-header__settings-btn:hover { background: rgba(255,255,255,0.06); }
+
+    /* ─── Stats row ──────────────────────────────────────────────────────── */
+    .profile-stats {
+      display: flex;
+      margin: 0 20px 4px;
+      border-radius: 14px;
+      background: var(--app-surface);
+      border: 1px solid var(--app-border);
+      overflow: hidden;
+    }
+    .profile-stat {
+      flex: 1;
+      padding: 14px 10px;
+      text-align: center;
+      border-right: 1px solid var(--app-border);
+    }
+    .profile-stat:last-child { border-right: none; }
+    .profile-stat__value {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--app-text);
+      letter-spacing: -0.5px;
+      margin-bottom: 2px;
+    }
+    .profile-stat__label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--app-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ─── Section heading ─────────────────────────────────────────────────── */
+    .profile-section-heading {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      color: var(--app-text-muted);
+      padding: 20px 20px 10px;
+    }
+
+    /* ─── Completed collection card ──────────────────────────────────────── */
+    .prof-completed-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .prof-completed-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 20px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .prof-completed-card:active { background: rgba(255,255,255,0.03); }
+    .prof-completed-card__thumb-wrap {
+      position: relative;
+      width: 56px;
+      height: 56px;
+      flex-shrink: 0;
+    }
+    .prof-completed-card__thumb {
+      width: 56px;
+      height: 56px;
+      border-radius: 12px;
+      object-fit: cover;
+    }
+    .prof-completed-card__check {
+      position: absolute;
+      bottom: -4px;
+      right: -4px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--app-success);
+      color: #fff;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid var(--app-bg);
+    }
+    .prof-completed-card__body { flex: 1; min-width: 0; }
+    .prof-completed-card__title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--app-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+    .prof-completed-card__meta {
+      font-size: 12px;
+      color: var(--app-text-muted);
+      margin-bottom: 4px;
+    }
+    .prof-completed-card__date {
+      font-size: 11px;
+      color: var(--app-text-subtle);
+    }
+    .prof-completed-card__badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 20px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      align-self: flex-start;
+      margin-top: 4px;
+    }
+    .prof-completed-card__badge--credential {
+      background: rgba(61,181,230,0.15);
+      color: var(--app-accent);
+    }
+    .prof-completed-card__badge--compliance {
+      background: rgba(60,191,174,0.15);
+      color: var(--app-success);
+    }
+
+    /* ─── Saved list ─────────────────────────────────────────────────────── */
+    .prof-saved-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 20px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .prof-saved-card:active { background: rgba(255,255,255,0.03); }
+    .prof-saved-card__thumb {
+      width: 56px;
+      height: 56px;
+      border-radius: 12px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .prof-saved-card__body { flex: 1; min-width: 0; }
+    .prof-saved-card__title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--app-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+    .prof-saved-card__meta { font-size: 12px; color: var(--app-text-muted); }
+    .prof-saved-card__unsave {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 1px solid var(--app-border);
+      background: none;
+      color: var(--app-accent);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ─── History timeline ───────────────────────────────────────────────── */
+    .prof-history {
+      padding: 0 20px;
+    }
+    .prof-history-group { margin-bottom: 16px; }
+    .prof-history-group__date {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--app-text-subtle);
+      margin-bottom: 8px;
+      letter-spacing: 0.3px;
+    }
+    .prof-history-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--app-border);
+    }
+    .prof-history-item:last-child { border-bottom: none; }
+    .prof-history-item__icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .prof-history-item__body { flex: 1; min-width: 0; }
+    .prof-history-item__text {
+      font-size: 13px;
+      color: var(--app-text);
+      margin-bottom: 1px;
+    }
+    .prof-history-item__text strong { font-weight: 700; }
+    .prof-history-item__time { font-size: 11px; color: var(--app-text-subtle); }
+
+    /* ─── Goals chip grid ────────────────────────────────────────────────── */
+    .prof-goals {
+      padding: 0 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .prof-goal-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--app-border);
+      background: var(--app-surface);
+      color: var(--app-text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .prof-goal-chip.is-selected {
+      border-color: var(--app-accent);
+      color: var(--app-accent);
+      background: rgba(61,181,230,0.08);
+    }
+    .prof-goal-chip__dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+
+    /* ─── Settings list ──────────────────────────────────────────────────── */
+    .prof-settings {
+      margin: 0 20px;
+      border-radius: 14px;
+      background: var(--app-surface);
+      border: 1px solid var(--app-border);
+      overflow: hidden;
+    }
+    .prof-setting-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--app-border);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .prof-setting-item:last-child { border-bottom: none; }
+    .prof-setting-item:active { background: rgba(255,255,255,0.03); }
+    .prof-setting-item__icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .prof-setting-item__body { flex: 1; min-width: 0; }
+    .prof-setting-item__label {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--app-text);
+    }
+    .prof-setting-item__sub {
+      font-size: 12px;
+      color: var(--app-text-muted);
+      margin-top: 1px;
+    }
+    .prof-setting-item__right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .prof-setting-item__chevron { color: var(--app-text-subtle); font-size: 12px; }
+
+    /* vwc-switch inside settings — override size for compact row */
+    .prof-setting-item vwc-switch {
+      --vwc-switch-width: 40px;
+      --vwc-switch-height: 24px;
+    }
+
+    /* ─── Desktop frame hint ─────────────────────────────────────────────── */
+    @media (min-width: 500px) {
+      body {
+        background: #070809;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+
+      .app-shell {
+        height: min(100dvh, 900px);
+        border-radius: 36px;
+        border: 1px solid rgba(255,255,255,0.08);
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-shell" id="appShell">
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- FEED SCREEN                                                         -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div class="screen is-active" id="screen-feed" role="region" aria-label="Feed">
+
+  <!-- Top Header -->
+  <header class="app-header" role="banner">
+    <div class="app-header-logo">Lyrndal<span>App</span></div>
+    <div class="app-header-actions">
+      <button class="icon-btn notif-btn" aria-label="Notifications">
+        <i class="fa-solid fa-bell" aria-hidden="true"></i>
+        <span class="notif-badge" aria-hidden="true"></span>
+      </button>
+      <button class="icon-btn" aria-label="Search">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Feed -->
+  <main class="feed" id="feed" role="main" aria-label="Learning feed">
+
+    <!-- ── Card 1: In-progress content ───────────────────────────────────── -->
+    <article class="feed-card" aria-label="Leadership Foundations: What Great Managers Do">
+      <img
+        class="feed-card__thumb"
+        src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=600&q=80"
+        alt="Two people collaborating at a desk in a modern office"
+        loading="eager"
+      />
+      <div class="feed-card__overlay" aria-hidden="true"></div>
+
+      <button class="feed-card__play" aria-label="Play: What Great Managers Do">
+        <i class="fa-solid fa-play" aria-hidden="true"></i>
+      </button>
+
+      <div class="feed-card__info">
+        <div class="feed-card__collection">
+          <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+          Leadership Foundations · 3 of 10
+        </div>
+        <h2 class="feed-card__title">What Great Managers Do Differently</h2>
+        <div class="feed-card__meta" aria-label="12 minutes, intermediate level">
+          <span>12 min</span>
+          <span class="feed-card__meta-dot" aria-hidden="true"></span>
+          <span>Intermediate</span>
+          <span class="feed-card__meta-dot" aria-hidden="true"></span>
+          <span>Video</span>
+        </div>
+        <div class="feed-card__progress-row" role="group" aria-label="Collection progress">
+          <span class="feed-card__progress-label">30% complete</span>
+          <div class="feed-card__progress-track" role="progressbar" aria-valuenow="30" aria-valuemin="0" aria-valuemax="100" aria-label="Leadership Foundations progress">
+            <div class="feed-card__progress-fill" style="width: 30%"></div>
+          </div>
+        </div>
+        <div class="feed-card__ctas">
+          <button class="feed-card__cta" aria-label="Continue Learning: Leadership Foundations">
+            <i class="fa-solid fa-circle-play" aria-hidden="true"></i>
+            Continue Learning
+          </button>
+        </div>
+      </div>
+
+      <div class="feed-card__actions" role="group" aria-label="Content actions">
+        <div class="action-item">
+          <button class="action-btn" aria-label="Like this video" aria-pressed="false" data-action="like">
+            <i class="fa-regular fa-heart" aria-hidden="true"></i>
+          </button>
+          <span class="action-label" aria-hidden="true">Like</span>
+        </div>
+        <div class="action-item">
+          <button class="action-btn" aria-label="Save to your list" aria-pressed="false" data-action="save">
+            <i class="fa-regular fa-bookmark" aria-hidden="true"></i>
+          </button>
+          <span class="action-label" aria-hidden="true">Save</span>
+        </div>
+        <div class="action-item">
+          <button class="action-btn" aria-label="Share this video">
+            <i class="fa-solid fa-arrow-up-from-bracket" aria-hidden="true"></i>
+          </button>
+          <span class="action-label" aria-hidden="true">Share</span>
+        </div>
+        <div class="action-item">
+          <button class="action-btn" aria-label="More options">
+            <i class="fa-solid fa-ellipsis" aria-hidden="true"></i>
+          </button>
+          <span class="action-label" aria-hidden="true">More</span>
+        </div>
+      </div>
+    </article>
+
+    <!-- ── Card 2: New discovery content ─────────────────────────────────── -->
+    <article class="feed-card" aria-label="Communicating Under Pressure">
+      <img
+        class="feed-card__thumb"
+        src="https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=600&q=80"
+        alt="Person presenting confidently in front of a group"
+        loading="lazy"
+      />
+      <div class="feed-card__overlay" aria-hidden="true"></div>
+
+      <button class="feed-card__play" aria-label="Play: Communicating Under Pressure">
+        <i class="fa-solid fa-play" aria-hidden="true"></i>
+      </button>
+
+      <div class="feed-card__info">
+        <div class="feed-card__collection">
+          <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+          Communication Skills · 1 of 8
+        </div>
+        <h2 class="feed-card__title">Communicating Under Pressure</h2>
+        <div class="feed-card__meta" aria-label="9 minutes, all levels">
+          <span>9 min</span>
+          <span class="feed-card__meta-dot" aria-hidden="true"></span>
+          <span>All levels</span>
+          <span class="feed-card__meta-dot" aria-hidden="true"></span>
+          <span>Video</span>
+        </div>
+        <div class="feed-card__ctas">
+          <button class="feed-card__cta" aria-label="Start collection: Communication Skills">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+            Start Collection
+          </button>
+          <button class="feed-card__cta feed-card__cta--secondary" aria-label="Preview this video">
+            Preview
+          </button>
+        </div>
+      </div>
+
+      <div class="feed-card__actions" role="group" aria-label="Content actions">
+        <div class="action-item">
+          <button class="action-btn is-liked" aria-label="Unlike this video" aria-pressed="true" data-action="like">
+            <i class="fa-solid fa-heart" aria-hidden="true"></i>
+          </button>
+          <span class="action-label" aria-hidden="true">Like</span>
+        </div>
+        <div class="action-item">
+          <button class="action-btn" aria-label="Save to your list" aria-pressed="false" data-action="save">
+            <i class="fa-regular fa-bookmark" aria-hidden="true"></i>
+          </button>
+          <span class="action-label" aria-hidden="true">Save</span>
+        </div>
+        <div class="action-item">
+          <button class="action-btn" aria-label="Share this video">
+            <i class="fa-solid fa-arrow-up-from-bracket" aria-hidden="true"></i>
+          </button>
+          <span class="action-label" aria-hidden="true">Share</span>
+        </div>
+        <div class="action-item">
+          <button class="action-btn" aria-label="More options">
+            <i class="fa-solid fa-ellipsis" aria-hidden="true"></i>
+          </button>
+          <span class="action-label" aria-hidden="true">More</span>
+        </div>
+      </div>
+    </article>
+
+    <!-- ── Card 3: Almost done nudge ─────────────────────────────────────── -->
+    <article class="feed-card" aria-label="Handling Difficult Conversations">
+      <img
+        class="feed-card__thumb"
+        src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=600&q=80"
+        alt="Two professionals having a focused discussion"
+        loading="lazy"
+      />
+      <div class="feed-card__overlay" aria-hidden="true"></div>
+
+      <button class="feed-card__play" aria-label="Play: Handling Difficult Conversations">
+        <i class="fa-solid fa-play" aria-hidden="true"></i>
+      </button>
+
+      <!-- Nudge banner: "almost done" moment -->
+      <div class="nudge-banner is-visible" role="dialog" aria-modal="false" aria-labelledby="nudge-title" id="nudgeBanner">
+        <button class="nudge-banner__close" aria-label="Dismiss" id="nudgeClose">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+        <p class="nudge-banner__heading" id="nudge-title">You're almost there! 🎯</p>
+        <p class="nudge-banner__body">You're 65% through Leadership Foundations. Finish strong — just 4 videos left.</p>
+        <div class="nudge-banner__cta">
+          <div class="nudge-collection-pill" aria-hidden="true">
+            <img class="nudge-collection-thumb"
+              src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=80&q=70"
+              alt=""
+            />
+            <div>
+              <div class="nudge-collection-name">Leadership Foundations</div>
+              <div class="nudge-collection-progress">65% · 4 videos left</div>
+            </div>
+          </div>
+          <button class="nudge-btn" aria-label="Continue Leadership Foundations collection">Continue</button>
+        </div>
+      </div>
+
+      <div class="feed-card__info">
+        <div class="feed-card__collection">
+          <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+          Leadership Foundations · 7 of 10
+        </div>
+        <h2 class="feed-card__title">Handling Difficult Conversations</h2>
+        <div class="feed-card__meta" aria-label="14 minutes, intermediate level">
+          <span>14 min</span>
+          <span class="feed-card__meta-dot" aria-hidden="true"></span>
+          <span>Intermediate</span>
+          <span class="feed-card__meta-dot" aria-hidden="true"></span>
+          <span>Video</span>
+        </div>
+        <div class="feed-card__progress-row" role="group" aria-label="Collection progress">
+          <span class="feed-card__progress-label">65% complete</span>
+          <div class="feed-card__progress-track" role="progressbar" aria-valuenow="65" aria-valuemin="0" aria-valuemax="100" aria-label="Leadership Foundations progress">
+            <div class="feed-card__progress-fill" style="width: 65%"></div>
+          </div>
+        </div>
+        <div class="feed-card__ctas">
+          <button class="feed-card__cta" aria-label="Continue Learning: Leadership Foundations">
+            <i class="fa-solid fa-circle-play" aria-hidden="true"></i>
+            Continue Learning
+          </button>
+        </div>
+      </div>
+
+      <div class="feed-card__actions" role="group" aria-label="Content actions">
+        <div class="action-item">
+          <button class="action-btn" aria-label="Like this video" aria-pressed="false" data-action="like">
+            <i class="fa-regular fa-heart" aria-hidden="true"></i>
+          </button>
+          <span class="action-label" aria-hidden="true">Like</span>
+        </div>
+        <div class="action-item">
+          <button class="action-btn is-saved" aria-label="Remove from your list" aria-pressed="true" data-action="save">
+            <i class="fa-solid fa-bookmark" aria-hidden="true"></i>
+          </button>
+          <span class="action-label" aria-hidden="true">Saved</span>
+        </div>
+        <div class="action-item">
+          <button class="action-btn" aria-label="Share this video">
+            <i class="fa-solid fa-arrow-up-from-bracket" aria-hidden="true"></i>
+          </button>
+          <span class="action-label" aria-hidden="true">Share</span>
+        </div>
+        <div class="action-item">
+          <button class="action-btn" aria-label="More options">
+            <i class="fa-solid fa-ellipsis" aria-hidden="true"></i>
+          </button>
+          <span class="action-label" aria-hidden="true">More</span>
+        </div>
+      </div>
+    </article>
+
+    <!-- ── Card 4: New topic discovery ───────────────────────────────────── -->
+    <article class="feed-card" aria-label="Fundamentals of Data-Driven Decision Making">
+      <img
+        class="feed-card__thumb"
+        src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&q=80"
+        alt="Data dashboard with charts and analytics on a screen"
+        loading="lazy"
+      />
+      <div class="feed-card__overlay" aria-hidden="true"></div>
+
+      <button class="feed-card__play" aria-label="Play: Fundamentals of Data-Driven Decision Making">
+        <i class="fa-solid fa-play" aria-hidden="true"></i>
+      </button>
+
+      <div class="feed-card__info">
+        <div class="feed-card__collection">
+          <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+          Data &amp; Analytics · 1 of 12
+        </div>
+        <h2 class="feed-card__title">Fundamentals of Data-Driven Decision Making</h2>
+        <div class="feed-card__meta" aria-label="18 minutes, beginner level">
+          <span>18 min</span>
+          <span class="feed-card__meta-dot" aria-hidden="true"></span>
+          <span>Beginner</span>
+          <span class="feed-card__meta-dot" aria-hidden="true"></span>
+          <span>Video</span>
+        </div>
+        <div class="feed-card__ctas">
+          <button class="feed-card__cta" aria-label="Start collection: Data and Analytics">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+            Start Collection
+          </button>
+          <button class="feed-card__cta feed-card__cta--secondary" aria-label="Preview this video">
+            Preview
+          </button>
+        </div>
+      </div>
+
+      <div class="feed-card__actions" role="group" aria-label="Content actions">
+        <div class="action-item">
+          <button class="action-btn" aria-label="Like this video" aria-pressed="false" data-action="like">
+            <i class="fa-regular fa-heart" aria-hidden="true"></i>
+          </button>
+          <span class="action-label" aria-hidden="true">Like</span>
+        </div>
+        <div class="action-item">
+          <button class="action-btn" aria-label="Save to your list" aria-pressed="false" data-action="save">
+            <i class="fa-regular fa-bookmark" aria-hidden="true"></i>
+          </button>
+          <span class="action-label" aria-hidden="true">Save</span>
+        </div>
+        <div class="action-item">
+          <button class="action-btn" aria-label="Share this video">
+            <i class="fa-solid fa-arrow-up-from-bracket" aria-hidden="true"></i>
+          </button>
+          <span class="action-label" aria-hidden="true">Share</span>
+        </div>
+        <div class="action-item">
+          <button class="action-btn" aria-label="More options">
+            <i class="fa-solid fa-ellipsis" aria-hidden="true"></i>
+          </button>
+          <span class="action-label" aria-hidden="true">More</span>
+        </div>
+      </div>
+    </article>
+
+  </main>
+
+  <!-- Scroll position dots -->
+  <div class="scroll-dots" aria-hidden="true" id="scrollDots" style="z-index:90;position:absolute;right:8px;top:50%;transform:translateY(-50%);pointer-events:none;">
+    <div class="scroll-dot is-active"></div>
+    <div class="scroll-dot"></div>
+    <div class="scroll-dot"></div>
+    <div class="scroll-dot"></div>
+  </div>
+
+  </div><!-- /screen-feed -->
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- EXPLORE SCREEN                                                      -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div class="screen" id="screen-explore" role="region" aria-label="Explore">
+    <div class="explore" id="exploreScroll">
+
+      <div class="explore-header">
+        <div class="explore-header__top">
+          <h1 class="explore-header__title">Explore</h1>
+          <button class="icon-btn" aria-label="Filter" style="background:var(--app-surface);border-color:var(--app-border);">
+            <i class="fa-solid fa-sliders" aria-hidden="true"></i>
+          </button>
+        </div>
+        <!-- Search bar -->
+        <div class="explore-search" role="search" aria-label="Search topics and collections" tabindex="0">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <span class="explore-search__placeholder">Search topics, skills, collections…</span>
+        </div>
+      </div>
+
+      <!-- ── Goal-first entry ─────────────────────────────────────────── -->
+      <section class="explore-section" aria-labelledby="goals-heading">
+        <p class="explore-section__heading" id="goals-heading">What's your goal?</p>
+        <div class="goal-chips" role="list">
+
+          <button class="goal-chip is-selected" role="listitem" aria-pressed="true" aria-label="Become a Better Leader">
+            <div class="goal-chip__icon" style="background:rgba(61,181,230,0.15);color:var(--app-accent);" aria-hidden="true">
+              <i class="fa-solid fa-star"></i>
+            </div>
+            <span class="goal-chip__label">Become a Better Leader</span>
+            <span class="goal-chip__sub">12 collections</span>
+          </button>
+
+          <button class="goal-chip" role="listitem" aria-pressed="false" aria-label="Improve Communication">
+            <div class="goal-chip__icon" style="background:rgba(60,191,174,0.15);color:#3cbfae;" aria-hidden="true">
+              <i class="fa-solid fa-comments"></i>
+            </div>
+            <span class="goal-chip__label">Improve Communication</span>
+            <span class="goal-chip__sub">8 collections</span>
+          </button>
+
+          <button class="goal-chip" role="listitem" aria-pressed="false" aria-label="Master Data & Analytics">
+            <div class="goal-chip__icon" style="background:rgba(249,142,43,0.15);color:#f98e2b;" aria-hidden="true">
+              <i class="fa-solid fa-chart-line"></i>
+            </div>
+            <span class="goal-chip__label">Master Data &amp; Analytics</span>
+            <span class="goal-chip__sub">15 collections</span>
+          </button>
+
+          <button class="goal-chip" role="listitem" aria-pressed="false" aria-label="Stay Compliant & Safe">
+            <div class="goal-chip__icon" style="background:rgba(21,132,68,0.15);color:#3cbfae;" aria-hidden="true">
+              <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <span class="goal-chip__label">Stay Compliant &amp; Safe</span>
+            <span class="goal-chip__sub">10 collections</span>
+          </button>
+
+        </div>
+      </section>
+
+      <!-- ── Featured for you ─────────────────────────────────────────── -->
+      <section class="explore-section" aria-labelledby="featured-heading">
+        <p class="explore-section__heading" id="featured-heading">Featured for you</p>
+        <div class="featured-collection" tabindex="0" role="button" aria-label="View collection: The High-Impact Manager — 10 videos, Intermediate" data-opens-detail>
+          <img
+            class="featured-collection__thumb"
+            src="https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800&q=80"
+            alt="Team collaborating around a table"
+          />
+          <div class="featured-collection__overlay" aria-hidden="true"></div>
+          <div class="featured-collection__badge" aria-hidden="true">Recommended</div>
+          <div class="featured-collection__body">
+            <h2 class="featured-collection__title">The High-Impact Manager</h2>
+            <div class="featured-collection__meta" aria-hidden="true">
+              <span>10 videos</span>
+              <span>·</span>
+              <span>Intermediate</span>
+              <span>·</span>
+              <span>2h 20m</span>
+            </div>
+            <button class="featured-collection__cta" tabindex="-1" aria-hidden="true">
+              <i class="fa-solid fa-plus"></i> Start Collection
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Browse by topic ──────────────────────────────────────────── -->
+      <section class="explore-section" aria-labelledby="topics-heading">
+        <p class="explore-section__heading" id="topics-heading">Browse by topic</p>
+        <div class="topic-pills" role="list">
+          <button class="topic-pill is-selected" role="listitem" aria-pressed="true" data-topic="Leadership">
+            <i class="fa-solid fa-star" aria-hidden="true"></i> Leadership
+          </button>
+          <button class="topic-pill" role="listitem" aria-pressed="false" data-topic="Communication">
+            <i class="fa-solid fa-comments" aria-hidden="true"></i> Communication
+          </button>
+          <button class="topic-pill" role="listitem" aria-pressed="false" data-topic="Data">
+            <i class="fa-solid fa-chart-line" aria-hidden="true"></i> Data
+          </button>
+          <button class="topic-pill" role="listitem" aria-pressed="false" data-topic="Safety">
+            <i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Safety
+          </button>
+          <button class="topic-pill" role="listitem" aria-pressed="false" data-topic="HR">
+            <i class="fa-solid fa-people-group" aria-hidden="true"></i> HR
+          </button>
+          <button class="topic-pill" role="listitem" aria-pressed="false" data-topic="Sales">
+            <i class="fa-solid fa-handshake" aria-hidden="true"></i> Sales
+          </button>
+          <button class="topic-pill" role="listitem" aria-pressed="false" data-topic="Tech">
+            <i class="fa-solid fa-microchip" aria-hidden="true"></i> Tech
+          </button>
+          <button class="topic-pill" role="listitem" aria-pressed="false" data-topic="Wellbeing">
+            <i class="fa-solid fa-heart-pulse" aria-hidden="true"></i> Wellbeing
+          </button>
+        </div>
+      </section>
+
+      <!-- ── Collections in selected topic ───────────────────────────── -->
+      <section class="explore-section" aria-labelledby="collections-heading">
+        <p class="explore-section__heading" id="collections-heading">Leadership collections</p>
+        <div class="collection-row" role="list">
+
+          <button class="collection-card" role="listitem" aria-label="Leadership Foundations — 10 videos, 30% complete" data-opens-detail>
+            <img class="collection-card__thumb" src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=400&q=70" alt="" />
+            <div class="collection-card__body">
+              <div class="collection-card__title">Leadership Foundations</div>
+              <div class="collection-card__meta">
+                <span>10 videos</span>
+                <span class="collection-card__dot" aria-hidden="true"></span>
+                <span>Intermediate</span>
+              </div>
+              <div class="collection-card__progress">
+                <div class="collection-card__progress-track">
+                  <div class="collection-card__progress-fill" style="width:30%"></div>
+                </div>
+                <div class="collection-card__progress-label">30% complete</div>
+              </div>
+            </div>
+          </button>
+
+          <button class="collection-card" role="listitem" aria-label="The High-Impact Manager — 10 videos, not started" data-opens-detail>
+            <img class="collection-card__thumb" src="https://images.unsplash.com/photo-1531482615713-2afd69097998?w=400&q=70" alt="" />
+            <div class="collection-card__body">
+              <div class="collection-card__title">The High-Impact Manager</div>
+              <div class="collection-card__meta">
+                <span>10 videos</span>
+                <span class="collection-card__dot" aria-hidden="true"></span>
+                <span>Intermediate</span>
+              </div>
+            </div>
+          </button>
+
+          <button class="collection-card" role="listitem" aria-label="Leading Through Change — 7 videos, not started" data-opens-detail>
+            <img class="collection-card__thumb" src="https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400&q=70" alt="" />
+            <div class="collection-card__body">
+              <div class="collection-card__title">Leading Through Change</div>
+              <div class="collection-card__meta">
+                <span>7 videos</span>
+                <span class="collection-card__dot" aria-hidden="true"></span>
+                <span>Advanced</span>
+              </div>
+            </div>
+          </button>
+
+          <button class="collection-card" role="listitem" aria-label="Coaching for Performance — 8 videos, not started" data-opens-detail>
+            <img class="collection-card__thumb" src="https://images.unsplash.com/photo-1551836022-deb4988cc6c0?w=400&q=70" alt="" />
+            <div class="collection-card__body">
+              <div class="collection-card__title">Coaching for Performance</div>
+              <div class="collection-card__meta">
+                <span>8 videos</span>
+                <span class="collection-card__dot" aria-hidden="true"></span>
+                <span>All levels</span>
+              </div>
+            </div>
+          </button>
+
+        </div>
+      </section>
+
+      <!-- ── Credentials / outcomes ───────────────────────────────────── -->
+      <section class="explore-section" aria-labelledby="credentials-heading">
+        <p class="explore-section__heading" id="credentials-heading">Earn a credential</p>
+
+        <!-- Teaser: show 2 most relevant credentials -->
+        <button class="credential-card" aria-label="Certified People Manager — 30% complete" id="credTeaser1">
+          <div class="credential-card__icon" style="background:rgba(61,181,230,0.12);color:var(--app-accent);" aria-hidden="true">
+            <i class="fa-solid fa-award"></i>
+          </div>
+          <div class="credential-card__body">
+            <div class="credential-card__title">Certified People Manager</div>
+            <div class="credential-card__meta">4 collections · 2h 45m</div>
+            <div class="credential-card__progress-track">
+              <div class="credential-card__progress-fill" style="width:30%;background:var(--app-accent);"></div>
+            </div>
+            <div class="credential-card__progress-label">30% complete</div>
+          </div>
+          <i class="fa-solid fa-chevron-right credential-card__arrow" aria-hidden="true"></i>
+        </button>
+
+        <button class="credential-card" aria-label="Safety Champion — not started" id="credTeaser2">
+          <div class="credential-card__icon" style="background:rgba(21,132,68,0.12);color:#3cbfae;" aria-hidden="true">
+            <i class="fa-solid fa-shield-halved"></i>
+          </div>
+          <div class="credential-card__body">
+            <div class="credential-card__title">Safety Champion</div>
+            <div class="credential-card__meta">3 collections · 1h 50m</div>
+            <div class="credential-card__progress-track">
+              <div class="credential-card__progress-fill" style="width:0%;background:#3cbfae;"></div>
+            </div>
+            <div class="credential-card__progress-label">Not started</div>
+          </div>
+          <i class="fa-solid fa-chevron-right credential-card__arrow" aria-hidden="true"></i>
+        </button>
+
+        <button class="credentials-view-all" id="credViewAll" aria-label="View all 7 credentials">
+          <i class="fa-solid fa-medal" aria-hidden="true"></i>
+          View all credentials
+          <i class="fa-solid fa-chevron-right" style="font-size:11px;opacity:0.6;" aria-hidden="true"></i>
+        </button>
+
+      </section>
+
+    </div><!-- /explore scroll -->
+
+    <!-- ── Explore detail panel (slides in) ──────────────────────────── -->
+    <div class="explore-detail" id="exploreDetail" aria-label="Topic detail" role="region">
+      <div class="explore-detail__hero">
+        <img class="explore-detail__hero-img" id="detailHeroImg" src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=600&q=80" alt="" />
+        <div class="explore-detail__hero-overlay" aria-hidden="true"></div>
+        <button class="explore-detail__back" id="detailBack" aria-label="Back to Explore">
+          <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="explore-detail__content">
+        <p class="explore-detail__topic-label" id="detailTopicLabel">Leadership</p>
+        <h2 class="explore-detail__title" id="detailTitle">Leadership Foundations</h2>
+        <p class="explore-detail__desc" id="detailDesc">Build the core skills every great leader needs — from managing performance and giving feedback to navigating difficult conversations and leading through change.</p>
+
+        <div class="explore-detail__stats" aria-label="Collection stats">
+          <div class="explore-detail__stat">
+            <span class="explore-detail__stat-value" id="detailStatVideos">10</span>
+            <span class="explore-detail__stat-label">Videos</span>
+          </div>
+          <div class="explore-detail__stat">
+            <span class="explore-detail__stat-value">2h 10m</span>
+            <span class="explore-detail__stat-label">Total time</span>
+          </div>
+          <div class="explore-detail__stat">
+            <span class="explore-detail__stat-value">Intermediate</span>
+            <span class="explore-detail__stat-label">Level</span>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-bottom:28px;">
+          <button class="detail-cta-pill" aria-label="Start this collection">
+            <i class="fa-solid fa-circle-play" aria-hidden="true"></i> Start Collection
+          </button>
+          <button class="detail-cta-pill detail-cta-pill--ghost" aria-label="Save this collection">
+            <i class="fa-regular fa-bookmark" aria-hidden="true"></i> Save
+          </button>
+        </div>
+
+        <p class="explore-detail__section-heading">Videos in this collection</p>
+
+        <div role="list">
+          <div class="detail-collection-item" role="listitem" tabindex="0">
+            <img class="detail-collection-item__thumb" src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=120&q=70" alt="" />
+            <div class="detail-collection-item__body">
+              <div class="detail-collection-item__title">What Great Managers Do Differently</div>
+              <div class="detail-collection-item__meta">12 min · Intermediate</div>
+            </div>
+            <div class="detail-collection-item__action">
+              <button class="detail-cta-pill" style="padding:6px 12px;font-size:11px;" aria-label="Play: What Great Managers Do Differently">
+                <i class="fa-solid fa-play" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="detail-collection-item" role="listitem" tabindex="0">
+            <img class="detail-collection-item__thumb" src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=120&q=70" alt="" />
+            <div class="detail-collection-item__body">
+              <div class="detail-collection-item__title">Handling Difficult Conversations</div>
+              <div class="detail-collection-item__meta">14 min · Intermediate</div>
+            </div>
+            <div class="detail-collection-item__action">
+              <button class="detail-cta-pill" style="padding:6px 12px;font-size:11px;" aria-label="Play: Handling Difficult Conversations">
+                <i class="fa-solid fa-play" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="detail-collection-item" role="listitem" tabindex="0">
+            <img class="detail-collection-item__thumb" src="https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=120&q=70" alt="" />
+            <div class="detail-collection-item__body">
+              <div class="detail-collection-item__title">Giving Feedback That Sticks</div>
+              <div class="detail-collection-item__meta">10 min · All levels</div>
+            </div>
+            <div class="detail-collection-item__action">
+              <button class="detail-cta-pill" style="padding:6px 12px;font-size:11px;" aria-label="Play: Giving Feedback That Sticks">
+                <i class="fa-solid fa-play" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="detail-collection-item" role="listitem" tabindex="0">
+            <img class="detail-collection-item__thumb" src="https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=120&q=70" alt="" />
+            <div class="detail-collection-item__body">
+              <div class="detail-collection-item__title">Building High-Performance Teams</div>
+              <div class="detail-collection-item__meta">16 min · Intermediate</div>
+            </div>
+            <div class="detail-collection-item__action">
+              <button class="detail-cta-pill detail-cta-pill--ghost" style="padding:6px 12px;font-size:11px;" aria-label="Preview: Building High-Performance Teams">
+                <i class="fa-solid fa-lock" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="detail-collection-item" role="listitem" tabindex="0">
+            <img class="detail-collection-item__thumb" src="https://images.unsplash.com/photo-1551836022-deb4988cc6c0?w=120&q=70" alt="" />
+            <div class="detail-collection-item__body">
+              <div class="detail-collection-item__title">Delegating with Confidence</div>
+              <div class="detail-collection-item__meta">11 min · All levels</div>
+            </div>
+            <div class="detail-collection-item__action">
+              <button class="detail-cta-pill detail-cta-pill--ghost" style="padding:6px 12px;font-size:11px;" aria-label="Preview: Delegating with Confidence">
+                <i class="fa-solid fa-lock" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /explore-detail -->
+
+    <!-- ── Credentials panel (slides in) ────────────────────────────── -->
+    <div class="credentials-panel" id="credentialsPanel" aria-label="All credentials" role="region">
+      <div class="credentials-panel__header">
+        <button class="credentials-panel__back" id="credPanelBack" aria-label="Back to Explore">
+          <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+        </button>
+        <span class="credentials-panel__title">Credentials</span>
+      </div>
+
+      <div class="credentials-panel__scroll">
+
+        <!-- 1: In progress -->
+        <div class="cred-item" tabindex="0" role="button" aria-label="Certified People Manager, 30% complete">
+          <div class="cred-item__icon" style="background:rgba(61,181,230,0.12);color:var(--app-accent);">
+            <i class="fa-solid fa-award"></i>
+          </div>
+          <div class="cred-item__body">
+            <div class="cred-item__title">Certified People Manager</div>
+            <div class="cred-item__meta">4 collections · 2h 45m</div>
+            <div class="cred-item__progress-row">
+              <div class="cred-item__progress-track">
+                <div class="cred-item__progress-fill" style="width:30%;background:var(--app-accent);"></div>
+              </div>
+              <span class="cred-item__progress-label">30%</span>
+            </div>
+            <button class="cred-item__cta cred-item__cta--continue">
+              <i class="fa-solid fa-circle-play"></i> Continue
+            </button>
+          </div>
+        </div>
+
+        <!-- 2: Almost done -->
+        <div class="cred-item" tabindex="0" role="button" aria-label="Communication Pro, 75% complete">
+          <div class="cred-item__icon" style="background:rgba(60,191,174,0.12);color:#3cbfae;">
+            <i class="fa-solid fa-comments"></i>
+          </div>
+          <div class="cred-item__body">
+            <div class="cred-item__title">Communication Pro</div>
+            <div class="cred-item__meta">3 collections · 1h 55m</div>
+            <div class="cred-item__progress-row">
+              <div class="cred-item__progress-track">
+                <div class="cred-item__progress-fill" style="width:75%;background:#3cbfae;"></div>
+              </div>
+              <span class="cred-item__progress-label">75%</span>
+            </div>
+            <button class="cred-item__cta cred-item__cta--continue">
+              <i class="fa-solid fa-circle-play"></i> Continue
+            </button>
+          </div>
+        </div>
+
+        <!-- 3: Completed -->
+        <div class="cred-item" tabindex="0" role="button" aria-label="Workplace Safety Essentials, completed">
+          <div class="cred-item__icon" style="background:rgba(60,191,174,0.12);color:#3cbfae;">
+            <i class="fa-solid fa-shield-halved"></i>
+          </div>
+          <div class="cred-item__body">
+            <div class="cred-item__title">Workplace Safety Essentials</div>
+            <div class="cred-item__meta">2 collections · 1h 10m</div>
+            <div class="cred-item__progress-row">
+              <div class="cred-item__progress-track">
+                <div class="cred-item__progress-fill" style="width:100%;background:#3cbfae;"></div>
+              </div>
+              <span class="cred-item__progress-label">Done</span>
+            </div>
+            <button class="cred-item__cta cred-item__cta--complete">
+              <i class="fa-solid fa-circle-check"></i> Completed
+            </button>
+          </div>
+        </div>
+
+        <!-- 4: Not started -->
+        <div class="cred-item" tabindex="0" role="button" aria-label="Data Practitioner, not started">
+          <div class="cred-item__icon" style="background:rgba(249,142,43,0.12);color:#f98e2b;">
+            <i class="fa-solid fa-chart-bar"></i>
+          </div>
+          <div class="cred-item__body">
+            <div class="cred-item__title">Data Practitioner</div>
+            <div class="cred-item__meta">5 collections · 3h 10m</div>
+            <div class="cred-item__progress-row">
+              <div class="cred-item__progress-track">
+                <div class="cred-item__progress-fill" style="width:0%;background:#f98e2b;"></div>
+              </div>
+              <span class="cred-item__progress-label">0%</span>
+            </div>
+            <button class="cred-item__cta cred-item__cta--start">
+              <i class="fa-solid fa-plus"></i> Start
+            </button>
+          </div>
+        </div>
+
+        <!-- 5: Not started -->
+        <div class="cred-item" tabindex="0" role="button" aria-label="Safety Champion, not started">
+          <div class="cred-item__icon" style="background:rgba(21,132,68,0.12);color:#3cbfae;">
+            <i class="fa-solid fa-hard-hat"></i>
+          </div>
+          <div class="cred-item__body">
+            <div class="cred-item__title">Safety Champion</div>
+            <div class="cred-item__meta">3 collections · 1h 50m</div>
+            <div class="cred-item__progress-row">
+              <div class="cred-item__progress-track">
+                <div class="cred-item__progress-fill" style="width:0%;background:#3cbfae;"></div>
+              </div>
+              <span class="cred-item__progress-label">0%</span>
+            </div>
+            <button class="cred-item__cta cred-item__cta--start">
+              <i class="fa-solid fa-plus"></i> Start
+            </button>
+          </div>
+        </div>
+
+        <!-- 6: In progress -->
+        <div class="cred-item" tabindex="0" role="button" aria-label="HR Fundamentals, 10% complete">
+          <div class="cred-item__icon" style="background:rgba(159,122,234,0.12);color:#9f7aea;">
+            <i class="fa-solid fa-people-group"></i>
+          </div>
+          <div class="cred-item__body">
+            <div class="cred-item__title">HR Fundamentals</div>
+            <div class="cred-item__meta">4 collections · 2h 20m</div>
+            <div class="cred-item__progress-row">
+              <div class="cred-item__progress-track">
+                <div class="cred-item__progress-fill" style="width:10%;background:#9f7aea;"></div>
+              </div>
+              <span class="cred-item__progress-label">10%</span>
+            </div>
+            <button class="cred-item__cta cred-item__cta--continue">
+              <i class="fa-solid fa-circle-play"></i> Continue
+            </button>
+          </div>
+        </div>
+
+        <!-- 7: Not started -->
+        <div class="cred-item" tabindex="0" role="button" aria-label="Sales Excellence, not started">
+          <div class="cred-item__icon" style="background:rgba(249,142,43,0.12);color:#f98e2b;">
+            <i class="fa-solid fa-handshake"></i>
+          </div>
+          <div class="cred-item__body">
+            <div class="cred-item__title">Sales Excellence</div>
+            <div class="cred-item__meta">6 collections · 4h 00m</div>
+            <div class="cred-item__progress-row">
+              <div class="cred-item__progress-track">
+                <div class="cred-item__progress-fill" style="width:0%;background:#f98e2b;"></div>
+              </div>
+              <span class="cred-item__progress-label">0%</span>
+            </div>
+            <button class="cred-item__cta cred-item__cta--start">
+              <i class="fa-solid fa-plus"></i> Start
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /credentials-panel -->
+
+  </div><!-- /screen-explore -->
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- LEARN SCREEN                                                         -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div class="screen" id="screen-learn" role="region" aria-label="Learn">
+
+    <!-- Header -->
+    <div class="learn-header">
+      <h1 class="learn-header__title">Learn</h1>
+    </div>
+
+    <!-- Scrollable content -->
+    <div class="learn" id="learnScroll">
+
+      <!-- ── Continue Learning (primary hero) ─────────────────────────── -->
+      <div class="learn-continue" id="learnContinueCard" role="button" tabindex="0" aria-label="Continue Leadership Foundations">
+        <div class="learn-continue__hero">
+          <img class="learn-continue__img" src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=600&q=80" alt="" />
+          <div class="learn-continue__overlay" aria-hidden="true"></div>
+        </div>
+        <div class="learn-continue__body">
+          <p class="learn-continue__eyebrow">Continue where you left off</p>
+          <p class="learn-continue__title">Leadership Foundations</p>
+          <p class="learn-continue__meta">Next: Handling Difficult Conversations · 14 min</p>
+          <div class="learn-continue__progress-row">
+            <div class="learn-continue__progress-track">
+              <div class="learn-continue__progress-fill" style="width:30%;"></div>
+            </div>
+            <span class="learn-continue__progress-label">3 of 10 · 30%</span>
+          </div>
+          <button class="learn-continue__cta" id="learnContinueCta">
+            <i class="fa-solid fa-play" aria-hidden="true"></i>
+            Continue Learning
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Assigned (urgent — due today) ────────────────────────────── -->
+      <div class="learn-assigned-banner" id="learnAssigned" role="button" tabindex="0" aria-label="Assigned: Safety Refresher — due today">
+        <div class="learn-assigned-banner__icon" aria-hidden="true">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div class="learn-assigned-banner__body">
+          <p class="learn-assigned-banner__label">Assigned · Due today</p>
+          <p class="learn-assigned-banner__title">Safety Refresher 2025</p>
+          <p class="learn-assigned-banner__due">5 videos · 22 min remaining</p>
+        </div>
+        <i class="fa-solid fa-chevron-right learn-assigned-banner__arrow" aria-hidden="true"></i>
+      </div>
+
+      <!-- ── In Progress ────────────────────────────────────────────────── -->
+      <p class="learn-section-heading">In progress</p>
+
+      <!-- Card 1 — primary active (Leadership Foundations) -->
+      <div class="lc-card" id="lcCard1" role="button" tabindex="0" aria-label="Leadership Foundations, 30% complete">
+        <img class="lc-card__thumb" src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=200&q=70" alt="" />
+        <div class="lc-card__body">
+          <p class="lc-card__title">Leadership Foundations</p>
+          <p class="lc-card__meta">3 of 10 videos · Leadership</p>
+          <div class="lc-card__progress-track">
+            <div class="lc-card__progress-fill" style="width:30%;background:var(--app-accent);"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2 — almost done highlight -->
+      <div class="lc-card" id="lcCard2" role="button" tabindex="0" aria-label="Difficult Conversations, 65% complete, almost done">
+        <img class="lc-card__thumb" src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=200&q=70" alt="" />
+        <div class="lc-card__body">
+          <p class="lc-card__title">Difficult Conversations</p>
+          <p class="lc-card__meta">4 of 6 videos · Communication</p>
+          <div class="lc-card__progress-track">
+            <div class="lc-card__progress-fill" style="width:65%;background:var(--app-success);"></div>
+          </div>
+        </div>
+        <span class="lc-card__badge lc-card__badge--almost">Almost done</span>
+      </div>
+
+      <!-- Card 3 — assigned in progress -->
+      <div class="lc-card" id="lcCard3" role="button" tabindex="0" aria-label="Safety Refresher 2025, assigned, 0% complete">
+        <img class="lc-card__thumb" src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=200&q=70" alt="" />
+        <div class="lc-card__body">
+          <p class="lc-card__title">Safety Refresher 2025</p>
+          <p class="lc-card__meta">0 of 5 videos · Compliance</p>
+          <div class="lc-card__progress-track">
+            <div class="lc-card__progress-fill" style="width:0%;background:#ff6450;"></div>
+          </div>
+        </div>
+        <span class="lc-card__badge lc-card__badge--assigned">Assigned</span>
+      </div>
+
+      <!-- View all in-progress -->
+      <button class="learn-view-all" id="learnViewAll" aria-label="View all 6 in-progress collections">
+        <span>View all <strong>6</strong> collections</span>
+        <i class="fa-solid fa-chevron-right" style="font-size:11px;opacity:0.5;" aria-hidden="true"></i>
+      </button>
+
+      <!-- ── Recently Started (collapsed) ──────────────────────────────── -->
+      <div class="learn-recent" id="learnRecent">
+        <button class="learn-recent__toggle" id="learnRecentToggle" aria-expanded="false" aria-controls="learnRecentList">
+          <span class="learn-recent__toggle-icon" aria-hidden="true"><i class="fa-solid fa-clock-rotate-left"></i></span>
+          <span class="learn-recent__toggle-label">Recently started</span>
+          <span class="learn-recent__toggle-count">3</span>
+          <i class="fa-solid fa-chevron-down learn-recent__toggle-chevron" aria-hidden="true"></i>
+        </button>
+        <div class="learn-recent__list" id="learnRecentList">
+          <div class="learn-recent__item" role="button" tabindex="0" aria-label="Resume Excel for Analysts">
+            <img class="learn-recent__thumb" src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=200&q=70" alt="" />
+            <div class="learn-recent__body">
+              <p class="learn-recent__title">Excel for Analysts</p>
+              <p class="learn-recent__meta">2 of 8 videos · Inactive 12 days</p>
+            </div>
+            <span class="learn-recent__resume">Resume</span>
+          </div>
+          <div class="learn-recent__item" role="button" tabindex="0" aria-label="Resume Hiring & Onboarding">
+            <img class="learn-recent__thumb" src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=200&q=70" alt="" />
+            <div class="learn-recent__body">
+              <p class="learn-recent__title">Hiring &amp; Onboarding</p>
+              <p class="learn-recent__meta">1 of 8 videos · Inactive 9 days</p>
+            </div>
+            <span class="learn-recent__resume">Resume</span>
+          </div>
+          <div class="learn-recent__item" role="button" tabindex="0" aria-label="Resume Persuasive Presentations">
+            <img class="learn-recent__thumb" src="https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=200&q=70" alt="" />
+            <div class="learn-recent__body">
+              <p class="learn-recent__title">Persuasive Presentations</p>
+              <p class="learn-recent__meta">1 of 9 videos · Inactive 7 days</p>
+            </div>
+            <span class="learn-recent__resume">Resume</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /learn scroll -->
+
+    <!-- ── Collection detail panel (slides in from right) ─────────────── -->
+    <div class="learn-detail" id="learnDetail" aria-label="Collection detail" role="region">
+      <div class="learn-detail__hero">
+        <img class="learn-detail__hero-img" id="learnDetailImg" src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=600&q=80" alt="" />
+        <div class="learn-detail__hero-overlay" aria-hidden="true"></div>
+        <button class="learn-detail__back" id="learnDetailBack" aria-label="Back to Learn">
+          <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="learn-detail__content">
+        <p class="learn-detail__eyebrow" id="learnDetailEyebrow">Leadership</p>
+        <h2 class="learn-detail__title" id="learnDetailTitle">Leadership Foundations</h2>
+        <div class="learn-detail__progress-row">
+          <div class="learn-detail__progress-track">
+            <div class="learn-detail__progress-fill" id="learnDetailProgressFill" style="width:30%;background:var(--app-accent);"></div>
+          </div>
+          <span class="learn-detail__progress-label" id="learnDetailProgressLabel">30% complete</span>
+        </div>
+        <div class="learn-detail__ctas">
+          <button class="learn-detail__cta-primary" id="learnDetailCta">
+            <i class="fa-solid fa-play" aria-hidden="true"></i>
+            Continue
+          </button>
+          <button class="learn-detail__cta-secondary">
+            <i class="fa-regular fa-bookmark" aria-hidden="true"></i>
+            Saved
+          </button>
+        </div>
+
+        <p class="learn-detail__section-heading">Videos in this collection</p>
+        <div class="learn-detail__video-item">
+          <span class="learn-detail__video-num">1</span>
+          <img class="learn-detail__video-thumb" src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=200&q=60" alt="" />
+          <div class="learn-detail__video-body">
+            <p class="learn-detail__video-title">What Great Managers Do</p>
+            <p class="learn-detail__video-meta">12 min · Intermediate</p>
+          </div>
+          <span class="learn-detail__video-status learn-detail__video-status--done"><i class="fa-solid fa-circle-check"></i></span>
+        </div>
+        <div class="learn-detail__video-item">
+          <span class="learn-detail__video-num">2</span>
+          <img class="learn-detail__video-thumb" src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=200&q=60" alt="" />
+          <div class="learn-detail__video-body">
+            <p class="learn-detail__video-title">Handling Difficult Conversations</p>
+            <p class="learn-detail__video-meta">14 min · Intermediate</p>
+          </div>
+          <span class="learn-detail__video-status learn-detail__video-status--done"><i class="fa-solid fa-circle-check"></i></span>
+        </div>
+        <div class="learn-detail__video-item">
+          <span class="learn-detail__video-num">3</span>
+          <img class="learn-detail__video-thumb" src="https://images.unsplash.com/photo-1531482615713-2afd69097998?w=200&q=60" alt="" />
+          <div class="learn-detail__video-body">
+            <p class="learn-detail__video-title">Giving Feedback That Sticks</p>
+            <p class="learn-detail__video-meta">10 min · All levels</p>
+          </div>
+          <span class="learn-detail__video-status learn-detail__video-status--done"><i class="fa-solid fa-circle-check"></i></span>
+        </div>
+        <div class="learn-detail__video-item">
+          <span class="learn-detail__video-num">4</span>
+          <img class="learn-detail__video-thumb" src="https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=200&q=60" alt="" />
+          <div class="learn-detail__video-body">
+            <p class="learn-detail__video-title">Building High-Performance Teams</p>
+            <p class="learn-detail__video-meta">16 min · Intermediate</p>
+          </div>
+          <span class="learn-detail__video-status learn-detail__video-status--active"><i class="fa-solid fa-circle-play"></i></span>
+        </div>
+        <div class="learn-detail__video-item">
+          <span class="learn-detail__video-num">5</span>
+          <img class="learn-detail__video-thumb" src="https://images.unsplash.com/photo-1551836022-deb4988cc6c0?w=200&q=60" alt="" />
+          <div class="learn-detail__video-body">
+            <p class="learn-detail__video-title">Delegating with Confidence</p>
+            <p class="learn-detail__video-meta">11 min · All levels</p>
+          </div>
+          <span class="learn-detail__video-status learn-detail__video-status--locked"><i class="fa-solid fa-lock"></i></span>
+        </div>
+        <div class="learn-detail__video-item">
+          <span class="learn-detail__video-num">6</span>
+          <img class="learn-detail__video-thumb" src="https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=200&q=60" alt="" />
+          <div class="learn-detail__video-body">
+            <p class="learn-detail__video-title">Managing Up Effectively</p>
+            <p class="learn-detail__video-meta">9 min · All levels</p>
+          </div>
+          <span class="learn-detail__video-status learn-detail__video-status--locked"><i class="fa-solid fa-lock"></i></span>
+        </div>
+        <div class="learn-detail__video-item">
+          <span class="learn-detail__video-num">7</span>
+          <img class="learn-detail__video-thumb" src="https://images.unsplash.com/photo-1556745757-8d76bdb6984b?w=200&q=60" alt="" />
+          <div class="learn-detail__video-body">
+            <p class="learn-detail__video-title">The Art of Listening</p>
+            <p class="learn-detail__video-meta">8 min · All levels</p>
+          </div>
+          <span class="learn-detail__video-status learn-detail__video-status--locked"><i class="fa-solid fa-lock"></i></span>
+        </div>
+        <div class="learn-detail__video-item">
+          <span class="learn-detail__video-num">8</span>
+          <img class="learn-detail__video-thumb" src="https://images.unsplash.com/photo-1553877522-43269d4ea984?w=200&q=60" alt="" />
+          <div class="learn-detail__video-body">
+            <p class="learn-detail__video-title">Performance Reviews That Work</p>
+            <p class="learn-detail__video-meta">13 min · Intermediate</p>
+          </div>
+          <span class="learn-detail__video-status learn-detail__video-status--locked"><i class="fa-solid fa-lock"></i></span>
+        </div>
+        <div class="learn-detail__video-item">
+          <span class="learn-detail__video-num">9</span>
+          <img class="learn-detail__video-thumb" src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=200&q=60" alt="" />
+          <div class="learn-detail__video-body">
+            <p class="learn-detail__video-title">Leading Through Uncertainty</p>
+            <p class="learn-detail__video-meta">15 min · Advanced</p>
+          </div>
+          <span class="learn-detail__video-status learn-detail__video-status--locked"><i class="fa-solid fa-lock"></i></span>
+        </div>
+        <div class="learn-detail__video-item">
+          <span class="learn-detail__video-num">10</span>
+          <img class="learn-detail__video-thumb" src="https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=200&q=60" alt="" />
+          <div class="learn-detail__video-body">
+            <p class="learn-detail__video-title">Your Leadership Legacy</p>
+            <p class="learn-detail__video-meta">10 min · All levels</p>
+          </div>
+          <span class="learn-detail__video-status learn-detail__video-status--locked"><i class="fa-solid fa-lock"></i></span>
+        </div>
+      </div>
+    </div><!-- /learn-detail -->
+
+  </div><!-- /screen-learn -->
+
+  <!-- ── Soft-start toast (global, outside screens) ──────────────────────── -->
+  <div class="learn-toast" id="learnToast" role="status" aria-live="polite">
+    <span class="learn-toast__text">Added to your learning</span>
+    <button class="learn-toast__undo" id="learnToastUndo">Undo</button>
+    <button class="learn-toast__close" id="learnToastClose" aria-label="Dismiss"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- PROFILE SCREEN                                                       -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div class="screen" id="screen-profile" role="region" aria-label="Profile">
+    <div class="profile" id="profileScroll">
+
+      <!-- ── Header: identity + summary stats ─────────────────────────── -->
+      <div class="profile-header">
+        <img class="profile-header__avatar"
+             src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&q=80"
+             alt="Jordan Mitchell" />
+        <div class="profile-header__info">
+          <p class="profile-header__name">Jordan Mitchell</p>
+          <p class="profile-header__role">Senior Manager · Operations</p>
+        </div>
+        <button class="profile-header__settings-btn" id="profileSettingsBtn" aria-label="Open settings">
+          <i class="fa-solid fa-gear" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="profile-stats" role="group" aria-label="Learning summary">
+        <div class="profile-stat">
+          <p class="profile-stat__value">12</p>
+          <p class="profile-stat__label">Completed</p>
+        </div>
+        <div class="profile-stat">
+          <p class="profile-stat__value">3</p>
+          <p class="profile-stat__label">Credentials</p>
+        </div>
+        <div class="profile-stat">
+          <p class="profile-stat__value">47h</p>
+          <p class="profile-stat__label">Learned</p>
+        </div>
+        <div class="profile-stat">
+          <p class="profile-stat__value">18</p>
+          <p class="profile-stat__label">Streak days</p>
+        </div>
+      </div>
+
+      <!-- ── Completed collections ──────────────────────────────────────── -->
+      <p class="profile-section-heading">Completed</p>
+      <div class="prof-completed-list">
+
+        <div class="prof-completed-card" role="button" tabindex="0" aria-label="Workplace Safety 101 — completed">
+          <div class="prof-completed-card__thumb-wrap">
+            <img class="prof-completed-card__thumb" src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=200&q=70" alt="" />
+            <span class="prof-completed-card__check" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
+          </div>
+          <div class="prof-completed-card__body">
+            <p class="prof-completed-card__title">Workplace Safety 101</p>
+            <p class="prof-completed-card__meta">5 videos · Safety</p>
+            <p class="prof-completed-card__date">Completed Apr 18, 2025</p>
+          </div>
+          <span class="prof-completed-card__badge prof-completed-card__badge--compliance">Compliance</span>
+        </div>
+
+        <div class="prof-completed-card" role="button" tabindex="0" aria-label="Certified People Manager credential — completed">
+          <div class="prof-completed-card__thumb-wrap">
+            <img class="prof-completed-card__thumb" src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=200&q=70" alt="" />
+            <span class="prof-completed-card__check" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
+          </div>
+          <div class="prof-completed-card__body">
+            <p class="prof-completed-card__title">The High-Impact Manager</p>
+            <p class="prof-completed-card__meta">10 videos · Leadership</p>
+            <p class="prof-completed-card__date">Completed Mar 5, 2025</p>
+          </div>
+          <span class="prof-completed-card__badge prof-completed-card__badge--credential">Credential</span>
+        </div>
+
+        <div class="prof-completed-card" role="button" tabindex="0" aria-label="Communicating Under Pressure — completed">
+          <div class="prof-completed-card__thumb-wrap">
+            <img class="prof-completed-card__thumb" src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=200&q=70" alt="" />
+            <span class="prof-completed-card__check" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
+          </div>
+          <div class="prof-completed-card__body">
+            <p class="prof-completed-card__title">Communicating Under Pressure</p>
+            <p class="prof-completed-card__meta">8 videos · Communication</p>
+            <p class="prof-completed-card__date">Completed Feb 20, 2025</p>
+          </div>
+        </div>
+
+        <div class="prof-completed-card" role="button" tabindex="0" aria-label="Hiring & Onboarding — completed">
+          <div class="prof-completed-card__thumb-wrap">
+            <img class="prof-completed-card__thumb" src="https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=200&q=70" alt="" />
+            <span class="prof-completed-card__check" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
+          </div>
+          <div class="prof-completed-card__body">
+            <p class="prof-completed-card__title">Hiring &amp; Onboarding</p>
+            <p class="prof-completed-card__meta">8 videos · HR</p>
+            <p class="prof-completed-card__date">Completed Jan 12, 2025</p>
+          </div>
+          <span class="prof-completed-card__badge prof-completed-card__badge--credential">Credential</span>
+        </div>
+
+      </div>
+
+      <!-- ── Saved collections ──────────────────────────────────────────── -->
+      <p class="profile-section-heading">Saved</p>
+
+      <div class="prof-saved-card" role="button" tabindex="0" aria-label="Data-Driven Decisions — saved">
+        <img class="prof-saved-card__thumb" src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=200&q=70" alt="" />
+        <div class="prof-saved-card__body">
+          <p class="prof-saved-card__title">Data-Driven Decisions</p>
+          <p class="prof-saved-card__meta">12 videos · Data &amp; Analytics</p>
+        </div>
+        <button class="prof-saved-card__unsave" aria-label="Remove Data-Driven Decisions from saved">
+          <i class="fa-solid fa-bookmark"></i>
+        </button>
+      </div>
+
+      <div class="prof-saved-card" role="button" tabindex="0" aria-label="Coaching for Performance — saved">
+        <img class="prof-saved-card__thumb" src="https://images.unsplash.com/photo-1551836022-deb4988cc6c0?w=200&q=70" alt="" />
+        <div class="prof-saved-card__body">
+          <p class="prof-saved-card__title">Coaching for Performance</p>
+          <p class="prof-saved-card__meta">8 videos · Leadership</p>
+        </div>
+        <button class="prof-saved-card__unsave" aria-label="Remove Coaching for Performance from saved">
+          <i class="fa-solid fa-bookmark"></i>
+        </button>
+      </div>
+
+      <div class="prof-saved-card" role="button" tabindex="0" aria-label="Consultative Selling — saved">
+        <img class="prof-saved-card__thumb" src="https://images.unsplash.com/photo-1556745757-8d76bdb6984b?w=200&q=70" alt="" />
+        <div class="prof-saved-card__body">
+          <p class="prof-saved-card__title">Consultative Selling</p>
+          <p class="prof-saved-card__meta">9 videos · Sales</p>
+        </div>
+        <button class="prof-saved-card__unsave" aria-label="Remove Consultative Selling from saved">
+          <i class="fa-solid fa-bookmark"></i>
+        </button>
+      </div>
+
+      <!-- ── Learning history ───────────────────────────────────────────── -->
+      <p class="profile-section-heading">History</p>
+      <div class="prof-history">
+
+        <div class="prof-history-group">
+          <p class="prof-history-group__date">Today</p>
+          <div class="prof-history-item">
+            <div class="prof-history-item__icon" style="background:rgba(61,181,230,0.12);color:var(--app-accent);" aria-hidden="true">
+              <i class="fa-solid fa-play"></i>
+            </div>
+            <div class="prof-history-item__body">
+              <p class="prof-history-item__text">Watched <strong>Building High-Performance Teams</strong></p>
+              <p class="prof-history-item__time">Leadership Foundations · 16 min</p>
+            </div>
+          </div>
+          <div class="prof-history-item">
+            <div class="prof-history-item__icon" style="background:rgba(61,181,230,0.12);color:var(--app-accent);" aria-hidden="true">
+              <i class="fa-solid fa-play"></i>
+            </div>
+            <div class="prof-history-item__body">
+              <p class="prof-history-item__text">Watched <strong>Giving Feedback That Sticks</strong></p>
+              <p class="prof-history-item__time">Leadership Foundations · 10 min</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="prof-history-group">
+          <p class="prof-history-group__date">Yesterday</p>
+          <div class="prof-history-item">
+            <div class="prof-history-item__icon" style="background:rgba(60,191,174,0.12);color:var(--app-success);" aria-hidden="true">
+              <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <div class="prof-history-item__body">
+              <p class="prof-history-item__text">Completed <strong>Workplace Safety 101</strong></p>
+              <p class="prof-history-item__time">Safety · 5 videos</p>
+            </div>
+          </div>
+          <div class="prof-history-item">
+            <div class="prof-history-item__icon" style="background:rgba(61,181,230,0.12);color:var(--app-accent);" aria-hidden="true">
+              <i class="fa-solid fa-play"></i>
+            </div>
+            <div class="prof-history-item__body">
+              <p class="prof-history-item__text">Watched <strong>Difficult Conversations</strong></p>
+              <p class="prof-history-item__time">Difficult Conversations · 14 min</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="prof-history-group">
+          <p class="prof-history-group__date">Apr 21, 2025</p>
+          <div class="prof-history-item">
+            <div class="prof-history-item__icon" style="background:rgba(255,100,80,0.12);color:#ff6450;" aria-hidden="true">
+              <i class="fa-solid fa-award"></i>
+            </div>
+            <div class="prof-history-item__body">
+              <p class="prof-history-item__text">Earned <strong>Certified People Manager</strong> credential</p>
+              <p class="prof-history-item__time">Leadership · 4 collections</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── Goals & interests ─────────────────────────────────────────── -->
+      <p class="profile-section-heading">Goals &amp; interests</p>
+      <div class="prof-goals" role="group" aria-label="Select your learning interests">
+        <button class="prof-goal-chip is-selected" aria-pressed="true">
+          <span class="prof-goal-chip__dot" aria-hidden="true"></span>Leadership
+        </button>
+        <button class="prof-goal-chip is-selected" aria-pressed="true">
+          <span class="prof-goal-chip__dot" aria-hidden="true"></span>Communication
+        </button>
+        <button class="prof-goal-chip" aria-pressed="false">
+          <span class="prof-goal-chip__dot" aria-hidden="true"></span>Data &amp; Analytics
+        </button>
+        <button class="prof-goal-chip is-selected" aria-pressed="true">
+          <span class="prof-goal-chip__dot" aria-hidden="true"></span>HR
+        </button>
+        <button class="prof-goal-chip" aria-pressed="false">
+          <span class="prof-goal-chip__dot" aria-hidden="true"></span>Safety
+        </button>
+        <button class="prof-goal-chip" aria-pressed="false">
+          <span class="prof-goal-chip__dot" aria-hidden="true"></span>Sales
+        </button>
+        <button class="prof-goal-chip" aria-pressed="false">
+          <span class="prof-goal-chip__dot" aria-hidden="true"></span>Productivity
+        </button>
+        <button class="prof-goal-chip" aria-pressed="false">
+          <span class="prof-goal-chip__dot" aria-hidden="true"></span>Finance
+        </button>
+      </div>
+
+      <!-- ── Settings ───────────────────────────────────────────────────── -->
+      <p class="profile-section-heading">Settings</p>
+      <div class="prof-settings">
+
+        <div class="prof-setting-item">
+          <div class="prof-setting-item__icon" style="background:rgba(61,181,230,0.12);color:var(--app-accent);" aria-hidden="true">
+            <i class="fa-solid fa-bell"></i>
+          </div>
+          <div class="prof-setting-item__body">
+            <p class="prof-setting-item__label">Learning reminders</p>
+            <p class="prof-setting-item__sub">Daily at 9:00 AM</p>
+          </div>
+          <div class="prof-setting-item__right">
+            <vwc-switch aria-label="Toggle learning reminders" checked></vwc-switch>
+          </div>
+        </div>
+
+        <div class="prof-setting-item">
+          <div class="prof-setting-item__icon" style="background:rgba(60,191,174,0.12);color:var(--app-success);" aria-hidden="true">
+            <i class="fa-solid fa-list-check"></i>
+          </div>
+          <div class="prof-setting-item__body">
+            <p class="prof-setting-item__label">Auto-add to learning</p>
+            <p class="prof-setting-item__sub">Add collection when you finish a video</p>
+          </div>
+          <div class="prof-setting-item__right">
+            <vwc-switch aria-label="Toggle auto-add to learning" checked></vwc-switch>
+          </div>
+        </div>
+
+        <div class="prof-setting-item">
+          <div class="prof-setting-item__icon" style="background:rgba(255,100,80,0.12);color:#ff6450;" aria-hidden="true">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <div class="prof-setting-item__body">
+            <p class="prof-setting-item__label">Assigned notifications</p>
+            <p class="prof-setting-item__sub">Urgent items only</p>
+          </div>
+          <div class="prof-setting-item__right">
+            <vwc-switch aria-label="Toggle assigned notifications" checked></vwc-switch>
+          </div>
+        </div>
+
+        <div class="prof-setting-item" role="button" tabindex="0" aria-label="Download preferences">
+          <div class="prof-setting-item__icon" style="background:rgba(255,255,255,0.06);color:var(--app-text-muted);" aria-hidden="true">
+            <i class="fa-solid fa-download"></i>
+          </div>
+          <div class="prof-setting-item__body">
+            <p class="prof-setting-item__label">Download preferences</p>
+            <p class="prof-setting-item__sub">Wi-Fi only</p>
+          </div>
+          <div class="prof-setting-item__right">
+            <i class="fa-solid fa-chevron-right prof-setting-item__chevron" aria-hidden="true"></i>
+          </div>
+        </div>
+
+        <div class="prof-setting-item" role="button" tabindex="0" aria-label="Language — English (US)">
+          <div class="prof-setting-item__icon" style="background:rgba(255,255,255,0.06);color:var(--app-text-muted);" aria-hidden="true">
+            <i class="fa-solid fa-globe"></i>
+          </div>
+          <div class="prof-setting-item__body">
+            <p class="prof-setting-item__label">Language</p>
+            <p class="prof-setting-item__sub">English (US)</p>
+          </div>
+          <div class="prof-setting-item__right">
+            <i class="fa-solid fa-chevron-right prof-setting-item__chevron" aria-hidden="true"></i>
+          </div>
+        </div>
+
+        <div class="prof-setting-item" role="button" tabindex="0" aria-label="Sign out">
+          <div class="prof-setting-item__icon" style="background:rgba(255,100,80,0.10);color:#ff6450;" aria-hidden="true">
+            <i class="fa-solid fa-right-from-bracket"></i>
+          </div>
+          <div class="prof-setting-item__body">
+            <p class="prof-setting-item__label" style="color:#ff6450;">Sign out</p>
+          </div>
+        </div>
+
+      </div>
+
+    </div><!-- /profile scroll -->
+  </div><!-- /screen-profile -->
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <button class="nav-item is-active" aria-label="Feed" aria-current="page" data-screen="feed">
+      <div class="nav-item__icon" aria-hidden="true">
+        <i class="fa-solid fa-house"></i>
+      </div>
+      <span class="nav-item__label">Feed</span>
+    </button>
+    <button class="nav-item" aria-label="Explore" aria-current="false" data-screen="explore">
+      <div class="nav-item__icon" aria-hidden="true">
+        <i class="fa-solid fa-compass"></i>
+      </div>
+      <span class="nav-item__label">Explore</span>
+    </button>
+    <button class="nav-item" aria-label="Learn, 1 item due today" aria-current="false" data-screen="learn">
+      <div class="nav-item__icon" aria-hidden="true">
+        <i class="fa-solid fa-graduation-cap"></i>
+        <span class="nav-item__badge" aria-hidden="true"></span>
+      </div>
+      <span class="nav-item__label">Learn</span>
+    </button>
+    <button class="nav-item" aria-label="Profile" aria-current="false" data-screen="profile">
+      <div class="nav-item__icon" aria-hidden="true">
+        <i class="fa-solid fa-circle-user"></i>
+      </div>
+      <span class="nav-item__label">Profile</span>
+    </button>
+  </nav>
+
+</div>
+
+<script>
+  // ── Screen navigation ─────────────────────────────────────────────────
+  const screens = {
+    feed:    document.getElementById('screen-feed'),
+    explore: document.getElementById('screen-explore'),
+    learn:   document.getElementById('screen-learn'),
+    profile: document.getElementById('screen-profile'),
+  };
+  const navItems = document.querySelectorAll('.nav-item');
+
+  const showScreen = (name) => {
+    Object.entries(screens).forEach(([key, el]) => {
+      el.classList.toggle('is-active', key === name);
+    });
+    navItems.forEach(btn => {
+      const isActive = btn.dataset.screen === name;
+      btn.classList.toggle('is-active', isActive);
+      btn.setAttribute('aria-current', isActive ? 'page' : 'false');
+    });
+    // Close detail panel when switching away from explore
+    if (name !== 'explore') exploreDetail.classList.remove('is-open');
+  };
+
+  navItems.forEach(btn => {
+    btn.addEventListener('click', () => showScreen(btn.dataset.screen));
+  });
+
+  // ── Feed: scroll dots ─────────────────────────────────────────────────
+  const feed = document.getElementById('feed');
+  const cards = feed.querySelectorAll('.feed-card');
+  const dots = document.querySelectorAll('.scroll-dot');
+
+  const updateDots = (index) => {
+    dots.forEach((d, i) => d.classList.toggle('is-active', i === index));
+  };
+
+  const feedObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+        updateDots(Array.from(cards).indexOf(entry.target));
+      }
+    });
+  }, { root: feed, threshold: 0.5 });
+
+  cards.forEach(card => feedObserver.observe(card));
+
+  // ── Feed: like / save toggles ─────────────────────────────────────────
+  document.querySelectorAll('[data-action="like"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const isLiked = btn.classList.toggle('is-liked');
+      btn.setAttribute('aria-pressed', isLiked);
+      btn.setAttribute('aria-label', isLiked ? 'Unlike this video' : 'Like this video');
+      btn.querySelector('i').className = isLiked ? 'fa-solid fa-heart' : 'fa-regular fa-heart';
+    });
+  });
+
+  document.querySelectorAll('[data-action="save"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const isSaved = btn.classList.toggle('is-saved');
+      btn.setAttribute('aria-pressed', isSaved);
+      btn.setAttribute('aria-label', isSaved ? 'Remove from your list' : 'Save to your list');
+      const label = btn.closest('.action-item')?.querySelector('.action-label');
+      btn.querySelector('i').className = isSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
+      if (label) label.textContent = isSaved ? 'Saved' : 'Save';
+    });
+  });
+
+  // ── Feed: nudge dismiss ───────────────────────────────────────────────
+  document.getElementById('nudgeClose')?.addEventListener('click', () => {
+    document.getElementById('nudgeBanner')?.classList.remove('is-visible');
+  });
+
+  // ── Explore: detail panel ─────────────────────────────────────────────
+  const exploreDetail = document.getElementById('exploreDetail');
+  const detailBack    = document.getElementById('detailBack');
+
+  const openDetail = () => {
+    exploreDetail.classList.add('is-open');
+    detailBack.focus();
+  };
+
+  const closeDetail = () => {
+    exploreDetail.classList.remove('is-open');
+  };
+
+  document.querySelectorAll('[data-opens-detail]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('.featured-collection__cta, .detail-cta-pill')) return;
+      openDetail();
+    });
+  });
+
+  detailBack.addEventListener('click', closeDetail);
+
+  // ── Explore: credentials panel ────────────────────────────────────────
+  const credentialsPanel = document.getElementById('credentialsPanel');
+  const credPanelBack    = document.getElementById('credPanelBack');
+
+  const openCredentials = () => {
+    credentialsPanel.classList.add('is-open');
+    credPanelBack.focus();
+  };
+
+  const closeCredentials = () => {
+    credentialsPanel.classList.remove('is-open');
+  };
+
+  document.getElementById('credViewAll').addEventListener('click', openCredentials);
+  document.getElementById('credTeaser1').addEventListener('click', openCredentials);
+  document.getElementById('credTeaser2').addEventListener('click', openCredentials);
+  credPanelBack.addEventListener('click', closeCredentials);
+
+  // Also close credentials when navigating away from explore
+  const _origShowScreen = showScreen;
+  // Patch showScreen to also close credentials panel
+  navItems.forEach(btn => {
+    btn.addEventListener('click', closeCredentials);
+  });
+
+  // ── Explore: goal chip selection ──────────────────────────────────────
+  document.querySelectorAll('.goal-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.goal-chip').forEach(c => {
+        c.classList.remove('is-selected');
+        c.setAttribute('aria-pressed', 'false');
+      });
+      chip.classList.add('is-selected');
+      chip.setAttribute('aria-pressed', 'true');
+    });
+  });
+
+  // ── Explore: topic pill → collections update ──────────────────────────
+  const topicCollections = {
+    Leadership: {
+      heading: 'Leadership collections',
+      cards: [
+        { title: 'Leadership Foundations', meta: '10 videos · Intermediate', progress: 30, img: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=400&q=70' },
+        { title: 'The High-Impact Manager', meta: '10 videos · Intermediate', progress: null, img: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=400&q=70' },
+        { title: 'Leading Through Change', meta: '7 videos · Advanced', progress: null, img: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400&q=70' },
+        { title: 'Coaching for Performance', meta: '8 videos · All levels', progress: null, img: 'https://images.unsplash.com/photo-1551836022-deb4988cc6c0?w=400&q=70' },
+      ]
+    },
+    Communication: {
+      heading: 'Communication collections',
+      cards: [
+        { title: 'Communicating Under Pressure', meta: '8 videos · All levels', progress: null, img: 'https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=400&q=70' },
+        { title: 'Difficult Conversations', meta: '6 videos · Intermediate', progress: 65, img: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=400&q=70' },
+        { title: 'Persuasive Presentations', meta: '9 videos · All levels', progress: null, img: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=400&q=70' },
+      ]
+    },
+    Data: {
+      heading: 'Data & Analytics collections',
+      cards: [
+        { title: 'Data-Driven Decisions', meta: '12 videos · Beginner', progress: null, img: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&q=70' },
+        { title: 'Excel for Analysts', meta: '8 videos · Beginner', progress: 20, img: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&q=70' },
+        { title: 'Data Storytelling', meta: '7 videos · Intermediate', progress: null, img: 'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=400&q=70' },
+      ]
+    },
+    Safety: {
+      heading: 'Safety collections',
+      cards: [
+        { title: 'Workplace Safety 101', meta: '5 videos · All levels', progress: 100, img: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=70' },
+        { title: 'Hazard Recognition', meta: '6 videos · Beginner', progress: null, img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=70' },
+        { title: 'Emergency Preparedness', meta: '4 videos · All levels', progress: null, img: 'https://images.unsplash.com/photo-1584467735815-f778f274e296?w=400&q=70' },
+      ]
+    },
+    HR: {
+      heading: 'HR collections',
+      cards: [
+        { title: 'Hiring & Onboarding', meta: '8 videos · All levels', progress: null, img: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=400&q=70' },
+        { title: 'Performance Management', meta: '7 videos · Intermediate', progress: 10, img: 'https://images.unsplash.com/photo-1553877522-43269d4ea984?w=400&q=70' },
+        { title: 'Employment Law Basics', meta: '5 videos · All levels', progress: null, img: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=400&q=70' },
+      ]
+    },
+    Sales: {
+      heading: 'Sales collections',
+      cards: [
+        { title: 'Consultative Selling', meta: '9 videos · Intermediate', progress: null, img: 'https://images.unsplash.com/photo-1556745757-8d76bdb6984b?w=400&q=70' },
+        { title: 'Objection Handling', meta: '6 videos · All levels', progress: null, img: 'https://images.unsplash.com/photo-1560472355-536de3962603?w=400&q=70' },
+        { title: 'Closing Techniques', meta: '7 videos · Advanced', progress: null, img: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=400&q=70' },
+      ]
+    },
+    Tech: {
+      heading: 'Tech collections',
+      cards: [
+        { title: 'Cybersecurity Fundamentals', meta: '10 videos · Beginner', progress: null, img: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=400&q=70' },
+        { title: 'AI in the Workplace', meta: '8 videos · All levels', progress: 45, img: 'https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=400&q=70' },
+        { title: 'Cloud Basics', meta: '6 videos · Beginner', progress: null, img: 'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=400&q=70' },
+      ]
+    },
+    Wellbeing: {
+      heading: 'Wellbeing collections',
+      cards: [
+        { title: 'Managing Stress at Work', meta: '6 videos · All levels', progress: null, img: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400&q=70' },
+        { title: 'Mindfulness for Professionals', meta: '5 videos · All levels', progress: null, img: 'https://images.unsplash.com/photo-1545389336-cf090694435e?w=400&q=70' },
+        { title: 'Building Resilience', meta: '7 videos · All levels', progress: null, img: 'https://images.unsplash.com/photo-1517960413843-0aee8e2b3285?w=400&q=70' },
+      ]
+    },
+  };
+
+  const collectionsHeading = document.getElementById('collections-heading');
+  const collectionRow      = document.querySelector('.collection-row');
+
+  const renderCollections = (topic) => {
+    const data = topicCollections[topic];
+    if (!data) return;
+    collectionsHeading.textContent = data.heading;
+    collectionRow.innerHTML = data.cards.map(c => `
+      <button class="collection-card" role="listitem" aria-label="${c.title}" data-opens-detail>
+        <img class="collection-card__thumb" src="${c.img}" alt="" />
+        <div class="collection-card__body">
+          <div class="collection-card__title">${c.title}</div>
+          <div class="collection-card__meta">${c.meta}</div>
+          ${c.progress !== null ? `
+          <div class="collection-card__progress">
+            <div class="collection-card__progress-track">
+              <div class="collection-card__progress-fill" style="width:${c.progress}%"></div>
+            </div>
+            <div class="collection-card__progress-label">${c.progress === 100 ? 'Complete' : c.progress + '% complete'}</div>
+          </div>` : ''}
+        </div>
+      </button>
+    `).join('');
+    // Re-attach detail open listeners to newly rendered cards
+    collectionRow.querySelectorAll('[data-opens-detail]').forEach(el => {
+      el.addEventListener('click', openDetail);
+    });
+  };
+
+  document.querySelectorAll('.topic-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('.topic-pill').forEach(p => {
+        p.classList.remove('is-selected');
+        p.setAttribute('aria-pressed', 'false');
+      });
+      pill.classList.add('is-selected');
+      pill.setAttribute('aria-pressed', 'true');
+      renderCollections(pill.dataset.topic);
+    });
+  });
+
+  // ── Learn: collection detail panel ───────────────────────────────────
+  const learnDetail     = document.getElementById('learnDetail');
+  const learnDetailBack = document.getElementById('learnDetailBack');
+
+  const learnCollections = {
+    lcCard1: {
+      img:      'https://images.unsplash.com/photo-1552664730-d307ca884978?w=600&q=80',
+      eyebrow:  'Leadership',
+      title:    'Leadership Foundations',
+      progress: 30,
+      label:    '30% complete',
+      color:    'var(--app-accent)',
+      cta:      'Continue',
+    },
+    lcCard2: {
+      img:      'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=600&q=80',
+      eyebrow:  'Communication',
+      title:    'Difficult Conversations',
+      progress: 65,
+      label:    '65% complete',
+      color:    'var(--app-success)',
+      cta:      'Continue',
+    },
+    lcCard3: {
+      img:      'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600&q=80',
+      eyebrow:  'Compliance · Assigned',
+      title:    'Safety Refresher 2025',
+      progress: 0,
+      label:    'Not started',
+      color:    '#ff6450',
+      cta:      'Start',
+    },
+    learnAssigned: {
+      img:      'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600&q=80',
+      eyebrow:  'Compliance · Assigned',
+      title:    'Safety Refresher 2025',
+      progress: 0,
+      label:    'Not started',
+      color:    '#ff6450',
+      cta:      'Start',
+    },
+    learnContinueCard: {
+      img:      'https://images.unsplash.com/photo-1552664730-d307ca884978?w=600&q=80',
+      eyebrow:  'Leadership',
+      title:    'Leadership Foundations',
+      progress: 30,
+      label:    '30% complete',
+      color:    'var(--app-accent)',
+      cta:      'Continue',
+    },
+  };
+
+  const openLearnDetail = (id) => {
+    const data = learnCollections[id];
+    if (!data) return;
+    document.getElementById('learnDetailImg').src           = data.img;
+    document.getElementById('learnDetailEyebrow').textContent = data.eyebrow;
+    document.getElementById('learnDetailTitle').textContent   = data.title;
+    document.getElementById('learnDetailProgressFill').style.width      = data.progress + '%';
+    document.getElementById('learnDetailProgressFill').style.background = data.color;
+    document.getElementById('learnDetailProgressLabel').textContent = data.label;
+    document.getElementById('learnDetailCta').innerHTML =
+      `<i class="fa-solid fa-play" aria-hidden="true"></i> ${data.cta}`;
+    learnDetail.classList.add('is-open');
+    learnDetailBack.focus();
+  };
+
+  const closeLearnDetail = () => learnDetail.classList.remove('is-open');
+
+  ['lcCard1','lcCard2','lcCard3','learnAssigned','learnContinueCard','learnContinueCta'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const cardId = el.id === 'learnContinueCta' ? 'learnContinueCard' : el.id;
+      openLearnDetail(cardId);
+    });
+  });
+
+  learnDetailBack.addEventListener('click', closeLearnDetail);
+
+  // Close learn detail when navigating away
+  navItems.forEach(btn => {
+    btn.addEventListener('click', closeLearnDetail);
+  });
+
+  // ── Learn: recently started toggle ───────────────────────────────────
+  const learnRecent       = document.getElementById('learnRecent');
+  const learnRecentToggle = document.getElementById('learnRecentToggle');
+
+  learnRecentToggle.addEventListener('click', () => {
+    const isOpen = learnRecent.classList.toggle('is-open');
+    learnRecentToggle.setAttribute('aria-expanded', isOpen);
+  });
+
+  // Resume from recently-started items opens detail for lcCard1 as demo
+  document.querySelectorAll('.learn-recent__item').forEach(item => {
+    item.addEventListener('click', () => openLearnDetail('lcCard1'));
+  });
+
+  // ── Soft-start toast ─────────────────────────────────────────────────
+  const learnToast      = document.getElementById('learnToast');
+  const learnToastClose = document.getElementById('learnToastClose');
+  const learnToastUndo  = document.getElementById('learnToastUndo');
+  let toastTimer;
+
+  const hideToast = () => {
+    learnToast.classList.remove('is-visible');
+    clearTimeout(toastTimer);
+    setTimeout(() => {
+      if (!learnToast.classList.contains('is-visible')) learnToast.style.display = 'none';
+    }, 260);
+  };
+
+  const showToast = () => {
+    clearTimeout(toastTimer);
+    learnToast.style.display = 'flex';
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => learnToast.classList.add('is-visible'));
+    });
+    toastTimer = setTimeout(hideToast, 4000);
+  };
+
+  learnToastClose.addEventListener('click', hideToast);
+  learnToastUndo.addEventListener('click', hideToast);
+
+  // Trigger soft-start toast when continuing from feed (demo tie-in)
+  document.querySelectorAll('[data-action="start-collection"]').forEach(btn => {
+    btn.addEventListener('click', showToast);
+  });
+
+  // ── Profile: goal chip toggle ─────────────────────────────────────────
+  document.querySelectorAll('.prof-goal-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const isSelected = chip.classList.toggle('is-selected');
+      chip.setAttribute('aria-pressed', isSelected);
+    });
+  });
+
+  // ── Profile: unsave button ────────────────────────────────────────────
+  document.querySelectorAll('.prof-saved-card__unsave').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const card = btn.closest('.prof-saved-card');
+      card.style.transition = 'opacity 0.2s, transform 0.2s';
+      card.style.opacity = '0';
+      card.style.transform = 'translateX(16px)';
+      setTimeout(() => card.remove(), 220);
+    });
+  });
+
+  // ── Profile: settings scroll shortcut ────────────────────────────────
+  document.getElementById('profileSettingsBtn')?.addEventListener('click', () => {
+    const settingsHeading = document.querySelector('#profileScroll .prof-settings');
+    settingsHeading?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+</script>
+</body>
+</html>
