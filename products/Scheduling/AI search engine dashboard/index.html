@@ -2342,28 +2342,28 @@ const ACTIVITY = [
 // ── Scripted conversation flows per template ─────────────────────────────────
 const FLOWS = {
   'Hours Based Callback': [
-    { role: 'ai', text: "Let's build your **Hours Based Callback** rule — this ranks employees by overtime hours so the person with the fewest hours gets called first.\n\nWhich employee group should this cover?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'] },
+    { role: 'ai', text: "Let's build your **Hours Based Callback** rule — this ranks employees by overtime hours so the person with the fewest hours gets called first.\n\nWhich employee group should this cover?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
     { role: 'ai', text: "Got it. How far back should I look when counting overtime hours to determine rank order?", chips: ['7 days','14 days','30 days','60 days'] },
     { role: 'ai', text: "When two employees have identical hour counts, what should break the tie?", chips: ['Seniority (hire date)','Last shift worked','Last callback date','Alphabetical'] },
     { role: 'ai', text: "Last setting — if someone declines a callback, should they stay at their current position or move to the back of the list?", chips: ['Move to back of list','Stay in position','Penalty points'] },
     { role: 'ai', text: "All set. Here's your rule:\n\nCallback list ranked by fewest overtime hours (30-day window). Ties broken by seniority. Declines move to the back of the list.\n\nReady to save, or want to preview how this ranks your current employees?", chips: ['Save rule','Preview ranking','Adjust something'] },
   ],
   'Shift Length Filter': [
-    { role: 'ai', text: "I'll build a **Shift Length Filter** — this removes employees who can't work the required shift length before ranking begins.\n\nWhich approach should this filter apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'] },
+    { role: 'ai', text: "I'll build a **Shift Length Filter** — this removes employees who can't work the required shift length before ranking begins.\n\nWhich approach should this filter apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
     { role: 'ai', text: "What's the minimum shift length an employee must be able to work?", chips: ['4 hours','8 hours','12 hours','Custom'] },
     { role: 'ai', text: "What's the maximum shift length they can work?", chips: ['8 hours','12 hours','16 hours','No maximum'] },
     { role: 'ai', text: "Should employees outside that range be excluded entirely, or moved to the bottom of the list?", chips: ['Exclude entirely','Move to bottom of list'] },
     { role: 'ai', text: "Filter is configured:\n\nEmployees outside the shift length range will be excluded. The remaining employees are then ranked by your existing rule.\n\nSave this rule?", chips: ['Save rule','Adjust thresholds','Add a ranking rule too'] },
   ],
   'Create a skill priority rule': [
-    { role: 'ai', text: "Let's build a **Skill Priority** rule — this moves employees with required certifications to the top of the callback list.\n\nWhich approach should this apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'] },
+    { role: 'ai', text: "Let's build a **Skill Priority** rule — this moves employees with required certifications to the top of the callback list.\n\nWhich approach should this apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
     { role: 'ai', text: "How should employees with the required skill be ordered among themselves?", chips: ['By fewest hours','By seniority','By last callback date','Equally (keep existing order)'] },
     { role: 'ai', text: "What should happen with employees who don't have the required certification?", chips: ['Move to bottom','Exclude entirely','Keep in original position'] },
     { role: 'ai', text: "Should this rule apply to all certifications, or only specific ones?", chips: ['All certifications','Specific certifications only'] },
     { role: 'ai', text: "Skill priority rule is ready:\n\nEmployees with required certifications are ranked first (by fewest hours), uncertified employees move to the bottom.\n\nSave this rule?", chips: ['Save rule','Adjust criteria','Preview ranking'] },
   ],
   'Build an availability-based rule': [
-    { role: 'ai', text: "Let's build an **Availability-based** rule — employees are ranked by how reliably they accept callbacks.\n\nWhich approach should this cover?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'] },
+    { role: 'ai', text: "Let's build an **Availability-based** rule — employees are ranked by how reliably they accept callbacks.\n\nWhich approach should this cover?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
     { role: 'ai', text: "What time window should I use to calculate each employee's acceptance rate?", chips: ['Last 30 days','Last 60 days','Last 90 days','All time'] },
     { role: 'ai', text: "When two employees have the same acceptance rate, what breaks the tie?", chips: ['Fewest overtime hours','Seniority','Last shift worked','Alphabetical'] },
     { role: 'ai', text: "Should employees with zero callbacks in the window be treated as unavailable, or given a neutral rank?", chips: ['Neutral rank (middle)','Bottom of list','Top of list (new employees first)'] },
@@ -2371,7 +2371,7 @@ const FLOWS = {
   ],
   default: [
     { role: 'ai', text: "I can help build that rule. First — how should employees be ranked in this callback list?", chips: ['Fewest overtime hours','Most seniority (hire date)','Longest since last callback','Rolodex rotation','Availability rate'] },
-    { role: 'ai', text: "Which employee group (approach) should this rule apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'] },
+    { role: 'ai', text: "Which employee group (approach) should this rule apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
     { role: 'ai', text: "When two employees are tied on that score, what should break the tie?", chips: ['Seniority (hire date)','Last shift worked','Last callback date','Alphabetical'] },
     { role: 'ai', text: "If someone declines a callback — should they stay in their current position, or move to the back of the list?", chips: ['Move to back of list','Stay in position','Penalty points'] },
     { role: 'ai', text: "Rule is ready. Here's the summary:\n\nCallback list ranked by fewest overtime hours, applied to all approaches. Ties broken by seniority. Declines move to the back.\n\nSave this rule or preview the ranking first?", chips: ['Save rule','Preview ranking','Adjust something'] },
@@ -2593,6 +2593,7 @@ function RuleBuilderView({ seed, onBack }) {
   const [cfgOpen, setCfgOpen]           = useState(true);
   const [stickyOpen, setStickyOpen]     = useState(true);
   const [customAnswer, setCustomAnswer] = useState(false);
+  const [chipSelections, setChipSelections] = useState(new Set());
 
   const skippedCount = messages.filter(m => m.role === 'user' && m.skipped).length;
 
@@ -2679,14 +2680,16 @@ function RuleBuilderView({ seed, onBack }) {
     else if (lower.includes('turns')) updates.ruleType = 'turns';
     else if (lower.includes('hire date') || lower.includes('seniority')) updates.ruleType = 'hire_date';
     else if (lower.includes('rolodex')) updates.ruleType = 'rolodex';
-    // Approach / group
-    const approachNames = ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','Battalion Chief'];
-    const matchedApproach = approachNames.find(a => lower.includes(a.toLowerCase()));
+    // Approach / group — handles single or comma-joined multi-select values
+    const approachNames = ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','Battalion Chief','FF3'];
     if (lower.includes('all approaches') || lower.includes('all approach')) {
       updates.ruleAffects = 'all';
-    } else if (matchedApproach) {
-      updates.ruleAffects = 'selected';
-      updates.selectedApproaches = [matchedApproach];
+    } else {
+      const matched = approachNames.filter(a => lower.includes(a.toLowerCase()));
+      if (matched.length > 0) {
+        updates.ruleAffects = 'selected';
+        updates.selectedApproaches = matched;
+      }
     }
     // Lookback window from chip answers like "30 days" / "14 days"
     const lbDaysM = text.match(/^(\d+)\s*days?$/i);
@@ -2772,6 +2775,7 @@ function RuleBuilderView({ seed, onBack }) {
     setTyping(false);
     setSuggSetIdx(0);
     setRevealedFields(new Set());
+    setChipSelections(new Set());
     setStickyOpen(true);
   };
 
@@ -2845,26 +2849,77 @@ function RuleBuilderView({ seed, onBack }) {
                     </div>
                     {m.chips && i === messages.reduce((last, msg, idx) => msg.role === 'ai' ? idx : last, -1) && !typing && !customAnswer && (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 7, marginTop: 18 }}>
-                        {m.chips.map(c => (
-                          <button key={c} onClick={() => send(c)}
-                            style={{ height: 36, padding: '0 20px', borderRadius: 20, border: '1.5px solid rgba(124,58,237,.3)', background: 'rgba(124,58,237,.05)', color: '#7C3AED', font: '500 14px/1 Inter,sans-serif', cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap' }}
-                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.13)'; e.currentTarget.style.borderColor = '#7C3AED'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(124,58,237,.05)'; e.currentTarget.style.borderColor = 'rgba(124,58,237,.3)'; }}
-                          >{c}</button>
-                        ))}
-                        <button onClick={() => { setCustomAnswer(true); setTimeout(() => textareaRef.current?.focus(), 50); }}
-                          style={{ height: 36, padding: '0 20px', borderRadius: 20, border: '1.5px dashed rgba(124,58,237,.25)', background: 'transparent', color: 'rgba(0,0,0,.42)', font: '500 14px/1 Inter,sans-serif', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, transition: 'all .15s', whiteSpace: 'nowrap' }}
-                          onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(124,58,237,.55)'; e.currentTarget.style.color = '#7C3AED'; }}
-                          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(124,58,237,.25)'; e.currentTarget.style.color = 'rgba(0,0,0,.42)'; }}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4z"/></svg>
-                          Something else
-                        </button>
-                        <button onClick={handleSkip}
-                          style={{ height: 26, padding: '0 2px', background: 'none', border: 'none', color: 'rgba(0,0,0,.32)', font: '400 13px/1 Inter,sans-serif', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3, marginTop: 1 }}
-                          onMouseEnter={e => e.currentTarget.style.color = 'rgba(0,0,0,.58)'}
-                          onMouseLeave={e => e.currentTarget.style.color = 'rgba(0,0,0,.32)'}>
-                          Skip for now
-                        </button>
+                        {m.multi ? (
+                          /* ── Multi-select mode ── */
+                          <>
+                            <div style={{ font: '400 11px/1.3 Inter,sans-serif', color: 'rgba(0,0,0,.45)', marginBottom: 2 }}>Select all that apply</div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, alignItems: 'flex-start' }}>
+                              {m.chips.map(c => {
+                                const sel = chipSelections.has(c);
+                                return (
+                                  <button key={c}
+                                    onClick={() => setChipSelections(prev => {
+                                      const s = new Set(prev);
+                                      if (c === 'All approaches') {
+                                        s.has(c) ? s.clear() : (s.clear(), s.add(c));
+                                      } else {
+                                        s.delete('All approaches');
+                                        s.has(c) ? s.delete(c) : s.add(c);
+                                      }
+                                      return s;
+                                    })}
+                                    style={{ height: 36, padding: '0 16px', borderRadius: 20, border: `1.5px solid ${sel ? '#7C3AED' : 'rgba(124,58,237,.3)'}`, background: sel ? 'rgba(124,58,237,.12)' : 'rgba(124,58,237,.05)', color: '#7C3AED', font: '500 14px/1 Inter,sans-serif', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, transition: 'all .15s', whiteSpace: 'nowrap' }}>
+                                    {sel && <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16l-4-4 1.4-1.4L9 13.2l8.6-8.6L19 6z"/></svg>}
+                                    {c}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {chipSelections.size > 0 && (
+                              <button onClick={() => { const v = Array.from(chipSelections).join(', '); setChipSelections(new Set()); send(v); }}
+                                style={{ height: 34, padding: '0 16px', borderRadius: 8, background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', color: '#fff', border: 'none', font: '600 13px/1 Inter,sans-serif', cursor: 'pointer', marginTop: 2, whiteSpace: 'nowrap' }}>
+                                Confirm · {chipSelections.size} selected
+                              </button>
+                            )}
+                            <button onClick={() => { setCustomAnswer(true); setTimeout(() => textareaRef.current?.focus(), 50); }}
+                              style={{ height: 36, padding: '0 20px', borderRadius: 20, border: '1.5px dashed rgba(124,58,237,.25)', background: 'transparent', color: 'rgba(0,0,0,.42)', font: '500 14px/1 Inter,sans-serif', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, transition: 'all .15s', whiteSpace: 'nowrap' }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(124,58,237,.55)'; e.currentTarget.style.color = '#7C3AED'; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(124,58,237,.25)'; e.currentTarget.style.color = 'rgba(0,0,0,.42)'; }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4z"/></svg>
+                              Something else
+                            </button>
+                            <button onClick={handleSkip}
+                              style={{ height: 26, padding: '0 2px', background: 'none', border: 'none', color: 'rgba(0,0,0,.32)', font: '400 13px/1 Inter,sans-serif', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3, marginTop: 1 }}
+                              onMouseEnter={e => e.currentTarget.style.color = 'rgba(0,0,0,.58)'}
+                              onMouseLeave={e => e.currentTarget.style.color = 'rgba(0,0,0,.32)'}>
+                              Skip for now
+                            </button>
+                          </>
+                        ) : (
+                          /* ── Single-select mode ── */
+                          <>
+                            {m.chips.map(c => (
+                              <button key={c} onClick={() => send(c)}
+                                style={{ height: 36, padding: '0 20px', borderRadius: 20, border: '1.5px solid rgba(124,58,237,.3)', background: 'rgba(124,58,237,.05)', color: '#7C3AED', font: '500 14px/1 Inter,sans-serif', cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap' }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.13)'; e.currentTarget.style.borderColor = '#7C3AED'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(124,58,237,.05)'; e.currentTarget.style.borderColor = 'rgba(124,58,237,.3)'; }}
+                              >{c}</button>
+                            ))}
+                            <button onClick={() => { setCustomAnswer(true); setTimeout(() => textareaRef.current?.focus(), 50); }}
+                              style={{ height: 36, padding: '0 20px', borderRadius: 20, border: '1.5px dashed rgba(124,58,237,.25)', background: 'transparent', color: 'rgba(0,0,0,.42)', font: '500 14px/1 Inter,sans-serif', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, transition: 'all .15s', whiteSpace: 'nowrap' }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(124,58,237,.55)'; e.currentTarget.style.color = '#7C3AED'; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(124,58,237,.25)'; e.currentTarget.style.color = 'rgba(0,0,0,.42)'; }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4z"/></svg>
+                              Something else
+                            </button>
+                            <button onClick={handleSkip}
+                              style={{ height: 26, padding: '0 2px', background: 'none', border: 'none', color: 'rgba(0,0,0,.32)', font: '400 13px/1 Inter,sans-serif', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3, marginTop: 1 }}
+                              onMouseEnter={e => e.currentTarget.style.color = 'rgba(0,0,0,.58)'}
+                              onMouseLeave={e => e.currentTarget.style.color = 'rgba(0,0,0,.32)'}>
+                              Skip for now
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
@@ -3160,13 +3215,40 @@ function RuleBuilderView({ seed, onBack }) {
                     </label>
                   ))}
                   {form.ruleAffects === 'selected' && (
-                    <div style={{ marginLeft: 26, padding: '10px 14px', background: '#fff', borderRadius: 6, border: '1px solid rgba(0,0,0,.1)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {ALL_APPROACHES_LIST.map(a => (
-                        <label key={a} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                          <Checkbox checked={form.selectedApproaches.includes(a)} onChange={v => patchForm({ selectedApproaches: v ? [...form.selectedApproaches, a] : form.selectedApproaches.filter(x => x !== a) })} />
-                          <span style={{ font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.87)' }}>{a}</span>
-                        </label>
-                      ))}
+                    <div style={{ marginLeft: 26, display: 'flex', flexDirection: 'column', gap: 9 }}>
+                      {/* Selected approach tags */}
+                      {form.selectedApproaches.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                          {form.selectedApproaches.map(a => (
+                            <span key={a} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 6px 4px 10px', background: 'rgba(124,58,237,.1)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 12, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>
+                              {a}
+                              <button onClick={() => patchForm({ selectedApproaches: form.selectedApproaches.filter(x => x !== a) })}
+                                style={{ width: 14, height: 14, border: 'none', background: 'none', cursor: 'pointer', color: 'rgba(124,58,237,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                                <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M1 1l8 8M9 1L1 9"/></svg>
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {/* Quick-add suggestion chips */}
+                      {['Firefighter 2','Captains','Patrol Deputy','Bay Guard'].filter(a => !form.selectedApproaches.includes(a)).length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                          {['Firefighter 2','Captains','Patrol Deputy','Bay Guard'].filter(a => !form.selectedApproaches.includes(a)).map(a => (
+                            <button key={a}
+                              onClick={() => patchForm({ selectedApproaches: [...form.selectedApproaches, a] })}
+                              style={{ height: 26, padding: '0 10px', borderRadius: 13, border: '1px solid rgba(0,0,0,.15)', background: '#fff', font: '400 12px/1 Inter,sans-serif', color: 'rgba(24,39,58,.7)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                              {a}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {/* Name in chat link */}
+                      <button onClick={() => textareaRef.current?.focus()}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 0', border: 'none', background: 'none', font: '400 11px/1 Inter,sans-serif', color: 'rgba(124,58,237,.75)', cursor: 'pointer', textAlign: 'left' }}>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                        Name different approaches in chat →
+                      </button>
                     </div>
                   )}
                 </div>
@@ -3174,35 +3256,6 @@ function RuleBuilderView({ seed, onBack }) {
             </div>
           )}
 
-          {shown('callbackStatuses') && (
-            <div style={{ animation: 'fieldReveal .3s ease both' }}>
-              <FormGroup label="Callback Statuses">
-                <div style={{ padding: '10px 14px', background: '#fff', borderRadius: 6, border: '1px solid rgba(0,0,0,.1)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {ALL_STATUSES_LIST.map(s => (
-                    <label key={s} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                      <Checkbox checked={form.callbackStatuses.includes(s)} onChange={() => patchForm({ callbackStatuses: toggleArr(form.callbackStatuses, s) })} />
-                      <span style={{ font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.87)' }}>{s}</span>
-                    </label>
-                  ))}
-                </div>
-              </FormGroup>
-            </div>
-          )}
-
-          {shown('callbackResponses') && (
-            <div style={{ animation: 'fieldReveal .3s ease both' }}>
-              <FormGroup label="Callback Responses">
-                <div style={{ padding: '10px 14px', background: '#fff', borderRadius: 6, border: '1px solid rgba(0,0,0,.1)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {ALL_RESPONSES_LIST.map(r => (
-                    <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                      <Checkbox checked={form.callbackResponses.includes(r)} onChange={() => patchForm({ callbackResponses: toggleArr(form.callbackResponses, r) })} />
-                      <span style={{ font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.87)' }}>{r}</span>
-                    </label>
-                  ))}
-                </div>
-              </FormGroup>
-            </div>
-          )}
 
           {(shown('minShift') || shown('maxShift')) && (
             <div style={{ animation: 'fieldReveal .3s ease both' }}>
