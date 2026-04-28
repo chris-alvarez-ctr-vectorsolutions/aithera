@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Library — LearningStudio Content Portal</title>
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Open Sans', -apple-system, sans-serif;
+            font-size: 13px;
+            color: #0f2e3d;
+            background:
+                linear-gradient(140.604deg, rgba(125,205,238,0.35) 4%, rgba(213,236,181,0.35) 100%),
+                #f0f7fb;
+            min-height: 100vh;
+        }
+
+        /* ── Shell layout ── */
+        vwc-topnav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+        }
+
+        .app-body {
+            display: flex;
+            height: 100vh;
+            padding-top: 56px;
+        }
+
+        .sidenav-panel {
+            width: 240px;
+            flex-shrink: 0;
+            height: calc(100vh - 56px);
+            overflow-y: auto;
+            background: var(--lumo-base-color);
+            border-right: 1px solid rgba(28,55,90,0.1);
+            box-shadow: 2px 0 8px rgba(0,0,0,0.04);
+            position: fixed;
+            top: 56px;
+            left: 0;
+            z-index: 20;
+        }
+
+        .main-content {
+            margin-left: 240px;
+            flex: 1;
+            overflow-y: auto;
+            padding: 28px 32px;
+        }
+
+        /* ── Page header ── */
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .page-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f2e3d;
+        }
+
+        /* ── Search & filters ── */
+        .search-filter-bar {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .filter-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--lumo-secondary-text-color);
+        }
+
+        .filter-row select {
+            height: 32px;
+            padding: 0 26px 0 10px;
+            border: 1px solid var(--lumo-contrast-20pct);
+            border-radius: 6px;
+            font-family: 'Open Sans', sans-serif;
+            font-size: 12px;
+            color: #0f2e3d;
+            background: var(--lumo-base-color) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23555' d='M1 1l4 4 4-4'/%3E%3C/svg%3E") no-repeat right 8px center;
+            appearance: none;
+            cursor: pointer;
+            transition: border-color 0.12s, box-shadow 0.12s;
+        }
+        .filter-row select:focus {
+            outline: none;
+            border-color: #0ea5e9;
+            box-shadow: 0 0 0 3px rgba(14,165,233,0.1);
+        }
+
+        .results-summary {
+            font-size: 12px;
+            color: var(--lumo-secondary-text-color);
+            margin-bottom: 10px;
+        }
+
+        /* ── Bulk action toolbar ── */
+        .bulk-toolbar {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 14px;
+            background: rgba(14,165,233,0.08);
+            border: 1px solid rgba(14,165,233,0.2);
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+        .bulk-toolbar.visible { display: flex; }
+        .bulk-toolbar .bulk-count {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--lumo-primary-color);
+            flex: 1;
+        }
+
+        /* ── Content table ── */
+        .content-table-wrapper {
+            background: var(--lumo-base-color);
+            border: 1px solid rgba(28,55,90,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.03);
+        }
+
+        .content-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .content-table th {
+            background: #f8fafc;
+            padding: 10px 13px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--lumo-secondary-text-color);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid rgba(28,55,90,0.1);
+            white-space: nowrap;
+        }
+
+        .content-table td {
+            padding: 11px 13px;
+            border-bottom: 1px solid rgba(28,55,90,0.06);
+            vertical-align: middle;
+        }
+
+        .content-table tr:last-child td { border-bottom: none; }
+
+        .content-table tbody tr:hover td {
+            background: rgba(14,165,233,0.04);
+        }
+
+        .content-table input[type="checkbox"] {
+            width: 14px; height: 14px; cursor: pointer;
+            accent-color: var(--lumo-primary-color);
+        }
+
+        /* ── Thumbnail placeholder ── */
+        .thumb {
+            width: 52px;
+            height: 36px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        /* ── Title cell ── */
+        .title-cell .title-link {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--lumo-primary-color);
+            text-decoration: none;
+            display: block;
+        }
+        .title-cell .title-link:hover { text-decoration: underline; }
+        .title-cell .title-meta {
+            font-size: 11px;
+            color: var(--lumo-secondary-text-color);
+            margin-top: 2px;
+        }
+
+        /* ── Badges ── */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .badge-published { background: #e6f4ea; color: #2e7d32; }
+        .badge-draft { background: rgba(28,55,90,0.07); color: var(--lumo-secondary-text-color); }
+        .badge-archived { background: #fff3e0; color: #e65100; }
+        .badge-sunset { background: #fce4ec; color: #c62828; }
+        .badge-vector { background: rgba(14,165,233,0.1); color: #0271ce; }
+        .badge-mine { background: rgba(28,55,90,0.07); color: var(--lumo-secondary-text-color); }
+
+        /* ── Action buttons ── */
+        .action-cell {
+            display: flex;
+            gap: 3px;
+            align-items: center;
+        }
+        .icon-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px; height: 30px;
+            border: none;
+            background: transparent;
+            border-radius: 5px;
+            cursor: pointer;
+            color: var(--lumo-secondary-text-color);
+            font-size: 13px;
+            transition: background 0.12s, color 0.12s;
+        }
+        .icon-btn:hover {
+            background: #f3f4f6;
+            color: #0f2e3d;
+        }
+
+        /* ── Pagination row ── */
+        .pagination-row {
+            margin-top: 18px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        vaadin-text-field {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Navigation -->
+    <vwc-topnav id="topnav" sidenav-id="sidenav"></vwc-topnav>
+
+    <!-- App body -->
+    <div class="app-body">
+
+        <!-- Sidenav panel -->
+        <div class="sidenav-panel">
+            <vwc-sidenav id="sidenav" active-item-id="library"></vwc-sidenav>
+        </div>
+
+        <!-- Main content -->
+        <main class="main-content">
+
+            <!-- Page header -->
+            <div class="page-header">
+                <div class="page-title">Content Library</div>
+                <vaadin-button theme="primary" onclick="window.location='content-detail-customer.html'">
+                    <i class="fa-solid fa-plus" slot="prefix"></i>
+                    New Content
+                </vaadin-button>
+            </div>
+
+            <!-- Search & filter bar -->
+            <div class="search-filter-bar">
+                <vaadin-text-field
+                    id="search-field"
+                    theme="outlined"
+                    placeholder="Search by title, keyword, or author…"
+                    clear-button-visible>
+                    <i class="fa-solid fa-magnifying-glass" slot="prefix" style="color: var(--lumo-disabled-text-color); font-size: 11px;"></i>
+                </vaadin-text-field>
+
+                <div class="filter-row">
+                    <span class="filter-label">Filters:</span>
+                    <select id="filter-type" aria-label="Content Type">
+                        <option value="">All Types</option>
+                        <option value="course">Course</option>
+                        <option value="module">Module</option>
+                        <option value="video">Video</option>
+                        <option value="document">Document</option>
+                    </select>
+                    <select id="filter-ownership" aria-label="Ownership">
+                        <option value="">All Content</option>
+                        <option value="vector">Vector-Provided</option>
+                        <option value="mine">My Content</option>
+                    </select>
+                    <select id="filter-status" aria-label="Status">
+                        <option value="">All Statuses</option>
+                        <option value="draft">Draft</option>
+                        <option value="published">Published</option>
+                        <option value="archived">Archived</option>
+                        <option value="sunset">Sunset</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Results count -->
+            <div class="results-summary">Showing 24 items</div>
+
+            <!-- Bulk action toolbar (hidden until checkboxes selected) -->
+            <div class="bulk-toolbar" id="bulk-toolbar">
+                <span class="bulk-count" id="bulk-count">0 items selected</span>
+                <vaadin-button theme="secondary" onclick="clearSelection()">
+                    <i class="fa-solid fa-xmark" slot="prefix"></i> Deselect All
+                </vaadin-button>
+                <vaadin-button theme="secondary">
+                    <i class="fa-solid fa-box-archive" slot="prefix"></i> Archive Selected
+                </vaadin-button>
+                <vaadin-button theme="secondary">
+                    <i class="fa-solid fa-copy" slot="prefix"></i> Duplicate Selected
+                </vaadin-button>
+            </div>
+
+            <!-- Content table -->
+            <div class="content-table-wrapper">
+                <table class="content-table" aria-label="Content Library items">
+                    <thead>
+                        <tr>
+                            <th style="width:38px"><input type="checkbox" id="select-all" aria-label="Select all" onchange="toggleSelectAll(this)"></th>
+                            <th style="width:66px">Thumb</th>
+                            <th>Title</th>
+                            <th>Type</th>
+                            <th>Ownership</th>
+                            <th>Status</th>
+                            <th>Duration</th>
+                            <th>Last Modified</th>
+                            <th style="width:100px">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="content-tbody">
+                        <!-- Rows injected by JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination-row">
+                <vwc-paginator id="paginator" total="24" page="0" page-size="10"></vwc-paginator>
+            </div>
+
+        </main>
+    </div>
+
+<script>
+customElements.whenDefined('vwc-sidenav').then(() => {
+    // ── Topnav setup ──
+    const topnav = document.getElementById('topnav');
+    topnav.logo = { src: '', alt: 'LearningStudio Content Portal' };
+
+    // ── Sidenav setup ──
+    const sidenav = document.getElementById('sidenav');
+    sidenav.items = [
+        { type: 'link', id: 'library',  text: 'Content Library', href: 'content-library.html' },
+        { type: 'link', id: 'authors',  text: 'Authors', href: 'authors.html' },
+        { type: 'divider' },
+        { type: 'link', id: 'assets',   text: 'Global Assets & Templates', href: 'global-assets.html' },
+        { type: 'link', id: 'settings', text: 'Settings', href: 'settings.html' }
+    ];
+
+    // ── Content rows ──
+    const contentItems = [
+        { id: 1, title: 'Lockout/Tagout Safety — Fundamentals', type: 'Course', ownership: 'vector', status: 'published', duration: '45 min', modified: 'Apr 18, 2026', href: 'content-detail-vector.html', color: '#1976d2', icon: 'fa-shield-halved' },
+        { id: 2, title: 'FERPA Compliance Overview', type: 'Course', ownership: 'vector', status: 'published', duration: '30 min', modified: 'Apr 15, 2026', href: 'content-detail-vector.html', color: '#388e3c', icon: 'fa-scale-balanced' },
+        { id: 3, title: 'Fire Safety — Custom (Acme Corp)', type: 'Course', ownership: 'mine', status: 'draft', duration: '20 min', modified: 'Apr 22, 2026', href: 'content-detail-customer.html', color: '#e64a19', icon: 'fa-fire-extinguisher' },
+        { id: 4, title: 'Electrical Safety Awareness', type: 'Course', ownership: 'vector', status: 'published', duration: '60 min', modified: 'Mar 30, 2026', href: 'content-detail-vector.html', color: '#f9a825', icon: 'fa-bolt' },
+        { id: 5, title: 'Bloodborne Pathogen Control', type: 'Module', ownership: 'vector', status: 'published', duration: '25 min', modified: 'Mar 12, 2026', href: 'content-detail-vector.html', color: '#c62828', icon: 'fa-syringe' },
+        { id: 6, title: 'Forklift Operator Certification', type: 'Course', ownership: 'mine', status: 'published', duration: '90 min', modified: 'Apr 10, 2026', href: 'content-detail-customer.html', color: '#6a1b9a', icon: 'fa-truck-ramp-box' },
+        { id: 7, title: 'PPE Selection & Fit Testing', type: 'Module', ownership: 'vector', status: 'archived', duration: '35 min', modified: 'Feb 01, 2026', href: 'content-detail-vector.html', color: '#00838f', icon: 'fa-hard-hat' },
+        { id: 8, title: 'Chemical Hazard Communication (HazCom)', type: 'Course', ownership: 'mine', status: 'draft', duration: '50 min', modified: 'Apr 25, 2026', href: 'content-detail-customer.html', color: '#558b2f', icon: 'fa-flask' },
+        { id: 9, title: 'Workplace Ergonomics Essentials', type: 'Course', ownership: 'vector', status: 'published', duration: '40 min', modified: 'Jan 20, 2026', href: 'content-detail-vector.html', color: '#1565c0', icon: 'fa-chair' },
+        { id: 10, title: 'Fall Protection & Prevention', type: 'Course', ownership: 'vector', status: 'sunset', duration: '55 min', modified: 'Dec 05, 2025', href: 'content-detail-vector.html', color: '#4e342e', icon: 'fa-person-falling-burst' },
+    ];
+
+    const statusBadge = (s) => {
+        const map = { published: ['badge-published','Published'], draft: ['badge-draft','Draft'], archived: ['badge-archived','Archived'], sunset: ['badge-sunset','Sunset'] };
+        const [cls, label] = map[s] || ['badge-draft', s];
+        return `<span class="badge ${cls}">${label}</span>`;
+    };
+    const ownerBadge = (o) => o === 'vector'
+        ? `<span class="badge badge-vector"><i class="fa-solid fa-v"></i> Vector</span>`
+        : `<span class="badge badge-mine"><i class="fa-solid fa-user"></i> Mine</span>`;
+
+    const tbody = document.getElementById('content-tbody');
+    let selectedIds = new Set();
+
+    contentItems.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="checkbox" data-id="${item.id}" class="row-checkbox" aria-label="Select ${item.title}" onchange="handleRowCheck(this, ${item.id})"></td>
+            <td>
+                <div class="thumb" style="background:${item.color}">
+                    <i class="fa-solid ${item.icon}"></i>
+                </div>
+            </td>
+            <td class="title-cell">
+                <a class="title-link" href="${item.href}">${item.title}</a>
+                <span class="title-meta">${item.type}</span>
+            </td>
+            <td style="color:var(--lumo-secondary-text-color)">${item.type}</td>
+            <td>${ownerBadge(item.ownership)}</td>
+            <td>${statusBadge(item.status)}</td>
+            <td style="white-space:nowrap; color:var(--lumo-secondary-text-color)">${item.duration}</td>
+            <td style="white-space:nowrap; color:var(--lumo-secondary-text-color)">${item.modified}</td>
+            <td class="action-cell">
+                <button class="icon-btn" title="View" onclick="window.location='${item.href}'"><i class="fa-solid fa-eye"></i></button>
+                <button class="icon-btn" title="Edit" onclick="window.location='${item.href}'"><i class="fa-regular fa-pen-to-square"></i></button>
+                <button class="icon-btn" title="Duplicate"><i class="fa-regular fa-copy"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    function handleRowCheck(checkbox, id) {
+        if (checkbox.checked) selectedIds.add(id);
+        else selectedIds.delete(id);
+        updateBulkToolbar();
+    }
+
+    function toggleSelectAll(checkbox) {
+        document.querySelectorAll('.row-checkbox').forEach(cb => {
+            cb.checked = checkbox.checked;
+            const id = parseInt(cb.dataset.id);
+            if (checkbox.checked) selectedIds.add(id);
+            else selectedIds.delete(id);
+        });
+        updateBulkToolbar();
+    }
+
+    function clearSelection() {
+        selectedIds.clear();
+        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+        document.getElementById('select-all').checked = false;
+        updateBulkToolbar();
+    }
+
+    function updateBulkToolbar() {
+        const toolbar = document.getElementById('bulk-toolbar');
+        const count = selectedIds.size;
+        if (count > 0) {
+            toolbar.classList.add('visible');
+            document.getElementById('bulk-count').textContent = `${count} item${count > 1 ? 's' : ''} selected`;
+        } else {
+            toolbar.classList.remove('visible');
+        }
+    }
+}); // end whenDefined
+</script>
+</body>
+</html>

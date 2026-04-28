@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Legal Confirmation</title>
+
+  <script type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+  </script>
+  <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+  </script>
+  <link rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+  <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--lumo-font-family, 'Open Sans', sans-serif);
+      background: #fff;
+      min-height: 100vh;
+    }
+
+    /* ── Dialog body layout ── */
+    .dialog-body {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      width: 560px;
+      max-width: 90vw;
+    }
+
+    /* Scroll-to-read prompt banner */
+    .scroll-notice {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: var(--lumo-primary-color-10pct);
+      border-left: 3px solid var(--lumo-primary-color);
+      border-radius: 4px;
+      font-size: var(--lumo-font-size-s, 14px);
+      color: var(--lumo-primary-text-color);
+    }
+
+    .scroll-notice i {
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    /* Scrollable legal text area */
+    .legal-scroll-area {
+      height: 260px;
+      overflow-y: auto;
+      border: 1px solid var(--lumo-contrast-20pct, #ccc);
+      border-radius: 6px;
+      padding: 16px;
+      font-size: var(--lumo-font-size-s, 14px);
+      line-height: 1.7;
+      color: var(--lumo-body-text-color);
+      background: var(--vwc-base-contrast-5pct, #f4f5f7);
+      scroll-behavior: smooth;
+    }
+
+    .legal-scroll-area h3 {
+      font-size: var(--lumo-font-size-m, 16px);
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--lumo-header-text-color);
+    }
+
+    .legal-scroll-area p {
+      margin-bottom: 12px;
+    }
+
+    .legal-scroll-area p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Checkbox row */
+    .agreement-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .agreement-error {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      font-size: var(--lumo-font-size-xs, 12px);
+      color: var(--lumo-warning-text-color);
+      padding: 6px 10px;
+      background: var(--lumo-warning-color-10pct);
+      border-left: 3px solid var(--lumo-warning-color);
+      border-radius: 4px;
+    }
+
+    .agreement-error.visible {
+      display: flex;
+    }
+
+    .agreement-error i {
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    /* Override Vaadin's default opacity on disabled checkbox to keep label legible */
+    vaadin-checkbox[disabled] {
+      opacity: 1;
+      /* Darken label — Vaadin sets -webkit-text-fill-color which overrides color */
+      --lumo-disabled-text-color: var(--lumo-secondary-text-color);
+      /* Light grey fill + grey border on the box */
+      --vaadin-checkbox-disabled-background: var(--lumo-contrast-5pct, #f0f0f0);
+      --vaadin-checkbox-disabled-checkmark-color: var(--lumo-contrast-30pct, #b0b0b0);
+    }
+
+    /* Grey border on the box — not exposed as a custom property, target via part */
+    vaadin-checkbox[disabled]::part(checkbox) {
+      border-color: var(--lumo-contrast-30pct, #b0b0b0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Dialog is opened immediately on page load -->
+  <vaadin-dialog
+    id="legal-dialog"
+    no-close-on-esc
+    no-close-on-outside-click>
+  </vaadin-dialog>
+
+  <script>
+    const dialog = document.getElementById('legal-dialog');
+
+    // ── State ──────────────────────────────────────────────────
+    let hasScrolledToBottom = false;
+    let isAgreed = false;
+
+    // ── Header renderer ────────────────────────────────────────
+    dialog.headerRenderer = (root) => {
+      if (root.firstElementChild) return;
+
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'display:flex; align-items:center; gap:10px;';
+
+      const icon = document.createElement('i');
+      icon.className = 'fa-solid fa-file-contract';
+      icon.style.cssText = 'font-size:18px; color:var(--lumo-primary-color);';
+
+      const title = document.createElement('span');
+      title.textContent = 'Terms & Conditions';
+      title.style.cssText = 'font-size:var(--lumo-font-size-l, 18px); font-weight:600;';
+
+      wrapper.appendChild(icon);
+      wrapper.appendChild(title);
+      root.appendChild(wrapper);
+    };
+
+    // ── Body renderer ──────────────────────────────────────────
+    dialog.renderer = (root) => {
+      if (root.firstElementChild) return;
+
+      const body = document.createElement('div');
+      body.className = 'dialog-body';
+
+      // Scroll-to-read notice
+      const notice = document.createElement('div');
+      notice.className = 'scroll-notice';
+      notice.innerHTML = `
+        <i class="fa-solid fa-circle-info"></i>
+        <span>Please read the full terms below. You must scroll to the bottom before you can agree.</span>
+      `;
+
+      // Scrollable legal text
+      const scrollArea = document.createElement('div');
+      scrollArea.className = 'legal-scroll-area';
+      scrollArea.id = 'legal-scroll-area';
+      scrollArea.innerHTML = `
+        <h3>Content Studio Terms &amp; Conditions</h3>
+        <p>These Terms and Conditions ("Agreement") govern your access to and use of Content Studio, a platform provided by Vector Solutions ("Company," "we," "us," or "our"). By accessing or using the platform, you agree to be bound by this Agreement. Please read it carefully before proceeding.</p>
+
+        <p><strong>1. Acceptance of Terms</strong><br>
+        By using Content Studio, you represent that you are at least 18 years of age, have the legal authority to enter into this Agreement on behalf of yourself or your organization, and agree to comply with all applicable laws and regulations. If you do not agree with any part of these terms, you must not use the platform.</p>
+
+        <p><strong>2. License Grant</strong><br>
+        Subject to the terms and conditions of this Agreement, Vector Solutions grants you a limited, non-exclusive, non-transferable, revocable license to access and use Content Studio solely for your internal business purposes. This license does not include the right to sublicense, resell, or otherwise provide access to third parties without prior written consent from Vector Solutions.</p>
+
+        <p><strong>3. Acceptable Use</strong><br>
+        You agree to use Content Studio only for lawful purposes and in accordance with these Terms. You shall not: (a) violate any applicable laws or regulations; (b) infringe upon or misappropriate any intellectual property rights of any third party; (c) upload, transmit, or distribute any content that is unlawful, harmful, threatening, abusive, defamatory, or otherwise objectionable; (d) interfere with or disrupt the integrity or performance of the platform or its underlying infrastructure; or (e) attempt to gain unauthorized access to any portion of the platform or its related systems.</p>
+
+        <p><strong>4. Content Ownership and Responsibility</strong><br>
+        You retain ownership of any content you create, upload, or publish through Content Studio ("User Content"). By submitting User Content, you grant Vector Solutions a worldwide, royalty-free, non-exclusive license to host, store, reproduce, and display such content solely as necessary to provide the services. You are solely responsible for ensuring that your User Content does not violate any laws or third-party rights.</p>
+
+        <p><strong>5. Intellectual Property</strong><br>
+        Content Studio, including all associated software, design, text, graphics, logos, and other materials, is the exclusive property of Vector Solutions and is protected by applicable intellectual property laws. Nothing in this Agreement transfers any ownership rights in the platform to you. You agree not to reverse engineer, decompile, disassemble, or otherwise attempt to derive the source code of any component of the platform.</p>
+
+        <p><strong>6. Privacy and Data</strong><br>
+        Your use of Content Studio is also governed by our Privacy Policy, which is incorporated herein by reference. By using the platform, you consent to the collection, processing, and use of your data as described in the Privacy Policy. You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account.</p>
+
+        <p><strong>7. Modifications to the Service</strong><br>
+        Vector Solutions reserves the right to modify, suspend, or discontinue Content Studio (or any part thereof) at any time, with or without notice. We will endeavor to provide reasonable advance notice of material changes when feasible. Your continued use of the platform after any modification constitutes your acceptance of the revised terms.</p>
+
+        <p><strong>8. Disclaimer of Warranties</strong><br>
+        Content Studio is provided on an "AS IS" and "AS AVAILABLE" basis without warranties of any kind, either express or implied, including but not limited to implied warranties of merchantability, fitness for a particular purpose, or non-infringement. Vector Solutions does not warrant that the platform will be uninterrupted, error-free, or free of viruses or other harmful components.</p>
+
+        <p><strong>9. Limitation of Liability</strong><br>
+        To the maximum extent permitted by applicable law, Vector Solutions shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of profits, data, goodwill, or other intangible losses, resulting from your use of or inability to use Content Studio, even if Vector Solutions has been advised of the possibility of such damages.</p>
+
+        <p><strong>10. Governing Law</strong><br>
+        This Agreement shall be governed by and construed in accordance with the laws of the State of Florida, without regard to its conflict of law provisions. Any disputes arising under or in connection with this Agreement shall be subject to the exclusive jurisdiction of the state and federal courts located in Hillsborough County, Florida.</p>
+
+        <p><strong>11. Changes to This Agreement</strong><br>
+        We may update these Terms and Conditions from time to time. When we do, we will revise the "Last Updated" date at the top of this page. Your continued use of Content Studio after such changes are posted constitutes your binding acceptance of the updated terms.</p>
+
+        <p><strong>12. Contact Information</strong><br>
+        If you have any questions about these Terms and Conditions, please contact us at legal@vectorsolutions.com or by mail at Vector Solutions, 4020 W. Boy Scout Blvd., Suite 400, Tampa, FL 33607.</p>
+
+        <p style="margin-top:16px; font-style:italic; color:var(--lumo-secondary-text-color);">Last Updated: April 2026</p>
+      `;
+
+
+      // Agreement checkbox row
+      const agreementRow = document.createElement('div');
+      agreementRow.className = 'agreement-row';
+
+      const checkbox = document.createElement('vaadin-checkbox');
+      checkbox.id = 'agree-checkbox';
+      checkbox.setAttribute('label', 'I have read and agree to the Terms & Conditions');
+      checkbox.setAttribute('disabled', '');
+
+      const agreementError = document.createElement('div');
+      agreementError.className = 'agreement-error';
+      agreementError.id = 'agreement-error';
+      agreementError.innerHTML = `
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>You must check the box above to agree to the terms before continuing.</span>
+      `;
+
+      agreementRow.appendChild(checkbox);
+      agreementRow.appendChild(agreementError);
+
+      // Assemble body
+      body.appendChild(notice);
+      body.appendChild(scrollArea);
+      body.appendChild(agreementRow);
+      root.appendChild(body);
+
+      // ── Scroll tracking ──────────────────────────────────────
+      scrollArea.addEventListener('scroll', () => {
+        const { scrollTop, scrollHeight, clientHeight } = scrollArea;
+
+        // Unlock checkbox once scrolled to within 10px of bottom
+        if (!hasScrolledToBottom && scrollTop + clientHeight >= scrollHeight - 10) {
+          hasScrolledToBottom = true;
+          checkbox.removeAttribute('disabled');
+
+          // Update the notice to confirm reading is done
+          notice.innerHTML = `
+            <i class="fa-solid fa-circle-check"></i>
+            <span>You've read the full terms. Please check the box below to confirm your agreement.</span>
+          `;
+          notice.style.background = 'var(--lumo-success-color-10pct)';
+          notice.style.borderLeftColor = 'var(--lumo-success-color)';
+          notice.style.color = 'var(--lumo-success-text-color)';
+        }
+      });
+
+      // ── Checkbox tracking ────────────────────────────────────
+      checkbox.addEventListener('checked-changed', (e) => {
+        isAgreed = e.detail.value;
+        // Clear error when user checks the box
+        if (isAgreed) {
+          document.getElementById('agreement-error').classList.remove('visible');
+        }
+      });
+    };
+
+    // ── Footer renderer ────────────────────────────────────────
+    dialog.footerRenderer = (root) => {
+      if (root.firstElementChild) return;
+
+      // Exit Studio button (secondary, left-aligned via spacer)
+      const exitBtn = document.createElement('vaadin-button');
+      exitBtn.setAttribute('theme', 'secondary');
+      exitBtn.innerHTML = `<i class="fa-solid fa-right-from-bracket" style="margin-right:6px;"></i> Exit Studio`;
+      exitBtn.style.marginRight = 'auto';
+      exitBtn.addEventListener('click', () => {});
+
+      // Agree and Continue button (primary)
+      const agreeBtn = document.createElement('vaadin-button');
+      agreeBtn.setAttribute('theme', 'primary');
+      agreeBtn.innerHTML = `Agree &amp; Continue <i class="fa-solid fa-arrow-right" style="margin-left:6px;"></i>`;
+      agreeBtn.addEventListener('click', () => {
+        const errorEl = document.getElementById('agreement-error');
+        if (!isAgreed) {
+          errorEl.classList.add('visible');
+          errorEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+          errorEl.classList.remove('visible');
+        }
+      });
+
+      root.appendChild(exitBtn);
+      root.appendChild(agreeBtn);
+    };
+
+    // ── Open the dialog on load ────────────────────────────────
+    // Small delay lets web components initialize before opening
+    setTimeout(() => {
+      dialog.opened = true;
+    }, 100);
+  </script>
+
+</body>
+</html>
