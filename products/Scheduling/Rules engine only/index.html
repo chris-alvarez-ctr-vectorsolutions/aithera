@@ -1,0 +1,1701 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>CallBack — Rules Engine</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  :root {
+    --lumo-primary-color: #0271CE;
+    --lumo-header-text-color: rgba(24,39,58,.94);
+    --lumo-body-text-color: rgba(0,0,0,.87);
+    --lumo-secondary-text-color: rgba(0,0,0,.6);
+    --lumo-error-color: #D83E38;
+    --lumo-success-color: #158444;
+    --lumo-warning-color: #E0782E;
+    --lumo-font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: #F4F5F7; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  *, *::before, *::after { box-sizing: border-box; }
+  button { font-family: inherit; }
+  select { font-family: inherit; }
+  input  { font-family: inherit; }
+
+  @keyframes cbPulse {
+    0%,100% { opacity: 1; }
+    50%     { opacity: .35; }
+  }
+  @keyframes cbToast {
+    from { transform: translateY(6px); opacity: 0; }
+    to   { transform: translateY(0);   opacity: 1; }
+  }
+  @keyframes cbSlideIn {
+    from { transform: translateY(6px); opacity: 0; }
+    to   { transform: translateY(0);   opacity: 1; }
+  }
+  @keyframes fieldReveal {
+    from { transform: translateY(8px); opacity: 0; }
+    to   { transform: translateY(0);   opacity: 1; }
+  }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,0,0,.18); border-radius: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+
+<!-- =====================================================================
+     PRIMITIVES
+     ===================================================================== -->
+<script type="text/babel">
+/* global React */
+const { useState } = React;
+
+const ICONS = {
+  search:    <path d="M15.89 14.48l3.15 3.15c.38.38.38 1-.01 1.4-.39.39-1.01.39-1.4 0l-3.15-3.15a6 6 0 1 1 1.41-1.4zM11 15.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z"/>,
+  check:     <path d="M7.5 11.7l-1.3-1.3a1 1 0 0 0-1.4 1.4L9 16a1 1 0 0 0 1.4 0l8.3-8.3a1 1 0 0 0-1.4-1.4L9.7 14z"/>,
+  cross:     <path d="M6.4 6.4l11.2 11.2M17.6 6.4L6.4 17.6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" fill="none"/>,
+  plus:      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" fill="none"/>,
+  angleDown: <path d="M7 10l5 5 5-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none"/>,
+  bell:      <path d="M16.99 16.49v-4.5a5 5 0 0 0-10 0v4.5L5 18.5h14zM10 20h4a2 2 0 0 1-4 0z"/>,
+  user:      <path d="M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 1.5c-3.86 0-7 2.26-7 5.5h14c0-3.24-3.14-5.5-7-5.5z"/>,
+  cog:       <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm8 3.5l-1.5-.4-.5-1.1.8-1.4-1.7-1.7-1.4.8-1.1-.4-.4-1.5h-2.4l-.4 1.5-1.1.4-1.4-.8L6.2 8.6l.8 1.4-.5 1.1-1.5.4V14l1.5.4.5 1.1-.8 1.4 1.7 1.7 1.4-.8 1.1.4.4 1.5h2.4l.4-1.5 1.1-.4 1.4.8 1.7-1.7-.8-1.4.5-1.1 1.5-.4z"/>,
+  home:      <path d="M4 20V8l8-4 8 4v12h-5v-7h-6v7z"/>,
+  grid:      <path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/>,
+  chart:     <path d="M4 20h16v-2H4v2zM4 4v10l4-3 3 4 4-5 5 4V4H4z"/>,
+  edit:      <path d="M14.06 4.94l5 5-9.54 9.54-5 .47.47-5zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75z"/>,
+  trash:     <path d="M8 7V4h8v3h4v2h-1v12H5V9H4V7h4zm2-1h4V5h-4v1zM7 9v10h10V9H7z"/>,
+  ellipsis:  <g><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></g>,
+  menu:      <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/>,
+  error:     <path d="M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm1 11h-2V9h2v6zm0 3h-2v-2h2v2z"/>,
+  filter:    <path d="M4 5h16l-6 8v5l-4 2v-7z"/>,
+};
+
+function Icon({ name, size = 18, color = 'currentColor', style }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={{ flex: 'none', ...style }}>
+      {ICONS[name] || null}
+    </svg>
+  );
+}
+
+function Button({ variant = 'secondary', color = 'default', size = 'm', icon, children, onClick, disabled, style }) {
+  const palette = {
+    default:     { fg: '#0271CE', bd: '#0271CE' },
+    destructive: { fg: '#D83E38', bd: '#D83E38' },
+    contrast:    { fg: '#192434', bd: 'rgba(0,0,0,.3)' },
+  }[color];
+  const h = size === 's' ? 30 : 36;
+  const styles = {
+    primary:   { background: color === 'default' ? '#0271CE' : color === 'destructive' ? '#D83E38' : '#192434', color: '#fff', border: '1px solid transparent' },
+    secondary: { background: '#fff', color: palette.fg, border: `1px solid ${palette.bd}` },
+    tertiary:  { background: 'transparent', color: palette.fg, border: '1px solid transparent' },
+  }[variant];
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+      height: h, padding: icon && !children ? 0 : '0 14px', width: icon && !children ? h : 'auto',
+      borderRadius: 4, font: '500 14px/1 Inter,sans-serif', cursor: disabled ? 'not-allowed' : 'pointer',
+      opacity: disabled ? 0.5 : 1, transition: 'background .15s, opacity .15s', ...styles, ...style,
+    }}>
+      {icon && <Icon name={icon} size={16} />}
+      {children}
+    </button>
+  );
+}
+
+function TextField({ label, value, onChange, type = 'text', placeholder, error, helper, style }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', ...style }}>
+      {label && <label style={{ font: '500 13px/1.3 Inter,sans-serif', color: 'rgba(24,39,58,.94)', marginBottom: 4 }}>{label}</label>}
+      <input type={type} value={value ?? ''} onChange={e => onChange?.(e.target.value)} placeholder={placeholder} style={{
+        height: 36, padding: '0 12px', border: `1px solid ${error ? '#D83E38' : 'rgba(0,0,0,.3)'}`, borderRadius: 4,
+        background: '#fff', font: '400 16px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', outline: 'none',
+      }}
+        onFocus={e => !error && (e.target.style.borderColor = '#0271CE')}
+        onBlur={e  => !error && (e.target.style.borderColor = 'rgba(0,0,0,.3)')}
+      />
+      {error  ? <p style={{ font: '400 13px/1.3 Inter,sans-serif', color: '#CA150C', margin: '4px 0 0' }}>{error}</p>
+              : helper && <p style={{ font: '400 13px/1.3 Inter,sans-serif', color: 'rgba(0,0,0,.6)', margin: '4px 0 0' }}>{helper}</p>}
+    </div>
+  );
+}
+
+function Badge({ color = 'contrast', children }) {
+  const c = {
+    primary:  { bg: 'rgba(2,113,206,.1)',   fg: '#0271CE' },
+    success:  { bg: 'rgba(21,132,68,.1)',   fg: '#158444' },
+    error:    { bg: 'rgba(216,62,56,.1)',   fg: '#CA150C' },
+    warning:  { bg: 'rgba(224,120,46,.1)',  fg: '#E0782E' },
+    contrast: { bg: 'rgba(28,52,84,.08)',   fg: '#192434' },
+  }[color];
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      height: 22, padding: '0 10px', borderRadius: 11,
+      background: c.bg, color: c.fg, font: '500 12px/1 Inter,sans-serif',
+    }}>
+      {color !== 'primary' && color !== 'contrast' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />}
+      {children}
+    </span>
+  );
+}
+
+const USER_COLORS = ['#195049','#1A4C61','#4A2253','#693C12','#612018','#1C375A','#3D4543'];
+function Avatar({ name = '', size = 32, colorIndex }) {
+  const idx = colorIndex ?? (name.charCodeAt(0) % USER_COLORS.length);
+  const initials = name.split(' ').map(s => s[0]).join('').slice(0,2).toUpperCase();
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', background: USER_COLORS[idx],
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      color: '#fff', font: `600 ${Math.round(size * 0.38)}px/1 Inter,sans-serif`, flex: 'none',
+    }}>{initials}</div>
+  );
+}
+
+function Checkbox({ checked, onChange, indeterminate }) {
+  return (
+    <span onClick={() => onChange?.(!checked)} style={{
+      width: 16, height: 16, borderRadius: 4, cursor: 'pointer',
+      border: `2px solid ${checked || indeterminate ? '#0271CE' : 'rgba(0,0,0,.3)'}`,
+      background: checked || indeterminate ? '#0271CE' : '#fff',
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none',
+    }}>
+      {checked && <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4l3 3 5-6" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+      {indeterminate && !checked && <span style={{ width: 8, height: 2, background: '#fff' }} />}
+    </span>
+  );
+}
+
+Object.assign(window, { Icon, Button, TextField, Badge, Avatar, Checkbox, USER_COLORS });
+</script>
+
+<!-- =====================================================================
+     SHELL (outer nav, top bar, sub-sidebar, page header)
+     ===================================================================== -->
+<script type="text/babel">
+/* global React */
+
+const SHELL_NAV = [
+  { key: 'crew',      label: 'Crew Scheduling',  icon: 'calendar-user' },
+  { key: 'assistant', label: 'Assistant',        icon: 'magic' },
+  { key: 'callbacks', label: 'CallBacks',        icon: 'phone', active: true },
+  { key: 'bidding',   label: 'Shift Bidding',    icon: 'check-square-o' },
+  { key: 'notify',    label: 'Notify',           icon: 'envelope' },
+  { key: 'timeoff',   label: 'Time Offs',        icon: 'calendar-clock' },
+  { key: 'absence',   label: 'Absence',          icon: 'user-clock' },
+  { key: 'bulletin',  label: 'Bulletin Board',   icon: 'clipboard-text' },
+  { key: 'trade',     label: 'Trade Board',      icon: 'exchange' },
+  { key: 'employees', label: 'Employees',        icon: 'users', badge: '221/500' },
+  { key: 'forms',     label: 'Forms',            icon: 'file-text' },
+  { key: 'reports',   label: 'Reports',          icon: 'bar-chart' },
+  { key: 'timeclock', label: 'TimeClock',        icon: 'clock' },
+  { key: 'logs',      label: 'Logs',             icon: 'list-ol' },
+];
+
+const OUTER_ICON_PATHS = {
+  phone:           'M18.5 15.5l-2.3-.3a1 1 0 00-.9.28l-1.67 1.67a14 14 0 01-6.1-6.1l1.67-1.67a1 1 0 00.28-.9L9.18 6.2a1 1 0 00-1-.83H5.33A1 1 0 004.34 6.5 16 16 0 0018.83 20a1 1 0 001.12-.98v-2.84a1 1 0 00-.86-.97z',
+  home:            'M4 10l8-6 8 6v10h-5v-7H9v7H4z',
+  'calendar-user': 'M5 5h14v3H5zm0 5h14v10H5zm4 3h6v1H9zm-1 3h8v1H8z',
+  magic:           'M14 3l1.5 3L19 7l-3 1.5L14 12l-1.5-3L9 7l3-.5L14 3zM5 13l1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2zm11 4l.8 1.7 1.7.8-1.7.8L16 22l-.8-1.7-1.7-.8 1.7-.8L16 17z',
+  'check-square-o':'M4 4h16v16H4zm3 8l3 3 7-7',
+  envelope:        'M3 6h18v12H3zm0 0l9 7 9-7',
+  'calendar-clock':'M5 5h14v14H5zm0 4h14M8 3v4m8-4v4m-1 8a3 3 0 100-6 3 3 0 000 6zm0-3v-2m0 2l1.5 1',
+  'user-clock':    'M9 11a3 3 0 100-6 3 3 0 000 6zm-6 9c0-3.3 2.7-6 6-6s6 2.7 6 6H3zm14-2a4 4 0 100-8 4 4 0 000 8zm0-2v-3l2 1',
+  'clipboard-text':'M8 4h8v2H8zm-2 2h12v14H6zm3 5h6m-6 3h6m-6 3h4',
+  exchange:        'M4 8h13l-3-3m3 3l-3 3M20 16H7l3-3m-3 3l3 3',
+  users:           'M8 11a3 3 0 100-6 3 3 0 000 6zm8 0a3 3 0 100-6 3 3 0 000 6zm-8 2c-3 0-5 1.5-5 4v1h10v-1c0-2.5-2-4-5-4zm8 0c-.6 0-1.2.1-1.7.2 1 .9 1.7 2.2 1.7 3.8v1h5v-1c0-2.5-2-4-5-4z',
+  'file-text':     'M6 3h9l4 4v14H6zm9 0v5h5M8 12h8m-8 3h8m-8 3h5',
+  'bar-chart':     'M4 20V9h3v11zm6 0V4h3v16zm6 0v-7h3v7z',
+  clock:           'M12 4a8 8 0 100 16 8 8 0 000-16zm0 4v4l3 2',
+  'list-ol':       'M8 6h12M8 12h12M8 18h12M3 5h1v3M3 11h2l-2 2h2m-2 4h2v1H3v-1z',
+};
+const STROKE_ICONS = new Set(['check-square-o','envelope','calendar-clock','user-clock','clipboard-text','exchange','file-text','clock','list-ol']);
+
+function OuterIcon({ name, size = 18, color }) {
+  const d = OUTER_ICON_PATHS[name];
+  if (!d) return <span style={{ width: size, height: size, display: 'inline-block' }} />;
+  const isStroke = STROKE_ICONS.has(name);
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24"
+      fill={isStroke ? 'none' : (color || 'currentColor')}
+      stroke={isStroke ? (color || 'currentColor') : 'none'}
+      strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none' }}>
+      <path d={d} />
+    </svg>
+  );
+}
+
+const SUB_ICONS = {
+  dashboard: <><circle cx="12" cy="12" r="9"/><path d="M12 12l5-3"/><path d="M12 12v6"/></>,
+  forceHire: <><circle cx="10" cy="8" r="3"/><path d="M4 19c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M18 8v6m-3-3h6"/></>,
+  scales:    <><path d="M12 4v16M5 7h14"/><path d="M5 7l-2 6a3 3 0 006 0zm14 0l-2 6a3 3 0 006 0z"/></>,
+  lists:     <><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="7" r="2"/><path d="M15 17c0-2 1-4 4-4"/></>,
+  history:   <><path d="M4 12a8 8 0 108-8 8 8 0 00-8 8z"/><path d="M4 6V3M4 6h3"/><path d="M12 8v4l3 2"/></>,
+  rankings:  <><path d="M5 20V10M5 20l-2-2m2 2l2-2"/><path d="M10 5h11M10 10h8M10 15h6"/></>,
+};
+
+function SubIcon({ name, size = 16, color = 'currentColor' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none' }}>
+      {SUB_ICONS[name]}
+    </svg>
+  );
+}
+
+function OuterSidebar() {
+  return (
+    <aside style={{ width: 66, background: '#fff', borderRight: '1px solid rgba(0,0,0,.08)', display: 'flex', flexDirection: 'column', alignItems: 'stretch', flex: 'none' }}>
+      <div style={{ height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid rgba(0,0,0,.06)' }}>
+        <svg width="22" height="18" viewBox="0 0 24 20"><path d="M3 3h4l5 14L17 3h4" stroke="#1c2430" strokeWidth="2.4" fill="none" strokeLinejoin="round"/></svg>
+      </div>
+      <nav style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+        {SHELL_NAV.map(n => (
+          <div key={n.key} title={n.label} style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            height: 44, position: 'relative', cursor: 'pointer',
+            color: n.active ? '#0271CE' : 'rgba(28,46,69,.72)',
+            background: n.active ? 'rgba(2,113,206,.08)' : 'transparent',
+            borderLeft: n.active ? '3px solid #0271CE' : '3px solid transparent',
+          }}>
+            <OuterIcon name={n.icon} size={20} />
+            {n.badge && (
+              <span style={{
+                position: 'absolute', right: 6, top: 6,
+                background: '#0271CE', color: '#fff', font: '600 9px/1 Inter,sans-serif',
+                padding: '2px 4px', borderRadius: 6, letterSpacing: '.02em',
+              }}>{n.badge}</span>
+            )}
+          </div>
+        ))}
+      </nav>
+    </aside>
+  );
+}
+
+function TopBar() {
+  return (
+    <header style={{ height: 48, flex: 'none', display: 'flex', alignItems: 'center', padding: '0 16px', background: '#fff', borderBottom: '1px solid rgba(0,0,0,.08)', gap: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+        <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#D9DFE6' }} />
+        <span style={{ font: '500 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)' }}>Virginia Pollock</span>
+        <SubIcon name="history" size={12} color="rgba(0,0,0,.4)" />
+      </div>
+      <button style={{ height: 26, padding: '0 10px', borderRadius: 4, border: '1px solid rgba(0,0,0,.15)', background: '#fff', font: '500 12px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+        Quick + <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
+      </button>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.6)" strokeWidth="1.6"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4m8-4v4"/></svg>
+      <div style={{ position: 'relative', cursor: 'pointer' }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="rgba(0,0,0,.7)"><path d="M12 3a5 5 0 00-5 5v4l-2 3h14l-2-3V8a5 5 0 00-5-5zm0 18a2 2 0 002-2h-4a2 2 0 002 2z"/></svg>
+        <span style={{ position: 'absolute', top: -4, right: -6, background: '#0271CE', color: '#fff', font: '600 10px/1 Inter,sans-serif', padding: '2px 5px', borderRadius: 8 }}>2</span>
+      </div>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.6)" strokeWidth="1.6"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 115 0c0 1.5-2.5 2-2.5 4m0 3v.01"/></svg>
+      <span style={{ height: 22, padding: '0 8px', borderRadius: 3, background: '#192434', color: '#fff', font: '600 11px/22px Inter,sans-serif', letterSpacing: '.04em' }}>admin</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 8px', height: 28, background: 'rgba(2,113,206,.08)', borderRadius: 3 }}>
+        <div style={{ width: 20, height: 20, background: '#0271CE', color: '#fff', font: '600 9px/1 Inter,sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>YOUR<br/>LOGO</div>
+        <span style={{ font: '500 12px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)' }}>Michael_Fulton_Demo</span>
+      </div>
+      <div style={{ flex: 1 }} />
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="rgba(0,0,0,.5)"><path d="M14.7 6.3a4.5 4.5 0 11-6.3 6.3L3 18v3h3l5.4-5.4a4.5 4.5 0 006.3-6.3z"/></svg>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 10px', height: 30, background: '#fff', border: '1px solid rgba(0,0,0,.15)', borderRadius: 3, cursor: 'pointer' }}>
+        <span style={{ font: '600 13px/1 Inter,sans-serif', color: '#0271CE' }}>#5380</span>
+        <span style={{ font: '500 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)' }}>Michael_Fulton_Demo</span>
+        <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.4"/></svg>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <svg width="20" height="18" viewBox="0 0 24 22" fill="none"><path d="M2 2h5l4 14L15 2h7" stroke="#E94F35" strokeWidth="2.6" strokeLinejoin="round"/></svg>
+        <div style={{ lineHeight: 1 }}>
+          <div style={{ font: '700 13px/1 Inter,sans-serif', color: '#1c2430' }}>VectorSolutions</div>
+          <div style={{ font: '500 9px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.55)' }}>Vector Scheduling</div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function SubSidebar({ active, onChange }) {
+  const items = [
+    { key: 'dashboard',  label: 'Dashboard',          icon: 'dashboard' },
+    { key: 'forceHire',  label: 'Force Hire',         icon: 'forceHire' },
+    { key: 'approaches', label: 'Approaches & Rules', icon: 'scales' },
+    { key: 'lists',      label: 'Lists',              icon: 'lists' },
+    { key: 'history',    label: 'History',            icon: 'history' },
+    { key: 'rankings',   label: 'Rankings',           icon: 'rankings' },
+  ];
+  return (
+    <aside style={{ width: 220, background: '#fff', borderRight: '1px solid rgba(0,0,0,.08)', display: 'flex', flexDirection: 'column', flex: 'none' }}>
+      <div style={{ height: 48, display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px', borderBottom: '1px solid rgba(0,0,0,.08)' }}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="#0271CE"><path d="M6.5 3a2 2 0 00-2 2.3l.6 3.9a2 2 0 001.3 1.6l2.5.9a14 14 0 006.2 6.2l.9 2.5a2 2 0 001.6 1.3l3.9.6a2 2 0 002.3-2v-3.1a2 2 0 00-1.5-1.9l-3.4-.8a2 2 0 00-1.9.5l-1.2 1.2a11 11 0 01-5.1-5.1l1.2-1.2a2 2 0 00.5-1.9L9.6 4.5A2 2 0 007.7 3H6.5z"/></svg>
+        <span style={{ font: '600 18px/1 Inter,sans-serif', color: '#1c2430' }}>CallBack</span>
+        <div style={{ flex: 1 }} />
+        <button style={{ width: 28, height: 28, borderRadius: 4, background: '#2BA76C', color: '#fff', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} aria-label="New">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </div>
+      <nav style={{ padding: '6px 8px' }}>
+        {items.map(it => {
+          const on = active === it.key;
+          return (
+            <button key={it.key} onClick={() => onChange(it.key)} style={{
+              display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+              padding: '8px 10px', marginBottom: 2, border: 'none', cursor: 'pointer',
+              background: on ? 'rgba(2,113,206,.08)' : 'transparent', borderRadius: 4,
+              color: on ? '#0271CE' : 'rgba(24,39,58,.94)',
+              font: `${on ? 600 : 500} 14px/1 Inter,sans-serif`, textAlign: 'left',
+            }}>
+              <SubIcon name={it.icon} size={16} />
+              {it.label}
+            </button>
+          );
+        })}
+      </nav>
+    </aside>
+  );
+}
+
+function PageHeader({ title, children }) {
+  return (
+    <div style={{ height: 56, padding: '0 24px', background: '#fff', borderBottom: '1px solid rgba(0,0,0,.08)', display: 'flex', alignItems: 'center', gap: 14, flex: 'none' }}>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.6)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="9"/><path d="M12 12l5-3M12 12v6"/>
+      </svg>
+      <h2 style={{ font: '500 20px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', margin: 0 }}>{title}</h2>
+      <div style={{ flex: 1 }} />
+      {children}
+    </div>
+  );
+}
+
+Object.assign(window, { OuterSidebar, TopBar, SubSidebar, PageHeader, SubIcon, OuterIcon });
+</script>
+
+<!-- =====================================================================
+     AI ASSISTANT CARD (Rules Engine entry point)
+     ===================================================================== -->
+<script type="text/babel">
+/* global React */
+const { useState: useStateW } = React;
+
+/* ── Dashboard AI suggestion chips (stage 1) ── */
+const DASH_SUGGESTIONS = [
+  { title: 'Rotating Rolodex',          desc: 'Move employees to end of list after each callback — fair, even distribution across the team.',  iconD: 'M4 12a8 8 0 1012-7M4 4v5h5',                                                                     stroke: true  },
+  { title: 'Accumulation — Hours Based', desc: 'Rank employees by accumulated overtime hours worked. Resets on a configurable schedule.',          iconD: 'M12 8v4l3 1.5M12 3a9 9 0 100 18A9 9 0 0012 3z',                                                   stroke: true  },
+  { title: 'Accumulation — Turns Based', desc: 'Rank by total number of callback turns participated in. Simple and transparent.',                  iconD: 'M3 6h18M3 12h18M3 18h18',                                                                        stroke: true  },
+  { title: 'Static List',                desc: 'Fixed order that only changes when an admin manually adjusts positions.',                          iconD: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', stroke: true },
+];
+
+const SETUP_QS = [
+  { id: 'ruleType',    text: 'What kind of ranking rule do you need?',
+    options: ['Rotating Rolodex', 'Accumulation — Hours Based', 'Accumulation — Turns Based', 'Static List'] },
+  { id: 'position',   text: 'Which position should this rule apply to?',
+    options: ['Firefighter 2', 'Patrol Deputy', 'Bay Guard', 'All positions'] },
+  { id: 'tracking',   text: 'What should count toward employee rankings?',
+    options: ['Accepted callbacks only', 'All contacts (accepted + declined)', 'Total hours worked'] },
+  { id: 'tiebreaker', text: 'How should employees with equal standings be ordered?',
+    options: ['By seniority (hire date)', 'Random / Lottery', 'By Employee ID'] },
+];
+
+const CONFIG_LABELS = {
+  ruleType:   { emoji: '🗂️', label: 'Rule type'  },
+  position:   { emoji: '👥', label: 'Position'   },
+  tracking:   { emoji: '📊', label: 'Tracks'     },
+  tiebreaker: { emoji: '🔀', label: 'Tiebreaker' },
+};
+
+function AiAvatar() {
+  return (
+    <div style={{ width: 24, height: 24, borderRadius: '50%', flex: 'none', background: 'linear-gradient(135deg,#E94F8A,#B240E0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+    </div>
+  );
+}
+
+function AIAssistantCard({ onStart }) {
+  const [input, setInput] = useStateW('');
+
+  const handleSend = () => {
+    if (!input.trim()) return;
+    onStart?.({ text: input.trim() });
+  };
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 8, border: '1px solid rgba(0,0,0,.08)', boxShadow: '0 1px 4px rgba(28,48,74,.07)', overflow: 'hidden' }}>
+      {/* Header */}
+      <div style={{ padding: '16px 22px', background: 'linear-gradient(90deg,#6D29B8,#4A2CC9 70%,#3D2CC9)', color: '#fff', display: 'flex', alignItems: 'center', gap: 13 }}>
+        <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(255,255,255,.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+        </div>
+        <div>
+          <div style={{ font: '700 16px/1.2 Inter,sans-serif' }}>Callback Ranking Rules Engine</div>
+          <div style={{ font: '400 12px/1 Inter,sans-serif', opacity: .72, marginTop: 3 }}>Build intelligent callback rules with AI</div>
+        </div>
+      </div>
+
+      {/* Greeting + chips */}
+      <div style={{ padding: '18px 20px 14px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <AiAvatar />
+          <div style={{ font: '400 13px/1.55 Inter,sans-serif', color: 'rgba(24,39,58,.87)', paddingTop: 3 }}>
+            Hi! I can help you create custom rules for ranking employees in overtime and callback shifts.<br/>
+            Choose a template below, or describe what you need.
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7, alignItems: 'flex-start' }}>
+          <div style={{ font: '400 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)' }}>Help me build a rule based on:</div>
+          {DASH_SUGGESTIONS.map((s, i) => (
+            <button key={i} onClick={() => onStart?.({ template: { name: s.title } })}
+              style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '11px 14px', background: '#fff', border: '1px solid rgba(0,0,0,.09)', borderRadius: 9, cursor: 'pointer', textAlign: 'left', boxShadow: '0 1px 3px rgba(28,48,74,.04)', transition: 'all .15s' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(109,41,184,.4)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(109,41,184,.13)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(0,0,0,.09)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(28,48,74,.04)'; }}>
+              <div style={{ width: 34, height: 34, borderRadius: 9, flex: 'none', background: 'rgba(109,41,184,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7C3AED' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill={s.stroke ? 'none' : 'currentColor'} stroke={s.stroke ? 'currentColor' : 'none'} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d={s.iconD}/></svg>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ font: '600 13px/1.2 Inter,sans-serif', color: 'rgba(24,39,58,.94)', marginBottom: 3 }}>{s.title}</div>
+                <div style={{ font: '400 11px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.5)' }}>{s.desc}</div>
+              </div>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.28)" strokeWidth="2.2" strokeLinecap="round" style={{ flex: 'none' }}><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Input */}
+      <div style={{ padding: '10px 16px 16px', borderTop: '1px solid rgba(0,0,0,.06)', background: 'rgba(109,41,184,.02)' }}>
+        <div style={{ position: 'relative' }}>
+          <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()}
+            placeholder="Or describe the rule you'd like to create…"
+            style={{ width: '100%', height: 42, padding: '0 46px 0 14px', border: '1px solid rgba(109,41,184,.2)', borderRadius: 8, outline: 'none', background: '#fff', font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)' }}
+            onFocus={e => e.target.style.borderColor = '#7C3AED'}
+            onBlur={e => e.target.style.borderColor = 'rgba(109,41,184,.2)'} />
+          <button onClick={handleSend}
+            style={{ position: 'absolute', right: 5, top: 5, width: 32, height: 32, borderRadius: 6, background: input.trim() ? 'linear-gradient(135deg,#6D29B8,#4A2CC9)' : 'rgba(109,41,184,.25)', color: '#fff', border: 'none', cursor: input.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .15s' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12l20-9-9 20-2-9z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { AIAssistantCard });
+</script>
+
+<!-- =====================================================================
+     RULE BUILDER DATA + COMPONENT
+     ===================================================================== -->
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const FLOWS = {
+  'Hours Based Callback': [
+    { role: 'ai', text: "Let's build your **Hours Based Callback** rule — this ranks employees by overtime hours so the person with the fewest hours gets called first.\n\nWhich employee group should this cover?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
+    { role: 'ai', text: "Got it. How far back should I look when counting overtime hours to determine rank order?", chips: ['7 days','14 days','30 days','60 days'] },
+    { role: 'ai', text: "When two employees have identical hour counts, what should break the tie?", chips: ['Seniority (hire date)','Last shift worked','Last callback date','Alphabetical'] },
+    { role: 'ai', text: "Last setting — if someone declines a callback, should they stay at their current position or move to the back of the list?", chips: ['Move to back of list','Stay in position','Penalty points'] },
+    { role: 'ai', text: "All set. Here's your rule:\n\nCallback list ranked by fewest overtime hours (30-day window). Ties broken by seniority. Declines move to the back of the list.\n\nReady to save, or want to preview how this ranks your current employees?", chips: ['Save rule','Preview ranking','Adjust something'] },
+  ],
+  'Shift Length Filter': [
+    { role: 'ai', text: "I'll build a **Shift Length Filter** — this removes employees who can't work the required shift length before ranking begins.\n\nWhich approach should this filter apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
+    { role: 'ai', text: "What's the minimum shift length an employee must be able to work?", chips: ['4 hours','8 hours','12 hours','Custom'] },
+    { role: 'ai', text: "What's the maximum shift length they can work?", chips: ['8 hours','12 hours','16 hours','No maximum'] },
+    { role: 'ai', text: "Should employees outside that range be excluded entirely, or moved to the bottom of the list?", chips: ['Exclude entirely','Move to bottom of list'] },
+    { role: 'ai', text: "Filter is configured:\n\nEmployees outside the shift length range will be excluded. The remaining employees are then ranked by your existing rule.\n\nSave this rule?", chips: ['Save rule','Adjust thresholds','Add a ranking rule too'] },
+  ],
+  'Create a skill priority rule': [
+    { role: 'ai', text: "Let's build a **Skill Priority** rule — this moves employees with required certifications to the top of the callback list.\n\nWhich approach should this apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
+    { role: 'ai', text: "How should employees with the required skill be ordered among themselves?", chips: ['By fewest hours','By seniority','By last callback date','Equally (keep existing order)'] },
+    { role: 'ai', text: "What should happen with employees who don't have the required certification?", chips: ['Move to bottom','Exclude entirely','Keep in original position'] },
+    { role: 'ai', text: "Should this rule apply to all certifications, or only specific ones?", chips: ['All certifications','Specific certifications only'] },
+    { role: 'ai', text: "Skill priority rule is ready:\n\nEmployees with required certifications are ranked first (by fewest hours), uncertified employees move to the bottom.\n\nSave this rule?", chips: ['Save rule','Adjust criteria','Preview ranking'] },
+  ],
+  'Build an availability-based rule': [
+    { role: 'ai', text: "Let's build an **Availability-based** rule — employees are ranked by how reliably they accept callbacks.\n\nWhich approach should this cover?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
+    { role: 'ai', text: "What time window should I use to calculate each employee's acceptance rate?", chips: ['Last 30 days','Last 60 days','Last 90 days','All time'] },
+    { role: 'ai', text: "When two employees have the same acceptance rate, what breaks the tie?", chips: ['Fewest overtime hours','Seniority','Last shift worked','Alphabetical'] },
+    { role: 'ai', text: "Should employees with zero callbacks in the window be treated as unavailable, or given a neutral rank?", chips: ['Neutral rank (middle)','Bottom of list','Top of list (new employees first)'] },
+    { role: 'ai', text: "Rule is ready:\n\nEmployees ranked by acceptance rate over the last 30 days. Ties broken by fewest overtime hours. New employees with no history get a neutral mid-list rank.\n\nSave this rule?", chips: ['Save rule','Adjust window','Preview ranking'] },
+  ],
+  default: [
+    { role: 'ai', text: "I can help build that rule. First — how should employees be ranked in this callback list?", chips: ['Fewest overtime hours','Most seniority (hire date)','Longest since last callback','Rolodex rotation','Availability rate'] },
+    { role: 'ai', text: "Which employee group (approach) should this rule apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
+    { role: 'ai', text: "When two employees are tied on that score, what should break the tie?", chips: ['Seniority (hire date)','Last shift worked','Last callback date','Alphabetical'] },
+    { role: 'ai', text: "If someone declines a callback — should they stay in their current position, or move to the back of the list?", chips: ['Move to back of list','Stay in position','Penalty points'] },
+    { role: 'ai', text: "Rule is ready. Here's the summary:\n\nCallback list ranked by fewest overtime hours, applied to all approaches. Ties broken by seniority. Declines move to the back.\n\nSave this rule or preview the ranking first?", chips: ['Save rule','Preview ranking','Adjust something'] },
+  ],
+};
+
+// ── RuleBuilderView helpers ───────────────────────────────────────────────────
+const ALL_APPROACHES_LIST = ['Firefighter 2', 'Captains', 'Patrol Deputy', 'Bay Guard', 'Battalion Chief', 'FF3'];
+const ALL_STATUSES_LIST   = ['Dispatched', 'Accepted', 'Pending Acceptance', 'Declined', 'Expired', 'No Response'];
+const ALL_RESPONSES_LIST  = ['Accept', 'Decline', 'Pending', 'No Answer', 'Callback Accept', 'Timeout'];
+
+const SUGGESTION_SETS = [
+  [
+    { name: 'Hours Based Callback',   desc: 'Automatically rank employees based on hours worked. Includes callbacks accepted by the user.', iconD: 'M12 2a10 10 0 100 20A10 10 0 0012 2zm0 5v5l3 2', stroke: true },
+    { name: 'Hours based date range', desc: 'Look at a rolling set of days to calculate overtime hours.',                                   iconD: 'M16 11a4 4 0 11-8 0 4 4 0 018 0zm-7 9c-3 0-5 1.6-5 4h13c0-2.4-1.9-4-5-4zm1-17v3m7-3v3', stroke: true },
+    { name: 'Rolodex',                desc: 'Rotate users based on your rules.',                                                             iconD: 'M4 12A8 8 0 1113 4M4 4v5h5', stroke: true },
+  ],
+  [
+    { name: 'Shift Length Filter',     desc: 'Filter employees based on minimum and maximum shift lengths they can work.',                iconD: 'M4 5h16l-6 8v5l-4 2v-7z', stroke: false },
+    { name: 'Skill Priority Rule',     desc: 'Prioritize employees based on skill level and certification status for specialized shifts.', iconD: 'M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z', stroke: false },
+    { name: 'Availability-based Rule', desc: 'Rank employees by their historical acceptance rate and availability patterns.',              iconD: 'M9 11l2 2 4-4M5 5h14v14H5z', stroke: true },
+  ],
+  [
+    { name: 'Force Hire Date Priority', desc: 'Prioritize employees based on hire date with configurable lookback periods.',             iconD: 'M8 7V3m8 4V3m-9 8h10M5 5h14v14H5z', stroke: true },
+    { name: 'All Approaches Sorter',    desc: 'Apply rules to all approaches for callback. Useful for general callback scenarios.',       iconD: 'M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z', stroke: false },
+    { name: 'Seniority Ranking',        desc: 'Rank employees by years of service and seniority within their classification.',           iconD: 'M5 20V10M5 20l-2-2m2 2l2-2M10 5h11M10 11h8M10 17h5', stroke: true },
+  ],
+];
+
+const MOCK_EMPLOYEES = [
+  { name: 'Marta Chen',       hours: 24, hireDate: '2014-03-12', lastCallback: '2 days ago',  lastShift: 'yesterday'  },
+  { name: 'Priya Sharma',     hours: 28, hireDate: '2016-07-20', lastCallback: '5 days ago',  lastShift: '3 days ago' },
+  { name: 'James Okonkwo',    hours: 31, hireDate: '2013-11-01', lastCallback: '1 day ago',   lastShift: '2 days ago' },
+  { name: 'Kelsey Lifeguard', hours: 19, hireDate: '2019-02-14', lastCallback: '8 days ago',  lastShift: '4 days ago' },
+  { name: 'Marcus Rivera',    hours: 35, hireDate: '2011-09-08', lastCallback: '3 days ago',  lastShift: '6 days ago' },
+  { name: 'Dana Hollis',      hours: 22, hireDate: '2017-05-30', lastCallback: '10 days ago', lastShift: 'yesterday'  },
+];
+
+function rankEmployees(form) {
+  return [...MOCK_EMPLOYEES].sort((a, b) => {
+    let primary = 0;
+    if (form.ruleType === 'hours') primary = a.hours - b.hours;
+    else if (form.ruleType === 'hire_date') primary = new Date(a.hireDate) - new Date(b.hireDate);
+    else if (form.ruleType === 'rolodex') primary = 0;
+    else primary = a.hours - b.hours;
+    if (primary !== 0) return primary;
+    if (form.tieBreaker === 'Seniority (hire date)') return new Date(a.hireDate) - new Date(b.hireDate);
+    if (form.tieBreaker === 'Last shift worked') return a.lastShift.localeCompare(b.lastShift);
+    if (form.tieBreaker === 'Last callback date') return a.lastCallback.localeCompare(b.lastCallback);
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function buildSummary(form) {
+  const parts = [];
+  const approachLabel = form.ruleAffects === 'all' ? 'all approaches' :
+    form.selectedApproaches.length ? form.selectedApproaches.join(' & ') : 'selected approaches';
+  const typeLabels = { hours: 'fewest overtime hours', turns: 'fewest turns', hire_date: 'most seniority (hire date)', rolodex: 'Rolodex rotation', custom: 'custom ranking' };
+  parts.push(`Callback list for ${approachLabel} ranked by ${typeLabels[form.ruleType] || 'fewest overtime hours'}`);
+  if (form.lookBack) parts[0] += ` over a ${form.lookBack}-day window`;
+  if (form.tieBreaker) parts.push(`Ties broken by ${form.tieBreaker.toLowerCase()}`);
+  if (form.declineAction) parts.push(`Declines: ${form.declineAction.toLowerCase()}`);
+  if (form.minShift || form.maxShift) {
+    const range = [form.minShift && `min ${form.minShift}h`, form.maxShift && `max ${form.maxShift}h`].filter(Boolean).join(', ');
+    parts.push(`Shift filter: ${range}`);
+  }
+  return parts.join('. ') + '.';
+}
+
+function RuleSummary({ form }) {
+  const [previewOpen, setPreviewOpen] = useState(true);
+  const summary = buildSummary(form);
+  const hasDetails = form.tieBreaker || form.declineAction || form.lookBack || form.ruleAffects === 'selected';
+  const topEmp = rankEmployees(form)[0];
+  return (
+    <div style={{ marginBottom: 0, background: 'linear-gradient(135deg, rgba(124,58,237,.06) 0%, rgba(99,102,241,.04) 100%)', border: '1px solid rgba(124,58,237,.18)', borderRadius: 10, overflow: 'hidden' }}>
+      <div style={{ padding: '14px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+          <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+          </div>
+          <div style={{ font: '600 11px/1 Inter,sans-serif', color: '#7C3AED', textTransform: 'uppercase', letterSpacing: '.06em', flex: 1 }}>Rule Summary</div>
+        </div>
+        <div style={{ font: '400 13px/1.7 Inter,sans-serif', color: 'rgba(24,39,58,.8)' }}>
+          {hasDetails ? summary : <span style={{ color: 'rgba(0,0,0,.4)', fontStyle: 'italic' }}>Answer the AI's questions to see your rule take shape…</span>}
+        </div>
+      </div>
+      {/* Preview Ranking toggle */}
+      <button onClick={() => setPreviewOpen(o => !o)}
+        style={{ width: '100%', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: 8, background: previewOpen ? 'rgba(124,58,237,.07)' : 'rgba(124,58,237,.03)', border: 'none', borderTop: '1px solid rgba(124,58,237,.14)', cursor: 'pointer', textAlign: 'left', transition: 'background .15s' }}
+        onMouseEnter={e => { if (!previewOpen) e.currentTarget.style.background = 'rgba(124,58,237,.06)'; }}
+        onMouseLeave={e => { if (!previewOpen) e.currentTarget.style.background = 'rgba(124,58,237,.03)'; }}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={previewOpen ? '#7C3AED' : 'rgba(124,58,237,.6)'} strokeWidth="2" strokeLinecap="round" style={{ flex: 'none', transition: 'transform .2s', transform: previewOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}><path d="M6 9l6 6 6-6"/></svg>
+        <span style={{ font: '500 11px/1 Inter,sans-serif', color: previewOpen ? '#7C3AED' : 'rgba(124,58,237,.75)', flex: 1 }}>Preview Ranking</span>
+        {!previewOpen && topEmp && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, font: '400 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)' }}>
+            <span style={{ font: '600 10px/1 Inter,sans-serif', color: '#7C3AED', background: 'rgba(124,58,237,.1)', padding: '2px 5px', borderRadius: 3, textTransform: 'uppercase', letterSpacing: '.04em' }}>Next</span>
+            {topEmp.name}
+          </span>
+        )}
+      </button>
+      {previewOpen && (
+        <div style={{ padding: '0 16px 14px', borderTop: '1px solid rgba(124,58,237,.1)' }}>
+          <PreviewRankingList form={form} compact />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PreviewRankingList({ form, compact }) {
+  const ranked = rankEmployees(form);
+  const getMetric = (emp) => {
+    if (form.ruleType === 'hire_date') return emp.hireDate.slice(0,7);
+    if (form.ruleType === 'rolodex') return '—';
+    return `${emp.hours}h`;
+  };
+  return (
+    <div style={{ marginBottom: compact ? 0 : 22, marginTop: compact ? 10 : 0 }}>
+      <div style={{ background: '#fff', border: `1.5px solid ${compact ? 'rgba(124,58,237,.2)' : 'rgba(0,0,0,.1)'}`, borderRadius: 10, overflow: 'hidden', boxShadow: compact ? '0 2px 12px rgba(124,58,237,.1)' : 'none' }}>
+        {ranked.map((emp, idx) => (
+          <div key={emp.name} style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: compact ? '10px 14px' : '9px 14px',
+            borderBottom: idx < ranked.length - 1 ? '1px solid rgba(0,0,0,.06)' : 'none',
+            background: idx === 0 ? 'linear-gradient(135deg, rgba(124,58,237,.08) 0%, rgba(91,33,182,.04) 100%)' : 'transparent',
+            borderLeft: idx === 0 ? '3px solid #7C3AED' : '3px solid transparent',
+          }}>
+            <div style={{ width: 24, height: 24, borderRadius: '50%', background: idx === 0 ? 'linear-gradient(135deg,#7C3AED,#5B21B6)' : idx === 1 ? 'rgba(124,58,237,.15)' : 'rgba(0,0,0,.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', boxShadow: idx === 0 ? '0 2px 6px rgba(124,58,237,.35)' : 'none' }}>
+              <span style={{ font: `${idx === 0 ? 700 : 500} 11px/1 Inter,sans-serif`, color: idx === 0 ? '#fff' : idx === 1 ? '#7C3AED' : 'rgba(0,0,0,.4)' }}>{idx + 1}</span>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ font: `${idx === 0 ? 600 : 500} 13px/1 Inter,sans-serif`, color: idx === 0 ? 'rgba(24,39,58,.96)' : 'rgba(24,39,58,.8)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.name}</span>
+                {idx === 0 && <span style={{ font: '700 9px/1 Inter,sans-serif', color: '#fff', background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', padding: '3px 6px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '.06em', flex: 'none', boxShadow: '0 1px 4px rgba(124,58,237,.3)' }}>NEXT UP</span>}
+              </div>
+              <div style={{ font: '400 11px/1 Inter,sans-serif', color: idx === 0 ? 'rgba(124,58,237,.6)' : 'rgba(0,0,0,.4)', marginTop: 3 }}>Last callback: {emp.lastCallback}</div>
+            </div>
+            <div style={{ font: '600 12px/1 Inter,sans-serif', color: idx === 0 ? '#7C3AED' : 'rgba(0,0,0,.4)', flex: 'none', background: idx === 0 ? 'rgba(124,58,237,.08)' : 'transparent', padding: idx === 0 ? '3px 8px' : '0', borderRadius: idx === 0 ? 5 : 0 }}>{getMetric(emp)}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ font: '400 11px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.35)', marginTop: 6, textAlign: 'center' }}>
+        Mock data — reflects current rule configuration
+      </div>
+    </div>
+  );
+}
+
+function FormGroup({ label, children }) {
+  return (
+    <div style={{ marginBottom: 22 }}>
+      <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.55)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function FormInput({ value, onChange, placeholder, type = 'text' }) {
+  return (
+    <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+      style={{ width: '100%', height: 38, padding: '0 12px', border: '1px solid rgba(0,0,0,.18)', borderRadius: 6, font: '400 14px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', outline: 'none', background: '#fff' }}
+      onFocus={e => e.target.style.borderColor = '#7C3AED'}
+      onBlur={e  => e.target.style.borderColor = 'rgba(0,0,0,.18)'}
+    />
+  );
+}
+
+// ── Branch map: manual form edits → AI follow-up questions ───────────────────
+const BRANCH_MAP = {
+  ruleType: {
+    hours:     { userMsg: "Actually, let's rank by overtime hours.",         ai: { text: "Switching to hours-based ranking! How far back should I look for overtime data?",              chips: ['7 days', '14 days', '30 days', '60 days'] } },
+    turns:     { userMsg: "Let's use turns-based ranking instead.",          ai: { text: "Turns-based it is. Should I count all callback turns, or only accepted ones?",                  chips: ['All turns', 'Accepted only', 'Accepted + weighted'] } },
+    hire_date: { userMsg: "I want to rank by seniority (hire date).",        ai: { text: "Got it — ranking by hire date. Should the most senior employees rank first?",                   chips: ['Yes, most senior first', 'Least senior first'] } },
+    rolodex:   { userMsg: "Let's use a Rolodex rotation.",                   ai: { text: "Rolodex rotation — a fair round-robin. Should the list reset after everyone has been called?",   chips: ['Yes, reset each cycle', 'No, keep rotating', 'Reset manually'] } },
+    custom:    { userMsg: "I need a custom ranking method.",                  ai: { text: "Custom ranking — let's define it together. What's the primary factor for ordering employees?",   chips: ['Seniority', 'Hours worked', 'Last callback date', 'Performance score'], freeform: true } },
+  },
+  ruleAffects: {
+    all:      { userMsg: "Apply this rule to all approaches.",               ai: { text: "Got it, all approaches covered. Want to add any shift length filters while we're here?",        chips: ['Yes, add filter', 'No, keep all shifts'] } },
+    selected: { userMsg: "This should only apply to certain approaches.",    ai: { text: "Makes sense — check off the right approaches in the panel. Which ones should this cover?",      chips: null } },
+  },
+  tieBreaker: {
+    'Seniority (hire date)': { userMsg: "Use seniority as the tiebreaker.",  ai: { text: "Tiebreaker set to seniority. Should more senior employees rank higher when tied?",             chips: ['Yes, most senior first', 'Least senior first'] } },
+    'Last shift worked':     { userMsg: "Tiebreak by last shift worked.",    ai: { text: "Last shift as tiebreaker. Should employees who worked more recently rank higher or lower?",       chips: ['More recent = higher', 'More recent = lower'] } },
+    'Last callback date':    { userMsg: "Tiebreak by last callback date.",   ai: { text: "Last callback date as tiebreaker — longer since last callback ranks first?",                     chips: ['Yes, longest gap first', 'No, most recent first'] } },
+    'Alphabetical':          { userMsg: "Use alphabetical order to break ties.", ai: { text: "Alphabetical tiebreaker, easy. A→Z or Z→A?",                                                 chips: ['A → Z', 'Z → A'] } },
+  },
+  declineAction: {
+    'Move to back of list': { userMsg: "Declines should go to the back of the list.", ai: { text: "Declined employees go to the back. Should this apply to all decline reasons or just voluntary ones?", chips: ['All reasons', 'Voluntary only', 'Involuntary only'] } },
+    'Stay in position':     { userMsg: "Declines should keep their current position.", ai: { text: "Position preserved on decline. Should there be a cooldown before they're offered again?",          chips: ['No cooldown', '1 hour', '4 hours', 'Custom'] } },
+    'Penalty points':       { userMsg: "Add penalty points for declines.",   ai: { text: "Penalty points for declines. How many points should a decline cost?",                             chips: ['1 point', '2 points', '5 points', 'Custom'] } },
+  },
+};
+
+// ── Rule type options for rich dropdown ──────────────────────────────────────
+const RULE_TYPE_OPTIONS = [
+  { value: 'hours',     title: 'Hours Based',       desc: 'Rank employees by accumulated overtime hours. Person with fewest hours is called first.',     iconD: 'M12 8v4l3 1.5M12 3a9 9 0 100 18A9 9 0 0012 3z',                                                                   stroke: true },
+  { value: 'turns',     title: 'Turns Based',        desc: 'Rank by total number of callback turns participated in. Simple and transparent.',              iconD: 'M3 6h18M3 12h18M3 18h18',                                                                                         stroke: true },
+  { value: 'hire_date', title: 'Hire Date Priority', desc: 'Rank by seniority — employees hired earliest rank first for callbacks.',                       iconD: 'M8 7V3m8 4V3m-9 8h10M5 5h14v14H5z',                                                                               stroke: true },
+  { value: 'rolodex',   title: 'Rotating Rolodex',   desc: 'Move employees to end of list after each callback — fair, even distribution across the team.', iconD: 'M4 12A8 8 0 1113 4M4 4v5h5',                                                                                      stroke: true },
+  { value: 'custom',    title: 'Custom',             desc: 'Define your own custom ranking logic and criteria.',                                            iconD: 'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4z',           stroke: true },
+];
+
+function RichSelect({ value, onChange, options }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const selected = options.find(o => o.value === value) || options[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button onClick={() => setOpen(o => !o)}
+        style={{ width: '100%', height: 40, padding: '0 10px', display: 'flex', alignItems: 'center', gap: 10,
+          border: `1px solid ${open ? '#7C3AED' : 'rgba(0,0,0,.18)'}`, borderRadius: 6,
+          background: '#fff', cursor: 'pointer', outline: 'none', transition: 'border-color .15s',
+          boxShadow: open ? '0 0 0 2px rgba(124,58,237,.12)' : 'none' }}>
+        {selected && <>
+          <div style={{ width: 26, height: 26, borderRadius: 6, background: 'rgba(124,58,237,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill={selected.stroke ? 'none' : '#7C3AED'} stroke={selected.stroke ? '#7C3AED' : 'none'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={selected.iconD}/></svg>
+          </div>
+          <span style={{ flex: 1, font: '500 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', textAlign: 'left' }}>{selected.title}</span>
+        </>}
+        <svg width="10" height="6" viewBox="0 0 10 6" fill="none" style={{ flex: 'none', transition: 'transform .2s', transform: open ? 'rotate(180deg)' : 'none' }}>
+          <path d="M1 1l4 4 4-4" stroke="rgba(0,0,0,.45)" strokeWidth="1.4" strokeLinecap="round"/>
+        </svg>
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200,
+          background: '#fff', border: '1px solid rgba(0,0,0,.12)', borderRadius: 8,
+          boxShadow: '0 6px 24px rgba(0,0,0,.13)', overflow: 'hidden' }}>
+          {options.map((opt, i) => {
+            const isSel = opt.value === value;
+            return (
+              <button key={opt.value}
+                onClick={() => { onChange(opt.value); setOpen(false); }}
+                style={{ width: '100%', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 11,
+                  background: isSel ? 'rgba(124,58,237,.07)' : 'transparent',
+                  border: 'none', borderBottom: i < options.length - 1 ? '1px solid rgba(0,0,0,.06)' : 'none',
+                  cursor: 'pointer', textAlign: 'left', transition: 'background .12s' }}
+                onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = 'rgba(124,58,237,.04)'; }}
+                onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = 'transparent'; }}>
+                <div style={{ width: 36, height: 36, borderRadius: 8, flex: 'none',
+                  background: isSel ? 'rgba(124,58,237,.14)' : 'rgba(124,58,237,.08)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill={opt.stroke ? 'none' : '#7C3AED'} stroke={opt.stroke ? '#7C3AED' : 'none'} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d={opt.iconD}/></svg>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ font: '600 13px/1.2 Inter,sans-serif', color: isSel ? '#7C3AED' : 'rgba(24,39,58,.94)', marginBottom: 2 }}>{opt.title}</div>
+                  <div style={{ font: '400 11px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.5)' }}>{opt.desc}</div>
+                </div>
+                {isSel && (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="#7C3AED" style={{ flex: 'none' }}><path d="M9 16l-4-4 1.4-1.4L9 13.2l8.6-8.6L19 6z"/></svg>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FreeformChips({ chips, onSend, onSkip }) {
+  const [val, setVal] = useState('');
+  return (
+    <div style={{ marginTop: 18 }}>
+      <textarea value={val} onChange={e => setVal(e.target.value)}
+        placeholder="Describe your ranking logic in your own words…"
+        rows={2}
+        style={{ width: '100%', padding: '10px 14px', border: '1.5px solid rgba(124,58,237,.22)', borderRadius: 10,
+          outline: 'none', font: '400 13px/1.55 Inter,sans-serif', color: 'rgba(24,39,58,.94)',
+          background: 'rgba(124,58,237,.02)', resize: 'none', display: 'block', marginBottom: 10 }}
+        onFocus={e => e.target.style.borderColor = '#7C3AED'}
+        onBlur={e => e.target.style.borderColor = 'rgba(124,58,237,.22)'}
+      />
+      <div style={{ font: '400 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.38)', marginBottom: 7 }}>For example:</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 14 }}>
+        {chips.map(c => (
+          <button key={c} onClick={() => setVal(c)}
+            style={{ textAlign: 'left', background: val === c ? 'rgba(124,58,237,.07)' : 'transparent',
+              border: `1px dashed ${val === c ? 'rgba(124,58,237,.45)' : 'rgba(124,58,237,.22)'}`,
+              borderRadius: 8, padding: '7px 12px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 8, transition: 'all .15s' }}
+            onMouseEnter={e => { if (val !== c) { e.currentTarget.style.background = 'rgba(124,58,237,.05)'; e.currentTarget.style.borderColor = 'rgba(124,58,237,.38)'; }}}
+            onMouseLeave={e => { if (val !== c) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(124,58,237,.22)'; }}}>
+            <span style={{ font: '400 12px/1.4 Inter,sans-serif', color: val === c ? '#7C3AED' : 'rgba(0,0,0,.5)', fontStyle: 'italic', flex: 1 }}>"{c}"</span>
+            <span style={{ font: '500 10px/1 Inter,sans-serif', color: val === c ? '#7C3AED' : 'rgba(124,58,237,.45)', whiteSpace: 'nowrap', letterSpacing: '.02em' }}>use →</span>
+          </button>
+        ))}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <button onClick={onSkip}
+          style={{ height: 26, padding: '0 2px', background: 'none', border: 'none', color: 'rgba(0,0,0,.32)', font: '400 13px/1 Inter,sans-serif', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}
+          onMouseEnter={e => e.currentTarget.style.color = 'rgba(0,0,0,.58)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'rgba(0,0,0,.32)'}>
+          Skip for now
+        </button>
+        <button onClick={() => val.trim() && onSend(val)}
+          style={{ height: 34, padding: '0 18px', borderRadius: 8,
+            background: val.trim() ? 'linear-gradient(135deg,#7C3AED,#5B21B6)' : 'rgba(0,0,0,.08)',
+            color: val.trim() ? '#fff' : 'rgba(0,0,0,.3)', border: 'none',
+            font: '600 13px/1 Inter,sans-serif', cursor: val.trim() ? 'pointer' : 'default',
+            transition: 'all .15s', boxShadow: val.trim() ? '0 2px 8px rgba(124,58,237,.35)' : 'none' }}>
+          Continue →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── RuleBuilderView ───────────────────────────────────────────────────────────
+function RuleBuilderView({ seed, onBack }) {
+  const templateName  = seed?.template?.name || null;
+  const initialPrompt = seed?.text || null;
+
+  const [suggSetIdx, setSuggSetIdx] = useState(0);
+
+  const flow    = FLOWS[templateName] || FLOWS.default;
+  const firstAi = flow[0];
+  const introAiText = 'Hi! I can help you create custom rules for ranking employees in overtime and callback shifts.\nDescribe the rule you need, or choose a suggestion below!';
+  const originLabel = templateName || initialPrompt || null;
+  const initMsgs = (templateName || initialPrompt) ? [
+    { role: 'ai', text: introAiText },
+    { role: 'origin', label: originLabel },
+    { role: 'ai', text: firstAi.text, chips: firstAi.chips },
+  ] : [
+    { role: 'ai', text: introAiText },
+    { role: 'suggestions' },
+  ];
+
+  const [messages, setMessages] = useState(initMsgs);
+  const [input, setInput]       = useState('');
+  const [typing, setTyping]     = useState(false);
+  const [saved, setSaved]       = useState(false);
+  const [cfgOpen, setCfgOpen]           = useState(true);
+  const [stickyOpen, setStickyOpen]     = useState(true);
+  const [customAnswer, setCustomAnswer] = useState(false);
+  const [chipSelections, setChipSelections] = useState(new Set());
+
+  const skippedCount = messages.filter(m => m.role === 'user' && m.skipped).length;
+
+  const guessType = (name) => {
+    if (!name) return 'hours';
+    const n = name.toLowerCase();
+    if (n.includes('hour')) return 'hours';
+    if (n.includes('turn')) return 'turns';
+    if (n.includes('hire') || n.includes('seniority')) return 'hire_date';
+    if (n.includes('rolodex')) return 'rolodex';
+    return 'custom';
+  };
+
+  const [form, setForm] = useState({
+    ruleName:            templateName || (initialPrompt ? initialPrompt.slice(0, 48) : 'New Rule'),
+    ruleType:            guessType(templateName || initialPrompt),
+    ruleAffects:         'all',
+    selectedApproaches:  [],
+    callbackStatuses:    ['Dispatched', 'Accepted'],
+    callbackResponses:   ['Accept', 'Decline'],
+    minShift:            '',
+    maxShift:            '',
+    lookBack:            '',
+    forecast:            '',
+    tieBreaker:          '',
+    declineAction:       '',
+    penaltyPoints:       '',
+    declineScope:        '',
+    declineCooldown:     '',
+    turnsCounting:       '',
+    tieBreakerOrder:     '',
+    rolodexReset:        '',
+  });
+
+  // Tracks which config fields have been surfaced by chat answers
+  const [revealedFields, setRevealedFields] = useState(() => {
+    const init = new Set(['ruleName']);
+    if (templateName || initialPrompt) init.add('ruleType');
+    return init;
+  });
+
+  const patchForm = (updates, opts = {}) => {
+    setForm(f => ({ ...f, ...updates }));
+    setRevealedFields(r => {
+      const next = new Set(r);
+      Object.keys(updates).forEach(k => next.add(k));
+      return next;
+    });
+    if (opts.fromUser) {
+      for (const [key, val] of Object.entries(updates)) {
+        const branch = BRANCH_MAP[key]?.[val];
+        if (!branch) continue;
+        setMessages(m => [...m, { role: 'user', text: branch.userMsg, fromForm: true }]);
+        setTyping(true);
+        setTimeout(() => {
+          if (branch.ai) setMessages(m => [...m, { role: 'ai', text: branch.ai.text, chips: branch.ai.chips || [] }]);
+          setTyping(false);
+        }, 700 + Math.random() * 300);
+        break;
+      }
+    }
+  };
+
+  const shown = (key) => revealedFields.has(key);
+
+  const msgEndRef    = useRef(null);
+  const textareaRef  = useRef(null);
+  useEffect(() => { msgEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, typing]);
+
+  const userMsgs    = messages.filter(m => m.role === 'user');
+  // When entering from a template/prompt, flow[0] is already pre-loaded in initMsgs
+  // with no user message yet, so offset by 1 to avoid repeating it.
+  const flowOffset  = (templateName || initialPrompt) ? 1 : 0;
+  const nextFlowIdx = userMsgs.length + flowOffset;
+
+  const parseAndPatch = (text) => {
+    const lower = text.toLowerCase();
+    const updates = {};
+    // Rule name
+    const nameMatch = text.match(/(?:call it|name it|named?)\s+"?([^"]+)"?/i) || text.match(/"([^"]+)"/);
+    if (nameMatch) updates.ruleName = nameMatch[1];
+    // Rule type
+    if (lower.includes('hours')) updates.ruleType = 'hours';
+    else if (lower.includes('turns')) updates.ruleType = 'turns';
+    else if (lower.includes('hire date') || lower.includes('seniority')) updates.ruleType = 'hire_date';
+    else if (lower.includes('rolodex')) updates.ruleType = 'rolodex';
+    // Approach / group — handles single or comma-joined multi-select values
+    const approachNames = ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','Battalion Chief','FF3'];
+    if (lower.includes('all approaches') || lower.includes('all approach')) {
+      updates.ruleAffects = 'all';
+    } else {
+      const matched = approachNames.filter(a => lower.includes(a.toLowerCase()));
+      if (matched.length > 0) {
+        updates.ruleAffects = 'selected';
+        updates.selectedApproaches = matched;
+      }
+    }
+    // Lookback window from chip answers like "30 days" / "14 days"
+    const lbDaysM = text.match(/^(\d+)\s*days?$/i);
+    if (lbDaysM) updates.lookBack = lbDaysM[1];
+    // Shift lengths
+    const minM = text.match(/min(?:imum)?\s*(?:shift)?\s*(?:is|:)?\s*(\d+)/i);
+    if (minM) updates.minShift = minM[1];
+    const maxM = text.match(/max(?:imum)?\s*(?:shift)?\s*(?:is|:)?\s*(\d+)/i);
+    if (maxM) updates.maxShift = maxM[1];
+    // Explicit lookback / forecast
+    const lbM = text.match(/look\s*back\s*(?:of|:)?\s*(\d+)/i);
+    if (lbM) updates.lookBack = lbM[1];
+    const fcM = text.match(/forecast\s*(?:of|:)?\s*(\d+)/i);
+    if (fcM) updates.forecast = fcM[1];
+    // Tiebreaker
+    if (lower.includes('seniority') || lower.includes('hire date')) updates.tieBreaker = 'Seniority (hire date)';
+    else if (lower.includes('last shift')) updates.tieBreaker = 'Last shift worked';
+    else if (lower.includes('last callback')) updates.tieBreaker = 'Last callback date';
+    else if (lower.includes('alphabetical')) updates.tieBreaker = 'Alphabetical';
+    // Decline action
+    if (lower.includes('back of the list') || lower.includes('back of list') || lower.includes('move to back')) updates.declineAction = 'Move to back of list';
+    else if (lower.includes('stay in position') || lower.includes('stay at')) updates.declineAction = 'Stay in position';
+    else if (lower.includes('penalty')) updates.declineAction = 'Penalty points';
+    // Penalty points value — chip answers like "2 points", "5 points"
+    const pointsM = text.match(/^(\d+)\s*points?$/i);
+    if (pointsM) updates.penaltyPoints = pointsM[1];
+    // Decline scope (who it applies to)
+    if (lower === 'all reasons') updates.declineScope = 'All reasons';
+    else if (lower === 'voluntary only') updates.declineScope = 'Voluntary only';
+    else if (lower === 'involuntary only') updates.declineScope = 'Involuntary only';
+    // Re-offer cooldown
+    if (lower === 'no cooldown') updates.declineCooldown = 'None';
+    else if (lower === '1 hour') updates.declineCooldown = '1 hour';
+    else if (lower === '4 hours') updates.declineCooldown = '4 hours';
+    // Turns counting method
+    if (lower === 'all turns') updates.turnsCounting = 'All turns';
+    else if (lower === 'accepted only') updates.turnsCounting = 'Accepted only';
+    else if (lower === 'accepted + weighted') updates.turnsCounting = 'Accepted + weighted';
+    // Rolodex reset behavior
+    if (lower === 'yes, reset each cycle') updates.rolodexReset = 'Reset each cycle';
+    else if (lower === 'no, keep rotating') updates.rolodexReset = 'Keep rotating';
+    else if (lower === 'reset manually') updates.rolodexReset = 'Manual reset';
+    // Tiebreaker sort direction
+    if (lower === 'a → z') updates.tieBreakerOrder = 'A → Z';
+    else if (lower === 'z → a') updates.tieBreakerOrder = 'Z → A';
+    else if (lower === 'more recent = higher') updates.tieBreakerOrder = 'More recent first';
+    else if (lower === 'more recent = lower') updates.tieBreakerOrder = 'Older first';
+    else if (lower === 'yes, longest gap first') updates.tieBreakerOrder = 'Longest gap first';
+    else if (lower === 'no, most recent first') updates.tieBreakerOrder = 'Most recent first';
+    else if (lower === 'yes, most senior first' || lower === 'most senior first') updates.tieBreakerOrder = 'Most senior first';
+    else if (lower === 'least senior first') updates.tieBreakerOrder = 'Least senior first';
+    if (Object.keys(updates).length) patchForm(updates);
+  };
+
+  const send = (text, opts = {}) => {
+    const isSkip = !!opts.skip;
+    if (!isSkip && !text.trim() || typing) return;
+    if (!isSkip) parseAndPatch(text);
+    setMessages(m => [...m.filter(msg => msg.role !== 'suggestions'), { role: 'user', text, skipped: isSkip }]);
+    setInput('');
+    setCustomAnswer(false);
+    setTyping(true);
+    setTimeout(() => {
+      const nextAi = flow[nextFlowIdx];
+      if (nextAi) setMessages(m => [...m, { role: 'ai', text: nextAi.text, chips: nextAi.chips }]);
+      setTyping(false);
+    }, 800 + Math.random() * 400);
+  };
+
+  const handleSkip = () => send('', { skip: true });
+
+  const blankForm = {
+    ruleName: 'New Rule', ruleType: 'hours', ruleAffects: 'all', selectedApproaches: [],
+    callbackStatuses: ['Dispatched', 'Accepted'], callbackResponses: ['Accept', 'Decline'],
+    minShift: '', maxShift: '', lookBack: '', forecast: '', tieBreaker: '', declineAction: '',
+    penaltyPoints: '', declineScope: '', declineCooldown: '',
+    turnsCounting: '', tieBreakerOrder: '', rolodexReset: '',
+  };
+  const startOver = () => {
+    setMessages([{ role: 'ai', text: introAiText }, { role: 'suggestions' }]);
+    setForm(blankForm);
+    setInput('');
+    setTyping(false);
+    setSuggSetIdx(0);
+    setRevealedFields(new Set());
+    setChipSelections(new Set());
+    setStickyOpen(true);
+  };
+
+  const selectSuggestion = (tplName) => {
+    const f = FLOWS[tplName] || FLOWS.default;
+    setMessages([{ role: 'user', text: tplName }, { role: 'ai', text: f[0].text, chips: f[0].chips }]);
+    patchForm({ ruleName: tplName, ruleType: guessType(tplName) });
+    setInput('');
+  };
+
+  const toggleArr = (arr, item) => arr.includes(item) ? arr.filter(x => x !== item) : [...arr, item];
+
+  if (saved) {
+    return (
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#F4F5F7', gap: 16 }}>
+        <div style={{ width: 68, height: 68, borderRadius: '50%', background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(124,58,237,.35)' }}>
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="#fff"><path d="M9 16l-4-4 1.4-1.4L9 13.2l8.6-8.6L19 6z"/></svg>
+        </div>
+        <div style={{ font: '600 22px/1.2 Inter,sans-serif', color: 'rgba(24,39,58,.94)' }}>Rule saved!</div>
+        <div style={{ font: '400 15px/1.6 Inter,sans-serif', color: 'rgba(0,0,0,.6)', textAlign: 'center', maxWidth: 360 }}>
+          <b>{form.ruleName}</b> is now active and will be applied to the next callback that matches your configuration.
+        </div>
+        <button onClick={onBack} style={{ marginTop: 8, height: 42, padding: '0 28px', background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', color: '#fff', border: 'none', borderRadius: 8, font: '500 15px/1 Inter,sans-serif', cursor: 'pointer', boxShadow: '0 2px 10px rgba(124,58,237,.35)' }}>Back to Dashboard</button>
+      </div>
+    );
+  }
+
+  const sharedHeader = (
+    <div style={{ padding: '20px 32px', background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 50%, #5B21B6 100%)', position: 'relative', overflow: 'hidden', flex: 'none' }}>
+      <div style={{ position: 'absolute', top: -30, right: 60, width: 110, height: 110, borderRadius: '50%', background: 'rgba(167,139,250,.22)', filter: 'blur(28px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: -18, left: 100, width: 85, height: 85, borderRadius: '50%', background: 'rgba(196,181,253,.16)', filter: 'blur(22px)', pointerEvents: 'none' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, position: 'relative' }}>
+        <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,.15)', border: '1px solid rgba(255,255,255,.25)', borderRadius: 6, padding: '6px 12px', color: '#fff', font: '500 13px/1 Inter,sans-serif', cursor: 'pointer', flex: 'none' }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+          Back
+        </button>
+        <div style={{ width: 1, height: 26, background: 'rgba(255,255,255,.25)' }} />
+        <div style={{ width: 46, height: 46, borderRadius: 12, background: 'rgba(255,255,255,.18)', border: '1px solid rgba(255,255,255,.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', backdropFilter: 'blur(4px)' }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+        </div>
+        <div>
+          <div style={{ font: '700 18px/1.2 Inter,sans-serif', color: '#fff', letterSpacing: '-.01em' }}>Callback Ranking Rules Engine</div>
+          <div style={{ font: '400 13px/1.3 Inter,sans-serif', color: 'rgba(255,255,255,.72)', marginTop: 2 }}>Build intelligent callback rules with AI</div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+
+      {/* ── LEFT: AI Chat ── */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff', overflow: 'hidden', minWidth: 0 }}>
+
+        {sharedHeader}
+
+        {/* Message thread */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '36px 40px', display: 'flex', flexDirection: 'column', gap: 36 }}>
+
+          {messages.map((m, i) => (
+            <div key={i}>
+              {m.role === 'ai' && (
+                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #A855F7, #EC4899, #F43F5E)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', boxShadow: '0 2px 8px rgba(168,85,247,.35)' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.38)', marginBottom: 7, letterSpacing: '.05em' }}>AI ASSISTANT</div>
+                    <div style={{ font: '400 15px/1.75 Inter,sans-serif', color: 'rgba(24,39,58,.87)', whiteSpace: 'pre-wrap' }}>
+                      {m.text.replace(/\*\*(.*?)\*\*/g, '$1')}
+                    </div>
+                    {m.chips && i === messages.reduce((last, msg, idx) => msg.role === 'ai' ? idx : last, -1) && !typing && !customAnswer && (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 7, marginTop: 18 }}>
+                        {m.multi ? (
+                          /* ── Multi-select mode ── */
+                          <>
+                            <div style={{ font: '400 11px/1.3 Inter,sans-serif', color: 'rgba(0,0,0,.45)', marginBottom: 2 }}>Select all that apply</div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, alignItems: 'flex-start' }}>
+                              {m.chips.map(c => {
+                                const sel = chipSelections.has(c);
+                                return (
+                                  <button key={c}
+                                    onClick={() => setChipSelections(prev => {
+                                      const s = new Set(prev);
+                                      if (c === 'All approaches') {
+                                        s.has(c) ? s.clear() : (s.clear(), s.add(c));
+                                      } else {
+                                        s.delete('All approaches');
+                                        s.has(c) ? s.delete(c) : s.add(c);
+                                      }
+                                      return s;
+                                    })}
+                                    style={{ height: 36, padding: '0 16px', borderRadius: 20, border: `1.5px solid ${sel ? '#7C3AED' : 'rgba(124,58,237,.3)'}`, background: sel ? 'rgba(124,58,237,.12)' : 'rgba(124,58,237,.05)', color: '#7C3AED', font: '500 14px/1 Inter,sans-serif', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, transition: 'all .15s', whiteSpace: 'nowrap' }}>
+                                    {sel && <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16l-4-4 1.4-1.4L9 13.2l8.6-8.6L19 6z"/></svg>}
+                                    {c}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {chipSelections.size > 0 && (
+                              <button onClick={() => { const v = Array.from(chipSelections).join(', '); setChipSelections(new Set()); send(v); }}
+                                style={{ height: 34, padding: '0 16px', borderRadius: 8, background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', color: '#fff', border: 'none', font: '600 13px/1 Inter,sans-serif', cursor: 'pointer', marginTop: 2, whiteSpace: 'nowrap' }}>
+                                Confirm · {chipSelections.size} selected
+                              </button>
+                            )}
+                            <button onClick={() => { setCustomAnswer(true); setTimeout(() => textareaRef.current?.focus(), 50); }}
+                              style={{ height: 36, padding: '0 20px', borderRadius: 20, border: '1.5px dashed rgba(124,58,237,.25)', background: 'transparent', color: 'rgba(0,0,0,.42)', font: '500 14px/1 Inter,sans-serif', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, transition: 'all .15s', whiteSpace: 'nowrap' }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(124,58,237,.55)'; e.currentTarget.style.color = '#7C3AED'; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(124,58,237,.25)'; e.currentTarget.style.color = 'rgba(0,0,0,.42)'; }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4z"/></svg>
+                              Something else
+                            </button>
+                            <button onClick={handleSkip}
+                              style={{ height: 26, padding: '0 2px', background: 'none', border: 'none', color: 'rgba(0,0,0,.32)', font: '400 13px/1 Inter,sans-serif', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3, marginTop: 1 }}
+                              onMouseEnter={e => e.currentTarget.style.color = 'rgba(0,0,0,.58)'}
+                              onMouseLeave={e => e.currentTarget.style.color = 'rgba(0,0,0,.32)'}>
+                              Skip for now
+                            </button>
+                          </>
+                        ) : m.freeform ? (
+                          <FreeformChips chips={m.chips} onSend={send} onSkip={handleSkip} />
+                        ) : (
+                          /* ── Single-select mode ── */
+                          <>
+                            {m.chips.map(c => (
+                              <button key={c} onClick={() => send(c)}
+                                style={{ height: 36, padding: '0 20px', borderRadius: 20, border: '1.5px solid rgba(124,58,237,.3)', background: 'rgba(124,58,237,.05)', color: '#7C3AED', font: '500 14px/1 Inter,sans-serif', cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap' }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.13)'; e.currentTarget.style.borderColor = '#7C3AED'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(124,58,237,.05)'; e.currentTarget.style.borderColor = 'rgba(124,58,237,.3)'; }}
+                              >{c}</button>
+                            ))}
+                            <button onClick={() => { setCustomAnswer(true); setTimeout(() => textareaRef.current?.focus(), 50); }}
+                              style={{ height: 36, padding: '0 20px', borderRadius: 20, border: '1.5px dashed rgba(124,58,237,.25)', background: 'transparent', color: 'rgba(0,0,0,.42)', font: '500 14px/1 Inter,sans-serif', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, transition: 'all .15s', whiteSpace: 'nowrap' }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(124,58,237,.55)'; e.currentTarget.style.color = '#7C3AED'; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(124,58,237,.25)'; e.currentTarget.style.color = 'rgba(0,0,0,.42)'; }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4z"/></svg>
+                              Something else
+                            </button>
+                            <button onClick={handleSkip}
+                              style={{ height: 26, padding: '0 2px', background: 'none', border: 'none', color: 'rgba(0,0,0,.32)', font: '400 13px/1 Inter,sans-serif', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3, marginTop: 1 }}
+                              onMouseEnter={e => e.currentTarget.style.color = 'rgba(0,0,0,.58)'}
+                              onMouseLeave={e => e.currentTarget.style.color = 'rgba(0,0,0,.32)'}>
+                              Skip for now
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {m.role === 'user' && (
+                m.skipped ? (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 16px', borderRadius: 20, background: 'rgba(0,0,0,.04)', border: '1px solid rgba(0,0,0,.1)', color: 'rgba(0,0,0,.4)', font: '400 13px/1 Inter,sans-serif' }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                      Skipped for now
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                    <div style={{ maxWidth: '68%', padding: '10px 18px', borderRadius: '18px 18px 4px 18px', background: 'rgba(124,58,237,.09)', color: '#4C1D95', font: '500 14px/1.6 Inter,sans-serif', border: '1.5px solid rgba(124,58,237,.22)' }}>
+                      {m.text}
+                    </div>
+                    {m.fromForm && (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, font: '400 10px/1 Inter,sans-serif', color: 'rgba(0,0,0,.35)' }}>
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        edited in panel
+                      </div>
+                    )}
+                  </div>
+                )
+              )}
+              {m.role === 'origin' && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                  <div style={{ font: '500 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.35)', letterSpacing: '.04em', textTransform: 'uppercase' }}>You started with</div>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'linear-gradient(135deg, rgba(124,58,237,.08), rgba(99,102,241,.05))', border: '1.5px solid rgba(124,58,237,.2)', borderRadius: '16px 16px 4px 16px' }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 7, background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', boxShadow: '0 2px 6px rgba(124,58,237,.3)' }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+                    </div>
+                    <span style={{ font: '600 14px/1.3 Inter,sans-serif', color: 'rgba(24,39,58,.9)' }}>{m.label}</span>
+                  </div>
+                </div>
+              )}
+              {m.role === 'suggestions' && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                  <div style={{ font: '400 12px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', marginBottom: 2 }}>Help me build a rule based on:</div>
+                  {SUGGESTION_SETS[suggSetIdx].map((s, si) => (
+                    <button key={si} onClick={() => selectSuggestion(s.name)}
+                      style={{ textAlign: 'left', background: '#fff', border: '1.5px solid rgba(0,0,0,.1)', borderRadius: 10, padding: '11px 14px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 12, transition: 'border-color .15s, box-shadow .15s', boxShadow: '0 1px 3px rgba(0,0,0,.05)' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(124,58,237,.35)'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(124,58,237,.12)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(0,0,0,.1)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,.05)'; }}
+                    >
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', boxShadow: '0 1px 4px rgba(59,130,246,.28)' }}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill={s.stroke ? 'none' : '#fff'} stroke={s.stroke ? '#fff' : 'none'} strokeWidth={s.stroke ? '1.8' : '0'} strokeLinecap="round" strokeLinejoin="round"><path d={s.iconD}/></svg>
+                      </div>
+                      <div>
+                        <div style={{ font: '600 13px/1.2 Inter,sans-serif', color: 'rgba(24,39,58,.94)', marginBottom: 3 }}>{s.name}</div>
+                        <div style={{ font: '400 11px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.5)' }}>{s.desc}</div>
+                      </div>
+                    </button>
+                  ))}
+                  <button onClick={() => setSuggSetIdx(idx => (idx + 1) % SUGGESTION_SETS.length)}
+                    style={{ textAlign: 'left', background: 'transparent', border: '1px dashed rgba(0,0,0,.2)', borderRadius: 10, padding: '8px 14px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7, transition: 'border-color .15s', whiteSpace: 'nowrap' }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(124,58,237,.4)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(0,0,0,.2)'; }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.4)" strokeWidth="2.2" strokeLinecap="round"><path d="M4 12A8 8 0 1113 4M4 4v5h5"/></svg>
+                    <span style={{ font: '500 12px/1 Inter,sans-serif', color: 'rgba(0,0,0,.5)' }}>Show more suggestions</span>
+                  </button>
+                  {suggSetIdx > 0 && (
+                    <button onClick={() => setSuggSetIdx(0)}
+                      style={{ textAlign: 'left', background: 'transparent', border: 'none', padding: '4px 2px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
+                      onMouseEnter={e => { e.currentTarget.querySelector('span').style.color = '#7C3AED'; }}
+                      onMouseLeave={e => { e.currentTarget.querySelector('span').style.color = 'rgba(0,0,0,.4)'; }}
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.35)" strokeWidth="2.2" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+                      <span style={{ font: '400 12px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', textDecoration: 'underline', textUnderlineOffset: 2 }}>Back to first suggestions</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+
+          {typing && (
+            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #A855F7, #EC4899, #F43F5E)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+              </div>
+              <div style={{ padding: '14px 18px', borderRadius: '4px 18px 18px 18px', background: 'rgba(0,0,0,.04)', display: 'inline-flex', gap: 5, alignItems: 'center' }}>
+                {[0,1,2].map(n => (
+                  <span key={n} style={{ width: 7, height: 7, borderRadius: '50%', background: '#A855F7', opacity: .6, animation: `cbPulse 1.2s ${n * 0.22}s infinite` }} />
+                ))}
+              </div>
+            </div>
+          )}
+          <div ref={msgEndRef} />
+        </div>
+
+        {/* Input footer */}
+        <div style={{ padding: '14px 24px 20px', borderTop: '1px solid rgba(0,0,0,.07)', background: '#fff', flex: 'none' }}>
+          {!messages.some(m => m.role === 'suggestions') && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <button onClick={startOver} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, padding: '5px 11px', color: 'rgba(0,0,0,.55)', font: '500 12px/1 Inter,sans-serif', cursor: 'pointer' }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M3 12a9 9 0 109-9"/><path d="M3 3v6h6"/></svg>
+                Start Over
+              </button>
+            </div>
+          )}
+
+          {customAnswer && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '8px 12px 8px 14px', background: 'linear-gradient(135deg, rgba(124,58,237,.07), rgba(91,33,182,.05))', border: '1.5px solid rgba(124,58,237,.28)', borderRadius: 10 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="2.2" strokeLinecap="round" style={{ flex: 'none' }}><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              <span style={{ flex: 1, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>Custom answer</span>
+              <button onClick={handleSkip}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', font: '400 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', padding: '3px 6px', borderRadius: 4 }}
+                onMouseEnter={e => e.currentTarget.style.color = 'rgba(0,0,0,.65)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'rgba(0,0,0,.4)'}>
+                Skip
+              </button>
+              <div style={{ width: 1, height: 12, background: 'rgba(0,0,0,.1)', flex: 'none' }} />
+              <button onClick={() => setCustomAnswer(false)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'none', border: '1px solid rgba(124,58,237,.25)', borderRadius: 5, cursor: 'pointer', font: '500 11px/1 Inter,sans-serif', color: '#7C3AED', padding: '3px 8px' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.07)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}>
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+                Back to options
+              </button>
+            </div>
+          )}
+
+          <div style={{ position: 'relative' }}>
+            <textarea ref={textareaRef} value={input} onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); } }}
+              placeholder={messages.some(m => m.role === 'suggestions') ? "Describe the rule you'd like to create, or pick a suggestion above…" : "Type a response or tap a suggestion above…"}
+              rows={2}
+              style={{ width: '100%', padding: '11px 52px 11px 16px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 12, outline: 'none', font: '400 14px/1.55 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: 'rgba(124,58,237,.02)', resize: 'none', display: 'block' }}
+              onFocus={e => { e.target.style.borderColor = '#7C3AED'; e.target.style.background = 'rgba(124,58,237,.04)'; }}
+              onBlur={e  => { e.target.style.borderColor = 'rgba(0,0,0,.15)'; e.target.style.background = 'rgba(124,58,237,.02)'; }}
+            />
+            <button onClick={() => send(input)} style={{ position: 'absolute', right: 10, bottom: 10, width: 34, height: 34, borderRadius: '50%', background: input.trim() ? 'linear-gradient(135deg,#7C3AED,#5B21B6)' : 'rgba(0,0,0,.1)', border: 'none', cursor: input.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .15s', boxShadow: input.trim() ? '0 2px 8px rgba(124,58,237,.4)' : 'none' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round"><path d="M2 12l20-9-9 20-2-9z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── RIGHT: Rule Configuration Form ── */}
+      {!cfgOpen && (
+        <div style={{ width: 40, flex: 'none', borderLeft: '1px solid rgba(0,0,0,.08)', background: '#F8F7FC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={() => setCfgOpen(true)}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', padding: '16px 0', color: 'rgba(0,0,0,.45)' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+            <span style={{ font: '500 10px/1 Inter,sans-serif', writingMode: 'vertical-rl', textTransform: 'uppercase', letterSpacing: '.07em', color: 'rgba(0,0,0,.45)' }}>Rule Config</span>
+          </button>
+        </div>
+      )}
+      {cfgOpen && (
+      <div style={{ width: 460, flex: 'none', display: 'flex', flexDirection: 'column', background: '#F8F7FC', borderLeft: '1px solid rgba(0,0,0,.08)', overflow: 'hidden' }}>
+        {/* Sticky banner header */}
+        <div style={{ background: '#fff', borderBottom: '1px solid rgba(0,0,0,.08)', flex: 'none' }}>
+          {/* Title row */}
+          <div style={{ padding: '16px 20px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ font: '600 15px/1.2 Inter,sans-serif', color: 'rgba(24,39,58,.94)' }}>Rule Configuration</div>
+              <div style={{ font: '400 11px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.45)', marginTop: 3 }}>Editable — updates live as you chat</div>
+            </div>
+            <button onClick={() => setCfgOpen(false)} title="Collapse panel"
+              style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid rgba(0,0,0,.1)', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: 'none' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,.04)'}
+              onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.5)" strokeWidth="2" strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+
+        </div>
+
+        {/* Sticky skipped banner + rule summary — collapsible */}
+        <div style={{ flex: 'none', borderBottom: '1px solid rgba(0,0,0,.07)' }}>
+          {stickyOpen ? (
+            /* Expanded: cards on left, collapse chevron floats to the right of the topmost card */
+            <div style={{ padding: '12px 16px 16px', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {skippedCount > 0 && (
+                  <div style={{ marginBottom: 12, padding: '10px 14px', background: 'rgba(224,120,46,.07)', border: '1px solid rgba(224,120,46,.28)', borderRadius: 8 }}>
+                    <div style={{ font: '600 11px/1 Inter,sans-serif', color: '#B2571A', display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" style={{ flex: 'none' }}><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                      <span style={{ flex: 1 }}>{skippedCount} question{skippedCount > 1 ? 's' : ''} skipped</span>
+                    </div>
+                    <div style={{ font: '400 11px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.55)', marginTop: 5 }}>We'll revisit these before saving.</div>
+                  </div>
+                )}
+                <RuleSummary form={form} />
+              </div>
+              {/* Collapse chevron — outside cards, aligned to top of topmost card */}
+              <button onClick={() => setStickyOpen(false)} title="Collapse"
+                style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid rgba(124,58,237,.22)', background: 'rgba(124,58,237,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: 'none', marginTop: 2 }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(124,58,237,.14)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(124,58,237,.06)'}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="2.5" strokeLinecap="round"><path d="M18 15l-6-6-6 6"/></svg>
+              </button>
+            </div>
+          ) : (
+            /* Collapsed: compact single row with chips */
+            <button onClick={() => setStickyOpen(true)}
+              style={{ width: '100%', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: 'none', cursor: 'pointer', textAlign: 'left', transition: 'background .15s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.04)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}>
+              <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+              </div>
+              <span style={{ font: '600 11px/1 Inter,sans-serif', color: '#7C3AED', textTransform: 'uppercase', letterSpacing: '.06em', flex: 1 }}>Rule Summary</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {skippedCount > 0 && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, font: '600 10px/1 Inter,sans-serif', color: '#B2571A', background: 'rgba(224,120,46,.1)', border: '1px solid rgba(224,120,46,.25)', padding: '3px 7px', borderRadius: 5 }}>
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                    {skippedCount} skipped
+                  </span>
+                )}
+                {(() => { const top = rankEmployees(form)[0]; return top ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, font: '500 10px/1 Inter,sans-serif', color: '#7C3AED', background: 'rgba(124,58,237,.08)', border: '1px solid rgba(124,58,237,.2)', padding: '3px 7px', borderRadius: 5 }}>
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="#7C3AED"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+                    1st {top.name}
+                  </span>
+                ) : null; })()}
+              </div>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(124,58,237,.6)" strokeWidth="2.2" strokeLinecap="round" style={{ flex: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+          )}
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+
+          {/* Rule Name — always visible */}
+          <FormGroup label="Rule Name">
+            <FormInput value={form.ruleName} onChange={v => patchForm({ ruleName: v })} placeholder="e.g. Hours Based — Firefighter 2" />
+          </FormGroup>
+
+          {revealedFields.size === 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 16px 32px', gap: 14, textAlign: 'center' }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(124,58,237,.07)', border: '1.5px dashed rgba(124,58,237,.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(124,58,237,.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+              </div>
+              <div style={{ font: '500 13px/1.5 Inter,sans-serif', color: 'rgba(0,0,0,.5)' }}>Chat with the AI to build your rule</div>
+              <div style={{ font: '400 11px/1.6 Inter,sans-serif', color: 'rgba(0,0,0,.33)', maxWidth: 190 }}>Configuration fields will appear here as you answer questions</div>
+            </div>
+          ) : null}
+
+          {shown('ruleType') && (
+            <div style={{ animation: 'fieldReveal .3s ease both' }}>
+              <FormGroup label="Rule Type">
+                <RichSelect
+                  value={form.ruleType}
+                  onChange={v => patchForm({ ruleType: v }, { fromUser: true })}
+                  options={RULE_TYPE_OPTIONS}
+                />
+              </FormGroup>
+            </div>
+          )}
+
+          {shown('turnsCounting') && form.ruleType === 'turns' && (
+            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)' }}>
+              <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Counting method</div>
+              <select value={form.turnsCounting} onChange={e => patchForm({ turnsCounting: e.target.value })}
+                style={{ width: '100%', height: 36, padding: '0 36px 0 12px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
+                <option value="All turns">All turns</option>
+                <option value="Accepted only">Accepted only</option>
+                <option value="Accepted + weighted">Accepted + weighted</option>
+              </select>
+            </div>
+          )}
+
+          {shown('rolodexReset') && form.ruleType === 'rolodex' && (
+            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)' }}>
+              <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>List reset</div>
+              <select value={form.rolodexReset} onChange={e => patchForm({ rolodexReset: e.target.value })}
+                style={{ width: '100%', height: 36, padding: '0 36px 0 12px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
+                <option value="Reset each cycle">Reset each cycle</option>
+                <option value="Keep rotating">Keep rotating</option>
+                <option value="Manual reset">Manual reset</option>
+              </select>
+            </div>
+          )}
+
+          {shown('ruleAffects') && (
+            <div style={{ animation: 'fieldReveal .3s ease both' }}>
+              <FormGroup label="Rule Affects">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {[{ v: 'all', l: 'All Approaches' }, { v: 'selected', l: 'Selected Approaches' }].map(opt => (
+                    <label key={opt.v} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => patchForm({ ruleAffects: opt.v }, { fromUser: true })}>
+                      <span style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${form.ruleAffects === opt.v ? '#7C3AED' : 'rgba(0,0,0,.28)'}`, background: form.ruleAffects === opt.v ? '#7C3AED' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', transition: 'all .15s' }}>
+                        {form.ruleAffects === opt.v && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#fff' }} />}
+                      </span>
+                      <span style={{ font: '400 14px/1 Inter,sans-serif', color: 'rgba(24,39,58,.87)' }}>{opt.l}</span>
+                    </label>
+                  ))}
+                  {form.ruleAffects === 'selected' && (
+                    <div style={{ marginLeft: 26, display: 'flex', flexDirection: 'column', gap: 9 }}>
+                      {/* Selected approach tags */}
+                      {form.selectedApproaches.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                          {form.selectedApproaches.map(a => (
+                            <span key={a} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 6px 4px 10px', background: 'rgba(124,58,237,.1)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 12, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>
+                              {a}
+                              <button onClick={() => patchForm({ selectedApproaches: form.selectedApproaches.filter(x => x !== a) })}
+                                style={{ width: 14, height: 14, border: 'none', background: 'none', cursor: 'pointer', color: 'rgba(124,58,237,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                                <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M1 1l8 8M9 1L1 9"/></svg>
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {/* Quick-add suggestion chips */}
+                      {['Firefighter 2','Captains','Patrol Deputy','Bay Guard'].filter(a => !form.selectedApproaches.includes(a)).length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                          {['Firefighter 2','Captains','Patrol Deputy','Bay Guard'].filter(a => !form.selectedApproaches.includes(a)).map(a => (
+                            <button key={a}
+                              onClick={() => patchForm({ selectedApproaches: [...form.selectedApproaches, a] })}
+                              style={{ height: 26, padding: '0 10px', borderRadius: 13, border: '1px solid rgba(0,0,0,.15)', background: '#fff', font: '400 12px/1 Inter,sans-serif', color: 'rgba(24,39,58,.7)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                              {a}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {/* Name in chat link */}
+                      <button onClick={() => textareaRef.current?.focus()}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 0', border: 'none', background: 'none', font: '400 11px/1 Inter,sans-serif', color: 'rgba(124,58,237,.75)', cursor: 'pointer', textAlign: 'left' }}>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                        Name different approaches in chat →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </FormGroup>
+            </div>
+          )}
+
+
+          {(shown('minShift') || shown('maxShift')) && (
+            <div style={{ animation: 'fieldReveal .3s ease both' }}>
+              <FormGroup label="Shift Length">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <div style={{ font: '500 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', marginBottom: 5, letterSpacing: '.03em' }}>Min (hours)</div>
+                    <FormInput value={form.minShift} onChange={v => patchForm({ minShift: v })} placeholder="e.g. 4" type="number" />
+                  </div>
+                  <div>
+                    <div style={{ font: '500 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', marginBottom: 5, letterSpacing: '.03em' }}>Max (hours)</div>
+                    <FormInput value={form.maxShift} onChange={v => patchForm({ maxShift: v })} placeholder="e.g. 12" type="number" />
+                  </div>
+                </div>
+              </FormGroup>
+            </div>
+          )}
+
+          {(shown('lookBack') || shown('forecast')) && (
+            <div style={{ animation: 'fieldReveal .3s ease both' }}>
+              <FormGroup label="Ranking Reference Range">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <div style={{ font: '500 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', marginBottom: 5, letterSpacing: '.03em' }}>Look back (days)</div>
+                    <FormInput value={form.lookBack} onChange={v => patchForm({ lookBack: v })} placeholder="e.g. 30" type="number" />
+                  </div>
+                  <div>
+                    <div style={{ font: '500 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', marginBottom: 5, letterSpacing: '.03em' }}>Forecast (days)</div>
+                    <FormInput value={form.forecast} onChange={v => patchForm({ forecast: v })} placeholder="e.g. 7" type="number" />
+                  </div>
+                </div>
+              </FormGroup>
+            </div>
+          )}
+
+          {shown('tieBreaker') && (
+            <div style={{ animation: 'fieldReveal .3s ease both' }}>
+              <FormGroup label="Tiebreaker">
+                <select value={form.tieBreaker} onChange={e => patchForm({ tieBreaker: e.target.value }, { fromUser: true })}
+                  style={{ width: '100%', height: 38, padding: '0 36px 0 12px', border: '1px solid rgba(0,0,0,.18)', borderRadius: 6, font: '400 14px/1 Inter,sans-serif', color: form.tieBreaker ? 'rgba(24,39,58,.94)' : 'rgba(0,0,0,.4)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
+                  <option value="">Not set</option>
+                  <option value="Seniority (hire date)">Seniority (hire date)</option>
+                  <option value="Last shift worked">Last shift worked</option>
+                  <option value="Last callback date">Last callback date</option>
+                  <option value="Alphabetical">Alphabetical</option>
+                </select>
+              </FormGroup>
+            </div>
+          )}
+
+          {shown('tieBreakerOrder') && form.tieBreaker && (
+            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)' }}>
+              <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Sort order</div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>
+                {form.tieBreakerOrder}
+              </div>
+            </div>
+          )}
+
+          {shown('declineAction') && (
+            <div style={{ animation: 'fieldReveal .3s ease both' }}>
+              <FormGroup label="Decline Action">
+                <select value={form.declineAction} onChange={e => patchForm({ declineAction: e.target.value }, { fromUser: true })}
+                  style={{ width: '100%', height: 38, padding: '0 36px 0 12px', border: '1px solid rgba(0,0,0,.18)', borderRadius: 6, font: '400 14px/1 Inter,sans-serif', color: form.declineAction ? 'rgba(24,39,58,.94)' : 'rgba(0,0,0,.4)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
+                  <option value="">Not set</option>
+                  <option value="Move to back of list">Move to back of list</option>
+                  <option value="Stay in position">Stay in position</option>
+                  <option value="Penalty points">Penalty points</option>
+                </select>
+                {shown('penaltyPoints') && form.declineAction === 'Penalty points' && (
+                  <div style={{ animation: 'fieldReveal .3s ease both', marginTop: 10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)' }}>
+                    <div style={{ font: '600 10px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 7 }}>Points per decline</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <input type="number" value={form.penaltyPoints} onChange={e => patchForm({ penaltyPoints: e.target.value })} placeholder="e.g. 2"
+                        style={{ width: 80, height: 34, padding: '0 10px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 14px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', outline: 'none', background: '#fff' }}
+                        onFocus={e => e.target.style.borderColor = '#7C3AED'} onBlur={e => e.target.style.borderColor = 'rgba(0,0,0,.15)'} />
+                      <span style={{ font: '400 13px/1 Inter,sans-serif', color: 'rgba(0,0,0,.5)' }}>points</span>
+                    </div>
+                  </div>
+                )}
+                {shown('declineScope') && form.declineAction === 'Move to back of list' && (
+                  <div style={{ animation: 'fieldReveal .3s ease both', marginTop: 10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)' }}>
+                    <div style={{ font: '600 10px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 7 }}>Apply to</div>
+                    <select value={form.declineScope} onChange={e => patchForm({ declineScope: e.target.value })}
+                      style={{ width: '100%', height: 34, padding: '0 32px 0 10px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center' }}>
+                      <option value="All reasons">All reasons</option>
+                      <option value="Voluntary only">Voluntary only</option>
+                      <option value="Involuntary only">Involuntary only</option>
+                    </select>
+                  </div>
+                )}
+                {shown('declineCooldown') && form.declineAction === 'Stay in position' && (
+                  <div style={{ animation: 'fieldReveal .3s ease both', marginTop: 10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)' }}>
+                    <div style={{ font: '600 10px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 7 }}>Re-offer cooldown</div>
+                    <select value={form.declineCooldown} onChange={e => patchForm({ declineCooldown: e.target.value })}
+                      style={{ width: '100%', height: 34, padding: '0 32px 0 10px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center' }}>
+                      <option value="None">No cooldown</option>
+                      <option value="1 hour">1 hour</option>
+                      <option value="4 hours">4 hours</option>
+                    </select>
+                  </div>
+                )}
+              </FormGroup>
+            </div>
+          )}
+
+          <div style={{ height: 8 }} />
+        </div>
+
+        <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(0,0,0,.08)', background: '#fff', display: 'flex', gap: 10, flex: 'none' }}>
+          <button onClick={onBack} style={{ flex: 1, height: 40, background: '#fff', color: 'rgba(24,39,58,.8)', border: '1px solid rgba(0,0,0,.18)', borderRadius: 6, font: '500 14px/1 Inter,sans-serif', cursor: 'pointer' }}>Cancel</button>
+          <button onClick={() => skippedCount === 0 && setSaved(true)} disabled={skippedCount > 0}
+            style={{ flex: 2, height: 40, background: skippedCount > 0 ? 'rgba(0,0,0,.08)' : 'linear-gradient(135deg,#7C3AED,#5B21B6)', color: skippedCount > 0 ? 'rgba(0,0,0,.3)' : '#fff', border: 'none', borderRadius: 6, font: '600 14px/1 Inter,sans-serif', cursor: skippedCount > 0 ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: skippedCount > 0 ? 'none' : '0 2px 10px rgba(124,58,237,.4)', transition: 'all .2s' }}
+            title={skippedCount > 0 ? `Answer ${skippedCount} skipped question${skippedCount > 1 ? 's' : ''} first` : undefined}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16l-4-4 1.4-1.4L9 13.2l8.6-8.6L19 6z"/></svg>
+            Save Rule
+          </button>
+        </div>
+      </div>
+      )}
+    </div>
+  );
+}
+</script>
+
+<!-- =====================================================================
+     APP
+     ===================================================================== -->
+<script type="text/babel">
+/* global React */
+const { useState: useAppSt } = React;
+
+function App() {
+  const [building, setBuilding] = useAppSt(null);
+
+  return (
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#F4F5F7' }}>
+      <OuterSidebar />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <TopBar />
+        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+          <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {building ? (
+              <RuleBuilderView seed={building} onBack={() => setBuilding(null)} />
+            ) : (
+              <>
+                <PageHeader title="Rules Engine" />
+                <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+                  <div style={{ maxWidth: 720, margin: '0 auto' }}>
+                    <AIAssistantCard onStart={seed => setBuilding(seed)} />
+                  </div>
+                </div>
+              </>
+            )}
+          </main>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('app')).render(<App />);
+</script>
+</body>
+</html>
