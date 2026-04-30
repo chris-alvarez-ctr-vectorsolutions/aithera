@@ -4,15 +4,17 @@
 // HTMLElement. The router replaces #view contents and updates chrome.
 
 import { store } from './store.js';
-import * as launch   from './views/launch.js';
-import * as home     from './views/home.js';
-import * as course   from './views/course.js';
-import * as chapter  from './views/chapter.js';
-import * as practice from './views/practice.js';
-import * as summary  from './views/summary.js';
-import * as hub      from './views/hub.js';
-import * as coachV   from './views/coach.js';
-import * as profile  from './views/profile.js';
+import * as launch    from './views/launch.js';
+import * as home      from './views/home.js';
+import * as course    from './views/course.js';
+import * as chapter   from './views/chapter.js';
+import * as practice  from './views/practice.js';
+import * as summary   from './views/summary.js';
+import * as hub       from './views/hub.js';
+import * as coachV    from './views/coach.js';
+import * as profile   from './views/profile.js';
+import * as courses   from './views/courses.js';
+import * as reference from './views/reference.js';
 
 // Each route declares whether it's a top-level tab (no back button) and
 // what its logical parent is (so back navigates *within* the prototype
@@ -20,14 +22,16 @@ import * as profile  from './views/profile.js';
 const ROUTES = [
   { re: /^#?\/?$/,                                view: launch,   shell: false, top: true  },
   { re: /^#\/launch$/,                            view: launch,   shell: false, top: true  },
-  { re: /^#\/home$/,                              view: home,     shell: true,  top: true  },
-  { re: /^#\/hub$/,                               view: hub,      shell: true,  top: true  },
-  { re: /^#\/coach$/,                             view: coachV,   shell: true,  top: true  },
-  { re: /^#\/profile$/,                           view: profile,  shell: true,  top: true  },
-  { re: /^#\/course\/([^/]+)$/,                   view: course,   shell: true,  parent: '#/home' },
-  { re: /^#\/course\/([^/]+)\/chapter\/([^/]+)$/, view: chapter,  shell: true,  parent: (m) => `#/course/${m[1]}` },
-  { re: /^#\/practice\/([^/]+)$/,                 view: practice, shell: true,  parent: '#/hub' },
-  { re: /^#\/summary$/,                           view: summary,  shell: true,  parent: '#/home' }
+  { re: /^#\/home$/,                              view: home,      shell: true,  top: true  },
+  { re: /^#\/courses$/,                           view: courses,   shell: true,  top: true  },
+  { re: /^#\/coach$/,                             view: coachV,    shell: true,  top: true  },
+  { re: /^#\/practice$/,                          view: hub,       shell: true,  top: true  },
+  { re: /^#\/reference$/,                         view: reference, shell: true,  top: true  },
+  { re: /^#\/profile$/,                           view: profile,   shell: true,  parent: '#/home' },
+  { re: /^#\/course\/([^/]+)$/,                   view: course,    shell: true,  parent: '#/courses' },
+  { re: /^#\/course\/([^/]+)\/chapter\/([^/]+)$/, view: chapter,   shell: true,  parent: (m) => `#/course/${m[1]}` },
+  { re: /^#\/practice\/([^/]+)$/,                 view: practice,  shell: true,  parent: '#/practice' },
+  { re: /^#\/summary$/,                           view: summary,   shell: true,  parent: '#/home' }
 ];
 
 const els = {
@@ -36,7 +40,6 @@ const els = {
   tabbar:  document.getElementById('tabbar'),
   back:    document.getElementById('backBtn'),
   profile: document.getElementById('profileBtn'),
-  fab:     document.getElementById('coachFab'),
   brand:   document.querySelector('.brand-name')
 };
 
@@ -51,7 +54,6 @@ els.back.addEventListener('click', () => {
   location.hash = parent || '#/home';
 });
 els.profile.addEventListener('click', () => location.hash = '#/profile');
-els.fab.addEventListener('click', () => location.hash = '#/coach');
 
 document.querySelectorAll('[data-route]').forEach((el) => {
   el.addEventListener('click', (e) => {
@@ -95,7 +97,6 @@ function renderRoute() {
 function toggleShell(show) {
   els.appbar.hidden = !show;
   els.tabbar.hidden = !show;
-  els.fab.hidden = !show || location.hash === '#/coach';
 }
 
 function highlightTab(hash) {

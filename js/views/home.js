@@ -1,11 +1,8 @@
-// views/home.js — Home is a *feed*, not a static dashboard.
-// The order of sections answers "what does this learner need RIGHT NOW?"
-//   1. Urgent alerts (cert lapse, mandated)
-//   2. In-progress (resume cleanly)
-//   3. Required queue
-//   4. Practice suggestions (with adaptive rationale visible)
-//   5. Saved
-//   6. Coach Vic entry
+// views/home.js — Home / Dashboard.
+// Reshape per Vector mockup: single prominent In Progress card with a
+// strong Resume CTA, a Coach Vic prompt card with explicit actions, and
+// a compact Required Training list. Urgent alerts render as a slim
+// strip at the very top so they're impossible to miss but don't dominate.
 import { store } from '../store.js';
 import * as adaptive from '../adaptive.js';
 
@@ -14,72 +11,42 @@ export function render() {
   const root = document.createElement('section');
   root.className = 'stack';
 
-  // Greeting
+  // Greeting (kept compact — the In Progress card carries visual weight)
   const hello = document.createElement('div');
   hello.innerHTML = `
-    <h1 style="margin:6px 4px 0;font-size:24px;">Hi ${learner.name.split(' ')[0]}.</h1>
-    <p class="muted" style="margin:2px 4px 8px">${industry.tagline}</p>
-    <div class="row" style="margin:0 4px 8px;gap:6px;flex-wrap:wrap">
-      <span class="tag accent">${learner.role}</span>
-      <span class="tag">${learner.experienceLevel}</span>
-      <span class="tag good">${learner.stats.streakDays}-day streak</span>
-      <span class="tag">${learner.stats.weeklyMinutes} min this week</span>
-    </div>
+    <h1 style="margin:6px 4px 0;font-size:22px">Hi ${learner.name.split(' ')[0]}.</h1>
+    <p class="muted tiny" style="margin:2px 4px 10px">${industry.tagline}</p>
   `;
   root.appendChild(hello);
 
-  // 1. Urgent
-  const alerts = adaptive.urgentAlerts();
-  if (alerts.length) {
-    root.appendChild(sectionH('Urgent', null));
-    for (const a of alerts) root.appendChild(alertCard(a));
-  }
+  // 1. Urgent alerts (slim strips)
+  for (const a of adaptive.urgentAlerts()) root.appendChild(alertStrip(a));
 
-  // 2. In progress
+  // 2. In progress (prominent)
   const inProg = adaptive.inProgress();
   if (inProg.length) {
-    root.appendChild(sectionH('Continue', null));
-    for (const ip of inProg) root.appendChild(progressCard(ip));
+    root.appendChild(sectionH('In progress', inProg.length > 1 ? '#/courses' : null));
+    root.appendChild(inProgressCard(inProg[0]));
   }
 
-  // 3. Required
+  // 3. Coach Vic prompt — adaptive: pick weakest concept's scenario
+  root.appendChild(coachPromptCard());
+
+  // 4. Required training (compact rows)
   const req = adaptive.requiredQueue();
   if (req.length) {
-    root.appendChild(sectionH('Required for your role', null));
-    for (const c of req) root.appendChild(courseCard(c, { compact: true }));
+    root.appendChild(sectionH('Required training', '#/courses'));
+    for (const c of req) root.appendChild(requiredRow(c));
   }
 
-  // 4. Practice suggestions (with rationale)
-  const sugg = adaptive.practiceSuggestions(3);
-  if (sugg.length) {
-    root.appendChild(sectionH(`Suggested ${industry.language.practiceWord}`, '#/hub'));
-    for (const p of sugg) root.appendChild(practiceCard(p));
-  }
-
-  // 5. Saved
-  if (store.state.mastery.saved.length) {
+  // 5. Saved (still useful, kept slim)
+  const saved = store.state.mastery.saved;
+  if (saved.length) {
     root.appendChild(sectionH('Saved', null));
-    for (const id of store.state.mastery.saved) {
-      const c = store.course(id); if (c) root.appendChild(courseCard(c, { compact: true }));
+    for (const id of saved) {
+      const c = store.course(id); if (c) root.appendChild(requiredRow(c, { saved: true }));
     }
   }
-
-  // 6. Coach Vic entry
-  root.appendChild(sectionH('Coach Vic', null));
-  const coachCard = document.createElement('a');
-  coachCard.className = 'card coach';
-  coachCard.href = '#/coach';
-  coachCard.innerHTML = `
-    <div class="row between">
-      <div>
-        <span class="tag accent">AI Coach</span>
-        <h3>Ask, practice, or reflect with Vic</h3>
-        <p>Bounded to your trusted course content. Adapts tone to your profile.</p>
-      </div>
-      <span class="btn primary sm">Open</span>
-    </div>
-  `;
-  root.appendChild(coachCard);
 
   return root;
 }
@@ -87,76 +54,92 @@ export function render() {
 function sectionH(label, link) {
   const h = document.createElement('div');
   h.className = 'section-h';
-  h.innerHTML = `<h2>${label}</h2>${link ? `<a href="${link}">See all</a>` : ''}`;
+  h.innerHTML = `<h2>${label}</h2>${link ? `<a href="${link}">View all</a>` : ''}`;
   return h;
 }
 
-function alertCard(a) {
+function alertStrip(a) {
   const el = document.createElement('a');
-  el.className = `card ${a.severity === 'urgent' ? 'urgent' : 'alert'}`;
+  el.className = 'alert-strip';
   el.href = a.action.route;
   el.innerHTML = `
-    <div class="row between">
-      <span class="tag ${a.severity === 'urgent' ? 'bad' : 'warn'}">${a.severity === 'urgent' ? 'Action needed' : 'Heads up'}</span>
-      <span class="tiny muted">${a.kind}</span>
+    <span class="glyph" aria-hidden="true">⚠</span>
+    <div class="body">
+      <small>${a.severity === 'urgent' ? 'Certification expiring' : 'Heads up'}</small>
+      <strong>${a.title}</strong>
     </div>
-    <h3>${a.title}</h3>
-    <p>${a.body}</p>
-    <div class="row" style="margin-top:10px"><span class="btn sm">${a.action.label} →</span></div>
+    <span class="chev" aria-hidden="true">›</span>
   `;
   return el;
 }
 
-function progressCard({ course, progress }) {
-  const el = document.createElement('a');
-  el.className = 'card';
-  el.href = `#/course/${course.id}`;
+function inProgressCard({ course, progress }) {
   const pct = Math.round((progress.percent ?? 0) * 100);
+  const ch = course.chapters.find((c) => c.id === progress.chapter) ?? course.chapters[0];
+  const chIdx = course.chapters.findIndex((c) => c.id === ch.id) + 1;
+  const minutesLeft = course.chapters
+    .slice(chIdx - 1)
+    .reduce((s, c) => s + (c.minutes || 0), 0);
+  const initials = course.title.split(/\s+/).slice(0,2).map((w) => w[0]).join('').toUpperCase();
+
+  const el = document.createElement('div');
+  el.className = 'in-progress';
   el.innerHTML = `
-    <div class="row between">
-      <span class="tag">In progress</span>
-      <span class="tiny muted">${pct}%</span>
+    <div class="ip-head">
+      <div class="thumb">${initials}</div>
+      <div style="flex:1;min-width:0">
+        <h3>${course.title}</h3>
+        <p class="muted tiny" style="margin:4px 0 0">Chapter ${chIdx}: ${ch.title}</p>
+      </div>
     </div>
-    <h3>${course.title}</h3>
-    <p>Picking up at: ${chapterLabel(course, progress.chapter)}</p>
-    <div class="progress" style="margin-top:10px"><span style="width:${pct}%"></span></div>
+    <div class="ip-meta">
+      <span>${pct}% complete</span>
+      <span>~${minutesLeft} min left</span>
+    </div>
+    <div class="progress"><span style="width:${pct}%"></span></div>
+    <a class="resume" href="#/course/${course.id}/chapter/${ch.id}">Resume</a>
   `;
   return el;
 }
 
-function courseCard(course, { compact } = {}) {
-  const el = document.createElement('a');
-  el.className = 'card';
-  el.href = `#/course/${course.id}`;
-  const caps = (course.capabilities || []).map((c) => `<span class="tag">${c}</span>`).join(' ');
+function coachPromptCard() {
+  // Pick the weakest concept's scenario as the engagement hook.
+  const sugg = adaptive.practiceSuggestions(1)[0];
+  const sc = sugg?.scenario ?? store.state.scenarios[0];
+  const learner = store.state.learner;
+  const word = store.state.industry.language.practiceWord;
+  const tone = learner.preferences.coachTone;
+  const first = learner.name.split(' ')[0];
+  const q = tone === 'supportive'
+    ? `Hey ${first} — want to warm up with the “${sc.title}” ${word}?`
+    : `${first}, ready to run the “${sc.title}” ${word}?`;
+
+  const el = document.createElement('div');
+  el.className = 'coach-prompt';
   el.innerHTML = `
-    <div class="row between">
-      <span class="tag accent">${course.mandated ? 'Required' : 'Recommended'}</span>
-      <span class="tiny muted">${course.estMinutes} min</span>
+    <div class="ph"><i class="ico ico-coach" aria-hidden="true"></i><span>Coach Vic</span></div>
+    <p class="q">"${q}"</p>
+    <div class="actions">
+      <a class="btn primary" style="flex:1" href="#/practice/${sc.id}">Start practice</a>
+      <a class="btn ghost" href="#/coach">Later</a>
     </div>
-    <h3>${course.title}</h3>
-    ${compact ? '' : `<p>${course.summary}</p>`}
-    <div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap">${caps}</div>
   `;
   return el;
 }
 
-function practiceCard({ scenario, reason }) {
-  const el = document.createElement('a');
-  el.className = 'card';
-  el.href = `#/practice/${scenario.id}`;
-  el.innerHTML = `
-    <div class="row between">
-      <span class="tag accent">${store.state.industry.language.practiceWord}</span>
-      <span class="tiny muted">${scenario.estMinutes} min</span>
+function requiredRow(course, { saved } = {}) {
+  const a = document.createElement('a');
+  a.className = 'row-card';
+  a.href = `#/course/${course.id}`;
+  const due = course.mandated ? `Due in 30 days` : (saved ? 'Saved' : 'Recommended');
+  const glyph = course.mandated ? '⚑' : (saved ? '★' : '◆');
+  a.innerHTML = `
+    <span class="glyph" aria-hidden="true">${glyph}</span>
+    <div class="body">
+      <strong>${course.title}</strong>
+      <small>${due}</small>
     </div>
-    <h3>${scenario.title}</h3>
-    <p>${scenario.outcomeType}</p>
-    <p class="tiny muted" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px"><strong>Why this:</strong> ${reason}</p>
+    <span class="kebab" aria-hidden="true">⋯</span>
   `;
-  return el;
-}
-
-function chapterLabel(course, chId) {
-  return course.chapters.find((c) => c.id === chId)?.title ?? course.chapters[0].title;
+  return a;
 }
