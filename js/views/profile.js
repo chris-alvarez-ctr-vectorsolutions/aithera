@@ -68,6 +68,11 @@ export function render() {
         await Promise.all(keys.map((k) => caches.delete(k)));
       }
     } catch {}
+    // Force the user back to the Launch screen by wiping the persisted
+    // learner state. Without this, store.init re-hydrates from
+    // localStorage on next boot and the user lands in Home, not Launch.
+    store.reset();
+    try { localStorage.clear(); } catch {}
     // Bust the URL so the browser cache also misses this load.
     const url = new URL(location.href);
     url.searchParams.set('_', Date.now().toString());
