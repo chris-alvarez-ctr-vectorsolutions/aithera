@@ -12,9 +12,18 @@ import { store } from '../store.js';
 import * as ui from '../ui.js';
 
 export function render(scenarioId) {
-  const sc = store.scenario(scenarioId);
+  // Hash may carry a ?retry=N suffix. Parse it off the id.
+  const [pureId, qs = ''] = String(scenarioId).split('?');
+  const retryCount = parseInt(new URLSearchParams(qs).get('retry') || '0', 10) || 0;
+
+  const baseScenario = store.scenario(pureId);
   const root = document.createElement('section');
-  if (!sc) { root.appendChild(ui.el('p', { class: 'muted' }, 'Scenario not found.')); return root; }
+  if (!baseScenario) { root.appendChild(ui.el('p', { class: 'muted' }, 'Scenario not found.')); return root; }
+
+  // Retry semantics: don't reuse canned answer order. Deterministically
+  // shuffle option labels per retry attempt so the learner can't memorize
+  // "third option = good" — they have to re-read each time.
+  const sc = retryCount > 0 ? variantOf(baseScenario, retryCount) : baseScenario;
 
   const stepResults = []; // { stepId, choice|text, outcome, points, lastAssessment }
   let stepIdx = 0;
@@ -25,14 +34,17 @@ export function render(scenarioId) {
   // --------------------- WELCOME PHASE ---------------------
   function renderWelcome() {
     const w = sc.welcome || {};
+    const retrySuffix = retryCount > 0
+      ? ` This is take ${retryCount + 1} — the prompts are the same, but the option order has been shuffled to keep the rehearsal honest.`
+      : '';
     show(ui.scenarioWelcome({
-      kicker: w.kicker || sc.kicker || 'Module orientation',
+      kicker: retryCount > 0 ? `Module orientation · take ${retryCount + 1}` : (w.kicker || sc.kicker || 'Module orientation'),
       title: w.title || 'Scenario overview',
-      body: w.body || sc.context,
+      body: (w.body || sc.context) + retrySuffix,
       highlight: w.highlight,
       reassurance: w.reassurance,
       expectedOutcome: w.expectedOutcome || sc.outcomeType,
-      ctaLabel: 'Begin practice',
+      ctaLabel: retryCount > 0 ? 'Begin retry' : 'Begin practice',
       onBegin: () => { stepIdx = 0; renderStep(); }
     }));
   }
@@ -197,6 +209,7 @@ export function render(scenarioId) {
       score,
       stepResults,
       elapsed:    timer?.elapsed?.() ?? 0,
+      retryCount,
       at: Date.now()
     };
     store.recordPractice(result);
@@ -243,3 +256,44 @@ function matches(criterion, text) {
 }
 
 function escape(s) { return String(s).replace(/[&<>]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+// variantOf — return a clone of the scenario with options reordered
+// using a deterministic shuffle keyed on the retry count. The seed is
+// per-step so different steps get different orders, but the same
+// retry/scenario combo always reproduces. Prevents canned-answer
+// memorization on retry without forcing an authoring rewrite.
+function variantOf(scenario, attempt) {
+  const clone = JSON.parse(JSON.stringify(scenario));
+  for (let i = 0; i < clone.steps.length; i++) {
+    const step = clone.steps[i];
+    if (!step.options) continue;
+    const seed = hash(`${scenario.id}:${step.id}:${attempt}`);
+    step.options = shuffle(step.options.slice(), seed);
+  }
+  return clone;
+}
+
+function hash(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (h * 16777619) >>> 0;
+  }
+  return h;
+}
+
+function shuffle(arr, seed) {
+  // Mulberry32 PRNG seeded by hash, Fisher–Yates shuffle.
+  let s = seed >>> 0;
+  const rand = () => {
+    s |= 0; s = s + 0x6D2B79F5 | 0;
+    let t = Math.imul(s ^ s >>> 15, 1 | s);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}

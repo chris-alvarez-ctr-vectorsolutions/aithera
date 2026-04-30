@@ -34,7 +34,9 @@ const SVG = {
   info:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01"/><path d="M11 12h1v5h1"/></svg>`,
   brain:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4a3 3 0 00-3 3v1a3 3 0 00-1 6 3 3 0 003 3v1a3 3 0 003 3 3 3 0 003-3v-1a3 3 0 003-3 3 3 0 00-1-6V7a3 3 0 00-3-3 3 3 0 00-2 1 3 3 0 00-2-1z"/></svg>`,
   mic:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v3"/></svg>`,
-  arrowRight: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>`
+  arrowRight: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>`,
+  trending: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 7-8"/><path d="M14 7h6v6"/></svg>`,
+  retry:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 4v5h-5"/></svg>`
 };
 
 // ---------- tiny element factory ----------
@@ -446,6 +448,37 @@ export function stepHeader({ kicker, title, timerEl }) {
       el('strong', null, title)
     ),
     timerEl
+  );
+}
+
+// insightHeader — large page header with leading icon + body intro.
+// Used on Practice Results to set the qualitative-review framing.
+export function insightHeader({ title, body, icon: ic = 'brain' }) {
+  return el('div', { class: 'insight-header' },
+    el('div', { class: 'ih-icon' }, icon(ic)),
+    el('h2', null, title),
+    el('p', null, body)
+  );
+}
+
+// insightCard — strength / growth observation with a left accent stripe.
+// tone: 'strength' | 'growth'
+// quote: a paraphrased observation of what the learner did
+// indicator: the competency this maps to (Situational Awareness, etc.)
+export function insightCard({ tone = 'strength', quote, indicator }) {
+  const meta = tone === 'strength'
+    ? { label: 'Observed strength', cls: 'ic-strength', ic: 'check' }
+    : { label: 'Area for growth',   cls: 'ic-growth',   ic: 'trending' };
+  return el('div', { class: `insight-card ${meta.cls}` },
+    el('div', { class: 'ic-head' },
+      icon(meta.ic),
+      el('strong', null, meta.label)
+    ),
+    el('blockquote', { class: 'ic-quote' }, '"' + quote + '"'),
+    indicator ? el('p', { class: 'ic-indicator' },
+      el('span', null, 'Indicator: '),
+      el('strong', null, indicator)
+    ) : null
   );
 }
 

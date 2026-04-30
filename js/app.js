@@ -30,7 +30,7 @@ const ROUTES = [
   { re: /^#\/profile$/,                           view: profile,   shell: true,  parent: '#/home' },
   { re: /^#\/course\/([^/]+)$/,                   view: course,    shell: true,  parent: '#/courses' },
   { re: /^#\/course\/([^/]+)\/chapter\/([^/]+)$/, view: chapter,   shell: true,  parent: (m) => `#/course/${m[1]}` },
-  { re: /^#\/practice\/([^/]+)$/,                 view: practice,  shell: true,  parent: '#/practice' },
+  { re: /^#\/practice\/([^/?]+)(?:\?.*)?$/,       view: practice,  shell: true,  parent: '#/practice' },
   { re: /^#\/summary$/,                           view: summary,   shell: true,  parent: '#/home' }
 ];
 
