@@ -1,9 +1,11 @@
-// Aithera service worker — minimal cache-first PWA shell.
+// Aithera service worker — network-first PWA shell.
 // Strategy:
-//   - Pre-cache the app shell + JSON data on install.
-//   - Network-first for navigation requests (so updates show up).
-//   - Cache-first for everything else, with runtime fallback to cache.
-const VERSION = 'aithera-v16';
+//   - Pre-cache the app shell + JSON data on install (for offline first run).
+//   - Network-first for navigations and all app code (JS/CSS/HTML/JSON).
+//     Every reload fetches fresh — no stale code, no version bumps required
+//     to ship a fix to testers. Cache is only a fallback when offline.
+//   - Cache-first for other GETs (images, fonts, etc.).
+const VERSION = 'aithera-v17';
 const CORE = [
   './',
   './index.html',
@@ -58,10 +60,9 @@ self.addEventListener('activate', (e) => {
 });
 
 // Strategy:
-//   - Navigations: network-first (so a deploy is visible on the next reload).
-//   - JS / CSS / HTML / JSON: stale-while-revalidate (instant load from cache,
-//     but background-refresh so the next visit sees new code).
-//   - Other GETs: cache-first.
+//   - Navigations + app code (JS/CSS/HTML/JSON): network-first. Every reload
+//     pulls fresh bytes; cache is only a fallback when the network fails.
+//   - Other GETs (images, fonts, etc.): cache-first.
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
@@ -76,14 +77,11 @@ self.addEventListener('fetch', (e) => {
 
   if (isAppCode) {
     e.respondWith(
-      caches.match(req).then((cached) => {
-        const network = fetch(req).then((res) => {
-          const copy = res.clone();
-          caches.open(VERSION).then((c) => c.put(req, copy));
-          return res;
-        }).catch(() => cached);
-        return cached || network;
-      })
+      fetch(req).then((res) => {
+        const copy = res.clone();
+        caches.open(VERSION).then((c) => c.put(req, copy));
+        return res;
+      }).catch(() => caches.match(req))
     );
     return;
   }
