@@ -97,6 +97,11 @@ function renderRoute() {
 function toggleShell(show) {
   els.appbar.hidden = !show;
   els.tabbar.hidden = !show;
+  // Light theme is reserved for the prototype shell. The Launch screen
+  // stays dark by virtue of NOT having .light on body.
+  document.body.classList.toggle('light', show);
+  document.querySelector('meta[name=theme-color]')
+    ?.setAttribute('content', show ? '#f4f5f9' : '#0b1220');
 }
 
 function highlightTab(hash) {

@@ -142,15 +142,16 @@ async function fetchJSON(path) {
   return res.json();
 }
 
-// Apply industry theme by overriding CSS variables. This is the visible
-// proof that JSON is driving the experience — not just text strings.
+// Apply industry theme by overriding CSS variables. The bg token is
+// owned by the page theme (Launch = dark, prototype = light) — we only
+// drive the brand-tone accents from industry JSON so the prototype
+// re-skins (purple for Education, amber for Commercial, etc.) without
+// fighting the light/dark choice.
 function applyTheme(industry) {
   const t = industry?.theme || {};
   const r = document.documentElement.style;
   if (t.accent)  r.setProperty('--accent', t.accent);
   if (t.accent2) r.setProperty('--accent-2', t.accent2);
-  if (t.bg)      r.setProperty('--bg', t.bg);
-  document.querySelector('meta[name=theme-color]')?.setAttribute('content', t.bg ?? '#0b1220');
 }
 
 function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
