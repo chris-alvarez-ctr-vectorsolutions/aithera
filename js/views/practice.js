@@ -20,6 +20,18 @@ export function render(scenarioId) {
   const root = document.createElement('section');
   if (!baseScenario) { root.appendChild(ui.el('p', { class: 'muted' }, 'Scenario not found.')); return root; }
 
+  // Stub scenarios in the catalog don't have full welcome/step content yet.
+  // Render a polite "in development" notice rather than a broken flow.
+  if (!baseScenario.steps || baseScenario.steps.length === 0) {
+    root.appendChild(ui.kickerPill({ icon: 'sparkle', label: 'In development' }));
+    root.appendChild(ui.el('h2', { style: { margin: '0 0 8px' } }, baseScenario.title));
+    root.appendChild(ui.el('p', { class: 'muted' }, baseScenario.outcomeType || ''));
+    root.appendChild(ui.el('div', { class: 'card coach', style: { marginTop: '14px' } },
+      ui.el('p', null, 'This scenario is part of the catalog but isn\'t fully authored yet. The Practice Hub uses it to show how the catalog scales — pick another active scenario to rehearse.')));
+    root.appendChild(ui.el('a', { class: 'btn primary block', href: '#/practice', style: { marginTop: '12px' } }, 'Back to Practice Hub'));
+    return root;
+  }
+
   // Retry semantics: don't reuse canned answer order. Deterministically
   // shuffle option labels per retry attempt so the learner can't memorize
   // "third option = good" — they have to re-read each time.

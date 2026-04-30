@@ -579,6 +579,135 @@ function mdLite(s) {
     .replace(/\n/g, '<br>');
 }
 
+// hubHeader — Practice Hub page title + "Random scenario" CTA.
+export function hubHeader({ kicker, title, onRandom }) {
+  return el('div', { class: 'hub-header' },
+    el('div', { class: 'hh-text' },
+      kicker ? el('small', null, kicker) : null,
+      el('h2', null, title)
+    ),
+    el('button', { class: 'btn primary hh-random', on: { click: onRandom } },
+      icon('bolt'), el('span', null, 'Random'))
+  );
+}
+
+// statHero — single big stat with a leading sparkline-y mark and an
+// optional sub-stat ("Top 5% of Practitioners").
+export function statHero({ kicker, value, unit, sub, ic = 'trending' }) {
+  return el('div', { class: 'stat-hero' },
+    el('div', { class: 'sh-icon' }, icon(ic)),
+    el('div', { class: 'sh-body' },
+      kicker ? el('small', null, kicker) : null,
+      el('div', { class: 'sh-value' },
+        el('strong', null, value),
+        unit ? el('span', { class: 'sh-unit' }, unit) : null
+      ),
+      sub ? el('p', { class: 'sh-sub' }, sub) : null
+    )
+  );
+}
+
+// masteryCard — practice-tier counts + mastery progress row.
+export function masteryCard({ scenarios, edgeCases, masteryPct }) {
+  return el('div', { class: 'mastery-card' },
+    el('div', { class: 'mc-row' },
+      el('div', { class: 'mc-count' },
+        el('small', null, 'Scenarios'),
+        el('strong', null, String(scenarios))
+      ),
+      el('div', { class: 'mc-count' },
+        el('small', null, 'Edge cases'),
+        el('strong', null, String(edgeCases))
+      )
+    ),
+    el('div', { class: 'mc-meter' },
+      el('div', { class: 'mc-meter-row' },
+        el('small', null, 'Mastery level'),
+        el('span', null, `${masteryPct}%`)
+      ),
+      progressBar(masteryPct)
+    )
+  );
+}
+
+// featuredScenario — the dark hero card from the mockup. Two CTAs:
+// Start (primary) and Briefing (ghost).
+export function featuredScenario({ id, title, body, tags, startHref, briefingHref, gradient, accent }) {
+  return el('div', { class: 'featured-scn', style: { background: gradient || gradientFor(id, accent || '#3a5d77') } },
+    el('div', { class: 'fs-tags' },
+      ...(tags || []).map((t) => el('span', { class: `fs-tag t-${t.tone || 'plain'}` }, t.label))
+    ),
+    el('h3', { class: 'fs-title' }, title),
+    el('p', { class: 'fs-body' }, body),
+    el('div', { class: 'fs-actions' },
+      el('a', { class: 'btn primary', href: startHref }, 'Start simulation'),
+      briefingHref ? el('a', { class: 'btn ghost fs-ghost', href: briefingHref }, 'View briefing') : null
+    )
+  );
+}
+
+// catalogFilters — topic dropdown + sort. Returns { node, getTopic, getSort }.
+export function catalogFilters({ topics, onChange }) {
+  const topicSel = el('select', { class: 'cf-select' },
+    el('option', { value: '' }, 'All topics'),
+    ...topics.map((t) => el('option', { value: t }, capitalize(t)))
+  );
+  const sortSel = el('select', { class: 'cf-select' },
+    el('option', { value: 'difficulty-desc' }, 'Difficulty: high to low'),
+    el('option', { value: 'difficulty-asc' },  'Difficulty: low to high'),
+    el('option', { value: 'time-asc' },        'Time: short to long'),
+    el('option', { value: 'time-desc' },       'Time: long to short')
+  );
+  topicSel.addEventListener('change', () => onChange());
+  sortSel.addEventListener('change',  () => onChange());
+  const node = el('div', { class: 'cat-filters' }, topicSel, sortSel);
+  return { node, getTopic: () => topicSel.value, getSort: () => sortSel.value };
+}
+
+// scenarioCatalogCard — dense scenario tile used in the catalog grid.
+// status: 'active' | 'mastered' | 'locked'
+// Locked cards don't navigate — they show "Unlocks at level N".
+export function scenarioCatalogCard({ scenario, status, scorePct, onLockedClick }) {
+  const map = {
+    mastered: { label: 'Mastered', cls: 'st-mastered' },
+    active:   { label: 'Active',   cls: 'st-active'   },
+    locked:   { label: 'Locked',   cls: 'st-locked'   }
+  }[status] || { label: '', cls: '' };
+
+  const footRight = status === 'locked'
+    ? el('span', { class: 'sct-foot-meta' }, `Unlocks at lvl ${scenario.unlocksAtLevel || 5}`)
+    : status === 'mastered'
+    ? el('span', { class: 'sct-foot-meta' }, `${scorePct ?? 100}% score`)
+    : el('span', { class: 'sct-foot-meta' }, scenario.estMinutes ? `${scenario.estMinutes}m` : '');
+
+  const arrow = status === 'locked' ? null
+    : status === 'mastered' ? icon('retry')
+    : icon('arrowRight');
+
+  const props = {
+    class: `scn-cat-card ${map.cls}`,
+    href: status === 'locked' ? null : `#/practice/${scenario.id}`
+  };
+  if (status === 'locked' && onLockedClick) props.on = { click: onLockedClick };
+
+  return el(props.href ? 'a' : 'button', props,
+    el('div', { class: 'sct-head' },
+      el('span', { class: 'sct-glyph' }, icon(scenario.icon || 'shield')),
+      el('span', { class: `sct-status ${map.cls}` }, map.label)
+    ),
+    el('strong', { class: 'sct-title' }, scenario.title),
+    el('p', { class: 'sct-body' }, scenario.outcomeType || ''),
+    el('div', { class: 'sct-foot' },
+      el('span', { class: 'sct-time' }, icon('clock'),
+        el('span', null, scenario.estMinutes ? `${scenario.estMinutes}m` : '')),
+      footRight,
+      arrow ? el('span', { class: 'sct-action' }, arrow) : null
+    )
+  );
+}
+
+function capitalize(s) { return String(s || '').replace(/^./, (c) => c.toUpperCase()); }
+
 // gradient generator — keeps every hero distinct without bitmaps.
 // Hash the course id to a pair of hues, then build a layered gradient.
 export function gradientFor(seed, accent = '#ff7a3d') {
