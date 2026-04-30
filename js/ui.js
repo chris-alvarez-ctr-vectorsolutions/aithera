@@ -42,9 +42,9 @@ const SVG = {
 };
 
 // ---------- tiny element factory ----------
-export function el(tag, attrs = {}, ...children) {
+export function el(tag, attrs, ...children) {
   const e = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
+  for (const [k, v] of Object.entries(attrs || {})) {
     if (v == null || v === false) continue;
     if (k === 'class') e.className = v;
     else if (k === 'html') e.innerHTML = v;
