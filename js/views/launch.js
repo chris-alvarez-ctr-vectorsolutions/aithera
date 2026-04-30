@@ -15,17 +15,16 @@ const CATEGORIES = [
     options: [
       { id: 'ems',    label: 'EMS',    learner: 'ems',    industry: 'public-safety' },
       { id: 'fire',   label: 'Fire',   soon: true },
-      { id: 'police', label: 'Police', soon: true },
-      { id: 'other',  label: 'Other',  soon: true }
+      { id: 'police', label: 'Police', soon: true }
     ]
   },
   {
     id: 'education',
     label: 'Education',
     options: [
+      { id: 'hied-student',  label: 'HiEd Student',  learner: 'hied-student', industry: 'education' },
       { id: 'k12',           label: 'K-12',          soon: true },
-      { id: 'hied-faculty',  label: 'HiEd Faculty',  soon: true },
-      { id: 'hied-student',  label: 'HiEd Student',  learner: 'hied-student', industry: 'education' }
+      { id: 'hied-faculty',  label: 'HiEd Faculty',  soon: true }
     ]
   },
   {
