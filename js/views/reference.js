@@ -3,6 +3,7 @@
 // fast (mockup callout: "OSHA policy 1.2.3"). Loaded from data/reference.json.
 // Items default to industry-filtered with a toggle for "All".
 import { store } from '../store.js';
+import * as ui from '../ui.js';
 
 let onlyMine = true;
 let query = '';
@@ -67,17 +68,10 @@ export function render() {
 }
 
 function refRow(it) {
-  const a = document.createElement('a');
-  a.className = 'row-card';
-  a.href = '#/reference';
-  a.onclick = (e) => e.preventDefault(); // stub: docs are not viewable yet
-  a.innerHTML = `
-    <span class="glyph" aria-hidden="true">📄</span>
-    <div class="body">
-      <strong>${it.title}</strong>
-      <small>${it.kind} · Updated ${it.lastUpdated}</small>
-    </div>
-    <span class="kebab" aria-hidden="true">⋯</span>
-  `;
-  return a;
+  return ui.rowCard({
+    glyph: 'doc',
+    title: it.title,
+    sub: `${it.kind} · Updated ${it.lastUpdated}`,
+    onClick: (e) => e.preventDefault() // stub: docs are not viewable yet
+  });
 }
