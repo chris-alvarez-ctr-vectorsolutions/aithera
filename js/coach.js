@@ -1,95 +1,162 @@
-// coach.js — Coach Vic stub.
-// Goal: feel intelligent and bounded WITHOUT a real model call. Vic
-// answers from a small library of scripted intents that map to course
-// content. Anything outside that library returns a "I'll only answer
-// from the trusted course content" response — that bounded behavior is
-// the credibility play we want to demonstrate.
+// coach.js — Coach Vic response engine.
+// Async API so swapping the source from the local JSON script to a real
+// model endpoint later is a one-place change.
+//
+//   await coach.opener()      → proactive greeting (uses learner state)
+//   await coach.reply(text)   → responds to a message
+//
+// Response shape (uniform across local + future remote sources):
+//   { text, time, card?, cite?, suggested?, suggestPractice?, bounded?, escalated? }
+//
+// `text` may contain Markdown-lite **bold** and *italic*. Cards are
+// structured payloads ({ type, ...fields }) the view knows how to render.
 
 import { store } from './store.js';
 
-const INTENTS = [
-  {
-    match: /isolation|how far|distance|stand off/i,
-    answer: ({ industry }) =>
-      `Default isolation for an unknown ${industry?.language?.scenarioWord || 'incident'} starts at 50m and grows with vapor, fire, or symptoms. It's a *living* number — re-check it on every wind shift.`,
-    cite: { courseId: 'hazmat-awareness', concept: 'c2' }
-  },
-  {
-    match: /qsofa|sepsis|recogni[sz]e/i,
-    answer: () =>
-      `qSOFA flags risk, not diagnosis. Two of three (RR≥22, altered mentation, SBP≤100) earns immediate re-eval and starts the bundle clock — it doesn't replace clinical judgment.`,
-    cite: { courseId: 'sepsis-bundle', concept: 'c1' }
-  },
-  {
-    match: /bundle|hour[- ]?one|fluids|antibiotics/i,
-    answer: () =>
-      `The hour-1 bundle: lactate, blood cultures (before antibiotics when feasible), broad-spectrum antibiotics, 30 mL/kg crystalloid, vasopressors if MAP <65 after fluids. Velocity beats perfect ordering.`,
-    cite: { courseId: 'sepsis-bundle', concept: 'c2' }
-  },
-  {
-    match: /sitrep|handoff|hand off|notify/i,
-    answer: () =>
-      `Lead with the picture, not the timeline: location, product, isolation, resources requested, life safety. Save chronology for the second beat.`,
-    cite: { courseId: 'hazmat-awareness', concept: 'c3' }
-  },
-  {
-    match: /practice|drill|simulation|scenario/i,
-    answer: ({ industry }) =>
-      `Want to run a ${industry?.language?.practiceWord || 'scenario'}? I can pick one targeted to your weakest concept right now.`,
-    cite: null,
-    suggestPractice: true
-  }
-];
+let SCRIPT = null;
 
-const HIGH_RISK = /\b(suicid|harm myself|kill|emergenc|bleeding|chest pain)\b/i;
+async function ensureScript() {
+  if (SCRIPT) return;
+  const res = await fetch('data/coach-script.json', { cache: 'no-cache' });
+  SCRIPT = await res.json();
+}
 
 export const coach = {
-  // Returns { text, cite, suggestPractice } given a message + current state.
-  reply(message) {
-    const s = store.state;
+  // Proactive opener — picks the highest-priority "when" condition that
+  // matches the current learner state. Falls back to a generic hello.
+  async opener() {
+    await ensureScript();
+    const ctx = buildContext();
 
-    if (HIGH_RISK.test(message)) {
-      return {
-        text: 'That sounds urgent and outside what I should advise on. Please contact your supervisor or emergency services. I can resume coaching afterwards.',
-        cite: null,
-        escalated: true
-      };
+    for (const o of SCRIPT.openers) {
+      if (o.when === 'lowest-mastery-below' && ctx.lowestMasteryValue !== null && ctx.lowestMasteryValue < (o.threshold ?? 0.55)) {
+        return finalize(o, ctx);
+      }
+      if (o.when === 'cert-expires-within' && ctx.certDays !== null && ctx.certDays <= (o.thresholdDays ?? 30)) {
+        return finalize(o, ctx);
+      }
+      if (o.when === 'default') return finalize(o, ctx);
+    }
+    return { text: 'Hi.', time: now() };
+  },
+
+  // Reply to a learner message. Stays bounded; never invents citations.
+  async reply(message) {
+    await ensureScript();
+    const ctx = buildContext();
+    const text = String(message || '').trim();
+
+    if (new RegExp(SCRIPT.highRisk, 'i').test(text)) {
+      return { ...SCRIPT.escalation, text: fillTemplate(SCRIPT.escalation.text, ctx), time: now() };
     }
 
-    for (const intent of INTENTS) {
-      if (intent.match.test(message)) {
-        return {
-          text: applyTone(intent.answer({ industry: s.industry }), s.learner?.preferences?.coachTone),
-          cite: intent.cite,
-          suggestPractice: !!intent.suggestPractice
-        };
+    for (const intent of SCRIPT.intents) {
+      if (new RegExp(intent.match, 'i').test(text)) {
+        return finalize(intent, ctx);
       }
     }
 
-    // Bounded fallback — this is the trust signal. Vic does NOT speculate.
-    return {
-      text: applyTone(
-        `I only answer from your course library. I don't see a confident match for that. Want me to find the closest concept, or run a ${s.industry?.language?.practiceWord || 'scenario'} instead?`,
-        s.learner?.preferences?.coachTone
-      ),
-      cite: null,
-      bounded: true
-    };
+    return { ...SCRIPT.fallback, text: fillTemplate(SCRIPT.fallback.text, ctx), time: now() };
   },
 
-  // Greeting depends on profile (yet another visible JSON-driven adapt).
+  // Legacy compatibility — used by older views.
   greeting() {
     const s = store.state;
-    const tone = s.learner?.preferences?.coachTone ?? 'direct';
+    if (!s.learner) return 'Hi.';
+    const tone = s.learner.preferences?.coachTone ?? 'direct';
     const word = s.industry?.language?.practiceWord ?? 'scenario';
-    if (tone === 'supportive') {
-      return `Hi ${s.learner.name.split(' ')[0]} — I'm Vic. Want to warm up with a quick ${word}, or pick up where you left off?`;
-    }
-    return `${s.learner.name.split(' ')[0]} — Vic here. Pick up the chapter, or jump straight into a ${word}?`;
+    const first = s.learner.name.split(' ')[0];
+    return tone === 'supportive'
+      ? `Hi ${first} — I'm Vic. Want to warm up with a quick ${word}, or pick up where you left off?`
+      : `${first} — Vic here. Pick up the chapter, or jump straight into a ${word}?`;
   }
 };
 
-function applyTone(text, tone) {
-  if (tone === 'supportive') return text.replace(/\.$/, '. You\'ve got this.');
-  return text;
+// ---------------- helpers ----------------
+
+function finalize(node, ctx) {
+  const text = fillTemplate(node.text, ctx);
+  const card = node.card ? hydrateCard(node.card, ctx) : null;
+  const suggested = (node.suggested || []).map((s) => fillTemplate(s, ctx));
+  return {
+    text,
+    card,
+    suggested,
+    cite: node.cite || null,
+    suggestPractice: !!node.suggestPractice,
+    time: now()
+  };
+}
+
+function hydrateCard(card, ctx) {
+  const out = {};
+  for (const [k, v] of Object.entries(card)) {
+    if (typeof v !== 'string') { out[k] = v; continue; }
+    if (v.startsWith('lookup:')) {
+      const ref = v.slice(7);
+      out[k] = Math.round((ctx.conceptsByRef[ref] ?? 0.5) * 100);
+      continue;
+    }
+    out[k] = fillTemplate(v, ctx);
+    // numeric coercion for fields that look numeric
+    if (/^-?\d+$/.test(out[k])) out[k] = parseInt(out[k], 10);
+  }
+  return out;
+}
+
+function fillTemplate(s, ctx) {
+  return String(s).replace(/\{(\w+)\}/g, (_, k) => (ctx[k] ?? `{${k}}`));
+}
+
+function buildContext() {
+  const s = store.state;
+  const learner = s.learner || {};
+  const industry = s.industry || {};
+  const practiceWord = industry.language?.practiceWord || 'scenario';
+  const scenarioWord = industry.language?.scenarioWord || 'incident';
+  const firstName = (learner.name || '').split(' ')[0];
+
+  // Lowest-mastery concept across the catalog (only courses for this
+  // industry, since the prototype loads one industry at a time).
+  let lowestId = null, lowestVal = null, lowestCourse = null, lowestLabel = null;
+  const conceptsByRef = {};
+  for (const course of s.courses || []) {
+    if (course.industry !== learner.industry) continue;
+    for (const c of course.concepts || []) {
+      const live = s.mastery?.concepts?.[c.id] ?? c.mastery;
+      conceptsByRef[c.id] = live;
+      if (lowestVal === null || live < lowestVal) {
+        lowestVal = live; lowestId = c.id; lowestCourse = course; lowestLabel = c.label;
+      }
+    }
+  }
+
+  // Earliest-expiring cert
+  let certLabel = null, certDays = null;
+  for (const c of learner.certifications || []) {
+    if (certDays === null || c.expiresInDays < certDays) { certDays = c.expiresInDays; certLabel = c.label; }
+  }
+
+  return {
+    firstName,
+    practiceWord,
+    scenarioWord,
+    courseTitle: lowestCourse?.title ?? '',
+    conceptLabel: lowestLabel ?? '',
+    conceptPct: lowestVal != null ? Math.round(lowestVal * 100) : null,
+    conceptDelta: -12, // mocked delta vs last week so the demo feels alive
+    lowestMasteryValue: lowestVal,
+    certLabel: certLabel ?? '',
+    certDays,
+    conceptsByRef
+  };
+}
+
+function now() {
+  const d = new Date();
+  const h = d.getHours();
+  const m = String(d.getMinutes()).padStart(2, '0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hr = String(((h + 11) % 12) + 1).padStart(2, '0');
+  return `${hr}:${m} ${ampm}`;
 }

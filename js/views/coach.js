@@ -1,96 +1,162 @@
-// views/coach.js — Coach Vic chat.
-// The chat is the *primary* trust UX. Three things have to be visible:
-//   1. Suggested-prompt chips so leadership sees how Vic frames help
-//   2. A citation chip on every reply (or "no source" when bounded)
-//   3. Suggest-practice / queue-learning quick actions on relevant replies
+// views/coach.js — Coach Vic chat surface.
+// Composition matches the mockup: date divider, dark coach bubbles
+// with timestamps, light learner bubbles, embedded Concept Breakdown
+// card when relevant, and a composer with attach + mic + send.
+//
+// Vic loads a proactive opener tied to the learner's actual mastery
+// state so the first message already feels personalized.
+
 import { store } from '../store.js';
 import { coach } from '../coach.js';
-
-const SUGGESTED = [
-  'How far is the initial isolation distance?',
-  'What does the hour-1 sepsis bundle include?',
-  'How should I structure a sitrep?',
-  'Pick a practice scenario for me'
-];
+import * as ui from '../ui.js';
 
 export function render() {
   const root = document.createElement('section');
-  root.innerHTML = `
-    <div class="card coach" style="margin-top:6px">
-      <span class="tag accent">Coach Vic</span>
-      <h3 style="margin:6px 0 4px">${coach.greeting()}</h3>
-      <p class="tiny muted">Vic only answers from your trusted course content. Anything outside scope is flagged, not fabricated.</p>
-    </div>
+  root.className = 'stack';
 
-    <div class="utility-rail" id="suggested"></div>
-    <div id="thread" class="stack"></div>
+  // Vic header strip
+  root.appendChild(headerStrip());
 
-    <div class="card" style="position:sticky;bottom:80px;z-index:3">
-      <div class="row" style="gap:8px">
-        <input id="msg" placeholder="Ask Vic…" style="flex:1;padding:10px;border-radius:10px;background:var(--bg-elev);border:1px solid var(--line);color:var(--text);font:inherit" />
-        <button class="btn primary" id="send">Send</button>
-      </div>
-    </div>
-  `;
+  // Thread container
+  const thread = ui.el('div', { class: 'stack' });
+  root.appendChild(thread);
 
-  const thread = root.querySelector('#thread');
-  const sugg   = root.querySelector('#suggested');
+  // Date divider above first messages
+  thread.appendChild(ui.dateDivider(formatDate()));
 
-  for (const s of SUGGESTED) {
-    const b = document.createElement('button');
-    b.className = 'chip'; b.textContent = s;
-    b.onclick = () => post(s);
-    sugg.appendChild(b);
+  // Suggested-quick-replies row (replaced after each Vic reply)
+  const suggBox = ui.el('div', null);
+  root.appendChild(suggBox);
+
+  // Composer (sticky bottom)
+  const composer = ui.chatComposer({
+    onSend: (text) => onLearnerMessage(text),
+    onMic:  () => onMic(),
+    onAttach: () => alert('Attachments are stubbed in this prototype.')
+  });
+  root.appendChild(composer);
+
+  // ---------- behaviors ----------
+
+  function appendCoach(reply) {
+    const extras = [];
+    if (reply.card) extras.push(renderCard(reply.card, reply));
+    extras.push(citeTag(reply));
+    thread.appendChild(ui.chatBubble({ tone: 'coach', text: reply.text, time: reply.time, children: extras }));
+    // Replace the suggested chips
+    suggBox.replaceChildren(ui.suggestedChips(reply.suggested ?? [], (s) => onLearnerMessage(s)));
+    scrollToEnd();
   }
 
-  function post(text) {
-    if (!text.trim()) return;
-    thread.appendChild(bubble(text, 'me'));
-    const reply = coach.reply(text);
-    thread.appendChild(bubble(reply.text, 'coach', reply));
-    root.querySelector('#msg').value = '';
-    thread.lastChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  function appendMe(text) {
+    thread.appendChild(ui.chatBubble({ tone: 'me', text, time: nowStamp() }));
+    suggBox.replaceChildren();
+    scrollToEnd();
   }
 
-  root.querySelector('#send').onclick = () => post(root.querySelector('#msg').value);
-  root.querySelector('#msg').addEventListener('keydown', (e) => { if (e.key === 'Enter') post(e.target.value); });
+  async function onLearnerMessage(text) {
+    appendMe(text);
+    // Tiny delay so it feels like Vic is composing.
+    setTimeout(async () => {
+      const reply = await coach.reply(text);
+      appendCoach(reply);
+    }, 380);
+  }
+
+  function onMic() {
+    const btn = composer.querySelector('.cc-mic');
+    btn.classList.add('listening');
+    setTimeout(() => {
+      btn.classList.remove('listening');
+      onLearnerMessage('What\'s most important for me to focus on right now?');
+    }, 900);
+  }
+
+  // ---------- bootstrap with proactive opener ----------
+  (async () => {
+    const op = await coach.opener();
+    appendCoach(op);
+  })();
 
   return root;
 }
 
-function bubble(text, who, reply) {
-  const el = document.createElement('div');
-  el.className = `bubble ${who}`;
-  el.innerHTML = `<p style="margin:0">${text}</p>`;
-  if (reply?.cite) {
+// ---------- helpers ----------
+
+function headerStrip() {
+  const learner = store.state.learner;
+  return ui.el('div', { class: 'vic-header' },
+    ui.el('div', { class: 'vic-mark' }, 'V'),
+    ui.el('div', { class: 'vic-meta' },
+      ui.el('strong', null, 'Coach Vic'),
+      ui.el('small', null,
+        `Bounded to ${learner.role}'s assigned content · cites every claim`)
+    ),
+    ui.el('div', { class: 'vic-status' },
+      ui.el('span', { class: 'dot' }),
+      ui.el('span', { class: 'tiny muted' }, 'Online')
+    )
+  );
+}
+
+function renderCard(card, reply) {
+  if (card.type === 'concept-breakdown') {
+    const courseId = reply.cite?.courseId;
+    return ui.conceptBreakdown({
+      ...card,
+      onReview: courseId ? () => location.hash = `#/course/${courseId}` : null,
+      onPractice: () => {
+        const sc = store.state.scenarios[0];
+        if (sc) location.hash = `#/practice/${sc.id}`;
+      }
+    });
+  }
+  return null;
+}
+
+function citeTag(reply) {
+  if (reply.cite) {
     const course = store.course(reply.cite.courseId);
     if (course) {
-      const cite = document.createElement('div');
-      cite.style.marginTop = '8px';
-      cite.innerHTML = `<a class="tag accent" href="#/course/${course.id}">Source: ${course.title}</a>`;
-      el.appendChild(cite);
+      const a = ui.el('a', { class: 'tag accent', style: { marginTop: '2px', display: 'inline-flex' },
+        href: `#/course/${course.id}` }, `Source: ${course.title}`);
+      return a;
     }
-  } else if (reply?.bounded) {
-    const tag = document.createElement('span');
-    tag.className = 'tag warn'; tag.textContent = 'No matching source — Vic will not guess';
-    tag.style.marginTop = '8px'; tag.style.display = 'inline-flex';
-    el.appendChild(tag);
-  } else if (reply?.escalated) {
-    const tag = document.createElement('span');
-    tag.className = 'tag bad'; tag.textContent = 'Escalated — outside coaching scope';
-    tag.style.marginTop = '8px'; tag.style.display = 'inline-flex';
-    el.appendChild(tag);
   }
-  if (reply?.suggestPractice) {
+  if (reply.bounded) {
+    return ui.el('span', { class: 'tag warn', style: { marginTop: '2px', display: 'inline-flex' } },
+      'No matching source — Vic will not guess');
+  }
+  if (reply.escalated) {
+    return ui.el('span', { class: 'tag bad', style: { marginTop: '2px', display: 'inline-flex' } },
+      'Escalated — outside coaching scope');
+  }
+  if (reply.suggestPractice) {
     const sc = store.state.scenarios[0];
     if (sc) {
-      const a = document.createElement('a');
-      a.className = 'btn primary sm';
-      a.style.marginTop = '8px'; a.style.display = 'inline-flex';
-      a.href = `#/practice/${sc.id}`;
-      a.textContent = `Run "${sc.title}" →`;
-      el.appendChild(a);
+      return ui.el('a', { class: 'btn primary sm', style: { marginTop: '4px', display: 'inline-flex' },
+        href: `#/practice/${sc.id}` }, `Run "${sc.title}" →`);
     }
   }
-  return el;
+  return null;
+}
+
+function scrollToEnd() {
+  requestAnimationFrame(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }));
+}
+
+function formatDate() {
+  const d = new Date();
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${days[d.getDay()]} · ${months[d.getMonth()]} ${d.getDate()}`;
+}
+
+function nowStamp() {
+  const d = new Date();
+  const h = d.getHours();
+  const m = String(d.getMinutes()).padStart(2, '0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hr = String(((h + 11) % 12) + 1).padStart(2, '0');
+  return `${hr}:${m} ${ampm}`;
 }

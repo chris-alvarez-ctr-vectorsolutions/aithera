@@ -36,7 +36,9 @@ const SVG = {
   mic:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v3"/></svg>`,
   arrowRight: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>`,
   trending: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 7-8"/><path d="M14 7h6v6"/></svg>`,
-  retry:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 4v5h-5"/></svg>`
+  retry:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 4v5h-5"/></svg>`,
+  send:     `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 11l18-8-8 18-2-8-8-2z"/></svg>`,
+  paperclip:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12l-9 9a5 5 0 11-7-7l9-9a3 3 0 114 4l-9 9a1.5 1.5 0 11-2-2l8-8"/></svg>`
 };
 
 // ---------- tiny element factory ----------
@@ -480,6 +482,101 @@ export function insightCard({ tone = 'strength', quote, indicator }) {
       el('strong', null, indicator)
     ) : null
   );
+}
+
+// dateDivider — pill-shaped date label between conversation segments.
+export function dateDivider(label) {
+  return el('div', { class: 'date-divider' }, el('span', null, label));
+}
+
+// chatBubble — Markdown-lite text bubble.
+//   tone: 'coach' | 'me'  →  dark coach bubble vs neutral self bubble
+//   time: optional timestamp string ("09:12 AM")
+export function chatBubble({ tone = 'coach', text, time, children }) {
+  const wrap = el('div', { class: `chat-row r-${tone}` });
+  const bub = el('div', { class: `chat-bubble b-${tone}` });
+  // markdown-lite: **bold** and *italic*
+  bub.innerHTML = mdLite(text || '');
+  wrap.appendChild(bub);
+  if (children && children.length) {
+    const after = el('div', { class: 'chat-extras' }, ...children.filter(Boolean));
+    wrap.appendChild(after);
+  }
+  if (time) wrap.appendChild(el('span', { class: 'chat-time' }, time));
+  return wrap;
+}
+
+// conceptBreakdown — rich card sometimes returned by Vic. Shows current
+// mastery vs peer average, optional delta, summary, and CTA hooks.
+export function conceptBreakdown({ concept, currentMastery, delta, peerAvg, tag, summary, onReview, onPractice }) {
+  const deltaEl = (typeof delta === 'number' && delta !== 0)
+    ? el('span', { class: `cb-delta ${delta < 0 ? 'down' : 'up'}` },
+        el('span', null, `${delta < 0 ? '▼' : '▲'} ${Math.abs(delta)}%`))
+    : null;
+  return el('div', { class: 'concept-card' },
+    el('div', { class: 'cc-head' },
+      el('span', { class: 'cc-icon' }, icon('trending')),
+      el('strong', null, 'Concept Breakdown'),
+      tag ? el('span', { class: 'cc-tag' }, tag) : null
+    ),
+    el('div', { class: 'cc-body' },
+      el('div', { class: 'cc-name' }, concept),
+      el('div', { class: 'cc-stats' },
+        el('div', { class: 'cc-tile' },
+          el('small', null, 'Current mastery'),
+          el('div', { class: 'cc-row' },
+            el('strong', null, `${currentMastery}%`),
+            deltaEl
+          )
+        ),
+        el('div', { class: 'cc-tile' },
+          el('small', null, 'Peer avg'),
+          el('strong', null, `${peerAvg}%`)
+        )
+      ),
+      summary ? el('p', { class: 'cc-summary' }, summary) : null,
+      el('div', { class: 'cc-actions' },
+        onReview   ? el('button', { class: 'btn primary sm', on: { click: onReview } }, 'Review now') : null,
+        onPractice ? el('button', { class: 'btn sm',         on: { click: onPractice } }, 'Run a practice') : null
+      )
+    )
+  );
+}
+
+// chatComposer — bottom input bar (text + mic + attach + send).
+// onSend(text), onMic(), onAttach() — mic is mocked; attach is a stub.
+export function chatComposer({ placeholder = 'Ask Vic a follow-up…', onSend, onMic, onAttach }) {
+  const input = el('input', { type: 'text', class: 'cc-input', placeholder });
+  const send = () => { const v = input.value; if (!v.trim()) return; input.value = ''; onSend(v); };
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+
+  const attach = el('button', { class: 'cc-attach', 'aria-label': 'Attach', on: { click: onAttach } }, icon('paperclip'));
+  const mic    = el('button', { class: 'cc-mic',    'aria-label': 'Voice',  on: { click: onMic } },    icon('mic'));
+  const submit = el('button', { class: 'cc-send',   'aria-label': 'Send',   on: { click: send } },     icon('send'));
+
+  return el('div', { class: 'chat-composer' },
+    el('div', { class: 'cc-input-wrap' }, input, attach),
+    mic, submit
+  );
+}
+
+// suggestedChips — quick-reply chips below the composer.
+export function suggestedChips(items, onPick) {
+  if (!items?.length) return el('div');
+  const row = el('div', { class: 'sugg-row' });
+  for (const s of items) {
+    row.appendChild(el('button', { class: 'sugg-chip', on: { click: () => onPick(s) } }, s));
+  }
+  return row;
+}
+
+// Markdown-lite: only **bold** and *italic*. Escapes other HTML.
+function mdLite(s) {
+  const safe = String(s).replace(/[&<>]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  return safe
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,     '<em>$1</em>')
+    .replace(/\n/g, '<br>');
 }
 
 // gradient generator — keeps every hero distinct without bitmaps.

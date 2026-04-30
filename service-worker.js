@@ -3,7 +3,7 @@
 //   - Pre-cache the app shell + JSON data on install.
 //   - Network-first for navigation requests (so updates show up).
 //   - Cache-first for everything else, with runtime fallback to cache.
-const VERSION = 'aithera-v6';
+const VERSION = 'aithera-v7';
 const CORE = [
   './',
   './index.html',
@@ -32,7 +32,8 @@ const CORE = [
   './data/courses.json',
   './data/scenarios.json',
   './data/mastery.json',
-  './data/reference.json'
+  './data/reference.json',
+  './data/coach-script.json'
 ];
 
 self.addEventListener('install', (e) => {
