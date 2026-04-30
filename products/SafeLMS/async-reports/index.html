@@ -349,6 +349,43 @@
   /* Loading state */
   .loading-state { display: none; flex-direction: column; flex: 1; }
 
+  /* Pencil banner (non completions-emp tabs) */
+  .toast {
+    margin: 16px auto 0;
+    align-self: center;
+    background: #DBEAFE;
+    border: 1px solid #BFDBFE;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.07);
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    width: fit-content;
+    flex-shrink: 0;
+    transition: opacity .15s;
+  }
+  .toast.hidden { display: none; }
+  .toast-icon {
+    flex-shrink: 0; width: 16px; height: 16px;
+    display: grid; place-items: center; color: #1D4ED8;
+  }
+  .toast-text { flex: 1; font-size: 12px; color: #1E3A5F; line-height: 1.4; }
+  .toast-btn {
+    flex-shrink: 0;
+    padding: 4px 12px;
+    background: #1D4ED8; color: #fff;
+    border: none; border-radius: 4px;
+    font-family: inherit; font-weight: 600; font-size: 11px;
+    cursor: pointer; white-space: nowrap; transition: background .12s;
+  }
+  .toast-btn:hover { background: #1A44C2; }
+  .toast-dismiss {
+    flex-shrink: 0; background: 0; border: 0;
+    color: #6B8AB0; cursor: pointer;
+    display: grid; place-items: center;
+    padding: 2px; border-radius: 4px; transition: color .12s;
+  }
+  .toast-dismiss:hover { color: #1E3A5F; }
+
   .loading-spinner-wrap {
     flex: 1; display: flex; flex-direction: column;
     align-items: center; justify-content: center; gap: 16px; padding: 48px 24px;
@@ -359,6 +396,7 @@
     border-radius: 50%; animation: spin .75s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 14px; color: var(--muted); }
   .loading-msg {
     font-size: 14px; color: var(--muted);
     max-width: 380px; text-align: center; line-height: 1.5;
@@ -858,14 +896,29 @@ Results</div>
 
     <!-- Loading state -->
     <div class="loading-state" id="loading-state">
+      <!-- Pencil banner: shown for all tabs except completions-emp -->
+      <div id="email-banner" class="toast hidden">
+        <span class="toast-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </span>
+        <span class="toast-text">Your report request has been saved to the Report Log and is currently generating.</span>
+        <button class="toast-btn" id="email-me-btn-toast">Email me the report</button>
+        <span id="email-confirm-toast" style="display:none; font-size:13px; color:#059669; font-weight:500;">We'll email you when it's ready.</span>
+        <button class="toast-dismiss" id="dismiss-banner" aria-label="Dismiss">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
       <div class="loading-spinner-wrap">
         <div class="loading-spinner"></div>
-        <span class="loading-msg">Your report request has been saved to the Report Log and is currently generating.</span>
-        <button class="loading-email-btn" id="email-me-btn">Email me the report when ready</button>
+        <!-- Default: shown for all tabs except completions-emp -->
+        <span class="loading-text" id="loading-text-default">Loading...</span>
+        <!-- Completions-emp only: message + email button -->
+        <span class="loading-msg" id="loading-msg-completions" style="display:none;">Your report request has been saved to the Report Log and is currently generating.</span>
+        <button class="loading-email-btn" id="email-me-btn" style="display:none;">Email me the report when ready</button>
       </div>
     </div>
 
-    <!-- Email confirmation popup -->
+    <!-- Email confirmation popup (completions-emp only) -->
     <div id="email-popup-overlay" class="email-popup-overlay hidden">
       <div class="email-popup">
         <div class="email-popup-check">&#10003;</div>
@@ -1377,20 +1430,33 @@ Results</div>
   const REPORT_DELAY_MS = 60000; // 1 minute — simulates async report generation
   let reportTimer = null;
 
+  function showToast() { document.getElementById('email-banner').classList.remove('hidden'); }
+  function hideToast()  { document.getElementById('email-banner').classList.add('hidden'); }
+
+  function resetLoadingContent() {
+    // reset toast button
+    const toastBtn = document.getElementById('email-me-btn-toast');
+    toastBtn.style.display = '';
+    document.getElementById('email-confirm-toast').style.display = 'none';
+    // reset completions-emp button
+    document.getElementById('email-me-btn').style.display = 'none';
+  }
+
   function showEmptyState() {
     if (reportTimer) { clearTimeout(reportTimer); reportTimer = null; }
     document.getElementById('empty-state').style.display   = '';
     document.getElementById('loading-state').style.display = 'none';
     document.getElementById('genrow').style.display        = 'none';
     document.getElementById('table-wrap').style.display    = 'none';
-    const emailBtn = document.getElementById('email-me-btn');
-    emailBtn.style.display = '';
+    hideToast();
+    resetLoadingContent();
   }
 
   function finishLoading() {
     document.getElementById('loading-state').style.display = 'none';
     document.getElementById('genrow').style.display        = '';
     document.getElementById('table-wrap').style.display    = '';
+    hideToast();
   }
 
   document.querySelector('.run-btn-main').addEventListener('click', () => {
@@ -1399,19 +1465,38 @@ Results</div>
     document.getElementById('loading-state').style.display = 'flex';
     document.getElementById('genrow').style.display        = 'none';
     document.getElementById('table-wrap').style.display    = 'none';
-    document.getElementById('email-me-btn').style.display  = '';
+
+    if (activeTab === 'completions-emp') {
+      hideToast();
+      document.getElementById('loading-text-default').style.display  = 'none';
+      document.getElementById('loading-msg-completions').style.display = '';
+      document.getElementById('email-me-btn').style.display           = '';
+    } else {
+      document.getElementById('loading-text-default').style.display  = '';
+      document.getElementById('loading-msg-completions').style.display = 'none';
+      document.getElementById('email-me-btn').style.display           = 'none';
+      showToast();
+    }
+
     if (reportTimer) clearTimeout(reportTimer);
     reportTimer = setTimeout(finishLoading, REPORT_DELAY_MS);
   });
 
+  // Completions-emp: popup confirmation
   document.getElementById('email-me-btn').addEventListener('click', function () {
     this.style.display = 'none';
     document.getElementById('email-popup-overlay').classList.remove('hidden');
   });
-
   document.getElementById('email-popup-ok').addEventListener('click', () => {
     document.getElementById('email-popup-overlay').classList.add('hidden');
   });
+
+  // Other tabs: inline confirmation in toast
+  document.getElementById('email-me-btn-toast').addEventListener('click', function () {
+    this.style.display = 'none';
+    document.getElementById('email-confirm-toast').style.display = 'inline';
+  });
+  document.getElementById('dismiss-banner').addEventListener('click', hideToast);
 
   /* ── Tab switching ───────────────────────────────────── */
   const reportContent = ['daterow', 'filters', 'empty-state', 'loading-state', 'genrow', 'table-wrap'];
