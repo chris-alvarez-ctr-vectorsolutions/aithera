@@ -3,7 +3,7 @@
 //   - Pre-cache the app shell + JSON data on install.
 //   - Network-first for navigation requests (so updates show up).
 //   - Cache-first for everything else, with runtime fallback to cache.
-const VERSION = 'aithera-v15';
+const VERSION = 'aithera-v16';
 const CORE = [
   './',
   './index.html',
