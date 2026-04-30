@@ -93,12 +93,13 @@ function renderRoute() {
   const node = match.view.render(...params);
 
   els.view.replaceChildren(node);
-  toggleShell(match.shell, !!match.fullscreen);
-  els.back.hidden = !!match.top || !match.shell;
+  const isHome = hash === '#/home';
+  toggleShell(match.shell, !!match.fullscreen, isHome);
+  // Back is a floating button on shelled non-home, non-fullscreen routes.
+  els.back.hidden = !match.shell || !!match.top || !!match.fullscreen;
   highlightTab(hash);
 
-  // Update brand label with industry name when shelled.
-  if (match.shell && store.state.industry) {
+  if (isHome && store.state.industry) {
     els.brand.textContent = `Aithera · ${store.state.industry.label}`;
   } else {
     els.brand.textContent = 'Aithera';
@@ -106,11 +107,13 @@ function renderRoute() {
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
-function toggleShell(show, fullscreen = false) {
+function toggleShell(show, fullscreen = false, isHome = false) {
   // Fullscreen routes (e.g. Practice) sit *over* the prototype shell:
   // light theme stays on, but appbar/tabbar are hidden in favour of an
   // unobtrusive × exit button in the top-right corner.
-  els.appbar.hidden = !show || fullscreen;
+  // Appbar is reserved for Home (brand + profile); other shelled pages
+  // use a floating back button instead.
+  els.appbar.hidden = !show || fullscreen || !isHome;
   els.tabbar.hidden = !show || fullscreen;
   els.exit.hidden = !fullscreen;
   els.app.classList.toggle('fullscreen', fullscreen);
