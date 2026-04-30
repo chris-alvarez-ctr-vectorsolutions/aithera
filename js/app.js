@@ -14,17 +14,20 @@ import * as hub      from './views/hub.js';
 import * as coachV   from './views/coach.js';
 import * as profile  from './views/profile.js';
 
+// Each route declares whether it's a top-level tab (no back button) and
+// what its logical parent is (so back navigates *within* the prototype
+// rather than escaping to the launch page).
 const ROUTES = [
-  { re: /^#?\/?$/,                      view: launch,  shell: false },
-  { re: /^#\/launch$/,                  view: launch,  shell: false },
-  { re: /^#\/home$/,                    view: home,    shell: true  },
-  { re: /^#\/course\/([^/]+)$/,         view: course,  shell: true  },
-  { re: /^#\/course\/([^/]+)\/chapter\/([^/]+)$/, view: chapter, shell: true },
-  { re: /^#\/practice\/([^/]+)$/,       view: practice,shell: true  },
-  { re: /^#\/summary$/,                 view: summary, shell: true  },
-  { re: /^#\/hub$/,                     view: hub,     shell: true  },
-  { re: /^#\/coach$/,                   view: coachV,  shell: true  },
-  { re: /^#\/profile$/,                 view: profile, shell: true  }
+  { re: /^#?\/?$/,                                view: launch,   shell: false, top: true  },
+  { re: /^#\/launch$/,                            view: launch,   shell: false, top: true  },
+  { re: /^#\/home$/,                              view: home,     shell: true,  top: true  },
+  { re: /^#\/hub$/,                               view: hub,      shell: true,  top: true  },
+  { re: /^#\/coach$/,                             view: coachV,   shell: true,  top: true  },
+  { re: /^#\/profile$/,                           view: profile,  shell: true,  top: true  },
+  { re: /^#\/course\/([^/]+)$/,                   view: course,   shell: true,  parent: '#/home' },
+  { re: /^#\/course\/([^/]+)\/chapter\/([^/]+)$/, view: chapter,  shell: true,  parent: (m) => `#/course/${m[1]}` },
+  { re: /^#\/practice\/([^/]+)$/,                 view: practice, shell: true,  parent: '#/hub' },
+  { re: /^#\/summary$/,                           view: summary,  shell: true,  parent: '#/home' }
 ];
 
 const els = {
@@ -37,7 +40,16 @@ const els = {
   brand:   document.querySelector('.brand-name')
 };
 
-els.back.addEventListener('click', () => history.back());
+// Smart back: navigate to the route's logical parent rather than browser
+// history. This prevents accidentally escaping back to the launch page.
+els.back.addEventListener('click', () => {
+  const hash = location.hash || '#/';
+  const match = ROUTES.find((r) => r.re.test(hash));
+  if (!match || match.top) return;
+  const m = match.re.exec(hash);
+  const parent = typeof match.parent === 'function' ? match.parent(m) : match.parent;
+  location.hash = parent || '#/home';
+});
 els.profile.addEventListener('click', () => location.hash = '#/profile');
 els.fab.addEventListener('click', () => location.hash = '#/coach');
 
@@ -68,6 +80,7 @@ function renderRoute() {
 
   els.view.replaceChildren(node);
   toggleShell(match.shell);
+  els.back.hidden = !!match.top || !match.shell;
   highlightTab(hash);
 
   // Update brand label with industry name when shelled.

@@ -104,7 +104,8 @@ export function render() {
     goBtn.textContent = 'Loading…'; goBtn.disabled = true;
     try {
       await store.loadLearner(industryDef.learner, choice.industry);
-      location.hash = '#/home';
+      // Replace, not push — the launchpoint shouldn't be in history.
+      location.replace(location.pathname + '#/home');
     } catch (e) {
       goBtn.textContent = 'Failed to load — retry';
       goBtn.disabled = false;

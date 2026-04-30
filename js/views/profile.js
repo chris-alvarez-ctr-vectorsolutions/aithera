@@ -40,8 +40,17 @@ export function render() {
       `).join('')}
     </div>
 
-    <button class="btn block" id="reset">Switch profile</button>
+    <div class="card">
+      <strong>Settings</strong>
+      <p class="muted tiny" style="margin-top:6px">Switching profile clears local prototype state and reloads the launchpoint. There is no in-app navigation back to the launchpoint by design.</p>
+      <button class="btn block" id="reset" style="margin-top:10px">Switch profile (reload)</button>
+    </div>
   `;
-  root.querySelector('#reset').onclick = () => { store.reset(); location.hash = '#/launch'; };
+  root.querySelector('#reset').onclick = () => {
+    store.reset();
+    // Hard reload to the launchpoint URL with no hash and no history entry.
+    const base = location.pathname;
+    location.replace(base);
+  };
   return root;
 }
