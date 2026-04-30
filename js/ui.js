@@ -30,7 +30,11 @@ const SVG = {
   note:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l3 3v15H5z"/><path d="M9 9h6"/><path d="M9 13h6"/><path d="M9 17h4"/></svg>`,
   wrench:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 105.6 5.6l-2.2-2.2 1.6-1.6 2.2 2.2a6 6 0 11-8.8-8.8l2.2 2.2-1.6 1.6-2.2-2.2a4 4 0 003.2 3.2z" transform="rotate(-25 12 12)"/><path d="M3 21l6-6"/></svg>`,
   check:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>`,
-  circle:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>`
+  circle:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>`,
+  info:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01"/><path d="M11 12h1v5h1"/></svg>`,
+  brain:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4a3 3 0 00-3 3v1a3 3 0 00-1 6 3 3 0 003 3v1a3 3 0 003 3 3 3 0 003-3v-1a3 3 0 003-3 3 3 0 00-1-6V7a3 3 0 00-3-3 3 3 0 00-2 1 3 3 0 00-2-1z"/></svg>`,
+  mic:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v3"/></svg>`,
+  arrowRight: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>`
 };
 
 // ---------- tiny element factory ----------
@@ -309,6 +313,139 @@ export function progressMini({ percent, completed, total, label = 'Course progre
       el('span', null, `${percent}% complete`),
       el('span', { class: 'muted' }, `${total - completed} to go`)
     )
+  );
+}
+
+// scenarioMedia — wide image area for a scenario. Uses gradientFor to
+// produce a stable "scene" tone per scenario id without bitmap assets.
+export function scenarioMedia({ id, label, accent, height = 180 }) {
+  const wrap = el('div', { class: 'scn-hero', style: {
+    height: `${height}px`,
+    background: gradientFor(id, accent || '#3a4a6a')
+  } });
+  if (label) wrap.appendChild(el('span', { class: 'scn-hero-label' }, label));
+  return wrap;
+}
+
+// kickerPill — rounded pill kicker with leading icon, used above the
+// scenario title on the welcome card and at the top of each step.
+export function kickerPill({ icon: ic = 'sparkle', label }) {
+  return el('div', { class: 'kicker-pill' }, icon(ic), el('span', null, label));
+}
+
+// tensionTag — small "High / Medium / Low Tension" indicator on a step.
+export function tensionTag(level = 'medium') {
+  const map = {
+    high:   { label: 'High Tension',   variant: 'bad'  },
+    medium: { label: 'Medium Tension', variant: 'warn' },
+    low:    { label: 'Low Tension',    variant: ''     }
+  }[level] || { label: 'Tension', variant: '' };
+  return el('span', { class: `tension-tag t-${map.variant}` },
+    icon('warn'), el('span', null, map.label));
+}
+
+// scenarioTimer — counts UP from 0 in MM:SS, returns the element so the
+// caller can stop() it when the scenario ends.
+export function scenarioTimer() {
+  const txt = el('span', null, '00:00');
+  const wrap = el('span', { class: 'scn-timer' }, icon('clock'), txt);
+  let s = 0, h;
+  const fmt = (n) => `${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`;
+  const tick = () => { s++; txt.textContent = fmt(s); };
+  h = setInterval(tick, 1000);
+  wrap.stop = () => { clearInterval(h); h = null; };
+  wrap.elapsed = () => s;
+  return wrap;
+}
+
+// scenarioWelcome — the orientation card. Frames the practice as
+// rehearsal, not assessment.
+export function scenarioWelcome({ kicker, title, body, highlight, reassurance, expectedOutcome, onBegin, ctaLabel = 'Begin practice' }) {
+  // Inline-highlight a substring inside body (the mockup highlights "80% of staff").
+  const bodyEl = el('p', { class: 'sw-body' });
+  if (highlight && body.includes(highlight)) {
+    const [pre, post] = body.split(highlight);
+    bodyEl.appendChild(document.createTextNode(pre));
+    bodyEl.appendChild(el('mark', null, highlight));
+    bodyEl.appendChild(document.createTextNode(post));
+  } else {
+    bodyEl.textContent = body;
+  }
+
+  const card = el('div', { class: 'scn-welcome' },
+    kickerPill({ icon: 'sparkle', label: kicker || 'Module orientation' }),
+    el('h2', { class: 'sw-title' }, title || 'Scenario overview'),
+    el('hr', { class: 'sw-rule' }),
+    bodyEl,
+    reassurance ? el('div', { class: 'sw-info' },
+      icon('info'),
+      el('p', null, reassurance)
+    ) : null,
+    expectedOutcome ? el('div', { class: 'sw-meta' },
+      el('small', null, 'Expected outcome'),
+      el('strong', null, expectedOutcome)
+    ) : null,
+    el('button', { class: 'btn primary block cta-large', on: { click: onBegin } },
+      el('span', null, ctaLabel),
+      icon('arrowRight'))
+  );
+  return card;
+}
+
+// coachHint — small Vic micro-prompt shown inline within a step.
+export function coachHint({ text }) {
+  return el('div', { class: 'coach-hint' },
+    el('span', { class: 'ch-avatar' }, icon('brain')),
+    el('p', null, text)
+  );
+}
+
+// situationalAssessment — colored callout used between steps to relay
+// the consequence of a previous answer ("You chose to acknowledge…").
+export function situationalAssessment({ tone = 'warn', kicker = 'Situational assessment', body }) {
+  return el('div', { class: `sit-assess sa-${tone}` },
+    el('div', { class: 'sa-head' }, icon('warn'), el('strong', null, kicker)),
+    el('p', null, body)
+  );
+}
+
+// formulationField — labeled textarea with optional voice toggle. The
+// voice toggle is mocked — clicking it auto-fills a stand-in transcript
+// so the demo can show conversational input without a real microphone.
+export function formulationField({ label = 'Your formulation', placeholder = 'Type your response…', voicePrompt }) {
+  const ta = el('textarea', { rows: 4, placeholder, class: 'scn-textarea' });
+  const voiceBtn = voicePrompt ? el('button', { type: 'button', class: 'voice-btn',
+    'aria-label': 'Use voice input',
+    on: { click: () => {
+      voiceBtn.classList.add('listening');
+      voiceBtn.querySelector('.vb-label').textContent = 'Listening…';
+      setTimeout(() => {
+        ta.value = voicePrompt;
+        voiceBtn.classList.remove('listening');
+        voiceBtn.querySelector('.vb-label').textContent = 'Voice';
+      }, 1100);
+    }}}, icon('mic'), el('span', { class: 'vb-label' }, 'Voice')) : null;
+
+  const wrap = el('div', { class: 'formulation' },
+    el('div', { class: 'fm-head' },
+      el('small', null, label),
+      voiceBtn
+    ),
+    ta
+  );
+  wrap.value = () => ta.value;
+  wrap.input = ta;
+  return wrap;
+}
+
+// stepHeader — the top of an in-scenario step: kicker, title, timer.
+export function stepHeader({ kicker, title, timerEl }) {
+  return el('div', { class: 'scn-stepheader' },
+    el('div', { class: 'sh-text' },
+      kicker ? el('small', null, kicker) : null,
+      el('strong', null, title)
+    ),
+    timerEl
   );
 }
 
