@@ -8,10 +8,15 @@
 
 import { store } from '../store.js';
 
+// Per-category accent colors give the launchpoint a hint of the brand
+// theme that will load once a profile is picked. The active-industry
+// JSONs drive these in the rest of the app; we mirror them here so the
+// transition into the prototype feels continuous.
 const CATEGORIES = [
   {
     id: 'public-service',
     label: 'Public Service',
+    accent: '#ff7a3d', accent2: '#ffb27a',
     options: [
       { id: 'ems',    label: 'EMS',    learner: 'ems',    industry: 'public-safety' },
       { id: 'fire',   label: 'Fire',   soon: true },
@@ -21,6 +26,7 @@ const CATEGORIES = [
   {
     id: 'education',
     label: 'Education',
+    accent: '#a78bfa', accent2: '#c4b5fd',
     options: [
       { id: 'hied-student',  label: 'HiEd Student',  learner: 'hied-student', industry: 'education' },
       { id: 'k12',           label: 'K-12',          soon: true },
@@ -30,6 +36,7 @@ const CATEGORIES = [
   {
     id: 'commercial',
     label: 'Commercial',
+    accent: '#fbbf24', accent2: '#fcd34d',
     options: [
       { id: 'industrial', label: 'Industrial', learner: 'industrial', industry: 'commercial' }
     ]
@@ -37,6 +44,7 @@ const CATEGORIES = [
   {
     id: 'enterprise',
     label: 'Enterprise',
+    accent: '#3ec8ff', accent2: '#7ee0ff',
     options: [
       { id: 'training',   label: 'Training',   soon: true },
       { id: 'upskilling', label: 'Upskilling', soon: true }
@@ -89,9 +97,13 @@ export function render() {
         : `<span>${opt.label}</span>`;
       if (!opt.soon) {
         btn.onclick = () => {
-          selected = opt;
-          // clear other selections
+          selected = { ...opt, accent: cat.accent, accent2: cat.accent2 };
+          // Clear other selections, then mark this one.
           cats.querySelectorAll('.role-pill').forEach((b) => b.classList.toggle('selected', b === btn));
+          // Tint the launchpoint with the category's color so the
+          // selected pill and primary CTA both preview the brand.
+          root.style.setProperty('--accent', cat.accent);
+          root.style.setProperty('--accent-2', cat.accent2);
           goBtn.disabled = false;
         };
       }
@@ -101,16 +113,54 @@ export function render() {
 
   goBtn.onclick = async () => {
     if (!selected) return;
-    goBtn.textContent = 'Loading…'; goBtn.disabled = true;
+    goBtn.disabled = true;
+    showLoadingOverlay(selected);
+    // Fire the data load and a minimum-display timer in parallel so the
+    // overlay always feels deliberate, even on a fast local fetch.
+    const minDelay = new Promise((r) => setTimeout(r, 1100));
     try {
-      await store.loadLearner(selected.learner, selected.industry);
+      await Promise.all([store.loadLearner(selected.learner, selected.industry), minDelay]);
       // Replace, not push — the launchpoint shouldn't be in history.
       location.replace(location.pathname + '#/home');
+      // Fade the overlay out once the home view has had a paint cycle.
+      requestAnimationFrame(() => requestAnimationFrame(() => hideLoadingOverlay()));
     } catch {
+      hideLoadingOverlay();
       goBtn.textContent = 'Failed to load — retry';
       goBtn.disabled = false;
     }
   };
 
   return root;
+}
+
+// Fullscreen "preparing your experience" overlay. Tinted with the
+// selected category's accent so the handoff to the prototype feels
+// continuous instead of a hard cut.
+function showLoadingOverlay(sel) {
+  const ov = document.createElement('div');
+  ov.className = 'launch-loading';
+  ov.id = 'launchLoading';
+  ov.style.setProperty('--accent', sel.accent);
+  ov.style.setProperty('--accent-2', sel.accent2);
+  ov.innerHTML = `
+    <div class="ll-stack">
+      <span class="ll-mark"></span>
+      <div class="ll-name">Aithera</div>
+      <div class="ll-spinner"></div>
+      <div class="ll-msg">Preparing your experience…</div>
+    </div>
+  `;
+  document.body.appendChild(ov);
+  // Force a reflow so the fade-in transition runs.
+  // eslint-disable-next-line no-unused-expressions
+  ov.offsetHeight;
+  ov.classList.add('on');
+}
+
+function hideLoadingOverlay() {
+  const ov = document.getElementById('launchLoading');
+  if (!ov) return;
+  ov.classList.remove('on');
+  setTimeout(() => ov.remove(), 280);
 }
