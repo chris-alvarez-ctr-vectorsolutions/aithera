@@ -30,7 +30,7 @@ const ROUTES = [
   { re: /^#\/profile$/,                           view: profile,   shell: true,  parent: '#/home' },
   { re: /^#\/course\/([^/]+)$/,                   view: course,    shell: true,  parent: '#/courses' },
   { re: /^#\/course\/([^/]+)\/chapter\/([^/]+)$/, view: chapter,   shell: true,  parent: (m) => `#/course/${m[1]}` },
-  { re: /^#\/practice\/([^/?]+)(?:\?.*)?$/,       view: practice,  shell: true,  parent: '#/practice' },
+  { re: /^#\/practice\/([^/?]+)(?:\?.*)?$/,       view: practice,  shell: true,  fullscreen: true, parent: '#/practice' },
   { re: /^#\/summary$/,                           view: summary,   shell: true,  parent: '#/home' }
 ];
 
@@ -40,8 +40,20 @@ const els = {
   tabbar:  document.getElementById('tabbar'),
   back:    document.getElementById('backBtn'),
   profile: document.getElementById('profileBtn'),
-  brand:   document.querySelector('.brand-name')
+  brand:   document.querySelector('.brand-name'),
+  exit:    document.getElementById('exitBtn'),
+  app:     document.getElementById('app')
 };
+
+// Exit (×) on fullscreen routes navigates to the route's logical parent.
+els.exit.addEventListener('click', () => {
+  const hash = location.hash || '#/';
+  const match = ROUTES.find((r) => r.re.test(hash));
+  if (!match) { location.hash = '#/home'; return; }
+  const m = match.re.exec(hash);
+  const parent = typeof match.parent === 'function' ? match.parent(m) : match.parent;
+  location.hash = parent || '#/home';
+});
 
 // Smart back: navigate to the route's logical parent rather than browser
 // history. This prevents accidentally escaping back to the launch page.
@@ -81,7 +93,7 @@ function renderRoute() {
   const node = match.view.render(...params);
 
   els.view.replaceChildren(node);
-  toggleShell(match.shell);
+  toggleShell(match.shell, !!match.fullscreen);
   els.back.hidden = !!match.top || !match.shell;
   highlightTab(hash);
 
@@ -94,9 +106,14 @@ function renderRoute() {
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
-function toggleShell(show) {
-  els.appbar.hidden = !show;
-  els.tabbar.hidden = !show;
+function toggleShell(show, fullscreen = false) {
+  // Fullscreen routes (e.g. Practice) sit *over* the prototype shell:
+  // light theme stays on, but appbar/tabbar are hidden in favour of an
+  // unobtrusive × exit button in the top-right corner.
+  els.appbar.hidden = !show || fullscreen;
+  els.tabbar.hidden = !show || fullscreen;
+  els.exit.hidden = !fullscreen;
+  els.app.classList.toggle('fullscreen', fullscreen);
   // Light theme is reserved for the prototype shell. The Launch screen
   // stays dark by virtue of NOT having .light on body.
   document.body.classList.toggle('light', show);
