@@ -44,13 +44,37 @@ export function render() {
       <strong>Settings</strong>
       <p class="muted tiny" style="margin-top:6px">Switching profile clears local prototype state and reloads the launchpoint. There is no in-app navigation back to the launchpoint by design.</p>
       <button class="btn block" id="reset" style="margin-top:10px">Switch profile (reload)</button>
+      <hr class="hr" />
+      <p class="muted tiny" style="margin-top:0">If the prototype looks out of date, the offline cache is stale. Force-refresh wipes it and re-pulls every file.</p>
+      <button class="btn block" id="hardRefresh" style="margin-top:8px">Force refresh app (clear cache)</button>
+      <p class="tiny muted" style="margin-top:6px;text-align:center" id="appVersion"></p>
     </div>
   `;
   root.querySelector('#reset').onclick = () => {
     store.reset();
-    // Hard reload to the launchpoint URL with no hash and no history entry.
     const base = location.pathname;
     location.replace(base);
   };
+  root.querySelector('#hardRefresh').onclick = async () => {
+    const btn = root.querySelector('#hardRefresh');
+    btn.disabled = true; btn.textContent = 'Clearing…';
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      }
+      if ('caches' in self) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+    } catch {}
+    // Bust the URL so the browser cache also misses this load.
+    const url = new URL(location.href);
+    url.searchParams.set('_', Date.now().toString());
+    url.hash = '';
+    location.replace(url.toString());
+  };
+  // Surface the current SW cache name so it's easy to confirm a deploy.
+  root.querySelector('#appVersion').textContent = `Build · ${new Date().toISOString().slice(0,10)}`;
   return root;
 }

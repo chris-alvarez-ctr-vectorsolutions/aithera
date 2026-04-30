@@ -36,11 +36,34 @@
 
   <script type="module" src="js/app.js"></script>
   <script>
-    // Register service worker for PWA / offline. Path is relative so it works
-    // under a GitHub Pages project subpath (/aithera/).
+    // Register service worker and auto-reload when a new version takes over.
+    // Without this, an old SW keeps serving stale assets until the user
+    // hard-refreshes — which isn't obvious to a non-dev tester.
     if ('serviceWorker' in navigator) {
+      let didReload = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (didReload) return;
+        didReload = true;
+        window.location.reload();
+      });
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('service-worker.js').catch(() => {});
+        navigator.serviceWorker.register('service-worker.js').then((reg) => {
+          // Poll for updates each visit. If a new SW is found, install it
+          // and let it take over (skipWaiting in the SW activates it
+          // immediately, which fires controllerchange above → reload).
+          reg.update?.();
+          reg.addEventListener('updatefound', () => {
+            const sw = reg.installing;
+            if (!sw) return;
+            sw.addEventListener('statechange', () => {
+              // Only auto-reload when there was already a controller
+              // (i.e. this is an upgrade, not the first install).
+              if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+                sw.postMessage({ type: 'SKIP_WAITING' });
+              }
+            });
+          });
+        }).catch(() => {});
       });
     }
   </script>
