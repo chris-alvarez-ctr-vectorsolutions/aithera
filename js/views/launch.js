@@ -1,28 +1,55 @@
-// views/launch.js — Profile selector / prototype launch screen.
-// Decision: industry choice drives the rest of the demo, so this is a
-// guided 3-step pick (industry → role → experience) rather than a form.
-// Selections map directly to JSON files in /data — that mapping is
-// intentionally explicit so a reviewer can see how content extends.
+// views/launch.js — Launch screen / profile selector.
+// Four top-level categories, each with role pills. Only roles without
+// `soon: true` are selectable; soon-flagged roles render dimmed for
+// visible roadmap. Selecting an active role enables the Launch CTA.
+//
+// Each active role declares the (learner, industry) JSON pair it
+// loads — content, theme, and language follow from there.
 
 import { store } from '../store.js';
 
-const INDUSTRIES = [
-  { id: 'public-safety', label: 'Public Safety',  hint: 'Fire, EMS, LE',          learner: 'firefighter' },
-  { id: 'healthcare',    label: 'Healthcare',     hint: 'Nursing, allied health', learner: 'nurse'       },
-  { id: 'education',     label: 'Education',      hint: 'K-12, higher-ed',        disabled: true },
-  { id: 'manufacturing', label: 'Manufacturing',  hint: 'Plant, EHS',             disabled: true }
+const CATEGORIES = [
+  {
+    id: 'public-service',
+    label: 'Public Service',
+    options: [
+      { id: 'ems',    label: 'EMS',    learner: 'ems',    industry: 'public-safety' },
+      { id: 'fire',   label: 'Fire',   soon: true },
+      { id: 'police', label: 'Police', soon: true },
+      { id: 'other',  label: 'Other',  soon: true }
+    ]
+  },
+  {
+    id: 'education',
+    label: 'Education',
+    options: [
+      { id: 'k12',           label: 'K-12',          soon: true },
+      { id: 'hied-faculty',  label: 'HiEd Faculty',  soon: true },
+      { id: 'hied-student',  label: 'HiEd Student',  learner: 'hied-student', industry: 'education' }
+    ]
+  },
+  {
+    id: 'commercial',
+    label: 'Commercial',
+    options: [
+      { id: 'industrial', label: 'Industrial', learner: 'industrial', industry: 'commercial' }
+    ]
+  },
+  {
+    id: 'enterprise',
+    label: 'Enterprise',
+    options: [
+      { id: 'training',   label: 'Training',   soon: true },
+      { id: 'upskilling', label: 'Upskilling', soon: true }
+    ]
+  }
 ];
 
-const ROLES = {
-  'public-safety': ['Firefighter', 'EMT', 'Officer'],
-  'healthcare':    ['Registered Nurse', 'Tech', 'Therapist']
-};
-
-const LEVELS = ['New', 'Intermediate', 'Advanced'];
-
-const choice = { industry: null, role: null, level: null };
+let selected = null;
 
 export function render() {
+  selected = null;
+
   const root = document.createElement('section');
   root.className = 'launch';
   root.innerHTML = `
@@ -32,15 +59,7 @@ export function render() {
       </div>
       <h1>An adaptive learning layer that proves mastery, not completion.</h1>
       <p>Pick a profile to launch the prototype. Every screen below adapts to your choice.</p>
-
-      <div class="field-label">Industry</div>
-      <div class="pill-grid" id="ind"></div>
-
-      <div class="field-label">Role</div>
-      <div class="pill-grid" id="role"></div>
-
-      <div class="field-label">Experience</div>
-      <div class="pill-grid" id="lvl"></div>
+      <div id="cats"></div>
     </div>
 
     <div>
@@ -49,64 +68,46 @@ export function render() {
     </div>
   `;
 
-  const indEl  = root.querySelector('#ind');
-  const roleEl = root.querySelector('#role');
-  const lvlEl  = root.querySelector('#lvl');
-  const goBtn  = root.querySelector('#go');
+  const cats = root.querySelector('#cats');
+  const goBtn = root.querySelector('#go');
 
-  for (const i of INDUSTRIES) {
-    const b = document.createElement('button');
-    b.className = 'pill';
-    b.disabled = !!i.disabled;
-    if (i.disabled) b.style.opacity = 0.45;
-    b.innerHTML = `<strong>${i.label}</strong><small>${i.hint}${i.disabled ? ' · soon' : ''}</small>`;
-    b.onclick = () => {
-      choice.industry = i.id; choice.role = null; choice.level = null;
-      renderRoles(); renderLevels(); update();
-      [...indEl.children].forEach((c) => c.classList.toggle('selected', c === b));
-    };
-    indEl.appendChild(b);
-  }
+  for (const cat of CATEGORIES) {
+    const label = document.createElement('div');
+    label.className = 'field-label';
+    label.textContent = cat.label;
+    cats.appendChild(label);
 
-  function renderRoles() {
-    roleEl.innerHTML = '';
-    const list = ROLES[choice.industry] ?? [];
-    for (const r of list) {
-      const b = document.createElement('button');
-      b.className = 'pill';
-      b.innerHTML = `<strong>${r}</strong><small>${choice.industry === 'public-safety' ? 'Operational' : 'Clinical'}</small>`;
-      b.onclick = () => {
-        choice.role = r; update();
-        [...roleEl.children].forEach((c) => c.classList.toggle('selected', c === b));
-      };
-      roleEl.appendChild(b);
+    const row = document.createElement('div');
+    row.className = 'role-row';
+    cats.appendChild(row);
+
+    for (const opt of cat.options) {
+      const btn = document.createElement('button');
+      btn.className = 'role-pill' + (opt.soon ? ' soon' : '');
+      btn.disabled = !!opt.soon;
+      btn.innerHTML = opt.soon
+        ? `<span>${opt.label}</span><small>Coming soon</small>`
+        : `<span>${opt.label}</span>`;
+      if (!opt.soon) {
+        btn.onclick = () => {
+          selected = opt;
+          // clear other selections
+          cats.querySelectorAll('.role-pill').forEach((b) => b.classList.toggle('selected', b === btn));
+          goBtn.disabled = false;
+        };
+      }
+      row.appendChild(btn);
     }
   }
-
-  function renderLevels() {
-    lvlEl.innerHTML = '';
-    for (const lv of LEVELS) {
-      const b = document.createElement('button');
-      b.className = 'pill';
-      b.innerHTML = `<strong>${lv}</strong><small>Self-rated</small>`;
-      b.onclick = () => {
-        choice.level = lv; update();
-        [...lvlEl.children].forEach((c) => c.classList.toggle('selected', c === b));
-      };
-      lvlEl.appendChild(b);
-    }
-  }
-
-  function update() { goBtn.disabled = !(choice.industry && choice.role && choice.level); }
 
   goBtn.onclick = async () => {
-    const industryDef = INDUSTRIES.find((i) => i.id === choice.industry);
+    if (!selected) return;
     goBtn.textContent = 'Loading…'; goBtn.disabled = true;
     try {
-      await store.loadLearner(industryDef.learner, choice.industry);
+      await store.loadLearner(selected.learner, selected.industry);
       // Replace, not push — the launchpoint shouldn't be in history.
       location.replace(location.pathname + '#/home');
-    } catch (e) {
+    } catch {
       goBtn.textContent = 'Failed to load — retry';
       goBtn.disabled = false;
     }

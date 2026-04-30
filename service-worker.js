@@ -3,7 +3,7 @@
 //   - Pre-cache the app shell + JSON data on install.
 //   - Network-first for navigation requests (so updates show up).
 //   - Cache-first for everything else, with runtime fallback to cache.
-const VERSION = 'aithera-v10';
+const VERSION = 'aithera-v11';
 const CORE = [
   './',
   './index.html',
@@ -27,8 +27,13 @@ const CORE = [
   './js/views/reference.js',
   './data/learners/firefighter.json',
   './data/learners/nurse.json',
+  './data/learners/ems.json',
+  './data/learners/hied-student.json',
+  './data/learners/industrial.json',
   './data/industries/public-safety.json',
   './data/industries/healthcare.json',
+  './data/industries/education.json',
+  './data/industries/commercial.json',
   './data/courses.json',
   './data/scenarios.json',
   './data/mastery.json',
