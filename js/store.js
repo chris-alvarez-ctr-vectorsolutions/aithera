@@ -96,6 +96,28 @@ export const store = {
   setProgress(courseId, chapterId, blockIdx, percent) {
     state.mastery.courseProgress[courseId] = { chapter: chapterId, block: blockIdx, percent };
     persistMastery(); this.emit();
+  },
+
+  // Mark a chapter complete: bumps progress to the next chapter (if any)
+  // and tracks the chapter id in a `completedChapters` list for that course.
+  markChapterComplete(courseId, chapterId) {
+    const course = this.course(courseId); if (!course) return;
+    const idx = course.chapters.findIndex((c) => c.id === chapterId);
+    const next = course.chapters[idx + 1];
+    state.mastery.completedChapters ??= {};
+    const list = state.mastery.completedChapters[courseId] ??= [];
+    if (!list.includes(chapterId)) list.push(chapterId);
+    const percent = list.length / course.chapters.length;
+    state.mastery.courseProgress[courseId] = {
+      chapter: next ? next.id : chapterId,
+      block: 0,
+      percent
+    };
+    persistMastery(); this.emit();
+  },
+
+  isChapterComplete(courseId, chapterId) {
+    return state.mastery.completedChapters?.[courseId]?.includes(chapterId) ?? false;
   }
 };
 
