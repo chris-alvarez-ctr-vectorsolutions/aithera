@@ -18,7 +18,7 @@ const CATEGORIES = [
     label: 'Public Service',
     accent: '#ff7a3d', accent2: '#ffb27a',
     options: [
-      { id: 'ems',    label: 'EMS',    learner: 'ems',    industry: 'public-safety' },
+      { id: 'ems',    label: 'EMS',    profile: 'ems' },
       { id: 'fire',   label: 'Fire',   soon: true },
       { id: 'police', label: 'Police', soon: true }
     ]
@@ -28,7 +28,7 @@ const CATEGORIES = [
     label: 'Education',
     accent: '#a78bfa', accent2: '#c4b5fd',
     options: [
-      { id: 'hied-student',  label: 'HiEd Student',  learner: 'hied-student', industry: 'education' },
+      { id: 'hied-student',  label: 'HiEd Student',  profile: 'hied-student' },
       { id: 'k12',           label: 'K-12',          soon: true },
       { id: 'hied-faculty',  label: 'HiEd Faculty',  soon: true }
     ]
@@ -38,7 +38,7 @@ const CATEGORIES = [
     label: 'Commercial',
     accent: '#fbbf24', accent2: '#fcd34d',
     options: [
-      { id: 'industrial', label: 'Industrial', learner: 'industrial', industry: 'commercial' }
+      { id: 'industrial', label: 'Industrial', profile: 'industrial' }
     ]
   },
   {
@@ -113,15 +113,19 @@ export function render() {
 
   goBtn.onclick = async () => {
     if (!selected) return;
+    // Snapshot the selected profile: store.loadProfile triggers store.emit,
+    // which re-renders the launch view and clears `selected` mid-flight.
+    const profileSlug = selected.profile;
     goBtn.disabled = true;
     showLoadingOverlay(selected);
     // Fire the data load and a minimum-display timer in parallel so the
     // overlay always feels deliberate, even on a fast local fetch.
     const minDelay = new Promise((r) => setTimeout(r, 1100));
     try {
-      await Promise.all([store.loadLearner(selected.learner, selected.industry), minDelay]);
+      await Promise.all([store.loadProfile(profileSlug), minDelay]);
       // Replace, not push — the launchpoint shouldn't be in history.
-      location.replace(location.pathname + '#/home');
+      const next = `${location.pathname}${location.search}#/home?p=${encodeURIComponent(profileSlug)}`;
+      location.replace(next);
       // Fade the overlay out once the home view has had a paint cycle.
       requestAnimationFrame(() => requestAnimationFrame(() => hideLoadingOverlay()));
     } catch {

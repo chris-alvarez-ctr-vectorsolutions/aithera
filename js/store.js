@@ -6,6 +6,23 @@
 
 const LS_KEY = 'aithera.state.v1';
 
+// Registry of shareable profile slugs. Slugs are stable, URL-safe handles
+// for the (learner, industry) JSON pairs the launch screen offers — they
+// let us encode "which profile is loaded" in the URL itself, so a shared
+// link can boot the app into the right context without localStorage.
+const PROFILES = {
+  ems:            { learner: 'ems',           industry: 'public-safety' },
+  'hied-student': { learner: 'hied-student',  industry: 'education'     },
+  industrial:     { learner: 'industrial',    industry: 'commercial'    }
+};
+const DEFAULT_PROFILE = 'ems';
+
+export const profiles = {
+  has: (slug) => Object.prototype.hasOwnProperty.call(PROFILES, slug),
+  get: (slug) => PROFILES[slug],
+  default: DEFAULT_PROFILE
+};
+
 const state = {
   ready: false,
   learner: null,        // learnerProfile.json
@@ -13,6 +30,7 @@ const state = {
   courses: [],          // courseData.json
   scenarios: [],        // scenarioBank.json
   mastery: null,        // masteryState.json (per learner)
+  profileSlug: null,    // currently-loaded profile slug (URL-shareable)
   // ephemeral session data (e.g. last practice result)
   session: { lastSummary: null }
 };
@@ -29,12 +47,23 @@ export const store = {
   // from localStorage; otherwise the launch view drives selection.
   async init() {
     const saved = readLS();
-    if (saved?.learnerId) {
+    if (saved?.profileSlug && profiles.has(saved.profileSlug)) {
+      try { await this.loadProfile(saved.profileSlug); }
+      catch { /* fall through to launch */ }
+    } else if (saved?.learnerId) {
+      // Back-compat with pre-slug LS payloads.
       try { await this.loadLearner(saved.learnerId, saved.industryId); }
       catch { /* fall through to launch */ }
     }
     state.ready = true;
     this.emit();
+  },
+
+  async loadProfile(slug) {
+    const p = PROFILES[slug];
+    if (!p) throw new Error(`Unknown profile: ${slug}`);
+    state.profileSlug = slug;
+    await this.loadLearner(p.learner, p.industry);
   },
 
   async loadLearner(learnerFile, industryFile) {
@@ -52,7 +81,12 @@ export const store = {
     state.scenarios = scenarios.scenarios;
     state.mastery = mastery.byLearner[learner.learnerId] ?? blankMastery();
     applyTheme(industry);
-    writeLS({ learnerId: learnerFile, industryId: industryFile, mastery: state.mastery });
+    writeLS({
+      profileSlug: state.profileSlug,
+      learnerId: learnerFile,
+      industryId: industryFile,
+      mastery: state.mastery
+    });
     this.emit();
   },
 
@@ -61,6 +95,7 @@ export const store = {
     state.learner = null; state.industry = null;
     state.courses = []; state.scenarios = [];
     state.mastery = null;
+    state.profileSlug = null;
     this.emit();
   },
 
