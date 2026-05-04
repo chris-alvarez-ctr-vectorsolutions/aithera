@@ -3,7 +3,7 @@
 // Each view module exports a `render(params)` function that returns an
 // HTMLElement. The router replaces #view contents and updates chrome.
 
-import { store } from './store.js';
+import { store, profiles } from './store.js';
 import * as launch    from './views/launch.js';
 import * as home      from './views/home.js';
 import * as course    from './views/course.js';
@@ -30,7 +30,7 @@ const ROUTES = [
   { re: /^#\/profile$/,                           view: profile,   shell: true,  parent: '#/home' },
   { re: /^#\/course\/([^/]+)$/,                   view: course,    shell: true,  parent: '#/courses' },
   { re: /^#\/course\/([^/]+)\/chapter\/([^/]+)$/, view: chapter,   shell: true,  parent: (m) => `#/course/${m[1]}` },
-  { re: /^#\/practice\/([^/?]+)(?:\?.*)?$/,       view: practice,  shell: true,  fullscreen: true, parent: '#/practice' },
+  { re: /^#\/practice\/([^/?]+)$/,                view: practice,  shell: true,  fullscreen: true, parent: '#/practice' },
   { re: /^#\/summary$/,                           view: summary,   shell: true,  parent: '#/home' }
 ];
 
@@ -45,32 +45,61 @@ const els = {
   app:     document.getElementById('app')
 };
 
+// Split the hash into its route path and query string. Profile selection
+// rides on `?p=<slug>` so a shared link can boot the app into the right
+// learner context without depending on localStorage.
+function parseHash() {
+  const raw = location.hash || '#/';
+  const i = raw.indexOf('?');
+  const path = i >= 0 ? raw.slice(0, i) : raw;
+  const query = new URLSearchParams(i >= 0 ? raw.slice(i + 1) : '');
+  return { path, query };
+}
+
+// True for routes that represent app content (anything inside the shell).
+// The launchpoint itself doesn't need a profile in the URL.
+function isShelledPath(path) {
+  const m = ROUTES.find((r) => r.re.test(path));
+  return !!(m && m.shell);
+}
+
+// Set the next hash, preserving the current profile slug as `?p=<slug>`
+// on shelled routes so links remain shareable.
+function setHash(path) {
+  const slug = store.state.profileSlug;
+  if (slug && isShelledPath(path)) {
+    location.hash = `${path}?p=${encodeURIComponent(slug)}`;
+  } else {
+    location.hash = path;
+  }
+}
+
 // Exit (×) on fullscreen routes navigates to the route's logical parent.
 els.exit.addEventListener('click', () => {
-  const hash = location.hash || '#/';
-  const match = ROUTES.find((r) => r.re.test(hash));
-  if (!match) { location.hash = '#/home'; return; }
-  const m = match.re.exec(hash);
+  const { path } = parseHash();
+  const match = ROUTES.find((r) => r.re.test(path));
+  if (!match) { setHash('#/home'); return; }
+  const m = match.re.exec(path);
   const parent = typeof match.parent === 'function' ? match.parent(m) : match.parent;
-  location.hash = parent || '#/home';
+  setHash(parent || '#/home');
 });
 
 // Smart back: navigate to the route's logical parent rather than browser
 // history. This prevents accidentally escaping back to the launch page.
 els.back.addEventListener('click', () => {
-  const hash = location.hash || '#/';
-  const match = ROUTES.find((r) => r.re.test(hash));
+  const { path } = parseHash();
+  const match = ROUTES.find((r) => r.re.test(path));
   if (!match || match.top) return;
-  const m = match.re.exec(hash);
+  const m = match.re.exec(path);
   const parent = typeof match.parent === 'function' ? match.parent(m) : match.parent;
-  location.hash = parent || '#/home';
+  setHash(parent || '#/home');
 });
-els.profile.addEventListener('click', () => location.hash = '#/profile');
+els.profile.addEventListener('click', () => setHash('#/profile'));
 
 document.querySelectorAll('[data-route]').forEach((el) => {
   el.addEventListener('click', (e) => {
     e.preventDefault();
-    location.hash = el.dataset.route;
+    setHash(el.dataset.route);
   });
 });
 
@@ -78,26 +107,54 @@ window.addEventListener('hashchange', renderRoute);
 
 (async function bootstrap() {
   await store.init();
-  if (!location.hash) location.hash = store.state.learner ? '#/home' : '#/launch';
-  else renderRoute();
+  // If the URL carries a profile slug, honour it before rendering — this
+  // is what makes a private-window paste-in resolve to the right context.
+  const { path, query } = parseHash();
+  const wanted = query.get('p');
+  if (wanted && profiles.has(wanted) && store.state.profileSlug !== wanted) {
+    try { await store.loadProfile(wanted); } catch {}
+  }
+  // Direct link to a shelled route with no profile available (no LS, no
+  // ?p=) → load the default profile instead of bouncing to the launchpoint.
+  if (!store.state.learner && path !== '#/' && path !== '#/launch' && isShelledPath(path)) {
+    try { await store.loadProfile(profiles.default); } catch {}
+  }
+  if (!location.hash) {
+    setHash(store.state.learner ? '#/home' : '#/launch');
+  } else {
+    renderRoute();
+  }
 })();
 
 function renderRoute() {
-  const hash = location.hash || '#/';
-  // If learner not loaded but route demands shell → bounce to launch.
-  const match = ROUTES.find((r) => r.re.test(hash));
-  if (!match) { location.hash = '#/home'; return; }
-  if (match.shell && !store.state.learner) { location.hash = '#/launch'; return; }
+  const { path, query } = parseHash();
+  // If learner not loaded but route demands shell → load the default
+  // profile rather than redirect away. This keeps deep links working.
+  const match = ROUTES.find((r) => r.re.test(path));
+  if (!match) { setHash('#/home'); return; }
+  if (match.shell && !store.state.learner) {
+    store.loadProfile(profiles.default).then(() => renderRoute()).catch(() => {
+      location.hash = '#/launch';
+    });
+    return;
+  }
 
-  const params = match.re.exec(hash)?.slice(1) ?? [];
+  // If the URL is missing the profile slug for a shelled route, rewrite
+  // it in place so what the user copies from the address bar is shareable.
+  if (store.state.profileSlug && match.shell && !query.get('p')) {
+    const enriched = `${path}?p=${encodeURIComponent(store.state.profileSlug)}`;
+    history.replaceState(null, '', `${location.pathname}${location.search}${enriched}`);
+  }
+
+  const params = match.re.exec(path)?.slice(1) ?? [];
   const node = match.view.render(...params);
 
   els.view.replaceChildren(node);
-  const isHome = hash === '#/home';
+  const isHome = path === '#/home';
   toggleShell(match.shell, !!match.fullscreen, isHome);
   // Back is a floating button on shelled non-home, non-fullscreen routes.
   els.back.hidden = !match.shell || !!match.top || !!match.fullscreen;
-  highlightTab(hash);
+  highlightTab(path);
 
   if (isHome && store.state.industry) {
     els.brand.textContent = `Aithera · ${store.state.industry.label}`;
@@ -124,9 +181,9 @@ function toggleShell(show, fullscreen = false, isHome = false) {
     ?.setAttribute('content', show ? '#f4f5f9' : '#0b1220');
 }
 
-function highlightTab(hash) {
+function highlightTab(path) {
   document.querySelectorAll('.tab').forEach((t) => {
-    t.classList.toggle('active', hash.startsWith(t.dataset.route));
+    t.classList.toggle('active', path.startsWith(t.dataset.route));
   });
 }
 
