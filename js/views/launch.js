@@ -69,7 +69,7 @@ export function render() {
       <div id="cats"></div>
     </div>
 
-    <div>
+    <div class="launch-cta">
       <button class="btn primary block" id="go" disabled>Launch experience</button>
       <p class="muted tiny center" style="margin-top:10px">No sign-in. Profile is loaded from local JSON.</p>
     </div>
