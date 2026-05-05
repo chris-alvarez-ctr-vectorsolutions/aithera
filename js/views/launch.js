@@ -40,15 +40,6 @@ const CATEGORIES = [
     options: [
       { id: 'industrial', label: 'Industrial', profile: 'industrial' }
     ]
-  },
-  {
-    id: 'enterprise',
-    label: 'Enterprise',
-    accent: '#3ec8ff', accent2: '#7ee0ff',
-    options: [
-      { id: 'training',   label: 'Training',   soon: true },
-      { id: 'upskilling', label: 'Upskilling', soon: true }
-    ]
   }
 ];
 
