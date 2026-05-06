@@ -12,23 +12,23 @@ import * as ui from '../ui.js';
 
 export function render() {
   const root = document.createElement('section');
-  root.className = 'stack';
+  root.className = 'coach-view';
 
   // Vic header strip
   root.appendChild(headerStrip());
 
-  // Thread container
-  const thread = ui.el('div', { class: 'stack' });
+  // Thread container — scrolls internally so the composer stays pinned
+  const thread = ui.el('div', { class: 'coach-thread stack' });
   root.appendChild(thread);
 
   // Date divider above first messages
   thread.appendChild(ui.dateDivider(formatDate()));
 
   // Suggested-quick-replies row (replaced after each Vic reply)
-  const suggBox = ui.el('div', null);
+  const suggBox = ui.el('div', { class: 'coach-sugg' });
   root.appendChild(suggBox);
 
-  // Composer (sticky bottom)
+  // Composer (pinned to the bottom of the coach view, just above the tab bar)
   const composer = ui.chatComposer({
     onSend: (text) => onLearnerMessage(text),
     onMic:  () => onMic(),
@@ -37,6 +37,12 @@ export function render() {
   root.appendChild(composer);
 
   // ---------- behaviors ----------
+
+  function scrollToEnd() {
+    requestAnimationFrame(() => {
+      thread.scrollTo({ top: thread.scrollHeight, behavior: 'smooth' });
+    });
+  }
 
   function appendCoach(reply) {
     const extras = [];
@@ -139,10 +145,6 @@ function citeTag(reply) {
     }
   }
   return null;
-}
-
-function scrollToEnd() {
-  requestAnimationFrame(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }));
 }
 
 function formatDate() {

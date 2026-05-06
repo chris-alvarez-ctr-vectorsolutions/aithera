@@ -151,6 +151,8 @@ function renderRoute() {
 
   els.view.replaceChildren(node);
   const isHome = path === '#/home';
+  const isCoach = path === '#/coach';
+  document.body.classList.toggle('coach-mode', isCoach);
   toggleShell(match.shell, !!match.fullscreen, isHome);
   // Back is a floating button on shelled non-home, non-fullscreen routes.
   els.back.hidden = !match.shell || !!match.top || !!match.fullscreen;
@@ -189,3 +191,16 @@ function highlightTab(path) {
 
 // Re-render on store events so adaptive UI stays current.
 store.subscribe(() => { if (location.hash) renderRoute(); });
+
+// Track the on-screen keyboard via the visual viewport so coach-mode can
+// keep the chat composer pinned just above it on mobile.
+if (window.visualViewport) {
+  const vv = window.visualViewport;
+  const update = () => {
+    const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    document.documentElement.style.setProperty('--kb-offset', `${offset}px`);
+  };
+  vv.addEventListener('resize', update);
+  vv.addEventListener('scroll', update);
+  update();
+}

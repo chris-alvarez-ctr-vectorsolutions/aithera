@@ -62,6 +62,20 @@ body.light {
 html, body { margin: 0; padding: 0; }
 html, body, #app { height: 100%; }
 
+/* Hide scrollbars on every scrollable surface — content still scrolls,
+   the bar just doesn't render. */
+html, body, .app, .view, .coach-thread {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.app::-webkit-scrollbar,
+.view::-webkit-scrollbar,
+.coach-thread::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+:root { --tabbar-h: 78px; }
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   background: var(--bg);
@@ -1366,6 +1380,67 @@ a.card h3 { color: var(--text); }
 .tiny  { font-size: 12px; }
 .center { text-align: center; }
 .stack > * + * { margin-top: 12px; }
+
+/* =========================================================
+   COACH VIEW LAYOUT — pin the composer above the tab bar (and
+   above the on-screen keyboard on mobile). The thread scrolls
+   internally so nothing else needs to scroll on this page.
+   ========================================================= */
+.coach-view {
+  display: flex; flex-direction: column;
+  flex: 1 1 auto; min-height: 0;
+  gap: 8px;
+}
+.coach-view > .vic-header,
+.coach-view > .coach-sugg,
+.coach-view > .chat-composer { flex: 0 0 auto; }
+.coach-view > .coach-thread {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+.coach-view > .coach-thread > * + * { margin-top: 12px; }
+/* Composer becomes a normal flex child inside the coach view — drop the
+   page-scroll sticky behaviour that the other surfaces rely on. */
+.coach-view > .chat-composer {
+  position: static;
+  bottom: auto;
+  margin-top: 0;
+}
+
+/* Mobile: lock the page so the coach surface fills the viewport, then
+   reserve space at the bottom for whichever is taller — the tab bar or
+   the on-screen keyboard (tracked via --kb-offset from app.js). */
+@media (max-width: 759.98px) {
+  body.coach-mode { overflow: hidden; height: 100dvh; }
+  body.coach-mode .app {
+    height: 100dvh; min-height: 0;
+  }
+  body.coach-mode .view {
+    flex: 1 1 auto; min-height: 0;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    padding-bottom: max(var(--tabbar-h), var(--kb-offset, 0px));
+    padding-top: calc(env(safe-area-inset-top) + 64px);
+  }
+  /* When the keyboard is up, the fixed tabbar is covered by it anyway —
+     hide it so it doesn't bleed through the composer. */
+  body.coach-mode .tabbar {
+    transition: opacity 120ms ease;
+  }
+}
+
+/* Desktop / tablet: the .app already scrolls internally. Just contain the
+   coach view to the available height and let its inner thread scroll. */
+@media (min-width: 760px) {
+  body.coach-mode .app { overflow: hidden; }
+  body.coach-mode .view {
+    flex: 1 1 auto; min-height: 0;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    padding-bottom: 0;
+  }
+}
 
 /* tablet+: still center the phone column */
 @media (min-width: 760px) {
