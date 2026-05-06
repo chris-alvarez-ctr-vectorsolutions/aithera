@@ -1227,6 +1227,9 @@
     </div>
 </footer>
 
+<!-- ── Approve Dialog ── -->
+<vaadin-dialog id="approve-dialog" header-title="Approve Event"></vaadin-dialog>
+
 <!-- ── Return to Author Dialog ── -->
 <vaadin-dialog id="return-to-author-dialog" header-title="Return to Author"></vaadin-dialog>
 
@@ -1632,6 +1635,177 @@
             e.preventDefault();
             presenterDialog.opened = true;
         });
+    });
+
+    // ── Approve Dialog ──
+    const approveDialog = document.getElementById('approve-dialog');
+
+    const mockReviewers = [
+        { name: 'Sarah Johnson',   role: 'Assistant Superintendent',  email: 's.johnson@district.edu' },
+        { name: 'Michael Torres',  role: 'Curriculum Director',       email: 'm.torres@district.edu' },
+        { name: 'Linda Park',      role: 'HR Director',               email: 'l.park@district.edu' },
+        { name: 'David Chen',      role: 'Finance Coordinator',       email: 'd.chen@district.edu' },
+        { name: 'Rachel Williams', role: 'Professional Dev Manager',  email: 'r.williams@district.edu' },
+    ];
+
+    approveDialog.renderer = (root) => {
+        if (root.firstChild) return;
+
+        root.innerHTML = `
+            <div style="width:480px; display:flex; flex-direction:column; gap:16px;">
+                <p style="margin:0; font-size:14px; color:var(--lumo-secondary-text-color,#555);">
+                    You are approving this event. Optionally, assign the next reviewer who must also review and approve before the event is published.
+                </p>
+
+                <vaadin-checkbox id="approve-next-reviewer-chk" label="Assign next reviewer"></vaadin-checkbox>
+
+                <div id="approve-next-reviewer-block" style="display:none; flex-direction:column; gap:12px;">
+
+                    <vaadin-text-field
+                        id="approve-reviewer-search"
+                        theme="outlined"
+                        label="Search by name or email"
+                        placeholder="Type at least 3 characters..."
+                        style="width:100%;"
+                        helper-text="Search across name, role, or email">
+                    </vaadin-text-field>
+
+                    <!-- Search results -->
+                    <div id="approve-reviewer-results" style="border:1px solid var(--lumo-contrast-20pct,#e0e0e0); border-radius:4px; overflow:hidden; display:none;">
+                    </div>
+
+                    <!-- Selected reviewer chip -->
+                    <div id="approve-reviewer-selected" style="display:none; align-items:center; justify-content:space-between; padding:10px 12px; background:var(--lumo-primary-color-10pct,#e8f2fb); border:1px solid var(--lumo-primary-color,#0271ce); border-radius:4px;">
+                        <div style="display:flex; flex-direction:column; gap:2px;">
+                            <span id="approve-reviewer-name" style="font-size:13px; font-weight:600;"></span>
+                            <span id="approve-reviewer-meta" style="font-size:12px; color:var(--lumo-secondary-text-color,#666);"></span>
+                        </div>
+                        <button id="approve-reviewer-remove" style="background:none; border:none; cursor:pointer; color:var(--lumo-secondary-text-color,#666); font-size:14px; padding:4px;" title="Remove selection">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <!-- Optional note to reviewer -->
+                    <div id="approve-note-block" style="display:none; flex-direction:column; gap:4px;">
+                        <vaadin-checkbox id="approve-add-note-chk" label="Add a note to the reviewer"></vaadin-checkbox>
+                        <div id="approve-note-area" style="display:none; margin-top:4px;">
+                            <vaadin-text-area
+                                theme="outlined"
+                                placeholder="Add context or instructions for the next reviewer..."
+                                style="width:100%; --vaadin-text-area-height:88px;">
+                            </vaadin-text-area>
+                        </div>
+                    </div>
+
+                </div>
+
+                <vaadin-checkbox id="approve-notify-chk" label="Notify next reviewer by email" style="display:none;"></vaadin-checkbox>
+            </div>
+        `;
+
+        const nextReviewerChk   = root.querySelector('#approve-next-reviewer-chk');
+        const nextReviewerBlock = root.querySelector('#approve-next-reviewer-block');
+        const searchField       = root.querySelector('#approve-reviewer-search');
+        const resultsEl         = root.querySelector('#approve-reviewer-results');
+        const selectedEl        = root.querySelector('#approve-reviewer-selected');
+        const nameEl            = root.querySelector('#approve-reviewer-name');
+        const metaEl            = root.querySelector('#approve-reviewer-meta');
+        const removeBtn         = root.querySelector('#approve-reviewer-remove');
+        const noteBlock         = root.querySelector('#approve-note-block');
+        const addNoteChk        = root.querySelector('#approve-add-note-chk');
+        const noteArea          = root.querySelector('#approve-note-area');
+        const notifyChk         = root.querySelector('#approve-notify-chk');
+
+        let selectedReviewer = null;
+
+        function selectReviewer(reviewer) {
+            selectedReviewer = reviewer;
+            nameEl.textContent = reviewer.name;
+            metaEl.textContent = reviewer.role + ' · ' + reviewer.email;
+            selectedEl.style.display = 'flex';
+            resultsEl.style.display  = 'none';
+            searchField.style.display = 'none';
+            noteBlock.style.display  = 'flex';
+            notifyChk.style.display  = '';
+        }
+
+        function clearReviewer() {
+            selectedReviewer = null;
+            selectedEl.style.display  = 'none';
+            searchField.style.display = '';
+            resultsEl.style.display   = 'none';
+            searchField.value         = '';
+            noteBlock.style.display   = 'none';
+            notifyChk.style.display   = 'none';
+        }
+
+        removeBtn.addEventListener('click', clearReviewer);
+
+        nextReviewerChk.addEventListener('checked-changed', (e) => {
+            const show = e.detail.value;
+            nextReviewerBlock.style.display = show ? 'flex' : 'none';
+            if (!show) {
+                clearReviewer();
+                notifyChk.style.display = 'none';
+            }
+        });
+
+        searchField.addEventListener('value-changed', (e) => {
+            const query = (e.detail.value || '').toLowerCase();
+            if (query.length < 3) {
+                resultsEl.style.display = 'none';
+                return;
+            }
+            const matches = mockReviewers.filter(r =>
+                r.name.toLowerCase().includes(query) ||
+                r.role.toLowerCase().includes(query) ||
+                r.email.toLowerCase().includes(query)
+            );
+            resultsEl.innerHTML = '';
+            if (!matches.length) {
+                resultsEl.innerHTML = '<div style="padding:10px 12px; font-size:13px; color:var(--lumo-secondary-text-color,#666);">No results found</div>';
+            } else {
+                matches.forEach((r, i) => {
+                    const row = document.createElement('div');
+                    row.style.cssText = 'padding:10px 12px; cursor:pointer; display:flex; flex-direction:column; gap:2px;' +
+                        (i < matches.length - 1 ? 'border-bottom:1px solid var(--lumo-contrast-10pct,#f0f0f0);' : '');
+                    row.innerHTML = `<span style="font-size:13px; font-weight:600;">${r.name}</span><span style="font-size:12px; color:var(--lumo-secondary-text-color,#666);">${r.role} &nbsp;·&nbsp; ${r.email}</span>`;
+                    row.addEventListener('mouseenter', () => row.style.background = 'var(--lumo-contrast-5pct,#f4f6f8)');
+                    row.addEventListener('mouseleave', () => row.style.background = '');
+                    row.addEventListener('click', () => selectReviewer(r));
+                    resultsEl.appendChild(row);
+                });
+            }
+            resultsEl.style.display = 'block';
+        });
+
+        addNoteChk.addEventListener('checked-changed', (e) => {
+            noteArea.style.display = e.detail.value ? 'block' : 'none';
+        });
+    };
+
+    approveDialog.footerRenderer = (root) => {
+        if (root.firstChild) return;
+
+        const cancelBtn = document.createElement('vaadin-button');
+        cancelBtn.setAttribute('theme', 'secondary');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.addEventListener('click', () => { approveDialog.opened = false; });
+
+        const confirmBtn = document.createElement('vaadin-button');
+        confirmBtn.setAttribute('theme', 'success primary');
+        confirmBtn.textContent = 'Confirm Approval';
+        confirmBtn.addEventListener('click', () => { approveDialog.opened = false; });
+
+        root.appendChild(cancelBtn);
+        root.appendChild(confirmBtn);
+    };
+
+    // Wire both Approve buttons (edit + read-only footers)
+    document.querySelectorAll('#footer-approver-edit vaadin-button[theme="primary"], #footer-approver-ro vaadin-button[theme="primary"]').forEach(btn => {
+        if (btn.textContent.trim() === 'Approve') {
+            btn.addEventListener('click', () => { approveDialog.opened = true; });
+        }
     });
 </script>
 </body>
