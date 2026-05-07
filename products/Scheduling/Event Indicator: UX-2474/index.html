@@ -1376,14 +1376,15 @@
 
       <!-- Attendees -->
       <div style="margin-bottom:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <label style="font-size:12px;font-weight:600;color:#374151" data-file="products/Scheduling/Event Indicator: UX-2474/index.html" data-line="1357">Attendees</label>
-          <button onclick="addAttendee()" style="display:flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid #D1D5DB;border-radius:4px;background:white;font-size:12px;cursor:pointer;font-family:inherit;color:#374151" data-file="products/Scheduling/Event Indicator: UX-2474/index.html" data-line="1358">
-            <i class="fa-solid fa-plus" style="font-size:9px"></i> Add person
-          </button>
-        </div>
-        <div id="ee-attendees" style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto" data-file="products/Scheduling/Event Indicator: UX-2474/index.html" data-line="1362">
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:6px">Attendees</label>
+        <div id="ee-attendees" style="display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto;margin-bottom:6px">
           <!-- populated by JS -->
+        </div>
+        <div style="position:relative">
+          <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:#9CA3AF;font-size:11px;pointer-events:none"></i>
+          <input id="ee-add-person" type="text" placeholder="Search and add person…"
+            style="width:100%;padding:6px 8px 6px 28px;border:1px solid #D1D5DB;border-radius:5px;font-size:12px;font-family:inherit;outline:none;"
+            onfocus="this.style.borderColor='#7C3AED'" onblur="this.style.borderColor='#D1D5DB'">
         </div>
       </div>
 
@@ -1972,7 +1973,7 @@
     return _acDropdown;
   }
 
-  function showAcDropdown(input) {
+  function showAcDropdown(input, onSelect) {
     const dd = getAcDropdown();
     const filter = input.value.trim().toLowerCase();
     const added = Array.from(document.querySelectorAll('#ee-attendees .attendee-name'))
@@ -1991,11 +1992,7 @@
         const item = document.createElement('div');
         item.className = 'attendee-drop-item';
         item.textContent = name;
-        item.addEventListener('mousedown', e => {
-          e.preventDefault();
-          input.value = name;
-          hideAcDropdown();
-        });
+        item.addEventListener('mousedown', e => { e.preventDefault(); onSelect(name); });
         dd.appendChild(item);
       });
     }
@@ -2011,10 +2008,29 @@
   }
 
   function initAcInput(input) {
-    input.addEventListener('focus', () => showAcDropdown(input));
-    input.addEventListener('click', () => showAcDropdown(input));
-    input.addEventListener('input', () => showAcDropdown(input));
+    const onSelect = name => { input.value = name; hideAcDropdown(); };
+    input.addEventListener('focus', () => showAcDropdown(input, onSelect));
+    input.addEventListener('click', () => showAcDropdown(input, onSelect));
+    input.addEventListener('input', () => showAcDropdown(input, onSelect));
     input.addEventListener('blur', () => setTimeout(hideAcDropdown, 150));
+  }
+
+  function initAddPersonInput() {
+    const input = document.getElementById('ee-add-person');
+    if (!input) return;
+    const onSelect = name => {
+      const container = document.getElementById('ee-attendees');
+      container.appendChild(createAttendeeRow(false, name));
+      container.scrollTop = container.scrollHeight;
+      input.value = '';
+      input.focus();
+      showAcDropdown(input, onSelect);
+    };
+    input.addEventListener('focus', () => showAcDropdown(input, onSelect));
+    input.addEventListener('click', () => showAcDropdown(input, onSelect));
+    input.addEventListener('input', () => showAcDropdown(input, onSelect));
+    input.addEventListener('blur', () => setTimeout(hideAcDropdown, 150));
+    input.addEventListener('keydown', e => { if (e.key === 'Escape') { input.value = ''; hideAcDropdown(); } });
   }
 
   function createAttendeeRow(assigned, name) {
@@ -2175,6 +2191,8 @@
       drag = null;
     });
   })();
+
+  initAddPersonInput();
 
   // ── LEGEND MODAL ──
   document.getElementById('btn-legend-open').addEventListener('click', () => {
