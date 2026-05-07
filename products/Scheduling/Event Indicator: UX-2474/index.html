@@ -243,6 +243,11 @@
     .attendee-flag.off i { color: #9CA3AF; }
     .attendee-remove { background: none; border: none; cursor: pointer; color: #9CA3AF; padding: 2px; font-size: 12px; }
     .attendee-remove:hover { color: #DC2626; }
+    .attendee-dropdown { position: fixed; background: white; border: 1px solid #D1D5DB; border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,0.14); z-index: 3000; max-height: 160px; overflow-y: auto; display: none; min-width: 180px; }
+    .attendee-dropdown.open { display: block; }
+    .attendee-drop-item { padding: 7px 12px; font-size: 12px; color: #374151; cursor: pointer; }
+    .attendee-drop-item:hover { background: #EFF6FF; color: #1D4ED8; }
+    .attendee-drop-empty { padding: 7px 12px; font-size: 12px; color: #9CA3AF; font-style: italic; }
 
     /* ── LEGEND MODAL ── */
     .legend-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 1000; align-items: flex-start; justify-content: center; padding-top: 80px; }
@@ -1941,21 +1946,104 @@
     document.getElementById('event-edit-overlay').classList.add('open');
   }
 
+  // ── ATTENDEE AUTOCOMPLETE ──
+  const allPeople = [
+    'Alissa Mendez','Asher Cook','Aurora Banks','Blake Anderson','Evelyn Reed',
+    'Finley Ward','Hazel King','Jasper Cole','Jim Owens','John Smith',
+    'Josh Lorenzen','Justin Shoopman','Keaton Ingram','Kevin Griego',
+    'Laura Rodriguez','Lucas Brown','Luna Bell','Luna Mitchell','Mason Brooks',
+    'Matt Fudala','Nova Carter','Owen Lane','Rebecca Flinders','River Thompson',
+    'Sage Martinez','Scarlett Hayes','Scot Davis','Thomas Barnes','Zackary Hartwig'
+  ];
+
+  let _acDropdown = null;
+
+  function getAcDropdown() {
+    if (!_acDropdown) {
+      _acDropdown = document.createElement('div');
+      _acDropdown.className = 'attendee-dropdown';
+      document.body.appendChild(_acDropdown);
+      document.addEventListener('click', e => {
+        if (!e.target.closest('.attendee-name') && !e.target.closest('.attendee-dropdown')) {
+          hideAcDropdown();
+        }
+      });
+    }
+    return _acDropdown;
+  }
+
+  function showAcDropdown(input) {
+    const dd = getAcDropdown();
+    const filter = input.value.trim().toLowerCase();
+    const added = Array.from(document.querySelectorAll('#ee-attendees .attendee-name'))
+      .filter(i => i !== input).map(i => i.value.trim().toLowerCase()).filter(Boolean);
+    const matches = allPeople.filter(n =>
+      (!filter || n.toLowerCase().includes(filter)) && !added.includes(n.toLowerCase())
+    );
+    dd.innerHTML = '';
+    if (matches.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'attendee-drop-empty';
+      empty.textContent = filter ? 'No matches' : 'All people already added';
+      dd.appendChild(empty);
+    } else {
+      matches.forEach(name => {
+        const item = document.createElement('div');
+        item.className = 'attendee-drop-item';
+        item.textContent = name;
+        item.addEventListener('mousedown', e => {
+          e.preventDefault();
+          input.value = name;
+          hideAcDropdown();
+        });
+        dd.appendChild(item);
+      });
+    }
+    const rect = input.getBoundingClientRect();
+    dd.style.top  = (rect.bottom + 4) + 'px';
+    dd.style.left = rect.left + 'px';
+    dd.style.width = Math.max(200, rect.width + 60) + 'px';
+    dd.classList.add('open');
+  }
+
+  function hideAcDropdown() {
+    if (_acDropdown) _acDropdown.classList.remove('open');
+  }
+
+  function initAcInput(input) {
+    input.addEventListener('focus', () => showAcDropdown(input));
+    input.addEventListener('click', () => showAcDropdown(input));
+    input.addEventListener('input', () => showAcDropdown(input));
+    input.addEventListener('blur', () => setTimeout(hideAcDropdown, 150));
+  }
+
+  function createAttendeeRow(assigned, name) {
+    const row = document.createElement('div');
+    row.className = 'attendee-row';
+    const flag = document.createElement('span');
+    flag.className = `attendee-flag${assigned ? '' : ' off'}`;
+    flag.title = assigned ? 'Assigned' : 'Unassigned';
+    flag.innerHTML = '<i class="fa-solid fa-flag"></i>';
+    flag.onclick = () => toggleAttendeeFlag(flag);
+    const input = document.createElement('input');
+    input.className = 'attendee-name';
+    input.type = 'text';
+    input.value = name;
+    input.placeholder = 'Search name...';
+    initAcInput(input);
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'attendee-remove';
+    removeBtn.title = 'Remove';
+    removeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+    removeBtn.onclick = () => row.remove();
+    row.append(flag, input, removeBtn);
+    return row;
+  }
+
   function renderAttendees(list) {
     const container = document.getElementById('ee-attendees');
     container.innerHTML = '';
-    list.forEach((a, i) => {
-      const row = document.createElement('div');
-      row.className = 'attendee-row';
-      row.innerHTML = `
-        <span class="attendee-flag ${a.assigned ? '' : 'off'}" title="${a.assigned ? 'Assigned' : 'Unassigned'}" onclick="toggleAttendeeFlag(this)">
-          <i class="fa-solid fa-flag"></i>
-        </span>
-        <input class="attendee-name" type="text" value="${a.name}">
-        <button class="attendee-remove" onclick="removeAttendee(this)" title="Remove"><i class="fa-solid fa-xmark"></i></button>
-      `;
-      container.appendChild(row);
-    });
+    list.forEach(a => container.appendChild(createAttendeeRow(a.assigned, a.name)));
   }
 
   function toggleAttendeeFlag(el) {
@@ -1969,15 +2057,7 @@
 
   function addAttendee() {
     const container = document.getElementById('ee-attendees');
-    const row = document.createElement('div');
-    row.className = 'attendee-row';
-    row.innerHTML = `
-      <span class="attendee-flag off" title="Unassigned" onclick="toggleAttendeeFlag(this)">
-        <i class="fa-solid fa-flag"></i>
-      </span>
-      <input class="attendee-name" type="text" placeholder="Name..." style="color:#111827">
-      <button class="attendee-remove" onclick="removeAttendee(this)" title="Remove"><i class="fa-solid fa-xmark"></i></button>
-    `;
+    const row = createAttendeeRow(false, '');
     container.appendChild(row);
     row.querySelector('input').focus();
   }
@@ -2057,7 +2137,7 @@
     closeEventEdit();
   }
 
-  function closeEventEdit() { document.getElementById('event-edit-overlay').classList.remove('open'); }
+  function closeEventEdit() { document.getElementById('event-edit-overlay').classList.remove('open'); hideAcDropdown(); }
   function closeEventEditOnOverlay(e) { if (e.target === document.getElementById('event-edit-overlay')) closeEventEdit(); }
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeEventEdit(); closeLegend(); } });
 
