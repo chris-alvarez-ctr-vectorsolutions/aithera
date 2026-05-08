@@ -160,8 +160,10 @@ export function readinessCard({
 
   // Coach note
   if (coachNote) {
+    const noteMark = el('span', { class: 'rd-note-mark' });
+    noteMark.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="3"/><circle cx="9" cy="13" r="1.4" fill="currentColor"/><circle cx="15" cy="13" r="1.4" fill="currentColor"/><path d="M12 4v3"/><circle cx="12" cy="3.5" r="0.8" fill="currentColor"/></svg>`;
     card.appendChild(el('div', { class: 'rd-note' },
-      el('span', { class: 'rd-note-mark' }, 'V'),
+      noteMark,
       el('p', null, coachNote)
     ));
   }
@@ -170,7 +172,7 @@ export function readinessCard({
   if (movers.length) {
     card.appendChild(el('hr', { class: 'rd-rule' }));
     card.appendChild(el('div', { class: 'rd-bh' },
-      el('span', { class: 'rd-bh-label' }, 'What moved it'),
+      el('span', { class: 'rd-bh-label' }, 'Biggest movers'),
       el('span', { class: 'rd-bh-period' }, 'this month')
     ));
 
