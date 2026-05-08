@@ -129,6 +129,10 @@ function citeTag(reply) {
       return a;
     }
   }
+  if (reply.offScript) {
+    return ui.el('span', { class: 'tag warn', style: { marginTop: '2px', display: 'inline-flex' } },
+      'Outside course library — verify with a peer or supervisor');
+  }
   if (reply.bounded) {
     return ui.el('span', { class: 'tag warn', style: { marginTop: '2px', display: 'inline-flex' } },
       'No matching source — Vic will not guess');
