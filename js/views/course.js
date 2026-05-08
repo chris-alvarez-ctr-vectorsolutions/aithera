@@ -25,9 +25,13 @@ export function render(courseId) {
   const initials = course.title.split(/\s+/).slice(0,2).map((w) => w[0]).join('').toUpperCase();
   const saved = store.state.mastery.saved.includes(course.id);
 
-  // 1. Hero with mandated badge + course initials mark
+  // 1. Hero with mandated badge + course initials mark.
+  // Image lookup convention: drop a file at assets/courses/<course.id>.jpg
+  // and the hero picks it up automatically. If the file is missing the
+  // <img> errors out and the gradient stands alone — no broken state.
   root.appendChild(ui.hero({
     initials,
+    image: course.heroImage || `assets/courses/${course.id}.jpg`,
     gradient: ui.gradientFor(course.id, getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff7a3d'),
     badge: course.mandated
       ? { label: 'Mandated', variant: '' }
@@ -37,7 +41,7 @@ export function render(courseId) {
   // 2. Title + module subtitle (uses chapter the learner is on if any)
   const subline = progress
     ? `Picking up at: ${course.chapters.find((c) => c.id === progress.chapter)?.title ?? course.chapters[0].title}`
-    : `${course.chapters.length} chapters · ${course.capabilities.join(' · ')}`;
+    : course.capabilities.join(' · ');
 
   root.appendChild(ui.el('div', { class: 'stack', style: { marginBottom: '14px' } },
     ui.el('div', { class: 'row between' },
@@ -48,10 +52,10 @@ export function render(courseId) {
     ui.el('p', { class: 'muted', style: { margin: '6px 0 0' } }, subline)
   ));
 
-  // 3. Stat tiles row — credibility + duration
+  // 3. Stat tiles row — chapter count + duration
   root.appendChild(ui.statTileRow([
-    { icon: 'users', value: humanCount(course),       label: 'Active learners' },
-    { icon: 'clock', value: `${course.estMinutes}m`,  label: 'Est. duration' }
+    { icon: 'list',  value: String(course.chapters.length), label: 'Chapters' },
+    { icon: 'clock', value: `${course.estMinutes}m`,        label: 'Est. duration' }
   ]));
 
   // 4. Status panel — current state with play affordance
@@ -118,15 +122,6 @@ export function render(courseId) {
   }
 
   return root;
-}
-
-// Stable per-course pseudo-count so the stat feels real without
-// pretending to be live. Hash of id → number in [200, 4500].
-function humanCount(course) {
-  let h = 0;
-  for (const c of course.id) h = (h * 33 + c.charCodeAt(0)) | 0;
-  const n = 200 + (Math.abs(h) % 4300);
-  return n.toLocaleString();
 }
 
 function coachLine(course, progress, tone) {

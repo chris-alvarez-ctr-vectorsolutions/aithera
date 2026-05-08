@@ -1,12 +1,23 @@
-// views/chapter.js — Main learning flow.
-// Composed entirely from ui.js primitives. Carries the full pattern from
-// the Vector chapter mockup (kicker + title + Save/Mark Complete; video;
-// AI Assistant panel with the four modalities; rich content blocks
-// including callouts and equipment lists; per-block AI menu so the
-// modalities can apply to ANY content; mini course progress; Next Up).
+// views/chapter.js — Stepped learning flow.
+//
+// Instead of a single dense scroll, the chapter is broken into focused
+// phases the learner moves through one at a time:
+//   1. Watch  — hero video; AI assistant tucked behind a tap-to-expand
+//               header so it doesn't dominate.
+//   2. Learn  — the rich content blocks (prose, callouts, concept). Per-
+//               block AI menu still available via blockShell.
+//   3. Check  — any embedded polls / knowledge checks.
+//   4. Recap  — practice nudge, course progress, next-up preview, and
+//               the "mark complete" CTA.
+//
+// Steps with no content for the current chapter are skipped (e.g. a
+// chapter without a poll skips Check). A sticky footer carries the
+// forward CTA so the next action is always reachable.
+//
+// The route is rendered fullscreen (see app.js) — the bottom tabbar is
+// hidden so the lesson surface owns the screen.
 
 import { store } from '../store.js';
-import { coach } from '../coach.js';
 import * as ui from '../ui.js';
 
 export function render(courseId, chapterId) {
@@ -20,95 +31,200 @@ export function render(courseId, chapterId) {
   const completed = (store.state.mastery.completedChapters?.[course.id] ?? []).length;
   const total     = course.chapters.length;
 
-  // ---------- Header (kicker + title + Save / Mark Complete) ----------
-  const isSaved    = store.state.mastery.saved.includes(course.id);
-  const isComplete = store.isChapterComplete(course.id, chapter.id);
-  root.appendChild(ui.chapterHeader({
-    kicker: chapter.kicker || `${course.title} · Chapter ${idx + 1} of ${total}`,
-    title:  chapter.title,
-    isSaved, isComplete,
-    onSave:     () => store.toggleSaved(course.id),
-    onComplete: () => store.markChapterComplete(course.id, chapter.id)
-  }));
+  // ---------- Partition blocks into phases ----------
+  const videoBlocks   = chapter.blocks.filter((b) => b.type === 'video');
+  const pollBlocks    = chapter.blocks.filter((b) => b.type === 'poll');
+  const learnBlocks   = chapter.blocks.filter((b) => b.type !== 'video' && b.type !== 'poll');
 
-  // ---------- Hero video ----------
-  const videoBlock = chapter.blocks.find((b) => b.type === 'video');
-  if (videoBlock) root.appendChild(videoEl(videoBlock));
+  // Build the active step list dynamically — skip phases with no content.
+  const phases = [];
+  if (videoBlocks.length) phases.push('watch');
+  if (learnBlocks.length) phases.push('learn');
+  if (pollBlocks.length)  phases.push('check');
+  phases.push('recap');
 
-  // ---------- AI Assistant panel ----------
-  // Container for AI-generated coach replies (chapter-scoped).
-  const aiOut = ui.el('div', { class: 'stack' });
-  root.appendChild(ui.assistantPanel({
-    onAction: (kind) => aiOut.appendChild(modalityResponse(kind, chapter, null))
-  }));
-  root.appendChild(aiOut);
+  const phaseLabels = { watch: 'Watch', learn: 'Learn', check: 'Check', recap: 'Recap' };
+  const stepLabels = phases.map((p) => phaseLabels[p]);
 
-  // ---------- Content blocks (everything except the lead video) ----------
-  for (const b of chapter.blocks) {
-    if (b.type === 'video') continue;
-    const node = renderBlock(b, course);
-    if (!node) continue;
-    // Wrap most content in blockShell to expose per-block AI menu.
-    if (b.type === 'concept' || b.type === 'callout-row') {
-      root.appendChild(node);
-    } else {
-      root.appendChild(ui.blockShell({
-        children: node,
-        onModality: (kind) => {
-          const target = b.type === 'prose' ? b.body : (b.title || b.body || '');
-          aiOut.appendChild(modalityResponse(kind, chapter, target));
-          aiOut.lastChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }));
-    }
+  let cursor = 0;
+
+  function show() {
+    root.replaceChildren(buildPhase(phases[cursor]));
+    window.scrollTo({ top: 0, behavior: 'instant' });
   }
 
-  // ---------- Practice nudge ----------
-  const sc = store.scenariosForCourse(course.id)[0];
-  if (sc) {
-    root.appendChild(ui.coachPrompt({
-      question: `You retain ~3× more from a ${store.state.industry.language.practiceWord} than from a re-read. Run "${sc.title}"?`,
-      primaryLabel: 'Practice now',
-      primaryHref: `#/practice/${sc.id}`,
-      secondaryLabel: 'Skip',
-      secondaryHref: `#/course/${course.id}/chapter/${chapter.id}`
-    }));
-  }
-
-  // ---------- Course progress mini ----------
-  root.appendChild(ui.sectionHeader('Course progress'));
-  root.appendChild(ui.progressMini({
-    percent: Math.round((completed / total) * 100),
-    completed, total,
-    label: course.title
-  }));
-
-  // ---------- Next Up ----------
-  if (next) {
-    root.appendChild(ui.sectionHeader('Next up'));
-    root.appendChild(ui.nextUpCard({
-      title: next.title,
-      subtitle: `${next.minutes} min · Video & content`,
-      href: `#/course/${course.id}/chapter/${next.id}`,
-      initials: String(idx + 2)
-    }));
-  }
-
-  // ---------- Footer CTA ----------
-  root.appendChild(ui.primaryCta(
-    next ? 'Mark complete & continue' : 'Mark complete',
-    `#/course/${course.id}/chapter/${chapter.id}`
-  ));
-  // Hook the CTA: mark complete then nav.
-  const cta = root.lastElementChild;
-  cta.addEventListener('click', (e) => {
-    e.preventDefault();
+  function advance() {
+    if (cursor < phases.length - 1) { cursor++; show(); return; }
+    // Final step — mark complete and navigate.
     store.markChapterComplete(course.id, chapter.id);
     location.hash = next
       ? `#/course/${course.id}/chapter/${next.id}`
       : `#/course/${course.id}`;
-  });
+  }
 
+  function buildPhase(name) {
+    const wrap = ui.el('section', { class: 'chap-phase' });
+
+    // Compact header on every step so the learner always knows where
+    // they are. Save / Mark-complete actions live in the recap step.
+    wrap.appendChild(ui.el('div', { class: 'ch-kicker' },
+      chapter.kicker || `${course.title} · Chapter ${idx + 1} of ${total}`));
+    wrap.appendChild(ui.el('h2', { class: 'ch-title' }, chapter.title));
+    wrap.appendChild(ui.stepIndicator({ steps: stepLabels, current: cursor }));
+
+    // Per-phase body
+    if (name === 'watch') wrap.appendChild(buildWatch());
+    if (name === 'learn') wrap.appendChild(buildLearn());
+    if (name === 'check') wrap.appendChild(buildCheck());
+    if (name === 'recap') wrap.appendChild(buildRecap());
+
+    // Sticky footer CTA
+    wrap.appendChild(ui.stickyFooter({ children: footerCta(name) }));
+    return wrap;
+  }
+
+  function footerCta(name) {
+    const labels = {
+      watch: 'Continue to lesson',
+      learn: phases.includes('check') ? 'Continue to check' : 'Continue',
+      check: 'Continue to recap',
+      recap: next ? 'Mark complete & continue' : 'Mark complete'
+    };
+    const btn = ui.el('button', { class: 'btn primary block cta-large', on: { click: advance } },
+      ui.el('span', null, labels[name]),
+      ui.icon('arrowRight')
+    );
+    return btn;
+  }
+
+  // ---------- WATCH ----------
+  function buildWatch() {
+    const stack = ui.el('div', { class: 'stack' });
+
+    const vb = videoBlocks[0];
+    if (vb) stack.appendChild(videoEl(vb));
+
+    // AI assistant — collapsed by default. Replies render below it.
+    const aiOut = ui.el('div', { class: 'stack' });
+    stack.appendChild(ui.assistantPanel({
+      onAction: (kind) => {
+        aiOut.appendChild(modalityResponse(kind, chapter, null));
+        aiOut.lastChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }));
+    stack.appendChild(aiOut);
+
+    // Lightweight orientation line so the watch step isn't bare.
+    stack.appendChild(ui.el('p', { class: 'muted phase-hint' },
+      `Watch the ${vb ? 'briefing' : 'intro'}, then continue when you're ready. ` +
+      `You can replay or use AI tools any time.`));
+
+    return stack;
+  }
+
+  // ---------- LEARN ----------
+  function buildLearn() {
+    const stack = ui.el('div', { class: 'stack' });
+
+    const aiOut = ui.el('div', { class: 'stack' });
+
+    for (const b of learnBlocks) {
+      const node = renderBlock(b, course);
+      if (!node) continue;
+      if (b.type === 'concept' || b.type === 'callout-row') {
+        stack.appendChild(node);
+      } else {
+        stack.appendChild(ui.blockShell({
+          children: node,
+          onModality: (kind) => {
+            const target = b.type === 'prose' ? b.body : (b.title || b.body || '');
+            aiOut.appendChild(modalityResponse(kind, chapter, target));
+            aiOut.lastChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }));
+      }
+    }
+    stack.appendChild(aiOut);
+    return stack;
+  }
+
+  // ---------- CHECK ----------
+  function buildCheck() {
+    const stack = ui.el('div', { class: 'stack' });
+    stack.appendChild(ui.el('p', { class: 'muted phase-hint' },
+      'Quick check before you move on — pick the answer that best fits.'));
+    for (const b of pollBlocks) {
+      const node = renderBlock(b, course);
+      if (node) stack.appendChild(node);
+    }
+    return stack;
+  }
+
+  // ---------- RECAP ----------
+  function buildRecap() {
+    const stack = ui.el('div', { class: 'stack' });
+
+    // Save / Mark complete affordances move here so they don't compete
+    // with the learning steps above. The footer CTA is the primary path.
+    const isSaved    = store.state.mastery.saved.includes(course.id);
+    const isComplete = store.isChapterComplete(course.id, chapter.id);
+    stack.appendChild(ui.el('div', { class: 'ch-actions recap-actions' },
+      ui.el('button', {
+        class: `ch-action${isSaved ? ' on' : ''}`,
+        on: { click: (e) => {
+          store.toggleSaved(course.id);
+          const t = e.currentTarget;
+          const nowSaved = store.state.mastery.saved.includes(course.id);
+          t.classList.toggle('on', nowSaved);
+          t.querySelector('span:last-child').textContent = nowSaved ? 'Saved' : 'Save';
+        }},
+        'aria-label': 'Save reference'
+      }, ui.icon('star'), ui.el('span', null, isSaved ? 'Saved' : 'Save')),
+      ui.el('button', {
+        class: `ch-action complete${isComplete ? ' on' : ''}`,
+        on: { click: (e) => {
+          store.markChapterComplete(course.id, chapter.id);
+          const t = e.currentTarget;
+          t.classList.add('on');
+          t.querySelector('span:last-child').textContent = 'Completed';
+        }},
+        'aria-label': 'Mark complete'
+      }, ui.icon(isComplete ? 'check' : 'circle'),
+         ui.el('span', null, isComplete ? 'Completed' : 'Mark complete'))
+    ));
+
+    // Practice nudge (if there's a scenario tied to this course)
+    const sc = store.scenariosForCourse(course.id)[0];
+    if (sc) {
+      stack.appendChild(ui.coachPrompt({
+        question: `You retain ~3× more from a ${store.state.industry.language.practiceWord} than from a re-read. Run "${sc.title}"?`,
+        primaryLabel: 'Practice now',
+        primaryHref: `#/practice/${sc.id}`,
+        secondaryLabel: 'Skip',
+        secondaryHref: `#/course/${course.id}/chapter/${chapter.id}`
+      }));
+    }
+
+    stack.appendChild(ui.sectionHeader('Course progress'));
+    stack.appendChild(ui.progressMini({
+      percent: Math.round((completed / total) * 100),
+      completed, total,
+      label: course.title
+    }));
+
+    if (next) {
+      stack.appendChild(ui.sectionHeader('Next up'));
+      stack.appendChild(ui.nextUpCard({
+        title: next.title,
+        subtitle: `${next.minutes} min · Video & content`,
+        href: `#/course/${course.id}/chapter/${next.id}`,
+        initials: String(idx + 2)
+      }));
+    }
+    return stack;
+  }
+
+  show();
   return root;
 }
 
@@ -136,7 +252,7 @@ function renderBlock(b, course) {
     return row;
   }
   if (b.type === 'poll') {
-    const wrap = ui.el('div', null,
+    const wrap = ui.el('div', { class: 'card' },
       ui.el('strong', null, 'Quick check'),
       ui.el('p', { style: { marginTop: '6px' } }, b.prompt)
     );
@@ -169,9 +285,6 @@ function renderBlock(b, course) {
 }
 
 // ---------- modality replies ----------
-// Stubbed AI responses keyed off the four modalities. The point is to
-// SHOW that any content can be transformed without it being open-ended
-// generation — these are bounded, scoped to the chapter or block.
 function modalityResponse(kind, chapter, blockText) {
   const scope = blockText ? 'this passage' : 'this chapter';
   const body = {
@@ -185,12 +298,11 @@ function modalityResponse(kind, chapter, blockText) {
     chat:      `Starting a Coach Vic conversation scoped to ${scope}. Try: "What's the most common mistake here?"`
   }[kind];
 
-  const card = ui.coachMessage({
+  return ui.coachMessage({
     title: kind === 'chat' ? 'Coach Vic — live' : `Coach Vic · ${labelFor(kind)}`,
     text: body,
     footer: kind === 'chat' ? '— Tap "Coach Vic" tab to continue' : '— Coach Vic'
   });
-  return card;
 }
 
 function labelFor(kind) {
@@ -198,14 +310,11 @@ function labelFor(kind) {
 }
 
 function shorten(text) {
-  // Take the first meaningful sentence, trim to ~140 chars.
   const first = String(text).split(/(?<=[.!?])\s+/)[0] || text;
   return first.length > 140 ? first.slice(0, 137) + '…' : first;
 }
 
 function simpler(text) {
-  // Replace a handful of medical/operational terms with plain phrasing.
-  // Very limited but visible — the point is "this transforms language".
   return String(text)
     .replace(/qSOFA/gi, 'a 3-point quick check')
     .replace(/MAP/g, 'blood pressure')

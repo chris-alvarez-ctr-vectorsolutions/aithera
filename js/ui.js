@@ -264,12 +264,34 @@ function sparkline(values, status) {
   return wrap;
 }
 
-// hero — gradient image area with optional corner badge.
-// Pulls from course.hero { from, to } or derives a gradient from the
-// industry accent so each course feels distinct without bitmap assets.
-export function hero({ initials, gradient, badge, height = 200 }) {
+// hero — course hero card. Layers (back→front):
+//   1) gradient (always present — fallback if no image, also adds the
+//      brand tint when an image is supplied)
+//   2) photographic image (optional; loads from `image` prop)
+//   3) dark overlay so badges and initials stay legible
+//   4) badge + initials marks
+//
+// `image` is a URL/path. If the file 404s the <img> hides itself and the
+// gradient stands alone — drop a file into assets/courses/<id>.jpg and
+// it appears automatically.
+export function hero({ initials, gradient, badge, height = 200, image }) {
   const wrap = el('div', { class: 'hero-img', style: { height: `${height}px` } });
   if (gradient) wrap.style.background = gradient;
+
+  if (image) {
+    const img = el('img', {
+      class: 'hero-photo',
+      src: image,
+      alt: '',
+      loading: 'lazy',
+      decoding: 'async'
+    });
+    img.addEventListener('error', () => img.remove());
+    img.addEventListener('load', () => wrap.classList.add('has-photo'));
+    wrap.appendChild(img);
+    wrap.appendChild(el('span', { class: 'hero-scrim', 'aria-hidden': 'true' }));
+  }
+
   if (badge) {
     wrap.appendChild(el('span', { class: `hero-badge ${badge.variant || ''}` }, badge.label));
   }
@@ -400,28 +422,68 @@ export function chapterHeader({ kicker, title, isSaved, isComplete, onSave, onCo
   );
 }
 
-// AI Assistant panel — the four "any-content" modalities up top.
+// AI Assistant panel — the four "any-content" modalities, tucked behind
+// a tap-to-expand header so they don't dominate the lesson surface.
 // onAction(name) is invoked with: 'read' | 'summarize' | 'simpler' | 'chat'.
-export function assistantPanel({ onAction }) {
+export function assistantPanel({ onAction, expanded = false }) {
+  const actions = el('div', { class: 'ap-actions' });
   const action = (id, label, iconName) =>
-    el('button', { class: 'ai-act', on: { click: () => onAction(id) } },
+    el('button', { class: 'ai-act', on: { click: () => { actions.classList.remove('open'); head.setAttribute('aria-expanded', 'false'); onAction(id); } } },
       el('span', { class: 'ai-glyph' }, icon(iconName)),
       el('span', { class: 'ai-label' }, label),
       el('span', { class: 'ai-chev' }, icon('chevron'))
     );
-  return el('div', { class: 'assistant-panel' },
-    el('div', { class: 'ap-head' },
-      el('span', { class: 'ap-mark' }, icon('sparkle')),
-      el('span', { class: 'ap-name' }, 'AI Assistant'),
-      el('span', { class: 'ap-dot' })
-    ),
-    el('div', { class: 'ap-actions' },
-      action('read',      'Read to me',      'speaker'),
-      action('summarize', 'Summarize',       'list'),
-      action('simpler',   'Simpler terms',   'lightbulb'),
-      action('chat',      'Start conversation', 'chat')
-    )
+  actions.append(
+    action('read',      'Read to me',      'speaker'),
+    action('summarize', 'Summarize',       'list'),
+    action('simpler',   'Simpler terms',   'lightbulb'),
+    action('chat',      'Start conversation', 'chat')
   );
+  if (expanded) actions.classList.add('open');
+
+  const caret = el('span', { class: 'ap-caret' }, icon('chevron'));
+  const head = el('button', {
+    class: 'ap-head',
+    'aria-expanded': expanded ? 'true' : 'false',
+    on: { click: () => {
+      const open = actions.classList.toggle('open');
+      head.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }}
+  },
+    el('span', { class: 'ap-mark' }, icon('sparkle')),
+    el('span', { class: 'ap-name' }, 'AI Assistant'),
+    el('span', { class: 'ap-hint muted' }, 'Read · Summarize · Ask'),
+    caret
+  );
+
+  return el('div', { class: 'assistant-panel collapsible' }, head, actions);
+}
+
+// stepIndicator — top-of-page progress for a stepped flow. `steps` is a
+// list of short labels (e.g. ['Watch', 'Learn', 'Check', 'Recap']);
+// `current` is the active index.
+export function stepIndicator({ steps, current }) {
+  const wrap = el('div', { class: 'step-ind' });
+  const meta = el('div', { class: 'si-meta' },
+    el('span', { class: 'si-pos' }, `Step ${current + 1} of ${steps.length}`),
+    el('span', { class: 'si-name' }, steps[current])
+  );
+  const dots = el('div', { class: 'si-dots' });
+  for (let i = 0; i < steps.length; i++) {
+    const cls = i < current ? 'done' : i === current ? 'cur' : '';
+    dots.appendChild(el('span', { class: `si-dot ${cls}` }));
+  }
+  wrap.append(meta, dots);
+  return wrap;
+}
+
+// stickyFooter — bottom-anchored bar holding the page's primary CTA.
+// Used on full-flow surfaces (chapter, etc.) so the next action is
+// always reachable without scrolling.
+export function stickyFooter({ children }) {
+  const inner = el('div', { class: 'sf-inner' });
+  for (const c of [].concat(children).filter(Boolean)) inner.appendChild(c);
+  return el('div', { class: 'sticky-footer' }, inner);
 }
 
 // callout — boxed inline content reference (Clinical Note, Required
