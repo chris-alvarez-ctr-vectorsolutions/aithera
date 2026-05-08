@@ -12,6 +12,8 @@ import * as practice  from './views/practice.js';
 import * as summary   from './views/summary.js';
 import * as hub       from './views/hub.js';
 import * as coachV    from './views/coach.js';
+import * as coachHist from './views/coach-history.js';
+import * as coachFab  from './views/coach-fab.js';
 import * as profile   from './views/profile.js';
 import * as courses   from './views/courses.js';
 import * as reference from './views/reference.js';
@@ -25,6 +27,7 @@ const ROUTES = [
   { re: /^#\/home$/,                              view: home,      shell: true,  top: true  },
   { re: /^#\/courses$/,                           view: courses,   shell: true,  top: true  },
   { re: /^#\/coach$/,                             view: coachV,    shell: true,  top: true  },
+  { re: /^#\/coach\/history$/,                    view: coachHist, shell: true,  parent: '#/coach' },
   { re: /^#\/practice$/,                          view: hub,       shell: true,  top: true  },
   { re: /^#\/reference$/,                         view: reference, shell: true,  top: true  },
   { re: /^#\/profile$/,                           view: profile,   shell: true,  parent: '#/home' },
@@ -42,8 +45,13 @@ const els = {
   profile: document.getElementById('profileBtn'),
   brand:   document.querySelector('.brand-name'),
   exit:    document.getElementById('exitBtn'),
-  app:     document.getElementById('app')
+  app:     document.getElementById('app'),
+  fab:     document.getElementById('coachFab')
 };
+
+// Mount the persistent Coach Vic FAB once. It manages its own popover
+// internally; the router only controls when it's visible.
+coachFab.mount(els.fab);
 
 // Split the hash into its route path and query string. Profile selection
 // rides on `?p=<slug>` so a shared link can boot the app into the right
@@ -154,6 +162,10 @@ function renderRoute() {
   const isCoach = path === '#/coach';
   document.body.classList.toggle('coach-mode', isCoach);
   toggleShell(match.shell, !!match.fullscreen, isHome);
+  // FAB: visible on every shelled, non-fullscreen page except Coach Vic
+  // itself (and the chat history list, which lives under /coach).
+  const fabVisible = !!match.shell && !match.fullscreen && !path.startsWith('#/coach');
+  coachFab.setVisible(fabVisible);
   // Back is a floating button on shelled non-home, non-fullscreen routes.
   els.back.hidden = !match.shell || !!match.top || !!match.fullscreen;
   highlightTab(path);
