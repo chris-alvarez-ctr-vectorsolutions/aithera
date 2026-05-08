@@ -49,12 +49,27 @@ export function render() {
     ic: 'trending'
   }));
 
-  // 3. Mastery card
-  root.appendChild(ui.masteryCard({
-    scenarios: stats.scenariosRun,
-    edgeCases: stats.edgeCasesRun,
-    masteryPct: stats.masteryPct
-  }));
+  // 3. Practice readiness — same primitive as the home dashboard, scoped
+  // to practice. Counts move into a stat row above so the card itself can
+  // own the level / sparkline / "what moved it" narrative.
+  root.appendChild(ui.statTileRow([
+    { icon: 'flag',     value: String(stats.scenariosRun), label: 'Scenarios' },
+    { icon: 'warn',     value: String(stats.edgeCasesRun), label: 'Edge cases' }
+  ]));
+  const psnap = adaptive.practiceReadinessSnapshot();
+  if (psnap) {
+    const featuredForCta = pickFeatured(allForIndustry, learnerLevel);
+    root.appendChild(ui.readinessCard({
+      level: psnap.level,
+      delta: psnap.delta,
+      status: psnap.status,
+      trend: psnap.trend,
+      movers: psnap.movers,
+      coachNote: practiceCoachNote(stats),
+      ctaLabel: stats.scenariosRun ? 'Run another scenario' : 'Run your first scenario',
+      ctaHref: featuredForCta ? `#/practice/${featuredForCta.id}` : '#/coach'
+    }));
+  }
 
   // 4. Featured scenario
   const featured = pickFeatured(allForIndustry, learnerLevel);
@@ -164,6 +179,19 @@ function computeStats(industryScenarios) {
     hours, scenariosRun, edgeCasesRun, masteryPct, percentile,
     streakDays: learner.stats.streakDays, nextReviewLabel
   };
+}
+
+function practiceCoachNote(stats) {
+  if (!stats.scenariosRun) {
+    return 'Run your first scenario to start building practice readiness.';
+  }
+  if (stats.masteryPct < 50) {
+    return `${stats.scenariosRun} ${stats.scenariosRun === 1 ? 'run' : 'runs'} in — keep going to lift mastery above 50%.`;
+  }
+  if (stats.edgeCasesRun === 0) {
+    return 'Solid base. Try an edge-case scenario to stress-test your readiness.';
+  }
+  return `Strong rhythm — ${stats.scenariosRun} scenarios, ${stats.edgeCasesRun} edge ${stats.edgeCasesRun === 1 ? 'case' : 'cases'} cleared.`;
 }
 
 function computeLevel(scenariosRun) {
