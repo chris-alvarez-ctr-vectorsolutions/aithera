@@ -108,6 +108,7 @@ export const store = {
 
   // ---- mutations (persisted) ----
   recordPractice(result) {
+    const before = readinessPct();
     state.mastery.recentPractice.unshift(result);
     state.mastery.recentPractice = state.mastery.recentPractice.slice(0, 10);
     // Bump concept mastery based on outcomes (simple, visible adaptive bump).
@@ -116,10 +117,19 @@ export const store = {
       const delta = result.score >= 0.75 ? 0.06 : result.score >= 0.5 ? 0.02 : -0.04;
       state.mastery.concepts[cid] = clamp(cur + delta, 0, 1);
     }
+    const after = readinessPct();
+    result.readinessBefore = before;
+    result.readinessAfter  = after;
+    result.readinessDelta  = after - before;
     state.session.lastSummary = result;
     persistMastery();
     this.emit();
   },
+
+  // Average concept-mastery × 100. Used as the learner's "clinical
+  // readiness" headline number across the Hub, summary, and celebration
+  // interstitial.
+  readinessPct() { return readinessPct(); },
 
   toggleSaved(courseId) {
     const list = state.mastery.saved;
@@ -190,3 +200,10 @@ function applyTheme(industry) {
 }
 
 function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+
+function readinessPct() {
+  const concepts = state.mastery?.concepts || {};
+  const vals = Object.values(concepts);
+  if (!vals.length) return 0;
+  return Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 100);
+}

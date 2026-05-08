@@ -98,12 +98,12 @@ export function render(scenarioId) {
 
     // Context (only on first step) or prompt
     if (stepIdx === 0) {
+      wrap.appendChild(ui.scenarioPrompt({ text: step.prompt || 'What do you do first?' }));
       wrap.appendChild(ui.el('div', { class: 'card' },
-        ui.el('strong', null, '"' + (step.prompt || 'What do you do first?') + '"'),
-        ui.el('p', { class: 'muted', style: { marginTop: '8px' } }, sc.context)
+        ui.el('p', { class: 'muted' }, sc.context)
       ));
     } else if (step.prompt) {
-      wrap.appendChild(ui.el('div', { class: 'card' }, ui.el('p', null, step.prompt)));
+      wrap.appendChild(ui.scenarioPrompt({ text: step.prompt }));
     }
 
     // Coach micro-hint
@@ -225,7 +225,7 @@ export function render(scenarioId) {
       at: Date.now()
     };
     store.recordPractice(result);
-    location.hash = '#/summary';
+    location.hash = '#/practice-complete';
   }
 
   renderWelcome();

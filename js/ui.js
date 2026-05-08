@@ -396,6 +396,16 @@ export function scenarioWelcome({ kicker, title, body, highlight, reassurance, e
   return card;
 }
 
+// scenarioPrompt — the learner's directive for the current step. This is the
+// single most important instruction on the page; it must dominate the visual
+// hierarchy over situational notes and coach hints.
+export function scenarioPrompt({ kicker = 'Your task', text }) {
+  return el('div', { class: 'scn-prompt' },
+    el('div', { class: 'scn-prompt-kicker' }, kicker),
+    el('p', { class: 'scn-prompt-text' }, text)
+  );
+}
+
 // coachHint — small Vic micro-prompt shown inline within a step.
 export function coachHint({ text }) {
   return el('div', { class: 'coach-hint' },
@@ -481,6 +491,77 @@ export function insightCard({ tone = 'strength', quote, indicator }) {
       el('span', null, 'Indicator: '),
       el('strong', null, indicator)
     ) : null
+  );
+}
+
+// readinessDelta — compact indicator showing how a practice run moved
+// the learner's clinical readiness score. Tone is derived from the
+// signed delta (up / down / neutral).
+//
+// before / after are integer percentages (0-100). Both are required so
+// the badge can render the from→to transition explicitly.
+export function readinessDelta({ before, after, kicker = 'Clinical readiness', size = 'md' }) {
+  const delta = Math.round((after ?? 0) - (before ?? 0));
+  const dir = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+  const sign = delta > 0 ? '+' : delta < 0 ? '−' : '';
+  const mag = Math.abs(delta);
+  const arrow = dir === 'up' ? '↑' : dir === 'down' ? '↓' : '–';
+  const label = dir === 'up' ? 'Readiness up' : dir === 'down' ? 'Readiness down' : 'No change';
+  return el('div', { class: `readiness-delta rd-${dir} rd-${size}` },
+    el('div', { class: 'rd-row' },
+      el('span', { class: 'rd-arrow' }, arrow),
+      el('div', { class: 'rd-text' },
+        el('span', { class: 'rd-kicker' }, kicker),
+        el('strong', { class: 'rd-label' }, label)
+      ),
+      el('div', { class: 'rd-numbers' },
+        el('span', { class: 'rd-delta' }, `${sign}${mag}`),
+        el('span', { class: 'rd-after' }, `${after}%`)
+      )
+    ),
+    el('div', { class: 'rd-fromto' },
+      el('span', null, `${before}%`),
+      el('span', { class: 'rd-arrow-sm' }, '→'),
+      el('span', null, `${after}%`)
+    )
+  );
+}
+
+// practiceCelebration — interstitial shown immediately after a scenario
+// run completes. Frames the readiness movement, then offers two CTAs:
+// return home (secondary) or see full results (primary).
+export function practiceCelebration({ before, after, scenarioTitle, onHome, onResults }) {
+  const delta = Math.round((after ?? 0) - (before ?? 0));
+  const dir = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+  const headline = dir === 'up'
+    ? 'Nice rep — your readiness moved up.'
+    : dir === 'down'
+      ? 'Reps logged — your readiness slipped a bit.'
+      : 'Reps logged — readiness held steady.';
+  const sub = dir === 'up'
+    ? 'The patterns you reinforced advanced the underlying competencies.'
+    : dir === 'down'
+      ? 'The full breakdown shows which decisions cost ground.'
+      : 'See the breakdown for the patterns Coach Vic noticed.';
+
+  return el('section', { class: `practice-celebration pc-${dir}` },
+    el('div', { class: 'pc-burst' },
+      el('span', { class: 'pc-burst-mark' }, dir === 'up' ? '✨' : dir === 'down' ? '↺' : '◎')
+    ),
+    el('p', { class: 'pc-kicker' }, 'Practice complete'),
+    el('h1', { class: 'pc-title' }, headline),
+    scenarioTitle ? el('p', { class: 'pc-scenario' }, scenarioTitle) : null,
+    readinessDelta({ before, after, size: 'lg' }),
+    el('p', { class: 'pc-sub muted' }, sub),
+    el('div', { class: 'pc-actions' },
+      el('button', { type: 'button', class: 'btn block', on: { click: onHome } },
+        el('span', null, 'Return home')
+      ),
+      el('button', { type: 'button', class: 'btn primary block cta-large', on: { click: onResults } },
+        el('span', null, 'See full results'),
+        icon('arrowRight')
+      )
+    )
   );
 }
 

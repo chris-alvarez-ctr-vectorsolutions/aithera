@@ -10,6 +10,7 @@ import * as course    from './views/course.js';
 import * as chapter   from './views/chapter.js';
 import * as practice  from './views/practice.js';
 import * as summary   from './views/summary.js';
+import * as celebrate from './views/celebrate.js';
 import * as hub       from './views/hub.js';
 import * as coachV    from './views/coach.js';
 import * as profile   from './views/profile.js';
@@ -31,6 +32,7 @@ const ROUTES = [
   { re: /^#\/course\/([^/]+)$/,                   view: course,    shell: true,  parent: '#/courses' },
   { re: /^#\/course\/([^/]+)\/chapter\/([^/]+)$/, view: chapter,   shell: true,  parent: (m) => `#/course/${m[1]}` },
   { re: /^#\/practice\/([^/?]+)$/,                view: practice,  shell: true,  fullscreen: true, parent: '#/practice' },
+  { re: /^#\/practice-complete$/,                 view: celebrate, shell: true,  parent: '#/home' },
   { re: /^#\/summary$/,                           view: summary,   shell: true,  parent: '#/home' }
 ];
 

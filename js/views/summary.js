@@ -33,6 +33,14 @@ export function render() {
     body: `A qualitative review of your decision-making approach during the previous ${store.state.industry.language.scenarioWord}. Focus on the observed patterns rather than scores.`
   }));
 
+  // Readiness movement (only when we captured before/after on this run)
+  if (typeof result.readinessBefore === 'number' && typeof result.readinessAfter === 'number') {
+    root.appendChild(ui.readinessDelta({
+      before: result.readinessBefore,
+      after:  result.readinessAfter
+    }));
+  }
+
   // Small completion summary line (kept compact — scores aren't the headline)
   root.appendChild(ui.el('div', { class: 'progress-mini' },
     ui.el('div', { class: 'pm-row' },
