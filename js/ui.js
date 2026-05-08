@@ -86,6 +86,184 @@ export function sectionHeader(label, link) {
 
 // ---------- blocks ----------
 
+// brandLogo — Aithera mark + wordmark for the home app bar.
+export function brandLogo() {
+  const wrap = el('div', { class: 'brand' });
+  wrap.innerHTML = `
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="aith-g" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="var(--accent)"/>
+            <stop offset="1" stop-color="var(--accent-2)"/>
+          </linearGradient>
+        </defs>
+        <path d="M16 3.5c-1.4 0-2.6.8-3.2 2L4.6 22.7c-.7 1.5.4 3.3 2.1 3.3h3.1c1 0 1.9-.6 2.2-1.5l.6-1.7h7l.6 1.7c.3.9 1.2 1.5 2.2 1.5h3.1c1.7 0 2.8-1.8 2.1-3.3L19.2 5.5c-.6-1.2-1.8-2-3.2-2zM13.7 18.4L16 12.2l2.3 6.2h-4.6z" fill="url(#aith-g)"/>
+      </svg>
+    </span>
+    <span class="brand-name">Aithera</span>
+  `;
+  return wrap;
+}
+
+// readinessCard — the home dashboard centerpiece. Big level, sparkline,
+// scale, coach note, and a collapsible "what moved it" breakdown with a
+// primary CTA at the bottom.
+export function readinessCard({
+  level,
+  delta = 0,
+  status = 'good',
+  trend = [],
+  movers = [],
+  coachNote,
+  ctaLabel = 'Start refresher',
+  ctaHref = '#/coach',
+  visibleMovers = 2
+}) {
+  const statusMeta = {
+    'action-needed': { label: 'Action needed', cls: 'rs-bad'  },
+    'watch':         { label: 'Watch',         cls: 'rs-warn' },
+    'good':          { label: 'On track',      cls: 'rs-good' }
+  }[status] || { label: '', cls: '' };
+
+  const deltaPill = delta !== 0
+    ? el('span', { class: `rd-delta ${delta < 0 ? 'down' : 'up'}` },
+        el('span', null, `${delta < 0 ? '↓' : '↑'} ${Math.abs(delta)}`))
+    : null;
+
+  const card = el('div', { class: `readiness-card r-${statusMeta.cls}` });
+
+  // Header: kicker + status pill
+  card.appendChild(el('div', { class: 'rd-head' },
+    el('span', { class: 'rd-kicker' }, 'Readiness level'),
+    el('span', { class: `rd-status ${statusMeta.cls}` },
+      el('span', { class: 'rd-status-dot', 'aria-hidden': 'true' }),
+      el('span', null, statusMeta.label))
+  ));
+
+  // Big number row + sparkline
+  const numCol = el('div', { class: 'rd-numcol' },
+    el('div', { class: 'rd-num' },
+      el('strong', null, String(level)),
+      el('span', { class: 'rd-pct' }, '%'),
+      deltaPill
+    )
+  );
+  const sparkCol = el('div', { class: 'rd-sparkcol' },
+    sparkline(trend, status),
+    el('small', { class: 'rd-spark-label' }, 'Last 30 days')
+  );
+  card.appendChild(el('div', { class: 'rd-row' }, numCol, sparkCol));
+
+  // Scale 0–50–100
+  card.appendChild(readinessScale(level));
+
+  // Coach note
+  if (coachNote) {
+    card.appendChild(el('div', { class: 'rd-note' },
+      el('span', { class: 'rd-note-mark' }, 'V'),
+      el('p', null, coachNote)
+    ));
+  }
+
+  // Breakdown header
+  if (movers.length) {
+    card.appendChild(el('hr', { class: 'rd-rule' }));
+    card.appendChild(el('div', { class: 'rd-bh' },
+      el('span', { class: 'rd-bh-label' }, 'What moved it'),
+      el('span', { class: 'rd-bh-period' }, 'this month')
+    ));
+
+    const list = el('div', { class: 'rd-movers' });
+    const renderMovers = (count) => {
+      list.innerHTML = '';
+      for (const m of movers.slice(0, count)) list.appendChild(moverRow(m));
+    };
+    renderMovers(visibleMovers);
+    card.appendChild(list);
+
+    if (movers.length > visibleMovers) {
+      const more = el('button', { class: 'rd-viewall',
+        on: { click: () => { renderMovers(movers.length); more.remove(); } } },
+        `View all ${movers.length}`);
+      card.appendChild(more);
+    }
+  }
+
+  // CTA
+  card.appendChild(el('a', { class: 'btn primary block cta-large rd-cta', href: ctaHref },
+    el('span', null, ctaLabel),
+    icon('chevron')
+  ));
+
+  return card;
+}
+
+function moverRow(m) {
+  const cls = m.direction === 'up' ? 'mv-up' : 'mv-down';
+  const arrow = m.direction === 'up'
+    ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>`
+    : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12l7 7 7-7"/></svg>`;
+  const glyph = el('span', { class: `mv-glyph ${cls}` });
+  glyph.innerHTML = arrow;
+  const deltaTxt = `${m.delta > 0 ? '+' : ''}${m.delta}`;
+  return el('div', { class: `mv-row ${cls}` },
+    glyph,
+    el('div', { class: 'mv-body' },
+      el('strong', null, m.title),
+      m.when ? el('small', null, m.when) : null
+    ),
+    el('div', { class: 'mv-delta' },
+      el('span', { class: 'mv-delta-num' }, deltaTxt),
+      el('span', { class: 'mv-delta-bar', 'aria-hidden': 'true' })
+    )
+  );
+}
+
+function readinessScale(level) {
+  const pct = Math.max(0, Math.min(100, level));
+  const wrap = el('div', { class: 'rd-scale' });
+  wrap.innerHTML = `
+    <div class="rd-scale-track">
+      <div class="rd-scale-fill" style="width:${pct}%"></div>
+      <div class="rd-scale-tick" style="left:50%"></div>
+      <div class="rd-scale-knob" style="left:${pct}%"></div>
+    </div>
+    <div class="rd-scale-labels">
+      <span>0</span><span>50</span><span>100</span>
+    </div>
+  `;
+  return wrap;
+}
+
+function sparkline(values, status) {
+  if (!values || values.length < 2) {
+    return el('div', { class: 'rd-spark' });
+  }
+  const w = 140, h = 44, pad = 2;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = Math.max(1, max - min);
+  const stepX = (w - pad * 2) / (values.length - 1);
+  const pts = values.map((v, i) => {
+    const x = pad + i * stepX;
+    const y = pad + (1 - (v - min) / span) * (h - pad * 2);
+    return [x, y];
+  });
+  const d = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
+  const fillD = `${d} L${pts[pts.length-1][0].toFixed(1)} ${h} L${pts[0][0].toFixed(1)} ${h} Z`;
+  const stroke = status === 'action-needed' ? 'var(--bad)'
+    : status === 'watch' ? 'var(--warn)' : 'var(--good)';
+  const wrap = el('div', { class: 'rd-spark' });
+  wrap.innerHTML = `
+    <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+      <path d="${fillD}" fill="${stroke}" fill-opacity="0.12"/>
+      <path d="${d}" fill="none" stroke="${stroke}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  `;
+  return wrap;
+}
+
 // hero — gradient image area with optional corner badge.
 // Pulls from course.hero { from, to } or derives a gradient from the
 // industry accent so each course feels distinct without bitmap assets.
