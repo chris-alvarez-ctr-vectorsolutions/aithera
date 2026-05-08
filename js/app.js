@@ -158,11 +158,7 @@ function renderRoute() {
   els.back.hidden = !match.shell || !!match.top || !!match.fullscreen;
   highlightTab(path);
 
-  if (isHome && store.state.industry) {
-    els.brand.textContent = `Aithera · ${store.state.industry.label}`;
-  } else {
-    els.brand.textContent = 'Aithera';
-  }
+  els.brand.textContent = 'Aithera';
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
