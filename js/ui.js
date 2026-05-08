@@ -986,30 +986,36 @@ export function catalogFilters({ topics, onChange }) {
 }
 
 // scenarioCatalogCard — dense scenario tile used in the catalog grid.
-// status: 'active' | 'mastered' | 'locked'
-// Locked cards don't navigate — they show "Unlocks at level N".
+// status: 'active' | 'mastered' | 'locked' | 'coming-soon'
+// Locked & coming-soon cards don't navigate.
 export function scenarioCatalogCard({ scenario, status, scorePct, onLockedClick }) {
   const map = {
-    mastered: { label: 'Mastered', cls: 'st-mastered' },
-    active:   { label: 'Active',   cls: 'st-active'   },
-    locked:   { label: 'Locked',   cls: 'st-locked'   }
+    mastered:      { label: 'Mastered',    cls: 'st-mastered'    },
+    active:        { label: 'Active',      cls: 'st-active'      },
+    locked:        { label: 'Locked',      cls: 'st-locked'      },
+    'coming-soon': { label: 'Coming soon', cls: 'st-coming-soon' }
   }[status] || { label: '', cls: '' };
+
+  const nonNav = status === 'locked' || status === 'coming-soon';
 
   const footRight = status === 'locked'
     ? el('span', { class: 'sct-foot-meta' }, `Unlocks at lvl ${scenario.unlocksAtLevel || 5}`)
+    : status === 'coming-soon'
+    ? el('span', { class: 'sct-foot-meta' }, 'In development')
     : status === 'mastered'
     ? el('span', { class: 'sct-foot-meta' }, `${scorePct ?? 100}% score`)
     : el('span', { class: 'sct-foot-meta' }, scenario.estMinutes ? `${scenario.estMinutes}m` : '');
 
-  const arrow = status === 'locked' ? null
+  const arrow = nonNav ? null
     : status === 'mastered' ? icon('retry')
     : icon('arrowRight');
 
   const props = {
     class: `scn-cat-card ${map.cls}`,
-    href: status === 'locked' ? null : `#/practice/${scenario.id}`
+    href: nonNav ? null : `#/practice/${scenario.id}`
   };
-  if (status === 'locked' && onLockedClick) props.on = { click: onLockedClick };
+  if (nonNav && onLockedClick) props.on = { click: onLockedClick };
+  if (status === 'coming-soon') props.disabled = true;
 
   return el(props.href ? 'a' : 'button', props,
     el('div', { class: 'sct-head' },

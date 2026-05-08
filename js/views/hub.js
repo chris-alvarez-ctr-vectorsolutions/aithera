@@ -91,6 +91,7 @@ export function render() {
         scorePct,
         onLockedClick: (e) => {
           e.preventDefault();
+          if (status === 'coming-soon') return;
           alert(`This scenario unlocks at level ${sc.unlocksAtLevel}. You're at level ${learnerLevel}. Run more core scenarios to level up.`);
         }
       }));
@@ -173,6 +174,7 @@ function computeLevel(scenariosRun) {
 
 function scenarioStatus(sc, level) {
   if (sc.status === 'locked' && (sc.unlocksAtLevel || 5) > level) return 'locked';
+  if (!sc.steps || sc.steps.length === 0) return 'coming-soon';
   const best = lastBestScorePct(sc.id);
   if (best != null && best >= 90) return 'mastered';
   return 'active';
@@ -200,22 +202,29 @@ function sortBy(items, key) {
     case 'difficulty-desc':
     default:                arr.sort((a, b) => (DIFFICULTY_RANK[b.difficulty] || 0) - (DIFFICULTY_RANK[a.difficulty] || 0)); break;
   }
-  // Locked items always sink to the end so the catalog leads with playable.
-  arr.sort((a, b) => (a.status === 'locked' ? 1 : 0) - (b.status === 'locked' ? 1 : 0));
+  // Locked & coming-soon items sink to the end so the catalog leads with playable.
+  const sinks = (s) => (!s.steps || s.steps.length === 0 || s.status === 'locked') ? 1 : 0;
+  arr.sort((a, b) => sinks(a) - sinks(b));
   return arr;
 }
 
 function pickFeatured(scenarios, level) {
   // Prefer a flagged featured scenario that's playable at this level;
   // otherwise the highest-difficulty playable one.
-  const playable = scenarios.filter((s) => scenarioStatus(s, level) !== 'locked');
+  const playable = scenarios.filter((s) => {
+    const st = scenarioStatus(s, level);
+    return st !== 'locked' && st !== 'coming-soon';
+  });
   return playable.find((s) => s.featured)
       || playable.sort((a, b) => (DIFFICULTY_RANK[b.difficulty] || 0) - (DIFFICULTY_RANK[a.difficulty] || 0))[0]
       || null;
 }
 
 function pickRandom(scenarios, level) {
-  const playable = scenarios.filter((s) => scenarioStatus(s, level) !== 'locked');
+  const playable = scenarios.filter((s) => {
+    const st = scenarioStatus(s, level);
+    return st !== 'locked' && st !== 'coming-soon';
+  });
   if (!playable.length) return null;
   // Weight scenarios by how unmastered their tied concepts are — so
   // "random" still leans the learner toward gaps.
