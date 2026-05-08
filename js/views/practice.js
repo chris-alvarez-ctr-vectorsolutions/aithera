@@ -96,22 +96,24 @@ export function render(scenarioId) {
       wrap.appendChild(ui.situationalAssessment(last.assessment));
     }
 
-    // Context (only on first step) or prompt
+    // Context (only on first step)
     if (stepIdx === 0) {
-      wrap.appendChild(ui.scenarioPrompt({ text: step.prompt || 'What do you do first?' }));
-      wrap.appendChild(ui.el('div', { class: 'card' },
-        ui.el('p', { class: 'muted' }, sc.context)
+      wrap.appendChild(ui.el('div', { class: 'card scn-scene' },
+        ui.el('div', { class: 'scn-scene-kicker' }, 'The scene'),
+        ui.el('p', { class: 'scn-scene-text' }, sc.context)
       ));
-    } else if (step.prompt) {
-      wrap.appendChild(ui.scenarioPrompt({ text: step.prompt }));
     }
 
-    // Coach micro-hint
-    if (step.coachHint) wrap.appendChild(ui.coachHint({ text: step.coachHint }));
-
-    // Input mode
-    if (step.input === 'text') wrap.appendChild(textInput(step));
-    else                       wrap.appendChild(choiceInput(step));
+    // Input mode — for choice questions, the coach hint is folded into the
+    // answer card so they read as one unit. For text input, keep the prompt
+    // and coach hint as separate elements above.
+    if (step.input === 'text') {
+      if (step.prompt) wrap.appendChild(ui.scenarioPrompt({ text: step.prompt }));
+      if (step.coachHint) wrap.appendChild(ui.coachHint({ text: step.coachHint }));
+      wrap.appendChild(textInput(step));
+    } else {
+      wrap.appendChild(choiceInput(step));
+    }
 
     show(wrap);
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -119,7 +121,14 @@ export function render(scenarioId) {
 
   // --------------------- INPUT MODES ---------------------
   function choiceInput(step) {
-    const card = ui.el('div', { class: 'card' });
+    const card = ui.el('div', { class: 'scn-task-card' });
+    card.appendChild(ui.el('div', { class: 'scn-task-kicker' }, 'Choose a response'));
+    if (step.coachHint) {
+      card.appendChild(ui.el('div', { class: 'scn-task-hint' },
+        ui.el('span', { class: 'scn-task-hint-avatar' }, ui.icon('brain')),
+        ui.el('p', null, step.coachHint)
+      ));
+    }
     const poll = ui.el('div', { class: 'poll' });
     const fb   = ui.el('p', { class: 'tiny muted', style: { marginTop: '8px', display: 'none' } });
     const next = ui.el('div', { class: 'scn-submit-row', style: { display: 'none' } });
