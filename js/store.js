@@ -31,6 +31,11 @@ const state = {
   scenarios: [],        // scenarioBank.json
   mastery: null,        // masteryState.json (per learner)
   profileSlug: null,    // currently-loaded profile slug (URL-shareable)
+  // Chat sessions with Coach Vic. Shared between the FAB popover and
+  // the full Coach Vic page so a conversation started in the overlay
+  // continues seamlessly when promoted to the full page.
+  // Each session: { id, startedAt, updatedAt, messages: [{ role, text, time, reply? }] }
+  chats: { sessions: [], activeId: null },
   // ephemeral session data (e.g. last practice result)
   session: { lastSummary: null }
 };
@@ -47,6 +52,12 @@ export const store = {
   // from localStorage; otherwise the launch view drives selection.
   async init() {
     const saved = readLS();
+    if (saved?.chats?.sessions) {
+      state.chats = {
+        sessions: saved.chats.sessions,
+        activeId: saved.chats.activeId ?? null
+      };
+    }
     if (saved?.profileSlug && profiles.has(saved.profileSlug)) {
       try { await this.loadProfile(saved.profileSlug); }
       catch { /* fall through to launch */ }
@@ -153,12 +164,88 @@ export const store = {
 
   isChapterComplete(courseId, chapterId) {
     return state.mastery.completedChapters?.[courseId]?.includes(chapterId) ?? false;
+  },
+
+  // ---- chat sessions ----
+  // Resolve the current active session, creating a fresh one when needed.
+  // The popover and the full Coach Vic page both call this so they end up
+  // pointing at the same conversation.
+  chatActiveOrCreate() {
+    const list = state.chats.sessions;
+    let s = list.find((x) => x.id === state.chats.activeId);
+    if (!s) s = this.chatNew({ silent: true });
+    return s;
+  },
+
+  chatGet(id) { return state.chats.sessions.find((s) => s.id === id) || null; },
+
+  chatList() {
+    return [...state.chats.sessions].sort((a, b) => b.updatedAt - a.updatedAt);
+  },
+
+  // Start a new chat session and mark it active. `silent: true` skips the
+  // emit so callers can chain mutations (e.g. seeding the opener) without
+  // triggering a render mid-build.
+  chatNew({ silent = false } = {}) {
+    const s = {
+      id: `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      startedAt: Date.now(),
+      updatedAt: Date.now(),
+      messages: []
+    };
+    state.chats.sessions.unshift(s);
+    state.chats.activeId = s.id;
+    persistChats();
+    if (!silent) this.emit();
+    return s;
+  },
+
+  chatSetActive(id) {
+    if (state.chats.activeId === id) return;
+    state.chats.activeId = id;
+    persistChats();
+    this.emit();
+  },
+
+  // Append a message and bump the session's timestamp. `msg` is one of:
+  //   { role: 'me', text, time }
+  //   { role: 'coach', text, time, reply }   // full reply payload preserved
+  chatAdd(sessionId, msg) {
+    const s = state.chats.sessions.find((x) => x.id === sessionId);
+    if (!s) return;
+    s.messages.push(msg);
+    s.updatedAt = Date.now();
+    // Keep most-recently-updated session first so the history list stays sorted.
+    const i = state.chats.sessions.indexOf(s);
+    if (i > 0) {
+      state.chats.sessions.splice(i, 1);
+      state.chats.sessions.unshift(s);
+    }
+    persistChats();
+  },
+
+  chatDelete(id) {
+    state.chats.sessions = state.chats.sessions.filter((s) => s.id !== id);
+    if (state.chats.activeId === id) state.chats.activeId = null;
+    persistChats();
+    this.emit();
   }
 };
 
 function persistMastery() {
   const cur = readLS() ?? {};
   cur.mastery = state.mastery;
+  writeLS(cur);
+}
+
+function persistChats() {
+  const cur = readLS() ?? {};
+  // Cap stored sessions at 30 so localStorage doesn't grow unboundedly
+  // across long demo runs.
+  cur.chats = {
+    sessions: state.chats.sessions.slice(0, 30),
+    activeId: state.chats.activeId
+  };
   writeLS(cur);
 }
 

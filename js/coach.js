@@ -56,7 +56,7 @@ export const coach = {
       }
     }
 
-    return { ...SCRIPT.fallback, text: fillTemplate(SCRIPT.fallback.text, ctx), time: now() };
+    return finalize(SCRIPT.fallback, ctx);
   },
 
   // Legacy compatibility — used by older views.
@@ -84,6 +84,7 @@ function finalize(node, ctx) {
     suggested,
     cite: node.cite || null,
     suggestPractice: !!node.suggestPractice,
+    offScript: !!node.offScript,
     time: now()
   };
 }

@@ -3,8 +3,9 @@
 // with timestamps, light learner bubbles, embedded Concept Breakdown
 // card when relevant, and a composer with attach + mic + send.
 //
-// Vic loads a proactive opener tied to the learner's actual mastery
-// state so the first message already feels personalized.
+// The thread is sourced from the shared chat session in `store.chats` so
+// conversations started in the FAB popover continue here without losing
+// any context. If the session is empty, Vic opens proactively.
 
 import { store } from '../store.js';
 import { coach } from '../coach.js';
@@ -13,6 +14,8 @@ import * as ui from '../ui.js';
 export function render() {
   const root = document.createElement('section');
   root.className = 'coach-view';
+
+  const session = store.chatActiveOrCreate();
 
   // Vic header strip
   root.appendChild(headerStrip());
@@ -44,25 +47,30 @@ export function render() {
     });
   }
 
-  function appendCoach(reply) {
+  function appendCoach(reply, persist = true) {
     const extras = [];
     if (reply.card) extras.push(renderCard(reply.card, reply));
     extras.push(citeTag(reply));
     thread.appendChild(ui.chatBubble({ tone: 'coach', text: reply.text, time: reply.time, children: extras }));
-    // Replace the suggested chips
     suggBox.replaceChildren(ui.suggestedChips(reply.suggested ?? [], (s) => onLearnerMessage(s)));
     scrollToEnd();
+    if (persist) {
+      store.chatAdd(session.id, { role: 'coach', text: reply.text, time: reply.time, reply });
+    }
   }
 
-  function appendMe(text) {
-    thread.appendChild(ui.chatBubble({ tone: 'me', text, time: nowStamp() }));
+  function appendMe(text, persist = true) {
+    const time = nowStamp();
+    thread.appendChild(ui.chatBubble({ tone: 'me', text, time }));
     suggBox.replaceChildren();
     scrollToEnd();
+    if (persist) {
+      store.chatAdd(session.id, { role: 'me', text, time });
+    }
   }
 
   async function onLearnerMessage(text) {
     appendMe(text);
-    // Tiny delay so it feels like Vic is composing.
     setTimeout(async () => {
       const reply = await coach.reply(text);
       appendCoach(reply);
@@ -78,10 +86,17 @@ export function render() {
     }, 900);
   }
 
-  // ---------- bootstrap with proactive opener ----------
+  // ---------- bootstrap: replay session, or open proactively ----------
   (async () => {
-    const op = await coach.opener();
-    appendCoach(op);
+    if (session.messages.length === 0) {
+      const op = await coach.opener();
+      appendCoach(op);
+    } else {
+      for (const m of session.messages) {
+        if (m.role === 'me') appendMe(m.text, false);
+        else appendCoach(m.reply || { text: m.text, time: m.time }, false);
+      }
+    }
   })();
 
   return root;
@@ -98,9 +113,15 @@ function headerStrip() {
       ui.el('small', null,
         `Bounded to ${learner.role}'s assigned content · cites every claim`)
     ),
-    ui.el('div', { class: 'vic-status' },
-      ui.el('span', { class: 'dot' }),
-      ui.el('span', { class: 'tiny muted' }, 'Online')
+    ui.el('div', { class: 'vic-actions' },
+      ui.el('a', {
+        class: 'vic-iconbtn', 'aria-label': 'Chat history',
+        href: '#/coach/history'
+      }, ui.icon('list')),
+      ui.el('button', {
+        class: 'vic-iconbtn', 'aria-label': 'New chat',
+        on: { click: () => { store.chatNew(); location.reload(); } }
+      }, ui.icon('sparkle'))
     )
   );
 }
@@ -128,6 +149,10 @@ function citeTag(reply) {
         href: `#/course/${course.id}` }, `Source: ${course.title}`);
       return a;
     }
+  }
+  if (reply.offScript) {
+    return ui.el('span', { class: 'tag warn', style: { marginTop: '2px', display: 'inline-flex' } },
+      'Outside course library — verify with a peer or supervisor');
   }
   if (reply.bounded) {
     return ui.el('span', { class: 'tag warn', style: { marginTop: '2px', display: 'inline-flex' } },
