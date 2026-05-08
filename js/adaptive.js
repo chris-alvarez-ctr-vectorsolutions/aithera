@@ -133,6 +133,66 @@ export function readinessSnapshot() {
   };
 }
 
+// practiceReadinessSnapshot — practice-hub-scoped variant of
+// readinessSnapshot. Level mirrors the masteryPct (avg concept mastery),
+// the trend is reconstructed from the readinessAfter values stamped on
+// each recent practice run, and movers are the recent runs themselves
+// so the card explains *what practice moved the needle*.
+export function practiceReadinessSnapshot() {
+  const { learner, mastery, scenarios } = store.state;
+  if (!learner || !mastery) return null;
+
+  const concepts = Object.values(mastery.concepts ?? {});
+  const level = concepts.length
+    ? Math.round((concepts.reduce((a, b) => a + b, 0) / concepts.length) * 100)
+    : 0;
+
+  const recent = (mastery.recentPractice ?? []).slice();
+  // recentPractice is stored newest-first; reverse for chronological trend.
+  const chrono = recent.slice().reverse();
+  const trendPoints = chrono
+    .map((r) => (typeof r.readinessAfter === 'number' ? r.readinessAfter : null))
+    .filter((v) => v != null);
+  // Anchor the trend with the pre-first-run readiness so a single run
+  // still produces a 2-point sparkline.
+  if (chrono.length && typeof chrono[0].readinessBefore === 'number') {
+    trendPoints.unshift(chrono[0].readinessBefore);
+  }
+
+  const movers = recent.slice(0, 4).map((r) => {
+    const sc = (scenarios ?? []).find((s) => s.id === r.scenarioId);
+    const delta = Math.round(r.readinessDelta ?? 0);
+    return {
+      direction: delta < 0 ? 'down' : 'up',
+      title: sc?.title ?? 'Practice run',
+      when: relativeWhen(r.completedAt),
+      delta
+    };
+  }).filter((m) => m.delta !== 0);
+
+  const delta = recent.length
+    ? Math.round((recent[0].readinessDelta ?? 0))
+    : 0;
+
+  return {
+    level,
+    delta,
+    status: statusFor(level),
+    trend: trendPoints.length >= 2 ? trendPoints : synthTrend(level, delta),
+    movers
+  };
+}
+
+function relativeWhen(ts) {
+  if (!ts) return '';
+  const diffMs = Date.now() - new Date(ts).getTime();
+  const days = Math.floor(diffMs / 86400000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days}d ago`;
+  return `${Math.floor(days / 7)}w ago`;
+}
+
 function statusFor(level) {
   if (level < 50) return 'action-needed';
   if (level < 75) return 'watch';

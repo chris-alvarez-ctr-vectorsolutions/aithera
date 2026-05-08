@@ -930,29 +930,6 @@ export function statHero({ kicker, value, unit, sub, ic = 'trending' }) {
   );
 }
 
-// masteryCard — practice-tier counts + mastery progress row.
-export function masteryCard({ scenarios, edgeCases, masteryPct }) {
-  return el('div', { class: 'mastery-card' },
-    el('div', { class: 'mc-row' },
-      el('div', { class: 'mc-count' },
-        el('small', null, 'Scenarios'),
-        el('strong', null, String(scenarios))
-      ),
-      el('div', { class: 'mc-count' },
-        el('small', null, 'Edge cases'),
-        el('strong', null, String(edgeCases))
-      )
-    ),
-    el('div', { class: 'mc-meter' },
-      el('div', { class: 'mc-meter-row' },
-        el('small', null, 'Mastery level'),
-        el('span', null, `${masteryPct}%`)
-      ),
-      progressBar(masteryPct)
-    )
-  );
-}
-
 // featuredScenario — the dark hero card from the mockup. Two CTAs:
 // Start (primary) and Briefing (ghost).
 export function featuredScenario({ id, title, body, tags, startHref, briefingHref, gradient, accent }) {
