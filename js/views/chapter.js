@@ -67,10 +67,21 @@ export function render(courseId, chapterId) {
 
     // Compact header on every step so the learner always knows where
     // they are. Save / Mark-complete actions live in the recap step.
-    wrap.appendChild(ui.el('div', { class: 'ch-kicker' },
-      chapter.kicker || `${course.title} · Chapter ${idx + 1} of ${total}`));
+    const kicker = ui.el('div', { class: 'ch-kicker' });
+    if (chapter.kicker) {
+      kicker.textContent = chapter.kicker;
+    } else {
+      kicker.appendChild(ui.el('div', null, course.title));
+      kicker.appendChild(ui.el('div', { class: 'ch-kicker-sub' }, `Chapter ${idx + 1} of ${total}`));
+    }
+    wrap.appendChild(kicker);
     wrap.appendChild(ui.el('h2', { class: 'ch-title' }, chapter.title));
-    wrap.appendChild(ui.stepIndicator({ steps: stepLabels, current: cursor }));
+
+    // Learn folds the step indicator into its unified lesson card; other
+    // phases keep it as a standalone strip up top.
+    if (name !== 'learn') {
+      wrap.appendChild(ui.stepIndicator({ steps: stepLabels, current: cursor }));
+    }
 
     // Per-phase body
     if (name === 'watch') wrap.appendChild(buildWatch());
@@ -123,27 +134,75 @@ export function render(courseId, chapterId) {
   }
 
   // ---------- LEARN ----------
+  // The learn phase merges step indicator, learning content, and concept
+  // mastery into a single "lesson card" so the body text is the visual
+  // hero rather than competing with sibling cards.
   function buildLearn() {
     const stack = ui.el('div', { class: 'stack' });
-
     const aiOut = ui.el('div', { class: 'stack' });
 
-    for (const b of learnBlocks) {
+    const card = ui.el('div', { class: 'lesson-card' });
+
+    // Embedded step indicator — same component, restyled inside the card.
+    const stepInd = ui.stepIndicator({ steps: stepLabels, current: cursor });
+    stepInd.classList.add('embedded');
+    card.appendChild(stepInd);
+
+    // Use the concept label (if any) as the section title above the body.
+    const conceptBlock = learnBlocks.find((b) => b.type === 'concept');
+    const concept = conceptBlock ? course.concepts.find((c) => c.id === conceptBlock.ref) : null;
+
+    const body = ui.el('div', { class: 'lc-body' });
+    if (concept?.label) body.appendChild(ui.el('h3', { class: 'lc-title' }, concept.label));
+
+    const proseBlocks = learnBlocks.filter((b) => b.type !== 'concept');
+    for (const b of proseBlocks) {
       const node = renderBlock(b, course);
-      if (!node) continue;
-      if (b.type === 'concept' || b.type === 'callout-row') {
-        stack.appendChild(node);
-      } else {
-        stack.appendChild(ui.blockShell({
-          children: node,
-          onModality: (kind) => {
-            const target = b.type === 'prose' ? b.body : (b.title || b.body || '');
-            aiOut.appendChild(modalityResponse(kind, chapter, target));
-            aiOut.lastChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }));
-      }
+      if (node) body.appendChild(node);
     }
+
+    // AI affordance on the unified card. Acts on the first prose/text
+    // block's body — that's the learning content the user is reading.
+    const aiTarget = proseBlocks.find((b) => b.type === 'prose' || b.type === 'text');
+    const aiMenu = ui.el('div', { class: 'lc-ai-menu' });
+    const aiTrigger = ui.el('button', {
+      class: 'lc-ai', 'aria-label': 'AI tools for this lesson',
+      on: { click: () => aiMenu.classList.toggle('open') }
+    }, ui.icon('sparkle'));
+    const aiAction = (id, label) =>
+      ui.el('button', { class: 'bs-action', on: { click: () => {
+        aiMenu.classList.remove('open');
+        const target = aiTarget ? (aiTarget.body || aiTarget.title || '') : '';
+        aiOut.appendChild(modalityResponse(id, chapter, target));
+        aiOut.lastChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }}}, label);
+    aiMenu.append(
+      aiAction('read', 'Read to me'),
+      aiAction('summarize', 'Summarize'),
+      aiAction('simpler', 'Simpler terms'),
+      aiAction('chat', 'Ask Vic about this')
+    );
+
+    card.appendChild(aiTrigger);
+    card.appendChild(aiMenu);
+    card.appendChild(body);
+
+    // Mastery as quiet footer context — current standing on this concept,
+    // not a freshly-earned score.
+    if (concept) {
+      const live = store.state.mastery.concepts[concept.id] ?? concept.mastery ?? 0;
+      const pct = Math.round(live * 100);
+      const footer = ui.el('div', { class: 'lc-mastery' },
+        ui.el('div', { class: 'lc-mastery-row' },
+          ui.el('span', { class: 'lc-mastery-label' }, 'Your mastery on this concept'),
+          ui.el('span', { class: 'lc-mastery-pct' }, `${pct}%`)
+        ),
+        ui.progressBar(pct)
+      );
+      card.appendChild(footer);
+    }
+
+    stack.appendChild(card);
     stack.appendChild(aiOut);
     return stack;
   }
