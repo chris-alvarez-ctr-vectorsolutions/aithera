@@ -61,14 +61,6 @@ function buildPanel() {
     ),
     ui.el('div', { class: 'cp-head-actions' },
       ui.el('button', {
-        class: 'cp-iconbtn', 'aria-label': 'Chat history',
-        on: { click: () => goHistory() }
-      }, ui.icon('list')),
-      ui.el('button', {
-        class: 'cp-iconbtn', 'aria-label': 'New chat',
-        on: { click: () => startFresh() }
-      }, ui.icon('sparkle')),
-      ui.el('button', {
         class: 'cp-iconbtn', 'aria-label': 'Close',
         on: { click: close }
       }, ui.el('span', { class: 'cp-x' }, '×'))
@@ -78,11 +70,11 @@ function buildPanel() {
   threadEl = ui.el('div', { class: 'cp-thread' });
   suggBox = ui.el('div', { class: 'cp-sugg' });
   handoffBanner = ui.el('div', { class: 'cp-handoff', hidden: true },
-    ui.el('span', { class: 'cp-handoff-text' }, 'Continue this conversation in the full Coach Vic view'),
+    ui.el('span', { class: 'cp-handoff-text' }, 'Keep chatting in the full view'),
     ui.el('button', {
       class: 'btn primary sm',
       on: { click: () => promote('substantive') }
-    }, 'Open in Coach Vic →')
+    }, 'Open full chat →')
   );
 
   composerEl = ui.chatComposer({

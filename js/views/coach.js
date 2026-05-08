@@ -105,13 +105,10 @@ export function render() {
 // ---------- helpers ----------
 
 function headerStrip() {
-  const learner = store.state.learner;
   return ui.el('div', { class: 'vic-header' },
-    ui.el('div', { class: 'vic-mark' }, 'V'),
+    ui.el('div', { class: 'vic-mark' }, vicGlyph()),
     ui.el('div', { class: 'vic-meta' },
-      ui.el('strong', null, 'Coach Vic'),
-      ui.el('small', null,
-        `Bounded to ${learner.role}'s assigned content · cites every claim`)
+      ui.el('strong', null, 'Coach Vic')
     ),
     ui.el('div', { class: 'vic-actions' },
       ui.el('a', {
@@ -124,6 +121,13 @@ function headerStrip() {
       }, ui.icon('sparkle'))
     )
   );
+}
+
+function vicGlyph() {
+  return ui.el('span', {
+    class: 'vic-glyph sm',
+    html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="3"/><circle cx="9" cy="13" r="1.4" fill="currentColor"/><circle cx="15" cy="13" r="1.4" fill="currentColor"/><path d="M12 4v3"/><circle cx="12" cy="3.5" r="0.8" fill="currentColor"/></svg>`
+  });
 }
 
 function renderCard(card, reply) {
