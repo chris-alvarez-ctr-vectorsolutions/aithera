@@ -621,15 +621,15 @@ export function scenarioWelcome({ kicker, title, body, highlight, reassurance, e
     el('h2', { class: 'sw-title' }, title || 'Scenario overview'),
     el('hr', { class: 'sw-rule' }),
     bodyEl,
-    reassurance ? el('div', { class: 'sw-info' },
-      icon('info'),
-      el('p', null, reassurance)
-    ) : null,
     expectedOutcome ? el('div', { class: 'sw-meta' },
       el('small', null, 'Expected outcome'),
       el('strong', null, expectedOutcome)
     ) : null,
-    el('button', { class: 'btn primary block cta-large', on: { click: onBegin } },
+    reassurance ? el('div', { class: 'sw-info' },
+      icon('info'),
+      el('p', null, reassurance)
+    ) : null,
+    el('button', { class: 'btn primary block cta-large sw-cta', on: { click: onBegin } },
       el('span', null, ctaLabel),
       icon('arrowRight'))
   );
