@@ -5,6 +5,7 @@
 
 import { store, profiles } from './store.js';
 import * as launch    from './views/launch.js';
+import * as guide     from './views/guide.js';
 import * as home      from './views/home.js';
 import * as course    from './views/course.js';
 import * as lesson    from './views/lesson.js';
@@ -25,6 +26,7 @@ import * as reference from './views/reference.js';
 const ROUTES = [
   { re: /^#?\/?$/,                                view: launch,   shell: false, top: true  },
   { re: /^#\/launch$/,                            view: launch,   shell: false, top: true  },
+  { re: /^#\/guide$/,                             view: guide,    shell: false, top: true  },
   { re: /^#\/home$/,                              view: home,      shell: true,  top: true  },
   { re: /^#\/courses$/,                           view: courses,   shell: true,  top: true  },
   { re: /^#\/coach$/,                             view: coachV,    shell: true,  top: true  },
