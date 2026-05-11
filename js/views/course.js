@@ -5,6 +5,7 @@
 
 import { store } from '../store.js';
 import * as ui from '../ui.js';
+import { isAtLeast } from '../phase.js';
 
 export function render(courseId) {
   const course = store.course(courseId);
@@ -133,7 +134,7 @@ export function render(courseId) {
   // 8. Primary CTA + footnote (matches mockup)
   root.appendChild(ui.primaryCta(progress ? 'Resume course' : 'Start course',
     `#/course/${course.id}/lesson/${resumeLessonId}`));
-  if (course.mandated) {
+  if (course.mandated && isAtLeast(4)) {
     root.appendChild(ui.el('p', { class: 'tiny muted center', style: { marginTop: '8px' } },
       'Required completion under your role assignment.'));
   }

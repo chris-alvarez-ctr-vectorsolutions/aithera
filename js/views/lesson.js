@@ -92,7 +92,7 @@ export function render(courseId, lessonId) {
 
   function footerCta(name) {
     const labels = {
-      watch: 'Continue to lesson',
+      watch: 'Continue',
       learn: phases.includes('check') ? 'Continue to check' : 'Continue',
       check: 'Continue to recap',
       recap: next ? 'Mark complete & continue' : 'Mark complete'
@@ -399,8 +399,7 @@ function audioPlayerView(phase, ctx) {
   return modalityChrome({
     label: 'Read to me', glyph: 'speaker',
     body: player,
-    onBack: ctx.backToOriginal,
-    hint: 'Mocked playback — would stream from the platform\'s TTS.'
+    onBack: ctx.backToOriginal
   });
 }
 
@@ -457,8 +456,7 @@ function chatView(phase, ctx) {
   );
   return modalityChrome({
     label: 'Ask Coach Vic', glyph: 'chat',
-    body: log, onBack: ctx.backToOriginal,
-    hint: 'Mocked chat — would open a scoped Coach Vic thread.'
+    body: log, onBack: ctx.backToOriginal
   });
 }
 
