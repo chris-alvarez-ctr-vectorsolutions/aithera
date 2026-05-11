@@ -92,6 +92,13 @@ export function render(scenarioId) {
       if (step.tension) body.appendChild(ui.tensionTag(step.tension));
       body.appendChild(ui.el('div', { class: 'scn-scene-kicker' }, 'The scene'));
       body.appendChild(ui.el('p', { class: 'scn-scene-text' }, sc.context));
+      // Tip sits at the bottom of the briefing — closes out the scene
+      // with what the learner should be aiming for.
+      if (step.coachHint) {
+        body.appendChild(ui.el('div', { class: 'scn-task-hint scn-briefing-hint' },
+          ui.el('span', { class: 'scn-task-hint-avatar' }, ui.icon('lightbulb')),
+          ui.el('p', null, step.coachHint)));
+      }
       briefing.appendChild(body);
       wrap.appendChild(briefing);
     } else {
@@ -104,6 +111,14 @@ export function render(scenarioId) {
     const last = stepResults[stepResults.length - 1];
     if (last && last.assessment && step.input !== 'text') {
       wrap.appendChild(ui.situationalAssessment(last.assessment));
+    }
+
+    // On non-first steps the hint isn't part of a briefing, so it
+    // rides above the choices as a standalone element.
+    if (stepIdx > 0 && step.coachHint && step.input !== 'text') {
+      wrap.appendChild(ui.el('div', { class: 'scn-task-hint scn-standalone-hint' },
+        ui.el('span', { class: 'scn-task-hint-avatar' }, ui.icon('lightbulb')),
+        ui.el('p', null, step.coachHint)));
     }
 
     // Input mode — for choice questions, the coach hint is folded into the
@@ -124,51 +139,99 @@ export function render(scenarioId) {
   // --------------------- INPUT MODES ---------------------
   function choiceInput(step) {
     const card = ui.el('div', { class: 'scn-choice' });
-    card.appendChild(ui.el('div', { class: 'scn-task-kicker' }, 'Choose a response'));
+    const kicker = ui.el('div', { class: 'scn-task-kicker' }, 'Choose a response');
+    card.appendChild(kicker);
 
     const poll = ui.el('div', { class: 'poll' });
-    const fb   = ui.el('p', { class: 'scn-coach-fb', style: { display: 'none' } });
 
-    // Hint sits just above the sticky CTA so it reads as a reminder
-    // rather than instructions. Replaced by Coach Vic feedback once the
-    // learner picks an option.
-    const hint = step.coachHint
-      ? ui.el('div', { class: 'scn-task-hint' },
-          ui.el('span', { class: 'scn-task-hint-avatar' }, ui.icon('lightbulb')),
-          ui.el('p', null, step.coachHint))
-      : null;
+    // Explanation card — appears after a pick. More prominent than the
+    // old single-line feedback: full-width, larger type, has room to
+    // breathe.
+    const explain = ui.el('div', { class: 'scn-explain', style: { display: 'none' } });
 
     const cta = ui.el('button', { class: 'btn primary block', disabled: true, on: { click: () => {
       stepIdx++; renderStep();
     }}}, 'Continue');
     const ctaBar = ui.el('div', { class: 'scn-cta-bar' }, cta);
 
-    for (const o of step.options) {
-      const btn = ui.el('button', { type: 'button', on: { click: () => {
-        poll.querySelectorAll('button').forEach((x) => x.disabled = true);
-        btn.classList.add(o.outcome === 'good' ? 'right' : o.outcome === 'bad' ? 'wrong' : '');
-        const tone = o.outcome === 'good' ? 'good' : o.outcome === 'bad' ? 'bad' : 'warn';
-        fb.className = `scn-coach-fb t-${tone}`;
-        fb.style.display = 'flex';
-        fb.replaceChildren(
-          ui.el('span', { class: 'scn-coach-fb-avatar' }, ui.icon('lightbulb')),
-          ui.el('span', { class: 'scn-coach-fb-text', html: escape(o.feedback) })
-        );
-        if (hint) hint.style.display = 'none';
-        cta.disabled = false;
+    // Each option is wrapped so we can drop a "Your answer" / "Best
+    // answer" label above the button without disturbing button layout.
+    const wrappers = step.options.map((o) => {
+      const label = ui.el('div', { class: 'scn-option-label', style: { display: 'none' } });
+      const btn = ui.el('button', { type: 'button', class: 'scn-option-btn' }, o.label);
+      const wrap = ui.el('div', { class: 'scn-option' }, label, btn);
+      wrap._opt = o;
+      wrap._label = label;
+      wrap._btn = btn;
+      btn.addEventListener('click', () => onPick(o, wrap));
+      poll.appendChild(wrap);
+      return wrap;
+    });
 
-        const points = o.outcome === 'good' ? 1 : o.outcome === 'ok' ? 0.5 : 0;
-        stepResults.push({
-          stepId: step.id, choice: o.id, outcome: o.outcome, points,
-          assessment: assessmentFor(o, step)
-        });
-      }}}, o.label);
-      poll.appendChild(btn);
+    function onPick(o, pickedWrap) {
+      // Lock everything in.
+      wrappers.forEach((w) => { w._btn.disabled = true; });
+
+      const tone = o.outcome === 'good' ? 'good' : o.outcome === 'bad' ? 'bad' : 'warn';
+      const best = wrappers.find((w) => w._opt.outcome === 'good');
+      const correct = o.outcome === 'good';
+
+      // Mark the learner's pick.
+      pickedWrap.classList.add('is-picked', `t-${tone}`);
+      pickedWrap._label.style.display = 'block';
+      pickedWrap._label.textContent = correct ? 'Your answer · correct' : 'Your answer';
+
+      // Reveal the best answer if they didn't pick it.
+      if (!correct && best && best !== pickedWrap) {
+        best.classList.add('is-best', 't-good');
+        best._label.style.display = 'block';
+        best._label.textContent = 'Best answer';
+      }
+
+      // Collapse the others.
+      wrappers.forEach((w) => {
+        if (w !== pickedWrap && !(w.classList.contains('is-best'))) {
+          w.classList.add('is-hidden');
+        }
+      });
+
+      // Move the learner's pick to the top so the comparison reads
+      // "Your answer" → "Best answer" top-to-bottom.
+      if (!correct && best && best !== pickedWrap) {
+        poll.insertBefore(pickedWrap, poll.firstChild);
+      }
+
+      // Tighten the section header now that we're in review mode.
+      kicker.textContent = correct ? 'Nice work' : 'Review';
+
+      // Render the explanation card.
+      explain.className = `scn-explain t-${tone}`;
+      explain.style.display = 'block';
+      explain.replaceChildren(
+        ui.el('div', { class: 'scn-explain-head' },
+          ui.el('span', { class: 'scn-explain-avatar' }, ui.icon('lightbulb')),
+          ui.el('span', { class: 'scn-explain-kicker' },
+            correct ? 'Why this works' : 'Why the best answer wins')
+        ),
+        ui.el('p', { class: 'scn-explain-text', html: escape(o.feedback) })
+      );
+      if (!correct && best && best !== pickedWrap && best._opt.feedback) {
+        explain.appendChild(ui.el('p', { class: 'scn-explain-best' },
+          ui.el('strong', null, 'Best answer: '),
+          ui.el('span', { html: escape(best._opt.feedback) })
+        ));
+      }
+
+      cta.disabled = false;
+
+      const points = o.outcome === 'good' ? 1 : o.outcome === 'ok' ? 0.5 : 0;
+      stepResults.push({
+        stepId: step.id, choice: o.id, outcome: o.outcome, points,
+        assessment: assessmentFor(o, step)
+      });
     }
 
-    card.append(poll, fb);
-    if (hint) card.appendChild(hint);
-    card.appendChild(ctaBar);
+    card.append(poll, explain, ctaBar);
     return card;
   }
 
