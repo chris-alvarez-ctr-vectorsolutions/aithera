@@ -128,7 +128,7 @@ function renderPhase1(root, learner) {
   // learner's industry — prefer a phase-1-tagged course.
   const next = pickPhase1Course(learner);
   if (next) {
-    root.appendChild(ui.sectionHeader('Pick up where you are'));
+    root.appendChild(ui.sectionHeader('Next up'));
     root.appendChild(ui.rowCard({
       glyph: 'play',
       title: next.title,

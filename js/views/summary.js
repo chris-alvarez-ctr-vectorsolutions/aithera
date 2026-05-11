@@ -11,6 +11,7 @@
 import { store } from '../store.js';
 import * as adaptive from '../adaptive.js';
 import * as ui from '../ui.js';
+import { isAtLeast } from '../phase.js';
 
 export function render() {
   const result = store.state.session.lastSummary;
@@ -222,16 +223,19 @@ function recommendedNext(course, growth) {
       href: `#/course/${course.id}/lesson/${next.id}`
     });
   }
-  // Other required courses in this industry
-  const required = store.state.courses.filter((c) =>
-    c.industry === course.industry && c.id !== course.id && c.mandated
-  ).slice(0, 2);
-  for (const r of required) items.push({
-    glyph: 'shield',
-    title: r.title,
-    sub: `Required · ${r.estMinutes} min`,
-    href: `#/course/${r.id}`
-  });
+  // Other required courses in this industry (Phase 4+ only — pre-P4
+  // we don't surface urgency signals).
+  if (isAtLeast(4)) {
+    const required = store.state.courses.filter((c) =>
+      c.industry === course.industry && c.id !== course.id && c.mandated
+    ).slice(0, 2);
+    for (const r of required) items.push({
+      glyph: 'shield',
+      title: r.title,
+      sub: `Required · ${r.estMinutes} min`,
+      href: `#/course/${r.id}`
+    });
+  }
   return items.slice(0, 3);
 }
 

@@ -10,6 +10,14 @@
 //   blocks:      hero, statTile, statusPanel, alertStrip, rowCard,
 //                coachMessage, coachPrompt, courseTile, primaryCta
 
+import { isAtLeast } from './phase.js';
+
+// Urgency signals (Required badges, mandate footnotes, deadline chips)
+// enter the experience in Phase 4 — pre-Phase 4 the catalog reads as
+// recommendations only, so the baseline doesn't promise urgency the
+// Home screen isn't surfacing yet.
+function urgencyVisible() { return isAtLeast(4); }
+
 const SVG = {
   play:    `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`,
   users:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.2"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/><path d="M15 19c0-2 2-4 4-4s4 1 4 3"/></svg>`,
@@ -395,7 +403,8 @@ export function courseTile(course, { progress, compact = false } = {}) {
   const a = el('a', { class: 'card', href: `#/course/${course.id}` });
   const pct = progress ? Math.round((progress.percent ?? 0) * 100) : null;
   a.appendChild(el('div', { class: 'row between' },
-    tag(course.mandated ? 'Required' : 'Recommended', course.mandated ? 'accent' : ''),
+    tag(course.mandated && urgencyVisible() ? 'Required' : 'Recommended',
+        course.mandated && urgencyVisible() ? 'accent' : ''),
     el('span', { class: 'tiny muted' }, `${course.estMinutes} min`)
   ));
   a.appendChild(el('h3', null, course.title));

@@ -17,7 +17,7 @@ export function render() {
     'Your assigned and saved courses, plus the full library.'));
 
   const modes = ui.el('div', { class: 'utility-rail' },
-    chip('mine', 'Mine'),
+    chip('mine', 'Assigned to me'),
     chip('all',  'All courses')
   );
   root.appendChild(modes);
