@@ -10,7 +10,17 @@ export function render() {
   root.innerHTML = `
     <header class="guide-hero">
       <div class="brand">
-        <span class="brand-mark"></span><span class="brand-name" style="font-weight:700">Aithera</span>
+        <span class="brand-mark brand-mark-cyan" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="aith-guide-g" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#3ec8ff"/>
+                <stop offset="1" stop-color="#7ee0ff"/>
+              </linearGradient>
+            </defs>
+            <path d="M16 3.5c-1.4 0-2.6.8-3.2 2L4.6 22.7c-.7 1.5.4 3.3 2.1 3.3h3.1c1 0 1.9-.6 2.2-1.5l.6-1.7h7l.6 1.7c.3.9 1.2 1.5 2.2 1.5h3.1c1.7 0 2.8-1.8 2.1-3.3L19.2 5.5c-.6-1.2-1.8-2-3.2-2zM13.7 18.4L16 12.2l2.3 6.2h-4.6z" fill="url(#aith-guide-g)"/>
+          </svg>
+        </span><span class="brand-name" style="font-weight:700">Aithera</span>
       </div>
       <a class="guide-back" href="#/launch">← Back to launch</a>
       <h1>User testing guide</h1>
