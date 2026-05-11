@@ -80,7 +80,7 @@ export function practiceSuggestions(limit = 3) {
 // failure → more practice; strong → option to skip ahead; mid → revisit.
 export function nextStepAfter(result) {
   if (result.score >= 0.85) {
-    return { action: 'skip-suggested', message: 'Strong run. We can skip ahead to the next chapter.' };
+    return { action: 'skip-suggested', message: 'Strong run. We can skip ahead to the next lesson.' };
   }
   if (result.score < 0.5) {
     return { action: 'reinforce',     message: 'We\'ll surface another scenario variant + a 2-minute concept refresher.' };

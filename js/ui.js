@@ -359,7 +359,7 @@ export function rowCard({ glyph = 'flag', title, sub, href, onClick, kebab = tru
 }
 
 // coachMessage — Vic avatar + text bubble. Used on course detail,
-// chapter, summary, etc. Single source for the "Vic says…" pattern.
+// lesson, summary, etc. Single source for the "Vic says…" pattern.
 export function coachMessage({ title, text, footer = '— Coach Vic' }) {
   const card = el('div', { class: 'coach-message' },
     el('div', { class: 'cm-avatar', 'aria-hidden': 'true' }, 'V'),
@@ -404,41 +404,26 @@ export function courseTile(course, { progress, compact = false } = {}) {
   return a;
 }
 
-// chapterHeader — module kicker, title, and chapter-level actions
-// (Save Reference / Mark Complete). Mirrors the desktop mockup's
-// header bar in mobile single-column form.
-export function chapterHeader({ kicker, title, isSaved, isComplete, onSave, onComplete }) {
-  const actions = el('div', { class: 'ch-actions' },
-    el('button', {
-      class: `ch-action${isSaved ? ' on' : ''}`,
-      on: { click: onSave },
-      'aria-label': 'Save reference'
-    }, icon('star'), el('span', null, isSaved ? 'Saved' : 'Save')),
-    el('button', {
-      class: `ch-action complete${isComplete ? ' on' : ''}`,
-      on: { click: onComplete },
-      'aria-label': 'Mark complete'
-    }, icon(isComplete ? 'check' : 'circle'), el('span', null, isComplete ? 'Completed' : 'Mark complete'))
-  );
-  return el('div', { class: 'ch-header' },
-    el('div', { class: 'ch-kicker' }, kicker),
-    el('h2', { class: 'ch-title' }, title),
-    actions
-  );
-}
-
 // "Try another way" panel — modality switcher tucked behind a tap-to-
 // expand header. Picking an option transforms the content above (video
 // → summary, prose → audio, etc.) rather than stacking a reply card.
 // `current` is the active modality id; onSelect(id) handles the swap.
+// `originalLabel` is the name of the default format ("Video", "Text") —
+// used to label the "return to original" option when in an alt mode.
 // Modalities: 'original' | 'read' | 'summarize' | 'simpler' | 'chat'.
-export function assistantPanel({ onSelect, current = 'original', expanded = false }) {
-  const options = [
+export function assistantPanel({ onSelect, current = 'original', originalLabel = 'Original', expanded = false }) {
+  const altOptions = [
     { id: 'read',      label: 'Read to me',     iconName: 'speaker'   },
     { id: 'summarize', label: 'Summarize',      iconName: 'list'      },
     { id: 'simpler',   label: 'Simpler terms',  iconName: 'lightbulb' },
     { id: 'chat',      label: 'Ask Coach Vic',  iconName: 'chat'      }
   ];
+  // When the learner is in an alt mode, surface a "Return to original"
+  // option at the top of the list so getting back is the most obvious
+  // path. On the default view it's a no-op, so we hide it.
+  const options = current !== 'original'
+    ? [{ id: 'original', label: `Original format · ${originalLabel}`, iconName: 'arrowRight' }, ...altOptions]
+    : altOptions;
 
   const actions = el('div', { class: 'ap-actions' });
   for (const o of options) {
@@ -484,9 +469,10 @@ export function assistantPanel({ onSelect, current = 'original', expanded = fals
 
 // stepIndicator — top-of-page progress for a stepped flow. `steps` is a
 // list of short labels (e.g. ['Watch', 'Learn', 'Check', 'Recap']);
-// `current` is the active index.
-export function stepIndicator({ steps, current }) {
-  const wrap = el('div', { class: 'step-ind' });
+// `current` is the active index. `variant: 'header'` strips the card
+// chrome so the indicator can sit inline as part of a page header.
+export function stepIndicator({ steps, current, variant }) {
+  const wrap = el('div', { class: `step-ind${variant ? ` ${variant}` : ''}` });
   const meta = el('div', { class: 'si-meta' },
     el('span', { class: 'si-pos' }, `Step ${current + 1} of ${steps.length}`),
     el('span', { class: 'si-name' }, steps[current])
@@ -501,7 +487,7 @@ export function stepIndicator({ steps, current }) {
 }
 
 // stickyFooter — bottom-anchored bar holding the page's primary CTA.
-// Used on full-flow surfaces (chapter, etc.) so the next action is
+// Used on full-flow surfaces (lesson, etc.) so the next action is
 // always reachable without scrolling.
 export function stickyFooter({ children }) {
   const inner = el('div', { class: 'sf-inner' });
@@ -554,7 +540,7 @@ export function blockShell({ children, onModality }) {
   return wrap;
 }
 
-// nextUpCard — preview of the upcoming chapter, mirrors the right-rail
+// nextUpCard — preview of the upcoming lesson, mirrors the right-rail
 // "Next Up" card from the desktop mockup.
 export function nextUpCard({ kicker = 'Next up', title, subtitle, href, initials }) {
   return el('a', { class: 'next-up', href },

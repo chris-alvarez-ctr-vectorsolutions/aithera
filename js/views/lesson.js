@@ -1,18 +1,15 @@
-// views/chapter.js — Stepped learning flow.
+// views/lesson.js — Stepped learning flow.
 //
-// Instead of a single dense scroll, the chapter is broken into focused
-// phases the learner moves through one at a time:
-//   1. Watch  — hero video; AI assistant tucked behind a tap-to-expand
-//               header so it doesn't dominate.
-//   2. Learn  — the rich content blocks (prose, callouts, concept). Per-
-//               block AI menu still available via blockShell.
+// A lesson is broken into focused phases the learner moves through one
+// at a time:
+//   1. Watch  — hero video; modality switcher tucked into a panel below.
+//   2. Learn  — concept-card text content (no media frame).
 //   3. Check  — any embedded polls / knowledge checks.
-//   4. Recap  — practice nudge, course progress, next-up preview, and
-//               the "mark complete" CTA.
+//   4. Recap  — lesson recap header, practice nudge, course progress,
+//               next-up preview, and the "mark complete" CTA.
 //
-// Steps with no content for the current chapter are skipped (e.g. a
-// chapter without a poll skips Check). A sticky footer carries the
-// forward CTA so the next action is always reachable.
+// Steps with no content for the current lesson are skipped. A sticky
+// footer carries the forward CTA so the next action is always reachable.
 //
 // The route is rendered fullscreen (see app.js) — the bottom tabbar is
 // hidden so the lesson surface owns the screen.
@@ -20,21 +17,21 @@
 import { store } from '../store.js';
 import * as ui from '../ui.js';
 
-export function render(courseId, chapterId) {
-  const course  = store.course(courseId);
-  const chapter = course?.chapters.find((c) => c.id === chapterId);
+export function render(courseId, lessonId) {
+  const course = store.course(courseId);
+  const lesson = course?.lessons.find((c) => c.id === lessonId);
   const root = document.createElement('section');
-  if (!chapter) { root.appendChild(ui.el('p', { class: 'muted' }, 'Chapter not found.')); return root; }
+  if (!lesson) { root.appendChild(ui.el('p', { class: 'muted' }, 'Lesson not found.')); return root; }
 
-  const idx = course.chapters.findIndex((c) => c.id === chapter.id);
-  const next = course.chapters[idx + 1];
-  const completed = (store.state.mastery.completedChapters?.[course.id] ?? []).length;
-  const total     = course.chapters.length;
+  const idx = course.lessons.findIndex((c) => c.id === lesson.id);
+  const next = course.lessons[idx + 1];
+  const completed = (store.state.mastery.completedLessons?.[course.id] ?? []).length;
+  const total     = course.lessons.length;
 
   // ---------- Partition blocks into phases ----------
-  const videoBlocks   = chapter.blocks.filter((b) => b.type === 'video');
-  const pollBlocks    = chapter.blocks.filter((b) => b.type === 'poll');
-  const learnBlocks   = chapter.blocks.filter((b) => b.type !== 'video' && b.type !== 'poll');
+  const videoBlocks   = lesson.blocks.filter((b) => b.type === 'video');
+  const pollBlocks    = lesson.blocks.filter((b) => b.type === 'poll');
+  const learnBlocks   = lesson.blocks.filter((b) => b.type !== 'video' && b.type !== 'poll');
 
   // Build the active step list dynamically — skip phases with no content.
   const phases = [];
@@ -55,43 +52,42 @@ export function render(courseId, chapterId) {
 
   function advance() {
     if (cursor < phases.length - 1) { cursor++; show(); return; }
-    // Final step — mark complete and navigate.
-    store.markChapterComplete(course.id, chapter.id);
+    store.markLessonComplete(course.id, lesson.id);
     location.hash = next
-      ? `#/course/${course.id}/chapter/${next.id}`
+      ? `#/course/${course.id}/lesson/${next.id}`
       : `#/course/${course.id}`;
   }
 
   function buildPhase(name) {
     const wrap = ui.el('section', { class: 'chap-phase' });
+    wrap.appendChild(buildHeader(name));
 
-    // Compact header on every step so the learner always knows where
-    // they are. Save / Mark-complete actions live in the recap step.
-    const kicker = ui.el('div', { class: 'ch-kicker' });
-    if (chapter.kicker) {
-      kicker.textContent = chapter.kicker;
-    } else {
-      kicker.appendChild(ui.el('div', null, course.title));
-      kicker.appendChild(ui.el('div', { class: 'ch-kicker-sub' }, `Chapter ${idx + 1} of ${total}`));
-    }
-    wrap.appendChild(kicker);
-    wrap.appendChild(ui.el('h2', { class: 'ch-title' }, chapter.title));
-
-    // Learn folds the step indicator into its unified lesson card; other
-    // phases keep it as a standalone strip up top.
-    if (name !== 'learn') {
-      wrap.appendChild(ui.stepIndicator({ steps: stepLabels, current: cursor }));
-    }
-
-    // Per-phase body
     if (name === 'watch') wrap.appendChild(buildWatch());
     if (name === 'learn') wrap.appendChild(buildLearn());
     if (name === 'check') wrap.appendChild(buildCheck());
     if (name === 'recap') wrap.appendChild(buildRecap());
 
-    // Sticky footer CTA
     wrap.appendChild(ui.stickyFooter({ children: footerCta(name) }));
     return wrap;
+  }
+
+  // Unified header: kicker + title + tight inline step strip. The strip
+  // is part of the header (an orientation cue) not part of the learning
+  // content below it.
+  function buildHeader(name) {
+    const header = ui.el('header', { class: 'lesson-head' });
+    const kicker = ui.el('div', { class: 'ch-kicker' });
+    if (lesson.kicker) {
+      kicker.textContent = lesson.kicker;
+    } else {
+      kicker.appendChild(ui.el('div', null, course.title));
+      kicker.appendChild(ui.el('div', { class: 'ch-kicker-sub' }, `Lesson ${idx + 1} of ${total}`));
+    }
+    header.appendChild(kicker);
+    const title = name === 'recap' ? `${lesson.title} · Lesson recap` : lesson.title;
+    header.appendChild(ui.el('h2', { class: 'ch-title' }, title));
+    header.appendChild(ui.stepIndicator({ steps: stepLabels, current: cursor, variant: 'header' }));
+    return header;
   }
 
   function footerCta(name) {
@@ -101,28 +97,24 @@ export function render(courseId, chapterId) {
       check: 'Continue to recap',
       recap: next ? 'Mark complete & continue' : 'Mark complete'
     };
-    const btn = ui.el('button', { class: 'btn primary block cta-large', on: { click: advance } },
+    return ui.el('button', { class: 'btn primary block cta-large', on: { click: advance } },
       ui.el('span', null, labels[name]),
       ui.icon('arrowRight')
     );
-    return btn;
   }
 
   // ---------- WATCH ----------
-  // The watch phase has a single hero region whose modality the learner
-  // can swap (video / summary / simpler / audio / chat) via the panel
-  // below. The hero crossfades on swap rather than stacking reply cards.
   function buildWatch() {
     const stack = ui.el('div', { class: 'stack' });
     const vb = videoBlocks[0];
 
     let mode = 'original';
+    const hint = ui.el('p', { class: 'lesson-instruction' });
     const stage = ui.el('div', { class: 'modality-stage' });
     const panelHost = ui.el('div', null);
-    const hint = ui.el('p', { class: 'muted phase-hint' });
 
     function renderHero() {
-      const node = heroForMode('watch', mode, { videoBlock: vb, chapter, backToOriginal: () => switchMode('original') });
+      const node = heroForMode('watch', mode, { videoBlock: vb, lesson, backToOriginal: () => switchMode('original') });
       node.classList.add('modality-enter');
       stage.replaceChildren(node);
       requestAnimationFrame(() => node.classList.remove('modality-enter'));
@@ -130,42 +122,34 @@ export function render(courseId, chapterId) {
     function renderPanel() {
       panelHost.replaceChildren(ui.assistantPanel({
         current: mode,
-        onSelect: (next) => switchMode(next)
+        originalLabel: 'Video',
+        onSelect: (nextMode) => switchMode(nextMode)
       }));
     }
     function renderHint() {
       hint.textContent = mode === 'original'
         ? `Watch the ${vb ? 'briefing' : 'intro'}, then continue when you're ready. You can swap formats any time.`
-        : 'Tap "Try another way" below to switch formats or return to the original video.';
+        : 'Tap "Original format · Video" below to return to the briefing, or pick another way.';
     }
-    function switchMode(next) {
-      if (next === mode) return;
+    function switchMode(nextMode) {
+      if (nextMode === mode) return;
       const cur = stage.firstElementChild;
       if (cur) {
         cur.classList.add('modality-exit');
-        setTimeout(() => {
-          mode = next;
-          renderHero();
-          renderPanel();
-          renderHint();
-        }, 180);
+        setTimeout(() => { mode = nextMode; renderHero(); renderPanel(); renderHint(); }, 180);
       } else {
-        mode = next;
-        renderHero();
-        renderPanel();
-        renderHint();
+        mode = nextMode; renderHero(); renderPanel(); renderHint();
       }
     }
 
     renderHero(); renderPanel(); renderHint();
-    stack.append(stage, panelHost, hint);
+    stack.append(hint, stage, panelHost);
     return stack;
   }
 
   // ---------- LEARN ----------
-  // The learn phase merges step indicator, learning content, and concept
-  // mastery into a single "lesson card" so the body text is the visual
-  // hero rather than competing with sibling cards.
+  // Concept-card text content. No video frame, no embedded step
+  // indicator — the body prose is the visual hero.
   function buildLearn() {
     const stack = ui.el('div', { class: 'stack' });
 
@@ -176,20 +160,21 @@ export function render(courseId, chapterId) {
     const targetText = aiTarget ? (aiTarget.body || aiTarget.title || '') : '';
 
     let mode = 'original';
-    const card = ui.el('div', { class: 'lesson-card' });
+    const hint = ui.el('p', { class: 'lesson-instruction' });
+    const card = ui.el('article', { class: 'lesson-card learn-card' });
     const panelHost = ui.el('div', null);
+
+    function renderHint() {
+      hint.textContent = mode === 'original'
+        ? 'Read through the key concept, then continue. You can swap formats any time.'
+        : 'Tap "Original format · Text" below to return to the original, or pick another way.';
+    }
 
     function renderCard() {
       card.replaceChildren();
-
-      // Embedded step indicator.
-      const stepInd = ui.stepIndicator({ steps: stepLabels, current: cursor });
-      stepInd.classList.add('embedded');
-      card.appendChild(stepInd);
-
       const stage = ui.el('div', { class: 'modality-stage' });
       const hero = heroForMode('learn', mode, {
-        concept, proseBlocks, course, chapter, targetText,
+        concept, proseBlocks, course, lesson, targetText,
         backToOriginal: () => switchMode('original')
       });
       hero.classList.add('modality-enter');
@@ -197,8 +182,6 @@ export function render(courseId, chapterId) {
       card.appendChild(stage);
       requestAnimationFrame(() => hero.classList.remove('modality-enter'));
 
-      // Mastery footer (only on original — the alternate modalities are
-      // about the content itself, mastery context lives with the prose).
       if (concept && mode === 'original') {
         const live = store.state.mastery.concepts[concept.id] ?? concept.mastery ?? 0;
         const pct = Math.round(live * 100);
@@ -214,30 +197,31 @@ export function render(courseId, chapterId) {
     function renderPanel() {
       panelHost.replaceChildren(ui.assistantPanel({
         current: mode,
-        onSelect: (next) => switchMode(next)
+        originalLabel: 'Text',
+        onSelect: (nextMode) => switchMode(nextMode)
       }));
     }
-    function switchMode(next) {
-      if (next === mode) return;
+    function switchMode(nextMode) {
+      if (nextMode === mode) return;
       const stage = card.querySelector('.modality-stage');
       const cur = stage?.firstElementChild;
       if (cur) {
         cur.classList.add('modality-exit');
-        setTimeout(() => { mode = next; renderCard(); renderPanel(); }, 180);
+        setTimeout(() => { mode = nextMode; renderCard(); renderPanel(); renderHint(); }, 180);
       } else {
-        mode = next; renderCard(); renderPanel();
+        mode = nextMode; renderCard(); renderPanel(); renderHint();
       }
     }
 
-    renderCard(); renderPanel();
-    stack.append(card, panelHost);
+    renderCard(); renderPanel(); renderHint();
+    stack.append(hint, card, panelHost);
     return stack;
   }
 
   // ---------- CHECK ----------
   function buildCheck() {
     const stack = ui.el('div', { class: 'stack' });
-    stack.appendChild(ui.el('p', { class: 'muted phase-hint' },
+    stack.appendChild(ui.el('p', { class: 'lesson-instruction' },
       'Quick check before you move on — pick the answer that best fits.'));
     for (const b of pollBlocks) {
       const node = renderBlock(b, course);
@@ -250,11 +234,12 @@ export function render(courseId, chapterId) {
   function buildRecap() {
     const stack = ui.el('div', { class: 'stack' });
 
-    // Save / Mark complete affordances move here so they don't compete
-    // with the learning steps above. The footer CTA is the primary path.
-    const isSaved    = store.state.mastery.saved.includes(course.id);
-    const isComplete = store.isChapterComplete(course.id, chapter.id);
-    stack.appendChild(ui.el('div', { class: 'ch-actions recap-actions' },
+    stack.appendChild(ui.el('p', { class: 'lesson-instruction' },
+      "You've finished the main content. Save it for later, or drill it in with a quick practice run."));
+
+    // Save (bookmark) — Mark complete lives in the footer CTA below.
+    const isSaved = store.state.mastery.saved.includes(course.id);
+    stack.appendChild(ui.el('div', { class: 'recap-actions single' },
       ui.el('button', {
         class: `ch-action${isSaved ? ' on' : ''}`,
         on: { click: (e) => {
@@ -262,24 +247,12 @@ export function render(courseId, chapterId) {
           const t = e.currentTarget;
           const nowSaved = store.state.mastery.saved.includes(course.id);
           t.classList.toggle('on', nowSaved);
-          t.querySelector('span:last-child').textContent = nowSaved ? 'Saved' : 'Save';
+          t.querySelector('span:last-child').textContent = nowSaved ? 'Saved' : 'Save for later';
         }},
         'aria-label': 'Save reference'
-      }, ui.icon('star'), ui.el('span', null, isSaved ? 'Saved' : 'Save')),
-      ui.el('button', {
-        class: `ch-action complete${isComplete ? ' on' : ''}`,
-        on: { click: (e) => {
-          store.markChapterComplete(course.id, chapter.id);
-          const t = e.currentTarget;
-          t.classList.add('on');
-          t.querySelector('span:last-child').textContent = 'Completed';
-        }},
-        'aria-label': 'Mark complete'
-      }, ui.icon(isComplete ? 'check' : 'circle'),
-         ui.el('span', null, isComplete ? 'Completed' : 'Mark complete'))
+      }, ui.icon('star'), ui.el('span', null, isSaved ? 'Saved' : 'Save for later'))
     ));
 
-    // Practice nudge (if there's a scenario tied to this course)
     const sc = store.scenariosForCourse(course.id)[0];
     if (sc) {
       stack.appendChild(ui.coachPrompt({
@@ -287,7 +260,7 @@ export function render(courseId, chapterId) {
         primaryLabel: 'Practice now',
         primaryHref: `#/practice/${sc.id}`,
         secondaryLabel: 'Skip',
-        secondaryHref: `#/course/${course.id}/chapter/${chapter.id}`
+        secondaryHref: `#/course/${course.id}/lesson/${lesson.id}`
       }));
     }
 
@@ -295,7 +268,7 @@ export function render(courseId, chapterId) {
     stack.appendChild(ui.progressMini({
       percent: Math.round((completed / total) * 100),
       completed, total,
-      label: course.title
+      label: `${course.title} · ${completed} of ${total} lessons`
     }));
 
     if (next) {
@@ -303,7 +276,7 @@ export function render(courseId, chapterId) {
       stack.appendChild(ui.nextUpCard({
         title: next.title,
         subtitle: `${next.minutes} min · Video & content`,
-        href: `#/course/${course.id}/chapter/${next.id}`,
+        href: `#/course/${course.id}/lesson/${next.id}`,
         initials: String(idx + 2)
       }));
     }
@@ -371,13 +344,10 @@ function renderBlock(b, course) {
 }
 
 // ---------- Modality hero ----------
-// Builds the appropriate hero node for a given phase + modality.
-// "phase" is 'watch' or 'learn'. The remaining keys in `ctx` are
-// phase-specific (see callers).
 function heroForMode(phase, mode, ctx) {
   if (mode === 'original') {
     return phase === 'watch'
-      ? (ctx.videoBlock ? videoEl(ctx.videoBlock) : ui.el('div', { class: 'modality-empty muted' }, 'No video for this chapter.'))
+      ? (ctx.videoBlock ? videoEl(ctx.videoBlock) : ui.el('div', { class: 'modality-empty muted' }, 'No video for this lesson.'))
       : originalProse(ctx);
   }
   if (mode === 'read')      return audioPlayerView(phase, ctx);
@@ -416,8 +386,8 @@ function modalityChrome({ label, glyph, body, onBack, hint }) {
 
 function audioPlayerView(phase, ctx) {
   const title = phase === 'watch'
-    ? (ctx.videoBlock?.title || ctx.chapter.title)
-    : (ctx.concept?.label || ctx.chapter.title);
+    ? (ctx.videoBlock?.title || ctx.lesson.title)
+    : (ctx.concept?.label || ctx.lesson.title);
   const player = ui.el('div', { class: 'mv-player' },
     ui.el('button', { class: 'mv-play', 'aria-label': 'Play audio' }, ui.icon('speaker')),
     ui.el('div', { class: 'mv-player-meta' },
@@ -437,7 +407,7 @@ function audioPlayerView(phase, ctx) {
 function summaryView(phase, ctx) {
   const body = ui.el('div', { class: 'mv-prose' });
   if (phase === 'watch') {
-    body.appendChild(ui.el('p', null, `Key takeaways from ${ctx.chapter.title}:`));
+    body.appendChild(ui.el('p', null, `Key takeaways from ${ctx.lesson.title}:`));
     const list = ui.el('ul', { class: 'mv-list' });
     list.append(
       ui.el('li', null, 'Recognize the situation before you act.'),
@@ -458,7 +428,7 @@ function simplerView(phase, ctx) {
   const body = ui.el('div', { class: 'mv-prose' });
   if (phase === 'watch') {
     body.appendChild(ui.el('p', null,
-      `Plain-language take on "${ctx.chapter.title}": notice the situation, set the boundary, then ask for help in clear pieces.`));
+      `Plain-language take on "${ctx.lesson.title}": notice the situation, set the boundary, then ask for help in clear pieces.`));
   } else {
     body.appendChild(ui.el('p', null, ctx.targetText ? simpler(ctx.targetText) : 'Nothing to simplify on this step.'));
   }
@@ -469,7 +439,7 @@ function simplerView(phase, ctx) {
 }
 
 function chatView(phase, ctx) {
-  const scope = phase === 'watch' ? 'this chapter' : 'this passage';
+  const scope = phase === 'watch' ? 'this lesson' : 'this passage';
   const log = ui.el('div', { class: 'mv-chat' },
     ui.el('div', { class: 'mv-msg coach' },
       ui.el('div', { class: 'mv-msg-author' }, 'Coach Vic'),

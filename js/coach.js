@@ -68,7 +68,7 @@ export const coach = {
     const first = s.learner.name.split(' ')[0];
     return tone === 'supportive'
       ? `Hi ${first} — I'm Vic. Want to warm up with a quick ${word}, or pick up where you left off?`
-      : `${first} — Vic here. Pick up the chapter, or jump straight into a ${word}?`;
+      : `${first} — Vic here. Pick up the lesson, or jump straight into a ${word}?`;
   }
 };
 

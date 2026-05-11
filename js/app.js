@@ -7,7 +7,7 @@ import { store, profiles } from './store.js';
 import * as launch    from './views/launch.js';
 import * as home      from './views/home.js';
 import * as course    from './views/course.js';
-import * as chapter   from './views/chapter.js';
+import * as lesson    from './views/lesson.js';
 import * as practice  from './views/practice.js';
 import * as summary   from './views/summary.js';
 import * as celebrate from './views/celebrate.js';
@@ -33,7 +33,7 @@ const ROUTES = [
   { re: /^#\/reference$/,                         view: reference, shell: true,  top: true  },
   { re: /^#\/profile$/,                           view: profile,   shell: true,  parent: '#/home' },
   { re: /^#\/course\/([^/]+)$/,                   view: course,    shell: true,  parent: '#/courses' },
-  { re: /^#\/course\/([^/]+)\/chapter\/([^/]+)$/, view: chapter,   shell: true,  fullscreen: true, parent: (m) => `#/course/${m[1]}` },
+  { re: /^#\/course\/([^/]+)\/lesson\/([^/]+)$/,  view: lesson,    shell: true,  fullscreen: true, parent: (m) => `#/course/${m[1]}` },
   { re: /^#\/practice\/([^/?]+)$/,                view: practice,  shell: true,  fullscreen: true, parent: '#/practice' },
   { re: /^#\/practice-complete$/,                 view: celebrate, shell: true,  parent: '#/home' },
   { re: /^#\/summary$/,                           view: summary,   shell: true,  parent: '#/home' }
