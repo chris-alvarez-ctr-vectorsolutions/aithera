@@ -667,7 +667,7 @@ export function scenarioPrompt({ kicker = 'Your task', text }) {
 // coachHint — small Vic micro-prompt shown inline within a step.
 export function coachHint({ text }) {
   return el('div', { class: 'coach-hint' },
-    el('span', { class: 'ch-avatar' }, icon('brain')),
+    el('span', { class: 'ch-avatar' }, icon('lightbulb')),
     el('p', null, text)
   );
 }

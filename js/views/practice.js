@@ -98,18 +98,20 @@ export function render(scenarioId) {
       if (step.tension) wrap.appendChild(ui.tensionTag(step.tension));
     }
 
-    // Situational assessment from the previous step
+    // Situational assessment from the previous step — only carried over
+    // for choice steps. On text-input steps the previous-step feedback was
+    // already read in-place, so repeating it as a header here is redundant.
     const last = stepResults[stepResults.length - 1];
-    if (last && last.assessment) {
+    if (last && last.assessment && step.input !== 'text') {
       wrap.appendChild(ui.situationalAssessment(last.assessment));
     }
 
     // Input mode — for choice questions, the coach hint is folded into the
-    // answer card so they read as one unit. For text input, keep the prompt
-    // and coach hint as separate elements above.
+    // answer card so they read as one unit. For text input, the prompt sits
+    // above and the coach hint moves under the formulation field as
+    // contextual help for the answer entry.
     if (step.input === 'text') {
       if (step.prompt) wrap.appendChild(ui.scenarioPrompt({ text: step.prompt }));
-      if (step.coachHint) wrap.appendChild(ui.coachHint({ text: step.coachHint }));
       wrap.appendChild(textInput(step));
     } else {
       wrap.appendChild(choiceInput(step));
@@ -179,7 +181,15 @@ export function render(scenarioId) {
     });
     card.appendChild(fm);
 
+    if (step.coachHint) card.appendChild(ui.coachHint({ text: step.coachHint }));
+
     const rubricBlock = ui.el('div', { style: { display: 'none' } });
+    card.appendChild(rubricBlock);
+
+    const continueBtn = ui.el('button', { class: 'btn primary block', style: { display: 'none' }, on: { click: () => {
+      stepIdx++; renderStep();
+    }}}, 'Continue');
+
     const submit = ui.el('button', { class: 'btn primary block cta-large', on: { click: () => {
       const txt = (fm.value() || '').toLowerCase();
       const hits = step.rubric.map((r) => ({ r, hit: matches(r, txt) }));
@@ -200,10 +210,7 @@ export function render(scenarioId) {
             )
           ),
           ui.coachMessage({ title: 'Model answer', text: step.modelAnswer, footer: '— Coach Vic' })
-        ),
-        ui.el('button', { class: 'btn primary block', style: { marginTop: '8px' }, on: { click: () => {
-          stepIdx++; renderStep();
-        }}}, 'Continue')
+        )
       );
 
       stepResults.push({
@@ -220,12 +227,11 @@ export function render(scenarioId) {
                           : 'Not enough signal. Re-anchor on the rubric points before the next handoff.' }
       });
 
-      submit.disabled = true;
-      submit.textContent = 'Submitted';
+      submit.style.display = 'none';
+      continueBtn.style.display = 'block';
     }}}, ui.el('span', null, 'Submit formulation'), ui.icon('arrowRight'));
 
-    card.appendChild(submit);
-    card.appendChild(rubricBlock);
+    card.appendChild(ui.el('div', { class: 'scn-cta-bar' }, submit, continueBtn));
     return card;
   }
 
