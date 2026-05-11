@@ -105,14 +105,6 @@ export function render(scenarioId) {
       if (step.tension) wrap.appendChild(ui.tensionTag(step.tension));
     }
 
-    // Situational assessment from the previous step — only carried over
-    // for choice steps. On text-input steps the previous-step feedback was
-    // already read in-place, so repeating it as a header here is redundant.
-    const last = stepResults[stepResults.length - 1];
-    if (last && last.assessment && step.input !== 'text') {
-      wrap.appendChild(ui.situationalAssessment(last.assessment));
-    }
-
     // On non-first steps the hint isn't part of a briefing, so it
     // rides above the choices as a standalone element.
     if (stepIdx > 0 && step.coachHint && step.input !== 'text') {
