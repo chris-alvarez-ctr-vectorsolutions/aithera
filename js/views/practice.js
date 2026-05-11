@@ -78,30 +78,30 @@ export function render(scenarioId) {
       timerEl: timer
     }));
 
-    // Hero (only on first step — subsequent steps stay focused)
+    // Briefing block — unifies hero image, tension chip, and "The scene"
+    // text into a single card on the first step. Subsequent steps stay
+    // focused: just tension + assessment.
     if (stepIdx === 0) {
-      wrap.appendChild(ui.scenarioMedia({
+      const briefing = ui.el('div', { class: 'scn-briefing' });
+      briefing.appendChild(ui.scenarioMedia({
         id: sc.id,
         label: sc.industry === 'healthcare' ? 'Emergency Department · triage' : 'I-95 · scene',
         accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff7a3d'
       }));
+      const body = ui.el('div', { class: 'scn-briefing-body' });
+      if (step.tension) body.appendChild(ui.tensionTag(step.tension));
+      body.appendChild(ui.el('div', { class: 'scn-scene-kicker' }, 'The scene'));
+      body.appendChild(ui.el('p', { class: 'scn-scene-text' }, sc.context));
+      briefing.appendChild(body);
+      wrap.appendChild(briefing);
+    } else {
+      if (step.tension) wrap.appendChild(ui.tensionTag(step.tension));
     }
-
-    // Tension chip
-    if (step.tension) wrap.appendChild(ui.tensionTag(step.tension));
 
     // Situational assessment from the previous step
     const last = stepResults[stepResults.length - 1];
     if (last && last.assessment) {
       wrap.appendChild(ui.situationalAssessment(last.assessment));
-    }
-
-    // Context (only on first step)
-    if (stepIdx === 0) {
-      wrap.appendChild(ui.el('div', { class: 'card scn-scene' },
-        ui.el('div', { class: 'scn-scene-kicker' }, 'The scene'),
-        ui.el('p', { class: 'scn-scene-text' }, sc.context)
-      ));
     }
 
     // Input mode — for choice questions, the coach hint is folded into the
@@ -121,25 +121,39 @@ export function render(scenarioId) {
 
   // --------------------- INPUT MODES ---------------------
   function choiceInput(step) {
-    const card = ui.el('div', { class: 'scn-task-card' });
+    const card = ui.el('div', { class: 'scn-choice' });
     card.appendChild(ui.el('div', { class: 'scn-task-kicker' }, 'Choose a response'));
-    if (step.coachHint) {
-      card.appendChild(ui.el('div', { class: 'scn-task-hint' },
-        ui.el('span', { class: 'scn-task-hint-avatar' }, ui.icon('brain')),
-        ui.el('p', null, step.coachHint)
-      ));
-    }
+
     const poll = ui.el('div', { class: 'poll' });
-    const fb   = ui.el('p', { class: 'tiny muted', style: { marginTop: '8px', display: 'none' } });
-    const next = ui.el('div', { class: 'scn-submit-row', style: { display: 'none' } });
+    const fb   = ui.el('p', { class: 'scn-coach-fb', style: { display: 'none' } });
+
+    // Hint sits just above the sticky CTA so it reads as a reminder
+    // rather than instructions. Replaced by Coach Vic feedback once the
+    // learner picks an option.
+    const hint = step.coachHint
+      ? ui.el('div', { class: 'scn-task-hint' },
+          ui.el('span', { class: 'scn-task-hint-avatar' }, ui.icon('lightbulb')),
+          ui.el('p', null, step.coachHint))
+      : null;
+
+    const cta = ui.el('button', { class: 'btn primary block', disabled: true, on: { click: () => {
+      stepIdx++; renderStep();
+    }}}, 'Continue');
+    const ctaBar = ui.el('div', { class: 'scn-cta-bar' }, cta);
 
     for (const o of step.options) {
       const btn = ui.el('button', { type: 'button', on: { click: () => {
         poll.querySelectorAll('button').forEach((x) => x.disabled = true);
         btn.classList.add(o.outcome === 'good' ? 'right' : o.outcome === 'bad' ? 'wrong' : '');
-        fb.style.display = 'block';
-        fb.innerHTML = `<strong style="color:var(--${o.outcome === 'good' ? 'good' : o.outcome === 'bad' ? 'bad' : 'warn'})">Coach Vic:</strong> ${escape(o.feedback)}`;
-        next.style.display = 'block';
+        const tone = o.outcome === 'good' ? 'good' : o.outcome === 'bad' ? 'bad' : 'warn';
+        fb.className = `scn-coach-fb t-${tone}`;
+        fb.style.display = 'flex';
+        fb.replaceChildren(
+          ui.el('span', { class: 'scn-coach-fb-avatar' }, ui.icon('lightbulb')),
+          ui.el('span', { class: 'scn-coach-fb-text', html: escape(o.feedback) })
+        );
+        if (hint) hint.style.display = 'none';
+        cta.disabled = false;
 
         const points = o.outcome === 'good' ? 1 : o.outcome === 'ok' ? 0.5 : 0;
         stepResults.push({
@@ -150,12 +164,9 @@ export function render(scenarioId) {
       poll.appendChild(btn);
     }
 
-    const cta = ui.el('button', { class: 'btn primary block', on: { click: () => {
-      stepIdx++; renderStep();
-    }}}, 'Continue');
-    next.appendChild(cta);
-
-    card.append(poll, fb, next);
+    card.append(poll, fb);
+    if (hint) card.appendChild(hint);
+    card.appendChild(ctaBar);
     return card;
   }
 
