@@ -766,21 +766,18 @@ export function readinessDelta({ before, after, kicker = 'Clinical readiness', s
   const arrow = dir === 'up' ? '↑' : dir === 'down' ? '↓' : '–';
   const label = dir === 'up' ? 'Readiness up' : dir === 'down' ? 'Readiness down' : 'No change';
   return el('div', { class: `readiness-delta rd-${dir} rd-${size}` },
+    el('span', { class: 'rd-kicker' }, kicker),
     el('div', { class: 'rd-row' },
       el('span', { class: 'rd-arrow' }, arrow),
-      el('div', { class: 'rd-text' },
-        el('span', { class: 'rd-kicker' }, kicker),
-        el('strong', { class: 'rd-label' }, label)
-      ),
+      el('strong', { class: 'rd-label' }, label),
       el('div', { class: 'rd-numbers' },
         el('span', { class: 'rd-delta' }, `${sign}${mag}`),
-        el('span', { class: 'rd-after' }, `${after}%`)
+        el('span', { class: 'rd-fromto' },
+          el('span', null, `${before}%`),
+          el('span', { class: 'rd-arrow-sm' }, '→'),
+          el('span', null, `${after}%`)
+        )
       )
-    ),
-    el('div', { class: 'rd-fromto' },
-      el('span', null, `${before}%`),
-      el('span', { class: 'rd-arrow-sm' }, '→'),
-      el('span', null, `${after}%`)
     )
   );
 }
