@@ -424,24 +424,42 @@ export function chapterHeader({ kicker, title, isSaved, isComplete, onSave, onCo
   );
 }
 
-// AI Assistant panel — the four "any-content" modalities, tucked behind
-// a tap-to-expand header so they don't dominate the lesson surface.
-// onAction(name) is invoked with: 'read' | 'summarize' | 'simpler' | 'chat'.
-export function assistantPanel({ onAction, expanded = false }) {
+// "Try another way" panel — modality switcher tucked behind a tap-to-
+// expand header. Picking an option transforms the content above (video
+// → summary, prose → audio, etc.) rather than stacking a reply card.
+// `current` is the active modality id; onSelect(id) handles the swap.
+// Modalities: 'original' | 'read' | 'summarize' | 'simpler' | 'chat'.
+export function assistantPanel({ onSelect, current = 'original', expanded = false }) {
+  const options = [
+    { id: 'read',      label: 'Read to me',     iconName: 'speaker'   },
+    { id: 'summarize', label: 'Summarize',      iconName: 'list'      },
+    { id: 'simpler',   label: 'Simpler terms',  iconName: 'lightbulb' },
+    { id: 'chat',      label: 'Ask Coach Vic',  iconName: 'chat'      }
+  ];
+
   const actions = el('div', { class: 'ap-actions' });
-  const action = (id, label, iconName) =>
-    el('button', { class: 'ai-act', on: { click: () => { actions.classList.remove('open'); head.setAttribute('aria-expanded', 'false'); onAction(id); } } },
-      el('span', { class: 'ai-glyph' }, icon(iconName)),
-      el('span', { class: 'ai-label' }, label),
-      el('span', { class: 'ai-chev' }, icon('chevron'))
+  for (const o of options) {
+    const isActive = o.id === current;
+    const btn = el('button', {
+      class: `ai-act${isActive ? ' active' : ''}`,
+      on: { click: () => {
+        actions.classList.remove('open');
+        head.setAttribute('aria-expanded', 'false');
+        if (o.id !== current) onSelect(o.id);
+      }}
+    },
+      el('span', { class: 'ai-glyph' }, icon(o.iconName)),
+      el('span', { class: 'ai-label' }, o.label),
+      el('span', { class: 'ai-chev' }, isActive ? icon('check') : icon('chevron'))
     );
-  actions.append(
-    action('read',      'Read to me',      'speaker'),
-    action('summarize', 'Summarize',       'list'),
-    action('simpler',   'Simpler terms',   'lightbulb'),
-    action('chat',      'Start conversation', 'chat')
-  );
+    actions.appendChild(btn);
+  }
   if (expanded) actions.classList.add('open');
+
+  const activeLabel = options.find((o) => o.id === current)?.label;
+  const hintText = current === 'original'
+    ? 'Read · Summarize · Ask'
+    : `Showing: ${activeLabel}`;
 
   const caret = el('span', { class: 'ap-caret' }, icon('chevron'));
   const head = el('button', {
@@ -453,12 +471,12 @@ export function assistantPanel({ onAction, expanded = false }) {
     }}
   },
     el('span', { class: 'ap-mark' }, icon('sparkle')),
-    el('span', { class: 'ap-name' }, 'AI Assistant'),
-    el('span', { class: 'ap-hint muted' }, 'Read · Summarize · Ask'),
+    el('span', { class: 'ap-name' }, 'Try another way'),
+    el('span', { class: 'ap-hint muted' }, hintText),
     caret
   );
 
-  return el('div', { class: 'assistant-panel collapsible' }, head, actions);
+  return el('div', { class: `assistant-panel collapsible${current !== 'original' ? ' modality-active' : ''}` }, head, actions);
 }
 
 // stepIndicator — top-of-page progress for a stepped flow. `steps` is a

@@ -109,27 +109,56 @@ export function render(courseId, chapterId) {
   }
 
   // ---------- WATCH ----------
+  // The watch phase has a single hero region whose modality the learner
+  // can swap (video / summary / simpler / audio / chat) via the panel
+  // below. The hero crossfades on swap rather than stacking reply cards.
   function buildWatch() {
     const stack = ui.el('div', { class: 'stack' });
-
     const vb = videoBlocks[0];
-    if (vb) stack.appendChild(videoEl(vb));
 
-    // AI assistant — collapsed by default. Replies render below it.
-    const aiOut = ui.el('div', { class: 'stack' });
-    stack.appendChild(ui.assistantPanel({
-      onAction: (kind) => {
-        aiOut.appendChild(modalityResponse(kind, chapter, null));
-        aiOut.lastChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    let mode = 'original';
+    const stage = ui.el('div', { class: 'modality-stage' });
+    const panelHost = ui.el('div', null);
+    const hint = ui.el('p', { class: 'muted phase-hint' });
+
+    function renderHero() {
+      const node = heroForMode('watch', mode, { videoBlock: vb, chapter, backToOriginal: () => switchMode('original') });
+      node.classList.add('modality-enter');
+      stage.replaceChildren(node);
+      requestAnimationFrame(() => node.classList.remove('modality-enter'));
+    }
+    function renderPanel() {
+      panelHost.replaceChildren(ui.assistantPanel({
+        current: mode,
+        onSelect: (next) => switchMode(next)
+      }));
+    }
+    function renderHint() {
+      hint.textContent = mode === 'original'
+        ? `Watch the ${vb ? 'briefing' : 'intro'}, then continue when you're ready. You can swap formats any time.`
+        : 'Tap "Try another way" below to switch formats or return to the original video.';
+    }
+    function switchMode(next) {
+      if (next === mode) return;
+      const cur = stage.firstElementChild;
+      if (cur) {
+        cur.classList.add('modality-exit');
+        setTimeout(() => {
+          mode = next;
+          renderHero();
+          renderPanel();
+          renderHint();
+        }, 180);
+      } else {
+        mode = next;
+        renderHero();
+        renderPanel();
+        renderHint();
       }
-    }));
-    stack.appendChild(aiOut);
+    }
 
-    // Lightweight orientation line so the watch step isn't bare.
-    stack.appendChild(ui.el('p', { class: 'muted phase-hint' },
-      `Watch the ${vb ? 'briefing' : 'intro'}, then continue when you're ready. ` +
-      `You can replay or use AI tools any time.`));
-
+    renderHero(); renderPanel(); renderHint();
+    stack.append(stage, panelHost, hint);
     return stack;
   }
 
@@ -139,71 +168,69 @@ export function render(courseId, chapterId) {
   // hero rather than competing with sibling cards.
   function buildLearn() {
     const stack = ui.el('div', { class: 'stack' });
-    const aiOut = ui.el('div', { class: 'stack' });
 
-    const card = ui.el('div', { class: 'lesson-card' });
-
-    // Embedded step indicator — same component, restyled inside the card.
-    const stepInd = ui.stepIndicator({ steps: stepLabels, current: cursor });
-    stepInd.classList.add('embedded');
-    card.appendChild(stepInd);
-
-    // Use the concept label (if any) as the section title above the body.
     const conceptBlock = learnBlocks.find((b) => b.type === 'concept');
     const concept = conceptBlock ? course.concepts.find((c) => c.id === conceptBlock.ref) : null;
-
-    const body = ui.el('div', { class: 'lc-body' });
-    if (concept?.label) body.appendChild(ui.el('h3', { class: 'lc-title' }, concept.label));
-
     const proseBlocks = learnBlocks.filter((b) => b.type !== 'concept');
-    for (const b of proseBlocks) {
-      const node = renderBlock(b, course);
-      if (node) body.appendChild(node);
-    }
-
-    // AI affordance on the unified card. Acts on the first prose/text
-    // block's body — that's the learning content the user is reading.
     const aiTarget = proseBlocks.find((b) => b.type === 'prose' || b.type === 'text');
-    const aiMenu = ui.el('div', { class: 'lc-ai-menu' });
-    const aiTrigger = ui.el('button', {
-      class: 'lc-ai', 'aria-label': 'AI tools for this lesson',
-      on: { click: () => aiMenu.classList.toggle('open') }
-    }, ui.icon('sparkle'));
-    const aiAction = (id, label) =>
-      ui.el('button', { class: 'bs-action', on: { click: () => {
-        aiMenu.classList.remove('open');
-        const target = aiTarget ? (aiTarget.body || aiTarget.title || '') : '';
-        aiOut.appendChild(modalityResponse(id, chapter, target));
-        aiOut.lastChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }}}, label);
-    aiMenu.append(
-      aiAction('read', 'Read to me'),
-      aiAction('summarize', 'Summarize'),
-      aiAction('simpler', 'Simpler terms'),
-      aiAction('chat', 'Ask Vic about this')
-    );
+    const targetText = aiTarget ? (aiTarget.body || aiTarget.title || '') : '';
 
-    card.appendChild(aiTrigger);
-    card.appendChild(aiMenu);
-    card.appendChild(body);
+    let mode = 'original';
+    const card = ui.el('div', { class: 'lesson-card' });
+    const panelHost = ui.el('div', null);
 
-    // Mastery as quiet footer context — current standing on this concept,
-    // not a freshly-earned score.
-    if (concept) {
-      const live = store.state.mastery.concepts[concept.id] ?? concept.mastery ?? 0;
-      const pct = Math.round(live * 100);
-      const footer = ui.el('div', { class: 'lc-mastery' },
-        ui.el('div', { class: 'lc-mastery-row' },
-          ui.el('span', { class: 'lc-mastery-label' }, 'Your mastery on this concept'),
-          ui.el('span', { class: 'lc-mastery-pct' }, `${pct}%`)
-        ),
-        ui.progressBar(pct)
-      );
-      card.appendChild(footer);
+    function renderCard() {
+      card.replaceChildren();
+
+      // Embedded step indicator.
+      const stepInd = ui.stepIndicator({ steps: stepLabels, current: cursor });
+      stepInd.classList.add('embedded');
+      card.appendChild(stepInd);
+
+      const stage = ui.el('div', { class: 'modality-stage' });
+      const hero = heroForMode('learn', mode, {
+        concept, proseBlocks, course, chapter, targetText,
+        backToOriginal: () => switchMode('original')
+      });
+      hero.classList.add('modality-enter');
+      stage.appendChild(hero);
+      card.appendChild(stage);
+      requestAnimationFrame(() => hero.classList.remove('modality-enter'));
+
+      // Mastery footer (only on original — the alternate modalities are
+      // about the content itself, mastery context lives with the prose).
+      if (concept && mode === 'original') {
+        const live = store.state.mastery.concepts[concept.id] ?? concept.mastery ?? 0;
+        const pct = Math.round(live * 100);
+        card.appendChild(ui.el('div', { class: 'lc-mastery' },
+          ui.el('div', { class: 'lc-mastery-row' },
+            ui.el('span', { class: 'lc-mastery-label' }, 'Your mastery on this concept'),
+            ui.el('span', { class: 'lc-mastery-pct' }, `${pct}%`)
+          ),
+          ui.progressBar(pct)
+        ));
+      }
+    }
+    function renderPanel() {
+      panelHost.replaceChildren(ui.assistantPanel({
+        current: mode,
+        onSelect: (next) => switchMode(next)
+      }));
+    }
+    function switchMode(next) {
+      if (next === mode) return;
+      const stage = card.querySelector('.modality-stage');
+      const cur = stage?.firstElementChild;
+      if (cur) {
+        cur.classList.add('modality-exit');
+        setTimeout(() => { mode = next; renderCard(); renderPanel(); }, 180);
+      } else {
+        mode = next; renderCard(); renderPanel();
+      }
     }
 
-    stack.appendChild(card);
-    stack.appendChild(aiOut);
+    renderCard(); renderPanel();
+    stack.append(card, panelHost);
     return stack;
   }
 
@@ -343,29 +370,126 @@ function renderBlock(b, course) {
   return null;
 }
 
-// ---------- modality replies ----------
-function modalityResponse(kind, chapter, blockText) {
-  const scope = blockText ? 'this passage' : 'this chapter';
-  const body = {
-    read:      `▶ Audio playback queued for ${scope}. (Mocked — would route through the platform's TTS.)`,
-    summarize: blockText
-      ? `In short: ${shorten(blockText)}`
-      : `${chapter.title} in three points: 1) recognize before you act; 2) escalate by signal, not by clock; 3) the bundle's velocity matters more than its perfect order.`,
-    simpler:   blockText
-      ? `Simpler version: ${simpler(blockText)}`
-      : `Plain-language take on "${chapter.title}": notice the situation, set the boundary, then ask for help in clear pieces.`,
-    chat:      `Starting a Coach Vic conversation scoped to ${scope}. Try: "What's the most common mistake here?"`
-  }[kind];
+// ---------- Modality hero ----------
+// Builds the appropriate hero node for a given phase + modality.
+// "phase" is 'watch' or 'learn'. The remaining keys in `ctx` are
+// phase-specific (see callers).
+function heroForMode(phase, mode, ctx) {
+  if (mode === 'original') {
+    return phase === 'watch'
+      ? (ctx.videoBlock ? videoEl(ctx.videoBlock) : ui.el('div', { class: 'modality-empty muted' }, 'No video for this chapter.'))
+      : originalProse(ctx);
+  }
+  if (mode === 'read')      return audioPlayerView(phase, ctx);
+  if (mode === 'summarize') return summaryView(phase, ctx);
+  if (mode === 'simpler')   return simplerView(phase, ctx);
+  if (mode === 'chat')      return chatView(phase, ctx);
+  return ui.el('div', null);
+}
 
-  return ui.coachMessage({
-    title: kind === 'chat' ? 'Coach Vic — live' : `Coach Vic · ${labelFor(kind)}`,
-    text: body,
-    footer: kind === 'chat' ? '— Tap "Coach Vic" tab to continue' : '— Coach Vic'
+function originalProse({ concept, proseBlocks, course }) {
+  const body = ui.el('div', { class: 'lc-body' });
+  if (concept?.label) body.appendChild(ui.el('h3', { class: 'lc-title' }, concept.label));
+  for (const b of proseBlocks) {
+    const node = renderBlock(b, course);
+    if (node) body.appendChild(node);
+  }
+  return body;
+}
+
+function modalityChrome({ label, glyph, body, onBack, hint }) {
+  const wrap = ui.el('div', { class: 'modality-view' });
+  wrap.appendChild(ui.el('div', { class: 'mv-head' },
+    ui.el('span', { class: 'mv-tag' },
+      ui.el('span', { class: 'mv-glyph' }, ui.icon(glyph)),
+      ui.el('span', null, label)
+    ),
+    ui.el('button', { class: 'mv-back', on: { click: onBack } },
+      ui.icon('arrowRight'),
+      ui.el('span', null, 'Show original')
+    )
+  ));
+  wrap.appendChild(body);
+  if (hint) wrap.appendChild(ui.el('p', { class: 'mv-hint muted' }, hint));
+  return wrap;
+}
+
+function audioPlayerView(phase, ctx) {
+  const title = phase === 'watch'
+    ? (ctx.videoBlock?.title || ctx.chapter.title)
+    : (ctx.concept?.label || ctx.chapter.title);
+  const player = ui.el('div', { class: 'mv-player' },
+    ui.el('button', { class: 'mv-play', 'aria-label': 'Play audio' }, ui.icon('speaker')),
+    ui.el('div', { class: 'mv-player-meta' },
+      ui.el('div', { class: 'mv-player-title' }, title),
+      ui.el('div', { class: 'mv-player-sub muted' }, 'Narrated — 0:00 / 2:48')
+    ),
+    ui.el('div', { class: 'mv-player-bar' }, ui.el('div', { class: 'mv-player-bar-fill' }))
+  );
+  return modalityChrome({
+    label: 'Read to me', glyph: 'speaker',
+    body: player,
+    onBack: ctx.backToOriginal,
+    hint: 'Mocked playback — would stream from the platform\'s TTS.'
   });
 }
 
-function labelFor(kind) {
-  return { read: 'Read to me', summarize: 'Summary', simpler: 'Simpler terms', chat: 'Conversation' }[kind] || kind;
+function summaryView(phase, ctx) {
+  const body = ui.el('div', { class: 'mv-prose' });
+  if (phase === 'watch') {
+    body.appendChild(ui.el('p', null, `Key takeaways from ${ctx.chapter.title}:`));
+    const list = ui.el('ul', { class: 'mv-list' });
+    list.append(
+      ui.el('li', null, 'Recognize the situation before you act.'),
+      ui.el('li', null, 'Escalate by signal, not by clock.'),
+      ui.el('li', null, "The bundle's velocity matters more than its perfect order.")
+    );
+    body.appendChild(list);
+  } else {
+    body.appendChild(ui.el('p', null, ctx.targetText ? `In short: ${shorten(ctx.targetText)}` : 'No prose to summarize on this step.'));
+  }
+  return modalityChrome({
+    label: 'Summary', glyph: 'list',
+    body, onBack: ctx.backToOriginal
+  });
+}
+
+function simplerView(phase, ctx) {
+  const body = ui.el('div', { class: 'mv-prose' });
+  if (phase === 'watch') {
+    body.appendChild(ui.el('p', null,
+      `Plain-language take on "${ctx.chapter.title}": notice the situation, set the boundary, then ask for help in clear pieces.`));
+  } else {
+    body.appendChild(ui.el('p', null, ctx.targetText ? simpler(ctx.targetText) : 'Nothing to simplify on this step.'));
+  }
+  return modalityChrome({
+    label: 'Simpler terms', glyph: 'lightbulb',
+    body, onBack: ctx.backToOriginal
+  });
+}
+
+function chatView(phase, ctx) {
+  const scope = phase === 'watch' ? 'this chapter' : 'this passage';
+  const log = ui.el('div', { class: 'mv-chat' },
+    ui.el('div', { class: 'mv-msg coach' },
+      ui.el('div', { class: 'mv-msg-author' }, 'Coach Vic'),
+      ui.el('div', { class: 'mv-msg-text' }, `Ready when you are — ask anything about ${scope}.`)
+    ),
+    ui.el('div', { class: 'mv-suggest' },
+      ui.el('button', { class: 'mv-chip' }, "What's the most common mistake here?"),
+      ui.el('button', { class: 'mv-chip' }, 'Give me a quick example'),
+      ui.el('button', { class: 'mv-chip' }, 'Why does this matter in practice?')
+    ),
+    ui.el('div', { class: 'mv-compose' },
+      ui.el('input', { type: 'text', placeholder: 'Ask Coach Vic…', class: 'mv-input' }),
+      ui.el('button', { class: 'mv-send', 'aria-label': 'Send' }, ui.icon('arrowRight'))
+    )
+  );
+  return modalityChrome({
+    label: 'Ask Coach Vic', glyph: 'chat',
+    body: log, onBack: ctx.backToOriginal,
+    hint: 'Mocked chat — would open a scoped Coach Vic thread.'
+  });
 }
 
 function shorten(text) {
