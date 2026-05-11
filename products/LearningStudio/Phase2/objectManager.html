@@ -54,9 +54,9 @@
       position: relative;
     }
 
-    .wh-left { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
-    .wh-center { flex-shrink: 0; padding: 0 12px; }
-    .wh-right { display: flex; align-items: center; gap: 16px; flex: 1; justify-content: flex-end; }
+    .wh-left { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .wh-center { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: flex-end; padding: 0 16px 0 0; }
+    .wh-right { display: flex; align-items: center; gap: 16px; flex-shrink: 0; justify-content: flex-end; }
 
     .wh-logo {
       width: 36px; height: 36px; border-radius: 8px;
@@ -67,7 +67,9 @@
     .wh-divider { width: 1px; height: 22px; background: var(--lumo-contrast-10pct); flex-shrink: 0; margin: 0 4px; }
 
     .wh-title-group {
-      display: flex; flex-direction: column; gap: 1px; min-width: 0;
+      display: flex; flex-direction: column; gap: 1px;
+      /* Fixed width so nav-prev/next don't shift as title changes */
+      width: 200px; flex-shrink: 0;
       /* Clickable — reset button defaults */
       background: none; border: none; font-family: inherit; text-align: left;
       padding: 4px 7px; border-radius: 6px; cursor: pointer;
@@ -78,7 +80,7 @@
     .wh-section { font-size: 10.5px; color: var(--lumo-secondary-text-color); white-space: nowrap; transition: color 0.12s; }
     .wh-lo-title {
       font-size: 13px; font-weight: 600; color: var(--lumo-contrast);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;
     }
 
     .wh-icon-btn {
@@ -92,8 +94,16 @@
     .wh-icon-btn:disabled { opacity: 0.3; cursor: not-allowed; }
     .wh-icon-btn:disabled:hover { background: none; }
 
+    .wh-icon-btn.ai-regen {
+      color: #7c3aed; font-size: 13px;
+    }
+    .wh-icon-btn.ai-regen:hover {
+      background: #f5f3ff;
+      color: #6d28d9;
+    }
+
     .wh-search {
-      position: relative; width: 300px;
+      position: relative; width: 100%; max-width: 380px;
     }
     .wh-search i {
       position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
@@ -326,8 +336,6 @@
     ===================================================================== */
     .scene-wrapper {
       position: relative;
-      margin-bottom: 6px;
-      padding: 12px 0; /* room for the buttons to straddle top/bottom borders */
     }
 
     /* vwc-card scene card shell */
@@ -349,22 +357,28 @@
 
     /* Add before/after buttons — absolutely positioned on the wrapper,
        shown when the card inside is hovered */
-    .add-before-btn, .add-after-btn {
-      position: absolute; left: 8px;
+    /* Insert zone — gap between scene cards that acts as a click-to-insert target */
+    .scene-insert-zone {
+      height: 32px; margin: 0;
       display: flex; align-items: center; justify-content: center;
-      width: 24px; height: 24px; border-radius: 50%;
-      background: var(--lumo-primary-color, #0271ce);
-      color: white; border: 2px solid white; cursor: pointer; font-size: 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.18), 0 1px 3px rgba(0,0,0,0.12);
-      opacity: 0; transition: opacity 0.15s, transform 0.15s;
-      z-index: 2;
+      cursor: pointer; position: relative;
     }
-    /* Center each button on the card's top/bottom border */
-    .add-before-btn { top: 0; }
-    .add-after-btn  { bottom: 0; }
-    .scene-wrapper:hover .add-before-btn,
-    .scene-wrapper:hover .add-after-btn { opacity: 1; }
-    .add-before-btn:hover, .add-after-btn:hover { transform: scale(1.15); }
+    .scene-insert-zone .siz-dash {
+      position: absolute; left: 0; right: 0; top: 50%; height: 1px;
+      background: repeating-linear-gradient(
+        to right,
+        var(--lumo-contrast-20pct) 0px, var(--lumo-contrast-20pct) 6px,
+        transparent 6px, transparent 12px
+      );
+    }
+    .scene-insert-zone .siz-label {
+      position: relative; z-index: 1;
+      background: var(--lumo-primary-color); color: white;
+      font-size: 10px; font-weight: 700; padding: 2px 10px;
+      border-radius: 10px; white-space: nowrap;
+      pointer-events: none;
+      display: none;
+    }
 
     /* Card content area */
     .sc-inner { padding: 13px; }
@@ -378,6 +392,17 @@
       background: rgba(255,255,255,0.6); border: 2px solid rgba(255,255,255,0.5); color: var(--lumo-body-text-color);
     }
     .scene-wrapper vwc-card.active .sc-number { background: var(--lumo-primary-color); color: white; border-color: var(--lumo-primary-color); }
+
+    /* Drag handle — left strip inside the card, separate from the clickable content */
+    .sc-drag-handle {
+      display: flex; align-items: center; justify-content: center;
+      width: 20px; align-self: stretch; flex-shrink: 0;
+      cursor: grab; border-radius: 6px 0 0 6px;
+      color: var(--lumo-secondary-text-color); font-size: 12px;
+      transition: color 0.12s, background 0.12s;
+    }
+    .sc-drag-handle:hover { color: var(--lumo-body-text-color); background: var(--lumo-contrast-5pct); }
+    .scene-wrapper.dragging { opacity: 0.4; }
 
     .sc-inline-actions { display: flex; gap: 4px; }
 
@@ -531,18 +556,19 @@
 
     .shared-lo-banner {
       flex-shrink: 0;
-      padding: 10px 20px;
+      padding: 12px 20px;
+      border-left: 4px solid transparent;
     }
     .shared-lo-banner-inner {
       display: flex; align-items: center; justify-content: space-between; gap: 16px;
     }
     .shared-lo-banner-left {
-      display: flex; align-items: center; gap: 12px;
+      display: flex; align-items: center; gap: 14px;
     }
-    .shared-lo-banner-icon { font-size: 15px; flex-shrink: 0; }
-    .shared-lo-banner-text { display: flex; flex-direction: column; gap: 1px; }
-    .shared-lo-banner-title { font-size: 12px; font-weight: 700; letter-spacing: 0.01em; }
-    .shared-lo-banner-desc { font-size: 12px; }
+    .shared-lo-banner-icon { font-size: 20px; flex-shrink: 0; }
+    .shared-lo-banner-text { display: flex; flex-direction: column; gap: 3px; }
+    .shared-lo-banner-title { font-size: 13px; font-weight: 700; letter-spacing: 0.01em; }
+    .shared-lo-banner-desc { font-size: 12px; line-height: 1.4; }
 
     /* Floating toolbar shared style */
     .floating-toolbar {
@@ -1230,6 +1256,14 @@
       z-index: 15; overflow: hidden;
     }
     .tpl-props-panel.hidden { display: none; }
+
+    .panel-footer {
+      flex-shrink: 0;
+      padding: 10px 14px;
+      border-top: 1px solid var(--lumo-contrast-10pct);
+      background: var(--lumo-base-color);
+      display: flex; flex-direction: column; gap: 6px;
+    }
 
     .tpl-prop-section { padding: 0 0 4px; }
     .tpl-prop-label {
@@ -2477,10 +2511,7 @@
     ===================================================================== */
 
     /* Header search: shrinks on narrower viewports */
-    .wh-search { width: clamp(120px, 20vw, 300px); }
-
-    /* Title truncation: always constrained */
-    .wh-lo-title { max-width: clamp(100px, 15vw, 240px); }
+    .wh-search { width: clamp(160px, 22vw, 380px); max-width: 380px; }
 
     /* Medium laptops: ~1280px — tighten header padding */
     @media (max-width: 1280px) {
@@ -2499,12 +2530,15 @@
     ===================================================================== */
 
     /* Scene list — hide all edit affordances */
-    #app.lo-locked .add-before-btn,
-    #app.lo-locked .add-after-btn,
+    #app.lo-locked .scene-insert-zone,
     #app.lo-locked .add-scene-footer-btn,
     #app.lo-locked .sc-inline-actions,
     #app.lo-locked .sc-actions,
+    #app.lo-locked .sc-drag-handle,
     #app.lo-locked .ph-audio-btn { display: none !important; }
+
+    /* Scene cards — suppress hover opacity change in read-only mode */
+    #app.lo-locked .scene-wrapper vwc-card.inactive:hover { opacity: 0.82; }
 
     /* Scene transcript — read-only appearance */
     #app.lo-locked .sc-transcript-textarea {
@@ -2553,8 +2587,9 @@
     #app.lo-locked .wh-title-group { pointer-events: none; cursor: default; }
     #app.lo-locked .wh-title-group:hover { background: transparent; }
 
-    /* Header — hide the More Actions dropdown trigger (Regenerate, etc.) */
-    #app.lo-locked #dd-lo-trigger { display: none !important; }
+    /* Header — hide the More Actions dropdown trigger and AI regen button */
+    #app.lo-locked #dd-lo-trigger,
+    #app.lo-locked .wh-icon-btn.ai-regen { display: none !important; }
 
     /* Timeline — keep playback controls, hide resize handle interaction */
     #app.lo-locked #tl-resize-handle { pointer-events: none; cursor: default; }
@@ -3622,15 +3657,15 @@
       <button class="wh-icon-btn sky" title="Preview Learning Object" data-file="products/LearningStudio/Phase2/index.html" data-line="1069">
         <i class="fa-solid fa-play"></i>
       </button>
+      <button class="wh-icon-btn ai-regen" title="Regenerate Learning Object" onclick="closeAllDropdowns()">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+      </button>
       <button class="wh-icon-btn" id="dd-lo-trigger" title="More Actions" onclick="toggleDropdown('dd-lo', this)" data-file="products/LearningStudio/Phase2/index.html" data-line="1072">
         <i class="fa-solid fa-ellipsis-vertical"></i>
       </button>
 
       <!-- LO actions dropdown -->
       <div id="dd-lo" class="dropdown" data-file="products/LearningStudio/Phase2/index.html" data-line="1077">
-        <button class="dd-item" onclick="closeAllDropdowns()" data-file="products/LearningStudio/Phase2/index.html" data-line="1083">
-          <i class="fa-solid fa-wand-magic-sparkles"></i> Regenerate Learning Object
-        </button>
         <button class="dd-item" onclick="closeAllDropdowns()" data-file="products/LearningStudio/Phase2/index.html" data-line="1086">
           <i class="fa-solid fa-network-wired"></i> Open Flow Map
         </button>
@@ -3642,6 +3677,9 @@
     </div>
 
     <div class="wh-center" data-file="products/LearningStudio/Phase2/index.html" data-line="1092">
+    </div>
+
+    <div class="wh-right" data-file="products/LearningStudio/Phase2/index.html" data-line="1099">
       <div class="wh-search" id="wh-search-wrap" data-file="products/LearningStudio/Phase2/index.html" data-line="1093">
         <i class="fa-solid fa-wand-magic-sparkles search-icon-ai"></i>
         <input type="text" id="search-input"
@@ -3659,9 +3697,7 @@
           <div class="srp-list" id="srp-list"></div>
         </div>
       </div>
-    </div>
-
-    <div class="wh-right" data-file="products/LearningStudio/Phase2/index.html" data-line="1099">
+      <div class="wh-divider"></div>
       <div class="save-status" data-file="products/LearningStudio/Phase2/index.html" data-line="1100">
         <i class="fa-solid fa-circle-check"></i>
         <span id="save-text" data-file="products/LearningStudio/Phase2/index.html" data-line="1102">Saved just now</span>
@@ -4113,6 +4149,11 @@
           </div>
         </div>
 
+      </div><!-- /panel-body -->
+      <div class="panel-footer">
+        <button class="btn-danger" style="width:100%; justify-content:center;" onclick="removeTemplate(selectedTplId)">
+          <i class="fa-solid fa-trash-can"></i> Remove Template
+        </button>
       </div>
     </div><!-- /panel-template -->
 
@@ -4280,14 +4321,11 @@
           </div>
         </div>
 
-        <div class="mpp-divider"></div>
-
-        <div style="display:flex; align-items:center; justify-content:space-between;">
-          <button class="mpp-reset" onclick="resetMediaProps()">
-            <i class="fa-solid fa-rotate-left"></i> Reset to defaults
-          </button>
-        </div>
-
+      </div><!-- /panel-body -->
+      <div class="panel-footer">
+        <button class="mpp-reset" onclick="resetMediaProps()">
+          <i class="fa-solid fa-rotate-left"></i> Reset to defaults
+        </button>
       </div>
     </div><!-- /panel-media -->
 
@@ -5195,9 +5233,10 @@ function showCanvasForPanel(panelId) {
   const isQPanel = panelId === 'knowledge-checks' || panelId === 'assessment';
   const isCitPanel = panelId === 'citations';
   document.getElementById('canvas-area').style.display = (isQPanel || isCitPanel) ? 'none' : '';
-  // Hide template panel when switching to non-canvas views
-  if (isQPanel || isCitPanel) {
+  // Hide template and media panels whenever leaving the scenes tab
+  if (panelId !== 'scenes') {
     document.getElementById('panel-template').classList.add('hidden');
+    document.getElementById('panel-media').classList.add('hidden');
   }
 
   const qEditor = document.getElementById('question-editor');
@@ -5521,11 +5560,17 @@ function renderTextList(filter='') {
     const isActive = sc.id === activeSceneId;
     const displayNum = scenes.indexOf(sc) + 1;
     return `
+${idx === 0 ? `<div class="scene-insert-zone" data-insert-before="${sc.id}" onclick="addBefore(${sc.id})"><span class="siz-dash"></span><span class="siz-label">+ Add Scene Here</span></div>` : ''}
 <div class="scene-wrapper" id="sw-${sc.id}">
-  <button class="add-before-btn" onclick="addBefore(${sc.id})" title="Add scene before"><i class="fa-solid fa-plus"></i></button>
-
   <vwc-card theme="elevated" class="${isActive?'active':'inactive'}" id="sc-${sc.id}" onclick="selectScene(${sc.id})">
-    <div slot="content" class="sc-inner">
+    <div slot="content" style="display:flex; align-items:stretch;">
+      <div class="sc-drag-handle" title="Drag to reorder"
+           onmousedown="event.stopPropagation(); this.closest('.scene-wrapper').setAttribute('draggable','true')"
+           onmouseup="this.closest('.scene-wrapper').setAttribute('draggable','false')"
+           onclick="event.stopPropagation()">
+        <i class="fa-solid fa-grip-vertical"></i>
+      </div>
+    <div class="sc-inner" style="flex:1; min-width:0;">
       <div class="sc-header">
         <div class="sc-number">${displayNum}</div>
 
@@ -5560,12 +5605,12 @@ function renderTextList(filter='') {
              <div class="sc-duration"><i class="fa-regular fa-clock"></i> ${fmt(sc.duration)}</div>
            </div>`
       }
-    </div>
+    </div><!-- /sc-inner -->
+    </div><!-- /flex row -->
 
   </vwc-card>
-
-  <button class="add-after-btn" onclick="addAfter(${sc.id})" title="Add scene after"><i class="fa-solid fa-plus"></i></button>
-</div>`;
+</div>
+<div class="scene-insert-zone" data-insert-after="${sc.id}" onclick="addAfter(${sc.id})"><span class="siz-dash"></span><span class="siz-label">+ Add Scene Here</span></div>`;
   }).join('');
 
   // Fix status select class names (hyphens to nothing — CSS uses literal class .in-progress etc.)
@@ -5579,6 +5624,91 @@ function renderTextList(filter='') {
   });
 
   if (typeof applySearchHighlights === 'function') applySearchHighlights();
+
+  initSceneDragDrop();
+}
+
+/* -----------------------------------------------------------------------
+   SCENE DRAG AND DROP REORDER
+----------------------------------------------------------------------- */
+let dragSrcId = null;
+
+function initSceneDragDrop() {
+  document.querySelectorAll('#scene-list-text .scene-wrapper').forEach(el => {
+    el.addEventListener('dragstart', onSceneDragStart);
+    el.addEventListener('dragend',   onSceneDragEnd);
+  });
+  document.querySelectorAll('#scene-list-text .scene-insert-zone').forEach(el => {
+    el.addEventListener('dragover',    onInsertZoneDragOver);
+    el.addEventListener('dragleave',   onInsertZoneDragLeave);
+    el.addEventListener('drop',        onInsertZoneDrop);
+    el.addEventListener('mouseenter', () => {
+      el.querySelector('.siz-dash').style.display  = 'none';
+      el.querySelector('.siz-label').style.display = 'block';
+    });
+    el.addEventListener('mouseleave', () => {
+      el.querySelector('.siz-dash').style.display  = '';
+      el.querySelector('.siz-label').style.display = '';
+    });
+  });
+}
+
+function getSceneIdFromWrapper(el) {
+  return parseInt(el.id.replace('sw-', ''));
+}
+
+function onSceneDragStart(e) {
+  dragSrcId = getSceneIdFromWrapper(this);
+  this.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragSrcId);
+}
+
+function onSceneDragEnd() {
+  dragSrcId = null;
+  document.querySelectorAll('.scene-wrapper').forEach(el => {
+    el.classList.remove('dragging');
+    el.setAttribute('draggable', 'false');
+  });
+  document.querySelectorAll('.scene-insert-zone').forEach(el => {
+    el.classList.remove('drag-target');
+  });
+}
+
+function onInsertZoneDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  this.querySelector('.siz-dash').style.display  = 'none';
+  this.querySelector('.siz-label').style.display = 'block';
+}
+
+function onInsertZoneDragLeave() {
+  this.querySelector('.siz-dash').style.display  = '';
+  this.querySelector('.siz-label').style.display = '';
+}
+
+function onInsertZoneDrop(e) {
+  e.preventDefault();
+  this.classList.remove('drag-target');
+  if (dragSrcId === null) return;
+
+  const srcIdx = scenes.findIndex(s => s.id === dragSrcId);
+  if (srcIdx === -1) return;
+
+  const [moved] = scenes.splice(srcIdx, 1);
+
+  if (this.dataset.insertBefore) {
+    const targetId = parseInt(this.dataset.insertBefore);
+    const tgtIdx = scenes.findIndex(s => s.id === targetId);
+    scenes.splice(tgtIdx, 0, moved);
+  } else if (this.dataset.insertAfter) {
+    const targetId = parseInt(this.dataset.insertAfter);
+    const tgtIdx = scenes.findIndex(s => s.id === targetId);
+    scenes.splice(tgtIdx + 1, 0, moved);
+  }
+
+  renderTextList();
+  renderMediaList();
 }
 
 /* -----------------------------------------------------------------------
@@ -6642,15 +6772,17 @@ function updateSharedBanner() {
 
   if (lo.locked) {
     banner.dataset.state = 'locked';
-    banner.style.background = '#ffc700';
-    banner.style.borderTop = '1.5px solid #d4a900';
-    icon.className = 'shared-lo-banner-icon fa-solid fa-lock';
-    icon.style.color = '#182739';
+    banner.style.background = 'var(--lumo-error-color)';
+    banner.style.borderLeft = '4px solid rgba(0,0,0,0.15)';
+    banner.style.borderTop = 'none';
+    icon.className = 'shared-lo-banner-icon fa-solid fa-shield-halved';
+    icon.style.color = 'white';
     title.textContent = 'Vector-Provided Content';
-    title.style.color = '#182739';
+    title.style.color = 'white';
     desc.textContent = 'This learning object is provided by Vector and is read-only. You cannot edit it directly.';
-    desc.style.color = '#182739';
-    btn.setAttribute('theme', 'contrast primary small');
+    desc.style.color = 'rgba(255,255,255,0.85)';
+    btn.setAttribute('theme', 'contrast small');
+    btn.style.cssText = 'background:white; color:var(--lumo-error-text-color); border-color:white;';
     btn.innerHTML = '<i class="fa-solid fa-pen-to-square" slot="prefix"></i> Customize Content';
     btn.onclick = openCustomizeModal;
     document.getElementById('app').classList.add('lo-locked');
@@ -6658,15 +6790,17 @@ function updateSharedBanner() {
     renderAll();
   } else {
     banner.dataset.state = 'shared';
-    banner.style.background = '#fffbeb';
-    banner.style.borderTop = '1.5px solid #f59e0b';
+    banner.style.background = 'var(--vwc-notification-color)';
+    banner.style.borderLeft = '4px solid rgba(0,0,0,0.15)';
+    banner.style.borderTop = 'none';
     icon.className = 'shared-lo-banner-icon fa-solid fa-link';
-    icon.style.color = '#b45309';
+    icon.style.color = 'var(--lumo-warning-contrast-color)';
     title.textContent = 'Shared Learning Object';
-    title.style.color = '#92400e';
+    title.style.color = 'var(--lumo-warning-contrast-color)';
     desc.innerHTML = 'This learning object is used in <strong>4 other courses</strong>. Any changes you make will be pushed to all instances.';
-    desc.style.color = '#78350f';
-    btn.setAttribute('theme', 'secondary small');
+    desc.style.color = 'var(--lumo-warning-contrast-color)';
+    btn.setAttribute('theme', 'contrast small');
+    btn.style.cssText = 'background:white; color:var(--lumo-warning-text-color); border-color:white;';
     btn.innerHTML = '<i class="fa-solid fa-scissors" slot="prefix"></i> Create Unique Instance';
     btn.onclick = makeUniqueInstance;
     document.getElementById('app').classList.remove('lo-locked');
