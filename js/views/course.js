@@ -21,7 +21,7 @@ export function render(courseId) {
   const mastered = concepts.filter((c) => c.live >= 0.75).length;
   const weak     = concepts.filter((c) => c.live < 0.55);
   const pct = Math.round((progress?.percent ?? 0) * 100);
-  const resumeChId = progress?.chapter ?? course.chapters[0].id;
+  const resumeLessonId = progress?.lesson ?? course.lessons[0].id;
   const initials = course.title.split(/\s+/).slice(0,2).map((w) => w[0]).join('').toUpperCase();
   const saved = store.state.mastery.saved.includes(course.id);
 
@@ -38,9 +38,9 @@ export function render(courseId) {
       : { label: 'Recommended', variant: 'recommended' }
   }));
 
-  // 2. Title + module subtitle (uses chapter the learner is on if any)
+  // 2. Title + subtitle (uses the lesson the learner is on if any)
   const subline = progress
-    ? `Picking up at: ${course.chapters.find((c) => c.id === progress.chapter)?.title ?? course.chapters[0].title}`
+    ? `Picking up at: ${course.lessons.find((c) => c.id === progress.lesson)?.title ?? course.lessons[0].title}`
     : course.capabilities.join(' · ');
 
   root.appendChild(ui.el('div', { class: 'stack', style: { marginBottom: '14px' } },
@@ -52,17 +52,17 @@ export function render(courseId) {
     ui.el('p', { class: 'muted', style: { margin: '6px 0 0' } }, subline)
   ));
 
-  // 3. Stat tiles row — chapter count + duration
+  // 3. Stat tiles row — lesson count + duration
   root.appendChild(ui.statTileRow([
-    { icon: 'list',  value: String(course.chapters.length), label: 'Chapters' },
-    { icon: 'clock', value: `${course.estMinutes}m`,        label: 'Est. duration' }
+    { icon: 'list',  value: String(course.lessons.length), label: 'Lessons' },
+    { icon: 'clock', value: `${course.estMinutes}m`,       label: 'Est. duration' }
   ]));
 
   // 4. Status panel — current state with play affordance
   root.appendChild(ui.statusPanel({
     kicker: 'Current status',
     value: pct === 0 ? '0% completed' : pct === 100 ? 'Complete' : `${pct}% completed`,
-    href: `#/course/${course.id}/chapter/${resumeChId}`,
+    href: `#/course/${course.id}/lesson/${resumeLessonId}`,
     percent: pct
   }));
 
@@ -108,12 +108,12 @@ export function render(courseId) {
     root.appendChild(banner);
   }
 
-  // 7. Chapters — with optional skip suggestion chips for adaptive courses
-  root.appendChild(ui.sectionHeader('Chapters'));
-  const skipMap = new Map((course.skipChips || []).map((s) => [s.chapterId, s]));
-  for (let i = 0; i < course.chapters.length; i++) {
-    const ch = course.chapters[i];
-    const isCurrent = progress?.chapter === ch.id;
+  // 7. Lessons — with optional skip suggestion chips for adaptive courses
+  root.appendChild(ui.sectionHeader('Lessons'));
+  const skipMap = new Map((course.skipChips || []).map((s) => [s.lessonId, s]));
+  for (let i = 0; i < course.lessons.length; i++) {
+    const ch = course.lessons[i];
+    const isCurrent = progress?.lesson === ch.id;
     const skip = skipMap.get(ch.id);
     const subParts = [`${ch.minutes} min`];
     if (isCurrent) subParts.push('You are here');
@@ -122,7 +122,7 @@ export function render(courseId) {
       glyph: skip ? 'sparkle' : (isCurrent ? 'bolt' : 'doc'),
       title: `${i+1}. ${ch.title}`,
       sub: subParts.join(' · '),
-      href: `#/course/${course.id}/chapter/${ch.id}`,
+      href: `#/course/${course.id}/lesson/${ch.id}`,
       kebab: false
     }));
     if (skip?.rationale) {
@@ -132,7 +132,7 @@ export function render(courseId) {
 
   // 8. Primary CTA + footnote (matches mockup)
   root.appendChild(ui.primaryCta(progress ? 'Resume course' : 'Start course',
-    `#/course/${course.id}/chapter/${resumeChId}`));
+    `#/course/${course.id}/lesson/${resumeLessonId}`));
   if (course.mandated) {
     root.appendChild(ui.el('p', { class: 'tiny muted center', style: { marginTop: '8px' } },
       'Required completion under your role assignment.'));
@@ -144,8 +144,8 @@ export function render(courseId) {
 function coachLine(course, progress, tone) {
   if (progress) {
     return tone === 'supportive'
-      ? `You're picking up "${course.chapters.find((c) => c.id === progress.chapter)?.title}". The earlier chapters set up exactly what you need next.`
-      : `Resuming "${course.chapters.find((c) => c.id === progress.chapter)?.title}". You've got the foundation — let's close the loop.`;
+      ? `You're picking up "${course.lessons.find((c) => c.id === progress.lesson)?.title}". The earlier lessons set up exactly what you need next.`
+      : `Resuming "${course.lessons.find((c) => c.id === progress.lesson)?.title}". You've got the foundation — let's close the loop.`;
   }
   return tone === 'supportive'
     ? `This course pairs short reading with a scenario, so practice will lock the pieces together. Take it at your pace.`

@@ -84,7 +84,7 @@ export function render() {
     if (m) {
       m.recentPractice = [];
       m.courseProgress = {};
-      m.completedChapters = {};
+      m.completedLessons = {};
     }
     store.setPhase(1);
   };

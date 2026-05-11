@@ -200,31 +200,29 @@ export const store = {
     persistMastery(); this.emit();
   },
 
-  setProgress(courseId, chapterId, blockIdx, percent) {
-    state.mastery.courseProgress[courseId] = { chapter: chapterId, block: blockIdx, percent };
+  setProgress(courseId, lessonId, blockIdx, percent) {
+    state.mastery.courseProgress[courseId] = { lesson: lessonId, block: blockIdx, percent };
     persistMastery(); this.emit();
   },
 
-  // Mark a chapter complete: bumps progress to the next chapter (if any)
-  // and tracks the chapter id in a `completedChapters` list for that course.
-  markChapterComplete(courseId, chapterId) {
+  markLessonComplete(courseId, lessonId) {
     const course = this.course(courseId); if (!course) return;
-    const idx = course.chapters.findIndex((c) => c.id === chapterId);
-    const next = course.chapters[idx + 1];
-    state.mastery.completedChapters ??= {};
-    const list = state.mastery.completedChapters[courseId] ??= [];
-    if (!list.includes(chapterId)) list.push(chapterId);
-    const percent = list.length / course.chapters.length;
+    const idx = course.lessons.findIndex((c) => c.id === lessonId);
+    const next = course.lessons[idx + 1];
+    state.mastery.completedLessons ??= {};
+    const list = state.mastery.completedLessons[courseId] ??= [];
+    if (!list.includes(lessonId)) list.push(lessonId);
+    const percent = list.length / course.lessons.length;
     state.mastery.courseProgress[courseId] = {
-      chapter: next ? next.id : chapterId,
+      lesson: next ? next.id : lessonId,
       block: 0,
       percent
     };
     persistMastery(); this.emit();
   },
 
-  isChapterComplete(courseId, chapterId) {
-    return state.mastery.completedChapters?.[courseId]?.includes(chapterId) ?? false;
+  isLessonComplete(courseId, lessonId) {
+    return state.mastery.completedLessons?.[courseId]?.includes(lessonId) ?? false;
   },
 
   // ---- chat sessions ----

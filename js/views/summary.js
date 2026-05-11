@@ -90,7 +90,7 @@ export function render() {
     label: conceptLabel(cid),
     mastery: store.state.mastery.concepts[cid] ?? 0.5
   }));
-  root.appendChild(ui.sectionHeader('Modules credited by practice'));
+  root.appendChild(ui.sectionHeader('Lessons credited by practice'));
   root.appendChild(ui.el('div', { class: 'card' },
     ui.el('p', { class: 'tiny muted', style: { marginTop: '0' } },
       `Completing this ${store.state.industry.language.practiceWord} advanced these concepts:`),
@@ -104,7 +104,7 @@ export function render() {
   ));
 
   // 4. Recommended next ("action protocol")
-  // Show: next chapter in course (if any), then up to two other
+  // Show: next lesson in course (if any), then up to two other
   // required courses that share weak indicators.
   const recommended = recommendedNext(course, growth);
   if (recommended.length) {
@@ -127,7 +127,7 @@ export function render() {
       ui.el('span', null, 'Retry scenario')
     ),
     ui.el('a', { class: 'btn primary block cta-large', href: recommended[0]?.href ?? (course ? `#/course/${course.id}` : '#/home') },
-      ui.el('span', null, recommended[0] ? 'Continue to next module' : (course ? 'Back to course' : 'Back home')),
+      ui.el('span', null, recommended[0] ? 'Continue to next lesson' : (course ? 'Back to course' : 'Back home')),
       ui.icon('arrowRight')
     )
   ));
@@ -183,7 +183,7 @@ function phaseAdvanceBanner(phase) {
          body: 'Your course-embedded run opened up independent practice. Try one on your own to widen the base.',
          cta: { label: 'Open Practice', href: '#/practice' } },
     3: { kicker: 'Tailored course ready', title: 'A course was just adapted from your recent practice.',
-         body: 'Some chapters are flagged for skip based on what you\'ve already shown. You can review or move on.',
+         body: 'Some lessons are flagged for skip based on what you\'ve already shown. You can review or move on.',
          cta: { label: 'View tailored course', href: '#/courses' } },
     4: { kicker: 'Policy change detected', title: 'Your readiness shifted — Coach Vic has a drill ready.',
          body: 'Open the home view or tap Coach Vic for the targeted drill.',
@@ -210,16 +210,16 @@ function recommendedNext(course, growth) {
     });
     return items;
   }
-  // Next chapter, if any progress to be made
+  // Next lesson, if any progress to be made
   const progress = store.state.mastery.courseProgress[course.id];
   if (progress) {
-    const idx = course.chapters.findIndex((c) => c.id === progress.chapter);
-    const next = course.chapters[idx];
+    const idx = course.lessons.findIndex((c) => c.id === progress.lesson);
+    const next = course.lessons[idx];
     if (next) items.push({
       glyph: 'flag',
       title: `${course.title} — ${next.title}`,
       sub: `Resume · ${next.minutes} min`,
-      href: `#/course/${course.id}/chapter/${next.id}`
+      href: `#/course/${course.id}/lesson/${next.id}`
     });
   }
   // Other required courses in this industry
