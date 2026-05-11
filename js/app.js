@@ -38,7 +38,7 @@ const ROUTES = [
   { re: /^#\/course\/([^/]+)\/lesson\/([^/]+)$/,  view: lesson,    shell: true,  fullscreen: true, parent: (m) => `#/course/${m[1]}` },
   { re: /^#\/practice\/([^/?]+)$/,                view: practice,  shell: true,  fullscreen: true, parent: '#/practice' },
   { re: /^#\/practice-complete$/,                 view: celebrate, shell: true,  parent: '#/home' },
-  { re: /^#\/summary$/,                           view: summary,   shell: true,  parent: '#/home' }
+  { re: /^#\/summary$/,                           view: summary,   shell: true,  hideTabbar: true, parent: '#/home' }
 ];
 
 const els = {

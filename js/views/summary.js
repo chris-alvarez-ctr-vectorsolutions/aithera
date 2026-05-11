@@ -120,18 +120,20 @@ export function render() {
     }
   }
 
-  // 5. Actions — Retry (slightly different wording) + Continue
+  // 5. Actions — Retry + Continue, pinned to the bottom of the page in
+  // place of the tab bar so the next action is always reachable.
   const retryHref = `#/practice/${sc.id}?retry=${(result.retryCount ?? 0) + 1}`;
-  root.appendChild(ui.el('div', { class: 'stack' },
+  root.appendChild(ui.stickyFooter({ children: [
     ui.el('a', { class: 'btn block', href: retryHref },
       ui.icon('retry'),
       ui.el('span', null, 'Retry scenario')
     ),
-    ui.el('a', { class: 'btn primary block cta-large', href: recommended[0]?.href ?? (course ? `#/course/${course.id}` : '#/home') },
+    ui.el('a', { class: 'btn primary block cta-large', href: recommended[0]?.href ?? (course ? `#/course/${course.id}` : '#/home'),
+      style: { marginTop: '8px' } },
       ui.el('span', null, recommended[0] ? 'Continue to next lesson' : (course ? 'Back to course' : 'Back home')),
       ui.icon('arrowRight')
     )
-  ));
+  ] }));
 
   return root;
 }
