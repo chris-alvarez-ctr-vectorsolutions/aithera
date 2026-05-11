@@ -192,11 +192,14 @@ export function readinessCard({
     }
   }
 
-  // CTA
-  card.appendChild(el('a', { class: 'btn primary block cta-large rd-cta', href: ctaHref },
-    el('span', null, ctaLabel),
-    icon('chevron')
-  ));
+  // CTA — omitted when ctaHref is explicitly null (e.g. early phases
+  // where no refresher action is needed).
+  if (ctaHref !== null) {
+    card.appendChild(el('a', { class: 'btn primary block cta-large rd-cta', href: ctaHref },
+      el('span', null, ctaLabel),
+      icon('chevron')
+    ));
+  }
 
   return card;
 }

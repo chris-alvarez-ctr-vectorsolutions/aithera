@@ -5,6 +5,7 @@
 
 import { store } from '../store.js';
 import * as ui from '../ui.js';
+import { currentPhase } from '../phase.js';
 
 let mode = 'mine';
 let query = '';
@@ -50,6 +51,7 @@ export function render() {
   function paint() {
     list.replaceChildren();
     const all = store.state.courses;
+    const phase = currentPhase();
     let items;
     if (mode === 'mine') {
       const ind = store.state.learner.industry;
@@ -62,6 +64,15 @@ export function render() {
         ? all.filter((c) => c.title.toLowerCase().includes(query) || c.summary.toLowerCase().includes(query))
         : all;
     }
+    // Hide phase-gated content from earlier phases — e.g. don't show the
+    // adaptive course in Phase 1. Saved/in-progress courses still show.
+    const inProgIds = new Set(Object.keys(store.state.mastery.courseProgress));
+    items = items.filter((c) => {
+      if (inProgIds.has(c.id) || store.state.mastery.saved.includes(c.id)) return true;
+      return !c.phaseHint || c.phaseHint <= phase;
+    });
+    // Sort adaptive course to the top when it's unlocked.
+    items.sort((a, b) => (b.adaptive ? 1 : 0) - (a.adaptive ? 1 : 0));
     if (!items.length) {
       list.appendChild(ui.el('p', { class: 'muted tiny', style: { padding: '8px 4px' } }, 'No matches.'));
       return;

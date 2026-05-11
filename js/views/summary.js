@@ -33,6 +33,11 @@ export function render() {
     body: `A qualitative review of your decision-making approach during the previous ${store.state.industry.language.scenarioWord}. Focus on the observed patterns rather than scores.`
   }));
 
+  // Phase-advance banner — when this run unlocked the next phase, name it.
+  if (result.phaseAdvancedTo) {
+    root.appendChild(phaseAdvanceBanner(result.phaseAdvancedTo));
+  }
+
   // Readiness movement (only when we captured before/after on this run)
   if (typeof result.readinessBefore === 'number' && typeof result.readinessAfter === 'number') {
     root.appendChild(ui.readinessDelta({
@@ -71,10 +76,18 @@ export function render() {
     for (const i of growth) root.appendChild(ui.insightCard(i));
   }
 
-  // 3. Modules auto-credited
-  const credited = sc.concepts.map((cid) => ({
+  // 3. Modules auto-credited — concept labels may come from any course in
+  // the catalog, since Phase 2 practice scenarios aren't tied to a course.
+  const conceptLabel = (cid) => {
+    for (const c of store.state.courses) {
+      const m = c.concepts?.find((x) => x.id === cid);
+      if (m) return m.label;
+    }
+    return cid;
+  };
+  const credited = (sc.concepts || []).map((cid) => ({
     cid,
-    label: course.concepts.find((c) => c.id === cid)?.label ?? cid,
+    label: conceptLabel(cid),
     mastery: store.state.mastery.concepts[cid] ?? 0.5
   }));
   root.appendChild(ui.sectionHeader('Modules credited by practice'));
@@ -113,8 +126,8 @@ export function render() {
       ui.icon('retry'),
       ui.el('span', null, 'Retry scenario')
     ),
-    ui.el('a', { class: 'btn primary block cta-large', href: recommended[0]?.href ?? `#/course/${course.id}` },
-      ui.el('span', null, recommended[0] ? 'Continue to next module' : 'Back to course'),
+    ui.el('a', { class: 'btn primary block cta-large', href: recommended[0]?.href ?? (course ? `#/course/${course.id}` : '#/home') },
+      ui.el('span', null, recommended[0] ? 'Continue to next module' : (course ? 'Back to course' : 'Back home')),
       ui.icon('arrowRight')
     )
   ));
@@ -164,8 +177,39 @@ function generateInsights(result, sc) {
   return [...strengths, ...growth];
 }
 
+function phaseAdvanceBanner(phase) {
+  const copy = {
+    2: { kicker: 'Practice unlocked', title: 'Standalone scenarios are now in your Practice tab.',
+         body: 'Your course-embedded run opened up independent practice. Try one on your own to widen the base.',
+         cta: { label: 'Open Practice', href: '#/practice' } },
+    3: { kicker: 'Tailored course ready', title: 'A course was just adapted from your recent practice.',
+         body: 'Some chapters are flagged for skip based on what you\'ve already shown. You can review or move on.',
+         cta: { label: 'View tailored course', href: '#/courses' } },
+    4: { kicker: 'Policy change detected', title: 'Your readiness shifted — Coach Vic has a drill ready.',
+         body: 'Open the home view or tap Coach Vic for the targeted drill.',
+         cta: { label: 'Back home', href: '#/home' } }
+  }[phase];
+  if (!copy) return ui.el('div');
+  return ui.el('div', { class: 'card', style: { borderLeft: '3px solid var(--accent)' } },
+    ui.el('div', { class: 'tag accent', style: { display: 'inline-block', marginBottom: '6px' } }, copy.kicker),
+    ui.el('h3', { style: { margin: '4px 0 6px' } }, copy.title),
+    ui.el('p', { class: 'tiny muted', style: { margin: '0 0 10px' } }, copy.body),
+    ui.el('a', { class: 'btn primary block', href: copy.cta.href }, copy.cta.label)
+  );
+}
+
 function recommendedNext(course, growth) {
   const items = [];
+  if (!course) {
+    // Standalone practice — recommend the practice hub.
+    items.push({
+      glyph: 'flag',
+      title: 'More practice',
+      sub: 'Open the practice catalog',
+      href: '#/practice'
+    });
+    return items;
+  }
   // Next chapter, if any progress to be made
   const progress = store.state.mastery.courseProgress[course.id];
   if (progress) {

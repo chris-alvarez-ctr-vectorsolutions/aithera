@@ -99,18 +99,35 @@ export function render(courseId) {
       : null
   ));
 
-  // 7. Chapters
+  // 6.5 Adaptive banner — only when the course is flagged adaptive.
+  if (course.adaptive && course.adaptive_banner) {
+    const banner = ui.el('div', { class: 'card', style: { borderLeft: '3px solid var(--accent)' } },
+      ui.el('strong', null, '✨ Tailored for you'),
+      ui.el('p', { class: 'tiny muted', style: { margin: '6px 0 0' } }, course.adaptive_banner)
+    );
+    root.appendChild(banner);
+  }
+
+  // 7. Chapters — with optional skip suggestion chips for adaptive courses
   root.appendChild(ui.sectionHeader('Chapters'));
+  const skipMap = new Map((course.skipChips || []).map((s) => [s.chapterId, s]));
   for (let i = 0; i < course.chapters.length; i++) {
     const ch = course.chapters[i];
     const isCurrent = progress?.chapter === ch.id;
+    const skip = skipMap.get(ch.id);
+    const subParts = [`${ch.minutes} min`];
+    if (isCurrent) subParts.push('You are here');
+    if (skip) subParts.push(skip.label);
     root.appendChild(ui.rowCard({
-      glyph: isCurrent ? 'bolt' : 'doc',
+      glyph: skip ? 'sparkle' : (isCurrent ? 'bolt' : 'doc'),
       title: `${i+1}. ${ch.title}`,
-      sub: `${ch.minutes} min${isCurrent ? ' · You are here' : ''}`,
+      sub: subParts.join(' · '),
       href: `#/course/${course.id}/chapter/${ch.id}`,
       kebab: false
     }));
+    if (skip?.rationale) {
+      root.appendChild(ui.el('p', { class: 'tiny muted', style: { margin: '-6px 12px 8px' } }, skip.rationale));
+    }
   }
 
   // 8. Primary CTA + footnote (matches mockup)
