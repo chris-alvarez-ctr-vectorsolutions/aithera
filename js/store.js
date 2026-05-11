@@ -13,7 +13,9 @@ const LS_KEY = 'aithera.state.v1';
 const PROFILES = {
   ems:            { learner: 'ems',           industry: 'public-safety' },
   'hied-student': { learner: 'hied-student',  industry: 'education'     },
-  industrial:     { learner: 'industrial',    industry: 'commercial'    }
+  industrial:     { learner: 'industrial',    industry: 'commercial'    },
+  'k12-student':  { learner: 'k12-student',   industry: 'education'     },
+  'k12-employee': { learner: 'k12-employee',  industry: 'education'     }
 };
 const DEFAULT_PROFILE = 'ems';
 
@@ -37,7 +39,13 @@ const state = {
   // Each session: { id, startedAt, updatedAt, messages: [{ role, text, time, reply? }] }
   chats: { sessions: [], activeId: null },
   // ephemeral session data (e.g. last practice result)
-  session: { lastSummary: null }
+  session: { lastSummary: null },
+  // Prototype maturity phase (1–4). Resets to 1 each fresh session
+  // unless seeded via profile prototype controls.
+  phase: 1,
+  // One-shot policy event payload that fires when phase 4 is entered.
+  // { applied, shown, modal: { headline, body }, conceptId }
+  policyEvent: null
 };
 
 const subs = new Set();
@@ -58,6 +66,8 @@ export const store = {
         activeId: saved.chats.activeId ?? null
       };
     }
+    if (typeof saved?.phase === 'number') state.phase = saved.phase;
+    if (saved?.policyEvent) state.policyEvent = saved.policyEvent;
     if (saved?.profileSlug && profiles.has(saved.profileSlug)) {
       try { await this.loadProfile(saved.profileSlug); }
       catch { /* fall through to launch */ }
@@ -91,6 +101,9 @@ export const store = {
     state.courses = courses.courses;
     state.scenarios = scenarios.scenarios;
     state.mastery = mastery.byLearner[learner.learnerId] ?? blankMastery();
+    // Snapshot of the original concept seeds so phase-jump seeding can
+    // reset to a deterministic baseline instead of accumulating bumps.
+    state._initialConcepts = JSON.parse(JSON.stringify(state.mastery.concepts));
     applyTheme(industry);
     writeLS({
       profileSlug: state.profileSlug,
@@ -107,8 +120,34 @@ export const store = {
     state.courses = []; state.scenarios = [];
     state.mastery = null;
     state.profileSlug = null;
+    state.phase = 1;
+    state.policyEvent = null;
     this.emit();
   },
+
+  // ---- phase controls ----
+  setPhase(n) {
+    const target = Math.max(1, Math.min(4, n | 0));
+    const changed = target !== state.phase;
+    state.phase = target;
+    state.policyEvent = null;
+    // Reset the chat session so a phase-specific opener can reseed.
+    if (changed) { state.chats = { sessions: [], activeId: null }; persistChats(); }
+    persistAll();
+    this.emit();
+  },
+  advancePhase(n) {
+    const target = Math.min(4, n | 0);
+    if (target > state.phase) {
+      state.phase = target;
+      // Reset chat so the new phase's opener shows next time the FAB opens.
+      state.chats = { sessions: [], activeId: null };
+      persistChats();
+      persistAll();
+      this.emit();
+    }
+  },
+  persistAll() { persistAll(); },
 
   // ---- selectors ----
   course(id) { return state.courses.find((c) => c.id === id); },
@@ -133,6 +172,18 @@ export const store = {
     result.readinessAfter  = after;
     result.readinessDelta  = after - before;
     state.session.lastSummary = result;
+
+    // Phase advancement: completing a scenario tagged with phaseHint
+    // matching the current phase advances the phase by one.
+    const sc = state.scenarios.find((x) => x.id === result.scenarioId);
+    if (sc?.phaseHint && sc.phaseHint === state.phase && state.phase < 4) {
+      state.phase = sc.phaseHint + 1;
+      result.phaseAdvancedTo = state.phase;
+      // Reset chat so the next phase's opener can seed cleanly.
+      state.chats = { sessions: [], activeId: null };
+      persistChats();
+    }
+
     persistMastery();
     this.emit();
   },
@@ -245,6 +296,16 @@ export const store = {
 function persistMastery() {
   const cur = readLS() ?? {};
   cur.mastery = state.mastery;
+  cur.phase = state.phase;
+  cur.policyEvent = state.policyEvent;
+  writeLS(cur);
+}
+
+function persistAll() {
+  const cur = readLS() ?? {};
+  cur.mastery = state.mastery;
+  cur.phase = state.phase;
+  cur.policyEvent = state.policyEvent;
   writeLS(cur);
 }
 

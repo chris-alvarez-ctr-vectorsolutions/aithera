@@ -29,7 +29,8 @@ const CATEGORIES = [
     accent: '#a78bfa', accent2: '#c4b5fd',
     options: [
       { id: 'hied-student',  label: 'HiEd Student',  profile: 'hied-student' },
-      { id: 'k12',           label: 'K-12',          soon: true },
+      { id: 'k12-student',   label: 'K-12 Student',  profile: 'k12-student' },
+      { id: 'k12-employee',  label: 'K-12 Employee', profile: 'k12-employee' },
       { id: 'hied-faculty',  label: 'HiEd Faculty',  soon: true }
     ]
   },

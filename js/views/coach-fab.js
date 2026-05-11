@@ -10,6 +10,7 @@
 import { store } from '../store.js';
 import { coach } from '../coach.js';
 import * as ui from '../ui.js';
+import { currentPhase, personaScenarioForPhase } from '../phase.js';
 
 const HANDOFF_THRESHOLD = 6;
 let openState = false;
@@ -48,6 +49,11 @@ export function setVisible(visible) {
   if (!root) return;
   root.hidden = !visible;
   if (!visible) close();
+  // Pulse the FAB when the assistant has something proactive to offer.
+  // Currently only fires at phase 4 (post policy change).
+  if (visible && triggerEl) {
+    triggerEl.classList.toggle('proactive', currentPhase() === 4);
+  }
 }
 
 function buildPanel() {
@@ -121,7 +127,7 @@ async function rehydrate() {
   suggBox.replaceChildren();
 
   if (sess.messages.length === 0) {
-    const op = await coach.opener();
+    const op = currentPhase() === 4 ? phase4Opener() : await coach.opener();
     store.chatAdd(sess.id, { role: 'coach', text: op.text, time: op.time, reply: op });
     appendCoach(op);
   } else {
@@ -234,6 +240,24 @@ function vicMark(small) {
     class: small ? 'vic-glyph sm' : 'vic-glyph',
     html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="3"/><circle cx="9" cy="13" r="1.4" fill="currentColor"/><circle cx="15" cy="13" r="1.4" fill="currentColor"/><path d="M12 4v3"/><circle cx="12" cy="3.5" r="0.8" fill="currentColor"/></svg>`
   });
+}
+
+// Phase 4 opener references the policy change and the proactive scenario.
+function phase4Opener() {
+  const s = store.state;
+  const first = (s.learner?.name || '').split(' ')[0];
+  const pe = s.policyEvent?.modal;
+  const sc = personaScenarioForPhase(4);
+  const text = pe
+    ? `Heads up, **${first}** — ${pe.headline}. ${pe.body} I can run you through it in ~5 minutes if you're ready.`
+    : `Hey ${first} — a recent policy update affects your readiness. Want a quick drill?`;
+  return {
+    text,
+    time: nowStamp(),
+    suggested: sc
+      ? [`Start "${sc.title}"`, 'Show me what changed', 'Not now']
+      : ['Show me what changed', 'Not now']
+  };
 }
 
 function nowStamp() {

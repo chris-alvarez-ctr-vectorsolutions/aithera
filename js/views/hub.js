@@ -17,6 +17,7 @@
 import { store } from '../store.js';
 import * as adaptive from '../adaptive.js';
 import * as ui from '../ui.js';
+import { currentPhase } from '../phase.js';
 
 const DIFFICULTY_RANK = { standard: 1, 'high-risk': 2, expert: 3 };
 
@@ -24,7 +25,11 @@ export function render() {
   const root = document.createElement('section');
   const ind = store.state.industry;
   const learner = store.state.learner;
-  const allForIndustry = store.state.scenarios.filter((s) => s.industry === learner.industry);
+  const phase = currentPhase();
+  const allForIndustry = store.state.scenarios
+    .filter((s) => s.industry === learner.industry)
+    // Hide phase-gated scenarios from the catalog until the learner reaches that phase.
+    .filter((s) => !s.phaseHint || s.phaseHint <= phase);
   const stats = computeStats(allForIndustry);
   const learnerLevel = computeLevel(stats.scenariosRun);
 
