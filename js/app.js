@@ -32,7 +32,7 @@ const ROUTES = [
   { re: /^#\/practice$/,                          view: hub,       shell: true,  top: true  },
   { re: /^#\/reference$/,                         view: reference, shell: true,  top: true  },
   { re: /^#\/profile$/,                           view: profile,   shell: true,  parent: '#/home' },
-  { re: /^#\/course\/([^/]+)$/,                   view: course,    shell: true,  parent: '#/courses' },
+  { re: /^#\/course\/([^/]+)$/,                   view: course,    shell: true,  hideTabbar: true, parent: '#/courses' },
   { re: /^#\/course\/([^/]+)\/lesson\/([^/]+)$/,  view: lesson,    shell: true,  fullscreen: true, parent: (m) => `#/course/${m[1]}` },
   { re: /^#\/practice\/([^/?]+)$/,                view: practice,  shell: true,  fullscreen: true, parent: '#/practice' },
   { re: /^#\/practice-complete$/,                 view: celebrate, shell: true,  parent: '#/home' },
@@ -163,7 +163,7 @@ function renderRoute() {
   const isHome = path === '#/home';
   const isCoach = path === '#/coach';
   document.body.classList.toggle('coach-mode', isCoach);
-  toggleShell(match.shell, !!match.fullscreen, isHome);
+  toggleShell(match.shell, !!match.fullscreen, isHome, !!match.hideTabbar);
   // FAB: visible on every shelled, non-fullscreen page except Coach Vic
   // itself (and the chat history list, which lives under /coach).
   const fabVisible = !!match.shell && !match.fullscreen && !path.startsWith('#/coach');
@@ -176,16 +176,19 @@ function renderRoute() {
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
-function toggleShell(show, fullscreen = false, isHome = false) {
+function toggleShell(show, fullscreen = false, isHome = false, hideTabbar = false) {
   // Fullscreen routes (e.g. Practice) sit *over* the prototype shell:
   // light theme stays on, but appbar/tabbar are hidden in favour of an
   // unobtrusive × exit button in the top-right corner.
   // Appbar is reserved for Home (brand + profile); other shelled pages
   // use a floating back button instead.
+  // hideTabbar: shelled route that swaps the tab bar for a page-owned
+  // sticky CTA (e.g. course details).
   els.appbar.hidden = !show || fullscreen || !isHome;
-  els.tabbar.hidden = !show || fullscreen;
+  els.tabbar.hidden = !show || fullscreen || hideTabbar;
   els.exit.hidden = !fullscreen;
   els.app.classList.toggle('fullscreen', fullscreen);
+  document.body.classList.toggle('no-tabbar', show && !fullscreen && hideTabbar);
   // Light theme is reserved for the prototype shell. The Launch screen
   // stays dark by virtue of NOT having .light on body.
   document.body.classList.toggle('light', show);

@@ -131,13 +131,17 @@ export function render(courseId) {
     }
   }
 
-  // 8. Primary CTA + footnote (matches mockup)
-  root.appendChild(ui.primaryCta(progress ? 'Resume course' : 'Start course',
-    `#/course/${course.id}/lesson/${resumeLessonId}`));
+  // 8. Primary CTA — pinned to the bottom of the page in place of the
+  // tab bar so the next action is always reachable.
+  const ctaChildren = [
+    ui.primaryCta(progress ? 'Resume course' : 'Start course',
+      `#/course/${course.id}/lesson/${resumeLessonId}`)
+  ];
   if (course.mandated && isAtLeast(4)) {
-    root.appendChild(ui.el('p', { class: 'tiny muted center', style: { marginTop: '8px' } },
+    ctaChildren.push(ui.el('p', { class: 'tiny muted center', style: { margin: '8px 0 0' } },
       'Required completion under your role assignment.'));
   }
+  root.appendChild(ui.stickyFooter({ children: ctaChildren }));
 
   return root;
 }
