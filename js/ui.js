@@ -402,9 +402,12 @@ export function primaryCta(label, href) {
 export function courseTile(course, { progress, compact = false } = {}) {
   const a = el('a', { class: 'card', href: `#/course/${course.id}` });
   const pct = progress ? Math.round((progress.percent ?? 0) * 100) : null;
+  const badgeLabel = course.adaptive
+    ? '✨ Tailored for you'
+    : (course.mandated && urgencyVisible() ? 'Required' : 'Recommended');
+  const badgeVariant = course.adaptive || (course.mandated && urgencyVisible()) ? 'accent' : '';
   a.appendChild(el('div', { class: 'row between' },
-    tag(course.mandated && urgencyVisible() ? 'Required' : 'Recommended',
-        course.mandated && urgencyVisible() ? 'accent' : ''),
+    tag(badgeLabel, badgeVariant),
     el('span', { class: 'tiny muted' }, `${course.estMinutes} min`)
   ));
   a.appendChild(el('h3', null, course.title));
