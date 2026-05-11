@@ -341,8 +341,8 @@ async function fetchJSON(path) {
 function applyTheme(industry) {
   const t = industry?.theme || {};
   const r = document.documentElement.style;
-  if (t.accent)  r.setProperty('--accent', t.accent);
-  if (t.accent2) r.setProperty('--accent-2', t.accent2);
+  if (t.accent)  r.setProperty('--brand-accent', t.accent);
+  if (t.accent2) r.setProperty('--brand-accent-2', t.accent2);
 }
 
 function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }

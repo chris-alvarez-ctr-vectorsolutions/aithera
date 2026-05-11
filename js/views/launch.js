@@ -16,7 +16,7 @@ const CATEGORIES = [
   {
     id: 'public-service',
     label: 'Public Service',
-    accent: '#ff7a3d', accent2: '#ffb27a',
+    accent: '#3ec8ff', accent2: '#7ee0ff',
     options: [
       { id: 'ems',    label: 'EMS',    profile: 'ems' },
       { id: 'fire',   label: 'Fire',   soon: true },
@@ -26,7 +26,7 @@ const CATEGORIES = [
   {
     id: 'education',
     label: 'Education',
-    accent: '#a78bfa', accent2: '#c4b5fd',
+    accent: '#3ec8ff', accent2: '#7ee0ff',
     options: [
       { id: 'hied-student',  label: 'HiEd Student',  profile: 'hied-student' },
       { id: 'k12-student',   label: 'K-12 Student',  profile: 'k12-student' },
@@ -37,7 +37,7 @@ const CATEGORIES = [
   {
     id: 'commercial',
     label: 'Commercial',
-    accent: '#fbbf24', accent2: '#fcd34d',
+    accent: '#3ec8ff', accent2: '#7ee0ff',
     options: [
       { id: 'industrial', label: 'Industrial', profile: 'industrial' }
     ]
