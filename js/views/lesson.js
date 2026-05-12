@@ -290,9 +290,16 @@ export function render(courseId, lessonId) {
 // ---------- block renderers ----------
 
 function videoEl(block) {
-  const el = ui.el('div', { class: 'media', 'aria-label': `Video: ${block.title}` });
-  el.innerHTML = `<span class="tiny muted" style="position:absolute;left:12px;bottom:10px">▶ ${escape(block.title)}</span>`;
-  return el;
+  const wrap = ui.el('div', { class: 'media', 'aria-label': `Video: ${block.title}` });
+  if (block.image) {
+    const img = ui.el('img', { class: 'media-photo', src: block.image, alt: '', loading: 'lazy', decoding: 'async' });
+    img.addEventListener('error', () => { img.remove(); wrap.classList.remove('has-photo'); });
+    img.addEventListener('load', () => wrap.classList.add('has-photo'));
+    wrap.appendChild(img);
+  }
+  wrap.insertAdjacentHTML('beforeend',
+    `<span class="tiny muted media-label">▶ ${escape(block.title)}</span>`);
+  return wrap;
 }
 
 function renderBlock(b, course) {

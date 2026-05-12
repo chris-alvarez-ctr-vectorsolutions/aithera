@@ -87,7 +87,12 @@ export function CourseEditor({ id }: { id: string }) {
               <NumberField label="Minutes" value={l.minutes} onChange={(x) => upd({ ...l, minutes: x })} />
             </div>
             <TextField label="Kicker" value={l.kicker} onChange={(x) => upd({ ...l, kicker: x })} />
-            <BlocksEditor blocks={l.blocks || []} onChange={(blocks) => upd({ ...l, blocks })} />
+            <BlocksEditor
+              blocks={l.blocks || []}
+              onChange={(blocks) => upd({ ...l, blocks })}
+              courseId={c.id}
+              lessonId={l.id}
+            />
           </>
         )}
       />
@@ -99,7 +104,17 @@ export function CourseEditor({ id }: { id: string }) {
 
 const BLOCK_TYPES = ["text", "prose", "video", "poll", "concept", "callout-row", "image", "quote"];
 
-function BlocksEditor({ blocks, onChange }: { blocks: any[]; onChange: (b: any[]) => void }) {
+function BlocksEditor({ blocks, onChange, courseId, lessonId }: {
+  blocks: any[];
+  onChange: (b: any[]) => void;
+  courseId: string;
+  lessonId: string;
+}) {
+  // Stable basename per video block: <courseId>-<lessonId>-v<n> where n
+  // is the running index of video blocks in this lesson (so reordering
+  // non-video blocks doesn't churn the filename).
+  const videoIndexFor = (idx: number) =>
+    blocks.slice(0, idx).filter((x) => x?.type === "video").length;
   return (
     <ArrayField<any>
       label="Blocks"
@@ -107,7 +122,7 @@ function BlocksEditor({ blocks, onChange }: { blocks: any[]; onChange: (b: any[]
       newItem={() => ({ type: "text", body: "" })}
       itemLabel={(b, i) => `${b.type}${b.title ? ` · ${b.title}` : ""}` || `Block ${i + 1}`}
       onChange={onChange}
-      renderItem={(b, _, upd) => (
+      renderItem={(b, idx, upd) => (
         <>
           <SelectField
             label="Type"
@@ -117,6 +132,15 @@ function BlocksEditor({ blocks, onChange }: { blocks: any[]; onChange: (b: any[]
           />
           {(b.type === "video" || b.type === "prose" || b.type === "image" || b.type === "callout-row") && (
             <TextField label="Title" value={b.title} onChange={(x) => upd({ ...b, title: x })} />
+          )}
+          {b.type === "video" && (
+            <ImageField
+              label="Placeholder image"
+              value={b.image}
+              onChange={(x) => upd({ ...b, image: x })}
+              folder="lessons"
+              basename={`${courseId}-${lessonId}-v${videoIndexFor(idx)}`}
+            />
           )}
           {(b.type === "text" || b.type === "prose" || b.type === "quote") && (
             <TextField label="Body" value={b.body} onChange={(x) => upd({ ...b, body: x })} multiline />

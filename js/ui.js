@@ -287,8 +287,12 @@ function sparkline(values, status) {
 // `image` is a URL/path. If the file 404s the <img> hides itself and the
 // gradient stands alone — drop a file into assets/courses/<id>.jpg and
 // it appears automatically.
-export function hero({ initials, gradient, badge, height = 200, image }) {
-  const wrap = el('div', { class: 'hero-img', style: { height: `${height}px` } });
+export function hero({ initials, gradient, badge, height, image }) {
+  // When a photo is in play, give it more room and let the imagery
+  // speak — the initials mark would otherwise read as a video play
+  // affordance overlaid on top.
+  const effectiveHeight = height ?? (image ? 260 : 200);
+  const wrap = el('div', { class: 'hero-img', style: { height: `${effectiveHeight}px` } });
   if (gradient) wrap.style.background = gradient;
 
   if (image) {
@@ -299,7 +303,16 @@ export function hero({ initials, gradient, badge, height = 200, image }) {
       loading: 'lazy',
       decoding: 'async'
     });
-    img.addEventListener('error', () => img.remove());
+    // If the file 404s, drop back to the gradient + initials path
+    // and shrink to the no-photo height so we don't leave dead space.
+    img.addEventListener('error', () => {
+      img.remove();
+      wrap.classList.remove('has-photo');
+      if (height == null) wrap.style.height = '200px';
+      if (initials && !wrap.querySelector('.hero-mark')) {
+        wrap.appendChild(el('span', { class: 'hero-mark' }, initials));
+      }
+    });
     img.addEventListener('load', () => wrap.classList.add('has-photo'));
     wrap.appendChild(img);
     wrap.appendChild(el('span', { class: 'hero-scrim', 'aria-hidden': 'true' }));
@@ -308,7 +321,9 @@ export function hero({ initials, gradient, badge, height = 200, image }) {
   if (badge) {
     wrap.appendChild(el('span', { class: `hero-badge ${badge.variant || ''}` }, badge.label));
   }
-  if (initials) {
+  // Only show the initials mark when there's no photo — otherwise it
+  // collides with the imagery and reads as a play button.
+  if (initials && !image) {
     wrap.appendChild(el('span', { class: 'hero-mark' }, initials));
   }
   return wrap;
