@@ -287,12 +287,8 @@ function sparkline(values, status) {
 // `image` is a URL/path. If the file 404s the <img> hides itself and the
 // gradient stands alone — drop a file into assets/courses/<id>.jpg and
 // it appears automatically.
-export function hero({ initials, gradient, badge, height, image }) {
-  // When a photo is in play, give it more room and let the imagery
-  // speak — the initials mark would otherwise read as a video play
-  // affordance overlaid on top.
-  const effectiveHeight = height ?? (image ? 260 : 200);
-  const wrap = el('div', { class: 'hero-img', style: { height: `${effectiveHeight}px` } });
+export function hero({ initials, gradient, badge, height = 200, image }) {
+  const wrap = el('div', { class: 'hero-img', style: { height: `${height}px` } });
   if (gradient) wrap.style.background = gradient;
 
   if (image) {
@@ -303,12 +299,10 @@ export function hero({ initials, gradient, badge, height, image }) {
       loading: 'lazy',
       decoding: 'async'
     });
-    // If the file 404s, drop back to the gradient + initials path
-    // and shrink to the no-photo height so we don't leave dead space.
+    // If the file 404s, drop back to the gradient + initials path.
     img.addEventListener('error', () => {
       img.remove();
       wrap.classList.remove('has-photo');
-      if (height == null) wrap.style.height = '200px';
       if (initials && !wrap.querySelector('.hero-mark')) {
         wrap.appendChild(el('span', { class: 'hero-mark' }, initials));
       }
