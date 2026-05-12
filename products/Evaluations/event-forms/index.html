@@ -470,12 +470,22 @@
         }
         .role-switcher .rs-label {
             font-weight: 600;
-            display: block;
+            display: flex;
+            align-items: center;
+            gap: 6px;
             margin-bottom: 6px;
             color: #8a6500;
             font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            cursor: grab;
+            user-select: none;
+        }
+        .role-switcher.dragging .rs-label { cursor: grabbing; }
+        .role-switcher.dragging { box-shadow: 0 6px 18px rgba(0,0,0,.22); }
+        .role-switcher .rs-drag-handle {
+            color: #b48810;
+            font-size: 11px;
         }
         .role-switcher select {
             font-size: 12px;
@@ -705,7 +715,8 @@
         .footer-right { display: flex; gap: 8px; }
 
         /* ── Drawer ── */
-        #session-drawer {
+        #session-drawer,
+        #permission-drawer {
             position: fixed;
             top: 0;
             right: -480px;
@@ -719,7 +730,8 @@
             transition: right 0.25s ease;
             overflow: hidden;
         }
-        #session-drawer.open {
+        #session-drawer.open,
+        #permission-drawer.open {
             right: 0;
         }
         .session-drawer-header {
@@ -890,6 +902,32 @@
                     </div>
                 </div>
             </div>
+            <!-- Publish To -->
+            <div class="field-row field-row-spaced" id="publish-to-section">
+                <div class="subsection-label" style="margin:0 0 8px;">Publish To</div>
+                <div id="publish-rules-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;"></div>
+                <a class="link-action" id="add-permission-rule-btn" href="#" style="font-size:13px; display:inline-flex; align-items:center; gap:4px;">
+                    <i class="fa-solid fa-plus" style="font-size:11px;"></i> Add permission rule
+                </a>
+            </div>
+
+            <!-- Budget -->
+            <div class="field-row field-row-spaced" id="budget-section">
+                <div class="subsection-label" style="margin:0;">Budget</div>
+                <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end;">
+                    <vaadin-number-field theme="outlined" label="Allocated" value="500" min="0" step="0.01" style="width:140px;">
+                        <span slot="prefix">$</span>
+                    </vaadin-number-field>
+                    <vaadin-number-field theme="outlined" label="Actual Cost" value="550" min="0" step="0.01" style="width:140px;">
+                        <span slot="prefix">$</span>
+                    </vaadin-number-field>
+                    <div style="display:flex; flex-direction:column; gap:2px; padding-bottom:6px;">
+                        <span style="font-size:12px; font-weight:600; color:var(--lumo-secondary-text-color,#666);">Remaining</span>
+                        <span id="budget-remaining" style="font-size:14px; font-weight:600; color:var(--lumo-error-color,#e53935);">-$50.00</span>
+                    </div>
+                </div>
+            </div>
+
             <div class="field-row">
                 <label class="field-label">Feedback</label>
                 <select class="styled-select" id="field-feedback">
@@ -898,8 +936,10 @@
                     <option>Disabled</option>
                 </select>
             </div>
-            <div class="field-row">
-                <vaadin-checkbox id="field-reimbursement" label="Enable Reimbursement"></vaadin-checkbox>
+            <div class="field-row" style="display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap;">
+                <vaadin-checkbox id="field-reimbursement" label="Enable Reimbursement" style="padding-bottom:8px;"></vaadin-checkbox>
+                <vaadin-text-field theme="outlined" id="field-reimb-code" label="Code" disabled style="width:160px;"></vaadin-text-field>
+                <vaadin-text-field theme="outlined" id="field-reimb-subcode" label="Subcode" disabled style="width:160px;"></vaadin-text-field>
             </div>
             <div style="display:flex; align-items:center; gap:12px; margin-top:8px;">
                 <span class="subsection-label" style="margin:0; white-space:nowrap;">Schedule Type</span>
@@ -1121,23 +1161,6 @@
 
             <div class="field-row">
                 <vaadin-text-field theme="outlined" label="Location *" style="width:100%;"></vaadin-text-field>
-            </div>
-
-            <!-- Budget -->
-            <div class="field-row field-row-spaced">
-                <div class="subsection-label" style="margin-top:0; margin-bottom:8px;">Budget</div>
-                <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end;">
-                    <vaadin-number-field theme="outlined" label="Allocated" value="500" min="0" step="0.01" style="width:140px;">
-                        <span slot="prefix">$</span>
-                    </vaadin-number-field>
-                    <vaadin-number-field theme="outlined" label="Actual Cost" value="550" min="0" step="0.01" style="width:140px;">
-                        <span slot="prefix">$</span>
-                    </vaadin-number-field>
-                    <div style="display:flex; flex-direction:column; gap:2px; padding-bottom:6px;">
-                        <span style="font-size:12px; font-weight:600; color:var(--lumo-secondary-text-color,#666);">Remaining</span>
-                        <span id="budget-remaining" style="font-size:14px; font-weight:600; color:var(--lumo-error-color,#e53935);">-$50.00</span>
-                    </div>
-                </div>
             </div>
 
             <!-- Max Attendees + Waitlist inline -->
@@ -1429,7 +1452,7 @@
 
 <!-- ── Prototype Role Switcher ── -->
 <div class="role-switcher">
-    <span class="rs-label">&#9881; Prototype: viewing as</span>
+    <span class="rs-label"><i class="fa-solid fa-grip-vertical rs-drag-handle"></i>&#9881; Prototype: viewing as</span>
     <select id="role-switcher-select">
         <option value="author">Author</option>
         <option value="approver-edit">Approver (with edit)</option>
@@ -1583,6 +1606,37 @@
     </div>
 </div>
 
+<!-- ── Permission Rule Drawer Scrim ── -->
+<div id="permission-drawer-scrim" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:149;"></div>
+
+<!-- ── Permission Rule Drawer ── -->
+<div id="permission-drawer">
+    <div class="session-drawer-header">
+        <h2 id="permission-drawer-title" style="margin:0; font-size:18px; font-weight:600;">Add Permission Rule</h2>
+        <button id="permission-drawer-close-btn" aria-label="Close" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--lumo-secondary-text-color,#666);padding:4px;display:flex;align-items:center;">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+    <div class="drawer-form-body">
+        <p style="font-size:13px; color:var(--lumo-secondary-text-color,#666); margin:0 0 16px;">
+            Select one or more parameters to restrict who can see this event, then choose the values for each parameter.
+        </p>
+        <div style="margin-bottom:16px;">
+            <vaadin-multi-select-combo-box
+                theme="outlined"
+                label="Parameters *"
+                id="permission-parameters-combo"
+                style="width:100%;">
+            </vaadin-multi-select-combo-box>
+        </div>
+        <div id="permission-parameter-fields" style="display:flex; flex-direction:column; gap:12px;"></div>
+    </div>
+    <div class="drawer-footer-actions">
+        <vaadin-button theme="secondary" id="permission-drawer-cancel-btn">Cancel</vaadin-button>
+        <vaadin-button theme="primary" id="permission-drawer-submit-btn">Add Rule</vaadin-button>
+    </div>
+</div>
+
 <script>
     // ── Schedule Type Toggle ──
     function applyScheduleType(isMultiple) {
@@ -1654,10 +1708,10 @@
     contentCombo.items = ['Elementary', 'Middle School', 'High School', 'All Grades', 'Administration', 'Curriculum', 'Instruction', 'Assessment'];
 
     // ── Budget remaining balance ──
-    const budgetFields = document.querySelectorAll('#scheduling-single vaadin-number-field[label="Allocated"], #scheduling-single vaadin-number-field[label="Actual Cost"]');
+    const budgetFields = document.querySelectorAll('#budget-section vaadin-number-field[label="Allocated"], #budget-section vaadin-number-field[label="Actual Cost"]');
     function updateBudget() {
-        const allocated = parseFloat(document.querySelector('#scheduling-single vaadin-number-field[label="Allocated"]').value) || 0;
-        const actual    = parseFloat(document.querySelector('#scheduling-single vaadin-number-field[label="Actual Cost"]').value) || 0;
+        const allocated = parseFloat(document.querySelector('#budget-section vaadin-number-field[label="Allocated"]').value) || 0;
+        const actual    = parseFloat(document.querySelector('#budget-section vaadin-number-field[label="Actual Cost"]').value) || 0;
         const remaining = allocated - actual;
         const el = document.getElementById('budget-remaining');
         if (remaining < 0) {
@@ -1702,6 +1756,55 @@
     }
 
     document.getElementById('role-switcher-select').addEventListener('change', (e) => applyRole(e.target.value));
+
+    // ── Make the prototype role switcher draggable ──
+    (() => {
+        const panel = document.querySelector('.role-switcher');
+        const handle = panel.querySelector('.rs-label');
+        let dragging = false;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        function onPointerDown(e) {
+            if (e.button !== undefined && e.button !== 0) return;
+            dragging = true;
+            panel.classList.add('dragging');
+            const rect = panel.getBoundingClientRect();
+            // Switch from right-anchored to left-anchored so dragging math is straightforward.
+            panel.style.left = rect.left + 'px';
+            panel.style.top = rect.top + 'px';
+            panel.style.right = 'auto';
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+            handle.setPointerCapture(e.pointerId);
+            e.preventDefault();
+        }
+
+        function onPointerMove(e) {
+            if (!dragging) return;
+            const w = panel.offsetWidth;
+            const h = panel.offsetHeight;
+            let x = e.clientX - offsetX;
+            let y = e.clientY - offsetY;
+            // Keep within viewport
+            x = Math.max(0, Math.min(window.innerWidth - w, x));
+            y = Math.max(0, Math.min(window.innerHeight - h, y));
+            panel.style.left = x + 'px';
+            panel.style.top = y + 'px';
+        }
+
+        function onPointerUp(e) {
+            if (!dragging) return;
+            dragging = false;
+            panel.classList.remove('dragging');
+            try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+        }
+
+        handle.addEventListener('pointerdown', onPointerDown);
+        handle.addEventListener('pointermove', onPointerMove);
+        handle.addEventListener('pointerup', onPointerUp);
+        handle.addEventListener('pointercancel', onPointerUp);
+    })();
 
     // ── Return to Author Dialog ──
     const returnDialog = document.getElementById('return-to-author-dialog');
@@ -2124,6 +2227,178 @@
     initCreditList('single-credit-options', 'single-add-credit-btn');
     initCreditList('multi-credit-options', 'multi-add-credit-btn');
     initCreditList('drawer-credit-options', 'drawer-add-credit-btn');
+
+    // ── Reimbursement toggle: enable/disable Code & Subcode ──
+    const reimbChk = document.getElementById('field-reimbursement');
+    const reimbCode = document.getElementById('field-reimb-code');
+    const reimbSubcode = document.getElementById('field-reimb-subcode');
+    if (reimbChk && reimbCode && reimbSubcode) {
+        reimbChk.addEventListener('checked-changed', (e) => {
+            const on = e.detail.value;
+            reimbCode.disabled = !on;
+            reimbSubcode.disabled = !on;
+        });
+    }
+
+    // ── Publish To: permission rule drawer ──
+    const PERMISSION_PARAMETERS = {
+        School: ['Lincoln Elementary', 'Roosevelt Middle School', 'Washington High School', 'Jefferson Academy', 'Central Office'],
+        Grade: ['Pre-K', 'Kindergarten', '1st Grade', '2nd Grade', '3rd Grade', '4th Grade', '5th Grade', '6th Grade', '7th Grade', '8th Grade', '9th Grade', '10th Grade', '11th Grade', '12th Grade'],
+        Job: ['Teacher', 'Principal', 'Assistant Principal', 'Counselor', 'Nurse', 'Custodian', 'Administrator', 'Paraprofessional'],
+        Department: ['Mathematics', 'English Language Arts', 'Science', 'Social Studies', 'Physical Education', 'Fine Arts', 'Special Education', 'Technology'],
+        Role: ['Full-time', 'Part-time', 'Substitute', 'Contractor', 'Volunteer']
+    };
+
+    const permissionDrawer = document.getElementById('permission-drawer');
+    const permissionScrim = document.getElementById('permission-drawer-scrim');
+    const permissionParamsCombo = document.getElementById('permission-parameters-combo');
+    const permissionFieldsContainer = document.getElementById('permission-parameter-fields');
+    const permissionRulesList = document.getElementById('publish-rules-list');
+    const addPermRuleBtn = document.getElementById('add-permission-rule-btn');
+    const permDrawerCancelBtn = document.getElementById('permission-drawer-cancel-btn');
+    const permDrawerCloseBtn = document.getElementById('permission-drawer-close-btn');
+    const permDrawerSubmitBtn = document.getElementById('permission-drawer-submit-btn');
+
+    // Populate parameters combo
+    permissionParamsCombo.items = Object.keys(PERMISSION_PARAMETERS);
+
+    // State for the value combos currently displayed in the drawer
+    let paramValueCombos = {}; // { paramName: { wrapper, combo } }
+    let editingRuleRow = null; // the row being edited, or null when creating
+
+    function openPermissionDrawer(rule = null, ruleRow = null) {
+        editingRuleRow = ruleRow;
+        document.getElementById('permission-drawer-title').textContent = rule ? 'Edit Permission Rule' : 'Add Permission Rule';
+        permDrawerSubmitBtn.textContent = rule ? 'Save Rule' : 'Add Rule';
+        // Reset drawer state
+        permissionParamsCombo.selectedItems = [];
+        permissionFieldsContainer.innerHTML = '';
+        paramValueCombos = {};
+
+        if (rule) {
+            const paramNames = rule.params.map(p => p.name);
+            permissionParamsCombo.selectedItems = paramNames;
+            syncParamFields(paramNames);
+            rule.params.forEach(p => {
+                if (paramValueCombos[p.name]) {
+                    paramValueCombos[p.name].combo.selectedItems = p.values;
+                }
+            });
+        }
+
+        permissionDrawer.classList.add('open');
+        permissionScrim.style.display = 'block';
+    }
+
+    function closePermissionDrawer() {
+        permissionDrawer.classList.remove('open');
+        permissionScrim.style.display = 'none';
+    }
+
+    function renderParamField(paramName) {
+        const wrapper = document.createElement('div');
+        wrapper.dataset.param = paramName;
+
+        const combo = document.createElement('vaadin-multi-select-combo-box');
+        combo.setAttribute('theme', 'outlined');
+        combo.setAttribute('label', paramName);
+        combo.style.width = '100%';
+        combo.items = PERMISSION_PARAMETERS[paramName];
+
+        wrapper.appendChild(combo);
+        permissionFieldsContainer.appendChild(wrapper);
+        paramValueCombos[paramName] = { wrapper, combo };
+    }
+
+    function syncParamFields(selected) {
+        // Add missing
+        selected.forEach(p => {
+            if (!paramValueCombos[p]) renderParamField(p);
+        });
+        // Remove unselected
+        Object.keys(paramValueCombos).forEach(p => {
+            if (!selected.includes(p)) {
+                paramValueCombos[p].wrapper.remove();
+                delete paramValueCombos[p];
+            }
+        });
+    }
+
+    permissionParamsCombo.addEventListener('selected-items-changed', (e) => {
+        syncParamFields(e.detail.value || []);
+    });
+
+    function formatRuleSummary(rule) {
+        const AND = ` <span style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:var(--lumo-primary-color,#1676f3); margin:0 6px;">AND</span> `;
+        return rule.params.map(p => {
+            const valueText = p.values.length ? p.values.join(', ') : '(any)';
+            return `<span style="font-weight:600;">${p.name}</span> <span style="color:var(--lumo-secondary-text-color,#666);">is</span> ${valueText}`;
+        }).join(AND);
+    }
+
+    function applyRuleToRow(row, rule) {
+        row._rule = rule;
+        row.querySelector('.rule-summary').innerHTML = formatRuleSummary(rule);
+    }
+
+    function renderRuleRow(rule) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 12px; border:1px solid var(--lumo-contrast-20pct,#e0e0e0); border-radius:6px; background:var(--lumo-contrast-5pct,#f7f8fa); font-size:13px;';
+
+        const summary = document.createElement('div');
+        summary.className = 'rule-summary';
+        summary.style.cssText = 'flex:1; min-width:0; line-height:1.6;';
+
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display:flex; gap:4px; flex-shrink:0;';
+
+        const editBtn = document.createElement('button');
+        editBtn.setAttribute('aria-label', 'Edit rule');
+        editBtn.title = 'Edit';
+        editBtn.style.cssText = 'background:none; border:none; cursor:pointer; color:var(--lumo-secondary-text-color,#666); padding:4px 6px; font-size:13px;';
+        editBtn.innerHTML = '<i class="fa-solid fa-pencil"></i>';
+        editBtn.addEventListener('click', () => openPermissionDrawer(row._rule, row));
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.setAttribute('aria-label', 'Delete rule');
+        deleteBtn.title = 'Delete';
+        deleteBtn.style.cssText = 'background:none; border:none; cursor:pointer; color:var(--lumo-secondary-text-color,#666); padding:4px 6px; font-size:13px;';
+        deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+        deleteBtn.addEventListener('click', () => row.remove());
+
+        actions.appendChild(editBtn);
+        actions.appendChild(deleteBtn);
+        row.appendChild(summary);
+        row.appendChild(actions);
+        applyRuleToRow(row, rule);
+        permissionRulesList.appendChild(row);
+    }
+
+    function saveRule() {
+        const selectedParams = permissionParamsCombo.selectedItems || [];
+        if (!selectedParams.length) {
+            closePermissionDrawer();
+            return;
+        }
+        const rule = {
+            params: selectedParams.map(name => ({
+                name,
+                values: (paramValueCombos[name]?.combo.selectedItems) || []
+            }))
+        };
+        if (editingRuleRow) {
+            applyRuleToRow(editingRuleRow, rule);
+        } else {
+            renderRuleRow(rule);
+        }
+        closePermissionDrawer();
+    }
+
+    addPermRuleBtn.addEventListener('click', (e) => { e.preventDefault(); openPermissionDrawer(null, null); });
+    permDrawerCancelBtn.addEventListener('click', closePermissionDrawer);
+    permDrawerCloseBtn.addEventListener('click', closePermissionDrawer);
+    permissionScrim.addEventListener('click', closePermissionDrawer);
+    permDrawerSubmitBtn.addEventListener('click', saveRule);
 
     // ── Read-only session row expand/collapse ──
     document.querySelectorAll('.ro-session-row').forEach(row => {

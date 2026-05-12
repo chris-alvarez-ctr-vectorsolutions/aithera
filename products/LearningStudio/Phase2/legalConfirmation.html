@@ -25,6 +25,16 @@
       min-height: 100vh;
     }
 
+    /* Faux backdrop — replaces the real modal backdrop we lose by using `modeless`.
+       z-index sits below vaadin-dialog-overlay (1000+) and the variant widget (9999). */
+    .faux-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1;
+      pointer-events: none;
+    }
+
     /* ── Dialog body layout ── */
     .dialog-body {
       display: flex;
@@ -123,13 +133,140 @@
     vaadin-checkbox[disabled]::part(checkbox) {
       border-color: var(--lumo-contrast-30pct, #b0b0b0);
     }
+
+    /* ── Updated Terms variant styles ── */
+    .updated-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      background: var(--lumo-warning-color-10pct);
+      border-left: 3px solid var(--lumo-warning-color);
+      border-radius: 4px;
+      font-size: var(--lumo-font-size-s, 14px);
+      color: var(--lumo-warning-text-color);
+    }
+
+    .updated-banner i {
+      font-size: 16px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .updated-banner .banner-title {
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    /* ── Variant toggle widget (draggable) ── */
+    .variant-widget {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      background: #fff;
+      border: 1px solid var(--lumo-contrast-20pct, #ccc);
+      border-radius: 8px;
+      box-shadow: var(--lumo-box-shadow-m, 0 4px 12px rgba(0,0,0,0.15));
+      padding: 0;
+      min-width: 220px;
+      user-select: none;
+      font-family: var(--lumo-font-family, 'Open Sans', sans-serif);
+    }
+
+    .variant-widget-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--vwc-base-contrast-5pct, #f4f5f7);
+      border-bottom: 1px solid var(--lumo-contrast-10pct, #e6e6e6);
+      border-radius: 8px 8px 0 0;
+      cursor: grab;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--lumo-secondary-text-color);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .variant-widget-header:active {
+      cursor: grabbing;
+    }
+
+    .variant-widget-header i {
+      font-size: 12px;
+      color: var(--lumo-tertiary-text-color);
+    }
+
+    .variant-widget-body {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .variant-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--lumo-contrast-20pct, #ccc);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--lumo-body-text-color);
+      background: #fff;
+      transition: all 0.15s ease;
+    }
+
+    .variant-option:hover {
+      background: var(--lumo-primary-color-10pct);
+      border-color: var(--lumo-primary-color-50pct);
+    }
+
+    .variant-option.active {
+      background: var(--lumo-primary-color-10pct);
+      border-color: var(--lumo-primary-color);
+      color: var(--lumo-primary-text-color);
+      font-weight: 600;
+    }
+
+    .variant-option i {
+      width: 16px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
 
-  <!-- Dialog is opened immediately on page load -->
+  <!-- Faux modal backdrop (visual only — does not block interaction) -->
+  <div class="faux-backdrop"></div>
+
+  <!-- Draggable variant toggle widget (prototype-only control) -->
+  <div class="variant-widget" id="variant-widget">
+    <div class="variant-widget-header" id="variant-widget-handle">
+      <span>Prototype View</span>
+      <i class="fa-solid fa-up-down-left-right"></i>
+    </div>
+    <div class="variant-widget-body">
+      <div class="variant-option active" data-variant="first">
+        <i class="fa-solid fa-file-contract"></i>
+        <span>First Instance</span>
+      </div>
+      <div class="variant-option" data-variant="updated">
+        <i class="fa-solid fa-file-pen"></i>
+        <span>Updated Terms</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dialog is opened immediately on page load.
+       modeless = no backdrop, so the draggable variant widget remains interactive. -->
   <vaadin-dialog
     id="legal-dialog"
+    modeless
     no-close-on-esc
     no-close-on-outside-click>
   </vaadin-dialog>
@@ -140,20 +277,26 @@
     // ── State ──────────────────────────────────────────────────
     let hasScrolledToBottom = false;
     let isAgreed = false;
+    let currentVariant = 'first'; // 'first' | 'updated'
 
     // ── Header renderer ────────────────────────────────────────
     dialog.headerRenderer = (root) => {
-      if (root.firstElementChild) return;
+      // Always re-render (variant may have changed)
+      root.innerHTML = '';
 
       const wrapper = document.createElement('div');
       wrapper.style.cssText = 'display:flex; align-items:center; gap:10px;';
 
       const icon = document.createElement('i');
-      icon.className = 'fa-solid fa-file-contract';
+      icon.className = currentVariant === 'updated'
+        ? 'fa-solid fa-file-pen'
+        : 'fa-solid fa-file-contract';
       icon.style.cssText = 'font-size:18px; color:var(--lumo-primary-color);';
 
       const title = document.createElement('span');
-      title.textContent = 'Terms & Conditions';
+      title.textContent = currentVariant === 'updated'
+        ? 'Updated Terms & Conditions'
+        : 'Terms & Conditions';
       title.style.cssText = 'font-size:var(--lumo-font-size-l, 18px); font-weight:600;';
 
       wrapper.appendChild(icon);
@@ -163,23 +306,43 @@
 
     // ── Body renderer ──────────────────────────────────────────
     dialog.renderer = (root) => {
-      if (root.firstElementChild) return;
+      // Reset state and DOM on every render so the variant toggle works cleanly
+      root.innerHTML = '';
+      hasScrolledToBottom = false;
+      isAgreed = false;
+
+      const isUpdated = currentVariant === 'updated';
 
       const body = document.createElement('div');
       body.className = 'dialog-body';
 
-      // Scroll-to-read notice
+      // Combined banner: on the updated variant, fold the scroll-to-read instruction
+      // into the warning banner so we don't stack two banners.
       const notice = document.createElement('div');
-      notice.className = 'scroll-notice';
-      notice.innerHTML = `
-        <i class="fa-solid fa-circle-info"></i>
-        <span>Please read the full terms below. You must scroll to the bottom before you can agree.</span>
-      `;
+      if (isUpdated) {
+        notice.className = 'updated-banner';
+        notice.innerHTML = `
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <div>
+            <div class="banner-title">Our Terms & Conditions have been updated</div>
+            <div>We've made changes to our Terms effective <strong>May 1, 2026</strong>. Please review the updated terms below — you must scroll to the bottom before you can accept the new terms.</div>
+          </div>
+        `;
+      } else {
+        notice.className = 'scroll-notice';
+        notice.innerHTML = `
+          <i class="fa-solid fa-circle-info"></i>
+          <span>Please read the full terms below. You must scroll to the bottom before you can agree.</span>
+        `;
+      }
 
       // Scrollable legal text
       const scrollArea = document.createElement('div');
       scrollArea.className = 'legal-scroll-area';
       scrollArea.id = 'legal-scroll-area';
+
+      const lastUpdated = isUpdated ? 'May 2026' : 'April 2026';
+
       scrollArea.innerHTML = `
         <h3>Content Studio Terms &amp; Conditions</h3>
         <p>These Terms and Conditions ("Agreement") govern your access to and use of Content Studio, a platform provided by Vector Solutions ("Company," "we," "us," or "our"). By accessing or using the platform, you agree to be bound by this Agreement. Please read it carefully before proceeding.</p>
@@ -194,13 +357,16 @@
         You agree to use Content Studio only for lawful purposes and in accordance with these Terms. You shall not: (a) violate any applicable laws or regulations; (b) infringe upon or misappropriate any intellectual property rights of any third party; (c) upload, transmit, or distribute any content that is unlawful, harmful, threatening, abusive, defamatory, or otherwise objectionable; (d) interfere with or disrupt the integrity or performance of the platform or its underlying infrastructure; or (e) attempt to gain unauthorized access to any portion of the platform or its related systems.</p>
 
         <p><strong>4. Content Ownership and Responsibility</strong><br>
-        You retain ownership of any content you create, upload, or publish through Content Studio ("User Content"). By submitting User Content, you grant Vector Solutions a worldwide, royalty-free, non-exclusive license to host, store, reproduce, and display such content solely as necessary to provide the services. You are solely responsible for ensuring that your User Content does not violate any laws or third-party rights.</p>
+        You retain ownership of any content you create, upload, or publish through Content Studio ("User Content"). By submitting User Content, you grant Vector Solutions a worldwide, royalty-free, non-exclusive license to host, store, reproduce, ${isUpdated ? 'display, and use such content in aggregated and de-identified form to improve our AI-driven features' : 'and display such content'} solely as necessary to provide the services. You are solely responsible for ensuring that your User Content does not violate any laws or third-party rights.</p>
 
         <p><strong>5. Intellectual Property</strong><br>
         Content Studio, including all associated software, design, text, graphics, logos, and other materials, is the exclusive property of Vector Solutions and is protected by applicable intellectual property laws. Nothing in this Agreement transfers any ownership rights in the platform to you. You agree not to reverse engineer, decompile, disassemble, or otherwise attempt to derive the source code of any component of the platform.</p>
 
         <p><strong>6. Privacy and Data</strong><br>
         Your use of Content Studio is also governed by our Privacy Policy, which is incorporated herein by reference. By using the platform, you consent to the collection, processing, and use of your data as described in the Privacy Policy. You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account.</p>
+
+        ${isUpdated ? `<p><strong>6a. AI &amp; Automated Features</strong><br>
+        Content Studio may include AI-powered features that generate suggestions, summaries, or other derivative content based on your inputs. You acknowledge that AI output may be inaccurate or incomplete and agree to independently verify any AI-generated content before relying on it. Vector Solutions does not warrant the accuracy of AI-generated output.</p>` : ''}
 
         <p><strong>7. Modifications to the Service</strong><br>
         Vector Solutions reserves the right to modify, suspend, or discontinue Content Studio (or any part thereof) at any time, with or without notice. We will endeavor to provide reasonable advance notice of material changes when feasible. Your continued use of the platform after any modification constitutes your acceptance of the revised terms.</p>
@@ -209,7 +375,7 @@
         Content Studio is provided on an "AS IS" and "AS AVAILABLE" basis without warranties of any kind, either express or implied, including but not limited to implied warranties of merchantability, fitness for a particular purpose, or non-infringement. Vector Solutions does not warrant that the platform will be uninterrupted, error-free, or free of viruses or other harmful components.</p>
 
         <p><strong>9. Limitation of Liability</strong><br>
-        To the maximum extent permitted by applicable law, Vector Solutions shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of profits, data, goodwill, or other intangible losses, resulting from your use of or inability to use Content Studio, even if Vector Solutions has been advised of the possibility of such damages.</p>
+        To the maximum extent permitted by applicable law, Vector Solutions shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of profits, data, goodwill, or other intangible losses, resulting from your use of or inability to use Content Studio${isUpdated ? ', and our total aggregate liability under this Agreement shall not exceed the fees paid by you in the twelve (12) months preceding the claim' : ''}, even if Vector Solutions has been advised of the possibility of such damages.</p>
 
         <p><strong>10. Governing Law</strong><br>
         This Agreement shall be governed by and construed in accordance with the laws of the State of Florida, without regard to its conflict of law provisions. Any disputes arising under or in connection with this Agreement shall be subject to the exclusive jurisdiction of the state and federal courts located in Hillsborough County, Florida.</p>
@@ -220,7 +386,7 @@
         <p><strong>12. Contact Information</strong><br>
         If you have any questions about these Terms and Conditions, please contact us at legal@vectorsolutions.com or by mail at Vector Solutions, 4020 W. Boy Scout Blvd., Suite 400, Tampa, FL 33607.</p>
 
-        <p style="margin-top:16px; font-style:italic; color:var(--lumo-secondary-text-color);">Last Updated: April 2026</p>
+        <p style="margin-top:16px; font-style:italic; color:var(--lumo-secondary-text-color);">Last Updated: ${lastUpdated}</p>
       `;
 
 
@@ -230,7 +396,12 @@
 
       const checkbox = document.createElement('vaadin-checkbox');
       checkbox.id = 'agree-checkbox';
-      checkbox.setAttribute('label', 'I have read and agree to the Terms & Conditions');
+      checkbox.setAttribute(
+        'label',
+        isUpdated
+          ? 'I have reviewed the changes and accept the updated Terms & Conditions'
+          : 'I have read and agree to the Terms & Conditions'
+      );
       checkbox.setAttribute('disabled', '');
 
       const agreementError = document.createElement('div');
@@ -259,11 +430,19 @@
           hasScrolledToBottom = true;
           checkbox.removeAttribute('disabled');
 
-          // Update the notice to confirm reading is done
-          notice.innerHTML = `
-            <i class="fa-solid fa-circle-check"></i>
-            <span>You've read the full terms. Please check the box below to confirm your agreement.</span>
-          `;
+          // Swap the banner to a success/confirmation state
+          notice.innerHTML = isUpdated
+            ? `
+              <i class="fa-solid fa-circle-check"></i>
+              <div>
+                <div class="banner-title">You've reviewed all the updates</div>
+                <div>Please check the box below to accept the new terms and continue.</div>
+              </div>
+            `
+            : `
+              <i class="fa-solid fa-circle-check"></i>
+              <span>You've read the full terms. Please check the box below to confirm your agreement.</span>
+            `;
           notice.style.background = 'var(--lumo-success-color-10pct)';
           notice.style.borderLeftColor = 'var(--lumo-success-color)';
           notice.style.color = 'var(--lumo-success-text-color)';
@@ -282,7 +461,9 @@
 
     // ── Footer renderer ────────────────────────────────────────
     dialog.footerRenderer = (root) => {
-      if (root.firstElementChild) return;
+      root.innerHTML = '';
+
+      const isUpdated = currentVariant === 'updated';
 
       // Exit Studio button (secondary, left-aligned via spacer)
       const exitBtn = document.createElement('vaadin-button');
@@ -294,7 +475,9 @@
       // Agree and Continue button (primary)
       const agreeBtn = document.createElement('vaadin-button');
       agreeBtn.setAttribute('theme', 'primary');
-      agreeBtn.innerHTML = `Agree &amp; Continue <i class="fa-solid fa-arrow-right" style="margin-left:6px;"></i>`;
+      agreeBtn.innerHTML = isUpdated
+        ? `Accept Updated Terms <i class="fa-solid fa-arrow-right" style="margin-left:6px;"></i>`
+        : `Agree &amp; Continue <i class="fa-solid fa-arrow-right" style="margin-left:6px;"></i>`;
       agreeBtn.addEventListener('click', () => {
         const errorEl = document.getElementById('agreement-error');
         if (!isAgreed) {
@@ -308,6 +491,56 @@
       root.appendChild(exitBtn);
       root.appendChild(agreeBtn);
     };
+
+    // ── Variant toggle widget ──────────────────────────────────
+    const variantOptions = document.querySelectorAll('.variant-option');
+    variantOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        const variant = option.getAttribute('data-variant');
+        if (variant === currentVariant) return;
+
+        currentVariant = variant;
+        variantOptions.forEach(o => o.classList.toggle('active', o === option));
+
+        // Trigger re-render of all dialog regions
+        dialog.requestContentUpdate();
+      });
+    });
+
+    // ── Draggable widget ───────────────────────────────────────
+    const widget = document.getElementById('variant-widget');
+    const handle = document.getElementById('variant-widget-handle');
+
+    let isDragging = false;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+
+    handle.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      const rect = widget.getBoundingClientRect();
+      dragOffsetX = e.clientX - rect.left;
+      dragOffsetY = e.clientY - rect.top;
+      // Switch from right-anchored positioning to left/top while dragging
+      widget.style.left = rect.left + 'px';
+      widget.style.top = rect.top + 'px';
+      widget.style.right = 'auto';
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const newLeft = e.clientX - dragOffsetX;
+      const newTop = e.clientY - dragOffsetY;
+      // Keep widget within viewport bounds
+      const maxLeft = window.innerWidth - widget.offsetWidth;
+      const maxTop = window.innerHeight - widget.offsetHeight;
+      widget.style.left = Math.max(0, Math.min(newLeft, maxLeft)) + 'px';
+      widget.style.top = Math.max(0, Math.min(newTop, maxTop)) + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
 
     // ── Open the dialog on load ────────────────────────────────
     // Small delay lets web components initialize before opening
