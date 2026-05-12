@@ -86,7 +86,8 @@ export function render(scenarioId) {
       briefing.appendChild(ui.scenarioMedia({
         id: sc.id,
         label: sc.industry === 'healthcare' ? 'Emergency Department · triage' : 'I-95 · scene',
-        accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff7a3d'
+        accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff7a3d',
+        image: sc.heroImage || `assets/scenarios/${sc.id}.jpg`
       }));
       const body = ui.el('div', { class: 'scn-briefing-body' });
       if (step.tension) body.appendChild(ui.tensionTag(step.tension));

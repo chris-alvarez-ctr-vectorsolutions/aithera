@@ -1,4 +1,5 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
+import { useStore } from "../store";
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -176,6 +177,146 @@ export function ArrayField<T>(props: {
       ))}
       <button onClick={() => props.onChange([...props.items, props.newItem()])}>+ Add</button>
     </fieldset>
+  );
+}
+
+export function ImageField(props: {
+  label: string;
+  value: string | undefined;
+  onChange: (v: string | undefined) => void;
+  /** Target folder relative to the assets/ dir, e.g. "scenarios" */
+  folder: string;
+  /** Suggested basename (no extension), usually the entity id */
+  basename: string;
+  /** Convention path used to render a preview when no explicit value is set */
+  conventionPath?: string;
+}) {
+  const saveAsset = useStore((s) => s.saveAsset);
+  const assetsDirHandle = useStore((s) => s.assetsDirHandle);
+  const pickAssetsDir = useStore((s) => s.pickAssetsDir);
+  const [busy, setBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewBust, setPreviewBust] = useState(0);
+
+  const explicit = props.value && props.value.length > 0;
+
+  // Resolve preview. For paths under assets/, read from the linked
+  // assets handle and produce a blob URL. For absolute URLs (https://...
+  // or data:), use directly.
+  useEffect(() => {
+    let revokedUrl: string | null = null;
+    let cancelled = false;
+    const target = explicit ? props.value! : props.conventionPath;
+    if (!target) { setPreviewUrl(null); return; }
+    if (/^(https?:|data:)/.test(target)) { setPreviewUrl(target); return; }
+    const stripped = target.replace(/^assets\//, "");
+    if (!assetsDirHandle) { setPreviewUrl(null); return; }
+    (async () => {
+      try {
+        const parts = stripped.split("/");
+        const filename = parts.pop()!;
+        let dir: FileSystemDirectoryHandle = assetsDirHandle;
+        for (const p of parts) dir = await dir.getDirectoryHandle(p);
+        const fh = await dir.getFileHandle(filename);
+        const file = await fh.getFile();
+        if (cancelled) return;
+        const url = URL.createObjectURL(file);
+        revokedUrl = url;
+        setPreviewUrl(url);
+      } catch {
+        if (!cancelled) setPreviewUrl(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (revokedUrl) URL.revokeObjectURL(revokedUrl);
+    };
+  }, [props.value, props.conventionPath, assetsDirHandle, explicit, previewBust]);
+
+  const handleFile = async (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    setBusy(true);
+    const extFromName = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "";
+    const extFromType = file.type === "image/jpeg" ? "jpg" : file.type.split("/")[1] || "jpg";
+    const ext = extFromName || extFromType;
+    const relPath = `${props.folder}/${props.basename}.${ext}`;
+    const saved = await saveAsset(relPath, file);
+    if (saved) {
+      // If saved path matches the convention, leave value empty so the
+      // convention resolves it. Otherwise store the explicit assets path.
+      const conventionRel = props.conventionPath?.replace(/^assets\//, "");
+      if (conventionRel === relPath) props.onChange(undefined);
+      else props.onChange(`assets/${relPath}`);
+      setPreviewBust(Date.now());
+    }
+    setBusy(false);
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFile(file);
+  };
+
+  return (
+    <Field label={props.label}>
+      <div
+        className={`image-drop ${dragOver ? "drag" : ""}`}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={onDrop}
+      >
+        <div className="image-drop-preview">
+          {previewUrl ? (
+            <img src={previewUrl} alt="" />
+          ) : (
+            <span className="muted">No image</span>
+          )}
+        </div>
+        <div className="image-drop-body">
+          <div className="image-drop-hint">
+            Drop an image here, or
+            <label className="image-drop-pick">
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleFile(f);
+                }}
+              />
+              choose a file…
+            </label>
+          </div>
+          <div className="image-drop-meta">
+            <code>{explicit ? props.value : props.conventionPath || "(none)"}</code>
+            {!explicit && props.conventionPath && (
+              <span className="muted"> · convention</span>
+            )}
+          </div>
+          {!assetsDirHandle && (
+            <div className="image-drop-warning">
+              No assets folder linked — files will download. <button onClick={pickAssetsDir} type="button">Link assets/ folder…</button>
+            </div>
+          )}
+          <div className="image-drop-actions">
+            <input
+              type="text"
+              placeholder="Or paste a path / URL"
+              value={props.value ?? ""}
+              onChange={(e) => props.onChange(e.target.value || undefined)}
+            />
+            {explicit && (
+              <button type="button" onClick={() => props.onChange(undefined)}>Clear override</button>
+            )}
+          </div>
+          {busy && <div className="muted">Saving…</div>}
+        </div>
+      </div>
+    </Field>
   );
 }
 
