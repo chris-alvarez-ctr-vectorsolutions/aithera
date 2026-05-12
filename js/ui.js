@@ -581,13 +581,33 @@ export function progressMini({ percent, completed, total, label = 'Course progre
   );
 }
 
-// scenarioMedia — wide image area for a scenario. Uses gradientFor to
-// produce a stable "scene" tone per scenario id without bitmap assets.
-export function scenarioMedia({ id, label, accent, height = 180 }) {
+// scenarioMedia — wide image area for a scenario. Layers (back→front):
+//   1) gradient (always present — fallback if no image)
+//   2) photographic image (optional; loads from `image` prop)
+//   3) dark scrim for label legibility
+//   4) optional label pill
+//
+// `image` is a URL/path. If the file 404s the <img> removes itself and
+// the gradient stands alone — drop a file at assets/scenarios/<id>.jpg
+// and it appears automatically.
+export function scenarioMedia({ id, label, accent, height = 180, image }) {
   const wrap = el('div', { class: 'scn-hero', style: {
     height: `${height}px`,
     background: gradientFor(id, accent || '#3a4a6a')
   } });
+  if (image) {
+    const img = el('img', {
+      class: 'scn-hero-photo',
+      src: image,
+      alt: '',
+      loading: 'lazy',
+      decoding: 'async'
+    });
+    img.addEventListener('error', () => img.remove());
+    img.addEventListener('load', () => wrap.classList.add('has-photo'));
+    wrap.appendChild(img);
+    wrap.appendChild(el('span', { class: 'scn-hero-scrim', 'aria-hidden': 'true' }));
+  }
   if (label) wrap.appendChild(el('span', { class: 'scn-hero-label' }, label));
   return wrap;
 }

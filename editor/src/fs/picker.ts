@@ -5,6 +5,7 @@ export const FS_SUPPORTED =
   typeof window !== "undefined" && "showDirectoryPicker" in window;
 
 const HANDLE_KEY = "data-dir";
+const ASSETS_HANDLE_KEY = "assets-dir";
 
 declare global {
   interface Window {
@@ -31,6 +32,18 @@ export async function getSavedDir(): Promise<FileSystemDirectoryHandle | null> {
 
 export async function clearSavedDir() {
   await idbDel(HANDLE_KEY);
+}
+
+export async function pickAssetsDir(): Promise<FileSystemDirectoryHandle> {
+  if (!window.showDirectoryPicker) throw new Error("File System Access API not supported");
+  const handle = await window.showDirectoryPicker({ mode: "readwrite" });
+  await idbSet(ASSETS_HANDLE_KEY, handle);
+  return handle;
+}
+
+export async function getSavedAssetsDir(): Promise<FileSystemDirectoryHandle | null> {
+  const h = await idbGet<FileSystemDirectoryHandle>(ASSETS_HANDLE_KEY);
+  return h ?? null;
 }
 
 export async function ensurePermission(
@@ -109,6 +122,30 @@ export async function writeFile(
   const writable = await (fh as any).createWritable();
   await writable.write(content);
   await writable.close();
+}
+
+export async function writeBinary(
+  root: FileSystemDirectoryHandle,
+  relPath: string,
+  data: Blob | ArrayBuffer
+): Promise<void> {
+  const parts = relPath.split("/");
+  const filename = parts.pop()!;
+  let dir = root;
+  for (const p of parts) dir = await getDirHandle(dir, p, true);
+  const fh = await dir.getFileHandle(filename, { create: true });
+  const writable = await (fh as any).createWritable();
+  await writable.write(data);
+  await writable.close();
+}
+
+export function downloadBlob(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export function downloadFile(relPath: string, content: string) {

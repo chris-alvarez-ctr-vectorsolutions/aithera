@@ -13,6 +13,8 @@ import { FS_SUPPORTED } from "./fs/picker";
 export function App() {
   const initFromIdb = useStore((s) => s.initFromIdb);
   const pickDir = useStore((s) => s.pickDir);
+  const pickAssetsDir = useStore((s) => s.pickAssetsDir);
+  const assetsDirHandle = useStore((s) => s.assetsDirHandle);
   const saveAll = useStore((s) => s.saveAll);
   const reload = useStore((s) => s.reload);
   const dirHandle = useStore((s) => s.dirHandle);
@@ -58,7 +60,10 @@ export function App() {
           </span>
         )}
         <button onClick={pickDir} disabled={loading}>
-          {dirHandle ? "Change folder…" : "Open data/ folder…"}
+          {dirHandle ? "Change data/…" : "Open data/ folder…"}
+        </button>
+        <button onClick={pickAssetsDir}>
+          {assetsDirHandle ? "Change assets/…" : "Link assets/ folder…"}
         </button>
         <button onClick={reload} disabled={!dirHandle}>
           Reload

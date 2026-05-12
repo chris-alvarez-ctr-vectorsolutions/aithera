@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { FS_SUPPORTED, LoadedFile, downloadFile, ensurePermission, loadAllData, pickDataDir, writeFile, getSavedDir } from "./fs/picker";
+import { FS_SUPPORTED, LoadedFile, downloadBlob, downloadFile, ensurePermission, getSavedAssetsDir, getSavedDir, loadAllData, pickAssetsDir as pickAssetsDirFs, pickDataDir, writeBinary, writeFile } from "./fs/picker";
 
 export type FileState = LoadedFile & { dirty: boolean; error?: string };
 
@@ -7,6 +7,7 @@ type Toast = { msg: string; kind: "info" | "error" } | null;
 
 type State = {
   dirHandle: FileSystemDirectoryHandle | null;
+  assetsDirHandle: FileSystemDirectoryHandle | null;
   files: Record<string, FileState>;
   selection: string | null;       // relPath of selected file
   selectionId: string | null;     // id within file (for multi-entity files)
@@ -15,11 +16,13 @@ type State = {
   // actions
   initFromIdb(): Promise<void>;
   pickDir(): Promise<void>;
+  pickAssetsDir(): Promise<void>;
   reload(): Promise<void>;
   select(relPath: string, id?: string | null): void;
   updateFile(relPath: string, parsed: unknown): void;
   saveAll(): Promise<void>;
   saveFile(relPath: string): Promise<void>;
+  saveAsset(relPath: string, data: Blob): Promise<string | null>;
   setToast(t: Toast): void;
   newEntity(relPath: string, id: string): void;
   deleteEntity(relPath: string, id: string): void;
@@ -31,6 +34,7 @@ function buildFileState(loaded: LoadedFile, originalRaw?: string): FileState {
 
 export const useStore = create<State>((set, get) => ({
   dirHandle: null,
+  assetsDirHandle: null,
   files: {},
   selection: null,
   selectionId: null,
@@ -40,6 +44,13 @@ export const useStore = create<State>((set, get) => ({
   async initFromIdb() {
     if (!FS_SUPPORTED) return;
     const handle = await getSavedDir();
+    const assetsHandle = await getSavedAssetsDir();
+    if (assetsHandle) {
+      try {
+        const ok = await ensurePermission(assetsHandle, "readwrite");
+        if (ok) set({ assetsDirHandle: assetsHandle });
+      } catch {}
+    }
     if (!handle) return;
     try {
       const ok = await ensurePermission(handle, "readwrite");
@@ -65,6 +76,33 @@ export const useStore = create<State>((set, get) => ({
     } catch (e: any) {
       set({ loading: false, toast: { msg: `Pick failed: ${e.message ?? e}`, kind: "error" } });
     }
+  },
+
+  async pickAssetsDir() {
+    try {
+      const handle = await pickAssetsDirFs();
+      set({ assetsDirHandle: handle, toast: { msg: `Assets folder linked`, kind: "info" } });
+    } catch (e: any) {
+      set({ toast: { msg: `Pick failed: ${e.message ?? e}`, kind: "error" } });
+    }
+  },
+
+  async saveAsset(relPath, data) {
+    const { assetsDirHandle } = get();
+    if (assetsDirHandle) {
+      try {
+        await writeBinary(assetsDirHandle, relPath, data);
+        set({ toast: { msg: `Saved ${relPath}`, kind: "info" } });
+        return relPath;
+      } catch (e: any) {
+        set({ toast: { msg: `Save failed: ${e.message ?? e}`, kind: "error" } });
+        return null;
+      }
+    }
+    const filename = relPath.split("/").pop()!;
+    downloadBlob(filename, data);
+    set({ toast: { msg: `Downloaded ${filename} — drop it into ${relPath.split("/").slice(0, -1).join("/")}/`, kind: "info" } });
+    return relPath;
   },
 
   async reload() {

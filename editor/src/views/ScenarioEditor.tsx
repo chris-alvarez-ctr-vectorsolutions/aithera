@@ -1,5 +1,5 @@
 import { useStore } from "../store";
-import { TextField, NumberField, SelectField, BoolField, ArrayField, TagsField, RawJsonView } from "../fields/Fields";
+import { TextField, NumberField, SelectField, BoolField, ArrayField, TagsField, ImageField, RawJsonView } from "../fields/Fields";
 
 export function ScenarioEditor({ id }: { id: string }) {
   const file = useStore((s) => s.files["scenarios.json"]);
@@ -93,6 +93,15 @@ export function ScenarioEditor({ id }: { id: string }) {
       <TagsField label="Concepts" value={sc.concepts} onChange={(x) => setScenario({ concepts: x })} />
       <TagsField label="Topics" value={sc.topics} onChange={(x) => setScenario({ topics: x })} />
       <TextField label="Context" value={sc.context} onChange={(x) => setScenario({ context: x })} multiline />
+
+      <ImageField
+        label="Hero image"
+        value={sc.heroImage}
+        onChange={(x) => setScenario({ heroImage: x })}
+        folder="scenarios"
+        basename={sc.id}
+        conventionPath={`assets/scenarios/${sc.id}.jpg`}
+      />
 
       <fieldset>
         <legend>Welcome</legend>
