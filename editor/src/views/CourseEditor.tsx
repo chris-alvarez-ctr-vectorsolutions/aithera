@@ -1,5 +1,5 @@
 import { useStore } from "../store";
-import { TextField, NumberField, SelectField, BoolField, ArrayField, TagsField, RawJsonView } from "../fields/Fields";
+import { TextField, NumberField, SelectField, BoolField, ArrayField, TagsField, ImageField, RawJsonView } from "../fields/Fields";
 
 export function CourseEditor({ id }: { id: string }) {
   const file = useStore((s) => s.files["courses.json"]);
@@ -48,6 +48,15 @@ export function CourseEditor({ id }: { id: string }) {
         <TextField label="Credibility" value={c.credibility} onChange={(x) => setCourse({ credibility: x })} />
       </div>
       <TagsField label="Capabilities" value={c.capabilities} onChange={(x) => setCourse({ capabilities: x })} />
+
+      <ImageField
+        label="Hero image"
+        value={c.heroImage}
+        onChange={(x) => setCourse({ heroImage: x })}
+        folder="courses"
+        basename={c.id}
+        conventionPath={`assets/courses/${c.id}.jpg`}
+      />
 
       <ArrayField<any>
         label="Concepts"
