@@ -88,21 +88,30 @@ export const useStore = create<State>((set, get) => ({
   },
 
   async saveAsset(relPath, data) {
-    const { assetsDirHandle } = get();
-    if (assetsDirHandle) {
+    let { assetsDirHandle } = get();
+    // No handle yet: prompt the user to link an assets/ folder so the
+    // drop completes as an in-project save rather than a download.
+    if (!assetsDirHandle) {
       try {
-        await writeBinary(assetsDirHandle, relPath, data);
-        set({ toast: { msg: `Saved ${relPath}`, kind: "info" } });
-        return relPath;
+        assetsDirHandle = await pickAssetsDirFs();
+        set({ assetsDirHandle, toast: { msg: `Assets folder linked`, kind: "info" } });
       } catch (e: any) {
-        set({ toast: { msg: `Save failed: ${e.message ?? e}`, kind: "error" } });
-        return null;
+        // User canceled the picker — fall back to download so they
+        // still get the file out.
+        const filename = relPath.split("/").pop()!;
+        downloadBlob(filename, data);
+        set({ toast: { msg: `Downloaded ${filename} — link assets/ folder to save in-project`, kind: "info" } });
+        return relPath;
       }
     }
-    const filename = relPath.split("/").pop()!;
-    downloadBlob(filename, data);
-    set({ toast: { msg: `Downloaded ${filename} — drop it into ${relPath.split("/").slice(0, -1).join("/")}/`, kind: "info" } });
-    return relPath;
+    try {
+      await writeBinary(assetsDirHandle, relPath, data);
+      set({ toast: { msg: `Saved ${relPath}`, kind: "info" } });
+      return relPath;
+    } catch (e: any) {
+      set({ toast: { msg: `Save failed: ${e.message ?? e}`, kind: "error" } });
+      return null;
+    }
   },
 
   async reload() {

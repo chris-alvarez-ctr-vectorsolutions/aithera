@@ -299,7 +299,7 @@ export function ImageField(props: {
           </div>
           {!assetsDirHandle && (
             <div className="image-drop-warning">
-              No assets folder linked — files will download. <button onClick={pickAssetsDir} type="button">Link assets/ folder…</button>
+              No assets folder linked yet — you'll be prompted on drop. <button onClick={pickAssetsDir} type="button">Link assets/ folder now…</button>
             </div>
           )}
           <div className="image-drop-actions">
