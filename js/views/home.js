@@ -83,15 +83,8 @@ export function render() {
   const inProg = adaptive.inProgress();
   if (inProg.length) {
     const { course, progress } = inProg[0];
-    const ch = course.lessons.find((c) => c.id === progress.lesson) ?? course.lessons[0];
-    const pct = Math.round((progress.percent ?? 0) * 100);
     root.appendChild(ui.sectionHeader('In progress', inProg.length > 1 ? '#/courses' : null));
-    root.appendChild(ui.statusPanel({
-      kicker: course.title,
-      value: `${ch.title} · ${pct}%`,
-      href: `#/course/${course.id}/lesson/${ch.id}`,
-      percent: pct
-    }));
+    root.appendChild(ui.courseTile(course, { progress, compact: true }));
   }
 
   // 5. Recently completed — show in phase 1 so the learner sees their history

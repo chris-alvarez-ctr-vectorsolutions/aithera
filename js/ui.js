@@ -341,15 +341,13 @@ export function statTileRow(tiles) {
 // kicker = uppercase mini-label; value = bold status; href = where the
 // play affordance navigates (resume target).
 export function statusPanel({ kicker, value, href, percent }) {
-  const inner = el('div', { class: 'sp-inner' },
-    el('div', { class: 'sp-text' },
+  return el('a', { class: 'status-panel', href: href || '#' },
+    el('div', { class: 'sp-top' },
       el('div', { class: 'sp-kicker' }, kicker),
-      el('div', { class: 'sp-value' }, value),
-      typeof percent === 'number' ? progressBar(percent) : null
+      el('div', { class: 'sp-value' }, value)
     ),
-    el('div', { class: 'sp-cta' }, icon('play'))
+    typeof percent === 'number' ? progressBar(percent) : null
   );
-  return el('a', { class: 'status-panel', href: href || '#' }, inner);
 }
 
 export function alertStrip({ kicker, title, href, severity = 'urgent' }) {
@@ -400,11 +398,23 @@ export function coachPrompt({ question, primaryLabel, primaryHref, secondaryLabe
   );
 }
 
-export function primaryCta(label, href) {
-  return el('a', { class: 'btn primary block cta-large', href },
-    el('span', null, label),
+export function primaryCta(label, href, { percent } = {}) {
+  const hasPct = typeof percent === 'number';
+  const row = el('span', { class: 'cta-row' },
+    el('span', { class: 'cta-label' }, label),
+    hasPct && percent > 0 && percent < 100
+      ? el('span', { class: 'cta-meta' }, `${percent}% completed`)
+      : null,
     icon('chevron')
   );
+  const cls = 'btn primary block cta-large' + (hasPct ? ' with-progress' : '');
+  const a = el('a', { class: cls, href }, row);
+  if (hasPct) {
+    const bar = el('span', { class: 'cta-progress', 'aria-hidden': 'true' });
+    bar.innerHTML = `<span style="width:${Math.max(0, Math.min(100, percent))}%"></span>`;
+    a.appendChild(bar);
+  }
+  return a;
 }
 
 // Card surface helper — used as the standard course tile in lists.

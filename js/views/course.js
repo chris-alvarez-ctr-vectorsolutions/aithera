@@ -59,14 +59,6 @@ export function render(courseId) {
     { icon: 'clock', value: `${course.estMinutes}m`,       label: 'Est. duration' }
   ]));
 
-  // 4. Status panel — current state with play affordance
-  root.appendChild(ui.statusPanel({
-    kicker: 'Current status',
-    value: pct === 0 ? '0% completed' : pct === 100 ? 'Complete' : `${pct}% completed`,
-    href: `#/course/${course.id}/lesson/${resumeLessonId}`,
-    percent: pct
-  }));
-
   // 5. Coach message — adapts greeting tone
   root.appendChild(ui.coachMessage({
     title: progress ? 'Welcome back.' : `Ready to start, ${store.state.learner.name.split(' ')[0]}?`,
@@ -135,7 +127,8 @@ export function render(courseId) {
   // tab bar so the next action is always reachable.
   const ctaChildren = [
     ui.primaryCta(progress ? 'Resume course' : 'Start course',
-      `#/course/${course.id}/lesson/${resumeLessonId}`)
+      `#/course/${course.id}/lesson/${resumeLessonId}`,
+      { percent: pct })
   ];
   if (course.mandated && isAtLeast(4)) {
     ctaChildren.push(ui.el('p', { class: 'tiny muted center', style: { margin: '8px 0 0' } },
