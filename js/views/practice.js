@@ -71,10 +71,13 @@ export function render(scenarioId) {
 
     const wrap = ui.el('section', { class: 'stack' });
 
-    // Step header (kicker + title + timer)
+    // Step header. For choice steps the title moves down to sit directly
+    // above its answer options (see choiceInput); the header here stays a
+    // slim kicker+timer strip. Text-input steps keep the title up top.
+    const headerTitle = step.input === 'text' ? (step.title || `Step ${stepIdx + 1}`) : null;
     wrap.appendChild(ui.stepHeader({
       kicker: step.kicker || `${sc.kicker} · Step ${stepIdx + 1} of ${sc.steps.length}`,
-      title: step.title || `Step ${stepIdx + 1}`,
+      title: headerTitle,
       timerEl: timer
     }));
 
@@ -132,8 +135,11 @@ export function render(scenarioId) {
   // --------------------- INPUT MODES ---------------------
   function choiceInput(step) {
     const card = ui.el('div', { class: 'scn-choice' });
-    const kicker = ui.el('div', { class: 'scn-task-kicker' }, 'Choose a response');
-    card.appendChild(kicker);
+    // The question itself heads the choice card so the prompt and the
+    // answers read as one bonded unit. After a pick it swaps to a
+    // compact review label.
+    const heading = ui.el('h2', { class: 'scn-question' }, step.title || 'Choose a response');
+    card.appendChild(heading);
 
     const poll = ui.el('div', { class: 'poll' });
 
@@ -194,8 +200,10 @@ export function render(scenarioId) {
         poll.insertBefore(pickedWrap, poll.firstChild);
       }
 
-      // Tighten the section header now that we're in review mode.
-      kicker.textContent = correct ? 'Nice work' : 'Review';
+      // Tighten the section header now that we're in review mode — the
+      // question heading shrinks to a compact review kicker.
+      heading.textContent = correct ? 'Nice work' : 'Review';
+      heading.classList.add('is-review');
 
       // Render the explanation card.
       explain.className = `scn-explain t-${tone}`;

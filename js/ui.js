@@ -752,12 +752,17 @@ export function formulationField({ label = 'Your formulation', placeholder = 'Ty
   return wrap;
 }
 
-// stepHeader — the top of an in-scenario step: kicker, title, timer.
+// stepHeader — the top of an in-scenario step: kicker, optional title, timer.
+// When title is omitted, the header collapses to a slim orientation row:
+// kicker on the left, timer chip on the right. The question itself is
+// rendered down with the answer options on choice steps so the prompt and
+// the response sit visually together.
 export function stepHeader({ kicker, title, timerEl }) {
-  return el('div', { class: 'scn-stepheader' },
+  const cls = title ? 'scn-stepheader' : 'scn-stepheader is-compact';
+  return el('div', { class: cls },
     el('div', { class: 'sh-text' },
       kicker ? el('small', null, kicker) : null,
-      el('strong', null, title)
+      title ? el('strong', null, title) : null
     ),
     timerEl
   );
