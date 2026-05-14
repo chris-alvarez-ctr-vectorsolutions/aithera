@@ -1,0 +1,1663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EHS Mobile — Records</title>
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+    <script src="https://kit.fontawesome.com/76c2bc7cd1.js" crossorigin="anonymous"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: #b8c4d8;
+            min-height: 100vh;
+            font-family: 'Open Sans', -apple-system, sans-serif;
+            font-size: 14px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 40px 0 60px;
+        }
+
+        /* ── Phone frame / bezel ── */
+        .phone-frame {
+            background: #1c1c1e;
+            border-radius: 54px;
+            padding: 14px;
+            box-shadow:
+                0 0 0 1px #3a3a3c,
+                0 20px 60px rgba(0,0,0,0.55),
+                0 6px 20px rgba(0,0,0,0.35);
+            position: relative;
+            flex-shrink: 0;
+        }
+        .phone-frame::before {
+            content: '';
+            position: absolute;
+            left: -3px; top: 110px;
+            width: 3px; height: 36px;
+            background: #3a3a3c;
+            border-radius: 2px 0 0 2px;
+            box-shadow: 0 46px 0 #3a3a3c, 0 82px 0 #3a3a3c;
+        }
+        .phone-frame::after {
+            content: '';
+            position: absolute;
+            right: -3px; top: 140px;
+            width: 3px; height: 68px;
+            background: #3a3a3c;
+            border-radius: 0 2px 2px 0;
+        }
+
+        .phone {
+            width: 390px;
+            height: 844px;
+            background: white;
+            border-radius: 42px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* ── Gradient mobile header wrapper ── */
+        .mobile-header {
+            background: #1e1e1e;
+            background-image: linear-gradient(93deg, #526583 0%, rgba(2,113,206,0.65) 150%);
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        /* ── Status bar ── */
+        .status-bar {
+            background: transparent;
+            color: white;
+            padding: 12px 20px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        .status-icons { display: flex; align-items: center; gap: 6px; }
+
+        /* ── App header — normal ── */
+        .app-header {
+            background: transparent;
+            height: 50px;
+            padding: 0 10px;
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .header-title {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 18px;
+            font-weight: 600;
+            color: white;
+            pointer-events: none;
+        }
+        .header-left, .header-right {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .header-right { margin-left: auto; }
+        .hdr-icon-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .hdr-icon-btn:active { background: rgba(255,255,255,0.15); }
+        .select-btn {
+            background: none;
+            border: 1.5px solid rgba(255,255,255,0.75);
+            color: white;
+            border-radius: 6px;
+            padding: 4px 12px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .select-btn:active { background: rgba(255,255,255,0.1); }
+
+        /* ── App header — multi-select mode ── */
+        .app-header-select {
+            background: transparent;
+            height: 50px;
+            padding: 0 8px;
+            display: none;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 4px;
+        }
+        .app-header-select.active { display: flex; }
+        .select-count {
+            font-size: 17px;
+            font-weight: 600;
+            color: white;
+            flex: 1;
+            padding-left: 4px;
+        }
+
+        /* ── Select-All row ── */
+        .select-all-row {
+            background: white;
+            padding: 10px 16px;
+            border-bottom: 1px solid rgba(0,0,0,0.08);
+            display: none;
+            flex-shrink: 0;
+        }
+        .select-all-row.visible { display: block; }
+        .select-all-label {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #111827;
+            user-select: none;
+        }
+
+        /* ── Custom checkbox ── */
+        .check-wrap { display: flex; align-items: center; cursor: pointer; }
+        .check-wrap input[type="checkbox"] { position: absolute; opacity: 0; width: 0; height: 0; }
+        .check-ui {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #d1d5db;
+            border-radius: 4px;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.12s, border-color 0.12s;
+        }
+        .check-wrap input:checked ~ .check-ui {
+            background: #0271ce;
+            border-color: #0271ce;
+        }
+        .check-wrap input:checked ~ .check-ui::after {
+            content: '';
+            width: 5px;
+            height: 9px;
+            border: 2px solid white;
+            border-top: none;
+            border-left: none;
+            transform: rotate(45deg) translate(-1px, -1px);
+            display: block;
+        }
+
+        /* ── Offline banner ── */
+        .offline-banner {
+            background: #fffbeb;
+            border-bottom: 1px solid #fbbf24;
+            padding: 10px 16px;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            font-size: 12.5px;
+            color: #78350f;
+            flex-shrink: 0;
+        }
+        .offline-banner.active { display: flex; }
+        .offline-banner strong { font-weight: 700; }
+
+        /* ── Filter bar ── */
+        .filter-bar {
+            background: white;
+            border-bottom: 1px solid rgba(26,56,96,0.1);
+            padding: 0 14px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .active-filters {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            overflow-x: auto;
+            min-width: 0;
+        }
+        .active-filters::-webkit-scrollbar { display: none; }
+        .filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 7px 3px 10px;
+            border-radius: 14px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            background: #e8f0fb;
+            color: #1a5fa8;
+            border: 1.5px solid #1a5fa8;
+            flex-shrink: 0;
+        }
+        .filter-chip-remove {
+            background: none; border: none;
+            color: #1a5fa8; cursor: pointer;
+            font-size: 9px; padding: 0;
+            display: flex; align-items: center;
+            opacity: 0.75;
+        }
+        .filter-chip-remove:hover { opacity: 1; }
+        .filter-icon-btn {
+            width: 30px; height: 30px;
+            border: 1.5px solid rgba(26,41,61,0.3);
+            border-radius: 50%;
+            background: white;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            color: rgba(26,41,61,0.75);
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+        .filter-icon-btn:active { background: #f3f4f6; }
+
+        /* ── Records list ── */
+        .records-list {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 96px;
+            background: #f9fafb;
+        }
+
+        /* ── Record card ── */
+        .record-card {
+            display: flex;
+            align-items: flex-start;
+            background: white;
+            border-bottom: 1px solid rgba(0,0,0,0.08);
+            padding: 14px 12px 12px 16px;
+            cursor: pointer;
+            transition: background 0.12s;
+            gap: 0;
+        }
+        .record-card:active { background: #dce4ef; }
+        .record-card.submitted { background: #f3f4f6; cursor: default; }
+        .record-card.submitted:active { background: #f3f4f6; }
+        .record-card.selected { background: #dbeafe; }
+
+        /* Checkbox column — hidden until select mode */
+        .card-check-col {
+            width: 0;
+            overflow: hidden;
+            flex-shrink: 0;
+            display: flex;
+            align-items: flex-start;
+            padding-top: 2px;
+            transition: width 0.18s ease, margin-right 0.18s ease;
+            margin-right: 0;
+        }
+        .select-mode .card-check-col {
+            width: 28px;
+            margin-right: 8px;
+        }
+
+        /* Card body */
+        .card-body { flex: 1; min-width: 0; }
+
+        .card-badges {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            flex-wrap: wrap;
+            margin-top: 5px;
+            margin-bottom: 8px;
+        }
+
+        /* ── Figma badge styles ── */
+        .badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 8px; border-radius: 4px; font-size: 12px;
+            font-weight: 600; white-space: nowrap; height: 24px; flex-shrink: 0;
+        }
+        .badge-jsa       { background: rgba(2,113,206,0.1);  color: #0065ba; }
+        .badge-pending   { background: rgba(255,204,0,0.25); color: #985211; }
+        .badge-submitted { background: rgba(22,136,70,0.1);  color: #0a7637; }
+        .badge-missing   { background: rgba(231,29,19,0.1);  color: #ca150c; }
+        .badge-sync-failed { background: rgba(231,29,19,0.1); color: #ca150c; }
+        .badge-incomplete { background: rgba(25,59,103,0.05); color: rgba(26,41,61,0.83); }
+        .badge-upload    { background: #ede9fe; color: #5b21b6; }
+
+        /* Offline download indicator */
+        .offline-icon {
+            font-size: 12px;
+            color: rgba(26,41,61,0.45);
+            flex-shrink: 0;
+        }
+
+        /* Card actions: action button + 3-dot */
+        .card-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        /* Hide submit/copy buttons in select mode */
+        .select-mode .action-btn {
+            display: none !important;
+        }
+
+        /* Vaadin button sizing */
+        .card-actions vaadin-button {
+            --lumo-button-size: 36px;
+            height: 36px;
+            min-height: 0;
+        }
+        .card-actions vaadin-button::part(button) {
+            height: 36px;
+            min-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+        .card-actions vaadin-button::part(label) {
+            font-size: 13px;
+            padding: 0 14px;
+        }
+
+        /* 3-dot button */
+        .more-btn {
+            background: none; border: none;
+            color: rgba(26,41,61,0.65);
+            font-size: 18px; cursor: pointer;
+            width: 36px; height: 36px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            border-radius: 6px;
+        }
+        .more-btn:active { background: #f3f4f6; }
+
+        /* Queued label */
+        .queued-label {
+            display: flex; align-items: center; gap: 4px;
+            font-size: 11px; color: rgba(0,0,0,0.5);
+        }
+
+        /* Card title */
+        .card-title {
+            font-size: 15.5px;
+            font-weight: 600;
+            color: rgba(0,0,0,0.87);
+            line-height: 1.3;
+            margin-bottom: 0;
+        }
+
+        /* ID row (submitted cards only) */
+        .card-id-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12.5px;
+            color: rgba(0,0,0,0.7);
+            margin-bottom: 4px;
+        }
+        .copy-id-btn {
+            background: none; border: none; cursor: pointer;
+            color: rgba(26,41,61,0.6); font-size: 12px; padding: 0;
+            display: flex; align-items: center;
+        }
+
+        /* Location */
+        .card-location {
+            font-size: 12.5px;
+            color: rgba(0,0,0,0.55);
+            display: flex;
+            align-items: flex-start;
+            gap: 5px;
+            margin-bottom: 5px;
+            line-height: 1.4;
+        }
+        .card-location i {
+            font-size: 11px;
+            margin-top: 2px;
+            color: rgba(0,0,0,0.38);
+            flex-shrink: 0;
+        }
+
+        /* Footer row */
+        .card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(0,0,0,0.06);
+        }
+        .card-created {
+            font-size: 12px;
+            color: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .card-created i { font-size: 11px; }
+
+        /* ── Empty state ── */
+        .empty-state {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            padding: 60px 32px;
+            text-align: center;
+        }
+        .empty-state.active { display: flex; }
+        .empty-icon {
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            background: rgba(25,59,103,0.06);
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 20px;
+            color: #9ca3af; font-size: 34px;
+        }
+        .empty-title { font-size: 17px; font-weight: 600; color: #111827; margin-bottom: 8px; }
+        .empty-subtitle { font-size: 13px; color: #6b7280; line-height: 1.55; }
+
+        /* ── Submit All FAB ── */
+        .submit-all-wrap {
+            position: absolute;
+            bottom: 102px; right: 16px;
+            z-index: 10;
+        }
+        .submit-all-btn {
+            background: #1a3d6b; color: white;
+            border: none; border-radius: 10px;
+            padding: 0 20px; height: 44px;
+            font-size: 14px; font-weight: 700;
+            font-family: inherit; cursor: pointer;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+            white-space: nowrap;
+        }
+        .submit-all-btn:active { background: #152f52; }
+
+        /* ── Already Submitted modal ── */
+        .already-submitted-overlay {
+            position: absolute; inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 300; display: none;
+            justify-content: center; align-items: center;
+            padding: 24px;
+        }
+        .already-submitted-overlay.active { display: flex; }
+        .already-submitted-modal {
+            background: white; border-radius: 14px;
+            padding: 24px 20px 16px;
+            width: 100%; max-width: 320px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        .already-submitted-modal h3 {
+            font-size: 16px; font-weight: 700;
+            color: rgba(0,0,0,0.87); margin-bottom: 10px; line-height: 1.35;
+        }
+        .already-submitted-modal p {
+            font-size: 14px; color: rgba(0,0,0,0.6);
+            line-height: 1.5; margin-bottom: 20px;
+        }
+        .already-submitted-modal button {
+            width: 100%; height: 44px;
+            background: #0271ce; color: white; border: none;
+            border-radius: 8px; font-size: 15px; font-weight: 600;
+            font-family: inherit; cursor: pointer;
+        }
+        .already-submitted-modal button:active { background: #0261b4; }
+
+        /* ── Bottom nav ── */
+        .bottom-nav {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 88px; background: white;
+            border-top: 1px solid #e5e7eb;
+            box-shadow: 0 -1px 2px rgba(28,48,74,0.12);
+            display: flex; align-items: flex-start;
+            padding: 8px 16px 0; gap: 0;
+            z-index: 10;
+        }
+        .nav-item {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            height: 48px; border-radius: 9px; cursor: pointer;
+            font-size: 12px; gap: 2px;
+            color: rgba(0,0,0,0.6); text-decoration: none;
+        }
+        .nav-item.active { background: #f3f4f6; }
+        .nav-item .nav-icon { font-size: 18px; }
+        .nav-item .nav-label { font-size: 12px; font-weight: 400; color: rgba(0,0,0,0.6); }
+        .nav-item.active .nav-icon, .nav-item.active .nav-label { color: #0271ce; font-weight: 600; }
+        .nav-badge-wrap {
+            position: relative; display: inline-flex;
+        }
+        .nav-count-badge {
+            position: absolute; top: -2px; right: -4px;
+            background: #e74c39; color: white; border-radius: 8px;
+            font-size: 8px; min-width: 14px; height: 14px;
+            display: flex; align-items: center; justify-content: center;
+            padding: 0 3px; font-weight: 700; border: 1.5px solid white;
+        }
+
+        /* ── Overlay backdrop ── */
+        .overlay {
+            position: absolute; inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 200; display: none;
+            justify-content: center; align-items: flex-end;
+        }
+        .overlay.active { display: flex; }
+
+        /* ── Bottom sheet shared ── */
+        .sheet-handle {
+            width: 36px; height: 4px;
+            background: #d1d5db; border-radius: 2px;
+            margin: 12px auto 0;
+        }
+
+        /* ── Filter sheet ── */
+        .filter-sheet {
+            background: white;
+            width: 100%;
+            border-radius: 20px 20px 0 0;
+            padding: 0 0 28px;
+            max-height: 80%;
+            overflow-y: auto;
+        }
+        .filter-sheet-header {
+            padding: 16px 16px 12px;
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid #f0f1f3; margin-bottom: 4px;
+        }
+        .sheet-title { font-size: 16px; font-weight: 700; color: #111827; }
+        .sheet-reset-btn {
+            background: none; border: none; font-size: 13px;
+            color: #1a5fa8; cursor: pointer; font-family: inherit; font-weight: 600;
+        }
+        .sheet-section { padding: 14px 16px 0; }
+        .section-label {
+            font-size: 11px; font-weight: 700; color: #6b7280;
+            text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px;
+        }
+        .filter-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+        .filter-pill {
+            padding: 5px 13px; border-radius: 20px; font-size: 13px; cursor: pointer;
+            border: 1.5px solid #e0e3ea; color: #6b7280; background: white; font-family: inherit;
+        }
+        .filter-pill.selected { background: #1a5fa8; color: white; border-color: #1a5fa8; }
+        .sheet-footer { padding: 16px 16px 0; display: flex; gap: 10px; }
+        .sheet-cancel {
+            flex: 1; padding: 11px; border: 1.5px solid #d1d5db; border-radius: 8px;
+            background: white; font-size: 14px; font-weight: 600; color: #374151;
+            cursor: pointer; font-family: inherit;
+        }
+        .sheet-apply {
+            flex: 2; padding: 11px; border: none; border-radius: 8px;
+            background: #1a5fa8; font-size: 14px; font-weight: 600;
+            color: white; cursor: pointer; font-family: inherit;
+        }
+
+        /* ── Detail sheet ── */
+        .detail-sheet {
+            background: white;
+            width: 100%;
+            border-radius: 20px 20px 0 0;
+            max-height: 82%;
+            overflow-y: auto;
+            padding-bottom: 32px;
+        }
+        .detail-sheet-head {
+            display: flex;
+            align-items: center;
+            padding: 16px 16px 12px;
+            gap: 10px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .detail-close {
+            background: none; border: none;
+            font-size: 17px; color: rgba(0,0,0,0.55);
+            cursor: pointer; width: 32px; height: 32px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 50%; flex-shrink: 0;
+        }
+        .detail-close:active { background: #f3f4f6; }
+        .detail-title {
+            flex: 1;
+            font-size: 15px; font-weight: 600; color: #111827;
+            text-align: center; padding-right: 32px; /* offset for close btn */
+        }
+        .detail-description {
+            padding: 14px 16px 12px;
+            font-size: 13px; color: rgba(0,0,0,0.6); line-height: 1.6;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .detail-rows { padding: 0 16px; }
+        .detail-row {
+            display: flex;
+            align-items: flex-start;
+            padding: 11px 0;
+            border-bottom: 1px solid #f3f4f6;
+            gap: 10px;
+        }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 100px;
+            flex-shrink: 0;
+            font-size: 12.5px;
+            color: rgba(0,0,0,0.5);
+        }
+        .detail-label i {
+            width: 15px; text-align: center;
+            font-size: 13px; color: rgba(0,0,0,0.35);
+        }
+        .detail-value {
+            font-size: 13px; color: rgba(0,0,0,0.82);
+            flex: 1; line-height: 1.45;
+        }
+
+        /* ── Settings sheet ── */
+        .settings-sheet {
+            background: white;
+            width: 100%;
+            border-radius: 20px 20px 0 0;
+            max-height: 78%;
+            overflow-y: auto;
+            padding-bottom: 32px;
+        }
+        .settings-sheet-head {
+            display: flex;
+            align-items: center;
+            padding: 16px 16px 14px;
+            border-bottom: 1px solid #f0f1f3;
+        }
+        .settings-title {
+            flex: 1; font-size: 17px; font-weight: 600;
+            color: #111827; text-align: center; padding-right: 32px;
+        }
+        .settings-section-label {
+            font-size: 14px; font-weight: 700;
+            color: #111827;
+            padding: 18px 16px 10px;
+        }
+        .settings-row {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            gap: 12px;
+            border-bottom: 1px solid #f5f6f7;
+        }
+        .settings-row-text { flex: 1; }
+        .settings-row-label { font-size: 14px; font-weight: 500; color: #111827; margin-bottom: 1px; }
+        .settings-row-sub { font-size: 12px; color: rgba(0,0,0,0.48); line-height: 1.4; }
+        vwc-switch { flex-shrink: 0; }
+
+        /* ── Context menu ── */
+        .context-menu {
+            position: absolute; background: white; border-radius: 10px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.18); overflow: hidden;
+            z-index: 500; min-width: 175px; display: none;
+        }
+        .context-menu.open { display: block; }
+        .ctx-item {
+            display: flex; align-items: center; gap: 10px; padding: 11px 16px;
+            font-size: 13.5px; cursor: pointer; color: #111827;
+            border: none; background: none; width: 100%; text-align: left; font-family: inherit;
+        }
+        .ctx-item:active { background: #f3f4f6; }
+        .ctx-item i { width: 16px; text-align: center; color: #6b7280; font-size: 14px; }
+        .ctx-item.danger { color: #dc2626; }
+        .ctx-item.danger i { color: #dc2626; }
+        .ctx-divider { height: 1px; background: #f0f1f3; }
+
+        /* ── Toast ── */
+        .toast {
+            position: absolute; bottom: 96px;
+            left: 50%; transform: translateX(-50%) translateY(20px);
+            background: #1f2937; color: white;
+            padding: 9px 16px; border-radius: 8px;
+            font-size: 12.5px; opacity: 0;
+            transition: opacity 0.25s, transform 0.25s;
+            z-index: 999; white-space: nowrap; pointer-events: none;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        /* ── Demo controls ── */
+        .demo-controls {
+            position: fixed; bottom: 24px; left: 24px;
+            z-index: 9999; display: flex; gap: 6px; flex-wrap: wrap; max-width: 200px;
+        }
+        .demo-btn {
+            background: rgba(31,41,55,0.85); color: white; border: none;
+            padding: 6px 10px; border-radius: 6px; backdrop-filter: blur(4px);
+            font-size: 11px; cursor: pointer; font-family: inherit;
+        }
+    </style>
+</head>
+<body>
+
+<div class="demo-controls">
+    <button class="demo-btn" onclick="toggleOffline()">Toggle Offline</button>
+    <button class="demo-btn" onclick="toggleEmpty()">Toggle Empty</button>
+</div>
+
+<div class="phone-frame">
+<div class="phone" id="phone">
+
+    <!-- Gradient Header Wrapper -->
+    <div class="mobile-header">
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <span>9:30 PM</span>
+            <div class="status-icons">
+                <i class="fa-solid fa-signal"></i>
+                <i class="fa-solid fa-wifi" id="wifi-icon"></i>
+                <i class="fa-solid fa-battery-full"></i>
+            </div>
+        </div>
+
+        <!-- App Header — Normal -->
+        <div class="app-header" id="hdr-normal">
+            <div class="header-left"></div>
+            <span class="header-title">Records</span>
+            <div class="header-right">
+                <button class="select-btn" id="select-btn">Select</button>
+                <button class="hdr-icon-btn" id="settings-btn" title="Settings">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- App Header — Multi-select -->
+        <div class="app-header-select" id="hdr-select">
+            <button class="hdr-icon-btn" id="cancel-select-btn">
+                <i class="fa-solid fa-arrow-left"></i>
+            </button>
+            <span class="select-count" id="select-count">0</span>
+            <button class="hdr-icon-btn" id="bulk-share-btn" title="Share">
+                <i class="fa-solid fa-share-from-square"></i>
+            </button>
+            <button class="hdr-icon-btn" id="bulk-download-btn" title="Save offline">
+                <i class="fa-solid fa-arrow-down-to-line"></i>
+            </button>
+            <button class="hdr-icon-btn" id="bulk-delete-btn" title="Delete">
+                <i class="fa-solid fa-trash"></i>
+            </button>
+        </div>
+    </div><!-- /mobile-header -->
+
+    <!-- Select-All row -->
+    <div class="select-all-row" id="select-all-row">
+        <label class="select-all-label">
+            <span class="check-wrap">
+                <input type="checkbox" id="select-all-cb">
+                <span class="check-ui"></span>
+            </span>
+            Select All
+        </label>
+    </div>
+
+    <!-- Offline Banner -->
+    <div class="offline-banner" id="offline-banner">
+        <i class="fa-solid fa-triangle-exclamation" style="color:#d97706;flex-shrink:0;"></i>
+        <span><strong>You're offline</strong> — records will sync when you reconnect</span>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+        <div class="active-filters" id="active-filters"></div>
+        <button class="filter-icon-btn" id="filter-btn" title="Filter records">
+            <i class="fa-solid fa-bars-filter"></i>
+        </button>
+    </div>
+
+    <!-- Records List -->
+    <div class="records-list" id="records-list">
+
+        <!-- STATE: Pending + offline -->
+        <div class="record-card" data-state="pending" data-offline="true" data-id="rec-001"
+             data-title="Form Name Lorem Ipsum"
+             data-location="Warehouse 12, Atlanta, Georgia, USA"
+             data-facility="Warehouse 12" data-created="1/15/26 - 12:12:34 PM" data-synced="—"
+             data-reporter="Andy Xia (Me)" data-assignee="Sarah Johnson"
+             data-desc="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc vulputate libero et velit interdum, ac aliquet odio mattis.">
+            <div class="card-check-col">
+                <label class="check-wrap">
+                    <input type="checkbox" class="card-cb">
+                    <span class="check-ui"></span>
+                </label>
+            </div>
+            <div class="card-body">
+                <div class="card-title">Form Name Lorem Ipsum</div>
+                <div class="card-badges">
+                    <span class="badge badge-jsa"><i class="fa-solid fa-triangle-exclamation fa-xs"></i> JSA</span>
+                    <span class="badge badge-pending"><i class="fa-solid fa-file-arrow-up fa-xs"></i> Pending</span>
+                    <i class="fa-solid fa-arrow-down-to-line offline-icon" title="Saved offline"></i>
+                </div>
+                <div class="card-location"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
+                <div class="card-footer">
+                    <span class="card-created"><i class="fa-regular fa-clock"></i> Created: 1/15/26 - 12:12:34 PM</span>
+                    <div class="card-actions">
+                        <vaadin-button theme="secondary small" data-action="submit" class="action-btn">Submit</vaadin-button>
+                        <button class="more-btn" aria-label="More options"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATE: Submitted (with ID row) -->
+        <div class="record-card submitted" data-state="submitted" data-id="rec-002"
+             data-title="Form Name Lorem Ipsum"
+             data-location="Warehouse 12, Atlanta, Georgia, USA"
+             data-facility="Facility Name" data-created="1/15/26 - 12:12:34 PM" data-synced="1/15/26 - 1:12:02 PM"
+             data-reporter="Andy Xia (Me)" data-assignee="Sarah Johnson"
+             data-desc="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc vulputate libero et velit interdum, ac aliquet odio mattis.">
+            <div class="card-check-col">
+                <label class="check-wrap">
+                    <input type="checkbox" class="card-cb">
+                    <span class="check-ui"></span>
+                </label>
+            </div>
+            <div class="card-body">
+                <div class="card-title">Form Name Lorem Ipsum</div>
+                <div class="card-badges">
+                    <span class="badge badge-jsa"><i class="fa-solid fa-triangle-exclamation fa-xs"></i> JSA</span>
+                    <span class="badge badge-submitted"><i class="fa-solid fa-check fa-xs"></i> Submitted</span>
+                </div>
+                <div class="card-id-row">
+                    ID: 12345679
+                    <button class="copy-id-btn" data-id="12345679"><i class="fa-regular fa-copy"></i></button>
+                </div>
+                <div class="card-location"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
+                <div class="card-footer">
+                    <span class="card-created"><i class="fa-regular fa-clock"></i> Created: 1/15/26 - 12:12:34 PM</span>
+                    <div class="card-actions">
+                        <vaadin-button theme="secondary small" data-action="copy-id" class="action-btn" data-id="12345679">Copy ID</vaadin-button>
+                        <button class="more-btn" aria-label="More options"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATE: Submitted + offline -->
+        <div class="record-card submitted" data-state="submitted" data-offline="true" data-id="rec-003"
+             data-title="Form Name Lorem Ipsum"
+             data-location="Warehouse 12, Atlanta, Georgia, USA"
+             data-facility="Facility Name" data-created="1/15/26 - 12:12:34 PM" data-synced="1/15/26 - 2:04:11 PM"
+             data-reporter="Andy Xia (Me)" data-assignee="Sarah Johnson"
+             data-desc="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc vulputate libero et velit interdum, ac aliquet odio mattis.">
+            <div class="card-check-col">
+                <label class="check-wrap">
+                    <input type="checkbox" class="card-cb">
+                    <span class="check-ui"></span>
+                </label>
+            </div>
+            <div class="card-body">
+                <div class="card-title">Form Name Lorem Ipsum</div>
+                <div class="card-badges">
+                    <span class="badge badge-jsa"><i class="fa-solid fa-triangle-exclamation fa-xs"></i> JSA</span>
+                    <span class="badge badge-submitted"><i class="fa-solid fa-check fa-xs"></i> Submitted</span>
+                    <i class="fa-solid fa-arrow-down-to-line offline-icon" title="Saved offline"></i>
+                </div>
+                <div class="card-id-row">
+                    ID: 23456780
+                    <button class="copy-id-btn" data-id="23456780"><i class="fa-regular fa-copy"></i></button>
+                </div>
+                <div class="card-location"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
+                <div class="card-footer">
+                    <span class="card-created"><i class="fa-regular fa-clock"></i> Created: 1/15/26 - 12:12:34 PM</span>
+                    <div class="card-actions">
+                        <vaadin-button theme="secondary small" data-action="copy-id" class="action-btn" data-id="23456780">Copy ID</vaadin-button>
+                        <button class="more-btn" aria-label="More options"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATE: Missing Fields + offline -->
+        <div class="record-card" data-state="missing-fields" data-offline="true" data-id="rec-004"
+             data-title="Form Name Lorem Ipsum"
+             data-location="Warehouse 12, Atlanta, Georgia, USA"
+             data-facility="Warehouse 12" data-created="1/15/26 - 12:12:34 PM" data-synced="—"
+             data-reporter="Andy Xia (Me)" data-assignee="—"
+             data-desc="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc vulputate libero et velit interdum, ac aliquet odio mattis.">
+            <div class="card-check-col">
+                <label class="check-wrap">
+                    <input type="checkbox" class="card-cb">
+                    <span class="check-ui"></span>
+                </label>
+            </div>
+            <div class="card-body">
+                <div class="card-title">Form Name Lorem Ipsum</div>
+                <div class="card-badges">
+                    <span class="badge badge-jsa"><i class="fa-solid fa-triangle-exclamation fa-xs"></i> JSA</span>
+                    <span class="badge badge-missing"><i class="fa-solid fa-triangle-exclamation fa-xs"></i> Missing Fields</span>
+                    <i class="fa-solid fa-arrow-down-to-line offline-icon" title="Saved offline"></i>
+                </div>
+                <div class="card-location"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
+                <div class="card-footer">
+                    <span class="card-created"><i class="fa-regular fa-clock"></i> Created: 1/15/26 - 12:12:34 PM</span>
+                    <div class="card-actions">
+                        <button class="more-btn" aria-label="More options"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATE: Sync Failed -->
+        <div class="record-card" data-state="sync-failed" data-id="rec-005"
+             data-title="Form Name Lorem Ipsum"
+             data-location="Warehouse 12, Atlanta, Georgia, USA"
+             data-facility="Warehouse 12" data-created="1/15/26 - 11:05:00 AM" data-synced="—"
+             data-reporter="Andy Xia (Me)" data-assignee="—"
+             data-desc="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc vulputate libero et velit interdum.">
+            <div class="card-check-col">
+                <label class="check-wrap">
+                    <input type="checkbox" class="card-cb">
+                    <span class="check-ui"></span>
+                </label>
+            </div>
+            <div class="card-body">
+                <div class="card-title">Form Name Lorem Ipsum</div>
+                <div class="card-badges">
+                    <span class="badge badge-jsa"><i class="fa-solid fa-triangle-exclamation fa-xs"></i> JSA</span>
+                    <span class="badge badge-sync-failed"><i class="fa-solid fa-rotate fa-xs"></i> Sync Failed</span>
+                </div>
+                <div class="card-location"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
+                <div class="card-footer">
+                    <span class="card-created"><i class="fa-regular fa-clock"></i> Created: 1/15/26 - 11:05:00 AM</span>
+                    <div class="card-actions">
+                        <vaadin-button theme="error secondary small" data-action="retry" class="action-btn">Retry</vaadin-button>
+                        <button class="more-btn" aria-label="More options"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATE: Pending (no offline) -->
+        <div class="record-card" data-state="pending" data-id="rec-006"
+             data-title="Form Name Lorem Ipsum"
+             data-location="Warehouse 12, Atlanta, Georgia, USA"
+             data-facility="Warehouse 12" data-created="1/15/26 - 9:44:00 AM" data-synced="—"
+             data-reporter="Andy Xia (Me)" data-assignee="Sarah Johnson"
+             data-desc="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc vulputate libero et velit interdum.">
+            <div class="card-check-col">
+                <label class="check-wrap">
+                    <input type="checkbox" class="card-cb">
+                    <span class="check-ui"></span>
+                </label>
+            </div>
+            <div class="card-body">
+                <div class="card-title">Form Name Lorem Ipsum</div>
+                <div class="card-badges">
+                    <span class="badge badge-jsa"><i class="fa-solid fa-triangle-exclamation fa-xs"></i> JSA</span>
+                    <span class="badge badge-pending"><i class="fa-solid fa-file-arrow-up fa-xs"></i> Pending</span>
+                </div>
+                <div class="card-location"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
+                <div class="card-footer">
+                    <span class="card-created"><i class="fa-regular fa-clock"></i> Created: 1/15/26 - 9:44:00 AM</span>
+                    <div class="card-actions">
+                        <vaadin-button theme="secondary small" data-action="submit" class="action-btn">Submit</vaadin-button>
+                        <button class="more-btn" aria-label="More options"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /records-list -->
+
+    <!-- Empty State -->
+    <div class="empty-state" id="empty-state">
+        <div class="empty-icon"><i class="fa-regular fa-folder-open"></i></div>
+        <div class="empty-title">No records yet</div>
+        <div class="empty-subtitle">Records you create or download will appear here.</div>
+    </div>
+
+    <!-- Submit All FAB -->
+    <div class="submit-all-wrap" id="submit-all-wrap">
+        <button class="submit-all-btn" id="submit-all-btn">
+            Submit All (<span id="pending-count">0</span>)
+        </button>
+    </div>
+
+    <!-- Already Submitted Modal -->
+    <div class="already-submitted-overlay" id="already-submitted-overlay">
+        <div class="already-submitted-modal">
+            <h3>This incident has already been submitted</h3>
+            <p>You will only be able to access it on the web version of EHS.</p>
+            <button id="already-submitted-ok">Okay</button>
+        </div>
+    </div>
+
+    <!-- Bottom Nav -->
+    <nav class="bottom-nav">
+        <a class="nav-item" href="Mobile App - main.html">
+            <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+            <span class="nav-label">Home</span>
+        </a>
+        <a class="nav-item active" href="#">
+            <span class="nav-badge-wrap nav-icon">
+                <i class="fa-solid fa-file-lines"></i>
+                <span class="nav-count-badge">1</span>
+            </span>
+            <span class="nav-label">Records</span>
+        </a>
+        <a class="nav-item" href="#">
+            <span class="nav-icon"><i class="fa-solid fa-ellipsis"></i></span>
+            <span class="nav-label">More</span>
+        </a>
+    </nav>
+
+    <!-- ── Filter overlay ── -->
+    <div class="overlay" id="filter-overlay">
+        <div class="filter-sheet">
+            <div class="sheet-handle"></div>
+            <div class="filter-sheet-header">
+                <span class="sheet-title">Filters</span>
+                <button class="sheet-reset-btn" id="reset-filters-btn">Reset all</button>
+            </div>
+            <div class="sheet-section">
+                <div class="section-label">Status</div>
+                <div class="filter-pills" data-single-select>
+                    <button class="filter-pill selected">All</button>
+                    <button class="filter-pill">Pending</button>
+                    <button class="filter-pill">Missing Fields</button>
+                    <button class="filter-pill">Sync Failed</button>
+                    <button class="filter-pill">Submitted</button>
+                </div>
+            </div>
+            <div class="sheet-section">
+                <div class="section-label">Form Type</div>
+                <div class="filter-pills">
+                    <button class="filter-pill selected">JSA</button>
+                    <button class="filter-pill selected">Incident</button>
+                    <button class="filter-pill selected">Inspection</button>
+                    <button class="filter-pill">Observation</button>
+                    <button class="filter-pill">Hazard</button>
+                </div>
+            </div>
+            <div class="sheet-footer">
+                <button class="sheet-cancel" id="filter-cancel-btn">Cancel</button>
+                <button class="sheet-apply" id="filter-apply-btn">Apply Filters</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Detail overlay ── -->
+    <div class="overlay" id="detail-overlay">
+        <div class="detail-sheet">
+            <div class="sheet-handle"></div>
+            <div class="detail-sheet-head">
+                <button class="detail-close" id="detail-close-btn"><i class="fa-solid fa-xmark"></i></button>
+                <div class="detail-title" id="detail-title">Form Name Lorem Ipsum</div>
+            </div>
+            <div class="detail-description" id="detail-desc">
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc vulputate libero et velit interdum, ac aliquet odio mattis.
+            </div>
+            <div class="detail-rows">
+                <div class="detail-row">
+                    <div class="detail-label"><i class="fa-solid fa-id-card"></i> ID:</div>
+                    <div class="detail-value" id="detail-id">—</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label"><i class="fa-solid fa-location-dot"></i> Location:</div>
+                    <div class="detail-value" id="detail-location">—</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label"><i class="fa-solid fa-building"></i> Facility:</div>
+                    <div class="detail-value" id="detail-facility">—</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label"><i class="fa-regular fa-clock"></i> Created:</div>
+                    <div class="detail-value" id="detail-created">—</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label"><i class="fa-solid fa-rotate"></i> Synced:</div>
+                    <div class="detail-value" id="detail-synced">—</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label"><i class="fa-regular fa-user"></i> Reported by:</div>
+                    <div class="detail-value" id="detail-reporter">—</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label"><i class="fa-solid fa-user-plus"></i> Assigned to:</div>
+                    <div class="detail-value" id="detail-assignee">—</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Settings overlay ── -->
+    <div class="overlay" id="settings-overlay">
+        <div class="settings-sheet">
+            <div class="sheet-handle"></div>
+            <div class="settings-sheet-head">
+                <button class="detail-close" id="settings-close-btn"><i class="fa-solid fa-xmark"></i></button>
+                <div class="settings-title">Records Settings</div>
+            </div>
+            <div class="settings-section-label">Downloads</div>
+            <div class="settings-row">
+                <div class="settings-row-text">
+                    <div class="settings-row-label">Automatic Downloads</div>
+                    <div class="settings-row-sub">Submitted records automatically stored on this device</div>
+                </div>
+                <vwc-switch></vwc-switch>
+            </div>
+            <div class="settings-row">
+                <div class="settings-row-text">
+                    <div class="settings-row-label">Automatically Download Updates</div>
+                    <div class="settings-row-sub">Automatically download updates to forms stored on your device</div>
+                </div>
+                <vwc-switch></vwc-switch>
+            </div>
+            <div class="settings-row">
+                <div class="settings-row-text">
+                    <div class="settings-row-label">Wi-Fi Only</div>
+                </div>
+                <vwc-switch></vwc-switch>
+            </div>
+            <div class="settings-section-label">Notifications</div>
+            <div class="settings-row">
+                <div class="settings-row-text">
+                    <div class="settings-row-label">Recommend Downloads</div>
+                    <div class="settings-row-sub">Notify me when new records are available to download</div>
+                </div>
+                <vwc-switch></vwc-switch>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div class="context-menu" id="context-menu">
+        <button class="ctx-item" id="ctx-edit"><i class="fa-solid fa-pen"></i> Edit</button>
+        <button class="ctx-item" id="ctx-share"><i class="fa-solid fa-share-from-square"></i> Share</button>
+        <button class="ctx-item" id="ctx-offline"><i class="fa-solid fa-arrow-down-to-line"></i> Save Offline</button>
+        <button class="ctx-item" id="ctx-sync"><i class="fa-solid fa-rotate"></i> Sync</button>
+        <button class="ctx-item" id="ctx-retry" style="display:none;"><i class="fa-solid fa-rotate-right"></i> Retry</button>
+        <div class="ctx-divider"></div>
+        <button class="ctx-item danger" id="ctx-delete"><i class="fa-solid fa-trash"></i> Delete</button>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+</div><!-- /phone -->
+</div><!-- /phone-frame -->
+
+
+<script>
+    // ── Toast ──────────────────────────────────────────────────
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    // ── Overlay helpers ────────────────────────────────────────
+    function openOverlay(id)  { document.getElementById(id).classList.add('active'); }
+    function closeOverlay(id) { document.getElementById(id).classList.remove('active'); }
+
+    // Close any overlay when tapping backdrop
+    document.querySelectorAll('.overlay').forEach(overlay => {
+        overlay.addEventListener('click', e => {
+            if (e.target === overlay) overlay.classList.remove('active');
+        });
+    });
+
+    // ── Submit All count ───────────────────────────────────────
+    function refreshSubmitAll() {
+        const unsubmitted = document.querySelectorAll(
+            '.record-card[data-state="pending"], .record-card[data-state="sync-failed"]'
+        );
+        const wrap = document.getElementById('submit-all-wrap');
+        const listHidden = document.getElementById('records-list').style.display === 'none';
+        const inSelectMode = document.getElementById('hdr-select').classList.contains('active');
+        if (unsubmitted.length === 0 || listHidden || inSelectMode) {
+            wrap.style.display = 'none';
+        } else {
+            wrap.style.display = '';
+            document.getElementById('pending-count').textContent = unsubmitted.length;
+        }
+    }
+
+    // ── Submit a card ──────────────────────────────────────────
+    function submitCard(card) {
+        const isOffline = document.getElementById('offline-banner').classList.contains('active');
+        if (isOffline) {
+            card.dataset.state = 'pending-upload';
+            const statusBadge = card.querySelectorAll('.badge')[1];
+            if (statusBadge) {
+                statusBadge.className = 'badge badge-upload';
+                statusBadge.innerHTML = '<i class="fa-solid fa-cloud-arrow-up fa-xs"></i> Pending Upload';
+            }
+            const actions = card.querySelector('.card-actions');
+            if (actions) actions.innerHTML = '<span class="queued-label"><i class="fa-solid fa-rotate fa-spin"></i></span>';
+            showToast('Queued — will sync when online');
+        } else {
+            card.dataset.state = 'submitted';
+            card.classList.add('submitted');
+            const statusBadge = card.querySelectorAll('.badge')[1];
+            if (statusBadge) {
+                statusBadge.className = 'badge badge-submitted';
+                statusBadge.innerHTML = '<i class="fa-solid fa-check fa-xs"></i> Submitted';
+            }
+            // Swap action button to Copy ID
+            const actionsDiv = card.querySelector('.card-actions');
+            if (actionsDiv) {
+                const newId = Math.floor(10000000 + Math.random() * 90000000);
+                card.dataset.submittedId = newId;
+                actionsDiv.innerHTML = `
+                    <vaadin-button theme="secondary small" data-action="copy-id" class="action-btn" data-id="${newId}">Copy ID</vaadin-button>
+                    <button class="more-btn" aria-label="More options"><i class="fa-solid fa-ellipsis-vertical"></i></button>`;
+            }
+            // Add ID row below title
+            const title = card.querySelector('.card-title');
+            if (title && !card.querySelector('.card-id-row')) {
+                const newId = card.dataset.submittedId || Math.floor(10000000 + Math.random() * 90000000);
+                const idRow = document.createElement('div');
+                idRow.className = 'card-id-row';
+                idRow.innerHTML = `ID: ${newId} <button class="copy-id-btn" data-id="${newId}"><i class="fa-regular fa-copy"></i></button>`;
+                title.after(idRow);
+            }
+            showToast('Record submitted successfully');
+        }
+        refreshSubmitAll();
+    }
+
+    // ── Retry a sync-failed card ───────────────────────────────
+    function retryCard(card) {
+        if (document.getElementById('offline-banner').classList.contains('active')) {
+            showToast('Still offline — will retry when connected');
+            return;
+        }
+        card.dataset.state = 'pending';
+        submitCard(card);
+    }
+
+    // ── Open detail sheet ──────────────────────────────────────
+    function openDetailSheet(card) {
+        document.getElementById('detail-title').textContent    = card.dataset.title || 'Form Details';
+        document.getElementById('detail-desc').textContent     = card.dataset.desc  || '';
+        document.getElementById('detail-location').textContent = card.dataset.location || '—';
+        document.getElementById('detail-facility').textContent = card.dataset.facility  || '—';
+        document.getElementById('detail-created').textContent  = card.dataset.created   || '—';
+        document.getElementById('detail-synced').textContent   = card.dataset.synced    || '—';
+        document.getElementById('detail-reporter').textContent = card.dataset.reporter  || '—';
+        document.getElementById('detail-assignee').textContent = card.dataset.assignee  || '—';
+        const idRow = card.querySelector('.card-id-row');
+        document.getElementById('detail-id').textContent = idRow
+            ? idRow.textContent.replace('ID:', '').trim().split(' ')[0]
+            : (card.dataset.submittedId || '—');
+        openOverlay('detail-overlay');
+    }
+
+    document.getElementById('detail-close-btn').addEventListener('click', () => closeOverlay('detail-overlay'));
+    document.getElementById('settings-close-btn').addEventListener('click', () => closeOverlay('settings-overlay'));
+    document.getElementById('settings-btn').addEventListener('click', () => openOverlay('settings-overlay'));
+    document.getElementById('already-submitted-ok').addEventListener('click', () => {
+        document.getElementById('already-submitted-overlay').classList.remove('active');
+    });
+
+    // ── Event delegation on records list ──────────────────────
+    document.getElementById('records-list').addEventListener('click', (e) => {
+        // In select mode: toggling checkbox on card tap (not on button/3-dot)
+        if (selectMode) {
+            const card = e.target.closest('.record-card');
+            if (card && !e.target.closest('.more-btn') && !e.target.closest('vaadin-button')) {
+                const cb = card.querySelector('.card-cb');
+                if (cb) {
+                    cb.checked = !cb.checked;
+                    cb.dispatchEvent(new Event('change'));
+                }
+            }
+            return;
+        }
+
+        // View More
+        if (e.target.closest('.view-more-btn')) {
+            e.stopPropagation();
+            openDetailSheet(e.target.closest('.record-card'));
+            return;
+        }
+        // Copy ID (inline link)
+        const copyBtn = e.target.closest('.copy-id-btn');
+        if (copyBtn) {
+            e.stopPropagation();
+            showToast(`ID ${copyBtn.dataset.id} copied`);
+            return;
+        }
+        // 3-dot
+        if (e.target.closest('.more-btn')) {
+            e.stopPropagation();
+            openContextMenu(e.target.closest('.more-btn'));
+            return;
+        }
+        // Vaadin button actions
+        const vBtn = e.target.closest('vaadin-button');
+        if (vBtn) {
+            e.stopPropagation();
+            const card = vBtn.closest('.record-card');
+            const action = vBtn.dataset.action;
+            if (action === 'submit')   submitCard(card);
+            else if (action === 'retry') retryCard(card);
+            else if (action === 'copy-id') showToast(`ID ${vBtn.dataset.id} copied`);
+            return;
+        }
+        // Card tap → submitted cards show modal; others open detail
+        const card = e.target.closest('.record-card');
+        if (card) {
+            if (card.classList.contains('submitted')) {
+                document.getElementById('already-submitted-overlay').classList.add('active');
+            } else {
+                openDetailSheet(card);
+            }
+        }
+    });
+
+    // ── Submit All ─────────────────────────────────────────────
+    document.getElementById('submit-all-btn').addEventListener('click', () => {
+        const pending = [...document.querySelectorAll('.record-card[data-state="pending"]')];
+        const failed  = [...document.querySelectorAll('.record-card[data-state="sync-failed"]')];
+        const missing = document.querySelectorAll('.record-card[data-state="missing-fields"]').length;
+        let count = 0;
+        pending.forEach(c => { submitCard(c); count++; });
+        failed.forEach(c  => { retryCard(c);  count++; });
+        if (missing > 0) showToast(`${missing} record(s) still have missing fields`);
+        else if (count > 0) showToast(`${count} record(s) submitted`);
+    });
+
+    // ── Multi-select ───────────────────────────────────────────
+    let selectMode = false;
+    const selectedIds = new Set();
+
+    function enterSelectMode() {
+        selectMode = true;
+        document.getElementById('phone').classList.add('select-mode');
+        document.getElementById('hdr-normal').style.display = 'none';
+        document.getElementById('hdr-select').classList.add('active');
+        document.getElementById('select-all-row').classList.add('visible');
+        document.getElementById('submit-all-wrap').style.display = 'none';
+        updateSelectHeader();
+    }
+
+    function exitSelectMode() {
+        selectMode = false;
+        selectedIds.clear();
+        document.getElementById('phone').classList.remove('select-mode');
+        document.getElementById('hdr-normal').style.display = '';
+        document.getElementById('hdr-select').classList.remove('active');
+        document.getElementById('select-all-row').classList.remove('visible');
+        // Uncheck all
+        document.querySelectorAll('.card-cb').forEach(cb => { cb.checked = false; });
+        document.getElementById('select-all-cb').checked = false;
+        document.querySelectorAll('.record-card').forEach(c => c.classList.remove('selected'));
+        refreshSubmitAll();
+    }
+
+    function updateSelectHeader() {
+        document.getElementById('select-count').textContent = selectedIds.size;
+    }
+
+    document.getElementById('select-btn').addEventListener('click', enterSelectMode);
+    document.getElementById('cancel-select-btn').addEventListener('click', exitSelectMode);
+
+    // Card checkboxes
+    document.getElementById('records-list').addEventListener('change', e => {
+        const cb = e.target.closest('.card-cb');
+        if (!cb) return;
+        const card = cb.closest('.record-card');
+        if (cb.checked) {
+            selectedIds.add(card.dataset.id);
+            card.classList.add('selected');
+        } else {
+            selectedIds.delete(card.dataset.id);
+            card.classList.remove('selected');
+        }
+        // Sync select-all checkbox
+        const all = document.querySelectorAll('.card-cb');
+        const checked = document.querySelectorAll('.card-cb:checked');
+        document.getElementById('select-all-cb').checked = all.length === checked.length && all.length > 0;
+        updateSelectHeader();
+    });
+
+    // Select All
+    document.getElementById('select-all-cb').addEventListener('change', e => {
+        const check = e.target.checked;
+        document.querySelectorAll('.card-cb').forEach(cb => {
+            cb.checked = check;
+            const card = cb.closest('.record-card');
+            if (check) { selectedIds.add(card.dataset.id); card.classList.add('selected'); }
+            else        { selectedIds.delete(card.dataset.id); card.classList.remove('selected'); }
+        });
+        updateSelectHeader();
+    });
+
+    // Bulk actions
+    document.getElementById('bulk-share-btn').addEventListener('click', () => {
+        if (selectedIds.size === 0) { showToast('Select at least one record'); return; }
+        showToast(`Sharing ${selectedIds.size} record(s)…`);
+        exitSelectMode();
+    });
+    document.getElementById('bulk-download-btn').addEventListener('click', () => {
+        if (selectedIds.size === 0) { showToast('Select at least one record'); return; }
+        // Add offline icon to selected cards
+        document.querySelectorAll('.record-card.selected').forEach(card => {
+            card.dataset.offline = 'true';
+            const badges = card.querySelector('.card-badges');
+            if (badges && !badges.querySelector('.offline-icon')) {
+                const icon = document.createElement('i');
+                icon.className = 'fa-solid fa-arrow-down-to-line offline-icon';
+                icon.title = 'Saved offline';
+                badges.appendChild(icon);
+            }
+        });
+        showToast(`${selectedIds.size} record(s) saved offline`);
+        exitSelectMode();
+    });
+    document.getElementById('bulk-delete-btn').addEventListener('click', () => {
+        if (selectedIds.size === 0) { showToast('Select at least one record'); return; }
+        const count = selectedIds.size;
+        document.querySelectorAll('.record-card.selected').forEach(card => {
+            card.style.transition = 'opacity 0.15s';
+            card.style.opacity = '0';
+            setTimeout(() => card.remove(), 150);
+        });
+        setTimeout(() => { refreshSubmitAll(); }, 200);
+        showToast(`${count} record(s) deleted`);
+        exitSelectMode();
+    });
+
+    // ── Filter sheet ───────────────────────────────────────────
+    const appliedFilters = {
+        status: 'All',
+        types: new Set(['JSA','Incident','Inspection','Observation','Hazard'])
+    };
+    const ALL_TYPES = ['JSA','Incident','Inspection','Observation','Hazard'];
+
+    function renderFilterChips() {
+        const container = document.getElementById('active-filters');
+        container.innerHTML = '';
+        if (appliedFilters.status !== 'All') {
+            container.appendChild(makeChip(appliedFilters.status, () => {
+                appliedFilters.status = 'All';
+                syncSheetToState(); renderFilterChips();
+            }));
+        }
+        const missingTypes = ALL_TYPES.filter(t => !appliedFilters.types.has(t));
+        if (missingTypes.length > 0) {
+            appliedFilters.types.forEach(type => {
+                container.appendChild(makeChip(type, () => {
+                    appliedFilters.types.delete(type);
+                    syncSheetToState(); renderFilterChips();
+                }));
+            });
+        }
+    }
+
+    function makeChip(label, onRemove) {
+        const chip = document.createElement('div');
+        chip.className = 'filter-chip';
+        chip.innerHTML = `${label}<button class="filter-chip-remove" title="Remove"><i class="fa-solid fa-xmark"></i></button>`;
+        chip.querySelector('.filter-chip-remove').addEventListener('click', e => {
+            e.stopPropagation(); onRemove();
+        });
+        return chip;
+    }
+
+    function syncSheetToState() {
+        document.querySelector('[data-single-select]').querySelectorAll('.filter-pill').forEach(p => {
+            p.classList.toggle('selected', p.textContent.trim() === appliedFilters.status);
+        });
+        document.querySelector('.filter-pills:not([data-single-select])').querySelectorAll('.filter-pill').forEach(p => {
+            p.classList.toggle('selected', appliedFilters.types.has(p.textContent.trim()));
+        });
+    }
+
+    function applyFilters() {
+        const sp = document.querySelector('[data-single-select] .filter-pill.selected');
+        appliedFilters.status = sp ? sp.textContent.trim() : 'All';
+        appliedFilters.types.clear();
+        document.querySelectorAll('.filter-pills:not([data-single-select]) .filter-pill.selected').forEach(p => {
+            appliedFilters.types.add(p.textContent.trim());
+        });
+        renderFilterChips();
+        closeOverlay('filter-overlay');
+    }
+
+    document.getElementById('filter-btn').addEventListener('click', () => openOverlay('filter-overlay'));
+    document.getElementById('filter-cancel-btn').addEventListener('click', () => closeOverlay('filter-overlay'));
+    document.getElementById('filter-apply-btn').addEventListener('click', applyFilters);
+
+    document.querySelectorAll('.filter-pills').forEach(group => {
+        const single = group.hasAttribute('data-single-select');
+        group.querySelectorAll('.filter-pill').forEach(pill => {
+            pill.addEventListener('click', () => {
+                if (single) { group.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('selected')); }
+                pill.classList.toggle('selected', single ? true : !pill.classList.contains('selected'));
+                if (single) pill.classList.add('selected');
+            });
+        });
+    });
+
+    document.getElementById('reset-filters-btn').addEventListener('click', () => {
+        document.querySelector('[data-single-select] .filter-pill').click();
+        document.querySelectorAll('.filter-pills:not([data-single-select]) .filter-pill').forEach(p => p.classList.add('selected'));
+        applyFilters();
+    });
+
+    // ── Context menu ───────────────────────────────────────────
+    let activeContextCard = null;
+    const ctxMenu = document.getElementById('context-menu');
+
+    function openContextMenu(btn) {
+        activeContextCard = btn.closest('.record-card');
+        const state = activeContextCard.dataset.state;
+        const isOffline = activeContextCard.dataset.offline === 'true';
+        document.getElementById('ctx-edit').style.display   = state !== 'submitted' ? 'flex' : 'none';
+        document.getElementById('ctx-sync').style.display   = state !== 'submitted' ? 'flex' : 'none';
+        document.getElementById('ctx-retry').style.display  = state === 'sync-failed' ? 'flex' : 'none';
+        const ctxOffline = document.getElementById('ctx-offline');
+        ctxOffline.innerHTML = isOffline
+            ? '<i class="fa-solid fa-trash-can"></i> Remove Offline Copy'
+            : '<i class="fa-solid fa-arrow-down-to-line"></i> Save Offline';
+        const rect = btn.getBoundingClientRect();
+        const phoneRect = document.querySelector('.phone').getBoundingClientRect();
+        ctxMenu.style.top  = (rect.bottom - phoneRect.top + 4) + 'px';
+        ctxMenu.style.left = Math.max(4, rect.right - phoneRect.left - 180) + 'px';
+        ctxMenu.classList.add('open');
+    }
+
+    function closeContextMenu() { ctxMenu.classList.remove('open'); activeContextCard = null; }
+    document.addEventListener('click', e => { if (!ctxMenu.contains(e.target)) closeContextMenu(); });
+
+    document.getElementById('ctx-edit').addEventListener('click', () => {
+        showToast('Opening record editor…'); closeContextMenu();
+    });
+    document.getElementById('ctx-share').addEventListener('click', () => {
+        showToast('Copying share link…'); closeContextMenu();
+    });
+    document.getElementById('ctx-offline').addEventListener('click', () => {
+        if (!activeContextCard) return;
+        const isOffline = activeContextCard.dataset.offline === 'true';
+        if (isOffline) {
+            activeContextCard.dataset.offline = 'false';
+            const icon = activeContextCard.querySelector('.offline-icon');
+            if (icon) icon.remove();
+            showToast('Offline copy removed');
+        } else {
+            activeContextCard.dataset.offline = 'true';
+            const badges = activeContextCard.querySelector('.card-badges');
+            if (badges && !badges.querySelector('.offline-icon')) {
+                const icon = document.createElement('i');
+                icon.className = 'fa-solid fa-arrow-down-to-line offline-icon';
+                icon.title = 'Saved offline';
+                badges.appendChild(icon);
+            }
+            showToast('Saved for offline use');
+        }
+        closeContextMenu();
+    });
+    document.getElementById('ctx-sync').addEventListener('click', () => {
+        showToast('Syncing record…'); closeContextMenu();
+    });
+    document.getElementById('ctx-retry').addEventListener('click', () => {
+        if (activeContextCard) retryCard(activeContextCard);
+        closeContextMenu();
+    });
+    document.getElementById('ctx-delete').addEventListener('click', () => {
+        if (!activeContextCard) return;
+        activeContextCard.style.transition = 'opacity 0.15s';
+        activeContextCard.style.opacity = '0';
+        setTimeout(() => { activeContextCard.remove(); refreshSubmitAll(); }, 150);
+        closeContextMenu();
+        showToast('Record deleted');
+    });
+
+    // ── Demo toggles ───────────────────────────────────────────
+    function toggleOffline() {
+        const banner = document.getElementById('offline-banner');
+        const wifiIcon = document.getElementById('wifi-icon');
+        banner.classList.toggle('active');
+        wifiIcon.className = banner.classList.contains('active')
+            ? 'fa-solid fa-wifi-slash' : 'fa-solid fa-wifi';
+    }
+
+    function toggleEmpty() {
+        const list  = document.getElementById('records-list');
+        const empty = document.getElementById('empty-state');
+        const isHidden = list.style.display === 'none';
+        list.style.display  = isHidden ? '' : 'none';
+        empty.classList.toggle('active', !isHidden);
+        refreshSubmitAll();
+    }
+
+    // ── Init ───────────────────────────────────────────────────
+    refreshSubmitAll();
+</script>
+</body>
+</html>
