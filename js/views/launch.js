@@ -49,11 +49,18 @@ const CATEGORIES = [
 // the launch screen.
 const EXPERIMENTS = [
   {
-    id: 'pano-tanker',
+    id: 'pano-tanker-spill',
     label: 'Tanker spill panorama',
     desc: 'Pan & zoom an immersive 360° scene',
-    href: 'immersive.html',
+    href: 'immersive.html?scene=tanker-spill',
     icon: '🌐'
+  },
+  {
+    id: 'pano-tanker-response',
+    label: 'Highway spill response',
+    desc: 'Aftermath with emergency responders on scene',
+    href: 'immersive.html?scene=tanker-response',
+    icon: '🚒'
   }
 ];
 
