@@ -61,6 +61,13 @@ const EXPERIMENTS = [
     desc: 'Aftermath with emergency responders on scene',
     href: 'immersive.html?scene=tanker-response',
     icon: '🚒'
+  },
+  {
+    id: 'voice-tanker-sizeup',
+    label: 'Voice size-up — highway spill',
+    desc: 'Narrate what you see; Coach Vic listens for key observations',
+    href: 'voice-scene.html',
+    icon: '🎙'
   }
 ];
 
