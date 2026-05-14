@@ -44,6 +44,19 @@ const CATEGORIES = [
   }
 ];
 
+// Experiments — standalone prototype pages outside the main app shell.
+// Each opens its own HTML page; add new entries here to surface them on
+// the launch screen.
+const EXPERIMENTS = [
+  {
+    id: 'pano-tanker',
+    label: 'Tanker spill panorama',
+    desc: 'Pan & zoom an immersive 360° scene',
+    href: 'immersive.html',
+    icon: '🌐'
+  }
+];
+
 let selected = null;
 
 export function render() {
@@ -75,6 +88,11 @@ export function render() {
       <button class="btn primary block" id="go" disabled>Launch experience</button>
       <p class="muted tiny center" style="margin-top:10px">No sign-in. Profile is loaded from local JSON.</p>
       <a class="launch-guide-link" href="#/guide">📘 User testing guide ›</a>
+
+      <section class="launch-experiments" id="experiments">
+        <div class="launch-experiments-head">Experiments</div>
+        <ul class="launch-experiments-list" id="experimentsList"></ul>
+      </section>
     </div>
   `;
 
@@ -112,6 +130,23 @@ export function render() {
       }
       row.appendChild(btn);
     }
+  }
+
+  const expList = root.querySelector('#experimentsList');
+  for (const exp of EXPERIMENTS) {
+    const li = document.createElement('li');
+    li.className = 'launch-experiment';
+    li.innerHTML = `
+      <a class="launch-experiment-link" href="${exp.href}">
+        <span class="launch-experiment-icon" aria-hidden="true">${exp.icon || '▶'}</span>
+        <span class="launch-experiment-text">
+          <span class="launch-experiment-label">${exp.label}</span>
+          <span class="launch-experiment-desc">${exp.desc}</span>
+        </span>
+        <span class="launch-experiment-arrow" aria-hidden="true">›</span>
+      </a>
+    `;
+    expList.appendChild(li);
   }
 
   goBtn.onclick = async () => {
