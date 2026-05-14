@@ -154,7 +154,8 @@ function renderRoute() {
   // If the URL is missing the profile slug for a shelled route, rewrite
   // it in place so what the user copies from the address bar is shareable.
   if (store.state.profileSlug && match.shell && !query.get('p')) {
-    const enriched = `${path}?p=${encodeURIComponent(store.state.profileSlug)}`;
+    query.set('p', store.state.profileSlug);
+    const enriched = `${path}?${query.toString()}`;
     history.replaceState(null, '', `${location.pathname}${location.search}${enriched}`);
   }
 

@@ -150,6 +150,18 @@ function renderPhase2(root, learner) {
       secondaryHref: `#/practice/${sc.id}`
     }));
   }
+  const offer = learner.kaOffer;
+  if (offer?.scenarioId && store.scenario(offer.scenarioId)) {
+    root.appendChild(ui.el('div', { class: 'card ka-offer' },
+      ui.el('div', { class: 'tag', style: { display: 'inline-block', marginBottom: '8px', background: 'var(--accent)', color: '#fff' } }, offer.kicker || 'Knowledge Assistant'),
+      ui.el('h3', { style: { margin: '0 0 6px', fontSize: '16px' } }, offer.headline || 'A short practice scenario'),
+      ui.el('p', { class: 'muted', style: { margin: '0 0 12px' } }, offer.body || ''),
+      ui.el('div', { class: 'row', style: { gap: '8px' } },
+        ui.el('a', { class: 'btn primary', href: `#/practice/${offer.scenarioId}?from=ka`, style: { flex: '1' } }, offer.acceptLabel || 'Try the scenario'),
+        ui.el('a', { class: 'btn ghost', href: '#/home' }, offer.dismissLabel || 'Not now')
+      )
+    ));
+  }
 }
 
 function renderPhase3(root, learner) {

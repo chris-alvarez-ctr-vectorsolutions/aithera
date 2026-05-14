@@ -82,6 +82,11 @@ export function personaAdaptiveCourse() {
 }
 
 export function personaPhase1Course() {
+  const override = store.state.learner?.nextUpCourseId;
+  if (override) {
+    const match = store.state.courses.find((c) => c.id === override);
+    if (match) return match;
+  }
   const slug = store.state.profileSlug;
   const key = {
     'ems': 'ems',
