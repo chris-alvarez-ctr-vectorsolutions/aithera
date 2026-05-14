@@ -12,9 +12,15 @@ import { store } from '../store.js';
 import * as ui from '../ui.js';
 
 export function render(scenarioId) {
-  // Hash may carry a ?retry=N suffix. Parse it off the id.
+  // Hash may carry a ?retry=N or ?from=ka suffix. The router strips the
+  // query off `path` before regex-matching, so we re-read it from the
+  // live hash here.
   const [pureId, qs = ''] = String(scenarioId).split('?');
-  const retryCount = parseInt(new URLSearchParams(qs).get('retry') || '0', 10) || 0;
+  const hashIdx = location.hash.indexOf('?');
+  const hashQs = hashIdx >= 0 ? location.hash.slice(hashIdx + 1) : qs;
+  const params = new URLSearchParams(hashQs);
+  const retryCount = parseInt(params.get('retry') || '0', 10) || 0;
+  const fromKa = params.get('from') === 'ka';
 
   const baseScenario = store.scenario(pureId);
   const root = document.createElement('section');
@@ -49,10 +55,14 @@ export function render(scenarioId) {
     const retrySuffix = retryCount > 0
       ? ` This is take ${retryCount + 1} — the prompts are the same, but the option order has been shuffled to keep the rehearsal honest.`
       : '';
+    const kaPrefix = fromKa
+      ? "Picking up where you left off in AlcoholEdu. "
+      : '';
+    const kaKicker = fromKa ? 'Knowledge Assistant · Suggested practice' : null;
     show(ui.scenarioWelcome({
-      kicker: retryCount > 0 ? `Module orientation · take ${retryCount + 1}` : (w.kicker || sc.kicker || 'Module orientation'),
+      kicker: retryCount > 0 ? `Module orientation · take ${retryCount + 1}` : (kaKicker || w.kicker || sc.kicker || 'Module orientation'),
       title: w.title || 'Scenario overview',
-      body: (w.body || sc.context) + retrySuffix,
+      body: kaPrefix + (w.body || sc.context) + retrySuffix,
       highlight: w.highlight,
       reassurance: w.reassurance,
       expectedOutcome: w.expectedOutcome || sc.outcomeType,
