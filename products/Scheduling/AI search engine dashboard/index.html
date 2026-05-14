@@ -3682,6 +3682,553 @@ function QuickAddCallbackModal({ onClose }) {
   );
 }
 
+/* =====================================================================
+   HISTORY VIEW — Callback Ranking History (rank movement focused)
+   ===================================================================== */
+
+const HIST_POSITIONS = ['All Positions', 'Patrol', 'Firefighter 2', 'Bay Guard', 'Dispatcher'];
+
+/* startRank = rank at start of period; rank = current rank; netChange = startRank - rank (positive = improved) */
+const HIST_EMPLOYEES = [
+  { id: 1,  name: 'Sofia Reyes',      pos: 'Patrol',        startRank: 8, rank: 1, total: 148, callbacks: 48, scheduler: 80, holdover: 12, misc: 4,  manual: 4  },
+  { id: 2,  name: 'Marcus Chen',      pos: 'Firefighter 2', startRank: 6, rank: 1, total: 124, callbacks: 36, scheduler: 72, holdover: 8,  misc: 4,  manual: 4  },
+  { id: 3,  name: 'James Kowalski',   pos: 'Bay Guard',     startRank: 3, rank: 2, total: 96,  callbacks: 24, scheduler: 48, holdover: 16, misc: 8,  manual: 0  },
+  { id: 4,  name: 'Priya Nair',       pos: 'Dispatcher',    startRank: 4, rank: 4, total: 64,  callbacks: 16, scheduler: 40, holdover: 0,  misc: 8,  manual: 0  },
+  { id: 5,  name: 'Leon Baptiste',    pos: 'Firefighter 2', startRank: 3, rank: 5, total: 56,  callbacks: 12, scheduler: 36, holdover: 4,  misc: 4,  manual: 0  },
+  { id: 6,  name: 'Treva Aguinaga',   pos: 'Patrol',        startRank: 2, rank: 3, total: 48,  callbacks: 0,  scheduler: 48, holdover: 0,  misc: 0,  manual: 0  },
+  { id: 7,  name: 'Thomas Nguyen',    pos: 'Bay Guard',     startRank: 5, rank: 6, total: 40,  callbacks: 4,  scheduler: 32, holdover: 4,  misc: 0,  manual: 0  },
+  { id: 8,  name: 'Danielle Ford',    pos: 'Patrol',        startRank: 5, rank: 7, total: 22,  callbacks: 8,  scheduler: 10, holdover: 4,  misc: 0,  manual: 0  },
+  { id: 9,  name: 'Angela Morrison',  pos: 'Dispatcher',    startRank: 7, rank: 8, total: 18,  callbacks: 0,  scheduler: 16, holdover: 0,  misc: 2,  manual: 0  },
+  { id: 10, name: 'Derek Walsh',      pos: 'Firefighter 2', startRank: 8, rank: 9, total: 12,  callbacks: 0,  scheduler: 8,  holdover: 0,  misc: 4,  manual: 0  },
+];
+
+const HIST_EVENT_TYPES = {
+  callback:  { label: 'Callback',          color: '#0271CE', bg: 'rgba(2,113,206,.12)'  },
+  scheduler: { label: 'Scheduler Hours',   color: '#158444', bg: 'rgba(21,132,68,.12)'  },
+  holdover:  { label: 'Holdover Hours',    color: '#7C3AED', bg: 'rgba(124,58,237,.12)' },
+  misc:      { label: 'Miscellaneous',     color: '#E0782E', bg: 'rgba(224,120,46,.12)' },
+  manual:    { label: 'Manual Adjustment', color: '#D83E38', bg: 'rgba(216,62,56,.12)'  },
+};
+
+/* Each event has rankBefore/rankAfter so the log can show rank movement */
+const HIST_EVENTS = {
+  1: [ /* Sofia Reyes — starts #8, climbs to #1 */
+    { date: '2025-01-06', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 8,   by: 'System',           rankBefore: 8, rankAfter: 8  },
+    { date: '2025-01-10', type: 'callback',  desc: 'Callback accepted — Station 7 coverage',          hours: 12, total: 20,  by: 'System',           rankBefore: 8, rankAfter: 7  },
+    { date: '2025-01-14', type: 'scheduler', desc: 'Scheduled overtime — Night shift',                hours: 8,  total: 28,  by: 'System',           rankBefore: 7, rankAfter: 7  },
+    { date: '2025-01-21', type: 'holdover',  desc: 'Holdover — incident response extended',           hours: 4,  total: 32,  by: 'System',           rankBefore: 7, rankAfter: 6  },
+    { date: '2025-01-28', type: 'callback',  desc: 'Callback accepted — Emergency coverage',          hours: 8,  total: 40,  by: 'System',           rankBefore: 6, rankAfter: 5  },
+    { date: '2025-02-04', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 48,  by: 'System',           rankBefore: 5, rankAfter: 5  },
+    { date: '2025-02-11', type: 'callback',  desc: 'Callback accepted — Short notice fill',           hours: 12, total: 60,  by: 'System',           rankBefore: 5, rankAfter: 4  },
+    { date: '2025-02-18', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 68,  by: 'System',           rankBefore: 4, rankAfter: 4  },
+    { date: '2025-02-25', type: 'holdover',  desc: 'Holdover — equipment delay',                      hours: 4,  total: 72,  by: 'System',           rankBefore: 4, rankAfter: 3  },
+    { date: '2025-03-03', type: 'misc',      desc: 'Training hours credited — Leadership course',     hours: 4,  total: 76,  by: 'Sgt. Torres',      rankBefore: 3, rankAfter: 3  },
+    { date: '2025-03-10', type: 'callback',  desc: 'Callback accepted — Patrol coverage',             hours: 8,  total: 84,  by: 'System',           rankBefore: 3, rankAfter: 3  },
+    { date: '2025-03-17', type: 'scheduler', desc: 'Scheduled overtime — Night shift',                hours: 8,  total: 92,  by: 'System',           rankBefore: 3, rankAfter: 3  },
+    { date: '2025-03-24', type: 'holdover',  desc: 'Holdover — shift transition delay',               hours: 4,  total: 96,  by: 'System',           rankBefore: 3, rankAfter: 2  },
+    { date: '2025-03-31', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 104, by: 'System',           rankBefore: 2, rankAfter: 2  },
+    { date: '2025-04-07', type: 'callback',  desc: 'Callback accepted — Holiday coverage',            hours: 8,  total: 112, by: 'System',           rankBefore: 2, rankAfter: 2  },
+    { date: '2025-04-14', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 120, by: 'System',           rankBefore: 2, rankAfter: 2  },
+    { date: '2025-04-21', type: 'manual',    desc: 'Manual adjustment — correction per admin review', hours: 4,  total: 124, by: 'Admin: V. Torres', rankBefore: 2, rankAfter: 2  },
+    { date: '2025-04-28', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 132, by: 'System',           rankBefore: 2, rankAfter: 2  },
+    { date: '2025-05-05', type: 'callback',  desc: 'Callback accepted — Special event staffing',      hours: 8,  total: 140, by: 'System',           rankBefore: 2, rankAfter: 1  },
+    { date: '2025-05-12', type: 'holdover',  desc: 'Holdover — complex incident',                     hours: 4,  total: 144, by: 'System',           rankBefore: 1, rankAfter: 1  },
+    { date: '2025-05-19', type: 'manual',    desc: 'Manual adjustment — approved OT credit',          hours: 4,  total: 148, by: 'Admin: V. Torres', rankBefore: 1, rankAfter: 1  },
+  ],
+  2: [ /* Marcus Chen — starts #6, climbs to #1 */
+    { date: '2025-01-03', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 8,   by: 'System',           rankBefore: 6, rankAfter: 6  },
+    { date: '2025-01-08', type: 'callback',  desc: 'Callback accepted — Station 4 coverage',          hours: 12, total: 20,  by: 'System',           rankBefore: 6, rankAfter: 5  },
+    { date: '2025-01-15', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 28,  by: 'System',           rankBefore: 5, rankAfter: 5  },
+    { date: '2025-01-22', type: 'holdover',  desc: 'Holdover — shift extended 4h',                    hours: 4,  total: 32,  by: 'System',           rankBefore: 5, rankAfter: 4  },
+    { date: '2025-01-29', type: 'callback',  desc: 'Callback accepted — Emergency coverage',          hours: 8,  total: 40,  by: 'System',           rankBefore: 4, rankAfter: 3  },
+    { date: '2025-02-05', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 48,  by: 'System',           rankBefore: 3, rankAfter: 3  },
+    { date: '2025-02-10', type: 'misc',      desc: 'Training hours credited',                         hours: 4,  total: 52,  by: 'Sgt. Torres',      rankBefore: 3, rankAfter: 3  },
+    { date: '2025-02-14', type: 'callback',  desc: 'Callback accepted — Holiday coverage',            hours: 8,  total: 60,  by: 'System',           rankBefore: 3, rankAfter: 2  },
+    { date: '2025-02-19', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 68,  by: 'System',           rankBefore: 2, rankAfter: 2  },
+    { date: '2025-02-26', type: 'holdover',  desc: 'Holdover — equipment delay',                      hours: 4,  total: 72,  by: 'System',           rankBefore: 2, rankAfter: 2  },
+    { date: '2025-03-04', type: 'callback',  desc: 'Callback accepted — Sick coverage',               hours: 8,  total: 80,  by: 'System',           rankBefore: 2, rankAfter: 2  },
+    { date: '2025-03-11', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 88,  by: 'System',           rankBefore: 2, rankAfter: 2  },
+    { date: '2025-03-18', type: 'manual',    desc: 'Manual adjustment — correction per admin',        hours: 4,  total: 92,  by: 'Admin: V. Torres', rankBefore: 2, rankAfter: 1  },
+    { date: '2025-03-25', type: 'scheduler', desc: 'Scheduled overtime — Night shift',                hours: 8,  total: 100, by: 'System',           rankBefore: 1, rankAfter: 1  },
+    { date: '2025-04-01', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 108, by: 'System',           rankBefore: 1, rankAfter: 1  },
+    { date: '2025-04-08', type: 'callback',  desc: 'Callback accepted — Special event',               hours: 8,  total: 116, by: 'System',           rankBefore: 1, rankAfter: 1  },
+    { date: '2025-04-15', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 124, by: 'System',           rankBefore: 1, rankAfter: 1  },
+  ],
+  3: [ /* James Kowalski — starts #3, goes to #2 */
+    { date: '2025-01-05', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 8,   by: 'System',   rankBefore: 3, rankAfter: 3 },
+    { date: '2025-01-12', type: 'callback',  desc: 'Callback accepted — Bay Guard coverage',          hours: 8,  total: 16,  by: 'System',   rankBefore: 3, rankAfter: 2 },
+    { date: '2025-01-19', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 24,  by: 'System',   rankBefore: 2, rankAfter: 2 },
+    { date: '2025-01-26', type: 'holdover',  desc: 'Holdover — staffing shortage',                    hours: 8,  total: 32,  by: 'System',   rankBefore: 2, rankAfter: 2 },
+    { date: '2025-02-02', type: 'callback',  desc: 'Callback accepted — Emergency fill',              hours: 8,  total: 40,  by: 'System',   rankBefore: 2, rankAfter: 2 },
+    { date: '2025-02-09', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 48,  by: 'System',   rankBefore: 2, rankAfter: 2 },
+    { date: '2025-02-16', type: 'holdover',  desc: 'Holdover — incident overtime',                    hours: 8,  total: 56,  by: 'System',   rankBefore: 2, rankAfter: 2 },
+    { date: '2025-02-23', type: 'callback',  desc: 'Callback accepted — Weekend coverage',            hours: 8,  total: 64,  by: 'System',   rankBefore: 2, rankAfter: 2 },
+    { date: '2025-03-02', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 72,  by: 'System',   rankBefore: 2, rankAfter: 2 },
+    { date: '2025-03-09', type: 'misc',      desc: 'Miscellaneous hours — Mandatory drill',           hours: 8,  total: 80,  by: 'Lt. Marsh',rankBefore: 2, rankAfter: 2 },
+    { date: '2025-03-16', type: 'scheduler', desc: 'Scheduled overtime — Night shift',                hours: 8,  total: 88,  by: 'System',   rankBefore: 2, rankAfter: 2 },
+    { date: '2025-03-23', type: 'callback',  desc: 'Callback accepted — Short-notice fill',           hours: 8,  total: 96,  by: 'System',   rankBefore: 2, rankAfter: 2 },
+  ],
+  4: [ /* Priya Nair — starts #4, stays #4 */
+    { date: '2025-01-08', type: 'scheduler', desc: 'Scheduled overtime — Dispatch shift',             hours: 8,  total: 8,   by: 'System',         rankBefore: 4, rankAfter: 4 },
+    { date: '2025-01-15', type: 'callback',  desc: 'Callback accepted — Dispatcher coverage',         hours: 8,  total: 16,  by: 'System',         rankBefore: 4, rankAfter: 4 },
+    { date: '2025-01-22', type: 'scheduler', desc: 'Scheduled overtime — Dispatch shift',             hours: 8,  total: 24,  by: 'System',         rankBefore: 4, rankAfter: 4 },
+    { date: '2025-01-29', type: 'misc',      desc: 'Training hours — Communications certification',   hours: 8,  total: 32,  by: 'Sgt. Torres',    rankBefore: 4, rankAfter: 4 },
+    { date: '2025-02-05', type: 'callback',  desc: 'Callback accepted — Holiday staffing',            hours: 8,  total: 40,  by: 'System',         rankBefore: 4, rankAfter: 4 },
+    { date: '2025-02-12', type: 'scheduler', desc: 'Scheduled overtime — Dispatch shift',             hours: 8,  total: 48,  by: 'System',         rankBefore: 4, rankAfter: 4 },
+    { date: '2025-02-19', type: 'callback',  desc: 'Callback accepted — Overnight fill',              hours: 8,  total: 56,  by: 'System',         rankBefore: 4, rankAfter: 4 },
+    { date: '2025-02-26', type: 'scheduler', desc: 'Scheduled overtime — Dispatch shift',             hours: 8,  total: 64,  by: 'System',         rankBefore: 4, rankAfter: 4 },
+  ],
+  5: [ /* Leon Baptiste — starts #3, slips to #5 */
+    { date: '2025-01-06', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 8,   by: 'System',   rankBefore: 3, rankAfter: 3 },
+    { date: '2025-01-13', type: 'callback',  desc: 'Callback accepted — Station coverage',            hours: 8,  total: 16,  by: 'System',   rankBefore: 3, rankAfter: 4 },
+    { date: '2025-01-20', type: 'scheduler', desc: 'Scheduled overtime — Night shift',                hours: 8,  total: 24,  by: 'System',   rankBefore: 4, rankAfter: 4 },
+    { date: '2025-01-27', type: 'holdover',  desc: 'Holdover — shift extended',                       hours: 4,  total: 28,  by: 'System',   rankBefore: 4, rankAfter: 4 },
+    { date: '2025-02-03', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 36,  by: 'System',   rankBefore: 4, rankAfter: 4 },
+    { date: '2025-02-10', type: 'misc',      desc: 'Miscellaneous hours — Tactical training',         hours: 4,  total: 40,  by: 'Lt. Marsh',rankBefore: 4, rankAfter: 5 },
+    { date: '2025-02-17', type: 'callback',  desc: 'Callback accepted — Emergency coverage',          hours: 4,  total: 44,  by: 'System',   rankBefore: 5, rankAfter: 5 },
+    { date: '2025-02-24', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8,  total: 52,  by: 'System',   rankBefore: 5, rankAfter: 5 },
+    { date: '2025-03-03', type: 'callback',  desc: 'Callback accepted — Weekend fill',                hours: 4,  total: 56,  by: 'System',   rankBefore: 5, rankAfter: 5 },
+  ],
+  6: [ /* Treva Aguinaga — starts #2, slips to #3 */
+    { date: '2025-01-05', type: 'scheduler', desc: 'Scheduled overtime — Patrol shift',               hours: 8, total: 8,  by: 'System', rankBefore: 2, rankAfter: 2 },
+    { date: '2025-01-12', type: 'scheduler', desc: 'Scheduled overtime — Patrol shift',               hours: 8, total: 16, by: 'System', rankBefore: 2, rankAfter: 3 },
+    { date: '2025-01-19', type: 'scheduler', desc: 'Scheduled overtime — Night shift',                hours: 8, total: 24, by: 'System', rankBefore: 3, rankAfter: 3 },
+    { date: '2025-01-26', type: 'scheduler', desc: 'Scheduled overtime — Patrol shift',               hours: 8, total: 32, by: 'System', rankBefore: 3, rankAfter: 3 },
+    { date: '2025-02-02', type: 'scheduler', desc: 'Scheduled overtime — Patrol shift',               hours: 8, total: 40, by: 'System', rankBefore: 3, rankAfter: 3 },
+    { date: '2025-02-09', type: 'scheduler', desc: 'Scheduled overtime — Night shift',                hours: 8, total: 48, by: 'System', rankBefore: 3, rankAfter: 3 },
+  ],
+  7: [ /* Thomas Nguyen — starts #5, slips to #6 */
+    { date: '2025-01-07', type: 'scheduler', desc: 'Scheduled overtime — Bay Guard shift',            hours: 8, total: 8,  by: 'System', rankBefore: 5, rankAfter: 5 },
+    { date: '2025-01-14', type: 'scheduler', desc: 'Scheduled overtime — Bay Guard shift',            hours: 8, total: 16, by: 'System', rankBefore: 5, rankAfter: 6 },
+    { date: '2025-01-21', type: 'scheduler', desc: 'Scheduled overtime — Bay Guard shift',            hours: 8, total: 24, by: 'System', rankBefore: 6, rankAfter: 6 },
+    { date: '2025-01-28', type: 'holdover',  desc: 'Holdover — incident response',                    hours: 4, total: 28, by: 'System', rankBefore: 6, rankAfter: 6 },
+    { date: '2025-02-04', type: 'scheduler', desc: 'Scheduled overtime — Bay Guard shift',            hours: 8, total: 36, by: 'System', rankBefore: 6, rankAfter: 6 },
+    { date: '2025-02-11', type: 'callback',  desc: 'Callback accepted — Short fill',                  hours: 4, total: 40, by: 'System', rankBefore: 6, rankAfter: 6 },
+  ],
+  8: [ /* Danielle Ford — starts #5, slips to #7 */
+    { date: '2025-01-09', type: 'callback',  desc: 'Callback accepted — Patrol coverage',             hours: 8, total: 8,  by: 'System', rankBefore: 5, rankAfter: 6 },
+    { date: '2025-01-16', type: 'scheduler', desc: 'Scheduled overtime — Patrol shift',               hours: 8, total: 16, by: 'System', rankBefore: 6, rankAfter: 7 },
+    { date: '2025-01-23', type: 'holdover',  desc: 'Holdover — shift extended',                       hours: 4, total: 20, by: 'System', rankBefore: 7, rankAfter: 7 },
+    { date: '2025-01-30', type: 'scheduler', desc: 'Scheduled overtime — Night shift',                hours: 2, total: 22, by: 'System', rankBefore: 7, rankAfter: 7 },
+  ],
+  9: [ /* Angela Morrison — starts #7, slips to #8 */
+    { date: '2025-01-10', type: 'scheduler', desc: 'Scheduled overtime — Dispatch shift',             hours: 8, total: 8,  by: 'System', rankBefore: 7, rankAfter: 7 },
+    { date: '2025-01-17', type: 'scheduler', desc: 'Scheduled overtime — Dispatch shift',             hours: 8, total: 16, by: 'System', rankBefore: 7, rankAfter: 8 },
+    { date: '2025-01-24', type: 'misc',      desc: 'Miscellaneous hours — Admin duties',              hours: 2, total: 18, by: 'Admin',  rankBefore: 8, rankAfter: 8 },
+  ],
+  10: [ /* Derek Walsh — starts #8, slips to #9 */
+    { date: '2025-01-11', type: 'scheduler', desc: 'Scheduled overtime — Day shift',                  hours: 8, total: 8,  by: 'System',   rankBefore: 8, rankAfter: 9 },
+    { date: '2025-01-18', type: 'misc',      desc: 'Miscellaneous hours — Equipment check',           hours: 4, total: 12, by: 'Lt. Marsh',rankBefore: 9, rankAfter: 9 },
+  ],
+};
+
+function histFmtDate(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/* Inline SVG rank trajectory chart — step line showing rank # over time */
+function RankTrajectoryChart({ events, startRank, maxRank = 10 }) {
+  const W = 100, H = 72, PAD_L = 28, PAD_R = 10, PAD_T = 8, PAD_B = 20;
+  const cW = W - PAD_L - PAD_R;
+  const cH = H - PAD_T - PAD_B;
+
+  /* Build time-ordered rank snapshots: [{date, rank}] starting from startRank */
+  const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date));
+  const snapshots = [{ date: '2025-01-01', rank: startRank }, ...sorted.map(e => ({ date: e.date, rank: e.rankAfter }))];
+  if (snapshots.length < 2) return null;
+
+  const firstDate = new Date('2025-01-01').getTime();
+  const lastDate  = new Date('2025-12-31').getTime();
+  const span = lastDate - firstDate;
+
+  const toX = (iso) => PAD_L + ((new Date(iso + 'T12:00:00').getTime() - firstDate) / span) * cW;
+  const toY = (rank) => PAD_T + ((rank - 1) / (maxRank - 1)) * cH; /* rank 1 = top */
+
+  /* Step polyline path */
+  let d = '';
+  for (let i = 0; i < snapshots.length; i++) {
+    const x = toX(snapshots[i].date);
+    const y = toY(snapshots[i].rank);
+    if (i === 0) { d += `M${x},${y}`; continue; }
+    const prevX = toX(snapshots[i - 1].date);
+    d += ` L${prevX},${y} L${x},${y}`;
+  }
+  /* Extend last point to end */
+  const lastSnap = snapshots[snapshots.length - 1];
+  d += ` L${PAD_L + cW},${toY(lastSnap.rank)}`;
+
+  /* Y-axis grid lines */
+  const gridRanks = [1, 3, 5, 7, 10].filter(r => r <= maxRank);
+  const months = ['Jan', 'Mar', 'May', 'Jul', 'Sep', 'Nov'];
+  const monthDates = ['2025-01-01', '2025-03-01', '2025-05-01', '2025-07-01', '2025-09-01', '2025-11-01'];
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+      {/* Grid */}
+      {gridRanks.map(r => (
+        <g key={r}>
+          <line x1={PAD_L} y1={toY(r)} x2={PAD_L + cW} y2={toY(r)} stroke="rgba(0,0,0,.08)" strokeWidth="0.4" strokeDasharray="1,1"/>
+          <text x={PAD_L - 3} y={toY(r) + 1.2} textAnchor="end" fontSize="3.5" fill="rgba(0,0,0,.38)">#{r}</text>
+        </g>
+      ))}
+      {/* Month labels */}
+      {months.map((m, i) => (
+        <text key={m} x={toX(monthDates[i])} y={H - 3} textAnchor="middle" fontSize="3.5" fill="rgba(0,0,0,.35)">{m}</text>
+      ))}
+      {/* Rank trajectory line */}
+      <path d={d} fill="none" stroke="#0271CE" strokeWidth="1.2" strokeLinejoin="round"/>
+      {/* Dots on rank-change events */}
+      {snapshots.filter((s, i) => i > 0 && s.rank !== snapshots[i - 1].rank).map((s, i) => (
+        <circle key={i} cx={toX(s.date)} cy={toY(s.rank)} r="1.4" fill="#0271CE"/>
+      ))}
+      {/* Start dot */}
+      <circle cx={toX(snapshots[0].date)} cy={toY(snapshots[0].rank)} r="1.4" fill="rgba(0,0,0,.3)"/>
+      {/* End dot */}
+      <circle cx={PAD_L + cW} cy={toY(lastSnap.rank)} r="1.6" fill="#0271CE"/>
+    </svg>
+  );
+}
+
+function HistoryView({ onBack }) {
+  const [posFilter, setPosFilter]     = useState('All Positions');
+  const [empSearch, setEmpSearch]     = useState('');
+  const [selectedEmp, setSelectedEmp] = useState(HIST_EMPLOYEES[0]);
+  const [typeFilter, setTypeFilter]   = useState('all');
+  const [sortDir, setSortDir]         = useState('desc');
+
+  const filteredEmps = HIST_EMPLOYEES.filter(e => {
+    const matchPos    = posFilter === 'All Positions' || e.pos === posFilter;
+    const matchSearch = !empSearch || e.name.toLowerCase().includes(empSearch.toLowerCase());
+    return matchPos && matchSearch;
+  });
+
+  const allEvents    = HIST_EVENTS[selectedEmp.id] || [];
+  const rankChanges  = allEvents.filter(e => e.rankAfter !== e.rankBefore);
+  const netChange    = selectedEmp.startRank - selectedEmp.rank; /* positive = improved */
+  const maxHours     = Math.max(...HIST_EMPLOYEES.map(e => e.total));
+
+  const events = allEvents
+    .filter(ev => typeFilter === 'all' || ev.type === typeFilter)
+    .sort((a, b) => sortDir === 'desc' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date));
+
+  /* hours breakdown for sparkline pills */
+  const breakdown = [
+    { key: 'callbacks', label: 'Callbacks',       value: selectedEmp.callbacks, color: '#0271CE', bg: 'rgba(2,113,206,.1)'   },
+    { key: 'scheduler', label: 'Scheduler',        value: selectedEmp.scheduler, color: '#158444', bg: 'rgba(21,132,68,.1)'   },
+    { key: 'holdover',  label: 'Holdover',          value: selectedEmp.holdover,  color: '#7C3AED', bg: 'rgba(124,58,237,.1)'  },
+    { key: 'misc',      label: 'Misc',              value: selectedEmp.misc,      color: '#E0782E', bg: 'rgba(224,120,46,.1)'  },
+    { key: 'manual',    label: 'Manual Adj.',       value: selectedEmp.manual,    color: '#D83E38', bg: 'rgba(216,62,56,.1)'   },
+  ].filter(b => b.value > 0);
+
+  const netColor   = netChange > 0 ? '#158444' : netChange < 0 ? '#D83E38' : 'rgba(0,0,0,.45)';
+  const netBg      = netChange > 0 ? 'rgba(21,132,68,.08)' : netChange < 0 ? 'rgba(216,62,56,.08)' : 'rgba(0,0,0,.06)';
+  const netBorder  = netChange > 0 ? 'rgba(21,132,68,.25)' : netChange < 0 ? 'rgba(216,62,56,.25)' : 'rgba(0,0,0,.12)';
+  const netLabel   = netChange > 0 ? `↑ Up ${netChange}` : netChange < 0 ? `↓ Down ${Math.abs(netChange)}` : '= No change';
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+      {/* ── Page Header ── */}
+      <PageHeader title={
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={onBack}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: '400 13px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)' }}
+            onMouseEnter={e => e.currentTarget.style.color = '#0271CE'}
+            onMouseLeave={e => e.currentTarget.style.color = 'rgba(0,0,0,.45)'}>
+            Dashboard
+          </button>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.22)" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+          <span style={{ color: 'rgba(24,39,58,.94)', font: '600 15px/1 Inter,sans-serif' }}>Ranking History</span>
+        </span>
+      }>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'rgba(21,132,68,.07)', border: '1px solid rgba(21,132,68,.2)', borderRadius: 6, marginRight: 10 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#158444', animation: 'cbPulse 2s ease-in-out infinite' }} />
+          <span style={{ font: '500 12px/1 Inter,sans-serif', color: '#158444' }}>Real-time</span>
+        </div>
+        <button style={{ height: 34, padding: '0 14px', background: '#fff', color: 'rgba(24,39,58,.8)', border: '1px solid rgba(0,0,0,.18)', borderRadius: 4, cursor: 'pointer', font: '500 13px/1 Inter,sans-serif', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 16V4m-4 8 4 4 4-4M4 20h16"/></svg>
+          Export CSV
+        </button>
+      </PageHeader>
+
+      {/* ── Two-panel body ── */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+
+        {/* ═══ Left panel ═══ */}
+        <div style={{ width: 258, flex: 'none', borderRight: '1px solid rgba(0,0,0,.08)', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* Search */}
+          <div style={{ padding: '12px 12px 10px', borderBottom: '1px solid rgba(0,0,0,.07)' }}>
+            <div style={{ position: 'relative', marginBottom: 9 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.38)" strokeWidth="2" strokeLinecap="round"
+                style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                <circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+              <input type="text" placeholder="Search employees…" value={empSearch} onChange={e => setEmpSearch(e.target.value)} style={{
+                width: '100%', height: 32, paddingLeft: 30, paddingRight: 8, border: '1px solid rgba(0,0,0,.16)', borderRadius: 6,
+                font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.9)', background: '#FAFBFC', outline: 'none', boxSizing: 'border-box',
+              }} />
+            </div>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {HIST_POSITIONS.map(p => (
+                <button key={p} onClick={() => setPosFilter(p)} style={{
+                  height: 22, padding: '0 8px', borderRadius: 11, border: 'none', cursor: 'pointer',
+                  font: '500 11px/1 Inter,sans-serif', transition: 'all .12s',
+                  background: posFilter === p ? '#0271CE' : 'rgba(0,0,0,.07)',
+                  color: posFilter === p ? '#fff' : 'rgba(24,39,58,.65)',
+                }}>
+                  {p === 'All Positions' ? 'All' : p}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Period label */}
+          <div style={{ padding: '6px 12px', background: 'rgba(2,113,206,.04)', borderBottom: '1px solid rgba(0,0,0,.05)', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.38)" strokeWidth="2" strokeLinecap="round">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18M8 2v4m8-4v4"/>
+            </svg>
+            <span style={{ font: '500 10.5px/1 Inter,sans-serif', color: 'rgba(0,0,0,.42)' }}>Jan 1, 2025 – Jan 1, 2026</span>
+          </div>
+          {/* Employee list */}
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {filteredEmps.length === 0 ? (
+              <div style={{ padding: '32px 16px', textAlign: 'center', color: 'rgba(0,0,0,.38)', font: '400 13px/1.5 Inter,sans-serif' }}>No employees match</div>
+            ) : filteredEmps.map(emp => {
+              const isSel    = selectedEmp.id === emp.id;
+              const net      = emp.startRank - emp.rank;
+              const pct      = Math.min(100, Math.round((emp.total / maxHours) * 100));
+              const nc       = net > 0 ? '#158444' : net < 0 ? '#D83E38' : 'rgba(0,0,0,.38)';
+              const nl       = net > 0 ? `↑${net}` : net < 0 ? `↓${Math.abs(net)}` : '=';
+              return (
+                <button key={emp.id} onClick={() => setSelectedEmp(emp)} style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '10px 12px',
+                  border: 'none', borderLeft: isSel ? '3px solid #0271CE' : '3px solid transparent',
+                  cursor: 'pointer', textAlign: 'left', transition: 'background .1s',
+                  background: isSel ? 'rgba(2,113,206,.07)' : 'transparent',
+                }}
+                  onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = 'rgba(0,0,0,.03)'; }}
+                  onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = isSel ? 'rgba(2,113,206,.07)' : 'transparent'; }}>
+                  <Avatar name={emp.name} size={32} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ font: `${isSel ? 600 : 500} 12.5px/1.3 Inter,sans-serif`, color: isSel ? '#0271CE' : 'rgba(24,39,58,.92)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {emp.name}
+                    </div>
+                    <div style={{ font: '400 10.5px/1 Inter,sans-serif', color: 'rgba(0,0,0,.42)', marginTop: 2 }}>{emp.pos}</div>
+                    <div style={{ marginTop: 5, height: 2.5, background: 'rgba(0,0,0,.08)', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: pct + '%', background: isSel ? '#0271CE' : 'rgba(0,0,0,.2)', borderRadius: 2 }} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flex: 'none' }}>
+                    <span style={{ font: '600 11px/1 Inter,sans-serif', color: nc, background: net === 0 ? 'transparent' : (net > 0 ? 'rgba(21,132,68,.08)' : 'rgba(216,62,56,.08)'), padding: '2px 5px', borderRadius: 3 }}>{nl}</span>
+                    <span style={{ font: '500 10px/1 Inter,sans-serif', color: 'rgba(0,0,0,.38)', background: 'rgba(0,0,0,.06)', padding: '2px 5px', borderRadius: 3 }}>#{emp.rank}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ═══ Right panel ═══ */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#F4F5F7' }}>
+
+          {/* Profile + rank summary strip */}
+          <div style={{ background: '#fff', borderBottom: '1px solid rgba(0,0,0,.08)', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 16, flex: 'none' }}>
+            <Avatar name={selectedEmp.name} size={46} />
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 5 }}>
+                <span style={{ font: '600 16px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)' }}>{selectedEmp.name}</span>
+                <span style={{ font: '400 13px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)' }}>{selectedEmp.pos}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                {/* Start rank */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: 'rgba(0,0,0,.05)', borderRadius: 6 }}>
+                  <span style={{ font: '400 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)' }}>Started</span>
+                  <span style={{ font: '700 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.8)' }}>#{selectedEmp.startRank}</span>
+                </div>
+                {/* Arrow */}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.3)" strokeWidth="2" strokeLinecap="round"><path d="M5 12h14m-6-7 7 7-7 7"/></svg>
+                {/* Current rank */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: 'rgba(2,113,206,.1)', borderRadius: 6 }}>
+                  <span style={{ font: '400 11px/1 Inter,sans-serif', color: '#0271CE' }}>Now</span>
+                  <span style={{ font: '700 13px/1 Inter,sans-serif', color: '#0271CE' }}>#{selectedEmp.rank}</span>
+                </div>
+                {/* Net change badge */}
+                <span style={{ padding: '4px 10px', background: netBg, color: netColor, border: `1px solid ${netBorder}`, borderRadius: 6, font: '600 12px/1 Inter,sans-serif' }}>
+                  {netLabel}
+                </span>
+                <span style={{ width: 1, height: 14, background: 'rgba(0,0,0,.12)' }} />
+                <span style={{ font: '400 12px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)' }}>{rankChanges.length} rank change{rankChanges.length !== 1 ? 's' : ''} · {allEvents.length} total events</span>
+                {selectedEmp.manual > 0 && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', background: 'rgba(216,62,56,.07)', border: '1px solid rgba(216,62,56,.2)', borderRadius: 5, font: '500 11px/1 Inter,sans-serif', color: '#D83E38' }}>
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22zm0 14a1 1 0 110 2 1 1 0 010-2zm-1-2h2V8h-2z"/></svg>
+                    {selectedEmp.manual}h manual
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Rank chart + hours breakdown row */}
+          <div style={{ background: '#fff', borderBottom: '1px solid rgba(0,0,0,.08)', padding: '16px 24px', display: 'flex', gap: 20, flex: 'none', alignItems: 'stretch' }}>
+            {/* Chart */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Rank Trajectory</div>
+              <div style={{ height: 80 }}>
+                <RankTrajectoryChart events={allEvents} startRank={selectedEmp.startRank} />
+              </div>
+              <div style={{ marginTop: 4, display: 'flex', gap: 14 }}>
+                <span style={{ font: '400 10.5px/1 Inter,sans-serif', color: 'rgba(0,0,0,.38)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 8, height: 1.5, background: 'rgba(0,0,0,.3)', display: 'inline-block' }} /> Start #{selectedEmp.startRank}
+                </span>
+                <span style={{ font: '400 10.5px/1 Inter,sans-serif', color: '#0271CE', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 8, height: 1.5, background: '#0271CE', display: 'inline-block' }} /> Current #{selectedEmp.rank}
+                </span>
+                <span style={{ font: '400 10.5px/1 Inter,sans-serif', color: '#0271CE', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0271CE', display: 'inline-block' }} /> Rank change
+                </span>
+              </div>
+            </div>
+            {/* Divider */}
+            <div style={{ width: 1, background: 'rgba(0,0,0,.07)', flex: 'none' }} />
+            {/* Hours breakdown */}
+            <div style={{ width: 220, flex: 'none' }}>
+              <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>Hours Breakdown</div>
+              <div style={{ marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ font: '500 12px/1 Inter,sans-serif', color: 'rgba(0,0,0,.55)' }}>Total accumulated</span>
+                <span style={{ font: '700 14px/1 Inter,sans-serif', color: 'rgba(24,39,58,.9)' }}>{selectedEmp.total}h</span>
+              </div>
+              {breakdown.map(b => (
+                <div key={b.key} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: b.color, flex: 'none' }} />
+                  <span style={{ font: '400 11.5px/1 Inter,sans-serif', color: 'rgba(0,0,0,.55)', flex: 1 }}>{b.label}</span>
+                  <div style={{ width: 60, height: 4, background: 'rgba(0,0,0,.06)', borderRadius: 2, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${Math.round((b.value / selectedEmp.total) * 100)}%`, background: b.color, borderRadius: 2 }} />
+                  </div>
+                  <span style={{ font: '600 11.5px/1 Inter,sans-serif', color: b.color, minWidth: 26, textAlign: 'right' }}>{b.value}h</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Log toolbar */}
+          <div style={{ background: '#fff', borderBottom: '1px solid rgba(0,0,0,.08)', padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 10, flex: 'none' }}>
+            <span style={{ font: '600 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.9)', flex: 1 }}>Movement Log</span>
+            <span style={{ font: '400 12px/1 Inter,sans-serif', color: 'rgba(0,0,0,.42)' }}>{events.length} entries</span>
+            <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={{
+              height: 30, padding: '0 10px', border: '1px solid rgba(0,0,0,.16)', borderRadius: 5,
+              font: '500 12px/1 Inter,sans-serif', color: 'rgba(24,39,58,.85)', background: '#fff', cursor: 'pointer', outline: 'none',
+            }}>
+              <option value="all">All types</option>
+              <option value="callback">Callbacks</option>
+              <option value="scheduler">Scheduler Hours</option>
+              <option value="holdover">Holdover Hours</option>
+              <option value="misc">Miscellaneous</option>
+              <option value="manual">Manual Adjustments</option>
+            </select>
+            <button onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')} style={{
+              height: 30, padding: '0 12px', border: '1px solid rgba(0,0,0,.16)', borderRadius: 5,
+              font: '500 12px/1 Inter,sans-serif', color: 'rgba(24,39,58,.8)', background: '#fff', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+            }}>
+              Date {sortDir === 'desc' ? '↓' : '↑'}
+            </button>
+          </div>
+
+          {/* Movement log table */}
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ position: 'sticky', top: 0, zIndex: 2 }}>
+                  {[
+                    { label: 'Date',          align: 'left'  },
+                    { label: 'Event Type',    align: 'left'  },
+                    { label: 'Description',   align: 'left'  },
+                    { label: 'Hours',         align: 'right' },
+                    { label: 'Rank Before',   align: 'center'},
+                    { label: 'Movement',      align: 'center'},
+                    { label: 'Rank After',    align: 'center'},
+                    { label: 'Recorded By',   align: 'left'  },
+                  ].map(h => (
+                    <th key={h.label} style={{
+                      padding: '9px 14px', background: '#ECEEF1', font: '600 10px/1 Inter,sans-serif',
+                      color: 'rgba(0,0,0,.42)', textTransform: 'uppercase', letterSpacing: '.06em',
+                      textAlign: h.align, whiteSpace: 'nowrap', borderBottom: '1px solid rgba(0,0,0,.1)',
+                    }}>
+                      {h.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {events.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ padding: '48px 16px', textAlign: 'center', color: 'rgba(0,0,0,.35)', font: '400 13px/1 Inter,sans-serif', background: '#fff' }}>
+                      No events match the selected filter
+                    </td>
+                  </tr>
+                ) : events.map((ev, idx) => {
+                  const t         = HIST_EVENT_TYPES[ev.type];
+                  const isManual  = ev.type === 'manual';
+                  const moved     = ev.rankAfter - ev.rankBefore; /* negative = improved */
+                  const movLabel  = moved < 0 ? `↑ ${Math.abs(moved)}` : moved > 0 ? `↓ ${moved}` : '—';
+                  const movColor  = moved < 0 ? '#158444' : moved > 0 ? '#D83E38' : 'rgba(0,0,0,.3)';
+                  const movBg     = moved < 0 ? 'rgba(21,132,68,.09)' : moved > 0 ? 'rgba(216,62,56,.09)' : 'transparent';
+                  return (
+                    <tr key={idx}
+                      style={{ background: isManual ? 'rgba(216,62,56,.025)' : (idx % 2 === 0 ? '#fff' : 'rgba(0,0,0,.013)') }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(2,113,206,.04)'}
+                      onMouseLeave={e => e.currentTarget.style.background = isManual ? 'rgba(216,62,56,.025)' : (idx % 2 === 0 ? '#fff' : 'rgba(0,0,0,.013)')}>
+                      <td style={{ padding: '10px 14px', font: '400 12.5px/1 Inter,sans-serif', color: 'rgba(0,0,0,.5)', whiteSpace: 'nowrap', borderBottom: '1px solid rgba(0,0,0,.05)' }}>
+                        {histFmtDate(ev.date)}
+                      </td>
+                      <td style={{ padding: '10px 14px', borderBottom: '1px solid rgba(0,0,0,.05)' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', height: 20, padding: '0 8px', borderRadius: 10, background: t.bg, color: t.color, font: '500 11px/1 Inter,sans-serif', whiteSpace: 'nowrap' }}>
+                          {t.label}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 14px', font: '400 12.5px/1.4 Inter,sans-serif', color: 'rgba(24,39,58,.8)', borderBottom: '1px solid rgba(0,0,0,.05)' }}>
+                        {ev.desc}
+                      </td>
+                      <td style={{ padding: '10px 14px', font: '600 12.5px/1 Inter,sans-serif', color: '#158444', textAlign: 'right', whiteSpace: 'nowrap', borderBottom: '1px solid rgba(0,0,0,.05)' }}>
+                        +{ev.hours}h
+                      </td>
+                      <td style={{ padding: '10px 14px', textAlign: 'center', borderBottom: '1px solid rgba(0,0,0,.05)' }}>
+                        <span style={{ font: '500 12.5px/1 Inter,sans-serif', color: 'rgba(0,0,0,.5)' }}>#{ev.rankBefore}</span>
+                      </td>
+                      <td style={{ padding: '10px 14px', textAlign: 'center', borderBottom: '1px solid rgba(0,0,0,.05)' }}>
+                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 5, background: movBg, color: movColor, font: '700 12px/1 Inter,sans-serif', minWidth: 32, textAlign: 'center' }}>
+                          {movLabel}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 14px', textAlign: 'center', borderBottom: '1px solid rgba(0,0,0,.05)' }}>
+                        <span style={{ font: moved !== 0 ? '700 12.5px/1 Inter,sans-serif' : '500 12.5px/1 Inter,sans-serif', color: moved < 0 ? '#0271CE' : moved > 0 ? '#D83E38' : 'rgba(0,0,0,.5)' }}>
+                          #{ev.rankAfter}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 14px', borderBottom: '1px solid rgba(0,0,0,.05)' }}>
+                        <span style={{ font: '400 11.5px/1 Inter,sans-serif', color: ev.by === 'System' ? 'rgba(0,0,0,.35)' : 'rgba(24,39,58,.65)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          {ev.by !== 'System' && (
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                              <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                            </svg>
+                          )}
+                          {ev.by}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { HistoryView });
+
 function App() {
   const [tweaks, setTweaks]         = useState(TWEAKS_DEFAULT);
   const [tweaksOpen, setTweaksOpen] = useState(false);
@@ -3715,6 +4262,9 @@ function App() {
             ) : featureView === 'approaches' ? (
               /* ── Approaches & Rules feature ── */
               <ApproachesRulesView onBack={() => setFeatureView(null)} />
+            ) : featureView === 'history' ? (
+              /* ── Ranking History feature ── */
+              <HistoryView onBack={() => setFeatureView(null)} />
             ) : (
               /* ── Dashboard ── */
               <>
@@ -3746,6 +4296,7 @@ function App() {
                           onClick={() => {
                             if (f.key === 'forceHire')  setFeatureView('forceHire');
                             if (f.key === 'approaches') setFeatureView('approaches');
+                            if (f.key === 'history')    setFeatureView('history');
                           }}
                           style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9, padding: '16px 8px', background: f.bg, border: 'none', borderRadius: 10, cursor: 'pointer', transition: 'all .15s', boxShadow: `0 2px 8px ${f.shadow}` }}
                           onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 8px 20px ${f.shadow}`; e.currentTarget.style.filter = 'brightness(1.08)'; }}

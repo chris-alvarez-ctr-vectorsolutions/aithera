@@ -1,4 +1,4 @@
-# UX Prototyping Project
+ UX Prototyping Project
 
 ## Project Overview
 This project is used by the **UX team** to generate quick HTML/CSS prototypes for creating end-to-end designs. These prototypes are used for:
