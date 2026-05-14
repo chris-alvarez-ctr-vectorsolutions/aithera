@@ -122,6 +122,7 @@
     border-radius: 16px; padding: 12px 14px;
     display: flex; align-items: center; gap: 12px;
     z-index: 4;
+    pointer-events: none;
     transform: translateY(-12px); opacity: 0;
     transition: transform 0.4s ease, opacity 0.4s ease;
   }
@@ -181,6 +182,7 @@
     border: 1px solid rgba(255,255,255,0.08); border-radius: 999px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     z-index: 4; opacity: 0; transition: opacity 0.3s ease;
+    pointer-events: none;
   }
   .transcript.on { opacity: 1; }
 
@@ -610,17 +612,36 @@ if (SpeechRec) {
     checkObservations((final + ' ' + interim).toLowerCase());
   };
 
+  // Fatal errors should stop the user-visible recording state so the
+  // onend handler doesn't loop restart → error → restart forever.
+  const FATAL_ERRORS = new Set([
+    'not-allowed', 'service-not-allowed', 'audio-capture', 'network'
+  ]);
   recognition.onerror = (e) => {
-    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-      micStatus.innerHTML = 'Mic blocked — <strong>tap to try again</strong>';
+    if (FATAL_ERRORS.has(e.error)) {
       recording = false;
       micBtn.classList.remove('recording');
+      micBtn.textContent = '🎙';
+      transcriptEl.classList.remove('on');
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        micStatus.innerHTML = 'Mic blocked — <strong>enable mic access</strong>';
+      } else if (e.error === 'audio-capture') {
+        micStatus.innerHTML = 'No mic detected — <strong>check your device</strong>';
+      } else {
+        micStatus.innerHTML = 'Voice service offline — <strong>tap to retry</strong>';
+      }
     }
+    // 'no-speech' and 'aborted' are recoverable — onend will restart.
   };
 
+  let lastRestart = 0;
   recognition.onend = () => {
-    // Auto-restart while user expects recording to continue.
-    if (recording) { try { recognition.start(); } catch {} }
+    if (!recording) return;
+    // Throttle restarts so a tight error loop can't peg the main thread.
+    const now = Date.now();
+    if (now - lastRestart < 400) { recording = false; return; }
+    lastRestart = now;
+    try { recognition.start(); } catch {}
   };
 } else {
   supportNote = 'Voice not supported here — open in Chrome or Safari to use the mic.';
