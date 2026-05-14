@@ -35,7 +35,7 @@ export function render() {
 
   // 1. Header
   root.appendChild(ui.hubHeader({
-    kicker: `${ind.label} · Clinical readiness`,
+    kicker: `${ind.label} · ${ind.language?.readinessLabel || 'Readiness'}`,
     title: 'Practice Hub',
     onRandom: () => {
       const sc = pickRandom(allForIndustry, learnerLevel);

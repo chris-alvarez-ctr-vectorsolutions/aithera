@@ -181,6 +181,7 @@ function generateInsights(result, sc) {
 }
 
 function phaseAdvanceBanner(phase) {
+  const pw = store.state.industry?.language?.practiceWord || 'scenario';
   const copy = {
     2: { kicker: 'Practice unlocked', title: 'Standalone scenarios are now in your Practice tab.',
          body: 'Your course-embedded run opened up independent practice. Try one on your own to widen the base.',
@@ -188,8 +189,8 @@ function phaseAdvanceBanner(phase) {
     3: { kicker: 'Tailored course ready', title: 'A course was just adapted from your recent practice.',
          body: 'Some lessons are flagged for skip based on what you\'ve already shown. You can review or move on.',
          cta: { label: 'View tailored course', href: '#/courses' } },
-    4: { kicker: 'Policy change detected', title: 'Your readiness shifted — Coach Vic has a drill ready.',
-         body: 'Open the home view or tap Coach Vic for the targeted drill.',
+    4: { kicker: 'Policy change detected', title: `Your readiness shifted — Coach Vic has a ${pw} ready.`,
+         body: `Open the home view or tap Coach Vic for the targeted ${pw}.`,
          cta: { label: 'Back home', href: '#/home' } }
   }[phase];
   if (!copy) return ui.el('div');

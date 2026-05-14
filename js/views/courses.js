@@ -5,7 +5,7 @@
 
 import { store } from '../store.js';
 import * as ui from '../ui.js';
-import { currentPhase } from '../phase.js';
+import { currentPhase, belongsToCurrentPersona } from '../phase.js';
 
 let mode = 'mine';
 let query = '';
@@ -53,16 +53,19 @@ export function render() {
     const all = store.state.courses;
     const phase = currentPhase();
     let items;
+    const inProg = Object.keys(store.state.mastery.courseProgress);
+    const saved  = store.state.mastery.saved;
+    const stickySet = new Set([...inProg, ...saved]);
+    // Scope the whole catalog to the current persona so we never surface
+    // another persona's courses (cross-industry or same-industry phase-
+    // tagged). Saved/in-progress always pass through.
+    const scoped = all.filter((c) => stickySet.has(c.id) || belongsToCurrentPersona(c));
     if (mode === 'mine') {
-      const ind = store.state.learner.industry;
-      const inProg = Object.keys(store.state.mastery.courseProgress);
-      const saved  = store.state.mastery.saved;
-      const set = new Set([...inProg, ...saved]);
-      items = all.filter((c) => c.industry === ind || set.has(c.id));
+      items = scoped;
     } else {
       items = query
-        ? all.filter((c) => c.title.toLowerCase().includes(query) || c.summary.toLowerCase().includes(query))
-        : all;
+        ? scoped.filter((c) => c.title.toLowerCase().includes(query) || c.summary.toLowerCase().includes(query))
+        : scoped;
     }
     // Hide phase-gated content from earlier phases — e.g. don't show the
     // adaptive course in Phase 1. Saved/in-progress courses still show.
