@@ -234,8 +234,9 @@ export function render(courseId, lessonId) {
   function buildRecap() {
     const stack = ui.el('div', { class: 'stack' });
 
+    const pw = store.state.industry?.language?.practiceWord || 'scenario';
     stack.appendChild(ui.el('p', { class: 'lesson-instruction' },
-      "You've finished the main content. Save it for later, or drill it in with a quick practice run."));
+      `You've finished the main content. Save it for later, or lock it in with a quick ${pw}.`));
 
     // Save (bookmark) — Mark complete lives in the footer CTA below.
     const isSaved = store.state.mastery.saved.includes(course.id);

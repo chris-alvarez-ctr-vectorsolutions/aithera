@@ -11,6 +11,7 @@
 //                coachMessage, coachPrompt, courseTile, primaryCta
 
 import { isAtLeast } from './phase.js';
+import { store } from './store.js';
 
 // Urgency signals (Required badges, mandate footnotes, deadline chips)
 // enter the experience in Phase 4 — pre-Phase 4 the catalog reads as
@@ -800,7 +801,8 @@ export function insightCard({ tone = 'strength', quote, indicator }) {
 //
 // before / after are integer percentages (0-100). Both are required so
 // the badge can render the from→to transition explicitly.
-export function readinessDelta({ before, after, kicker = 'Clinical readiness', size = 'md' }) {
+export function readinessDelta({ before, after, kicker, size = 'md' }) {
+  if (!kicker) kicker = store.state.industry?.language?.readinessLabel || 'Readiness';
   const delta = Math.round((after ?? 0) - (before ?? 0));
   const dir = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
   const sign = delta > 0 ? '+' : delta < 0 ? '−' : '';

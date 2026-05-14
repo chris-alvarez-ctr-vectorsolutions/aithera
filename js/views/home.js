@@ -177,9 +177,10 @@ function renderPhase4(root, learner) {
   const sc = personaScenarioForPhase(4);
   const first = learner.name.split(' ')[0];
   if (sc) {
+    const pw = store.state.industry?.language?.practiceWord || 'scenario';
     root.appendChild(ui.coachPrompt({
-      question: `${first} — the new policy affects how you handle "${sc.title.toLowerCase()}". 5-minute drill?`,
-      primaryLabel: 'Start drill',
+      question: `${first} — the new policy affects how you handle "${sc.title.toLowerCase()}". 5-minute ${pw}?`,
+      primaryLabel: `Start ${pw}`,
       primaryHref: `#/practice/${sc.id}`,
       secondaryLabel: 'Later',
       secondaryHref: '#/home'
@@ -305,13 +306,14 @@ function primaryActionHref(snap) {
 }
 
 function noteFor(snap, phase) {
-  if (phase === 4) return 'A policy change just shifted your readiness. The drill targets the gap.';
+  const pw = store.state.industry?.language?.practiceWord || 'scenario';
+  if (phase === 4) return `A policy change just shifted your readiness. The ${pw} targets the gap.`;
   if (phase === 3) return 'Your recent practice unlocked a tailored course. Open it when you\'re ready.';
   if (phase === 2) return 'Practice locked in some gains. Standalone scenarios will widen the base.';
   const top = snap.movers?.find?.((m) => m.direction === 'down');
   if (snap.status === 'action-needed') return 'Several gaps opened up. Let\'s close the biggest one first — 8 min.';
   if (snap.status === 'watch')         return `You're holding steady. A short refresh on ${top?.title ?? 'one weak area'} keeps you in the green.`;
-  return 'Strong shape. A 5-minute drill keeps the streak going.';
+  return `Strong shape. A 5-minute ${pw} keeps the streak going.`;
 }
 
 // ---------- policy modal ----------

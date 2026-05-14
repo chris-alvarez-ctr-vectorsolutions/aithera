@@ -23,6 +23,37 @@ const PERSONA_PREFIX = {
   'k12-employee':  'k12e-sc-'
 };
 
+// Per-persona course id prefix (e.g. "ems-p1", "k12e-p3"). Used to detect
+// when a course belongs to a different persona — even within the same
+// industry — so we don't cross-pollute course lists.
+const PERSONA_COURSE_KEY = {
+  'ems':           'ems',
+  'hied-student':  'hied',
+  'industrial':    'ind',
+  'k12-student':   'k12s',
+  'k12-employee':  'k12e'
+};
+const ALL_COURSE_KEYS = Object.values(PERSONA_COURSE_KEY);
+
+// True if the course is generic for the persona's industry, or is the
+// persona's own phase-tagged course. False if it's another persona's
+// phase-tagged course.
+export function belongsToCurrentPersona(course) {
+  if (!course) return false;
+  const slug = store.state.profileSlug;
+  const learnerIndustry = store.state.learner?.industry;
+  if (course.industry !== learnerIndustry) return false;
+  const myKey = PERSONA_COURSE_KEY[slug];
+  // Reject courses owned by a *different* persona (id like "<otherKey>-p…").
+  for (const k of ALL_COURSE_KEYS) {
+    if (k === myKey) continue;
+    if (course.id === `${k}-p1` || course.id === `${k}-p3` || course.id.startsWith(`${k}-p`)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 // Scenarios that belong to the current persona's phased flow.
 export function personaScenarios() {
   const slug = store.state.profileSlug;

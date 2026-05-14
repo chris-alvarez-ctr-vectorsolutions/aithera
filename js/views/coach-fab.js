@@ -248,9 +248,10 @@ function phase4Opener() {
   const first = (s.learner?.name || '').split(' ')[0];
   const pe = s.policyEvent?.modal;
   const sc = personaScenarioForPhase(4);
+  const pw = s.industry?.language?.practiceWord || 'scenario';
   const text = pe
     ? `Heads up, **${first}** — ${pe.headline}. ${pe.body} I can run you through it in ~5 minutes if you're ready.`
-    : `Hey ${first} — a recent policy update affects your readiness. Want a quick drill?`;
+    : `Hey ${first} — a recent policy update affects your readiness. Want a quick ${pw}?`;
   return {
     text,
     time: nowStamp(),
