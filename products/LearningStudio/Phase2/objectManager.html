@@ -384,6 +384,10 @@
     .sc-inner { padding: 13px; }
 
     .sc-header { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; flex-wrap: wrap; }
+    .sc-header-right {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 8px;
+    }
 
     .sc-number {
       min-width: 38px; min-height: 38px; padding: 4px 8px;
@@ -436,6 +440,253 @@
     .sc-transcript-textarea:focus {
       background: rgba(255,255,255,0.72); border-color: rgba(14,165,233,0.4);
     }
+
+    /* =====================================================================
+       PHONETIC-AWARE TRANSCRIPT EDITOR (contenteditable on active scene)
+    ===================================================================== */
+    .sc-transcript-editor {
+      width: 100%; min-height: 90px; padding: 9px 11px; border-radius: 8px;
+      background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.4);
+      font-size: 12px; color: #0f2e3d; line-height: 1.75;
+      outline: none; font-family: inherit;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.07);
+      white-space: pre-wrap; word-wrap: break-word;
+      cursor: text;
+    }
+    .sc-transcript-editor:focus {
+      background: rgba(255,255,255,0.72); border-color: rgba(14,165,233,0.4);
+    }
+    .sc-transcript-editor:empty::before {
+      content: attr(data-placeholder);
+      color: rgba(15,46,61,0.4);
+      pointer-events: none;
+    }
+
+    /* Phonetic token pill — atomic, contenteditable=false */
+    .phonetic-token {
+      display: inline-block;
+      padding: 1px 7px;
+      margin: 0 1px;
+      border-radius: 10px;
+      background: rgba(2,113,206,0.10);
+      border: 1px solid rgba(2,113,206,0.25);
+      color: var(--lumo-primary-text-color);
+      font-weight: 500;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      transition: background 0.12s;
+      white-space: nowrap;
+    }
+    .phonetic-token::before {
+      content: '\f130'; /* fa-microphone */
+      font-family: 'Font Awesome 6 Free';
+      font-weight: 900;
+      font-size: 8px;
+      margin-right: 4px;
+      opacity: 0.65;
+      vertical-align: 1px;
+    }
+    .phonetic-token:hover {
+      background: rgba(2,113,206,0.18);
+      border-color: rgba(2,113,206,0.45);
+    }
+    .phonetic-token.is-active {
+      background: rgba(2,113,206,0.25);
+      border-color: var(--lumo-primary-color);
+    }
+
+    /* =====================================================================
+       SELECTION TOOLBAR (Grammarly-style, non-blocking, tabbed)
+       - Tabs at the top switch between Phonetic and Grammar content.
+       - Never steals focus from the editor; selection stays live.
+    ===================================================================== */
+    .selection-toolbar {
+      position: fixed;
+      z-index: 9999;
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.10);
+      border-radius: 8px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.16), 0 2px 6px rgba(0,0,0,0.08);
+      font-size: 12px;
+      width: 320px;
+      overflow: hidden;
+    }
+    .selection-toolbar.hidden { display: none; }
+
+    /* Tab strip */
+    .st-tabs {
+      display: flex; align-items: stretch;
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+      background: var(--vwc-base-contrast-5pct);
+    }
+    .st-tab {
+      flex: 1;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 8px 10px;
+      border: none; background: transparent; cursor: pointer;
+      font-family: inherit; font-size: 11.5px; font-weight: 600;
+      color: var(--lumo-secondary-text-color);
+      border-bottom: 2px solid transparent;
+      transition: color 0.12s, border-color 0.12s, background 0.12s;
+    }
+    .st-tab i { font-size: 11px; opacity: 0.75; }
+    .st-tab:hover { color: var(--lumo-body-text-color); background: rgba(255,255,255,0.5); }
+    .st-tab.active {
+      color: var(--lumo-primary-text-color);
+      background: #fff;
+      border-bottom-color: var(--lumo-primary-color);
+    }
+    .st-tab.active i { opacity: 1; }
+
+    /* Panel body */
+    .st-panel {
+      padding: 10px 12px 12px;
+    }
+    .st-panel.hidden { display: none; }
+    .st-original {
+      font-size: 12px; color: var(--lumo-body-text-color);
+      padding: 6px 8px; background: var(--vwc-base-contrast-5pct);
+      border-radius: 5px; margin-bottom: 8px;
+      max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .st-input {
+      width: 100%; box-sizing: border-box;
+      padding: 7px 9px; border: 1px solid rgba(0,0,0,0.18);
+      border-radius: 6px; font-size: 12px;
+      font-family: 'Courier New', monospace;
+      outline: none;
+    }
+    .st-input:focus { border-color: var(--lumo-primary-color); }
+    .st-tip {
+      font-size: 10.5px; color: var(--lumo-secondary-text-color);
+      margin-top: 6px; line-height: 1.4;
+    }
+    .st-actions {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 10px; gap: 8px;
+    }
+    .st-actions .st-right { display: flex; gap: 6px; }
+    .st-btn {
+      padding: 5px 10px; border-radius: 5px; border: 1px solid transparent;
+      font-size: 11.5px; font-weight: 600; cursor: pointer;
+      background: transparent; font-family: inherit;
+    }
+    .st-btn.cancel { color: var(--lumo-secondary-text-color); }
+    .st-btn.cancel:hover { background: var(--vwc-base-contrast-5pct); }
+    .st-btn.remove { color: var(--lumo-error-text-color); }
+    .st-btn.remove:hover { background: var(--lumo-error-color-10pct); }
+    .st-btn.apply {
+      background: var(--lumo-primary-color); color: #fff;
+    }
+    .st-btn.apply:hover { background: #015fae; }
+    .st-btn.apply:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Grammar suggestion cards (stubbed) */
+    .st-suggestion {
+      padding: 8px 10px; border-radius: 6px;
+      background: var(--vwc-base-contrast-5pct);
+      margin-bottom: 6px;
+    }
+    .st-suggestion:last-child { margin-bottom: 0; }
+    .st-suggestion-row {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11.5px; line-height: 1.4;
+    }
+    .st-suggestion-old {
+      text-decoration: line-through; color: var(--lumo-error-text-color);
+      opacity: 0.8;
+    }
+    .st-suggestion-new { color: var(--lumo-success-text-color); font-weight: 600; }
+    .st-suggestion-reason {
+      font-size: 10.5px; color: var(--lumo-secondary-text-color);
+      margin-top: 3px;
+    }
+    .st-suggestion-actions {
+      display: flex; gap: 6px; margin-top: 6px;
+    }
+    .st-suggestion-actions .st-btn { padding: 3px 8px; font-size: 11px; }
+    .st-suggestion-actions .st-btn.apply {
+      background: var(--lumo-success-color);
+    }
+    .st-suggestion-actions .st-btn.apply:hover { background: #117036; }
+
+    /* Audio controls strip on active scene card — stacked layout */
+    .sc-audio-controls {
+      display: flex; flex-direction: column; gap: 7px; margin-top: 9px;
+      padding: 8px 9px; border-radius: 8px;
+      background: rgba(255,255,255,0.35); border: 1px solid rgba(255,255,255,0.35);
+    }
+    .sc-audio-row {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sc-audio-voice {
+      flex: 0 0 auto; min-width: 0;
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 8px; border-radius: 6px;
+      background: rgba(255,255,255,0.55);
+      border: 1px solid rgba(0,0,0,0.06);
+      cursor: pointer; font-family: inherit;
+      font-size: 11.5px; color: #0f2e3d;
+      max-width: 200px;
+    }
+    .sc-audio-voice:hover { background: rgba(255,255,255,0.8); }
+    .sc-audio-voice .sav-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sc-audio-voice .sav-chev { font-size: 9px; opacity: 0.6; margin-left: 2px; }
+    .sc-audio-generate {
+      flex: 0 0 auto; margin-left: auto;
+      padding: 5px 12px; border-radius: 6px; border: none; cursor: pointer;
+      background: var(--lumo-primary-color); color: #fff;
+      font-size: 11.5px; font-weight: 600; font-family: inherit;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .sc-audio-generate:hover { background: #015fae; }
+    .sc-audio-generate:disabled { opacity: 0.6; cursor: not-allowed; }
+    .sc-audio-generate.is-loading { background: var(--lumo-secondary-text-color); }
+
+    /* Audio status / preview row stacks beneath the voice+button row */
+    .sc-audio-status {
+      width: 100%;
+    }
+    .sc-audio-player {
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 8px; border-radius: 6px;
+      background: rgba(255,255,255,0.7);
+      border: 1px solid rgba(0,0,0,0.05);
+      font-size: 11px; color: var(--lumo-secondary-text-color);
+    }
+    .sc-audio-player .sap-play {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: none; cursor: pointer;
+      background: var(--lumo-primary-color); color: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 9px;
+      flex-shrink: 0;
+    }
+    .sc-audio-player .sap-play:hover { background: #015fae; }
+    .sc-audio-player .sap-bar {
+      flex: 1; height: 3px; background: rgba(0,0,0,0.08);
+      border-radius: 2px; overflow: hidden; position: relative;
+    }
+    .sc-audio-player .sap-bar::after {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 28%; background: var(--lumo-primary-color); border-radius: 2px;
+    }
+    .sc-audio-player .sap-time { font-variant-numeric: tabular-nums; flex-shrink: 0; }
+    .sc-audio-empty {
+      display: flex; align-items: center; gap: 6px;
+      color: rgba(15,46,61,0.55); font-size: 11px; font-style: italic;
+      padding: 2px 4px;
+    }
+    .sc-audio-empty i { font-size: 10px; opacity: 0.7; }
+
+    /* Locked mode — transcript editor goes flat read-only */
+    #app.lo-locked .sc-transcript-editor {
+      pointer-events: none;
+      background: transparent;
+      border-color: transparent;
+    }
+    #app.lo-locked .sc-audio-controls { display: none; }
 
     .sc-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 9px; }
     .qc-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
@@ -4691,9 +4942,6 @@
   <button class="dd-item" onclick="openRegenModal(); closeAllDropdowns()" data-file="products/LearningStudio/Phase2/index.html" data-line="1565">
     <i class="fa-solid fa-wand-magic-sparkles"></i> AI Regenerate Transcript
   </button>
-  <button class="dd-item" onclick="openAudioModal(); closeAllDropdowns()" data-file="products/LearningStudio/Phase2/index.html" data-line="1568">
-    <i class="fa-solid fa-play-circle"></i> Preview Audio
-  </button>
   <div class="dd-sep"></div>
   <button class="dd-item danger" id="dd-delete-btn" onclick="deleteActiveScene(); closeAllDropdowns()" data-file="products/LearningStudio/Phase2/index.html" data-line="1572">
     <i class="fa-solid fa-trash-can"></i> Delete Scene
@@ -5022,6 +5270,58 @@
 </div>
 
 <!-- ===================================================================
+     SELECTION TOOLBAR — tabbed (Phonetic / Grammar).
+     Non-blocking: child controls each declare whether they should preserve
+     editor focus via per-element onmousedown handlers. The input intentionally
+     does NOT preventDefault so the user can click into it to type a phonetic.
+=================================================================== -->
+<div id="selection-toolbar" class="selection-toolbar hidden">
+  <!-- Tab strip -->
+  <div class="st-tabs">
+    <button class="st-tab active" data-tab="phonetic"
+            onmousedown="event.preventDefault()"
+            onclick="selectionToolbar.switchTab('phonetic')">
+      <i class="fa-solid fa-microphone-lines"></i> Phonetic
+    </button>
+    <button class="st-tab" data-tab="grammar"
+            onmousedown="event.preventDefault()"
+            onclick="selectionToolbar.switchTab('grammar')">
+      <i class="fa-solid fa-spell-check"></i> Grammar
+    </button>
+  </div>
+
+  <!-- Phonetic tab content -->
+  <div class="st-panel" id="st-tab-phonetic">
+    <div class="st-original" id="st-phonetic-original"></div>
+    <input type="text" class="st-input" id="st-phonetic-input"
+           placeholder='e.g. "day-tuh" or "muh-sheen lurn-ing"'
+           onkeydown="if(event.key==='Enter'){event.preventDefault();selectionToolbar.applyPhonetic();} else if(event.key==='Escape'){selectionToolbar.close();}" />
+    <div class="st-tip">Tip: spell phonetically. Use hyphens for syllable breaks.</div>
+    <div class="st-actions">
+      <button class="st-btn remove" id="st-phonetic-remove"
+              onmousedown="event.preventDefault()"
+              onclick="selectionToolbar.removePhonetic()">
+        <i class="fa-solid fa-trash" style="font-size:10px;"></i> Remove
+      </button>
+      <div class="st-right">
+        <button class="st-btn cancel"
+                onmousedown="event.preventDefault()"
+                onclick="selectionToolbar.close()">Cancel</button>
+        <button class="st-btn apply"
+                onmousedown="event.preventDefault()"
+                onclick="selectionToolbar.applyPhonetic()">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grammar tab content -->
+  <div class="st-panel hidden" id="st-tab-grammar">
+    <div class="st-original" id="st-grammar-original"></div>
+    <div id="st-grammar-suggestions"></div>
+  </div>
+</div>
+
+<!-- ===================================================================
      GENERATE AUDIO MODAL
 =================================================================== -->
 <div id="modal-audio" class="modal-backdrop hidden" data-file="products/LearningStudio/Phase2/index.html" data-line="1730">
@@ -5235,8 +5535,36 @@ const ALL_LOS = [
   { id:3, title:'AI-Powered Media Generation',           section:'Advanced Techniques', shared: false, locked: true  },
 ];
 
+/* -----------------------------------------------------------------------
+   TRANSCRIPT TOKENS — phonetic-aware structured transcript
+   Each scene has `transcriptTokens` (array of {type:'text'|'phonetic', text, phonetic?}).
+   `transcript` is kept in sync as the plain-text projection for search/preview.
+----------------------------------------------------------------------- */
+function tokensToText(tokens) {
+  if (!Array.isArray(tokens)) return '';
+  return tokens.map(t => t.text).join('');
+}
+function textToTokens(text) {
+  return text ? [{ type:'text', text }] : [];
+}
+function ensureTokens(sc) {
+  if (!sc.transcriptTokens) sc.transcriptTokens = textToTokens(sc.transcript || '');
+  return sc.transcriptTokens;
+}
+function syncTranscriptFromTokens(sc) {
+  sc.transcript = tokensToText(sc.transcriptTokens || []);
+}
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 let scenes = [
   { id:1, transcript:"Welcome to our presentation. Today we'll be discussing the future of video creation and how AI is transforming the industry.",
+    transcriptTokens:[
+      { type:'text', text:"Welcome to our presentation. Today we'll be discussing the future of video creation and how " },
+      { type:'phonetic', text:'AI', phonetic:'A-eye' },
+      { type:'text', text:' is transforming the industry.' }
+    ],
     img:'https://images.unsplash.com/photo-1764663908321-495a7145ad3b?w=900&q=80',
     templates:[
       { id:'t1a', tpl:'text-overlay', tplParams:{ placement:'left', color:'#1e40af', text:'Your Message Here' }, tplTransition:null, clipState:{ left:0, width:100 } }
@@ -5249,7 +5577,13 @@ let scenes = [
     ],
     duration:7, completed:false, status:'in-review' },
   { id:3, transcript:"Work seamlessly with your team. Share projects, get feedback, and iterate faster than ever before.",
-    img:'https://images.unsplash.com/photo-1758873272921-4b64aef3c32b?w=900&q=80',
+    transcriptTokens:[
+      { type:'text', text:'Work ' },
+      { type:'phonetic', text:'seamlessly', phonetic:'seem-less-lee' },
+      { type:'text', text:' with your team. Share projects, get feedback, and ' },
+      { type:'phonetic', text:'iterate faster', phonetic:'ih-ter-ate fass-ter' },
+      { type:'text', text:' than ever before.' }
+    ],
     templates:[
       { id:'t3a', tpl:'text-overlay', tplParams:{ placement:'right', color:'#064e3b', text:'Team Collaboration' }, tplTransition:null, clipState:{ left:0, width:100 } }
     ],
@@ -5698,36 +6032,39 @@ ${idx === 0 ? `<div class="scene-insert-zone" data-insert-before="${sc.id}" oncl
       <div class="sc-header">
         <div class="sc-number">${displayNum}</div>
 
-        ${isActive ? `<div class="sc-inline-actions">
-          <button class="sc-btn" title="Generate Audio" onclick="event.stopPropagation();openAudioForScene(${sc.id})">
-            <i class="fa-solid fa-volume-high"></i>
-          </button>
-          <button class="sc-btn" title="More Options" onclick="event.stopPropagation();openSceneMenu(event,${sc.id})">
-            <i class="fa-solid fa-ellipsis-h"></i>
-          </button>
-        </div>` : ''}
+        ${isActive ? `<div class="sc-header-right">
+          <div class="status-badge-select-wrap" onclick="event.stopPropagation()">
+            ${statusBadge(sc.status)}
+            <select class="sc-status-select-overlay" aria-label="Status">
+              <option value="in-progress"${sc.status==='in-progress'?' selected':''}>In Progress</option>
+              <option value="in-review"${sc.status==='in-review'?' selected':''}>In Review</option>
+              <option value="ready"${sc.status==='ready'?' selected':''}>Marked as Ready</option>
+            </select>
+          </div>
+          <div class="sc-duration"><i class="fa-regular fa-clock"></i> ${fmt(sc.duration)}</div>
+          <div class="sc-inline-actions">
+            <button class="sc-btn" title="More Options" onclick="event.stopPropagation();openSceneMenu(event,${sc.id})">
+              <i class="fa-solid fa-ellipsis-h"></i>
+            </button>
+          </div>
+        </div>` : `<div class="sc-header-right">
+          ${statusBadge(sc.status)}
+          <div class="sc-duration"><i class="fa-regular fa-clock"></i> ${fmt(sc.duration)}</div>
+        </div>`}
 
       </div>
 
       ${isActive
-        ? `<textarea class="sc-transcript-textarea" rows="4"
-             onchange="updateTranscript(${sc.id},this.value)">${sc.transcript}</textarea>
-           <div class="sc-footer">
-             <div class="status-badge-select-wrap" onclick="event.stopPropagation()">
-               ${statusBadge(sc.status)}
-               <select class="sc-status-select-overlay" aria-label="Status">
-                 <option value="in-progress"${sc.status==='in-progress'?' selected':''}>In Progress</option>
-                 <option value="in-review"${sc.status==='in-review'?' selected':''}>In Review</option>
-                 <option value="ready"${sc.status==='ready'?' selected':''}>Marked as Ready</option>
-               </select>
-             </div>
-             <div class="sc-duration"><i class="fa-regular fa-clock"></i> ${fmt(sc.duration)}</div>
-           </div>`
-        : `<div class="sc-transcript-preview">${sc.transcript||'Enter scene transcript...'}</div>
-           <div class="sc-footer">
-             ${statusBadge(sc.status)}
-             <div class="sc-duration"><i class="fa-regular fa-clock"></i> ${fmt(sc.duration)}</div>
-           </div>`
+        ? `<div class="sc-transcript-editor" contenteditable="true" data-placeholder="Enter scene transcript..."
+                id="editor-${sc.id}"
+                onclick="event.stopPropagation()"
+                oninput="onTranscriptEditorInput(${sc.id}, this)"
+                onkeydown="onTranscriptEditorKeydown(event, ${sc.id})"
+                onmouseup="onTranscriptEditorSelect(${sc.id}, this, event)"
+                onkeyup="onTranscriptEditorSelect(${sc.id}, this, event)"
+                onblur="onTranscriptEditorBlur(${sc.id})">${renderTranscriptHTML(sc)}</div>
+           ${renderSceneAudioControls(sc)}`
+        : `<div class="sc-transcript-preview">${renderTranscriptHTML(sc, false) || 'Enter scene transcript...'}</div>`
       }
     </div><!-- /sc-inner -->
     </div><!-- /flex row -->
@@ -5892,7 +6229,477 @@ function toggleComplete(id) {
 
 function updateTranscript(id, val) {
   const sc = scenes.find(s=>s.id===id);
-  if (sc) sc.transcript = val;
+  if (sc) {
+    sc.transcript = val;
+    sc.transcriptTokens = textToTokens(val);
+  }
+}
+
+/* -----------------------------------------------------------------------
+   PHONETIC-AWARE TRANSCRIPT EDITOR
+   - Renders tokens as plain text + atomic phonetic pills (contenteditable=false).
+   - Editing inside a pill is not possible (browser treats it atomic);
+     deleting a pill via backspace removes the whole token naturally.
+   - On input, we re-parse the DOM back to tokens so order/movement is preserved.
+----------------------------------------------------------------------- */
+function renderTranscriptHTML(sc, interactive = true) {
+  const tokens = ensureTokens(sc);
+  return tokens.map(t => {
+    if (t.type === 'phonetic') {
+      const onclick = interactive ? `onclick="onPhoneticPillClick(event, ${sc.id}, this)"` : '';
+      return `<span class="phonetic-token" contenteditable="false"
+                    data-phonetic="${escapeHTML(t.phonetic||'')}"
+                    ${onclick}
+                    title="Phonetic: ${escapeHTML(t.phonetic||'')}">${escapeHTML(t.text)}</span>`;
+    }
+    return escapeHTML(t.text);
+  }).join('');
+}
+
+// Walk the editor DOM and rebuild the tokens array
+function readEditorTokens(editor) {
+  const tokens = [];
+  let buf = '';
+  const flush = () => { if (buf) { tokens.push({ type:'text', text: buf }); buf = ''; } };
+
+  editor.childNodes.forEach(node => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      buf += node.nodeValue;
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      if (node.classList && node.classList.contains('phonetic-token')) {
+        flush();
+        tokens.push({
+          type: 'phonetic',
+          text: node.textContent,
+          phonetic: node.getAttribute('data-phonetic') || ''
+        });
+      } else if (node.tagName === 'BR') {
+        buf += '\n';
+      } else {
+        // Treat other elements (e.g. pasted spans) as their text content
+        buf += node.textContent;
+      }
+    }
+  });
+  flush();
+  return tokens;
+}
+
+function onTranscriptEditorInput(scId, editor) {
+  const sc = scenes.find(s => s.id === scId);
+  if (!sc) return;
+  sc.transcriptTokens = readEditorTokens(editor);
+  syncTranscriptFromTokens(sc);
+}
+
+function onTranscriptEditorKeydown(e, scId) {
+  // Native cut/copy/paste/delete/typing all pass through.
+  // Escape dismisses the selection toolbar without affecting selection.
+  if (e.key === 'Escape') selectionToolbar.close();
+}
+
+function onTranscriptEditorBlur(scId) {
+  // Re-read once more on blur to be safe
+  const editor = document.getElementById('editor-' + scId);
+  if (editor) onTranscriptEditorInput(scId, editor);
+}
+
+// Selection within the editor — surface chip toolbar above the selection.
+// Does NOT steal focus or interfere with native selection/keyboard behavior.
+function onTranscriptEditorSelect(scId, editor, evt) {
+  // If the click landed on a phonetic pill, its onclick handler manages the toolbar.
+  if (evt && evt.target && evt.target.closest && evt.target.closest('.phonetic-token')) return;
+
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+    selectionToolbar.close();
+    return;
+  }
+  const range = sel.getRangeAt(0);
+  if (!editor.contains(range.commonAncestorContainer)) {
+    selectionToolbar.close();
+    return;
+  }
+  // Selections that include a phonetic pill: still allow grammar actions on the
+  // surrounding text? For now, reject — keeps semantics clean. Users can edit pills
+  // by clicking them directly.
+  const frag = range.cloneContents();
+  if (frag.querySelector && frag.querySelector('.phonetic-token')) {
+    selectionToolbar.close();
+    return;
+  }
+  const selected = sel.toString();
+  if (!selected.trim()) { selectionToolbar.close(); return; }
+
+  selectionToolbar.openChips({
+    scId,
+    original: selected,
+    anchorRect: range.getBoundingClientRect(),
+    savedRange: range.cloneRange()
+  });
+}
+
+function onPhoneticPillClick(evt, scId, pillEl) {
+  evt.stopPropagation();
+  document.querySelectorAll('.phonetic-token.is-active').forEach(el => el.classList.remove('is-active'));
+  pillEl.classList.add('is-active');
+
+  selectionToolbar.openPhoneticPanel({
+    scId,
+    original: pillEl.textContent,
+    phonetic: pillEl.getAttribute('data-phonetic') || '',
+    anchorRect: pillEl.getBoundingClientRect(),
+    targetPill: pillEl
+  });
+}
+
+/* -----------------------------------------------------------------------
+   SELECTION TOOLBAR CONTROLLER
+   Tabbed (Phonetic / Grammar). Never blurs the editor or collapses selection.
+----------------------------------------------------------------------- */
+const selectionToolbar = (function () {
+  let state = null; // { scId, original, anchorRect, savedRange?, targetPill? }
+  let activeTab = 'phonetic';
+
+  const root = () => document.getElementById('selection-toolbar');
+
+  function renderPhoneticTab() {
+    document.getElementById('st-phonetic-original').textContent = state.original;
+    const input = document.getElementById('st-phonetic-input');
+    input.value = state.phonetic || '';
+    document.getElementById('st-phonetic-remove').style.display = state.targetPill ? '' : 'none';
+  }
+
+  function renderGrammarTab() {
+    document.getElementById('st-grammar-original').textContent = state.original;
+    document.getElementById('st-grammar-suggestions').innerHTML = buildGrammarSuggestions(state.original);
+  }
+
+  function setTabsVisible() {
+    // Existing pill -> Grammar tab is irrelevant; hide it.
+    const grammarTabBtn = root().querySelector('.st-tab[data-tab="grammar"]');
+    grammarTabBtn.style.display = state && state.targetPill ? 'none' : '';
+  }
+
+  function applyActiveTab() {
+    // Update tab button styles
+    root().querySelectorAll('.st-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-tab') === activeTab);
+    });
+    // Show the matching panel
+    document.getElementById('st-tab-phonetic').classList.toggle('hidden', activeTab !== 'phonetic');
+    document.getElementById('st-tab-grammar').classList.toggle('hidden', activeTab !== 'grammar');
+    // Render content for whichever tab is active
+    if (activeTab === 'phonetic') renderPhoneticTab();
+    else renderGrammarTab();
+  }
+
+  function position() {
+    const r = root();
+    r.classList.remove('hidden');
+    const popRect = r.getBoundingClientRect();
+    const a = state.anchorRect;
+    let top = a.top - popRect.height - 6;
+    let left = a.left;
+    if (top < 8) top = a.bottom + 6;
+    if (left + popRect.width > window.innerWidth - 8) left = window.innerWidth - popRect.width - 8;
+    if (left < 8) left = 8;
+    r.style.top = top + 'px';
+    r.style.left = left + 'px';
+  }
+
+  function open(s, opts = {}) {
+    state = s;
+    // Default: phonetic tab. Existing-pill edits always force phonetic.
+    // For pill-edit, auto-focus input (no selection to preserve). For fresh
+    // selection, NEVER auto-focus — keep focus in the editor so the user can
+    // keep editing the selection (cut/copy/paste/type/delete) until they
+    // explicitly click into the popup input.
+    activeTab = state.targetPill ? 'phonetic' : (opts.tab || 'phonetic');
+    setTabsVisible();
+    applyActiveTab();
+    position();
+    if (state.targetPill && activeTab === 'phonetic') {
+      setTimeout(() => document.getElementById('st-phonetic-input').focus(), 0);
+    }
+  }
+
+  // Back-compat shims used by editor-selection / pill-click handlers
+  function openChips(s) { open(s); }
+  function openPhoneticPanel(s) { open(s, { tab: 'phonetic' }); }
+  function openGrammarPanel(s) { open(s, { tab: 'grammar' }); }
+  function openPanel(which) { if (!state) return; switchTab(which); }
+
+  function switchTab(name) {
+    if (state && state.targetPill && name === 'grammar') return; // disabled in pill-edit mode
+    activeTab = name;
+    applyActiveTab();
+    position();
+    // Don't auto-focus on tab switch for a fresh selection — preserve live editing.
+  }
+
+  function close() {
+    const r = root();
+    if (r) r.classList.add('hidden');
+    document.querySelectorAll('.phonetic-token.is-active').forEach(el => el.classList.remove('is-active'));
+    state = null;
+  }
+
+  function applyPhonetic() {
+    if (!state) return;
+    const phonetic = document.getElementById('st-phonetic-input').value.trim();
+    if (!phonetic) { close(); return; }
+    const sc = scenes.find(s => s.id === state.scId);
+    if (!sc) { close(); return; }
+    const editor = document.getElementById('editor-' + state.scId);
+
+    if (state.targetPill) {
+      state.targetPill.setAttribute('data-phonetic', phonetic);
+      state.targetPill.setAttribute('title', 'Phonetic: ' + phonetic);
+    } else if (state.savedRange) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(state.savedRange);
+      const range = sel.getRangeAt(0);
+      const span = document.createElement('span');
+      span.className = 'phonetic-token';
+      span.setAttribute('contenteditable', 'false');
+      span.setAttribute('data-phonetic', phonetic);
+      span.setAttribute('title', 'Phonetic: ' + phonetic);
+      span.setAttribute('onclick', `onPhoneticPillClick(event, ${state.scId}, this)`);
+      span.textContent = state.original.trim();
+      range.deleteContents();
+      range.insertNode(span);
+      const after = document.createRange();
+      after.setStartAfter(span);
+      after.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(after);
+    }
+    sc.transcriptTokens = readEditorTokens(editor);
+    syncTranscriptFromTokens(sc);
+    close();
+  }
+
+  function removePhonetic() {
+    if (!state || !state.targetPill) { close(); return; }
+    const sc = scenes.find(s => s.id === state.scId);
+    const editor = document.getElementById('editor-' + state.scId);
+    const txt = document.createTextNode(state.targetPill.textContent);
+    state.targetPill.parentNode.replaceChild(txt, state.targetPill);
+    if (sc) {
+      sc.transcriptTokens = readEditorTokens(editor);
+      syncTranscriptFromTokens(sc);
+    }
+    close();
+  }
+
+  function applyGrammarSuggestion(replacement) {
+    if (!state || !state.savedRange) { close(); return; }
+    const sc = scenes.find(s => s.id === state.scId);
+    if (!sc) { close(); return; }
+    const editor = document.getElementById('editor-' + state.scId);
+
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(state.savedRange);
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    const node = document.createTextNode(replacement);
+    range.insertNode(node);
+    const after = document.createRange();
+    after.setStartAfter(node);
+    after.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(after);
+
+    sc.transcriptTokens = readEditorTokens(editor);
+    syncTranscriptFromTokens(sc);
+    close();
+  }
+
+  return {
+    open, openChips, openPanel, openPhoneticPanel, openGrammarPanel,
+    switchTab, close, applyPhonetic, removePhonetic, applyGrammarSuggestion
+  };
+})();
+
+/* Stubbed grammar suggestions — prototype only.
+   In production this would query a grammar service. */
+function buildGrammarSuggestions(selected) {
+  const text = (selected || '').trim();
+  // A few canned heuristics so the UI demonstrates the pattern.
+  const suggestions = [];
+  if (/\bthier\b/i.test(text))      suggestions.push({ old:'thier', new:'their', reason:'Spelling' });
+  if (/\bteh\b/i.test(text))        suggestions.push({ old:'teh', new:'the', reason:'Spelling' });
+  if (/\brecieve\b/i.test(text))    suggestions.push({ old:'recieve', new:'receive', reason:'Spelling (i before e)' });
+  if (/\bits\s+going\b/i.test(text))suggestions.push({ old:"its going", new:"it's going", reason:'Contraction' });
+  if (/\s\s+/.test(text))           suggestions.push({ old:'  ', new:' ', reason:'Double space' });
+  // Always offer one stylistic suggestion as a demo
+  const trimmed = text.replace(/\s+/g, ' ').trim();
+  if (trimmed.length > 30) {
+    suggestions.push({
+      old: trimmed,
+      new: trimmed.replace(/\bvery\s+/gi, '').replace(/\bin order to\b/gi, 'to'),
+      reason: 'Concise — remove filler words'
+    });
+  }
+  if (!suggestions.length) {
+    return `<div class="st-suggestion"><div class="st-suggestion-row" style="color:var(--lumo-secondary-text-color);">
+      <i class="fa-solid fa-circle-check" style="color:var(--lumo-success-color);"></i> No issues detected in this selection.
+    </div></div>`;
+  }
+  return suggestions.map(s => `
+    <div class="st-suggestion">
+      <div class="st-suggestion-row">
+        <span class="st-suggestion-old">${escapeHTML(s.old)}</span>
+        <i class="fa-solid fa-arrow-right" style="font-size:9px;opacity:0.5;"></i>
+        <span class="st-suggestion-new">${escapeHTML(s.new)}</span>
+      </div>
+      <div class="st-suggestion-reason">${escapeHTML(s.reason)}</div>
+      <div class="st-suggestion-actions">
+        <button class="st-btn cancel"
+                onmousedown="event.preventDefault()"
+                onclick="selectionToolbar.close()">Ignore</button>
+        <button class="st-btn apply"
+                onmousedown="event.preventDefault()"
+                onclick="selectionToolbar.applyGrammarSuggestion(${JSON.stringify(s.new)})">Replace</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Dismiss the toolbar when the user clicks/taps outside both the editor and the toolbar
+document.addEventListener('mousedown', (e) => {
+  const root = document.getElementById('selection-toolbar');
+  if (!root || root.classList.contains('hidden')) return;
+  if (root.contains(e.target)) return;
+  if (e.target.closest && e.target.closest('.phonetic-token')) return;
+  if (e.target.closest && e.target.closest('.sc-transcript-editor')) return;
+  selectionToolbar.close();
+});
+
+/* -----------------------------------------------------------------------
+   PER-SCENE AUDIO CONTROLS (voice + generate + inline preview)
+----------------------------------------------------------------------- */
+function renderSceneAudioControls(sc) {
+  const voiceId = sc.audioVoice || selectedVoice || 'alloy';
+  const voice = (typeof VOICES !== 'undefined' && VOICES.find(v => v.id === voiceId)) || { name: 'Voice', desc: '' };
+  const hasAudio = !!sc.audioGenerated;
+  const isGenerating = !!sc.audioGenerating;
+
+  const statusHTML = isGenerating
+    ? `<div class="sc-audio-empty"><i class="fa-solid fa-spinner fa-spin"></i> Generating audio…</div>`
+    : hasAudio
+      ? `<div class="sc-audio-player">
+          <button class="sap-play" title="Play preview" onclick="event.stopPropagation();toggleScenePreview(${sc.id})">
+            <i class="fa-solid fa-play"></i>
+          </button>
+          <div class="sap-bar"></div>
+          <span class="sap-time">0:0${sc.duration || 3}</span>
+        </div>`
+      : `<div class="sc-audio-empty"><i class="fa-regular fa-circle"></i> No audio yet — click Generate to create.</div>`;
+
+  return `
+    <div class="sc-audio-controls" onclick="event.stopPropagation()">
+      <div class="sc-audio-row">
+        <button class="sc-audio-voice" onclick="event.stopPropagation();openSceneVoicePicker(${sc.id}, this)">
+          <i class="fa-solid fa-microphone-lines" style="font-size:10px;opacity:0.7;"></i>
+          <span class="sav-name">${escapeHTML(voice.name)}</span>
+          <i class="fa-solid fa-chevron-down sav-chev"></i>
+        </button>
+        <button class="sc-audio-generate ${isGenerating ? 'is-loading' : ''}" ${isGenerating?'disabled':''}
+                onclick="event.stopPropagation();generateSceneAudio(${sc.id})">
+          ${isGenerating
+            ? `<i class="fa-solid fa-spinner fa-spin"></i> Generating…`
+            : (hasAudio
+                ? `<i class="fa-solid fa-rotate"></i> Regenerate`
+                : `<i class="fa-solid fa-volume-high"></i> Generate Audio`)}
+        </button>
+      </div>
+      <div class="sc-audio-status">${statusHTML}</div>
+    </div>
+  `;
+}
+
+function generateSceneAudio(scId) {
+  const sc = scenes.find(s => s.id === scId);
+  if (!sc) return;
+  sc.audioGenerating = true;
+  // Re-render only this card's audio strip
+  const card = document.getElementById('sc-' + scId);
+  if (card) {
+    const old = card.querySelector('.sc-audio-controls');
+    if (old) old.outerHTML = renderSceneAudioControls(sc);
+  }
+  // Simulate generation
+  setTimeout(() => {
+    sc.audioGenerating = false;
+    sc.audioGenerated = true;
+    sc.audioCleared = false;
+    const card2 = document.getElementById('sc-' + scId);
+    if (card2) {
+      const old2 = card2.querySelector('.sc-audio-controls');
+      if (old2) old2.outerHTML = renderSceneAudioControls(sc);
+    }
+  }, 1200);
+}
+
+function toggleScenePreview(scId) {
+  // Stub: just a visual nudge for the prototype
+  const sc = scenes.find(s => s.id === scId);
+  if (!sc) return;
+  console.log('Preview audio for scene', scId);
+}
+
+/* Voice picker for a scene — reuses the VOICES list as a simple popover */
+function openSceneVoicePicker(scId, anchorEl) {
+  // Close any existing
+  const existing = document.getElementById('scene-voice-popover');
+  if (existing) existing.remove();
+
+  const sc = scenes.find(s => s.id === scId);
+  if (!sc) return;
+  const currentId = sc.audioVoice || selectedVoice || 'alloy';
+
+  const pop = document.createElement('div');
+  pop.id = 'scene-voice-popover';
+  pop.style.cssText = 'position:fixed;z-index:9999;min-width:220px;background:#fff;border:1px solid rgba(0,0,0,0.10);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.16),0 2px 6px rgba(0,0,0,0.08);padding:6px;font-size:12px;';
+  pop.innerHTML = VOICES.map(v => `
+    <button data-vid="${v.id}"
+            style="display:flex;flex-direction:column;align-items:flex-start;width:100%;text-align:left;padding:7px 9px;border-radius:5px;border:none;cursor:pointer;font-family:inherit;background:${v.id===currentId?'var(--lumo-primary-color-10pct)':'transparent'};color:inherit;">
+      <span style="font-weight:600;font-size:12px;">${escapeHTML(v.name)}</span>
+      <span style="font-size:10.5px;color:var(--lumo-secondary-text-color);">${escapeHTML(v.desc)}</span>
+    </button>
+  `).join('');
+  document.body.appendChild(pop);
+  const r = anchorEl.getBoundingClientRect();
+  const popRect = pop.getBoundingClientRect();
+  let top = r.bottom + 4;
+  let left = r.left;
+  if (left + popRect.width > window.innerWidth - 8) left = window.innerWidth - popRect.width - 8;
+  pop.style.top = top + 'px';
+  pop.style.left = left + 'px';
+  pop.classList.remove('hidden');
+
+  pop.querySelectorAll('button[data-vid]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      sc.audioVoice = btn.getAttribute('data-vid');
+      pop.remove();
+      const card = document.getElementById('sc-' + scId);
+      if (card) {
+        const old = card.querySelector('.sc-audio-controls');
+        if (old) old.outerHTML = renderSceneAudioControls(sc);
+      }
+    });
+  });
+
+  const dismiss = (e) => {
+    if (pop.contains(e.target) || anchorEl.contains(e.target)) return;
+    pop.remove();
+    document.removeEventListener('mousedown', dismiss);
+  };
+  setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
 }
 
 function updateStatus(id, status) {
@@ -6960,30 +7767,17 @@ function applySearchHighlights() {
 
 function injectSparkleOnSceneCard(wrapper, scId) {
   if (wrapper.querySelector('.ai-match-badge')) return;
-  const footer = wrapper.querySelector('.sc-footer');
-  if (!footer) return;
-  // Status badge is the first child; wrap it with the AI icon in a left group
-  const statusEl = footer.firstElementChild;
-  if (!statusEl) return;
-  const group = document.createElement('div');
-  group.className = 'sc-footer-left';
-  group.style.cssText = 'display:flex;align-items:center;gap:16px;';
-  footer.insertBefore(group, statusEl);
-  group.appendChild(statusEl);
+  // Status + duration now live in .sc-header-right; prepend the sparkle there.
+  const headerRight = wrapper.querySelector('.sc-header-right');
+  if (!headerRight) return;
   const badge = document.createElement('div');
   badge.className = 'ai-match-badge';
   badge.setAttribute('data-tip', 'AI matched this scene based on your search. The reason will be generated here.');
   badge.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i>';
-  group.appendChild(badge);
+  headerRight.insertBefore(badge, headerRight.firstChild);
 }
 
 function removeSparkleFromSceneCard(wrapper) {
-  wrapper.querySelectorAll('.sc-footer-left').forEach(group => {
-    const footer = group.parentElement;
-    // Move status element back to footer before removing the group
-    if (group.firstElementChild) footer.insertBefore(group.firstElementChild, group);
-    group.remove();
-  });
   wrapper.querySelectorAll('.ai-match-badge').forEach(b => b.remove());
 }
 
