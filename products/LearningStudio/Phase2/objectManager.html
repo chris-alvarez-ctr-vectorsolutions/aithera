@@ -384,6 +384,10 @@
     .sc-inner { padding: 13px; }
 
     .sc-header { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; flex-wrap: wrap; }
+    .sc-header-right {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 8px;
+    }
 
     .sc-number {
       min-width: 38px; min-height: 38px; padding: 4px 8px;
@@ -436,6 +440,253 @@
     .sc-transcript-textarea:focus {
       background: rgba(255,255,255,0.72); border-color: rgba(14,165,233,0.4);
     }
+
+    /* =====================================================================
+       PHONETIC-AWARE TRANSCRIPT EDITOR (contenteditable on active scene)
+    ===================================================================== */
+    .sc-transcript-editor {
+      width: 100%; min-height: 90px; padding: 9px 11px; border-radius: 8px;
+      background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.4);
+      font-size: 12px; color: #0f2e3d; line-height: 1.75;
+      outline: none; font-family: inherit;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.07);
+      white-space: pre-wrap; word-wrap: break-word;
+      cursor: text;
+    }
+    .sc-transcript-editor:focus {
+      background: rgba(255,255,255,0.72); border-color: rgba(14,165,233,0.4);
+    }
+    .sc-transcript-editor:empty::before {
+      content: attr(data-placeholder);
+      color: rgba(15,46,61,0.4);
+      pointer-events: none;
+    }
+
+    /* Phonetic token pill — atomic, contenteditable=false */
+    .phonetic-token {
+      display: inline-block;
+      padding: 1px 7px;
+      margin: 0 1px;
+      border-radius: 10px;
+      background: rgba(2,113,206,0.10);
+      border: 1px solid rgba(2,113,206,0.25);
+      color: var(--lumo-primary-text-color);
+      font-weight: 500;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      transition: background 0.12s;
+      white-space: nowrap;
+    }
+    .phonetic-token::before {
+      content: '\f130'; /* fa-microphone */
+      font-family: 'Font Awesome 6 Free';
+      font-weight: 900;
+      font-size: 8px;
+      margin-right: 4px;
+      opacity: 0.65;
+      vertical-align: 1px;
+    }
+    .phonetic-token:hover {
+      background: rgba(2,113,206,0.18);
+      border-color: rgba(2,113,206,0.45);
+    }
+    .phonetic-token.is-active {
+      background: rgba(2,113,206,0.25);
+      border-color: var(--lumo-primary-color);
+    }
+
+    /* =====================================================================
+       SELECTION TOOLBAR (Grammarly-style, non-blocking, tabbed)
+       - Tabs at the top switch between Phonetic and Grammar content.
+       - Never steals focus from the editor; selection stays live.
+    ===================================================================== */
+    .selection-toolbar {
+      position: fixed;
+      z-index: 9999;
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.10);
+      border-radius: 8px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.16), 0 2px 6px rgba(0,0,0,0.08);
+      font-size: 12px;
+      width: 320px;
+      overflow: hidden;
+    }
+    .selection-toolbar.hidden { display: none; }
+
+    /* Tab strip */
+    .st-tabs {
+      display: flex; align-items: stretch;
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+      background: var(--vwc-base-contrast-5pct);
+    }
+    .st-tab {
+      flex: 1;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 8px 10px;
+      border: none; background: transparent; cursor: pointer;
+      font-family: inherit; font-size: 11.5px; font-weight: 600;
+      color: var(--lumo-secondary-text-color);
+      border-bottom: 2px solid transparent;
+      transition: color 0.12s, border-color 0.12s, background 0.12s;
+    }
+    .st-tab i { font-size: 11px; opacity: 0.75; }
+    .st-tab:hover { color: var(--lumo-body-text-color); background: rgba(255,255,255,0.5); }
+    .st-tab.active {
+      color: var(--lumo-primary-text-color);
+      background: #fff;
+      border-bottom-color: var(--lumo-primary-color);
+    }
+    .st-tab.active i { opacity: 1; }
+
+    /* Panel body */
+    .st-panel {
+      padding: 10px 12px 12px;
+    }
+    .st-panel.hidden { display: none; }
+    .st-original {
+      font-size: 12px; color: var(--lumo-body-text-color);
+      padding: 6px 8px; background: var(--vwc-base-contrast-5pct);
+      border-radius: 5px; margin-bottom: 8px;
+      max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .st-input {
+      width: 100%; box-sizing: border-box;
+      padding: 7px 9px; border: 1px solid rgba(0,0,0,0.18);
+      border-radius: 6px; font-size: 12px;
+      font-family: 'Courier New', monospace;
+      outline: none;
+    }
+    .st-input:focus { border-color: var(--lumo-primary-color); }
+    .st-tip {
+      font-size: 10.5px; color: var(--lumo-secondary-text-color);
+      margin-top: 6px; line-height: 1.4;
+    }
+    .st-actions {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 10px; gap: 8px;
+    }
+    .st-actions .st-right { display: flex; gap: 6px; }
+    .st-btn {
+      padding: 5px 10px; border-radius: 5px; border: 1px solid transparent;
+      font-size: 11.5px; font-weight: 600; cursor: pointer;
+      background: transparent; font-family: inherit;
+    }
+    .st-btn.cancel { color: var(--lumo-secondary-text-color); }
+    .st-btn.cancel:hover { background: var(--vwc-base-contrast-5pct); }
+    .st-btn.remove { color: var(--lumo-error-text-color); }
+    .st-btn.remove:hover { background: var(--lumo-error-color-10pct); }
+    .st-btn.apply {
+      background: var(--lumo-primary-color); color: #fff;
+    }
+    .st-btn.apply:hover { background: #015fae; }
+    .st-btn.apply:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Grammar suggestion cards (stubbed) */
+    .st-suggestion {
+      padding: 8px 10px; border-radius: 6px;
+      background: var(--vwc-base-contrast-5pct);
+      margin-bottom: 6px;
+    }
+    .st-suggestion:last-child { margin-bottom: 0; }
+    .st-suggestion-row {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11.5px; line-height: 1.4;
+    }
+    .st-suggestion-old {
+      text-decoration: line-through; color: var(--lumo-error-text-color);
+      opacity: 0.8;
+    }
+    .st-suggestion-new { color: var(--lumo-success-text-color); font-weight: 600; }
+    .st-suggestion-reason {
+      font-size: 10.5px; color: var(--lumo-secondary-text-color);
+      margin-top: 3px;
+    }
+    .st-suggestion-actions {
+      display: flex; gap: 6px; margin-top: 6px;
+    }
+    .st-suggestion-actions .st-btn { padding: 3px 8px; font-size: 11px; }
+    .st-suggestion-actions .st-btn.apply {
+      background: var(--lumo-success-color);
+    }
+    .st-suggestion-actions .st-btn.apply:hover { background: #117036; }
+
+    /* Audio controls strip on active scene card — stacked layout */
+    .sc-audio-controls {
+      display: flex; flex-direction: column; gap: 7px; margin-top: 9px;
+      padding: 8px 9px; border-radius: 8px;
+      background: rgba(255,255,255,0.35); border: 1px solid rgba(255,255,255,0.35);
+    }
+    .sc-audio-row {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sc-audio-voice {
+      flex: 0 0 auto; min-width: 0;
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 8px; border-radius: 6px;
+      background: rgba(255,255,255,0.55);
+      border: 1px solid rgba(0,0,0,0.06);
+      cursor: pointer; font-family: inherit;
+      font-size: 11.5px; color: #0f2e3d;
+      max-width: 200px;
+    }
+    .sc-audio-voice:hover { background: rgba(255,255,255,0.8); }
+    .sc-audio-voice .sav-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sc-audio-voice .sav-chev { font-size: 9px; opacity: 0.6; margin-left: 2px; }
+    .sc-audio-generate {
+      flex: 0 0 auto; margin-left: auto;
+      padding: 5px 12px; border-radius: 6px; border: none; cursor: pointer;
+      background: var(--lumo-primary-color); color: #fff;
+      font-size: 11.5px; font-weight: 600; font-family: inherit;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .sc-audio-generate:hover { background: #015fae; }
+    .sc-audio-generate:disabled { opacity: 0.6; cursor: not-allowed; }
+    .sc-audio-generate.is-loading { background: var(--lumo-secondary-text-color); }
+
+    /* Audio status / preview row stacks beneath the voice+button row */
+    .sc-audio-status {
+      width: 100%;
+    }
+    .sc-audio-player {
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 8px; border-radius: 6px;
+      background: rgba(255,255,255,0.7);
+      border: 1px solid rgba(0,0,0,0.05);
+      font-size: 11px; color: var(--lumo-secondary-text-color);
+    }
+    .sc-audio-player .sap-play {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: none; cursor: pointer;
+      background: var(--lumo-primary-color); color: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 9px;
+      flex-shrink: 0;
+    }
+    .sc-audio-player .sap-play:hover { background: #015fae; }
+    .sc-audio-player .sap-bar {
+      flex: 1; height: 3px; background: rgba(0,0,0,0.08);
+      border-radius: 2px; overflow: hidden; position: relative;
+    }
+    .sc-audio-player .sap-bar::after {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 28%; background: var(--lumo-primary-color); border-radius: 2px;
+    }
+    .sc-audio-player .sap-time { font-variant-numeric: tabular-nums; flex-shrink: 0; }
+    .sc-audio-empty {
+      display: flex; align-items: center; gap: 6px;
+      color: rgba(15,46,61,0.55); font-size: 11px; font-style: italic;
+      padding: 2px 4px;
+    }
+    .sc-audio-empty i { font-size: 10px; opacity: 0.7; }
+
+    /* Locked mode — transcript editor goes flat read-only */
+    #app.lo-locked .sc-transcript-editor {
+      pointer-events: none;
+      background: transparent;
+      border-color: transparent;
+    }
+    #app.lo-locked .sc-audio-controls { display: none; }
 
     .sc-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 9px; }
     .qc-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
@@ -621,7 +872,46 @@
     }
 
     #canvas-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-    #canvas-overlay { position: absolute; inset: 0; }
+    /* Overlay must paint above the no-background placeholder (z-index:1) so
+       templates remain visible whether or not a background is set. */
+    #canvas-overlay { position: absolute; inset: 0; z-index: 2; }
+
+    /* Empty-state placeholder shown inside any canvas frame when no background
+       image is set. Sits between the (empty) <img> and the overlay layer. */
+    .canvas-empty {
+      position: absolute; inset: 0; z-index: 1;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; padding: 24px; text-align: center;
+      background: repeating-linear-gradient(
+        45deg,
+        #1f2937 0px, #1f2937 12px,
+        #111827 12px, #111827 24px
+      );
+      color: rgba(255,255,255,0.78);
+      pointer-events: auto;
+    }
+    .canvas-empty.hidden { display: none; }
+    .canvas-empty-icon {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: rgba(255,255,255,0.08); border: 1.5px dashed rgba(255,255,255,0.35);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; color: rgba(255,255,255,0.7);
+    }
+    .canvas-empty-title {
+      font-size: 14px; font-weight: 700; color: #fff; letter-spacing: 0.02em;
+    }
+    .canvas-empty-desc {
+      font-size: 12px; color: rgba(255,255,255,0.6); max-width: 280px; line-height: 1.4;
+    }
+    .canvas-empty-cta {
+      margin-top: 4px; display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: 6px; border: none;
+      background: var(--lumo-primary-color); color: #fff;
+      font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+      transition: background 0.12s, transform 0.06s;
+    }
+    .canvas-empty-cta:hover { background: #0284c7; }
+    .canvas-empty-cta:active { transform: translateY(1px); }
 
     /* Template overlays */
     .tpl-text-overlay {
@@ -639,6 +929,21 @@
     .tpl-lower-third.top { top: 0; }
     .tpl-lower-title { font-size: clamp(10px,1.3vw,16px); font-weight: 700; }
     .tpl-lower-sub { font-size: clamp(8px,1vw,13px); opacity: 0.88; margin-top: 2px; }
+
+    .tpl-bulleted-list {
+      position: absolute; top: 0; bottom: 0; width: 40%;
+      display: flex; flex-direction: column; justify-content: center; padding: 24px 20px;
+      gap: 8px;
+    }
+    .tpl-bulleted-list.left { left: 0; }
+    .tpl-bulleted-list.right { right: 0; }
+    .tpl-bulleted-list.center { left: 30%; }
+    .tpl-bulleted-title { font-size: clamp(11px,1.4vw,17px); font-weight: 700; line-height: 1.3; }
+    .tpl-bulleted-items { font-size: clamp(9px,1.1vw,14px); line-height: 1.5; }
+    .tpl-bulleted-items ul { margin: 0; padding-left: 18px; }
+    .tpl-bulleted-items ol { margin: 0; padding-left: 20px; }
+    .tpl-bulleted-items li { margin-bottom: 4px; }
+    .tpl-bulleted-items p { margin: 0 0 4px; }
 
     /* =====================================================================
        TIMELINE
@@ -719,6 +1024,33 @@
     }
     .track-label-cell:hover .tpl-track-del { opacity: 1; }
     .tpl-track-del:hover { background: #fee2e2; color: var(--lumo-error-color); }
+    .tpl-track-expand {
+      flex-shrink: 0; width: 14px; height: 14px; border: none; border-radius: 3px;
+      background: none; color: var(--lumo-secondary-text-color); cursor: pointer; padding: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 9px;
+      transition: transform 0.12s, background 0.12s;
+    }
+    .tpl-track-expand:hover { background: #ede9fe; color: #7c3aed; }
+    .tpl-track-expand.open { transform: rotate(90deg); }
+    /* Bullet sub-tracks — peer track rows that appear beneath an expanded parent */
+    .track.bullet-track {
+      background: rgba(139,92,246,0.04);
+      border: 1px dashed rgba(139,92,246,0.3);
+    }
+    .clip-bullet { background: rgba(167,139,250,0.75); }
+    /* Label cell that pairs with a bullet sub-track */
+    .track-label-cell.bullet-label {
+      padding-left: 14px; color: #7c3aed; font-weight: 600; font-size: 10px;
+    }
+    .bullet-label-num {
+      flex-shrink: 0; width: 16px; height: 16px; border-radius: 8px;
+      background: #8b5cf6; color: #fff; font-size: 9px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .bullet-label-text {
+      flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      color: var(--lumo-secondary-text-color); font-weight: 500;
+    }
 
     /* Scrollable container — clips and ruler scroll together horizontally */
     .tracks-scroll-area {
@@ -761,6 +1093,23 @@
     .clip-audio    { background: rgba(96,165,250,0.65); }
     .clip-media    { background: rgba(248,113,113,0.65); }
     .clip-template { background: rgba(190,242,100,0.75); }
+
+    /* Cleared clip state — visually present but empty, prompting re-add */
+    .track-clip.empty {
+      background: rgba(148,163,184,0.18);
+      border: 1px dashed rgba(148,163,184,0.55);
+      color: var(--lumo-secondary-text-color);
+      font-style: italic;
+    }
+    .track-clip.empty .waveform,
+    .track-clip.empty .clip-duration-badge,
+    .track-clip.empty .clip-trans-in,
+    .track-clip.empty .clip-trans-out,
+    .track-clip.empty .clip-trim-handle,
+    .track-clip.empty .clip-filled-label { display: none; }
+    /* Empty placeholder label only shows when the clip is in the empty state */
+    .clip-empty-label { display: none; }
+    .track-clip.empty .clip-empty-label { display: inline; }
 
     /* waveform bars in audio track */
     .waveform {
@@ -1272,16 +1621,19 @@
     }
     .tpl-prop-divider { height: 1px; background: #f3f4f6; margin: 12px 0; }
 
-    .tpl-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-    .tpl-type-btn {
-      display: flex; flex-direction: column; align-items: center; gap: 5px;
-      padding: 10px 6px; border-radius: 8px; border: 1.5px solid var(--lumo-contrast-10pct);
-      background: #f9fafb; cursor: pointer; font-family: inherit; font-size: 11px;
-      color: var(--lumo-secondary-text-color); transition: all 0.12s;
+    /* Template type dropdown — replaces the prior tile grid */
+    .tpl-type-select {
+      width: 100%; height: 34px; padding: 0 32px 0 10px; border-radius: 7px;
+      border: 1.5px solid var(--lumo-contrast-10pct); font-family: inherit; font-size: 12.5px;
+      color: var(--lumo-body-text-color); background: var(--lumo-base-color);
+      cursor: pointer; outline: none;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239ca3af'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center;
+      transition: border-color 0.12s, box-shadow 0.12s;
     }
-    .tpl-type-btn i { font-size: 14px; }
-    .tpl-type-btn:hover { border-color: #8b5cf6; background: #f5f3ff; color: #7c3aed; }
-    .tpl-type-btn.active { border-color: #8b5cf6; background: #ede9fe; color: #7c3aed; font-weight: 600; }
+    .tpl-type-select:hover { border-color: #8b5cf6; }
+    .tpl-type-select:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,0.15); }
 
     .tpl-pos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
     .tpl-pos-btn {
@@ -1350,13 +1702,20 @@
     .rte-color-bar { width: 14px; height: 3px; border-radius: 1px; background: #000; }
 
     .rte-body {
-      min-height: 64px; padding: 8px 10px;
+      min-height: 64px; padding: 8px 10px 8px 14px;
       border: 1.5px solid var(--lumo-contrast-10pct); border-radius: 0 0 7px 7px;
       font-size: 13px; color: #0f2e3d; line-height: 1.5;
       outline: none; background: var(--lumo-base-color); font-family: 'Open Sans', sans-serif;
       overflow-y: auto; max-height: 140px; word-break: break-word;
     }
     .rte-body:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,0.1); }
+    /* Ensure list markers stay inside the editor box */
+    .rte-body ul, .rte-body ol { margin: 0; padding-left: 22px; }
+    .rte-body li { margin-bottom: 2px; }
+
+    /* Locked-list variant: the entire body IS a bulleted list, no escape */
+    .rte-body--list { padding-left: 26px; }
+    .rte-body--list ul { padding-left: 4px; list-style-position: outside; }
 
     /* =====================================================================
        ADD MEDIA — dropdown menu + per-type modals
@@ -1835,7 +2194,7 @@
       margin-bottom: 16px;
     }
     .preview-canvas-wrap img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
-    .preview-canvas-wrap .preview-overlay { position: absolute; inset: 0; pointer-events: none; }
+    .preview-canvas-wrap .preview-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
     .preview-playbar {
       display: flex; align-items: center; gap: 10px; padding: 4px 0 2px;
     }
@@ -3933,6 +4292,14 @@
       <div id="preview-area" data-file="products/LearningStudio/Phase2/index.html" data-line="1223">
         <div class="canvas-frame" data-file="products/LearningStudio/Phase2/index.html" data-line="1224">
           <img id="canvas-bg" alt="Scene preview" / data-file="products/LearningStudio/Phase2/index.html" data-line="1225">
+          <div id="canvas-empty" class="canvas-empty hidden" aria-hidden="true">
+            <div class="canvas-empty-icon"><i class="fa-regular fa-image"></i></div>
+            <div class="canvas-empty-title">No background media</div>
+            <div class="canvas-empty-desc">Add an image or generated visual to set the scene</div>
+            <button class="canvas-empty-cta" onclick="openAddMediaFromPlaceholder(event)">
+              <i class="fa-solid fa-plus"></i> Add Media
+            </button>
+          </div>
           <div id="canvas-overlay" data-file="products/LearningStudio/Phase2/index.html" data-line="1226"></div>
         </div>
 
@@ -3997,8 +4364,14 @@
           <div class="tracks-row">
             <!-- Pinned track labels — stays in view while track area scrolls -->
             <div class="track-labels" id="track-labels-col">
-              <div class="track-label-cell">Audio</div>
-              <div class="track-label-cell">Background</div>
+              <div class="track-label-cell">
+                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Audio</span>
+                <button class="tpl-track-del" title="Clear audio" onclick="clearAudio()"><i class="fa-solid fa-xmark"></i></button>
+              </div>
+              <div class="track-label-cell">
+                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Background</span>
+                <button class="tpl-track-del" title="Clear background" onclick="clearBackground()"><i class="fa-solid fa-xmark"></i></button>
+              </div>
               <!-- Template labels injected here by updateTimelineClips() -->
             </div>
 
@@ -4017,6 +4390,7 @@
                       <div class="clip-trim-handle left" data-clip="audio" data-side="left"><i class="fa-solid fa-grip-lines-vertical"></i></div>
                       <div class="clip-body" data-clip="audio">
                         <div class="waveform" id="waveform"></div>
+                        <span class="clip-label clip-empty-label">No audio — generate to add</span>
                       </div>
                       <div class="clip-trim-handle right" data-clip="audio" data-side="right"><i class="fa-solid fa-grip-lines-vertical"></i></div>
                       <div class="clip-trans-out" id="clip-audio-trans-out"></div>
@@ -4032,7 +4406,8 @@
                       <div class="clip-trans-in" id="clip-bg-trans-in"></div>
                       <div class="clip-trim-handle left" data-clip="bg" data-side="left"><i class="fa-solid fa-grip-lines-vertical"></i></div>
                       <div class="clip-body" data-clip="bg">
-                        <span class="clip-label">Background Media</span>
+                        <span class="clip-label clip-filled-label">Background Media</span>
+                        <span class="clip-label clip-empty-label">No background — add media</span>
                       </div>
                       <div class="clip-trim-handle right" data-clip="bg" data-side="right"><i class="fa-solid fa-grip-lines-vertical"></i></div>
                       <div class="clip-trans-out" id="clip-bg-trans-out"></div>
@@ -4070,16 +4445,11 @@
         <!-- Template type picker -->
         <div class="tpl-prop-section" data-file="products/LearningStudio/Phase2/index.html" data-line="1294">
           <div class="tpl-prop-label" data-file="products/LearningStudio/Phase2/index.html" data-line="1295">Template Type</div>
-          <div class="tpl-type-grid" id="tpl-type-grid" data-file="products/LearningStudio/Phase2/index.html" data-line="1296">
-            <button class="tpl-type-btn" id="tpltype-text-overlay" onclick="setTplType('text-overlay')" data-file="products/LearningStudio/Phase2/index.html" data-line="1297">
-              <i class="fa-solid fa-align-left"></i>
-              <span>Text Overlay</span>
-            </button>
-            <button class="tpl-type-btn" id="tpltype-lower-third" onclick="setTplType('lower-third')" data-file="products/LearningStudio/Phase2/index.html" data-line="1301">
-              <i class="fa-solid fa-minus"></i>
-              <span>Lower Third</span>
-            </button>
-          </div>
+          <select class="tpl-type-select" id="tpl-type-select" onchange="setTplType(this.value)">
+            <option value="text-overlay">Text Overlay</option>
+            <option value="lower-third">Lower Third</option>
+            <option value="bulleted-list">Bulleted List</option>
+          </select>
         </div>
 
         <div class="tpl-prop-divider"></div>
@@ -4572,9 +4942,6 @@
   <button class="dd-item" onclick="openRegenModal(); closeAllDropdowns()" data-file="products/LearningStudio/Phase2/index.html" data-line="1565">
     <i class="fa-solid fa-wand-magic-sparkles"></i> AI Regenerate Transcript
   </button>
-  <button class="dd-item" onclick="openAudioModal(); closeAllDropdowns()" data-file="products/LearningStudio/Phase2/index.html" data-line="1568">
-    <i class="fa-solid fa-play-circle"></i> Preview Audio
-  </button>
   <div class="dd-sep"></div>
   <button class="dd-item danger" id="dd-delete-btn" onclick="deleteActiveScene(); closeAllDropdowns()" data-file="products/LearningStudio/Phase2/index.html" data-line="1572">
     <i class="fa-solid fa-trash-can"></i> Delete Scene
@@ -4738,6 +5105,11 @@
       <!-- Canvas preview -->
       <div class="preview-canvas-wrap" data-file="products/LearningStudio/Phase2/index.html" data-line="1699">
         <img id="preview-modal-bg" alt="Scene background" / data-file="products/LearningStudio/Phase2/index.html" data-line="1700">
+        <div id="preview-modal-empty" class="canvas-empty hidden" aria-hidden="true">
+          <div class="canvas-empty-icon"><i class="fa-regular fa-image"></i></div>
+          <div class="canvas-empty-title">No background media</div>
+          <div class="canvas-empty-desc">This scene has no background set</div>
+        </div>
         <div class="preview-overlay" id="preview-modal-overlay" data-file="products/LearningStudio/Phase2/index.html" data-line="1701"></div>
       </div>
 
@@ -4854,7 +5226,7 @@
             </div>
             <button class="btn-preview-audio" id="bulk-preview-btn" onclick="previewBulkSceneAudio()">
               <i class="fa-solid fa-play"></i>
-              <span id="bulk-preview-label">Preview with Sarah</span>
+              <span id="bulk-preview-label">Generate Preview</span>
             </button>
           </div>
 
@@ -4894,6 +5266,58 @@
         <i class="fa-solid fa-floppy-disk"></i> Save Changes
       </vaadin-button>
     </div>
+  </div>
+</div>
+
+<!-- ===================================================================
+     SELECTION TOOLBAR — tabbed (Phonetic / Grammar).
+     Non-blocking: child controls each declare whether they should preserve
+     editor focus via per-element onmousedown handlers. The input intentionally
+     does NOT preventDefault so the user can click into it to type a phonetic.
+=================================================================== -->
+<div id="selection-toolbar" class="selection-toolbar hidden">
+  <!-- Tab strip -->
+  <div class="st-tabs">
+    <button class="st-tab active" data-tab="phonetic"
+            onmousedown="event.preventDefault()"
+            onclick="selectionToolbar.switchTab('phonetic')">
+      <i class="fa-solid fa-microphone-lines"></i> Phonetic
+    </button>
+    <button class="st-tab" data-tab="grammar"
+            onmousedown="event.preventDefault()"
+            onclick="selectionToolbar.switchTab('grammar')">
+      <i class="fa-solid fa-spell-check"></i> Grammar
+    </button>
+  </div>
+
+  <!-- Phonetic tab content -->
+  <div class="st-panel" id="st-tab-phonetic">
+    <div class="st-original" id="st-phonetic-original"></div>
+    <input type="text" class="st-input" id="st-phonetic-input"
+           placeholder='e.g. "day-tuh" or "muh-sheen lurn-ing"'
+           onkeydown="if(event.key==='Enter'){event.preventDefault();selectionToolbar.applyPhonetic();} else if(event.key==='Escape'){selectionToolbar.close();}" />
+    <div class="st-tip">Tip: spell phonetically. Use hyphens for syllable breaks.</div>
+    <div class="st-actions">
+      <button class="st-btn remove" id="st-phonetic-remove"
+              onmousedown="event.preventDefault()"
+              onclick="selectionToolbar.removePhonetic()">
+        <i class="fa-solid fa-trash" style="font-size:10px;"></i> Remove
+      </button>
+      <div class="st-right">
+        <button class="st-btn cancel"
+                onmousedown="event.preventDefault()"
+                onclick="selectionToolbar.close()">Cancel</button>
+        <button class="st-btn apply"
+                onmousedown="event.preventDefault()"
+                onclick="selectionToolbar.applyPhonetic()">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grammar tab content -->
+  <div class="st-panel hidden" id="st-tab-grammar">
+    <div class="st-original" id="st-grammar-original"></div>
+    <div id="st-grammar-suggestions"></div>
   </div>
 </div>
 
@@ -5111,8 +5535,36 @@ const ALL_LOS = [
   { id:3, title:'AI-Powered Media Generation',           section:'Advanced Techniques', shared: false, locked: true  },
 ];
 
+/* -----------------------------------------------------------------------
+   TRANSCRIPT TOKENS — phonetic-aware structured transcript
+   Each scene has `transcriptTokens` (array of {type:'text'|'phonetic', text, phonetic?}).
+   `transcript` is kept in sync as the plain-text projection for search/preview.
+----------------------------------------------------------------------- */
+function tokensToText(tokens) {
+  if (!Array.isArray(tokens)) return '';
+  return tokens.map(t => t.text).join('');
+}
+function textToTokens(text) {
+  return text ? [{ type:'text', text }] : [];
+}
+function ensureTokens(sc) {
+  if (!sc.transcriptTokens) sc.transcriptTokens = textToTokens(sc.transcript || '');
+  return sc.transcriptTokens;
+}
+function syncTranscriptFromTokens(sc) {
+  sc.transcript = tokensToText(sc.transcriptTokens || []);
+}
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 let scenes = [
   { id:1, transcript:"Welcome to our presentation. Today we'll be discussing the future of video creation and how AI is transforming the industry.",
+    transcriptTokens:[
+      { type:'text', text:"Welcome to our presentation. Today we'll be discussing the future of video creation and how " },
+      { type:'phonetic', text:'AI', phonetic:'A-eye' },
+      { type:'text', text:' is transforming the industry.' }
+    ],
     img:'https://images.unsplash.com/photo-1764663908321-495a7145ad3b?w=900&q=80',
     templates:[
       { id:'t1a', tpl:'text-overlay', tplParams:{ placement:'left', color:'#1e40af', text:'Your Message Here' }, tplTransition:null, clipState:{ left:0, width:100 } }
@@ -5125,7 +5577,13 @@ let scenes = [
     ],
     duration:7, completed:false, status:'in-review' },
   { id:3, transcript:"Work seamlessly with your team. Share projects, get feedback, and iterate faster than ever before.",
-    img:'https://images.unsplash.com/photo-1758873272921-4b64aef3c32b?w=900&q=80',
+    transcriptTokens:[
+      { type:'text', text:'Work ' },
+      { type:'phonetic', text:'seamlessly', phonetic:'seem-less-lee' },
+      { type:'text', text:' with your team. Share projects, get feedback, and ' },
+      { type:'phonetic', text:'iterate faster', phonetic:'ih-ter-ate fass-ter' },
+      { type:'text', text:' than ever before.' }
+    ],
     templates:[
       { id:'t3a', tpl:'text-overlay', tplParams:{ placement:'right', color:'#064e3b', text:'Team Collaboration' }, tplTransition:null, clipState:{ left:0, width:100 } }
     ],
@@ -5574,36 +6032,39 @@ ${idx === 0 ? `<div class="scene-insert-zone" data-insert-before="${sc.id}" oncl
       <div class="sc-header">
         <div class="sc-number">${displayNum}</div>
 
-        ${isActive ? `<div class="sc-inline-actions">
-          <button class="sc-btn" title="Generate Audio" onclick="event.stopPropagation();openAudioForScene(${sc.id})">
-            <i class="fa-solid fa-volume-high"></i>
-          </button>
-          <button class="sc-btn" title="More Options" onclick="event.stopPropagation();openSceneMenu(event,${sc.id})">
-            <i class="fa-solid fa-ellipsis-h"></i>
-          </button>
-        </div>` : ''}
+        ${isActive ? `<div class="sc-header-right">
+          <div class="status-badge-select-wrap" onclick="event.stopPropagation()">
+            ${statusBadge(sc.status)}
+            <select class="sc-status-select-overlay" aria-label="Status">
+              <option value="in-progress"${sc.status==='in-progress'?' selected':''}>In Progress</option>
+              <option value="in-review"${sc.status==='in-review'?' selected':''}>In Review</option>
+              <option value="ready"${sc.status==='ready'?' selected':''}>Marked as Ready</option>
+            </select>
+          </div>
+          <div class="sc-duration"><i class="fa-regular fa-clock"></i> ${fmt(sc.duration)}</div>
+          <div class="sc-inline-actions">
+            <button class="sc-btn" title="More Options" onclick="event.stopPropagation();openSceneMenu(event,${sc.id})">
+              <i class="fa-solid fa-ellipsis-h"></i>
+            </button>
+          </div>
+        </div>` : `<div class="sc-header-right">
+          ${statusBadge(sc.status)}
+          <div class="sc-duration"><i class="fa-regular fa-clock"></i> ${fmt(sc.duration)}</div>
+        </div>`}
 
       </div>
 
       ${isActive
-        ? `<textarea class="sc-transcript-textarea" rows="4"
-             onchange="updateTranscript(${sc.id},this.value)">${sc.transcript}</textarea>
-           <div class="sc-footer">
-             <div class="status-badge-select-wrap" onclick="event.stopPropagation()">
-               ${statusBadge(sc.status)}
-               <select class="sc-status-select-overlay" aria-label="Status">
-                 <option value="in-progress"${sc.status==='in-progress'?' selected':''}>In Progress</option>
-                 <option value="in-review"${sc.status==='in-review'?' selected':''}>In Review</option>
-                 <option value="ready"${sc.status==='ready'?' selected':''}>Marked as Ready</option>
-               </select>
-             </div>
-             <div class="sc-duration"><i class="fa-regular fa-clock"></i> ${fmt(sc.duration)}</div>
-           </div>`
-        : `<div class="sc-transcript-preview">${sc.transcript||'Enter scene transcript...'}</div>
-           <div class="sc-footer">
-             ${statusBadge(sc.status)}
-             <div class="sc-duration"><i class="fa-regular fa-clock"></i> ${fmt(sc.duration)}</div>
-           </div>`
+        ? `<div class="sc-transcript-editor" contenteditable="true" data-placeholder="Enter scene transcript..."
+                id="editor-${sc.id}"
+                onclick="event.stopPropagation()"
+                oninput="onTranscriptEditorInput(${sc.id}, this)"
+                onkeydown="onTranscriptEditorKeydown(event, ${sc.id})"
+                onmouseup="onTranscriptEditorSelect(${sc.id}, this, event)"
+                onkeyup="onTranscriptEditorSelect(${sc.id}, this, event)"
+                onblur="onTranscriptEditorBlur(${sc.id})">${renderTranscriptHTML(sc)}</div>
+           ${renderSceneAudioControls(sc)}`
+        : `<div class="sc-transcript-preview">${renderTranscriptHTML(sc, false) || 'Enter scene transcript...'}</div>`
       }
     </div><!-- /sc-inner -->
     </div><!-- /flex row -->
@@ -5768,7 +6229,477 @@ function toggleComplete(id) {
 
 function updateTranscript(id, val) {
   const sc = scenes.find(s=>s.id===id);
-  if (sc) sc.transcript = val;
+  if (sc) {
+    sc.transcript = val;
+    sc.transcriptTokens = textToTokens(val);
+  }
+}
+
+/* -----------------------------------------------------------------------
+   PHONETIC-AWARE TRANSCRIPT EDITOR
+   - Renders tokens as plain text + atomic phonetic pills (contenteditable=false).
+   - Editing inside a pill is not possible (browser treats it atomic);
+     deleting a pill via backspace removes the whole token naturally.
+   - On input, we re-parse the DOM back to tokens so order/movement is preserved.
+----------------------------------------------------------------------- */
+function renderTranscriptHTML(sc, interactive = true) {
+  const tokens = ensureTokens(sc);
+  return tokens.map(t => {
+    if (t.type === 'phonetic') {
+      const onclick = interactive ? `onclick="onPhoneticPillClick(event, ${sc.id}, this)"` : '';
+      return `<span class="phonetic-token" contenteditable="false"
+                    data-phonetic="${escapeHTML(t.phonetic||'')}"
+                    ${onclick}
+                    title="Phonetic: ${escapeHTML(t.phonetic||'')}">${escapeHTML(t.text)}</span>`;
+    }
+    return escapeHTML(t.text);
+  }).join('');
+}
+
+// Walk the editor DOM and rebuild the tokens array
+function readEditorTokens(editor) {
+  const tokens = [];
+  let buf = '';
+  const flush = () => { if (buf) { tokens.push({ type:'text', text: buf }); buf = ''; } };
+
+  editor.childNodes.forEach(node => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      buf += node.nodeValue;
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      if (node.classList && node.classList.contains('phonetic-token')) {
+        flush();
+        tokens.push({
+          type: 'phonetic',
+          text: node.textContent,
+          phonetic: node.getAttribute('data-phonetic') || ''
+        });
+      } else if (node.tagName === 'BR') {
+        buf += '\n';
+      } else {
+        // Treat other elements (e.g. pasted spans) as their text content
+        buf += node.textContent;
+      }
+    }
+  });
+  flush();
+  return tokens;
+}
+
+function onTranscriptEditorInput(scId, editor) {
+  const sc = scenes.find(s => s.id === scId);
+  if (!sc) return;
+  sc.transcriptTokens = readEditorTokens(editor);
+  syncTranscriptFromTokens(sc);
+}
+
+function onTranscriptEditorKeydown(e, scId) {
+  // Native cut/copy/paste/delete/typing all pass through.
+  // Escape dismisses the selection toolbar without affecting selection.
+  if (e.key === 'Escape') selectionToolbar.close();
+}
+
+function onTranscriptEditorBlur(scId) {
+  // Re-read once more on blur to be safe
+  const editor = document.getElementById('editor-' + scId);
+  if (editor) onTranscriptEditorInput(scId, editor);
+}
+
+// Selection within the editor — surface chip toolbar above the selection.
+// Does NOT steal focus or interfere with native selection/keyboard behavior.
+function onTranscriptEditorSelect(scId, editor, evt) {
+  // If the click landed on a phonetic pill, its onclick handler manages the toolbar.
+  if (evt && evt.target && evt.target.closest && evt.target.closest('.phonetic-token')) return;
+
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+    selectionToolbar.close();
+    return;
+  }
+  const range = sel.getRangeAt(0);
+  if (!editor.contains(range.commonAncestorContainer)) {
+    selectionToolbar.close();
+    return;
+  }
+  // Selections that include a phonetic pill: still allow grammar actions on the
+  // surrounding text? For now, reject — keeps semantics clean. Users can edit pills
+  // by clicking them directly.
+  const frag = range.cloneContents();
+  if (frag.querySelector && frag.querySelector('.phonetic-token')) {
+    selectionToolbar.close();
+    return;
+  }
+  const selected = sel.toString();
+  if (!selected.trim()) { selectionToolbar.close(); return; }
+
+  selectionToolbar.openChips({
+    scId,
+    original: selected,
+    anchorRect: range.getBoundingClientRect(),
+    savedRange: range.cloneRange()
+  });
+}
+
+function onPhoneticPillClick(evt, scId, pillEl) {
+  evt.stopPropagation();
+  document.querySelectorAll('.phonetic-token.is-active').forEach(el => el.classList.remove('is-active'));
+  pillEl.classList.add('is-active');
+
+  selectionToolbar.openPhoneticPanel({
+    scId,
+    original: pillEl.textContent,
+    phonetic: pillEl.getAttribute('data-phonetic') || '',
+    anchorRect: pillEl.getBoundingClientRect(),
+    targetPill: pillEl
+  });
+}
+
+/* -----------------------------------------------------------------------
+   SELECTION TOOLBAR CONTROLLER
+   Tabbed (Phonetic / Grammar). Never blurs the editor or collapses selection.
+----------------------------------------------------------------------- */
+const selectionToolbar = (function () {
+  let state = null; // { scId, original, anchorRect, savedRange?, targetPill? }
+  let activeTab = 'phonetic';
+
+  const root = () => document.getElementById('selection-toolbar');
+
+  function renderPhoneticTab() {
+    document.getElementById('st-phonetic-original').textContent = state.original;
+    const input = document.getElementById('st-phonetic-input');
+    input.value = state.phonetic || '';
+    document.getElementById('st-phonetic-remove').style.display = state.targetPill ? '' : 'none';
+  }
+
+  function renderGrammarTab() {
+    document.getElementById('st-grammar-original').textContent = state.original;
+    document.getElementById('st-grammar-suggestions').innerHTML = buildGrammarSuggestions(state.original);
+  }
+
+  function setTabsVisible() {
+    // Existing pill -> Grammar tab is irrelevant; hide it.
+    const grammarTabBtn = root().querySelector('.st-tab[data-tab="grammar"]');
+    grammarTabBtn.style.display = state && state.targetPill ? 'none' : '';
+  }
+
+  function applyActiveTab() {
+    // Update tab button styles
+    root().querySelectorAll('.st-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-tab') === activeTab);
+    });
+    // Show the matching panel
+    document.getElementById('st-tab-phonetic').classList.toggle('hidden', activeTab !== 'phonetic');
+    document.getElementById('st-tab-grammar').classList.toggle('hidden', activeTab !== 'grammar');
+    // Render content for whichever tab is active
+    if (activeTab === 'phonetic') renderPhoneticTab();
+    else renderGrammarTab();
+  }
+
+  function position() {
+    const r = root();
+    r.classList.remove('hidden');
+    const popRect = r.getBoundingClientRect();
+    const a = state.anchorRect;
+    let top = a.top - popRect.height - 6;
+    let left = a.left;
+    if (top < 8) top = a.bottom + 6;
+    if (left + popRect.width > window.innerWidth - 8) left = window.innerWidth - popRect.width - 8;
+    if (left < 8) left = 8;
+    r.style.top = top + 'px';
+    r.style.left = left + 'px';
+  }
+
+  function open(s, opts = {}) {
+    state = s;
+    // Default: phonetic tab. Existing-pill edits always force phonetic.
+    // For pill-edit, auto-focus input (no selection to preserve). For fresh
+    // selection, NEVER auto-focus — keep focus in the editor so the user can
+    // keep editing the selection (cut/copy/paste/type/delete) until they
+    // explicitly click into the popup input.
+    activeTab = state.targetPill ? 'phonetic' : (opts.tab || 'phonetic');
+    setTabsVisible();
+    applyActiveTab();
+    position();
+    if (state.targetPill && activeTab === 'phonetic') {
+      setTimeout(() => document.getElementById('st-phonetic-input').focus(), 0);
+    }
+  }
+
+  // Back-compat shims used by editor-selection / pill-click handlers
+  function openChips(s) { open(s); }
+  function openPhoneticPanel(s) { open(s, { tab: 'phonetic' }); }
+  function openGrammarPanel(s) { open(s, { tab: 'grammar' }); }
+  function openPanel(which) { if (!state) return; switchTab(which); }
+
+  function switchTab(name) {
+    if (state && state.targetPill && name === 'grammar') return; // disabled in pill-edit mode
+    activeTab = name;
+    applyActiveTab();
+    position();
+    // Don't auto-focus on tab switch for a fresh selection — preserve live editing.
+  }
+
+  function close() {
+    const r = root();
+    if (r) r.classList.add('hidden');
+    document.querySelectorAll('.phonetic-token.is-active').forEach(el => el.classList.remove('is-active'));
+    state = null;
+  }
+
+  function applyPhonetic() {
+    if (!state) return;
+    const phonetic = document.getElementById('st-phonetic-input').value.trim();
+    if (!phonetic) { close(); return; }
+    const sc = scenes.find(s => s.id === state.scId);
+    if (!sc) { close(); return; }
+    const editor = document.getElementById('editor-' + state.scId);
+
+    if (state.targetPill) {
+      state.targetPill.setAttribute('data-phonetic', phonetic);
+      state.targetPill.setAttribute('title', 'Phonetic: ' + phonetic);
+    } else if (state.savedRange) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(state.savedRange);
+      const range = sel.getRangeAt(0);
+      const span = document.createElement('span');
+      span.className = 'phonetic-token';
+      span.setAttribute('contenteditable', 'false');
+      span.setAttribute('data-phonetic', phonetic);
+      span.setAttribute('title', 'Phonetic: ' + phonetic);
+      span.setAttribute('onclick', `onPhoneticPillClick(event, ${state.scId}, this)`);
+      span.textContent = state.original.trim();
+      range.deleteContents();
+      range.insertNode(span);
+      const after = document.createRange();
+      after.setStartAfter(span);
+      after.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(after);
+    }
+    sc.transcriptTokens = readEditorTokens(editor);
+    syncTranscriptFromTokens(sc);
+    close();
+  }
+
+  function removePhonetic() {
+    if (!state || !state.targetPill) { close(); return; }
+    const sc = scenes.find(s => s.id === state.scId);
+    const editor = document.getElementById('editor-' + state.scId);
+    const txt = document.createTextNode(state.targetPill.textContent);
+    state.targetPill.parentNode.replaceChild(txt, state.targetPill);
+    if (sc) {
+      sc.transcriptTokens = readEditorTokens(editor);
+      syncTranscriptFromTokens(sc);
+    }
+    close();
+  }
+
+  function applyGrammarSuggestion(replacement) {
+    if (!state || !state.savedRange) { close(); return; }
+    const sc = scenes.find(s => s.id === state.scId);
+    if (!sc) { close(); return; }
+    const editor = document.getElementById('editor-' + state.scId);
+
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(state.savedRange);
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    const node = document.createTextNode(replacement);
+    range.insertNode(node);
+    const after = document.createRange();
+    after.setStartAfter(node);
+    after.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(after);
+
+    sc.transcriptTokens = readEditorTokens(editor);
+    syncTranscriptFromTokens(sc);
+    close();
+  }
+
+  return {
+    open, openChips, openPanel, openPhoneticPanel, openGrammarPanel,
+    switchTab, close, applyPhonetic, removePhonetic, applyGrammarSuggestion
+  };
+})();
+
+/* Stubbed grammar suggestions — prototype only.
+   In production this would query a grammar service. */
+function buildGrammarSuggestions(selected) {
+  const text = (selected || '').trim();
+  // A few canned heuristics so the UI demonstrates the pattern.
+  const suggestions = [];
+  if (/\bthier\b/i.test(text))      suggestions.push({ old:'thier', new:'their', reason:'Spelling' });
+  if (/\bteh\b/i.test(text))        suggestions.push({ old:'teh', new:'the', reason:'Spelling' });
+  if (/\brecieve\b/i.test(text))    suggestions.push({ old:'recieve', new:'receive', reason:'Spelling (i before e)' });
+  if (/\bits\s+going\b/i.test(text))suggestions.push({ old:"its going", new:"it's going", reason:'Contraction' });
+  if (/\s\s+/.test(text))           suggestions.push({ old:'  ', new:' ', reason:'Double space' });
+  // Always offer one stylistic suggestion as a demo
+  const trimmed = text.replace(/\s+/g, ' ').trim();
+  if (trimmed.length > 30) {
+    suggestions.push({
+      old: trimmed,
+      new: trimmed.replace(/\bvery\s+/gi, '').replace(/\bin order to\b/gi, 'to'),
+      reason: 'Concise — remove filler words'
+    });
+  }
+  if (!suggestions.length) {
+    return `<div class="st-suggestion"><div class="st-suggestion-row" style="color:var(--lumo-secondary-text-color);">
+      <i class="fa-solid fa-circle-check" style="color:var(--lumo-success-color);"></i> No issues detected in this selection.
+    </div></div>`;
+  }
+  return suggestions.map(s => `
+    <div class="st-suggestion">
+      <div class="st-suggestion-row">
+        <span class="st-suggestion-old">${escapeHTML(s.old)}</span>
+        <i class="fa-solid fa-arrow-right" style="font-size:9px;opacity:0.5;"></i>
+        <span class="st-suggestion-new">${escapeHTML(s.new)}</span>
+      </div>
+      <div class="st-suggestion-reason">${escapeHTML(s.reason)}</div>
+      <div class="st-suggestion-actions">
+        <button class="st-btn cancel"
+                onmousedown="event.preventDefault()"
+                onclick="selectionToolbar.close()">Ignore</button>
+        <button class="st-btn apply"
+                onmousedown="event.preventDefault()"
+                onclick="selectionToolbar.applyGrammarSuggestion(${JSON.stringify(s.new)})">Replace</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Dismiss the toolbar when the user clicks/taps outside both the editor and the toolbar
+document.addEventListener('mousedown', (e) => {
+  const root = document.getElementById('selection-toolbar');
+  if (!root || root.classList.contains('hidden')) return;
+  if (root.contains(e.target)) return;
+  if (e.target.closest && e.target.closest('.phonetic-token')) return;
+  if (e.target.closest && e.target.closest('.sc-transcript-editor')) return;
+  selectionToolbar.close();
+});
+
+/* -----------------------------------------------------------------------
+   PER-SCENE AUDIO CONTROLS (voice + generate + inline preview)
+----------------------------------------------------------------------- */
+function renderSceneAudioControls(sc) {
+  const voiceId = sc.audioVoice || selectedVoice || 'alloy';
+  const voice = (typeof VOICES !== 'undefined' && VOICES.find(v => v.id === voiceId)) || { name: 'Voice', desc: '' };
+  const hasAudio = !!sc.audioGenerated;
+  const isGenerating = !!sc.audioGenerating;
+
+  const statusHTML = isGenerating
+    ? `<div class="sc-audio-empty"><i class="fa-solid fa-spinner fa-spin"></i> Generating audio…</div>`
+    : hasAudio
+      ? `<div class="sc-audio-player">
+          <button class="sap-play" title="Play preview" onclick="event.stopPropagation();toggleScenePreview(${sc.id})">
+            <i class="fa-solid fa-play"></i>
+          </button>
+          <div class="sap-bar"></div>
+          <span class="sap-time">0:0${sc.duration || 3}</span>
+        </div>`
+      : `<div class="sc-audio-empty"><i class="fa-regular fa-circle"></i> No audio yet — click Generate to create.</div>`;
+
+  return `
+    <div class="sc-audio-controls" onclick="event.stopPropagation()">
+      <div class="sc-audio-row">
+        <button class="sc-audio-voice" onclick="event.stopPropagation();openSceneVoicePicker(${sc.id}, this)">
+          <i class="fa-solid fa-microphone-lines" style="font-size:10px;opacity:0.7;"></i>
+          <span class="sav-name">${escapeHTML(voice.name)}</span>
+          <i class="fa-solid fa-chevron-down sav-chev"></i>
+        </button>
+        <button class="sc-audio-generate ${isGenerating ? 'is-loading' : ''}" ${isGenerating?'disabled':''}
+                onclick="event.stopPropagation();generateSceneAudio(${sc.id})">
+          ${isGenerating
+            ? `<i class="fa-solid fa-spinner fa-spin"></i> Generating…`
+            : (hasAudio
+                ? `<i class="fa-solid fa-rotate"></i> Regenerate`
+                : `<i class="fa-solid fa-volume-high"></i> Generate Audio`)}
+        </button>
+      </div>
+      <div class="sc-audio-status">${statusHTML}</div>
+    </div>
+  `;
+}
+
+function generateSceneAudio(scId) {
+  const sc = scenes.find(s => s.id === scId);
+  if (!sc) return;
+  sc.audioGenerating = true;
+  // Re-render only this card's audio strip
+  const card = document.getElementById('sc-' + scId);
+  if (card) {
+    const old = card.querySelector('.sc-audio-controls');
+    if (old) old.outerHTML = renderSceneAudioControls(sc);
+  }
+  // Simulate generation
+  setTimeout(() => {
+    sc.audioGenerating = false;
+    sc.audioGenerated = true;
+    sc.audioCleared = false;
+    const card2 = document.getElementById('sc-' + scId);
+    if (card2) {
+      const old2 = card2.querySelector('.sc-audio-controls');
+      if (old2) old2.outerHTML = renderSceneAudioControls(sc);
+    }
+  }, 1200);
+}
+
+function toggleScenePreview(scId) {
+  // Stub: just a visual nudge for the prototype
+  const sc = scenes.find(s => s.id === scId);
+  if (!sc) return;
+  console.log('Preview audio for scene', scId);
+}
+
+/* Voice picker for a scene — reuses the VOICES list as a simple popover */
+function openSceneVoicePicker(scId, anchorEl) {
+  // Close any existing
+  const existing = document.getElementById('scene-voice-popover');
+  if (existing) existing.remove();
+
+  const sc = scenes.find(s => s.id === scId);
+  if (!sc) return;
+  const currentId = sc.audioVoice || selectedVoice || 'alloy';
+
+  const pop = document.createElement('div');
+  pop.id = 'scene-voice-popover';
+  pop.style.cssText = 'position:fixed;z-index:9999;min-width:220px;background:#fff;border:1px solid rgba(0,0,0,0.10);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.16),0 2px 6px rgba(0,0,0,0.08);padding:6px;font-size:12px;';
+  pop.innerHTML = VOICES.map(v => `
+    <button data-vid="${v.id}"
+            style="display:flex;flex-direction:column;align-items:flex-start;width:100%;text-align:left;padding:7px 9px;border-radius:5px;border:none;cursor:pointer;font-family:inherit;background:${v.id===currentId?'var(--lumo-primary-color-10pct)':'transparent'};color:inherit;">
+      <span style="font-weight:600;font-size:12px;">${escapeHTML(v.name)}</span>
+      <span style="font-size:10.5px;color:var(--lumo-secondary-text-color);">${escapeHTML(v.desc)}</span>
+    </button>
+  `).join('');
+  document.body.appendChild(pop);
+  const r = anchorEl.getBoundingClientRect();
+  const popRect = pop.getBoundingClientRect();
+  let top = r.bottom + 4;
+  let left = r.left;
+  if (left + popRect.width > window.innerWidth - 8) left = window.innerWidth - popRect.width - 8;
+  pop.style.top = top + 'px';
+  pop.style.left = left + 'px';
+  pop.classList.remove('hidden');
+
+  pop.querySelectorAll('button[data-vid]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      sc.audioVoice = btn.getAttribute('data-vid');
+      pop.remove();
+      const card = document.getElementById('sc-' + scId);
+      if (card) {
+        const old = card.querySelector('.sc-audio-controls');
+        if (old) old.outerHTML = renderSceneAudioControls(sc);
+      }
+    });
+  });
+
+  const dismiss = (e) => {
+    if (pop.contains(e.target) || anchorEl.contains(e.target)) return;
+    pop.remove();
+    document.removeEventListener('mousedown', dismiss);
+  };
+  setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
 }
 
 function updateStatus(id, status) {
@@ -5802,9 +6733,21 @@ function deleteActiveScene() {
 function updateCanvas() {
   const sc = getActive();
   document.getElementById('canvas-bg').src = sc.img || '';
+  // Show the no-background placeholder when the scene has no media set
+  const emptyEl = document.getElementById('canvas-empty');
+  if (emptyEl) emptyEl.classList.toggle('hidden', !!sc.img);
   // renderOverlay is assigned as window.renderOverlay later in the file;
   // by the time this function is called at runtime it will be available.
   window.renderOverlay(sc);
+}
+
+// Anchor the add-media menu to the existing toolbar button, since the placeholder
+// sits inside the canvas and the dropdown is positioned relative to the toolbar.
+function openAddMediaFromPlaceholder(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const triggerBtn = document.querySelector('.add-media-wrap > .tb-btn');
+  if (triggerBtn) triggerBtn.click(); else toggleAddMediaMenu(e);
 }
 
 function toggleActiveComplete() {
@@ -6106,6 +7049,9 @@ function updateTimelineClips() {
     if (!el) return;
     el.style.left  = `${cs[key].left}%`;
     el.style.width = `${cs[key].width}%`;
+    // Toggle empty state — cleared audio / missing bg image both render as empty.
+    const empty = key === 'audio' ? !!sc.audioCleared : !sc.img;
+    el.classList.toggle('empty', empty);
   });
 
   // Rebuild dynamic template tracks + labels
@@ -6125,6 +7071,7 @@ function updateTimelineClips() {
   }
 
   // Build one track row per template instance
+  const sceneDur = sc.duration || 1;
   container.innerHTML = templates.map(tpl => {
     const { id, tplParams, clipState } = tpl;
     const raw = tplParams?.title || tplParams?.text || 'Template';
@@ -6135,7 +7082,11 @@ function updateTimelineClips() {
     const clipW = clipState?.width ?? 100;
     const clipL = clipState?.left  ?? 0;
 
-    return `<div class="track${isSelected ? ' has-selected' : ''}" id="track-tpl-${id}" onclick="trackClick(event,this)">
+    // Reconcile bullets at render time so the timing array stays index-aligned
+    // with the <li>s in the items HTML.
+    if (tpl.tpl === 'bulleted-list') reconcileBullets(tpl);
+
+    const parentTrack = `<div class="track${isSelected ? ' has-selected' : ''}" id="track-tpl-${id}" onclick="trackClick(event,this)">
       <div class="track-clip clip-template${isSelected ? ' selected' : ''}" id="clip-tpl-${id}" style="left:${clipL}%;width:${clipW}%;">
         <div class="clip-duration-badge" id="clip-tpl-${id}-badge"></div>
         <div class="clip-trans-in" id="clip-tpl-${id}-trans-in"></div>
@@ -6148,16 +7099,62 @@ function updateTimelineClips() {
       </div>
       <div class="playhead ph-tpl" id="ph-tpl-${id}" style="left:0%"></div>
     </div>`;
+
+    // One sub-track per bullet, each emitted as a peer .track row with a
+    // full draggable clip (same affordances as a regular template track).
+    let bulletTracks = '';
+    if (tpl.tpl === 'bulleted-list' && tpl._expanded) {
+      const bullets = tplParams?.bullets || [];
+      bulletTracks = bullets.map((b, i) => {
+        const bL = b.clipState?.left  ?? 0;
+        const bW = b.clipState?.width ?? 10;
+        return `<div class="track bullet-track" id="track-bullet-${b.id}" data-tpl-id="${id}" data-bullet-id="${b.id}" onclick="trackClick(event,this)">
+          <div class="track-clip clip-bullet" id="clip-bullet-${b.id}" style="left:${bL}%;width:${bW}%;">
+            <div class="clip-duration-badge" id="clip-bullet-${b.id}-badge"></div>
+            <div class="clip-trim-handle left" data-clip="bullet" data-tpl-id="${id}" data-bullet-id="${b.id}" data-side="left"><i class="fa-solid fa-grip-lines-vertical"></i></div>
+            <div class="clip-body" data-clip="bullet" data-tpl-id="${id}" data-bullet-id="${b.id}">
+              <span class="clip-label">${i+1}</span>
+            </div>
+            <div class="clip-trim-handle right" data-clip="bullet" data-tpl-id="${id}" data-bullet-id="${b.id}" data-side="right"><i class="fa-solid fa-grip-lines-vertical"></i></div>
+          </div>
+          <div class="playhead ph-tpl" style="left:0%"></div>
+        </div>`;
+      }).join('');
+    }
+
+    return parentTrack + bulletTracks;
   }).join('');
 
-  // Add matching label cells for each template track
+  // Add matching label cells for each template track + each expanded bullet sub-track
   templates.forEach((tpl, i) => {
     const cell = document.createElement('div');
     cell.className = 'track-label-cell track-label-tpl';
     cell.dataset.tplId = tpl.id;
-    cell.innerHTML = `<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="Template ${i+1}">Tpl ${i+1}</span>
+    const expandBtn = tpl.tpl === 'bulleted-list'
+      ? `<button class="tpl-track-expand${tpl._expanded ? ' open' : ''}" title="${tpl._expanded ? 'Collapse bullets' : 'Expand bullets'}" onclick="event.stopPropagation(); toggleTplExpanded('${tpl.id}')"><i class="fa-solid fa-chevron-right"></i></button>`
+      : '';
+    cell.innerHTML = `${expandBtn}<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="Template ${i+1}">Tpl ${i+1}</span>
       <button class="tpl-track-del" title="Remove template" onclick="removeTemplate('${tpl.id}')"><i class="fa-solid fa-xmark"></i></button>`;
     labelsCol.appendChild(cell);
+
+    // Bullet label cells — one per bullet sub-track when expanded
+    if (tpl.tpl === 'bulleted-list' && tpl._expanded) {
+      const bullets = tpl.tplParams?.bullets || [];
+      // Pull short text from each <li> for the label
+      const tmp = document.createElement('div');
+      tmp.innerHTML = tpl.tplParams?.items || '';
+      const liTexts = [...tmp.querySelectorAll('li')].map(li => (li.textContent || '').trim());
+      bullets.forEach((b, bi) => {
+        const bCell = document.createElement('div');
+        bCell.className = 'track-label-cell bullet-label';
+        bCell.dataset.tplId = tpl.id;
+        bCell.dataset.bulletId = b.id;
+        const txt = liTexts[bi] || `Item ${bi+1}`;
+        bCell.innerHTML = `<span class="bullet-label-num">${bi+1}</span>
+          <span class="bullet-label-text" title="${escapeAttr(txt)}">${escapeAttr(txt)}</span>`;
+        labelsCol.appendChild(bCell);
+      });
+    }
   });
 
   // Re-wire drag interactions for newly created template clips
@@ -6198,6 +7195,8 @@ function initClipInteractions() {
     const fresh = body.cloneNode(true);
     body.parentNode.replaceChild(fresh, body);
     fresh.addEventListener('mousedown', e => {
+      // Don't initiate drag on a cleared/empty clip — its content is just a placeholder
+      if (fresh.closest('.track-clip')?.classList.contains('empty')) return;
       e.preventDefault(); e.stopPropagation();
       const clipKey = fresh.dataset.clip;
       selectTimelineClip(clipKey);
@@ -6237,6 +7236,26 @@ function initClipInteractions() {
       startClipDrag(e, 'template', tplId, side === 'left' ? 'resize-left' : 'resize-right');
     });
   });
+
+  // Bullet clips behave just like template clips, scoped to the parent's range
+  document.querySelectorAll('.clip-body[data-clip="bullet"]').forEach(body => {
+    body.addEventListener('mousedown', e => {
+      e.preventDefault(); e.stopPropagation();
+      const tplId = body.dataset.tplId;
+      const bulletId = body.dataset.bulletId;
+      startClipDrag(e, 'bullet', tplId, 'move', bulletId);
+    });
+  });
+
+  document.querySelectorAll('.clip-trim-handle[data-clip="bullet"]').forEach(handle => {
+    handle.addEventListener('mousedown', e => {
+      e.preventDefault(); e.stopPropagation();
+      const tplId = handle.dataset.tplId;
+      const bulletId = handle.dataset.bulletId;
+      const side  = handle.dataset.side;
+      startClipDrag(e, 'bullet', tplId, side === 'left' ? 'resize-left' : 'resize-right', bulletId);
+    });
+  });
 }
 
 function getTrackWidth() {
@@ -6246,54 +7265,94 @@ function getTrackWidth() {
 }
 
 /* Get the clipState object for a given clipKey (and optional tplId for template clips) */
-function getDragClipState(sc, clipKey, tplId) {
+function getDragClipState(sc, clipKey, tplId, bulletId) {
   if (clipKey === 'template') {
     const tpl = (sc.templates || []).find(t => t.id === tplId);
     return tpl ? tpl.clipState : null;
   }
+  if (clipKey === 'bullet') {
+    const tpl = (sc.templates || []).find(t => t.id === tplId);
+    const b = tpl?.tplParams?.bullets?.find(x => x.id === bulletId);
+    return b ? b.clipState : null;
+  }
   return getClipState(sc)[clipKey];
 }
 
-function startClipDrag(e, clipKey, tplId, type) {
+function startClipDrag(e, clipKey, tplId, type, bulletId) {
   const sc    = getActive();
-  const state = getDragClipState(sc, clipKey, tplId);
+  const state = getDragClipState(sc, clipKey, tplId, bulletId);
   if (!state) return;
   const trackW = getTrackWidth();
 
+  // For bulleted-list templates, capture each bullet's relative position within
+  // the parent clip so we can remap them as the parent clip moves/resizes.
+  let bulletRelPositions = null;
+  if (clipKey === 'template' && tplId) {
+    const tpl = getTplInstance(tplId);
+    if (tpl && tpl.tpl === 'bulleted-list' && Array.isArray(tpl.tplParams?.bullets)) {
+      const parentL = tpl.clipState.left;
+      const parentW = tpl.clipState.width;
+      bulletRelPositions = tpl.tplParams.bullets.map(b => ({
+        id: b.id,
+        relLeft: parentW > 0 ? (b.clipState.left - parentL) / parentW : 0,
+        relWidth: parentW > 0 ? b.clipState.width / parentW : 0,
+      }));
+    }
+  }
+
+  // For bullet drags, capture parent bounds so we can constrain to them.
+  let bulletBounds = null;
+  if (clipKey === 'bullet' && tplId) {
+    const tpl = getTplInstance(tplId);
+    if (tpl) bulletBounds = { left: tpl.clipState.left, width: tpl.clipState.width };
+  }
+
   dragState = {
-    type, clipKey, tplId: tplId || null,
+    type, clipKey, tplId: tplId || null, bulletId: bulletId || null,
     startX: e.clientX,
     startLeft:  state.left,
     startWidth: state.width,
     trackWidth: trackW,
+    bulletRelPositions,
+    bulletBounds,
   };
 
-  const elId = clipKey === 'template' ? `clip-tpl-${tplId}` : `clip-${clipKey}`;
+  const elId = dragElId(clipKey, tplId, bulletId);
   document.getElementById(elId)?.classList.add(type === 'move' ? 'dragging' : 'resizing');
 
   document.addEventListener('mousemove', onClipDragMove);
   document.addEventListener('mouseup',   onClipDragEnd);
 }
 
+function dragElId(clipKey, tplId, bulletId) {
+  if (clipKey === 'template') return `clip-tpl-${tplId}`;
+  if (clipKey === 'bullet')   return `clip-bullet-${bulletId}`;
+  return `clip-${clipKey}`;
+}
+
 function onClipDragMove(e) {
   if (!dragState) return;
-  const { type, clipKey, tplId, startX, startLeft, startWidth, trackWidth } = dragState;
+  const { type, clipKey, tplId, bulletId, startX, startLeft, startWidth, trackWidth, bulletBounds } = dragState;
   const dx   = e.clientX - startX;
   const dPct = (dx / trackWidth) * 100;
 
   const sc    = getActive();
-  const state = getDragClipState(sc, clipKey, tplId);
+  const state = getDragClipState(sc, clipKey, tplId, bulletId);
   if (!state) return;
 
   const MIN_WIDTH = 4;
+  // Bullets are constrained to the parent template clip; everything else to [0, 100].
+  const lo = bulletBounds ? bulletBounds.left : 0;
+  const hi = bulletBounds ? bulletBounds.left + bulletBounds.width : 100;
+
   let newLeft  = startLeft;
   let newWidth = startWidth;
 
   if (type === 'move') {
-    newLeft = Math.max(0, Math.min(100 - startWidth, startLeft + dPct));
+    newLeft = Math.max(lo, Math.min(hi - startWidth, startLeft + dPct));
     const snappedPct  = snapToWord(newLeft / 100);
     const snappedLeft = snappedPct * 100;
-    if (Math.abs(snappedLeft - newLeft) < SNAP_THRESHOLD_PCT * 100) {
+    if (Math.abs(snappedLeft - newLeft) < SNAP_THRESHOLD_PCT * 100 && snappedLeft >= lo && snappedLeft + startWidth <= hi) {
       showSnapLine(snappedPct); newLeft = snappedLeft;
     } else hideSnapLine();
   } else if (type === 'resize-left') {
@@ -6301,7 +7360,7 @@ function onClipDragMove(e) {
     const snappedPct  = snapToWord(rawLeft / 100);
     const snappedLeft = snappedPct * 100;
     const wasSnapped  = Math.abs(snappedLeft - rawLeft) < SNAP_THRESHOLD_PCT * 100;
-    newLeft  = Math.max(0, wasSnapped ? snappedLeft : rawLeft);
+    newLeft  = Math.max(lo, wasSnapped ? snappedLeft : rawLeft);
     newWidth = startWidth + (startLeft - newLeft);
     if (wasSnapped) showSnapLine(snappedPct); else hideSnapLine();
     if (newWidth < MIN_WIDTH) { newWidth = MIN_WIDTH; newLeft = startLeft + startWidth - MIN_WIDTH; }
@@ -6313,13 +7372,13 @@ function onClipDragMove(e) {
     const right = wasSnapped ? snappedRight : rawRight;
     if (wasSnapped) showSnapLine(snappedPct); else hideSnapLine();
     newLeft  = startLeft;
-    newWidth = Math.min(100 - startLeft, Math.max(MIN_WIDTH, right - startLeft));
+    newWidth = Math.min(hi - startLeft, Math.max(MIN_WIDTH, right - startLeft));
   }
 
   state.left  = newLeft;
   state.width = newWidth;
 
-  const elId = clipKey === 'template' ? `clip-tpl-${tplId}` : `clip-${clipKey}`;
+  const elId = dragElId(clipKey, tplId, bulletId);
   const el = document.getElementById(elId);
   if (el) {
     el.style.left  = `${newLeft}%`;
@@ -6331,13 +7390,33 @@ function onClipDragMove(e) {
     if (badge) badge.textContent = `${fmtTL(clipStart)} → ${fmtTL(clipStart + clipDur)} (${clipDur.toFixed(1)}s)`;
   }
 
+  // Remap bullets proportionally when the parent template clip moves/resizes
+  if (dragState.bulletRelPositions && clipKey === 'template' && tplId) {
+    const tpl = getTplInstance(tplId);
+    if (tpl) {
+      dragState.bulletRelPositions.forEach(({ id, relLeft, relWidth }) => {
+        const b = tpl.tplParams.bullets.find(x => x.id === id);
+        if (!b) return;
+        b.clipState.left  = newLeft + relLeft * newWidth;
+        b.clipState.width = relWidth * newWidth;
+        const bEl = document.getElementById(`clip-bullet-${id}`);
+        if (bEl) {
+          bEl.style.left  = `${b.clipState.left}%`;
+          bEl.style.width = `${b.clipState.width}%`;
+        }
+      });
+    }
+  }
+
   updateAllTransStripes();
+  // For bullet edits, update the canvas overlay (so reveals stay in sync visually)
+  if (clipKey === 'bullet') updateCanvas();
 }
 
 function onClipDragEnd() {
   if (!dragState) return;
-  const { clipKey, tplId, type } = dragState;
-  const elId = clipKey === 'template' ? `clip-tpl-${tplId}` : `clip-${clipKey}`;
+  const { clipKey, tplId, bulletId, type } = dragState;
+  const elId = dragElId(clipKey, tplId, bulletId);
   document.getElementById(elId)?.classList.remove('dragging', 'resizing');
   hideSnapLine();
   dragState = null;
@@ -6375,13 +7454,17 @@ function togglePlay() {
       if (currentTime >= t) { currentTime = 0; isPlaying = false; document.getElementById('play-icon').className='fa-solid fa-play'; clearInterval(playTimer); }
       updatePlayheads();
       updateDuration();
+      // Refresh overlay so timed bullet reveals appear in sync with playback
+      window.renderOverlay(getActive());
     }, 100);
   } else {
     clearInterval(playTimer);
+    // Show everything again now that we're paused
+    window.renderOverlay(getActive());
   }
 }
 
-function seekToStart() { currentTime = 0; updatePlayheads(); updateDuration(); }
+function seekToStart() { currentTime = 0; updatePlayheads(); updateDuration(); window.renderOverlay(getActive()); }
 
 /* -----------------------------------------------------------------------
    AI SEARCH
@@ -6684,30 +7767,17 @@ function applySearchHighlights() {
 
 function injectSparkleOnSceneCard(wrapper, scId) {
   if (wrapper.querySelector('.ai-match-badge')) return;
-  const footer = wrapper.querySelector('.sc-footer');
-  if (!footer) return;
-  // Status badge is the first child; wrap it with the AI icon in a left group
-  const statusEl = footer.firstElementChild;
-  if (!statusEl) return;
-  const group = document.createElement('div');
-  group.className = 'sc-footer-left';
-  group.style.cssText = 'display:flex;align-items:center;gap:16px;';
-  footer.insertBefore(group, statusEl);
-  group.appendChild(statusEl);
+  // Status + duration now live in .sc-header-right; prepend the sparkle there.
+  const headerRight = wrapper.querySelector('.sc-header-right');
+  if (!headerRight) return;
   const badge = document.createElement('div');
   badge.className = 'ai-match-badge';
   badge.setAttribute('data-tip', 'AI matched this scene based on your search. The reason will be generated here.');
   badge.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i>';
-  group.appendChild(badge);
+  headerRight.insertBefore(badge, headerRight.firstChild);
 }
 
 function removeSparkleFromSceneCard(wrapper) {
-  wrapper.querySelectorAll('.sc-footer-left').forEach(group => {
-    const footer = group.parentElement;
-    // Move status element back to footer before removing the group
-    if (group.firstElementChild) footer.insertBefore(group.firstElementChild, group);
-    group.remove();
-  });
   wrapper.querySelectorAll('.ai-match-badge').forEach(b => b.remove());
 }
 
@@ -7010,6 +8080,10 @@ function generateAudio() {
   setTimeout(() => {
     btn.innerHTML = '<i class="fa-solid fa-volume-high"></i> Generate Audio';
     btn.disabled = false;
+    // Mark this scene's audio as present again so the track row leaves its empty state
+    const sc = getActive();
+    if (sc) sc.audioCleared = false;
+    updateTimelineClips();
     closeModal('modal-audio');
   }, 2000);
 }
@@ -7070,8 +8144,7 @@ function openBulkSceneDetail(sceneId) {
 function _buildBulkDetailVoiceGrid(activeVoiceId) {
   _buildVoiceDropdown('bulk-detail-voice-dropdown', activeVoiceId, 'selectBulkDetailVoice');
   _setVoiceTrigger('bulk-detail-voice-select-name', 'bulk-detail-voice-select-desc', activeVoiceId);
-  const v = VOICES.find(x => x.id === activeVoiceId) || VOICES[0];
-  document.getElementById('bulk-preview-label').textContent = `Preview with ${v.name}`;
+  document.getElementById('bulk-preview-label').textContent = 'Generate Preview';
 }
 
 function selectBulkDetailVoice(id) {
@@ -7088,9 +8161,7 @@ function previewBulkSceneAudio() {
   setTimeout(() => {
     btn.disabled = false;
     btn.querySelector('i').className = 'fa-solid fa-play';
-    const activeVoice = bulkSceneVoices[bulkActiveSceneId] || bulkVoiceSelected;
-    const v = VOICES.find(x => x.id === activeVoice) || VOICES[0];
-    labelEl.textContent = `Preview with ${v.name}`;
+    labelEl.textContent = 'Generate Preview';
   }, 2000);
 }
 
@@ -7244,6 +8315,11 @@ function _showAudioWidget(jobScenes) {
       completed++;
       document.getElementById('audio-widget-subtitle').textContent =
         `${completed} of ${jobScenes.length} scenes`;
+
+      // Restore audio presence on the affected scene
+      const target = scenes.find(s => s.id === j.id);
+      if (target) target.audioCleared = false;
+      if (j.id === activeSceneId) updateTimelineClips();
 
       if (completed === jobScenes.length) {
         _completeAudioWidget();
@@ -7535,11 +8611,17 @@ const TPL_POS = {
     { key:'bottom', icon:'fa-arrow-down',   label:'Bottom' },
     { key:'top',    icon:'fa-arrow-up',     label:'Top' },
   ],
+  'bulleted-list': [
+    { key:'left',   icon:'fa-align-left',   label:'Left' },
+    { key:'right',  icon:'fa-align-right',  label:'Right' },
+    { key:'center', icon:'fa-align-center', label:'Center' },
+  ],
 };
 
 const TPL_TEXT_FIELDS = {
-  'text-overlay': ['text'],
-  'lower-third':  ['title','subtitle'],
+  'text-overlay':  ['text'],
+  'lower-third':   ['title','subtitle'],
+  'bulleted-list': ['title','items'],
 };
 
 function addTemplate() {
@@ -7571,6 +8653,31 @@ function removeTemplate(tplId) {
   updateTimelineClips();
 }
 
+/* Clear the audio on the active scene. Track row remains; user can re-add via
+   the generate-audio / bulk-audio flows. */
+function clearAudio() {
+  const sc = getActive();
+  sc.audioCleared = true;
+  if (selectedClip === 'audio') {
+    selectedClip = null;
+    document.getElementById('panel-media').classList.add('hidden');
+  }
+  updateTimelineClips();
+}
+
+/* Clear the background media on the active scene. Same pattern: row stays,
+   user re-adds via the add-media flow. */
+function clearBackground() {
+  const sc = getActive();
+  sc.img = '';
+  if (selectedClip === 'bg') {
+    selectedClip = null;
+    document.getElementById('panel-media').classList.add('hidden');
+  }
+  updateCanvas();
+  updateTimelineClips();
+}
+
 function openTemplatePanel() {
   document.getElementById('panel-template').classList.remove('hidden');
   refreshTplPanel();
@@ -7595,8 +8702,102 @@ function syncRteField(field) {
   if (!tpl) return;
   const el = document.getElementById(`rte-body-${field}`);
   if (el) tpl.tplParams[field] = el.innerHTML;
+  // Bullet timing list stays in sync with the <li> count
+  if (tpl.tpl === 'bulleted-list' && field === 'items') {
+    reconcileBullets(tpl);
+    updateTimelineClips();
+  }
   updateCanvas();
 }
+
+/* -----------------------------------------------------------------------
+   BULLETED-LIST BULLET TIMING
+----------------------------------------------------------------------- */
+let _bulletIdSeq = 0;
+
+// Returns [startSec, endSec] of a template's clip window in scene-time.
+function getTplClipRange(tpl, sc) {
+  const dur = (sc || getActive()).duration || 1;
+  const cs = tpl.clipState || { left: 0, width: 100 };
+  return [(cs.left / 100) * dur, ((cs.left + cs.width) / 100) * dur];
+}
+
+// Count <li> elements in an items HTML string.
+function countBulletItems(html) {
+  const div = document.createElement('div');
+  div.innerHTML = html || '';
+  return div.querySelectorAll('li').length;
+}
+
+// Bullet clipState is in PERCENT of scene duration, same units as template clipState.
+// Each bullet's [left, left+width] is constrained to its parent template's window.
+
+// Make tpl.tplParams.bullets array length match the <li> count.
+function reconcileBullets(tpl) {
+  const p = tpl.tplParams;
+  if (!Array.isArray(p.bullets)) p.bullets = [];
+  const target = countBulletItems(p.items);
+  const parentL = tpl.clipState?.left  ?? 0;
+  const parentW = tpl.clipState?.width ?? 100;
+  const parentR = parentL + parentW;
+
+  // Migrate any legacy point-based bullets ({ t }) into clipState shape.
+  const sceneDur = (getActive()?.duration) || 1;
+  p.bullets.forEach(b => {
+    if (!b.clipState && typeof b.t === 'number') {
+      const left = (b.t / sceneDur) * 100;
+      b.clipState = { left, width: Math.max(2, Math.min(parentR - left, parentW / Math.max(1, target))) };
+      delete b.t;
+    }
+  });
+
+  if (p.bullets.length > target) {
+    p.bullets = p.bullets.slice(0, target);
+  } else if (p.bullets.length < target) {
+    const needed = target - p.bullets.length;
+    if (p.bullets.length === 0 && target > 0) {
+      // First time: divide the parent clip into N equal slices
+      const slice = parentW / target;
+      for (let i = 0; i < target; i++) {
+        p.bullets.push({
+          id: `b${++_bulletIdSeq}`,
+          clipState: { left: parentL + i * slice, width: slice },
+        });
+      }
+    } else {
+      // Subsequent additions: park at the end of the parent clip with a small width
+      const lastLeft = p.bullets.length ? p.bullets[p.bullets.length - 1].clipState.left : parentL;
+      const defaultW = Math.max(2, Math.min(parentW / Math.max(1, target), parentR - lastLeft));
+      for (let i = 0; i < needed; i++) {
+        p.bullets.push({
+          id: `b${++_bulletIdSeq}`,
+          clipState: { left: Math.max(parentL, parentR - defaultW), width: defaultW },
+        });
+      }
+    }
+  }
+
+  // Clamp every bullet's clip into the parent clip window
+  p.bullets.forEach(b => {
+    const cs = b.clipState;
+    if (cs.width < 2) cs.width = 2;
+    if (cs.width > parentW) cs.width = parentW;
+    if (cs.left < parentL) cs.left = parentL;
+    if (cs.left + cs.width > parentR) cs.left = parentR - cs.width;
+  });
+}
+
+function escapeAttr(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function toggleTplExpanded(tplId) {
+  const tpl = getTplInstance(tplId);
+  if (!tpl || tpl.tpl !== 'bulleted-list') return;
+  tpl._expanded = !tpl._expanded;
+  updateTimelineClips();
+}
+
 
 function updateRteToolbarState(field) {
   const f = field || rteActiveField;
@@ -7632,24 +8833,30 @@ function rgbToHex(rgb) {
   return '#' + m.slice(0,3).map(n => parseInt(n).toString(16).padStart(2,'0')).join('');
 }
 
-function buildRteField(field, label, htmlContent) {
+function buildRteField(field, label, htmlContent, opts = {}) {
+  const { lockedList = false } = opts;
   const pxMap = [10,13,16,18,24,32,48];
   const sizeOptions = pxMap.map(px => `<option value="${px}">${px}</option>`).join('');
+
+  // When locked to a list, hide alignment + list-toggle buttons (the field IS a list)
+  const alignmentBlock = lockedList ? '' : `
+    <div class="rte-sep"></div>
+    <button class="rte-btn" data-cmd="justifyLeft" title="Align Left" onmousedown="event.preventDefault(); rteCmd('justifyLeft')"><i class="fa-solid fa-align-left"></i></button>
+    <button class="rte-btn" data-cmd="justifyCenter" title="Align Center" onmousedown="event.preventDefault(); rteCmd('justifyCenter')"><i class="fa-solid fa-align-center"></i></button>
+    <button class="rte-btn" data-cmd="justifyRight" title="Align Right" onmousedown="event.preventDefault(); rteCmd('justifyRight')"><i class="fa-solid fa-align-right"></i></button>`;
+  const listBlock = lockedList ? '' : `
+    <div class="rte-sep"></div>
+    <button class="rte-btn" data-cmd="insertUnorderedList" title="Bullet list" onmousedown="event.preventDefault(); rteCmd('insertUnorderedList')"><i class="fa-solid fa-list-ul"></i></button>
+    <button class="rte-btn" data-cmd="insertOrderedList" title="Numbered list" onmousedown="event.preventDefault(); rteCmd('insertOrderedList')"><i class="fa-solid fa-list-ol"></i></button>`;
+
   return `
-<div class="rte-field" data-rte-field="${field}">
+<div class="rte-field" data-rte-field="${field}"${lockedList ? ' data-locked-list="true"' : ''}>
   <label class="rte-label">${label}</label>
   <div class="rte-toolbar">
     <button class="rte-btn" data-cmd="bold" title="Bold" onmousedown="event.preventDefault(); rteCmd('bold')"><i class="fa-solid fa-bold"></i></button>
     <button class="rte-btn" data-cmd="italic" title="Italic" onmousedown="event.preventDefault(); rteCmd('italic')"><i class="fa-solid fa-italic"></i></button>
     <button class="rte-btn" data-cmd="underline" title="Underline" onmousedown="event.preventDefault(); rteCmd('underline')"><i class="fa-solid fa-underline"></i></button>
-    <button class="rte-btn" data-cmd="strikeThrough" title="Strikethrough" onmousedown="event.preventDefault(); rteCmd('strikeThrough')"><i class="fa-solid fa-strikethrough"></i></button>
-    <div class="rte-sep"></div>
-    <button class="rte-btn" data-cmd="justifyLeft" title="Align Left" onmousedown="event.preventDefault(); rteCmd('justifyLeft')"><i class="fa-solid fa-align-left"></i></button>
-    <button class="rte-btn" data-cmd="justifyCenter" title="Align Center" onmousedown="event.preventDefault(); rteCmd('justifyCenter')"><i class="fa-solid fa-align-center"></i></button>
-    <button class="rte-btn" data-cmd="justifyRight" title="Align Right" onmousedown="event.preventDefault(); rteCmd('justifyRight')"><i class="fa-solid fa-align-right"></i></button>
-    <div class="rte-sep"></div>
-    <button class="rte-btn" data-cmd="insertUnorderedList" title="Bullet list" onmousedown="event.preventDefault(); rteCmd('insertUnorderedList')"><i class="fa-solid fa-list-ul"></i></button>
-    <button class="rte-btn" data-cmd="insertOrderedList" title="Numbered list" onmousedown="event.preventDefault(); rteCmd('insertOrderedList')"><i class="fa-solid fa-list-ol"></i></button>
+    <button class="rte-btn" data-cmd="strikeThrough" title="Strikethrough" onmousedown="event.preventDefault(); rteCmd('strikeThrough')"><i class="fa-solid fa-strikethrough"></i></button>${alignmentBlock}${listBlock}
     <div class="rte-sep"></div>
     <select class="rte-font-size" title="Font size"
       onmousedown="rteActiveField='${field}'"
@@ -7668,12 +8875,68 @@ function buildRteField(field, label, htmlContent) {
     </label>
     <button class="rte-btn" data-cmd="removeFormat" title="Clear formatting" onmousedown="event.preventDefault(); rteCmd('removeFormat')"><i class="fa-solid fa-eraser"></i></button>
   </div>
-  <div class="rte-body" id="rte-body-${field}" contenteditable="true"
-    onfocus="rteActiveField='${field}'; updateRteToolbarState('${field}')"
-    onkeyup="syncRteField('${field}'); updateRteToolbarState('${field}')"
+  <div class="rte-body${lockedList ? ' rte-body--list' : ''}" id="rte-body-${field}" contenteditable="true"
+    ${lockedList ? `onkeydown="lockedListKeydown(event,'${field}')"` : ''}
+    onfocus="rteActiveField='${field}'; ${lockedList ? `ensureLockedList('${field}'); ` : ''}updateRteToolbarState('${field}')"
+    onkeyup="${lockedList ? `ensureLockedList('${field}'); ` : ''}syncRteField('${field}'); updateRteToolbarState('${field}')"
     onmouseup="updateRteToolbarState('${field}')"
   >${htmlContent}</div>
 </div>`;
+}
+
+/* Ensure the locked-list editor always contains a single <ul> wrapping <li>s.
+   If the user emptied the body or somehow exited the list, re-wrap on the fly. */
+function ensureLockedList(field) {
+  const el = document.getElementById(`rte-body-${field}`);
+  if (!el) return;
+  const html = el.innerHTML.trim();
+  // Empty body → seed one empty list item
+  if (!html || html === '<br>' || html === '<div><br></div>') {
+    el.innerHTML = '<ul><li><br></li></ul>';
+    placeCaretAtEnd(el.querySelector('li'));
+    return;
+  }
+  // No <ul>/<ol> at the top level → wrap children as <li>s under a <ul>
+  const hasList = el.querySelector(':scope > ul, :scope > ol');
+  if (!hasList) {
+    const wrap = document.createElement('ul');
+    // Split on <br> / <div> children into separate items if possible
+    const tmp = document.createElement('div');
+    tmp.innerHTML = el.innerHTML;
+    const lines = tmp.innerText.split(/\n+/).map(s => s.trim()).filter(Boolean);
+    wrap.innerHTML = (lines.length ? lines : ['']).map(t => `<li>${t || '<br>'}</li>`).join('');
+    el.innerHTML = '';
+    el.appendChild(wrap);
+    placeCaretAtEnd(wrap.lastElementChild);
+  }
+}
+
+/* Block behaviors that would let the user leave the list. */
+function lockedListKeydown(e, field) {
+  const el = document.getElementById(`rte-body-${field}`);
+  if (!el) return;
+  // Backspace at the very start of the first/only empty <li> would normally remove the <ul> —
+  // swallow it so we keep at least one bullet.
+  if (e.key === 'Backspace') {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const li = sel.anchorNode?.nodeType === 1
+      ? sel.anchorNode.closest?.('li')
+      : sel.anchorNode?.parentElement?.closest?.('li');
+    if (li && li.textContent === '' && !li.previousElementSibling) {
+      e.preventDefault();
+    }
+  }
+}
+
+function placeCaretAtEnd(node) {
+  if (!node) return;
+  const range = document.createRange();
+  range.selectNodeContents(node);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
 }
 
 function fontSizePxToLevel(px) {
@@ -7695,14 +8958,14 @@ function refreshTplPanel() {
   const titleEl = document.querySelector('#panel-template .panel-title');
   if (titleEl) titleEl.textContent = totalTpls > 1 ? `Template ${tplIdx} of ${totalTpls}` : 'Template Properties';
 
-  // Type buttons
-  document.querySelectorAll('.tpl-type-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById(`tpltype-${tplType}`)?.classList.add('active');
+  // Type dropdown
+  const typeSelect = document.getElementById('tpl-type-select');
+  if (typeSelect) typeSelect.value = tplType;
 
   // Position buttons
   const posGrid = document.getElementById('tpl-pos-grid');
   const positions = TPL_POS[tplType] || [];
-  const currentPos = tplType === 'text-overlay' ? p.placement : p.position;
+  const currentPos = (tplType === 'text-overlay' || tplType === 'bulleted-list') ? p.placement : p.position;
   posGrid.innerHTML = positions.map(pos => `
     <button class="tpl-pos-btn${currentPos===pos.key?' active':''}" onclick="setTplPos('${pos.key}')">
       <i class="fa-solid ${pos.icon}"></i> ${pos.label}
@@ -7724,7 +8987,8 @@ function refreshTplPanel() {
   if (!sameFields) {
     rteContainer.innerHTML = fields.map(f => {
       const label = f.charAt(0).toUpperCase() + f.slice(1);
-      return buildRteField(f, label, p[f] || '');
+      const lockedList = (tplType === 'bulleted-list' && f === 'items');
+      return buildRteField(f, label, p[f] || '', { lockedList });
     }).join('');
   }
 
@@ -7737,12 +9001,18 @@ function setTplType(type) {
   tpl.tpl = type;
   if (type === 'text-overlay') {
     tpl.tplParams = { ...tpl.tplParams, placement:'left', text: tpl.tplParams?.text || '<p>Your Message Here</p>' };
-    delete tpl.tplParams.position; delete tpl.tplParams.title; delete tpl.tplParams.subtitle;
+    delete tpl.tplParams.position; delete tpl.tplParams.title; delete tpl.tplParams.subtitle; delete tpl.tplParams.items;
   } else if (type === 'lower-third') {
     tpl.tplParams = { ...tpl.tplParams, position:'bottom',
       title: tpl.tplParams?.title || tpl.tplParams?.text || '<p>Title</p>',
       subtitle: tpl.tplParams?.subtitle || '' };
-    delete tpl.tplParams.placement; delete tpl.tplParams.text;
+    delete tpl.tplParams.placement; delete tpl.tplParams.text; delete tpl.tplParams.items;
+  } else if (type === 'bulleted-list') {
+    tpl.tplParams = { ...tpl.tplParams, placement: tpl.tplParams?.placement || 'left',
+      title: tpl.tplParams?.title || '<p>Key Points</p>',
+      items: tpl.tplParams?.items || '<ul><li>First point</li><li>Second point</li><li>Third point</li></ul>' };
+    delete tpl.tplParams.position; delete tpl.tplParams.text; delete tpl.tplParams.subtitle;
+    reconcileBullets(tpl);
   }
   updateCanvas();
   updateTimelineClips();
@@ -7753,7 +9023,7 @@ function setTplPos(key) {
   const tpl = getTplInstance(selectedTplId);
   if (!tpl) return;
   const p = tpl.tplParams;
-  if (tpl.tpl === 'text-overlay') p.placement = key;
+  if (tpl.tpl === 'text-overlay' || tpl.tpl === 'bulleted-list') p.placement = key;
   else p.position = key;
   updateCanvas();
   refreshTplPanel();
@@ -8013,25 +9283,55 @@ window.renderOverlay = function(sc) {
     const inRange = (currentTime >= clipStart && currentTime < clipEnd) || !isPlaying;
     if (!inRange) return '';
 
-    const p  = tpl.tplParams || {};
-    const tc = lum(p.color || '#000000') > 0.55 ? '#000' : '#fff';
-    const wrapStyle = `color:${tc}; font-family:'Open Sans',sans-serif; font-size:clamp(10px,1.4vw,18px);`;
-
-    if (tpl.tpl === 'text-overlay') {
-      return `<div class="tpl-text-overlay ${p.placement||'left'}" style="background:${p.color||'#1e40af'};opacity:0.92;">
-        <div class="tpl-overlay-text" style="${wrapStyle}">${p.text||''}</div>
-      </div>`;
-    } else if (tpl.tpl === 'lower-third') {
-      return `<div class="tpl-lower-third ${p.position||'bottom'}" style="background:${p.color||'#1e40af'};">
-        <div class="tpl-lower-title" style="${wrapStyle} font-weight:700;">${p.title||''}</div>
-        ${p.subtitle ? `<div class="tpl-lower-sub" style="${wrapStyle} opacity:0.88;">${p.subtitle}</div>` : ''}
-      </div>`;
-    }
-    return '';
+    return renderTemplateHtml(tpl, currentTime, isPlaying);
   }).join('');
 
   el.innerHTML = fragments;
 };
+
+/* Hide <li>s whose bullet clip hasn't started (and remove again once it ends).
+   Index-aligned with bullets[]. Times are in seconds. */
+function filterBulletItemsByTime(itemsHtml, bullets, t, sceneDur) {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = itemsHtml;
+  const lis = wrap.querySelectorAll('li');
+  lis.forEach((li, i) => {
+    const b = bullets[i];
+    if (!b || !b.clipState) return;
+    const startSec = (b.clipState.left / 100) * sceneDur;
+    const endSec   = ((b.clipState.left + b.clipState.width) / 100) * sceneDur;
+    if (t < startSec || t >= endSec) li.remove();
+  });
+  return wrap.innerHTML;
+}
+
+/* Shared template-overlay HTML builder used by both the editor canvas and the
+   preview modal. `playing` = whether timed reveals should apply. */
+function renderTemplateHtml(tpl, currentT, playing) {
+  const p  = tpl.tplParams || {};
+  const tc = lum(p.color || '#000000') > 0.55 ? '#000' : '#fff';
+  const wrapStyle = `color:${tc}; font-family:'Open Sans',sans-serif; font-size:clamp(10px,1.4vw,18px);`;
+  if (tpl.tpl === 'text-overlay') {
+    return `<div class="tpl-text-overlay ${p.placement||'left'}" style="background:${p.color||'#1e40af'};opacity:0.92;">
+      <div class="tpl-overlay-text" style="${wrapStyle}">${p.text||''}</div>
+    </div>`;
+  } else if (tpl.tpl === 'lower-third') {
+    return `<div class="tpl-lower-third ${p.position||'bottom'}" style="background:${p.color||'#1e40af'};">
+      <div class="tpl-lower-title" style="${wrapStyle} font-weight:700;">${p.title||''}</div>
+      ${p.subtitle ? `<div class="tpl-lower-sub" style="${wrapStyle} opacity:0.88;">${p.subtitle}</div>` : ''}
+    </div>`;
+  } else if (tpl.tpl === 'bulleted-list') {
+    const sceneDur = (getActive()?.duration) || 1;
+    const itemsHtml = playing
+      ? filterBulletItemsByTime(p.items || '', p.bullets || [], currentT, sceneDur)
+      : (p.items || '');
+    return `<div class="tpl-bulleted-list ${p.placement||'left'}" style="background:${p.color||'#1e40af'};opacity:0.92;">
+      ${p.title ? `<div class="tpl-bulleted-title" style="${wrapStyle} font-weight:700;">${p.title}</div>` : ''}
+      <div class="tpl-bulleted-items" style="${wrapStyle}">${itemsHtml}</div>
+    </div>`;
+  }
+  return '';
+}
 
 /* -----------------------------------------------------------------------
    ADD MEDIA MODAL
@@ -8324,6 +9624,7 @@ function applySelectedMedia(modalId) {
   const sc = getActive();
   sc.img = selectedMediaUrl;
   updateCanvas();
+  updateTimelineClips();
   renderMediaList();
   closeModal(modalId || 'modal-media-generate');
   // Clear widget if the applied media came from a generation
@@ -8346,31 +9647,14 @@ function openPreviewModal() {
 
   // Set background
   document.getElementById('preview-modal-bg').src = sc.img || '';
+  // Show/hide preview no-background placeholder
+  const emptyEl = document.getElementById('preview-modal-empty');
+  if (emptyEl) emptyEl.classList.toggle('hidden', !!sc.img);
 
-  // Render overlay — reuse renderOverlay which handles templates[]
+  // Render overlay using the shared helper
   const overlayEl = document.getElementById('preview-modal-overlay');
-  // Temporarily swap canvas-overlay so renderOverlay targets the preview element
-  const realOverlay = document.getElementById('canvas-overlay');
-  const origParent  = realOverlay.parentNode;
-  overlayEl.innerHTML = '';
-  // Clone renderOverlay logic for preview (avoid DOM swap complexity)
   const templates = sc.templates || [];
-  overlayEl.innerHTML = templates.map(tpl => {
-    const p  = tpl.tplParams || {};
-    const tc = lum(p.color || '#000000') > 0.55 ? '#000' : '#fff';
-    const wrapStyle = `color:${tc}; font-family:'Open Sans',sans-serif; font-size:clamp(10px,1.4vw,18px);`;
-    if (tpl.tpl === 'text-overlay') {
-      return `<div class="tpl-text-overlay ${p.placement||'left'}" style="background:${p.color||'#1e40af'};opacity:0.92;">
-        <div class="tpl-overlay-text" style="${wrapStyle}">${p.text||''}</div>
-      </div>`;
-    } else if (tpl.tpl === 'lower-third') {
-      return `<div class="tpl-lower-third ${p.position||'bottom'}" style="background:${p.color||'#1e40af'};">
-        <div class="tpl-lower-title" style="${wrapStyle} font-weight:700;">${p.title||''}</div>
-        ${p.subtitle ? `<div class="tpl-lower-sub" style="${wrapStyle} opacity:0.88;">${p.subtitle}</div>` : ''}
-      </div>`;
-    }
-    return '';
-  }).join('');
+  renderPreviewOverlay(sc);
 
   // Reset playback
   previewTime = 0;
@@ -8395,6 +9679,22 @@ function openPreviewModal() {
     </div>` : ''}`;
 
   openModal('modal-preview');
+}
+
+function renderPreviewOverlay(sc) {
+  const overlayEl = document.getElementById('preview-modal-overlay');
+  if (!overlayEl) return;
+  const templates = sc.templates || [];
+  overlayEl.innerHTML = templates.map(tpl => {
+    // Hide whole template when its clip range doesn't include previewTime during play
+    const dur = sc.duration || 1;
+    const cs = tpl.clipState || { left: 0, width: 100 };
+    const clipStart = (cs.left  / 100) * dur;
+    const clipEnd   = ((cs.left + cs.width) / 100) * dur;
+    const inRange = (previewTime >= clipStart && previewTime < clipEnd) || !previewPlaying;
+    if (!inRange) return '';
+    return renderTemplateHtml(tpl, previewTime, previewPlaying);
+  }).join('');
 }
 
 function closePreviewModal() {
@@ -8422,9 +9722,11 @@ function togglePreviewPlay() {
       document.getElementById('preview-progress-fill').style.width = `${pct}%`;
       document.getElementById('preview-time').textContent =
         `${fmtTL(previewTime)} / ${fmtTL(sc.duration)}`;
+      renderPreviewOverlay(sc);
     }, 100);
   } else {
     clearInterval(previewTimer);
+    renderPreviewOverlay(sc);
   }
 }
 
@@ -8437,6 +9739,7 @@ function seekPreview(e) {
   document.getElementById('preview-progress-fill').style.width = `${pct*100}%`;
   document.getElementById('preview-time').textContent =
     `${fmtTL(previewTime)} / ${fmtTL(sc.duration)}`;
+  renderPreviewOverlay(sc);
 }
 </script>
 
