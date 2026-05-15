@@ -242,7 +242,7 @@
        SLIDE-OUT PANELS
     ===================================================================== */
     .slide-panel {
-      width: min(420px, 30vw); height: 100%; display: flex; flex-direction: column;
+      width: min(515px, 37vw); height: 100%; display: flex; flex-direction: column;
       flex-shrink: 0; z-index: 10; overflow: visible;
       border-right: 2px solid rgba(255,255,255,0.7);
       background: rgba(240,249,255,0.96);
@@ -462,12 +462,64 @@
       pointer-events: none;
     }
 
+    /* Phonetic discovery affordance — small outline info icon next to voice selector */
+    .sc-phonetic-hint-icon {
+      position: relative;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px;
+      color: var(--lumo-primary-color);
+      line-height: 1;
+      cursor: help;
+      background: none; border: none;
+    }
+    .sc-phonetic-hint-icon i {
+      font-size: 14px;
+      color: var(--lumo-primary-color);
+      line-height: 1;
+    }
+    /* Instant-show custom tooltip (no native title delay) */
+    .sc-phonetic-hint-icon::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #182739;
+      color: #fff;
+      font-size: 11px; font-weight: 500;
+      line-height: 1.4;
+      padding: 6px 9px;
+      border-radius: 4px;
+      width: max-content;
+      max-width: 240px;
+      text-align: center;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      z-index: 9999;
+    }
+    .sc-phonetic-hint-icon:hover::after {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* Inline hint shown below the editor when it has focus — subtle text only.
+       Visibility is toggled directly via JS (style.display) because CSS class
+       toggles on vwc-card don't reliably style slotted light-DOM descendants. */
+    .sc-phonetic-hint-inline {
+      display: none;
+      margin-top: 4px;
+      font-size: 10.5px; line-height: 1.4;
+      color: var(--lumo-secondary-text-color);
+      font-style: italic;
+    }
+
     /* Phonetic token pill — atomic, contenteditable=false */
     .phonetic-token {
       display: inline-block;
       padding: 1px 7px;
       margin: 0 1px;
-      border-radius: 10px;
+      border-radius: 3px;
       background: rgba(2,113,206,0.10);
       border: 1px solid rgba(2,113,206,0.25);
       color: var(--lumo-primary-text-color);
@@ -477,15 +529,6 @@
       position: relative;
       transition: background 0.12s;
       white-space: nowrap;
-    }
-    .phonetic-token::before {
-      content: '\f130'; /* fa-microphone */
-      font-family: 'Font Awesome 6 Free';
-      font-weight: 900;
-      font-size: 8px;
-      margin-right: 4px;
-      opacity: 0.65;
-      vertical-align: 1px;
     }
     .phonetic-token:hover {
       background: rgba(2,113,206,0.18);
@@ -5281,7 +5324,7 @@
     <button class="st-tab active" data-tab="phonetic"
             onmousedown="event.preventDefault()"
             onclick="selectionToolbar.switchTab('phonetic')">
-      <i class="fa-solid fa-microphone-lines"></i> Phonetic
+      <i class="fa-solid fa-ear-listen"></i> Pronunciation
     </button>
     <button class="st-tab" data-tab="grammar"
             onmousedown="event.preventDefault()"
@@ -5560,30 +5603,18 @@ function escapeHTML(s) {
 
 let scenes = [
   { id:1, transcript:"Welcome to our presentation. Today we'll be discussing the future of video creation and how AI is transforming the industry.",
-    transcriptTokens:[
-      { type:'text', text:"Welcome to our presentation. Today we'll be discussing the future of video creation and how " },
-      { type:'phonetic', text:'AI', phonetic:'A-eye' },
-      { type:'text', text:' is transforming the industry.' }
-    ],
     img:'https://images.unsplash.com/photo-1764663908321-495a7145ad3b?w=900&q=80',
     templates:[
       { id:'t1a', tpl:'text-overlay', tplParams:{ placement:'left', color:'#1e40af', text:'Your Message Here' }, tplTransition:null, clipState:{ left:0, width:100 } }
     ],
     duration:5, completed:false, status:'in-progress' },
-  { id:2, transcript:"Our platform offers three main advantages: speed, quality, and ease of use. Let's explore each of these in detail.",
+  { id:2, transcript:"Powered by Vidalia AI, our platform delivers measurable ROI across speed, quality, and ease of use.",
     img:'https://images.unsplash.com/photo-1764663908343-f0ec582a527a?w=900&q=80',
     templates:[
       { id:'t2a', tpl:'lower-third', tplParams:{ position:'bottom', color:'#1e40af', title:'Key Advantages', subtitle:'Speed · Quality · Ease of Use' }, tplTransition:null, clipState:{ left:0, width:100 } }
     ],
     duration:7, completed:false, status:'in-review' },
-  { id:3, transcript:"Work seamlessly with your team. Share projects, get feedback, and iterate faster than ever before.",
-    transcriptTokens:[
-      { type:'text', text:'Work ' },
-      { type:'phonetic', text:'seamlessly', phonetic:'seem-less-lee' },
-      { type:'text', text:' with your team. Share projects, get feedback, and ' },
-      { type:'phonetic', text:'iterate faster', phonetic:'ih-ter-ate fass-ter' },
-      { type:'text', text:' than ever before.' }
-    ],
+  { id:3, transcript:"Work seamlessly with your subject matter experts. Share projects, get feedback, and iterate faster than ever before.",
     templates:[
       { id:'t3a', tpl:'text-overlay', tplParams:{ placement:'right', color:'#064e3b', text:'Team Collaboration' }, tplTransition:null, clipState:{ left:0, width:100 } }
     ],
@@ -6062,7 +6093,9 @@ ${idx === 0 ? `<div class="scene-insert-zone" data-insert-before="${sc.id}" oncl
                 onkeydown="onTranscriptEditorKeydown(event, ${sc.id})"
                 onmouseup="onTranscriptEditorSelect(${sc.id}, this, event)"
                 onkeyup="onTranscriptEditorSelect(${sc.id}, this, event)"
+                onfocus="onTranscriptEditorFocus(${sc.id})"
                 onblur="onTranscriptEditorBlur(${sc.id})">${renderTranscriptHTML(sc)}</div>
+           <div class="sc-phonetic-hint-inline" role="note">Tip: highlight any word or phrase to adjust its pronunciation.</div>
            ${renderSceneAudioControls(sc)}`
         : `<div class="sc-transcript-preview">${renderTranscriptHTML(sc, false) || 'Enter scene transcript...'}</div>`
       }
@@ -6302,6 +6335,20 @@ function onTranscriptEditorBlur(scId) {
   // Re-read once more on blur to be safe
   const editor = document.getElementById('editor-' + scId);
   if (editor) onTranscriptEditorInput(scId, editor);
+  // Hide the inline phonetic hint when leaving the editor.
+  // Toggling style.display directly because CSS class toggles on vwc-card
+  // don't reliably style slotted light-DOM descendants.
+  if (editor && editor.nextElementSibling && editor.nextElementSibling.classList.contains('sc-phonetic-hint-inline')) {
+    editor.nextElementSibling.style.display = 'none';
+  }
+}
+
+function onTranscriptEditorFocus(scId) {
+  // Reveal the inline phonetic hint while the editor is focused
+  const editor = document.getElementById('editor-' + scId);
+  if (editor && editor.nextElementSibling && editor.nextElementSibling.classList.contains('sc-phonetic-hint-inline')) {
+    editor.nextElementSibling.style.display = 'block';
+  }
 }
 
 // Selection within the editor — surface chip toolbar above the selection.
@@ -6608,6 +6655,12 @@ function renderSceneAudioControls(sc) {
           <span class="sav-name">${escapeHTML(voice.name)}</span>
           <i class="fa-solid fa-chevron-down sav-chev"></i>
         </button>
+        <span class="sc-phonetic-hint-icon"
+              data-tooltip="Highlight any word or phrase in the transcript to adjust how it's pronounced."
+              aria-label="Pronunciation tip: highlight any word in the transcript to adjust how it's spoken."
+              onclick="event.stopPropagation()">
+          <i class="fa-regular fa-circle-question"></i>
+        </span>
         <button class="sc-audio-generate ${isGenerating ? 'is-loading' : ''}" ${isGenerating?'disabled':''}
                 onclick="event.stopPropagation();generateSceneAudio(${sc.id})">
           ${isGenerating

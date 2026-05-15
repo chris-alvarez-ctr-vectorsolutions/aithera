@@ -1,0 +1,3499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Content Studio — Scenario Manager</title>
+
+  <script type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+  </script>
+  <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+  </script>
+  <link rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+  <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Open Sans', -apple-system, sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      color: #0f2e3d;
+      font-size: 13px;
+    }
+
+    /* =====================================================================
+       APP SHELL
+    ===================================================================== */
+    #app {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background:
+        linear-gradient(140.604deg, rgba(125,205,238,0.35) 4%, rgba(213,236,181,0.35) 100%),
+        #f0f7fb;
+    }
+
+    /* =====================================================================
+       WIZARD HEADER
+    ===================================================================== */
+    #wizard-header {
+      height: 56px;
+      background: var(--lumo-base-color);
+      border-bottom: 1px solid rgba(28,55,90,0.12);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      gap: 0;
+      flex-shrink: 0;
+      z-index: 40;
+      position: relative;
+    }
+
+    .wh-left { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .wh-center { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: flex-end; padding: 0 16px 0 0; }
+    .wh-right { display: flex; align-items: center; gap: 16px; flex-shrink: 0; justify-content: flex-end; }
+
+    .wh-logo {
+      width: 36px; height: 36px; border-radius: 8px;
+      background: var(--lumo-primary-color); display: flex; align-items: center;
+      justify-content: center; font-size: 18px; color: white; flex-shrink: 0;
+    }
+
+    .wh-divider { width: 1px; height: 22px; background: var(--lumo-contrast-10pct); flex-shrink: 0; margin: 0 4px; }
+
+    .wh-title-group {
+      display: flex; flex-direction: column; gap: 1px;
+      width: 240px; flex-shrink: 0;
+      background: none; border: none; font-family: inherit; text-align: left;
+      padding: 4px 7px; border-radius: 6px; cursor: pointer;
+      transition: background 0.12s;
+    }
+    .wh-title-group:hover { background: #f3f4f6; }
+    .wh-section { font-size: 10.5px; color: var(--lumo-secondary-text-color); white-space: nowrap; }
+    .wh-lo-title {
+      font-size: 13px; font-weight: 600; color: var(--lumo-contrast);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;
+    }
+
+    .wh-icon-btn {
+      width: 30px; height: 30px; border: none; background: none; border-radius: 5px;
+      cursor: pointer; color: var(--lumo-secondary-text-color); display: flex; align-items: center;
+      justify-content: center; font-size: 12px; flex-shrink: 0;
+    }
+    .wh-icon-btn:hover { background: #f3f4f6; color: var(--lumo-body-text-color); }
+    .wh-icon-btn.ai-regen { color: #7c3aed; }
+    .wh-icon-btn.ai-regen:hover { background: #f3e8ff; }
+
+    .wh-save-status {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11.5px; color: var(--lumo-success-text-color);
+    }
+    .wh-save-status i { font-size: 10px; }
+
+    .wh-search {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 12px;
+      background: #f3f4f6; border-radius: 18px;
+      width: 320px; max-width: 320px;
+      border: 1px solid transparent;
+      transition: border-color 0.12s, background 0.12s;
+    }
+    .wh-search:focus-within {
+      border-color: var(--lumo-primary-color);
+      background: white;
+    }
+    .wh-search i { color: #7c3aed; font-size: 11px; }
+    .wh-search input {
+      flex: 1; border: none; background: none; outline: none;
+      font-family: inherit; font-size: 12px;
+    }
+
+    /* =====================================================================
+       MAIN LAYOUT
+    ===================================================================== */
+    #main {
+      flex: 1; display: flex; min-height: 0; position: relative;
+    }
+
+    /* Left sidebar nav (icon column) */
+    #left-nav {
+      width: 56px; flex-shrink: 0;
+      background: white;
+      border-right: 1px solid rgba(28,55,90,0.10);
+      display: flex; flex-direction: column;
+      padding: 12px 0;
+      z-index: 20;
+    }
+    .nav-btn {
+      width: 40px; height: 40px;
+      margin: 4px auto;
+      border: none; background: none; border-radius: 8px;
+      cursor: pointer; color: var(--lumo-secondary-text-color);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; position: relative;
+      transition: background 0.12s, color 0.12s;
+    }
+    .nav-btn:hover { background: #f3f4f6; color: var(--lumo-body-text-color); }
+    .nav-btn.active {
+      background: var(--lumo-primary-color-10pct);
+      color: var(--lumo-primary-color);
+    }
+    .nav-btn.active::before {
+      content: ''; position: absolute; left: -8px; top: 8px; bottom: 8px;
+      width: 3px; background: var(--lumo-primary-color); border-radius: 0 2px 2px 0;
+    }
+    .nav-btn .ai-dot {
+      position: absolute; top: 6px; right: 6px;
+      width: 6px; height: 6px; border-radius: 50%; background: #7c3aed;
+    }
+    .nav-spacer { flex: 1; }
+
+    /* Side panel (expandable list) */
+    #side-panel {
+      width: 280px; flex-shrink: 0;
+      background: white;
+      border-right: 1px solid rgba(28,55,90,0.10);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .sp-header {
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid rgba(28,55,90,0.08);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .sp-title { font-size: 13px; font-weight: 700; color: var(--lumo-contrast); }
+    .sp-badge {
+      font-size: 10.5px; padding: 2px 8px; border-radius: 10px;
+      background: #f3f4f6; color: var(--lumo-secondary-text-color);
+    }
+    .sp-body { flex: 1; overflow-y: auto; padding: 8px; }
+
+    /* Node list items */
+    .node-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 4px;
+      border: 1px solid transparent;
+      position: relative;
+    }
+    .node-item:hover { background: #f8fafc; }
+    .node-item.active {
+      background: var(--lumo-primary-color-10pct);
+      border-color: var(--lumo-primary-color-50pct);
+    }
+    .node-icon {
+      width: 32px; height: 32px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; color: white; flex-shrink: 0;
+    }
+    .node-icon.type-content   { background: #0271ce; }
+    .node-icon.type-question  { background: #e0782e; }
+    .node-icon.type-game      { background: #7c3aed; }
+    .node-icon.type-outcome   { background: #158444; }
+    .node-meta { flex: 1; min-width: 0; }
+    .node-name { font-size: 12.5px; font-weight: 600; color: var(--lumo-contrast); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .node-sub { font-size: 10.5px; color: var(--lumo-secondary-text-color); margin-top: 1px; }
+
+    .node-item-wrap { margin-bottom: 2px; }
+    .node-item-emits {
+      margin: 2px 6px 8px 50px;
+      padding: 6px 8px;
+      background: #faf5ff;
+      border: 1px solid rgba(124, 58, 237, 0.18);
+      border-radius: 6px;
+    }
+    .node-item-emits-header {
+      font-size: 9px; font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #6d28d9;
+      margin-bottom: 4px;
+    }
+    .node-item-emit-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 2px 0;
+      font-size: 10.5px;
+    }
+    .node-item-emit-key {
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 10px;
+      padding: 1px 5px;
+      background: white;
+      border: 1px solid rgba(28,55,90,0.10);
+      border-radius: 6px;
+      color: var(--lumo-secondary-text-color);
+    }
+    .node-item-emit-key.used {
+      background: #ede9fe;
+      border-color: rgba(124, 58, 237, 0.30);
+      color: #6d28d9;
+      font-weight: 600;
+    }
+    .node-item-emit-label {
+      flex: 1;
+      color: var(--lumo-body-text-color);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .node-item-emit-meta {
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 9.5px;
+      color: var(--lumo-secondary-text-color);
+    }
+
+    .sp-footer {
+      padding: 10px 12px;
+      border-top: 1px solid rgba(28,55,90,0.08);
+    }
+    .sp-add-btn {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px dashed rgba(28,55,90,0.20);
+      background: white;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit; font-size: 12px;
+      color: var(--lumo-primary-color);
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .sp-add-btn:hover { background: var(--lumo-primary-color-10pct); border-color: var(--lumo-primary-color); }
+
+    /* Variables panel */
+    .var-group {
+      margin-bottom: 18px;
+    }
+    .var-group-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px;
+      margin-bottom: 4px;
+    }
+    .var-group-header i { font-size: 12px; }
+    .var-group-name {
+      flex: 1;
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--lumo-secondary-text-color);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .var-jump-link {
+      border: none; background: none;
+      font-family: inherit; font-size: 10.5px;
+      color: var(--lumo-primary-color);
+      cursor: pointer;
+      padding: 2px 4px;
+    }
+    .var-jump-link:hover { text-decoration: underline; }
+
+    .var-row {
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: #f8fafc;
+      margin-bottom: 4px;
+    }
+    .var-row-main {
+      display: flex; align-items: baseline; gap: 8px;
+      margin-bottom: 2px;
+    }
+    .var-key {
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--lumo-contrast);
+    }
+    .var-label {
+      font-size: 11px;
+      color: var(--lumo-secondary-text-color);
+    }
+    .var-row-meta {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 10.5px;
+    }
+    .var-range {
+      font-family: 'SF Mono', Menlo, monospace;
+      color: var(--lumo-secondary-text-color);
+      padding: 1px 6px;
+      background: white;
+      border: 1px solid rgba(28,55,90,0.10);
+      border-radius: 8px;
+    }
+    .var-used {
+      margin-left: auto;
+      display: inline-flex; align-items: center; gap: 4px;
+      color: var(--lumo-success-text-color);
+      font-weight: 600;
+    }
+    .var-used.unused {
+      color: var(--lumo-secondary-text-color);
+      font-weight: 500;
+    }
+    .var-used i { font-size: 9px; }
+
+    /* =====================================================================
+       CANVAS + SIMULATOR
+    ===================================================================== */
+    #canvas-wrap {
+      flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative;
+    }
+
+    #canvas-toolbar {
+      height: 48px; flex-shrink: 0;
+      background: white;
+      border-bottom: 1px solid rgba(28,55,90,0.10);
+      display: flex; align-items: center;
+      padding: 0 16px; gap: 8px;
+      z-index: 10;
+    }
+    .ct-group { display: flex; align-items: center; gap: 6px; }
+    .ct-divider { width: 1px; height: 20px; background: rgba(28,55,90,0.10); margin: 0 4px; }
+    .ct-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 6px;
+      border: 1px solid rgba(28,55,90,0.12);
+      background: white; cursor: pointer;
+      font-family: inherit; font-size: 12px; color: var(--lumo-body-text-color);
+    }
+    .ct-btn:hover { background: #f8fafc; }
+    .ct-btn.primary {
+      background: var(--lumo-primary-color); color: white;
+      border-color: var(--lumo-primary-color);
+    }
+    .ct-btn.primary:hover { background: #0263b6; }
+    .ct-btn.ai { color: #7c3aed; border-color: rgba(124, 58, 237, 0.25); }
+    .ct-btn.ai:hover { background: #f3e8ff; }
+    .ct-spacer { flex: 1; }
+    .ct-zoom {
+      display: flex; align-items: center; gap: 4px;
+      padding: 4px;
+      background: #f3f4f6; border-radius: 6px;
+    }
+    .ct-zoom button {
+      width: 26px; height: 26px;
+      border: none; background: none; border-radius: 4px;
+      cursor: pointer; color: var(--lumo-secondary-text-color);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ct-zoom button:hover { background: white; }
+    .ct-zoom-label { font-size: 11.5px; padding: 0 6px; color: var(--lumo-secondary-text-color); min-width: 40px; text-align: center; }
+
+    /* Workspace area (canvas or outcomes) */
+    .workspace { flex: 1; min-height: 0; }
+
+    /* Canvas (the graph area) */
+    #canvas {
+      position: relative; overflow: hidden;
+      background-color: #eaf1f6;
+      background-image:
+        radial-gradient(circle, rgba(28,55,90,0.10) 1px, transparent 1px);
+      background-size: 20px 20px;
+      cursor: grab;
+    }
+    #canvas.panning { cursor: grabbing; }
+    #canvas-inner {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      transform-origin: 0 0;
+      will-change: transform;
+    }
+    #edges-svg {
+      position: absolute; top: 0; left: 0;
+      width: 2400px; height: 1800px;
+      pointer-events: none;
+      overflow: visible;
+    }
+    .edge-path {
+      fill: none;
+      stroke: rgba(28,55,90,0.35);
+      stroke-width: 2;
+      transition: stroke 0.12s, stroke-width 0.12s;
+    }
+    .edge-path.highlight {
+      stroke: var(--lumo-primary-color);
+      stroke-width: 3;
+    }
+    .edge-path.sim-active {
+      stroke: #7c3aed;
+      stroke-width: 3.5;
+      stroke-dasharray: 8 4;
+      animation: edge-dash 1s linear infinite;
+    }
+    @keyframes edge-dash {
+      to { stroke-dashoffset: -24; }
+    }
+    .edge-label {
+      font-size: 11px;
+      font-weight: 600;
+      fill: var(--lumo-secondary-text-color);
+      paint-order: stroke;
+      stroke: #eaf1f6;
+      stroke-width: 4px;
+    }
+
+    /* Node cards on canvas */
+    .node {
+      position: absolute;
+      width: 220px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: box-shadow 0.12s, transform 0.12s, border-color 0.12s;
+      overflow: hidden;
+    }
+    .node:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.06); }
+    .node.selected {
+      border-color: var(--lumo-primary-color);
+      box-shadow: 0 0 0 4px var(--lumo-primary-color-10pct), 0 4px 14px rgba(0,0,0,0.12);
+    }
+    .node.sim-current {
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 6px rgba(124, 58, 237, 0.18), 0 4px 14px rgba(0,0,0,0.12);
+    }
+
+    .node-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px;
+      font-size: 10.5px; font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: white;
+      cursor: grab;
+      user-select: none;
+    }
+    .node-header:active { cursor: grabbing; }
+    .node.dragging { z-index: 100; box-shadow: 0 8px 24px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.10); }
+    .node[data-type="content"]  .node-header { background: #0271ce; }
+    .node[data-type="question"] .node-header { background: #e0782e; }
+    .node[data-type="game"]     .node-header { background: #7c3aed; }
+    .node[data-type="outcome"]  .node-header { background: #158444; }
+
+    .node-header i { font-size: 11px; }
+    .node-header .node-type-label { flex: 1; }
+    .node-header .node-num {
+      background: rgba(255,255,255,0.25);
+      padding: 1px 6px; border-radius: 8px;
+      font-size: 9.5px;
+    }
+
+    .node-thumb {
+      width: 100%; height: 70px;
+      background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 22px;
+      background-size: cover; background-position: center;
+    }
+
+    .node-body {
+      padding: 10px 12px;
+    }
+    .node-title {
+      font-size: 12.5px; font-weight: 700;
+      color: var(--lumo-contrast);
+      line-height: 1.3;
+      margin-bottom: 4px;
+    }
+    .node-desc {
+      font-size: 11px; color: var(--lumo-secondary-text-color);
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .node-footer {
+      padding: 6px 12px 10px;
+      display: flex; align-items: center; gap: 6px;
+      flex-wrap: wrap;
+    }
+    .node-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px;
+      background: #f3f4f6;
+      border-radius: 10px;
+      font-size: 10px;
+      color: var(--lumo-secondary-text-color);
+    }
+    .node-pill.warn {
+      background: var(--lumo-warning-color-10pct);
+      color: var(--lumo-warning-text-color);
+    }
+    .node-pill i { font-size: 9px; }
+
+    /* Emitted-variable chip strip on canvas node cards */
+    .node-emits {
+      padding: 0 12px 6px;
+      display: flex; flex-wrap: wrap; gap: 4px;
+      align-items: center;
+    }
+    .node-emits-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--lumo-secondary-text-color);
+      margin-right: 2px;
+    }
+    .node-var-chip {
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 9.5px;
+      padding: 1px 6px;
+      border-radius: 8px;
+      background: #f3f4f6;
+      color: var(--lumo-secondary-text-color);
+      border: 1px solid rgba(28,55,90,0.08);
+    }
+    .node-var-chip.used {
+      background: #f3e8ff;
+      color: #6d28d9;
+      border-color: rgba(124, 58, 237, 0.25);
+      font-weight: 600;
+    }
+
+    /* Score-bucket display in game nodes */
+    .node-buckets {
+      padding: 0 12px 10px;
+      display: flex; flex-direction: column; gap: 3px;
+    }
+    .node-bucket-row {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 10.5px;
+      color: var(--lumo-body-text-color);
+    }
+    .node-bucket-range {
+      font-family: 'SF Mono', Menlo, monospace;
+      font-weight: 600;
+      color: var(--lumo-contrast);
+      min-width: 50px;
+    }
+    .node-bucket-bar {
+      flex: 1; height: 4px;
+      background: #e5e7eb;
+      border-radius: 2px;
+      position: relative;
+      overflow: hidden;
+    }
+    .node-bucket-fill {
+      position: absolute; top: 0; left: 0; height: 100%;
+      background: #7c3aed;
+      border-radius: 2px;
+    }
+
+    /* Question answers in node card */
+    .node-answers {
+      padding: 0 12px 10px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .node-answer {
+      font-size: 10.5px;
+      padding: 4px 8px;
+      background: #f3f4f6;
+      border-radius: 4px;
+      color: var(--lumo-body-text-color);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .node-answer i { color: var(--lumo-secondary-text-color); font-size: 9px; }
+
+    /* Start node marker */
+    .node-start-badge {
+      position: absolute;
+      top: -10px; left: 10px;
+      background: var(--lumo-success-color);
+      color: white;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 10px;
+      text-transform: uppercase;
+    }
+
+    /* =====================================================================
+       RIGHT PANEL (NODE EDITOR)
+    ===================================================================== */
+    #right-panel {
+      width: 360px; flex-shrink: 0;
+      background: white;
+      border-left: 1px solid rgba(28,55,90,0.10);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .rp-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(28,55,90,0.08);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .rp-type-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: white;
+    }
+    .rp-type-badge.type-content  { background: #0271ce; }
+    .rp-type-badge.type-question { background: #e0782e; }
+    .rp-type-badge.type-game     { background: #7c3aed; }
+    .rp-type-badge.type-outcome  { background: #158444; }
+    .rp-title {
+      flex: 1;
+      font-size: 13px; font-weight: 700;
+      color: var(--lumo-contrast);
+    }
+    .rp-close {
+      width: 28px; height: 28px;
+      border: none; background: none; border-radius: 4px;
+      cursor: pointer; color: var(--lumo-secondary-text-color);
+    }
+    .rp-close:hover { background: #f3f4f6; }
+
+    .rp-body { flex: 1; overflow-y: auto; padding: 16px; }
+
+    .rp-section { margin-bottom: 22px; }
+    .rp-section-title {
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--lumo-secondary-text-color);
+      margin-bottom: 8px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .rp-section-title .ai-link {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: #7c3aed;
+      cursor: pointer;
+      text-transform: none;
+      letter-spacing: 0;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .rp-section-title .ai-link:hover { text-decoration: underline; }
+
+    .rp-field { margin-bottom: 12px; }
+    .rp-label {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--lumo-body-text-color);
+      margin-bottom: 4px;
+      display: block;
+    }
+    .rp-input, .rp-textarea, .rp-select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid rgba(28,55,90,0.18);
+      border-radius: 6px;
+      font-family: inherit; font-size: 12px;
+      background: white; color: var(--lumo-body-text-color);
+      outline: none;
+    }
+    .rp-input:focus, .rp-textarea:focus, .rp-select:focus {
+      border-color: var(--lumo-primary-color);
+      box-shadow: 0 0 0 3px var(--lumo-primary-color-10pct);
+    }
+    .rp-textarea { resize: vertical; min-height: 64px; line-height: 1.4; }
+
+    /* Media preview */
+    .rp-media {
+      width: 100%; height: 130px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+      background-size: cover; background-position: center;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 26px;
+      margin-bottom: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .rp-media-actions {
+      display: flex; gap: 6px;
+    }
+    .rp-media-btn {
+      flex: 1;
+      padding: 6px 10px;
+      border: 1px solid rgba(28,55,90,0.18);
+      background: white;
+      border-radius: 6px;
+      font-family: inherit; font-size: 11.5px;
+      cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    }
+    .rp-media-btn:hover { background: #f8fafc; }
+    .rp-media-btn.ai { color: #7c3aed; border-color: rgba(124, 58, 237, 0.25); }
+    .rp-media-btn.ai:hover { background: #f3e8ff; }
+
+    /* Right-panel Emits section */
+    .rp-emits-list {
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .rp-emit-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px;
+      background: #f8fafc;
+      border-radius: 6px;
+    }
+    .rp-emit-key {
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 11px; font-weight: 700;
+      padding: 2px 7px;
+      background: white;
+      border: 1px solid rgba(28,55,90,0.10);
+      border-radius: 6px;
+      color: var(--lumo-secondary-text-color);
+      flex-shrink: 0;
+    }
+    .rp-emit-key.used {
+      background: #ede9fe;
+      border-color: rgba(124, 58, 237, 0.30);
+      color: #6d28d9;
+    }
+    .rp-emit-main {
+      flex: 1; min-width: 0;
+    }
+    .rp-emit-label {
+      font-size: 12px; color: var(--lumo-contrast); font-weight: 500;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .rp-emit-meta {
+      font-size: 10.5px; color: var(--lumo-secondary-text-color);
+      font-family: 'SF Mono', Menlo, monospace;
+      margin-top: 1px;
+    }
+    .rp-emit-usage {
+      font-size: 10.5px;
+      color: var(--lumo-success-text-color);
+      font-weight: 600;
+      display: inline-flex; align-items: center; gap: 4px;
+      flex-shrink: 0;
+    }
+    .rp-emit-usage i { font-size: 9px; }
+    .rp-emit-usage.unused {
+      color: var(--lumo-secondary-text-color);
+      font-weight: 500;
+    }
+
+    /* Game source picker */
+    .game-source-card {
+      display: flex; gap: 10px;
+      padding: 10px;
+      background: linear-gradient(135deg, #faf5ff, #f3e8ff);
+      border: 1px solid rgba(124, 58, 237, 0.25);
+      border-radius: 8px;
+    }
+    .game-source-thumb {
+      width: 64px; height: 64px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #7c3aed, #4c1d95);
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 22px;
+    }
+    .game-source-meta { flex: 1; min-width: 0; }
+    .game-source-name {
+      font-size: 12.5px; font-weight: 700;
+      color: var(--lumo-contrast);
+      margin-bottom: 2px;
+    }
+    .game-source-detail {
+      font-size: 10.5px; color: var(--lumo-secondary-text-color);
+      margin-bottom: 1px;
+    }
+    .game-source-change {
+      font-size: 10.5px; color: #7c3aed;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 4px; display: inline-block;
+    }
+    .game-source-change:hover { text-decoration: underline; }
+
+    /* Score routing bucket rows */
+    .bucket-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px;
+      border: 1px solid rgba(28,55,90,0.12);
+      border-radius: 6px;
+      margin-bottom: 6px;
+      background: white;
+    }
+    .bucket-drag {
+      color: var(--lumo-secondary-text-color);
+      cursor: grab;
+      padding: 0 2px;
+    }
+    .bucket-condition {
+      display: flex; align-items: center; gap: 4px;
+      flex: 0 0 auto;
+    }
+    .bucket-var {
+      padding: 3px 6px;
+      border: 1px solid rgba(124, 58, 237, 0.30);
+      background: #f3e8ff;
+      color: #6d28d9;
+      font-weight: 600;
+      border-radius: 10px;
+      font-size: 10.5px;
+      font-family: inherit;
+      cursor: pointer;
+      max-width: 110px;
+    }
+    .bucket-var.is-primary {
+      background: #f3f4f6;
+      border-color: rgba(28,55,90,0.15);
+      color: var(--lumo-secondary-text-color);
+      font-weight: 500;
+    }
+    .bucket-var:hover { filter: brightness(0.97); }
+    .bucket-op {
+      padding: 4px 6px;
+      border: 1px solid rgba(28,55,90,0.18);
+      border-radius: 4px;
+      background: white;
+      font-size: 11.5px;
+      font-family: inherit;
+    }
+    .bucket-val {
+      width: 44px;
+      padding: 4px 6px;
+      border: 1px solid rgba(28,55,90,0.18);
+      border-radius: 4px;
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 11.5px;
+      text-align: center;
+    }
+    .bucket-arrow { color: var(--lumo-secondary-text-color); font-size: 10px; }
+    .bucket-target {
+      flex: 1;
+      padding: 4px 6px;
+      border: 1px solid rgba(28,55,90,0.18);
+      border-radius: 4px;
+      background: white;
+      font-size: 11.5px;
+      font-family: inherit;
+      min-width: 0;
+    }
+    .bucket-del {
+      width: 24px; height: 24px;
+      border: none; background: none; border-radius: 4px;
+      cursor: pointer; color: var(--lumo-secondary-text-color);
+      font-size: 11px;
+    }
+    .bucket-del:hover { background: #fee2e2; color: var(--lumo-error-color); }
+
+    .bucket-row.fallback {
+      background: #fefce8;
+      border-color: #fde68a;
+    }
+    .bucket-row.fallback .bucket-condition {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--lumo-warning-text-color);
+      padding: 4px 8px;
+    }
+
+    .add-bucket-btn {
+      width: 100%;
+      padding: 6px 10px;
+      border: 1px dashed rgba(28,55,90,0.20);
+      background: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit; font-size: 11.5px;
+      color: var(--lumo-primary-color);
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      margin-top: 4px;
+    }
+    .add-bucket-btn:hover { background: var(--lumo-primary-color-10pct); border-color: var(--lumo-primary-color); }
+
+    /* Generic outgoing-branch row (for content/outcome and the "+ Add path" mini-affordance) */
+    .branch-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px;
+      border: 1px solid rgba(28,55,90,0.12);
+      border-radius: 6px;
+      margin-bottom: 6px;
+      background: white;
+    }
+    .branch-label-input {
+      flex: 0 0 90px;
+      padding: 4px 6px;
+      border: 1px solid rgba(28,55,90,0.18);
+      border-radius: 4px;
+      font-family: inherit; font-size: 11px;
+      background: white;
+      min-width: 0;
+    }
+    .branch-target-select {
+      flex: 1; min-width: 0;
+      padding: 4px 6px;
+      border: 1px solid rgba(28,55,90,0.18);
+      border-radius: 4px;
+      background: white;
+      font-size: 11.5px;
+      font-family: inherit;
+    }
+    .branch-arrow { color: var(--lumo-secondary-text-color); font-size: 10px; }
+    .branch-del {
+      width: 24px; height: 24px;
+      border: none; background: none; border-radius: 4px;
+      cursor: pointer; color: var(--lumo-secondary-text-color);
+      font-size: 11px;
+    }
+    .branch-del:hover { background: #fee2e2; color: var(--lumo-error-color); }
+
+    /* "Create a new node from this branch" inline button */
+    .new-node-inline {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 7px;
+      background: var(--lumo-primary-color-10pct);
+      color: var(--lumo-primary-text-color);
+      border: none; border-radius: 10px;
+      font-size: 10.5px; font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .new-node-inline:hover { background: var(--lumo-primary-color); color: white; }
+
+    /* Handoff summary chip (outcome right-panel quick-view) */
+    .handoff-summary {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px;
+      background: #f8fafc;
+      border: 1px solid rgba(28,55,90,0.10);
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--lumo-body-text-color);
+    }
+    .handoff-summary i { color: var(--lumo-primary-color); }
+
+    /* Coverage warning */
+    .coverage-warning {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px;
+      background: var(--lumo-warning-color-10pct);
+      border: 1px solid rgba(224, 120, 46, 0.30);
+      border-radius: 6px;
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--lumo-warning-text-color);
+    }
+    .coverage-warning i { font-size: 12px; }
+    .coverage-warning .cw-action {
+      margin-left: auto;
+      font-weight: 600;
+      color: var(--lumo-warning-text-color);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    /* Question answer rows */
+    .answer-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px;
+      border: 1px solid rgba(28,55,90,0.12);
+      border-radius: 6px;
+      margin-bottom: 6px;
+    }
+    .answer-row .answer-letter {
+      width: 22px; height: 22px;
+      background: var(--lumo-primary-color-10pct);
+      color: var(--lumo-primary-color);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .answer-row .answer-text {
+      flex: 1;
+      padding: 4px 6px;
+      border: none;
+      background: none;
+      font-family: inherit; font-size: 11.5px;
+      outline: none;
+    }
+    .answer-row .answer-arrow { color: var(--lumo-secondary-text-color); font-size: 10px; }
+    .answer-row .answer-target {
+      flex: 0 0 110px;
+      padding: 4px 6px;
+      border: 1px solid rgba(28,55,90,0.18);
+      border-radius: 4px;
+      font-family: inherit; font-size: 11px;
+      background: white;
+    }
+    .answer-row .answer-del {
+      width: 22px; height: 22px;
+      border: none; background: none; border-radius: 4px;
+      cursor: pointer; color: var(--lumo-secondary-text-color);
+    }
+    .answer-row .answer-del:hover { background: #fee2e2; color: var(--lumo-error-color); }
+
+    /* =====================================================================
+       SIMULATOR STRIP
+    ===================================================================== */
+    #sim-strip {
+      flex-shrink: 0;
+      background: white;
+      border-top: 1px solid rgba(28,55,90,0.10);
+      transition: height 0.18s ease;
+      height: 44px;
+      overflow: hidden;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+    }
+    #sim-strip.open { height: 220px; }
+    .sim-bar {
+      height: 44px;
+      padding: 0 16px;
+      display: flex; align-items: center; gap: 12px;
+      border-bottom: 1px solid rgba(28,55,90,0.08);
+    }
+    .sim-bar-title {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12.5px; font-weight: 600;
+      color: var(--lumo-contrast);
+      cursor: pointer;
+    }
+    .sim-bar-title i.chevron {
+      transition: transform 0.18s;
+    }
+    #sim-strip.open .sim-bar-title i.chevron {
+      transform: rotate(180deg);
+    }
+    .sim-bar-spacer { flex: 1; }
+    .sim-bar-action {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(28,55,90,0.12);
+      background: white;
+      cursor: pointer;
+      font-family: inherit; font-size: 11.5px;
+    }
+    .sim-bar-action:hover { background: #f8fafc; }
+    .sim-bar-action.primary {
+      background: #7c3aed; color: white; border-color: #7c3aed;
+    }
+    .sim-bar-action.primary:hover { background: #6d28d9; }
+
+    .sim-body {
+      padding: 14px 18px;
+      display: grid;
+      grid-template-columns: 280px 1fr 280px;
+      gap: 18px;
+      height: 176px;
+      overflow: hidden;
+    }
+    .sim-col {
+      display: flex; flex-direction: column;
+      min-width: 0;
+    }
+    .sim-col-title {
+      font-size: 10.5px; font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--lumo-secondary-text-color);
+      margin-bottom: 8px;
+    }
+
+    /* Current node preview */
+    .sim-current-card {
+      flex: 1;
+      background: linear-gradient(135deg, #faf5ff, #f3e8ff);
+      border: 1px solid rgba(124, 58, 237, 0.25);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex; flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .sim-current-type {
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #7c3aed;
+      margin-bottom: 4px;
+    }
+    .sim-current-name {
+      font-size: 13px; font-weight: 700;
+      color: var(--lumo-contrast);
+      margin-bottom: 6px;
+    }
+    .sim-current-desc {
+      flex: 1;
+      font-size: 11.5px;
+      color: var(--lumo-body-text-color);
+      line-height: 1.4;
+      overflow: hidden;
+    }
+
+    /* Interaction column (varies by node type) */
+    .sim-interact {
+      flex: 1;
+      background: white;
+      border: 1px solid rgba(28,55,90,0.12);
+      border-radius: 8px;
+      padding: 14px;
+      display: flex; flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+    }
+    .sim-interact-label {
+      font-size: 11.5px; font-weight: 600;
+      color: var(--lumo-body-text-color);
+    }
+
+    /* Score slider for game nodes */
+    .sim-score-row {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .sim-score-slider {
+      flex: 1;
+      -webkit-appearance: none; appearance: none;
+      height: 6px;
+      background: linear-gradient(to right, #fecaca 0%, #fde68a 30%, #fde68a 60%, #bbf7d0 85%, #86efac 100%);
+      border-radius: 3px;
+      outline: none;
+    }
+    .sim-score-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: white;
+      border: 3px solid #7c3aed;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .sim-score-value {
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 18px;
+      font-weight: 700;
+      color: #7c3aed;
+      min-width: 48px;
+      text-align: center;
+    }
+    .sim-bucket-indicator {
+      padding: 6px 10px;
+      background: var(--lumo-primary-color-10pct);
+      border-radius: 6px;
+      font-size: 11.5px;
+      color: var(--lumo-primary-text-color);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .sim-bucket-indicator i { font-size: 10px; }
+    .sim-bucket-indicator b { font-weight: 700; }
+
+    /* Answer choices for question nodes in sim */
+    .sim-answer-btn {
+      text-align: left;
+      padding: 8px 10px;
+      border: 1px solid rgba(28,55,90,0.18);
+      border-radius: 6px;
+      background: white;
+      cursor: pointer;
+      font-family: inherit; font-size: 11.5px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sim-answer-btn:hover {
+      background: var(--lumo-primary-color-10pct);
+      border-color: var(--lumo-primary-color);
+    }
+    .sim-answer-btn .letter {
+      width: 18px; height: 18px;
+      background: #f3f4f6;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* History list */
+    .sim-history {
+      flex: 1;
+      overflow-y: auto;
+      display: flex; flex-direction: column;
+      gap: 4px;
+    }
+    .sim-history-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px;
+      background: #f8fafc;
+      border-radius: 5px;
+      font-size: 11.5px;
+    }
+    .sim-history-num {
+      width: 18px; height: 18px;
+      background: #cbd5e1;
+      color: white;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .sim-history-item.current .sim-history-num {
+      background: #7c3aed;
+    }
+    .sim-history-name {
+      flex: 1; min-width: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      color: var(--lumo-body-text-color);
+    }
+    .sim-history-via {
+      font-size: 10px;
+      color: var(--lumo-secondary-text-color);
+    }
+    .sim-empty {
+      font-size: 11.5px;
+      color: var(--lumo-secondary-text-color);
+      padding: 8px;
+      text-align: center;
+    }
+
+    /* Continue button */
+    .sim-continue {
+      padding: 8px 14px;
+      background: #7c3aed; color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 6px;
+      align-self: flex-end;
+    }
+    .sim-continue:hover { background: #6d28d9; }
+    .sim-continue:disabled {
+      background: #cbd5e1;
+      cursor: not-allowed;
+    }
+
+    /* =====================================================================
+       OUTCOMES WORKSPACE
+    ===================================================================== */
+    #outcomes-workspace {
+      display: flex;
+      background:
+        linear-gradient(140.604deg, rgba(125,205,238,0.20) 4%, rgba(213,236,181,0.20) 100%),
+        #f0f7fb;
+    }
+    .ow-list {
+      width: 320px; flex-shrink: 0;
+      background: white;
+      border-right: 1px solid rgba(28,55,90,0.10);
+      overflow-y: auto;
+      padding: 16px 12px;
+    }
+    .ow-list-header {
+      font-size: 10.5px; font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--lumo-secondary-text-color);
+      margin: 8px 4px 8px;
+    }
+    .ow-card {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 6px;
+      border: 1px solid transparent;
+    }
+    .ow-card:hover { background: #f8fafc; }
+    .ow-card.active {
+      background: white;
+      border-color: var(--lumo-primary-color-50pct);
+      box-shadow: 0 0 0 3px var(--lumo-primary-color-10pct);
+    }
+    .ow-card-icon {
+      width: 36px; height: 36px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-size: 14px; color: white;
+    }
+    .ow-card-icon.status-pass    { background: #158444; }
+    .ow-card-icon.status-partial { background: #e0782e; }
+    .ow-card-icon.status-fail    { background: #d83e38; }
+    .ow-card-meta { flex: 1; min-width: 0; }
+    .ow-card-name { font-size: 13px; font-weight: 700; color: var(--lumo-contrast); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ow-card-sub { font-size: 11px; color: var(--lumo-secondary-text-color); margin-top: 2px; }
+    .ow-card-incoming {
+      font-size: 10.5px;
+      padding: 2px 7px;
+      background: var(--lumo-primary-color-10pct);
+      color: var(--lumo-primary-text-color);
+      border-radius: 10px;
+      flex-shrink: 0;
+      font-weight: 600;
+    }
+
+    .ow-detail {
+      flex: 1; min-width: 0;
+      overflow-y: auto;
+      padding: 28px 36px;
+    }
+    .ow-detail-header {
+      display: flex; align-items: flex-start; gap: 14px;
+      margin-bottom: 24px;
+    }
+    .ow-detail-icon {
+      width: 56px; height: 56px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; color: white; flex-shrink: 0;
+    }
+    .ow-detail-titleblock { flex: 1; min-width: 0; }
+    .ow-detail-eyebrow {
+      font-size: 10.5px; font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--lumo-secondary-text-color);
+      margin-bottom: 4px;
+    }
+    .ow-detail-title {
+      font-size: 22px; font-weight: 700;
+      color: var(--lumo-contrast);
+      margin-bottom: 6px;
+    }
+    .ow-detail-meta {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 11.5px;
+      color: var(--lumo-secondary-text-color);
+    }
+    .ow-detail-meta .ow-jump {
+      color: var(--lumo-primary-color);
+      cursor: pointer; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .ow-detail-meta .ow-jump:hover { text-decoration: underline; }
+
+    .ow-section {
+      background: white;
+      border: 1px solid rgba(28,55,90,0.10);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 16px;
+    }
+    .ow-section-title {
+      font-size: 12px; font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--lumo-secondary-text-color);
+      margin-bottom: 12px;
+    }
+    .ow-field { margin-bottom: 14px; }
+    .ow-field:last-child { margin-bottom: 0; }
+    .ow-label {
+      font-size: 11.5px; font-weight: 600;
+      color: var(--lumo-body-text-color);
+      margin-bottom: 5px;
+      display: block;
+    }
+    .ow-input, .ow-textarea, .ow-select {
+      width: 100%;
+      padding: 9px 11px;
+      border: 1px solid rgba(28,55,90,0.18);
+      border-radius: 6px;
+      font-family: inherit; font-size: 13px;
+      background: white; color: var(--lumo-body-text-color);
+      outline: none;
+    }
+    .ow-input:focus, .ow-textarea:focus, .ow-select:focus {
+      border-color: var(--lumo-primary-color);
+      box-shadow: 0 0 0 3px var(--lumo-primary-color-10pct);
+    }
+    .ow-textarea { resize: vertical; min-height: 70px; line-height: 1.4; }
+
+    /* Handoff status segmented control */
+    .ow-status-seg {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+    }
+    .ow-status-btn {
+      padding: 10px 12px;
+      border: 2px solid rgba(28,55,90,0.10);
+      background: white;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit; font-size: 12.5px; font-weight: 600;
+      color: var(--lumo-secondary-text-color);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .ow-status-btn:hover { border-color: rgba(28,55,90,0.25); }
+    .ow-status-btn.active.pass    { border-color: #158444; color: #0a7637; background: #ecfdf5; }
+    .ow-status-btn.active.partial { border-color: #e0782e; color: #995211; background: #fff7ed; }
+    .ow-status-btn.active.fail    { border-color: #d83e38; color: #ca150c; background: #fef2f2; }
+
+    /* Destination picker */
+    .ow-dest-tabs {
+      display: flex;
+      gap: 4px;
+      background: #f3f4f6;
+      padding: 4px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+    .ow-dest-tab {
+      flex: 1;
+      padding: 7px 10px;
+      border: none;
+      background: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit; font-size: 11.5px; font-weight: 600;
+      color: var(--lumo-secondary-text-color);
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .ow-dest-tab.active {
+      background: white;
+      color: var(--lumo-primary-color);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    .ow-dest-list {
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .ow-dest-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px;
+      border: 1px solid rgba(28,55,90,0.10);
+      border-radius: 7px;
+      cursor: pointer;
+      background: white;
+    }
+    .ow-dest-item:hover { background: #f8fafc; }
+    .ow-dest-item.selected {
+      border-color: var(--lumo-primary-color);
+      background: var(--lumo-primary-color-10pct);
+    }
+    .ow-dest-item-icon {
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      background: var(--lumo-primary-color-10pct);
+      color: var(--lumo-primary-color);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .ow-dest-item-label { flex: 1; font-size: 12px; color: var(--lumo-contrast); font-weight: 500; }
+    .ow-dest-item-id {
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 10px;
+      color: var(--lumo-secondary-text-color);
+    }
+    .ow-dest-item-check {
+      color: var(--lumo-primary-color);
+      font-size: 13px;
+    }
+
+    .ow-empty {
+      display: flex; align-items: center; justify-content: center;
+      height: 100%;
+      font-size: 13px;
+      color: var(--lumo-secondary-text-color);
+    }
+
+    /* AI suggest popover (visual only) */
+    .ai-suggest-banner {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px;
+      background: linear-gradient(135deg, #faf5ff, #f3e8ff);
+      border: 1px solid rgba(124, 58, 237, 0.25);
+      border-radius: 6px;
+      font-size: 11.5px;
+      color: var(--lumo-body-text-color);
+      margin-bottom: 10px;
+    }
+    .ai-suggest-banner i { color: #7c3aed; font-size: 12px; }
+    .ai-suggest-banner .ai-suggest-action {
+      margin-left: auto;
+      font-size: 11px;
+      font-weight: 600;
+      color: #7c3aed;
+      cursor: pointer;
+    }
+    .ai-suggest-banner .ai-suggest-action:hover { text-decoration: underline; }
+
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- =====================================================================
+       WIZARD HEADER
+  ===================================================================== -->
+  <header id="wizard-header">
+    <div class="wh-left">
+      <div class="wh-logo"><i class="fa-solid fa-route"></i></div>
+      <div class="wh-divider"></div>
+      <button class="wh-title-group" title="Scenario settings">
+        <div class="wh-section">Tactical Training • Module 3</div>
+        <div class="wh-lo-title">Breach &amp; Clear: Residential Entry</div>
+      </button>
+      <button class="wh-icon-btn" title="Previous scenario"><i class="fa-solid fa-chevron-left"></i></button>
+      <button class="wh-icon-btn" title="Next scenario"><i class="fa-solid fa-chevron-right"></i></button>
+      <button class="wh-icon-btn ai-regen" title="Regenerate with AI"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+      <button class="wh-icon-btn" title="More options"><i class="fa-solid fa-ellipsis"></i></button>
+    </div>
+    <div class="wh-center">
+      <div class="wh-search">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        <input type="text" placeholder="AI Search — nodes, branches, outcomes…" />
+      </div>
+    </div>
+    <div class="wh-right">
+      <div class="wh-save-status">
+        <i class="fa-solid fa-circle-check"></i>
+        <span>Saved 2 min ago</span>
+      </div>
+      <button class="wh-icon-btn" title="Comments">
+        <i class="fa-solid fa-comment"></i>
+      </button>
+      <button class="wh-icon-btn" title="Share"><i class="fa-solid fa-share-nodes"></i></button>
+    </div>
+  </header>
+
+  <!-- =====================================================================
+       MAIN LAYOUT
+  ===================================================================== -->
+  <div id="main">
+
+    <!-- Icon nav column -->
+    <nav id="left-nav">
+      <button class="nav-btn active" data-panel="nodes" title="Nodes">
+        <i class="fa-solid fa-diagram-project"></i>
+      </button>
+      <button class="nav-btn" data-panel="outcomes" title="Outcomes">
+        <i class="fa-solid fa-flag-checkered"></i>
+      </button>
+      <button class="nav-btn" data-panel="citations" title="Citations">
+        <i class="fa-solid fa-book"></i>
+      </button>
+      <div class="nav-spacer"></div>
+      <button class="nav-btn" title="Settings"><i class="fa-solid fa-gear"></i></button>
+    </nav>
+
+    <!-- Side panel (content varies by activePanel) -->
+    <aside id="side-panel">
+      <div class="sp-header">
+        <div class="sp-title" id="sp-title">Nodes</div>
+        <div class="sp-badge" id="sp-badge">0</div>
+      </div>
+      <div class="sp-body" id="sp-body"></div>
+      <div class="sp-footer" id="sp-footer"></div>
+    </aside>
+
+    <!-- Canvas + simulator strip -->
+    <div id="canvas-wrap">
+      <!-- Nodes/Canvas toolbar (visible for Nodes + Citations panels) -->
+      <div id="canvas-toolbar" class="workspace-toolbar">
+        <div class="ct-group">
+          <button class="ct-btn"><i class="fa-solid fa-plus"></i> Add node</button>
+          <button class="ct-btn ai"><i class="fa-solid fa-wand-magic-sparkles"></i> AI: Suggest branch</button>
+        </div>
+        <div class="ct-divider"></div>
+        <div class="ct-group">
+          <button class="ct-btn" title="Auto-arrange"><i class="fa-solid fa-sitemap"></i> Auto-arrange</button>
+          <button class="ct-btn" title="Validate flow"><i class="fa-solid fa-circle-check"></i> Validate</button>
+        </div>
+        <div class="ct-spacer"></div>
+        <div class="ct-zoom">
+          <button title="Zoom out" onclick="zoomBy(-0.1)"><i class="fa-solid fa-minus"></i></button>
+          <div class="ct-zoom-label" id="zoom-label">100%</div>
+          <button title="Zoom in" onclick="zoomBy(0.1)"><i class="fa-solid fa-plus"></i></button>
+          <button title="Fit to view" onclick="zoomFit()"><i class="fa-solid fa-expand"></i></button>
+        </div>
+      </div>
+
+      <!-- Outcomes toolbar (visible only for Outcomes panel) -->
+      <div id="outcomes-toolbar" class="workspace-toolbar" style="display: none;">
+        <div class="ct-group">
+          <div style="display: flex; flex-direction: column; gap: 0;">
+            <div style="font-size: 13px; font-weight: 700; color: var(--lumo-contrast);">Outcomes</div>
+            <div style="font-size: 11px; color: var(--lumo-secondary-text-color);">Define how each ending hands off to the parent course</div>
+          </div>
+        </div>
+        <div class="ct-spacer"></div>
+        <div class="ct-group">
+          <button class="ct-btn"><i class="fa-solid fa-plus"></i> Add outcome</button>
+          <button class="ct-btn" onclick="switchPanel('nodes')"><i class="fa-solid fa-diagram-project"></i> View graph</button>
+        </div>
+      </div>
+
+      <!-- Graph canvas (Nodes/Citations workspace) -->
+      <div id="canvas" class="workspace">
+        <div id="canvas-inner">
+          <svg id="edges-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+          <!-- nodes injected here -->
+        </div>
+      </div>
+
+      <!-- Outcomes workspace -->
+      <div id="outcomes-workspace" class="workspace" style="display: none;">
+        <div class="ow-list" id="ow-list"></div>
+        <div class="ow-detail" id="ow-detail"></div>
+      </div>
+
+      <!-- Simulator strip -->
+      <div id="sim-strip">
+        <div class="sim-bar">
+          <div class="sim-bar-title" onclick="toggleSim()">
+            <i class="fa-solid fa-play"></i>
+            <span>Play-through Simulator</span>
+            <i class="fa-solid fa-chevron-up chevron"></i>
+          </div>
+          <div class="sim-bar-spacer"></div>
+          <button class="sim-bar-action" onclick="resetSim(event)"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+          <button class="sim-bar-action primary" onclick="startSim(event)"><i class="fa-solid fa-play"></i> Start play-through</button>
+        </div>
+        <div class="sim-body">
+          <!-- Current node -->
+          <div class="sim-col">
+            <div class="sim-col-title">Current node</div>
+            <div class="sim-current-card" id="sim-current-card">
+              <div class="sim-current-type" id="sim-current-type">Not started</div>
+              <div class="sim-current-name" id="sim-current-name">Press <i class="fa-solid fa-play"></i> to begin</div>
+              <div class="sim-current-desc" id="sim-current-desc">
+                The simulator walks the scenario graph from the start node. At game segments, set a score on the slider to see which branch routes. At questions, pick an answer.
+              </div>
+            </div>
+          </div>
+
+          <!-- Interaction (varies by node type) -->
+          <div class="sim-col">
+            <div class="sim-col-title" id="sim-interact-title">Interaction</div>
+            <div class="sim-interact" id="sim-interact">
+              <div class="sim-empty">Start the play-through to interact with this node.</div>
+            </div>
+          </div>
+
+          <!-- History -->
+          <div class="sim-col">
+            <div class="sim-col-title">Path history</div>
+            <div class="sim-history" id="sim-history">
+              <div class="sim-empty">No steps yet.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right panel (node editor) -->
+    <aside id="right-panel">
+      <div class="rp-header">
+        <span class="rp-type-badge" id="rp-type-badge">
+          <i class="fa-solid fa-circle"></i>
+          <span id="rp-type-label">Node</span>
+        </span>
+        <div class="rp-title" id="rp-title">Select a node</div>
+        <button class="rp-close" title="Deselect" onclick="deselectNode()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="rp-body" id="rp-body">
+        <div class="sim-empty" style="padding: 40px 16px;">
+          Click a node on the canvas to edit its content and outgoing branches.
+        </div>
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+<script>
+/* ======================================================================
+   DATA MODEL
+   ====================================================================== */
+
+// Node types: content | question | game | outcome
+const SCENARIO = {
+  title: "Breach & Clear: Residential Entry",
+  startId: "n1",
+  // Manual variables — escape hatch, intentionally empty in the worked example
+  manualVariables: [],
+  nodes: [
+    {
+      id: "n1",
+      type: "content",
+      title: "Mission Briefing",
+      description: "Pre-entry briefing video covering the residential floor plan, suspect profile, and rules of engagement.",
+      thumb: "https://images.unsplash.com/photo-1542884748-2b87b36c6b90?auto=format&fit=crop&w=400&q=60",
+      mediaType: "video",
+      duration: 95,
+      pos: { x: 60, y: 200 },
+      edges: [ { target: "n2", label: "Continue" } ]
+    },
+    {
+      id: "n2",
+      type: "question",
+      title: "Choose Entry Approach",
+      description: "Given the floor plan and suspect profile, select the team's initial approach.",
+      pos: { x: 360, y: 200 },
+      answers: [
+        { id: "a1", letter: "A", text: "Dynamic entry through front door",   target: "n3" },
+        { id: "a2", letter: "B", text: "Stealth entry via rear window",      target: "n3" },
+        { id: "a3", letter: "C", text: "Wait for SWAT backup",               target: "n7" }
+      ],
+      edges: [
+        { target: "n3", label: "A or B", fromAnswerId: "a1" },
+        { target: "n3", label: "", fromAnswerId: "a2" },
+        { target: "n7", label: "C", fromAnswerId: "a3" }
+      ]
+    },
+    {
+      id: "n3",
+      type: "game",
+      title: "Position Your Team",
+      description: "Drag each operator into a stack position outside the breach point. Score is based on coverage, sightlines, and timing.",
+      thumb: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=400&q=60",
+      gameSource: {
+        id: "stack-positioning",
+        name: "Tactical Stack Positioning",
+        scoreRange: [0, 100],
+        emitted: [
+          { key: "score",       label: "Overall score", range: [0, 100], primary: true },
+          { key: "coverage",    label: "Coverage",      range: [0, 100] },
+          { key: "timing",      label: "Timing",        range: [0, 100] },
+          { key: "sightlines",  label: "Sightlines",    range: [0, 100] }
+        ]
+      },
+      pos: { x: 660, y: 200 },
+      buckets: [
+        { id: "b1", variable: "score", op: ">=",    val: 85,        target: "n5", label: "Strong stack" },
+        { id: "b2", variable: "score", op: "range", val: [60, 84],  target: "n4", label: "Adequate" },
+        { id: "b3", variable: "score", op: "<",     val: 60,        target: "n6", label: "Coverage gaps" }
+      ]
+    },
+    {
+      id: "n4",
+      type: "content",
+      title: "Tactical Debrief",
+      description: "Brief interstitial covering common stack mistakes and recovery actions before the breach itself.",
+      thumb: "https://images.unsplash.com/photo-1568438350562-2cae6d394ad0?auto=format&fit=crop&w=400&q=60",
+      mediaType: "video",
+      duration: 60,
+      pos: { x: 960, y: 360 },
+      edges: [ { target: "n5", label: "Continue" } ]
+    },
+    {
+      id: "n5",
+      type: "game",
+      title: "Execute the Breach",
+      description: "Real-time breach: order of entry, room clearing, target identification. Score reflects safety, accuracy, and speed.",
+      thumb: "https://images.unsplash.com/photo-1583120972754-c93b8b6f7e3a?auto=format&fit=crop&w=400&q=60",
+      gameSource: {
+        id: "breach-execution",
+        name: "Room Clearing Drill",
+        scoreRange: [0, 100],
+        emitted: [
+          { key: "score",     label: "Overall score", range: [0, 100], primary: true },
+          { key: "safety",    label: "Safety",        range: [0, 100] },
+          { key: "accuracy",  label: "Accuracy",      range: [0, 100] },
+          { key: "speed",     label: "Speed",         range: [0, 100] }
+        ]
+      },
+      pos: { x: 1260, y: 200 },
+      buckets: [
+        { id: "b1", variable: "score",  op: ">=",    val: 90,        target: "n7", label: "Clean breach" },
+        { id: "b2", variable: "score",  op: "range", val: [70, 89],  target: "n7", label: "Successful" },
+        { id: "b3", variable: "safety", op: "<",     val: 60,        target: "n8", label: "Safety failure" },
+        { id: "b4", variable: "score",  op: "<",     val: 40,        target: "n9", label: "Mission failed" }
+      ]
+    },
+    {
+      id: "n6",
+      type: "content",
+      title: "Remediation: Review & Retry",
+      description: "Targeted review of the steps that scored low, followed by a return to the relevant decision point.",
+      thumb: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=400&q=60",
+      mediaType: "video",
+      duration: 120,
+      pos: { x: 1260, y: 460 },
+      edges: [ { target: "n3", label: "Retry stack" } ]
+    },
+    {
+      id: "n7",
+      type: "outcome",
+      title: "Mission Complete",
+      description: "Successful breach with operational safety maintained. Learner is ready for the next module.",
+      pos: { x: 1620, y: 120 },
+      edges: [],
+      handoff: {
+        status: "pass",
+        certCredit: "full",
+        summaryToLearner: "You completed the breach with strong stack positioning and acceptable safety scores. You are cleared to proceed to the next module.",
+        destination: { type: "course-module", id: "mod-4-hostage-negotiation", label: "Module 4: Hostage Negotiation" }
+      }
+    },
+    {
+      id: "n8",
+      type: "outcome",
+      title: "Outcome: Safety Failure",
+      description: "Breach completed but with critical safety violations. Learner must complete safety remediation before advancing.",
+      pos: { x: 1620, y: 320 },
+      edges: [],
+      handoff: {
+        status: "fail",
+        certCredit: "none",
+        summaryToLearner: "Your team made entry but with safety scores below operational threshold. Review safety-of-life protocols before reattempting this scenario.",
+        destination: { type: "remediation", id: "rem-safety-protocols", label: "Remediation: Operational Safety Protocols" }
+      }
+    },
+    {
+      id: "n9",
+      type: "outcome",
+      title: "Outcome: Tactical Failure",
+      description: "Overall mission performance below acceptable threshold. Learner is sent to foundational tactical content.",
+      pos: { x: 1620, y: 520 },
+      edges: [],
+      handoff: {
+        status: "fail",
+        certCredit: "none",
+        summaryToLearner: "Mission performance was below the required threshold. Review foundational room-clearing tactics before reattempting.",
+        destination: { type: "remediation", id: "rem-room-clearing-fundamentals", label: "Remediation: Room Clearing Fundamentals" }
+      }
+    }
+  ],
+  // Mock catalog for the handoff destination picker
+  parentCourse: {
+    name: "Tactical Training — Module 3",
+    modules: [
+      { id: "mod-3-breach-clear",          label: "Module 3: Breach & Clear (current)" },
+      { id: "mod-4-hostage-negotiation",   label: "Module 4: Hostage Negotiation" },
+      { id: "mod-5-active-shooter",        label: "Module 5: Active Shooter Response" },
+      { id: "mod-6-tactical-medicine",     label: "Module 6: Tactical Medicine" }
+    ],
+    remediation: [
+      { id: "rem-safety-protocols",            label: "Operational Safety Protocols" },
+      { id: "rem-room-clearing-fundamentals",  label: "Room Clearing Fundamentals" },
+      { id: "rem-stack-positioning",           label: "Stack Positioning Drills" },
+      { id: "rem-rules-of-engagement",         label: "Rules of Engagement Review" }
+    ]
+  }
+};
+
+const NODE_TYPE_META = {
+  content:  { icon: "fa-film",            label: "Content",      color: "#0271ce" },
+  question: { icon: "fa-circle-question", label: "Question",     color: "#e0782e" },
+  game:     { icon: "fa-gamepad",         label: "Game Segment", color: "#7c3aed" },
+  outcome:  { icon: "fa-flag-checkered",  label: "Outcome",      color: "#158444" }
+};
+
+/* ======================================================================
+   APP STATE
+   ====================================================================== */
+
+let selectedNodeId = null;
+let activePanel = "nodes"; // nodes | outcomes | citations
+let activeOutcomeId = null; // selected outcome in Outcomes workspace
+let outcomeDestTab = "course-module"; // course-module | remediation | scenario-node
+let simRunning = false;
+let simCurrentId = null;
+let simHistory = []; // [{nodeId, via}]
+// Per-game pending values: { [nodeId]: { [variableKey]: number } }
+let simPendingValues = {};
+
+/* ======================================================================
+   RENDER: SIDE PANEL (dispatch by activePanel)
+   ====================================================================== */
+function renderSidePanel() {
+  const title  = document.getElementById("sp-title");
+  const badge  = document.getElementById("sp-badge");
+  const body   = document.getElementById("sp-body");
+  const footer = document.getElementById("sp-footer");
+
+  if (activePanel === "nodes") {
+    title.textContent = "Nodes";
+    badge.textContent = `${SCENARIO.nodes.length} total`;
+    body.innerHTML = renderNodeListPanel();
+    footer.innerHTML = `<button class="sp-add-btn"><i class="fa-solid fa-plus"></i> Add node</button>`;
+  } else if (activePanel === "citations") {
+    title.textContent = "Citations";
+    badge.textContent = `0 sources`;
+    body.innerHTML = `<div class="sim-empty" style="padding: 24px 12px;">No citations yet. Citations link content nodes to source documents.</div>`;
+    footer.innerHTML = `<button class="sp-add-btn"><i class="fa-solid fa-plus"></i> Add citation</button>`;
+  }
+  // (outcomes panel hides the side panel entirely — handled in switchPanel)
+}
+
+/* ======================================================================
+   WORKSPACE SWITCHING
+   ====================================================================== */
+function switchPanel(panel) {
+  activePanel = panel;
+  // Sync the nav-button active state
+  document.querySelectorAll("#left-nav .nav-btn").forEach(b => b.classList.remove("active"));
+  const btn = document.querySelector(`#left-nav .nav-btn[data-panel="${panel}"]`);
+  if (btn) btn.classList.add("active");
+
+  // Toggle workspaces and toolbars
+  const canvas = document.getElementById("canvas");
+  const outcomesWs = document.getElementById("outcomes-workspace");
+  const canvasToolbar = document.getElementById("canvas-toolbar");
+  const outcomesToolbar = document.getElementById("outcomes-toolbar");
+  const simStrip = document.getElementById("sim-strip");
+
+  const sidePanel = document.getElementById("side-panel");
+
+  if (panel === "outcomes") {
+    canvas.style.display = "none";
+    outcomesWs.style.display = "flex";
+    canvasToolbar.style.display = "none";
+    outcomesToolbar.style.display = "flex";
+    simStrip.style.display = "none";
+    sidePanel.style.display = "none";
+    if (!activeOutcomeId) {
+      const first = SCENARIO.nodes.find(n => n.type === "outcome");
+      if (first) activeOutcomeId = first.id;
+    }
+    renderOutcomesWorkspace();
+  } else {
+    canvas.style.display = "";
+    outcomesWs.style.display = "none";
+    canvasToolbar.style.display = "";
+    outcomesToolbar.style.display = "none";
+    simStrip.style.display = "";
+    sidePanel.style.display = "";
+    renderSidePanel();
+  }
+}
+
+function renderOutcomesWorkspace() {
+  renderOutcomesList();
+  renderOutcomesDetail();
+}
+
+function renderOutcomesList() {
+  const list = document.getElementById("ow-list");
+  const outcomes = SCENARIO.nodes.filter(n => n.type === "outcome");
+  const passes   = outcomes.filter(o => (o.handoff && o.handoff.status) === "pass");
+  const partials = outcomes.filter(o => (o.handoff && o.handoff.status) === "partial");
+  const fails    = outcomes.filter(o => (o.handoff && o.handoff.status) === "fail");
+
+  function card(o) {
+    const status = (o.handoff && o.handoff.status) || "pass";
+    const incoming = countIncomingEdges(o.id);
+    return `
+      <div class="ow-card ${o.id === activeOutcomeId ? 'active' : ''}" onclick="selectOutcome('${o.id}')">
+        <div class="ow-card-icon status-${status}">
+          <i class="fa-solid ${status === 'pass' ? 'fa-flag-checkered' : status === 'partial' ? 'fa-flag' : 'fa-circle-xmark'}"></i>
+        </div>
+        <div class="ow-card-meta">
+          <div class="ow-card-name">${escapeHtml(o.title)}</div>
+          <div class="ow-card-sub">${o.handoff && o.handoff.destination ? escapeHtml(o.handoff.destination.label) : 'No destination set'}</div>
+        </div>
+        <div class="ow-card-incoming" title="${incoming} incoming">${incoming}</div>
+      </div>
+    `;
+  }
+
+  let html = "";
+  if (passes.length)   html += `<div class="ow-list-header">Pass (${passes.length})</div>`     + passes.map(card).join("");
+  if (partials.length) html += `<div class="ow-list-header">Partial (${partials.length})</div>` + partials.map(card).join("");
+  if (fails.length)    html += `<div class="ow-list-header">Fail (${fails.length})</div>`      + fails.map(card).join("");
+  list.innerHTML = html;
+}
+
+function countIncomingEdges(nodeId) {
+  let count = 0;
+  SCENARIO.nodes.forEach(n => {
+    if (n.type === "content" || n.type === "outcome") (n.edges || []).forEach(e => { if (e.target === nodeId) count++; });
+    else if (n.type === "question") n.answers.forEach(a => { if (a.target === nodeId) count++; });
+    else if (n.type === "game") n.buckets.forEach(b => { if (b.target === nodeId) count++; });
+  });
+  return count;
+}
+
+function renderOutcomesDetail() {
+  const detail = document.getElementById("ow-detail");
+  const outcome = SCENARIO.nodes.find(n => n.id === activeOutcomeId && n.type === "outcome");
+  if (!outcome) {
+    detail.innerHTML = `<div class="ow-empty">Select an outcome from the list to edit its handoff.</div>`;
+    return;
+  }
+  const handoff = outcome.handoff || { status: "pass", certCredit: "full", summaryToLearner: "", destination: null };
+  const incoming = countIncomingEdges(outcome.id);
+
+  // Build destination list based on active tab
+  const cat = SCENARIO.parentCourse || { modules: [], remediation: [] };
+  let destItems = [];
+  if (outcomeDestTab === "course-module") {
+    destItems = cat.modules.map(m => ({ ...m, type: "course-module", icon: "fa-cube" }));
+  } else if (outcomeDestTab === "remediation") {
+    destItems = cat.remediation.map(r => ({ ...r, type: "remediation", icon: "fa-life-ring" }));
+  } else if (outcomeDestTab === "scenario-node") {
+    destItems = SCENARIO.nodes
+      .filter(n => n.type !== "outcome")
+      .map(n => ({ id: n.id, label: n.title, type: "scenario-node", icon: "fa-diagram-project" }));
+  }
+
+  const selectedDestId = handoff.destination ? handoff.destination.id : null;
+  const selectedDestType = handoff.destination ? handoff.destination.type : null;
+
+  detail.innerHTML = `
+    <div class="ow-detail-header">
+      <div class="ow-detail-icon status-${handoff.status}" style="background: ${handoff.status === 'pass' ? '#158444' : handoff.status === 'partial' ? '#e0782e' : '#d83e38'};">
+        <i class="fa-solid ${handoff.status === 'pass' ? 'fa-flag-checkered' : handoff.status === 'partial' ? 'fa-flag' : 'fa-circle-xmark'}"></i>
+      </div>
+      <div class="ow-detail-titleblock">
+        <div class="ow-detail-eyebrow">Outcome handoff</div>
+        <div class="ow-detail-title">${escapeHtml(outcome.title)}</div>
+        <div class="ow-detail-meta">
+          <span><i class="fa-solid fa-arrow-down-to-line"></i> ${incoming} path${incoming === 1 ? '' : 's'} leading here</span>
+          <span>·</span>
+          <span class="ow-jump" onclick="jumpToOutcomeOnCanvas('${outcome.id}')">
+            <i class="fa-solid fa-diagram-project"></i> View on canvas
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ow-section">
+      <div class="ow-section-title">Identity</div>
+      <div class="ow-field">
+        <label class="ow-label">Outcome name (internal)</label>
+        <input class="ow-input" value="${escapeAttr(outcome.title)}" />
+      </div>
+      <div class="ow-field">
+        <label class="ow-label">Summary shown to learner on this outcome</label>
+        <textarea class="ow-textarea">${escapeHtml(handoff.summaryToLearner || '')}</textarea>
+      </div>
+    </div>
+
+    <div class="ow-section">
+      <div class="ow-section-title">Status reported to parent course</div>
+      <div class="ow-status-seg">
+        <button class="ow-status-btn pass ${handoff.status === 'pass' ? 'active' : ''}" onclick="setOutcomeStatus('${outcome.id}', 'pass')">
+          <i class="fa-solid fa-circle-check"></i> Pass
+        </button>
+        <button class="ow-status-btn partial ${handoff.status === 'partial' ? 'active' : ''}" onclick="setOutcomeStatus('${outcome.id}', 'partial')">
+          <i class="fa-solid fa-circle-half-stroke"></i> Partial
+        </button>
+        <button class="ow-status-btn fail ${handoff.status === 'fail' ? 'active' : ''}" onclick="setOutcomeStatus('${outcome.id}', 'fail')">
+          <i class="fa-solid fa-circle-xmark"></i> Fail
+        </button>
+      </div>
+      <div class="ow-field" style="margin-top: 14px;">
+        <label class="ow-label">Certification credit</label>
+        <select class="ow-select">
+          <option ${handoff.certCredit === 'full' ? 'selected' : ''}>Full credit</option>
+          <option ${handoff.certCredit === 'partial' ? 'selected' : ''}>Partial credit</option>
+          <option ${handoff.certCredit === 'none' ? 'selected' : ''}>No credit</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="ow-section">
+      <div class="ow-section-title">Where to send the learner next</div>
+      <div class="ow-dest-tabs">
+        <button class="ow-dest-tab ${outcomeDestTab === 'course-module' ? 'active' : ''}" onclick="setOutcomeDestTab('course-module')">
+          <i class="fa-solid fa-cube"></i> Course module
+        </button>
+        <button class="ow-dest-tab ${outcomeDestTab === 'remediation' ? 'active' : ''}" onclick="setOutcomeDestTab('remediation')">
+          <i class="fa-solid fa-life-ring"></i> Remediation
+        </button>
+        <button class="ow-dest-tab ${outcomeDestTab === 'scenario-node' ? 'active' : ''}" onclick="setOutcomeDestTab('scenario-node')">
+          <i class="fa-solid fa-diagram-project"></i> Back to scenario
+        </button>
+      </div>
+      <div class="ow-dest-list">
+        ${destItems.length === 0
+          ? `<div class="sim-empty" style="padding: 16px;">No destinations available.</div>`
+          : destItems.map(item => {
+              const isSel = item.id === selectedDestId && item.type === selectedDestType;
+              return `
+                <div class="ow-dest-item ${isSel ? 'selected' : ''}" onclick="setOutcomeDestination('${outcome.id}', '${item.type}', '${item.id}', '${escapeAttr(item.label)}')">
+                  <div class="ow-dest-item-icon"><i class="fa-solid ${item.icon}"></i></div>
+                  <div class="ow-dest-item-label">${escapeHtml(item.label)}</div>
+                  <div class="ow-dest-item-id">${escapeHtml(item.id)}</div>
+                  ${isSel ? `<i class="fa-solid fa-circle-check ow-dest-item-check"></i>` : ''}
+                </div>
+              `;
+            }).join("")
+        }
+      </div>
+    </div>
+  `;
+}
+
+function selectOutcome(id) {
+  activeOutcomeId = id;
+  renderOutcomesWorkspace();
+  renderSidePanel();
+}
+function setOutcomeStatus(id, status) {
+  const o = SCENARIO.nodes.find(n => n.id === id);
+  if (!o) return;
+  if (!o.handoff) o.handoff = {};
+  o.handoff.status = status;
+  renderOutcomesWorkspace();
+}
+function setOutcomeDestTab(tab) {
+  outcomeDestTab = tab;
+  renderOutcomesDetail();
+}
+function setOutcomeDestination(outcomeId, type, id, label) {
+  const o = SCENARIO.nodes.find(n => n.id === outcomeId);
+  if (!o) return;
+  if (!o.handoff) o.handoff = {};
+  o.handoff.destination = { type, id, label };
+  renderOutcomesWorkspace();
+}
+function jumpToOutcomeOnCanvas(outcomeId) {
+  // Switch to Nodes workspace, select the outcome node, and zoom to fit
+  switchPanel("nodes");
+  selectNode(outcomeId);
+  // Center the node in the viewport
+  centerNode(outcomeId);
+}
+function centerNode(nodeId) {
+  const node = SCENARIO.nodes.find(n => n.id === nodeId);
+  if (!node) return;
+  const canvas = document.getElementById("canvas");
+  const rect = canvas.getBoundingClientRect();
+  // Target: node center at viewport center
+  const nodeCenterX = node.pos.x + 110;
+  const nodeCenterY = node.pos.y + 120;
+  viewport.x = rect.width / 2  - nodeCenterX * viewport.scale;
+  viewport.y = rect.height / 2 - nodeCenterY * viewport.scale;
+  applyViewport();
+}
+function openOutcomesWorkspace(outcomeId) {
+  if (outcomeId) activeOutcomeId = outcomeId;
+  switchPanel("outcomes");
+}
+
+function renderNodeListPanel() {
+  return SCENARIO.nodes.map((node, idx) => {
+    const meta = NODE_TYPE_META[node.type];
+    const isActive = node.id === selectedNodeId;
+    let sub = "";
+    if (node.type === "content")  sub = node.mediaType === "video" ? `Video • ${node.duration || 0}s` : "Content";
+    else if (node.type === "question") sub = `${node.answers.length} answers`;
+    else if (node.type === "game") sub = `${node.gameSource.name} • ${node.buckets.length} paths`;
+    else if (node.type === "outcome") sub = "Terminal";
+    return `
+      <div class="node-item ${isActive ? 'active' : ''}" onclick="selectNode('${node.id}')">
+        <div class="node-icon type-${node.type}"><i class="fa-solid ${meta.icon}"></i></div>
+        <div class="node-meta">
+          <div class="node-name">${idx + 1}. ${escapeHtml(node.title)}</div>
+          <div class="node-sub">${sub}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function computeVariableInventory() {
+  // Build inventory of all variables available in the scenario, with usage counts.
+  const sources = []; // [{ sourceLabel, sourceNodeId, sourceType, vars: [{key, label, range, usedCount, usedBy: [{nodeId, bucketIdx|answerIdx}]}] }]
+  let totalCount = 0;
+
+  // From games
+  SCENARIO.nodes.filter(n => n.type === "game").forEach(g => {
+    const vars = g.gameSource.emitted.map(m => {
+      const usedBy = [];
+      SCENARIO.nodes.filter(n => n.type === "game").forEach(other => {
+        other.buckets.forEach((b, i) => {
+          // A variable is "used" by buckets *on its own node* (most common case).
+          // For cross-node reads we'd need a richer expression model; defer.
+          if (other.id === g.id && (b.variable || "score") === m.key) {
+            usedBy.push({ nodeId: other.id, bucketIdx: i, label: `${other.title} → bucket ${i + 1}` });
+          }
+        });
+      });
+      totalCount++;
+      return { key: m.key, label: m.label, range: m.range, primary: !!m.primary, usedBy };
+    });
+    sources.push({
+      sourceLabel: g.gameSource.name,
+      sourceIcon: "fa-gamepad",
+      sourceColor: "#7c3aed",
+      sourceNodeId: g.id,
+      sourceType: "game",
+      vars
+    });
+  });
+
+  // From questions
+  SCENARIO.nodes.filter(n => n.type === "question").forEach(q => {
+    const usedBy = []; // currently no condition reads question.choice — placeholder
+    totalCount++;
+    sources.push({
+      sourceLabel: q.title,
+      sourceIcon: "fa-circle-question",
+      sourceColor: "#e0782e",
+      sourceNodeId: q.id,
+      sourceType: "question",
+      vars: [
+        {
+          key: "choice",
+          label: "Answer choice",
+          values: q.answers.map(a => a.letter).join(" | "),
+          usedBy
+        }
+      ]
+    });
+  });
+
+  // Manual (escape hatch)
+  const manualVars = (SCENARIO.manualVariables || []).map(v => {
+    totalCount++;
+    return { key: v.key, label: v.label, range: v.range, usedBy: [] };
+  });
+
+  return { sources, manualVars, totalCount };
+}
+
+function renderVariablesPanel(inv) {
+  let html = "";
+  inv.sources.forEach(src => {
+    html += `
+      <div class="var-group">
+        <div class="var-group-header">
+          <i class="fa-solid ${src.sourceIcon}" style="color: ${src.sourceColor};"></i>
+          <span class="var-group-name">${escapeHtml(src.sourceLabel)}</span>
+          <button class="var-jump-link" onclick="selectNode('${src.sourceNodeId}')">View node</button>
+        </div>
+        ${src.vars.map(v => `
+          <div class="var-row">
+            <div class="var-row-main">
+              <span class="var-key">${escapeHtml(v.key)}</span>
+              <span class="var-label">${escapeHtml(v.label)}</span>
+            </div>
+            <div class="var-row-meta">
+              ${v.range ? `<span class="var-range">${v.range[0]}–${v.range[1]}</span>` : ""}
+              ${v.values ? `<span class="var-range">${escapeHtml(v.values)}</span>` : ""}
+              <span class="var-used ${v.usedBy.length === 0 ? 'unused' : ''}">
+                ${v.usedBy.length === 0
+                  ? `<i class="fa-regular fa-circle"></i> not used`
+                  : `<i class="fa-solid fa-circle-check"></i> used in ${v.usedBy.length} ${v.usedBy.length === 1 ? 'condition' : 'conditions'}`}
+              </span>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  });
+
+  html += `
+    <div class="var-group">
+      <div class="var-group-header">
+        <i class="fa-solid fa-code" style="color: var(--lumo-secondary-text-color);"></i>
+        <span class="var-group-name">Manual variables</span>
+      </div>
+      ${inv.manualVars.length === 0
+        ? `<div class="sim-empty" style="padding: 12px 8px; font-size: 11px;">No manual variables. Most scenarios route on game and question outputs alone — add one only if you need to track state that isn't emitted by content.</div>`
+        : inv.manualVars.map(v => `
+            <div class="var-row">
+              <div class="var-row-main">
+                <span class="var-key">${escapeHtml(v.key)}</span>
+                <span class="var-label">${escapeHtml(v.label)}</span>
+              </div>
+            </div>
+          `).join("")
+      }
+    </div>
+  `;
+  return html;
+}
+
+function renderOutcomesSidePanel(outcomes) {
+  if (outcomes.length === 0) {
+    return `<div class="sim-empty" style="padding: 24px 12px;">No outcome nodes yet. Outcomes are the terminal endings of the scenario.</div>`;
+  }
+  return outcomes.map(o => {
+    const status = (o.handoff && o.handoff.status) || "pass";
+    const incoming = countIncomingEdges(o.id);
+    const icon = status === 'pass' ? 'fa-flag-checkered' : status === 'partial' ? 'fa-flag' : 'fa-circle-xmark';
+    return `
+      <div class="node-item ${o.id === activeOutcomeId ? 'active' : ''}" onclick="selectOutcome('${o.id}')">
+        <div class="node-icon" style="background: ${status === 'pass' ? '#158444' : status === 'partial' ? '#e0782e' : '#d83e38'};">
+          <i class="fa-solid ${icon}"></i>
+        </div>
+        <div class="node-meta">
+          <div class="node-name">${escapeHtml(o.title)}</div>
+          <div class="node-sub">${incoming} path${incoming === 1 ? '' : 's'} • ${o.handoff && o.handoff.destination ? escapeHtml(o.handoff.destination.label) : 'no destination'}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+/* ======================================================================
+   RENDER: CANVAS NODES + EDGES
+   ====================================================================== */
+function renderCanvas() {
+  const inner = document.getElementById("canvas-inner");
+  // Remove all node elements, keep svg
+  inner.querySelectorAll(".node").forEach(el => el.remove());
+
+  SCENARIO.nodes.forEach(node => {
+    const el = document.createElement("div");
+    el.className = "node" + (node.id === selectedNodeId ? " selected" : "") + (node.id === simCurrentId ? " sim-current" : "");
+    el.setAttribute("data-type", node.type);
+    el.setAttribute("data-id", node.id);
+    el.style.left = node.pos.x + "px";
+    el.style.top  = node.pos.y + "px";
+    el.addEventListener("mousedown", (e) => onNodeMouseDown(e, node.id));
+
+    const meta = NODE_TYPE_META[node.type];
+    let inner_html = "";
+    if (node.id === SCENARIO.startId) {
+      inner_html += `<div class="node-start-badge">Start</div>`;
+    }
+    inner_html += `
+      <div class="node-header">
+        <i class="fa-solid ${meta.icon}"></i>
+        <span class="node-type-label">${meta.label}</span>
+        <span class="node-num">#${SCENARIO.nodes.indexOf(node) + 1}</span>
+      </div>
+    `;
+
+    // Thumbnail for content/game nodes
+    if ((node.type === "content" || node.type === "game") && node.thumb) {
+      inner_html += `<div class="node-thumb" style="background-image: url('${node.thumb}');"></div>`;
+    } else if (node.type === "outcome") {
+      inner_html += `<div class="node-thumb" style="background: linear-gradient(135deg, #16a34a, #15803d);"><i class="fa-solid fa-flag-checkered"></i></div>`;
+    } else if (node.type === "question") {
+      inner_html += `<div class="node-thumb" style="background: linear-gradient(135deg, #fb923c, #ea580c);"><i class="fa-solid fa-circle-question"></i></div>`;
+    }
+
+    inner_html += `
+      <div class="node-body">
+        <div class="node-title">${escapeHtml(node.title)}</div>
+        <div class="node-desc">${escapeHtml(node.description || "")}</div>
+      </div>
+    `;
+
+    // Type-specific footer area
+    if (node.type === "content") {
+      const pill = node.mediaType === "video"
+        ? `<span class="node-pill"><i class="fa-solid fa-film"></i> Video • ${node.duration}s</span>`
+        : `<span class="node-pill"><i class="fa-solid fa-image"></i> ${node.mediaType}</span>`;
+      inner_html += `<div class="node-footer">${pill}<span class="node-pill"><i class="fa-solid fa-arrow-right"></i> 1 path</span></div>`;
+    } else if (node.type === "question") {
+      const answersHtml = node.answers.map(a => `
+        <div class="node-answer"><i class="fa-solid fa-circle-dot"></i> ${a.letter}. ${escapeHtml(a.text)}</div>
+      `).join("");
+      inner_html += `<div class="node-answers">${answersHtml}</div>`;
+      inner_html += `
+        <div class="node-emits">
+          <span class="node-emits-label">Emits</span>
+          <span class="node-var-chip used">choice</span>
+        </div>
+      `;
+    } else if (node.type === "game") {
+      const game = node.gameSource;
+      const [min, max] = game.scoreRange;
+      const bucketsHtml = node.buckets.map(b => {
+        let rangeStr;
+        if (b.op === "range") rangeStr = `${b.val[0]}–${b.val[1]}`;
+        else if (b.op === ">=") rangeStr = `≥ ${b.val}`;
+        else if (b.op === "<")  rangeStr = `< ${b.val}`;
+        else rangeStr = `${b.op} ${b.val}`;
+        // Compute relative bar position
+        let barLeft, barWidth;
+        if (b.op === "range") {
+          barLeft = (b.val[0] / max) * 100;
+          barWidth = ((b.val[1] - b.val[0]) / max) * 100;
+        } else if (b.op === ">=") {
+          barLeft = (b.val / max) * 100;
+          barWidth = 100 - barLeft;
+        } else { // <
+          barLeft = 0;
+          barWidth = (b.val / max) * 100;
+        }
+        return `
+          <div class="node-bucket-row">
+            <span class="node-bucket-range">${rangeStr}</span>
+            <div class="node-bucket-bar">
+              <div class="node-bucket-fill" style="left: ${barLeft}%; width: ${barWidth}%;"></div>
+            </div>
+          </div>
+        `;
+      }).join("");
+      const usedVars = new Set(node.buckets.map(b => b.variable || "score"));
+      const emittedChips = game.emitted.map(m => {
+        const isUsed = usedVars.has(m.key);
+        return `<span class="node-var-chip ${isUsed ? 'used' : ''}">${escapeHtml(m.key)}</span>`;
+      }).join("");
+      inner_html += `
+        <div class="node-footer" style="padding-bottom: 4px;">
+          <span class="node-pill"><i class="fa-solid fa-gamepad"></i> ${escapeHtml(game.name)}</span>
+          <span class="node-pill"><i class="fa-solid fa-arrow-right"></i> ${node.buckets.length} paths</span>
+        </div>
+        <div class="node-emits">
+          <span class="node-emits-label">Emits</span>
+          ${emittedChips}
+        </div>
+        <div class="node-buckets">${bucketsHtml}</div>
+      `;
+    } else if (node.type === "outcome") {
+      inner_html += `<div class="node-footer"><span class="node-pill"><i class="fa-solid fa-circle-stop"></i> Terminal node</span></div>`;
+    }
+
+    el.innerHTML = inner_html;
+    inner.appendChild(el);
+  });
+
+  renderEdges();
+}
+
+function renderEdges() {
+  const svg = document.getElementById("edges-svg");
+  svg.innerHTML = "";
+
+  // Defs: arrowhead markers
+  svg.innerHTML += `
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(28,55,90,0.45)" />
+      </marker>
+      <marker id="arrow-active" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed" />
+      </marker>
+      <marker id="arrow-selected" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#0271ce" />
+      </marker>
+    </defs>
+  `;
+
+  // Determine which edge is sim-active (the one taken into current node)
+  let activeFromTo = null;
+  if (simRunning && simHistory.length >= 2) {
+    const last = simHistory[simHistory.length - 1];
+    const prev = simHistory[simHistory.length - 2];
+    activeFromTo = `${prev.nodeId}>${last.nodeId}`;
+  }
+
+  // For each node, compute outgoing edges (collapse duplicates by target with grouped labels)
+  SCENARIO.nodes.forEach(node => {
+    const outgoing = getOutgoingEdges(node);
+    outgoing.forEach(edge => {
+      const from = node;
+      const to = SCENARIO.nodes.find(n => n.id === edge.target);
+      if (!to) return;
+
+      const isSelected = node.id === selectedNodeId || to.id === selectedNodeId;
+      const isSimActive = activeFromTo === `${from.id}>${to.id}`;
+
+      const fromX = from.pos.x + 220; // right edge of node card
+      const fromY = from.pos.y + nodeHeightEstimate(from) / 2;
+      const toX = to.pos.x;
+      const toY = to.pos.y + nodeHeightEstimate(to) / 2;
+
+      const dx = Math.abs(toX - fromX);
+      const c1x = fromX + Math.max(40, dx * 0.4);
+      const c2x = toX - Math.max(40, dx * 0.4);
+
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", `M ${fromX} ${fromY} C ${c1x} ${fromY}, ${c2x} ${toY}, ${toX} ${toY}`);
+      path.setAttribute("class", "edge-path" + (isSimActive ? " sim-active" : (isSelected ? " highlight" : "")));
+      const markerId = isSimActive ? "arrow-active" : (isSelected ? "arrow-selected" : "arrow");
+      path.setAttribute("marker-end", `url(#${markerId})`);
+      svg.appendChild(path);
+
+      // Edge label
+      if (edge.label) {
+        const midX = (fromX + toX) / 2;
+        const midY = (fromY + toY) / 2 - 6;
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", midX);
+        text.setAttribute("y", midY);
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("class", "edge-label");
+        text.textContent = edge.label;
+        svg.appendChild(text);
+      }
+    });
+  });
+}
+
+function getOutgoingEdges(node) {
+  if (node.type === "content") {
+    return node.edges || [];
+  } else if (node.type === "question") {
+    // Group answers by target
+    const grouped = {};
+    node.answers.forEach(a => {
+      if (!grouped[a.target]) grouped[a.target] = [];
+      grouped[a.target].push(a.letter);
+    });
+    return Object.keys(grouped).map(t => ({ target: t, label: grouped[t].join(" or ") }));
+  } else if (node.type === "game") {
+    // Group buckets by target
+    const grouped = {};
+    node.buckets.forEach(b => {
+      if (!grouped[b.target]) grouped[b.target] = [];
+      let s;
+      if (b.op === "range") s = `${b.val[0]}–${b.val[1]}`;
+      else if (b.op === ">=") s = `≥${b.val}`;
+      else if (b.op === "<")  s = `<${b.val}`;
+      else s = `${b.op}${b.val}`;
+      grouped[b.target].push(s);
+    });
+    return Object.keys(grouped).map(t => ({ target: t, label: grouped[t].join(", ") }));
+  } else if (node.type === "outcome") {
+    return [];
+  }
+  return [];
+}
+
+function nodeHeightEstimate(node) {
+  if (node.type === "content")  return 240;
+  if (node.type === "question") return 280;
+  if (node.type === "game")     return 320;
+  if (node.type === "outcome")  return 200;
+  return 220;
+}
+
+/* ======================================================================
+   RENDER: RIGHT PANEL EDITOR
+   ====================================================================== */
+function renderRightPanel() {
+  const body = document.getElementById("rp-body");
+  const badge = document.getElementById("rp-type-badge");
+  const typeLabel = document.getElementById("rp-type-label");
+  const title = document.getElementById("rp-title");
+
+  if (!selectedNodeId) {
+    body.innerHTML = `<div class="sim-empty" style="padding: 40px 16px;">Click a node on the canvas to edit its content and outgoing branches.</div>`;
+    badge.className = "rp-type-badge";
+    badge.innerHTML = `<i class="fa-solid fa-circle"></i><span id="rp-type-label">Node</span>`;
+    title.textContent = "Select a node";
+    return;
+  }
+
+  const node = SCENARIO.nodes.find(n => n.id === selectedNodeId);
+  if (!node) return;
+
+  const meta = NODE_TYPE_META[node.type];
+  badge.className = `rp-type-badge type-${node.type}`;
+  badge.innerHTML = `<i class="fa-solid ${meta.icon}"></i> ${meta.label}`;
+  title.textContent = node.title;
+
+  if (node.type === "content")  body.innerHTML = renderContentEditor(node);
+  else if (node.type === "question") body.innerHTML = renderQuestionEditor(node);
+  else if (node.type === "game") body.innerHTML = renderGameEditor(node);
+  else if (node.type === "outcome") body.innerHTML = renderOutcomeEditor(node);
+}
+
+function renderContentEditor(node) {
+  const targetOptions = nodeOptions(node.id);
+  const edges = node.edges || [];
+  return `
+    <div class="rp-section">
+      <div class="rp-section-title">
+        <span>Content</span>
+        <span class="ai-link"><i class="fa-solid fa-wand-magic-sparkles"></i> Regenerate</span>
+      </div>
+      <div class="rp-field">
+        <label class="rp-label">Title</label>
+        <input class="rp-input" value="${escapeAttr(node.title)}" />
+      </div>
+      <div class="rp-field">
+        <label class="rp-label">Description / script</label>
+        <textarea class="rp-textarea">${escapeHtml(node.description || "")}</textarea>
+      </div>
+    </div>
+
+    <div class="rp-section">
+      <div class="rp-section-title"><span>Media</span></div>
+      <div class="rp-media" style="background-image: url('${node.thumb || ''}');">
+        ${node.thumb ? '' : '<i class="fa-solid fa-image"></i>'}
+      </div>
+      <div class="rp-media-actions">
+        <button class="rp-media-btn ai"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
+        <button class="rp-media-btn"><i class="fa-solid fa-upload"></i> Upload</button>
+        <button class="rp-media-btn"><i class="fa-solid fa-photo-film"></i> Stock</button>
+      </div>
+    </div>
+
+    <div class="rp-section">
+      <div class="rp-section-title">
+        <span>Outgoing Branches</span>
+        <span class="ai-link"><i class="fa-solid fa-wand-magic-sparkles"></i> AI suggest branch</span>
+      </div>
+      ${edges.length === 0 ? `<div class="sim-empty" style="padding: 8px 0;">No outgoing branches. This will end the scenario.</div>` : ""}
+      ${edges.map((e, i) => renderBranchRow(e, i, targetOptions, "content", node.id)).join("")}
+      <button class="add-bucket-btn" onclick="addBranch('${node.id}')">
+        <i class="fa-solid fa-plus"></i> Add branch
+      </button>
+    </div>
+
+    <div class="rp-section">
+      <button class="rp-media-btn" style="width:100%; color: var(--lumo-error-text-color); border-color: var(--lumo-error-color-50pct);">
+        <i class="fa-solid fa-trash"></i> Delete node
+      </button>
+    </div>
+  `;
+}
+
+function renderBranchRow(edge, i, targetOptions, ownerType, ownerNodeId) {
+  return `
+    <div class="branch-row">
+      <span class="bucket-drag"><i class="fa-solid fa-grip-vertical"></i></span>
+      <input class="branch-label-input" value="${escapeAttr(edge.label || '')}" placeholder="Label" />
+      <i class="fa-solid fa-arrow-right branch-arrow"></i>
+      <select class="branch-target-select" onchange="setBranchTarget('${ownerNodeId}', ${i}, this.value)">
+        ${targetOptions.map(o => `<option ${o.id === edge.target ? 'selected' : ''} value="${o.id}">${escapeHtml(o.label)}</option>`).join("")}
+        <option value="__new__">+ Create new node…</option>
+      </select>
+      <button class="branch-del" title="Remove" onclick="removeBranch('${ownerNodeId}', ${i})"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+  `;
+}
+
+// Helper: render an "Emits" section listing the variables a node makes available downstream
+function renderEmitsSection(node) {
+  let vars = [];
+  let helpText = "";
+  if (node.type === "game") {
+    const usedVars = new Set(node.buckets.map(b => b.variable || "score"));
+    vars = node.gameSource.emitted.map(m => ({
+      key: m.key,
+      label: m.label,
+      range: m.range,
+      primary: !!m.primary,
+      usedCount: node.buckets.filter(b => (b.variable || "score") === m.key).length
+    }));
+    helpText = "Declared by the game. Reference these in score-routing buckets below.";
+  } else if (node.type === "question") {
+    vars = [{
+      key: "choice",
+      label: "Selected answer",
+      values: node.answers.map(a => a.letter).join(" | "),
+      usedCount: 0
+    }];
+    helpText = "Available to downstream conditions as the letter the learner picked.";
+  } else {
+    return "";
+  }
+
+  return `
+    <div class="rp-section">
+      <div class="rp-section-title"><span>Emits</span></div>
+      <div style="font-size: 11px; color: var(--lumo-secondary-text-color); margin-bottom: 8px; line-height: 1.4;">${escapeHtml(helpText)}</div>
+      <div class="rp-emits-list">
+        ${vars.map(v => `
+          <div class="rp-emit-row">
+            <span class="rp-emit-key ${v.usedCount > 0 ? 'used' : ''}">${escapeHtml(v.key)}</span>
+            <div class="rp-emit-main">
+              <div class="rp-emit-label">${escapeHtml(v.label)}</div>
+              <div class="rp-emit-meta">
+                ${v.range ? `Range ${v.range[0]}–${v.range[1]}` : (v.values ? `Values: ${escapeHtml(v.values)}` : '')}
+              </div>
+            </div>
+            <div class="rp-emit-usage ${v.usedCount === 0 ? 'unused' : ''}">
+              ${v.usedCount === 0
+                ? `<i class="fa-regular fa-circle"></i> not used`
+                : `<i class="fa-solid fa-circle-check"></i> in ${v.usedCount}`}
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderQuestionEditor(node) {
+  const targetOptions = nodeOptions(node.id);
+  return `
+    <div class="rp-section">
+      <div class="rp-section-title">
+        <span>Question</span>
+        <span class="ai-link"><i class="fa-solid fa-wand-magic-sparkles"></i> Rephrase</span>
+      </div>
+      <div class="rp-field">
+        <label class="rp-label">Prompt</label>
+        <input class="rp-input" value="${escapeAttr(node.title)}" />
+      </div>
+      <div class="rp-field">
+        <label class="rp-label">Context / setup</label>
+        <textarea class="rp-textarea">${escapeHtml(node.description || "")}</textarea>
+      </div>
+    </div>
+
+    ${renderEmitsSection(node)}
+
+    <div class="rp-section">
+      <div class="rp-section-title">
+        <span>Answers &amp; Branching</span>
+        <span class="ai-link"><i class="fa-solid fa-wand-magic-sparkles"></i> Suggest distractor</span>
+      </div>
+      ${node.answers.map((a, i) => `
+        <div class="answer-row">
+          <div class="answer-letter">${a.letter}</div>
+          <input class="answer-text" value="${escapeAttr(a.text)}" />
+          <i class="fa-solid fa-arrow-right answer-arrow"></i>
+          <select class="answer-target" onchange="setAnswerTarget('${node.id}', ${i}, this.value)">
+            ${targetOptions.map(o => `<option ${o.id === a.target ? 'selected' : ''} value="${o.id}">${escapeHtml(o.label)}</option>`).join("")}
+            <option value="__new__">+ Create new node…</option>
+          </select>
+          <button class="answer-del" title="Remove" onclick="removeAnswer('${node.id}', ${i})"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      `).join("")}
+      <button class="add-bucket-btn" onclick="addAnswer('${node.id}')">
+        <i class="fa-solid fa-plus"></i> Add answer
+      </button>
+    </div>
+
+    <div class="rp-section">
+      <button class="rp-media-btn" style="width:100%; color: var(--lumo-error-text-color); border-color: var(--lumo-error-color-50pct);">
+        <i class="fa-solid fa-trash"></i> Delete node
+      </button>
+    </div>
+  `;
+}
+
+function renderGameEditor(node) {
+  const targetOptions = nodeOptions(node.id);
+  const game = node.gameSource;
+  const [min, max] = game.scoreRange;
+  const coverage = computeCoverage(node);
+
+  return `
+    <div class="ai-suggest-banner">
+      <i class="fa-solid fa-wand-magic-sparkles"></i>
+      <span>AI noticed a remediation gap. Would you like to add a path for the <b>40–69</b> range?</span>
+      <span class="ai-suggest-action">Add path</span>
+    </div>
+
+    <div class="rp-section">
+      <div class="rp-section-title"><span>Source</span></div>
+      <div class="game-source-card">
+        <div class="game-source-thumb"><i class="fa-solid fa-gamepad"></i></div>
+        <div class="game-source-meta">
+          <div class="game-source-name">${escapeHtml(game.name)}</div>
+          <div class="game-source-detail">Score range: ${min}–${max}</div>
+          <div class="game-source-detail">${game.emitted.length} metric${game.emitted.length === 1 ? '' : 's'} emitted</div>
+          <span class="game-source-change">Change game…</span>
+        </div>
+      </div>
+    </div>
+
+    ${renderEmitsSection(node)}
+
+    <div class="rp-section">
+      <div class="rp-section-title"><span>Display</span></div>
+      <div class="rp-field">
+        <label class="rp-label">Title shown to learner</label>
+        <input class="rp-input" value="${escapeAttr(node.title)}" />
+      </div>
+      <div class="rp-field">
+        <label class="rp-label">Briefing / instructions</label>
+        <textarea class="rp-textarea">${escapeHtml(node.description || "")}</textarea>
+      </div>
+    </div>
+
+    <div class="rp-section">
+      <div class="rp-section-title">
+        <span>Score Routing</span>
+        <span class="ai-link"><i class="fa-solid fa-wand-magic-sparkles"></i> AI suggest buckets</span>
+      </div>
+      ${node.buckets.map((b, i) => renderBucketRow(b, i, targetOptions, max, node.id)).join("")}
+      <button class="add-bucket-btn" onclick="addBucket('${node.id}')">
+        <i class="fa-solid fa-plus"></i> Add score bucket
+      </button>
+
+      ${coverage.gap ? `
+        <div class="coverage-warning">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span>Scores <b>${coverage.gap}</b> are not routed.</span>
+          <span class="cw-action">Add bucket</span>
+        </div>
+      ` : ``}
+    </div>
+
+    <div class="rp-section">
+      <button class="rp-media-btn" style="width:100%; color: var(--lumo-error-text-color); border-color: var(--lumo-error-color-50pct);">
+        <i class="fa-solid fa-trash"></i> Delete node
+      </button>
+    </div>
+  `;
+}
+
+function renderBucketRow(b, i, targetOptions, max, ownerNodeId) {
+  const ownerNode = SCENARIO.nodes.find(n => n.id === ownerNodeId);
+  const emitted = ownerNode && ownerNode.gameSource ? ownerNode.gameSource.emitted : [{ key: "score", label: "Score" }];
+  const varKey = b.variable || "score";
+  const isPrimary = varKey === "score";
+
+  let valHtml;
+  if (b.op === "range") {
+    valHtml = `
+      <input class="bucket-val" value="${b.val[0]}" />
+      <span style="font-size: 10.5px; color: #94a3b8;">to</span>
+      <input class="bucket-val" value="${b.val[1]}" />
+    `;
+  } else {
+    valHtml = `<input class="bucket-val" value="${b.val}" />`;
+  }
+
+  // Variable pill: only show explicitly if it's not the default 'score'.
+  // When score, render a small "var" link to reveal the picker (keeps the common case clean).
+  const varPickerHtml = `
+    <select class="bucket-var ${isPrimary ? 'is-primary' : ''}" onchange="setBucketVariable('${ownerNodeId}', ${i}, this.value)" title="Variable">
+      ${emitted.map(m => `<option ${m.key === varKey ? 'selected' : ''} value="${m.key}">${escapeHtml(m.label)}</option>`).join("")}
+    </select>
+  `;
+
+  return `
+    <div class="bucket-row">
+      <span class="bucket-drag"><i class="fa-solid fa-grip-vertical"></i></span>
+      ${varPickerHtml}
+      <div class="bucket-condition">
+        <select class="bucket-op">
+          <option ${b.op === ">=" ? "selected" : ""}>≥</option>
+          <option ${b.op === ">"  ? "selected" : ""}>&gt;</option>
+          <option ${b.op === "<=" ? "selected" : ""}>≤</option>
+          <option ${b.op === "<"  ? "selected" : ""}>&lt;</option>
+          <option ${b.op === "range" ? "selected" : ""}>range</option>
+        </select>
+        ${valHtml}
+      </div>
+      <i class="fa-solid fa-arrow-right bucket-arrow"></i>
+      <select class="bucket-target" onchange="setBucketTarget('${ownerNodeId}', ${i}, this.value)">
+        ${targetOptions.map(o => `<option ${o.id === b.target ? 'selected' : ''} value="${o.id}">${escapeHtml(o.label)}</option>`).join("")}
+        <option value="__new__">+ Create new node…</option>
+      </select>
+      <button class="bucket-del" title="Remove" onclick="removeBucket('${ownerNodeId}', ${i})"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+  `;
+}
+
+function renderOutcomeEditor(node) {
+  const handoff = node.handoff || { status: "pass", certCredit: "full", summaryToLearner: "", destination: null };
+  return `
+    <div class="rp-section">
+      <div class="rp-section-title"><span>Outcome</span></div>
+      <div class="rp-field">
+        <label class="rp-label">Title</label>
+        <input class="rp-input" value="${escapeAttr(node.title)}" />
+      </div>
+      <div class="rp-field">
+        <label class="rp-label">Summary shown to learner</label>
+        <textarea class="rp-textarea">${escapeHtml(handoff.summaryToLearner || node.description || "")}</textarea>
+      </div>
+    </div>
+
+    <div class="rp-section">
+      <div class="rp-section-title">
+        <span>Handoff to parent course</span>
+        <span class="ai-link" onclick="openOutcomesWorkspace('${node.id}')"><i class="fa-solid fa-up-right-from-square"></i> Edit in workspace</span>
+      </div>
+      <div class="rp-field">
+        <label class="rp-label">Status reported</label>
+        <select class="rp-select">
+          <option ${handoff.status === 'pass' ? 'selected' : ''}>Pass</option>
+          <option ${handoff.status === 'partial' ? 'selected' : ''}>Partial credit</option>
+          <option ${handoff.status === 'fail' ? 'selected' : ''}>Fail</option>
+        </select>
+      </div>
+      <div class="rp-field">
+        <label class="rp-label">Next destination</label>
+        <div class="handoff-summary">
+          ${handoff.destination
+            ? `<i class="fa-solid ${destinationIcon(handoff.destination.type)}"></i> <span>${escapeHtml(handoff.destination.label)}</span>`
+            : `<span style="color: var(--lumo-secondary-text-color);">No destination set</span>`}
+        </div>
+      </div>
+    </div>
+
+    <div class="rp-section">
+      <button class="rp-media-btn" style="width:100%; color: var(--lumo-error-text-color); border-color: var(--lumo-error-color-50pct);">
+        <i class="fa-solid fa-trash"></i> Delete node
+      </button>
+    </div>
+  `;
+}
+
+function destinationIcon(type) {
+  if (type === "course-module") return "fa-cube";
+  if (type === "remediation")   return "fa-life-ring";
+  if (type === "scenario-node") return "fa-diagram-project";
+  return "fa-arrow-right";
+}
+
+function computeCoverage(gameNode) {
+  // Quick coverage check: identify integer score gaps not covered.
+  const [min, max] = gameNode.gameSource.scoreRange;
+  const covered = new Array(max - min + 1).fill(false);
+  gameNode.buckets.forEach(b => {
+    if (b.op === ">=") for (let i = b.val; i <= max; i++) covered[i - min] = true;
+    else if (b.op === ">")  for (let i = b.val + 1; i <= max; i++) covered[i - min] = true;
+    else if (b.op === "<=") for (let i = min; i <= b.val; i++) covered[i - min] = true;
+    else if (b.op === "<")  for (let i = min; i < b.val; i++) covered[i - min] = true;
+    else if (b.op === "range") for (let i = b.val[0]; i <= b.val[1]; i++) covered[i - min] = true;
+  });
+  // Find first uncovered range
+  let gapStart = null, gapEnd = null;
+  for (let i = 0; i < covered.length; i++) {
+    if (!covered[i]) {
+      if (gapStart === null) gapStart = i + min;
+      gapEnd = i + min;
+    } else if (gapStart !== null) break;
+  }
+  if (gapStart === null) return { gap: null };
+  return { gap: gapStart === gapEnd ? `${gapStart}` : `${gapStart}–${gapEnd}` };
+}
+
+function nodeOptions(excludeId) {
+  return SCENARIO.nodes
+    .filter(n => n.id !== excludeId)
+    .map((n, i) => ({ id: n.id, label: `${SCENARIO.nodes.indexOf(n) + 1}. ${n.title}` }));
+}
+
+/* ======================================================================
+   BRANCH MUTATIONS
+   ====================================================================== */
+
+function newNodeId() {
+  let i = SCENARIO.nodes.length + 1;
+  while (SCENARIO.nodes.some(n => n.id === "n" + i)) i++;
+  return "n" + i;
+}
+
+// Place a new node to the right of its source, in an open vertical slot
+function placeNewNodeNear(sourceNode) {
+  const baseX = sourceNode.pos.x + 320;
+  let y = sourceNode.pos.y;
+  // Find a y that doesn't overlap existing nodes at roughly that x
+  const occupied = SCENARIO.nodes
+    .filter(n => Math.abs(n.pos.x - baseX) < 240)
+    .map(n => n.pos.y);
+  while (occupied.some(oy => Math.abs(oy - y) < 280)) y += 280;
+  return { x: baseX, y };
+}
+
+function createNewNodeFromSource(sourceNodeId, defaults = {}) {
+  const source = SCENARIO.nodes.find(n => n.id === sourceNodeId);
+  const id = newNodeId();
+  const pos = placeNewNodeNear(source);
+  const newNode = {
+    id,
+    type: defaults.type || "content",
+    title: defaults.title || "Untitled node",
+    description: defaults.description || "",
+    thumb: "",
+    mediaType: "video",
+    duration: 30,
+    pos,
+    edges: []
+  };
+  SCENARIO.nodes.push(newNode);
+  return newNode;
+}
+
+// CONTENT/OUTCOME branches
+function addBranch(nodeId) {
+  const node = SCENARIO.nodes.find(n => n.id === nodeId);
+  if (!node) return;
+  if (!node.edges) node.edges = [];
+  const firstOther = SCENARIO.nodes.find(n => n.id !== nodeId);
+  node.edges.push({ target: firstOther ? firstOther.id : "", label: node.edges.length === 0 ? "Continue" : "Branch " + (node.edges.length + 1) });
+  renderAll();
+}
+function removeBranch(nodeId, index) {
+  const node = SCENARIO.nodes.find(n => n.id === nodeId);
+  if (!node || !node.edges) return;
+  node.edges.splice(index, 1);
+  renderAll();
+}
+function setBranchTarget(nodeId, index, targetId) {
+  const node = SCENARIO.nodes.find(n => n.id === nodeId);
+  if (!node || !node.edges) return;
+  if (targetId === "__new__") {
+    const newNode = createNewNodeFromSource(nodeId);
+    node.edges[index].target = newNode.id;
+  } else {
+    node.edges[index].target = targetId;
+  }
+  renderAll();
+}
+
+// QUESTION answers
+function addAnswer(nodeId) {
+  const node = SCENARIO.nodes.find(n => n.id === nodeId);
+  if (!node || node.type !== "question") return;
+  const letters = "ABCDEFGH";
+  const letter = letters[node.answers.length] || "?";
+  const firstOther = SCENARIO.nodes.find(n => n.id !== nodeId);
+  node.answers.push({
+    id: "a" + Date.now(),
+    letter,
+    text: "New answer",
+    target: firstOther ? firstOther.id : ""
+  });
+  renderAll();
+}
+function removeAnswer(nodeId, index) {
+  const node = SCENARIO.nodes.find(n => n.id === nodeId);
+  if (!node || node.type !== "question") return;
+  node.answers.splice(index, 1);
+  // Relabel
+  const letters = "ABCDEFGH";
+  node.answers.forEach((a, i) => a.letter = letters[i] || "?");
+  renderAll();
+}
+function setAnswerTarget(nodeId, index, targetId) {
+  const node = SCENARIO.nodes.find(n => n.id === nodeId);
+  if (!node || node.type !== "question") return;
+  if (targetId === "__new__") {
+    const newNode = createNewNodeFromSource(nodeId);
+    node.answers[index].target = newNode.id;
+  } else {
+    node.answers[index].target = targetId;
+  }
+  renderAll();
+}
+
+// GAME buckets
+function addBucket(nodeId) {
+  const node = SCENARIO.nodes.find(n => n.id === nodeId);
+  if (!node || node.type !== "game") return;
+  const firstOther = SCENARIO.nodes.find(n => n.id !== nodeId);
+  node.buckets.push({
+    id: "b" + Date.now(),
+    op: ">=",
+    val: 0,
+    target: firstOther ? firstOther.id : "",
+    label: "New bucket"
+  });
+  renderAll();
+}
+function removeBucket(nodeId, index) {
+  const node = SCENARIO.nodes.find(n => n.id === nodeId);
+  if (!node || node.type !== "game") return;
+  node.buckets.splice(index, 1);
+  renderAll();
+}
+function setBucketTarget(nodeId, index, targetId) {
+  const node = SCENARIO.nodes.find(n => n.id === nodeId);
+  if (!node || node.type !== "game") return;
+  if (targetId === "__new__") {
+    const newNode = createNewNodeFromSource(nodeId);
+    node.buckets[index].target = newNode.id;
+  } else {
+    node.buckets[index].target = targetId;
+  }
+  renderAll();
+}
+function setBucketVariable(nodeId, index, varKey) {
+  const node = SCENARIO.nodes.find(n => n.id === nodeId);
+  if (!node || node.type !== "game") return;
+  node.buckets[index].variable = varKey;
+  renderAll();
+}
+
+function renderAll() {
+  renderSidePanel();
+  renderCanvas();
+  renderRightPanel();
+}
+
+/* ======================================================================
+   SELECTION
+   ====================================================================== */
+function selectNode(id) {
+  selectedNodeId = id;
+  renderSidePanel();
+  renderCanvas();
+  renderRightPanel();
+}
+function deselectNode() {
+  selectedNodeId = null;
+  renderSidePanel();
+  renderCanvas();
+  renderRightPanel();
+}
+
+/* ======================================================================
+   CANVAS: PAN, ZOOM, NODE DRAG
+   ====================================================================== */
+
+const viewport = { x: 0, y: 0, scale: 1 };
+const ZOOM_MIN = 0.3;
+const ZOOM_MAX = 2.0;
+
+function applyViewport() {
+  const inner = document.getElementById("canvas-inner");
+  inner.style.transform = `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`;
+  const label = document.getElementById("zoom-label");
+  if (label) label.textContent = Math.round(viewport.scale * 100) + "%";
+}
+
+function zoomBy(delta, centerX, centerY) {
+  const canvas = document.getElementById("canvas");
+  const rect = canvas.getBoundingClientRect();
+  // Default center = canvas center
+  const cx = (centerX != null) ? centerX - rect.left : rect.width / 2;
+  const cy = (centerY != null) ? centerY - rect.top  : rect.height / 2;
+  const oldScale = viewport.scale;
+  let newScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, oldScale + delta));
+  if (newScale === oldScale) return;
+  // Keep the point under the cursor stationary
+  const worldX = (cx - viewport.x) / oldScale;
+  const worldY = (cy - viewport.y) / oldScale;
+  viewport.scale = newScale;
+  viewport.x = cx - worldX * newScale;
+  viewport.y = cy - worldY * newScale;
+  applyViewport();
+}
+
+function zoomFit() {
+  // Compute bounding box of all nodes
+  if (SCENARIO.nodes.length === 0) return;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  SCENARIO.nodes.forEach(n => {
+    minX = Math.min(minX, n.pos.x);
+    minY = Math.min(minY, n.pos.y);
+    maxX = Math.max(maxX, n.pos.x + 220);
+    maxY = Math.max(maxY, n.pos.y + nodeHeightEstimate(n));
+  });
+  const pad = 60;
+  const bbW = (maxX - minX) + pad * 2;
+  const bbH = (maxY - minY) + pad * 2;
+  const canvas = document.getElementById("canvas");
+  const rect = canvas.getBoundingClientRect();
+  const scale = Math.min(ZOOM_MAX, Math.min(rect.width / bbW, rect.height / bbH));
+  viewport.scale = Math.max(ZOOM_MIN, scale);
+  viewport.x = (rect.width  - (maxX - minX) * viewport.scale) / 2 - minX * viewport.scale;
+  viewport.y = (rect.height - (maxY - minY) * viewport.scale) / 2 - minY * viewport.scale;
+  applyViewport();
+}
+
+// PAN: drag empty canvas background
+let panState = null;
+function onCanvasMouseDown(e) {
+  // Only start pan if the target is the canvas background / svg, not a node
+  if (e.target.closest(".node")) return;
+  if (e.button !== 0) return;
+  panState = { startX: e.clientX, startY: e.clientY, vx: viewport.x, vy: viewport.y, moved: false };
+  document.getElementById("canvas").classList.add("panning");
+  e.preventDefault();
+}
+function onWindowMouseMoveForPan(e) {
+  if (!panState) return;
+  const dx = e.clientX - panState.startX;
+  const dy = e.clientY - panState.startY;
+  viewport.x = panState.vx + dx;
+  viewport.y = panState.vy + dy;
+  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) panState.moved = true;
+  applyViewport();
+}
+function onWindowMouseUpForPan(e) {
+  if (!panState) return;
+  const moved = panState.moved;
+  panState = null;
+  document.getElementById("canvas").classList.remove("panning");
+  // If didn't move, treat as click on background → deselect
+  if (!moved) {
+    const target = e.target;
+    if (target.id === "canvas" || target.id === "canvas-inner" || target.id === "edges-svg" || target.tagName === "svg") {
+      deselectNode();
+    }
+  }
+}
+
+// SCROLL-WHEEL ZOOM
+function onCanvasWheel(e) {
+  if (!e.target.closest("#canvas")) return;
+  e.preventDefault();
+  const delta = e.deltaY < 0 ? 0.1 : -0.1;
+  zoomBy(delta, e.clientX, e.clientY);
+}
+
+// NODE DRAG
+let nodeDragState = null;
+function onNodeMouseDown(e, nodeId) {
+  // Only drag from the header; other clicks should select
+  const fromHeader = e.target.closest(".node-header");
+  if (e.button !== 0) return;
+  e.stopPropagation();
+  if (!fromHeader) {
+    // Treat as a select-click
+    selectNode(nodeId);
+    return;
+  }
+  const node = SCENARIO.nodes.find(n => n.id === nodeId);
+  if (!node) return;
+  nodeDragState = {
+    nodeId,
+    startClientX: e.clientX,
+    startClientY: e.clientY,
+    startX: node.pos.x,
+    startY: node.pos.y,
+    moved: false
+  };
+  const el = document.querySelector(`.node[data-id="${nodeId}"]`);
+  if (el) el.classList.add("dragging");
+  e.preventDefault();
+}
+function onWindowMouseMoveForNode(e) {
+  if (!nodeDragState) return;
+  const dx = (e.clientX - nodeDragState.startClientX) / viewport.scale;
+  const dy = (e.clientY - nodeDragState.startClientY) / viewport.scale;
+  if (Math.abs(dx * viewport.scale) > 3 || Math.abs(dy * viewport.scale) > 3) nodeDragState.moved = true;
+  const node = SCENARIO.nodes.find(n => n.id === nodeDragState.nodeId);
+  if (!node) return;
+  node.pos.x = nodeDragState.startX + dx;
+  node.pos.y = nodeDragState.startY + dy;
+  // Move just this node element + re-render edges (cheap)
+  const el = document.querySelector(`.node[data-id="${nodeDragState.nodeId}"]`);
+  if (el) {
+    el.style.left = node.pos.x + "px";
+    el.style.top  = node.pos.y + "px";
+  }
+  renderEdges();
+}
+function onWindowMouseUpForNode(e) {
+  if (!nodeDragState) return;
+  const { nodeId, moved } = nodeDragState;
+  const el = document.querySelector(`.node[data-id="${nodeId}"]`);
+  if (el) el.classList.remove("dragging");
+  nodeDragState = null;
+  // If we didn't actually drag, treat as a click → select the node
+  if (!moved) selectNode(nodeId);
+}
+
+// Global listeners (single wire-up)
+window.addEventListener("mousemove", (e) => {
+  onWindowMouseMoveForPan(e);
+  onWindowMouseMoveForNode(e);
+});
+window.addEventListener("mouseup", (e) => {
+  onWindowMouseUpForPan(e);
+  onWindowMouseUpForNode(e);
+});
+
+/* ======================================================================
+   SIMULATOR
+   ====================================================================== */
+function toggleSim() {
+  document.getElementById("sim-strip").classList.toggle("open");
+}
+function ensureSimOpen() {
+  document.getElementById("sim-strip").classList.add("open");
+}
+function startSim(evt) {
+  if (evt) evt.stopPropagation();
+  ensureSimOpen();
+  simRunning = true;
+  simCurrentId = SCENARIO.startId;
+  simHistory = [{ nodeId: simCurrentId, via: "Start" }];
+  simPendingValues = {};
+  renderCanvas();
+  renderSim();
+}
+function resetSim(evt) {
+  if (evt) evt.stopPropagation();
+  simRunning = false;
+  simCurrentId = null;
+  simHistory = [];
+  renderCanvas();
+  renderSim();
+}
+function simAdvance(nextId, via) {
+  if (!nextId) return;
+  simCurrentId = nextId;
+  simHistory.push({ nodeId: nextId, via: via });
+  renderCanvas();
+  renderSim();
+}
+function renderSim() {
+  const currentType = document.getElementById("sim-current-type");
+  const currentName = document.getElementById("sim-current-name");
+  const currentDesc = document.getElementById("sim-current-desc");
+  const interact = document.getElementById("sim-interact");
+  const interactTitle = document.getElementById("sim-interact-title");
+  const history = document.getElementById("sim-history");
+
+  if (!simRunning || !simCurrentId) {
+    currentType.textContent = "Not started";
+    currentName.innerHTML = 'Press <i class="fa-solid fa-play"></i> to begin';
+    currentDesc.textContent = "The simulator walks the scenario graph from the start node. At game segments, set a score on the slider to see which branch routes. At questions, pick an answer.";
+    interact.innerHTML = `<div class="sim-empty">Start the play-through to interact with this node.</div>`;
+    interactTitle.textContent = "Interaction";
+    history.innerHTML = `<div class="sim-empty">No steps yet.</div>`;
+    return;
+  }
+
+  const node = SCENARIO.nodes.find(n => n.id === simCurrentId);
+  const meta = NODE_TYPE_META[node.type];
+  currentType.textContent = meta.label;
+  currentName.textContent = node.title;
+  currentDesc.textContent = node.description || "";
+
+  if (node.type === "content") {
+    interactTitle.textContent = "Watch / read";
+    const nextId = node.edges && node.edges[0] ? node.edges[0].target : null;
+    const nextNode = nextId ? SCENARIO.nodes.find(n => n.id === nextId) : null;
+    interact.innerHTML = `
+      <div class="sim-interact-label"><i class="fa-solid fa-film"></i> ${node.mediaType === "video" ? `Video, ${node.duration}s` : "Static content"}</div>
+      <div style="flex:1; background: #1e293b; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-size: 22px; background-image: url('${node.thumb || ''}'); background-size: cover; background-position: center;">
+        <i class="fa-solid fa-circle-play" style="font-size: 38px; opacity: 0.8; text-shadow: 0 2px 8px rgba(0,0,0,0.4);"></i>
+      </div>
+      ${nextNode ? `
+        <button class="sim-continue" onclick="simAdvance('${nextId}', 'Continue')">
+          Continue to ${escapeAttr(nextNode.title)} <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      ` : `<div class="sim-empty">End of scenario.</div>`}
+    `;
+  } else if (node.type === "question") {
+    interactTitle.textContent = "Pick an answer";
+    interact.innerHTML = `
+      <div class="sim-interact-label">${escapeHtml(node.title)}</div>
+      ${node.answers.map(a => {
+        const target = SCENARIO.nodes.find(n => n.id === a.target);
+        return `
+          <button class="sim-answer-btn" onclick="simAdvance('${a.target}', 'Answer ${a.letter}')">
+            <span class="letter">${a.letter}</span>
+            <span style="flex:1;">${escapeHtml(a.text)}</span>
+            <span style="font-size: 10px; color: #94a3b8;">→ ${target ? escapeHtml(target.title) : "?"}</span>
+          </button>
+        `;
+      }).join("")}
+    `;
+  } else if (node.type === "game") {
+    interactTitle.textContent = "Simulate game outputs";
+    const values = getSimValues(node);
+    // Only show sliders for variables actually referenced by this node's buckets,
+    // plus the primary 'score'. Keeps the sim focused on what routing depends on.
+    const usedVars = new Set(node.buckets.map(b => b.variable || "score"));
+    usedVars.add("score");
+    const visibleMetrics = node.gameSource.emitted.filter(m => usedVars.has(m.key));
+    const matched = resolveBucket(node, values);
+    const targetNode = matched ? SCENARIO.nodes.find(n => n.id === matched.target) : null;
+    const matchedVar = matched ? (matched.variable || "score") : null;
+    interact.innerHTML = `
+      <div class="sim-interact-label">
+        <i class="fa-solid fa-gamepad"></i> ${escapeHtml(node.gameSource.name)}
+      </div>
+      ${visibleMetrics.map(m => {
+        const [vmin, vmax] = m.range;
+        const v = values[m.key];
+        const isMatched = m.key === matchedVar;
+        return `
+          <div class="sim-score-row">
+            <div style="flex: 0 0 90px; font-size: 11px; font-weight: 600; color: ${isMatched ? '#7c3aed' : 'var(--lumo-secondary-text-color)'};">
+              ${isMatched ? '<i class="fa-solid fa-circle-dot" style="font-size: 9px;"></i> ' : ''}${escapeHtml(m.label)}
+            </div>
+            <input type="range" class="sim-score-slider" min="${vmin}" max="${vmax}" value="${v}" oninput="onSimMetric('${node.id}', '${m.key}', this.value)" />
+            <div class="sim-score-value" style="font-size: 14px; min-width: 36px;">${v}</div>
+          </div>
+        `;
+      }).join("")}
+      <div class="sim-bucket-indicator">
+        <i class="fa-solid fa-route"></i>
+        Routes to: <b>${targetNode ? escapeHtml(targetNode.title) : "no match"}</b>
+        ${matched ? `<span style="margin-left:auto; color: var(--lumo-secondary-text-color); font-size: 10.5px;">${escapeHtml(matched.label || "")}</span>` : ""}
+      </div>
+      ${targetNode ? `
+        <button class="sim-continue" onclick="simAdvance('${matched.target}', '${escapeAttr(matched.variable || 'score')} ${values[matched.variable || 'score']}')">
+          Continue <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      ` : `<button class="sim-continue" disabled>No matching path</button>`}
+    `;
+  } else if (node.type === "outcome") {
+    interactTitle.textContent = "Outcome reached";
+    interact.innerHTML = `
+      <div style="flex:1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--lumo-success-text-color);">
+        <i class="fa-solid fa-flag-checkered" style="font-size: 36px;"></i>
+        <div style="font-size: 14px; font-weight: 700;">${escapeHtml(node.title)}</div>
+        <div style="font-size: 11.5px; color: var(--lumo-secondary-text-color); text-align: center;">Scenario complete. Reset to play again.</div>
+      </div>
+    `;
+  }
+
+  // History
+  history.innerHTML = simHistory.map((h, i) => {
+    const n = SCENARIO.nodes.find(x => x.id === h.nodeId);
+    const isCurrent = i === simHistory.length - 1;
+    return `
+      <div class="sim-history-item${isCurrent ? ' current' : ''}">
+        <div class="sim-history-num">${i + 1}</div>
+        <div class="sim-history-name">${n ? escapeHtml(n.title) : "?"}</div>
+        <div class="sim-history-via">${escapeHtml(h.via)}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function getSimValues(gameNode) {
+  if (!simPendingValues[gameNode.id]) {
+    const init = {};
+    gameNode.gameSource.emitted.forEach(m => {
+      const [vmin, vmax] = m.range;
+      init[m.key] = Math.round((vmin + vmax) / 2);
+    });
+    simPendingValues[gameNode.id] = init;
+  }
+  return simPendingValues[gameNode.id];
+}
+
+function onSimMetric(nodeId, key, raw) {
+  if (!simPendingValues[nodeId]) simPendingValues[nodeId] = {};
+  simPendingValues[nodeId][key] = parseInt(raw, 10);
+  renderSim();
+}
+
+function resolveBucket(gameNode, values) {
+  for (const b of gameNode.buckets) {
+    const varKey = b.variable || "score";
+    const v = values[varKey];
+    if (v == null) continue;
+    if (b.op === ">=" && v >= b.val) return b;
+    if (b.op === ">"  && v >  b.val) return b;
+    if (b.op === "<=" && v <= b.val) return b;
+    if (b.op === "<"  && v <  b.val) return b;
+    if (b.op === "range" && v >= b.val[0] && v <= b.val[1]) return b;
+  }
+  return null;
+}
+
+/* ======================================================================
+   UTIL
+   ====================================================================== */
+function escapeHtml(s) {
+  return (s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
+/* ======================================================================
+   INIT
+   ====================================================================== */
+document.addEventListener("DOMContentLoaded", () => {
+  renderSidePanel();
+  renderCanvas();
+  renderRightPanel();
+  renderSim();
+
+  // Pan / wheel-zoom wiring
+  const canvas = document.getElementById("canvas");
+  canvas.addEventListener("mousedown", onCanvasMouseDown);
+  canvas.addEventListener("wheel", onCanvasWheel, { passive: false });
+
+  // Left nav: switch workspace
+  document.querySelectorAll("#left-nav .nav-btn[data-panel]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      switchPanel(btn.getAttribute("data-panel"));
+    });
+  });
+
+  // Pre-select node 3 (the game segment) so the score-routing UI is the first impression
+  selectNode("n3");
+  // Open sim strip by default so reviewers see it
+  document.getElementById("sim-strip").classList.add("open");
+  // Fit content into view on first load
+  applyViewport();
+  zoomFit();
+});
+</script>
+</body>
+</html>
