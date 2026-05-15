@@ -1,0 +1,3453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EHS Mobile App</title>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+    <script src="https://kit.fontawesome.com/76c2bc7cd1.js" crossorigin="anonymous"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #b0bfd8;
+            min-height: 100vh;
+            font-family: 'Open Sans', -apple-system, sans-serif;
+            font-size: 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 0 60px;
+            gap: 12px;
+        }
+        .screen-nav {
+            display: flex; flex-wrap: wrap; gap: 8px;
+            justify-content: center; max-width: 700px;
+            padding: 0 16px;
+        }
+        .screen-nav button {
+            background: white; border: 1.5px solid #cbd5e1;
+            border-radius: 6px; padding: 6px 12px;
+            font-size: 12px; cursor: pointer; font-family: inherit;
+            color: #334155; transition: all 0.12s;
+        }
+        .screen-nav button:hover { border-color: #0271ce; color: #0271ce; }
+        .screen-nav button.active { background: #0271ce; border-color: #0271ce; color: white; }
+
+        /* Phone frame */
+        .phone-frame {
+            background: #1c1c1e; border-radius: 54px;
+            padding: 14px;
+            box-shadow: 0 0 0 1px #3a3a3c, 0 20px 60px rgba(0,0,0,0.55), 0 6px 20px rgba(0,0,0,0.35);
+            position: relative; flex-shrink: 0;
+        }
+        .phone-frame::before {
+            content: '';
+            position: absolute; left: -3px; top: 110px;
+            width: 3px; height: 36px; background: #3a3a3c;
+            border-radius: 2px 0 0 2px;
+            box-shadow: 0 46px 0 #3a3a3c, 0 82px 0 #3a3a3c;
+        }
+        .phone-frame::after {
+            content: '';
+            position: absolute; right: -3px; top: 140px;
+            width: 3px; height: 68px; background: #3a3a3c;
+            border-radius: 0 2px 2px 0;
+        }
+        .phone {
+            width: 390px; height: 844px;
+            background: white; border-radius: 42px;
+            overflow: hidden; display: flex;
+            flex-direction: column; position: relative;
+        }
+
+        /* ── Screen system ── */
+        .screen {
+            display: none; flex-direction: column;
+            width: 100%; height: 100%;
+            position: absolute; top: 0; left: 0;
+            background: #f5f9fd;
+        }
+        .screen.active { display: flex; }
+
+        /* ── Status bar ── */
+        .status-bar {
+            background: transparent;
+            padding: 12px 20px 6px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 13px; font-weight: 600;
+            color: white; flex-shrink: 0; position: relative; z-index: 1;
+        }
+        .status-icons { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+
+        /* ── Mobile header (gradient) ── */
+        .mobile-header {
+            background: #1e1e1e;
+            background-image: linear-gradient(93deg, #526583 0%, rgba(2,113,206,0.65) 150%);
+            flex-shrink: 0; position: relative; z-index: 35;
+        }
+        .mobile-header .status-bar-area {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 20px 6px; color: white;
+            font-size: 13px; font-weight: 600;
+        }
+        .mobile-header .header-bar {
+            height: 50px; display: flex; align-items: center;
+            padding: 0 16px; position: relative;
+        }
+        .header-title {
+            position: absolute; left: 50%; transform: translateX(-50%);
+            font-size: 22px; font-weight: 700; color: white;
+            white-space: nowrap; letter-spacing: -0.3px;
+        }
+        .header-action-left, .header-action-right {
+            display: flex; align-items: center; gap: 8px;
+        }
+        .header-action-right { margin-left: auto; }
+        .hdr-btn {
+            background: none; border: none; color: white;
+            font-size: 17px; cursor: pointer;
+            width: 34px; height: 34px; display: flex;
+            align-items: center; justify-content: center;
+            border-radius: 50%;
+        }
+        .hdr-btn:active { background: rgba(255,255,255,0.15); }
+        .hdr-btn-outline {
+            background: none; border: 1.5px solid rgba(255,255,255,0.8);
+            color: white; border-radius: 5px;
+            padding: 3px 11px; font-size: 13px; font-weight: 500;
+            cursor: pointer; font-family: inherit; line-height: 1.4;
+        }
+
+        /* ── Home header (taller, with gradient background) ── */
+        .home-header {
+            background: #1e1e1e;
+            background-image: linear-gradient(93deg, #526583 0%, rgba(2,113,206,0.65) 150%);
+            padding-bottom: 16px; flex-shrink: 0;
+        }
+
+        /* ── Bottom nav ── */
+        .bottom-nav {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            height: 88px; background: white;
+            border-top: 1px solid #e5e7eb;
+            box-shadow: 0 -1px 2px rgba(28,48,74,0.12);
+            display: flex; align-items: flex-start;
+            padding: 8px 16px 0; gap: 0; flex-shrink: 0;
+        }
+        .nav-tab {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            height: 48px; border-radius: 9px; cursor: pointer;
+            font-size: 12px; gap: 2px; border: none;
+            background: none; font-family: inherit;
+            transition: background 0.1s;
+        }
+        .nav-tab.active { background: #f3f4f6; }
+        .nav-tab .nav-icon { font-size: 18px; }
+        .nav-tab .nav-label { font-size: 12px; font-weight: 400; color: rgba(0,0,0,0.6); }
+        .nav-tab.active .nav-icon, .nav-tab.active .nav-label { color: #0271ce; font-weight: 600; }
+        .nav-badge {
+            position: absolute; top: -2px; right: -2px;
+            background: #e74c39; color: white; border-radius: 8px;
+            font-size: 8px; min-width: 12px; height: 12px;
+            display: flex; align-items: center; justify-content: center;
+            padding: 0 2px;
+        }
+        .nav-icon-wrap { position: relative; display: inline-flex; }
+
+        /* ── Scrollable body ── */
+        .screen-body {
+            flex: 1; overflow-y: auto; overflow-x: hidden;
+            padding-bottom: 96px; /* space for bottom nav */
+        }
+        .screen-body::-webkit-scrollbar { display: none; }
+
+        /* ── Section label ── */
+        .section-label {
+            font-size: 16px; font-weight: 600;
+            color: rgba(0,0,0,0.87); padding: 0 16px;
+            margin-top: 16px; margin-bottom: 8px; display: block;
+        }
+
+        /* ── Quick actions ── */
+        .quick-actions-row {
+            display: flex; gap: 4px; align-items: flex-start;
+            padding: 0 16px 8px; justify-content: space-between;
+        }
+        .qa-btn {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; gap: 6px; cursor: pointer;
+            background: none; border: none; font-family: inherit;
+            padding: 4px 0;
+        }
+        .qa-circle {
+            width: 48px; height: 48px; border-radius: 50%;
+            background: #0271ce; display: flex; align-items: center;
+            justify-content: center; color: white; font-size: 20px;
+            flex-shrink: 0;
+        }
+        .qa-label {
+            font-size: 12px; font-weight: 600; color: rgba(0,0,0,0.87);
+            text-align: center; line-height: 1.25;
+        }
+
+        /* ── Jump back in / record cards ── */
+        .jbi-card-container {
+            background: white; border-radius: 8px;
+            margin: 0 16px; overflow: hidden;
+        }
+        .record-card-row {
+            padding: 12px 16px 14px; border-bottom: 1px solid rgba(0,0,0,0.1);
+            cursor: pointer; background: white;
+        }
+        .record-card-row:last-child { border-bottom: none; }
+        .record-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; margin-bottom: 4px; align-items: center; }
+        .record-desc { font-size: 13px; color: rgba(0,0,0,0.6); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 4px; margin-bottom: 8px; }
+
+        /* Badge variants */
+        .badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 8px; border-radius: 4px; font-size: 12px;
+            white-space: nowrap; height: 24px;
+        }
+        .badge-jsa { background: rgba(2,113,206,0.1); color: #0065ba; }
+        .badge-pending { background: rgba(255,204,0,0.25); color: #985211; }
+        .badge-submitted { background: rgba(22,136,70,0.1); color: #0a7637; }
+        .badge-missing { background: rgba(231,29,19,0.1); color: #ca150c; }
+        .badge-incomplete { background: rgba(25,59,103,0.05); color: rgba(26,41,61,0.83); }
+        .badge-downloaded { background: rgba(25,59,103,0.05); color: rgba(26,41,61,0.83); }
+
+        .record-title { font-size: 15.5px; font-weight: 600; color: rgba(0,0,0,0.87); line-height: 1.3; margin-bottom: 4px; }
+        .record-id { font-size: 12px; color: rgba(0,0,0,0.87); display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
+        .record-meta { display: flex; flex-direction: column; gap: 4px; }
+        .record-meta-row { font-size: 12px; color: rgba(0,0,0,0.5); display: flex; align-items: center; gap: 4px; }
+        .record-meta-row i { width: 14px; text-align: center; }
+        .rec-btn-outline {
+            background: white; border: 1.5px solid #0271ce; color: #0271ce;
+            border-radius: 6px; font-size: 12.5px; padding: 0 12px;
+            cursor: pointer; font-family: inherit; height: 30px;
+            display: flex; align-items: center; font-weight: 600;
+        }
+        .rec-btn-icon {
+            background: none; border: none; color: rgba(26,41,61,0.7);
+            font-size: 16px; cursor: pointer; width: 30px; height: 30px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 6px;
+        }
+        .rec-btn-icon:active { background: #f3f4f6; }
+        .record-card-row.is-submitted { background: #f3f4f6; cursor: default; }
+        .record-card-row.is-submitted:active { background: #f3f4f6; }
+
+        /* ── Records FAB ── */
+        .records-fab {
+            position: absolute; bottom: 100px; right: 16px;
+            background: #0271ce; color: white;
+            border: none; border-radius: 10px;
+            padding: 0 20px; height: 44px;
+            font-size: 14px; font-weight: 700;
+            font-family: inherit; cursor: pointer;
+            box-shadow: 0 4px 14px rgba(2,113,206,0.35);
+            white-space: nowrap; z-index: 20;
+            transition: bottom 0.22s ease;
+        }
+        .records-fab:active { background: #0261b4; }
+        .records-fab.toast-up { bottom: 160px; }
+
+        /* ── Submitting state ── */
+        .badge-submitting { background: rgba(2,113,206,0.1); color: #0065ba; }
+        @keyframes submit-progress { from { width: 0%; } to { width: 100%; } }
+        .submit-progress-wrap {
+            height: 3px; background: rgba(2,113,206,0.15);
+            border-radius: 2px; margin-top: 8px; overflow: hidden;
+        }
+        .submit-progress-bar {
+            height: 100%; width: 0%; background: #0271ce; border-radius: 2px;
+            animation: submit-progress 2.4s ease-in-out forwards;
+        }
+
+        /* ── Already Submitted modal ── */
+        .already-submitted-backdrop {
+            position: absolute; inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 300; display: none;
+            justify-content: center; align-items: center;
+            padding: 24px;
+        }
+        .already-submitted-backdrop.open { display: flex; }
+        .already-submitted-box {
+            background: white; border-radius: 14px;
+            padding: 24px 20px 16px; width: 100%;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        .already-submitted-box h3 {
+            font-size: 16px; font-weight: 700;
+            color: rgba(0,0,0,0.87); margin-bottom: 10px; line-height: 1.35;
+        }
+        .already-submitted-box p {
+            font-size: 14px; color: rgba(0,0,0,0.6);
+            line-height: 1.5; margin-bottom: 20px;
+        }
+        .already-submitted-box button {
+            width: 100%; height: 44px;
+            background: #0271ce; color: white; border: none;
+            border-radius: 8px; font-size: 15px; font-weight: 600;
+            font-family: inherit; cursor: pointer;
+        }
+        .rec-action-row {
+            display: flex; align-items: center; justify-content: flex-end;
+            gap: 8px; margin-top: 8px;
+        }
+
+        /* ── Filter bar ── */
+        /* ── Records toolbar ── */
+        /* Flow toolbar: sits at top of screen-body, scrolls away naturally */
+        #records-toolbar-flow {
+            background: white;
+            border-bottom: 1px solid rgba(0,0,0,0.08);
+            flex-shrink: 0;
+        }
+        /* Sticky overlay: tucked behind the header when hidden, slides out below it when visible */
+        #records-toolbar-sticky {
+            position: absolute; top: 84px; left: 0; right: 0; z-index: 30;
+            background: white; border-bottom: 1px solid rgba(0,0,0,0.1);
+            box-shadow: 0 3px 12px rgba(0,0,0,0.1);
+            transform: translateY(-100%);
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #records-toolbar-sticky.visible { transform: translateY(0); }
+        /* Shared row layout */
+        .records-toolbar-main-row {
+            display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+        }
+        .records-search-wrap { flex: 1; position: relative; }
+        .records-search-icon {
+            position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+            color: rgba(0,0,0,0.35); font-size: 14px; pointer-events: none;
+        }
+        .records-search-input {
+            width: 100%; border: 1.5px solid #e5e7eb; border-radius: 8px;
+            padding: 9px 12px 9px 34px; font-size: 14px; font-family: inherit;
+            outline: none; background: #f9fafb; color: rgba(0,0,0,0.87);
+        }
+        .records-search-input:focus { border-color: #0271ce; background: white; }
+        /* Chips row (below search row, flow toolbar only) */
+        .records-chips-row {
+            display: none; padding: 0 16px 8px;
+            gap: 6px; align-items: center; overflow-x: auto;
+        }
+        .records-chips-row::-webkit-scrollbar { display: none; }
+        .records-chips-row.has-chips { display: flex; }
+        /* Legacy filter-bar — no longer used as a block, keep for reference */
+        .filter-bar { display: none; }
+        .filter-chips-row { flex: 1; display: flex; gap: 6px; overflow-x: auto; }
+        .filter-chips-row::-webkit-scrollbar { display: none; }
+        .filter-applied-row {
+            flex: 1; display: flex; gap: 6px; align-items: center;
+            overflow-x: auto; min-width: 0;
+        }
+        .filter-applied-row::-webkit-scrollbar { display: none; }
+        .applied-chip {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 4px 6px 4px 10px; border-radius: 14px; font-size: 12px;
+            font-weight: 600; white-space: nowrap; background: #e8f0fb;
+            color: #1a5fa8; border: 1.5px solid #1a5fa8; flex-shrink: 0;
+        }
+        .applied-chip-x {
+            background: none; border: none; color: #1a5fa8; cursor: pointer;
+            font-size: 11px; padding: 0; line-height: 1;
+            display: flex; align-items: center;
+        }
+        .filter-clear-all {
+            font-size: 12px; font-weight: 600; color: #0271ce;
+            background: none; border: none; cursor: pointer;
+            white-space: nowrap; flex-shrink: 0; font-family: inherit;
+        }
+
+        /* ── Submit toast ── */
+        .submit-toast {
+            position: absolute; bottom: 100px; left: 16px; right: 16px;
+            background: #1c3a5c; color: white; border-radius: 10px;
+            padding: 11px 14px; display: flex; align-items: center; gap: 8px;
+            z-index: 400; font-size: 13px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+            transform: translateY(80px); opacity: 0;
+            transition: transform 0.22s ease, opacity 0.22s ease;
+            pointer-events: none;
+        }
+        .submit-toast.show { transform: translateY(0); opacity: 1; pointer-events: auto; }
+        .toast-copy-id {
+            background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+            color: white; font-size: 12px; font-weight: 600; font-family: inherit;
+            cursor: pointer; padding: 4px 10px; border-radius: 6px;
+            white-space: nowrap; flex-shrink: 0;
+        }
+        .toast-copy-id:active { background: rgba(255,255,255,0.25); }
+        .toast-dismiss {
+            background: none; border: none; color: rgba(255,255,255,0.6);
+            font-size: 18px; cursor: pointer; margin-left: auto;
+            line-height: 1; padding: 0;
+        }
+        .filter-icon-btn {
+            width: 28px; height: 28px; border: 1.5px solid rgba(26,41,61,0.4);
+            border-radius: 50%; background: white; display: flex;
+            align-items: center; justify-content: center;
+            cursor: pointer; color: rgba(26,41,61,0.75); font-size: 13px;
+            flex-shrink: 0;
+        }
+
+        /* ── FAB ── */
+        .fab {
+            position: absolute; right: 16px; bottom: 100px;
+            width: 48px; height: 48px; border-radius: 50%;
+            background: linear-gradient(160deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            box-shadow: 0 3px 12px rgba(102,126,234,0.4), 0 2px 4px rgba(118,75,162,0.3);
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 18px; cursor: pointer; border: none;
+            z-index: 10;
+        }
+
+        /* ── JSA Stepper ── */
+        .jsa-stepper {
+            background: white; border-bottom: 1px solid #e5e7eb;
+            padding: 12px 16px 10px; flex-shrink: 0;
+        }
+        .stepper-row {
+            display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+        }
+        .stepper-back-btn {
+            background: none; border: none; font-size: 18px;
+            color: rgba(26,41,61,0.83); cursor: pointer;
+            width: 32px; height: 32px; display: flex;
+            align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .stepper-step-info {
+            display: flex; align-items: center; gap: 6px; flex: 1;
+        }
+        .stepper-step-name {
+            font-size: 16px; font-weight: 600; color: rgba(0,0,0,0.87);
+        }
+        .stepper-step-chevron { font-size: 13px; color: rgba(0,0,0,0.6); }
+        .stepper-step-info { cursor: pointer; border-radius: 6px; padding: 2px 6px 2px 2px; margin: -2px 0 -2px -2px; }
+        .stepper-step-info:active { background: rgba(0,0,0,0.06); }
+        /* Step nav drawer */
+        #stepNavOverlay {
+            display: none; position: absolute; inset: 0;
+            background: rgba(0,0,0,0.45); z-index: 60;
+        }
+        #stepNavOverlay.active { display: block; }
+        #stepNavDrawer {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: white; border-radius: 16px 16px 0 0;
+            box-shadow: 0 -4px 24px rgba(0,0,0,0.2); z-index: 61;
+            transform: translateY(100%); transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+            max-height: 72%; display: flex; flex-direction: column;
+        }
+        #stepNavDrawer.open { transform: translateY(0); }
+        .step-nav-handle { width: 36px; height: 5px; background: #d1d5db; border-radius: 3px; margin: 10px auto 0; flex-shrink: 0; }
+        .step-nav-header { padding: 12px 16px 12px; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; flex-shrink: 0; }
+        .step-nav-title { font-size: 16px; font-weight: 700; color: rgba(0,0,0,0.87); flex: 1; }
+        .step-nav-close { background: none; border: none; font-size: 18px; color: rgba(0,0,0,0.45); cursor: pointer; padding: 2px; }
+        .step-nav-list { overflow-y: auto; padding: 8px 0 24px; }
+        .step-nav-item {
+            display: flex; align-items: center; gap: 14px;
+            padding: 14px 20px; cursor: pointer; border: none; background: none;
+            width: 100%; text-align: left; font-family: inherit;
+        }
+        .step-nav-item:active { background: #f5f9fd; }
+        .step-nav-item.active-step { background: rgba(2,113,206,0.05); }
+        .step-nav-num {
+            width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 700;
+            border: 1.5px solid #d1d5db; color: rgba(0,0,0,0.6); background: white;
+        }
+        .step-nav-item.active-step .step-nav-num { background: #0271ce; color: white; border-color: #0271ce; }
+        .step-nav-item.done-step .step-nav-num { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .step-nav-label { font-size: 15px; font-weight: 500; color: rgba(0,0,0,0.87); flex: 1; }
+        .step-nav-item.active-step .step-nav-label { font-weight: 600; }
+        .step-nav-check { color: #16a34a; font-size: 13px; display: none; }
+        .step-nav-item.done-step .step-nav-check { display: block; }
+        .step-nav-arrow { color: rgba(0,0,0,0.35); font-size: 12px; }
+        .stepper-progress-track {
+            height: 4px; background: rgba(26,56,96,0.1);
+            border-radius: 40px; overflow: hidden;
+        }
+        .stepper-progress-fill {
+            height: 100%; background: #0271ce; border-radius: 40px;
+            transition: width 0.3s ease;
+        }
+
+        /* ── Form styles ── */
+        .form-body { padding: 16px; display: flex; flex-direction: column; gap: 18px; }
+        .form-field { display: flex; flex-direction: column; gap: 6px; }
+        .form-label { font-size: 14px; font-weight: 600; color: rgba(0,0,0,0.87); }
+        .form-label .req { color: #e74c39; }
+        .form-input {
+            width: 100%; border: 1.5px solid #d1d5db; border-radius: 4px;
+            padding: 9px 12px; font-size: 14px; font-family: inherit;
+            background: white; outline: none; color: rgba(0,0,0,0.87);
+            transition: border-color 0.15s;
+        }
+        .form-input:focus { border-color: #0271ce; }
+        .form-select-btn {
+            width: 100%; border: 1.5px solid #d1d5db; border-radius: 4px;
+            padding: 9px 12px; font-size: 14px; font-family: inherit;
+            background: white; color: rgba(0,0,0,0.6);
+            display: flex; align-items: center; justify-content: space-between;
+            cursor: pointer; text-align: left;
+        }
+        .form-select-btn.filled { color: rgba(0,0,0,0.87); }
+        .form-row { display: flex; gap: 10px; }
+        .form-row .form-field { flex: 1; }
+
+        /* Read-only / auto-calculated form fields */
+        .form-readonly {
+            border: 1.5px solid #e5e7eb; border-radius: 4px;
+            padding: 9px 12px; font-size: 14px; color: rgba(0,0,0,0.38);
+            background: #f3f4f6; min-height: 40px;
+        }
+        .form-readonly-green {
+            background: #f1f5e8; border-color: #cdd9a0;
+        }
+
+        /* Currency input */
+        .form-currency-wrap {
+            display: flex; align-items: stretch;
+            border: 1.5px solid #d1d5db; border-radius: 4px; overflow: hidden;
+        }
+        .form-currency-wrap:focus-within { border-color: #0271ce; }
+        .form-currency-prefix {
+            padding: 0 10px; background: #f9fafb;
+            border-right: 1.5px solid #d1d5db;
+            font-size: 14px; color: rgba(0,0,0,0.6);
+            display: flex; align-items: center; flex-shrink: 0;
+        }
+        .form-currency-input {
+            flex: 1; border: none; outline: none;
+            padding: 9px 12px; font-size: 14px; font-family: inherit;
+            color: rgba(0,0,0,0.87); background: white; min-width: 0;
+        }
+
+        /* Radio group */
+        .radio-group { display: flex; flex-direction: column; gap: 10px; }
+        .radio-option {
+            display: flex; align-items: center; gap: 10px;
+            cursor: pointer; font-size: 14px; color: rgba(0,0,0,0.87);
+        }
+        .radio-option input { position: absolute; opacity: 0; width: 0; height: 0; }
+        .radio-ui {
+            width: 20px; height: 20px; border-radius: 50%;
+            border: 2px solid #d1d5db; background: white;
+            flex-shrink: 0; display: flex; align-items: center;
+            justify-content: center; transition: border-color 0.12s;
+        }
+        .radio-option input:checked ~ .radio-ui {
+            border-color: #0271ce; border-width: 6px;
+        }
+
+        /* ── Mobile footer (form navigation) ── */
+        .mobile-footer {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: white; padding: 8px 16px 32px;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 -2px 12px rgba(28,55,90,0.12);
+            gap: 8px; flex-shrink: 0; z-index: 10;
+        }
+        .footer-btn-cancel {
+            background: white; border: 1.5px solid #192434;
+            color: #192434; border-radius: 4px; padding: 8px 16px;
+            font-size: 15px; font-weight: 500; cursor: pointer;
+            font-family: inherit; height: 40px; display: flex; align-items: center;
+        }
+        .footer-btn-group { display: flex; gap: 8px; }
+        .footer-btn-back {
+            background: white; border: 1.5px solid #0271ce;
+            color: #0271ce; border-radius: 4px; padding: 8px 20px;
+            font-size: 15px; cursor: pointer; font-family: inherit;
+            height: 40px; display: flex; align-items: center;
+        }
+        .footer-btn-next {
+            background: #0271ce; border: none; color: white;
+            border-radius: 4px; padding: 8px 24px;
+            font-size: 15px; font-weight: 600; cursor: pointer;
+            font-family: inherit; height: 40px; display: flex; align-items: center;
+        }
+
+        /* ── JSA start screen ── */
+        .jsa-method-intro {
+            padding: 24px 16px 12px;
+            font-size: 15px; color: rgba(0,0,0,0.7); line-height: 1.5;
+        }
+        .jsa-method-btn {
+            display: flex; align-items: center; gap: 14px;
+            width: calc(100% - 32px); margin: 0 16px 12px;
+            padding: 16px; border: 1.5px solid #d1d5db;
+            border-radius: 8px; background: white; cursor: pointer;
+            text-align: left; font-family: inherit;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .jsa-method-btn:hover { border-color: #0271ce; box-shadow: 0 0 0 3px rgba(2,113,206,0.08); }
+        .jsa-method-icon {
+            width: 44px; height: 44px; border-radius: 10px;
+            background: rgba(2,113,206,0.1); color: #0271ce;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; flex-shrink: 0;
+        }
+        .jsa-method-text .method-title { font-size: 15px; font-weight: 600; color: rgba(0,0,0,0.87); }
+        .jsa-method-text .method-desc { font-size: 12px; color: rgba(0,0,0,0.6); margin-top: 2px; line-height: 1.4; }
+
+        /* ── Step cards ── */
+        .step-number {
+            font-size: 11px; font-weight: 700; color: rgba(0,0,0,0.4);
+            letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 3px;
+        }
+        .badge-hazard { background: rgba(2,113,206,0.1); color: #0065ba; }
+        .badge-risk-low { background: rgba(22,163,74,0.1); color: #15803d; }
+        .badge-risk-medium { background: rgba(245,158,11,0.18); color: #92400e; }
+        .badge-risk-high { background: rgba(220,38,38,0.1); color: #991b1b; }
+        .step-menu-wrapper { position: relative; }
+        .step-menu-btn {
+            background: none; border: none; color: rgba(26,41,61,0.7);
+            font-size: 16px; cursor: pointer; width: 30px; height: 30px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 6px; flex-shrink: 0;
+        }
+        .step-menu-btn:active { background: #f3f4f6; }
+        .step-context-menu {
+            display: none; position: absolute; right: 0; top: calc(100% + 4px);
+            background: white; border: 1px solid #e5e7eb; border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12); z-index: 100; min-width: 130px; overflow: hidden;
+        }
+        .step-context-menu.open { display: block; }
+        .step-context-menu button {
+            display: flex; align-items: center; gap: 8px; width: 100%;
+            padding: 10px 14px; background: none; border: none; border-radius: 0;
+            font-size: 13.5px; font-family: inherit; cursor: pointer;
+            text-align: left; color: rgba(0,0,0,0.8);
+        }
+        .step-context-menu button:hover { background: #f3f4f6; }
+        .step-context-menu button.danger { color: #dc2626; }
+        .step-context-menu button.danger:hover { background: rgba(220,38,38,0.05); }
+        .step-info-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+        .step-desc {
+            font-size: 13px; color: rgba(0,0,0,0.6); line-height: 1.5;
+            display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+            overflow: hidden; margin-bottom: 10px;
+        }
+        .step-footer {
+            font-size: 12px; color: rgba(0,0,0,0.45);
+            display: flex; align-items: center; gap: 5px;
+        }
+
+        /* Info callout inside forms */
+        .form-info-callout {
+            display: flex; align-items: flex-start; gap: 8px;
+            background: rgba(2,113,206,0.05); border: 1px solid rgba(2,113,206,0.15);
+            border-radius: 6px; padding: 9px 11px;
+            font-size: 12.5px; color: rgba(0,0,0,0.6); line-height: 1.5;
+        }
+        .form-info-callout i { color: #0271ce; font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+        .add-step-btn {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: calc(100% - 32px); margin: 8px 16px;
+            padding: 12px; border: 1.5px dashed #0271ce;
+            border-radius: 8px; background: white;
+            color: #0271ce; font-size: 14px; font-weight: 600;
+            cursor: pointer; font-family: inherit;
+        }
+
+        /* ── Signature screen ── */
+        .signature-card {
+            background: white; border: 1.5px solid #e5e7eb;
+            border-radius: 8px; margin: 0 16px 12px; overflow: hidden;
+        }
+        .signature-card-header {
+            padding: 12px 14px; border-bottom: 1px solid #e5e7eb;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .signer-name { font-size: 14px; font-weight: 600; color: rgba(0,0,0,0.87); }
+        .signer-role { font-size: 12px; color: rgba(0,0,0,0.6); }
+        .signature-canvas-wrap {
+            position: relative; background: #fafafa;
+            border-radius: 0 0 6px 6px; overflow: hidden;
+        }
+        canvas.sig-canvas {
+            display: block; touch-action: none; cursor: crosshair;
+        }
+        .sig-placeholder {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 8px; pointer-events: none;
+        }
+        .sig-placeholder i { font-size: 28px; color: #d1d5db; }
+        .sig-placeholder span { font-size: 13px; color: #9ca3af; }
+        .sig-line {
+            position: absolute; bottom: 40px; left: 20px; right: 20px;
+            height: 1px; background: rgba(0,0,0,0.15); pointer-events: none;
+        }
+        .sig-controls {
+            padding: 8px 14px; display: flex; gap: 8px;
+            border-top: 1px solid #e5e7eb; justify-content: flex-end;
+        }
+        .sig-btn {
+            background: none; border: 1px solid #d1d5db; color: rgba(0,0,0,0.6);
+            border-radius: 4px; padding: 5px 12px; font-size: 12px;
+            cursor: pointer; font-family: inherit;
+        }
+        .sig-btn.primary { background: #0271ce; border-color: #0271ce; color: white; }
+        .add-signer-btn {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: calc(100% - 32px); margin: 4px 16px;
+            padding: 10px; border: 1.5px dashed #0271ce;
+            border-radius: 8px; background: rgba(2,113,206,0.03);
+            color: #0271ce; font-size: 13px; font-weight: 600;
+            cursor: pointer; font-family: inherit;
+        }
+
+        /* ── Overlay / drawer ── */
+        .overlay-bg {
+            display: none; position: absolute;
+            inset: 0; background: rgba(0,0,0,0.4); z-index: 50;
+        }
+        .overlay-bg.active { display: block; }
+        .bottom-drawer {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: white; border-radius: 16px 16px 0 0;
+            box-shadow: 0 -4px 24px rgba(0,0,0,0.2); z-index: 51;
+            transform: translateY(100%); transition: transform 0.25s ease;
+            max-height: 80%;
+        }
+        .bottom-drawer.open { transform: translateY(0); }
+        .drawer-handle {
+            width: 36px; height: 5px; background: #d1d5db;
+            border-radius: 3px; margin: 10px auto 0;
+        }
+        .drawer-header {
+            padding: 14px 16px 10px; border-bottom: 1px solid #e5e7eb;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .drawer-title { font-size: 16px; font-weight: 600; color: rgba(0,0,0,0.87); flex: 1; }
+        .drawer-close {
+            background: none; border: none; font-size: 18px;
+            color: rgba(0,0,0,0.5); cursor: pointer; padding: 2px;
+        }
+        .drawer-search-wrap {
+            padding: 10px 16px; border-bottom: 1px solid #e5e7eb;
+        }
+        .drawer-search {
+            width: 100%; border: 1.5px solid #d1d5db; border-radius: 6px;
+            padding: 9px 12px 9px 36px; font-size: 14px; font-family: inherit;
+            background: white; outline: none;
+        }
+        .drawer-search-icon {
+            position: absolute; left: 28px;
+            top: 50%; transform: translateY(-50%);
+            color: rgba(0,0,0,0.4); font-size: 13px;
+        }
+        .drawer-list { overflow-y: auto; max-height: 320px; }
+        .drawer-item {
+            padding: 14px 16px; border-bottom: 1px solid rgba(0,0,0,0.06);
+            font-size: 14px; color: rgba(0,0,0,0.87); cursor: pointer;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .drawer-item:active { background: #f5f9fd; }
+        .drawer-item.selected { color: #0271ce; font-weight: 600; }
+        .drawer-item.selected::after { content: '\f00c'; font-family: 'Font Awesome 6 Free'; font-weight: 900; margin-left: auto; font-size: 13px; }
+
+        /* ── Full-screen search (for large lists) ── */
+        .fullscreen-select {
+            display: none; position: absolute; inset: 0;
+            background: white; z-index: 60; flex-direction: column;
+        }
+        .fullscreen-select.active { display: flex; }
+        .fs-header {
+            background: #1e1e1e;
+            background-image: linear-gradient(93deg, #526583 0%, rgba(2,113,206,0.65) 150%);
+            padding: 0 16px; height: 84px; display: flex; align-items: flex-end;
+            padding-bottom: 12px; flex-shrink: 0;
+        }
+        .fs-header-inner { display: flex; align-items: center; gap: 10px; width: 100%; }
+        .fs-title { font-size: 20px; font-weight: 700; color: white; }
+        .fs-search-wrap {
+            padding: 10px 16px; background: white;
+            border-bottom: 1px solid #e5e7eb; position: relative;
+        }
+        .fs-search {
+            width: 100%; border: 1.5px solid #d1d5db; border-radius: 6px;
+            padding: 10px 12px 10px 38px; font-size: 14px; font-family: inherit;
+            outline: none; background: #f9fafb;
+        }
+        .fs-search-icon {
+            position: absolute; left: 28px; top: 50%; transform: translateY(-50%);
+            color: rgba(0,0,0,0.4); font-size: 14px;
+        }
+        .fs-list { flex: 1; overflow-y: auto; }
+        .fs-item {
+            padding: 15px 16px; border-bottom: 1px solid rgba(0,0,0,0.06);
+            font-size: 14px; color: rgba(0,0,0,0.87); cursor: pointer;
+        }
+        .fs-item:active { background: #f5f9fd; }
+        .fs-item.selected { color: #0271ce; font-weight: 600; }
+
+        /* ── JSA Select (existing tasklist) screen ── */
+        .jsa-search-row {
+            background: white; border-bottom: 1px solid rgba(0,0,0,0.08);
+            padding: 10px 16px; display: flex; align-items: center;
+            gap: 8px; flex-shrink: 0;
+        }
+        .jsa-search-wrap { flex: 1; position: relative; }
+        .jsa-search-wrap .search-icon {
+            position: absolute; left: 10px; top: 50%;
+            transform: translateY(-50%); color: rgba(0,0,0,0.4);
+            font-size: 14px; pointer-events: none;
+        }
+        .jsa-search-input {
+            width: 100%; border: 1.5px solid #d1d5db; border-radius: 6px;
+            padding: 9px 10px 9px 32px; font-size: 14px; font-family: inherit;
+            background: white; outline: none; color: rgba(0,0,0,0.87);
+        }
+        .jsa-search-input:focus { border-color: #0271ce; }
+        .jsa-filter-toggle {
+            position: relative; width: 38px; height: 38px;
+            border: 1.5px solid rgba(26,41,61,0.25); border-radius: 8px;
+            background: white; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: rgba(26,41,61,0.7); font-size: 15px; flex-shrink: 0;
+        }
+        .jsa-filter-toggle.active { border-color: #0271ce; background: rgba(2,113,206,0.08); color: #0271ce; }
+        .filter-count-badge {
+            position: absolute; top: -5px; right: -5px;
+            background: #0271ce; color: white; border-radius: 10px;
+            font-size: 9px; font-weight: 700; min-width: 15px; height: 15px;
+            display: none; align-items: center; justify-content: center;
+            padding: 0 3px; border: 1.5px solid white;
+        }
+        .filter-count-badge.visible { display: flex; }
+        .jsa-results-row {
+            padding: 6px 16px; font-size: 12px; color: rgba(0,0,0,0.5);
+            background: #f5f9fd; border-bottom: 1px solid rgba(0,0,0,0.06);
+            flex-shrink: 0;
+        }
+        .jsa-select-list {
+            flex: 1; overflow-y: auto; background: #f5f9fd;
+            padding-bottom: 96px;
+        }
+        .jsa-select-item {
+            background: white; border-bottom: 1px solid rgba(0,0,0,0.07);
+            padding: 14px 14px 14px 16px;
+            display: flex; align-items: flex-start; gap: 12px;
+            cursor: pointer; border-left: 3px solid transparent;
+            transition: background 0.1s, border-color 0.1s;
+        }
+        .jsa-select-item.selected { background: rgba(2,113,206,0.05) !important; border-left-color: #0271ce; }
+        .jsa-radio {
+            width: 20px; height: 20px; border: 2px solid #d1d5db;
+            border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; flex-shrink: 0; margin-top: 3px;
+            transition: border-color 0.12s;
+        }
+        .jsa-radio::after {
+            content: ''; width: 10px; height: 10px;
+            border-radius: 50%; background: #0271ce; display: none;
+        }
+        .jsa-select-item.selected .jsa-radio { border-color: #0271ce; }
+        .jsa-select-item.selected .jsa-radio::after { display: block; }
+        .jsa-select-content { flex: 1; min-width: 0; }
+        .jsa-select-title {
+            font-size: 14px; font-weight: 600; color: rgba(0,0,0,0.87);
+            line-height: 1.3; margin-bottom: 4px;
+        }
+        .jsa-select-meta {
+            font-size: 12px; color: rgba(0,0,0,0.55);
+            display: flex; align-items: center; gap: 4px; margin-top: 3px;
+        }
+        .jsa-select-meta i { width: 14px; text-align: center; font-size: 11px; }
+
+        /* Filter sheet inside JSA select */
+        .filter-sheet-scroll { overflow-y: auto; max-height: 430px; padding-bottom: 8px; }
+        .filter-field-section { padding: 12px 16px 0; }
+        .filter-field-label {
+            display: block; font-size: 11px; font-weight: 700;
+            color: rgba(0,0,0,0.5); text-transform: uppercase;
+            letter-spacing: 0.5px; margin-bottom: 6px;
+        }
+        .filter-field-btn {
+            width: 100%; border: 1.5px solid #d1d5db; border-radius: 6px;
+            padding: 10px 12px; font-size: 14px; font-family: inherit;
+            background: white; color: rgba(0,0,0,0.5);
+            display: flex; align-items: center; cursor: pointer; text-align: left;
+        }
+        .filter-field-btn.set { color: rgba(0,0,0,0.87); border-color: #0271ce; }
+        .filter-field-btn span { flex: 1; }
+        .filter-field-btn i { color: rgba(0,0,0,0.35); font-size: 13px; }
+        .filter-date-row { display: flex; gap: 8px; align-items: center; }
+        .filter-date-input {
+            flex: 1; border: 1.5px solid #d1d5db; border-radius: 6px;
+            padding: 9px 10px; font-size: 13px; font-family: inherit;
+            background: white; outline: none; color: rgba(0,0,0,0.87); min-width: 0;
+        }
+        .filter-date-input:focus { border-color: #0271ce; }
+        .filter-date-sep { color: rgba(0,0,0,0.35); font-size: 14px; flex-shrink: 0; }
+        .filter-status-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+        .filter-status-pill {
+            padding: 5px 13px; border-radius: 20px; font-size: 13px; cursor: pointer;
+            border: 1.5px solid #e0e3ea; color: #6b7280; background: white; font-family: inherit;
+        }
+        .filter-status-pill.active { background: #0271ce; color: white; border-color: #0271ce; }
+        .filter-sheet-footer {
+            padding: 12px 16px; border-top: 1px solid #e5e7eb; display: flex; gap: 10px;
+        }
+        .filter-sheet-reset {
+            flex: 1; padding: 10px; border: 1.5px solid #d1d5db; border-radius: 8px;
+            background: white; font-size: 14px; font-weight: 600;
+            color: #374151; cursor: pointer; font-family: inherit;
+        }
+        .filter-sheet-apply {
+            flex: 2; padding: 10px; border: none; border-radius: 8px;
+            background: #0271ce; font-size: 14px; font-weight: 600;
+            color: white; cursor: pointer; font-family: inherit;
+        }
+
+        /* ── Empty state ── */
+        .empty-state {
+            display: flex; flex-direction: column; align-items: center;
+            padding: 60px 32px; text-align: center; gap: 12px;
+        }
+        .empty-state i { font-size: 48px; color: #d1d5db; }
+        .empty-state-title { font-size: 16px; font-weight: 600; color: rgba(0,0,0,0.6); }
+        .empty-state-desc { font-size: 13px; color: rgba(0,0,0,0.45); line-height: 1.5; }
+
+        /* ── Additional Features screen ── */
+        .feat-section { margin: 16px 16px 0; }
+        .feat-section-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .feat-section-title { font-size: 15px; font-weight: 700; color: rgba(0,0,0,0.87); }
+        .feat-section-badge {
+            font-size: 11px; font-weight: 700; background: #e5e7eb;
+            color: rgba(0,0,0,0.6); border-radius: 10px; padding: 2px 8px;
+        }
+        .feat-add-btn {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; padding: 11px; border: 1.5px solid #0271ce;
+            border-radius: 8px; background: white; color: #0271ce;
+            font-size: 13.5px; font-weight: 600; cursor: pointer; font-family: inherit;
+            margin-bottom: 16px;
+        }
+        .feat-add-btn:active { background: rgba(2,113,206,0.04); }
+        .attach-item {
+            background: white; border: 1px solid #e5e7eb;
+            border-radius: 8px; padding: 10px 12px;
+            display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+        }
+        .attach-thumb {
+            width: 44px; height: 44px; border-radius: 6px;
+            background: #f3f4f6; display: flex; align-items: center;
+            justify-content: center; font-size: 18px; color: #9ca3af; flex-shrink: 0;
+            overflow: hidden;
+        }
+        .attach-info { flex: 1; min-width: 0; }
+        .attach-name {
+            font-size: 13px; font-weight: 600; color: rgba(0,0,0,0.87);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .attach-meta { font-size: 11px; color: rgba(0,0,0,0.5); margin-top: 2px; }
+        .attach-remove {
+            background: none; border: none; color: rgba(0,0,0,0.35);
+            cursor: pointer; font-size: 17px; padding: 4px; line-height: 1;
+        }
+        .attach-option-item {
+            display: flex; align-items: center; gap: 14px; width: 100%;
+            padding: 16px 20px; border: none; background: none;
+            font-family: inherit; font-size: 15px; color: rgba(0,0,0,0.87);
+            cursor: pointer; text-align: left; border-bottom: 1px solid #f3f4f6;
+        }
+        .attach-option-item:active { background: #f5f9fd; }
+        .attach-option-item:last-child { border-bottom: none; }
+        .attach-option-item i { width: 24px; text-align: center; font-size: 18px; color: #0271ce; }
+        .ca-item {
+            background: white; border: 1px solid #e5e7eb; border-radius: 8px;
+            padding: 12px 14px; margin-bottom: 8px;
+            display: flex; align-items: flex-start; gap: 10px;
+        }
+        .ca-item-content { flex: 1; min-width: 0; }
+        .ca-desc { font-size: 13px; color: rgba(0,0,0,0.87); line-height: 1.5; }
+        .ca-meta { font-size: 11px; color: rgba(0,0,0,0.5); margin-top: 4px; }
+        .ca-remove {
+            background: none; border: none; color: rgba(0,0,0,0.35);
+            cursor: pointer; font-size: 16px; padding: 2px; line-height: 1;
+        }
+        .ca-textarea {
+            width: 100%; border: 1.5px solid #d1d5db; border-radius: 8px;
+            padding: 12px; font-size: 14px; font-family: inherit; resize: none;
+            outline: none; line-height: 1.5; display: block;
+        }
+        .ca-textarea:focus { border-color: #0271ce; }
+        .feat-divider { height: 1px; background: #e5e7eb; margin: 8px 16px 0; }
+        .drawer-footer-row {
+            padding: 12px 16px 16px; display: flex; gap: 8px; justify-content: flex-end;
+            border-top: 1px solid #e5e7eb;
+        }
+        .drawer-btn-cancel {
+            background: none; border: 1.5px solid #d1d5db; color: rgba(0,0,0,0.6);
+            border-radius: 8px; padding: 8px 18px; font-size: 14px; font-weight: 600;
+            cursor: pointer; font-family: inherit;
+        }
+        .drawer-btn-primary {
+            background: #0271ce; border: none; color: white;
+            border-radius: 8px; padding: 8px 20px; font-size: 14px; font-weight: 600;
+            cursor: pointer; font-family: inherit;
+        }
+
+        /* ── E-Signature screen ── */
+        .sig-count-bar {
+            background: white; border-bottom: 1px solid #e5e7eb;
+            padding: 9px 16px; flex-shrink: 0;
+        }
+        .sig-count-text { font-size: 12.5px; color: rgba(0,0,0,0.5); }
+        /* User search in takeover */
+        .sig-search-wrap { position: relative; }
+        .sig-search-icon {
+            position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+            color: rgba(0,0,0,0.4); font-size: 14px; pointer-events: none;
+        }
+        .sig-search-input {
+            width: 100%; border: 1.5px solid #d1d5db; border-radius: 8px;
+            padding: 11px 12px 11px 38px; font-size: 15px; font-family: inherit;
+            outline: none; color: rgba(0,0,0,0.87); background: white;
+        }
+        .sig-search-input:focus { border-color: #0271ce; }
+        .sig-user-results {
+            position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+            border: 1.5px solid #e5e7eb; border-radius: 8px; overflow: hidden;
+            background: white; box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            z-index: 20;
+        }
+        .sig-user-results:empty { display: none; }
+        .sig-user-result-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 14px; border-bottom: 1px solid #f3f4f6;
+            cursor: pointer; background: white;
+        }
+        .sig-user-result-item:last-child { border-bottom: none; }
+        .sig-user-result-item:active { background: #f5f9fd; }
+        .sig-user-result-item.selected { background: rgba(2,113,206,0.05); }
+        .sig-user-result-avatar {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: #e5e7eb; color: rgba(0,0,0,0.55);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700; flex-shrink: 0;
+        }
+        .sig-user-result-name { font-size: 14px; font-weight: 600; color: rgba(0,0,0,0.87); }
+        .sig-user-result-role { font-size: 12px; color: rgba(0,0,0,0.5); margin-top: 1px; }
+        .sig-selected-check { margin-left: auto; color: #0271ce; font-size: 14px; display: none; }
+        .sig-user-result-item.selected .sig-selected-check { display: block; }
+        .sig-guest-notice {
+            padding: 14px 16px; font-size: 13px; color: rgba(0,0,0,0.55);
+            line-height: 1.5; background: #f9fafb;
+        }
+        .sig-guest-notice strong { color: rgba(0,0,0,0.8); }
+        .sig-signer-for {
+            font-size: 12.5px; color: rgba(0,0,0,0.55); margin-bottom: 8px;
+            display: none;
+        }
+        .sig-signer-for strong { color: rgba(0,0,0,0.8); font-weight: 600; }
+        /* ── E-Signature cards ── */
+        .signature-card-v2 {
+            background: white; border: 1.5px solid #e5e7eb; border-radius: 10px;
+            margin: 0 16px 12px; overflow: hidden;
+        }
+        .signature-card-v2.is-signed { border-color: rgba(10,118,55,0.25); }
+        .sig-card-header {
+            padding: 13px 14px; display: flex; align-items: center; gap: 11px;
+        }
+        .sig-avatar {
+            width: 38px; height: 38px; border-radius: 50%;
+            background: #e5e7eb; display: flex; align-items: center;
+            justify-content: center; font-size: 13px; font-weight: 700;
+            color: rgba(0,0,0,0.55); flex-shrink: 0; letter-spacing: 0.5px;
+        }
+        .sig-avatar.signed { background: #dcfce7; color: #166534; }
+        .sig-card-info { flex: 1; }
+        .sig-name { font-size: 14px; font-weight: 600; color: rgba(0,0,0,0.87); }
+        .sig-role-text { font-size: 12px; color: rgba(0,0,0,0.5); margin-top: 1px; }
+        .sig-status-pill {
+            font-size: 11px; font-weight: 700; border-radius: 20px; padding: 3px 9px;
+        }
+        .sig-status-pill.signed { background: #dcfce7; color: #166534; }
+        .sig-status-pill.awaiting { background: #f3f4f6; color: rgba(0,0,0,0.5); }
+        .sig-card-divider { height: 1px; background: #f3f4f6; }
+        .sig-preview-area {
+            padding: 10px 14px 4px; background: #f9fafb;
+            border-top: 1px solid #f3f4f6;
+        }
+        .sig-preview-area img { width: 100%; height: 56px; object-fit: contain; display: block; }
+        .sig-preview-timestamp {
+            font-size: 11px; color: rgba(0,0,0,0.4); padding: 4px 0 8px;
+        }
+        .sig-add-btn-row {
+            padding: 12px 14px; border-top: 1px solid #f3f4f6;
+        }
+        .sig-add-btn {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; padding: 10px; border: 1.5px solid #0271ce;
+            border-radius: 8px; background: white; color: #0271ce;
+            font-size: 13.5px; font-weight: 600; cursor: pointer; font-family: inherit;
+        }
+        .sig-add-btn:active { background: rgba(2,113,206,0.04); }
+        .add-signer-btn-v2 {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: calc(100% - 32px); margin: 4px 16px 16px;
+            padding: 11px; border: 1.5px dashed #0271ce; border-radius: 8px;
+            background: transparent; color: #0271ce;
+            font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+        }
+
+        /* ── Signature fullscreen takeover ── */
+        .sig-takeover {
+            display: none; position: absolute; inset: 0;
+            background: white; z-index: 80; flex-direction: column;
+        }
+        .sig-takeover.active { display: flex; }
+        .sig-takeover-header {
+            background: #1e1e1e;
+            background-image: linear-gradient(93deg, #526583 0%, rgba(2,113,206,0.65) 150%);
+            padding: 0 12px; height: 84px; display: flex; align-items: flex-end;
+            padding-bottom: 12px; flex-shrink: 0;
+        }
+        .sig-takeover-header-inner {
+            display: flex; align-items: center; gap: 10px; width: 100%;
+        }
+        .sig-takeover-title { font-size: 20px; font-weight: 700; color: white; flex: 1; }
+        .sig-takeover-body {
+            flex: 1; overflow-y: auto; padding: 20px 16px;
+            display: flex; flex-direction: column; gap: 18px;
+        }
+        .sig-field-label {
+            font-size: 12px; font-weight: 700; color: rgba(0,0,0,0.55);
+            text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;
+        }
+        .sig-name-input {
+            width: 100%; border: 1.5px solid #d1d5db; border-radius: 8px;
+            padding: 12px 14px; font-size: 15px; font-family: inherit; outline: none;
+            color: rgba(0,0,0,0.87); background: white;
+        }
+        .sig-name-input:focus { border-color: #0271ce; }
+        .sig-takeover-canvas-wrap {
+            position: relative; background: #fafafa; border: 1.5px solid #e5e7eb;
+            border-radius: 10px; overflow: hidden; touch-action: none; cursor: crosshair;
+        }
+        .sig-takeover-placeholder {
+            position: absolute; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 8px; pointer-events: none;
+        }
+        .sig-takeover-placeholder i { font-size: 32px; color: #d1d5db; }
+        .sig-takeover-placeholder span { font-size: 13px; color: #d1d5db; font-weight: 500; }
+        .sig-takeover-baseline {
+            position: absolute; bottom: 36px; left: 20px; right: 20px;
+            height: 1px; background: rgba(0,0,0,0.12); pointer-events: none;
+        }
+        .sig-takeover-clear {
+            background: none; border: 1.5px solid #d1d5db; color: rgba(0,0,0,0.55);
+            border-radius: 6px; padding: 5px 14px; font-size: 12px; font-weight: 600;
+            cursor: pointer; font-family: inherit; align-self: flex-end;
+        }
+        .sig-takeover-footer {
+            padding: 12px 16px 20px; border-top: 1px solid #e5e7eb; flex-shrink: 0;
+            display: flex; gap: 10px;
+        }
+        .sig-takeover-cancel {
+            background: none; border: 1.5px solid #d1d5db; color: rgba(0,0,0,0.6);
+            border-radius: 8px; padding: 12px 20px; font-size: 14px; font-weight: 600;
+            cursor: pointer; font-family: inherit;
+        }
+        .sig-takeover-confirm {
+            flex: 1; background: #0271ce; border: none; color: white;
+            border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 700;
+            cursor: pointer; font-family: inherit;
+        }
+        .sig-takeover-confirm:disabled {
+            background: #d1d5db; cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Screen nav pills (outside phone) -->
+<div class="screen-nav" id="screenNav">
+    <button onclick="showScreen('home')" class="active">Home</button>
+    <button onclick="showScreen('records')">Records</button>
+    <button onclick="showScreen('jsa-start')">JSA: Start</button>
+    <button onclick="showScreen('jsa-select')">JSA: Select Existing</button>
+    <button onclick="showScreen('jsa-basic')">JSA: Basic Info</button>
+    <button onclick="showScreen('jsa-steps-empty')">JSA: Steps (empty)</button>
+    <button onclick="showScreen('jsa-add-step')">JSA: Add Step</button>
+    <button onclick="showScreen('jsa-steps-filled')">JSA: Steps (filled)</button>
+    <button onclick="showScreen('jsa-additional')">JSA: Additional Features</button>
+    <button onclick="showScreen('jsa-signature')">JSA: Signature</button>
+</div>
+
+<div class="phone-frame">
+    <div class="phone" id="app">
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- SCREEN: HOME                           -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="screen active" id="screen-home">
+            <div class="home-header">
+                <div class="status-bar-area" style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px 8px;color:white;font-size:13px;font-weight:600;">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;">
+                        <i class="fa-solid fa-signal"></i>
+                        <i class="fa-solid fa-wifi"></i>
+                        <i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="screen-body" style="background:#f5f9fd;">
+                <span class="section-label">Quick Actions</span>
+                <div class="quick-actions-row">
+                    <button class="qa-btn" onclick="showScreen('records')">
+                        <div class="qa-circle"><i class="fa-solid fa-circle-exclamation"></i></div>
+                        <span class="qa-label">Incident</span>
+                    </button>
+                    <button class="qa-btn">
+                        <div class="qa-circle"><i class="fa-solid fa-clipboard-list"></i></div>
+                        <span class="qa-label">Inspection</span>
+                    </button>
+                    <button class="qa-btn">
+                        <div class="qa-circle"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <span class="qa-label">Hazard</span>
+                    </button>
+                    <button class="qa-btn">
+                        <div class="qa-circle"><i class="fa-solid fa-eye"></i></div>
+                        <span class="qa-label">Observation</span>
+                    </button>
+                    <button class="qa-btn" onclick="showScreen('jsa-start')">
+                        <div class="qa-circle"><i class="fa-solid fa-traffic-cone"></i></div>
+                        <span class="qa-label">JSA</span>
+                    </button>
+                </div>
+
+                <span class="section-label">Jump Back In</span>
+                <div class="jbi-card-container">
+                    <div class="record-card-row" onclick="showScreen('records')">
+                        <div class="record-title">Incident – Warehouse 12, Atlanta, Georgia, USA</div>
+                        <div class="record-badges">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-incomplete">Incomplete</span>
+                        </div>
+                        <div class="record-desc">Worker reported a slip and fall near the loading bay entrance. Initial assessment completed; follow-up steps pending supervisor review.</div>
+                        <div class="record-meta">
+                            <div class="record-meta-row"><i class="fa-regular fa-user"></i> Reported by Andy Xia</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last Updated: 1/15/26, 12:12:34 PM</div>
+                        </div>
+                    </div>
+                    <div class="record-card-row alt-bg" onclick="showScreen('records')">
+                        <div class="record-title">Forklift Pre-Operation Inspection – Dock C</div>
+                        <div class="record-badges">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-incomplete">Incomplete</span>
+                        </div>
+                        <div class="record-desc">Daily inspection checklist for forklift unit #4 at Dock C. Hydraulic fluid level and brake function checks flagged for follow-up.</div>
+                        <div class="record-meta">
+                            <div class="record-meta-row"><i class="fa-regular fa-user"></i> Reported by Andy Xia</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last Updated: 1/14/26, 3:45:00 PM</div>
+                        </div>
+                    </div>
+                    <div class="record-card-row" onclick="showScreen('records')">
+                        <div class="record-title">Roof Access – Maintenance Crew</div>
+                        <div class="record-badges">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-pending"><i class="fa-solid fa-file-pen" style="font-size:11px;"></i> Pending</span>
+                        </div>
+                        <div class="record-desc">Scheduled rooftop HVAC maintenance requiring fall protection and two-person team. Safety briefing and equipment sign-off needed before work begins.</div>
+                        <div class="record-meta">
+                            <div class="record-meta-row"><i class="fa-regular fa-user"></i> Reported by Andy Xia</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Last Updated: 1/13/26, 2:30:00 PM</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="fab"><i class="fa-solid fa-microphone"></i></button>
+
+            <div class="bottom-nav">
+                <button class="nav-tab active" onclick="showScreen('home')">
+                    <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+                    <span class="nav-label">Home</span>
+                </button>
+                <button class="nav-tab" onclick="showScreen('records')">
+                    <span class="nav-icon-wrap">
+                        <i class="fa-regular fa-copy" style="font-size:18px;color:rgba(0,0,0,0.6);"></i>
+                    </span>
+                    <span class="nav-label">Records</span>
+                </button>
+                <button class="nav-tab">
+                    <span class="nav-icon"><i class="fa-solid fa-bars"></i></span>
+                    <span class="nav-label">More</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- SCREEN: RECORDS                        -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="screen" id="screen-records">
+            <div class="mobile-header">
+                <div class="status-bar-area">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:white;">
+                        <i class="fa-solid fa-signal"></i>
+                        <i class="fa-solid fa-wifi"></i>
+                        <i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
+                </div>
+                <div class="header-bar">
+                    <span class="header-title">Records</span>
+                    <div class="header-action-right">
+                        <button class="hdr-btn-outline">Select</button>
+                        <button class="hdr-btn"><i class="fa-solid fa-gear"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sticky overlay toolbar (appears when scrolling up, past flow toolbar) -->
+            <div id="records-toolbar-sticky">
+                <div class="records-toolbar-main-row">
+                    <div class="records-search-wrap">
+                        <i class="fa-solid fa-magnifying-glass records-search-icon"></i>
+                        <input type="text" class="records-search-input" id="records-search-sticky"
+                            placeholder="Search records…"
+                            oninput="searchRecords(this.value); document.getElementById('records-search-flow').value=this.value;" />
+                    </div>
+                    <button class="filter-icon-btn" id="records-filter-btn-sticky"><i class="fa-solid fa-bars-filter"></i></button>
+                </div>
+            </div>
+
+            <div class="screen-body" style="background:#f9fafb;padding-bottom:160px;">
+
+                <!-- Flow toolbar (scrolls naturally with content) -->
+                <div id="records-toolbar-flow">
+                    <div class="records-toolbar-main-row">
+                        <div class="records-search-wrap">
+                            <i class="fa-solid fa-magnifying-glass records-search-icon"></i>
+                            <input type="text" class="records-search-input" id="records-search-flow"
+                                placeholder="Search records…"
+                                oninput="searchRecords(this.value); document.getElementById('records-search-sticky').value=this.value;" />
+                        </div>
+                        <button class="filter-icon-btn" id="records-filter-btn"><i class="fa-solid fa-bars-filter"></i></button>
+                    </div>
+                    <!-- Applied filter chips row (only visible when filters are set) -->
+                    <div class="records-chips-row" id="records-chips-row">
+                        <div class="filter-applied-row" id="records-filter-applied"></div>
+                    </div>
+                </div>
+                <!-- Card 1: JSA + Pending -->
+                <div class="rec-card-wrap" data-card-state="pending" data-card-type="jsa" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
+                    <div class="record-card-row">
+                        <div class="record-title">Site Safety Assessment – Building A, Floor 3</div>
+                        <div class="record-badges">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-pending"><i class="fa-solid fa-file-pen" style="font-size:11px;"></i> Pending</span>
+                            <span class="badge badge-downloaded"><i class="fa-solid fa-download" style="font-size:10px;"></i></span>
+                        </div>
+                        <div class="record-desc">Quarterly walk-through of Building A, Floor 3 covering egress routes, fire suppression, and equipment condition. Two open findings require resolution before submission.</div>
+                        <div class="record-meta">
+                            <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/15/26 – 12:12:34 PM</div>
+                        </div>
+                        <div class="rec-action-row">
+                            <button class="rec-btn-outline" data-action="submit">Submit</button>
+                            <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: JSA + Submitted -->
+                <div class="rec-card-wrap" data-card-state="submitted" data-card-type="jsa" style="border-bottom:1px solid rgba(0,0,0,0.07);">
+                    <div class="record-card-row is-submitted">
+                        <div class="record-title">Forklift Operation – Loading Dock B</div>
+                        <div class="record-badges">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-submitted"><i class="fa-solid fa-check" style="font-size:10px;"></i> Submitted</span>
+                        </div>
+                        <div class="record-desc">Pre-operation safety analysis for forklift units at Loading Dock B. Covers load limits, travel paths, and spotter requirements for the shift.</div>
+                        <div class="record-meta">
+                            <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/15/26 – 12:12:34 PM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-copy"></i> ID: 12345679</div>
+                        </div>
+                        <div class="rec-action-row">
+                            <button class="rec-btn-outline" data-action="copy-id" data-id="12345679">Copy ID</button>
+                            <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 3: JSA + Submitted -->
+                <div class="rec-card-wrap" data-card-state="submitted" data-card-type="jsa" style="border-bottom:1px solid rgba(0,0,0,0.07);">
+                    <div class="record-card-row is-submitted">
+                        <div class="record-title">Electrical Panel Maintenance – Room 214</div>
+                        <div class="record-badges">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-submitted"><i class="fa-solid fa-check" style="font-size:10px;"></i> Submitted</span>
+                        </div>
+                        <div class="record-desc">Lockout/tagout and panel inspection for the main electrical room. All steps completed and verified by a licensed electrician before energization.</div>
+                        <div class="record-meta">
+                            <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Facility HQ, Nashville, Tennessee, USA</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/14/26 – 9:45:12 AM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-copy"></i> ID: 12345671</div>
+                        </div>
+                        <div class="rec-action-row">
+                            <button class="rec-btn-outline" data-action="copy-id" data-id="12345671">Copy ID</button>
+                            <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 4: JSA + Missing Fields -->
+                <div class="rec-card-wrap" data-card-state="missing" data-card-type="jsa" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
+                    <div class="record-card-row">
+                        <div class="record-title">Roof Access – Maintenance Crew</div>
+                        <div class="record-badges">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-missing"><i class="fa-solid fa-triangle-exclamation" style="font-size:11px;"></i> Missing Fields</span>
+                            <span class="badge badge-downloaded"><i class="fa-solid fa-download" style="font-size:10px;"></i></span>
+                        </div>
+                        <div class="record-desc">Fall protection and tie-off requirements for rooftop HVAC work. Supervisor sign-off and wind speed check fields still need to be completed.</div>
+                        <div class="record-meta">
+                            <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/13/26 – 2:30:00 PM</div>
+                        </div>
+                        <div class="rec-action-row">
+                            <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 5: JSA + Pending -->
+                <div class="rec-card-wrap" data-card-state="pending" data-card-type="jsa" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
+                    <div class="record-card-row">
+                        <div class="record-title">Chemical Storage Audit – Bay 4</div>
+                        <div class="record-badges">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-pending"><i class="fa-solid fa-file-pen" style="font-size:11px;"></i> Pending</span>
+                        </div>
+                        <div class="record-desc">Hazardous materials inventory check for Bay 4. SDS sheets verified, secondary containment inspected, and spill kit inventory confirmed in stock.</div>
+                        <div class="record-meta">
+                            <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Facility HQ, Nashville, Tennessee, USA</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/13/26 – 10:00:00 AM</div>
+                        </div>
+                        <div class="rec-action-row">
+                            <button class="rec-btn-outline" data-action="submit">Submit</button>
+                            <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 6: JSA + Pending + Downloaded -->
+                <div class="rec-card-wrap" data-card-state="pending" data-card-type="jsa" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
+                    <div class="record-card-row">
+                        <div class="record-title">Scaffold Erection – East Wing Exterior</div>
+                        <div class="record-badges">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-pending"><i class="fa-solid fa-file-pen" style="font-size:11px;"></i> Pending</span>
+                            <span class="badge badge-downloaded"><i class="fa-solid fa-download" style="font-size:10px;"></i></span>
+                        </div>
+                        <div class="record-desc">Multi-level scaffold setup for exterior facade repairs. All components inspected and tagged; base plates and guardrails confirmed installed per spec.</div>
+                        <div class="record-meta">
+                            <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/12/26 – 8:15:00 AM</div>
+                        </div>
+                        <div class="rec-action-row">
+                            <button class="rec-btn-outline" data-action="submit">Submit</button>
+                            <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 7: JSA + Submitted -->
+                <div class="rec-card-wrap" data-card-state="submitted" data-card-type="jsa" style="border-bottom:1px solid rgba(0,0,0,0.07);">
+                    <div class="record-card-row is-submitted">
+                        <div class="record-title">Hot Work Permit – Welding Zone C</div>
+                        <div class="record-badges">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-submitted"><i class="fa-solid fa-check" style="font-size:10px;"></i> Submitted</span>
+                        </div>
+                        <div class="record-desc">Welding and cutting operations near flammable storage. Fire watch assigned, area cleared, and permit countersigned before ignition.</div>
+                        <div class="record-meta">
+                            <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Facility HQ, Nashville, Tennessee, USA</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/11/26 – 7:30:00 AM</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-copy"></i> ID: 99182743</div>
+                        </div>
+                        <div class="rec-action-row">
+                            <button class="rec-btn-outline" data-action="copy-id" data-id="99182743">Copy ID</button>
+                            <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 8: JSA + Missing Fields -->
+                <div class="rec-card-wrap" data-card-state="missing" data-card-type="jsa" style="background:white;">
+                    <div class="record-card-row">
+                        <div class="record-title">Electrical Safety Audit – Panel Room B</div>
+                        <div class="record-badges">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-missing"><i class="fa-solid fa-triangle-exclamation" style="font-size:11px;"></i> Missing Fields</span>
+                        </div>
+                        <div class="record-desc">Annual arc-flash hazard assessment for Panel Room B. PPE category and incident energy values still require sign-off from the electrical engineer on file.</div>
+                        <div class="record-meta">
+                            <div class="record-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, Georgia, USA</div>
+                            <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Created: 1/10/26 – 3:00:00 PM</div>
+                        </div>
+                        <div class="rec-action-row">
+                            <button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="submit-toast" id="records-toast">
+                <i class="fa-solid fa-circle-check" style="font-size:15px;color:#4ade80;flex-shrink:0;"></i>
+                <span style="flex:1;">Submission complete</span>
+                <button class="toast-copy-id" id="toast-copy-id-btn">Copy ID</button>
+                <button class="toast-dismiss" id="records-toast-dismiss">×</button>
+            </div>
+
+            <!-- Filter drawer -->
+            <div class="overlay-bg" id="records-filter-overlay"></div>
+            <div class="bottom-drawer" id="records-filter-drawer" style="max-height:85%;overflow:hidden;display:flex;flex-direction:column;">
+                <div class="drawer-handle"></div>
+                <div class="drawer-header">
+                    <span class="drawer-title">Filter Records</span>
+                    <button class="drawer-close" id="records-filter-close"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div style="overflow-y:auto;flex:1;">
+                    <div class="filter-field-section" style="padding-bottom:16px;">
+                        <span class="filter-field-label">Report Type</span>
+                        <div class="filter-status-pills">
+                            <button class="filter-status-pill" data-draft-type="jsa">JSA</button>
+                        </div>
+                    </div>
+                    <div style="height:1px;background:#e5e7eb;margin:0 16px;"></div>
+                    <div class="filter-field-section" style="padding-bottom:16px;">
+                        <span class="filter-field-label">Status</span>
+                        <div class="filter-status-pills">
+                            <button class="filter-status-pill active" data-draft-status="all">All</button>
+                            <button class="filter-status-pill" data-draft-status="pending">Pending</button>
+                            <button class="filter-status-pill" data-draft-status="submitted">Submitted</button>
+                            <button class="filter-status-pill" data-draft-status="missing">Missing Fields</button>
+                            <button class="filter-status-pill" data-draft-status="error">Error</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="filter-sheet-footer">
+                    <button class="filter-sheet-reset" id="records-filter-reset">Reset</button>
+                    <button class="filter-sheet-apply" id="records-filter-apply">Apply</button>
+                </div>
+            </div>
+
+            <button class="records-fab" id="records-submit-all-btn">
+                Submit All (<span id="records-pending-count">3</span>)
+            </button>
+
+            <div class="already-submitted-backdrop" id="records-already-submitted">
+                <div class="already-submitted-box">
+                    <h3>This incident has already been submitted</h3>
+                    <p>You will only be able to access it on the web version of EHS.</p>
+                    <button id="records-already-submitted-ok">Okay</button>
+                </div>
+            </div>
+
+            <div class="bottom-nav">
+                <button class="nav-tab" onclick="showScreen('home')">
+                    <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+                    <span class="nav-label">Home</span>
+                </button>
+                <button class="nav-tab active">
+                    <span class="nav-icon-wrap">
+                        <i class="fa-regular fa-copy" style="font-size:18px;color:#0271ce;"></i>
+                        <span class="nav-badge">1</span>
+                    </span>
+                    <span class="nav-label">Records</span>
+                </button>
+                <button class="nav-tab">
+                    <span class="nav-icon"><i class="fa-solid fa-bars"></i></span>
+                    <span class="nav-label">More</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- SCREEN: JSA START (choose method)      -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="screen" id="screen-jsa-start">
+            <div class="mobile-header">
+                <div class="status-bar-area">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:white;">
+                        <i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
+                </div>
+                <div class="header-bar">
+                    <button class="hdr-btn" onclick="showScreen('home')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="header-title">Add JSA</span>
+                </div>
+            </div>
+
+            <div class="jsa-stepper">
+                <div class="stepper-row">
+                    <button class="stepper-back-btn" onclick="showScreen('home')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <div class="stepper-step-info" onclick="openStepNavDrawer('choose-method')">
+                        <span class="stepper-step-name">Choose Method</span>
+                        <i class="fa-solid fa-angle-down stepper-step-chevron"></i>
+                    </div>
+                </div>
+                <div class="stepper-progress-track">
+                    <div class="stepper-progress-fill" style="width:12%;"></div>
+                </div>
+            </div>
+
+            <div class="screen-body">
+                <p class="jsa-method-intro">How would you like to start this JSA?</p>
+
+                <button class="jsa-method-btn" onclick="showScreen('jsa-basic')">
+                    <div class="jsa-method-icon"><i class="fa-solid fa-pen-to-square"></i></div>
+                    <div class="jsa-method-text">
+                        <div class="method-title">Start from scratch</div>
+                        <div class="method-desc">Build a new JSA tasklist and define each step manually.</div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right" style="color:#d1d5db;font-size:14px;"></i>
+                </button>
+
+                <button class="jsa-method-btn" onclick="showScreen('jsa-select')">
+                    <div class="jsa-method-icon"><i class="fa-solid fa-clipboard-list"></i></div>
+                    <div class="jsa-method-text">
+                        <div class="method-title">Apply existing tasklist</div>
+                        <div class="method-desc">Select a previously created JSA as your starting point. You can still edit all fields.</div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right" style="color:#d1d5db;font-size:14px;"></i>
+                </button>
+            </div>
+
+            <div class="mobile-footer">
+                <button class="footer-btn-cancel" onclick="showScreen('home')">Cancel</button>
+                <div class="footer-btn-group">
+                    <button class="footer-btn-next" onclick="showScreen('jsa-basic')">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- SCREEN: JSA SELECT (existing tasklist) -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="screen" id="screen-jsa-select">
+            <div class="mobile-header">
+                <div class="status-bar-area">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:white;">
+                        <i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
+                </div>
+                <div class="header-bar">
+                    <button class="hdr-btn" onclick="showScreen('jsa-start')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="header-title">Select JSA</span>
+                </div>
+            </div>
+
+            <div class="jsa-stepper">
+                <div class="stepper-row">
+                    <button class="stepper-back-btn" onclick="showScreen('jsa-start')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <div class="stepper-step-info" onclick="openStepNavDrawer('choose-method')">
+                        <span class="stepper-step-name">Choose Method</span>
+                        <i class="fa-solid fa-angle-down stepper-step-chevron"></i>
+                    </div>
+                </div>
+                <div class="stepper-progress-track">
+                    <div class="stepper-progress-fill" style="width:18%;"></div>
+                </div>
+            </div>
+
+            <!-- Search + filter row -->
+            <div class="jsa-search-row">
+                <div class="jsa-search-wrap">
+                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                    <input type="text" class="jsa-search-input" id="jsaSearchInput"
+                        placeholder="Search JSAs…" oninput="filterJsaItems(this.value)">
+                </div>
+                <button class="jsa-filter-toggle" id="jsaFilterToggle" onclick="openDrawer('jsaFilterDrawer')">
+                    <i class="fa-solid fa-bars-filter"></i>
+                    <span class="filter-count-badge" id="jsaFilterCount"></span>
+                </button>
+            </div>
+
+            <!-- Results count -->
+            <div class="jsa-results-row" id="jsaResultsCount">6 JSAs found</div>
+
+            <!-- JSA list -->
+            <div class="jsa-select-list" id="jsaSelectList">
+
+                <div class="jsa-select-item" onclick="selectJsaItem(this)">
+                    <div class="jsa-radio"></div>
+                    <div class="jsa-select-content">
+                        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-submitted"><i class="fa-solid fa-check" style="font-size:10px;"></i> Submitted</span>
+                        </div>
+                        <div class="jsa-select-title">Site Safety Assessment – Building A, Floor 3</div>
+                        <div class="jsa-select-meta"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, GA</div>
+                        <div class="jsa-select-meta"><i class="fa-regular fa-clock"></i> Jan 14, 2026</div>
+                    </div>
+                </div>
+
+                <div class="jsa-select-item" onclick="selectJsaItem(this)">
+                    <div class="jsa-radio"></div>
+                    <div class="jsa-select-content">
+                        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-submitted"><i class="fa-solid fa-check" style="font-size:10px;"></i> Submitted</span>
+                        </div>
+                        <div class="jsa-select-title">Forklift Operation – Loading Dock B</div>
+                        <div class="jsa-select-meta"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, GA</div>
+                        <div class="jsa-select-meta"><i class="fa-regular fa-clock"></i> Jan 10, 2026</div>
+                    </div>
+                </div>
+
+                <div class="jsa-select-item" onclick="selectJsaItem(this)">
+                    <div class="jsa-radio"></div>
+                    <div class="jsa-select-content">
+                        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-incomplete" style="background:rgba(25,59,103,0.08);color:rgba(26,41,61,0.8);"><i class="fa-solid fa-file-pen" style="font-size:10px;"></i> Active</span>
+                        </div>
+                        <div class="jsa-select-title">Electrical Panel Maintenance – Room 214</div>
+                        <div class="jsa-select-meta"><i class="fa-solid fa-location-dot"></i> Facility HQ, Nashville, TN</div>
+                        <div class="jsa-select-meta"><i class="fa-regular fa-clock"></i> Jan 8, 2026</div>
+                    </div>
+                </div>
+
+                <div class="jsa-select-item" onclick="selectJsaItem(this)">
+                    <div class="jsa-radio"></div>
+                    <div class="jsa-select-content">
+                        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-submitted"><i class="fa-solid fa-check" style="font-size:10px;"></i> Submitted</span>
+                        </div>
+                        <div class="jsa-select-title">Confined Space Entry – Tank Room B</div>
+                        <div class="jsa-select-meta"><i class="fa-solid fa-location-dot"></i> Warehouse 5, Dallas, TX</div>
+                        <div class="jsa-select-meta"><i class="fa-regular fa-clock"></i> Jan 5, 2026</div>
+                    </div>
+                </div>
+
+                <div class="jsa-select-item" onclick="selectJsaItem(this)">
+                    <div class="jsa-radio"></div>
+                    <div class="jsa-select-content">
+                        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-submitted"><i class="fa-solid fa-check" style="font-size:10px;"></i> Submitted</span>
+                        </div>
+                        <div class="jsa-select-title">Roof Access & Fall Protection – Level 4</div>
+                        <div class="jsa-select-meta"><i class="fa-solid fa-location-dot"></i> Plant B, Birmingham, AL</div>
+                        <div class="jsa-select-meta"><i class="fa-regular fa-clock"></i> Dec 28, 2025</div>
+                    </div>
+                </div>
+
+                <div class="jsa-select-item" onclick="selectJsaItem(this)">
+                    <div class="jsa-radio"></div>
+                    <div class="jsa-select-content">
+                        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-incomplete" style="background:rgba(25,59,103,0.08);color:rgba(26,41,61,0.8);"><i class="fa-solid fa-file-pen" style="font-size:10px;"></i> Active</span>
+                        </div>
+                        <div class="jsa-select-title">Chemical Handling – Storage Area C</div>
+                        <div class="jsa-select-meta"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta, GA</div>
+                        <div class="jsa-select-meta"><i class="fa-regular fa-clock"></i> Dec 20, 2025</div>
+                    </div>
+                </div>
+
+            </div><!-- /jsa-select-list -->
+
+            <!-- Filter sheet -->
+            <div class="overlay-bg" id="jsaFilterOverlay" onclick="closeDrawer('jsaFilterDrawer')"></div>
+            <div class="bottom-drawer" id="jsaFilterDrawer" style="max-height:92%;overflow:hidden;display:flex;flex-direction:column;">
+                <div class="drawer-handle"></div>
+                <div class="drawer-header">
+                    <span class="drawer-title">Filter JSAs</span>
+                    <button class="drawer-close" onclick="closeDrawer('jsaFilterDrawer')"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="filter-sheet-scroll">
+                    <div class="filter-field-section">
+                        <label class="filter-field-label">Division</label>
+                        <button class="filter-field-btn" id="flt-division"><span>All Divisions</span><i class="fa-solid fa-chevron-down"></i></button>
+                    </div>
+                    <div class="filter-field-section">
+                        <label class="filter-field-label">Facility</label>
+                        <button class="filter-field-btn" id="flt-facility"><span>All Facilities</span><i class="fa-solid fa-chevron-down"></i></button>
+                    </div>
+                    <div class="filter-field-section">
+                        <label class="filter-field-label">Section</label>
+                        <button class="filter-field-btn" id="flt-section"><span>All Sections</span><i class="fa-solid fa-chevron-down"></i></button>
+                    </div>
+                    <div class="filter-field-section">
+                        <label class="filter-field-label">Location</label>
+                        <button class="filter-field-btn" id="flt-location"><span>All Locations</span><i class="fa-solid fa-chevron-down"></i></button>
+                    </div>
+                    <div class="filter-field-section">
+                        <label class="filter-field-label">Department</label>
+                        <button class="filter-field-btn" id="flt-department"><span>All Departments</span><i class="fa-solid fa-chevron-down"></i></button>
+                    </div>
+                    <div class="filter-field-section">
+                        <label class="filter-field-label">Date Range</label>
+                        <div class="filter-date-row">
+                            <input type="date" class="filter-date-input" id="fltDateFrom">
+                            <span class="filter-date-sep">–</span>
+                            <input type="date" class="filter-date-input" id="fltDateTo">
+                        </div>
+                    </div>
+                    <div class="filter-field-section" style="padding-bottom:12px;">
+                        <label class="filter-field-label">Status</label>
+                        <div class="filter-status-pills">
+                            <button class="filter-status-pill active" onclick="toggleStatusPill(this, true)">All</button>
+                            <button class="filter-status-pill" onclick="toggleStatusPill(this)">Active</button>
+                            <button class="filter-status-pill" onclick="toggleStatusPill(this)">Pending</button>
+                            <button class="filter-status-pill" onclick="toggleStatusPill(this)">Submitted</button>
+                            <button class="filter-status-pill" onclick="toggleStatusPill(this)">Archived</button>
+                        </div>
+                    </div>
+                </div><!-- /filter-sheet-scroll -->
+                <div class="filter-sheet-footer">
+                    <button class="filter-sheet-reset" onclick="resetJsaFilters()">Reset</button>
+                    <button class="filter-sheet-apply" onclick="applyJsaFilters()">Apply Filters</button>
+                </div>
+            </div><!-- /jsaFilterDrawer -->
+
+            <div class="mobile-footer">
+                <button class="footer-btn-cancel" onclick="showScreen('jsa-start')">Cancel</button>
+                <div class="footer-btn-group">
+                    <button class="footer-btn-next" id="jsaSelectNext"
+                        onclick="showScreen('jsa-basic')"
+                        style="opacity:0.4;pointer-events:none;">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- SCREEN: JSA BASIC INFO                 -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="screen" id="screen-jsa-basic">
+            <div class="mobile-header">
+                <div class="status-bar-area">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:white;">
+                        <i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
+                </div>
+                <div class="header-bar">
+                    <button class="hdr-btn" onclick="showScreen('jsa-start')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="header-title">JSA</span>
+                </div>
+            </div>
+
+            <div class="jsa-stepper">
+                <div class="stepper-row">
+                    <button class="stepper-back-btn" onclick="showScreen('jsa-start')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <div class="stepper-step-info" onclick="openStepNavDrawer('basic-info')">
+                        <span class="stepper-step-name">Basic Information</span>
+                        <i class="fa-solid fa-angle-down stepper-step-chevron"></i>
+                    </div>
+                </div>
+                <div class="stepper-progress-track">
+                    <div class="stepper-progress-fill" style="width:25%;"></div>
+                </div>
+            </div>
+
+            <div class="screen-body">
+                <div class="form-body">
+
+                    <div class="form-field">
+                        <label class="form-label">Task Name <span class="req">*</span></label>
+                        <input class="form-input" type="text" placeholder="Enter task name…" />
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Division <span class="req">*</span></label>
+                        <button class="form-select-btn" id="divisionBtn" onclick="openDrawer('divisionDrawer')">
+                            <span id="divisionBtnText" style="color:#9ca3af;">Select division…</span>
+                            <i class="fa-solid fa-chevron-down" style="color:#9ca3af;font-size:13px;"></i>
+                        </button>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Facility <span class="req">*</span></label>
+                        <button class="form-select-btn" id="facilityBtn" onclick="openFacilitySearch()">
+                            <span id="facilityBtnText" style="color:#9ca3af;">Start typing here…</span>
+                            <i class="fa-solid fa-magnifying-glass" style="color:#9ca3af;font-size:13px;"></i>
+                        </button>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Status <span class="req">*</span></label>
+                        <button class="form-select-btn filled" id="statusBtn" onclick="openDrawer('statusDrawer')">
+                            <span id="statusBtnText">Draft</span>
+                            <i class="fa-solid fa-chevron-down" style="color:#9ca3af;font-size:13px;"></i>
+                        </button>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Start Date</label>
+                        <input class="form-input" type="date" value="2026-05-13" />
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Analysis Done By <span class="req">*</span></label>
+                        <button class="form-select-btn filled" id="analysisByBtn" onclick="openDrawer('analysisByDrawer')">
+                            <span id="analysisByBtnText">Xia, Andy</span>
+                            <i class="fa-solid fa-chevron-down" style="color:#9ca3af;font-size:13px;"></i>
+                        </button>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Category</label>
+                        <button class="form-select-btn" id="categoryBtn" onclick="openDrawer('categoryDrawer')">
+                            <span id="categoryBtnText" style="color:#9ca3af;">Select category…</span>
+                            <i class="fa-solid fa-chevron-down" style="color:#9ca3af;font-size:13px;"></i>
+                        </button>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Supervisor's Name</label>
+                        <input class="form-input" type="text" placeholder="Start typing name here…" />
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">New Currency Field 326</label>
+                        <div class="form-currency-wrap">
+                            <span class="form-currency-prefix">$</span>
+                            <input class="form-currency-input" type="number" min="0" step="0.01" placeholder="0.00" />
+                        </div>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Supervisor's ID <span class="req">*</span></label>
+                        <div class="form-readonly form-readonly-green"></div>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Supervisor's Title</label>
+                        <div class="form-readonly"></div>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Review Cycle <span class="req">*</span></label>
+                        <button class="form-select-btn" id="reviewCycleBtn" onclick="openDrawer('reviewCycleDrawer')">
+                            <span id="reviewCycleBtnText" style="color:#9ca3af;">Select review cycle…</span>
+                            <i class="fa-solid fa-chevron-down" style="color:#9ca3af;font-size:13px;"></i>
+                        </button>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Last Review Date</label>
+                        <input class="form-input" type="date" />
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Next Review Date</label>
+                        <div class="form-readonly"></div>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-input" rows="3" placeholder="Enter description…" style="resize:none;"></textarea>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Detailed Location</label>
+                        <textarea class="form-input" rows="3" placeholder="Enter detailed location…" style="resize:none;"></textarea>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Overall Risk</label>
+                        <div class="form-readonly"></div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="mobile-footer">
+                <button class="footer-btn-cancel" onclick="showScreen('home')">Cancel</button>
+                <div class="footer-btn-group">
+                    <button class="footer-btn-back" onclick="showScreen('jsa-start')">Back</button>
+                    <button class="footer-btn-next" onclick="showScreen('jsa-steps-empty')">Next</button>
+                </div>
+            </div>
+
+            <!-- Facility full-screen search -->
+            <div class="fullscreen-select" id="facilitySearch">
+                <div class="fs-header">
+                    <div class="fs-header-inner">
+                        <button class="hdr-btn" onclick="closeFacilitySearch()"><i class="fa-solid fa-arrow-left"></i></button>
+                        <span class="fs-title">Select Facility</span>
+                    </div>
+                </div>
+                <div class="fs-search-wrap" style="position:relative;">
+                    <i class="fa-solid fa-magnifying-glass fs-search-icon"></i>
+                    <input class="fs-search" type="text" placeholder="Search facilities…" oninput="filterFacilities(this.value)" />
+                </div>
+                <div class="fs-list" id="facilityList">
+                    <div class="fs-item" onclick="selectFacility('Warehouse 12, Atlanta, GA')">Warehouse 12, Atlanta, GA</div>
+                    <div class="fs-item" onclick="selectFacility('Facility HQ, Nashville, TN')">Facility HQ, Nashville, TN</div>
+                    <div class="fs-item" onclick="selectFacility('Distribution Center East, Columbus, OH')">Distribution Center East, Columbus, OH</div>
+                    <div class="fs-item" onclick="selectFacility('Manufacturing Plant A, Detroit, MI')">Manufacturing Plant A, Detroit, MI</div>
+                    <div class="fs-item" onclick="selectFacility('Logistics Hub, Memphis, TN')">Logistics Hub, Memphis, TN</div>
+                    <div class="fs-item" onclick="selectFacility('Regional Office, Charlotte, NC')">Regional Office, Charlotte, NC</div>
+                    <div class="fs-item" onclick="selectFacility('Storage Facility B, Louisville, KY')">Storage Facility B, Louisville, KY</div>
+                    <div class="fs-item" onclick="selectFacility('Plant Operations, Birmingham, AL')">Plant Operations, Birmingham, AL</div>
+                </div>
+            </div>
+
+            <!-- Division drawer -->
+            <div class="overlay-bg" id="divisionOverlay" onclick="closeDrawer('divisionDrawer')"></div>
+            <div class="bottom-drawer" id="divisionDrawer">
+                <div class="drawer-handle"></div>
+                <div class="drawer-header">
+                    <span class="drawer-title">Select Division</span>
+                    <button class="drawer-close" onclick="closeDrawer('divisionDrawer')"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="drawer-list">
+                    <div class="drawer-item" onclick="selectDrawerField('division','Operations')">Operations</div>
+                    <div class="drawer-item" onclick="selectDrawerField('division','Maintenance')">Maintenance</div>
+                    <div class="drawer-item" onclick="selectDrawerField('division','Safety &amp; Compliance')">Safety &amp; Compliance</div>
+                    <div class="drawer-item" onclick="selectDrawerField('division','Logistics')">Logistics</div>
+                    <div class="drawer-item" onclick="selectDrawerField('division','Engineering')">Engineering</div>
+                    <div class="drawer-item" onclick="selectDrawerField('division','Administration')">Administration</div>
+                </div>
+            </div>
+
+            <!-- Status drawer -->
+            <div class="overlay-bg" id="statusOverlay" onclick="closeDrawer('statusDrawer')"></div>
+            <div class="bottom-drawer" id="statusDrawer">
+                <div class="drawer-handle"></div>
+                <div class="drawer-header">
+                    <span class="drawer-title">Select Status</span>
+                    <button class="drawer-close" onclick="closeDrawer('statusDrawer')"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="drawer-list">
+                    <div class="drawer-item" onclick="selectDrawerField('status','Draft')">Draft</div>
+                    <div class="drawer-item" onclick="selectDrawerField('status','Active')">Active</div>
+                    <div class="drawer-item" onclick="selectDrawerField('status','Pending Review')">Pending Review</div>
+                    <div class="drawer-item" onclick="selectDrawerField('status','Submitted')">Submitted</div>
+                    <div class="drawer-item" onclick="selectDrawerField('status','Archived')">Archived</div>
+                </div>
+            </div>
+
+            <!-- Analysis Done By drawer -->
+            <div class="overlay-bg" id="analysisByOverlay" onclick="closeDrawer('analysisByDrawer')"></div>
+            <div class="bottom-drawer" id="analysisByDrawer">
+                <div class="drawer-handle"></div>
+                <div class="drawer-header">
+                    <span class="drawer-title">Analysis Done By</span>
+                    <button class="drawer-close" onclick="closeDrawer('analysisByDrawer')"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div style="position:relative;" class="drawer-search-wrap">
+                    <i class="fa-solid fa-magnifying-glass drawer-search-icon"></i>
+                    <input class="drawer-search" type="text" placeholder="Search employees…" />
+                </div>
+                <div class="drawer-list">
+                    <div class="drawer-item" onclick="selectDrawerField('analysisBy','Xia, Andy')"><i class="fa-regular fa-user" style="color:#9ca3af;font-size:14px;"></i> Xia, Andy</div>
+                    <div class="drawer-item" onclick="selectDrawerField('analysisBy','Johnson, Sarah')"><i class="fa-regular fa-user" style="color:#9ca3af;font-size:14px;"></i> Johnson, Sarah</div>
+                    <div class="drawer-item" onclick="selectDrawerField('analysisBy','Williams, Marcus')"><i class="fa-regular fa-user" style="color:#9ca3af;font-size:14px;"></i> Williams, Marcus</div>
+                    <div class="drawer-item" onclick="selectDrawerField('analysisBy','Rodriguez, Elena')"><i class="fa-regular fa-user" style="color:#9ca3af;font-size:14px;"></i> Rodriguez, Elena</div>
+                    <div class="drawer-item" onclick="selectDrawerField('analysisBy','Park, James')"><i class="fa-regular fa-user" style="color:#9ca3af;font-size:14px;"></i> Park, James</div>
+                </div>
+            </div>
+
+            <!-- Category drawer -->
+            <div class="overlay-bg" id="categoryOverlay" onclick="closeDrawer('categoryDrawer')"></div>
+            <div class="bottom-drawer" id="categoryDrawer">
+                <div class="drawer-handle"></div>
+                <div class="drawer-header">
+                    <span class="drawer-title">Select Category</span>
+                    <button class="drawer-close" onclick="closeDrawer('categoryDrawer')"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="drawer-list">
+                    <div class="drawer-item" onclick="selectDrawerField('category','General Safety')">General Safety</div>
+                    <div class="drawer-item" onclick="selectDrawerField('category','Electrical')">Electrical</div>
+                    <div class="drawer-item" onclick="selectDrawerField('category','Mechanical')">Mechanical</div>
+                    <div class="drawer-item" onclick="selectDrawerField('category','Chemical')">Chemical</div>
+                    <div class="drawer-item" onclick="selectDrawerField('category','Ergonomics')">Ergonomics</div>
+                    <div class="drawer-item" onclick="selectDrawerField('category','Fire Safety')">Fire Safety</div>
+                    <div class="drawer-item" onclick="selectDrawerField('category','Confined Space')">Confined Space</div>
+                    <div class="drawer-item" onclick="selectDrawerField('category','Working at Heights')">Working at Heights</div>
+                </div>
+            </div>
+
+            <!-- Review Cycle drawer -->
+            <div class="overlay-bg" id="reviewCycleOverlay" onclick="closeDrawer('reviewCycleDrawer')"></div>
+            <div class="bottom-drawer" id="reviewCycleDrawer">
+                <div class="drawer-handle"></div>
+                <div class="drawer-header">
+                    <span class="drawer-title">Select Review Cycle</span>
+                    <button class="drawer-close" onclick="closeDrawer('reviewCycleDrawer')"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="drawer-list">
+                    <div class="drawer-item" onclick="selectDrawerField('reviewCycle','Monthly')">Monthly</div>
+                    <div class="drawer-item" onclick="selectDrawerField('reviewCycle','Quarterly')">Quarterly</div>
+                    <div class="drawer-item" onclick="selectDrawerField('reviewCycle','Semi-Annual')">Semi-Annual</div>
+                    <div class="drawer-item" onclick="selectDrawerField('reviewCycle','Annual')">Annual</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- SCREEN: JSA STEPS (EMPTY)              -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="screen" id="screen-jsa-steps-empty">
+            <div class="mobile-header">
+                <div class="status-bar-area">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:white;">
+                        <i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
+                </div>
+                <div class="header-bar">
+                    <button class="hdr-btn" onclick="showScreen('jsa-basic')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="header-title">JSA</span>
+                </div>
+            </div>
+
+            <div class="jsa-stepper">
+                <div class="stepper-row">
+                    <button class="stepper-back-btn" onclick="showScreen('jsa-basic')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <div class="stepper-step-info" onclick="openStepNavDrawer('add-steps')">
+                        <span class="stepper-step-name">Add Steps</span>
+                        <i class="fa-solid fa-angle-down stepper-step-chevron"></i>
+                    </div>
+                </div>
+                <div class="stepper-progress-track">
+                    <div class="stepper-progress-fill" style="width:50%;"></div>
+                </div>
+            </div>
+
+            <div class="screen-body">
+                <div class="empty-state" style="padding-top:40px;">
+                    <i class="fa-regular fa-list-check" style="font-size:52px;color:#d1d5db;"></i>
+                    <div class="empty-state-title">No steps added yet</div>
+                    <div class="empty-state-desc">Add steps to define each task and associated hazards for this JSA.</div>
+                </div>
+                <button class="add-step-btn" onclick="showScreen('jsa-add-step')">
+                    <i class="fa-solid fa-plus"></i> Add Step
+                </button>
+            </div>
+
+            <div class="mobile-footer">
+                <button class="footer-btn-cancel" onclick="showScreen('home')">Cancel</button>
+                <div class="footer-btn-group">
+                    <button class="footer-btn-back" onclick="showScreen('jsa-basic')">Back</button>
+                    <button class="footer-btn-next" onclick="showScreen('jsa-steps-filled')">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- SCREEN: JSA ADD STEP (form)            -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="screen" id="screen-jsa-add-step">
+            <div class="mobile-header">
+                <div class="status-bar-area">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:white;">
+                        <i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
+                </div>
+                <div class="header-bar">
+                    <button class="hdr-btn" onclick="showScreen('jsa-steps-empty')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="header-title">Add Step</span>
+                </div>
+            </div>
+
+            <div class="screen-body">
+                <div class="form-body">
+                    <div class="form-field">
+                        <label class="form-label">Step Name <span class="req">*</span></label>
+                        <input class="form-input" type="text" placeholder="Describe the task step…" />
+                    </div>
+                    <div class="form-field">
+                        <label class="form-label">Hazard Category</label>
+                        <button class="form-select-btn" onclick="openDrawer('hazardCatDrawer')">
+                            <span>Select category…</span>
+                            <i class="fa-solid fa-chevron-down" style="color:#9ca3af;font-size:13px;"></i>
+                        </button>
+                    </div>
+                    <div class="form-field">
+                        <label class="form-label">Hazard</label>
+                        <input class="form-input" type="text" placeholder="Describe the potential hazard…" />
+                    </div>
+                    <div class="form-row">
+                        <div class="form-field">
+                            <label class="form-label">Severity</label>
+                            <button class="form-select-btn" onclick="openDrawer('severityDrawer')">
+                                <span>Select…</span>
+                                <i class="fa-solid fa-chevron-down" style="color:#9ca3af;font-size:13px;"></i>
+                            </button>
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Probability</label>
+                            <button class="form-select-btn" onclick="openDrawer('probabilityDrawer')">
+                                <span>Select…</span>
+                                <i class="fa-solid fa-chevron-down" style="color:#9ca3af;font-size:13px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-info-callout">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <span><strong>Risk</strong> is calculated from the combination of Severity and Probability selected above.</span>
+                    </div>
+                    <div class="form-field">
+                        <label class="form-label">Control Measures</label>
+                        <textarea class="form-input" rows="2" placeholder="Describe controls to mitigate the hazard…" style="resize:none;"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-field">
+                            <label class="form-label">Residual Severity</label>
+                            <button class="form-select-btn" onclick="openDrawer('severityDrawer')">
+                                <span>Select…</span>
+                                <i class="fa-solid fa-chevron-down" style="color:#9ca3af;font-size:13px;"></i>
+                            </button>
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Residual Probability</label>
+                            <button class="form-select-btn" onclick="openDrawer('probabilityDrawer')">
+                                <span>Select…</span>
+                                <i class="fa-solid fa-chevron-down" style="color:#9ca3af;font-size:13px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-info-callout">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <span><strong>Residual Risk</strong> is the remaining risk after applying the control measures above. It is calculated from Residual Severity and Residual Probability.</span>
+                    </div>
+                    <div class="form-field">
+                        <label class="form-label">Required PPE</label>
+                        <input class="form-input" type="text" placeholder="e.g. Hard hat, gloves, safety glasses…" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="mobile-footer">
+                <button class="footer-btn-cancel" onclick="showScreen('jsa-steps-empty')">Cancel</button>
+                <div class="footer-btn-group">
+                    <button class="footer-btn-next" onclick="showScreen('jsa-steps-filled')">Save Step</button>
+                </div>
+            </div>
+
+            <!-- Hazard Category drawer -->
+            <div class="overlay-bg" id="hazardCatOverlay" onclick="closeDrawer('hazardCatDrawer')"></div>
+            <div class="bottom-drawer" id="hazardCatDrawer">
+                <div class="drawer-handle"></div>
+                <div class="drawer-header">
+                    <span class="drawer-title">Hazard Category</span>
+                    <button class="drawer-close" onclick="closeDrawer('hazardCatDrawer')"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="drawer-list">
+                    <div class="drawer-item" onclick="closeDrawer('hazardCatDrawer')">Chemical</div>
+                    <div class="drawer-item" onclick="closeDrawer('hazardCatDrawer')">Electrical</div>
+                    <div class="drawer-item" onclick="closeDrawer('hazardCatDrawer')">Ergonomic</div>
+                    <div class="drawer-item" onclick="closeDrawer('hazardCatDrawer')">Mechanical</div>
+                    <div class="drawer-item" onclick="closeDrawer('hazardCatDrawer')">Physical</div>
+                    <div class="drawer-item" onclick="closeDrawer('hazardCatDrawer')">Thermal</div>
+                </div>
+            </div>
+
+            <!-- Severity drawer -->
+            <div class="overlay-bg" id="severityOverlay" onclick="closeDrawer('severityDrawer')"></div>
+            <div class="bottom-drawer" id="severityDrawer">
+                <div class="drawer-handle"></div>
+                <div class="drawer-header">
+                    <span class="drawer-title">Severity</span>
+                    <button class="drawer-close" onclick="closeDrawer('severityDrawer')"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="drawer-list">
+                    <div class="drawer-item" onclick="closeDrawer('severityDrawer')">1 – Insignificant</div>
+                    <div class="drawer-item" onclick="closeDrawer('severityDrawer')">2 – Minor</div>
+                    <div class="drawer-item" onclick="closeDrawer('severityDrawer')">3 – Moderate</div>
+                    <div class="drawer-item" onclick="closeDrawer('severityDrawer')">4 – Major</div>
+                    <div class="drawer-item" onclick="closeDrawer('severityDrawer')">5 – Catastrophic</div>
+                </div>
+            </div>
+
+            <!-- Probability drawer -->
+            <div class="overlay-bg" id="probabilityOverlay" onclick="closeDrawer('probabilityDrawer')"></div>
+            <div class="bottom-drawer" id="probabilityDrawer">
+                <div class="drawer-handle"></div>
+                <div class="drawer-header">
+                    <span class="drawer-title">Probability</span>
+                    <button class="drawer-close" onclick="closeDrawer('probabilityDrawer')"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="drawer-list">
+                    <div class="drawer-item" onclick="closeDrawer('probabilityDrawer')">A – Almost Certain</div>
+                    <div class="drawer-item" onclick="closeDrawer('probabilityDrawer')">B – Likely</div>
+                    <div class="drawer-item" onclick="closeDrawer('probabilityDrawer')">C – Possible</div>
+                    <div class="drawer-item" onclick="closeDrawer('probabilityDrawer')">D – Unlikely</div>
+                    <div class="drawer-item" onclick="closeDrawer('probabilityDrawer')">E – Rare</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- SCREEN: JSA STEPS (WITH STEPS)         -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="screen" id="screen-jsa-steps-filled">
+            <div class="mobile-header">
+                <div class="status-bar-area">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:white;">
+                        <i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
+                </div>
+                <div class="header-bar">
+                    <button class="hdr-btn" onclick="showScreen('jsa-basic')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="header-title">JSA</span>
+                </div>
+            </div>
+
+            <div class="jsa-stepper">
+                <div class="stepper-row">
+                    <button class="stepper-back-btn" onclick="showScreen('jsa-basic')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <div class="stepper-step-info" onclick="openStepNavDrawer('add-steps')">
+                        <span class="stepper-step-name">Add Steps</span>
+                        <i class="fa-solid fa-angle-down stepper-step-chevron"></i>
+                    </div>
+                </div>
+                <div class="stepper-progress-track">
+                    <div class="stepper-progress-fill" style="width:50%;"></div>
+                </div>
+            </div>
+
+            <div class="screen-body">
+
+                <div class="record-card-row">
+                    <div class="step-number">STEP 1</div>
+                    <div class="record-title">Lockout / Tagout Panel</div>
+                    <div class="step-info-badges">
+                        <span class="badge badge-hazard">Electrical</span>
+                        <span class="badge badge-risk-high">Risk: High</span>
+                        <span class="badge badge-risk-low">Residual Risk: Low</span>
+                    </div>
+                    <div class="step-desc">Control: Ensure all energy sources are isolated before performing maintenance. Use approved lockout devices on every breaker and verify zero energy state with a voltage meter before proceeding with any work on the panel.</div>
+                    <div class="step-footer">
+                        <i class="fa-regular fa-clock"></i> Last Updated: 1/15/26, 12:12:34 PM
+                    </div>
+                    <div class="rec-action-row">
+                        <button class="rec-btn-outline" onclick="showScreen('jsa-add-step')"><i class="fa-regular fa-pen-to-square"></i> Edit</button>
+                        <div class="step-menu-wrapper">
+                            <button class="step-menu-btn" aria-label="More options" onclick="toggleStepMenu(this)"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                            <div class="step-context-menu">
+                                <button class="danger"><i class="fa-regular fa-trash-can" style="width:14px;text-align:center;"></i> Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="record-card-row">
+                    <div class="step-number">STEP 2</div>
+                    <div class="record-title">Inspect Electrical Panel</div>
+                    <div class="step-info-badges">
+                        <span class="badge badge-hazard">Electrical</span>
+                        <span class="badge badge-risk-high">Risk: High</span>
+                        <span class="badge badge-risk-medium">Residual Risk: Medium</span>
+                    </div>
+                    <div class="step-desc">Control: Visually inspect all wiring and connections for signs of wear, arcing, or damage. Do not touch exposed conductors. Use insulated inspection tools throughout and maintain a minimum 18-inch clearance from live components.</div>
+                    <div class="step-footer">
+                        <i class="fa-regular fa-clock"></i> Last Updated: 1/15/26, 12:12:34 PM
+                    </div>
+                    <div class="rec-action-row">
+                        <button class="rec-btn-outline" onclick="showScreen('jsa-add-step')"><i class="fa-regular fa-pen-to-square"></i> Edit</button>
+                        <div class="step-menu-wrapper">
+                            <button class="step-menu-btn" aria-label="More options" onclick="toggleStepMenu(this)"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                            <div class="step-context-menu">
+                                <button class="danger"><i class="fa-regular fa-trash-can" style="width:14px;text-align:center;"></i> Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="add-step-btn" onclick="showScreen('jsa-add-step')" style="margin-top:12px;">
+                    <i class="fa-solid fa-plus"></i> Add Step
+                </button>
+            </div>
+
+            <div class="mobile-footer">
+                <button class="footer-btn-cancel" onclick="showScreen('home')">Cancel</button>
+                <div class="footer-btn-group">
+                    <button class="footer-btn-back" onclick="showScreen('jsa-basic')">Back</button>
+                    <button class="footer-btn-next" onclick="showScreen('jsa-additional')">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- SCREEN: JSA ADDITIONAL FEATURES        -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="screen" id="screen-jsa-additional">
+            <div class="mobile-header">
+                <div class="status-bar-area">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:white;">
+                        <i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
+                </div>
+                <div class="header-bar">
+                    <button class="hdr-btn" onclick="showScreen('jsa-steps-filled')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="header-title">JSA</span>
+                </div>
+            </div>
+
+            <div class="jsa-stepper">
+                <div class="stepper-row">
+                    <button class="stepper-back-btn" onclick="showScreen('jsa-steps-filled')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <div class="stepper-step-info" onclick="openStepNavDrawer('additional')">
+                        <span class="stepper-step-name">Additional Features</span>
+                        <i class="fa-solid fa-angle-down stepper-step-chevron"></i>
+                    </div>
+                </div>
+                <div class="stepper-progress-track">
+                    <div class="stepper-progress-fill" style="width:75%;"></div>
+                </div>
+            </div>
+
+            <div class="screen-body" style="padding-top:8px;">
+
+                <!-- Attachments section -->
+                <div class="feat-section">
+                    <div class="feat-section-header">
+                        <span class="feat-section-title">Attachments</span>
+                        <span class="feat-section-badge" id="attach-count">1</span>
+                    </div>
+
+                    <!-- Sample attachment (camera photo) -->
+                    <div class="attach-item" id="attach-item-1">
+                        <div class="attach-thumb" style="background:#dbeafe;color:#1e40af;">
+                            <i class="fa-solid fa-camera"></i>
+                        </div>
+                        <div class="attach-info">
+                            <div class="attach-name">IMG_2847.jpg</div>
+                            <div class="attach-meta">Photo · 2.1 MB · Just now</div>
+                        </div>
+                        <button class="attach-remove" onclick="removeAttachment('attach-item-1')" aria-label="Remove">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <button class="feat-add-btn" onclick="openAttachPicker()">
+                        <i class="fa-solid fa-plus"></i> Add Attachment
+                    </button>
+                </div>
+
+                <div class="feat-divider"></div>
+
+                <!-- Corrective Actions section -->
+                <div class="feat-section">
+                    <div class="feat-section-header">
+                        <span class="feat-section-title">Corrective Actions</span>
+                        <span class="feat-section-badge" id="ca-count">0</span>
+                    </div>
+
+                    <div id="ca-list"></div>
+
+                    <button class="feat-add-btn" onclick="openCaDrawer()">
+                        <i class="fa-solid fa-plus"></i> Add Corrective Action
+                    </button>
+                </div>
+            </div>
+
+            <div class="mobile-footer">
+                <button class="footer-btn-cancel" onclick="showScreen('home')">Cancel</button>
+                <div class="footer-btn-group">
+                    <button class="footer-btn-back" onclick="showScreen('jsa-steps-filled')">Back</button>
+                    <button class="footer-btn-next" onclick="showScreen('jsa-signature')">Next</button>
+                </div>
+            </div>
+
+            <!-- Attachment picker drawer -->
+            <div class="overlay-bg" id="attachPickerOverlay" onclick="closeAttachPicker()"></div>
+            <div class="bottom-drawer" id="attachPickerDrawer">
+                <div class="drawer-handle"></div>
+                <div class="drawer-header">
+                    <span class="drawer-title">Add Attachment</span>
+                    <button class="drawer-close" onclick="closeAttachPicker()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <button class="attach-option-item" onclick="addAttachment('camera')">
+                    <i class="fa-solid fa-camera"></i> Take Photo
+                </button>
+                <button class="attach-option-item" onclick="addAttachment('library')">
+                    <i class="fa-regular fa-images"></i> Photo Library
+                </button>
+                <button class="attach-option-item" onclick="addAttachment('files')">
+                    <i class="fa-regular fa-folder-open"></i> Files
+                </button>
+                <div style="height:16px;"></div>
+            </div>
+
+            <!-- Corrective action add drawer -->
+            <div class="overlay-bg" id="caAddOverlay" onclick="closeCaDrawer()"></div>
+            <div class="bottom-drawer" id="caAddDrawer" style="max-height:80%;overflow:hidden;display:flex;flex-direction:column;">
+                <div class="drawer-handle"></div>
+                <div class="drawer-header">
+                    <span class="drawer-title">Add Corrective Action</span>
+                    <button class="drawer-close" onclick="closeCaDrawer()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div style="padding:16px;flex:1;overflow-y:auto;">
+                    <textarea class="ca-textarea" id="ca-textarea-input" rows="5" placeholder="Describe the corrective action to be taken…"></textarea>
+                    <div style="margin-top:6px;font-size:12px;color:rgba(0,0,0,0.4);">Required for regulatory compliance</div>
+                </div>
+                <div class="drawer-footer-row">
+                    <button class="drawer-btn-cancel" onclick="closeCaDrawer()">Cancel</button>
+                    <button class="drawer-btn-primary" onclick="saveCorrAction()">Add Action</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- SCREEN: JSA E-SIGNATURE                -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="screen" id="screen-jsa-signature">
+            <div class="mobile-header">
+                <div class="status-bar-area">
+                    <span>9:30 PM</span>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:white;">
+                        <i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i>
+                    </div>
+                </div>
+                <div class="header-bar">
+                    <button class="hdr-btn" onclick="showScreen('jsa-additional')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="header-title">E-Signature</span>
+                </div>
+            </div>
+
+            <div class="jsa-stepper">
+                <div class="stepper-row">
+                    <button class="stepper-back-btn" onclick="showScreen('jsa-additional')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <div class="stepper-step-info" onclick="openStepNavDrawer('signature')">
+                        <span class="stepper-step-name">Signature Collection</span>
+                        <i class="fa-solid fa-angle-down stepper-step-chevron"></i>
+                    </div>
+                </div>
+                <div class="stepper-progress-track">
+                    <div class="stepper-progress-fill" style="width:100%;"></div>
+                </div>
+            </div>
+
+            <!-- Signature count bar -->
+            <div class="sig-count-bar">
+                <span class="sig-count-text" id="sig-count-text">1 signature collected</span>
+            </div>
+
+            <div class="screen-body" style="padding-top:14px;">
+
+                <!-- Signed card: Andy Xia (pre-existing) -->
+                <div class="signature-card-v2 is-signed" id="sig1-card">
+                    <div class="sig-card-header">
+                        <div class="sig-avatar signed">AX</div>
+                        <div class="sig-card-info">
+                            <div class="sig-name">Andy Xia</div>
+                            <div class="sig-role-text">Team Lead</div>
+                        </div>
+                    </div>
+                    <div class="sig-preview-area">
+                        <canvas id="sig1" width="330" height="56" style="display:block;width:100%;"></canvas>
+                        <div class="sig-preview-timestamp">Signed 1/15/26, 9:31 AM · Andy Xia</div>
+                    </div>
+                </div>
+
+                <!-- New signed cards injected here by JS -->
+
+                <!-- Add Signer button -->
+                <button class="add-signer-btn-v2" id="sigAddBtn" onclick="openSigTakeover()">
+                    <i class="fa-solid fa-plus"></i> Add Signer
+                </button>
+            </div>
+
+            <div class="mobile-footer">
+                <button class="footer-btn-cancel" onclick="showScreen('home')">Cancel</button>
+                <div class="footer-btn-group">
+                    <button class="footer-btn-back" onclick="showScreen('jsa-additional')">Back</button>
+                    <button class="footer-btn-next" onclick="submitJSA()" style="background:#168846;border-color:#168846;">Submit JSA</button>
+                </div>
+            </div>
+
+            <!-- Fullscreen signature takeover -->
+            <div class="sig-takeover" id="sigTakeover">
+                <div class="sig-takeover-header">
+                    <div class="sig-takeover-header-inner">
+                        <button class="hdr-btn" onclick="closeSigTakeover()"><i class="fa-solid fa-xmark"></i></button>
+                        <span class="sig-takeover-title">Add Signer</span>
+                    </div>
+                </div>
+                <div class="sig-takeover-body">
+                    <!-- User search -->
+                    <div>
+                        <div class="sig-field-label">Search users</div>
+                        <div class="sig-search-wrap">
+                            <i class="fa-solid fa-magnifying-glass sig-search-icon"></i>
+                            <input type="text" class="sig-search-input" id="sigSearchInput"
+                                placeholder="Type a name…"
+                                oninput="filterSigUsers(this.value)" />
+                            <div id="sigUserResults" class="sig-user-results"></div>
+                        </div>
+                    </div>
+                    <!-- Signature canvas -->
+                    <div>
+                        <div class="sig-field-label" style="margin-bottom:6px;">Signature</div>
+                        <div class="sig-signer-for" id="sigSignerFor">
+                            Signing as <strong id="sigSignerForName"></strong>
+                        </div>
+                        <div class="sig-takeover-canvas-wrap">
+                            <canvas id="sigTakeoverCanvas" width="358" height="200"
+                                style="display:block;width:100%;touch-action:none;"></canvas>
+                            <div class="sig-takeover-placeholder" id="sigTakeoverPlaceholder">
+                                <i class="fa-regular fa-pen-nib"></i>
+                                <span>Draw signature here</span>
+                            </div>
+                            <div class="sig-takeover-baseline"></div>
+                        </div>
+                        <div style="margin-top:8px;display:flex;justify-content:flex-end;">
+                            <button class="sig-takeover-clear" onclick="clearTakeoverCanvas()">Clear</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="sig-takeover-footer">
+                    <button class="sig-takeover-cancel" onclick="closeSigTakeover()">Cancel</button>
+                    <button class="sig-takeover-confirm" id="sigTakeoverConfirm" onclick="confirmSigTakeover()">Confirm Signature</button>
+                </div>
+            </div>
+        </div>
+
+    <!-- Global step nav drawer (shared across all JSA screens) -->
+    <div id="stepNavOverlay" onclick="closeStepNavDrawer()"></div>
+    <div id="stepNavDrawer">
+        <div class="step-nav-handle"></div>
+        <div class="step-nav-header">
+            <span class="step-nav-title">Steps</span>
+            <button class="step-nav-close" onclick="closeStepNavDrawer()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="step-nav-list" id="stepNavList"></div>
+    </div>
+
+    </div><!-- /phone -->
+</div><!-- /phone-frame -->
+
+<script>
+/* ── Screen navigation ── */
+const screenIds = ['home','records','jsa-start','jsa-select','jsa-basic','jsa-steps-empty','jsa-add-step','jsa-steps-filled','jsa-additional','jsa-signature'];
+
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const el = document.getElementById('screen-' + id);
+    if (el) {
+        el.classList.add('active');
+        el.scrollTop = 0;
+        const body = el.querySelector('.screen-body');
+        if (body) body.scrollTop = 0;
+    }
+    /* Hide sticky toolbar whenever navigating to records (real toolbar is at top) */
+    if (id === 'records') {
+        const st = document.getElementById('records-toolbar-sticky');
+        if (st) st.classList.remove('visible');
+    }
+    // Update nav pills
+    document.querySelectorAll('#screenNav button').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('#screenNav button').forEach(btn => {
+        if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes("'" + id + "'")) {
+            btn.classList.add('active');
+        }
+    });
+}
+
+/* ── Bottom drawer helpers ── */
+function openDrawer(drawerId) {
+    const drawer = document.getElementById(drawerId);
+    const overlayId = drawerId.replace('Drawer','Overlay');
+    const overlay = document.getElementById(overlayId);
+    if (drawer) drawer.classList.add('open');
+    if (overlay) overlay.classList.add('active');
+}
+function closeDrawer(drawerId) {
+    const drawer = document.getElementById(drawerId);
+    const overlayId = drawerId.replace('Drawer','Overlay');
+    const overlay = document.getElementById(overlayId);
+    if (drawer) drawer.classList.remove('open');
+    if (overlay) overlay.classList.remove('active');
+}
+
+/* ── Facility full-screen search ── */
+function openFacilitySearch() {
+    document.getElementById('facilitySearch').classList.add('active');
+}
+function closeFacilitySearch() {
+    document.getElementById('facilitySearch').classList.remove('active');
+}
+function selectFacility(name) {
+    const btn = document.getElementById('facilityBtn');
+    const text = document.getElementById('facilityBtnText');
+    text.textContent = name;
+    btn.classList.add('filled');
+    closeFacilitySearch();
+}
+function filterFacilities(query) {
+    document.querySelectorAll('#facilityList .fs-item').forEach(item => {
+        const matches = item.textContent.toLowerCase().includes(query.toLowerCase());
+        item.style.display = matches ? '' : 'none';
+    });
+}
+
+/* ── Basic Info drawer selection ── */
+const drawerFieldMap = {
+    division:    { btn: 'divisionBtn',    text: 'divisionBtnText',    drawer: 'divisionDrawer' },
+    status:      { btn: 'statusBtn',      text: 'statusBtnText',      drawer: 'statusDrawer' },
+    analysisBy:  { btn: 'analysisByBtn',  text: 'analysisByBtnText',  drawer: 'analysisByDrawer' },
+    category:    { btn: 'categoryBtn',    text: 'categoryBtnText',    drawer: 'categoryDrawer' },
+    reviewCycle: { btn: 'reviewCycleBtn', text: 'reviewCycleBtnText', drawer: 'reviewCycleDrawer' },
+};
+function selectDrawerField(field, value) {
+    const map = drawerFieldMap[field];
+    if (!map) return;
+    const textEl = document.getElementById(map.text);
+    const btnEl  = document.getElementById(map.btn);
+    if (textEl) { textEl.textContent = value; textEl.style.color = ''; }
+    if (btnEl)  { btnEl.classList.add('filled'); }
+    closeDrawer(map.drawer);
+}
+
+/* ── Signature canvas drawing ── */
+function initSigCanvas(canvasId, placeholderId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.strokeStyle = '#1a2940';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    let drawing = false;
+    let lastX = 0, lastY = 0;
+
+    function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const src = e.touches ? e.touches[0] : e;
+        return [(src.clientX - rect.left) * scaleX, (src.clientY - rect.top) * scaleY];
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+        drawing = true;
+        [lastX, lastY] = getPos(e);
+        if (placeholderId) document.getElementById(placeholderId).style.display = 'none';
+    });
+    canvas.addEventListener('mousemove', (e) => {
+        if (!drawing) return;
+        const [x, y] = getPos(e);
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        [lastX, lastY] = [x, y];
+    });
+    canvas.addEventListener('mouseup', () => drawing = false);
+    canvas.addEventListener('mouseleave', () => drawing = false);
+
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        drawing = true;
+        [lastX, lastY] = getPos(e);
+        if (placeholderId) document.getElementById(placeholderId).style.display = 'none';
+    }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (!drawing) return;
+        const [x, y] = getPos(e);
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        [lastX, lastY] = [x, y];
+    }, { passive: false });
+    canvas.addEventListener('touchend', () => drawing = false);
+}
+
+/* Draw a demo signature on canvas 1 */
+function drawDemoSig(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.strokeStyle = '#1a2940';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    const pts = [[40,45],[55,30],[70,50],[85,30],[100,55],[120,35],[140,50],[155,38],[170,50],[190,35],[205,45]];
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(40,60); ctx.lineTo(205,60);
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = 1; ctx.stroke();
+}
+
+/* ── Signature takeover ── */
+let sigTakeoverDrawing = false;
+let sigTakeoverLastX = 0;
+let sigTakeoverLastY = 0;
+let sigTakeoverHasStrokes = false;
+let sigSelectedUser = null;
+
+const sigPlatformUsers = [
+    { initials: 'AX', name: 'Andy Xia',        role: 'Team Lead' },
+    { initials: 'SJ', name: 'Sarah Johnson',    role: 'Team Member' },
+    { initials: 'MR', name: 'Mike Rodriguez',   role: 'Safety Officer' },
+    { initials: 'LC', name: 'Lisa Chen',        role: 'Supervisor' },
+    { initials: 'DP', name: 'David Park',       role: 'Field Technician' },
+    { initials: 'RT', name: 'Ryan Torres',      role: 'Operations Manager' },
+    { initials: 'JK', name: 'Jamie Kim',        role: 'Site Inspector' },
+];
+
+function openSigTakeover() {
+    const takeover = document.getElementById('sigTakeover');
+    takeover.classList.add('active');
+    document.getElementById('sigSearchInput').value = '';
+    document.getElementById('sigUserResults').innerHTML = '';
+    sigSelectedUser = null;
+    updateSigSignerFor();
+    clearTakeoverCanvas();
+    takeover.querySelector('.sig-takeover-body').scrollTop = 0;
+    setTimeout(() => document.getElementById('sigSearchInput').focus(), 250);
+}
+
+function closeSigTakeover() {
+    document.getElementById('sigTakeover').classList.remove('active');
+}
+
+function filterSigUsers(query) {
+    const container = document.getElementById('sigUserResults');
+    container.innerHTML = '';
+    sigSelectedUser = null;
+    updateSigSignerFor();
+
+    const q = query.trim();
+    if (!q) return;
+
+    const matches = sigPlatformUsers.filter(u => u.name.toLowerCase().includes(q.toLowerCase()));
+
+    if (matches.length === 0) {
+        const div = document.createElement('div');
+        div.className = 'sig-guest-notice';
+        div.innerHTML = 'No matching users found. <strong>' + escapeHtml(q) + '</strong> will be saved as a guest.';
+        container.appendChild(div);
+        sigSelectedUser = { name: q, role: 'Guest', initials: getInitials(q), isGuest: true };
+        updateSigSignerFor();
+        return;
+    }
+
+    matches.forEach(u => {
+        const item = document.createElement('div');
+        item.className = 'sig-user-result-item';
+        item.innerHTML =
+            '<div class="sig-user-result-avatar">' + u.initials + '</div>' +
+            '<div><div class="sig-user-result-name">' + escapeHtml(u.name) + '</div>' +
+            '<div class="sig-user-result-role">' + escapeHtml(u.role) + '</div></div>' +
+            '<i class="fa-solid fa-check sig-selected-check"></i>';
+        item.addEventListener('click', () => {
+            document.querySelectorAll('.sig-user-result-item').forEach(i => i.classList.remove('selected'));
+            item.classList.add('selected');
+            sigSelectedUser = { name: u.name, role: u.role, initials: u.initials, isGuest: false };
+            updateSigSignerFor();
+        });
+        container.appendChild(item);
+    });
+}
+
+function updateSigSignerFor() {
+    const el = document.getElementById('sigSignerFor');
+    const nameEl = document.getElementById('sigSignerForName');
+    if (sigSelectedUser) {
+        el.style.display = '';
+        nameEl.textContent = sigSelectedUser.name + (sigSelectedUser.isGuest ? ' (Guest)' : '');
+    } else {
+        el.style.display = 'none';
+    }
+}
+
+function clearTakeoverCanvas() {
+    const canvas = document.getElementById('sigTakeoverCanvas');
+    if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    const ph = document.getElementById('sigTakeoverPlaceholder');
+    if (ph) ph.style.display = '';
+    sigTakeoverHasStrokes = false;
+}
+
+function confirmSigTakeover() {
+    if (!sigSelectedUser || !sigTakeoverHasStrokes) return;
+    const canvas = document.getElementById('sigTakeoverCanvas');
+    const dataUrl = canvas.toDataURL();
+    const now = new Date().toLocaleString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit', hour: 'numeric', minute: '2-digit' });
+    const card = document.createElement('div');
+    card.className = 'signature-card-v2 is-signed';
+    card.innerHTML =
+        '<div class="sig-card-header">' +
+            '<div class="sig-avatar signed">' + escapeHtml(sigSelectedUser.initials) + '</div>' +
+            '<div class="sig-card-info">' +
+                '<div class="sig-name">' + escapeHtml(sigSelectedUser.name) + '</div>' +
+                '<div class="sig-role-text">' + escapeHtml(sigSelectedUser.role) + '</div>' +
+            '</div>' +
+        '</div>' +
+        '<div class="sig-preview-area">' +
+            '<img src="' + dataUrl + '" alt="Signature" style="width:100%;height:56px;object-fit:contain;display:block;" />' +
+            '<div class="sig-preview-timestamp">Signed ' + now + ' · ' + escapeHtml(sigSelectedUser.name) + '</div>' +
+        '</div>';
+    const addBtn = document.getElementById('sigAddBtn');
+    addBtn.before(card);
+    closeSigTakeover();
+    updateSigCount();
+}
+
+function updateSigCount() {
+    const count = document.querySelectorAll('#screen-jsa-signature .signature-card-v2').length;
+    const el = document.getElementById('sig-count-text');
+    if (el) el.textContent = count + ' signature' + (count !== 1 ? 's' : '') + ' collected';
+}
+
+function getInitials(name) {
+    return name.trim().split(/\s+/).map(w => w[0] || '').join('').toUpperCase().slice(0, 2);
+}
+
+function escapeHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ── Step Nav Drawer ── */
+const jsaStepDefs = [
+    { key: 'choose-method', label: 'Choose Method',       screen: 'jsa-start' },
+    { key: 'basic-info',    label: 'Basic Information',    screen: 'jsa-basic' },
+    { key: 'add-steps',     label: 'Add Steps',            screen: 'jsa-steps-filled' },
+    { key: 'additional',    label: 'Additional Features',  screen: 'jsa-additional' },
+    { key: 'signature',     label: 'Signature Collection', screen: 'jsa-signature' },
+];
+
+function openStepNavDrawer(activeKey) {
+    const list = document.getElementById('stepNavList');
+    list.innerHTML = '';
+    const activeIdx = jsaStepDefs.findIndex(s => s.key === activeKey);
+    jsaStepDefs.forEach((step, i) => {
+        const isActive = i === activeIdx;
+        const btn = document.createElement('button');
+        btn.className = 'step-nav-item' + (isActive ? ' active-step' : '');
+        btn.innerHTML =
+            '<div class="step-nav-num">' + (i + 1) + '</div>' +
+            '<span class="step-nav-label">' + step.label + '</span>' +
+            '<i class="fa-solid fa-chevron-right step-nav-arrow"></i>';
+        btn.addEventListener('click', () => {
+            closeStepNavDrawer();
+            showScreen(step.screen);
+        });
+        list.appendChild(btn);
+    });
+    document.getElementById('stepNavOverlay').classList.add('active');
+    document.getElementById('stepNavDrawer').classList.add('open');
+}
+
+function closeStepNavDrawer() {
+    document.getElementById('stepNavOverlay').classList.remove('active');
+    document.getElementById('stepNavDrawer').classList.remove('open');
+}
+
+function submitJSA() {
+    alert('JSA submitted successfully!');
+    showScreen('records');
+}
+
+/* ── Additional Features (Attachments & Corrective Actions) ── */
+let attachCounter = 1;
+let caCounter = 1;
+
+function openAttachPicker() {
+    document.getElementById('attachPickerOverlay').classList.add('active');
+    document.getElementById('attachPickerDrawer').classList.add('open');
+}
+function closeAttachPicker() {
+    document.getElementById('attachPickerOverlay').classList.remove('active');
+    document.getElementById('attachPickerDrawer').classList.remove('open');
+}
+
+const attachMeta = {
+    camera:  { icon: 'fa-solid fa-camera',       bg: '#dbeafe', fg: '#1e40af', label: 'IMG_',  type: 'Photo' },
+    library: { icon: 'fa-regular fa-image',       bg: '#fce7f3', fg: '#9d174d', label: 'Photo_', type: 'Photo' },
+    files:   { icon: 'fa-regular fa-file-lines',  bg: '#d1fae5', fg: '#065f46', label: 'File_',  type: 'Document' }
+};
+
+function addAttachment(source) {
+    closeAttachPicker();
+    attachCounter++;
+    const m = attachMeta[source];
+    const id = 'attach-item-' + attachCounter;
+    const item = document.createElement('div');
+    item.className = 'attach-item';
+    item.id = id;
+    const num = String(Math.floor(1000 + Math.random() * 9000));
+    const size = (0.8 + Math.random() * 3.5).toFixed(1);
+    item.innerHTML = `
+        <div class="attach-thumb" style="background:${m.bg};color:${m.fg};">
+            <i class="${m.icon}"></i>
+        </div>
+        <div class="attach-info">
+            <div class="attach-name">${m.label}${num}.${source === 'files' ? 'pdf' : 'jpg'}</div>
+            <div class="attach-meta">${m.type} · ${size} MB · Just now</div>
+        </div>
+        <button class="attach-remove" onclick="removeAttachment('${id}')" aria-label="Remove">
+            <i class="fa-solid fa-xmark"></i>
+        </button>`;
+    document.querySelector('#screen-jsa-additional .feat-section .feat-add-btn').before(item);
+    updateAttachCount();
+}
+
+function removeAttachment(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+    updateAttachCount();
+}
+
+function updateAttachCount() {
+    const count = document.querySelectorAll('#screen-jsa-additional .attach-item').length;
+    document.getElementById('attach-count').textContent = count;
+}
+
+function openCaDrawer() {
+    document.getElementById('caAddOverlay').classList.add('active');
+    document.getElementById('caAddDrawer').classList.add('open');
+    document.getElementById('ca-textarea-input').value = '';
+    setTimeout(() => document.getElementById('ca-textarea-input').focus(), 300);
+}
+function closeCaDrawer() {
+    document.getElementById('caAddOverlay').classList.remove('active');
+    document.getElementById('caAddDrawer').classList.remove('open');
+}
+
+function saveCorrAction() {
+    const text = document.getElementById('ca-textarea-input').value.trim();
+    if (!text) return;
+    closeCaDrawer();
+    const id = 'ca-' + (++caCounter);
+    const item = document.createElement('div');
+    item.className = 'ca-item';
+    item.id = id;
+    const now = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    item.innerHTML = `
+        <div class="ca-item-content">
+            <div class="ca-desc">${text}</div>
+            <div class="ca-meta"><i class="fa-regular fa-clock"></i> Added ${now}</div>
+        </div>
+        <button class="ca-remove" onclick="removeCa('${id}')" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>`;
+    document.getElementById('ca-list').appendChild(item);
+    updateCaCount();
+}
+
+function removeCa(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+    updateCaCount();
+}
+
+function updateCaCount() {
+    const count = document.querySelectorAll('#ca-list .ca-item').length;
+    document.getElementById('ca-count').textContent = count;
+}
+
+/* ── JSA Select screen ── */
+function selectJsaItem(el) {
+    document.querySelectorAll('#jsaSelectList .jsa-select-item').forEach(item => {
+        item.classList.remove('selected');
+    });
+    el.classList.add('selected');
+    const next = document.getElementById('jsaSelectNext');
+    if (next) { next.style.opacity = ''; next.style.pointerEvents = ''; }
+}
+
+function filterJsaItems(query) {
+    const items = document.querySelectorAll('#jsaSelectList .jsa-select-item');
+    let count = 0;
+    items.forEach(item => {
+        const text = item.querySelector('.jsa-select-title').textContent.toLowerCase();
+        const matches = !query || text.includes(query.toLowerCase());
+        item.style.display = matches ? '' : 'none';
+        if (matches) count++;
+    });
+    const label = document.getElementById('jsaResultsCount');
+    if (label) label.textContent = count + ' JSA' + (count !== 1 ? 's' : '') + ' found';
+}
+
+function toggleStatusPill(btn, isAll) {
+    const pills = btn.closest('.filter-status-pills').querySelectorAll('.filter-status-pill');
+    if (isAll) {
+        pills.forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+    } else {
+        pills[0].classList.remove('active');
+        btn.classList.toggle('active');
+        const anyActive = [...pills].slice(1).some(p => p.classList.contains('active'));
+        if (!anyActive) pills[0].classList.add('active');
+    }
+}
+
+function resetJsaFilters() {
+    const defaults = { 'flt-division': 'All Divisions', 'flt-facility': 'All Facilities',
+        'flt-section': 'All Sections', 'flt-location': 'All Locations', 'flt-department': 'All Departments' };
+    Object.entries(defaults).forEach(([id, label]) => {
+        const btn = document.getElementById(id);
+        if (btn) { btn.classList.remove('set'); btn.querySelector('span').textContent = label; }
+    });
+    const from = document.getElementById('fltDateFrom');
+    const to = document.getElementById('fltDateTo');
+    if (from) from.value = '';
+    if (to) to.value = '';
+    const pills = document.querySelectorAll('#jsaFilterDrawer .filter-status-pill');
+    pills.forEach((p, i) => p.classList.toggle('active', i === 0));
+    document.getElementById('jsaFilterCount').classList.remove('visible');
+    document.getElementById('jsaFilterToggle').classList.remove('active');
+}
+
+function applyJsaFilters() {
+    let count = 0;
+    const pills = document.querySelectorAll('#jsaFilterDrawer .filter-status-pill.active');
+    const allPill = [...pills].find(p => p.textContent.trim() === 'All');
+    if (!allPill) count += pills.length;
+    if (document.getElementById('fltDateFrom').value || document.getElementById('fltDateTo').value) count++;
+    ['flt-division','flt-facility','flt-section','flt-location','flt-department'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn && btn.classList.contains('set')) count++;
+    });
+    const badge = document.getElementById('jsaFilterCount');
+    const toggle = document.getElementById('jsaFilterToggle');
+    if (count > 0) {
+        badge.textContent = count; badge.classList.add('visible'); toggle.classList.add('active');
+    } else {
+        badge.classList.remove('visible'); toggle.classList.remove('active');
+    }
+    closeDrawer('jsaFilterDrawer');
+}
+
+function toggleStepMenu(btn) {
+    const menu = btn.nextElementSibling;
+    const isOpen = menu.classList.contains('open');
+    document.querySelectorAll('.step-context-menu.open').forEach(m => m.classList.remove('open'));
+    if (!isOpen) menu.classList.add('open');
+}
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.step-menu-wrapper')) {
+        document.querySelectorAll('.step-context-menu.open').forEach(m => m.classList.remove('open'));
+    }
+});
+
+/* ── Records screen ── */
+let toastTimer = null;
+
+function refreshRecordsFab() {
+    const count = document.querySelectorAll('#screen-records .badge-pending').length;
+    const fab = document.getElementById('records-submit-all-btn');
+    fab.style.display = count > 0 ? '' : 'none';
+    document.getElementById('records-pending-count').textContent = count;
+}
+
+function hideToast() {
+    document.getElementById('records-toast').classList.remove('show');
+    document.getElementById('records-submit-all-btn').classList.remove('toast-up');
+}
+
+function showSubmitToast(id) {
+    const toast = document.getElementById('records-toast');
+    document.getElementById('toast-copy-id-btn').dataset.id = id;
+    toast.classList.add('show');
+    document.getElementById('records-submit-all-btn').classList.add('toast-up');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, 4000);
+}
+
+function submitRecordCard(cardRow) {
+    const pendingBadge = cardRow.querySelector('.badge-pending');
+    if (!pendingBadge) return;
+    pendingBadge.className = 'badge badge-submitting';
+    pendingBadge.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" style="font-size:10px;"></i> Submitting';
+    const badgesEl = cardRow.querySelector('.record-badges');
+    const progressWrap = document.createElement('div');
+    progressWrap.className = 'submit-progress-wrap';
+    progressWrap.innerHTML = '<div class="submit-progress-bar"></div>';
+    badgesEl.after(progressWrap);
+    const submitBtn = cardRow.querySelector('[data-action="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+    refreshRecordsFab();
+    setTimeout(() => {
+        const newId = String(Math.floor(10000000 + Math.random() * 90000000));
+        cardRow.classList.add('is-submitted');
+        const wrap = cardRow.closest('.rec-card-wrap');
+        if (wrap) wrap.dataset.cardState = 'submitted';
+        progressWrap.remove();
+        const badge = cardRow.querySelector('.badge-submitting');
+        if (badge) {
+            badge.className = 'badge badge-submitted';
+            badge.innerHTML = '<i class="fa-solid fa-check" style="font-size:10px;"></i> Submitted';
+        }
+        const actionRow = cardRow.querySelector('.rec-action-row');
+        if (actionRow) actionRow.innerHTML = `<button class="rec-btn-outline" data-action="copy-id" data-id="${newId}">Copy ID</button><button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>`;
+        applyRecordFilters();
+        showSubmitToast(newId);
+    }, 2600);
+}
+
+/* ── Records filters ── */
+const recFilters = { statuses: new Set(), types: new Set() };
+const recDraft   = { statuses: new Set(), types: new Set() };
+const filterLabels = { pending: 'Pending', submitted: 'Submitted', missing: 'Missing Fields', error: 'Error', jsa: 'JSA' };
+
+let recSearchQuery = '';
+
+function searchRecords(query) {
+    recSearchQuery = query.trim().toLowerCase();
+    applyRecordFilters();
+}
+
+function applyRecordFilters() {
+    document.querySelectorAll('#screen-records .rec-card-wrap').forEach(wrap => {
+        const stateOk  = recFilters.statuses.size === 0 || recFilters.statuses.has(wrap.dataset.cardState);
+        const typeOk   = recFilters.types.size === 0    || recFilters.types.has(wrap.dataset.cardType);
+        const titleEl  = wrap.querySelector('.record-title');
+        const searchOk = !recSearchQuery || (titleEl && titleEl.textContent.toLowerCase().includes(recSearchQuery));
+        wrap.style.display = (stateOk && typeOk && searchOk) ? '' : 'none';
+    });
+    refreshRecordsFab();
+}
+
+function renderAppliedChips() {
+    const row = document.getElementById('records-filter-applied');
+    row.innerHTML = '';
+    const hasAny = recFilters.statuses.size > 0 || recFilters.types.size > 0;
+    recFilters.statuses.forEach(s => {
+        const el = document.createElement('span');
+        el.className = 'applied-chip';
+        el.innerHTML = `${filterLabels[s]}<button class="applied-chip-x" data-remove-status="${s}"><i class="fa-solid fa-xmark"></i></button>`;
+        row.appendChild(el);
+    });
+    recFilters.types.forEach(t => {
+        const el = document.createElement('span');
+        el.className = 'applied-chip';
+        el.innerHTML = `${filterLabels[t]}<button class="applied-chip-x" data-remove-type="${t}"><i class="fa-solid fa-xmark"></i></button>`;
+        row.appendChild(el);
+    });
+    if (hasAny) {
+        const clr = document.createElement('button');
+        clr.className = 'filter-clear-all';
+        clr.textContent = 'Clear all';
+        clr.addEventListener('click', () => { recFilters.statuses.clear(); recFilters.types.clear(); applyRecordFilters(); renderAppliedChips(); });
+        row.appendChild(clr);
+    }
+    /* Show/hide the chips row */
+    const chipsRow = document.getElementById('records-chips-row');
+    if (chipsRow) chipsRow.classList.toggle('has-chips', hasAny);
+}
+
+document.getElementById('records-filter-applied').addEventListener('click', e => {
+    const rs = e.target.closest('[data-remove-status]')?.dataset.removeStatus;
+    const rt = e.target.closest('[data-remove-type]')?.dataset.removeType;
+    if (rs) { recFilters.statuses.delete(rs); applyRecordFilters(); renderAppliedChips(); }
+    if (rt) { recFilters.types.delete(rt);    applyRecordFilters(); renderAppliedChips(); }
+});
+
+function syncDrawerToDraft() {
+    document.querySelectorAll('#records-filter-drawer [data-draft-status]').forEach(p => {
+        const v = p.dataset.draftStatus;
+        p.classList.toggle('active', v === 'all' ? recDraft.statuses.size === 0 : recDraft.statuses.has(v));
+    });
+    document.querySelectorAll('#records-filter-drawer [data-draft-type]').forEach(p =>
+        p.classList.toggle('active', recDraft.types.has(p.dataset.draftType)));
+}
+
+function openRecordsFilter() {
+    recDraft.statuses = new Set(recFilters.statuses);
+    recDraft.types    = new Set(recFilters.types);
+    syncDrawerToDraft();
+    document.getElementById('records-filter-overlay').classList.add('active');
+    document.getElementById('records-filter-drawer').classList.add('open');
+}
+function closeRecordsFilter() {
+    document.getElementById('records-filter-overlay').classList.remove('active');
+    document.getElementById('records-filter-drawer').classList.remove('open');
+}
+
+document.getElementById('records-filter-btn').addEventListener('click', openRecordsFilter);
+document.getElementById('records-filter-close').addEventListener('click', closeRecordsFilter);
+document.getElementById('records-filter-overlay').addEventListener('click', closeRecordsFilter);
+
+document.getElementById('records-filter-drawer').addEventListener('click', e => {
+    const sp = e.target.closest('[data-draft-status]');
+    if (sp) {
+        const v = sp.dataset.draftStatus;
+        if (v === 'all') { recDraft.statuses.clear(); }
+        else {
+            if (recDraft.statuses.has(v)) recDraft.statuses.delete(v);
+            else recDraft.statuses.add(v);
+        }
+        syncDrawerToDraft();
+    }
+    const tp = e.target.closest('[data-draft-type]');
+    if (tp) {
+        const v = tp.dataset.draftType;
+        if (recDraft.types.has(v)) recDraft.types.delete(v); else recDraft.types.add(v);
+        syncDrawerToDraft();
+    }
+});
+
+document.getElementById('records-filter-reset').addEventListener('click', () => {
+    recDraft.statuses.clear(); recDraft.types.clear(); syncDrawerToDraft();
+});
+document.getElementById('records-filter-apply').addEventListener('click', () => {
+    recFilters.statuses = new Set(recDraft.statuses);
+    recFilters.types    = new Set(recDraft.types);
+    applyRecordFilters(); renderAppliedChips(); closeRecordsFilter();
+});
+
+renderAppliedChips();
+
+/* Main click delegation */
+document.getElementById('screen-records').addEventListener('click', (e) => {
+    if (e.target.closest('#records-already-submitted') || e.target.closest('.records-fab') || e.target.closest('#records-toast')) return;
+
+    /* Copy ID */
+    if (e.target.closest('[data-action="copy-id"]')) {
+        e.stopPropagation();
+        const btn = e.target.closest('[data-action="copy-id"]');
+        navigator.clipboard.writeText(btn.dataset.id).catch(() => {});
+        return;
+    }
+
+    /* Submit */
+    if (e.target.closest('[data-action="submit"]')) {
+        e.stopPropagation();
+        submitRecordCard(e.target.closest('.record-card-row'));
+        return;
+    }
+
+    /* Submitted card tap → modal */
+    const card = e.target.closest('.record-card-row.is-submitted');
+    if (card) document.getElementById('records-already-submitted').classList.add('open');
+});
+
+document.getElementById('records-submit-all-btn').addEventListener('click', () => {
+    document.querySelectorAll('#screen-records .badge-pending').forEach(badge => {
+        submitRecordCard(badge.closest('.record-card-row'));
+    });
+});
+
+document.getElementById('records-already-submitted-ok').addEventListener('click', () => {
+    document.getElementById('records-already-submitted').classList.remove('open');
+});
+
+document.getElementById('records-toast-dismiss').addEventListener('click', () => {
+    clearTimeout(toastTimer);
+    hideToast();
+});
+
+document.getElementById('toast-copy-id-btn').addEventListener('click', () => {
+    const id = document.getElementById('toast-copy-id-btn').dataset.id;
+    navigator.clipboard.writeText(id).catch(() => {});
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, 1500);
+});
+
+refreshRecordsFab();
+
+/* ── Records toolbar scroll behaviour ── */
+(function() {
+    const stickyToolbar = document.getElementById('records-toolbar-sticky');
+    const flowToolbar   = document.getElementById('records-toolbar-flow');
+    const recordsBody   = document.querySelector('#screen-records .screen-body');
+    let lastST = 0;
+
+    recordsBody.addEventListener('scroll', () => {
+        const st          = recordsBody.scrollTop;
+        const flowBottom  = flowToolbar.offsetTop + flowToolbar.offsetHeight;
+        const scrollingUp = st < lastST;
+
+        if (st >= flowBottom && scrollingUp) {
+            /* Toolbar scrolled out of view and user is scrolling up — show overlay */
+            stickyToolbar.classList.add('visible');
+        } else if (st < flowBottom || !scrollingUp) {
+            /* Real toolbar is back in view, or scrolling down — hide overlay */
+            stickyToolbar.classList.remove('visible');
+        }
+        lastST = st;
+    }, { passive: true });
+
+    /* Sticky filter button opens the same drawer */
+    document.getElementById('records-filter-btn-sticky').addEventListener('click', () => {
+        document.getElementById('records-filter-btn').click();
+    });
+}());
+
+/* ── Initialize on load ── */
+window.addEventListener('DOMContentLoaded', () => {
+    /* Draw demo sig on card 1 preview canvas */
+    drawDemoSig('sig1');
+
+    /* Wire takeover canvas drawing */
+    const tc = document.getElementById('sigTakeoverCanvas');
+    if (tc) {
+        const ctx = tc.getContext('2d');
+        ctx.strokeStyle = '#1a2940';
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        function tcPos(e) {
+            const r = tc.getBoundingClientRect();
+            const scaleX = tc.width / r.width;
+            const scaleY = tc.height / r.height;
+            const src = e.touches ? e.touches[0] : e;
+            return [(src.clientX - r.left) * scaleX, (src.clientY - r.top) * scaleY];
+        }
+
+        tc.addEventListener('mousedown', (e) => {
+            sigTakeoverDrawing = true;
+            [sigTakeoverLastX, sigTakeoverLastY] = tcPos(e);
+            document.getElementById('sigTakeoverPlaceholder').style.display = 'none';
+        });
+        tc.addEventListener('mousemove', (e) => {
+            if (!sigTakeoverDrawing) return;
+            const [x, y] = tcPos(e);
+            ctx.beginPath(); ctx.moveTo(sigTakeoverLastX, sigTakeoverLastY);
+            ctx.lineTo(x, y); ctx.stroke();
+            [sigTakeoverLastX, sigTakeoverLastY] = [x, y];
+            sigTakeoverHasStrokes = true;
+        });
+        tc.addEventListener('mouseup',    () => sigTakeoverDrawing = false);
+        tc.addEventListener('mouseleave', () => sigTakeoverDrawing = false);
+
+        tc.addEventListener('touchstart', (e) => {
+            e.preventDefault(); sigTakeoverDrawing = true;
+            [sigTakeoverLastX, sigTakeoverLastY] = tcPos(e);
+            document.getElementById('sigTakeoverPlaceholder').style.display = 'none';
+        }, { passive: false });
+        tc.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!sigTakeoverDrawing) return;
+            const [x, y] = tcPos(e);
+            ctx.beginPath(); ctx.moveTo(sigTakeoverLastX, sigTakeoverLastY);
+            ctx.lineTo(x, y); ctx.stroke();
+            [sigTakeoverLastX, sigTakeoverLastY] = [x, y];
+            sigTakeoverHasStrokes = true;
+        }, { passive: false });
+        tc.addEventListener('touchend', () => sigTakeoverDrawing = false);
+    }
+});
+</script>
+</body>
+</html>
