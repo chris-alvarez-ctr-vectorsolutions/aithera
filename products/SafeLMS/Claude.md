@@ -90,6 +90,7 @@ This page is the single shareable link the team gives stakeholders. Because the 
 ```json
 {
   "version": 1,
+  "jiraBaseUrl": "https://<workspace>.atlassian.net/browse/",
   "recentChanges": [
     { "date": "YYYY-MM-DD", "path": "<folder>/<file>", "summary": "Short past-tense sentence." }
   ],
@@ -98,11 +99,14 @@ This page is the single shareable link the team gives stakeholders. Because the 
       "title": "Optional title override (default: humanized folder name)",
       "description": "Optional one-line description shown on the card",
       "status": "concept | in-progress | review | ready | archived",
-      "ticket": "Optional ticket ID, e.g. SAFELMS-30656"
+      "ticket": "Optional ticket ID, e.g. SAFELMS-30656",
+      "ticketUrl": "Optional full ticket URL (only needed if it lives outside jiraBaseUrl)"
     }
   }
 }
 ```
+
+**About `jiraBaseUrl`:** when set (e.g. `"https://vectorsolutions.atlassian.net/browse/"`), every mock's `ticket` value is auto-appended to form a clickable link on the dashboard. You only need to fill the per-mock `ticketUrl` when a particular ticket lives in a different Jira instance and the base URL doesn't apply. Leave `jiraBaseUrl` as `""` to render tickets as plain (non-linked) badges.
 
 ### Exceptions
 
