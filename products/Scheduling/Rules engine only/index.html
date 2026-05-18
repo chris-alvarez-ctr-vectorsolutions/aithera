@@ -392,14 +392,14 @@ const { useState: useStateW } = React;
 /* ── Dashboard AI suggestion cards — paginated, 3 per page + "Something else" toggle ── */
 const DASH_SUGGESTION_PAGES = [
   [
-    { title: 'Rotating Rolodex',          desc: 'Move employees to end of list after each callback — fair, even distribution across the team.',  icon: 'fa-solid fa-rotate'         },
-    { title: 'Accumulation — Hours Based', desc: 'Rank employees by accumulated overtime hours worked. Resets on a configurable schedule.',          icon: 'fa-solid fa-clock'          },
-    { title: 'Accumulation — Turns Based', desc: 'Rank by total number of callback turns participated in. Simple and transparent.',                  icon: 'fa-solid fa-arrows-rotate'  },
+    { title: 'Rotating Rolodex',           desc: 'Top-down callback list. When someone declines, choose whether they stay at the top or rotate to the bottom — each department handles this differently.', icon: 'fa-solid fa-rotate'         },
+    { title: 'Accumulation — Hours Based', desc: 'Rank by accumulated overtime hours so the fewest hours gets called first. Resets on your schedule (e.g., fiscal year) and falls back to seniority for the first cycle after reset.',          icon: 'fa-solid fa-clock'          },
+    { title: 'Accumulation — Turns Based', desc: 'Rank by number of callbacks taken — not hours. Works best when shift lengths are consistent; mixed-length shifts may pull employees out of fair rotation.', icon: 'fa-solid fa-arrows-rotate'  },
   ],
   [
-    { title: 'Seniority Based',           desc: 'Rank employees by hire date. Longest-tenured employees are called first.',                          icon: 'fa-solid fa-medal'          },
-    { title: 'Skill Based',               desc: 'Match calls to employees whose certifications or skills fit the shift requirements.',               icon: 'fa-solid fa-graduation-cap' },
-    { title: 'Static List',               desc: 'Fixed order that only changes when an admin manually adjusts positions.',                          icon: 'fa-solid fa-clipboard-list' },
+    { title: 'Seniority Based (per rank)', desc: 'Within each rank, longest-tenured employees are called first. Seniority resets at promotion — a newly promoted lieutenant ranks below tenured lieutenants.', icon: 'fa-solid fa-medal'          },
+    { title: 'Skill Based',                desc: 'Prioritize employees whose certifications match the callback — useful for specialty details like arena coverage, fire watch, or alarm-panel response.',     icon: 'fa-solid fa-graduation-cap' },
+    { title: 'Static List',                desc: 'Fixed callback order that only changes when an admin manually adjusts positions. Good for small teams with predictable preferences.',                       icon: 'fa-solid fa-clipboard-list' },
   ],
 ];
 
@@ -459,7 +459,7 @@ function AIAssistantCard({ onStart }) {
           <AiAvatar />
           <div style={{ font: '400 13px/1.55 Inter,sans-serif', color: 'rgba(24,39,58,.87)', paddingTop: 3 }}>
             Hi! I can help you create custom rules for ranking employees in overtime and callback shifts.<br/>
-            Choose a template below, or describe what you need.
+            Try one of these prompts, or describe what you need.
           </div>
         </div>
 
@@ -1036,7 +1036,21 @@ function RuleBuilderView({ seed, onBack }) {
 
   const msgEndRef    = useRef(null);
   const textareaRef  = useRef(null);
+  const panelScrollRef = useRef(null);
+  const prevRevealedSize = useRef(0);
   useEffect(() => { msgEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, typing]);
+  // When a new configuration field appears in the right panel during chat,
+  // smoothly scroll the panel so the user sees the build progressing on the side.
+  useEffect(() => {
+    if (revealedFields.size > prevRevealedSize.current && panelScrollRef.current) {
+      // Tiny delay so the freshly-revealed field has rendered before we scroll.
+      setTimeout(() => {
+        const c = panelScrollRef.current;
+        if (c) c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' });
+      }, 60);
+    }
+    prevRevealedSize.current = revealedFields.size;
+  }, [revealedFields]);
 
   const userMsgs    = messages.filter(m => m.role === 'user');
   // When entering from a template/prompt, flow[0] is already pre-loaded in initMsgs
@@ -1523,7 +1537,7 @@ function RuleBuilderView({ seed, onBack }) {
           )}
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+        <div ref={panelScrollRef} style={{ flex: 1, overflowY: 'auto', padding: '24px', scrollBehavior: 'smooth' }}>
 
           {/* Rule Name — always visible */}
           <FormGroup label="Rule Name">
