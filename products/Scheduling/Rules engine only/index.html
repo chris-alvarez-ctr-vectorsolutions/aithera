@@ -392,14 +392,14 @@ const { useState: useStateW } = React;
 /* ── Dashboard AI suggestion cards — paginated, 3 per page + "Something else" toggle ── */
 const DASH_SUGGESTION_PAGES = [
   [
-    { title: 'Rotating Rolodex',           desc: 'Top-down callback list. When someone declines, choose whether they stay at the top or rotate to the bottom — each department handles this differently.', icon: 'fa-solid fa-rotate'         },
-    { title: 'Accumulation — Hours Based', desc: 'Rank by accumulated overtime hours so the fewest hours gets called first. Resets on your schedule (e.g., fiscal year) and falls back to seniority for the first cycle after reset.',          icon: 'fa-solid fa-clock'          },
-    { title: 'Accumulation — Turns Based', desc: 'Rank by number of callbacks taken — not hours. Works best when shift lengths are consistent; mixed-length shifts may pull employees out of fair rotation.', icon: 'fa-solid fa-arrows-rotate'  },
+    { title: 'Standard Rolodex',           desc: 'Top-down callback list. After each callback, employees rotate to the end. Manual reordering allowed any time.',                                                       icon: 'fa-solid fa-rotate'         },
+    { title: 'Accumulating Rolodex',       desc: 'Rotate employees to the end once they hit an accumulated limit (e.g., 24 hours or 3 accepted callbacks). Reorder manually any time.',                                  icon: 'fa-solid fa-arrows-rotate'  },
+    { title: 'Accumulation — Hours Based', desc: 'Rank by accumulated callback hours so the fewest hours gets called first. Count accepts, denials, or contacts in any combination.',                                    icon: 'fa-solid fa-clock'          },
   ],
   [
-    { title: 'Seniority Based (per rank)', desc: 'Within each rank, longest-tenured employees are called first. Seniority resets at promotion — a newly promoted lieutenant ranks below tenured lieutenants.', icon: 'fa-solid fa-medal'             },
-    { title: 'Reliability Based',          desc: 'Rank by historical acceptance rate. Dependable accepters come first so callback cycles complete faster — helps avoid the two-hour callout problem.',         icon: 'fa-solid fa-check-double'      },
-    { title: 'Workload Spread',            desc: 'Rank by the longest gap since each employee\'s last callback. Focuses on TIMING, not totals — gives opportunity to whoever hasn\'t been called in a while.', icon: 'fa-solid fa-arrows-left-right' },
+    { title: 'Static — Seniority Based', desc: 'Order employees by hire or promotion date. Reordering requires updating the date. Set any tiebreaker for employees sharing the same date.', icon: 'fa-solid fa-medal'      },
+    { title: 'Static — By Employee ID',  desc: 'Order by employee ID using a natural alphanumerical sort — case-insensitive and number-aware.',                                             icon: 'fa-solid fa-id-badge'   },
+    { title: 'Random / Lottery',         desc: 'Order employees in a random fashion. Useful for fair lotteries and unbiased distribution.',                                                  icon: 'fa-solid fa-shuffle'    },
   ],
 ];
 
@@ -551,47 +551,47 @@ const { useEffect, useRef } = React;
 // FLOWS keys MUST match the dashboard prompt titles in DASH_SUGGESTION_PAGES exactly —
 // that's how each prompt gets its own distinct set of follow-up questions.
 const FLOWS = {
-  'Rotating Rolodex': [
-    { role: 'ai', text: "Let's build your **Rotating Rolodex** rule — a top-down callback list that rotates as people get called.\n\nWhich employee group should this apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
-    { role: 'ai', text: "When someone gets a callback, where should they go on the Rolodex next?", chips: ['Move to back of list','Stay at the top','Custom — let me describe'] },
-    { role: 'ai', text: "If they **decline** the callback, should they stay where they are, move to the back, or take a penalty?", chips: ['Move to back of list','Stay in position','Penalty points'] },
-    { role: 'ai', text: "How long should each person have to respond before the system moves on to the next?", chips: ['2 minutes','3 minutes','5 minutes','Custom'] },
-    { role: 'ai', text: "Your Rotating Rolodex rule is ready.\n\nTop-down callback list with the rotation behavior you set. Save now, or preview how it'd order your roster?", chips: ['Save rule','Preview ranking','Adjust something'] },
+  'Standard Rolodex': [
+    { role: 'ai', text: "Let's build your **Standard Rolodex** rule — a top-down callback list where employees rotate to the end after each callback.\n\nWhich employee group should this apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
+    { role: 'ai', text: "After someone accepts a callback, where should they land on the Rolodex next?", chips: ['Move to end of list','Stay at the top','Custom — let me describe'] },
+    { role: 'ai', text: "If they **decline** the callback, should they keep their spot, move to the end, or take a penalty?", chips: ['Move to end of list','Stay in position','Penalty points'] },
+    { role: 'ai', text: "How long should each person have to respond before the system moves on?", chips: ['2 minutes','3 minutes','5 minutes','Custom'] },
+    { role: 'ai', text: "Your Standard Rolodex rule is ready.\n\nTop-down list with the rotation and decline behavior you set. Save now, or preview how it'd order your roster?", chips: ['Save rule','Preview ranking','Adjust something'] },
+  ],
+  'Accumulating Rolodex': [
+    { role: 'ai', text: "Let's build your **Accumulating Rolodex** rule — employees rotate to the end once they hit an accumulated limit.\n\nWhich employee group should this apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
+    { role: 'ai', text: "What should accumulate toward the limit — callback hours or callback count?", chips: ['Hours worked','Callbacks accepted','Both, weighted'] },
+    { role: 'ai', text: "What's the limit before an employee moves to the end of the list?", chips: ['24 hours','40 hours','3 callbacks','5 callbacks','Custom'] },
+    { role: 'ai', text: "When should the accumulator reset?", chips: ['Annually (fiscal year)','Quarterly','Monthly','Never (rolling)'] },
+    { role: 'ai', text: "Your Accumulating Rolodex rule is ready.\n\nEmployees rotate to the end after hitting your limit, with the reset cycle you chose. Save now or preview?", chips: ['Save rule','Preview ranking','Adjust something'] },
   ],
   'Accumulation — Hours Based': [
-    { role: 'ai', text: "Let's build your **Hours Based** accumulation rule — the fewest overtime hours gets called first.\n\nWhich employee group should this cover?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
+    { role: 'ai', text: "Let's build your **Accumulation — Hours Based** rule — the fewest accumulated callback hours gets called first.\n\nWhich employee group should this cover?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
+    { role: 'ai', text: "Which callback outcomes should count toward an employee's accumulated hours?", chips: ['Accepted only','Accepted + denied','Anyone contacted','Custom mix'] },
     { role: 'ai', text: "When should the hours counter reset? Most departments tie this to a fiscal cycle.", chips: ['Annually (fiscal year)','Quarterly','Monthly','Never (rolling total)'] },
-    { role: 'ai', text: "Right after a reset, no one has logged hours yet. How should the list be ranked for that first cycle?", chips: ['By seniority (hire date)','Random / lottery','Manual order'] },
     { role: 'ai', text: "When two employees have the same hour count, what should break the tie?", chips: ['Seniority (hire date)','Last shift worked','Last callback date','Alphabetical'] },
-    { role: 'ai', text: "Your Hours Based rule is ready.\n\nRanked by fewest accumulated hours with a reset cycle and seniority fallback. Save now or preview the ranking?", chips: ['Save rule','Preview ranking','Adjust something'] },
+    { role: 'ai', text: "Your Accumulation — Hours Based rule is ready.\n\nRanked by fewest accumulated hours with a reset cycle and the tiebreaker you set. Save now or preview the ranking?", chips: ['Save rule','Preview ranking','Adjust something'] },
   ],
-  'Accumulation — Turns Based': [
-    { role: 'ai', text: "Let's build your **Turns Based** accumulation rule — fewest callbacks taken gets called first, regardless of shift length.\n\nWhich employee group should this cover?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
-    { role: 'ai', text: "What counts as a 'turn'? Some departments only count callbacks the employee accepted; others count any callback offered.", chips: ['Accepted only','All turns','Accepted + weighted'] },
-    { role: 'ai', text: "Should this rule apply to every callback, or only specific shift lengths? Mixing 4-hour fire watches with 12-hour shifts can pull employees out of fair rotation.", chips: ['All shift lengths','Only full shifts','By detail type'] },
-    { role: 'ai', text: "When two employees have the same turn count, what should break the tie?", chips: ['Fewest overtime hours','Seniority (hire date)','Last shift worked','Alphabetical'] },
-    { role: 'ai', text: "Your Turns Based rule is ready.\n\nRanked by callbacks taken with the scope and tiebreaker you chose. Save now or preview?", chips: ['Save rule','Preview ranking','Adjust something'] },
-  ],
-  'Seniority Based (per rank)': [
-    { role: 'ai', text: "Let's build your **Seniority Based** rule — within each rank, longest-tenured employees get called first.\n\nWhich rank should this rule apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All ranks (separate by rank)'], multi: true },
-    { role: 'ai', text: "When an employee is promoted, their seniority restarts in the new rank. How would you like that handled?", chips: ['Use rank seniority (date of promotion)','Use total hire date','Mix: hire date as tiebreaker'] },
+  'Static — Seniority Based': [
+    { role: 'ai', text: "Let's build your **Static — Seniority Based** rule — employees are ordered by hire or promotion date.\n\nWhich employee group should this apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All ranks'], multi: true },
+    { role: 'ai', text: "Should I use the original hire date or the date of their current rank/promotion?", chips: ['Hire date','Rank/promotion date','Mix: hire date as tiebreaker'] },
     { role: 'ai', text: "Should the most senior or least senior employee be called first?", chips: ['Most senior first','Least senior first'] },
-    { role: 'ai', text: "When two employees have identical seniority, what should break the tie?", chips: ['Total hire date','Fewest overtime hours','Last shift worked','Alphabetical'] },
-    { role: 'ai', text: "Your Seniority Based rule is ready.\n\nApplied per rank with promotion handling and the tiebreaker you set. Save now or preview the order?", chips: ['Save rule','Preview ranking','Adjust something'] },
+    { role: 'ai', text: "When two employees share the same date, what should break the tie?", chips: ['Alphabetical','Employee ID','Random','Manual order'] },
+    { role: 'ai', text: "Your Static — Seniority Based rule is ready.\n\nOrdered by your chosen date with the tiebreaker you set. Save now or preview the order?", chips: ['Save rule','Preview ranking','Adjust something'] },
   ],
-  'Reliability Based': [
-    { role: 'ai', text: "Let's build your **Reliability Based** rule — rank employees by historical acceptance rate so dependable folks come first.\n\nWhich employee group should this cover?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
-    { role: 'ai', text: "What time window should I use to calculate each employee's acceptance rate?", chips: ['30 days','60 days','90 days','All time'] },
-    { role: 'ai', text: "How should I handle new employees with no callback history yet?", chips: ['Treat as 100% (top)','Neutral mid-rank','Bottom of list'] },
-    { role: 'ai', text: "When two employees have the same acceptance rate, what should break the tie?", chips: ['Fewest overtime hours','Seniority (hire date)','Last shift worked','Alphabetical'] },
-    { role: 'ai', text: "Your Reliability Based rule is ready.\n\nHighest acceptance rate gets called first, with rules for new hires and a tiebreaker. Save now or preview?", chips: ['Save rule','Preview ranking','Adjust something'] },
+  'Static — By Employee ID': [
+    { role: 'ai', text: "Let's build your **Static — By Employee ID** rule — employees are ordered using a natural alphanumerical sort on their ID.\n\nWhich employee group should this apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
+    { role: 'ai', text: "Sort direction — ascending or descending?", chips: ['Ascending (A → Z, 0 → 9)','Descending (Z → A, 9 → 0)'] },
+    { role: 'ai', text: "Where should newly added employees land in the list?", chips: ['Natural position by ID','Top of list','Bottom of list'] },
+    { role: 'ai', text: "Should the sort ignore case? Most departments do, since IDs mix formats.", chips: ['Yes, ignore case','No, case-sensitive'] },
+    { role: 'ai', text: "Your Static — By Employee ID rule is ready.\n\nNatural alphanumerical sort with the direction and case rule you set. Save now or preview?", chips: ['Save rule','Preview ranking','Adjust something'] },
   ],
-  'Workload Spread': [
-    { role: 'ai', text: "Let's build a **Workload Spread** rule — rank by the longest gap since each employee's last callback. Different from hours-based — this focuses on TIMING, not totals.\n\nWhich employee group should this cover?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
-    { role: 'ai', text: "Should I count any callback, or only ones the employee accepted?", chips: ['Any callback offered','Accepted only','Accepted + declined separately'] },
-    { role: 'ai', text: "Some employees may genuinely be unavailable for stretches. Should the system flag them or just keep promoting them?", chips: ['Just keep promoting','Flag after 30 days idle','Pause after 3 consecutive declines'] },
-    { role: 'ai', text: "When two employees have the same gap since last callback, what should break the tie?", chips: ['Fewest overtime hours','Seniority (hire date)','Alphabetical','Random'] },
-    { role: 'ai', text: "Your Workload Spread rule is ready.\n\nLongest gap since last callback gets called first, with rules for chronic decliners. Save now or preview?", chips: ['Save rule','Preview ranking','Adjust something'] },
+  'Random / Lottery': [
+    { role: 'ai', text: "Let's build your **Random / Lottery** rule — employees are ordered randomly for each callback cycle.\n\nWhich employee group should this apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
+    { role: 'ai', text: "How often should the order be re-randomized?", chips: ['Every callback','Every shift','Daily','Weekly'] },
+    { role: 'ai', text: "Should the lottery be pure random, or weighted to keep things fair over time?", chips: ['Pure random','Weight by last callback gap','Weight by total hours'] },
+    { role: 'ai', text: "Want any guardrails so no one gets unlucky twice in a row?", chips: ['No guardrails','Cap consecutive picks','Cool-down after a pick','Custom'] },
+    { role: 'ai', text: "Your Random / Lottery rule is ready.\n\nOrder is randomized on your schedule with the guardrails you set. Save now or preview?", chips: ['Save rule','Preview ranking','Adjust something'] },
   ],
   // Fallback used when the user starts from a typed prompt instead of picking a card.
   default: [
@@ -608,21 +608,18 @@ const ALL_APPROACHES_LIST = ['Firefighter 2', 'Captains', 'Patrol Deputy', 'Bay 
 const ALL_STATUSES_LIST   = ['Dispatched', 'Accepted', 'Pending Acceptance', 'Declined', 'Expired', 'No Response'];
 const ALL_RESPONSES_LIST  = ['Accept', 'Decline', 'Pending', 'No Answer', 'Callback Accept', 'Timeout'];
 
+// SUGGESTION_SETS names MUST match FLOWS keys above — they trigger the same per-prompt
+// follow-up flows when picked from the in-builder chat suggestions.
 const SUGGESTION_SETS = [
   [
-    { name: 'Hours Based Callback',   desc: 'Automatically rank employees based on hours worked. Includes callbacks accepted by the user.', iconD: 'M12 2a10 10 0 100 20A10 10 0 0012 2zm0 5v5l3 2', stroke: true },
-    { name: 'Hours based date range', desc: 'Look at a rolling set of days to calculate overtime hours.',                                   iconD: 'M16 11a4 4 0 11-8 0 4 4 0 018 0zm-7 9c-3 0-5 1.6-5 4h13c0-2.4-1.9-4-5-4zm1-17v3m7-3v3', stroke: true },
-    { name: 'Rolodex',                desc: 'Rotate users based on your rules.',                                                             iconD: 'M4 12A8 8 0 1113 4M4 4v5h5', stroke: true },
+    { name: 'Standard Rolodex',           desc: 'Top-down callback list. After each callback, employees rotate to the end.',                                    iconD: 'M4 12A8 8 0 1113 4M4 4v5h5', stroke: true },
+    { name: 'Accumulating Rolodex',       desc: 'Rotate employees to the end once they hit an accumulated limit (e.g., 24 hours or 3 callbacks).',              iconD: 'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2', stroke: true },
+    { name: 'Accumulation — Hours Based', desc: 'Rank by accumulated callback hours so the fewest hours gets called first.',                                    iconD: 'M12 4a8 8 0 100 16 8 8 0 000-16zm0 4v4l3 2', stroke: true },
   ],
   [
-    { name: 'Shift Length Filter',     desc: 'Filter employees based on minimum and maximum shift lengths they can work.',                iconD: 'M4 5h16l-6 8v5l-4 2v-7z', stroke: false },
-    { name: 'Skill Priority Rule',     desc: 'Prioritize employees based on skill level and certification status for specialized shifts.', iconD: 'M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z', stroke: false },
-    { name: 'Availability-based Rule', desc: 'Rank employees by their historical acceptance rate and availability patterns.',              iconD: 'M9 11l2 2 4-4M5 5h14v14H5z', stroke: true },
-  ],
-  [
-    { name: 'Force Hire Date Priority', desc: 'Prioritize employees based on hire date with configurable lookback periods.',             iconD: 'M8 7V3m8 4V3m-9 8h10M5 5h14v14H5z', stroke: true },
-    { name: 'All Approaches Sorter',    desc: 'Apply rules to all approaches for callback. Useful for general callback scenarios.',       iconD: 'M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z', stroke: false },
-    { name: 'Seniority Ranking',        desc: 'Rank employees by years of service and seniority within their classification.',           iconD: 'M5 20V10M5 20l-2-2m2 2l2-2M10 5h11M10 11h8M10 17h5', stroke: true },
+    { name: 'Static — Seniority Based', desc: 'Order employees by hire or promotion date. Set a tiebreaker for shared dates.',                                  iconD: 'M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z', stroke: false },
+    { name: 'Static — By Employee ID',  desc: 'Order by employee ID with a natural alphanumerical sort — case-insensitive and number-aware.',                   iconD: 'M5 4h14v16H5zM9 8h6M9 12h6M9 16h4', stroke: true },
+    { name: 'Random / Lottery',         desc: 'Randomize the callback order for fair lotteries and unbiased distribution.',                                     iconD: 'M16 3h5v5M21 3l-7 7M3 16h5l3-3M3 8h5l3 3M21 21l-7-7M21 16v5h-5', stroke: true },
   ],
 ];
 
@@ -635,12 +632,311 @@ const MOCK_EMPLOYEES = [
   { name: 'Dana Hollis',      hours: 22, hireDate: '2017-05-30', lastCallback: '10 days ago', lastShift: 'yesterday'  },
 ];
 
+// ── Preview Mode: hypothetical scenarios for customers with no historical data ──
+const PREVIEW_SCENARIOS = [
+  {
+    title:    'Overtime 4-hour fire watch',
+    detail:   'Engine 12 needs a 4-hour fire watch coverage for the night shift on Saturday.',
+    approach: 'Firefighter 2',
+    when:     'Tonight · 22:00',
+    duration: '4 hours',
+    urgency:  'Standard',
+    urgencyColor: '#0271CE',
+  },
+  {
+    title:    '12-hour sick-call relief',
+    detail:   'Captain on B-shift called in sick — full 12-hour relief needed starting at 06:00.',
+    approach: 'Captains',
+    when:     'Tomorrow · 06:00',
+    duration: '12 hours',
+    urgency:  'High',
+    urgencyColor: '#D83E38',
+  },
+  {
+    title:    '2-hour mutual-aid standby',
+    detail:   'Mutual-aid request — additional staffing during a high-volume call period.',
+    approach: 'Bay Guard',
+    when:     'Today · 14:30',
+    duration: '2 hours',
+    urgency:  'Low',
+    urgencyColor: '#158444',
+  },
+];
+
+const PREVIEW_SAMPLE_QUESTIONS = [
+  'What if the top 3 people decline?',
+  'How does this handle a tie?',
+  'What happens at the start of a new fiscal year?',
+  'What if the top employee is on PTO?',
+];
+
+// Step-by-step dispatch sim. Uses the rule's decline behavior so the preview reflects
+// the rule the user just built, not a generic flow.
+function simulateCallFlow(form, ranked) {
+  const t = (mins) => `${String(Math.floor(mins / 60)).padStart(2,'0')}:${String(mins % 60).padStart(2,'0')}`;
+  const declineLabel = form.declineAction === 'Move to back of list' ? 'Moves to end of list'
+    : form.declineAction === 'Stay in position' ? 'Keeps current position'
+    : form.declineAction === 'Penalty points' ? `Penalty: ${form.penaltyPoints || 'set'} pts`
+    : 'No follow-up rule set';
+  // Mock dispatch: #1 declines, #2 accepts (typical real-world pattern).
+  return [
+    { step: 1, name: ranked[0]?.name || '—', action: 'Auto-call placed', meta: `Top of predicted order`, outcome: 'Declined', outcomeNote: '1 min 12s — listed as unavailable', tone: 'decline', followUp: declineLabel, timestamp: t(0) },
+    { step: 2, name: ranked[1]?.name || '—', action: 'Auto-call placed', meta: `Next in line per rule`, outcome: 'Accepted', outcomeNote: '42s — confirmed via SMS', tone: 'accept', followUp: 'Callback filled — dispatch logged', timestamp: t(2) },
+  ];
+}
+
+function simulateAiAnswer(q, form, scenario) {
+  const l = q.toLowerCase();
+  if (l.includes('decline')) {
+    const action = form.declineAction || 'a default action (not yet set)';
+    const flow = form.declineAction === 'Move to back of list'
+      ? "they go to the end of the list and the next person is contacted in order"
+      : form.declineAction === 'Stay in position'
+      ? "they keep their current rank; the next person is contacted, and they'll be eligible again on the next callback"
+      : form.declineAction === 'Penalty points'
+      ? `they accrue ${form.penaltyPoints || 'the configured'} penalty points and the next person is contacted`
+      : "the system continues to the next person but doesn't change their standing";
+    const fourth = rankEmployees(form)[3]?.name || 'the 4th-ranked employee';
+    return `Your rule's decline action is "${action}", so when an employee declines ${flow}. If your top 3 all decline in sequence, you'd reach #4 in the predicted order before someone accepts — for this scenario, that's likely ${fourth}.`;
+  }
+  if (l.includes('tie')) {
+    const tb = form.tieBreaker || 'seniority (the default tiebreaker)';
+    const dir = form.tieBreakerOrder ? `, ${form.tieBreakerOrder.toLowerCase()} preferred` : '';
+    return `Tied employees are ordered by ${tb.toLowerCase()}${dir}. So if two people have identical primary scores, the rule walks the tiebreaker as a deterministic deciding factor — no coin flip.`;
+  }
+  if (l.includes('fiscal') || l.includes('reset') || l.includes('new year')) {
+    if (form.resetCadence) return `Your reset cadence is "${form.resetCadence}". At the start of each new period the accumulated hours/turns wipe back to zero, and the first cycle after reset falls back to ${form.tieBreaker?.toLowerCase() || 'seniority (the tiebreaker)'} for ordering. New employees added mid-period start at zero alongside everyone else.`;
+    return `You haven't picked a reset cadence yet. Without one, the counter runs as a rolling total. Most departments set this to "Annually (fiscal year)" or "Quarterly" so the playing field resets predictably.`;
+  }
+  if (l.includes('pto') || l.includes('unavailable') || l.includes('vacation') || l.includes('sick')) {
+    return `Employees marked unavailable (PTO, sick, off-shift, etc.) for the requested time window are skipped automatically — their position is preserved and they're re-evaluated for the next callback. The rule isn't penalized either way.`;
+  }
+  if (l.includes('first') || l.includes('top')) {
+    const top = rankEmployees(form)[0];
+    return top ? `Right now, ${top.name} is at the top of the predicted call order for this scenario. They'd be auto-dialed first; if they don't respond within the response window, your rule's decline behavior kicks in and we move to ${rankEmployees(form)[1]?.name || 'the next-ranked employee'}.` : 'No employees match this scenario yet — pick an approach to populate the predicted list.';
+  }
+  return `For this scenario (${scenario.title}), the rule would walk the predicted call order on the left, applying your tiebreaker and decline behavior at each step. Try giving me a more specific situation — e.g. "what if Marta and Priya are tied" — and I'll trace it through for you.`;
+}
+
+function PreviewModal({ form, onClose }) {
+  const [scenarioIdx, setScenarioIdx] = useState(0);
+  const [aiInput, setAiInput] = useState('');
+  const [aiHistory, setAiHistory] = useState([]);
+  const scenario = PREVIEW_SCENARIOS[scenarioIdx];
+  const ranked = rankEmployees(form).slice(0, 4);
+  const flow = simulateCallFlow(form, ranked);
+  const ask = (q) => {
+    if (!q.trim()) return;
+    setAiHistory(h => [...h, { q: q.trim(), a: simulateAiAnswer(q, form, scenario) }]);
+    setAiInput('');
+  };
+  return ReactDOM.createPortal(
+    <div onClick={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 10000,
+        background: 'rgba(20, 14, 40, .55)', backdropFilter: 'blur(3px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+        animation: 'cbToast .2s ease both' }}>
+      <div onClick={e => e.stopPropagation()}
+        style={{ width: '100%', maxWidth: 820, maxHeight: '92vh', display: 'flex', flexDirection: 'column',
+          background: '#fff', borderRadius: 14, overflow: 'hidden',
+          boxShadow: '0 30px 80px rgba(28,18,68,.45), 0 4px 12px rgba(0,0,0,.18)' }}>
+
+        {/* Header */}
+        <div style={{ padding: '18px 22px', background: 'linear-gradient(135deg,#7C3AED 0%,#6D28D9 50%,#5B21B6 100%)', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: -20, right: 80, width: 90, height: 90, borderRadius: '50%', background: 'rgba(167,139,250,.25)', filter: 'blur(20px)', pointerEvents: 'none' }} />
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,.18)', border: '1px solid rgba(255,255,255,.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ font: '700 17px/1.2 Inter,sans-serif', color: '#fff' }}>Preview Mode — Rule Simulation</div>
+            <div style={{ font: '400 12px/1.4 Inter,sans-serif', color: 'rgba(255,255,255,.78)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              Simulating <strong>{form.ruleName || 'this rule'}</strong> against a hypothetical scenario · no go-live impact
+            </div>
+          </div>
+          <button onClick={onClose} aria-label="Close preview" style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid rgba(255,255,255,.25)', background: 'rgba(255,255,255,.12)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+
+        {/* Body — scrollable, two-column on wider screens */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 22px', background: 'linear-gradient(180deg, #FBFAFE 0%, #fff 80px)' }}>
+
+          {/* Scenario card */}
+          <div style={{ border: '1px solid rgba(124,58,237,.18)', borderRadius: 12, background: 'linear-gradient(135deg, rgba(124,58,237,.04), rgba(99,102,241,.025))', padding: '14px 16px', marginBottom: 18, position: 'relative' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+              <div style={{ width: 22, height: 22, borderRadius: 6, background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5z"/></svg>
+              </div>
+              <span style={{ font: '700 10px/1 Inter,sans-serif', color: '#7C3AED', letterSpacing: '.08em', textTransform: 'uppercase' }}>Hypothetical scenario</span>
+              <span style={{ font: '400 10.5px/1 Inter,sans-serif', color: 'rgba(0,0,0,.35)', marginLeft: 'auto' }}>Generic — no historical data needed</span>
+            </div>
+            <div style={{ font: '600 15px/1.3 Inter,sans-serif', color: 'rgba(24,39,58,.94)', marginBottom: 4 }}>{scenario.title}</div>
+            <div style={{ font: '400 13px/1.55 Inter,sans-serif', color: 'rgba(24,39,58,.72)', marginBottom: 10 }}>{scenario.detail}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {[
+                { label: 'Approach', value: scenario.approach, color: '#7C3AED' },
+                { label: 'When',     value: scenario.when,     color: '#0271CE' },
+                { label: 'Duration', value: scenario.duration, color: '#158444' },
+                { label: 'Urgency',  value: scenario.urgency,  color: scenario.urgencyColor },
+              ].map(chip => (
+                <div key={chip.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 9px', background: '#fff', border: `1px solid ${chip.color}33`, borderRadius: 6 }}>
+                  <span style={{ font: '600 9.5px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{chip.label}</span>
+                  <span style={{ font: '600 12px/1 Inter,sans-serif', color: chip.color }}>{chip.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Two-col grid: Predicted order + Call flow */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 18 }}>
+
+            {/* Predicted call order */}
+            <div style={{ border: '1px solid rgba(0,0,0,.09)', borderRadius: 10, padding: '12px 12px 14px', background: '#fff' }}>
+              <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.5)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>Predicted call order</div>
+              {ranked.map((emp, idx) => (
+                <div key={emp.name} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 0', borderBottom: idx < ranked.length - 1 ? '1px solid rgba(0,0,0,.05)' : 'none' }}>
+                  <div style={{ width: 22, height: 22, borderRadius: '50%', background: idx === 0 ? 'linear-gradient(135deg,#7C3AED,#5B21B6)' : 'rgba(124,58,237,.1)', color: idx === 0 ? '#fff' : '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', font: '700 11px/1 Inter,sans-serif', flex: 'none' }}>{idx + 1}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ font: `${idx === 0 ? 600 : 500} 13px/1.2 Inter,sans-serif`, color: 'rgba(24,39,58,.92)' }}>{emp.name}</div>
+                    <div style={{ font: '400 10.5px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', marginTop: 2 }}>{form.ruleType === 'hire_date' ? `Hired ${emp.hireDate}` : form.ruleType === 'rolodex' ? `Last called ${emp.lastCallback}` : `${emp.hours}h accumulated`}</div>
+                  </div>
+                  {idx === 0 && <span style={{ font: '700 9px/1 Inter,sans-serif', color: '#fff', background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', padding: '3px 6px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '.05em' }}>NEXT</span>}
+                </div>
+              ))}
+            </div>
+
+            {/* Step-by-step dispatch */}
+            <div style={{ border: '1px solid rgba(0,0,0,.09)', borderRadius: 10, padding: '12px 12px 14px', background: '#fff' }}>
+              <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.5)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>What happens next</div>
+              {flow.map((step, i) => {
+                const accent = step.tone === 'accept' ? '#158444' : '#D83E38';
+                return (
+                  <div key={i} style={{ position: 'relative', paddingLeft: 22, paddingBottom: i < flow.length - 1 ? 14 : 0 }}>
+                    {/* Connector line */}
+                    {i < flow.length - 1 && <div style={{ position: 'absolute', left: 9, top: 22, bottom: 0, width: 2, background: 'rgba(0,0,0,.08)' }} />}
+                    <div style={{ position: 'absolute', left: 2, top: 4, width: 16, height: 16, borderRadius: '50%', background: accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', font: '700 10px/1 Inter,sans-serif' }}>{step.step}</div>
+                    <div style={{ font: '600 12.5px/1.3 Inter,sans-serif', color: 'rgba(24,39,58,.92)' }}>{step.name} <span style={{ font: '400 10.5px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', marginLeft: 6 }}>+{step.timestamp}</span></div>
+                    <div style={{ font: '400 11.5px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.55)', marginTop: 2 }}>{step.action} · <em style={{ color: 'rgba(0,0,0,.4)', fontStyle: 'normal' }}>{step.meta}</em></div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 6, padding: '3px 8px', borderRadius: 4, background: `${accent}14`, color: accent, font: '600 11px/1 Inter,sans-serif' }}>
+                      {step.tone === 'accept'
+                        ? <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16l-4-4 1.4-1.4L9 13.2l8.6-8.6L19 6z"/></svg>
+                        : <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>}
+                      {step.outcome}
+                    </div>
+                    <div style={{ font: '400 10.5px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.45)', marginTop: 4 }}>{step.outcomeNote}</div>
+                    <div style={{ font: '400 10.5px/1.4 Inter,sans-serif', color: 'rgba(124,58,237,.75)', marginTop: 3 }}>→ {step.followUp}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Ask the AI a specific scenario */}
+          <div style={{ border: '1px solid rgba(124,58,237,.2)', borderRadius: 10, padding: '12px 14px', background: 'linear-gradient(135deg, rgba(124,58,237,.04), rgba(99,102,241,.025))' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+              <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(135deg,#A855F7,#EC4899,#F43F5E)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+              </div>
+              <span style={{ font: '600 11px/1 Inter,sans-serif', color: '#7C3AED', textTransform: 'uppercase', letterSpacing: '.06em' }}>Ask the AI a specific scenario</span>
+            </div>
+            <div style={{ font: '400 11.5px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.55)', marginBottom: 10 }}>
+              Try a scenario the rule hasn't seen, and the AI will trace how your rule would handle it.
+            </div>
+
+            {/* History */}
+            {aiHistory.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12, maxHeight: 240, overflowY: 'auto' }}>
+                {aiHistory.map((entry, i) => (
+                  <div key={i}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+                      <div style={{ maxWidth: '85%', padding: '7px 12px', borderRadius: '14px 14px 4px 14px', background: 'rgba(124,58,237,.1)', border: '1px solid rgba(124,58,237,.2)', font: '500 12.5px/1.5 Inter,sans-serif', color: '#4C1D95' }}>
+                        {entry.q}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'linear-gradient(135deg,#A855F7,#EC4899,#F43F5E)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', marginTop: 2 }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+                      </div>
+                      <div style={{ flex: 1, font: '400 12.5px/1.55 Inter,sans-serif', color: 'rgba(24,39,58,.88)', padding: '7px 12px', borderRadius: '4px 14px 14px 14px', background: '#fff', border: '1px solid rgba(0,0,0,.07)' }}>
+                        {entry.a}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Sample question chips */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
+              {PREVIEW_SAMPLE_QUESTIONS.map(q => (
+                <button key={q} onClick={() => ask(q)}
+                  style={{ height: 28, padding: '0 10px', borderRadius: 14, border: '1.5px solid rgba(124,58,237,.3)', background: 'rgba(124,58,237,.05)', color: '#7C3AED', font: '500 12px/1 Inter,sans-serif', cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.13)'; e.currentTarget.style.borderColor = '#7C3AED'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(124,58,237,.05)'; e.currentTarget.style.borderColor = 'rgba(124,58,237,.3)'; }}>
+                  {q}
+                </button>
+              ))}
+            </div>
+
+            {/* Free-form input */}
+            <div style={{ position: 'relative' }}>
+              <input
+                value={aiInput}
+                onChange={e => setAiInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') ask(aiInput); }}
+                placeholder="Describe a scenario… e.g. 'What if Marta and Priya are tied?'"
+                style={{ width: '100%', height: 38, padding: '0 44px 0 14px', border: '1.5px solid rgba(124,58,237,.3)', borderRadius: 8, outline: 'none', background: '#fff', font: '500 12.5px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)' }}
+                onFocus={e => e.target.style.borderColor = '#7C3AED'}
+                onBlur={e => e.target.style.borderColor = 'rgba(124,58,237,.3)'}
+              />
+              <button onClick={() => ask(aiInput)}
+                style={{ position: 'absolute', right: 5, top: 5, width: 28, height: 28, borderRadius: 6, border: 'none',
+                  background: aiInput.trim() ? 'linear-gradient(135deg,#7C3AED,#5B21B6)' : 'rgba(124,58,237,.2)',
+                  color: '#fff', cursor: aiInput.trim() ? 'pointer' : 'default',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: aiInput.trim() ? '0 2px 6px rgba(124,58,237,.35)' : 'none' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12l20-9-9 20-2-9z"/></svg>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '12px 22px', borderTop: '1px solid rgba(0,0,0,.07)', background: '#FAFAFC', display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Scenario pagination dots */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+            <span style={{ font: '400 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', marginRight: 4 }}>Scenario {scenarioIdx + 1} of {PREVIEW_SCENARIOS.length}</span>
+            {PREVIEW_SCENARIOS.map((_, i) => (
+              <button key={i} onClick={() => { setScenarioIdx(i); setAiHistory([]); }} aria-label={`Scenario ${i + 1}`}
+                style={{ width: 8, height: 8, borderRadius: '50%', border: 'none', cursor: 'pointer', padding: 0, background: i === scenarioIdx ? '#7C3AED' : 'rgba(0,0,0,.15)', transition: 'background .15s' }} />
+            ))}
+          </div>
+          <button onClick={() => { setScenarioIdx(i => (i + 1) % PREVIEW_SCENARIOS.length); setAiHistory([]); }}
+            style={{ height: 36, padding: '0 14px', borderRadius: 7, border: '1px solid rgba(124,58,237,.35)', background: '#fff', color: '#7C3AED', font: '600 13px/1 Inter,sans-serif', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></svg>
+            Try another scenario
+          </button>
+          <button onClick={onClose}
+            style={{ height: 36, padding: '0 18px', borderRadius: 7, border: 'none', background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', color: '#fff', font: '600 13px/1 Inter,sans-serif', cursor: 'pointer', boxShadow: '0 2px 8px rgba(124,58,237,.35)' }}>
+            Close preview
+          </button>
+        </div>
+
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function rankEmployees(form) {
   return [...MOCK_EMPLOYEES].sort((a, b) => {
     let primary = 0;
     if (form.ruleType === 'hours') primary = a.hours - b.hours;
     else if (form.ruleType === 'hire_date') primary = new Date(a.hireDate) - new Date(b.hireDate);
     else if (form.ruleType === 'rolodex') primary = 0;
+    else if (form.ruleType === 'employee_id') primary = a.name.localeCompare(b.name);
+    else if (form.ruleType === 'random') primary = 0; // mock data preview — keep stable order
     else primary = a.hours - b.hours;
     if (primary !== 0) return primary;
     if (form.tieBreaker === 'Seniority (hire date)') return new Date(a.hireDate) - new Date(b.hireDate);
@@ -654,8 +950,16 @@ function buildSummary(form) {
   const parts = [];
   const approachLabel = form.ruleAffects === 'all' ? 'all approaches' :
     form.selectedApproaches.length ? form.selectedApproaches.join(' & ') : 'selected approaches';
-  const typeLabels = { hours: 'fewest overtime hours', turns: 'fewest turns', hire_date: 'most seniority (hire date)', rolodex: 'Rolodex rotation', custom: 'custom ranking' };
-  parts.push(`Callback list for ${approachLabel} ranked by ${typeLabels[form.ruleType] || 'fewest overtime hours'}`);
+  const typeLabels = {
+    hours:       'fewest accumulated callback hours',
+    turns:       'an accumulating rolodex (rotate after a set limit)',
+    hire_date:   'seniority (hire or promotion date)',
+    rolodex:     'a standard rolodex rotation',
+    employee_id: 'natural alphanumerical sort on employee ID',
+    random:      'a random / lottery order',
+    custom:      'custom ranking',
+  };
+  parts.push(`Callback list for ${approachLabel} ranked by ${typeLabels[form.ruleType] || 'fewest accumulated callback hours'}`);
   if (form.lookBack) parts[0] += ` over a ${form.lookBack}-day window`;
   if (form.tieBreaker) parts.push(`Ties broken by ${form.tieBreaker.toLowerCase()}`);
   if (form.declineAction) parts.push(`Declines: ${form.declineAction.toLowerCase()}`);
@@ -667,40 +971,59 @@ function buildSummary(form) {
 }
 
 function RuleSummary({ form }) {
-  const [previewOpen, setPreviewOpen] = useState(true);
+  // Preview Ranking tab is the default — when the AI assistant builds and the
+  // configuration scrolls up, the user can see the live ranking change as they
+  // make selections.
+  const [tab, setTab] = useState('preview');
   const summary = buildSummary(form);
   const hasDetails = form.tieBreaker || form.declineAction || form.lookBack || form.ruleAffects === 'selected';
   const topEmp = rankEmployees(form)[0];
+
+  const TabBtn = ({ value, label }) => {
+    const active = tab === value;
+    return (
+      <button onClick={() => setTab(value)}
+        style={{
+          padding: '8px 12px 9px', background: 'none', border: 'none', cursor: 'pointer',
+          borderBottom: active ? '2px solid #7C3AED' : '2px solid transparent',
+          marginBottom: -1,
+          font: `${active ? 600 : 500} 11px/1 Inter,sans-serif`,
+          color: active ? '#7C3AED' : 'rgba(124,58,237,.55)',
+          textTransform: 'uppercase', letterSpacing: '.06em', transition: 'color .15s',
+        }}>
+        {label}
+      </button>
+    );
+  };
+
   return (
     <div style={{ marginBottom: 0, background: 'linear-gradient(135deg, rgba(124,58,237,.06) 0%, rgba(99,102,241,.04) 100%)', border: '1px solid rgba(124,58,237,.18)', borderRadius: 10, overflow: 'hidden' }}>
-      <div style={{ padding: '14px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
-          <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
-          </div>
-          <div style={{ font: '600 11px/1 Inter,sans-serif', color: '#7C3AED', textTransform: 'uppercase', letterSpacing: '.06em', flex: 1 }}>Rule Summary</div>
+      {/* Tab strip — Preview Ranking first, Rule Summary second */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 12px', borderBottom: '1px solid rgba(124,58,237,.16)', background: 'rgba(255,255,255,.5)' }}>
+        <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', marginRight: 4 }}>
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
         </div>
-        <div style={{ font: '400 13px/1.7 Inter,sans-serif', color: 'rgba(24,39,58,.8)' }}>
-          {hasDetails ? summary : <span style={{ color: 'rgba(0,0,0,.4)', fontStyle: 'italic' }}>Answer the AI's questions to see your rule take shape…</span>}
-        </div>
-      </div>
-      {/* Preview Ranking toggle */}
-      <button onClick={() => setPreviewOpen(o => !o)}
-        style={{ width: '100%', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: 8, background: previewOpen ? 'rgba(124,58,237,.07)' : 'rgba(124,58,237,.03)', border: 'none', borderTop: '1px solid rgba(124,58,237,.14)', cursor: 'pointer', textAlign: 'left', transition: 'background .15s' }}
-        onMouseEnter={e => { if (!previewOpen) e.currentTarget.style.background = 'rgba(124,58,237,.06)'; }}
-        onMouseLeave={e => { if (!previewOpen) e.currentTarget.style.background = 'rgba(124,58,237,.03)'; }}>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={previewOpen ? '#7C3AED' : 'rgba(124,58,237,.6)'} strokeWidth="2" strokeLinecap="round" style={{ flex: 'none', transition: 'transform .2s', transform: previewOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}><path d="M6 9l6 6 6-6"/></svg>
-        <span style={{ font: '500 11px/1 Inter,sans-serif', color: previewOpen ? '#7C3AED' : 'rgba(124,58,237,.75)', flex: 1 }}>Preview Ranking</span>
-        {!previewOpen && topEmp && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, font: '400 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)' }}>
-            <span style={{ font: '600 10px/1 Inter,sans-serif', color: '#7C3AED', background: 'rgba(124,58,237,.1)', padding: '2px 5px', borderRadius: 3, textTransform: 'uppercase', letterSpacing: '.04em' }}>Next</span>
-            {topEmp.name}
+        <TabBtn value="preview" label="Preview Ranking" />
+        <TabBtn value="summary" label="Rule Summary" />
+        <div style={{ flex: 1 }} />
+        {topEmp && tab !== 'preview' && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, font: '400 10px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', whiteSpace: 'nowrap' }}>
+            <span style={{ font: '700 9px/1 Inter,sans-serif', color: '#7C3AED', background: 'rgba(124,58,237,.12)', padding: '2px 5px', borderRadius: 3, textTransform: 'uppercase', letterSpacing: '.04em' }}>Next</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110 }}>{topEmp.name}</span>
           </span>
         )}
-      </button>
-      {previewOpen && (
-        <div style={{ padding: '0 16px 14px', borderTop: '1px solid rgba(124,58,237,.1)' }}>
+      </div>
+
+      {/* Tab content */}
+      {tab === 'preview' ? (
+        <div style={{ padding: '10px 12px 12px' }}>
           <PreviewRankingList form={form} compact />
+        </div>
+      ) : (
+        <div style={{ padding: '12px 14px' }}>
+          <div style={{ font: '400 13px/1.65 Inter,sans-serif', color: 'rgba(24,39,58,.8)' }}>
+            {hasDetails ? summary : <span style={{ color: 'rgba(0,0,0,.4)', fontStyle: 'italic' }}>Answer the AI's questions to see your rule take shape…</span>}
+          </div>
         </div>
       )}
     </div>
@@ -708,39 +1031,47 @@ function RuleSummary({ form }) {
 }
 
 function PreviewRankingList({ form, compact }) {
-  const ranked = rankEmployees(form);
+  const rankedAll = rankEmployees(form);
+  // In the tabbed compact view, keep the list short so it fits a laptop screen
+  // without dominating the panel — show top 4 plus a "more" hint.
+  const ranked = compact ? rankedAll.slice(0, 4) : rankedAll;
+  const hiddenCount = rankedAll.length - ranked.length;
   const getMetric = (emp) => {
     if (form.ruleType === 'hire_date') return emp.hireDate.slice(0,7);
     if (form.ruleType === 'rolodex') return '—';
     return `${emp.hours}h`;
   };
   return (
-    <div style={{ marginBottom: compact ? 0 : 22, marginTop: compact ? 10 : 0 }}>
-      <div style={{ background: '#fff', border: `1.5px solid ${compact ? 'rgba(124,58,237,.2)' : 'rgba(0,0,0,.1)'}`, borderRadius: 10, overflow: 'hidden', boxShadow: compact ? '0 2px 12px rgba(124,58,237,.1)' : 'none' }}>
+    <div style={{ marginBottom: compact ? 0 : 22, marginTop: 0 }}>
+      <div style={{ background: '#fff', border: `1px solid ${compact ? 'rgba(124,58,237,.2)' : 'rgba(0,0,0,.1)'}`, borderRadius: 8, overflow: 'hidden', boxShadow: compact ? '0 1px 6px rgba(124,58,237,.08)' : 'none' }}>
         {ranked.map((emp, idx) => (
           <div key={emp.name} style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: compact ? '10px 14px' : '9px 14px',
+            display: 'flex', alignItems: 'center', gap: 9,
+            padding: compact ? '7px 11px' : '9px 14px',
             borderBottom: idx < ranked.length - 1 ? '1px solid rgba(0,0,0,.06)' : 'none',
             background: idx === 0 ? 'linear-gradient(135deg, rgba(124,58,237,.08) 0%, rgba(91,33,182,.04) 100%)' : 'transparent',
             borderLeft: idx === 0 ? '3px solid #7C3AED' : '3px solid transparent',
           }}>
-            <div style={{ width: 24, height: 24, borderRadius: '50%', background: idx === 0 ? 'linear-gradient(135deg,#7C3AED,#5B21B6)' : idx === 1 ? 'rgba(124,58,237,.15)' : 'rgba(0,0,0,.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', boxShadow: idx === 0 ? '0 2px 6px rgba(124,58,237,.35)' : 'none' }}>
-              <span style={{ font: `${idx === 0 ? 700 : 500} 11px/1 Inter,sans-serif`, color: idx === 0 ? '#fff' : idx === 1 ? '#7C3AED' : 'rgba(0,0,0,.4)' }}>{idx + 1}</span>
+            <div style={{ width: 20, height: 20, borderRadius: '50%', background: idx === 0 ? 'linear-gradient(135deg,#7C3AED,#5B21B6)' : idx === 1 ? 'rgba(124,58,237,.15)' : 'rgba(0,0,0,.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', boxShadow: idx === 0 ? '0 1px 4px rgba(124,58,237,.3)' : 'none' }}>
+              <span style={{ font: `${idx === 0 ? 700 : 500} 10px/1 Inter,sans-serif`, color: idx === 0 ? '#fff' : idx === 1 ? '#7C3AED' : 'rgba(0,0,0,.4)' }}>{idx + 1}</span>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ font: `${idx === 0 ? 600 : 500} 13px/1 Inter,sans-serif`, color: idx === 0 ? 'rgba(24,39,58,.96)' : 'rgba(24,39,58,.8)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.name}</span>
-                {idx === 0 && <span style={{ font: '700 9px/1 Inter,sans-serif', color: '#fff', background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', padding: '3px 6px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '.06em', flex: 'none', boxShadow: '0 1px 4px rgba(124,58,237,.3)' }}>NEXT UP</span>}
+                <span style={{ font: `${idx === 0 ? 600 : 500} 12.5px/1.1 Inter,sans-serif`, color: idx === 0 ? 'rgba(24,39,58,.96)' : 'rgba(24,39,58,.8)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.name}</span>
+                {idx === 0 && <span style={{ font: '700 8.5px/1 Inter,sans-serif', color: '#fff', background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', padding: '2px 5px', borderRadius: 3, textTransform: 'uppercase', letterSpacing: '.05em', flex: 'none' }}>NEXT</span>}
               </div>
-              <div style={{ font: '400 11px/1 Inter,sans-serif', color: idx === 0 ? 'rgba(124,58,237,.6)' : 'rgba(0,0,0,.4)', marginTop: 3 }}>Last callback: {emp.lastCallback}</div>
+              {!compact && (
+                <div style={{ font: '400 11px/1 Inter,sans-serif', color: idx === 0 ? 'rgba(124,58,237,.6)' : 'rgba(0,0,0,.4)', marginTop: 3 }}>Last callback: {emp.lastCallback}</div>
+              )}
             </div>
-            <div style={{ font: '600 12px/1 Inter,sans-serif', color: idx === 0 ? '#7C3AED' : 'rgba(0,0,0,.4)', flex: 'none', background: idx === 0 ? 'rgba(124,58,237,.08)' : 'transparent', padding: idx === 0 ? '3px 8px' : '0', borderRadius: idx === 0 ? 5 : 0 }}>{getMetric(emp)}</div>
+            <div style={{ font: '600 11.5px/1 Inter,sans-serif', color: idx === 0 ? '#7C3AED' : 'rgba(0,0,0,.4)', flex: 'none', background: idx === 0 ? 'rgba(124,58,237,.08)' : 'transparent', padding: idx === 0 ? '3px 7px' : '0', borderRadius: idx === 0 ? 4 : 0 }}>{getMetric(emp)}</div>
           </div>
         ))}
       </div>
-      <div style={{ font: '400 11px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.35)', marginTop: 6, textAlign: 'center' }}>
-        Mock data — reflects current rule configuration
+      <div style={{ font: '400 10.5px/1.3 Inter,sans-serif', color: 'rgba(0,0,0,.35)', marginTop: 5, textAlign: 'center' }}>
+        {compact && hiddenCount > 0
+          ? `+${hiddenCount} more — reflects current rule configuration`
+          : 'Mock data — reflects current rule configuration'}
       </div>
     </div>
   );
@@ -792,12 +1123,17 @@ const BRANCH_MAP = {
 };
 
 // ── Rule type options for rich dropdown ──────────────────────────────────────
+// Titles match the six 'Help me build a rule based on' prompts on the dashboard,
+// in the in-builder suggestions, and the Approaches & Rules chip banner — so the
+// rule type the user clicked on is also the one selected here.
 const RULE_TYPE_OPTIONS = [
-  { value: 'hours',     title: 'Hours Based',        desc: 'Rank employees by accumulated overtime hours. Person with fewest hours is called first.',      icon: 'fa-solid fa-clock'            },
-  { value: 'turns',     title: 'Turns Based',         desc: 'Rank by total number of callback turns participated in. Simple and transparent.',              icon: 'fa-solid fa-arrows-rotate'    },
-  { value: 'hire_date', title: 'Hire Date Priority',  desc: 'Rank by seniority — employees hired earliest rank first for callbacks.',                       icon: 'fa-solid fa-calendar-days'    },
-  { value: 'rolodex',   title: 'Rotating Rolodex',    desc: 'Move employees to end of list after each callback — fair, even distribution across the team.', icon: 'fa-solid fa-rotate'           },
-  { value: 'custom',    title: 'Custom',              desc: 'Define your own custom ranking logic and criteria.',                                            icon: 'fa-solid fa-pen-to-square'    },
+  { value: 'rolodex',     title: 'Standard Rolodex',           desc: 'Top-down callback list. After each callback, employees rotate to the end. Manual reordering allowed any time.',                                    icon: 'fa-solid fa-rotate'         },
+  { value: 'turns',       title: 'Accumulating Rolodex',       desc: 'Rotate employees to the end once they hit an accumulated limit (e.g., 24 hours or 3 callbacks).',                                                   icon: 'fa-solid fa-arrows-rotate'  },
+  { value: 'hours',       title: 'Accumulation — Hours Based', desc: 'Rank by accumulated callback hours so the fewest hours gets called first. Count any combination of accepts, denials, or contacts.',                icon: 'fa-solid fa-clock'          },
+  { value: 'hire_date',   title: 'Static — Seniority Based',   desc: 'Order employees by hire or promotion date. Set any tiebreaker for employees sharing the same date.',                                                icon: 'fa-solid fa-medal'          },
+  { value: 'employee_id', title: 'Static — By Employee ID',    desc: 'Order by employee ID using a natural alphanumerical sort — case-insensitive and number-aware.',                                                     icon: 'fa-solid fa-id-badge'       },
+  { value: 'random',      title: 'Random / Lottery',           desc: 'Order employees randomly for fair lotteries and unbiased distribution.',                                                                            icon: 'fa-solid fa-shuffle'        },
+  { value: 'custom',      title: 'Custom',                      desc: 'Define your own custom ranking logic and criteria.',                                                                                                icon: 'fa-solid fa-pen-to-square'  },
 ];
 
 const TIEBREAKER_OPTIONS = [
@@ -986,12 +1322,19 @@ function RuleBuilderView({ seed, onBack }) {
   const [stickyOpen, setStickyOpen]     = useState(true);
   const [customAnswer, setCustomAnswer] = useState(false);
   const [chipSelections, setChipSelections] = useState(new Set());
+  const [previewMode, setPreviewMode] = useState(false);
+  const [previewTooltip, setPreviewTooltip] = useState(false);
 
   const skippedCount = messages.filter(m => m.role === 'user' && m.skipped).length;
 
   const guessType = (name) => {
     if (!name) return 'hours';
     const n = name.toLowerCase();
+    // Specific multi-word matches go first so "Accumulating Rolodex" doesn't fall into "rolodex".
+    if (n.includes('accumulating rolodex')) return 'turns';
+    if (n.includes('standard rolodex')) return 'rolodex';
+    if (n.includes('employee id') || n.includes('by id')) return 'employee_id';
+    if (n.includes('random') || n.includes('lottery')) return 'random';
     if (n.includes('hour')) return 'hours';
     if (n.includes('turn')) return 'turns';
     if (n.includes('hire') || n.includes('seniority')) return 'hire_date';
@@ -1018,6 +1361,20 @@ function RuleBuilderView({ seed, onBack }) {
     turnsCounting:       '',
     tieBreakerOrder:     '',
     rolodexReset:        '',
+    // New call-and-response fields for the six prompt flows:
+    rolodexAcceptMove:   '',  // Standard Rolodex: post-accept movement
+    responseTime:        '',  // Standard Rolodex: per-employee response window
+    accumulationType:    '',  // Accumulating Rolodex: hours vs callbacks
+    accumulationLimit:   '',  // Accumulating Rolodex: limit value before rotating
+    resetCadence:        '',  // Accumulation Hours: reset cycle
+    hoursCountedOutcomes:'',  // Accumulation Hours: which outcomes count
+    seniorityDateType:   '',  // Static Seniority: hire vs promotion date
+    sortDirection:       '',  // Static By ID: asc / desc
+    newHirePlacement:    '',  // Static By ID: where new hires land
+    caseSensitivity:     '',  // Static By ID: ignore case or not
+    randomizeFrequency:  '',  // Random: how often to re-randomize
+    randomWeighting:     '',  // Random: pure / weighted-by-gap / weighted-by-hours
+    randomGuardrail:     '',  // Random: optional fairness guardrail
   });
 
   // Tracks which config fields have been surfaced by chat answers
@@ -1068,6 +1425,20 @@ function RuleBuilderView({ seed, onBack }) {
     }
     prevRevealedSize.current = revealedFields.size;
   }, [revealedFields]);
+  // Auto-toggle the sticky summary based on scroll position. When the user is at the
+  // top of the form, the summary is expanded; scroll down a little and it collapses
+  // into a compact pill (still pinned to the top), freeing up vertical room for the form.
+  useEffect(() => {
+    const el = panelScrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const y = el.scrollTop;
+      if (y > 36) setStickyOpen(false);
+      else if (y < 8) setStickyOpen(true);
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
 
   const userMsgs    = messages.filter(m => m.role === 'user');
   // When entering from a template/prompt, flow[0] is already pre-loaded in initMsgs
@@ -1138,6 +1509,58 @@ function RuleBuilderView({ seed, onBack }) {
     if (lower === 'yes, reset each cycle') updates.rolodexReset = 'Reset each cycle';
     else if (lower === 'no, keep rotating') updates.rolodexReset = 'Keep rotating';
     else if (lower === 'reset manually') updates.rolodexReset = 'Manual reset';
+    // ── New call-and-response fields ─────────────────────────────────────────
+    // Standard Rolodex: where employees land after accepting / declining
+    if (lower === 'move to end of list' || lower === 'move to back of list') {
+      // Apply to both post-accept and post-decline so the panel reveals both fields
+      // in turn — the flow asks accept first, then decline next.
+      if (!form.rolodexAcceptMove) updates.rolodexAcceptMove = 'Move to end of list';
+      else updates.declineAction = 'Move to back of list';
+    } else if (lower === 'stay at the top') updates.rolodexAcceptMove = 'Stay at the top';
+    // Response time window (e.g. "2 minutes")
+    const respM = text.match(/^(\d+)\s*minutes?$/i);
+    if (respM) updates.responseTime = `${respM[1]} min`;
+    // Accumulating Rolodex: what accumulates and at what limit
+    if (lower === 'hours worked') updates.accumulationType = 'Hours worked';
+    else if (lower === 'callbacks accepted') updates.accumulationType = 'Callbacks accepted';
+    else if (lower === 'both, weighted') updates.accumulationType = 'Hours + callbacks, weighted';
+    const limHoursM = text.match(/^(\d+)\s*hours?$/i);
+    if (limHoursM) updates.accumulationLimit = `${limHoursM[1]} hours`;
+    const limCbM = text.match(/^(\d+)\s*callbacks?$/i);
+    if (limCbM) updates.accumulationLimit = `${limCbM[1]} callbacks`;
+    // Reset cadence (Accumulation — Hours Based)
+    if (lower.startsWith('annually')) updates.resetCadence = 'Annually (fiscal year)';
+    else if (lower === 'quarterly') updates.resetCadence = 'Quarterly';
+    else if (lower === 'monthly') updates.resetCadence = 'Monthly';
+    else if (lower.startsWith('never')) updates.resetCadence = 'Never (rolling total)';
+    // Hours-based: which outcomes count
+    if (lower === 'accepted + denied') updates.hoursCountedOutcomes = 'Accepted + denied';
+    else if (lower === 'anyone contacted') updates.hoursCountedOutcomes = 'Anyone contacted';
+    else if (lower === 'custom mix') updates.hoursCountedOutcomes = 'Custom mix';
+    else if (lower === 'accepted only' && /which callback outcomes/i.test(messages[messages.length - 1]?.text || '')) updates.hoursCountedOutcomes = 'Accepted only';
+    // Static — Seniority Based: date type
+    if (lower === 'hire date') updates.seniorityDateType = 'Hire date';
+    else if (lower === 'rank/promotion date' || lower === 'promotion date') updates.seniorityDateType = 'Rank/promotion date';
+    else if (lower === 'mix: hire date as tiebreaker') updates.seniorityDateType = 'Mix: promotion date + hire date tiebreaker';
+    // Static — By Employee ID: sort direction / placement / case
+    if (lower.startsWith('ascending')) updates.sortDirection = 'Ascending';
+    else if (lower.startsWith('descending')) updates.sortDirection = 'Descending';
+    if (lower === 'natural position by id') updates.newHirePlacement = 'Natural position by ID';
+    else if (lower === 'top of list') updates.newHirePlacement = 'Top of list';
+    else if (lower === 'bottom of list') updates.newHirePlacement = 'Bottom of list';
+    if (lower.startsWith('yes, ignore case')) updates.caseSensitivity = 'Ignore case';
+    else if (lower.startsWith('no, case-sensitive')) updates.caseSensitivity = 'Case-sensitive';
+    // Random / Lottery: frequency, weighting, guardrail
+    if (lower === 'every callback') updates.randomizeFrequency = 'Every callback';
+    else if (lower === 'every shift') updates.randomizeFrequency = 'Every shift';
+    else if (lower === 'daily') updates.randomizeFrequency = 'Daily';
+    else if (lower === 'weekly') updates.randomizeFrequency = 'Weekly';
+    if (lower === 'pure random') updates.randomWeighting = 'Pure random';
+    else if (lower === 'weight by last callback gap') updates.randomWeighting = 'Weight by last callback gap';
+    else if (lower === 'weight by total hours') updates.randomWeighting = 'Weight by total hours';
+    if (lower === 'no guardrails') updates.randomGuardrail = 'No guardrails';
+    else if (lower === 'cap consecutive picks') updates.randomGuardrail = 'Cap consecutive picks';
+    else if (lower === 'cool-down after a pick') updates.randomGuardrail = 'Cool-down after a pick';
     // Tiebreaker sort direction
     if (lower === 'a → z') updates.tieBreakerOrder = 'A → Z';
     else if (lower === 'z → a') updates.tieBreakerOrder = 'Z → A';
@@ -1173,6 +1596,10 @@ function RuleBuilderView({ seed, onBack }) {
     minShift: '', maxShift: '', lookBack: '', forecast: '', tieBreaker: '', declineAction: '',
     penaltyPoints: '', declineScope: '', declineCooldown: '',
     turnsCounting: '', tieBreakerOrder: '', rolodexReset: '',
+    rolodexAcceptMove: '', responseTime: '', accumulationType: '', accumulationLimit: '',
+    resetCadence: '', hoursCountedOutcomes: '', seniorityDateType: '',
+    sortDirection: '', newHirePlacement: '', caseSensitivity: '',
+    randomizeFrequency: '', randomWeighting: '', randomGuardrail: '',
   };
   const startOver = () => {
     setMessages([{ role: 'ai', text: introAiText }, { role: 'suggestions' }]);
@@ -1226,12 +1653,70 @@ function RuleBuilderView({ seed, onBack }) {
           <div style={{ font: '700 18px/1.2 Inter,sans-serif', color: '#fff', letterSpacing: '-.01em' }}>Callback Ranking Rules Engine</div>
           <div style={{ font: '400 13px/1.3 Inter,sans-serif', color: 'rgba(255,255,255,.72)', marginTop: 2 }}>Build intelligent callback rules with AI</div>
         </div>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Preview Mode — optional dry-run tool. Tooltip explains the feature; clicking
+            toggles a visible active state so users can see they're in preview mode. */}
+        <div style={{ position: 'relative', flex: 'none' }}
+          onMouseEnter={() => setPreviewTooltip(true)}
+          onMouseLeave={() => setPreviewTooltip(false)}>
+          <button onClick={() => setPreviewMode(p => !p)}
+            aria-pressed={previewMode}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
+              font: '600 13px/1 Inter,sans-serif',
+              background: previewMode ? '#fff' : 'rgba(255,255,255,.15)',
+              color: previewMode ? '#6D28D9' : '#fff',
+              border: `1px solid ${previewMode ? '#fff' : 'rgba(255,255,255,.3)'}`,
+              boxShadow: previewMode ? '0 2px 12px rgba(255,255,255,.35)' : 'none',
+              transition: 'background .15s, color .15s, box-shadow .15s',
+            }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            Preview Mode
+            {previewMode && (
+              <span style={{
+                marginLeft: 2, padding: '2px 7px', borderRadius: 99,
+                font: '700 9px/1 Inter,sans-serif', letterSpacing: '.06em',
+                background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', color: '#fff',
+              }}>ON</span>
+            )}
+          </button>
+          {previewTooltip && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 320, zIndex: 10,
+              padding: '12px 14px', background: '#1c2330', color: '#fff',
+              borderRadius: 8, boxShadow: '0 10px 30px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.2)',
+              animation: 'cbToast .15s ease both',
+            }}>
+              <div style={{
+                position: 'absolute', top: -5, right: 22,
+                width: 10, height: 10, background: '#1c2330', transform: 'rotate(45deg)',
+              }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none' }}>
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                </svg>
+                <span style={{ font: '700 12px/1 Inter,sans-serif', color: '#fff' }}>Preview Mode tool</span>
+              </div>
+              <div style={{ font: '400 12px/1.55 Inter,sans-serif', color: 'rgba(255,255,255,.85)' }}>
+                Optional exercise for all rule activations and edits. Simulates ranking outcomes before go-live. For customers with no historical data, the system provides generic, appropriate hypothetical scenarios. The customer can also ask the AI chat how the rule would handle specific scenarios that they provide.
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 
   return (
     <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+
+      {previewMode && <PreviewModal form={form} onClose={() => setPreviewMode(false)} />}
 
       {/* ── LEFT: AI Chat ── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff', overflow: 'hidden', minWidth: 0 }}>
@@ -1482,79 +1967,79 @@ function RuleBuilderView({ seed, onBack }) {
       )}
       {cfgOpen && (
       <div style={{ width: 460, flex: 'none', display: 'flex', flexDirection: 'column', background: '#F8F7FC', borderLeft: '1px solid rgba(0,0,0,.08)', overflow: 'hidden' }}>
-        {/* Sticky banner header */}
+        {/* Sticky banner header — compact, single-line title to free up vertical space */}
         <div style={{ background: '#fff', borderBottom: '1px solid rgba(0,0,0,.08)', flex: 'none' }}>
-          {/* Title row */}
-          <div style={{ padding: '16px 20px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ font: '600 15px/1.2 Inter,sans-serif', color: 'rgba(24,39,58,.94)' }}>Rule Configuration</div>
-              <div style={{ font: '400 11px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.45)', marginTop: 3 }}>Editable — updates live as you chat</div>
+          <div style={{ padding: '9px 14px 9px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', rowGap: 0 }}>
+              <span style={{ font: '600 13px/1.3 Inter,sans-serif', color: 'rgba(24,39,58,.94)' }}>Rule configuration:</span>
+              <span style={{ font: '400 11.5px/1.3 Inter,sans-serif', color: 'rgba(0,0,0,.5)' }}>editable updates live as you chat</span>
             </div>
-            <button onClick={() => setCfgOpen(false)} title="Collapse panel"
-              style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid rgba(0,0,0,.1)', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: 'none' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,.04)'}
-              onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.5)" strokeWidth="2" strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            <button onClick={() => setCfgOpen(false)} title="Collapse panel" aria-label="Collapse panel"
+              style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: 'none', padding: 0, color: 'rgba(0,0,0,.42)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,.06)'; e.currentTarget.style.color = 'rgba(0,0,0,.7)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'rgba(0,0,0,.42)'; }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M9 6l6 6-6 6"/></svg>
             </button>
           </div>
-
         </div>
 
-        {/* Sticky skipped banner + rule summary — collapsible */}
-        <div style={{ flex: 'none', borderBottom: '1px solid rgba(0,0,0,.07)' }}>
-          {stickyOpen ? (
-            /* Expanded: cards on left, collapse chevron floats to the right of the topmost card */
-            <div style={{ padding: '12px 16px 16px', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {skippedCount > 0 && (
-                  <div style={{ marginBottom: 12, padding: '10px 14px', background: 'rgba(224,120,46,.07)', border: '1px solid rgba(224,120,46,.28)', borderRadius: 8 }}>
-                    <div style={{ font: '600 11px/1 Inter,sans-serif', color: '#B2571A', display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" style={{ flex: 'none' }}><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-                      <span style={{ flex: 1 }}>{skippedCount} question{skippedCount > 1 ? 's' : ''} skipped</span>
+        {/* Scrollable form area. The summary lives inside this container at the top with
+            position: sticky — it scrolls up with the form, and once it reaches the top a
+            scroll listener auto-collapses it to a compact pill so the scrollable area
+            stays usable on a laptop. Scroll back near the top and it expands again. */}
+        <div ref={panelScrollRef} style={{ flex: 1, overflowY: 'auto', scrollBehavior: 'smooth', position: 'relative' }}>
+
+          <div style={{ position: 'sticky', top: 0, zIndex: 5, background: '#F8F7FC', borderBottom: '1px solid rgba(0,0,0,.07)' }}>
+            {stickyOpen ? (
+              <div style={{ padding: '8px 12px 10px', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {skippedCount > 0 && (
+                    <div style={{ marginBottom: 8, padding: '7px 11px', background: 'rgba(224,120,46,.07)', border: '1px solid rgba(224,120,46,.28)', borderRadius: 7 }}>
+                      <div style={{ font: '600 11px/1 Inter,sans-serif', color: '#B2571A', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" style={{ flex: 'none' }}><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                        <span style={{ flex: 1 }}>{skippedCount} question{skippedCount > 1 ? 's' : ''} skipped</span>
+                        <span style={{ font: '400 10.5px/1.3 Inter,sans-serif', color: 'rgba(0,0,0,.5)' }}>— revisit before saving</span>
+                      </div>
                     </div>
-                    <div style={{ font: '400 11px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.55)', marginTop: 5 }}>We'll revisit these before saving.</div>
-                  </div>
-                )}
-                <RuleSummary form={form} />
+                  )}
+                  <RuleSummary form={form} />
+                </div>
+                <button onClick={() => setStickyOpen(false)} title="Collapse" aria-label="Collapse summary"
+                  style={{ width: 18, height: 18, borderRadius: 4, border: 'none', background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: 'none', marginTop: 2, padding: 0, color: 'rgba(124,58,237,.55)' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.1)'; e.currentTarget.style.color = '#7C3AED'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'rgba(124,58,237,.55)'; }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 15l-6-6-6 6"/></svg>
+                </button>
               </div>
-              {/* Collapse chevron — outside cards, aligned to top of topmost card */}
-              <button onClick={() => setStickyOpen(false)} title="Collapse"
-                style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid rgba(124,58,237,.22)', background: 'rgba(124,58,237,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: 'none', marginTop: 2 }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(124,58,237,.14)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(124,58,237,.06)'}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="2.5" strokeLinecap="round"><path d="M18 15l-6-6-6 6"/></svg>
+            ) : (
+              <button onClick={() => setStickyOpen(true)}
+                style={{ width: '100%', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: 'none', cursor: 'pointer', textAlign: 'left', transition: 'background .15s' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.04)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}>
+                <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+                </div>
+                <span style={{ font: '600 10.5px/1 Inter,sans-serif', color: '#7C3AED', textTransform: 'uppercase', letterSpacing: '.06em', flex: 1 }}>Rule Summary</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {skippedCount > 0 && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, font: '600 10px/1 Inter,sans-serif', color: '#B2571A', background: 'rgba(224,120,46,.1)', border: '1px solid rgba(224,120,46,.25)', padding: '2px 6px', borderRadius: 4 }}>
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                      {skippedCount} skipped
+                    </span>
+                  )}
+                  {(() => { const top = rankEmployees(form)[0]; return top ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, font: '500 10px/1 Inter,sans-serif', color: '#7C3AED', background: 'rgba(124,58,237,.08)', border: '1px solid rgba(124,58,237,.2)', padding: '2px 6px', borderRadius: 4 }}>
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="#7C3AED"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+                      1st {top.name}
+                    </span>
+                  ) : null; })()}
+                </div>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(124,58,237,.6)" strokeWidth="2.2" strokeLinecap="round" style={{ flex: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
               </button>
-            </div>
-          ) : (
-            /* Collapsed: compact single row with chips */
-            <button onClick={() => setStickyOpen(true)}
-              style={{ width: '100%', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: 'none', cursor: 'pointer', textAlign: 'left', transition: 'background .15s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.04)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}>
-              <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
-              </div>
-              <span style={{ font: '600 11px/1 Inter,sans-serif', color: '#7C3AED', textTransform: 'uppercase', letterSpacing: '.06em', flex: 1 }}>Rule Summary</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {skippedCount > 0 && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, font: '600 10px/1 Inter,sans-serif', color: '#B2571A', background: 'rgba(224,120,46,.1)', border: '1px solid rgba(224,120,46,.25)', padding: '3px 7px', borderRadius: 5 }}>
-                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-                    {skippedCount} skipped
-                  </span>
-                )}
-                {(() => { const top = rankEmployees(form)[0]; return top ? (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, font: '500 10px/1 Inter,sans-serif', color: '#7C3AED', background: 'rgba(124,58,237,.08)', border: '1px solid rgba(124,58,237,.2)', padding: '3px 7px', borderRadius: 5 }}>
-                    <svg width="8" height="8" viewBox="0 0 24 24" fill="#7C3AED"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
-                    1st {top.name}
-                  </span>
-                ) : null; })()}
-              </div>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(124,58,237,.6)" strokeWidth="2.2" strokeLinecap="round" style={{ flex: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
-            </button>
-          )}
-        </div>
+            )}
+          </div>
 
-        <div ref={panelScrollRef} style={{ flex: 1, overflowY: 'auto', padding: '24px', scrollBehavior: 'smooth' }}>
+          <div style={{ padding: '16px 24px 8px' }}>
 
           {/* Rule Name — always visible */}
           <FormGroup label="Rule Name">
@@ -1604,6 +2089,126 @@ function RuleBuilderView({ seed, onBack }) {
                 <option value="Keep rotating">Keep rotating</option>
                 <option value="Manual reset">Manual reset</option>
               </select>
+            </div>
+          )}
+
+          {/* Standard Rolodex — post-accept movement and per-employee response window */}
+          {shown('rolodexAcceptMove') && form.ruleType === 'rolodex' && (
+            <div style={{ animation: 'fieldReveal .3s ease both' }}>
+              <FormGroup label="After Accepting">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.rolodexAcceptMove}</span>
+              </FormGroup>
+            </div>
+          )}
+          {shown('responseTime') && form.ruleType === 'rolodex' && (
+            <div style={{ animation: 'fieldReveal .3s ease both' }}>
+              <FormGroup label="Response Window">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.responseTime}</span>
+              </FormGroup>
+            </div>
+          )}
+
+          {/* Accumulating Rolodex — what accumulates and at what limit */}
+          {shown('accumulationType') && form.ruleType === 'turns' && (
+            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)' }}>
+              <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Accumulates by</div>
+              <select value={form.accumulationType} onChange={e => patchForm({ accumulationType: e.target.value })}
+                style={{ width: '100%', height: 36, padding: '0 36px 0 12px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
+                <option value="Hours worked">Hours worked</option>
+                <option value="Callbacks accepted">Callbacks accepted</option>
+                <option value="Hours + callbacks, weighted">Both, weighted</option>
+              </select>
+            </div>
+          )}
+          {shown('accumulationLimit') && form.ruleType === 'turns' && (
+            <div style={{ animation: 'fieldReveal .3s ease both' }}>
+              <FormGroup label="Rotation Limit">
+                <FormInput value={form.accumulationLimit} onChange={v => patchForm({ accumulationLimit: v })} placeholder="e.g. 24 hours or 3 callbacks" />
+              </FormGroup>
+            </div>
+          )}
+
+          {/* Accumulation Hours / Turns — reset cadence + which outcomes count */}
+          {shown('resetCadence') && (form.ruleType === 'hours' || form.ruleType === 'turns') && (
+            <div style={{ animation: 'fieldReveal .3s ease both' }}>
+              <FormGroup label="Reset Cadence">
+                <select value={form.resetCadence} onChange={e => patchForm({ resetCadence: e.target.value })}
+                  style={{ width: '100%', height: 36, padding: '0 36px 0 12px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
+                  <option value="">Not set</option>
+                  <option value="Annually (fiscal year)">Annually (fiscal year)</option>
+                  <option value="Quarterly">Quarterly</option>
+                  <option value="Monthly">Monthly</option>
+                  <option value="Never (rolling total)">Never (rolling total)</option>
+                </select>
+              </FormGroup>
+            </div>
+          )}
+          {shown('hoursCountedOutcomes') && form.ruleType === 'hours' && (
+            <div style={{ animation: 'fieldReveal .3s ease both' }}>
+              <FormGroup label="Outcomes Counted">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.hoursCountedOutcomes}</span>
+              </FormGroup>
+            </div>
+          )}
+
+          {/* Static — Seniority Based: date type */}
+          {shown('seniorityDateType') && form.ruleType === 'hire_date' && (
+            <div style={{ animation: 'fieldReveal .3s ease both' }}>
+              <FormGroup label="Seniority Date">
+                <select value={form.seniorityDateType} onChange={e => patchForm({ seniorityDateType: e.target.value })}
+                  style={{ width: '100%', height: 36, padding: '0 36px 0 12px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
+                  <option value="">Not set</option>
+                  <option value="Hire date">Hire date</option>
+                  <option value="Rank/promotion date">Rank/promotion date</option>
+                  <option value="Mix: promotion date + hire date tiebreaker">Mix (promotion + hire tiebreaker)</option>
+                </select>
+              </FormGroup>
+            </div>
+          )}
+
+          {/* Static — By Employee ID: sort direction, new-hire placement, case sensitivity */}
+          {shown('sortDirection') && form.ruleType === 'employee_id' && (
+            <div style={{ animation: 'fieldReveal .3s ease both' }}>
+              <FormGroup label="Sort Direction">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.sortDirection}</span>
+              </FormGroup>
+            </div>
+          )}
+          {shown('newHirePlacement') && form.ruleType === 'employee_id' && (
+            <div style={{ animation: 'fieldReveal .3s ease both' }}>
+              <FormGroup label="New Hire Placement">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.newHirePlacement}</span>
+              </FormGroup>
+            </div>
+          )}
+          {shown('caseSensitivity') && form.ruleType === 'employee_id' && (
+            <div style={{ animation: 'fieldReveal .3s ease both' }}>
+              <FormGroup label="Case Handling">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.caseSensitivity}</span>
+              </FormGroup>
+            </div>
+          )}
+
+          {/* Random / Lottery: how often, weighting, guardrails */}
+          {shown('randomizeFrequency') && form.ruleType === 'random' && (
+            <div style={{ animation: 'fieldReveal .3s ease both' }}>
+              <FormGroup label="Re-randomize">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.randomizeFrequency}</span>
+              </FormGroup>
+            </div>
+          )}
+          {shown('randomWeighting') && form.ruleType === 'random' && (
+            <div style={{ animation: 'fieldReveal .3s ease both' }}>
+              <FormGroup label="Weighting">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.randomWeighting}</span>
+              </FormGroup>
+            </div>
+          )}
+          {shown('randomGuardrail') && form.ruleType === 'random' && (
+            <div style={{ animation: 'fieldReveal .3s ease both' }}>
+              <FormGroup label="Guardrail">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.randomGuardrail}</span>
+              </FormGroup>
             </div>
           )}
 
@@ -1765,6 +2370,7 @@ function RuleBuilderView({ seed, onBack }) {
           )}
 
           <div style={{ height: 8 }} />
+          </div>
         </div>
 
         <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(0,0,0,.08)', background: '#fff', display: 'flex', gap: 10, flex: 'none' }}>
@@ -1941,7 +2547,6 @@ function ApproachesRulesPage({ onStart }) {
   const [hoveredRow,       setHoveredRow]       = useAppSt(null);
   const [methodologyOpen,  setMethodologyOpen]  = useAppSt(false);
   const [ruleInput,        setRuleInput]        = useAppSt('');
-  const [chipPage,         setChipPage]         = useAppSt(0);
 
   const isArchived      = tab === 'archived';
   const approachesShown = isArchived ? APPROACHES_ARCHIVED : APPROACHES_DATA;
@@ -2148,25 +2753,19 @@ function ApproachesRulesPage({ onStart }) {
                       <span style={{ font: '400 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.38)', marginLeft: 2 }}>· Help me build a rule based on:</span>
                     </div>
 
-                    {/* 3 suggestion chips + "Something else" toggle — inline row */}
+                    {/* 3 suggestion chips — mirrors the first page of DASH_SUGGESTION_PAGES.
+                        No "Something else" toggle here: this banner is a quick-access shortcut,
+                        and anything beyond these three is meant to be typed in the input below. */}
                     {(() => {
-                      const chipPages = [
-                        [
-                          { name: 'Rotating Rolodex', seed: { template: { name: 'Hours Based Callback' } }, bg: '#EFF6FF', border: '#93C5FD', text: '#1D4ED8', hoverBg: '#DBEAFE', hoverBorder: '#60A5FA' },
-                          { name: 'Hours Based',      seed: { template: { name: 'Hours Based Callback' } }, bg: '#F5F3FF', border: '#C4B5FD', text: '#6D28D9', hoverBg: '#EDE9FE', hoverBorder: '#A78BFA' },
-                          { name: 'Static List',      seed: { text: 'Static List' },                        bg: '#ECFDF5', border: '#6EE7B7', text: '#065F46', hoverBg: '#D1FAE5', hoverBorder: '#34D399' },
-                        ],
-                        [
-                          { name: 'Seniority Based',  seed: { text: 'Seniority Based' },                    bg: '#FFF7ED', border: '#FDBA74', text: '#9A3412', hoverBg: '#FFEDD5', hoverBorder: '#FB923C' },
-                          { name: 'Skill Based',      seed: { text: 'Skill Based' },                        bg: '#FDF2F8', border: '#F9A8D4', text: '#9D174D', hoverBg: '#FCE7F3', hoverBorder: '#F472B6' },
-                          { name: 'Availability',     seed: { text: 'Availability' },                       bg: '#F0FDFA', border: '#5EEAD4', text: '#115E59', hoverBg: '#CCFBF1', hoverBorder: '#2DD4BF' },
-                        ],
+                      const chips = [
+                        { name: 'Standard Rolodex',           seed: { template: { name: 'Standard Rolodex' } },           bg: '#EFF6FF', border: '#93C5FD', text: '#1D4ED8', hoverBg: '#DBEAFE', hoverBorder: '#60A5FA' },
+                        { name: 'Accumulating Rolodex',       seed: { template: { name: 'Accumulating Rolodex' } },       bg: '#F5F3FF', border: '#C4B5FD', text: '#6D28D9', hoverBg: '#EDE9FE', hoverBorder: '#A78BFA' },
+                        { name: 'Accumulation — Hours Based', seed: { template: { name: 'Accumulation — Hours Based' } }, bg: '#ECFDF5', border: '#6EE7B7', text: '#065F46', hoverBg: '#D1FAE5', hoverBorder: '#34D399' },
                       ];
-                      const chips = chipPages[chipPage];
                       return (
                         <div style={{ display: 'flex', gap: 6, marginBottom: 10, position: 'relative', flexWrap: 'wrap' }}>
                           {chips.map((chip, idx) => (
-                            <button key={`${chipPage}-${idx}`} onClick={() => onStart?.(chip.seed)}
+                            <button key={idx} onClick={() => onStart?.(chip.seed)}
                               style={{
                                 height: 30, padding: '0 13px',
                                 borderRadius: '15px 3px 15px 15px',
@@ -2182,55 +2781,43 @@ function ApproachesRulesPage({ onStart }) {
                               {chip.name}
                             </button>
                           ))}
-                          {/* "Something else" — always 4th, toggles between suggestion pages */}
-                          <button
-                            onClick={() => setChipPage(chipPage === 0 ? 1 : 0)}
-                            style={{
-                              height: 30, padding: '0 11px',
-                              borderRadius: '15px 3px 15px 15px',
-                              border: '1.5px dashed rgba(124,58,237,.45)',
-                              background: '#fff', color: '#6D28D9',
-                              font: '500 12px/1 Inter,sans-serif',
-                              cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap',
-                              display: 'inline-flex', alignItems: 'center', gap: 5,
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.06)'; e.currentTarget.style.borderColor = 'rgba(124,58,237,.75)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = 'rgba(124,58,237,.45)'; e.currentTarget.style.transform = 'none'; }}
-                          >
-                            Something else
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              {chipPage === 0 ? <path d="M9 6l6 6-6 6"/> : <path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/>}
-                            </svg>
-                          </button>
                         </div>
                       );
                     })()}
 
-                    {/* Freeform input */}
+                    {/* Freeform input — visually highlighted so users see they can write
+                        anything beyond the three chips above. */}
                     <div style={{ position: 'relative' }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                        style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: .8 }}>
+                        <path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4z"/>
+                      </svg>
                       <input
                         value={ruleInput}
                         onChange={e => setRuleInput(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter' && ruleInput.trim()) { onStart?.({ text: ruleInput.trim() }); setRuleInput(''); } }}
-                        placeholder="Or describe a rule…"
+                        placeholder="Or write your own rule — describe what you need…"
                         style={{
-                          width: '100%', height: 36, padding: '0 40px 0 12px',
-                          border: '1px solid rgba(124,58,237,.22)', borderRadius: 7,
-                          background: '#fff', outline: 'none',
-                          font: '400 12.5px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)',
-                          transition: 'border-color .15s',
+                          width: '100%', height: 38, padding: '0 42px 0 32px',
+                          border: '1.5px solid rgba(124,58,237,.45)', borderRadius: 8,
+                          background: 'linear-gradient(135deg, #FAF7FF 0%, #F3F0FF 100%)',
+                          outline: 'none',
+                          font: '500 12.5px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)',
+                          boxShadow: '0 0 0 3px rgba(124,58,237,.08), 0 1px 3px rgba(124,58,237,.12)',
+                          transition: 'border-color .15s, box-shadow .15s, background .15s',
                         }}
-                        onFocus={e => e.target.style.borderColor = '#7C3AED'}
-                        onBlur={e => e.target.style.borderColor = 'rgba(124,58,237,.22)'}
+                        onFocus={e => { e.target.style.borderColor = '#7C3AED'; e.target.style.boxShadow = '0 0 0 3px rgba(124,58,237,.18), 0 1px 4px rgba(124,58,237,.2)'; e.target.style.background = '#fff'; }}
+                        onBlur={e => { e.target.style.borderColor = 'rgba(124,58,237,.45)'; e.target.style.boxShadow = '0 0 0 3px rgba(124,58,237,.08), 0 1px 3px rgba(124,58,237,.12)'; e.target.style.background = 'linear-gradient(135deg, #FAF7FF 0%, #F3F0FF 100%)'; }}
                       />
                       <button onClick={() => { if (ruleInput.trim()) { onStart?.({ text: ruleInput.trim() }); setRuleInput(''); } }}
                         style={{
-                          position: 'absolute', right: 4, top: 4,
+                          position: 'absolute', right: 5, top: 5,
                           width: 28, height: 28, borderRadius: 5, border: 'none',
-                          background: ruleInput.trim() ? 'linear-gradient(135deg,#7C3AED,#5B21B6)' : 'rgba(124,58,237,.18)',
+                          background: ruleInput.trim() ? 'linear-gradient(135deg,#7C3AED,#5B21B6)' : 'rgba(124,58,237,.25)',
                           color: '#fff', cursor: ruleInput.trim() ? 'pointer' : 'default',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          transition: 'background .15s',
+                          boxShadow: ruleInput.trim() ? '0 2px 6px rgba(124,58,237,.35)' : 'none',
+                          transition: 'background .15s, box-shadow .15s',
                         }}>
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12l20-9-9 20-2-9z"/></svg>
                       </button>
