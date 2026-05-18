@@ -392,14 +392,14 @@ const { useState: useStateW } = React;
 /* ── Dashboard AI suggestion cards — paginated, 3 per page + "Something else" toggle ── */
 const DASH_SUGGESTION_PAGES = [
   [
-    { title: 'Rotating Rolodex',          desc: 'Move employees to end of list after each callback — fair, even distribution across the team.',  icon: 'fa-solid fa-rotate'         },
-    { title: 'Accumulation — Hours Based', desc: 'Rank employees by accumulated overtime hours worked. Resets on a configurable schedule.',          icon: 'fa-solid fa-clock'          },
-    { title: 'Accumulation — Turns Based', desc: 'Rank by total number of callback turns participated in. Simple and transparent.',                  icon: 'fa-solid fa-arrows-rotate'  },
+    { title: 'Rotating Rolodex',           desc: 'Top-down callback list. When someone declines, choose whether they stay at the top or rotate to the bottom — each department handles this differently.', icon: 'fa-solid fa-rotate'         },
+    { title: 'Accumulation — Hours Based', desc: 'Rank by accumulated overtime hours so the fewest hours gets called first. Resets on your schedule (e.g., fiscal year) and falls back to seniority for the first cycle after reset.',          icon: 'fa-solid fa-clock'          },
+    { title: 'Accumulation — Turns Based', desc: 'Rank by number of callbacks taken — not hours. Works best when shift lengths are consistent; mixed-length shifts may pull employees out of fair rotation.', icon: 'fa-solid fa-arrows-rotate'  },
   ],
   [
-    { title: 'Seniority Based',           desc: 'Rank employees by hire date. Longest-tenured employees are called first.',                          icon: 'fa-solid fa-medal'          },
-    { title: 'Skill Based',               desc: 'Match calls to employees whose certifications or skills fit the shift requirements.',               icon: 'fa-solid fa-graduation-cap' },
-    { title: 'Static List',               desc: 'Fixed order that only changes when an admin manually adjusts positions.',                          icon: 'fa-solid fa-clipboard-list' },
+    { title: 'Seniority Based (per rank)', desc: 'Within each rank, longest-tenured employees are called first. Seniority resets at promotion — a newly promoted lieutenant ranks below tenured lieutenants.', icon: 'fa-solid fa-medal'             },
+    { title: 'Reliability Based',          desc: 'Rank by historical acceptance rate. Dependable accepters come first so callback cycles complete faster — helps avoid the two-hour callout problem.',         icon: 'fa-solid fa-check-double'      },
+    { title: 'Workload Spread',            desc: 'Rank by the longest gap since each employee\'s last callback. Focuses on TIMING, not totals — gives opportunity to whoever hasn\'t been called in a while.', icon: 'fa-solid fa-arrows-left-right' },
   ],
 ];
 
@@ -459,7 +459,7 @@ function AIAssistantCard({ onStart }) {
           <AiAvatar />
           <div style={{ font: '400 13px/1.55 Inter,sans-serif', color: 'rgba(24,39,58,.87)', paddingTop: 3 }}>
             Hi! I can help you create custom rules for ranking employees in overtime and callback shifts.<br/>
-            Choose a template below, or describe what you need.
+            Try one of these prompts, or describe what you need.
           </div>
         </div>
 
@@ -548,41 +548,58 @@ Object.assign(window, { AIAssistantCard });
 <script type="text/babel">
 const { useEffect, useRef } = React;
 
+// FLOWS keys MUST match the dashboard prompt titles in DASH_SUGGESTION_PAGES exactly —
+// that's how each prompt gets its own distinct set of follow-up questions.
 const FLOWS = {
-  'Hours Based Callback': [
-    { role: 'ai', text: "Let's build your **Hours Based Callback** rule — this ranks employees by overtime hours so the person with the fewest hours gets called first.\n\nWhich employee group should this cover?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
-    { role: 'ai', text: "Got it. How far back should I look when counting overtime hours to determine rank order?", chips: ['7 days','14 days','30 days','60 days'] },
-    { role: 'ai', text: "When two employees have identical hour counts, what should break the tie?", chips: ['Seniority (hire date)','Last shift worked','Last callback date','Alphabetical'] },
-    { role: 'ai', text: "Last setting — if someone declines a callback, should they stay at their current position or move to the back of the list?", chips: ['Move to back of list','Stay in position','Penalty points'] },
-    { role: 'ai', text: "All set. Here's your rule:\n\nCallback list ranked by fewest overtime hours (30-day window). Ties broken by seniority. Declines move to the back of the list.\n\nReady to save, or want to preview how this ranks your current employees?", chips: ['Save rule','Preview ranking','Adjust something'] },
+  'Rotating Rolodex': [
+    { role: 'ai', text: "Let's build your **Rotating Rolodex** rule — a top-down callback list that rotates as people get called.\n\nWhich employee group should this apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
+    { role: 'ai', text: "When someone gets a callback, where should they go on the Rolodex next?", chips: ['Move to back of list','Stay at the top','Custom — let me describe'] },
+    { role: 'ai', text: "If they **decline** the callback, should they stay where they are, move to the back, or take a penalty?", chips: ['Move to back of list','Stay in position','Penalty points'] },
+    { role: 'ai', text: "How long should each person have to respond before the system moves on to the next?", chips: ['2 minutes','3 minutes','5 minutes','Custom'] },
+    { role: 'ai', text: "Your Rotating Rolodex rule is ready.\n\nTop-down callback list with the rotation behavior you set. Save now, or preview how it'd order your roster?", chips: ['Save rule','Preview ranking','Adjust something'] },
   ],
-  'Shift Length Filter': [
-    { role: 'ai', text: "I'll build a **Shift Length Filter** — this removes employees who can't work the required shift length before ranking begins.\n\nWhich approach should this filter apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
-    { role: 'ai', text: "What's the minimum shift length an employee must be able to work?", chips: ['4 hours','8 hours','12 hours','Custom'] },
-    { role: 'ai', text: "What's the maximum shift length they can work?", chips: ['8 hours','12 hours','16 hours','No maximum'] },
-    { role: 'ai', text: "Should employees outside that range be excluded entirely, or moved to the bottom of the list?", chips: ['Exclude entirely','Move to bottom of list'] },
-    { role: 'ai', text: "Filter is configured:\n\nEmployees outside the shift length range will be excluded. The remaining employees are then ranked by your existing rule.\n\nSave this rule?", chips: ['Save rule','Adjust thresholds','Add a ranking rule too'] },
+  'Accumulation — Hours Based': [
+    { role: 'ai', text: "Let's build your **Hours Based** accumulation rule — the fewest overtime hours gets called first.\n\nWhich employee group should this cover?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
+    { role: 'ai', text: "When should the hours counter reset? Most departments tie this to a fiscal cycle.", chips: ['Annually (fiscal year)','Quarterly','Monthly','Never (rolling total)'] },
+    { role: 'ai', text: "Right after a reset, no one has logged hours yet. How should the list be ranked for that first cycle?", chips: ['By seniority (hire date)','Random / lottery','Manual order'] },
+    { role: 'ai', text: "When two employees have the same hour count, what should break the tie?", chips: ['Seniority (hire date)','Last shift worked','Last callback date','Alphabetical'] },
+    { role: 'ai', text: "Your Hours Based rule is ready.\n\nRanked by fewest accumulated hours with a reset cycle and seniority fallback. Save now or preview the ranking?", chips: ['Save rule','Preview ranking','Adjust something'] },
   ],
-  'Create a skill priority rule': [
-    { role: 'ai', text: "Let's build a **Skill Priority** rule — this moves employees with required certifications to the top of the callback list.\n\nWhich approach should this apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
-    { role: 'ai', text: "How should employees with the required skill be ordered among themselves?", chips: ['By fewest hours','By seniority','By last callback date','Equally (keep existing order)'] },
-    { role: 'ai', text: "What should happen with employees who don't have the required certification?", chips: ['Move to bottom','Exclude entirely','Keep in original position'] },
-    { role: 'ai', text: "Should this rule apply to all certifications, or only specific ones?", chips: ['All certifications','Specific certifications only'] },
-    { role: 'ai', text: "Skill priority rule is ready:\n\nEmployees with required certifications are ranked first (by fewest hours), uncertified employees move to the bottom.\n\nSave this rule?", chips: ['Save rule','Adjust criteria','Preview ranking'] },
+  'Accumulation — Turns Based': [
+    { role: 'ai', text: "Let's build your **Turns Based** accumulation rule — fewest callbacks taken gets called first, regardless of shift length.\n\nWhich employee group should this cover?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
+    { role: 'ai', text: "What counts as a 'turn'? Some departments only count callbacks the employee accepted; others count any callback offered.", chips: ['Accepted only','All turns','Accepted + weighted'] },
+    { role: 'ai', text: "Should this rule apply to every callback, or only specific shift lengths? Mixing 4-hour fire watches with 12-hour shifts can pull employees out of fair rotation.", chips: ['All shift lengths','Only full shifts','By detail type'] },
+    { role: 'ai', text: "When two employees have the same turn count, what should break the tie?", chips: ['Fewest overtime hours','Seniority (hire date)','Last shift worked','Alphabetical'] },
+    { role: 'ai', text: "Your Turns Based rule is ready.\n\nRanked by callbacks taken with the scope and tiebreaker you chose. Save now or preview?", chips: ['Save rule','Preview ranking','Adjust something'] },
   ],
-  'Build an availability-based rule': [
-    { role: 'ai', text: "Let's build an **Availability-based** rule — employees are ranked by how reliably they accept callbacks.\n\nWhich approach should this cover?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
-    { role: 'ai', text: "What time window should I use to calculate each employee's acceptance rate?", chips: ['Last 30 days','Last 60 days','Last 90 days','All time'] },
-    { role: 'ai', text: "When two employees have the same acceptance rate, what breaks the tie?", chips: ['Fewest overtime hours','Seniority','Last shift worked','Alphabetical'] },
-    { role: 'ai', text: "Should employees with zero callbacks in the window be treated as unavailable, or given a neutral rank?", chips: ['Neutral rank (middle)','Bottom of list','Top of list (new employees first)'] },
-    { role: 'ai', text: "Rule is ready:\n\nEmployees ranked by acceptance rate over the last 30 days. Ties broken by fewest overtime hours. New employees with no history get a neutral mid-list rank.\n\nSave this rule?", chips: ['Save rule','Adjust window','Preview ranking'] },
+  'Seniority Based (per rank)': [
+    { role: 'ai', text: "Let's build your **Seniority Based** rule — within each rank, longest-tenured employees get called first.\n\nWhich rank should this rule apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All ranks (separate by rank)'], multi: true },
+    { role: 'ai', text: "When an employee is promoted, their seniority restarts in the new rank. How would you like that handled?", chips: ['Use rank seniority (date of promotion)','Use total hire date','Mix: hire date as tiebreaker'] },
+    { role: 'ai', text: "Should the most senior or least senior employee be called first?", chips: ['Most senior first','Least senior first'] },
+    { role: 'ai', text: "When two employees have identical seniority, what should break the tie?", chips: ['Total hire date','Fewest overtime hours','Last shift worked','Alphabetical'] },
+    { role: 'ai', text: "Your Seniority Based rule is ready.\n\nApplied per rank with promotion handling and the tiebreaker you set. Save now or preview the order?", chips: ['Save rule','Preview ranking','Adjust something'] },
   ],
+  'Reliability Based': [
+    { role: 'ai', text: "Let's build your **Reliability Based** rule — rank employees by historical acceptance rate so dependable folks come first.\n\nWhich employee group should this cover?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
+    { role: 'ai', text: "What time window should I use to calculate each employee's acceptance rate?", chips: ['30 days','60 days','90 days','All time'] },
+    { role: 'ai', text: "How should I handle new employees with no callback history yet?", chips: ['Treat as 100% (top)','Neutral mid-rank','Bottom of list'] },
+    { role: 'ai', text: "When two employees have the same acceptance rate, what should break the tie?", chips: ['Fewest overtime hours','Seniority (hire date)','Last shift worked','Alphabetical'] },
+    { role: 'ai', text: "Your Reliability Based rule is ready.\n\nHighest acceptance rate gets called first, with rules for new hires and a tiebreaker. Save now or preview?", chips: ['Save rule','Preview ranking','Adjust something'] },
+  ],
+  'Workload Spread': [
+    { role: 'ai', text: "Let's build a **Workload Spread** rule — rank by the longest gap since each employee's last callback. Different from hours-based — this focuses on TIMING, not totals.\n\nWhich employee group should this cover?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
+    { role: 'ai', text: "Should I count any callback, or only ones the employee accepted?", chips: ['Any callback offered','Accepted only','Accepted + declined separately'] },
+    { role: 'ai', text: "Some employees may genuinely be unavailable for stretches. Should the system flag them or just keep promoting them?", chips: ['Just keep promoting','Flag after 30 days idle','Pause after 3 consecutive declines'] },
+    { role: 'ai', text: "When two employees have the same gap since last callback, what should break the tie?", chips: ['Fewest overtime hours','Seniority (hire date)','Alphabetical','Random'] },
+    { role: 'ai', text: "Your Workload Spread rule is ready.\n\nLongest gap since last callback gets called first, with rules for chronic decliners. Save now or preview?", chips: ['Save rule','Preview ranking','Adjust something'] },
+  ],
+  // Fallback used when the user starts from a typed prompt instead of picking a card.
   default: [
-    { role: 'ai', text: "I can help build that rule. First — how should employees be ranked in this callback list?", chips: ['Fewest overtime hours','Most seniority (hire date)','Longest since last callback','Rolodex rotation','Availability rate'] },
+    { role: 'ai', text: "I can help build that rule. First — how should employees be ranked in this callback list?", chips: ['Fewest overtime hours','Most seniority (hire date)','Longest since last callback','Rolodex rotation','Acceptance rate'] },
     { role: 'ai', text: "Which employee group (approach) should this rule apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','All approaches'], multi: true },
     { role: 'ai', text: "When two employees are tied on that score, what should break the tie?", chips: ['Seniority (hire date)','Last shift worked','Last callback date','Alphabetical'] },
     { role: 'ai', text: "If someone declines a callback — should they stay in their current position, or move to the back of the list?", chips: ['Move to back of list','Stay in position','Penalty points'] },
-    { role: 'ai', text: "Rule is ready. Here's the summary:\n\nCallback list ranked by fewest overtime hours, applied to all approaches. Ties broken by seniority. Declines move to the back.\n\nSave this rule or preview the ranking first?", chips: ['Save rule','Preview ranking','Adjust something'] },
+    { role: 'ai', text: "Rule is ready. Here's the summary:\n\nCallback list ranked by your chosen factor, applied to selected approaches. Ties broken by seniority. Declines move to the back.\n\nSave this rule or preview the ranking first?", chips: ['Save rule','Preview ranking','Adjust something'] },
   ],
 };
 
@@ -1036,7 +1053,21 @@ function RuleBuilderView({ seed, onBack }) {
 
   const msgEndRef    = useRef(null);
   const textareaRef  = useRef(null);
+  const panelScrollRef = useRef(null);
+  const prevRevealedSize = useRef(0);
   useEffect(() => { msgEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, typing]);
+  // When a new configuration field appears in the right panel during chat,
+  // smoothly scroll the panel so the user sees the build progressing on the side.
+  useEffect(() => {
+    if (revealedFields.size > prevRevealedSize.current && panelScrollRef.current) {
+      // Tiny delay so the freshly-revealed field has rendered before we scroll.
+      setTimeout(() => {
+        const c = panelScrollRef.current;
+        if (c) c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' });
+      }, 60);
+    }
+    prevRevealedSize.current = revealedFields.size;
+  }, [revealedFields]);
 
   const userMsgs    = messages.filter(m => m.role === 'user');
   // When entering from a template/prompt, flow[0] is already pre-loaded in initMsgs
@@ -1523,7 +1554,7 @@ function RuleBuilderView({ seed, onBack }) {
           )}
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+        <div ref={panelScrollRef} style={{ flex: 1, overflowY: 'auto', padding: '24px', scrollBehavior: 'smooth' }}>
 
           {/* Rule Name — always visible */}
           <FormGroup label="Rule Name">
