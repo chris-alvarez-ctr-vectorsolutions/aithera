@@ -68,6 +68,13 @@ const EXPERIMENTS = [
     desc: 'Narrate what you see; Coach Vic listens for key observations',
     href: 'voice-scene.html',
     icon: '🎙'
+  },
+  {
+    id: 'staging-2alarm',
+    label: 'Fireground staging — 2-alarm',
+    desc: 'Place apparatus on a live map; get a scored critique',
+    href: 'staging.html',
+    icon: '🗺'
   }
 ];
 

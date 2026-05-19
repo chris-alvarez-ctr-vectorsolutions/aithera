@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Fireground Staging — 2-Alarm Residential</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<style>
+  :root {
+    --cyan: #3ec8ff;
+    --cyan-2: #7ee0ff;
+    --bg: #0a0f17;
+    --panel: rgba(14,18,24,0.92);
+    --panel-line: rgba(255,255,255,0.08);
+    --text: #fff;
+    --muted: rgba(255,255,255,0.6);
+    --ok: #4ade80;
+    --warn: #f5a524;
+    --bad: #ef4444;
+    --fire: #ff5a3d;
+  }
+  html, body {
+    margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    overflow: hidden;
+  }
+  #map { position: fixed; inset: 0; background: #0a0f17; }
+  .leaflet-container { background: #0a0f17; outline: none; }
+  .leaflet-control-attribution { background: rgba(0,0,0,0.4) !important; color: rgba(255,255,255,0.5) !important; }
+  .leaflet-control-attribution a { color: rgba(255,255,255,0.7) !important; }
+
+  /* ---- Top chrome ---- */
+  .badge {
+    position: fixed; top: 18px; left: 18px;
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(10px);
+    padding: 8px 14px; border-radius: 999px; font-size: 12px;
+    border: 1px solid var(--panel-line);
+    text-transform: uppercase; letter-spacing: 0.12em; z-index: 600;
+  }
+  .controls {
+    position: fixed; top: 18px; right: 18px; display: flex; gap: 8px; z-index: 600;
+  }
+  .controls button {
+    height: 38px; padding: 0 14px; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(0,0,0,0.55); color: #fff; backdrop-filter: blur(10px);
+    font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .controls button.primary {
+    background: var(--cyan); color: #03212d; border-color: transparent;
+  }
+  .controls button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ---- Wind indicator ---- */
+  .wind-badge {
+    position: fixed; top: 70px; left: 18px;
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(10px);
+    padding: 8px 12px; border-radius: 12px; font-size: 12px;
+    border: 1px solid var(--panel-line);
+    display: flex; gap: 10px; align-items: center; z-index: 600;
+  }
+  .wind-arrow {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    display: grid; place-items: center;
+  }
+  .wind-arrow svg { transition: transform 0.3s ease; }
+
+  /* ---- Asset palette ---- */
+  .palette {
+    position: fixed; left: 14px; top: 50%; transform: translateY(-50%);
+    background: var(--panel); backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-line); border-radius: 16px;
+    padding: 10px; z-index: 600;
+    display: flex; flex-direction: column; gap: 6px;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.45);
+  }
+  .palette-item {
+    width: 56px; height: 56px; border-radius: 12px;
+    border: 1px solid transparent;
+    background: rgba(255,255,255,0.04);
+    color: #fff; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .palette-item .pi-glyph { font-size: 22px; line-height: 1; }
+  .palette-item:hover { background: rgba(255,255,255,0.09); }
+  .palette-item.active {
+    background: rgba(62,200,255,0.18);
+    border-color: var(--cyan);
+  }
+  .palette-item .pi-count {
+    position: absolute; transform: translate(18px, -14px);
+    background: var(--cyan); color: #03212d;
+    font-size: 10px; font-weight: 700;
+    width: 16px; height: 16px; border-radius: 50%;
+    display: grid; place-items: center;
+  }
+
+  /* ---- Map markers ---- */
+  .asset-marker {
+    position: relative; display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
+    color: #fff; border-radius: 10px;
+    border: 2px solid rgba(255,255,255,0.6);
+    font-size: 22px; line-height: 1;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+    cursor: grab;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .asset-marker.selected {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 3px rgba(62,200,255,0.25), 0 4px 14px rgba(0,0,0,0.5);
+  }
+  .asset-marker.fire {
+    background: radial-gradient(circle, #ff7a3d, #c2410c);
+    border-color: #ffd6a8;
+    animation: firepulse 1.6s ease-in-out infinite;
+  }
+  @keyframes firepulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,90,61,0.6); }
+    50%      { box-shadow: 0 0 0 14px rgba(255,90,61,0); }
+  }
+  .asset-marker .glyph {
+    transform-origin: center;
+  }
+  .asset-marker .rot-handle {
+    position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--cyan); border: 2px solid #03212d;
+    cursor: grab; display: none;
+  }
+  .asset-marker.selected.rotatable .rot-handle { display: block; }
+  .asset-marker .rot-tether {
+    position: absolute; top: -14px; left: 50%;
+    width: 2px; height: 14px; background: var(--cyan);
+    transform: translateX(-50%);
+    display: none;
+  }
+  .asset-marker.selected.rotatable .rot-tether { display: block; }
+  .asset-marker .del-btn {
+    position: absolute; top: -10px; right: -10px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--bad); color: #fff; font-size: 14px; line-height: 1;
+    border: 2px solid #03212d; cursor: pointer;
+    display: none; align-items: center; justify-content: center; font-weight: 700;
+  }
+  .asset-marker.selected .del-btn { display: flex; }
+
+  .asset-marker.vehicle { width: 44px; height: 28px; border-radius: 6px; }
+  .asset-marker.unit    { width: 36px; height: 36px; border-radius: 50%; }
+  .asset-marker.block   { width: 30px; height: 30px; }
+  .asset-marker.fire    { width: 42px; height: 42px; border-radius: 50%; font-size: 22px; }
+  .asset-marker.hydrant { width: 28px; height: 28px; border-radius: 50%; }
+
+  /* ---- Hint bar ---- */
+  .hint {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.65); backdrop-filter: blur(10px);
+    padding: 10px 16px; border-radius: 999px; font-size: 13px;
+    border: 1px solid var(--panel-line); z-index: 600;
+    max-width: 90vw; text-align: center; pointer-events: none;
+  }
+
+  /* ---- Briefing overlay ---- */
+  .briefing {
+    position: fixed; inset: 0; z-index: 1000;
+    display: grid; place-items: center; padding: 24px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0.85));
+    backdrop-filter: blur(8px);
+    transition: opacity 0.5s ease;
+  }
+  .briefing.hidden { opacity: 0; pointer-events: none; }
+  .briefing-card {
+    max-width: 480px; width: 100%;
+    background: var(--panel); border: 1px solid var(--panel-line);
+    border-radius: 22px; padding: 26px; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+  .briefing-eyebrow {
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--cyan); margin-bottom: 8px;
+  }
+  .briefing-card h1 { font-size: 22px; margin: 0 0 14px; line-height: 1.25; }
+  .briefing-card p { font-size: 14px; line-height: 1.5; color: var(--muted); margin: 0 0 14px; }
+  .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 18px 0; }
+  .meta-tile {
+    background: rgba(255,255,255,0.04); border: 1px solid var(--panel-line);
+    border-radius: 12px; padding: 10px 12px;
+  }
+  .meta-label { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .meta-value { font-size: 14px; font-weight: 600; margin-top: 3px; }
+  .briefing-btn {
+    width: 100%; padding: 14px; border-radius: 12px; border: 0;
+    background: var(--cyan); color: #03212d; font-weight: 700; font-size: 14px;
+    cursor: pointer; letter-spacing: 0.02em;
+  }
+  .objectives {
+    list-style: none; padding: 0; margin: 14px 0 0;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .objectives li {
+    padding: 8px 10px; border-radius: 8px;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--panel-line);
+    font-size: 13px; display: flex; gap: 8px; align-items: center;
+  }
+  .obj-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); flex-shrink: 0;
+  }
+
+  /* ---- Eval panel ---- */
+  .eval {
+    position: fixed; inset: 0; z-index: 1000;
+    display: grid; place-items: center; padding: 24px;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(10px);
+    transition: opacity 0.4s ease;
+  }
+  .eval.hidden { opacity: 0; pointer-events: none; }
+  .eval-card {
+    max-width: 520px; width: 100%; max-height: 88vh; overflow-y: auto;
+    background: var(--panel); border: 1px solid var(--panel-line);
+    border-radius: 22px; padding: 26px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+  .eval-score {
+    display: flex; align-items: baseline; gap: 12px; margin-bottom: 18px;
+  }
+  .score-num { font-size: 44px; font-weight: 800; }
+  .score-label { font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+  .grade {
+    display: inline-block; padding: 4px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+    margin-left: auto;
+  }
+  .grade.A { background: rgba(74,222,128,0.18); color: var(--ok); }
+  .grade.B { background: rgba(62,200,255,0.18); color: var(--cyan); }
+  .grade.C { background: rgba(245,165,36,0.18); color: var(--warn); }
+  .grade.F { background: rgba(239,68,68,0.18); color: var(--bad); }
+
+  .rules-list { list-style: none; padding: 0; margin: 0 0 18px; display: flex; flex-direction: column; gap: 6px; }
+  .rule {
+    padding: 10px 12px; border-radius: 10px;
+    background: rgba(255,255,255,0.03); border: 1px solid var(--panel-line);
+    display: flex; gap: 10px; align-items: flex-start;
+    font-size: 13px; line-height: 1.4;
+  }
+  .rule-icon { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 1px; }
+  .rule.pass .rule-icon { background: rgba(74,222,128,0.18); color: var(--ok); }
+  .rule.fail .rule-icon { background: rgba(239,68,68,0.18); color: var(--bad); }
+  .rule.warn .rule-icon { background: rgba(245,165,36,0.18); color: var(--warn); }
+  .rule-text strong { display: block; margin-bottom: 2px; }
+  .rule-text span { color: var(--muted); }
+
+  .coach-narrative {
+    background: linear-gradient(135deg, rgba(62,200,255,0.08), rgba(126,224,255,0.04));
+    border: 1px solid rgba(62,200,255,0.2);
+    border-radius: 14px; padding: 14px; margin-top: 6px;
+    font-size: 13px; line-height: 1.5;
+  }
+  .coach-narrative .coach-tag {
+    font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--cyan); margin-bottom: 6px;
+  }
+
+  .eval-actions { display: flex; gap: 8px; margin-top: 18px; }
+  .eval-actions button {
+    flex: 1; padding: 12px; border-radius: 10px; border: 0;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .eval-actions .secondary { background: rgba(255,255,255,0.08); color: #fff; }
+  .eval-actions .primary { background: var(--cyan); color: #03212d; }
+
+  @media (max-width: 600px) {
+    .palette { left: 10px; padding: 6px; }
+    .palette-item { width: 48px; height: 48px; font-size: 8px; }
+    .palette-item .pi-glyph { font-size: 18px; }
+    .badge { font-size: 10px; padding: 6px 10px; }
+    .wind-badge { font-size: 10px; padding: 6px 8px; top: 60px; }
+    .controls button { padding: 0 10px; height: 34px; font-size: 12px; }
+    .hint { font-size: 11px; padding: 8px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="badge">Staging · 2-Alarm Residential</div>
+<div class="wind-badge">
+  <div class="wind-arrow"><svg id="windSvg" width="14" height="14" viewBox="0 0 14 14"><path d="M7 1 L7 13 M3 5 L7 1 L11 5" stroke="#fff" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div><strong id="windText">W → E · 12 mph</strong><br/><span style="color:var(--muted)">Wind from the west</span></div>
+</div>
+
+<div class="controls">
+  <button id="resetBtn">Reset</button>
+  <button id="submitBtn" class="primary">Submit staging</button>
+</div>
+
+<aside class="palette" id="palette"></aside>
+
+<div class="hint" id="hint">Tap a tool, then tap the map to place. Drag to reposition. Tap a vehicle to rotate.</div>
+
+<!-- Briefing -->
+<div class="briefing" id="briefing">
+  <div class="briefing-card">
+    <div class="briefing-eyebrow">Dispatch · 2-Alarm Fire</div>
+    <h1>Working structure fire — 412 Maple Ave</h1>
+    <p>Single-family residential, fully involved on the C-side. Reports of one occupant still inside. Mutual-aid alarm requested. You are the IC — stage your incoming apparatus.</p>
+    <div class="meta-grid">
+      <div class="meta-tile"><div class="meta-label">Wind</div><div class="meta-value">W → E · 12 mph</div></div>
+      <div class="meta-tile"><div class="meta-label">Hydrants</div><div class="meta-value">2 marked on map</div></div>
+      <div class="meta-tile"><div class="meta-label">Alarm</div><div class="meta-value">2nd alarm</div></div>
+      <div class="meta-tile"><div class="meta-label">Exposures</div><div class="meta-value">B & D side homes</div></div>
+    </div>
+    <ul class="objectives">
+      <li><span class="obj-dot"></span>Establish command upwind, clear of smoke</li>
+      <li><span class="obj-dot"></span>First engine to a hydrant supply</li>
+      <li><span class="obj-dot"></span>Ladder for elevated ops &amp; egress</li>
+      <li><span class="obj-dot"></span>Block approach roads; stage EMS in cold zone</li>
+    </ul>
+    <button class="briefing-btn" id="startBtn" style="margin-top:18px">Begin staging</button>
+  </div>
+</div>
+
+<!-- Eval -->
+<div class="eval hidden" id="eval">
+  <div class="eval-card">
+    <div class="eval-score">
+      <div>
+        <div class="score-label">Staging Score</div>
+        <div class="score-num" id="scoreNum">0</div>
+      </div>
+      <div class="grade" id="grade">—</div>
+    </div>
+    <ul class="rules-list" id="rulesList"></ul>
+    <div class="coach-narrative">
+      <div class="coach-tag">Coach Vic · Critique</div>
+      <div id="coachText">—</div>
+    </div>
+    <div class="eval-actions">
+      <button class="secondary" id="reviseBtn">Revise</button>
+      <button class="primary" id="doneBtn">Done</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+/* =========================================================================
+ * Scenario constants
+ * ========================================================================= */
+// Fictitious "412 Maple Ave" — a residential corner picked for road geometry.
+// Real coords don't matter for grading; geometry is computed from placements.
+const FIRE_LATLNG  = [41.75080, -88.15350];
+const HYDRANT_A    = [41.75055, -88.15485]; // upwind, west on Maple
+const HYDRANT_B    = [41.75175, -88.15310]; // north on Oakwood
+// Wind blowing FROM west TO east. Upwind = west of fire.
+const WIND_BEARING = 90; // degrees (0=N, 90=E); the direction wind is *heading*
+const WIND_LABEL   = 'W → E · 12 mph';
+
+const ASSET_TYPES = [
+  { id: 'engine',   label: 'Engine',  glyph: '🚒', cls: 'vehicle', rotatable: true,  max: 3 },
+  { id: 'ladder',   label: 'Ladder',  glyph: '🪜', cls: 'vehicle', rotatable: true,  max: 1 },
+  { id: 'ambo',     label: 'EMS',     glyph: '🚑', cls: 'vehicle', rotatable: true,  max: 1 },
+  { id: 'command',  label: 'Cmd',     glyph: '🎯', cls: 'unit',    rotatable: false, max: 1 },
+  { id: 'crew',     label: 'Crew',    glyph: '👥', cls: 'unit',    rotatable: false, max: 4 },
+  { id: 'block',    label: 'Block',   glyph: '🚧', cls: 'block',   rotatable: false, max: 4 }
+];
+
+const RULES = [
+  {
+    id: 'command-upwind',
+    title: 'Command post upwind of fire',
+    check: (s) => {
+      const c = s.assets.find(a => a.type === 'command');
+      if (!c) return { pass: false, note: 'No command post placed.' };
+      const b = bearingDeg(FIRE_LATLNG, [c.lat, c.lng]);
+      const diff = bearingDiff(b, (WIND_BEARING + 180) % 360); // upwind = opposite of wind heading
+      if (diff < 60) return { pass: true,  note: 'Command is upwind, out of the smoke plume.' };
+      if (diff < 110) return { pass: false, weight: 0.5, note: 'Command is crosswind — acceptable but not ideal.' };
+      return { pass: false, note: 'Command is downwind of the fire and will be in the smoke plume.' };
+    }
+  },
+  {
+    id: 'engine-hydrant',
+    title: 'First engine on a hydrant',
+    check: (s) => {
+      const engines = s.assets.filter(a => a.type === 'engine');
+      if (engines.length === 0) return { pass: false, note: 'No engines placed.' };
+      const near = engines.find(e =>
+        distM([e.lat, e.lng], HYDRANT_A) < 30 ||
+        distM([e.lat, e.lng], HYDRANT_B) < 30);
+      return near
+        ? { pass: true,  note: 'Engine is on a hydrant — water supply established.' }
+        : { pass: false, note: 'No engine is close enough to a hydrant (within ~30m) for a supply line.' };
+    }
+  },
+  {
+    id: 'ladder-position',
+    title: 'Ladder within reach of the structure',
+    check: (s) => {
+      const l = s.assets.find(a => a.type === 'ladder');
+      if (!l) return { pass: false, note: 'No ladder placed.' };
+      const d = distM([l.lat, l.lng], FIRE_LATLNG);
+      if (d > 60) return { pass: false, note: `Ladder is ${Math.round(d)}m from the fire — out of effective reach.` };
+      const b = bearingDeg(FIRE_LATLNG, [l.lat, l.lng]);
+      const dDown = bearingDiff(b, WIND_BEARING);
+      if (dDown < 40) return { pass: false, weight: 0.5, note: 'Ladder is directly downwind — heat and smoke will roll over it.' };
+      return { pass: true, note: `Ladder is ${Math.round(d)}m from the structure with a workable angle.` };
+    }
+  },
+  {
+    id: 'traffic-blocks',
+    title: 'Both approach roads blocked',
+    check: (s) => {
+      const blocks = s.assets.filter(a => a.type === 'block' || a.type === 'engine');
+      // crude: at least one block roughly east of fire and one west or north
+      const east = blocks.some(a => bearingDiff(bearingDeg(FIRE_LATLNG, [a.lat, a.lng]), 90) < 50 && distM([a.lat, a.lng], FIRE_LATLNG) > 40);
+      const west = blocks.some(a => bearingDiff(bearingDeg(FIRE_LATLNG, [a.lat, a.lng]), 270) < 50 && distM([a.lat, a.lng], FIRE_LATLNG) > 40);
+      if (east && west) return { pass: true,  note: 'Traffic blocked on both approach directions.' };
+      if (east || west) return { pass: false, weight: 0.5, note: 'Only one approach is blocked — the opposite direction is still open.' };
+      return { pass: false, note: 'Neither approach road is blocked.' };
+    }
+  },
+  {
+    id: 'ems-cold-zone',
+    title: 'EMS staged in the cold zone',
+    check: (s) => {
+      const a = s.assets.find(x => x.type === 'ambo');
+      if (!a) return { pass: false, note: 'No EMS unit placed.' };
+      const d = distM([a.lat, a.lng], FIRE_LATLNG);
+      if (d < 40) return { pass: false, note: `EMS is only ${Math.round(d)}m from the fire — too close to the hot zone.` };
+      if (d > 200) return { pass: false, weight: 0.5, note: `EMS is ${Math.round(d)}m out — too far for rapid transport.` };
+      const b = bearingDeg(FIRE_LATLNG, [a.lat, a.lng]);
+      if (bearingDiff(b, WIND_BEARING) < 50) return { pass: false, weight: 0.5, note: 'EMS is in the downwind smoke path.' };
+      return { pass: true, note: 'EMS is staged in the cold zone, ready for transport.' };
+    }
+  },
+  {
+    id: 'crew-on-scene',
+    title: 'Interior/exterior crews assigned',
+    check: (s) => {
+      const crews = s.assets.filter(a => a.type === 'crew');
+      if (crews.length >= 2) return { pass: true, note: `${crews.length} crew units assigned.` };
+      if (crews.length === 1) return { pass: false, weight: 0.5, note: 'Only one crew unit assigned — second alarm calls for more.' };
+      return { pass: false, note: 'No crew units placed on the fireground.' };
+    }
+  }
+];
+
+/* =========================================================================
+ * Map + state
+ * ========================================================================= */
+const map = L.map('map', {
+  zoomControl: false,
+  attributionControl: true,
+  preferCanvas: true
+}).setView(FIRE_LATLNG, 19);
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  attribution: 'Imagery © Esri, Maxar, Earthstar Geographics',
+  maxZoom: 20
+}).addTo(map);
+// Thin street/label overlay so roads remain legible against satellite.
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}@2x.png', {
+  attribution: '© OpenStreetMap, © CARTO',
+  maxZoom: 20,
+  opacity: 0.85
+}).addTo(map);
+
+// Set the wind arrow visual to match the bearing.
+document.getElementById('windSvg').style.transform = `rotate(${WIND_BEARING}deg)`;
+document.getElementById('windText').textContent = WIND_LABEL;
+
+const state = {
+  assets: [],      // { id, type, lat, lng, rot, marker }
+  activeTool: null,
+  selected: null,
+  nextId: 1
+};
+
+/* ----- Pre-placed fire + hydrants (not editable) ----- */
+function pinIcon(html, cls) {
+  return L.divIcon({
+    className: '',
+    html: `<div class="asset-marker ${cls}">${html}</div>`,
+    iconSize: cls === 'fire' ? [42,42] : [28,28],
+    iconAnchor: cls === 'fire' ? [21,21] : [14,14]
+  });
+}
+L.marker(FIRE_LATLNG, { icon: pinIcon('🔥','fire'), interactive: false, keyboard: false }).addTo(map);
+L.marker(HYDRANT_A,    { icon: pinIcon('💧','hydrant'), interactive: false, keyboard: false }).addTo(map)
+  .bindTooltip('Hydrant A', { direction: 'top', offset: [0,-8] });
+L.marker(HYDRANT_B,    { icon: pinIcon('💧','hydrant'), interactive: false, keyboard: false }).addTo(map)
+  .bindTooltip('Hydrant B', { direction: 'top', offset: [0,-8] });
+
+/* =========================================================================
+ * Palette
+ * ========================================================================= */
+const paletteEl = document.getElementById('palette');
+function renderPalette() {
+  paletteEl.innerHTML = '';
+  for (const t of ASSET_TYPES) {
+    const used = state.assets.filter(a => a.type === t.id).length;
+    const btn = document.createElement('button');
+    btn.className = 'palette-item' + (state.activeTool === t.id ? ' active' : '');
+    btn.disabled = used >= t.max;
+    btn.style.position = 'relative';
+    btn.innerHTML = `
+      <span class="pi-glyph">${t.glyph}</span>
+      <span>${t.label}</span>
+      ${used > 0 ? `<span class="pi-count">${used}</span>` : ''}
+    `;
+    btn.onclick = () => {
+      state.activeTool = (state.activeTool === t.id) ? null : t.id;
+      setHint(state.activeTool ? `Tap the map to place a ${t.label}.` : 'Tap a tool, then tap the map to place.');
+      renderPalette();
+    };
+    paletteEl.appendChild(btn);
+  }
+}
+renderPalette();
+
+function setHint(t) { document.getElementById('hint').textContent = t; }
+
+/* =========================================================================
+ * Placement
+ * ========================================================================= */
+map.on('click', (e) => {
+  if (!state.activeTool) {
+    deselect();
+    return;
+  }
+  const type = ASSET_TYPES.find(x => x.id === state.activeTool);
+  const used = state.assets.filter(a => a.type === type.id).length;
+  if (used >= type.max) return;
+  placeAsset(type, e.latlng.lat, e.latlng.lng);
+  // Auto-deactivate once max reached.
+  if (used + 1 >= type.max) state.activeTool = null;
+  renderPalette();
+});
+
+function placeAsset(type, lat, lng) {
+  const asset = {
+    id: state.nextId++,
+    type: type.id,
+    lat, lng,
+    rot: 0,
+    typeDef: type
+  };
+  const html = `
+    <div class="asset-marker ${type.cls}${type.rotatable ? ' rotatable' : ''}" data-id="${asset.id}">
+      <div class="rot-tether"></div>
+      <div class="rot-handle"></div>
+      <div class="glyph">${type.glyph}</div>
+      <div class="del-btn" title="Remove">×</div>
+    </div>`;
+  const icon = L.divIcon({
+    className: '',
+    html,
+    iconSize: type.cls === 'vehicle' ? [44,28] : (type.cls === 'unit' ? [36,36] : [30,30]),
+    iconAnchor: type.cls === 'vehicle' ? [22,14] : (type.cls === 'unit' ? [18,18] : [15,15])
+  });
+  const marker = L.marker([lat, lng], { icon, draggable: true }).addTo(map);
+  asset.marker = marker;
+  state.assets.push(asset);
+
+  marker.on('dragstart', () => select(asset));
+  marker.on('drag', (e) => {
+    asset.lat = e.latlng.lat;
+    asset.lng = e.latlng.lng;
+  });
+  marker.on('click', (e) => {
+    L.DomEvent.stopPropagation(e);
+    select(asset);
+  });
+
+  // Wire interactive bits once the marker DOM is in place.
+  setTimeout(() => wireMarker(asset), 0);
+}
+
+function wireMarker(asset) {
+  const el = asset.marker.getElement()?.querySelector('.asset-marker');
+  if (!el) return;
+  applyRotation(asset);
+  const del = el.querySelector('.del-btn');
+  del.addEventListener('click', (e) => {
+    e.stopPropagation();
+    removeAsset(asset);
+  });
+  // Rotation drag on the handle.
+  const handle = el.querySelector('.rot-handle');
+  if (asset.typeDef.rotatable && handle) {
+    let dragging = false;
+    const onDown = (ev) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      dragging = true;
+      map.dragging.disable();
+      asset.marker.dragging.disable();
+    };
+    const onMove = (ev) => {
+      if (!dragging) return;
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const pt = ev.touches ? ev.touches[0] : ev;
+      const dx = pt.clientX - cx;
+      const dy = pt.clientY - cy;
+      // 0deg = up; rotate clockwise.
+      asset.rot = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;
+      applyRotation(asset);
+    };
+    const onUp = () => {
+      if (!dragging) return;
+      dragging = false;
+      map.dragging.enable();
+      asset.marker.dragging.enable();
+    };
+    handle.addEventListener('mousedown', onDown);
+    handle.addEventListener('touchstart', onDown, { passive: false });
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchend', onUp);
+    asset._cleanup = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
+    };
+  }
+}
+
+function applyRotation(asset) {
+  const el = asset.marker.getElement()?.querySelector('.asset-marker .glyph');
+  if (!el) return;
+  el.style.transform = `rotate(${asset.rot}deg)`;
+}
+
+function select(asset) {
+  if (state.selected && state.selected !== asset) {
+    const oldEl = state.selected.marker.getElement()?.querySelector('.asset-marker');
+    oldEl?.classList.remove('selected');
+  }
+  state.selected = asset;
+  const el = asset.marker.getElement()?.querySelector('.asset-marker');
+  el?.classList.add('selected');
+}
+function deselect() {
+  if (!state.selected) return;
+  const el = state.selected.marker.getElement()?.querySelector('.asset-marker');
+  el?.classList.remove('selected');
+  state.selected = null;
+}
+function removeAsset(asset) {
+  asset._cleanup?.();
+  map.removeLayer(asset.marker);
+  state.assets = state.assets.filter(a => a !== asset);
+  if (state.selected === asset) state.selected = null;
+  renderPalette();
+}
+
+/* =========================================================================
+ * Geometry helpers (meters, degrees)
+ * ========================================================================= */
+function distM(a, b) {
+  const R = 6371000;
+  const dLat = (b[0] - a[0]) * Math.PI / 180;
+  const dLon = (b[1] - a[1]) * Math.PI / 180;
+  const la1 = a[0] * Math.PI / 180;
+  const la2 = b[0] * Math.PI / 180;
+  const h = Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+function bearingDeg(from, to) {
+  const φ1 = from[0]*Math.PI/180, φ2 = to[0]*Math.PI/180;
+  const Δλ = (to[1]-from[1])*Math.PI/180;
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1)*Math.sin(φ2) - Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+function bearingDiff(a, b) {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+}
+
+/* =========================================================================
+ * Submit & evaluate
+ * ========================================================================= */
+const submitBtn = document.getElementById('submitBtn');
+const resetBtn  = document.getElementById('resetBtn');
+const briefing  = document.getElementById('briefing');
+const evalEl    = document.getElementById('eval');
+
+document.getElementById('startBtn').onclick = () => briefing.classList.add('hidden');
+
+submitBtn.onclick = () => {
+  const results = RULES.map(r => ({ rule: r, ...r.check(state) }));
+  const total = results.reduce((acc, r) => {
+    if (r.pass) return acc + 1;
+    if (r.weight) return acc + r.weight;
+    return acc;
+  }, 0);
+  const score = Math.round((total / RULES.length) * 100);
+  showEval(score, results);
+};
+
+resetBtn.onclick = () => {
+  if (!confirm('Clear all placements and start over?')) return;
+  for (const a of [...state.assets]) removeAsset(a);
+};
+
+document.getElementById('reviseBtn').onclick = () => evalEl.classList.add('hidden');
+document.getElementById('doneBtn').onclick = () => { window.location.href = 'index.html'; };
+
+function showEval(score, results) {
+  document.getElementById('scoreNum').textContent = score;
+  const g = document.getElementById('grade');
+  g.className = 'grade ' + (score >= 85 ? 'A' : score >= 70 ? 'B' : score >= 50 ? 'C' : 'F');
+  g.textContent = score >= 85 ? 'Strong' : score >= 70 ? 'Solid' : score >= 50 ? 'Workable' : 'Rework';
+
+  const list = document.getElementById('rulesList');
+  list.innerHTML = '';
+  for (const r of results) {
+    const cls = r.pass ? 'pass' : (r.weight ? 'warn' : 'fail');
+    const icon = r.pass ? '✓' : (r.weight ? '!' : '✕');
+    const li = document.createElement('li');
+    li.className = 'rule ' + cls;
+    li.innerHTML = `
+      <div class="rule-icon">${icon}</div>
+      <div class="rule-text"><strong>${r.rule.title}</strong><span>${r.note}</span></div>
+    `;
+    list.appendChild(li);
+  }
+
+  document.getElementById('coachText').textContent = buildNarrative(score, results);
+  evalEl.classList.remove('hidden');
+}
+
+function buildNarrative(score, results) {
+  const wins = results.filter(r => r.pass).map(r => r.rule.title.toLowerCase());
+  const losses = results.filter(r => !r.pass);
+  const intro = score >= 85
+    ? "That's a tight setup. You set up an IC the next-arriving chief could walk into."
+    : score >= 70
+      ? "You've got the bones of a good fireground here. A couple of moves would make it sharper."
+      : score >= 50
+        ? "Workable, but a downwind crew or a blocked supply line will bite you fast."
+        : "Step back from the map. Wind direction and water supply have to drive the first three placements.";
+  const winLine = wins.length
+    ? ` Strongest moves: ${wins.slice(0, 2).join(', ')}.`
+    : '';
+  const lossLine = losses.length
+    ? ` Where I'd push back: ${losses.slice(0, 2).map(r => r.note.replace(/^[A-Z]/, c => c.toLowerCase())).join(' ')}`
+    : '';
+  return intro + winLine + lossLine;
+}
+
+submitBtn.disabled = false;
+</script>
+</body>
+</html>
