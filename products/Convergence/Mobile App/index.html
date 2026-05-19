@@ -1,0 +1,3078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Convergence LMS — Mobile App</title>
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+  <style>
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: 'Open Sans', sans-serif; background: #e5e7eb; }
+
+    /* ===== PHONE FRAME ===== */
+    .phone-frame {
+      width: 390px;
+      height: 844px;
+      background: #f9fafb;
+      margin: 20px auto;
+      border-radius: 44px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(255,255,255,0.2);
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+    @media (max-width: 430px) {
+      .phone-frame { width: 100vw; height: 100vh; margin: 0; border-radius: 0; }
+      body { background: #f9fafb; }
+    }
+
+    /* ===== SCREEN SYSTEM ===== */
+    .app-shell {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background: #f9fafb;
+    }
+    .screen {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+      position: absolute;
+      inset: 0;
+    }
+    .screen.active { display: flex; }
+
+    /* ===== SCROLLABLE CONTENT ===== */
+    .scroll-content {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .scroll-content::-webkit-scrollbar { display: none; }
+
+    /* ===== GRADIENTS & HEADERS ===== */
+    .gradient-header {
+      background: linear-gradient(to right, #1d4ed8, #16a34a);
+      color: white;
+      padding: 20px 20px 20px;
+      flex-shrink: 0;
+    }
+    .gradient-header-sticky {
+      background: linear-gradient(to right, #1d4ed8, #16a34a);
+      color: white;
+      padding: 20px 20px 16px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .header-row { display: flex; align-items: center; justify-content: space-between; }
+    .header-icon-btn {
+      width: 36px; height: 36px;
+      background: rgba(255,255,255,0.2);
+      border: none; border-radius: 50%;
+      color: white; font-size: 16px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .header-icon-btn:active { background: rgba(255,255,255,0.35); }
+    .notif-dot {
+      position: absolute; top: 4px; right: 4px;
+      width: 8px; height: 8px;
+      background: #ef4444; border-radius: 50%;
+      border: 1.5px solid #1d4ed8;
+    }
+
+    /* ===== STATUS BAR ===== */
+    .status-bar {
+      background: #2c2c2e;
+      color: white;
+      padding: 14px 20px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+      flex-shrink: 0;
+      letter-spacing: 0.01em;
+    }
+    .status-bar-icons { display: flex; align-items: center; gap: 5px; }
+    .status-bar-icons i { font-size: 11px; }
+
+    /* ===== BOTTOM NAV ===== */
+    .bottom-nav {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 68px;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-top: 1px solid #dbeafe;
+      display: flex;
+      align-items: stretch;
+      z-index: 20;
+    }
+    .bottom-nav.hidden { display: none; }
+    .nav-tab {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: #6b7280;
+      font-size: 10px;
+      font-family: 'Open Sans', sans-serif;
+      transition: color 0.15s;
+      min-height: 64px;
+    }
+    .nav-tab i { font-size: 22px; }
+    .nav-tab.active { color: #3b82f6; }
+    .nav-tab:active { opacity: 0.7; }
+
+    /* ===== CARDS ===== */
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .card-red { background: #fef2f2; }
+    .card-blue { background: #eff6ff; }
+    .card-purple { background: #f5f3ff; }
+    .card-green { background: #f0fdf4; }
+
+    /* ===== BADGES ===== */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px;
+      border-radius: 100px;
+      font-size: 11px; font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-red { background: #fef2f2; color: #dc2626; }
+    .badge-amber { background: #fffbeb; color: #d97706; }
+    .badge-green { background: #f0fdf4; color: #16a34a; }
+    .badge-blue { background: #eff6ff; color: #2563eb; }
+    .badge-gray { background: #f3f4f6; color: #6b7280; }
+    .badge-purple { background: #f5f3ff; color: #7c3aed; }
+
+    /* ===== PROGRESS BAR ===== */
+    .progress-track {
+      height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; border-radius: 3px;
+      background: #2563eb;
+      transition: width 0.3s;
+    }
+    .progress-fill.green { background: #16a34a; }
+
+    /* ===== SECTION HEADERS ===== */
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; margin-bottom: 12px;
+    }
+    .section-title { font-size: 20px; font-weight: 600; color: #111827; }
+    .section-link { font-size: 13px; color: #2563eb; font-weight: 600; cursor: pointer; }
+    .section-link:active { opacity: 0.7; }
+
+    /* ===== HORIZONTAL CAROUSEL ===== */
+    .carousel {
+      display: flex; gap: 12px;
+      overflow-x: auto; padding: 4px 20px 8px;
+      scroll-snap-type: x mandatory;
+      scroll-padding-left: 20px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .carousel::-webkit-scrollbar { display: none; }
+    .carousel-card {
+      flex-shrink: 0;
+      scroll-snap-align: start;
+    }
+
+    /* ===== INPUTS ===== */
+    .input-group { display: flex; flex-direction: column; gap: 6px; }
+    .input-label { font-size: 13px; font-weight: 600; color: #374151; }
+    .text-input {
+      width: 100%; padding: 12px 14px;
+      border: 1.5px solid #e5e7eb; border-radius: 10px;
+      font-size: 15px; font-family: 'Open Sans', sans-serif;
+      color: #111827; background: white;
+      outline: none; transition: border-color 0.15s;
+    }
+    .text-input:focus { border-color: #2563eb; }
+    .text-input.error { border-color: #dc2626; }
+    .text-input::placeholder { color: #9ca3af; }
+
+    /* Search input */
+    .search-wrap { position: relative; }
+    .search-input {
+      width: 100%; padding: 10px 14px 10px 38px;
+      border: none; border-radius: 10px;
+      font-size: 14px; font-family: 'Open Sans', sans-serif;
+      color: #111827; background: rgba(255,255,255,0.9);
+      outline: none;
+    }
+    .search-input::placeholder { color: #9ca3af; }
+    .search-icon {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      color: #9ca3af; font-size: 14px; pointer-events: none;
+    }
+
+    /* ===== BUTTONS ===== */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 13px 20px; border-radius: 10px;
+      font-size: 15px; font-weight: 600; font-family: 'Open Sans', sans-serif;
+      cursor: pointer; border: none; transition: opacity 0.15s;
+      width: 100%;
+    }
+    .btn:active { opacity: 0.8; }
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-secondary { background: white; color: #2563eb; border: 1.5px solid #2563eb; }
+    .btn-gray { background: #f3f4f6; color: #374151; }
+    .btn-red { background: #dc2626; color: white; }
+    .btn-sm { padding: 8px 14px; font-size: 13px; border-radius: 8px; width: auto; }
+
+    /* ===== OR DIVIDER ===== */
+    .or-divider {
+      display: flex; align-items: center; gap: 12px;
+      color: #9ca3af; font-size: 13px;
+    }
+    .or-divider::before, .or-divider::after {
+      content: ''; flex: 1; height: 1px; background: #e5e7eb;
+    }
+
+    /* ===== FILTER CHIPS ===== */
+    .chips-row {
+      display: flex; gap: 8px; overflow-x: auto; padding: 0 20px;
+    }
+    .chips-row::-webkit-scrollbar { display: none; }
+    .chip {
+      flex-shrink: 0;
+      padding: 6px 14px; border-radius: 8px;
+      font-size: 13px; font-weight: 600;
+      cursor: pointer; border: 1.5px solid #e5e7eb;
+      background: white; color: #374151;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .chip.active { background: #2563eb; color: white; border-color: #2563eb; }
+
+    /* ===== ACTIVITY ROW ===== */
+    .activity-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid #f3f4f6;
+      cursor: pointer;
+    }
+    .activity-row:last-child { border-bottom: none; }
+    .activity-row:active { background: #f9fafb; }
+    .activity-icon {
+      width: 36px; height: 36px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0;
+    }
+    .activity-icon.video { background: #eff6ff; color: #2563eb; }
+    .activity-icon.scorm { background: #f0fdf4; color: #16a34a; }
+    .activity-icon.quiz { background: #fffbeb; color: #d97706; }
+    .activity-icon.doc { background: #f5f3ff; color: #7c3aed; }
+    .activity-icon.path { background: #fdf4ff; color: #a21caf; }
+
+    .activity-info { flex: 1; min-width: 0; }
+    .activity-title { font-size: 14px; font-weight: 600; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .activity-meta { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    .activity-chevron { color: #9ca3af; font-size: 13px; flex-shrink: 0; }
+
+    /* ===== SUMMARY GRID ===== */
+    .summary-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+      padding: 0 20px;
+    }
+    .summary-card {
+      background: white; border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      padding: 16px; cursor: pointer;
+    }
+    .summary-card:active { opacity: 0.8; }
+    .summary-card .num { font-size: 28px; font-weight: 800; margin: 8px 0 4px; }
+    .summary-card .label { font-size: 12px; color: #6b7280; }
+
+    /* ===== OVERLAY SHEET ===== */
+    .overlay-backdrop {
+      display: none;
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 40;
+    }
+    .overlay-backdrop.open { display: flex; align-items: flex-end; }
+    .bottom-sheet {
+      background: white;
+      border-radius: 20px 20px 0 0;
+      width: 100%;
+      max-height: 85%;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .bottom-sheet::-webkit-scrollbar { display: none; }
+    .sheet-handle {
+      width: 40px; height: 4px; background: #e5e7eb; border-radius: 2px;
+      margin: 0 auto 20px;
+    }
+
+    /* ===== MODAL ===== */
+    .modal-backdrop {
+      display: none;
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 50;
+      align-items: center; justify-content: center;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: white; border-radius: 16px;
+      padding: 24px; margin: 20px;
+      width: 100%;
+    }
+    .modal-title { font-size: 17px; font-weight: 700; color: #111827; margin-bottom: 8px; }
+    .modal-body { font-size: 14px; color: #6b7280; margin-bottom: 20px; }
+
+    /* ===== QR PLACEHOLDER ===== */
+    .qr-box {
+      width: 180px; height: 180px;
+      background: #f3f4f6; border-radius: 12px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 8px; margin: 0 auto;
+      color: #9ca3af;
+    }
+    .qr-box i { font-size: 64px; }
+    .qr-box span { font-size: 12px; }
+
+    /* QR scanner frame */
+    .qr-frame {
+      width: 220px; height: 220px;
+      position: relative; margin: 0 auto;
+    }
+    .qr-corner {
+      position: absolute; width: 28px; height: 28px;
+      border-color: white; border-style: solid; border-width: 0;
+    }
+    .qr-corner.tl { top: 0; left: 0; border-top-width: 3px; border-left-width: 3px; border-radius: 4px 0 0 0; }
+    .qr-corner.tr { top: 0; right: 0; border-top-width: 3px; border-right-width: 3px; border-radius: 0 4px 0 0; }
+    .qr-corner.bl { bottom: 0; left: 0; border-bottom-width: 3px; border-left-width: 3px; border-radius: 0 0 0 4px; }
+    .qr-corner.br { bottom: 0; right: 0; border-bottom-width: 3px; border-right-width: 3px; border-radius: 0 0 4px 0; }
+
+    /* ===== ACCORDION ===== */
+    .accordion-item { border-bottom: 1px solid #f3f4f6; }
+    .accordion-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; cursor: pointer;
+    }
+    .accordion-header:active { background: #f9fafb; }
+    .accordion-title { font-size: 14px; font-weight: 700; color: #111827; }
+    .accordion-chevron { color: #9ca3af; font-size: 13px; transition: transform 0.2s; }
+    .accordion-item.open .accordion-chevron { transform: rotate(90deg); }
+    .accordion-body { display: none; }
+    .accordion-item.open .accordion-body { display: block; }
+
+    /* ===== CHECKBOX TASK ===== */
+    .task-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px; border-bottom: 1px solid #f3f4f6;
+      cursor: pointer;
+    }
+    .task-row:last-child { border-bottom: none; }
+    .task-check {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 2px solid #d1d5db; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 11px;
+      transition: all 0.15s;
+    }
+    .task-check.checked { background: #16a34a; border-color: #16a34a; }
+    .task-text { font-size: 14px; color: #111827; flex: 1; }
+    .task-text.done { text-decoration: line-through; color: #9ca3af; }
+
+    /* ===== SIGNOFF ROW ===== */
+    .signoff-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid #f3f4f6;
+      cursor: pointer;
+    }
+    .signoff-row:last-child { border-bottom: none; }
+    .signoff-row.disabled { opacity: 0.5; cursor: not-allowed; }
+    .signoff-left { display: flex; align-items: center; gap: 10px; }
+    .signoff-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: #eff6ff; color: #2563eb;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+    }
+    .signoff-name { font-size: 14px; font-weight: 600; color: #111827; }
+    .signoff-sub { font-size: 12px; color: #6b7280; }
+
+    /* ===== NOTIFICATION LIST ===== */
+    .notif-row {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 14px 20px; border-bottom: 1px solid #f3f4f6; cursor: pointer;
+    }
+    .notif-row.unread { background: #eff6ff; }
+    .notif-dot-blue {
+      width: 8px; height: 8px; border-radius: 50%; background: #2563eb;
+      flex-shrink: 0; margin-top: 6px;
+    }
+    .notif-dot-blank { width: 8px; height: 8px; flex-shrink: 0; }
+
+    /* ===== SETTINGS ROW ===== */
+    .settings-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px; border-bottom: 1px solid #f3f4f6;
+      cursor: pointer;
+    }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-row:active { background: #f9fafb; }
+    .settings-icon {
+      width: 34px; height: 34px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0;
+    }
+    .settings-label { flex: 1; font-size: 15px; color: #111827; }
+    .settings-value { font-size: 13px; color: #9ca3af; }
+    .settings-row .settings-icon.red { background: #fef2f2; color: #dc2626; }
+
+    /* ===== CATALOG CARD ===== */
+    .catalog-card {
+      width: 160px; flex-shrink: 0;
+      border-radius: 12px; overflow: hidden;
+      background: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      scroll-snap-align: start;
+      cursor: pointer;
+    }
+    .catalog-thumb {
+      height: 96px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px;
+    }
+    .catalog-info { padding: 10px; }
+    .catalog-title { font-size: 13px; font-weight: 600; color: #111827; line-height: 1.3; }
+    .catalog-meta { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+
+    /* ===== INFO BOX ===== */
+    .info-box {
+      background: #eff6ff; border-radius: 10px; padding: 12px 14px;
+      font-size: 13px; color: #1d4ed8; border-left: 3px solid #2563eb;
+    }
+
+    /* ===== MISC ===== */
+    .text-muted { color: #6b7280; font-size: 13px; }
+    .text-error { color: #dc2626; font-size: 12px; margin-top: 4px; }
+    .mt-4 { margin-top: 16px; }
+    .mt-3 { margin-top: 12px; }
+    .mt-2 { margin-top: 8px; }
+    .p-20 { padding: 20px; }
+    .pb-4 { padding-bottom: 16px; }
+    .gap-3 { gap: 12px; }
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .w-full { width: 100%; }
+
+    .section-block { margin-bottom: 24px; }
+
+    /* Avatar circle */
+    .avatar-circle {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: rgba(255,255,255,0.25);
+      border: 3px solid rgba(255,255,255,0.6);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; font-weight: 700; color: white;
+      flex-shrink: 0;
+    }
+
+    /* Password toggle */
+    .pw-wrap { position: relative; }
+    .pw-toggle {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: #9ca3af; cursor: pointer; font-size: 15px;
+    }
+
+    /* Logo block */
+    .app-logo {
+      width: 56px; height: 56px; border-radius: 14px;
+      background: linear-gradient(135deg, #1d4ed8, #16a34a);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; color: white; margin: 0 auto 16px;
+    }
+
+    /* Section divider line */
+    hr.divider { border: none; border-top: 1px solid #f3f4f6; margin: 0; }
+
+    /* Grayed-out state */
+    .grayed { opacity: 0.4; pointer-events: none; }
+
+    /* ===== DARK MODE ===== */
+    .app-shell.dark { background: #1c1c1e; }
+    .app-shell.dark .screen { background: #1c1c1e; }
+    .app-shell.dark .card { background: #2c2c2e; box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+    .app-shell.dark .card-green { background: #1a2e1a; }
+    .app-shell.dark .gradient-header { /* keeps gradient */ }
+    .app-shell.dark .status-bar { background: #000; }
+    .app-shell.dark .bottom-nav { background: rgba(28,28,30,0.95); border-top-color: #3a3a3c; }
+    .app-shell.dark .nav-tab { color: #8e8e93; }
+    .app-shell.dark .nav-tab.active { color: #3b82f6; }
+    .app-shell.dark .section-title { color: #e5e5ea; }
+    .app-shell.dark .activity-title { color: #e5e5ea; }
+    .app-shell.dark .activity-meta { color: #8e8e93; }
+    .app-shell.dark .summary-card { background: #2c2c2e; }
+    .app-shell.dark .summary-card .label { color: #8e8e93; }
+    .app-shell.dark .settings-row { border-bottom-color: #3a3a3c; }
+    .app-shell.dark .settings-label { color: #e5e5ea; }
+    .app-shell.dark .settings-value { color: #636366; }
+    .app-shell.dark .settings-row:active { background: #3a3a3c; }
+    .app-shell.dark input, .app-shell.dark textarea { background: #3a3a3c; color: #e5e5ea; border-color: #48484a; }
+    .app-shell.dark input::placeholder, .app-shell.dark textarea::placeholder { color: #636366; }
+    .app-shell.dark .search-input { background: rgba(255,255,255,0.12); color: #e5e5ea; }
+    .app-shell.dark .chip { background: #3a3a3c; color: #e5e5ea; border-color: #48484a; }
+    .app-shell.dark .chip.active { background: #2563eb; color: white; border-color: #2563eb; }
+    .app-shell.dark .notif-row { border-bottom-color: #3a3a3c; }
+    .app-shell.dark .notif-row.unread { background: #1c2d3f; }
+    .app-shell.dark .btn-gray { background: #3a3a3c; color: #e5e5ea; }
+    .app-shell.dark .btn-secondary { background: #2c2c2e; border-color: #3b82f6; }
+    .app-shell.dark .info-box { background: #1c2d3f; color: #93c5fd; border-left-color: #3b82f6; }
+    .app-shell.dark .modal { background: #2c2c2e; }
+    .app-shell.dark .modal-title { color: #e5e5ea; }
+    .app-shell.dark .modal-body { color: #8e8e93; }
+    .app-shell.dark .bottom-sheet { background: #2c2c2e; }
+    .app-shell.dark .sheet-handle { background: #48484a; }
+    .app-shell.dark .activity-row:active { background: #3a3a3c; }
+    .app-shell.dark .task-row { border-bottom-color: #3a3a3c; }
+    .app-shell.dark .task-text { color: #e5e5ea; }
+    .app-shell.dark .accordion-title { color: #e5e5ea; }
+    .app-shell.dark .accordion-item { border-bottom-color: #3a3a3c; }
+    .app-shell.dark [style*="background:white"], .app-shell.dark [style*="background: white"] { /* can't override inline */ }
+  </style>
+</head>
+<body>
+<div class="phone-frame">
+  <div class="app-shell">
+
+    <!-- ============================================================
+         SCREEN: FIND ORGANIZATION
+    ============================================================ -->
+    <div class="screen active" id="screen-find-org">
+      <div class="scroll-content" style="display:flex;flex-direction:column;justify-content:center;min-height:100%;padding:40px 24px;">
+        <div class="app-logo"><i class="fa-solid fa-building"></i></div>
+        <h1 style="font-size:22px;font-weight:800;color:#111827;text-align:center;margin-bottom:8px;">Find your organization</h1>
+        <p style="font-size:14px;color:#6b7280;text-align:center;margin-bottom:32px;">Enter your company code or URL to get started</p>
+
+        <div class="card" style="padding:24px;">
+          <div class="input-group">
+            <label class="input-label">Company Code</label>
+            <input id="company-code" class="text-input" type="number" placeholder="6-digit code (e.g. 123456)" maxlength="6">
+            <span id="code-error" class="text-error" style="display:none;">Please enter a valid 6-digit code</span>
+          </div>
+
+          <div class="or-divider" style="margin:20px 0;">or</div>
+
+          <div class="input-group">
+            <label class="input-label">Company URL</label>
+            <input id="company-url" class="text-input" type="text" placeholder="e.g. acme.com">
+            <span id="url-error" class="text-error" style="display:none;">Please enter a valid company URL</span>
+          </div>
+
+          <div class="or-divider" style="margin:20px 0;">or</div>
+
+          <button class="btn btn-gray" onclick="openQRScanner()">
+            <i class="fa-solid fa-qrcode"></i> Scan QR Code
+          </button>
+
+          <button class="btn btn-primary mt-4" onclick="handleFindOrg()">
+            Continue
+          </button>
+        </div>
+
+        <p style="font-size:12px;color:#9ca3af;text-align:center;margin-top:24px;line-height:1.6;">
+          Don't have access?<br>
+          <span style="color:#2563eb;font-weight:600;">Contact your administrator</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN: LOGIN
+    ============================================================ -->
+    <div class="screen" id="screen-login">
+      <div class="scroll-content" style="display:flex;flex-direction:column;justify-content:center;min-height:100%;padding:40px 24px;">
+        <div class="app-logo"><i class="fa-solid fa-building"></i></div>
+        <h1 style="font-size:20px;font-weight:800;color:#111827;text-align:center;margin-bottom:4px;">Sign in to Convergence LMS</h1>
+        <p style="font-size:13px;color:#6b7280;text-align:center;margin-bottom:28px;">Acme Manufacturing Corp</p>
+
+        <div class="card" style="padding:24px;">
+          <button class="btn btn-primary" onclick="handleLogin()" style="background:linear-gradient(to right,#1d4ed8,#16a34a);">
+            <i class="fa-solid fa-shield-check"></i> Sign in with SSO
+          </button>
+
+          <div class="or-divider" style="margin:20px 0;">or</div>
+
+          <div class="input-group" style="margin-bottom:14px;">
+            <label class="input-label">Username</label>
+            <input class="text-input" type="text" placeholder="Enter your username">
+          </div>
+
+          <div class="input-group" style="margin-bottom:6px;">
+            <label class="input-label">Password</label>
+            <div class="pw-wrap">
+              <input id="pw-input" class="text-input" type="password" placeholder="Enter your password">
+              <button class="pw-toggle" onclick="togglePw()" id="pw-eye"><i class="fa-solid fa-eye"></i></button>
+            </div>
+          </div>
+
+          <p style="font-size:13px;color:#2563eb;font-weight:600;text-align:right;margin-bottom:20px;cursor:pointer;">Forgot password?</p>
+
+          <button class="btn btn-secondary" onclick="handleLogin()">Sign in</button>
+        </div>
+
+        <p style="font-size:13px;color:#6b7280;text-align:center;margin-top:20px;">
+          Not your organization? <span style="color:#2563eb;font-weight:600;cursor:pointer;" onclick="showScreen('screen-find-org')">Switch</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN: HOME
+    ============================================================ -->
+    <div class="screen" id="screen-home">
+      <!-- iOS Status Bar -->
+      <div class="status-bar">
+        <span class="status-time">9:41 AM</span>
+        <div class="status-bar-icons">
+          <i class="fa-solid fa-signal"></i>
+          <i class="fa-solid fa-wifi"></i>
+          <i class="fa-solid fa-battery-full"></i>
+        </div>
+      </div>
+      <!-- Gradient header -->
+      <div class="gradient-header" style="padding-bottom:24px;">
+        <div class="header-row">
+          <div>
+            <h1 style="font-size:24px;font-weight:700;color:white;margin:0 0 2px;">Welcome back, Sarah</h1>
+            <div style="font-size:14px;color:rgba(219,234,254,0.9);margin-top:2px;">Sales Manager</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="header-icon-btn" onclick="openQRScanner()"><i class="fa-solid fa-qrcode"></i></button>
+            <button class="header-icon-btn" onclick="showScreen('screen-notifications')">
+              <i class="fa-solid fa-bell"></i>
+              <span class="notif-dot"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="scroll-content">
+        <!-- Jump Back In -->
+        <div class="section-block" style="margin-top:20px;">
+          <div class="section-header">
+            <span class="section-title">Jump Back In</span>
+            <button onclick="switchTab('screen-my-training')" style="width:32px;height:32px;border-radius:50%;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#6b7280;font-size:18px;"><i class="fa-solid fa-circle-arrow-right"></i></button>
+          </div>
+          <div class="carousel">
+            <!-- Card 1: Overdue -->
+            <div class="carousel-card" style="width:calc(100% - 64px);max-width:280px;padding:16px;cursor:pointer;border-radius:14px;background:linear-gradient(135deg,#fef2f2,#ffffff);box-shadow:0 1px 6px rgba(0,0,0,0.08);display:flex;flex-direction:column;gap:8px;" onclick="showActivityDetail(null,'Workplace Safety Fundamentals')">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <i class="fa-regular fa-calendar" style="font-size:13px;color:#ca150c;"></i>
+                <span style="font-size:12px;font-weight:600;color:#ca150c;">Overdue: 5/10/26</span>
+              </div>
+              <div style="font-size:14px;font-weight:600;color:#101828;line-height:1.4;">Workplace Safety Fundamentals</div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#6b7280;">
+                <i class="fa-solid fa-play" style="font-size:11px;"></i> <span>Video</span> <span style="font-size:8px;">•</span> <i class="fa-regular fa-clock" style="font-size:11px;"></i> <span>45 min</span>
+              </div>
+            </div>
+            <!-- Card 2: Due Soon — Qualification -->
+            <div class="carousel-card" style="width:calc(100% - 64px);max-width:280px;padding:16px;cursor:pointer;border-radius:14px;background:linear-gradient(135deg,#eff6ff,#ffffff);box-shadow:0 1px 6px rgba(0,0,0,0.08);display:flex;flex-direction:column;gap:8px;" onclick="showScreen('screen-qual-detail')">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <i class="fa-regular fa-calendar" style="font-size:13px;color:rgba(0,0,0,0.7);"></i>
+                <span style="font-size:12px;font-weight:600;color:rgba(0,0,0,0.7);">Due: 5/20/26</span>
+              </div>
+              <div style="font-size:14px;font-weight:600;color:#101828;line-height:1.4;">Safety Leadership Certification</div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#6b7280;">
+                <i class="fa-solid fa-shield-halved" style="font-size:11px;"></i> <span>Qualification</span> <span style="font-size:8px;">•</span> <i class="fa-regular fa-clock" style="font-size:11px;"></i> <span>2.5 hrs</span>
+              </div>
+            </div>
+            <!-- Card 3: Learning Path -->
+            <div class="carousel-card" style="width:calc(100% - 64px);max-width:280px;padding:16px;cursor:pointer;border-radius:14px;background:linear-gradient(135deg,#eff6ff,#ffffff);box-shadow:0 1px 6px rgba(0,0,0,0.08);display:flex;flex-direction:column;gap:8px;" onclick="showScreen('screen-lp-detail')">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <i class="fa-regular fa-calendar" style="font-size:13px;color:rgba(0,0,0,0.7);"></i>
+                <span style="font-size:12px;font-weight:600;color:rgba(0,0,0,0.7);">Due: 5/30/26</span>
+              </div>
+              <div style="font-size:14px;font-weight:600;color:#101828;line-height:1.4;">New Employee Onboarding</div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#6b7280;">
+                <i class="fa-solid fa-route" style="font-size:11px;"></i> <span>Learning Path</span> <span style="font-size:8px;">•</span> <i class="fa-regular fa-clock" style="font-size:11px;"></i> <span>3 hrs</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- My Training Summary -->
+        <div class="section-block">
+          <div class="section-header">
+            <span class="section-title">My Training Summary</span>
+          </div>
+          <div class="summary-grid">
+            <div class="summary-card" onclick="switchTab('screen-my-training')">
+              <div style="width:32px;height:32px;border-radius:8px;background:#fef2f2;color:#dc2626;display:flex;align-items:center;justify-content:center;font-size:16px;">
+                <i class="fa-solid fa-clock"></i>
+              </div>
+              <div class="num" style="color:#dc2626;">2</div>
+              <div class="label">Items past due date</div>
+            </div>
+            <div class="summary-card" onclick="switchTab('screen-my-training')">
+              <div style="width:32px;height:32px;border-radius:8px;background:#fffbeb;color:#d97706;display:flex;align-items:center;justify-content:center;font-size:16px;">
+                <i class="fa-solid fa-clock"></i>
+              </div>
+              <div class="num" style="color:#d97706;">2</div>
+              <div class="label">Due within 7 days</div>
+            </div>
+            <div class="summary-card" onclick="switchTab('screen-my-training')">
+              <div style="width:32px;height:32px;border-radius:8px;background:#f5f3ff;color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:16px;">
+                <i class="fa-solid fa-chart-line"></i>
+              </div>
+              <div class="num" style="color:#7c3aed;">1</div>
+              <div class="label">Recently Added</div>
+            </div>
+            <div class="summary-card" onclick="switchTab('screen-my-training')">
+              <div style="width:32px;height:32px;border-radius:8px;background:#eff6ff;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:16px;">
+                <i class="fa-solid fa-play"></i>
+              </div>
+              <div class="num" style="color:#2563eb;">3</div>
+              <div class="label">In Progress</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- My Electives -->
+        <div class="section-block">
+          <div class="section-header">
+            <span class="section-title">My Electives</span>
+            <button onclick="switchTab('screen-discover')" style="width:32px;height:32px;border-radius:50%;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#6b7280;font-size:18px;"><i class="fa-solid fa-circle-arrow-right"></i></button>
+          </div>
+          <div class="carousel">
+            <div class="carousel-card" style="width:calc(100% - 64px);max-width:320px;cursor:pointer;border-radius:14px;background:white;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;" onclick="showActivityDetail('catalog', this)">
+              <img src="https://picsum.photos/seed/leader1/320/140" alt="" style="width:100%;height:140px;object-fit:cover;display:block;">
+              <div style="padding:12px 14px;display:flex;flex-direction:column;gap:5px;">
+                <div style="display:flex;align-items:center;gap:5px;">
+                  <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:#f3e8ff;color:#9333ea;border-radius:100px;font-size:11px;font-weight:600;">Elective</span>
+                </div>
+                <div style="font-size:14px;font-weight:600;color:#101828;line-height:1.4;">Leadership Skills 101</div>
+                <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:#6b7280;">
+                  <i class="fa-solid fa-play" style="font-size:11px;"></i> <span>Video</span> <span style="font-size:8px;">•</span> <i class="fa-regular fa-clock" style="font-size:11px;"></i> <span>1 hr</span>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-card" style="width:calc(100% - 64px);max-width:320px;cursor:pointer;border-radius:14px;background:white;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;" onclick="showActivityDetail('catalog', this)">
+              <img src="https://picsum.photos/seed/comm1/320/140" alt="" style="width:100%;height:140px;object-fit:cover;display:block;">
+              <div style="padding:12px 14px;display:flex;flex-direction:column;gap:5px;">
+                <div style="display:flex;align-items:center;gap:5px;">
+                  <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:#f3e8ff;color:#9333ea;border-radius:100px;font-size:11px;font-weight:600;">Elective</span>
+                </div>
+                <div style="font-size:14px;font-weight:600;color:#101828;line-height:1.4;">Communication Essentials</div>
+                <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:#6b7280;">
+                  <i class="fa-solid fa-file" style="font-size:11px;"></i> <span>SCORM</span> <span style="font-size:8px;">•</span> <i class="fa-regular fa-clock" style="font-size:11px;"></i> <span>2 hrs</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="height:16px;"></div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN: MY TRAINING
+    ============================================================ -->
+    <div class="screen" id="screen-my-training">
+      <div class="status-bar">
+        <span class="status-time">9:41 AM</span>
+        <div class="status-bar-icons">
+          <i class="fa-solid fa-signal"></i>
+          <i class="fa-solid fa-wifi"></i>
+          <i class="fa-solid fa-battery-full"></i>
+        </div>
+      </div>
+      <div style="background:linear-gradient(to right,#1d4ed8,#16a34a);padding:20px 20px 16px;flex-shrink:0;">
+        <h1 style="font-size:22px;font-weight:800;color:white;margin-bottom:14px;">My Training</h1>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;">
+          <div class="search-wrap" style="flex:1;">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input class="search-input" type="text" placeholder="Search training...">
+          </div>
+          <button class="header-icon-btn" onclick="openFilterSheet()"><i class="fa-solid fa-filter"></i></button>
+        </div>
+        <div class="chips-row" style="padding:0;gap:8px;overflow-x:auto;">
+          <div class="chip active" style="border-color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.2);color:white;" onclick="setChip(this)">All</div>
+          <div class="chip" style="border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:white;" onclick="setChip(this)">Overdue</div>
+          <div class="chip" style="border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:white;" onclick="setChip(this)">Due This Week</div>
+          <div class="chip" style="border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:white;" onclick="setChip(this)">In Progress</div>
+          <div class="chip" style="border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:white;" onclick="setChip(this)">Incomplete</div>
+          <div class="chip" style="border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:white;" onclick="setChip(this)">Assigned</div>
+          <div class="chip" style="border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:white;" onclick="setChip(this)">Elective</div>
+        </div>
+      </div>
+
+      <div class="scroll-content" style="padding:16px 0 0;">
+
+        <!-- Learning Paths -->
+        <div class="section-block">
+          <div class="section-header"><span class="section-title">Learning Paths</span></div>
+          <div class="card" style="margin:0 20px;overflow:hidden;cursor:pointer;" onclick="showScreen('screen-lp-detail')">
+            <img src="https://picsum.photos/seed/onboard1/350/150" alt="" style="width:100%;height:150px;object-fit:cover;display:block;">
+            <div style="padding:14px 16px;">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px;">
+                <div style="font-size:14px;font-weight:700;color:#111827;flex:1;padding-right:8px;">New Employee Onboarding</div>
+                <span class="badge badge-blue" style="flex-shrink:0;">In Progress</span>
+              </div>
+              <div style="font-size:12px;color:#6b7280;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                <i class="fa-solid fa-route" style="font-size:11px;"></i> Learning Path <span style="font-size:8px;">•</span> <i class="fa-regular fa-calendar" style="font-size:11px;"></i> Due 5/30/26 <span style="font-size:8px;">•</span> 11 Activities
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div class="progress-track" style="flex:1;"><div class="progress-fill" style="width:45%;"></div></div>
+                <span style="font-size:12px;color:#6b7280;flex-shrink:0;font-weight:600;">45%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Qualifications -->
+        <div class="section-block">
+          <div class="section-header"><span class="section-title">Qualifications</span></div>
+          <div style="margin:0 20px;display:flex;flex-direction:column;gap:10px;">
+            <div class="card" style="overflow:hidden;cursor:pointer;" onclick="showScreen('screen-qual-detail')">
+              <img src="https://picsum.photos/seed/qualify1/350/150" alt="" style="width:100%;height:150px;object-fit:cover;display:block;">
+              <div style="padding:14px 16px;">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px;">
+                  <div style="font-size:14px;font-weight:700;color:#111827;flex:1;padding-right:8px;">Safety Leadership Certification</div>
+                  <span class="badge badge-blue" style="flex-shrink:0;">In Progress</span>
+                </div>
+                <div style="font-size:12px;color:#d97706;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                  <i class="fa-solid fa-shield-halved" style="font-size:11px;"></i> Qualification <span style="font-size:8px;">•</span> <i class="fa-regular fa-calendar" style="font-size:11px;"></i> Due 5/20/26 <span style="font-size:8px;">•</span> 5 Activities
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div class="progress-track" style="flex:1;"><div class="progress-fill" style="width:68%;"></div></div>
+                  <span style="font-size:12px;color:#6b7280;flex-shrink:0;font-weight:600;">68%</span>
+                </div>
+              </div>
+            </div>
+            <div class="card card-green" style="overflow:hidden;cursor:pointer;">
+              <img src="https://picsum.photos/seed/comply1/350/150" alt="" style="width:100%;height:150px;object-fit:cover;display:block;">
+              <div style="padding:14px 16px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <div style="font-size:14px;font-weight:700;color:#111827;">Compliance Fundamentals</div>
+                  <span class="badge badge-green"><i class="fa-solid fa-check"></i> Complete</span>
+                </div>
+                <div style="font-size:12px;color:#6b7280;margin-top:4px;display:flex;align-items:center;gap:6px;">
+                  <i class="fa-solid fa-shield-halved" style="font-size:11px;"></i> Qualification <span style="font-size:8px;">•</span> Completed 3/1/26
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Activities -->
+        <div class="section-block">
+          <div class="section-header"><span class="section-title">Activities</span></div>
+          <div style="margin:0 20px;" class="card">
+            <div class="activity-row" onclick="showActivityDetail(null, 'Workplace Safety Fundamentals')">
+              <img src="https://picsum.photos/seed/wsafe1/48/40" alt="" style="width:48px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;">
+              <div class="activity-info">
+                <div class="activity-title">Workplace Safety Fundamentals</div>
+                <div class="activity-meta">Video • 60% complete</div>
+              </div>
+              <span class="badge badge-red">Overdue</span>
+            </div>
+            <div class="activity-row" onclick="showActivityDetail(null, 'Emergency Response Basics')">
+              <img src="https://picsum.photos/seed/emergency1/48/40" alt="" style="width:48px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;">
+              <div class="activity-info">
+                <div class="activity-title">Emergency Response Basics</div>
+                <div class="activity-meta">SCORM • 0% complete</div>
+              </div>
+              <span class="badge badge-red">Overdue</span>
+            </div>
+            <div class="activity-row" onclick="showActivityDetail(null, 'Fire Safety Procedures')">
+              <img src="https://picsum.photos/seed/fire1/48/40" alt="" style="width:48px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;">
+              <div class="activity-info">
+                <div class="activity-title">Fire Safety Procedures</div>
+                <div class="activity-meta">Video • 30% • Due 5/18/26</div>
+              </div>
+              <span class="badge badge-blue">In Progress</span>
+            </div>
+            <div class="activity-row" onclick="showActivityDetail(null, 'Hazard Communication Standard')">
+              <img src="https://picsum.photos/seed/hazard1/48/40" alt="" style="width:48px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;">
+              <div class="activity-info">
+                <div class="activity-title">Hazard Communication Standard</div>
+                <div class="activity-meta">Task List • Not Started • Due 5/25/26</div>
+              </div>
+              <i class="fa-solid fa-chevron-right activity-chevron"></i>
+            </div>
+            <div class="activity-row" onclick="showActivityDetail(null, 'First Aid Basics')">
+              <img src="https://picsum.photos/seed/firstaid1/48/40" alt="" style="width:48px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;">
+              <div class="activity-info">
+                <div class="activity-title">First Aid Basics</div>
+                <div class="activity-meta">Video • Completed</div>
+              </div>
+              <span class="badge badge-green"><i class="fa-solid fa-check"></i></span>
+            </div>
+            <div class="activity-row" onclick="showActivityDetail(null, 'Personal Protective Equipment')">
+              <img src="https://picsum.photos/seed/ppe1/48/40" alt="" style="width:48px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;">
+              <div class="activity-info">
+                <div class="activity-title">Personal Protective Equipment</div>
+                <div class="activity-meta">Quiz • Completed</div>
+              </div>
+              <span class="badge badge-green"><i class="fa-solid fa-check"></i></span>
+            </div>
+          </div>
+        </div>
+
+        <div style="height:16px;"></div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN: DISCOVER
+    ============================================================ -->
+    <div class="screen" id="screen-discover">
+      <div class="status-bar">
+        <span class="status-time">9:41 AM</span>
+        <div class="status-bar-icons">
+          <i class="fa-solid fa-signal"></i>
+          <i class="fa-solid fa-wifi"></i>
+          <i class="fa-solid fa-battery-full"></i>
+        </div>
+      </div>
+      <div style="background:linear-gradient(to right,#1d4ed8,#16a34a);padding:20px 20px 16px;flex-shrink:0;">
+        <h1 style="font-size:22px;font-weight:800;color:white;margin-bottom:14px;">Discover Training</h1>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
+          <div class="search-wrap" style="flex:1;position:relative;">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input class="search-input" id="discover-search" type="text" placeholder="Search catalog..." oninput="handleDiscoverSearch(this.value)" style="padding-right:40px;">
+            <button onclick="openQRScanner()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#6b7280;padding:0;font-size:16px;line-height:1;"><i class="fa-solid fa-qrcode"></i></button>
+          </div>
+          <button class="header-icon-btn" onclick="toggleDiscoverFilter()" style="flex-shrink:0;"><i class="fa-solid fa-filter"></i></button>
+        </div>
+      </div>
+
+      <!-- Discover filter panel -->
+      <div id="discover-filter" style="display:none;background:white;padding:16px 20px;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
+        <div style="margin-bottom:12px;">
+          <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;">Category</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <div class="chip active" onclick="setChip(this)">All</div>
+            <div class="chip" onclick="setChip(this)">Safety</div>
+            <div class="chip" onclick="setChip(this)">Leadership</div>
+            <div class="chip" onclick="setChip(this)">Compliance</div>
+            <div class="chip" onclick="setChip(this)">Professional</div>
+          </div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;">Type</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <div class="chip active" onclick="setChip(this)">All</div>
+            <div class="chip" onclick="setChip(this)">Video</div>
+            <div class="chip" onclick="setChip(this)">SCORM</div>
+            <div class="chip" onclick="setChip(this)">Quiz</div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;">Price</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <div class="chip active" onclick="setChip(this)">All</div>
+            <div class="chip" onclick="setChip(this)">Free</div>
+            <div class="chip" onclick="setChip(this)">Elective</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Browse view -->
+      <div class="scroll-content" id="discover-browse">
+        <!-- Popular -->
+        <div class="section-block" style="margin-top:20px;">
+          <div class="section-header"><span class="section-title">Popular Training</span></div>
+          <div class="carousel">
+            <div class="catalog-card" onclick="showActivityDetail('catalog', this)">
+              <img src="https://picsum.photos/seed/fire1/160/96" alt="" style="width:100%;height:96px;object-fit:cover;display:block;">
+              <div class="catalog-info">
+                <div class="catalog-title">Fire Safety Essentials</div>
+                <div class="catalog-meta"><span class="badge badge-blue" style="font-size:10px;">Video</span> 45 min</div>
+              </div>
+            </div>
+            <div class="catalog-card" onclick="showActivityDetail('catalog', this)">
+              <img src="https://picsum.photos/seed/osha1/160/96" alt="" style="width:100%;height:96px;object-fit:cover;display:block;">
+              <div class="catalog-info">
+                <div class="catalog-title">OSHA 10-Hour General Industry</div>
+                <div class="catalog-meta"><span class="badge badge-green" style="font-size:10px;">SCORM</span> 10 hrs</div>
+              </div>
+            </div>
+            <div class="catalog-card" onclick="showActivityDetail('catalog', this)">
+              <img src="https://picsum.photos/seed/leader2/160/96" alt="" style="width:100%;height:96px;object-fit:cover;display:block;">
+              <div class="catalog-info">
+                <div class="catalog-title">Team Leadership Foundations</div>
+                <div class="catalog-meta"><span class="badge badge-blue" style="font-size:10px;">Video</span> 2 hrs</div>
+              </div>
+            </div>
+            <div class="catalog-card" onclick="showActivityDetail('catalog', this)">
+              <img src="https://picsum.photos/seed/hazard1/160/96" alt="" style="width:100%;height:96px;object-fit:cover;display:block;">
+              <div class="catalog-info">
+                <div class="catalog-title">Hazard Recognition 101</div>
+                <div class="catalog-meta"><span class="badge badge-amber" style="font-size:10px;">SCORM</span> 1.5 hrs</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Safety & Compliance -->
+        <div class="section-block">
+          <div class="section-header"><span class="section-title">Safety &amp; Compliance</span></div>
+          <div class="carousel">
+            <div class="catalog-card" onclick="showActivityDetail('catalog', this)">
+              <img src="https://picsum.photos/seed/firstaid1/160/96" alt="" style="width:100%;height:96px;object-fit:cover;display:block;">
+              <div class="catalog-info">
+                <div class="catalog-title">First Aid &amp; CPR</div>
+                <div class="catalog-meta"><span class="badge badge-blue" style="font-size:10px;">Video</span> 3 hrs</div>
+              </div>
+            </div>
+            <div class="catalog-card" onclick="showActivityDetail('catalog', this)">
+              <img src="https://picsum.photos/seed/ppe1/160/96" alt="" style="width:100%;height:96px;object-fit:cover;display:block;">
+              <div class="catalog-info">
+                <div class="catalog-title">PPE Essentials</div>
+                <div class="catalog-meta"><span class="badge badge-amber" style="font-size:10px;">Quiz</span> 30 min</div>
+              </div>
+            </div>
+            <div class="catalog-card" onclick="showActivityDetail('catalog', this)">
+              <img src="https://picsum.photos/seed/hipaa1/160/96" alt="" style="width:100%;height:96px;object-fit:cover;display:block;">
+              <div class="catalog-info">
+                <div class="catalog-title">HIPAA Compliance Basics</div>
+                <div class="catalog-meta"><span class="badge badge-green" style="font-size:10px;">SCORM</span> 2 hrs</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Professional Development -->
+        <div class="section-block">
+          <div class="section-header"><span class="section-title">Professional Development</span></div>
+          <div class="carousel">
+            <div class="catalog-card" onclick="showActivityDetail('catalog', this)">
+              <img src="https://picsum.photos/seed/comm1/160/96" alt="" style="width:100%;height:96px;object-fit:cover;display:block;">
+              <div class="catalog-info">
+                <div class="catalog-title">Communication Essentials</div>
+                <div class="catalog-meta"><span class="badge badge-purple" style="font-size:10px;">Elective</span> 2 hrs</div>
+              </div>
+            </div>
+            <div class="catalog-card" onclick="showActivityDetail('catalog', this)">
+              <img src="https://picsum.photos/seed/critical1/160/96" alt="" style="width:100%;height:96px;object-fit:cover;display:block;">
+              <div class="catalog-info">
+                <div class="catalog-title">Critical Thinking Skills</div>
+                <div class="catalog-meta"><span class="badge badge-purple" style="font-size:10px;">Elective</span> 1.5 hrs</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Leadership -->
+        <div class="section-block">
+          <div class="section-header"><span class="section-title">Leadership</span></div>
+          <div class="carousel">
+            <div class="catalog-card" onclick="showActivityDetail('catalog', this)">
+              <img src="https://picsum.photos/seed/leader1/160/96" alt="" style="width:100%;height:96px;object-fit:cover;display:block;">
+              <div class="catalog-info">
+                <div class="catalog-title">Leadership Skills 101</div>
+                <div class="catalog-meta"><span class="badge badge-purple" style="font-size:10px;">Elective</span> 1 hr</div>
+              </div>
+            </div>
+            <div class="catalog-card" onclick="showActivityDetail('catalog', this)">
+              <img src="https://picsum.photos/seed/conflict1/160/96" alt="" style="width:100%;height:96px;object-fit:cover;display:block;">
+              <div class="catalog-info">
+                <div class="catalog-title">Conflict Resolution</div>
+                <div class="catalog-meta"><span class="badge badge-blue" style="font-size:10px;">Video</span> 2 hrs</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="height:16px;"></div>
+      </div>
+
+      <!-- Search results view -->
+      <div id="discover-search-results" style="display:none;flex:1;overflow-y:auto;">
+        <div style="padding:16px 20px 8px;font-size:13px;color:#6b7280;">Search results</div>
+        <div class="card" style="margin:0 20px 12px;">
+          <div class="activity-row"><div class="activity-icon video"><i class="fa-solid fa-play"></i></div><div class="activity-info"><div class="activity-title">Fire Safety Essentials</div><div class="activity-meta">Video • 45 min</div></div><i class="fa-solid fa-chevron-right activity-chevron"></i></div>
+          <div class="activity-row"><div class="activity-icon scorm"><i class="fa-solid fa-file"></i></div><div class="activity-info"><div class="activity-title">Emergency Evacuation Training</div><div class="activity-meta">SCORM • 1 hr</div></div><i class="fa-solid fa-chevron-right activity-chevron"></i></div>
+          <div class="activity-row"><div class="activity-icon video"><i class="fa-solid fa-play"></i></div><div class="activity-info"><div class="activity-title">Safety Leadership Essentials</div><div class="activity-meta">Video • 2 hrs</div></div><i class="fa-solid fa-chevron-right activity-chevron"></i></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN: RECORDS
+    ============================================================ -->
+    <div class="screen" id="screen-records">
+      <div class="status-bar">
+        <span class="status-time">9:41 AM</span>
+        <div class="status-bar-icons">
+          <i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-full"></i>
+        </div>
+      </div>
+      <!-- Header -->
+      <div style="background:linear-gradient(to right,#1d4ed8,#16a34a);padding:20px 20px 16px;flex-shrink:0;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <h1 style="font-size:22px;font-weight:800;color:white;">Records</h1>
+          <button class="header-icon-btn" onclick="openRecordsFilter()"><i class="fa-solid fa-filter"></i></button>
+        </div>
+        <p style="font-size:13px;color:rgba(255,255,255,0.85);margin-bottom:14px;">View proof of your training completion</p>
+        <div class="search-wrap">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input class="search-input" type="text" placeholder="Search records...">
+        </div>
+      </div>
+      <!-- View toggle tab bar -->
+      <div style="background:white;display:flex;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
+        <button id="rec-tab-structured" onclick="setRecordsView('structured')" style="flex:1;padding:12px;border:none;background:none;font-size:13px;font-weight:700;color:#2563eb;border-bottom:2px solid #2563eb;cursor:pointer;font-family:'Open Sans',sans-serif;">Structured</button>
+        <button id="rec-tab-flat" onclick="setRecordsView('flat')" style="flex:1;padding:12px;border:none;background:none;font-size:13px;font-weight:600;color:#9ca3af;border-bottom:2px solid transparent;cursor:pointer;font-family:'Open Sans',sans-serif;">All Activities</button>
+      </div>
+
+      <div class="scroll-content">
+        <!-- Structured view -->
+        <div id="records-structured" style="padding:16px 16px 0;">
+          <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">Qualifications &amp; Paths</div>
+
+          <div class="card" style="overflow:hidden;margin-bottom:10px;cursor:pointer;" onclick="showRecordDetail('qual','Compliance Fundamentals')">
+            <img src="https://picsum.photos/seed/comply1/350/120" alt="" style="width:100%;height:120px;object-fit:cover;display:block;">
+            <div style="padding:12px 14px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                <span class="badge badge-green"><i class="fa-solid fa-trophy"></i> Qualification</span>
+                <span class="badge badge-green"><i class="fa-solid fa-check"></i> Completed</span>
+              </div>
+              <div style="font-size:15px;font-weight:700;color:#111827;margin-bottom:2px;">Compliance Fundamentals</div>
+              <div style="font-size:12px;color:#6b7280;">Completed Mar 1, 2026 · Certificate available</div>
+            </div>
+          </div>
+
+          <div class="card" style="overflow:hidden;margin-bottom:10px;cursor:pointer;" onclick="showRecordDetail('lp','Annual Safety Refresher')">
+            <img src="https://picsum.photos/seed/safety2/350/120" alt="" style="width:100%;height:120px;object-fit:cover;display:block;">
+            <div style="padding:12px 14px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                <span class="badge badge-green"><i class="fa-solid fa-route"></i> Learning Path</span>
+                <span class="badge badge-green"><i class="fa-solid fa-check"></i> Completed</span>
+              </div>
+              <div style="font-size:15px;font-weight:700;color:#111827;margin-bottom:2px;">Annual Safety Refresher</div>
+              <div style="font-size:12px;color:#6b7280;">Completed Jan 15, 2026 · Certificate available</div>
+            </div>
+          </div>
+          <div style="height:20px;"></div>
+        </div>
+
+        <!-- Flat view -->
+        <div id="records-flat" style="display:none;padding:16px 16px 0;">
+          <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">All Completed Activities</div>
+          <div class="card" style="overflow:hidden;margin-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid #f3f4f6;cursor:pointer;" onclick="showActivityDetail(null,'First Aid Basics')">
+              <img src="https://picsum.photos/seed/firstaid1/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+              <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">First Aid Basics</div><div style="font-size:11px;color:#6b7280;">Video · from Compliance Fundamentals</div><div style="font-size:11px;color:#16a34a;margin-top:2px;">Completed Apr 1, 2026</div></div>
+              <span class="badge badge-green"><i class="fa-solid fa-check"></i></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid #f3f4f6;cursor:pointer;" onclick="showActivityDetail(null,'Personal Protective Equipment')">
+              <img src="https://picsum.photos/seed/ppe1/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+              <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">Personal Protective Equipment</div><div style="font-size:11px;color:#6b7280;">Quiz · from Compliance Fundamentals</div><div style="font-size:11px;color:#16a34a;margin-top:2px;">Completed Mar 15, 2026</div></div>
+              <span class="badge badge-green"><i class="fa-solid fa-check"></i></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;" onclick="showActivityDetail('catalog',this)">
+              <img src="https://picsum.photos/seed/emergency1/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+              <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">Emergency Evacuation Basics</div><div style="font-size:11px;color:#6b7280;">Video · from Annual Safety Refresher</div><div style="font-size:11px;color:#16a34a;margin-top:2px;">Completed Jan 10, 2026</div></div>
+              <span class="badge badge-green"><i class="fa-solid fa-check"></i></span>
+            </div>
+          </div>
+          <div style="height:20px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN: PROFILE
+    ============================================================ -->
+    <div class="screen" id="screen-profile">
+      <div class="status-bar">
+        <span class="status-time">9:41 AM</span>
+        <div class="status-bar-icons">
+          <i class="fa-solid fa-signal"></i>
+          <i class="fa-solid fa-wifi"></i>
+          <i class="fa-solid fa-battery-full"></i>
+        </div>
+      </div>
+      <!-- Gradient header with avatar -->
+      <div style="background:linear-gradient(to right,#1d4ed8,#16a34a);padding:20px 20px 28px;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div class="avatar-circle" style="flex-shrink:0;">SM</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:24px;font-weight:700;color:white;margin-bottom:2px;">Sarah Mitchell</div>
+            <div style="font-size:14px;color:rgba(219,234,254,0.9);margin-bottom:2px;">Sales Manager</div>
+            <div style="font-size:13px;color:rgba(219,234,254,0.7);">sarah.mitchell@company.com</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="scroll-content" style="padding:20px;">
+        <!-- Supervisor Access -->
+        <div style="font-size:13px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Supervisor Access</div>
+        <div class="card" style="padding:20px;text-align:center;margin-bottom:20px;">
+          <p style="font-size:13px;color:#6b7280;margin-bottom:16px;">Have your supervisor scan this QR code to sign off on your training.</p>
+          <div class="qr-box" onclick="openSupervisorOverlay()" style="cursor:pointer;">
+            <i class="fa-solid fa-qrcode"></i>
+            <span>Tap to enlarge</span>
+          </div>
+        </div>
+
+        <!-- Settings -->
+        <div style="font-size:13px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Settings</div>
+        <div class="card" style="margin-bottom:20px;">
+          <div class="settings-row" onclick="cycleAppearance()">
+            <div class="settings-icon" style="background:#fffbeb;color:#d97706;"><i class="fa-solid fa-sun" id="appearance-icon"></i></div>
+            <div class="settings-label">Appearance</div>
+            <span class="settings-value" id="appearance-val">Light Mode</span>
+            <i class="fa-solid fa-chevron-right" style="color:#d1d5db;font-size:12px;margin-left:4px;"></i>
+          </div>
+          <div class="settings-row" onclick="showScreen('screen-notifications')">
+            <div class="settings-icon" style="background:#eff6ff;color:#2563eb;"><i class="fa-solid fa-bell"></i></div>
+            <div class="settings-label">Notifications</div>
+            <i class="fa-solid fa-chevron-right" style="color:#d1d5db;font-size:12px;"></i>
+          </div>
+          <div class="settings-row">
+            <div class="settings-icon" style="background:#f3f4f6;color:#6b7280;"><i class="fa-solid fa-qrcode"></i></div>
+            <div class="settings-label">Offline QR Queue</div>
+            <i class="fa-solid fa-chevron-right" style="color:#d1d5db;font-size:12px;"></i>
+          </div>
+          <div class="settings-row">
+            <div class="settings-icon" style="background:#f5f3ff;color:#7c3aed;"><i class="fa-solid fa-gear"></i></div>
+            <div class="settings-label">Preferences</div>
+            <i class="fa-solid fa-chevron-right" style="color:#d1d5db;font-size:12px;"></i>
+          </div>
+          <div class="settings-row" onclick="handleSignOut()">
+            <div class="settings-icon red"><i class="fa-solid fa-right-from-bracket"></i></div>
+            <div class="settings-label" style="color:#dc2626;">Sign Out</div>
+          </div>
+        </div>
+
+        <div style="height:16px;"></div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN: NOTIFICATIONS
+    ============================================================ -->
+    <div class="screen" id="screen-notifications">
+      <div style="background:white;padding:16px 20px;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="header-icon-btn" style="background:#f3f4f6;color:#374151;" onclick="goBack()">
+            <i class="fa-solid fa-arrow-left"></i>
+          </button>
+          <span style="font-size:18px;font-weight:700;color:#111827;">Notifications</span>
+        </div>
+      </div>
+      <div class="scroll-content">
+        <div class="notif-row unread" style="cursor:pointer;">
+          <div class="notif-dot-blue"></div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:2px;">New Training Assigned</div>
+            <div style="font-size:13px;color:#374151;margin-bottom:4px;">Workplace Safety Fundamentals has been added to your training plan.</div>
+            <div style="font-size:12px;color:#9ca3af;">2 hours ago</div>
+          </div>
+        </div>
+        <div class="notif-row" style="cursor:pointer;">
+          <div class="notif-dot-blank"></div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:600;color:#374151;margin-bottom:2px;">Due Soon</div>
+            <div style="font-size:13px;color:#6b7280;margin-bottom:4px;">Fire Safety Procedures is due in 3 days.</div>
+            <div style="font-size:12px;color:#9ca3af;">Yesterday</div>
+          </div>
+        </div>
+        <div class="notif-row" style="cursor:pointer;">
+          <div class="notif-dot-blank"></div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:600;color:#374151;margin-bottom:2px;">Certificate Earned</div>
+            <div style="font-size:13px;color:#6b7280;margin-bottom:4px;">You've completed First Aid Basics. Your certificate is ready to view.</div>
+            <div style="font-size:12px;color:#9ca3af;">Apr 1, 2026</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN: TASK LIST
+    ============================================================ -->
+    <div class="screen" id="screen-task-list">
+      <!-- Header -->
+      <div style="background:white;padding:16px 20px 0;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <button class="header-icon-btn" style="background:#f3f4f6;color:#374151;" onclick="goBack()">
+            <i class="fa-solid fa-arrow-left"></i>
+          </button>
+          <span style="font-size:16px;font-weight:700;color:#111827;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Emergency Evacuation Drill</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <span class="badge badge-blue"><i class="fa-solid fa-clipboard-list"></i> Task List</span>
+          <span class="badge badge-amber"><i class="fa-solid fa-clock"></i> Due 5/25/26</span>
+          <span class="badge badge-gray">45 min</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:12px;">
+          <p style="font-size:13px;color:#6b7280;flex:1;">Complete field safety inspection tasks and collect required sign-offs.</p>
+          <span style="font-size:13px;color:#2563eb;font-weight:600;cursor:pointer;margin-left:12px;white-space:nowrap;" onclick="openTaskDetails()">Read All</span>
+        </div>
+      </div>
+
+      <div class="scroll-content" style="padding:16px 20px;">
+        <!-- Info box -->
+        <div class="info-box" style="margin-bottom:16px;">
+          <i class="fa-solid fa-circle-info" style="margin-right:6px;"></i>
+          Complete all tasks, then collect required instructor sign-offs to finish this activity.
+        </div>
+
+        <!-- Tasks card -->
+        <div class="card" style="margin-bottom:14px;">
+          <div style="padding:14px 16px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:15px;font-weight:700;color:#111827;">Tasks</span>
+            <span style="font-size:13px;color:#6b7280;" id="task-progress-label">3 of 6 completed</span>
+          </div>
+          <div id="tasks-list">
+            <div class="task-row" onclick="openTaskItem(0)">
+              <div class="task-check checked"><i class="fa-solid fa-check"></i></div>
+              <span class="task-text done">Review safety equipment checklist</span>
+              <i class="fa-solid fa-chevron-right" style="color:#d1d5db;font-size:12px;flex-shrink:0;"></i>
+            </div>
+            <div class="task-row" onclick="openTaskItem(1)">
+              <div class="task-check checked"><i class="fa-solid fa-check"></i></div>
+              <span class="task-text done">Inspect fire extinguisher location</span>
+              <i class="fa-solid fa-chevron-right" style="color:#d1d5db;font-size:12px;flex-shrink:0;"></i>
+            </div>
+            <div class="task-row" onclick="openTaskItem(2)">
+              <div class="task-check checked"><i class="fa-solid fa-check"></i></div>
+              <span class="task-text done">Verify emergency exit signage</span>
+              <i class="fa-solid fa-chevron-right" style="color:#d1d5db;font-size:12px;flex-shrink:0;"></i>
+            </div>
+            <div class="task-row" onclick="openTaskItem(3)">
+              <div class="task-check"><i class="fa-solid fa-check"></i></div>
+              <span class="task-text">Check first aid kit supplies</span>
+              <i class="fa-solid fa-chevron-right" style="color:#d1d5db;font-size:12px;flex-shrink:0;"></i>
+            </div>
+            <div class="task-row" onclick="openTaskItem(4)">
+              <div class="task-check"><i class="fa-solid fa-check"></i></div>
+              <span class="task-text">Test emergency lighting system</span>
+              <i class="fa-solid fa-chevron-right" style="color:#d1d5db;font-size:12px;flex-shrink:0;"></i>
+            </div>
+            <div class="task-row" onclick="openTaskItem(5)">
+              <div class="task-check"><i class="fa-solid fa-check"></i></div>
+              <span class="task-text">Document any hazards found</span>
+              <i class="fa-solid fa-chevron-right" style="color:#d1d5db;font-size:12px;flex-shrink:0;"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sign-offs card -->
+        <div class="card" id="signoffs-card">
+          <div style="padding:14px 16px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:15px;font-weight:700;color:#111827;">Collect Sign-Offs</span>
+            <span style="font-size:13px;color:#6b7280;" id="signoff-progress-label">0 of 4 signed</span>
+          </div>
+          <div id="signoffs-list">
+            <div class="signoff-row" id="signoff-0" onclick="requestSignoff(0,'Sarah Mitchell','You')">
+              <div class="signoff-left">
+                <div class="signoff-avatar">SM</div>
+                <div><div class="signoff-name">Sarah Mitchell</div><div class="signoff-sub">You — Tap to sign</div></div>
+              </div>
+              <i class="fa-solid fa-chevron-right" style="color:#9ca3af;font-size:13px;"></i>
+            </div>
+            <div class="signoff-row" id="signoff-1" onclick="requestSignoff(1,'John Davis','Hand device to instructor')">
+              <div class="signoff-left">
+                <div class="signoff-avatar">JD</div>
+                <div><div class="signoff-name">John Davis</div><div class="signoff-sub">Hand device to instructor</div></div>
+              </div>
+              <i class="fa-solid fa-chevron-right" style="color:#9ca3af;font-size:13px;"></i>
+            </div>
+            <div class="signoff-row" id="signoff-2" onclick="requestSignoff(2,'Maria Garcia','Hand device to instructor')">
+              <div class="signoff-left">
+                <div class="signoff-avatar">MG</div>
+                <div><div class="signoff-name">Maria Garcia</div><div class="signoff-sub">Hand device to instructor</div></div>
+              </div>
+              <i class="fa-solid fa-chevron-right" style="color:#9ca3af;font-size:13px;"></i>
+            </div>
+            <div class="signoff-row" id="signoff-3" onclick="requestSignoff(3,'Robert Chen','Hand device to instructor')">
+              <div class="signoff-left">
+                <div class="signoff-avatar">RC</div>
+                <div><div class="signoff-name">Robert Chen</div><div class="signoff-sub">Hand device to instructor</div></div>
+              </div>
+              <i class="fa-solid fa-chevron-right" style="color:#9ca3af;font-size:13px;"></i>
+            </div>
+          </div>
+        </div>
+        <div style="height:20px;"></div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN: QUALIFICATION DETAIL
+    ============================================================ -->
+    <div class="screen" id="screen-qual-detail">
+      <!-- Hero image -->
+      <div style="position:relative;flex-shrink:0;height:220px;">
+        <img src="https://picsum.photos/seed/qualify1/390/220" alt="" style="width:100%;height:220px;object-fit:cover;display:block;">
+        <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.35) 0%,transparent 45%,rgba(0,0,0,0.55) 100%);"></div>
+        <button onclick="goBack()" style="position:absolute;top:16px;left:16px;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.45);border:none;color:white;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;"><i class="fa-solid fa-arrow-left"></i></button>
+        <button style="position:absolute;top:16px;right:16px;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.45);border:none;color:white;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;"><i class="fa-solid fa-ellipsis"></i></button>
+        <div style="position:absolute;bottom:14px;left:16px;right:16px;z-index:2;">
+          <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.8);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Qualification</div>
+          <div style="font-size:20px;font-weight:700;color:white;line-height:1.2;">Safety Leadership Certification</div>
+        </div>
+      </div>
+
+      <!-- Badges + progress -->
+      <div style="background:white;padding:14px 16px;border-bottom:1px solid #f3f4f6;flex-shrink:0;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+          <span class="badge badge-blue"><i class="fa-solid fa-shield-halved"></i> Qualification</span>
+          <span class="badge badge-amber"><i class="fa-regular fa-calendar"></i> Due 5/20/26</span>
+          <span class="badge badge-gray"><i class="fa-solid fa-layer-group"></i> 5 Activities</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <span style="font-size:13px;font-weight:600;color:#374151;">Your Progress</span>
+          <span style="font-size:13px;font-weight:700;color:#2563eb;">68% · 2 of 5 complete</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill" style="width:68%;"></div></div>
+        <div style="font-size:12px;color:#6b7280;margin-top:8px;">This qualification certifies proficiency in workplace safety leadership practices.</div>
+      </div>
+
+      <div class="scroll-content" style="padding-bottom:20px;">
+
+        <!-- Requirement 1 -->
+        <div style="padding:16px 16px 8px;">
+          <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.06em;">Qualification Requirements</div>
+        </div>
+        <div class="card" style="margin:0 16px 12px;overflow:hidden;">
+          <div style="background:#f9fafb;padding:10px 14px;border-bottom:1px solid #f3f4f6;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div>
+                <div style="font-size:12px;font-weight:700;color:#374151;">Requirement 1 · Safety Fundamentals</div>
+                <div style="font-size:11px;color:#6b7280;margin-top:2px;">3 activities · 1 of 3 complete</div>
+              </div>
+              <span class="badge badge-blue">In Progress</span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid #f3f4f6;cursor:pointer;" onclick="showActivityDetail(null,'Workplace Safety Fundamentals')">
+            <img src="https://picsum.photos/seed/wsafe1/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">Workplace Safety Fundamentals</div><div style="font-size:11px;color:#6b7280;margin-bottom:3px;">Video · 45 min · 60%</div><div class="progress-track" style="height:3px;"><div class="progress-fill" style="width:60%;"></div></div></div>
+            <span class="badge badge-blue" style="flex-shrink:0;">60%</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid #f3f4f6;cursor:pointer;" onclick="showActivityDetail('catalog',this)">
+            <img src="https://picsum.photos/seed/osha1/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">OSHA Regulations Overview</div><div style="font-size:11px;color:#6b7280;">Document · 30 min</div></div>
+            <span class="badge badge-gray" style="flex-shrink:0;">Not Started</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;" onclick="showActivityDetail('catalog',this)">
+            <img src="https://picsum.photos/seed/safecheck1/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">Safety Quiz</div><div style="font-size:11px;color:#6b7280;">Quiz · 15 min</div></div>
+            <span class="badge badge-gray" style="flex-shrink:0;">Not Started</span>
+          </div>
+        </div>
+
+        <!-- Requirement 2 -->
+        <div class="card" style="margin:0 16px 20px;overflow:hidden;">
+          <div style="background:#fef2f2;padding:10px 14px;border-bottom:1px solid #f3f4f6;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div>
+                <div style="font-size:12px;font-weight:700;color:#374151;">Requirement 2 · Emergency Response</div>
+                <div style="font-size:11px;color:#dc2626;margin-top:2px;">2 activities · Contains overdue</div>
+              </div>
+              <span class="badge badge-red">Overdue</span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid #f3f4f6;cursor:pointer;" onclick="showActivityDetail(null,'Fire Safety Procedures')">
+            <img src="https://picsum.photos/seed/fire1/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">Fire Safety Procedures</div><div style="font-size:11px;color:#6b7280;">Video · 30 min · Due 5/18/26</div></div>
+            <span class="badge badge-blue" style="flex-shrink:0;">In Progress</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;" onclick="showActivityDetail(null,'Emergency Response Basics')">
+            <img src="https://picsum.photos/seed/emergency1/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">Emergency Response Basics</div><div style="font-size:11px;color:#6b7280;">SCORM · 1 hr · Was due 5/12/26</div></div>
+            <span class="badge badge-red" style="flex-shrink:0;">Overdue</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN: ACTIVITY DETAIL
+    ============================================================ -->
+    <div class="screen" id="screen-activity-detail">
+      <!-- Hero image with back button overlay -->
+      <div style="position:relative;flex-shrink:0;height:220px;background:#1d4ed8;">
+        <img id="act-hero-img" src="https://picsum.photos/seed/wsafe1/390/220" alt="" style="width:100%;height:220px;object-fit:cover;display:block;">
+        <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.3) 0%,transparent 50%,rgba(0,0,0,0.2) 100%);"></div>
+        <button onclick="goBack()" style="position:absolute;top:16px;left:16px;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.45);border:none;color:white;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+          <i class="fa-solid fa-arrow-left"></i>
+        </button>
+        <div id="act-type-badge-hero" style="position:absolute;bottom:14px;left:16px;"></div>
+      </div>
+
+      <!-- Scrollable content -->
+      <div class="scroll-content" style="padding-bottom:88px;">
+        <div style="padding:20px 20px 0;">
+          <!-- Status badges -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;" id="act-badges"></div>
+          <!-- Title -->
+          <h1 id="act-title" style="font-size:22px;font-weight:700;color:#111827;line-height:1.3;margin-bottom:6px;"></h1>
+          <!-- Meta row -->
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;font-size:13px;color:#6b7280;" id="act-meta"></div>
+          <!-- Progress (if in progress) -->
+          <div id="act-progress-section" style="background:#f9fafb;border-radius:12px;padding:14px;margin-bottom:16px;">
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:#374151;font-weight:600;margin-bottom:8px;">
+              <span>Your Progress</span>
+              <span id="act-progress-pct">60%</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" id="act-progress-bar" style="width:60%;"></div></div>
+            <div style="font-size:12px;color:#6b7280;margin-top:6px;" id="act-progress-label">27 min of 45 min completed</div>
+          </div>
+          <!-- Description -->
+          <p id="act-desc" style="font-size:14px;color:#374151;line-height:1.6;margin-bottom:20px;"></p>
+          <!-- Details card -->
+          <div style="background:white;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;margin-bottom:20px;">
+            <div id="act-details-rows"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fixed bottom CTA -->
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:16px 20px 24px;background:white;border-top:1px solid #f3f4f6;">
+        <button class="btn btn-primary" id="act-cta-btn">Continue Learning</button>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN: LEARNING PATH DETAIL
+    ============================================================ -->
+    <div class="screen" id="screen-lp-detail">
+      <!-- Hero image with overlaid back + share buttons -->
+      <div style="position:relative;flex-shrink:0;height:220px;">
+        <img src="https://picsum.photos/seed/onboard1/390/220" alt="" style="width:100%;height:220px;object-fit:cover;display:block;">
+        <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.35) 0%,transparent 45%,rgba(0,0,0,0.55) 100%);"></div>
+        <button onclick="goBack()" style="position:absolute;top:16px;left:16px;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.45);border:none;color:white;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;"><i class="fa-solid fa-arrow-left"></i></button>
+        <button style="position:absolute;top:16px;right:16px;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.45);border:none;color:white;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;"><i class="fa-solid fa-ellipsis"></i></button>
+        <div style="position:absolute;bottom:14px;left:16px;right:16px;z-index:2;">
+          <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.8);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Learning Path</div>
+          <div style="font-size:20px;font-weight:700;color:white;line-height:1.2;">New Employee Onboarding</div>
+        </div>
+      </div>
+
+      <!-- Badges + progress -->
+      <div style="background:white;padding:14px 16px;border-bottom:1px solid #f3f4f6;flex-shrink:0;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+          <span class="badge badge-blue"><i class="fa-solid fa-route"></i> Learning Path</span>
+          <span class="badge badge-amber"><i class="fa-regular fa-calendar"></i> Due 5/30/26</span>
+          <span class="badge badge-gray"><i class="fa-solid fa-layer-group"></i> 11 Activities</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <span style="font-size:13px;font-weight:600;color:#374151;">Your Progress</span>
+          <span style="font-size:13px;font-weight:700;color:#2563eb;">45% · 5 of 11 complete</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill" style="width:45%;"></div></div>
+      </div>
+
+      <!-- Scrollable sections -->
+      <div class="scroll-content" style="padding-bottom:20px;">
+
+        <!-- Section 1 -->
+        <div style="padding:16px 16px 8px;">
+          <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.06em;">Section 1 · Orientation</div>
+        </div>
+        <div class="card" style="margin:0 16px 12px;overflow:hidden;">
+          <!-- Requirement header -->
+          <div style="background:#f9fafb;padding:10px 14px;border-bottom:1px solid #f3f4f6;">
+            <div style="font-size:12px;font-weight:700;color:#374151;">Requirement 1.1 · Getting Started</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px;">3 activities · All complete</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid #f3f4f6;cursor:pointer;" onclick="showActivityDetail('lp',{title:'Company Overview',type:'Video',duration:'20 min',progress:100,seed:'company1',desc:'A comprehensive introduction to our company culture, values, and organizational structure.',status:'complete'})">
+            <img src="https://picsum.photos/seed/company1/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">Company Overview</div><div style="font-size:11px;color:#6b7280;">Video · 20 min</div></div>
+            <span class="badge badge-green"><i class="fa-solid fa-check"></i></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid #f3f4f6;cursor:pointer;" onclick="showActivityDetail('lp',{title:'Benefits & HR Policies',type:'Document',duration:'30 min',progress:100,seed:'hr1',desc:'Review of employee benefits, HR policies, and company procedures.',status:'complete'})">
+            <img src="https://picsum.photos/seed/hr1/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">Benefits &amp; HR Policies</div><div style="font-size:11px;color:#6b7280;">Document · 30 min</div></div>
+            <span class="badge badge-green"><i class="fa-solid fa-check"></i></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;" onclick="showActivityDetail('lp',{title:'Workplace Conduct Quiz',type:'Quiz',duration:'15 min',progress:100,seed:'conduct1',desc:'Test your knowledge of workplace conduct policies and procedures.',status:'complete'})">
+            <img src="https://picsum.photos/seed/conduct1/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">Workplace Conduct Quiz</div><div style="font-size:11px;color:#6b7280;">Quiz · 15 min</div></div>
+            <span class="badge badge-green"><i class="fa-solid fa-check"></i></span>
+          </div>
+        </div>
+
+        <!-- Section 2 -->
+        <div style="padding:4px 16px 8px;">
+          <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.06em;">Section 2 · Safety Fundamentals</div>
+        </div>
+        <div class="card" style="margin:0 16px 12px;overflow:hidden;">
+          <div style="background:#fef2f2;padding:10px 14px;border-bottom:1px solid #f3f4f6;">
+            <div style="font-size:12px;font-weight:700;color:#374151;">Requirement 2.1 · Core Safety</div>
+            <div style="font-size:11px;color:#dc2626;margin-top:2px;">3 activities · Contains overdue items</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid #f3f4f6;cursor:pointer;" onclick="showActivityDetail('lp',{title:'Workplace Safety Fundamentals',type:'Video',duration:'45 min',progress:60,seed:'wsafe1',desc:'Learn the core principles of workplace safety including hazard identification, risk assessment, and preventive measures.',status:'in-progress',due:'5/30/26'})">
+            <img src="https://picsum.photos/seed/wsafe1/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">Workplace Safety Fundamentals</div><div style="font-size:11px;color:#6b7280;margin-bottom:3px;">Video · 45 min</div><div class="progress-track" style="height:3px;"><div class="progress-fill" style="width:60%;"></div></div></div>
+            <span class="badge badge-blue" style="flex-shrink:0;">60%</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid #f3f4f6;cursor:pointer;" onclick="showActivityDetail('lp',{title:'Emergency Response Basics',type:'SCORM',duration:'1 hr',progress:0,seed:'emergency1',desc:'Complete interactive training on emergency response procedures.',status:'overdue',due:'5/10/26'})">
+            <img src="https://picsum.photos/seed/emergency1/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">Emergency Response Basics</div><div style="font-size:11px;color:#6b7280;">SCORM · 1 hr</div></div>
+            <span class="badge badge-red" style="flex-shrink:0;">Overdue</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;" onclick="showActivityDetail('lp',{title:'Safety Knowledge Check',type:'Quiz',duration:'20 min',progress:0,seed:'safecheck1',desc:'Assess your understanding of the safety fundamentals covered in this section.',status:'not-started',due:'5/30/26'})">
+            <img src="https://picsum.photos/seed/safecheck1/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">Safety Knowledge Check</div><div style="font-size:11px;color:#6b7280;">Quiz · 20 min</div></div>
+            <span class="badge badge-gray" style="flex-shrink:0;">Not Started</span>
+          </div>
+        </div>
+
+        <!-- Section 3 -->
+        <div style="padding:4px 16px 8px;">
+          <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.06em;">Section 3 · Role-Specific Training</div>
+        </div>
+        <div class="card" style="margin:0 16px 20px;overflow:hidden;">
+          <div style="background:#f9fafb;padding:10px 14px;border-bottom:1px solid #f3f4f6;">
+            <div style="font-size:12px;font-weight:700;color:#374151;">Requirement 3.1 · Sales Foundations</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px;">5 activities · Not started</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid #f3f4f6;cursor:pointer;" onclick="showActivityDetail('lp',{title:'Sales Process Overview',type:'Video',duration:'1 hr',progress:0,seed:'sales1',desc:'Introduction to our sales methodology, CRM tools, and pipeline management best practices.',status:'not-started',due:'5/30/26'})">
+            <img src="https://picsum.photos/seed/sales1/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">Sales Process Overview</div><div style="font-size:11px;color:#6b7280;">Video · 1 hr</div></div>
+            <span class="badge badge-gray" style="flex-shrink:0;">Not Started</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid #f3f4f6;cursor:pointer;" onclick="showActivityDetail('lp',{title:'CRM System Training',type:'SCORM',duration:'2 hrs',progress:0,seed:'crm1',desc:'Hands-on interactive training for our customer relationship management platform.',status:'not-started',due:'5/30/26'})">
+            <img src="https://picsum.photos/seed/crm1/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">CRM System Training</div><div style="font-size:11px;color:#6b7280;">SCORM · 2 hrs</div></div>
+            <span class="badge badge-gray" style="flex-shrink:0;">Not Started</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid #f3f4f6;cursor:pointer;" onclick="showActivityDetail('lp',{title:'Customer Communication Skills',type:'Video',duration:'1.5 hrs',progress:0,seed:'custcomm1',desc:'Develop effective communication skills for customer interactions and relationship building.',status:'not-started',due:'5/30/26'})">
+            <img src="https://picsum.photos/seed/custcomm1/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">Customer Communication Skills</div><div style="font-size:11px;color:#6b7280;">Video · 1.5 hrs</div></div>
+            <span class="badge badge-gray" style="flex-shrink:0;">Not Started</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid #f3f4f6;cursor:pointer;" onclick="showScreen('screen-task-list')">
+            <img src="https://picsum.photos/seed/hazard1/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">Field Safety Inspection</div><div style="font-size:11px;color:#6b7280;">Task List · 45 min</div></div>
+            <span class="badge badge-gray" style="flex-shrink:0;">Not Started</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;" onclick="showActivityDetail('lp',{title:'Final Assessment',type:'Quiz',duration:'30 min',progress:0,seed:'finalassess1',desc:'Comprehensive quiz covering all onboarding topics. Score 80% or higher to complete the path.',status:'not-started',due:'5/30/26',minScore:80})">
+            <img src="https://picsum.photos/seed/finalassess1/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">Final Assessment</div><div style="font-size:11px;color:#6b7280;">Quiz · 30 min · Pass 80%</div></div>
+            <span class="badge badge-gray" style="flex-shrink:0;">Not Started</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN: RECORD DETAIL (completion proof)
+    ============================================================ -->
+    <div class="screen" id="screen-record-detail">
+      <!-- Hero -->
+      <div style="position:relative;flex-shrink:0;height:200px;">
+        <img id="rec-detail-img" src="https://picsum.photos/seed/comply1/390/200" alt="" style="width:100%;height:200px;object-fit:cover;display:block;">
+        <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.4) 0%,transparent 50%,rgba(0,0,0,0.5) 100%);"></div>
+        <button onclick="goBack()" style="position:absolute;top:16px;left:16px;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.45);border:none;color:white;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;"><i class="fa-solid fa-arrow-left"></i></button>
+        <div style="position:absolute;bottom:12px;left:16px;right:16px;z-index:2;">
+          <div id="rec-detail-type-label" style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.8);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;"></div>
+          <div id="rec-detail-title" style="font-size:20px;font-weight:700;color:white;line-height:1.2;"></div>
+        </div>
+      </div>
+
+      <!-- Completion proof card -->
+      <div class="scroll-content" style="padding:16px;">
+        <!-- Proof of completion -->
+        <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:14px;padding:20px;margin-bottom:14px;border:1px solid #bbf7d0;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+            <div style="width:48px;height:48px;border-radius:50%;background:#16a34a;display:flex;align-items:center;justify-content:center;font-size:22px;color:white;flex-shrink:0;"><i class="fa-solid fa-check"></i></div>
+            <div>
+              <div style="font-size:16px;font-weight:700;color:#14532d;">Completed</div>
+              <div id="rec-detail-date" style="font-size:13px;color:#16a34a;"></div>
+            </div>
+          </div>
+          <div style="border-top:1px solid #bbf7d0;padding-top:14px;">
+            <div style="font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Certificate Details</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:#6b7280;">Learner</span><span style="font-weight:600;color:#111827;">Sarah Mitchell</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;" id="rec-detail-cert-row"><span style="color:#6b7280;">Certificate ID</span><span style="font-weight:600;color:#111827;font-family:monospace;" id="rec-detail-cert-id"></span></div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;" id="rec-detail-expiry-row" style="display:none;"><span style="color:#6b7280;">Expires</span><span style="font-weight:600;color:#111827;" id="rec-detail-expiry"></span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Activities completed in this record -->
+        <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:10px;" id="rec-detail-acts-label">Activities Completed</div>
+        <div class="card" style="overflow:hidden;margin-bottom:14px;" id="rec-detail-acts"></div>
+
+        <!-- Action buttons -->
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-secondary" style="flex:1;gap:6px;"><i class="fa-solid fa-share-nodes"></i> Share</button>
+          <button class="btn btn-primary" style="flex:1;gap:6px;"><i class="fa-solid fa-download"></i> Download PDF</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN: TASK ITEM DETAIL
+    ============================================================ -->
+    <div class="screen" id="screen-task-item">
+      <div style="background:white;padding:16px 20px;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <button class="header-icon-btn" style="background:#f3f4f6;color:#374151;" onclick="goBack()"><i class="fa-solid fa-arrow-left"></i></button>
+          <span style="font-size:16px;font-weight:700;color:#111827;flex:1;" id="task-item-title">Task</span>
+        </div>
+        <div style="display:flex;gap:8px;" id="task-item-badges"></div>
+      </div>
+      <div class="scroll-content" style="padding:16px 20px;padding-bottom:100px;">
+        <div style="background:#f9fafb;border-radius:12px;padding:16px;margin-bottom:16px;">
+          <div style="font-size:12px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Task Instructions</div>
+          <p id="task-item-desc" style="font-size:14px;color:#374151;line-height:1.6;"></p>
+        </div>
+
+        <!-- Photo evidence -->
+        <div style="margin-bottom:16px;">
+          <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:10px;">Evidence (Optional)</div>
+          <div style="display:flex;gap:10px;">
+            <button style="flex:1;padding:12px;border:1.5px dashed #d1d5db;border-radius:10px;background:white;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;color:#9ca3af;font-size:12px;font-family:'Open Sans',sans-serif;">
+              <i class="fa-solid fa-camera" style="font-size:20px;"></i> Take Photo
+            </button>
+            <button style="flex:1;padding:12px;border:1.5px dashed #d1d5db;border-radius:10px;background:white;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;color:#9ca3af;font-size:12px;font-family:'Open Sans',sans-serif;">
+              <i class="fa-solid fa-note-sticky" style="font-size:20px;"></i> Add Note
+            </button>
+          </div>
+        </div>
+
+        <!-- Sign-off section -->
+        <div style="margin-bottom:16px;">
+          <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:10px;">Instructor Sign-Off</div>
+          <div id="task-item-signoff-area">
+            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px;margin-bottom:10px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <i class="fa-solid fa-triangle-exclamation" style="color:#d97706;font-size:14px;"></i>
+                <span style="font-size:13px;font-weight:600;color:#92400e;">Requires instructor sign-off</span>
+              </div>
+              <p style="font-size:12px;color:#78350f;line-height:1.5;">Hand your device to your instructor to confirm completion of this task.</p>
+            </div>
+            <div class="input-group" style="margin-bottom:12px;">
+              <label class="input-label">Instructor Username</label>
+              <input class="text-input" type="text" id="task-item-instructor-input" placeholder="Enter instructor username">
+            </div>
+            <div class="input-group" style="margin-bottom:12px;">
+              <label class="input-label">Comments (Optional)</label>
+              <textarea class="text-input" style="height:80px;resize:none;" id="task-item-comment-input" placeholder="Add any notes or observations..."></textarea>
+            </div>
+            <button class="btn btn-primary" onclick="confirmTaskItemSignoff()">Submit Sign-Off</button>
+          </div>
+          <div id="task-item-signed" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px;display:flex;align-items:center;gap:10px;">
+            <div style="width:36px;height:36px;border-radius:50%;background:#16a34a;display:flex;align-items:center;justify-content:center;color:white;font-size:16px;flex-shrink:0;"><i class="fa-solid fa-check"></i></div>
+            <div><div style="font-size:13px;font-weight:700;color:#14532d;">Sign-off confirmed</div><div style="font-size:12px;color:#16a34a;" id="task-item-signed-by"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fixed bottom: Complete/Uncomplete -->
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:14px 20px 24px;background:white;border-top:1px solid #f3f4f6;">
+        <button class="btn btn-primary" id="task-item-complete-btn" onclick="toggleTaskItemComplete()">Mark as Complete</button>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN: VIDEO PLAYER
+    ============================================================ -->
+    <div class="screen" id="screen-video-player" style="background:#000;">
+      <!-- 16:9 video area -->
+      <div style="width:100%;aspect-ratio:16/9;position:relative;background:#000;flex-shrink:0;overflow:hidden;">
+        <img id="video-thumb" src="" alt="" style="width:100%;height:100%;object-fit:cover;opacity:0.75;display:block;">
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,0.25);"></div>
+        <!-- back button -->
+        <button onclick="goBack()" style="position:absolute;top:14px;left:14px;width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,0.55);border:none;color:white;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;"><i class="fa-solid fa-arrow-left"></i></button>
+        <!-- Center play/pause -->
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:4;" onclick="toggleVideoPlay()">
+          <div style="width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;transition:transform 0.1s;" id="video-center-btn">
+            <i class="fa-solid fa-play" id="video-center-icon" style="font-size:22px;color:#111827;margin-left:3px;"></i>
+          </div>
+        </div>
+      </div>
+      <!-- Controls bar -->
+      <div style="background:#111;padding:12px 16px 14px;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <span style="font-size:11px;color:#9ca3af;font-weight:600;min-width:36px;" id="video-current-time">0:00</span>
+          <div style="flex:1;height:4px;background:#3a3a3a;border-radius:2px;cursor:pointer;position:relative;" onclick="seekVideo(event)">
+            <div id="video-progress-bar" style="width:0%;height:100%;background:#2563eb;border-radius:2px;position:relative;transition:width 0.5s linear;">
+              <div style="width:12px;height:12px;border-radius:50%;background:white;position:absolute;right:-6px;top:-4px;box-shadow:0 1px 3px rgba(0,0,0,0.5);"></div>
+            </div>
+          </div>
+          <span style="font-size:11px;color:#9ca3af;font-weight:600;min-width:36px;text-align:right;" id="video-duration">45:00</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <button style="background:none;border:none;color:#e5e7eb;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px;font-family:'Open Sans',sans-serif;" onclick="skipVideo(-15)"><i class="fa-solid fa-rotate-left"></i> 15</button>
+          <button style="background:none;border:none;color:white;font-size:28px;cursor:pointer;padding:0 20px;" onclick="toggleVideoPlay()" id="video-play-btn"><i class="fa-solid fa-play" id="video-play-icon"></i></button>
+          <button style="background:none;border:none;color:#e5e7eb;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px;font-family:'Open Sans',sans-serif;" onclick="skipVideo(15)">15 <i class="fa-solid fa-rotate-right"></i></button>
+        </div>
+      </div>
+      <!-- Info panel -->
+      <div style="flex:1;background:#1a1a1a;padding:16px 20px;overflow-y:auto;">
+        <div style="color:white;font-size:16px;font-weight:700;margin-bottom:6px;line-height:1.3;" id="video-title-label"></div>
+        <div style="color:#9ca3af;font-size:13px;margin-bottom:16px;" id="video-meta-label"></div>
+        <!-- Speed selector -->
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="color:#9ca3af;font-size:12px;">Speed:</span>
+          <div style="display:flex;gap:6px;">
+            <button onclick="setVideoSpeed(0.75)" style="padding:4px 8px;border-radius:6px;border:1px solid #3a3a3c;background:none;color:#9ca3af;font-size:12px;cursor:pointer;font-family:'Open Sans',sans-serif;" id="speed-btn-075">0.75×</button>
+            <button onclick="setVideoSpeed(1)" style="padding:4px 8px;border-radius:6px;border:1px solid #2563eb;background:#2563eb;color:white;font-size:12px;cursor:pointer;font-family:'Open Sans',sans-serif;" id="speed-btn-1">1×</button>
+            <button onclick="setVideoSpeed(1.25)" style="padding:4px 8px;border-radius:6px;border:1px solid #3a3a3c;background:none;color:#9ca3af;font-size:12px;cursor:pointer;font-family:'Open Sans',sans-serif;" id="speed-btn-125">1.25×</button>
+            <button onclick="setVideoSpeed(1.5)" style="padding:4px 8px;border-radius:6px;border:1px solid #3a3a3c;background:none;color:#9ca3af;font-size:12px;cursor:pointer;font-family:'Open Sans',sans-serif;" id="speed-btn-15">1.5×</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN: SCORM PLAYER
+    ============================================================ -->
+    <div class="screen" id="screen-scorm-player">
+      <!-- Gradient header -->
+      <div style="background:linear-gradient(135deg,#1d4ed8,#16a34a);padding:48px 20px 20px;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+          <button onclick="goBack()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.2);border:none;color:white;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-arrow-left"></i></button>
+          <span style="color:white;font-size:15px;font-weight:700;flex:1;" id="scorm-title">Interactive Module</span>
+        </div>
+        <div style="display:flex;gap:8px;" id="scorm-badges"></div>
+      </div>
+      <div class="scroll-content" style="padding:20px;padding-bottom:100px;">
+        <!-- Module card -->
+        <div id="scorm-not-launched" class="card" style="padding:24px;text-align:center;margin-bottom:16px;">
+          <div style="width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,#eff6ff,#dbeafe);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+            <i class="fa-solid fa-laptop" style="font-size:32px;color:#2563eb;"></i>
+          </div>
+          <div style="font-size:17px;font-weight:700;color:#111827;margin-bottom:8px;" id="scorm-module-title">Interactive Module</div>
+          <div style="font-size:14px;color:#6b7280;line-height:1.6;margin-bottom:20px;">This interactive module uses SCORM content. Complete all sections and pass the required assessments to earn credit.</div>
+          <div class="info-box" style="margin-bottom:20px;text-align:left;">
+            <i class="fa-solid fa-circle-info"></i> Your progress is automatically saved. You can exit and resume at any time.
+          </div>
+          <button class="btn btn-primary" onclick="launchSCORM()"><i class="fa-solid fa-rocket" style="margin-right:8px;"></i>Launch Module</button>
+        </div>
+        <!-- In progress state (hidden initially) -->
+        <div id="scorm-in-progress" style="display:none;">
+          <div class="card" style="padding:20px;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+              <div style="width:48px;height:48px;border-radius:12px;background:#eff6ff;display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-spinner fa-spin" style="font-size:22px;color:#2563eb;"></i></div>
+              <div><div style="font-size:15px;font-weight:700;color:#111827;">Module In Progress</div><div style="font-size:13px;color:#6b7280;">Complete all sections to finish</div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <div class="progress-track" style="flex:1;"><div class="progress-fill" id="scorm-progress-bar" style="width:0%;"></div></div>
+              <span style="font-size:13px;font-weight:700;color:#2563eb;" id="scorm-progress-pct">0%</span>
+            </div>
+            <div style="font-size:12px;color:#9ca3af;" id="scorm-progress-label">Section 1 of 4</div>
+          </div>
+          <!-- Simulated sections -->
+          <div class="card" style="overflow:hidden;margin-bottom:12px;">
+            <div id="scorm-sec-1" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #f3f4f6;">
+              <div style="width:32px;height:32px;border-radius:50%;background:#f0fdf4;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-check" style="color:#16a34a;font-size:14px;"></i></div>
+              <div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#111827;">Introduction & Overview</div><div style="font-size:11px;color:#6b7280;">Complete</div></div>
+            </div>
+            <div id="scorm-sec-2" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #f3f4f6;">
+              <div style="width:32px;height:32px;border-radius:50%;background:#eff6ff;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-spinner fa-spin" style="color:#2563eb;font-size:14px;"></i></div>
+              <div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#111827;">Core Concepts</div><div style="font-size:11px;color:#6b7280;">In Progress</div></div>
+            </div>
+            <div id="scorm-sec-3" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #f3f4f6;opacity:0.5;">
+              <div style="width:32px;height:32px;border-radius:50%;background:#f3f4f6;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="font-size:12px;font-weight:700;color:#9ca3af;">3</span></div>
+              <div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#111827;">Advanced Topics</div><div style="font-size:11px;color:#6b7280;">Not Started</div></div>
+            </div>
+            <div id="scorm-sec-4" style="display:flex;align-items:center;gap:12px;padding:14px 16px;opacity:0.5;">
+              <div style="width:32px;height:32px;border-radius:50%;background:#f3f4f6;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="font-size:12px;font-weight:700;color:#9ca3af;">4</span></div>
+              <div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#111827;">Assessment</div><div style="font-size:11px;color:#6b7280;">Not Started</div></div>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="continueSCORM()"><i class="fa-solid fa-play" style="margin-right:8px;"></i>Continue Module</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN: QUIZ PLAYER
+    ============================================================ -->
+    <div class="screen" id="screen-quiz-player">
+      <div style="background:white;padding:48px 20px 14px;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+          <button onclick="goBack()" style="width:34px;height:34px;border-radius:50%;background:#f3f4f6;border:none;color:#374151;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-xmark"></i></button>
+          <span style="font-size:15px;font-weight:700;color:#111827;flex:1;" id="quiz-header-title">Quiz</span>
+          <span style="font-size:13px;color:#9ca3af;font-weight:600;" id="quiz-counter">1 / 5</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="quiz-progress-bar" style="width:20%;"></div></div>
+      </div>
+      <div class="scroll-content" style="padding:20px;padding-bottom:110px;" id="quiz-content-area">
+        <!-- Populated by JS -->
+      </div>
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:14px 20px 24px;background:white;border-top:1px solid #f3f4f6;" id="quiz-footer">
+        <button class="btn btn-primary" id="quiz-action-btn" onclick="quizAction()">Select an answer</button>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN: DOCUMENT VIEWER
+    ============================================================ -->
+    <div class="screen" id="screen-doc-viewer">
+      <div style="background:white;padding:48px 20px 14px;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button onclick="goBack()" style="width:34px;height:34px;border-radius:50%;background:#f3f4f6;border:none;color:#374151;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-arrow-left"></i></button>
+          <span style="font-size:15px;font-weight:700;color:#111827;flex:1;" id="doc-header-title">Document</span>
+          <button style="background:none;border:none;color:#6b7280;font-size:16px;cursor:pointer;padding:4px;"><i class="fa-solid fa-download"></i></button>
+        </div>
+      </div>
+      <div class="scroll-content" style="padding-bottom:24px;" id="doc-content-area">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- ============================================================
+         BOTTOM NAV
+    ============================================================ -->
+    <div class="bottom-nav" id="bottom-nav">
+      <button class="nav-tab active" id="tab-home" onclick="switchTab('screen-home')">
+        <i class="fa-solid fa-house"></i><span>Home</span>
+      </button>
+      <button class="nav-tab" id="tab-discover" onclick="switchTab('screen-discover')">
+        <i class="fa-solid fa-compass"></i><span>Discover</span>
+      </button>
+      <button class="nav-tab" id="tab-my-training" onclick="switchTab('screen-my-training')">
+        <i class="fa-solid fa-book-open"></i><span>My Training</span>
+      </button>
+      <button class="nav-tab" id="tab-records" onclick="switchTab('screen-records')">
+        <i class="fa-solid fa-trophy"></i><span>Records</span>
+      </button>
+      <button class="nav-tab" id="tab-profile" onclick="switchTab('screen-profile')">
+        <i class="fa-solid fa-user"></i><span>Profile</span>
+      </button>
+    </div>
+
+    <!-- ============================================================
+         OVERLAYS
+    ============================================================ -->
+
+    <!-- QR Scanner -->
+    <div class="overlay-backdrop" id="qr-scanner-overlay" style="background:rgba(0,0,0,0.92);display:none;flex-direction:column;align-items:center;justify-content:center;" onclick="">
+      <button style="position:absolute;top:56px;right:20px;background:none;border:none;color:white;font-size:22px;cursor:pointer;" onclick="closeQRScanner()"><i class="fa-solid fa-xmark"></i></button>
+      <div style="color:white;font-size:16px;font-weight:600;margin-bottom:32px;">Point camera at QR code</div>
+      <div class="qr-frame">
+        <div class="qr-corner tl"></div>
+        <div class="qr-corner tr"></div>
+        <div class="qr-corner bl"></div>
+        <div class="qr-corner br"></div>
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.2);font-size:40px;"><i class="fa-solid fa-qrcode"></i></div>
+      </div>
+      <div style="margin-top:48px;text-align:center;padding:0 40px;">
+        <button class="btn btn-secondary" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.4);color:white;" onclick="simulateQRScan()">
+          <i class="fa-solid fa-check"></i> Simulate Scan Success
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter Sheet (My Training) -->
+    <div class="overlay-backdrop" id="filter-sheet-overlay" onclick="closeFilterSheet()">
+      <div class="bottom-sheet" onclick="event.stopPropagation()">
+        <div class="sheet-handle"></div>
+        <div style="font-size:18px;font-weight:700;color:#111827;margin-bottom:20px;">Filter &amp; Sort</div>
+
+        <div style="margin-bottom:20px;">
+          <div style="font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Sort By</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:#374151;">
+              <input type="radio" name="sort" checked style="accent-color:#2563eb;"> Due Date (Earliest)
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:#374151;">
+              <input type="radio" name="sort" style="accent-color:#2563eb;"> Recently Added
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:#374151;">
+              <input type="radio" name="sort" style="accent-color:#2563eb;"> Alphabetical
+            </label>
+          </div>
+        </div>
+
+        <div style="margin-bottom:20px;">
+          <div style="font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Show in Results</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:#374151;"><input type="checkbox" checked style="accent-color:#2563eb;"> Qualifications</label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:#374151;"><input type="checkbox" checked style="accent-color:#2563eb;"> Learning Paths</label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:#374151;"><input type="checkbox" checked style="accent-color:#2563eb;"> Activities</label>
+          </div>
+        </div>
+
+        <div style="margin-bottom:24px;">
+          <div style="font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Activity Types</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <div class="chip active" onclick="setChip(this)">All</div>
+            <div class="chip" onclick="setChip(this)">Video</div>
+            <div class="chip" onclick="setChip(this)">SCORM</div>
+            <div class="chip" onclick="setChip(this)">Quiz</div>
+            <div class="chip" onclick="setChip(this)">Document</div>
+            <div class="chip" onclick="setChip(this)">Task List</div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;">
+          <button class="btn btn-gray" style="flex:1;" onclick="closeFilterSheet()">Reset</button>
+          <button class="btn btn-primary" style="flex:2;" onclick="closeFilterSheet()">Apply Filters</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Records Filter Sheet -->
+    <div class="overlay-backdrop" id="records-filter-overlay" onclick="closeRecordsFilter()">
+      <div class="bottom-sheet" onclick="event.stopPropagation()">
+        <div class="sheet-handle"></div>
+        <div style="font-size:18px;font-weight:700;color:#111827;margin-bottom:20px;">Filter Records</div>
+        <div style="margin-bottom:20px;">
+          <div style="font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Type</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <div class="chip active" onclick="setChip(this)">All</div>
+            <div class="chip" onclick="setChip(this)">Qualification</div>
+            <div class="chip" onclick="setChip(this)">Learning Path</div>
+          </div>
+        </div>
+        <div style="margin-bottom:24px;">
+          <div style="font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Status</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <div class="chip active" onclick="setChip(this)">All</div>
+            <div class="chip" onclick="setChip(this)">Completed</div>
+            <div class="chip" onclick="setChip(this)">Expired</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;">
+          <button class="btn btn-gray" style="flex:1;" onclick="closeRecordsFilter()">Reset</button>
+          <button class="btn btn-primary" style="flex:2;" onclick="closeRecordsFilter()">Apply</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sign-off Modal -->
+    <div class="modal-backdrop" id="signoff-modal">
+      <div class="modal">
+        <div class="modal-title" id="signoff-modal-name">Sign Off: Sarah Mitchell</div>
+        <div class="modal-body" id="signoff-modal-sub">Enter instructor username to confirm sign-off</div>
+        <div class="input-group" style="margin-bottom:16px;">
+          <label class="input-label">Instructor Username</label>
+          <input class="text-input" type="text" id="signoff-username-input" placeholder="Enter username">
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-gray" style="flex:1;" onclick="closeSignoffModal()">Cancel</button>
+          <button class="btn btn-primary" style="flex:2;" onclick="confirmSignoff()">Confirm Sign-Off</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Task Details Drawer -->
+    <div class="overlay-backdrop" id="task-details-overlay" onclick="closeTaskDetails()">
+      <div class="bottom-sheet" style="max-height:70%;" onclick="event.stopPropagation()">
+        <div class="sheet-handle"></div>
+        <div style="font-size:18px;font-weight:700;color:#111827;margin-bottom:8px;">Emergency Evacuation Drill</div>
+        <div style="font-size:13px;color:#6b7280;line-height:1.7;margin-bottom:20px;">
+          This task-based activity requires you to physically inspect your workspace for safety compliance. Complete each task as you perform the check, then collect digital sign-offs from your assigned supervisors to confirm completion.<br><br>
+          <strong>Duration:</strong> 45 minutes<br>
+          <strong>Due Date:</strong> May 25, 2026<br>
+          <strong>Assigned By:</strong> Safety Department<br>
+          <strong>Required for:</strong> Annual Compliance Certification
+        </div>
+        <button class="btn btn-gray" onclick="closeTaskDetails()">Close</button>
+      </div>
+    </div>
+
+    <!-- Supervisor QR Overlay -->
+    <div class="modal-backdrop" id="supervisor-overlay" style="background:rgba(0,0,0,0.8);">
+      <div class="modal" style="text-align:center;">
+        <div class="modal-title">Supervisor Scan</div>
+        <p style="font-size:13px;color:#6b7280;margin-bottom:20px;">Have your supervisor scan this code to confirm your identity and authorize sign-offs.</p>
+        <div class="qr-box" style="width:200px;height:200px;margin-bottom:20px;">
+          <i class="fa-solid fa-qrcode" style="font-size:72px;"></i>
+          <span style="font-size:11px;">SM-2026-ACME</span>
+        </div>
+        <button class="btn btn-gray" onclick="closeSupervisorOverlay()">Close</button>
+      </div>
+    </div>
+
+  </div><!-- /app-shell -->
+</div><!-- /phone-frame -->
+
+<script>
+  // ===== STATE =====
+  let navHistory = [];
+  let currentScreen = 'screen-find-org';
+  let bottomNavScreens = ['screen-home', 'screen-discover', 'screen-my-training', 'screen-records', 'screen-profile'];
+  let tabMap = {
+    'screen-home': 'tab-home',
+    'screen-discover': 'tab-discover',
+    'screen-my-training': 'tab-my-training',
+    'screen-records': 'tab-records',
+    'screen-profile': 'tab-profile',
+  };
+  let tasksCompleted = 3;
+  let signoffsCompleted = 0;
+  let signoffPendingIndex = -1;
+  let tasksEnabled = false;
+  let recordsViewStructured = true;
+  let appearanceMode = 'Light Mode';
+
+  // ===== SCREEN NAVIGATION =====
+  function showScreen(id, addToHistory = true) {
+    const prev = document.getElementById(currentScreen);
+    if (prev) prev.classList.remove('active');
+
+    if (addToHistory && currentScreen !== id) {
+      navHistory.push(currentScreen);
+    }
+    currentScreen = id;
+
+    const next = document.getElementById(id);
+    if (next) next.classList.add('active');
+
+    const nav = document.getElementById('bottom-nav');
+    const showNav = bottomNavScreens.includes(id);
+    nav.classList.toggle('hidden', !showNav);
+
+    // Update active tab
+    Object.values(tabMap).forEach(t => document.getElementById(t)?.classList.remove('active'));
+    if (tabMap[id]) document.getElementById(tabMap[id])?.classList.add('active');
+  }
+
+  function switchTab(screenId) {
+    navHistory = [];
+    showScreen(screenId, false);
+  }
+
+  function goBack() {
+    if (navHistory.length > 0) {
+      const prev = navHistory.pop();
+      const curr = document.getElementById(currentScreen);
+      if (curr) curr.classList.remove('active');
+      currentScreen = prev;
+      const prevEl = document.getElementById(prev);
+      if (prevEl) prevEl.classList.add('active');
+      const nav = document.getElementById('bottom-nav');
+      nav.classList.toggle('hidden', !bottomNavScreens.includes(prev));
+      Object.values(tabMap).forEach(t => document.getElementById(t)?.classList.remove('active'));
+      if (tabMap[prev]) document.getElementById(tabMap[prev])?.classList.add('active');
+    } else {
+      switchTab('screen-home');
+    }
+  }
+
+  // ===== FIND ORG =====
+  function handleFindOrg() {
+    const code = document.getElementById('company-code').value.trim();
+    const url = document.getElementById('company-url').value.trim().toLowerCase();
+    const codeErr = document.getElementById('code-error');
+    const urlErr = document.getElementById('url-error');
+    codeErr.style.display = 'none';
+    urlErr.style.display = 'none';
+
+    if (code === '123456' || url === 'acme.com' || url === 'acme') {
+      showScreen('screen-login');
+    } else if (code && code !== '123456') {
+      codeErr.style.display = 'block';
+      document.getElementById('company-code').classList.add('error');
+    } else if (url && url !== 'acme.com') {
+      urlErr.style.display = 'block';
+      document.getElementById('company-url').classList.add('error');
+    } else {
+      // show both valid hints
+      codeErr.textContent = 'Try code: 123456 or URL: acme.com';
+      codeErr.style.display = 'block';
+    }
+  }
+
+  // ===== LOGIN =====
+  function handleLogin() {
+    showScreen('screen-home');
+    document.getElementById('bottom-nav').classList.remove('hidden');
+  }
+
+  function togglePw() {
+    const inp = document.getElementById('pw-input');
+    const eye = document.getElementById('pw-eye');
+    if (inp.type === 'password') {
+      inp.type = 'text';
+      eye.innerHTML = '<i class="fa-solid fa-eye-slash"></i>';
+    } else {
+      inp.type = 'password';
+      eye.innerHTML = '<i class="fa-solid fa-eye"></i>';
+    }
+  }
+
+  // ===== SIGN OUT =====
+  function handleSignOut() {
+    navHistory = [];
+    document.getElementById('bottom-nav').classList.add('hidden');
+    showScreen('screen-find-org', false);
+  }
+
+  // ===== QR SCANNER =====
+  function openQRScanner() {
+    const o = document.getElementById('qr-scanner-overlay');
+    o.style.display = 'flex';
+  }
+  function closeQRScanner() {
+    document.getElementById('qr-scanner-overlay').style.display = 'none';
+  }
+  function simulateQRScan() {
+    closeQRScanner();
+    if (!bottomNavScreens.includes(currentScreen)) {
+      showScreen('screen-home');
+    }
+  }
+
+  // ===== FILTER SHEET =====
+  function openFilterSheet() {
+    document.getElementById('filter-sheet-overlay').classList.add('open');
+    document.getElementById('filter-sheet-overlay').style.display = 'flex';
+  }
+  function closeFilterSheet() {
+    document.getElementById('filter-sheet-overlay').style.display = 'none';
+    document.getElementById('filter-sheet-overlay').classList.remove('open');
+  }
+
+  // ===== RECORDS FILTER =====
+  function openRecordsFilter() {
+    document.getElementById('records-filter-overlay').style.display = 'flex';
+    document.getElementById('records-filter-overlay').classList.add('open');
+  }
+  function closeRecordsFilter() {
+    document.getElementById('records-filter-overlay').style.display = 'none';
+    document.getElementById('records-filter-overlay').classList.remove('open');
+  }
+
+  // ===== DISCOVER FILTER =====
+  function toggleDiscoverFilter() {
+    const f = document.getElementById('discover-filter');
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  }
+
+  function handleDiscoverSearch(val) {
+    const browse = document.getElementById('discover-browse');
+    const results = document.getElementById('discover-search-results');
+    if (val.trim().length > 0) {
+      browse.style.display = 'none';
+      results.style.display = 'block';
+    } else {
+      browse.style.display = 'block';
+      results.style.display = 'none';
+    }
+  }
+
+  // ===== CHIPS =====
+  function setChip(el) {
+    const row = el.closest('.chips-row, .bottom-sheet, #discover-filter');
+    if (!row) return;
+    const group = el.closest('div');
+    group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // ===== TASK LIST =====
+  function updateTaskProgress() {
+    const total = document.querySelectorAll('#tasks-list .task-row').length;
+    const checked = document.querySelectorAll('#tasks-list .task-check.checked').length;
+    document.getElementById('task-progress-label').textContent = `${checked} of ${total} completed`;
+
+    const signoffCard = document.getElementById('signoffs-card');
+    if (checked === total) {
+      signoffCard.style.opacity = '1';
+      signoffCard.style.pointerEvents = 'auto';
+      tasksEnabled = true;
+    } else {
+      signoffCard.style.opacity = '0.5';
+      signoffCard.style.pointerEvents = 'none';
+      tasksEnabled = false;
+    }
+  }
+
+  function toggleTask(row) {
+    const check = row.querySelector('.task-check');
+    const text = row.querySelector('.task-text');
+    const isChecked = check.classList.contains('checked');
+    if (isChecked) {
+      check.classList.remove('checked');
+      text.classList.remove('done');
+    } else {
+      check.classList.add('checked');
+      text.classList.add('done');
+    }
+    updateTaskProgress();
+  }
+
+  // Init task progress
+  function updateStatusTimes() {
+    const now = new Date();
+    let h = now.getHours(), m = now.getMinutes();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    const timeStr = `${h}:${String(m).padStart(2,'0')} ${ampm}`;
+    document.querySelectorAll('.status-time').forEach(el => el.textContent = timeStr);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    updateTaskProgress();
+    updateStatusTimes();
+    setInterval(updateStatusTimes, 30000);
+  });
+
+  // ===== SIGN-OFFS =====
+  function requestSignoff(index, name, sub) {
+    if (!tasksEnabled) return;
+    const row = document.getElementById(`signoff-${index}`);
+    if (row.querySelector('.badge-green')) return; // already signed
+
+    signoffPendingIndex = index;
+    document.getElementById('signoff-modal-name').textContent = `Sign Off: ${name}`;
+    document.getElementById('signoff-modal-sub').textContent = `Enter the username to confirm sign-off for ${name}`;
+    document.getElementById('signoff-username-input').value = '';
+    document.getElementById('signoff-modal').style.display = 'flex';
+    document.getElementById('signoff-modal').classList.add('open');
+  }
+
+  function closeSignoffModal() {
+    document.getElementById('signoff-modal').style.display = 'none';
+    document.getElementById('signoff-modal').classList.remove('open');
+    signoffPendingIndex = -1;
+  }
+
+  function confirmSignoff() {
+    const username = document.getElementById('signoff-username-input').value.trim();
+    if (!username) {
+      document.getElementById('signoff-username-input').classList.add('error');
+      return;
+    }
+    document.getElementById('signoff-username-input').classList.remove('error');
+
+    const row = document.getElementById(`signoff-${signoffPendingIndex}`);
+    if (row) {
+      const subEl = row.querySelector('.signoff-sub');
+      if (subEl) subEl.textContent = 'Signed ✓';
+      const chevron = row.querySelector('.fa-chevron-right');
+      if (chevron) chevron.remove();
+      // Add green badge
+      const badge = document.createElement('span');
+      badge.className = 'badge badge-green';
+      badge.innerHTML = '<i class="fa-solid fa-check"></i>';
+      row.appendChild(badge);
+      row.onclick = null;
+    }
+
+    signoffsCompleted++;
+    document.getElementById('signoff-progress-label').textContent = `${signoffsCompleted} of 4 signed`;
+    closeSignoffModal();
+  }
+
+  // ===== TASK DETAILS DRAWER =====
+  function openTaskDetails() {
+    document.getElementById('task-details-overlay').style.display = 'flex';
+    document.getElementById('task-details-overlay').classList.add('open');
+  }
+  function closeTaskDetails() {
+    document.getElementById('task-details-overlay').style.display = 'none';
+    document.getElementById('task-details-overlay').classList.remove('open');
+  }
+
+  // ===== SUPERVISOR QR =====
+  function openSupervisorOverlay() {
+    document.getElementById('supervisor-overlay').style.display = 'flex';
+    document.getElementById('supervisor-overlay').classList.add('open');
+  }
+  function closeSupervisorOverlay() {
+    document.getElementById('supervisor-overlay').style.display = 'none';
+    document.getElementById('supervisor-overlay').classList.remove('open');
+  }
+
+  // ===== APPEARANCE =====
+  function cycleAppearance() {
+    const shell = document.querySelector('.app-shell');
+    const icon = document.getElementById('appearance-icon');
+    const val = document.getElementById('appearance-val');
+    if (!shell.classList.contains('dark')) {
+      shell.classList.add('dark');
+      if (icon) { icon.className = 'fa-solid fa-moon'; }
+      if (val) val.textContent = 'Dark Mode';
+      appearanceMode = 'Dark Mode';
+    } else {
+      shell.classList.remove('dark');
+      if (icon) { icon.className = 'fa-solid fa-sun'; }
+      if (val) val.textContent = 'Light Mode';
+      appearanceMode = 'Light Mode';
+    }
+  }
+
+  // ===== ACTIVITY DETAIL =====
+  const activityData = {
+    'Workplace Safety Fundamentals': {
+      seed:'wsafe1', type:'Video', duration:'45 min', progress:60,
+      due:'5/30/26', status:'in-progress',
+      desc:'Learn the core principles of workplace safety including hazard identification, risk assessment, personal protective equipment, and emergency response procedures.',
+      assignedBy:'Safety Department', category:'Safety & Compliance', minScore:null
+    },
+    'Emergency Response Basics': {
+      seed:'emergency1', type:'SCORM', duration:'1 hr', progress:0,
+      due:'5/10/26', status:'overdue',
+      desc:'Complete this interactive SCORM module on emergency response protocols. Topics include evacuation procedures, first aid basics, and incident reporting.',
+      assignedBy:'Safety Department', category:'Safety & Compliance', minScore:80
+    },
+    'Fire Safety Procedures': {
+      seed:'fire1', type:'Video', duration:'30 min', progress:30,
+      due:'5/18/26', status:'in-progress',
+      desc:'Understand fire prevention, fire extinguisher usage (PASS technique), evacuation routes, and proper incident reporting procedures.',
+      assignedBy:'Facilities Team', category:'Safety & Compliance', minScore:null
+    },
+    'First Aid Basics': {
+      seed:'firstaid1', type:'Video', duration:'2 hrs', progress:100,
+      status:'complete',
+      desc:'Comprehensive first aid training covering CPR, AED usage, bleeding control, shock management, and common workplace injuries.',
+      assignedBy:'HR Department', category:'Safety & Compliance', minScore:null
+    },
+    'Personal Protective Equipment': {
+      seed:'ppe1', type:'Quiz', duration:'20 min', progress:100,
+      status:'complete',
+      desc:'Assessment covering PPE selection, proper usage, inspection, and maintenance for various workplace hazard scenarios.',
+      assignedBy:'Safety Department', category:'Safety & Compliance', minScore:70
+    },
+    'Hazard Communication Standard': {
+      seed:'hazard1', type:'Task List', duration:'45 min', progress:0,
+      due:'5/25/26', status:'not-started',
+      desc:'Complete a workplace inspection to identify and document hazardous materials, verify proper labeling, and confirm SDS availability.',
+      assignedBy:'Compliance Team', category:'Safety & Compliance', minScore:null
+    }
+  };
+
+  function showActivityDetail(source, dataOrTitle) {
+    let d;
+    if (typeof dataOrTitle === 'object' && dataOrTitle !== null && !(dataOrTitle instanceof Element)) {
+      d = dataOrTitle;
+    } else if (typeof dataOrTitle === 'string' && activityData[dataOrTitle]) {
+      d = Object.assign({}, activityData[dataOrTitle]);
+      d.title = dataOrTitle;
+    } else {
+      // fallback for catalog items or unknown — read title from element if passed
+      let title = 'Training Activity';
+      let seed = 'wsafe1';
+      if (dataOrTitle instanceof Element) {
+        const titleEl = dataOrTitle.querySelector('.catalog-title, .activity-title');
+        if (titleEl) title = titleEl.textContent.trim();
+        // try to find seed from img src
+        const img = dataOrTitle.querySelector('img');
+        if (img) { const m = img.src.match(/seed\/([^/]+)\//); if (m) seed = m[1]; }
+      }
+      d = {title, seed, type:'Video', duration:'45 min', progress:0, status:'not-started',
+           desc:'This training activity covers important topics relevant to your role and organization.', category:'General'};
+    }
+
+    // Populate hero
+    const heroImg = document.getElementById('act-hero-img');
+    if (heroImg) heroImg.src = `https://picsum.photos/seed/${d.seed||'wsafe1'}/390/220`;
+
+    // Title
+    const titleEl = document.getElementById('act-title');
+    if (titleEl) titleEl.textContent = d.title || 'Training Activity';
+
+    // Badges
+    const badgesEl = document.getElementById('act-badges');
+    if (badgesEl) {
+      let badgeHTML = '';
+      if (d.status === 'overdue') badgeHTML += `<span class="badge badge-red"><i class="fa-solid fa-clock"></i> Overdue${d.due ? ': ' + d.due : ''}</span>`;
+      else if (d.status === 'in-progress') badgeHTML += `<span class="badge badge-blue">In Progress</span>`;
+      else if (d.status === 'complete') badgeHTML += `<span class="badge badge-green"><i class="fa-solid fa-check"></i> Complete</span>`;
+      else if (d.due) badgeHTML += `<span class="badge badge-amber"><i class="fa-regular fa-calendar"></i> Due ${d.due}</span>`;
+      if (d.type) {
+        const typeColors = {Video:'badge-blue', SCORM:'badge-green', Quiz:'badge-amber', Document:'badge-purple', 'Task List':'badge-gray'};
+        badgeHTML += `<span class="badge ${typeColors[d.type]||'badge-gray'}">${d.type}</span>`;
+      }
+      if (d.duration) badgeHTML += `<span class="badge badge-gray"><i class="fa-regular fa-clock"></i> ${d.duration}</span>`;
+      badgesEl.innerHTML = badgeHTML;
+    }
+
+    // Meta
+    const metaEl = document.getElementById('act-meta');
+    if (metaEl) {
+      let metaHTML = '';
+      if (d.assignedBy) metaHTML += `<span><i class="fa-solid fa-building" style="margin-right:4px;color:#9ca3af;"></i>${d.assignedBy}</span>`;
+      if (d.category) metaHTML += `<span><i class="fa-solid fa-tag" style="margin-right:4px;color:#9ca3af;"></i>${d.category}</span>`;
+      metaEl.innerHTML = metaHTML;
+    }
+
+    // Progress section
+    const progressSection = document.getElementById('act-progress-section');
+    if (progressSection) {
+      const pct = d.progress || 0;
+      if (pct > 0 && pct < 100) {
+        progressSection.style.display = 'block';
+        document.getElementById('act-progress-pct').textContent = pct + '%';
+        document.getElementById('act-progress-bar').style.width = pct + '%';
+      } else {
+        progressSection.style.display = 'none';
+      }
+    }
+
+    // Description
+    const descEl = document.getElementById('act-desc');
+    if (descEl) descEl.textContent = d.desc || '';
+
+    // Details rows
+    const detailsEl = document.getElementById('act-details-rows');
+    if (detailsEl) {
+      const makeRow = (icon, label, val, isLast) => `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;${isLast ? '' : 'border-bottom:1px solid #f3f4f6;'}"><div style="width:32px;height:32px;border-radius:8px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:14px;color:#6b7280;flex-shrink:0;"><i class="fa-solid fa-${icon}"></i></div><div><div style="font-size:12px;color:#9ca3af;">${label}</div><div style="font-size:14px;font-weight:600;color:#111827;">${val}</div></div></div>`;
+      let rows = [];
+      if (d.type) rows.push({icon:'film', label:'Type', val:d.type});
+      if (d.duration) rows.push({icon:'clock', label:'Duration', val:d.duration});
+      if (d.minScore) rows.push({icon:'star', label:'Passing Score', val:d.minScore + '%'});
+      if (d.assignedBy) rows.push({icon:'building', label:'Assigned By', val:d.assignedBy});
+      detailsEl.innerHTML = rows.map((r, i) => makeRow(r.icon, r.label, r.val, i === rows.length - 1)).join('');
+    }
+
+    // CTA button
+    const ctaBtn = document.getElementById('act-cta-btn');
+    if (ctaBtn) {
+      if (d.status === 'complete') {
+        ctaBtn.textContent = 'View Certificate';
+        ctaBtn.className = 'btn btn-secondary';
+        ctaBtn.onclick = () => showScreen('screen-record-detail');
+      } else if (d.type === 'Task List') {
+        ctaBtn.textContent = 'Open Task List';
+        ctaBtn.className = 'btn btn-primary';
+        ctaBtn.onclick = () => showScreen('screen-task-list');
+      } else {
+        ctaBtn.textContent = (d.progress || 0) > 0 ? 'Continue Learning' : 'Start Activity';
+        ctaBtn.className = 'btn btn-primary';
+        ctaBtn.onclick = () => launchActivityContent(d);
+      }
+    }
+
+    showScreen('screen-activity-detail');
+  }
+
+  // ===== ACTIVITY CONTENT LAUNCHER =====
+  let currentActivity = null;
+
+  function launchActivityContent(d) {
+    currentActivity = d;
+    const type = (d.type || 'Video');
+    if (type === 'Video') launchVideoPlayer(d);
+    else if (type === 'SCORM') launchScormPlayer(d);
+    else if (type === 'Quiz') launchQuiz(d);
+    else if (type === 'Document') launchDocViewer(d);
+    else launchVideoPlayer(d); // fallback
+  }
+
+  // ===== VIDEO PLAYER =====
+  let videoPlaying = false;
+  let videoProgressPct = 0;
+  let videoTotalSecs = 2700; // default 45 min
+  let videoCurrentSecs = 0;
+  let videoSpeed = 1;
+  let videoTimer = null;
+
+  function launchVideoPlayer(d) {
+    stopVideoTimer();
+    videoPlaying = false;
+    videoSpeed = 1;
+    const durationMap = {'45 min':2700,'30 min':1800,'20 min':1200,'1 hr':3600,'1.5 hrs':5400,'2 hrs':7200};
+    videoTotalSecs = durationMap[d.duration] || 2700;
+    videoCurrentSecs = Math.round((d.progress || 0) / 100 * videoTotalSecs);
+    videoProgressPct = d.progress || 0;
+
+    document.getElementById('video-thumb').src = `https://picsum.photos/seed/${d.seed||'wsafe1'}/390/220`;
+    document.getElementById('video-title-label').textContent = d.title || 'Training Video';
+    document.getElementById('video-meta-label').textContent = (d.category || '') + (d.duration ? ' · ' + d.duration : '');
+    document.getElementById('video-duration').textContent = fmtTime(videoTotalSecs);
+    document.getElementById('video-center-icon').className = 'fa-solid fa-play';
+    document.getElementById('video-play-icon').className = 'fa-solid fa-play';
+    updateVideoUI();
+    setVideoSpeed(1);
+    showScreen('screen-video-player');
+  }
+
+  function fmtTime(secs) {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return m + ':' + String(s).padStart(2, '0');
+  }
+
+  function updateVideoUI() {
+    const pct = videoTotalSecs > 0 ? (videoCurrentSecs / videoTotalSecs * 100) : 0;
+    document.getElementById('video-progress-bar').style.width = pct + '%';
+    document.getElementById('video-current-time').textContent = fmtTime(videoCurrentSecs);
+  }
+
+  function toggleVideoPlay() {
+    videoPlaying = !videoPlaying;
+    const playIcon = 'fa-solid fa-' + (videoPlaying ? 'pause' : 'play');
+    document.getElementById('video-center-icon').className = playIcon;
+    document.getElementById('video-play-icon').className = playIcon;
+    if (videoPlaying) {
+      videoTimer = setInterval(() => {
+        if (videoCurrentSecs < videoTotalSecs) {
+          videoCurrentSecs = Math.min(videoTotalSecs, videoCurrentSecs + videoSpeed);
+          updateVideoUI();
+        } else {
+          stopVideoTimer();
+          videoPlaying = false;
+          document.getElementById('video-center-icon').className = 'fa-solid fa-rotate-right';
+          document.getElementById('video-play-icon').className = 'fa-solid fa-rotate-right';
+        }
+      }, 1000);
+    } else {
+      stopVideoTimer();
+    }
+  }
+
+  function stopVideoTimer() {
+    if (videoTimer) { clearInterval(videoTimer); videoTimer = null; }
+  }
+
+  function skipVideo(delta) {
+    videoCurrentSecs = Math.max(0, Math.min(videoTotalSecs, videoCurrentSecs + delta));
+    updateVideoUI();
+  }
+
+  function seekVideo(e) {
+    const bar = e.currentTarget;
+    const rect = bar.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    videoCurrentSecs = Math.round(pct * videoTotalSecs);
+    updateVideoUI();
+  }
+
+  function setVideoSpeed(spd) {
+    videoSpeed = spd;
+    ['075','1','125','15'].forEach(id => {
+      const btn = document.getElementById('speed-btn-' + id);
+      if (!btn) return;
+      const active = (id === String(spd).replace('.',''));
+      btn.style.background = active ? '#2563eb' : 'none';
+      btn.style.color = active ? 'white' : '#9ca3af';
+      btn.style.borderColor = active ? '#2563eb' : '#3a3a3c';
+    });
+  }
+
+  // ===== SCORM PLAYER =====
+  let scormLaunched = false;
+  let scormProgressVal = 0;
+  let scormTimer = null;
+
+  function launchScormPlayer(d) {
+    scormLaunched = false;
+    scormProgressVal = d.progress || 0;
+    document.getElementById('scorm-title').textContent = d.title || 'Interactive Module';
+    document.getElementById('scorm-module-title').textContent = d.title || 'Interactive Module';
+    const badges = document.getElementById('scorm-badges');
+    let bHTML = `<span class="badge" style="background:rgba(255,255,255,0.2);color:white;"><i class="fa-solid fa-laptop"></i> SCORM</span>`;
+    if (d.duration) bHTML += `<span class="badge" style="background:rgba(255,255,255,0.15);color:white;"><i class="fa-regular fa-clock"></i> ${d.duration}</span>`;
+    if (d.minScore) bHTML += `<span class="badge" style="background:rgba(255,255,255,0.15);color:white;"><i class="fa-solid fa-star"></i> Pass: ${d.minScore}%</span>`;
+    badges.innerHTML = bHTML;
+    if (scormProgressVal > 0) {
+      document.getElementById('scorm-not-launched').style.display = 'none';
+      document.getElementById('scorm-in-progress').style.display = 'block';
+      updateScormProgress(scormProgressVal);
+      scormLaunched = true;
+    } else {
+      document.getElementById('scorm-not-launched').style.display = 'block';
+      document.getElementById('scorm-in-progress').style.display = 'none';
+    }
+    showScreen('screen-scorm-player');
+  }
+
+  function updateScormProgress(pct) {
+    document.getElementById('scorm-progress-bar').style.width = pct + '%';
+    document.getElementById('scorm-progress-pct').textContent = pct + '%';
+    const sections = Math.ceil(pct / 25);
+    document.getElementById('scorm-progress-label').textContent = `Section ${Math.min(4, sections + 1)} of 4`;
+  }
+
+  function launchSCORM() {
+    scormLaunched = true;
+    document.getElementById('scorm-not-launched').style.display = 'none';
+    document.getElementById('scorm-in-progress').style.display = 'block';
+    scormProgressVal = 25;
+    updateScormProgress(scormProgressVal);
+    autoAdvanceSCORM();
+  }
+
+  function continueSCORM() {
+    if (scormProgressVal < 100) {
+      scormProgressVal = Math.min(100, scormProgressVal + 25);
+      updateScormProgress(scormProgressVal);
+      if (scormProgressVal >= 100) {
+        document.getElementById('scorm-progress-label').textContent = 'All sections complete!';
+      }
+    }
+  }
+
+  function autoAdvanceSCORM() {
+    // after 2s, update section icons to show in-progress state
+    setTimeout(() => {
+      const sec2 = document.getElementById('scorm-sec-2');
+      if (sec2) sec2.querySelector('div').innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="color:#2563eb;font-size:14px;"></i>';
+    }, 500);
+  }
+
+  // ===== QUIZ PLAYER =====
+  const quizBanks = {
+    'Personal Protective Equipment': [
+      { q: 'Which PPE is required when working with chemicals that may splash?', opts: ['Safety glasses only', 'Face shield only', 'Chemical splash goggles', 'Goggles and face shield together'], correct: 3 },
+      { q: 'How often should safety helmets be inspected?', opts: ['Monthly', 'Before each use', 'Annually', 'Weekly'], correct: 1 },
+      { q: 'What does PASS stand for when using a fire extinguisher?', opts: ['Pull, Aim, Squeeze, Sweep', 'Point, Activate, Spray, Stop', 'Prepare, Aim, Start, Spray', 'Pull, Activate, Squeeze, Sweep'], correct: 0 },
+      { q: 'When should you replace a hard hat?', opts: ['Every 5 years regardless', 'After any impact or damage', 'Only when it visibly cracks', 'Every 2 years automatically'], correct: 1 },
+      { q: 'Which gloves protect against electrical hazards?', opts: ['Leather gloves', 'Rubber insulating gloves', 'Cut-resistant gloves', 'Chemical-resistant gloves'], correct: 1 },
+    ],
+    default: [
+      { q: 'What is the primary purpose of a Safety Data Sheet (SDS)?', opts: ['Provide product pricing information', 'Detail chemical hazards and safe handling', 'List warranty terms', 'Document employee training history'], correct: 1 },
+      { q: 'Which is NOT part of the hierarchy of controls?', opts: ['Elimination', 'Substitution', 'Punishment', 'PPE'], correct: 2 },
+      { q: 'How should you report a near-miss incident?', opts: ["Don't report if no injury occurred", 'Tell only your direct supervisor verbally', 'Document and submit through the official reporting system', 'Wait to see if it happens again first'], correct: 2 },
+      { q: 'What is the minimum aisle width required for emergency exit pathways?', opts: ['18 inches', '24 inches', '28 inches', '36 inches'], correct: 3 },
+      { q: 'How frequently must fire extinguishers be inspected?', opts: ['Monthly', 'Quarterly', 'Annually', 'Every two years'], correct: 0 },
+    ]
+  };
+
+  let quizQuestions = [];
+  let quizIndex = 0;
+  let quizSelected = null;
+  let quizCorrect = 0;
+  let quizAnsweredFlags = [];
+
+  function launchQuiz(d) {
+    quizQuestions = quizBanks[d.title] || quizBanks['default'];
+    quizIndex = 0;
+    quizSelected = null;
+    quizCorrect = 0;
+    quizAnsweredFlags = new Array(quizQuestions.length).fill(null);
+    document.getElementById('quiz-header-title').textContent = d.title || 'Quiz';
+    renderQuizQuestion();
+    showScreen('screen-quiz-player');
+  }
+
+  function renderQuizQuestion() {
+    const total = quizQuestions.length;
+    const pct = ((quizIndex) / total * 100);
+    document.getElementById('quiz-counter').textContent = (quizIndex + 1) + ' / ' + total;
+    document.getElementById('quiz-progress-bar').style.width = pct + '%';
+    const q = quizQuestions[quizIndex];
+    const answered = quizAnsweredFlags[quizIndex];
+    const area = document.getElementById('quiz-content-area');
+    area.innerHTML = `
+      <div style="font-size:13px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px;">Question ${quizIndex + 1}</div>
+      <div style="font-size:17px;font-weight:700;color:#111827;line-height:1.5;margin-bottom:24px;">${q.q}</div>
+      <div style="display:flex;flex-direction:column;gap:10px;" id="quiz-options">
+        ${q.opts.map((opt, i) => {
+          let bg = '#fff', border = '#e5e7eb', color = '#111827';
+          if (answered !== null) {
+            if (i === q.correct) { bg = '#f0fdf4'; border = '#16a34a'; color = '#14532d'; }
+            else if (i === answered && answered !== q.correct) { bg = '#fef2f2'; border = '#dc2626'; color = '#991b1b'; }
+            else { bg = '#f9fafb'; color = '#9ca3af'; }
+          }
+          const icon = answered !== null ? (i === q.correct ? '✓' : (i === answered ? '✗' : '')) : '';
+          return `<button onclick="selectQuizOption(${i})" style="width:100%;padding:14px 16px;border-radius:12px;border:1.5px solid ${border};background:${bg};color:${color};font-size:14px;font-weight:${answered !== null && (i === q.correct || i === answered) ? '700' : '500'};text-align:left;cursor:pointer;font-family:'Open Sans',sans-serif;display:flex;align-items:center;gap:10px;transition:all 0.15s;" ${answered !== null ? 'disabled' : ''}>
+            <span style="width:22px;height:22px;border-radius:50%;background:${answered !== null && i === q.correct ? '#16a34a' : (answered !== null && i === answered && answered !== q.correct ? '#dc2626' : '#f3f4f6')};color:${answered !== null && (i === q.correct || (i === answered && answered !== q.correct)) ? 'white' : '#9ca3af'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">${icon || String.fromCharCode(65 + i)}</span>
+            ${opt}
+          </button>`;
+        }).join('')}
+      </div>
+      ${answered !== null ? `<div style="margin-top:16px;padding:14px;border-radius:10px;background:${answered === q.correct ? '#f0fdf4' : '#fef2f2'};border:1px solid ${answered === q.correct ? '#bbf7d0' : '#fecaca'};">
+        <div style="font-size:13px;font-weight:700;color:${answered === q.correct ? '#14532d' : '#991b1b'};margin-bottom:4px;">${answered === q.correct ? '✓ Correct!' : '✗ Incorrect'}</div>
+        <div style="font-size:13px;color:${answered === q.correct ? '#166534' : '#7f1d1d'};">${answered === q.correct ? 'Great job! Move to the next question.' : 'The correct answer is: ' + q.opts[q.correct]}</div>
+      </div>` : ''}
+    `;
+    // Update action button
+    const btn = document.getElementById('quiz-action-btn');
+    if (answered === null) {
+      btn.textContent = 'Select an answer';
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+    } else {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.textContent = quizIndex < quizQuestions.length - 1 ? 'Next Question' : 'See Results';
+    }
+  }
+
+  function selectQuizOption(i) {
+    if (quizAnsweredFlags[quizIndex] !== null) return;
+    quizAnsweredFlags[quizIndex] = i;
+    if (i === quizQuestions[quizIndex].correct) quizCorrect++;
+    renderQuizQuestion();
+  }
+
+  function quizAction() {
+    if (quizIndex < quizQuestions.length - 1) {
+      quizIndex++;
+      renderQuizQuestion();
+    } else {
+      showQuizResults();
+    }
+  }
+
+  function showQuizResults() {
+    const total = quizQuestions.length;
+    const pct = Math.round(quizCorrect / total * 100);
+    const pass = pct >= 70;
+    document.getElementById('quiz-counter').textContent = 'Results';
+    document.getElementById('quiz-progress-bar').style.width = '100%';
+    const area = document.getElementById('quiz-content-area');
+    area.innerHTML = `
+      <div style="text-align:center;padding:20px 0;">
+        <div style="width:80px;height:80px;border-radius:50%;background:${pass ? '#f0fdf4' : '#fef2f2'};border:4px solid ${pass ? '#16a34a' : '#dc2626'};display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:32px;">${pass ? '🏆' : '📚'}</div>
+        <div style="font-size:36px;font-weight:800;color:${pass ? '#16a34a' : '#dc2626'};margin-bottom:4px;">${pct}%</div>
+        <div style="font-size:16px;font-weight:700;color:#111827;margin-bottom:8px;">${pass ? 'Quiz Passed!' : 'Quiz Failed'}</div>
+        <div style="font-size:14px;color:#6b7280;margin-bottom:24px;">${quizCorrect} of ${total} questions correct</div>
+        ${pass ? '<div class="badge badge-green" style="font-size:13px;padding:6px 16px;"><i class="fa-solid fa-check"></i> Activity Complete</div>' : '<div class="badge badge-amber" style="font-size:13px;padding:6px 16px;"><i class="fa-solid fa-rotate-right"></i> Try Again to Pass</div>'}
+      </div>
+      <div class="card" style="overflow:hidden;">
+        ${quizQuestions.map((q, i) => `<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;${i < quizQuestions.length-1 ? 'border-bottom:1px solid #f3f4f6;' : ''}">
+          <div style="width:24px;height:24px;border-radius:50%;background:${quizAnsweredFlags[i] === q.correct ? '#f0fdf4' : '#fef2f2'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;">${quizAnsweredFlags[i] === q.correct ? '✓' : '✗'}</div>
+          <div style="font-size:13px;color:#374151;flex:1;">${q.q.length > 60 ? q.q.slice(0,60) + '…' : q.q}</div>
+        </div>`).join('')}
+      </div>
+    `;
+    const btn = document.getElementById('quiz-action-btn');
+    if (pass) {
+      btn.textContent = 'Done';
+      btn.onclick = () => goBack();
+    } else {
+      btn.textContent = 'Retake Quiz';
+      btn.onclick = () => launchQuiz(currentActivity);
+    }
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.className = pass ? 'btn btn-primary' : 'btn btn-secondary';
+  }
+
+  // ===== DOCUMENT VIEWER =====
+  function launchDocViewer(d) {
+    document.getElementById('doc-header-title').textContent = d.title || 'Document';
+    const area = document.getElementById('doc-content-area');
+    area.innerHTML = `
+      <div style="background:white;min-height:100%;padding:24px 20px;">
+        <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;">${d.category || 'Training Material'}</div>
+        <h1 style="font-size:22px;font-weight:800;color:#111827;margin-bottom:6px;line-height:1.3;">${d.title || 'Document'}</h1>
+        <div style="font-size:13px;color:#6b7280;margin-bottom:24px;">Assigned by ${d.assignedBy || 'HR Department'} · ${d.duration || '30 min read'}</div>
+        <hr style="border:none;border-top:1px solid #f3f4f6;margin-bottom:24px;">
+        <h2 style="font-size:17px;font-weight:700;color:#111827;margin-bottom:10px;">Overview</h2>
+        <p style="font-size:14px;color:#374151;line-height:1.7;margin-bottom:20px;">${d.desc || 'This document contains important information for your role.'}</p>
+        <h2 style="font-size:17px;font-weight:700;color:#111827;margin-bottom:10px;">Section 1: Introduction</h2>
+        <p style="font-size:14px;color:#374151;line-height:1.7;margin-bottom:16px;">All employees are expected to review and understand the policies outlined in this document. Failure to comply with these policies may result in disciplinary action.</p>
+        <p style="font-size:14px;color:#374151;line-height:1.7;margin-bottom:20px;">If you have any questions about the content in this document, please contact your direct supervisor or the HR department.</p>
+        <h2 style="font-size:17px;font-weight:700;color:#111827;margin-bottom:10px;">Section 2: Key Policies</h2>
+        <ul style="font-size:14px;color:#374151;line-height:2;margin-bottom:20px;padding-left:20px;">
+          <li>Employees must report any policy violations immediately</li>
+          <li>Annual review and acknowledgment is required</li>
+          <li>All incidents must be documented within 24 hours</li>
+          <li>New employees must complete this document within 30 days</li>
+          <li>Supervisors are responsible for enforcing these guidelines</li>
+        </ul>
+        <h2 style="font-size:17px;font-weight:700;color:#111827;margin-bottom:10px;">Section 3: Acknowledgment</h2>
+        <p style="font-size:14px;color:#374151;line-height:1.7;margin-bottom:20px;">By completing this training activity, you acknowledge that you have read and understand the information provided in this document. Your completion will be recorded in your training record.</p>
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px;">
+          <i class="fa-solid fa-circle-check" style="font-size:24px;color:#16a34a;flex-shrink:0;"></i>
+          <div><div style="font-size:14px;font-weight:700;color:#14532d;">Reading Complete</div><div style="font-size:13px;color:#166534;">Your progress has been recorded</div></div>
+        </div>
+      </div>
+    `;
+    showScreen('screen-doc-viewer');
+  }
+
+  // ===== RECORDS =====
+  function setRecordsView(view) {
+    const structured = document.getElementById('records-structured');
+    const flat = document.getElementById('records-flat');
+    const tabS = document.getElementById('rec-tab-structured');
+    const tabF = document.getElementById('rec-tab-flat');
+    if (view === 'structured') {
+      structured.style.display = 'block';
+      flat.style.display = 'none';
+      tabS.style.color = '#2563eb'; tabS.style.borderBottomColor = '#2563eb'; tabS.style.fontWeight = '700';
+      tabF.style.color = '#9ca3af'; tabF.style.borderBottomColor = 'transparent'; tabF.style.fontWeight = '600';
+    } else {
+      structured.style.display = 'none';
+      flat.style.display = 'block';
+      tabF.style.color = '#2563eb'; tabF.style.borderBottomColor = '#2563eb'; tabF.style.fontWeight = '700';
+      tabS.style.color = '#9ca3af'; tabS.style.borderBottomColor = 'transparent'; tabS.style.fontWeight = '600';
+    }
+  }
+
+  function showRecordDetail(type, name) {
+    const seeds = {
+      'Compliance Fundamentals': 'comply1',
+      'Annual Safety Refresher': 'safety2',
+    };
+    const seed = seeds[name] || 'comply1';
+    const dates = {
+      'Compliance Fundamentals': 'Mar 1, 2026',
+      'Annual Safety Refresher': 'Jan 15, 2026',
+    };
+    const certIds = {
+      'Compliance Fundamentals': 'VSP-2026-CF-8821',
+      'Annual Safety Refresher': 'VSP-2026-ASR-4419',
+    };
+    document.getElementById('rec-detail-img').src = `https://picsum.photos/seed/${seed}/390/200`;
+    document.getElementById('rec-detail-type-label').textContent = type === 'qual' ? 'Qualification' : 'Learning Path';
+    document.getElementById('rec-detail-title').textContent = name;
+    document.getElementById('rec-detail-date').textContent = 'Completed ' + (dates[name] || 'Jan 1, 2026');
+    document.getElementById('rec-detail-cert-id').textContent = certIds[name] || 'VSP-2026-XXX-0000';
+
+    const actsEl = document.getElementById('rec-detail-acts');
+    const actsList = type === 'qual'
+      ? [
+          {seed:'firstaid1', title:'First Aid Basics', meta:'Video · Apr 1, 2026'},
+          {seed:'ppe1', title:'Personal Protective Equipment', meta:'Quiz · Mar 15, 2026'},
+          {seed:'comply1', title:'Compliance Assessment', meta:'Quiz · Mar 1, 2026'},
+        ]
+      : [
+          {seed:'emergency1', title:'Emergency Evacuation Basics', meta:'Video · Jan 10, 2026'},
+          {seed:'wsafe1', title:'Safety Refresher Module', meta:'SCORM · Jan 12, 2026'},
+          {seed:'fire1', title:'Fire Drill Review', meta:'Quiz · Jan 15, 2026'},
+        ];
+    actsEl.innerHTML = actsList.map((a, i) =>
+      `<div style="display:flex;align-items:center;gap:12px;padding:11px 14px;${i < actsList.length-1 ? 'border-bottom:1px solid #f3f4f6;' : ''}">
+        <img src="https://picsum.photos/seed/${a.seed}/48/40" alt="" style="width:48px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;">
+        <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:#111827;">${a.title}</div><div style="font-size:11px;color:#6b7280;">${a.meta}</div></div>
+        <span class="badge badge-green"><i class="fa-solid fa-check"></i></span>
+      </div>`
+    ).join('');
+
+    showScreen('screen-record-detail');
+  }
+
+  // ===== TASK ITEM =====
+  let currentTaskItemIndex = -1;
+  const taskItemData = [
+    { title: 'Review safety equipment checklist', desc: 'Physically locate and inspect all safety equipment in your work area. Verify that fire extinguishers are charged and accessible, first aid kits are stocked, and eye wash stations are functional.', requiresSignoff: false },
+    { title: 'Inspect fire extinguisher location', desc: 'Confirm that fire extinguishers are mounted at proper heights, inspection tags are current (within 12 months), and access paths are clear of obstructions.', requiresSignoff: true },
+    { title: 'Verify emergency exit signage', desc: 'Walk all emergency exit routes and confirm that illuminated exit signs are functional, exit doors open freely, and pathways are unobstructed.', requiresSignoff: false },
+    { title: 'Check first aid kit supplies', desc: 'Open and inspect the first aid kit. Verify that all required supplies are present and not expired. Replace any missing or expired items and note any items that need restocking.', requiresSignoff: true },
+    { title: 'Test emergency lighting system', desc: 'Activate the emergency lighting test mode using the test button on each unit. Verify that battery backup lights illuminate properly for at least 90 seconds.', requiresSignoff: false },
+    { title: 'Document any hazards found', desc: 'Using the provided hazard log form, document any safety issues discovered during this inspection. Include location, description, and estimated severity. Submit the completed form to your safety officer.', requiresSignoff: true },
+  ];
+  let taskItemSignoffs = new Array(taskItemData.length).fill(false);
+  let taskItemComments = new Array(taskItemData.length).fill('');
+  let taskItemComplete = [true, true, true, false, false, false];
+
+  function openTaskItem(index) {
+    currentTaskItemIndex = index;
+    const d = taskItemData[index];
+    document.getElementById('task-item-title').textContent = d.title;
+    document.getElementById('task-item-desc').textContent = d.desc;
+
+    const isComplete = taskItemComplete[index];
+    const isSigned = taskItemSignoffs[index];
+
+    // Badges
+    const badgesEl = document.getElementById('task-item-badges');
+    let bHTML = '';
+    if (isComplete) bHTML += '<span class="badge badge-green"><i class="fa-solid fa-check"></i> Complete</span>';
+    else bHTML += '<span class="badge badge-gray">Not Complete</span>';
+    if (d.requiresSignoff) bHTML += '<span class="badge badge-amber"><i class="fa-solid fa-pen"></i> Requires Sign-Off</span>';
+    badgesEl.innerHTML = bHTML;
+
+    // Signoff section
+    const signoffArea = document.getElementById('task-item-signoff-area');
+    const signedEl = document.getElementById('task-item-signed');
+    const signoffParent = signoffArea ? signoffArea.parentElement : null;
+    if (!d.requiresSignoff) {
+      if (signoffParent) signoffParent.style.display = 'none';
+    } else {
+      if (signoffParent) signoffParent.style.display = 'block';
+      if (isSigned) {
+        signoffArea.style.display = 'none';
+        signedEl.style.display = 'flex';
+        document.getElementById('task-item-signed-by').textContent = 'Signed by ' + (taskItemComments[index] || 'Instructor');
+      } else {
+        signoffArea.style.display = 'block';
+        signedEl.style.display = 'none';
+        document.getElementById('task-item-instructor-input').value = '';
+        document.getElementById('task-item-comment-input').value = '';
+      }
+    }
+
+    // CTA button
+    const btn = document.getElementById('task-item-complete-btn');
+    btn.textContent = isComplete ? 'Mark as Incomplete' : 'Mark as Complete';
+    btn.className = isComplete ? 'btn btn-gray' : 'btn btn-primary';
+
+    showScreen('screen-task-item');
+  }
+
+  function toggleTaskItemComplete() {
+    if (currentTaskItemIndex < 0) return;
+    taskItemComplete[currentTaskItemIndex] = !taskItemComplete[currentTaskItemIndex];
+    const isNowComplete = taskItemComplete[currentTaskItemIndex];
+    // Sync with task list checkbox
+    const taskRows = document.querySelectorAll('#tasks-list .task-row');
+    if (taskRows[currentTaskItemIndex]) {
+      const check = taskRows[currentTaskItemIndex].querySelector('.task-check');
+      const text = taskRows[currentTaskItemIndex].querySelector('.task-text');
+      if (isNowComplete) { check.classList.add('checked'); text.classList.add('done'); }
+      else { check.classList.remove('checked'); text.classList.remove('done'); }
+    }
+    // Recalculate task progress
+    const completed = taskItemComplete.filter(Boolean).length;
+    tasksCompleted = completed;
+    updateTaskProgress();
+    // Re-open same item to refresh UI
+    openTaskItem(currentTaskItemIndex);
+  }
+
+  function confirmTaskItemSignoff() {
+    const username = document.getElementById('task-item-instructor-input').value.trim();
+    if (!username) {
+      document.getElementById('task-item-instructor-input').classList.add('error');
+      return;
+    }
+    document.getElementById('task-item-instructor-input').classList.remove('error');
+    const comment = document.getElementById('task-item-comment-input').value.trim();
+    taskItemSignoffs[currentTaskItemIndex] = true;
+    taskItemComments[currentTaskItemIndex] = username + (comment ? ': ' + comment : '');
+    // Also mark complete
+    taskItemComplete[currentTaskItemIndex] = true;
+    tasksCompleted = taskItemComplete.filter(Boolean).length;
+    updateTaskProgress();
+    openTaskItem(currentTaskItemIndex);
+  }
+
+  // ===== INIT: hide bottom nav on preauth screens =====
+  document.getElementById('bottom-nav').classList.add('hidden');
+
+  // Init sign-offs section disabled
+  const signoffCard = document.getElementById('signoffs-card');
+  signoffCard.style.opacity = '0.5';
+  signoffCard.style.pointerEvents = 'none';
+  signoffCard.style.transition = 'opacity 0.3s';
+
+  // Open accordion items by default
+  document.querySelectorAll('.accordion-item').forEach(item => {
+    item.classList.add('open');
+  });
+</script>
+</body>
+</html>
