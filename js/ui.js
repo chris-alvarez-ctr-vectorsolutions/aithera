@@ -47,7 +47,11 @@ const SVG = {
   trending: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 7-8"/><path d="M14 7h6v6"/></svg>`,
   retry:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 4v5h-5"/></svg>`,
   send:     `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 11l18-8-8 18-2-8-8-2z"/></svg>`,
-  paperclip:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12l-9 9a5 5 0 11-7-7l9-9a3 3 0 114 4l-9 9a1.5 1.5 0 11-2-2l8-8"/></svg>`
+  paperclip:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12l-9 9a5 5 0 11-7-7l9-9a3 3 0 114 4l-9 9a1.5 1.5 0 11-2-2l8-8"/></svg>`,
+  heart:   `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0112 5a5.5 5.5 0 019.5 7C19 16.5 12 21 12 21z"/></svg>`,
+  lungs:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10"/><path d="M9 7c-3 1-5 4-5 8 0 3 2 4 4 4s2-2 2-4V8"/><path d="M15 7c3 1 5 4 5 8 0 3-2 4-4 4s-2-2-2-4V8"/></svg>`,
+  pause:   `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`,
+  radio:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="14" r="2"/><path d="M7 9a7 7 0 0110 0"/><path d="M5 7a10 10 0 0114 0"/><path d="M9 11a4 4 0 016 0"/></svg>`
 };
 
 // ---------- tiny element factory ----------
@@ -697,6 +701,150 @@ export function scenarioWelcome({ kicker, title, body, highlight, reassurance, e
   return card;
 }
 
+// dispatchAudio — a "Play dispatch" card that uses SpeechSynthesis to
+// read the dispatch line aloud. Click toggles play/stop. Returns the
+// element with a stop() method so callers can cancel if the user
+// navigates away mid-play.
+export function dispatchAudio({ tag = 'MEDCOM Dispatch', text }) {
+  const playIcon = icon('play', { class: 'dp-icon' });
+  const pauseIcon = icon('pause', { class: 'dp-icon' });
+  const btn = el('button', { type: 'button', class: 'dp-play', 'aria-label': 'Play dispatch audio' }, playIcon);
+  const body = el('p', { class: 'dp-text' }, `“${text}”`);
+  const card = el('div', { class: 'dispatch-audio' },
+    el('span', { class: 'dp-channel' }, icon('radio'), el('span', null, tag)),
+    el('div', { class: 'dp-row' }, btn, body)
+  );
+
+  let utter = null;
+  function stop() {
+    if (typeof speechSynthesis === 'undefined') return;
+    speechSynthesis.cancel();
+    card.classList.remove('is-playing');
+    btn.replaceChildren(playIcon);
+  }
+  btn.addEventListener('click', () => {
+    if (!('speechSynthesis' in window)) return;
+    if (card.classList.contains('is-playing')) { stop(); return; }
+    utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 1.0; utter.pitch = 0.85;
+    utter.onend = () => stop();
+    utter.onerror = () => stop();
+    card.classList.add('is-playing');
+    btn.replaceChildren(pauseIcon);
+    speechSynthesis.speak(utter);
+  });
+  card.stop = stop;
+  return card;
+}
+
+// vitalsPanel — animated heart + breathing readout. The heart icon
+// pulses at the patient's BPM (driven by an interval), the breathing
+// wave expands at the respiratory rate. On a device with vibration
+// support, each heartbeat fires a short haptic tick so the learner
+// literally feels the pulse on their phone.
+//
+// Returns the element with `.update({hr, rr})` and `.stop()`.
+export function vitalsPanel({ hr = 80, rr = 16, haptics = true } = {}) {
+  const heart = el('span', { class: 'vp-heart' }, icon('heart'));
+  const hrVal = el('strong', { class: 'vp-num' }, String(hr));
+  const rrVal = el('strong', { class: 'vp-num' }, String(rr));
+  const lung  = el('span', { class: 'vp-lung' }, icon('lungs'));
+
+  const trendHr = el('span', { class: 'vp-trend' });
+  const trendRr = el('span', { class: 'vp-trend' });
+
+  const panel = el('div', { class: 'vitals-panel', 'aria-label': 'Patient vitals' },
+    el('div', { class: 'vp-cell vp-hr' },
+      heart,
+      el('div', { class: 'vp-meta' },
+        el('span', { class: 'vp-label' }, 'Pulse'),
+        el('div', { class: 'vp-line' }, hrVal, el('span', { class: 'vp-unit' }, 'bpm'), trendHr)
+      )
+    ),
+    el('div', { class: 'vp-cell vp-rr' },
+      lung,
+      el('div', { class: 'vp-meta' },
+        el('span', { class: 'vp-label' }, 'Resp'),
+        el('div', { class: 'vp-line' }, rrVal, el('span', { class: 'vp-unit' }, '/min'), trendRr)
+      )
+    )
+  );
+
+  let curHr = hr, curRr = rr;
+  let beatTimer = null, breathTimer = null;
+  let canVibrate = haptics && typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
+  let hapticEnabled = false; // requires a user gesture before we tap the buzzer
+
+  function scheduleBeat() {
+    if (beatTimer) clearTimeout(beatTimer);
+    const ms = Math.max(220, Math.round(60000 / curHr));
+    const tick = () => {
+      heart.classList.remove('beat');
+      // restart animation
+      void heart.offsetWidth;
+      heart.classList.add('beat');
+      if (canVibrate && hapticEnabled) {
+        try { navigator.vibrate(18); } catch {}
+      }
+      beatTimer = setTimeout(tick, Math.max(220, Math.round(60000 / curHr)));
+    };
+    beatTimer = setTimeout(tick, ms);
+  }
+  function scheduleBreath() {
+    if (breathTimer) clearTimeout(breathTimer);
+    const ms = Math.max(800, Math.round(60000 / curRr));
+    const tick = () => {
+      lung.classList.remove('breathe');
+      void lung.offsetWidth;
+      lung.classList.add('breathe');
+      lung.style.setProperty('--breath-ms', `${ms}ms`);
+      breathTimer = setTimeout(tick, Math.max(800, Math.round(60000 / curRr)));
+    };
+    lung.style.setProperty('--breath-ms', `${ms}ms`);
+    breathTimer = setTimeout(tick, 0);
+  }
+
+  // Enable haptics on the first user tap anywhere in the document — iOS
+  // requires a gesture before vibrate() is honored.
+  function armHaptics() {
+    hapticEnabled = true;
+    document.removeEventListener('touchstart', armHaptics);
+    document.removeEventListener('click', armHaptics);
+  }
+  if (canVibrate) {
+    document.addEventListener('touchstart', armHaptics, { once: true, passive: true });
+    document.addEventListener('click', armHaptics, { once: true });
+  }
+
+  scheduleBeat();
+  scheduleBreath();
+
+  panel.update = ({ hr: nh, rr: nr } = {}) => {
+    if (typeof nh === 'number' && nh !== curHr) {
+      const dir = nh > curHr ? 'up' : nh < curHr ? 'down' : '';
+      curHr = Math.max(20, Math.min(220, nh));
+      hrVal.textContent = String(curHr);
+      trendHr.className = `vp-trend ${dir}`;
+      trendHr.textContent = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '';
+      scheduleBeat();
+    }
+    if (typeof nr === 'number' && nr !== curRr) {
+      const dir = nr > curRr ? 'up' : nr < curRr ? 'down' : '';
+      curRr = Math.max(4, Math.min(60, nr));
+      rrVal.textContent = String(curRr);
+      trendRr.className = `vp-trend ${dir}`;
+      trendRr.textContent = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '';
+      scheduleBreath();
+    }
+  };
+  panel.stop = () => {
+    if (beatTimer) clearTimeout(beatTimer);
+    if (breathTimer) clearTimeout(breathTimer);
+    beatTimer = breathTimer = null;
+  };
+  return panel;
+}
+
 // scenarioPrompt — the learner's directive for the current step. This is the
 // single most important instruction on the page; it must dominate the visual
 // hierarchy over situational notes and coach hints.
@@ -1051,9 +1199,11 @@ export function scenarioCatalogCard({ scenario, status, scorePct, onLockedClick 
     : status === 'mastered' ? icon('retry')
     : icon('arrowRight');
 
+  const routeBase = scenario.kind === 'iv-math' ? 'iv-math' : 'practice';
+  const isMini = scenario.kind === 'iv-math';
   const props = {
-    class: `scn-cat-card ${map.cls}`,
-    href: nonNav ? null : `#/practice/${scenario.id}`
+    class: `scn-cat-card ${map.cls}${isMini ? ' is-minigame' : ''}`,
+    href: nonNav ? null : `#/${routeBase}/${scenario.id}`
   };
   if (nonNav && onLockedClick) props.on = { click: onLockedClick };
   if (status === 'coming-soon') props.disabled = true;
@@ -1061,6 +1211,7 @@ export function scenarioCatalogCard({ scenario, status, scorePct, onLockedClick 
   return el(props.href ? 'a' : 'button', props,
     el('div', { class: 'sct-head' },
       el('span', { class: 'sct-glyph' }, icon(scenario.icon || 'shield')),
+      isMini ? el('span', { class: 'sct-kind' }, 'Mini-game') : null,
       el('span', { class: `sct-status ${map.cls}` }, map.label)
     ),
     el('strong', { class: 'sct-title' }, scenario.title),
@@ -1075,6 +1226,233 @@ export function scenarioCatalogCard({ scenario, status, scorePct, onLockedClick 
 }
 
 function capitalize(s) { return String(s || '').replace(/^./, (c) => c.toUpperCase()); }
+
+// audienceCard — small framing card above an articulation mic that tells
+// the learner WHO they're explaining to. Three flavors: expert / beginner
+// / outsider, each with its own avatar icon and short descriptor.
+export function audienceCard({ audience, concept }) {
+  const meta = {
+    expert: {
+      kicker: 'Audience · Expert',
+      title: 'Explain to a seasoned peer',
+      desc: concept
+        ? `A colleague who already knows the basics. Use precise terms. Get to the nuance of ${concept}.`
+        : 'A colleague who already knows the basics. Use precise terms and get to the nuance.',
+      icon: 'shield'
+    },
+    beginner: {
+      kicker: 'Audience · Beginner',
+      title: 'Explain to a new trainee',
+      desc: concept
+        ? `Someone in the role for two weeks. Avoid jargon. Make ${concept} land.`
+        : 'Someone in the role for two weeks. Avoid jargon. Make it land.',
+      icon: 'lightbulb'
+    },
+    outsider: {
+      kicker: 'Audience · Outside the industry',
+      title: 'Explain to a smart friend',
+      desc: concept
+        ? `Someone bright but outside your field. No acronyms. Why does ${concept} matter?`
+        : 'Someone bright but outside your field. No acronyms. Tell them why this matters.',
+      icon: 'users'
+    }
+  }[audience] || { kicker: 'Audience', title: 'Explain', desc: '', icon: 'users' };
+  return el('div', { class: 'audience-card' },
+    el('div', { class: 'ac-avatar' }, icon(meta.icon)),
+    el('div', { class: 'ac-body' },
+      el('div', { class: 'ac-kicker' }, meta.kicker),
+      el('h3', { class: 'ac-title' }, meta.title),
+      el('p', { class: 'ac-desc' }, meta.desc)
+    )
+  );
+}
+
+// articulationMic — the prominent "speak now" mic used in articulate
+// practice steps. Has three visible states:
+//   idle      — large pulsing-ring button, "Tap to start"
+//   listening — solid accent, ring pulses, "Listening — speak now",
+//               live interim transcript fills below
+//   stopped   — frozen transcript + Submit / Retake row
+// A "Type instead" toggle swaps the mic for a textarea without losing
+// any text the learner already captured. If the browser has no
+// SpeechRecognition, the component opens in typing mode from the start
+// with a small footnote.
+export function articulationMic({ audienceLabel = 'Listening', onChange } = {}) {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const supported = !!SpeechRec;
+
+  let recognition = null;
+  let recording = false;
+  let finalText = '';
+  let interimText = '';
+  let mode = supported ? 'voice' : 'type';
+
+  const ring = el('span', { class: 'am-ring' });
+  const micIcon = el('span', { class: 'am-icon' }, icon('mic'));
+  const stopIcon = el('span', { class: 'am-icon am-icon-stop', style: { display: 'none' } },
+    el('span', { class: 'am-stop-square' }));
+  const button = el('button', { type: 'button', class: 'am-button', 'aria-label': 'Start recording' },
+    ring, micIcon, stopIcon);
+
+  const status = el('div', { class: 'am-status' },
+    supported
+      ? 'Tap the mic and speak your explanation'
+      : 'Voice not supported here — switching to typing');
+
+  const transcript = el('div', { class: 'am-transcript' });
+  const typed = el('textarea', { rows: 5, class: 'am-textarea', placeholder: 'Type your explanation…' });
+  const toggle = el('button', { type: 'button', class: 'am-toggle', 'aria-label': 'Switch input mode' },
+    icon('chat'),
+    el('span', { class: 'am-toggle-label' }, 'Type instead')
+  );
+
+  const voicePane = el('div', { class: 'am-voice' },
+    el('div', { class: 'am-mic-wrap' }, button),
+    status,
+    transcript
+  );
+  const typePane = el('div', { class: 'am-type' }, typed);
+  typePane.style.display = 'none';
+
+  const root = el('div', { class: 'articulation-mic' },
+    voicePane, typePane,
+    el('div', { class: 'am-foot' }, toggle)
+  );
+
+  function emit() { onChange?.(getText()); }
+  function getText() {
+    if (mode === 'type') return typed.value.trim();
+    return (finalText + ' ' + interimText).trim();
+  }
+  function paintTranscript() {
+    if (!finalText && !interimText) {
+      transcript.classList.remove('on');
+      transcript.replaceChildren();
+      return;
+    }
+    transcript.classList.add('on');
+    transcript.replaceChildren(
+      el('span', { class: 'am-final' }, finalText),
+      interimText ? el('span', { class: 'am-interim' }, ' ' + interimText) : null
+    );
+  }
+  function setListeningChrome(on) {
+    button.classList.toggle('is-listening', on);
+    micIcon.style.display = on ? 'none' : '';
+    stopIcon.style.display = on ? '' : 'none';
+    button.setAttribute('aria-label', on ? 'Stop recording' : 'Start recording');
+    status.classList.toggle('is-live', on);
+    status.textContent = on
+      ? `${audienceLabel} — speak now`
+      : (finalText || interimText
+          ? 'Captured. Tap to add more, or submit below.'
+          : 'Tap the mic and speak your explanation');
+  }
+
+  if (supported) {
+    recognition = new SpeechRec();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event) => {
+      let interim = '', addedFinal = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const r = event.results[i];
+        if (r.isFinal) addedFinal += r[0].transcript + ' ';
+        else interim += r[0].transcript + ' ';
+      }
+      if (addedFinal) finalText = (finalText + ' ' + addedFinal).trim() + ' ';
+      interimText = interim.trim();
+      paintTranscript();
+      emit();
+    };
+
+    const FATAL = new Set(['not-allowed', 'service-not-allowed', 'audio-capture', 'network']);
+    recognition.onerror = (e) => {
+      if (FATAL.has(e.error)) {
+        recording = false;
+        setListeningChrome(false);
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          status.textContent = 'Mic blocked — switch to typing, or enable mic access.';
+        } else if (e.error === 'audio-capture') {
+          status.textContent = 'No mic detected — switch to typing.';
+        } else {
+          status.textContent = 'Voice service offline — tap to retry, or type below.';
+        }
+      }
+    };
+
+    let lastRestart = 0;
+    recognition.onend = () => {
+      if (!recording) return;
+      const now = Date.now();
+      if (now - lastRestart < 400) { recording = false; setListeningChrome(false); return; }
+      lastRestart = now;
+      try { recognition.start(); } catch {}
+    };
+  }
+
+  button.addEventListener('click', () => {
+    if (!recognition) { status.textContent = 'Voice not supported — type below.'; return; }
+    recording = !recording;
+    if (recording) {
+      try { recognition.start(); } catch {}
+      setListeningChrome(true);
+    } else {
+      try { recognition.stop(); } catch {}
+      if (interimText) { finalText = (finalText + ' ' + interimText).trim() + ' '; interimText = ''; }
+      paintTranscript();
+      setListeningChrome(false);
+      emit();
+    }
+  });
+
+  typed.addEventListener('input', emit);
+
+  toggle.addEventListener('click', () => {
+    if (mode === 'voice') {
+      if (recording) {
+        recording = false;
+        try { recognition.stop(); } catch {}
+        if (interimText) { finalText = (finalText + ' ' + interimText).trim() + ' '; interimText = ''; }
+        setListeningChrome(false);
+      }
+      if (finalText && !typed.value) typed.value = finalText.trim();
+      voicePane.style.display = 'none';
+      typePane.style.display = '';
+      toggle.querySelector('.am-toggle-label').textContent = 'Use voice instead';
+      mode = 'type';
+      setTimeout(() => typed.focus(), 0);
+    } else {
+      if (!supported) return;
+      voicePane.style.display = '';
+      typePane.style.display = 'none';
+      toggle.querySelector('.am-toggle-label').textContent = 'Type instead';
+      mode = 'voice';
+    }
+    emit();
+  });
+
+  if (!supported) {
+    voicePane.style.display = 'none';
+    typePane.style.display = '';
+    toggle.style.display = 'none';
+  }
+
+  root.value = getText;
+  root.mode = () => mode;
+  root.stop = () => {
+    if (recording) {
+      recording = false;
+      try { recognition.stop(); } catch {}
+      if (interimText) { finalText = (finalText + ' ' + interimText).trim() + ' '; interimText = ''; }
+      paintTranscript();
+      setListeningChrome(false);
+    }
+  };
+  return root;
+}
 
 // gradient generator — keeps every hero distinct without bitmaps.
 // Hash the course id to a pair of hues, then build a layered gradient.

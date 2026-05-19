@@ -21,6 +21,9 @@ export function render(scenarioId) {
   const params = new URLSearchParams(hashQs);
   const retryCount = parseInt(params.get('retry') || '0', 10) || 0;
   const fromKa = params.get('from') === 'ka';
+  // When a scenario is run *as* a course lesson (slot 2), the route carries
+  // courseLesson=<courseId>:<lessonId> so completion can credit the lesson.
+  const [fromCourseId, fromLessonId] = (params.get('courseLesson') || '').split(':');
 
   const baseScenario = store.scenario(pureId);
   const root = document.createElement('section');
@@ -46,6 +49,13 @@ export function render(scenarioId) {
   const stepResults = []; // { stepId, choice|text, outcome, points, lastAssessment }
   let stepIdx = 0;
   let timer = null;
+  // Persistent vitals element — created on first step that needs one,
+  // then re-appended into each subsequent step's wrap. Keeping it the
+  // same DOM node preserves the heart/breath animation timing across
+  // step transitions.
+  let vitals = null;
+  let curVitals = sc.vitalsStart ? { ...sc.vitalsStart } : null;
+  let dispatchEl = null; // welcome dispatch player — cancel speech on unmount
 
   function show(node) { root.replaceChildren(node); }
 
@@ -59,7 +69,7 @@ export function render(scenarioId) {
       ? "Picking up where you left off in AlcoholEdu. "
       : '';
     const kaKicker = fromKa ? 'Knowledge Assistant · Suggested practice' : null;
-    show(ui.scenarioWelcome({
+    const welcomeCard = ui.scenarioWelcome({
       kicker: retryCount > 0 ? `Module orientation · take ${retryCount + 1}` : (kaKicker || w.kicker || sc.kicker || 'Module orientation'),
       title: w.title || 'Scenario overview',
       body: kaPrefix + (w.body || sc.context) + retrySuffix,
@@ -67,8 +77,21 @@ export function render(scenarioId) {
       reassurance: w.reassurance,
       expectedOutcome: w.expectedOutcome || sc.outcomeType,
       ctaLabel: retryCount > 0 ? 'Begin retry' : 'Begin practice',
-      onBegin: () => { stepIdx = 0; renderStep(); }
-    }));
+      onBegin: () => {
+        if (dispatchEl?.stop) dispatchEl.stop();
+        stepIdx = 0;
+        renderStep();
+      }
+    });
+    // Dispatch audio sits inside the welcome card, just above the CTA,
+    // so the learner hears the call before committing to the scene.
+    if (sc.dispatch) {
+      dispatchEl = ui.dispatchAudio(sc.dispatch);
+      const cta = welcomeCard.querySelector('.sw-cta');
+      if (cta) welcomeCard.insertBefore(dispatchEl, cta);
+      else welcomeCard.appendChild(dispatchEl);
+    }
+    show(welcomeCard);
   }
 
   // --------------------- STEP PHASE ---------------------
@@ -119,9 +142,18 @@ export function render(scenarioId) {
       if (step.tension) wrap.appendChild(ui.tensionTag(step.tension));
     }
 
+    // Live vitals — animated pulse + breathing, with haptic sync on
+    // mobile. Created once and re-attached each step so the heart
+    // animation never resets between transitions.
+    if (curVitals) {
+      if (!vitals) vitals = ui.vitalsPanel(curVitals);
+      else vitals.update(curVitals);
+      wrap.appendChild(vitals);
+    }
+
     // On non-first steps the hint isn't part of a briefing, so it
     // rides above the choices as a standalone element.
-    if (stepIdx > 0 && step.coachHint && step.input !== 'text') {
+    if (stepIdx > 0 && step.coachHint && step.input !== 'text' && step.input !== 'articulate') {
       wrap.appendChild(ui.el('div', { class: 'scn-task-hint scn-standalone-hint' },
         ui.el('span', { class: 'scn-task-hint-avatar' }, ui.icon('lightbulb')),
         ui.el('p', null, step.coachHint)));
@@ -134,6 +166,8 @@ export function render(scenarioId) {
     if (step.input === 'text') {
       if (step.prompt) wrap.appendChild(ui.scenarioPrompt({ text: step.prompt }));
       wrap.appendChild(textInput(step));
+    } else if (step.input === 'articulate') {
+      wrap.appendChild(articulateInput(step));
     } else {
       wrap.appendChild(choiceInput(step));
     }
@@ -240,6 +274,19 @@ export function render(scenarioId) {
         stepId: step.id, choice: o.id, outcome: o.outcome, points,
         assessment: assessmentFor(o, step)
       });
+
+      // Apply the option's effect on the patient: vitals shift +
+      // tension reshapes the next step. Vitals update immediately so
+      // the learner can see (and feel) the consequence before pressing
+      // Continue.
+      if (curVitals && o.vitalsDelta) {
+        if (typeof o.vitalsDelta.hr === 'number') curVitals.hr = curVitals.hr + o.vitalsDelta.hr;
+        if (typeof o.vitalsDelta.rr === 'number') curVitals.rr = curVitals.rr + o.vitalsDelta.rr;
+        if (vitals) vitals.update(curVitals);
+      }
+      if (o.nextTension && sc.steps[stepIdx + 1]) {
+        sc.steps[stepIdx + 1].tension = o.nextTension;
+      }
     }
 
     card.append(poll, explain, ctaBar);
@@ -309,9 +356,70 @@ export function render(scenarioId) {
     return card;
   }
 
+  // articulate — explain a concept to a specific audience (expert /
+  // beginner / outsider) using voice (preferred) or typing. We mock the
+  // AI analysis with keyword + length heuristics keyed to the audience,
+  // but the UX matches what a real model-backed flow would look like.
+  function articulateInput(step) {
+    const card = ui.el('div', { class: 'stack' });
+
+    card.appendChild(ui.audienceCard({ audience: step.audience, concept: step.concept }));
+
+    let captured = '';
+    const mic = ui.articulationMic({
+      audienceLabel: step.audience === 'expert' ? 'Listening — peer mode'
+        : step.audience === 'beginner' ? 'Listening — trainee mode'
+        : 'Listening — outsider mode',
+      onChange: (t) => { captured = t; submit.disabled = (t.split(/\s+/).filter(Boolean).length < 4); }
+    });
+    card.appendChild(mic);
+
+    if (step.coachHint) {
+      card.appendChild(ui.el('div', { class: 'scn-task-hint scn-standalone-hint' },
+        ui.el('span', { class: 'scn-task-hint-avatar' }, ui.icon('lightbulb')),
+        ui.el('p', null, step.coachHint)));
+    }
+
+    const feedbackSlot = ui.el('div');
+    card.appendChild(feedbackSlot);
+
+    const continueBtn = ui.el('button', { class: 'btn primary block', style: { display: 'none' }, on: { click: () => {
+      stepIdx++; renderStep();
+    }}}, 'Continue');
+
+    const submit = ui.el('button', { class: 'btn primary block cta-large', disabled: true, on: { click: () => {
+      mic.stop?.();
+      const text = (mic.value?.() || captured || '').trim();
+      const analysis = analyzeArticulation(text, step);
+      feedbackSlot.replaceChildren(renderArticulationFeedback(text, analysis, step));
+
+      stepResults.push({
+        stepId: step.id,
+        text,
+        audience: step.audience,
+        outcome: analysis.outcome,
+        points: analysis.points,
+        assessment: {
+          tone: analysis.outcome === 'good' ? 'good' : analysis.outcome === 'bad' ? 'warn' : 'info',
+          kicker: `Articulation · ${capitalize(step.audience)}`,
+          body: analysis.summary
+        }
+      });
+
+      submit.style.display = 'none';
+      continueBtn.style.display = 'block';
+      window.scrollTo({ top: feedbackSlot.offsetTop - 20, behavior: 'smooth' });
+    }}}, ui.el('span', null, 'Submit explanation'), ui.icon('arrowRight'));
+
+    card.appendChild(ui.el('div', { class: 'scn-cta-bar' }, submit, continueBtn));
+    return card;
+  }
+
   // --------------------- FINISH ---------------------
   function finish() {
     if (timer?.stop) timer.stop();
+    if (vitals?.stop) vitals.stop();
+    if (dispatchEl?.stop) dispatchEl.stop();
     const total = stepResults.reduce((s, r) => s + r.points, 0);
     const score = total / sc.steps.length;
     const result = {
@@ -325,6 +433,9 @@ export function render(scenarioId) {
       at: Date.now()
     };
     store.recordPractice(result);
+    if (fromCourseId && fromLessonId) {
+      store.markLessonComplete(fromCourseId, fromLessonId);
+    }
     location.hash = '#/practice-complete';
   }
 
@@ -368,6 +479,149 @@ function matches(criterion, text) {
 }
 
 function escape(s) { return String(s).replace(/[&<>]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+function capitalize(s) { return String(s || '').replace(/^./, (c) => c.toUpperCase()); }
+
+// analyzeArticulation — stand-in for a model-backed scoring pass. The
+// authored step provides:
+//   audience: 'expert' | 'beginner' | 'outsider'
+//   jargon:   words that signal in-the-know terminology
+//   keyPoints: must-hit anchor concepts (kept as plain strings; we match
+//              with cheap regexes via matches() below)
+// We score along three axes — depth, jargon load, and coverage — and
+// map them to a verdict. The verdict copy is built per audience because
+// "too advanced" means opposite things to a peer vs. an outsider.
+function analyzeArticulation(text, step) {
+  const t = (text || '').toLowerCase();
+  const words = t.split(/\s+/).filter(Boolean);
+  const wc = words.length;
+
+  const jargonList = step.jargon || [];
+  const jargonHits = jargonList.filter((w) => new RegExp(`\\b${w.toLowerCase()}\\b`).test(t));
+
+  const keyPoints = step.keyPoints || [];
+  const pointHits = keyPoints.map((p) => ({ point: p, hit: matches(p, t) }));
+  const coverage = keyPoints.length ? pointHits.filter((p) => p.hit).length / keyPoints.length : 0.5;
+
+  const jargonRate = jargonList.length ? jargonHits.length / jargonList.length : 0;
+
+  let verdict, outcome, summary;
+  const aud = step.audience;
+  const missed = pointHits.filter((p) => !p.hit).map((p) => p.point);
+
+  if (wc < 12) {
+    verdict = 'too-thin';
+    outcome = 'bad';
+    summary = 'Too short to land the idea. Try again with a couple of complete sentences.';
+  } else if (aud === 'expert') {
+    if (coverage >= 0.6 && jargonRate >= 0.3) {
+      verdict = 'on-target'; outcome = 'good';
+      summary = 'Sharp. You spoke at peer level and hit the anchor points an expert listener expects.';
+    } else if (jargonRate < 0.15) {
+      verdict = 'too-simple'; outcome = 'ok';
+      summary = 'A peer would tune out — you stayed on the surface. Use the precise terms and skip the basics.';
+    } else if (coverage < 0.5) {
+      verdict = 'missed-context'; outcome = 'ok';
+      summary = `You sounded credible but skipped key anchors: ${missed.slice(0,2).join(', ')}.`;
+    } else {
+      verdict = 'on-target'; outcome = 'good';
+      summary = 'Solid peer-level framing.';
+    }
+  } else if (aud === 'beginner') {
+    if (jargonRate > 0.6) {
+      verdict = 'too-advanced'; outcome = 'bad';
+      summary = 'A new trainee would be lost — too much jargon. Swap acronyms for plain words.';
+    } else if (coverage >= 0.5 && jargonRate <= 0.4 && wc >= 25) {
+      verdict = 'on-target'; outcome = 'good';
+      summary = 'Clean. Plain language, the right anchor points, and enough scaffolding for a beginner.';
+    } else if (coverage < 0.4) {
+      verdict = 'missed-context'; outcome = 'ok';
+      summary = `You went easy on jargon but skipped the why: ${missed.slice(0,2).join(', ')}.`;
+    } else {
+      verdict = 'on-target'; outcome = 'good';
+      summary = 'Workable explanation for a new trainee.';
+    }
+  } else { // outsider
+    if (jargonRate > 0.35) {
+      verdict = 'too-advanced'; outcome = 'bad';
+      summary = 'Someone outside the field would bounce off the jargon. Translate every acronym.';
+    } else if (wc < 25) {
+      verdict = 'too-simple'; outcome = 'ok';
+      summary = 'A friend would still ask "but why does it matter?" Add the stakes.';
+    } else if (coverage >= 0.4 && jargonRate <= 0.2) {
+      verdict = 'on-target'; outcome = 'good';
+      summary = 'Nice — plain-language, and you named why this matters outside your industry.';
+    } else if (coverage < 0.3) {
+      verdict = 'missed-context'; outcome = 'ok';
+      summary = `You kept it accessible but skipped the stakes: ${missed.slice(0,2).join(', ')}.`;
+    } else {
+      verdict = 'on-target'; outcome = 'good';
+      summary = 'Lands for an outsider.';
+    }
+  }
+
+  const points = outcome === 'good' ? 1 : outcome === 'ok' ? 0.6 : 0.2;
+  return { verdict, outcome, summary, pointHits, jargonHits, wc, points };
+}
+
+function verdictLabel(v) {
+  return {
+    'too-simple':     'Too simple',
+    'too-advanced':   'Too advanced',
+    'missed-context': 'Missed key context',
+    'too-thin':       'Too thin',
+    'on-target':      'On target'
+  }[v] || v;
+}
+
+function renderArticulationFeedback(text, analysis, step) {
+  const tone = analysis.outcome === 'good' ? 'good' : analysis.outcome === 'bad' ? 'bad' : 'warn';
+  const wrap = document.createElement('div');
+  wrap.className = `art-feedback t-${tone}`;
+
+  const head = document.createElement('div');
+  head.className = 'af-head';
+  const verdict = document.createElement('span');
+  verdict.className = 'af-verdict';
+  verdict.textContent = verdictLabel(analysis.verdict);
+  head.appendChild(verdict);
+  const title = document.createElement('p');
+  title.className = 'af-title';
+  title.textContent = analysis.outcome === 'good' ? 'Coach Vic — that landed' : 'Coach Vic heard the gaps';
+  head.appendChild(title);
+  wrap.appendChild(head);
+
+  const body = document.createElement('p');
+  body.className = 'af-body';
+  body.textContent = analysis.summary;
+  wrap.appendChild(body);
+
+  if (analysis.pointHits && analysis.pointHits.length) {
+    const ul = document.createElement('ul');
+    ul.className = 'af-hits';
+    analysis.pointHits.forEach((p) => {
+      const li = document.createElement('li');
+      li.className = p.hit ? 'hit' : 'miss';
+      const mark = document.createElement('span');
+      mark.className = 'af-mark';
+      mark.textContent = p.hit ? '✓' : '·';
+      const span = document.createElement('span');
+      span.textContent = p.point;
+      li.append(mark, span);
+      ul.appendChild(li);
+    });
+    wrap.appendChild(ul);
+  }
+
+  if (text) {
+    const q = document.createElement('div');
+    q.className = 'art-quote';
+    q.textContent = '"' + text + '"';
+    wrap.appendChild(q);
+  }
+
+  return wrap;
+}
 
 // variantOf — return a clone of the scenario with options reordered
 // using a deterministic shuffle keyed on the retry count. The seed is
