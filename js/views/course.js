@@ -4,7 +4,7 @@
 // status panel, coach message, primary CTA).
 
 import { store } from '../store.js';
-import * as ui from '../ui.js';
+import * as ui from '../ui.js?v=course-flow-1';
 import { isAtLeast } from '../phase.js';
 
 export function render(courseId) {
@@ -101,25 +101,35 @@ export function render(courseId) {
     root.appendChild(banner);
   }
 
-  // 7. Lessons — with optional skip suggestion chips for adaptive courses
+  // 7. Lessons — explicit done/current/locked status so the learner can
+  // tell at a glance where they are without reading the labels.
   root.appendChild(ui.sectionHeader('Lessons'));
+  const completedLessons = store.state.mastery.completedLessons?.[course.id] ?? [];
   const skipMap = new Map((course.skipChips || []).map((s) => [s.lessonId, s]));
   for (let i = 0; i < course.lessons.length; i++) {
     const ch = course.lessons[i];
     const isCurrent = progress?.lesson === ch.id;
+    const isDone = completedLessons.includes(ch.id);
+    const status = isDone ? 'done' : isCurrent ? 'current' : 'upcoming';
     const skip = skipMap.get(ch.id);
     const isScenario = ch.type === 'scenario';
     const subParts = [`${ch.minutes} min`];
     if (isScenario) subParts.unshift('Practice');
-    if (isCurrent) subParts.push('You are here');
     if (skip) subParts.push(skip.label);
-    root.appendChild(ui.rowCard({
-      glyph: isScenario ? 'flag' : (skip ? 'sparkle' : (isCurrent ? 'bolt' : 'doc')),
-      title: `${i+1}. ${ch.title}`,
-      sub: subParts.join(' · '),
-      href: `#/course/${course.id}/lesson/${ch.id}`,
-      kebab: false
-    }));
+
+    const card = ui.el('a', {
+      class: `lesson-row-card ${status}`,
+      href: `#/course/${course.id}/lesson/${ch.id}`
+    });
+    card.appendChild(ui.el('div', { class: 'lrc-num' }, String(i + 1).padStart(2, '0')));
+    card.appendChild(ui.el('div', { class: 'lrc-body' },
+      ui.el('strong', null, ch.title),
+      ui.el('small', null, subParts.join(' · '))
+    ));
+    const statusGlyph = isDone ? 'check' : isCurrent ? 'arrowRight' : 'chevron';
+    card.appendChild(ui.el('div', { class: 'lrc-status' }, ui.icon(statusGlyph)));
+    root.appendChild(card);
+
     if (skip?.rationale) {
       root.appendChild(ui.el('p', { class: 'tiny muted', style: { margin: '-6px 12px 8px' } }, skip.rationale));
     }

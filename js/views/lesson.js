@@ -15,7 +15,7 @@
 // hidden so the lesson surface owns the screen.
 
 import { store } from '../store.js';
-import * as ui from '../ui.js';
+import * as ui from '../ui.js?v=course-flow-1';
 
 export function render(courseId, lessonId) {
   const course = store.course(courseId);
@@ -48,8 +48,11 @@ export function render(courseId, lessonId) {
   if (pollBlocks.length)  phases.push('check');
   phases.push('recap');
 
-  const phaseLabels = { watch: 'Watch', learn: 'Learn', check: 'Check', recap: 'Recap' };
-  const stepLabels = phases.map((p) => phaseLabels[p]);
+  // In-lesson stepper covers learning steps only — Recap is treated as
+  // a distinct "Lesson complete" checkpoint screen, not a fourth step.
+  const learningPhases = phases.filter((p) => p !== 'recap');
+  const phaseLabels = { watch: 'Watch', learn: 'Learn', check: 'Check' };
+  const stepLabels = learningPhases.map((p) => phaseLabels[p]);
 
   let cursor = 0;
 
@@ -68,33 +71,36 @@ export function render(courseId, lessonId) {
 
   function buildPhase(name) {
     const wrap = ui.el('section', { class: 'chap-phase' });
-    wrap.appendChild(buildHeader(name));
 
-    if (name === 'watch') wrap.appendChild(buildWatch());
-    if (name === 'learn') wrap.appendChild(buildLearn());
-    if (name === 'check') wrap.appendChild(buildCheck());
-    if (name === 'recap') wrap.appendChild(buildRecap());
+    if (name === 'recap') {
+      wrap.classList.add('chap-checkpoint');
+      wrap.appendChild(buildRecap());
+    } else {
+      wrap.appendChild(buildHeader(name));
+      if (name === 'watch') wrap.appendChild(buildWatch());
+      if (name === 'learn') wrap.appendChild(buildLearn());
+      if (name === 'check') wrap.appendChild(buildCheck());
+    }
 
     wrap.appendChild(ui.stickyFooter({ children: footerCta(name) }));
     return wrap;
   }
 
-  // Unified header: kicker + title + tight inline step strip. The strip
-  // is part of the header (an orientation cue) not part of the learning
-  // content below it.
+  // Unified header: course-level strip + kicker + title + within-lesson
+  // step indicator. The strip answers "which lesson?", the indicator
+  // answers "where in this lesson?".
   function buildHeader(name) {
     const header = ui.el('header', { class: 'lesson-head' });
     const kicker = ui.el('div', { class: 'ch-kicker' });
-    if (lesson.kicker) {
-      kicker.textContent = lesson.kicker;
-    } else {
-      kicker.appendChild(ui.el('div', null, course.title));
-      kicker.appendChild(ui.el('div', { class: 'ch-kicker-sub' }, `Lesson ${idx + 1} of ${total}`));
-    }
+    kicker.appendChild(ui.el('div', null, lesson.kicker || course.title));
+    kicker.appendChild(ui.el('div', { class: 'ch-kicker-sub' },
+      `Lesson ${String(idx + 1).padStart(2, '0')} of ${String(total).padStart(2, '0')}`));
     header.appendChild(kicker);
-    const title = name === 'recap' ? `${lesson.title} · Lesson recap` : lesson.title;
-    header.appendChild(ui.el('h2', { class: 'ch-title' }, title));
-    header.appendChild(ui.stepIndicator({ steps: stepLabels, current: cursor, variant: 'header' }));
+    header.appendChild(ui.el('h2', { class: 'ch-title' }, lesson.title));
+    const learningIdx = learningPhases.indexOf(name);
+    if (learningIdx >= 0 && stepLabels.length > 1) {
+      header.appendChild(ui.stepIndicator({ steps: stepLabels, current: learningIdx, variant: 'header' }));
+    }
     return header;
   }
 
@@ -103,7 +109,7 @@ export function render(courseId, lessonId) {
       watch: 'Continue',
       learn: phases.includes('check') ? 'Continue to check' : 'Continue',
       check: 'Continue to recap',
-      recap: next ? 'Mark complete & continue' : 'Mark complete'
+      recap: next ? `Continue to Lesson ${String(idx + 2).padStart(2, '0')}` : 'Finish course'
     };
     return ui.el('button', { class: 'btn primary block cta-large', on: { click: advance } },
       ui.el('span', null, labels[name]),
@@ -238,13 +244,75 @@ export function render(courseId, lessonId) {
     return stack;
   }
 
+  // Light confetti burst — sits behind the seal and clears itself.
+  // Suppressed under prefers-reduced-motion via CSS.
+  function buildConfetti() {
+    const wrap = ui.el('div', { class: 'checkpoint-confetti', 'aria-hidden': 'true' });
+    const colors = ['var(--accent)', 'var(--accent-2)', 'var(--good)', 'var(--warn)'];
+    for (let i = 0; i < 16; i++) {
+      const piece = ui.el('span', { class: 'cc-piece' });
+      const left = Math.random() * 100;
+      const delay = Math.random() * 0.25;
+      const dur = 1.1 + Math.random() * 0.7;
+      const rot = Math.random() * 360;
+      const size = 5 + Math.random() * 5;
+      Object.assign(piece.style, {
+        left: left + '%',
+        background: colors[i % colors.length],
+        width: size + 'px',
+        height: (size * 1.5) + 'px',
+        animationDelay: delay + 's',
+        animationDuration: dur + 's',
+        transform: `rotate(${rot}deg)`
+      });
+      wrap.appendChild(piece);
+    }
+    return wrap;
+  }
+
   // ---------- RECAP ----------
+  // Rendered as a distinct "Lesson complete" checkpoint — visually
+  // separated from the in-lesson steps above so the learner reads it as
+  // a milestone, not another phase to grind through.
   function buildRecap() {
     const stack = ui.el('div', { class: 'stack' });
 
     const pw = store.state.industry?.language?.practiceWord || 'scenario';
-    stack.appendChild(ui.el('p', { class: 'lesson-instruction' },
-      `You've finished the main content. Save it for later, or lock it in with a quick ${pw}.`));
+    const doneCount = completed + 1;     // this lesson is about to be marked complete
+    const pct = Math.round((doneCount / total) * 100);
+
+    // Celebratory header: seal + lesson-title eyebrow + completion title.
+    // Confetti pops on mount; CSS animation handles the rest.
+    const head = ui.el('div', { class: 'checkpoint-head' });
+    head.appendChild(buildConfetti());
+    head.appendChild(ui.el('div', { class: 'checkpoint-seal', 'aria-hidden': 'true' }, ui.icon('check')));
+    head.appendChild(ui.el('div', { class: 'checkpoint-eyebrow' }, lesson.title));
+    head.appendChild(ui.el('h2', { class: 'checkpoint-title' },
+      `Lesson ${String(idx + 1).padStart(2, '0')} complete`));
+    head.appendChild(ui.el('p', { class: 'checkpoint-lede' },
+      next
+        ? `Nice work. ${doneCount} of ${total} done — let's keep the momentum.`
+        : `That's the last lesson. One tap to finish the course.`));
+    stack.appendChild(head);
+
+    // Stats grid
+    const minutes = course.lessons.slice(0, doneCount).reduce((s, l) => s + (l.minutes || 0), 0);
+    stack.appendChild(ui.el('div', { class: 'checkpoint-grid' },
+      ui.el('div', { class: 'cp-cell' },
+        ui.el('div', { class: 'cp-v' }, `${doneCount}`,
+          ui.el('span', { class: 'cp-v-sub' }, `/${total}`)),
+        ui.el('div', { class: 'cp-k' }, 'Lessons')),
+      ui.el('div', { class: 'cp-cell' },
+        ui.el('div', { class: 'cp-v' }, `${minutes}`,
+          ui.el('span', { class: 'cp-v-sub' }, 'min')),
+        ui.el('div', { class: 'cp-k' }, 'Invested')),
+      ui.el('div', { class: 'cp-cell' },
+        ui.el('div', { class: 'cp-v' }, `${pct}%`),
+        ui.el('div', { class: 'cp-k' }, 'Progress'))
+    ));
+
+    stack.appendChild(ui.el('p', { class: 'lesson-instruction', style: { marginTop: '4px' } },
+      `Save this lesson for later, or lock it in with a quick ${pw}.`));
 
     // Save (bookmark) — Mark complete lives in the footer CTA below.
     const isSaved = store.state.mastery.saved.includes(course.id);
@@ -290,18 +358,11 @@ export function render(courseId, lessonId) {
       ));
     }
 
-    stack.appendChild(ui.sectionHeader('Course progress'));
-    stack.appendChild(ui.progressMini({
-      percent: Math.round((completed / total) * 100),
-      completed, total,
-      label: `${course.title} · ${completed} of ${total} lessons`
-    }));
-
     if (next) {
-      stack.appendChild(ui.sectionHeader('Next up'));
+      stack.appendChild(ui.sectionHeader('Up next'));
       stack.appendChild(ui.nextUpCard({
         title: next.title,
-        subtitle: `${next.minutes} min · Video & content`,
+        subtitle: `${next.minutes} min · Lesson ${String(idx + 2).padStart(2, '0')} of ${String(total).padStart(2, '0')}`,
         href: `#/course/${course.id}/lesson/${next.id}`,
         initials: String(idx + 2)
       }));

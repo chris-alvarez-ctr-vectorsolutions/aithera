@@ -90,6 +90,22 @@ export function progressBar(percent) {
   return p;
 }
 
+// courseProgressStrip — segmented bar showing course-level lesson
+// progress. Lives at the top of every lesson screen so the learner
+// always knows which lesson of N they're on, independent of the
+// within-lesson Watch/Learn/Check step indicator below.
+export function courseProgressStrip({ total, currentIndex, completed = currentIndex, label }) {
+  const wrap = el('div', { class: 'course-strip' });
+  if (label) wrap.appendChild(el('div', { class: 'cs-label' }, label));
+  const bar = el('div', { class: 'cs-bar' });
+  for (let i = 0; i < total; i++) {
+    const cls = i < completed ? 'done' : i === currentIndex ? 'cur' : '';
+    bar.appendChild(el('span', { class: `cs-seg ${cls}` }));
+  }
+  wrap.appendChild(bar);
+  return wrap;
+}
+
 export function sectionHeader(label, link) {
   return el('div', { class: 'section-h' },
     el('h2', null, label),
@@ -532,6 +548,7 @@ export function stepIndicator({ steps, current, variant }) {
   const wrap = el('div', { class: `step-ind${variant ? ` ${variant}` : ''}` });
   const meta = el('div', { class: 'si-meta' },
     el('span', { class: 'si-pos' }, `Step ${current + 1} of ${steps.length}`),
+    el('span', { class: 'si-sep', 'aria-hidden': 'true' }, '·'),
     el('span', { class: 'si-name' }, steps[current])
   );
   const dots = el('div', { class: 'si-dots' });

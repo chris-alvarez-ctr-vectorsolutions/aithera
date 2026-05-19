@@ -9,7 +9,7 @@
 // Composed entirely from ui.js primitives.
 
 import { store } from '../store.js';
-import * as ui from '../ui.js';
+import * as ui from '../ui.js?v=course-flow-1';
 
 export function render(scenarioId) {
   // Hash may carry a ?retry=N or ?from=ka suffix. The router strips the
