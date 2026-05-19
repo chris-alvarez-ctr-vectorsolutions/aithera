@@ -390,7 +390,10 @@
   <div class="ap-head">Author mode</div>
   <div class="ap-row"><span>Center</span><code id="apCenter">—</code></div>
   <div class="ap-row"><span>Zoom</span><code id="apZoom">—</code></div>
-  <div class="ap-section">Fires</div>
+  <div class="ap-section">
+    Fires
+    <button class="ap-add" id="apAddFire" title="Click, then tap the map">+ Add</button>
+  </div>
   <div id="apFires"></div>
   <div class="ap-section">
     Hydrants
@@ -398,7 +401,7 @@
   </div>
   <div id="apHyds"></div>
   <button class="ap-copy" id="apCopy">Copy constants</button>
-  <div class="ap-tip">Drag flames or hydrants to reposition. Tap <em>+ Add</em>, then tap the map to drop a new hydrant.</div>
+  <div class="ap-tip">Drag flames or hydrants to reposition. Tap a <em>+ Add</em> button, then tap the map to drop a new fire or hydrant. Use <em>×</em> to remove.</div>
 </div>
 <div class="wind-badge">
   <div class="wind-arrow"><svg id="windSvg" width="14" height="14" viewBox="0 0 14 14"><path d="M7 1 L7 13 M3 5 L7 1 L11 5" stroke="#fff" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
@@ -470,16 +473,16 @@
  * fires and read out new coordinates; geometry is computed from these
  * positions, so any downtown grid will grade correctly.
  */
-const MAP_CENTER   = [41.87975, -87.62620];
+const MAP_CENTER   = [41.87401, -87.64030];
 const MAP_ZOOM     = 19;
-// Two involved structures (2-alarm). Mutable so author mode can drag them.
+// Involved structures (mutable so author mode can add/drag/remove).
 const FIRES = [
-  { lat: 41.87963, lng: -87.62588 }, // primary structure
-  { lat: 41.87975, lng: -87.62558 }  // exposure now fully involved
+  { lat: 41.87391, lng: -87.64010 },
+  { lat: 41.87395, lng: -87.63992 }
 ];
 const HYDRANTS = [
-  { lat: 41.87950, lng: -87.62695 }, // west on Adams (upwind)
-  { lat: 41.88010, lng: -87.62570 }  // north on Wabash
+  { lat: 41.87460, lng: -87.63976 },
+  { lat: 41.87421, lng: -87.64085 }
 ];
 // Wind blowing FROM west TO east. Upwind = west of fires.
 const WIND_BEARING = 90; // degrees (0=N, 90=E); the direction wind is *heading*
@@ -505,7 +508,7 @@ const WORLD_SIZE = {
   crew:    { w: 5,  h: 5,   minPx: 22 },
   block:   { w: 6,  h: 4,   minPx: 18 },
   fire:    { w: 9,  h: 9,   minPx: 24 },
-  hydrant: { w: 3,  h: 3,   minPx: 14 }
+  hydrant: { w: 3,  h: 4,   minPx: 22 }
 };
 function metersPerPixel(lat, zoom) {
   return 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom);
@@ -520,12 +523,19 @@ function sizeFor(typeId) {
 }
 
 // Distance to the nearest involved structure — the cluster, not one point.
+// Author mode can remove all fires; rules that depend on a fire get
+// `Infinity` and naturally read as "no fire placed" failures.
 function nearestFireDist(p) {
+  if (!FIRES.length) return Infinity;
   return Math.min(...FIRES.map(f => distM([f.lat, f.lng], p)));
 }
 // Centroid of all involved structures — used for upwind/downwind bearings
 // so the smoke plume is computed off the whole fire footprint.
 function fireCentroid() {
+  if (!FIRES.length) {
+    const c = map.getCenter();
+    return [c.lat, c.lng];
+  }
   const lat = FIRES.reduce((s, f) => s + f.lat, 0) / FIRES.length;
   const lng = FIRES.reduce((s, f) => s + f.lng, 0) / FIRES.length;
   return [lat, lng];
@@ -690,14 +700,28 @@ const SVG = {
       <circle class="ember ember-3" cx="20" cy="12" r="0.7" fill="#fff7c0"/>
     </svg>`,
   hydrant: `
-    <svg viewBox="0 0 26 26" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="13" cy="13" r="11" fill="#1e3a8a" stroke="#f8fafc" stroke-width="1.5"/>
-      <circle cx="13" cy="13" r="4" fill="#fbbf24"/>
-      <rect x="11.5" y="11.5" width="3" height="3" fill="#0b1220"/>
-      <circle cx="13" cy="4.5" r="2" fill="#fbbf24" stroke="#0b1220" stroke-width="0.5"/>
-      <circle cx="13" cy="21.5" r="2" fill="#fbbf24" stroke="#0b1220" stroke-width="0.5"/>
-      <circle cx="4.5" cy="13" r="2" fill="#fbbf24" stroke="#0b1220" stroke-width="0.5"/>
-      <circle cx="21.5" cy="13" r="2" fill="#fbbf24" stroke="#0b1220" stroke-width="0.5"/>
+    <svg viewBox="0 0 22 28" xmlns="http://www.w3.org/2000/svg">
+      <!-- Locator halo so it pops against busy satellite imagery -->
+      <circle cx="11" cy="14" r="13" fill="rgba(62,200,255,0.0)"
+        stroke="#3ec8ff" stroke-width="1.2" opacity="0.85"/>
+      <!-- Base plate -->
+      <rect x="2" y="23" width="18" height="4" rx="0.8"
+        fill="#1f2937" stroke="#0a0a0a" stroke-width="0.8"/>
+      <!-- Barrel (yellow body, dark outline for contrast on light pavement) -->
+      <rect x="6" y="9" width="10" height="15" rx="1"
+        fill="#fbbf24" stroke="#0a0a0a" stroke-width="1.2"/>
+      <!-- Side nozzles (caps) -->
+      <rect x="1"  y="13" width="5" height="5" rx="0.8"
+        fill="#fbbf24" stroke="#0a0a0a" stroke-width="1"/>
+      <rect x="16" y="13" width="5" height="5" rx="0.8"
+        fill="#fbbf24" stroke="#0a0a0a" stroke-width="1"/>
+      <!-- Bonnet (red dome) -->
+      <path d="M5 9 Q11 3 17 9 Z"
+        fill="#dc2626" stroke="#0a0a0a" stroke-width="1.2"/>
+      <!-- Bonnet bolt -->
+      <circle cx="11" cy="6.5" r="1.2" fill="#0a0a0a"/>
+      <!-- Center label band so it reads at any scale -->
+      <rect x="6" y="14" width="10" height="2" fill="#0a0a0a" opacity="0.4"/>
     </svg>`
 };
 
@@ -847,7 +871,8 @@ function pinIcon(svg, cls) {
 }
 // Fire markers — interactive + draggable in author mode so the scenario
 // can be re-staged to any city block without code changes.
-const fireMarkers = FIRES.map((f, i) => {
+const fireMarkers = [];
+function addFireMarker(f) {
   const m = L.marker([f.lat, f.lng], {
     icon: pinIcon(SVG.fire, 'fire'),
     interactive: AUTHOR_MODE,
@@ -856,13 +881,27 @@ const fireMarkers = FIRES.map((f, i) => {
   }).addTo(map);
   if (AUTHOR_MODE) {
     m.on('drag', (e) => {
-      FIRES[i].lat = e.latlng.lat;
-      FIRES[i].lng = e.latlng.lng;
+      const idx = fireMarkers.indexOf(m);
+      FIRES[idx].lat = e.latlng.lat;
+      FIRES[idx].lng = e.latlng.lng;
       updateAuthorPanel();
     });
   }
-  return m;
-});
+  fireMarkers.push(m);
+}
+FIRES.forEach(addFireMarker);
+
+function addFireAt(lat, lng) {
+  FIRES.push({ lat, lng });
+  addFireMarker(FIRES[FIRES.length - 1]);
+  updateAuthorPanel();
+}
+function removeFireAt(i) {
+  map.removeLayer(fireMarkers[i]);
+  fireMarkers.splice(i, 1);
+  FIRES.splice(i, 1);
+  updateAuthorPanel();
+}
 const hydrantMarkers = [];
 function addHydrantMarker(h, i) {
   const m = L.marker([h.lat, h.lng], {
@@ -1195,8 +1234,9 @@ submitBtn.disabled = false;
  * Author mode: live readout of fire / hydrant coords + map center & zoom.
  * Append `?author=1` to enable; drag the flame markers to reposition fires.
  * ========================================================================= */
-// Tracks the "+ Add" arming state for hydrants.
-let armedAddHydrant = false;
+// Which "+ Add" mode is armed, if any: 'fire' | 'hydrant' | null.
+// Only one can be armed at a time; the next map click consumes it.
+let armedAdd = null;
 
 function updateAuthorPanel() {
   if (!AUTHOR_MODE) return;
@@ -1205,41 +1245,56 @@ function updateAuthorPanel() {
     `${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}`;
   document.getElementById('apZoom').textContent = map.getZoom().toFixed(1);
   document.getElementById('apFires').innerHTML = FIRES.map((f, i) =>
-    `<div class="ap-row"><span>${i+1}</span><code>${f.lat.toFixed(5)}, ${f.lng.toFixed(5)}</code></div>`
+    `<div class="ap-row">
+      <span>${i+1}</span>
+      <code>${f.lat.toFixed(5)}, ${f.lng.toFixed(5)}</code>
+      <button class="ap-del" data-kind="fire" data-i="${i}" title="Remove">×</button>
+    </div>`
   ).join('');
   document.getElementById('apHyds').innerHTML = HYDRANTS.map((h, i) =>
     `<div class="ap-row">
       <span>${String.fromCharCode(65 + i)}</span>
       <code>${h.lat.toFixed(5)}, ${h.lng.toFixed(5)}</code>
-      <button class="ap-del" data-i="${i}" title="Remove">×</button>
+      <button class="ap-del" data-kind="hydrant" data-i="${i}" title="Remove">×</button>
     </div>`
   ).join('');
   // Re-bind delete buttons (innerHTML wipes listeners).
-  document.querySelectorAll('#apHyds .ap-del').forEach(btn => {
-    btn.onclick = () => removeHydrantAt(Number(btn.dataset.i));
+  document.querySelectorAll('#authorPanel .ap-del').forEach(btn => {
+    btn.onclick = () => {
+      const i = Number(btn.dataset.i);
+      if (btn.dataset.kind === 'fire') removeFireAt(i);
+      else removeHydrantAt(i);
+    };
   });
+}
+
+function armAdd(kind) {
+  // Toggle this kind; clear any other armed kind so only one stays active.
+  armedAdd = (armedAdd === kind) ? null : kind;
+  for (const [k, btn] of Object.entries({
+    fire: document.getElementById('apAddFire'),
+    hydrant: document.getElementById('apAddHyd')
+  })) {
+    const on = armedAdd === k;
+    btn.classList.toggle('armed', on);
+    btn.textContent = on ? 'Tap the map…' : '+ Add';
+  }
 }
 if (AUTHOR_MODE) {
   document.getElementById('authorPanel').hidden = false;
   map.on('move zoom', updateAuthorPanel);
   updateAuthorPanel();
 
-  // "+ Add" arms the next map click to drop a hydrant. The map click
-  // handler runs before this one (registered above), but it ignores the
-  // click when no asset tool is selected — so this handler gets a clean
-  // shot at the same event.
-  const addBtn = document.getElementById('apAddHyd');
-  addBtn.onclick = () => {
-    armedAddHydrant = !armedAddHydrant;
-    addBtn.classList.toggle('armed', armedAddHydrant);
-    addBtn.textContent = armedAddHydrant ? 'Tap the map…' : '+ Add';
-  };
+  // The "+ Add" buttons arm the next map click to drop a new fire or
+  // hydrant. The placement handler above ignores clicks when no asset
+  // tool is active, so the same event reaches this handler cleanly.
+  document.getElementById('apAddFire').onclick = () => armAdd('fire');
+  document.getElementById('apAddHyd').onclick  = () => armAdd('hydrant');
   map.on('click', (e) => {
-    if (!armedAddHydrant) return;
-    addHydrantAt(e.latlng.lat, e.latlng.lng);
-    armedAddHydrant = false;
-    addBtn.classList.remove('armed');
-    addBtn.textContent = '+ Add';
+    if (!armedAdd) return;
+    if (armedAdd === 'fire')    addFireAt(e.latlng.lat, e.latlng.lng);
+    if (armedAdd === 'hydrant') addHydrantAt(e.latlng.lat, e.latlng.lng);
+    armAdd(armedAdd); // toggles off
   });
 
   document.getElementById('apCopy').onclick = (e) => {
