@@ -135,13 +135,19 @@ export function brandLogo() {
   return wrap;
 }
 
-// readinessCard — the home dashboard centerpiece. Big level, sparkline,
-// scale, coach note, and a collapsible "what moved it" breakdown with a
-// primary CTA at the bottom.
+// readinessCard — the home dashboard centerpiece. Band headline,
+// sparkline, you-vs-peers scale, coach note, optional "what moved it"
+// breakdown and refresher CTA.
+//
+// `band` is one of 'behind' | 'on-track' | 'ahead' and drives the
+// headline + tone of the scale. `peerLevel` is the cohort average shown
+// as a second pin on the scale. The precise score (`level`) is still
+// used to position the YOU pin but is no longer displayed numerically.
 export function readinessCard({
   level,
-  delta = 0,
-  status = 'good',
+  band = 'on-track',
+  peerLevel = 70,
+  headline,
   trend = [],
   movers = [],
   coachNote,
@@ -149,43 +155,31 @@ export function readinessCard({
   ctaHref = '#/coach',
   visibleMovers = 2
 }) {
-  const statusMeta = {
-    'action-needed': { label: 'Action needed', cls: 'rs-bad'  },
-    'watch':         { label: 'Watch',         cls: 'rs-warn' },
-    'good':          { label: 'On track',      cls: 'rs-good' }
-  }[status] || { label: '', cls: '' };
+  const bandMeta = {
+    'behind':   { cls: 'rs-warn', headline: "Let's level up." },
+    'on-track': { cls: 'rs-good', headline: "You're on track." },
+    'ahead':    { cls: 'rs-ahead', headline: "You're ahead of the pack." }
+  }[band] || { cls: 'rs-good', headline: "You're on track." };
 
-  const deltaPill = delta !== 0
-    ? el('span', { class: `rd-delta ${delta < 0 ? 'down' : 'up'}` },
-        el('span', null, `${delta < 0 ? '↓' : '↑'} ${Math.abs(delta)}`))
-    : null;
+  const card = el('div', { class: `readiness-card r-${bandMeta.cls}` });
 
-  const card = el('div', { class: `readiness-card r-${statusMeta.cls}` });
-
-  // Header: kicker + status pill
+  // Header: kicker only — band tone is carried by the headline below
   card.appendChild(el('div', { class: 'rd-head' },
-    el('span', { class: 'rd-kicker' }, 'Readiness level'),
-    el('span', { class: `rd-status ${statusMeta.cls}` },
-      el('span', { class: 'rd-status-dot', 'aria-hidden': 'true' }),
-      el('span', null, statusMeta.label))
+    el('span', { class: 'rd-kicker' }, 'Development level')
   ));
 
-  // Big number row + sparkline
-  const numCol = el('div', { class: 'rd-numcol' },
-    el('div', { class: 'rd-num' },
-      el('strong', null, String(level)),
-      el('span', { class: 'rd-pct' }, '%'),
-      deltaPill
-    )
+  // Headline row + sparkline
+  const headCol = el('div', { class: 'rd-headcol' },
+    el('h2', { class: 'rd-headline' }, headline || bandMeta.headline)
   );
   const sparkCol = el('div', { class: 'rd-sparkcol' },
-    sparkline(trend, status),
+    sparkline(trend, band),
     el('small', { class: 'rd-spark-label' }, 'Last 30 days')
   );
-  card.appendChild(el('div', { class: 'rd-row' }, numCol, sparkCol));
+  card.appendChild(el('div', { class: 'rd-row' }, headCol, sparkCol));
 
-  // Scale 0–50–100
-  card.appendChild(readinessScale(level));
+  // You-vs-peers scale
+  card.appendChild(readinessScale(level, peerLevel));
 
   // Coach note
   if (coachNote) {
@@ -254,23 +248,46 @@ function moverRow(m) {
   );
 }
 
-function readinessScale(level) {
-  const pct = Math.max(0, Math.min(100, level));
+function readinessScale(level, peerLevel) {
+  const youPct = Math.max(0, Math.min(100, level));
+  const peerPct = Math.max(0, Math.min(100, peerLevel));
   const wrap = el('div', { class: 'rd-scale' });
+
+  // When the two values land within ~10% of each other, the precise gap
+  // doesn't carry meaning — collapse into a single "you & your peers"
+  // marker at the midpoint so the bar stays calm.
+  if (Math.abs(youPct - peerPct) < 10) {
+    const midPct = (youPct + peerPct) / 2;
+    wrap.innerHTML = `
+      <div class="rd-scale-track">
+        <div class="rd-pin rd-pin-merged" style="left:${midPct}%">
+          <span class="rd-pin-label">You &amp; your peers</span>
+          <span class="rd-pin-stem" aria-hidden="true"></span>
+          <span class="rd-pin-dot rd-pin-dot-merged" aria-hidden="true"></span>
+        </div>
+      </div>
+    `;
+    return wrap;
+  }
+
   wrap.innerHTML = `
     <div class="rd-scale-track">
-      <div class="rd-scale-fill" style="width:${pct}%"></div>
-      <div class="rd-scale-tick" style="left:50%"></div>
-      <div class="rd-scale-knob" style="left:${pct}%"></div>
-    </div>
-    <div class="rd-scale-labels">
-      <span>0</span><span>50</span><span>100</span>
+      <div class="rd-pin rd-pin-peers" style="left:${peerPct}%">
+        <span class="rd-pin-label">Your peers</span>
+        <span class="rd-pin-stem" aria-hidden="true"></span>
+        <span class="rd-pin-dot" aria-hidden="true"></span>
+      </div>
+      <div class="rd-pin rd-pin-you" style="left:${youPct}%">
+        <span class="rd-pin-dot" aria-hidden="true"></span>
+        <span class="rd-pin-stem" aria-hidden="true"></span>
+        <span class="rd-pin-label">You</span>
+      </div>
     </div>
   `;
   return wrap;
 }
 
-function sparkline(values, status) {
+function sparkline(values, band) {
   if (!values || values.length < 2) {
     return el('div', { class: 'rd-spark' });
   }
@@ -286,8 +303,8 @@ function sparkline(values, status) {
   });
   const d = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
   const fillD = `${d} L${pts[pts.length-1][0].toFixed(1)} ${h} L${pts[0][0].toFixed(1)} ${h} Z`;
-  const stroke = status === 'action-needed' ? 'var(--bad)'
-    : status === 'watch' ? 'var(--warn)' : 'var(--good)';
+  const stroke = band === 'behind' ? 'var(--warn)'
+    : band === 'ahead' ? 'var(--accent)' : 'var(--good)';
   const wrap = el('div', { class: 'rd-spark' });
   wrap.innerHTML = `
     <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">

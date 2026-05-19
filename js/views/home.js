@@ -61,8 +61,11 @@ export function render() {
   const snap = readinessForPhase(phase);
   if (snap) {
     root.appendChild(ui.readinessCard({
-      level: snap.level, delta: snap.delta, status: snap.status,
-      trend: snap.trend, movers: snap.movers,
+      level: snap.level,
+      band: snap.band,
+      peerLevel: snap.peerLevel,
+      trend: snap.trend,
+      movers: snap.movers,
       coachNote: noteFor(snap, phase),
       ctaHref: snap.ctaHref
     }));
@@ -227,13 +230,17 @@ function readinessForPhase(phase) {
   const avg = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0.7;
   const baseLevel = Math.round(avg * 100);
 
+  // Peer cohort average — fixed reference point that the learner's
+  // level is compared against to derive the band. Held constant so the
+  // YOU pin moves naturally as mastery shifts across phases.
+  const peerLevel = 72;
+
   // Phases 1–3: clean, neutral. No movers, no refresher CTA.
   if (phase < 4) {
-    const status = baseLevel < 50 ? 'action-needed' : baseLevel < 75 ? 'watch' : 'good';
     return {
       level: baseLevel,
-      delta: 0,
-      status,
+      band: bandFor(baseLevel, peerLevel),
+      peerLevel,
       trend: synthTrend(baseLevel),
       movers: [],
       ctaHref: null
@@ -276,12 +283,21 @@ function readinessForPhase(phase) {
   const proactive = personaScenarioForPhase(4);
   return {
     level: dropLevel,
-    delta: dropDelta,
-    status: 'action-needed',
+    band: bandFor(dropLevel, peerLevel),
+    peerLevel,
     trend: synthTrend(dropLevel, dropDelta),
     movers,
     ctaHref: proactive ? `#/practice/${proactive.id}` : '#/coach'
   };
+}
+
+// Three-band classifier. The threshold is wider than the visual pin
+// separation so a tiny gap doesn't flip the headline — learners read as
+// "on track" when they're within striking distance of the peer average.
+function bandFor(level, peer) {
+  if (level <= peer - 8) return 'behind';
+  if (level >= peer + 8) return 'ahead';
+  return 'on-track';
 }
 
 function conceptLabel(cid) {
@@ -328,9 +344,9 @@ function noteFor(snap, phase) {
   if (phase === 3) return 'Your recent practice unlocked a tailored course. Open it when you\'re ready.';
   if (phase === 2) return 'Practice locked in some gains. Standalone scenarios will widen the base.';
   const top = snap.movers?.find?.((m) => m.direction === 'down');
-  if (snap.status === 'action-needed') return 'Several gaps opened up. Let\'s close the biggest one first — 8 min.';
-  if (snap.status === 'watch')         return `You're holding steady. A short refresh on ${top?.title ?? 'one weak area'} keeps you in the green.`;
-  return `Strong shape. A 5-minute ${pw} keeps the streak going.`;
+  if (snap.band === 'behind') return `Your peers are slightly ahead. A short ${pw} on ${top?.title ?? 'one weak area'} closes the gap.`;
+  if (snap.band === 'ahead')  return 'No practice needed now — you\'re ahead of the cohort. Nice work.';
+  return `You're tracking with your peers. A 5-minute ${pw} keeps it that way.`;
 }
 
 // ---------- policy modal ----------
