@@ -162,8 +162,12 @@ export const store = {
     state.mastery.recentPractice.unshift(result);
     state.mastery.recentPractice = state.mastery.recentPractice.slice(0, 10);
     // Bump concept mastery based on outcomes (simple, visible adaptive bump).
+    // Seed unseen concepts at max(0.5, current avg) so introducing a new
+    // concept can never pull the learner's overall readiness down — a
+    // completed practice should only move readiness up or hold it flat.
+    const seedFloor = Math.max(0.5, before / 100);
     for (const cid of result.concepts ?? []) {
-      const cur = state.mastery.concepts[cid] ?? 0.5;
+      const cur = state.mastery.concepts[cid] ?? seedFloor;
       const delta = result.score >= 0.75 ? 0.06 : result.score >= 0.5 ? 0.02 : 0;
       state.mastery.concepts[cid] = clamp(cur + delta, 0, 1);
     }
