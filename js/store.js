@@ -164,7 +164,7 @@ export const store = {
     // Bump concept mastery based on outcomes (simple, visible adaptive bump).
     for (const cid of result.concepts ?? []) {
       const cur = state.mastery.concepts[cid] ?? 0.5;
-      const delta = result.score >= 0.75 ? 0.06 : result.score >= 0.5 ? 0.02 : -0.04;
+      const delta = result.score >= 0.75 ? 0.06 : result.score >= 0.5 ? 0.02 : 0;
       state.mastery.concepts[cid] = clamp(cur + delta, 0, 1);
     }
     const after = readinessPct();
