@@ -87,15 +87,21 @@ export function render() {
     root.appendChild(ui.courseTile(course, { progress, compact: true }));
   }
 
-  // 5. Recently completed — show in phase 1 so the learner sees their history
-  if (phase === 1 && learner.completedCourses?.length) {
-    root.appendChild(ui.sectionHeader('Recently completed'));
-    for (const c of learner.completedCourses) {
+  // 5. In progress (persona-scripted) — phase-1 learner sees a few
+  // partially-finished courses to anchor the dashboard. Re-uses the same
+  // "In progress" header as the adaptive block above when present.
+  if (phase === 1 && learner.inProgressCourses?.length) {
+    if (!inProg.length) root.appendChild(ui.sectionHeader('In progress'));
+    for (const c of learner.inProgressCourses) {
+      const real = store.course(c.id);
       root.appendChild(ui.rowCard({
-        glyph: 'check',
+        glyph: null,
         title: c.title,
-        sub: c.blurb || 'Completed',
-        href: '#/courses'
+        sub: c.blurb,
+        percent: typeof c.percent === 'number' ? c.percent : 0,
+        href: real ? `#/course/${c.id}` : null,
+        disabled: !real,
+        kebab: false
       }));
     }
   }
@@ -122,10 +128,9 @@ function renderPhase1(root, learner) {
   const next = pickPhase1Course(learner);
   if (next) {
     root.appendChild(ui.sectionHeader('Next up'));
-    root.appendChild(ui.rowCard({
-      glyph: 'play',
+    root.appendChild(ui.nextUpHero({
       title: next.title,
-      sub: `${next.estMinutes || 15} min · ${next.summary || ''}`,
+      minutes: next.estMinutes || 15,
       href: `#/course/${next.id}`
     }));
   }
