@@ -23,6 +23,14 @@ export function render(courseId, lessonId) {
   const root = document.createElement('section');
   if (!lesson) { root.appendChild(ui.el('p', { class: 'muted' }, 'Lesson not found.')); return root; }
 
+  // Scenario lessons are rehearsal, not reading. Hand off to the practice
+  // engine, carrying course+lesson context so completion can credit the
+  // lesson back in this course's progress.
+  if (lesson.type === 'scenario' && lesson.scenarioId) {
+    location.hash = `#/practice/${lesson.scenarioId}?courseLesson=${course.id}:${lesson.id}`;
+    return root;
+  }
+
   const idx = course.lessons.findIndex((c) => c.id === lesson.id);
   const next = course.lessons[idx + 1];
   const completed = (store.state.mastery.completedLessons?.[course.id] ?? []).length;
@@ -254,7 +262,9 @@ export function render(courseId, lessonId) {
       }, ui.icon('star'), ui.el('span', null, isSaved ? 'Saved' : 'Save for later'))
     ));
 
-    const sc = store.scenariosForCourse(course.id)[0];
+    const courseScenarios = store.scenariosForCourse(course.id);
+    const sc = courseScenarios.find((s) => s.kind !== 'iv-math');
+    const mini = courseScenarios.find((s) => s.kind === 'iv-math');
     if (sc) {
       stack.appendChild(ui.coachPrompt({
         question: `You retain ~3× more from a ${store.state.industry.language.practiceWord} than from a re-read. Run "${sc.title}"?`,
@@ -263,6 +273,21 @@ export function render(courseId, lessonId) {
         secondaryLabel: 'Skip',
         secondaryHref: `#/course/${course.id}/lesson/${lesson.id}`
       }));
+    }
+    // Companion mini-game tee-up — sits below the standard practice nudge.
+    // Shown only on the final lesson so it acts as a course-end capstone.
+    if (mini && !next) {
+      stack.appendChild(ui.el('div', { class: 'card iv-teeup' },
+        ui.el('div', { class: 'iv-teeup-head' },
+          ui.el('span', { class: 'iv-teeup-glyph' }, ui.icon('bolt')),
+          ui.el('div', null,
+            ui.el('small', { class: 'iv-teeup-kicker' }, 'Mini-game'),
+            ui.el('strong', { class: 'iv-teeup-title' }, mini.title)
+          )
+        ),
+        ui.el('p', { class: 'iv-teeup-body' }, mini.outcomeType || ''),
+        ui.el('a', { class: 'btn primary block', href: `#/iv-math/${mini.id}` }, 'Play 10 rounds')
+      ));
     }
 
     stack.appendChild(ui.sectionHeader('Course progress'));

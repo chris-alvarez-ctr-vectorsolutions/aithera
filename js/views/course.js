@@ -108,11 +108,13 @@ export function render(courseId) {
     const ch = course.lessons[i];
     const isCurrent = progress?.lesson === ch.id;
     const skip = skipMap.get(ch.id);
+    const isScenario = ch.type === 'scenario';
     const subParts = [`${ch.minutes} min`];
+    if (isScenario) subParts.unshift('Practice');
     if (isCurrent) subParts.push('You are here');
     if (skip) subParts.push(skip.label);
     root.appendChild(ui.rowCard({
-      glyph: skip ? 'sparkle' : (isCurrent ? 'bolt' : 'doc'),
+      glyph: isScenario ? 'flag' : (skip ? 'sparkle' : (isCurrent ? 'bolt' : 'doc')),
       title: `${i+1}. ${ch.title}`,
       sub: subParts.join(' · '),
       href: `#/course/${course.id}/lesson/${ch.id}`,

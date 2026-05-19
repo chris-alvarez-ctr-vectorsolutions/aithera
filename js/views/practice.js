@@ -85,7 +85,7 @@ export function render(scenarioId) {
     });
     // Dispatch audio sits inside the welcome card, just above the CTA,
     // so the learner hears the call before committing to the scene.
-    if (sc.dispatch) {
+    if (sc.dispatch && typeof ui.dispatchAudio === 'function') {
       dispatchEl = ui.dispatchAudio(sc.dispatch);
       const cta = welcomeCard.querySelector('.sw-cta');
       if (cta) welcomeCard.insertBefore(dispatchEl, cta);

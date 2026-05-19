@@ -10,6 +10,7 @@ import * as home      from './views/home.js';
 import * as course    from './views/course.js';
 import * as lesson    from './views/lesson.js';
 import * as practice  from './views/practice.js';
+import * as ivMath    from './views/iv-math.js';
 import * as summary   from './views/summary.js';
 import * as celebrate from './views/celebrate.js';
 import * as hub       from './views/hub.js';
@@ -37,6 +38,7 @@ const ROUTES = [
   { re: /^#\/course\/([^/]+)$/,                   view: course,    shell: true,  hideTabbar: true, parent: '#/courses' },
   { re: /^#\/course\/([^/]+)\/lesson\/([^/]+)$/,  view: lesson,    shell: true,  fullscreen: true, parent: (m) => `#/course/${m[1]}` },
   { re: /^#\/practice\/([^/?]+)$/,                view: practice,  shell: true,  fullscreen: true, parent: '#/practice' },
+  { re: /^#\/iv-math\/([^/?]+)$/,                 view: ivMath,    shell: true,  fullscreen: true, parent: '#/practice' },
   { re: /^#\/practice-complete$/,                 view: celebrate, shell: true,  parent: '#/home' },
   { re: /^#\/summary$/,                           view: summary,   shell: true,  hideTabbar: true, parent: '#/home' }
 ];
@@ -160,7 +162,21 @@ function renderRoute() {
   }
 
   const params = match.re.exec(path)?.slice(1) ?? [];
-  const node = match.view.render(...params);
+  // Scenario-type lessons render the practice engine directly — no
+  // intermediate empty lesson view, no second renderRoute pass.
+  let view = match.view;
+  if (view === lesson && params.length === 2) {
+    const c = store.course(params[0]);
+    const l = c?.lessons.find((x) => x.id === params[1]);
+    if (l?.type === 'scenario' && l.scenarioId) {
+      const enriched = `#/practice/${l.scenarioId}?courseLesson=${c.id}:${l.id}${store.state.profileSlug ? `&p=${store.state.profileSlug}` : ''}`;
+      history.replaceState(null, '', `${location.pathname}${location.search}${enriched}`);
+      view = practice;
+      params.length = 0;
+      params.push(l.scenarioId);
+    }
+  }
+  const node = view.render(...params);
 
   els.view.replaceChildren(node);
   const isHome = path === '#/home';
