@@ -91,10 +91,16 @@ export function render(courseId, lessonId) {
   // answers "where in this lesson?".
   function buildHeader(name) {
     const header = ui.el('header', { class: 'lesson-head' });
+    const lessonNum = `Lesson ${String(idx + 1).padStart(2, '0')} of ${String(total).padStart(2, '0')}`;
+    const rawKicker = lesson.kicker || course.title;
+    // Strip the leading "Lesson N · " segment from the authored kicker so we
+    // don't repeat "Lesson" twice; keep the section descriptor on the right.
+    const section = rawKicker.replace(/^\s*Lesson\s+\d+\s*[·:-]\s*/i, '').trim();
+    const headLabel = section && section.toLowerCase() !== rawKicker.toLowerCase()
+      ? `${lessonNum} · ${section}`
+      : lessonNum;
     const kicker = ui.el('div', { class: 'ch-kicker' });
-    kicker.appendChild(ui.el('div', null, lesson.kicker || course.title));
-    kicker.appendChild(ui.el('div', { class: 'ch-kicker-sub' },
-      `Lesson ${String(idx + 1).padStart(2, '0')} of ${String(total).padStart(2, '0')}`));
+    kicker.appendChild(ui.el('div', null, headLabel));
     header.appendChild(kicker);
     header.appendChild(ui.el('h2', { class: 'ch-title' }, lesson.title));
     const learningIdx = learningPhases.indexOf(name);
@@ -196,17 +202,6 @@ export function render(courseId, lessonId) {
       card.appendChild(stage);
       requestAnimationFrame(() => hero.classList.remove('modality-enter'));
 
-      if (concept && mode === 'original') {
-        const live = store.state.mastery.concepts[concept.id] ?? concept.mastery ?? 0;
-        const pct = Math.round(live * 100);
-        card.appendChild(ui.el('div', { class: 'lc-mastery' },
-          ui.el('div', { class: 'lc-mastery-row' },
-            ui.el('span', { class: 'lc-mastery-label' }, 'Your mastery on this concept'),
-            ui.el('span', { class: 'lc-mastery-pct' }, `${pct}%`)
-          ),
-          ui.progressBar(pct)
-        ));
-      }
     }
     function renderPanel() {
       panelHost.replaceChildren(ui.assistantPanel({
