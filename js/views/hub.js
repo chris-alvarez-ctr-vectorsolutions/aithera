@@ -207,7 +207,8 @@ function computeLevel(scenariosRun) {
 
 function scenarioStatus(sc, level) {
   if (sc.status === 'locked' && (sc.unlocksAtLevel || 5) > level) return 'locked';
-  if (!sc.steps || sc.steps.length === 0) return 'coming-soon';
+  const playable = (sc.steps && sc.steps.length > 0) || (sc.kind === 'iv-math' && (sc.challenges?.length || 0) > 0);
+  if (!playable) return 'coming-soon';
   const best = lastBestScorePct(sc.id);
   if (best != null && best >= 90) return 'mastered';
   return 'active';
@@ -236,7 +237,10 @@ function sortBy(items, key) {
     default:                arr.sort((a, b) => (DIFFICULTY_RANK[b.difficulty] || 0) - (DIFFICULTY_RANK[a.difficulty] || 0)); break;
   }
   // Locked & coming-soon items sink to the end so the catalog leads with playable.
-  const sinks = (s) => (!s.steps || s.steps.length === 0 || s.status === 'locked') ? 1 : 0;
+  const sinks = (s) => {
+    const playable = (s.steps && s.steps.length > 0) || (s.kind === 'iv-math' && (s.challenges?.length || 0) > 0);
+    return (!playable || s.status === 'locked') ? 1 : 0;
+  };
   arr.sort((a, b) => sinks(a) - sinks(b));
   return arr;
 }
