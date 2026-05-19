@@ -97,6 +97,17 @@
     background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
   }
+  .author-panel .ap-input {
+    font-size: 11px; color: #fff;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid transparent; border-radius: 4px;
+    padding: 2px 6px; outline: none;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    width: 140px; text-align: right;
+  }
+  .author-panel .ap-input.ap-input-small { width: 56px; }
+  .author-panel .ap-input:focus { border-color: var(--cyan); background: rgba(62,200,255,0.08); }
+  .author-panel .ap-input.bad { border-color: var(--bad); }
   .author-panel .ap-copy {
     width: 100%; margin-top: 10px; padding: 8px;
     border-radius: 8px; border: 0;
@@ -388,8 +399,8 @@
 <!-- Author panel (only rendered when ?author=1) -->
 <div class="author-panel" id="authorPanel" hidden>
   <div class="ap-head">Author mode</div>
-  <div class="ap-row"><span>Center</span><code id="apCenter">—</code></div>
-  <div class="ap-row"><span>Zoom</span><code id="apZoom">—</code></div>
+  <div class="ap-row"><span>Center</span><input id="apCenter" class="ap-input" spellcheck="false" placeholder="lat, lng" /></div>
+  <div class="ap-row"><span>Zoom</span><input id="apZoom" class="ap-input ap-input-small" spellcheck="false" /></div>
   <div class="ap-section">
     Fires
     <button class="ap-add" id="apAddFire" title="Click, then tap the map">+ Add</button>
@@ -473,16 +484,16 @@
  * fires and read out new coordinates; geometry is computed from these
  * positions, so any downtown grid will grade correctly.
  */
-const MAP_CENTER   = [41.87401, -87.64030];
+const MAP_CENTER   = [41.85715, -87.62263];
 const MAP_ZOOM     = 19;
 // Involved structures (mutable so author mode can add/drag/remove).
 const FIRES = [
-  { lat: 41.87391, lng: -87.64010 },
-  { lat: 41.87395, lng: -87.63992 }
+  { lat: 41.85775, lng: -87.62255 },
+  { lat: 41.85771, lng: -87.62261 }
 ];
 const HYDRANTS = [
-  { lat: 41.87460, lng: -87.63976 },
-  { lat: 41.87421, lng: -87.64085 }
+  { lat: 41.85795, lng: -87.62218 },
+  { lat: 41.85641, lng: -87.62249 }
 ];
 // Wind blowing FROM west TO east. Upwind = west of fires.
 const WIND_BEARING = 90; // degrees (0=N, 90=E); the direction wind is *heading*
@@ -1241,9 +1252,17 @@ let armedAdd = null;
 function updateAuthorPanel() {
   if (!AUTHOR_MODE) return;
   const c = map.getCenter();
-  document.getElementById('apCenter').textContent =
-    `${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}`;
-  document.getElementById('apZoom').textContent = map.getZoom().toFixed(1);
+  const centerEl = document.getElementById('apCenter');
+  const zoomEl   = document.getElementById('apZoom');
+  // Don't overwrite a field the user is actively editing.
+  if (document.activeElement !== centerEl) {
+    centerEl.value = `${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}`;
+    centerEl.classList.remove('bad');
+  }
+  if (document.activeElement !== zoomEl) {
+    zoomEl.value = map.getZoom().toFixed(1);
+    zoomEl.classList.remove('bad');
+  }
   document.getElementById('apFires').innerHTML = FIRES.map((f, i) =>
     `<div class="ap-row">
       <span>${i+1}</span>
@@ -1284,6 +1303,35 @@ if (AUTHOR_MODE) {
   document.getElementById('authorPanel').hidden = false;
   map.on('move zoom', updateAuthorPanel);
   updateAuthorPanel();
+
+  // Typed center: accept "lat,lng" with or without a space. Commit on
+  // Enter or blur; flash red briefly on parse error.
+  const centerInput = document.getElementById('apCenter');
+  const zoomInput   = document.getElementById('apZoom');
+  function commitCenter() {
+    const m = centerInput.value.trim().match(
+      /^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+    if (!m) { centerInput.classList.add('bad'); return; }
+    const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
+    if (Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+      centerInput.classList.add('bad'); return;
+    }
+    centerInput.classList.remove('bad');
+    map.setView([lat, lng], map.getZoom(), { animate: false });
+  }
+  function commitZoom() {
+    const z = parseFloat(zoomInput.value);
+    if (!Number.isFinite(z)) { zoomInput.classList.add('bad'); return; }
+    zoomInput.classList.remove('bad');
+    map.setZoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z)), { animate: false });
+  }
+  for (const [el, commit] of [[centerInput, commitCenter], [zoomInput, commitZoom]]) {
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); commit(); el.blur(); }
+    });
+    el.addEventListener('change', commit);
+    el.addEventListener('input', () => el.classList.remove('bad'));
+  }
 
   // The "+ Add" buttons arm the next map click to drop a new fire or
   // hydrant. The placement handler above ignores clicks when no asset
