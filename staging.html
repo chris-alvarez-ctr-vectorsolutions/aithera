@@ -52,6 +52,62 @@
   }
   .controls button:disabled { opacity: 0.5; cursor: not-allowed; }
 
+  /* ---- Author panel (only when ?author=1) ---- */
+  .author-panel {
+    position: fixed; right: 14px; bottom: 80px;
+    width: 250px; max-height: 60vh; overflow-y: auto;
+    background: var(--panel); backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-line); border-radius: 14px;
+    padding: 12px; z-index: 600; font-size: 12px;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.45);
+  }
+  .author-panel .ap-head {
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--cyan); margin-bottom: 10px;
+  }
+  .author-panel .ap-section {
+    margin-top: 10px; margin-bottom: 4px;
+    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .author-panel .ap-add {
+    font-size: 10px; letter-spacing: 0.06em;
+    padding: 2px 8px; border-radius: 999px;
+    background: rgba(62,200,255,0.18); color: var(--cyan);
+    border: 1px solid rgba(62,200,255,0.3);
+    cursor: pointer;
+  }
+  .author-panel .ap-add.armed {
+    background: var(--cyan); color: #03212d; border-color: transparent;
+  }
+  .author-panel .ap-del {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: rgba(239,68,68,0.2); color: var(--bad);
+    border: 0; cursor: pointer;
+    font-size: 12px; font-weight: 700; line-height: 1;
+    display: grid; place-items: center;
+  }
+  .author-panel .ap-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 0; gap: 8px;
+  }
+  .author-panel .ap-row span { color: var(--muted); }
+  .author-panel code {
+    font-size: 11px; color: #fff;
+    background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .author-panel .ap-copy {
+    width: 100%; margin-top: 10px; padding: 8px;
+    border-radius: 8px; border: 0;
+    background: var(--cyan); color: #03212d;
+    font-weight: 700; font-size: 12px; cursor: pointer;
+  }
+  .author-panel .ap-copy.copied { background: var(--ok); }
+  .author-panel .ap-tip {
+    margin-top: 8px; font-size: 10px; line-height: 1.4; color: var(--muted);
+  }
+
   /* ---- Wind indicator ---- */
   .wind-badge {
     position: fixed; top: 70px; left: 18px;
@@ -193,11 +249,8 @@
   }
   .asset-marker.selected .del-btn { display: flex; }
 
-  .asset-marker.vehicle { width: 50px; height: 24px; }
-  .asset-marker.unit    { width: 36px; height: 36px; }
-  .asset-marker.block   { width: 32px; height: 22px; }
-  .asset-marker.fire    { width: 46px; height: 46px; }
-  .asset-marker.hydrant { width: 26px; height: 26px; }
+  /* Width/height come from inline styles set by sizeFor() so assets scale
+     with map zoom; nothing class-level overrides that. */
 
   /* ---- Hint bar ---- */
   .hint {
@@ -330,13 +383,30 @@
 
 <div id="map"></div>
 
-<div class="badge">Staging · 2-Alarm Residential</div>
+<div class="badge">Staging · 2-Alarm Mid-Rise · Downtown</div>
+
+<!-- Author panel (only rendered when ?author=1) -->
+<div class="author-panel" id="authorPanel" hidden>
+  <div class="ap-head">Author mode</div>
+  <div class="ap-row"><span>Center</span><code id="apCenter">—</code></div>
+  <div class="ap-row"><span>Zoom</span><code id="apZoom">—</code></div>
+  <div class="ap-section">Fires</div>
+  <div id="apFires"></div>
+  <div class="ap-section">
+    Hydrants
+    <button class="ap-add" id="apAddHyd" title="Click, then tap the map">+ Add</button>
+  </div>
+  <div id="apHyds"></div>
+  <button class="ap-copy" id="apCopy">Copy constants</button>
+  <div class="ap-tip">Drag flames or hydrants to reposition. Tap <em>+ Add</em>, then tap the map to drop a new hydrant.</div>
+</div>
 <div class="wind-badge">
   <div class="wind-arrow"><svg id="windSvg" width="14" height="14" viewBox="0 0 14 14"><path d="M7 1 L7 13 M3 5 L7 1 L11 5" stroke="#fff" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
   <div><strong id="windText">W → E · 12 mph</strong><br/><span style="color:var(--muted)">Wind from the west</span></div>
 </div>
 
 <div class="controls">
+  <button id="fitBtn" title="Snap to the authored scene view">Fit</button>
   <button id="resetBtn">Reset</button>
   <button id="submitBtn" class="primary">Submit staging</button>
 </div>
@@ -349,13 +419,13 @@
 <div class="briefing" id="briefing">
   <div class="briefing-card">
     <div class="briefing-eyebrow">Dispatch · 2-Alarm Fire</div>
-    <h1>Working structure fire — 412 Maple Ave</h1>
-    <p>Single-family residential, fully involved on the C-side. Reports of one occupant still inside. Mutual-aid alarm requested. You are the IC — stage your incoming apparatus.</p>
+    <h1>Working fire — Adams &amp; Wabash, downtown</h1>
+    <p>Two adjacent mid-rise structures fully involved in the Loop. Heavy fire showing from floors 3–4 of the primary; the exposure to the east is now also involved. Pedestrians self-evacuating. You are the IC — stage your incoming apparatus.</p>
     <div class="meta-grid">
       <div class="meta-tile"><div class="meta-label">Wind</div><div class="meta-value">W → E · 12 mph</div></div>
       <div class="meta-tile"><div class="meta-label">Hydrants</div><div class="meta-value">2 marked on map</div></div>
       <div class="meta-tile"><div class="meta-label">Alarm</div><div class="meta-value">2nd alarm</div></div>
-      <div class="meta-tile"><div class="meta-label">Exposures</div><div class="meta-value">B & D side homes</div></div>
+      <div class="meta-tile"><div class="meta-label">Exposures</div><div class="meta-value">Adjacent mid-rises</div></div>
     </div>
     <ul class="objectives">
       <li><span class="obj-dot"></span>Establish command upwind, clear of smoke</li>
@@ -394,14 +464,72 @@
 <script>
 /* =========================================================================
  * Scenario constants
- * ========================================================================= */
-// Fictitious "412 Maple Ave" — a residential corner picked for road geometry.
-// Real coords don't matter for grading; geometry is computed from placements.
-const FIRE_LATLNG  = [41.75080, -88.15350];
-const HYDRANT_A    = [41.75055, -88.15485]; // upwind, west on Maple
-const HYDRANT_B    = [41.75175, -88.15310]; // north on Oakwood
-// Wind blowing FROM west TO east. Upwind = west of fire.
+ * =========================================================================
+ * Downtown Chicago Loop — two adjacent mid-rise structures involved on
+ * Adams St near Wabash Ave. Authors can append `?author=1` to drag the
+ * fires and read out new coordinates; geometry is computed from these
+ * positions, so any downtown grid will grade correctly.
+ */
+const MAP_CENTER   = [41.87975, -87.62620];
+const MAP_ZOOM     = 19;
+// Two involved structures (2-alarm). Mutable so author mode can drag them.
+const FIRES = [
+  { lat: 41.87963, lng: -87.62588 }, // primary structure
+  { lat: 41.87975, lng: -87.62558 }  // exposure now fully involved
+];
+const HYDRANTS = [
+  { lat: 41.87950, lng: -87.62695 }, // west on Adams (upwind)
+  { lat: 41.88010, lng: -87.62570 }  // north on Wabash
+];
+// Wind blowing FROM west TO east. Upwind = west of fires.
 const WIND_BEARING = 90; // degrees (0=N, 90=E); the direction wind is *heading*
+
+// Author mode: lets you reposition fire markers and read live coords.
+const AUTHOR_MODE  = new URLSearchParams(location.search).has('author');
+
+// Zoom is clamped so assets never look comically out-of-scale. At z19 a
+// fire engine is ~45 px long; the range below keeps the same engine
+// between ~20 px (zoomed out) and ~90 px (zoomed in).
+const MIN_ZOOM = 17;
+const MAX_ZOOM = 19;
+
+/* Real-world footprints in meters. Pixel size is derived from zoom so a
+ * fire engine stays ~10 m long whether you're at z18 or z20 — placements
+ * feel like real apparatus on the street, not free-floating icons.
+ * `minPx` keeps small assets (hydrants) legible when zoomed out. */
+const WORLD_SIZE = {
+  engine:  { w: 10, h: 3,   minPx: 18 },
+  ladder:  { w: 12, h: 3,   minPx: 18 },
+  ambo:    { w: 7,  h: 2.6, minPx: 16 },
+  command: { w: 5,  h: 5,   minPx: 22 },
+  crew:    { w: 5,  h: 5,   minPx: 22 },
+  block:   { w: 6,  h: 4,   minPx: 18 },
+  fire:    { w: 9,  h: 9,   minPx: 24 },
+  hydrant: { w: 3,  h: 3,   minPx: 14 }
+};
+function metersPerPixel(lat, zoom) {
+  return 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom);
+}
+function sizeFor(typeId) {
+  const ws = WORLD_SIZE[typeId];
+  if (!ws) return [40, 28];
+  const mpp = metersPerPixel(map.getCenter().lat, map.getZoom());
+  const w = Math.max(ws.minPx, ws.w / mpp);
+  const h = Math.max(ws.minPx * (ws.h / ws.w), ws.h / mpp);
+  return [Math.round(w), Math.round(h)];
+}
+
+// Distance to the nearest involved structure — the cluster, not one point.
+function nearestFireDist(p) {
+  return Math.min(...FIRES.map(f => distM([f.lat, f.lng], p)));
+}
+// Centroid of all involved structures — used for upwind/downwind bearings
+// so the smoke plume is computed off the whole fire footprint.
+function fireCentroid() {
+  const lat = FIRES.reduce((s, f) => s + f.lat, 0) / FIRES.length;
+  const lng = FIRES.reduce((s, f) => s + f.lng, 0) / FIRES.length;
+  return [lat, lng];
+}
 const WIND_LABEL   = 'W → E · 12 mph';
 
 /* Top-down SVG assets — sized to fit their marker's bounding box.
@@ -589,7 +717,7 @@ const RULES = [
     check: (s) => {
       const c = s.assets.find(a => a.type === 'command');
       if (!c) return { pass: false, note: 'No command post placed.' };
-      const b = bearingDeg(FIRE_LATLNG, [c.lat, c.lng]);
+      const b = bearingDeg(fireCentroid(), [c.lat, c.lng]);
       const diff = bearingDiff(b, (WIND_BEARING + 180) % 360); // upwind = opposite of wind heading
       if (diff < 60) return { pass: true,  note: 'Command is upwind, out of the smoke plume.' };
       if (diff < 110) return { pass: false, weight: 0.5, note: 'Command is crosswind — acceptable but not ideal.' };
@@ -603,8 +731,7 @@ const RULES = [
       const engines = s.assets.filter(a => a.type === 'engine');
       if (engines.length === 0) return { pass: false, note: 'No engines placed.' };
       const near = engines.find(e =>
-        distM([e.lat, e.lng], HYDRANT_A) < 30 ||
-        distM([e.lat, e.lng], HYDRANT_B) < 30);
+        HYDRANTS.some(h => distM([e.lat, e.lng], [h.lat, h.lng]) < 30));
       return near
         ? { pass: true,  note: 'Engine is on a hydrant — water supply established.' }
         : { pass: false, note: 'No engine is close enough to a hydrant (within ~30m) for a supply line.' };
@@ -616,9 +743,9 @@ const RULES = [
     check: (s) => {
       const l = s.assets.find(a => a.type === 'ladder');
       if (!l) return { pass: false, note: 'No ladder placed.' };
-      const d = distM([l.lat, l.lng], FIRE_LATLNG);
-      if (d > 60) return { pass: false, note: `Ladder is ${Math.round(d)}m from the fire — out of effective reach.` };
-      const b = bearingDeg(FIRE_LATLNG, [l.lat, l.lng]);
+      const d = nearestFireDist([l.lat, l.lng]);
+      if (d > 60) return { pass: false, note: `Ladder is ${Math.round(d)}m from the nearest involved structure — out of effective reach.` };
+      const b = bearingDeg(fireCentroid(), [l.lat, l.lng]);
       const dDown = bearingDiff(b, WIND_BEARING);
       if (dDown < 40) return { pass: false, weight: 0.5, note: 'Ladder is directly downwind — heat and smoke will roll over it.' };
       return { pass: true, note: `Ladder is ${Math.round(d)}m from the structure with a workable angle.` };
@@ -630,8 +757,9 @@ const RULES = [
     check: (s) => {
       const blocks = s.assets.filter(a => a.type === 'block' || a.type === 'engine');
       // crude: at least one block roughly east of fire and one west or north
-      const east = blocks.some(a => bearingDiff(bearingDeg(FIRE_LATLNG, [a.lat, a.lng]), 90) < 50 && distM([a.lat, a.lng], FIRE_LATLNG) > 40);
-      const west = blocks.some(a => bearingDiff(bearingDeg(FIRE_LATLNG, [a.lat, a.lng]), 270) < 50 && distM([a.lat, a.lng], FIRE_LATLNG) > 40);
+      const ctr = fireCentroid();
+      const east = blocks.some(a => bearingDiff(bearingDeg(ctr, [a.lat, a.lng]), 90) < 50 && nearestFireDist([a.lat, a.lng]) > 40);
+      const west = blocks.some(a => bearingDiff(bearingDeg(ctr, [a.lat, a.lng]), 270) < 50 && nearestFireDist([a.lat, a.lng]) > 40);
       if (east && west) return { pass: true,  note: 'Traffic blocked on both approach directions.' };
       if (east || west) return { pass: false, weight: 0.5, note: 'Only one approach is blocked — the opposite direction is still open.' };
       return { pass: false, note: 'Neither approach road is blocked.' };
@@ -643,10 +771,10 @@ const RULES = [
     check: (s) => {
       const a = s.assets.find(x => x.type === 'ambo');
       if (!a) return { pass: false, note: 'No EMS unit placed.' };
-      const d = distM([a.lat, a.lng], FIRE_LATLNG);
+      const d = nearestFireDist([a.lat, a.lng]);
       if (d < 40) return { pass: false, note: `EMS is only ${Math.round(d)}m from the fire — too close to the hot zone.` };
       if (d > 200) return { pass: false, weight: 0.5, note: `EMS is ${Math.round(d)}m out — too far for rapid transport.` };
-      const b = bearingDeg(FIRE_LATLNG, [a.lat, a.lng]);
+      const b = bearingDeg(fireCentroid(), [a.lat, a.lng]);
       if (bearingDiff(b, WIND_BEARING) < 50) return { pass: false, weight: 0.5, note: 'EMS is in the downwind smoke path.' };
       return { pass: true, note: 'EMS is staged in the cold zone, ready for transport.' };
     }
@@ -669,8 +797,10 @@ const RULES = [
 const map = L.map('map', {
   zoomControl: false,
   attributionControl: true,
-  preferCanvas: true
-}).setView(FIRE_LATLNG, 19);
+  preferCanvas: true,
+  minZoom: MIN_ZOOM,
+  maxZoom: MAX_ZOOM
+}).setView(MAP_CENTER, MAP_ZOOM);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -695,24 +825,105 @@ const state = {
   nextId: 1
 };
 
-/* ----- Pre-placed fire + hydrants (not editable) ----- */
+/* Build a divIcon whose inner element is sized in world-meters and
+ * centered on its anchor via transform: translate(-50%, -50%). That way
+ * `rescaleAll()` can resize on zoom by mutating inline width/height
+ * alone — no setIcon, no re-wiring of event handlers. */
+function makeIcon(svg, cls, typeId, extra = '') {
+  const [w, h] = sizeFor(typeId);
+  return L.divIcon({
+    className: '',
+    html: `<div class="asset-marker ${cls}" data-type="${typeId}" style="position:absolute;left:0;top:0;width:${w}px;height:${h}px;transform:translate(-50%,-50%)">${extra}<div class="glyph">${svg}</div></div>`,
+    iconSize: [w, h],
+    iconAnchor: [0, 0]
+  });
+}
+/* ----- Pre-placed fire + hydrants ----- */
 function pinIcon(svg, cls) {
-  const size = cls === 'fire' ? 46 : 26;
   const smoke = cls === 'fire'
     ? `<div class="smoke"><span></span><span></span><span></span></div>`
     : '';
-  return L.divIcon({
-    className: '',
-    html: `<div class="asset-marker ${cls}">${smoke}<div class="glyph">${svg}</div></div>`,
-    iconSize: [size, size],
-    iconAnchor: [size/2, size/2]
-  });
+  return makeIcon(svg, cls, cls, smoke);
 }
-L.marker(FIRE_LATLNG, { icon: pinIcon(SVG.fire,'fire'), interactive: false, keyboard: false }).addTo(map);
-L.marker(HYDRANT_A,    { icon: pinIcon(SVG.hydrant,'hydrant'), interactive: false, keyboard: false }).addTo(map)
-  .bindTooltip('Hydrant A', { direction: 'top', offset: [0,-8] });
-L.marker(HYDRANT_B,    { icon: pinIcon(SVG.hydrant,'hydrant'), interactive: false, keyboard: false }).addTo(map)
-  .bindTooltip('Hydrant B', { direction: 'top', offset: [0,-8] });
+// Fire markers — interactive + draggable in author mode so the scenario
+// can be re-staged to any city block without code changes.
+const fireMarkers = FIRES.map((f, i) => {
+  const m = L.marker([f.lat, f.lng], {
+    icon: pinIcon(SVG.fire, 'fire'),
+    interactive: AUTHOR_MODE,
+    keyboard: false,
+    draggable: AUTHOR_MODE
+  }).addTo(map);
+  if (AUTHOR_MODE) {
+    m.on('drag', (e) => {
+      FIRES[i].lat = e.latlng.lat;
+      FIRES[i].lng = e.latlng.lng;
+      updateAuthorPanel();
+    });
+  }
+  return m;
+});
+const hydrantMarkers = [];
+function addHydrantMarker(h, i) {
+  const m = L.marker([h.lat, h.lng], {
+    icon: pinIcon(SVG.hydrant, 'hydrant'),
+    interactive: AUTHOR_MODE,
+    keyboard: false,
+    draggable: AUTHOR_MODE
+  }).addTo(map).bindTooltip(`Hydrant ${String.fromCharCode(65 + i)}`,
+    { direction: 'top', offset: [0,-8] });
+  if (AUTHOR_MODE) {
+    m.on('drag', (e) => {
+      const idx = hydrantMarkers.indexOf(m);
+      HYDRANTS[idx].lat = e.latlng.lat;
+      HYDRANTS[idx].lng = e.latlng.lng;
+      updateAuthorPanel();
+    });
+  }
+  hydrantMarkers.push(m);
+}
+HYDRANTS.forEach(addHydrantMarker);
+
+function addHydrantAt(lat, lng) {
+  HYDRANTS.push({ lat, lng });
+  addHydrantMarker(HYDRANTS[HYDRANTS.length - 1], HYDRANTS.length - 1);
+  updateAuthorPanel();
+}
+function removeHydrantAt(i) {
+  map.removeLayer(hydrantMarkers[i]);
+  hydrantMarkers.splice(i, 1);
+  HYDRANTS.splice(i, 1);
+  // Refresh remaining tooltips so labels stay A, B, C…
+  hydrantMarkers.forEach((m, j) => m.unbindTooltip().bindTooltip(`Hydrant ${String.fromCharCode(65 + j)}`,
+    { direction: 'top', offset: [0,-8] }));
+  updateAuthorPanel();
+}
+
+/* Resize every marker's inner element so assets stay at their real-world
+ * footprint as zoom changes. We mutate inline width/height rather than
+ * calling setIcon, so drag/click/rotation handlers stay wired. */
+function rescaleMarker(marker, typeId) {
+  const el = marker.getElement();
+  if (!el) return;
+  const inner = el.querySelector('.asset-marker');
+  if (!inner) return;
+  const [w, h] = sizeFor(typeId);
+  inner.style.width  = w + 'px';
+  inner.style.height = h + 'px';
+}
+function rescaleAll() {
+  fireMarkers.forEach(m => rescaleMarker(m, 'fire'));
+  hydrantMarkers.forEach(m => rescaleMarker(m, 'hydrant'));
+  state.assets.forEach(a => rescaleMarker(a.marker, a.type));
+}
+map.on('zoomend', rescaleAll);
+
+// "Fit to scene": snap back to the authored center & zoom — the view the
+// scenario was designed at, where every asset's real-world footprint and
+// the surrounding street geometry are in proper proportion.
+function fitToScene() {
+  map.setView(MAP_CENTER, MAP_ZOOM, { animate: true });
+}
 
 /* =========================================================================
  * Palette
@@ -768,19 +979,17 @@ function placeAsset(type, lat, lng) {
     rot: 0,
     typeDef: type
   };
-  const html = `
-    <div class="asset-marker ${type.cls}${type.rotatable ? ' rotatable' : ''}" data-id="${asset.id}">
-      <div class="rot-tether"></div>
-      <div class="rot-handle"></div>
-      <div class="glyph">${type.glyph}</div>
-      <div class="del-btn" title="Remove">×</div>
-    </div>`;
-  const sz = type.cls === 'vehicle' ? [50,24] : (type.cls === 'unit' ? [36,36] : [32,22]);
+  const [w, h] = sizeFor(type.id);
+  const extra = `
+    <div class="rot-tether"></div>
+    <div class="rot-handle"></div>
+    <div class="del-btn" title="Remove">×</div>
+  `;
   const icon = L.divIcon({
     className: '',
-    html,
-    iconSize: sz,
-    iconAnchor: [sz[0]/2, sz[1]/2]
+    html: `<div class="asset-marker ${type.cls}${type.rotatable ? ' rotatable' : ''}" data-id="${asset.id}" data-type="${type.id}" style="position:absolute;left:0;top:0;width:${w}px;height:${h}px;transform:translate(-50%,-50%)">${extra}<div class="glyph">${type.glyph}</div></div>`,
+    iconSize: [w, h],
+    iconAnchor: [0, 0]
   });
   const marker = L.marker([lat, lng], { icon, draggable: true }).addTo(map);
   asset.marker = marker;
@@ -927,6 +1136,8 @@ submitBtn.onclick = () => {
   showEval(score, results);
 };
 
+document.getElementById('fitBtn').onclick = fitToScene;
+
 resetBtn.onclick = () => {
   if (!confirm('Clear all placements and start over?')) return;
   for (const a of [...state.assets]) removeAsset(a);
@@ -979,6 +1190,79 @@ function buildNarrative(score, results) {
 }
 
 submitBtn.disabled = false;
+
+/* =========================================================================
+ * Author mode: live readout of fire / hydrant coords + map center & zoom.
+ * Append `?author=1` to enable; drag the flame markers to reposition fires.
+ * ========================================================================= */
+// Tracks the "+ Add" arming state for hydrants.
+let armedAddHydrant = false;
+
+function updateAuthorPanel() {
+  if (!AUTHOR_MODE) return;
+  const c = map.getCenter();
+  document.getElementById('apCenter').textContent =
+    `${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}`;
+  document.getElementById('apZoom').textContent = map.getZoom().toFixed(1);
+  document.getElementById('apFires').innerHTML = FIRES.map((f, i) =>
+    `<div class="ap-row"><span>${i+1}</span><code>${f.lat.toFixed(5)}, ${f.lng.toFixed(5)}</code></div>`
+  ).join('');
+  document.getElementById('apHyds').innerHTML = HYDRANTS.map((h, i) =>
+    `<div class="ap-row">
+      <span>${String.fromCharCode(65 + i)}</span>
+      <code>${h.lat.toFixed(5)}, ${h.lng.toFixed(5)}</code>
+      <button class="ap-del" data-i="${i}" title="Remove">×</button>
+    </div>`
+  ).join('');
+  // Re-bind delete buttons (innerHTML wipes listeners).
+  document.querySelectorAll('#apHyds .ap-del').forEach(btn => {
+    btn.onclick = () => removeHydrantAt(Number(btn.dataset.i));
+  });
+}
+if (AUTHOR_MODE) {
+  document.getElementById('authorPanel').hidden = false;
+  map.on('move zoom', updateAuthorPanel);
+  updateAuthorPanel();
+
+  // "+ Add" arms the next map click to drop a hydrant. The map click
+  // handler runs before this one (registered above), but it ignores the
+  // click when no asset tool is selected — so this handler gets a clean
+  // shot at the same event.
+  const addBtn = document.getElementById('apAddHyd');
+  addBtn.onclick = () => {
+    armedAddHydrant = !armedAddHydrant;
+    addBtn.classList.toggle('armed', armedAddHydrant);
+    addBtn.textContent = armedAddHydrant ? 'Tap the map…' : '+ Add';
+  };
+  map.on('click', (e) => {
+    if (!armedAddHydrant) return;
+    addHydrantAt(e.latlng.lat, e.latlng.lng);
+    armedAddHydrant = false;
+    addBtn.classList.remove('armed');
+    addBtn.textContent = '+ Add';
+  });
+
+  document.getElementById('apCopy').onclick = (e) => {
+    const c = map.getCenter();
+    const text = [
+      `const MAP_CENTER   = [${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}];`,
+      `const MAP_ZOOM     = ${map.getZoom().toFixed(1)};`,
+      `const FIRES = [`,
+      ...FIRES.map(f => `  { lat: ${f.lat.toFixed(5)}, lng: ${f.lng.toFixed(5)} },`),
+      `];`,
+      `const HYDRANTS = [`,
+      ...HYDRANTS.map(h => `  { lat: ${h.lat.toFixed(5)}, lng: ${h.lng.toFixed(5)} },`),
+      `];`
+    ].join('\n');
+    navigator.clipboard.writeText(text);
+    e.target.classList.add('copied');
+    e.target.textContent = 'Copied!';
+    setTimeout(() => {
+      e.target.classList.remove('copied');
+      e.target.textContent = 'Copy constants';
+    }, 1500);
+  };
+}
 </script>
 </body>
 </html>
