@@ -363,14 +363,35 @@ export function alertStrip({ kicker, title, href, severity = 'urgent' }) {
   return a;
 }
 
-export function rowCard({ glyph = 'flag', title, sub, href, onClick, kebab = true }) {
-  const a = el(href ? 'a' : 'div', { class: 'row-card', href, on: onClick ? { click: onClick } : null });
-  a.appendChild(el('span', { class: 'row-glyph' }, icon(glyph)));
-  a.appendChild(el('div', { class: 'row-body' },
+// nextUpHero — the home "Next up" hero row. Reads as the page's primary
+// tap-target without using the loud full-width accent button. Accent
+// play disc + title + small meta + trailing chevron.
+export function nextUpHero({ title, minutes, href }) {
+  const a = el('a', { class: 'next-up-card', href });
+  a.appendChild(el('span', { class: 'nu-play', 'aria-hidden': 'true' }, icon('play')));
+  const body = el('div', { class: 'nu-body' }, el('strong', null, title));
+  if (minutes) body.appendChild(el('small', null, `${minutes} min`));
+  a.appendChild(body);
+  a.appendChild(el('span', { class: 'nu-chev', 'aria-hidden': 'true' }, icon('chevron')));
+  return a;
+}
+
+export function rowCard({ glyph = 'flag', title, sub, href, onClick, kebab = true, percent, disabled = false }) {
+  const tag = (!disabled && href) ? 'a' : 'div';
+  const cls = 'row-card' + (disabled ? ' disabled' : '');
+  const a = el(tag, {
+    class: cls,
+    href: disabled ? null : href,
+    on: (!disabled && onClick) ? { click: onClick } : null
+  });
+  if (glyph) a.appendChild(el('span', { class: 'row-glyph' }, icon(glyph)));
+  const body = el('div', { class: 'row-body' },
     el('strong', null, title),
     sub ? el('small', null, sub) : null
-  ));
-  if (kebab) a.appendChild(el('span', { class: 'row-kebab', 'aria-label': 'More' }, icon('kebab')));
+  );
+  if (typeof percent === 'number') body.appendChild(progressBar(percent));
+  a.appendChild(body);
+  if (kebab && !disabled) a.appendChild(el('span', { class: 'row-kebab', 'aria-label': 'More' }, icon('kebab')));
   return a;
 }
 
