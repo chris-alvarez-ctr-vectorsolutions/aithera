@@ -1,0 +1,1873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Builder — Campus Safety Course</title>
+
+  <!-- Vector Web Components -->
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; padding: 0; font-family: 'Open Sans', system-ui, sans-serif; background: #f4f5f7; color: var(--lumo-body-text-color, #000000de); overflow: hidden; }
+    body {
+      background: radial-gradient(circle at 80% -10%, #e8efff 0%, transparent 60%),
+                  radial-gradient(circle at -10% 110%, #f0eafa 0%, transparent 60%),
+                  #f4f5f7;
+    }
+
+    /* ============================================================
+       App phases:
+       - .phase-pre  → chat dominant (left), sources right
+       - .phase-warp → chat-only takeover (streaming status)
+       - .phase-post → command-chat left, canvas, floating rail right
+       ============================================================ */
+    .app {
+      height: 100vh; width: 100vw; display: flex; flex-direction: column;
+    }
+
+    /* ---------- Top bar ---------- */
+    .topbar {
+      height: 56px; background: #fff; border-bottom: 1px solid #e6e8eb;
+      display: flex; align-items: center; gap: 16px; padding: 0 20px; flex-shrink: 0; z-index: 50;
+    }
+    .topbar .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; color: #182739; }
+    .topbar .logo .mark {
+      width: 28px; height: 28px; border-radius: 6px; background: linear-gradient(135deg, #0271ce, #5d3fd3);
+      color: #fff; display: grid; place-items: center; font-size: 13px;
+    }
+    .crumbs { font-size: 13px; color: var(--lumo-secondary-text-color); display: flex; align-items: center; gap: 8px; }
+    .crumbs .sep { color: #c0c4cc; }
+    .crumbs .current { color: var(--lumo-body-text-color); font-weight: 600; }
+    .topbar .spacer { flex: 1; }
+    .meta-pill {
+      font-size: 12px; padding: 4px 10px; background: var(--lumo-primary-color-10pct);
+      color: var(--lumo-primary-text-color); border-radius: 999px; font-weight: 600;
+    }
+
+    /* ---------- Body container ---------- */
+    .body {
+      flex: 1; min-height: 0; position: relative; overflow: hidden;
+    }
+
+    /* ============================================================
+       ENTRY STAGE — friendly prompt + file drop landing
+       ============================================================ */
+    .entry-stage {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      padding: 40px 24px;
+      overflow-y: auto;
+      transition: opacity 500ms ease, transform 600ms cubic-bezier(0.7, 0, 0.2, 1);
+    }
+    .entry-stage.exiting { opacity: 0; transform: translateY(-20px); pointer-events: none; }
+    .entry-stage.preparing .entry-inner { opacity: 0; transform: translateY(-12px); pointer-events: none; }
+    .entry-stage.preparing .entry-preparing { opacity: 1; pointer-events: auto; }
+
+    .entry-inner {
+      width: 100%; max-width: 640px;
+      display: flex; flex-direction: column; gap: 24px;
+      text-align: center;
+      transition: opacity 400ms ease, transform 400ms ease;
+    }
+    .entry-greeting {
+      display: flex; flex-direction: column; gap: 10px; align-items: center;
+    }
+    .entry-avatar {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: linear-gradient(135deg, #0271ce, #5d3fd3);
+      display: grid; place-items: center; color: #fff; font-size: 22px;
+      box-shadow: 0 8px 28px rgba(2,113,206,0.25);
+      animation: gentleFloat 3s ease-in-out infinite;
+    }
+    .entry-title {
+      font-size: 34px; font-weight: 700; color: #182739; margin: 8px 0 4px 0; line-height: 1.2;
+    }
+    .entry-subtitle {
+      font-size: 15px; color: var(--lumo-secondary-text-color); margin: 0;
+      max-width: 480px; line-height: 1.55;
+    }
+
+    .entry-prompt-wrap {
+      background: #fff;
+      border: 1px solid #e6e8eb;
+      border-radius: 16px;
+      padding: 16px 18px 12px 18px;
+      box-shadow: 0 4px 20px rgba(24,39,57,0.06);
+      display: flex; flex-direction: column; gap: 12px;
+      text-align: left;
+      transition: border-color 200ms ease, box-shadow 200ms ease;
+    }
+    .entry-prompt-wrap:focus-within {
+      border-color: var(--lumo-primary-color);
+      box-shadow: 0 4px 20px rgba(2,113,206,0.12);
+    }
+    .entry-prompt-textarea {
+      width: 100%; border: none; outline: none; resize: none;
+      font-family: inherit; font-size: 15px; line-height: 1.5;
+      color: #182739; background: transparent;
+      min-height: 60px;
+    }
+    .entry-prompt-textarea::placeholder { color: #9aa3af; }
+    .entry-prompt-footer {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .entry-prompt-hint {
+      flex: 1; font-size: 11.5px; color: var(--lumo-secondary-text-color);
+    }
+    .entry-prompt-submit {
+      width: 38px; height: 38px; border-radius: 50%; border: none;
+      background: var(--lumo-primary-color); color: #fff; cursor: pointer;
+      display: grid; place-items: center; font-size: 14px;
+      transition: transform 150ms ease, opacity 200ms ease, background 150ms ease;
+    }
+    .entry-prompt-submit:hover:not(:disabled) {
+      transform: translateY(-1px); background: #0381e8;
+    }
+    .entry-prompt-submit:disabled {
+      background: #e6e8eb; color: #9aa3af; cursor: not-allowed;
+    }
+
+    /* Demo prompt suggestion chip */
+    .entry-prompt-suggestion {
+      align-self: center; background: var(--lumo-primary-color-10pct);
+      color: var(--lumo-primary-text-color); border: none;
+      padding: 8px 14px; border-radius: 999px; font-size: 12.5px;
+      cursor: pointer; font-family: inherit; font-weight: 600;
+      transition: all 150ms ease;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .entry-prompt-suggestion:hover {
+      background: var(--lumo-primary-color); color: #fff; transform: translateY(-1px);
+    }
+
+    .entry-dropzone {
+      border: 2px dashed #c0c4cc; border-radius: 14px;
+      padding: 24px 20px; background: rgba(255,255,255,0.6); backdrop-filter: blur(4px);
+      cursor: pointer; transition: all 200ms ease;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+    }
+    .entry-dropzone:hover, .entry-dropzone.drag-over {
+      border-color: var(--lumo-primary-color);
+      background: var(--lumo-primary-color-10pct);
+    }
+    .entry-dropzone i { font-size: 24px; color: var(--lumo-primary-color); }
+    .entry-dropzone .primary { font-weight: 600; color: #182739; font-size: 14px; }
+    .entry-dropzone .secondary { font-size: 12px; color: var(--lumo-secondary-text-color); }
+    .entry-dropzone .optional {
+      font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--lumo-secondary-text-color); margin-top: 4px;
+    }
+
+    .entry-file-chips {
+      display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    }
+    .entry-file-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #fff; border: 1px solid #e6e8eb; border-radius: 999px;
+      padding: 6px 12px 6px 10px; font-size: 12.5px;
+      animation: slideIn 300ms ease;
+    }
+    .entry-file-chip i.fa-file-pdf { color: #c1352c; font-size: 13px; }
+    .entry-file-chip .name { font-weight: 600; color: #182739; }
+    .entry-file-chip .meta { color: var(--lumo-secondary-text-color); font-size: 11px; }
+    .entry-file-chip .remove {
+      background: none; border: none; color: var(--lumo-secondary-text-color);
+      cursor: pointer; font-size: 11px; padding: 2px 4px; border-radius: 4px;
+    }
+    .entry-file-chip .remove:hover { background: #f4f5f7; color: var(--lumo-error-color); }
+
+    /* Preparing state overlay (replaces entry-inner contents) */
+    .entry-preparing {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      padding: 40px;
+      opacity: 0; pointer-events: none;
+      transition: opacity 400ms ease 200ms;
+    }
+    .entry-preparing-inner {
+      width: 100%; max-width: 480px;
+      display: flex; flex-direction: column; gap: 18px; align-items: center;
+      text-align: center;
+    }
+    .entry-preparing-inner .entry-avatar {
+      animation: pulseGlow 1.6s ease-in-out infinite, gentleFloat 3s ease-in-out infinite;
+    }
+    .entry-preparing-title {
+      font-size: 20px; font-weight: 700; color: #182739; margin: 0;
+    }
+    .entry-preparing-subtitle {
+      font-size: 13px; color: var(--lumo-secondary-text-color); margin: 0;
+    }
+    .entry-prep-list {
+      width: 100%; display: flex; flex-direction: column; gap: 8px; margin-top: 8px;
+    }
+    .entry-prep-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 14px; background: #fff; border: 1px solid #e6e8eb;
+      border-radius: 10px; font-size: 13px; color: #182739; text-align: left;
+      opacity: 0; transform: translateY(8px);
+      animation: slideIn 400ms ease forwards;
+    }
+    .entry-prep-row .indicator {
+      width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+      border: 2px solid var(--lumo-primary-color);
+      border-top-color: transparent;
+      animation: spin 0.8s linear infinite;
+    }
+    .entry-prep-row.done .indicator {
+      background: var(--lumo-success-color); border-color: var(--lumo-success-color);
+      border-top-color: var(--lumo-success-color); animation: none;
+      display: grid; place-items: center;
+    }
+    .entry-prep-row.done .indicator::after {
+      content: '\f00c'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
+      color: #fff; font-size: 9px;
+    }
+    .entry-prep-row .label { flex: 1; }
+
+    @keyframes gentleFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+
+    /* ============================================================
+       PRE-WARP STAGE — chat left (dominant) + source panel right
+       ============================================================ */
+    .pre-stage {
+      position: absolute; inset: 0;
+      display: none;
+      grid-template-columns: minmax(0,1fr) 380px;
+      transition: opacity 500ms ease, transform 600ms cubic-bezier(0.7, 0, 0.2, 1);
+      opacity: 0;
+    }
+    .pre-stage.active { display: grid; opacity: 1; }
+    .pre-stage.exiting { opacity: 0; transform: translateX(-40px); pointer-events: none; }
+
+    .pre-chat {
+      background: #fff;
+      display: flex; flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      border-right: 1px solid #e6e8eb;
+      overflow: hidden;
+    }
+    .pre-chat-header {
+      padding: 18px 28px; border-bottom: 1px solid #e6e8eb;
+      display: flex; align-items: center; gap: 12px;
+      flex-shrink: 0;
+    }
+    .pre-chat-header .avatar {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: linear-gradient(135deg, #0271ce, #5d3fd3);
+      display: grid; place-items: center; color: #fff; font-size: 15px;
+    }
+    .pre-chat-header .title { font-size: 16px; font-weight: 700; color: #182739; }
+    .pre-chat-header .subtitle { font-size: 12px; color: var(--lumo-secondary-text-color); }
+
+    .pre-chat-messages {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+    }
+    .pre-chat-inner {
+      width: 100%; max-width: 720px;
+      padding: 32px 28px;
+      margin: 0 auto;
+      display: flex; flex-direction: column; gap: 18px;
+    }
+
+    .pre-chat-input-area {
+      border-top: 1px solid #e6e8eb; padding: 16px 28px 20px 28px;
+      background: #fff; display: flex; justify-content: center;
+    }
+    .pre-chat-input-inner { width: 100%; max-width: 720px; }
+    .pre-chat-quick-actions {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+    }
+    .pre-chat-quick-actions button {
+      background: #fff; border: 1px solid var(--lumo-primary-color); color: var(--lumo-primary-text-color);
+      padding: 9px 14px; border-radius: 999px; font-size: 13px; cursor: pointer;
+      font-weight: 600; transition: all 150ms ease; font-family: inherit;
+    }
+    .pre-chat-quick-actions button:hover { background: var(--lumo-primary-color); color: #fff; }
+    .pre-chat-quick-actions button.primary-action { background: var(--lumo-primary-color); color: #fff; }
+    .pre-chat-quick-actions button.primary-action:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(2,113,206,0.3); }
+    .pre-chat-input {
+      display: flex; gap: 8px; align-items: center;
+      background: #f4f5f7; border-radius: 999px; padding: 8px 8px 8px 18px;
+    }
+    .pre-chat-input input {
+      flex: 1; border: none; background: transparent; outline: none;
+      font-size: 14px; font-family: inherit; padding: 6px 0;
+    }
+    .pre-chat-input button {
+      width: 36px; height: 36px; border-radius: 50%; border: none;
+      background: var(--lumo-primary-color); color: #fff; cursor: pointer;
+      display: grid; place-items: center;
+    }
+
+    /* Side panel (sources) */
+    .pre-side {
+      background: #fafbfd;
+      padding: 32px 24px;
+      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+    .pre-side h3 {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--lumo-secondary-text-color);
+      margin: 0 0 12px 0; font-weight: 700;
+    }
+    .pre-side .panel-title { font-size: 18px; font-weight: 700; color: #182739; margin: 0 0 4px 0; }
+    .pre-side .panel-subtitle { font-size: 13px; color: var(--lumo-secondary-text-color); line-height: 1.5; margin: 0 0 8px 0; }
+
+    .dropzone {
+      border: 2px dashed #c0c4cc; border-radius: 12px; padding: 24px 20px;
+      background: #fff; cursor: pointer; transition: all 200ms ease;
+      display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+    }
+    .dropzone:hover { border-color: var(--lumo-primary-color); background: var(--lumo-primary-color-10pct); }
+    .dropzone i { font-size: 26px; color: var(--lumo-primary-color); }
+    .dropzone .primary { font-weight: 600; color: #182739; font-size: 14px;}
+    .dropzone .secondary { font-size: 12px; color: var(--lumo-secondary-text-color); line-height: 1.5; }
+
+    .uploaded-file {
+      background: #fff; border: 1px solid #e6e8eb; border-radius: 10px;
+      padding: 12px 14px; display: flex; align-items: center; gap: 12px;
+      animation: slideIn 400ms ease;
+    }
+    .uploaded-file i.fa-file-pdf { color: #c1352c; font-size: 22px; flex-shrink: 0; }
+    .uploaded-file .info { flex: 1; min-width: 0; }
+    .uploaded-file .info .name { font-weight: 600; font-size: 13px; word-break: break-word; }
+    .uploaded-file .info .meta { font-size: 11px; color: var(--lumo-secondary-text-color); margin-top: 2px; }
+    .uploaded-file .progress { width: 50px; height: 4px; background: #e6e8eb; border-radius: 2px; overflow: hidden; flex-shrink: 0; }
+    .uploaded-file .progress > span {
+      display: block; height: 100%; background: var(--lumo-primary-color); width: 0%;
+      transition: width 1.8s ease;
+    }
+    .uploaded-file.analyzed .progress { display: none; }
+    .uploaded-file .checkmark { color: var(--lumo-success-color); font-size: 18px; display: none; flex-shrink: 0; }
+    .uploaded-file.analyzed .checkmark { display: block; }
+
+    .analysis-summary {
+      background: #fff; border: 1px solid #e6e8eb; border-radius: 10px; padding: 14px;
+      animation: slideIn 400ms ease;
+    }
+    .analysis-summary h4 {
+      margin: 0 0 10px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--lumo-secondary-text-color); font-weight: 700;
+    }
+    .analysis-summary ul {
+      margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px;
+      font-size: 12.5px; color: #182739;
+    }
+    .analysis-summary li { display: flex; gap: 8px; align-items: flex-start; line-height: 1.5; }
+    .analysis-summary li i { color: var(--lumo-success-color); font-size: 11px; margin-top: 3px; flex-shrink: 0; }
+
+    /* ============================================================
+       CHAT MESSAGES (used in pre-chat and command-chat)
+       ============================================================ */
+    .msg { display: flex; gap: 10px; max-width: 95%; animation: slideIn 350ms ease; }
+    .msg.user { align-self: flex-end; flex-direction: row-reverse; max-width: 85%; }
+    .msg .bubble {
+      padding: 12px 16px; border-radius: 16px; font-size: 14px; line-height: 1.55;
+      color: #182739;
+    }
+    .msg.ai .bubble { background: #f4f5f7; border-bottom-left-radius: 4px; }
+    .msg.user .bubble { background: var(--lumo-primary-color); color: #fff; border-bottom-right-radius: 4px; }
+    .msg .av {
+      width: 30px; height: 30px; border-radius: 50%;
+      display: grid; place-items: center; color: #fff; font-size: 12px; flex-shrink: 0;
+    }
+    .msg.ai .av { background: linear-gradient(135deg, #0271ce, #5d3fd3); }
+    .msg.user .av { background: #182739; }
+    .msg.system { align-self: center; max-width: 90%; }
+    .msg.system .bubble {
+      background: #fff7e1; color: #6c4e00; font-size: 12.5px; text-align: center;
+      border-radius: 8px; border: 1px solid #f3e0a3;
+    }
+    .typing { display: flex; gap: 4px; padding: 14px 18px; }
+    .typing span {
+      width: 7px; height: 7px; background: #c0c4cc; border-radius: 50%;
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+    .typing span:nth-child(2) { animation-delay: 0.15s; }
+    .typing span:nth-child(3) { animation-delay: 0.3s; }
+
+    /* Rich proposed brief in chat */
+    .brief-msg {
+      background: #fff; border: 1px solid #e6e8eb; border-left: 3px solid var(--lumo-primary-color);
+      border-radius: 12px; padding: 18px 20px; max-width: 95%;
+      animation: slideIn 350ms ease;
+      box-shadow: 0 1px 3px rgba(24,39,57,0.06);
+    }
+    .brief-msg h3 { margin: 0 0 4px 0; font-size: 16px; font-weight: 700; color: #182739; }
+    .brief-msg .brief-meta {
+      display: flex; flex-wrap: wrap; gap: 14px;
+      font-size: 12.5px; color: var(--lumo-secondary-text-color);
+      padding-bottom: 12px; border-bottom: 1px solid #e6e8eb; margin: 8px 0 14px 0;
+    }
+    .brief-msg .brief-meta strong { color: #182739; font-weight: 600; margin-left: 4px; }
+    .brief-msg .section-label {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--lumo-secondary-text-color);
+      font-weight: 700; margin-bottom: 8px;
+    }
+    .brief-msg .lo-list { display: flex; flex-direction: column; gap: 6px; }
+    .brief-msg .lo-row {
+      display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+      background: #f9fafc; border: 1px solid #e6e8eb; border-radius: 8px;
+      font-size: 13px;
+    }
+    .brief-msg .lo-row .num {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #fff; border: 1.5px solid var(--lumo-primary-color); color: var(--lumo-primary-color);
+      display: grid; place-items: center; font-weight: 700; font-size: 11px; flex-shrink: 0;
+    }
+    .brief-msg .lo-row .title { flex: 1; font-weight: 600; min-width: 0; }
+    .brief-msg .lo-row .source-chip {
+      font-size: 10px; padding: 2px 7px; background: var(--lumo-primary-color-10pct); color: var(--lumo-primary-text-color);
+      border-radius: 999px; font-weight: 600; white-space: nowrap;
+    }
+    .brief-msg .lo-row .duration {
+      font-size: 11px; color: var(--lumo-secondary-text-color); white-space: nowrap;
+    }
+
+    /* ============================================================
+       WARP STAGE — chat takeover, streaming status
+       ============================================================ */
+    .warp-stage {
+      position: absolute; inset: 0;
+      background: #fff;
+      display: none;
+      align-items: center; justify-content: center;
+      padding: 40px;
+    }
+    .warp-stage.active { display: flex; }
+    .warp-inner {
+      width: 100%; max-width: 580px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .warp-header {
+      display: flex; gap: 14px; align-items: center; margin-bottom: 10px;
+    }
+    .warp-header .avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: linear-gradient(135deg, #0271ce, #5d3fd3);
+      display: grid; place-items: center; color: #fff; font-size: 17px;
+      animation: pulseGlow 1.6s ease-in-out infinite;
+    }
+    .warp-header h2 { margin: 0; font-size: 18px; font-weight: 700; color: #182739; }
+    .warp-header p { margin: 0; font-size: 13px; color: var(--lumo-secondary-text-color); }
+    .warp-status-list { display: flex; flex-direction: column; gap: 8px; }
+    .warp-status-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px; background: #f9fafc; border: 1px solid #e6e8eb;
+      border-radius: 10px; font-size: 14px; color: #182739;
+      opacity: 0; transform: translateY(8px);
+      animation: slideIn 400ms ease forwards;
+    }
+    .warp-status-row .indicator {
+      width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+      display: grid; place-items: center;
+      border: 2px solid var(--lumo-primary-color);
+      border-top-color: transparent;
+      animation: spin 0.8s linear infinite;
+    }
+    .warp-status-row.done .indicator {
+      background: var(--lumo-success-color); border-color: var(--lumo-success-color);
+      border-top-color: var(--lumo-success-color); animation: none;
+    }
+    .warp-status-row.done .indicator::after {
+      content: '\f00c'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
+      color: #fff; font-size: 10px;
+    }
+    .warp-status-row .label { flex: 1; }
+    .warp-status-row .meta {
+      font-size: 11px; color: var(--lumo-secondary-text-color);
+      font-family: 'SF Mono', Menlo, monospace;
+    }
+
+    /* ============================================================
+       POST-WARP STAGE — command-chat left, canvas, floating rail right
+       ============================================================ */
+    .post-stage {
+      position: absolute; inset: 0;
+      display: none;
+      grid-template-columns: 340px minmax(0, 1fr) 320px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 600ms ease;
+    }
+    .post-stage.active { opacity: 1; pointer-events: auto; }
+
+    /* Command chat (left, slides in) */
+    .cmd-chat {
+      background: #fff;
+      border-right: 1px solid #e6e8eb;
+      display: flex; flex-direction: column;
+      min-width: 0;
+      transform: translateX(-100%);
+      transition: transform 700ms cubic-bezier(0.7, 0, 0.2, 1);
+    }
+    .post-stage.active .cmd-chat { transform: translateX(0); }
+    .cmd-chat-header {
+      padding: 14px 18px; border-bottom: 1px solid #e6e8eb;
+      display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    }
+    .cmd-chat-header .avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: linear-gradient(135deg, #0271ce, #5d3fd3);
+      display: grid; place-items: center; color: #fff; font-size: 13px;
+    }
+    .cmd-chat-header .title { font-size: 14px; font-weight: 700; color: #182739; }
+    .cmd-chat-header .subtitle { font-size: 11px; color: var(--lumo-secondary-text-color); }
+    .cmd-chat-messages {
+      flex: 1; overflow-y: auto; padding: 18px 16px;
+      display: flex; flex-direction: column; gap: 14px; scroll-behavior: smooth;
+    }
+    .cmd-chat-messages .msg .bubble { font-size: 13.5px; padding: 10px 14px; }
+    .cmd-chat-quick-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 12px 16px; }
+    .cmd-chat-quick-actions button {
+      background: #fff; border: 1px solid var(--lumo-primary-color); color: var(--lumo-primary-text-color);
+      padding: 7px 12px; border-radius: 999px; font-size: 12px; cursor: pointer;
+      font-weight: 600; transition: all 150ms ease; font-family: inherit;
+    }
+    .cmd-chat-quick-actions button:hover { background: var(--lumo-primary-color); color: #fff; }
+    .cmd-chat-quick-actions button.primary-action { background: var(--lumo-primary-color); color: #fff; }
+    .cmd-chat-input-area {
+      border-top: 1px solid #e6e8eb; padding: 12px 14px; flex-shrink: 0; background: #fff;
+    }
+    .cmd-chat-input {
+      display: flex; gap: 8px; align-items: center;
+      background: #f4f5f7; border-radius: 999px; padding: 6px 6px 6px 16px;
+    }
+    .cmd-chat-input input {
+      flex: 1; border: none; background: transparent; outline: none;
+      font-size: 13px; font-family: inherit; padding: 6px 0;
+    }
+    .cmd-chat-input button {
+      width: 32px; height: 32px; border-radius: 50%; border: none;
+      background: var(--lumo-primary-color); color: #fff; cursor: pointer;
+      display: grid; place-items: center;
+    }
+
+    /* Canvas */
+    .canvas {
+      overflow-y: auto;
+      position: relative;
+      padding: 32px 36px 60px 36px;
+    }
+    .canvas-inner { max-width: 760px; margin: 0 auto; }
+    .canvas-breadcrumb {
+      font-size: 11px; color: var(--lumo-secondary-text-color);
+      text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .canvas-title { font-size: 26px; font-weight: 700; color: #182739; margin: 0 0 4px 0;}
+    .canvas-subtitle { font-size: 14px; color: var(--lumo-secondary-text-color); margin: 0 0 24px 0; }
+
+    /* Floating rail cards (right) */
+    .rail-floating {
+      padding: 32px 20px 32px 8px;
+      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 14px;
+      transform: translateX(40px); opacity: 0;
+      transition: transform 700ms cubic-bezier(0.7, 0, 0.2, 1) 200ms, opacity 600ms ease 200ms;
+    }
+    .post-stage.active .rail-floating { transform: translateX(0); opacity: 1; }
+
+    .float-card {
+      background: #fff; border-radius: 14px; padding: 16px 18px;
+      box-shadow: 0 4px 14px rgba(24,39,57,0.08), 0 1px 3px rgba(24,39,57,0.04);
+      border: 1px solid rgba(255,255,255,0.6);
+      animation: floatIn 500ms ease backwards;
+    }
+    .float-card h4 {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--lumo-secondary-text-color);
+      margin: 0 0 10px 0; font-weight: 700;
+    }
+
+    /* Budget card */
+    .budget-row { display: flex; justify-content: space-between; align-items: baseline; }
+    .budget-target { font-size: 22px; font-weight: 700; color: #182739; }
+    .budget-target small { font-size: 11px; font-weight: 500; color: var(--lumo-secondary-text-color); margin-left: 4px;}
+    .budget-label { font-size: 11px; color: var(--lumo-secondary-text-color); }
+    .budget-bar { height: 6px; background: #e6e8eb; border-radius: 4px; margin: 10px 0 6px 0; overflow: hidden; }
+    .budget-bar > span {
+      display: block; height: 100%;
+      background: linear-gradient(90deg, var(--lumo-primary-color), #5d3fd3);
+      transition: width 500ms ease;
+    }
+    .budget-breakdown {
+      font-size: 11px; color: var(--lumo-secondary-text-color); display: flex; justify-content: space-between;
+    }
+    .budget-breakdown strong { color: #182739; font-weight: 600; }
+
+    /* Progress card */
+    .checkpoints { display: flex; flex-direction: column; gap: 7px; }
+    .checkpoint { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--lumo-secondary-text-color); }
+    .checkpoint .dot {
+      width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid #c0c4cc;
+      display: grid; place-items: center; font-size: 8px; color: #fff; flex-shrink: 0;
+    }
+    .checkpoint.done { color: #182739; }
+    .checkpoint.done .dot { background: var(--lumo-success-color); border-color: var(--lumo-success-color); }
+    .checkpoint.done .dot::before { content: '\f00c'; font-family: 'Font Awesome 6 Free'; font-weight: 900; }
+    .checkpoint.active { color: var(--lumo-primary-text-color); font-weight: 600; }
+    .checkpoint.active .dot { border-color: var(--lumo-primary-color); }
+    .checkpoint.active .dot::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--lumo-primary-color); }
+
+    /* Locks card */
+    .locks { display: flex; flex-wrap: wrap; gap: 6px; }
+    .lock-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #f0f3f9; color: #182739; padding: 4px 9px; border-radius: 999px;
+      font-size: 11.5px; cursor: pointer; border: 1px solid transparent;
+    }
+    .lock-pill i.fa-lock { font-size: 9px; color: var(--lumo-secondary-text-color); }
+    .lock-pill[data-source="user"] { background: var(--lumo-primary-color-10pct); color: var(--lumo-primary-text-color); }
+    .lock-pill[data-source="user"] i.fa-lock { color: var(--lumo-primary-text-color); }
+    .lock-pill[data-source="ai-inferred"] { background: #fff7e1; color: #6c4e00; border-color: #f3e0a3;}
+    .lock-pill[data-source="ai-inferred"] i.fa-lock { color: #b18900; }
+    .empty-state { font-size: 12px; color: var(--lumo-secondary-text-color); font-style: italic; }
+
+    /* Sources card */
+    .source-item {
+      display: flex; align-items: center; gap: 9px; padding: 8px 10px;
+      background: #f9fafc; border: 1px solid #e6e8eb; border-radius: 8px;
+      cursor: pointer; font-size: 12.5px;
+    }
+    .source-item:hover { background: #f0f3f9; }
+    .source-item i.fa-file-pdf { color: #c1352c; flex-shrink: 0; }
+    .source-item .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .source-item .status {
+      font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--lumo-success-text-color); font-weight: 700; flex-shrink: 0;
+    }
+
+    /* Generate card — prominent */
+    .float-card.generate-card {
+      background: linear-gradient(135deg, #182739 0%, #0e1f3a 100%);
+      color: #fff;
+      padding: 18px;
+      border: none;
+      box-shadow: 0 8px 24px rgba(24,39,57,0.18);
+    }
+    .float-card.generate-card h4 { color: rgba(255,255,255,0.5); }
+    .generate-btn {
+      width: 100%; padding: 13px; border-radius: 10px; border: none;
+      background: var(--lumo-primary-color); color: #fff; font-weight: 700; font-size: 14px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: transform 120ms ease, opacity 200ms ease, background 200ms ease;
+    }
+    .generate-btn:hover:not(:disabled) { transform: translateY(-1px); background: #0381e8; }
+    .generate-btn:disabled {
+      background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.4); cursor: not-allowed;
+    }
+    .generate-blocker {
+      font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 10px; line-height: 1.5;
+      text-align: center;
+    }
+    .generate-blocker.ready { color: #7dd3a6; font-weight: 600;}
+    .generate-blocker.ready i { color: #7dd3a6; margin-right: 4px;}
+
+    /* ============================================================
+       Canvas views (post-warp)
+       ============================================================ */
+    .canvas-view { animation: slideIn 400ms ease; }
+    [hidden] { display: none !important; }
+
+    .structure-grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+    .lo-card {
+      background: #fff; border: 1px solid #e6e8eb; border-radius: 12px;
+      padding: 16px 18px; cursor: pointer; transition: all 180ms ease;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .lo-card:hover { border-color: var(--lumo-primary-color); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(2,113,206,0.10); }
+    .lo-card .header { display: flex; align-items: center; gap: 12px; }
+    .lo-card .num {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--lumo-primary-color); color: #fff;
+      display: grid; place-items: center; font-weight: 700; font-size: 13px; flex-shrink: 0;
+    }
+    .lo-card .title { flex: 1; font-weight: 700; font-size: 15px; color: #182739; }
+    .lo-card .duration { font-size: 12px; color: var(--lumo-secondary-text-color); }
+    .lo-card .intent { font-size: 12px; color: var(--lumo-secondary-text-color); margin-left: 40px; }
+    .lo-card .footer { display: flex; align-items: center; gap: 10px; margin-left: 40px; flex-wrap: wrap; }
+    .lo-card .footer .meta-chip {
+      font-size: 11px; padding: 3px 8px; background: #f0f3f9; color: #182739; border-radius: 999px;
+    }
+    .lo-card .footer .meta-chip.source { background: var(--lumo-primary-color-10pct); color: var(--lumo-primary-text-color); }
+    .lo-card .footer .meta-chip.refinement { background: #fff7e1; color: #6c4e00; }
+
+    /* Pickers */
+    .picker-banner {
+      background: #fff7e1; border: 1px solid #f3e0a3; border-radius: 8px;
+      padding: 10px 14px; font-size: 13px; color: #6c4e00;
+      margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
+    }
+    .picker-banner i { color: #b18900; }
+    .picker-grid {
+      display: grid; gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .picker-card {
+      background: #fff; border: 2px solid #e6e8eb; border-radius: 12px;
+      padding: 16px; cursor: pointer; transition: all 200ms ease;
+      display: flex; flex-direction: column; gap: 10px; position: relative;
+    }
+    .picker-card:hover { border-color: var(--lumo-primary-color); transform: translateY(-2px); box-shadow: 0 4px 14px rgba(2,113,206,0.10); }
+    .picker-card.selected { border-color: var(--lumo-primary-color); background: var(--lumo-primary-color-10pct); }
+    .picker-card .label {
+      font-weight: 700; font-size: 14px; color: #182739;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .picker-card .descriptor { font-size: 12px; color: var(--lumo-secondary-text-color); }
+    .picker-card .preview {
+      font-size: 13px; line-height: 1.5; color: #182739;
+      background: #f9fafc; border-radius: 8px; padding: 12px; min-height: 90px;
+      font-style: italic;
+    }
+    .picker-card .preview.tag { font-style: normal; }
+    .picker-card .check {
+      position: absolute; top: 12px; right: 12px;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--lumo-primary-color); color: #fff;
+      display: none; place-items: center; font-size: 10px;
+    }
+    .picker-card.selected .check { display: grid; }
+    .picker-preview-label {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--lumo-secondary-text-color); font-weight: 700;
+    }
+    .visual-swatch {
+      height: 130px; border-radius: 8px; display: grid; place-items: center; font-size: 36px;
+    }
+    .visual-swatch.illustrated { background: linear-gradient(135deg, #d6e8ff 0%, #c3d9f7 100%); color: #2d5b9c; }
+    .visual-swatch.photographic { background: linear-gradient(135deg, #1f2937 0%, #4b5563 100%); color: #fde68a; }
+    .visual-swatch.flat-corp { background: #f4f5f7; border: 1px solid #e6e8eb; color: #5d3fd3; }
+    .visual-swatch.minimal { background: #fff; border: 1px solid #e6e8eb; color: #182739; font-size: 26px; font-weight: 700; }
+
+    /* Ready-to-generate */
+    .summary-card { background: #fff; border: 1px solid #e6e8eb; border-radius: 12px; padding: 24px; margin-top: 8px; }
+    .summary-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+    .summary-stat {
+      background: #f9fafc; border: 1px solid #e6e8eb; border-radius: 10px; padding: 14px; text-align: center;
+    }
+    .summary-stat .v { font-size: 22px; font-weight: 700; color: #182739; }
+    .summary-stat .l { font-size: 10px; color: var(--lumo-secondary-text-color); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+    .summary-section { margin-bottom: 20px; }
+    .summary-section h3 {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--lumo-secondary-text-color);
+      font-weight: 700; margin: 0 0 10px 0;
+    }
+    .summary-list { display: flex; flex-direction: column; gap: 6px; }
+    .summary-row {
+      display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+      background: #f9fafc; border-radius: 8px; font-size: 13px;
+    }
+    .summary-row i { color: var(--lumo-success-color); font-size: 12px; }
+
+    /* ============================================================
+       Animations
+       ============================================================ */
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes floatIn {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+      30% { transform: translateY(-4px); opacity: 1; }
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(2,113,206,0.4); }
+      50% { box-shadow: 0 0 0 12px rgba(2,113,206,0); }
+    }
+
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <!-- Top bar -->
+    <div class="topbar">
+      <div class="logo">
+        <div class="mark"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+        <span>Course Builder</span>
+      </div>
+      <div class="crumbs">
+        <span>Vector State University</span>
+        <span class="sep">/</span>
+        <span class="current" id="crumbProject">New course</span>
+      </div>
+      <div class="spacer"></div>
+      <div class="meta-pill" id="phasePill">Phase 0 · Start</div>
+    </div>
+
+    <div class="body">
+
+      <!-- ===== ENTRY STAGE ===== -->
+      <div class="entry-stage" id="entryStage">
+        <div class="entry-inner" id="entryInner">
+          <div class="entry-greeting">
+            <div class="entry-avatar"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+            <h1 class="entry-title">What course are we building today?</h1>
+            <p class="entry-subtitle">Tell me what you have in mind, and drop in any reference materials. I'll get to work on a draft plan.</p>
+          </div>
+
+          <div class="entry-prompt-wrap">
+            <textarea
+              class="entry-prompt-textarea"
+              id="entryPrompt"
+              placeholder="A short description works best — e.g., &quot;A campus safety course for incoming students&quot;"
+              rows="3"
+            ></textarea>
+            <div class="entry-prompt-footer">
+              <div class="entry-prompt-hint" id="entryPromptHint">Press Enter or click send when you're ready</div>
+              <button class="entry-prompt-submit" id="entryPromptSubmit" disabled aria-label="Submit">
+                <i class="fa-solid fa-arrow-up"></i>
+              </button>
+            </div>
+          </div>
+
+          <button class="entry-prompt-suggestion" id="entryPromptSuggestion" type="button">
+            <i class="fa-solid fa-lightbulb"></i>
+            Use sample: campus safety course
+          </button>
+
+          <div class="entry-dropzone" id="entryDropzone">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <div class="primary">Drop files here, or click to browse</div>
+            <div class="secondary">Policies, regulations, brand guides, prior course material</div>
+            <div class="optional">Optional</div>
+          </div>
+
+          <div class="entry-file-chips" id="entryFileChips"></div>
+        </div>
+
+        <!-- Preparing state -->
+        <div class="entry-preparing" id="entryPreparing">
+          <div class="entry-preparing-inner">
+            <div class="entry-avatar"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+            <h2 class="entry-preparing-title">Getting things ready…</h2>
+            <p class="entry-preparing-subtitle">Reading your materials and setting up your workspace.</p>
+            <div class="entry-prep-list" id="entryPrepList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PRE-WARP STAGE ===== -->
+      <div class="pre-stage" id="preStage">
+        <!-- Chat: left, dominant -->
+        <div class="pre-chat">
+          <div class="pre-chat-header">
+            <div class="avatar"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+            <div>
+              <div class="title">Course Builder</div>
+              <div class="subtitle" id="preChatSubtitle">Tell me what you have in mind</div>
+            </div>
+          </div>
+          <div class="pre-chat-messages" id="preChatMessages">
+            <div class="pre-chat-inner" id="preChatInner"></div>
+          </div>
+          <div class="pre-chat-input-area">
+            <div class="pre-chat-input-inner">
+              <div class="pre-chat-quick-actions" id="preQuickActions"></div>
+              <div class="pre-chat-input">
+                <input type="text" placeholder="Message the course builder…" />
+                <button disabled><i class="fa-solid fa-arrow-up"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Side panel: sources -->
+        <aside class="pre-side">
+          <div>
+            <div class="panel-title">Source materials</div>
+            <p class="panel-subtitle">Drop policies, regulations, brand guides, prior course material — anything that should ground the course.</p>
+          </div>
+          <div class="dropzone" id="dropzone">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <div class="primary">Drop files here, or browse</div>
+            <div class="secondary">PDF, DOCX, slide decks</div>
+          </div>
+          <div id="uploadList"></div>
+          <div id="analysisSummary" hidden>
+            <div class="analysis-summary">
+              <h4>What I extracted</h4>
+              <ul>
+                <li><i class="fa-solid fa-circle-check"></i><span><strong>5 sections</strong> detected (Overview, Alerts, Weather, Active Threat, Reporting)</span></li>
+                <li><i class="fa-solid fa-circle-check"></i><span><strong>VSU Alert</strong> system referenced 14 times</span></li>
+                <li><i class="fa-solid fa-circle-check"></i><span>Authority level: <strong>authoritative</strong></span></li>
+                <li><i class="fa-solid fa-circle-check"></i><span>Key terms: shelter-in-place, Run-Hide-Fight, Title IX</span></li>
+              </ul>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <!-- ===== WARP STAGE ===== -->
+      <div class="warp-stage" id="warpStage">
+        <div class="warp-inner">
+          <div class="warp-header">
+            <div class="avatar"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+            <div>
+              <h2>Building your planning workspace</h2>
+              <p>Locking the brief and preparing the canvas.</p>
+            </div>
+          </div>
+          <div class="warp-status-list" id="warpStatusList"></div>
+        </div>
+      </div>
+
+      <!-- ===== POST-WARP STAGE ===== -->
+      <div class="post-stage" id="postStage">
+        <!-- Command chat (slides in from left) -->
+        <aside class="cmd-chat">
+          <div class="cmd-chat-header">
+            <div class="avatar"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+            <div>
+              <div class="title">Course Builder</div>
+              <div class="subtitle">Command bar · type to refine</div>
+            </div>
+          </div>
+          <div class="cmd-chat-messages" id="cmdChatMessages"></div>
+          <div class="cmd-chat-quick-actions" id="cmdQuickActions"></div>
+          <div class="cmd-chat-input-area">
+            <div class="cmd-chat-input">
+              <input type="text" placeholder="Refine your course…" />
+              <button disabled><i class="fa-solid fa-arrow-up"></i></button>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Canvas -->
+        <main class="canvas" id="canvas">
+          <!-- Course structure -->
+          <div class="canvas-view canvas-inner" id="view-structure" hidden>
+            <div class="canvas-breadcrumb">Course structure</div>
+            <h1 class="canvas-title">Campus Safety &amp; Emergency Procedures</h1>
+            <p class="canvas-subtitle">5 learning objects · ~12 minutes · grounded in VSU Campus Safety Policy</p>
+            <div class="structure-grid" id="structureGrid"></div>
+          </div>
+
+          <!-- Tone picker -->
+          <div class="canvas-view canvas-inner" id="view-tone" hidden>
+            <div class="canvas-breadcrumb">Choosing narrative tone</div>
+            <h1 class="canvas-title">How should the course sound?</h1>
+            <p class="canvas-subtitle">Same talking point from LO 2, written three ways. Pick the one that feels right for your students.</p>
+            <div class="picker-banner">
+              <i class="fa-solid fa-circle-info"></i>
+              <span><strong>Preview only</strong> — these passages won't appear in your course. They're stylistic samples.</span>
+            </div>
+            <div class="picker-grid" id="tonePicker">
+              <div class="picker-card" data-value="conversational" data-label="Conversational">
+                <div class="check"><i class="fa-solid fa-check"></i></div>
+                <div class="label"><i class="fa-solid fa-comments"></i> Conversational</div>
+                <div class="descriptor">Warm, second-person, plain language</div>
+                <div class="picker-preview-label">Preview</div>
+                <div class="preview">"When VSU sends you an alert, it shows up on your phone first — usually within a minute. The biggest thing you can do right now? Make sure your number's in the system. Takes about thirty seconds."</div>
+              </div>
+              <div class="picker-card" data-value="direct-reassuring" data-label="Direct &amp; reassuring">
+                <div class="check"><i class="fa-solid fa-check"></i></div>
+                <div class="label"><i class="fa-solid fa-shield-halved"></i> Direct &amp; reassuring</div>
+                <div class="descriptor">Clear, calm, action-oriented</div>
+                <div class="picker-preview-label">Preview</div>
+                <div class="preview">"VSU Alert delivers emergency notifications to your phone, email, and campus screens within sixty seconds of an incident. To receive them, register your mobile number in the student portal. It is the single most important step you can take today."</div>
+              </div>
+              <div class="picker-card" data-value="formal" data-label="Formal">
+                <div class="check"><i class="fa-solid fa-check"></i></div>
+                <div class="label"><i class="fa-solid fa-building-columns"></i> Formal</div>
+                <div class="descriptor">Institutional, third-person, policy-aligned</div>
+                <div class="picker-preview-label">Preview</div>
+                <div class="preview">"The VSU Alert System, as outlined in Section 2 of the Campus Safety Policy, transmits emergency notifications via SMS, email, and digital signage within 60 seconds of an incident. Student enrollment of a mobile number in the official portal is required for participation."</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Visual style picker -->
+          <div class="canvas-view canvas-inner" id="view-visual" hidden>
+            <div class="canvas-breadcrumb">Choosing visual style</div>
+            <h1 class="canvas-title">What should the course look like?</h1>
+            <p class="canvas-subtitle">Same illustrative subject — a campus emergency alert — in four styles.</p>
+            <div class="picker-banner">
+              <i class="fa-solid fa-circle-info"></i>
+              <span><strong>Preview only</strong> — these samples won't appear in your course.</span>
+            </div>
+            <div class="picker-grid" id="visualPicker">
+              <div class="picker-card" data-value="illustrated" data-label="Illustrated flat">
+                <div class="check"><i class="fa-solid fa-check"></i></div>
+                <div class="label"><i class="fa-solid fa-pen-nib"></i> Illustrated flat</div>
+                <div class="descriptor">Friendly, approachable line illustrations</div>
+                <div class="visual-swatch illustrated"><i class="fa-solid fa-bell-concierge"></i></div>
+              </div>
+              <div class="picker-card" data-value="photographic" data-label="Photographic">
+                <div class="check"><i class="fa-solid fa-check"></i></div>
+                <div class="label"><i class="fa-solid fa-camera-retro"></i> Photographic</div>
+                <div class="descriptor">Real campus imagery, documentary feel</div>
+                <div class="visual-swatch photographic"><i class="fa-solid fa-camera"></i></div>
+              </div>
+              <div class="picker-card" data-value="flat-corp" data-label="Flat corporate">
+                <div class="check"><i class="fa-solid fa-check"></i></div>
+                <div class="label"><i class="fa-solid fa-shapes"></i> Flat corporate</div>
+                <div class="descriptor">Geometric, brand-forward, polished</div>
+                <div class="visual-swatch flat-corp"><i class="fa-solid fa-shield"></i></div>
+              </div>
+              <div class="picker-card" data-value="minimal" data-label="Minimal type">
+                <div class="check"><i class="fa-solid fa-check"></i></div>
+                <div class="label"><i class="fa-solid fa-text-height"></i> Minimal type</div>
+                <div class="descriptor">Typography-driven, very little imagery</div>
+                <div class="visual-swatch minimal">ALERT</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Supplementary -->
+          <div class="canvas-view canvas-inner" id="view-supp" hidden>
+            <div class="canvas-breadcrumb">Knowledge checks &amp; callouts</div>
+            <h1 class="canvas-title">How should checks and callouts look?</h1>
+            <p class="canvas-subtitle">Style for knowledge checks, key-point callouts, and summaries.</p>
+            <div class="picker-banner">
+              <i class="fa-solid fa-circle-info"></i>
+              <span><strong>Preview only</strong> — these are sample treatments, not real questions.</span>
+            </div>
+            <div class="picker-grid" id="suppPicker">
+              <div class="picker-card" data-value="standard" data-label="Standard">
+                <div class="check"><i class="fa-solid fa-check"></i></div>
+                <div class="label"><i class="fa-solid fa-list-check"></i> Standard <span style="font-size:10px;background:var(--lumo-primary-color-10pct);color:var(--lumo-primary-text-color);padding:2px 6px;border-radius:4px;margin-left:4px;">Recommended</span></div>
+                <div class="descriptor">Inline callouts, multiple-choice with feedback</div>
+                <div class="preview tag" style="padding:14px;">
+                  <div style="background:#fff;border:1px solid var(--lumo-primary-color);border-left:3px solid var(--lumo-primary-color);padding:10px;border-radius:6px;font-size:12px;">
+                    <strong style="display:block;margin-bottom:4px;color:var(--lumo-primary-text-color);">Quick check</strong>
+                    Which alert channel is fastest for emergency notifications?
+                  </div>
+                </div>
+              </div>
+              <div class="picker-card" data-value="scenario" data-label="Scenario-based">
+                <div class="check"><i class="fa-solid fa-check"></i></div>
+                <div class="label"><i class="fa-solid fa-route"></i> Scenario-based</div>
+                <div class="descriptor">Branching mini-scenarios with consequences</div>
+                <div class="preview tag" style="padding:14px;">
+                  <div style="background:#fef3c7;border:1px solid #fbbf24;padding:10px;border-radius:6px;font-size:12px;">
+                    <strong style="display:block;margin-bottom:4px;color:#92400e;">You're in the library when…</strong>
+                    the fire alarm sounds. What's your first move?
+                  </div>
+                </div>
+              </div>
+              <div class="picker-card" data-value="minimal-checks" data-label="Minimal">
+                <div class="check"><i class="fa-solid fa-check"></i></div>
+                <div class="label"><i class="fa-solid fa-feather"></i> Minimal</div>
+                <div class="descriptor">Light-touch check-ins, less assessment-heavy</div>
+                <div class="preview tag" style="padding:14px;">
+                  <div style="background:#f9fafc;border:1px solid #e6e8eb;padding:10px;border-radius:6px;font-size:12px;font-style:italic;color:var(--lumo-secondary-text-color);">
+                    Reflect: when did you last update your contact info in the portal?
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ready -->
+          <div class="canvas-view canvas-inner" id="view-ready" hidden>
+            <div class="canvas-breadcrumb">Final review</div>
+            <h1 class="canvas-title">Ready to generate</h1>
+            <p class="canvas-subtitle">Here's everything we've decided. Anything you want to tweak before we build the real thing?</p>
+            <div class="summary-card">
+              <div class="summary-stats">
+                <div class="summary-stat"><div class="v">5</div><div class="l">LOs</div></div>
+                <div class="summary-stat"><div class="v">~18</div><div class="l">Est. scenes</div></div>
+                <div class="summary-stat"><div class="v">~3 min</div><div class="l">Gen. time</div></div>
+                <div class="summary-stat"><div class="v">12 min</div><div class="l">Course length</div></div>
+              </div>
+              <div class="summary-section">
+                <h3>Locked parameters</h3>
+                <div class="summary-list">
+                  <div class="summary-row"><i class="fa-solid fa-check-circle"></i><span><strong>Tone:</strong> Direct &amp; reassuring</span></div>
+                  <div class="summary-row"><i class="fa-solid fa-check-circle"></i><span><strong>Visual style:</strong> Illustrated flat</span></div>
+                  <div class="summary-row"><i class="fa-solid fa-check-circle"></i><span><strong>Supplementary style:</strong> Standard</span></div>
+                  <div class="summary-row"><i class="fa-solid fa-check-circle"></i><span><strong>Approach:</strong> Scenario-led</span></div>
+                  <div class="summary-row"><i class="fa-solid fa-check-circle"></i><span><strong>Focus:</strong> Prevention &amp; response</span></div>
+                </div>
+              </div>
+              <div class="summary-section">
+                <h3>Source bindings</h3>
+                <div class="summary-list">
+                  <div class="summary-row"><i class="fa-solid fa-file-pdf" style="color:#c1352c"></i><span>All 5 LOs grounded in <strong>VSU Campus Safety Policy 2025</strong></span></div>
+                </div>
+              </div>
+              <div class="summary-section">
+                <h3>Pending refinements</h3>
+                <div class="summary-list">
+                  <div class="summary-row" style="background:#fff7e1;"><i class="fa-solid fa-clock" style="color:#b18900"></i><span><strong>LO 4:</strong> Emphasize "Run, Hide, Fight" sequence from policy §4.3</span></div>
+                  <div class="summary-row" style="background:#fff7e1;"><i class="fa-solid fa-clock" style="color:#b18900"></i><span><strong>Global:</strong> Reference the VSU Police non-emergency line in every relevant LO</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <!-- Floating rail (right) -->
+        <aside class="rail-floating">
+          <div class="float-card" style="animation-delay:0ms;">
+            <h4>Duration budget</h4>
+            <div class="budget-row">
+              <div class="budget-target">12<small>min target</small></div>
+              <div class="budget-label">2 min left</div>
+            </div>
+            <div class="budget-bar"><span style="width:83%"></span></div>
+            <div class="budget-breakdown">
+              <span>Used: <strong>10 min</strong></span>
+              <span>Left: <strong>2 min</strong></span>
+            </div>
+          </div>
+
+          <div class="float-card" style="animation-delay:80ms;">
+            <h4>Progress</h4>
+            <div class="checkpoints" id="checkpoints">
+              <div class="checkpoint done" data-cp="brief"><div class="dot"></div>Brief accepted</div>
+              <div class="checkpoint" data-cp="tone"><div class="dot"></div>Tone selected</div>
+              <div class="checkpoint" data-cp="visual"><div class="dot"></div>Visual style selected</div>
+              <div class="checkpoint" data-cp="supplementary"><div class="dot"></div>Supplementary style</div>
+              <div class="checkpoint" data-cp="ready"><div class="dot"></div>Ready to generate</div>
+            </div>
+          </div>
+
+          <div class="float-card" style="animation-delay:160ms;">
+            <h4>Locked decisions</h4>
+            <div class="locks" id="locks">
+              <span class="empty-state">Decisions appear here as you confirm them.</span>
+            </div>
+          </div>
+
+          <div class="float-card" style="animation-delay:240ms;">
+            <h4>Source materials</h4>
+            <div class="source-item">
+              <i class="fa-solid fa-file-pdf"></i>
+              <div class="name">VSU-Campus-Safety-Policy-2025.pdf</div>
+              <div class="status">Analyzed</div>
+            </div>
+          </div>
+
+          <div class="float-card generate-card" style="animation-delay:320ms;">
+            <h4>Next step</h4>
+            <button class="generate-btn" id="generateBtn" disabled>
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              <span id="generateBtnLabel">Generate course</span>
+            </button>
+            <div class="generate-blocker" id="generateBlocker">Select tone &amp; visual style to enable.</div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+
+  <script>
+    /* ============================================================
+       Scripted demo for Chat-Driven Course Builder
+       ============================================================ */
+    const phasePill = document.getElementById('phasePill');
+    const crumbProject = document.getElementById('crumbProject');
+    const entryStage = document.getElementById('entryStage');
+    const entryPrompt = document.getElementById('entryPrompt');
+    const entryPromptSubmit = document.getElementById('entryPromptSubmit');
+    const entryPromptSuggestion = document.getElementById('entryPromptSuggestion');
+    const entryDropzone = document.getElementById('entryDropzone');
+    const entryFileChips = document.getElementById('entryFileChips');
+    const entryPrepList = document.getElementById('entryPrepList');
+    const preStage = document.getElementById('preStage');
+    const warpStage = document.getElementById('warpStage');
+    const postStage = document.getElementById('postStage');
+    const preChatInner = document.getElementById('preChatInner');
+    const preQuickActions = document.getElementById('preQuickActions');
+    const cmdChatMessages = document.getElementById('cmdChatMessages');
+    const cmdQuickActions = document.getElementById('cmdQuickActions');
+    const warpStatusList = document.getElementById('warpStatusList');
+    const generateBtn = document.getElementById('generateBtn');
+    const generateBtnLabel = document.getElementById('generateBtnLabel');
+    const generateBlocker = document.getElementById('generateBlocker');
+    const locksEl = document.getElementById('locks');
+    const checkpointsEl = document.getElementById('checkpoints');
+
+    /* ---------- Entry stage state & wiring ---------- */
+    const SAMPLE_PROMPT = "A campus safety & emergency procedures course for incoming students at Vector State";
+    let entryFiles = []; // [{ name, pages }]
+
+    function refreshEntrySubmit() {
+      entryPromptSubmit.disabled = entryPrompt.value.trim().length === 0;
+    }
+    entryPrompt.addEventListener('input', refreshEntrySubmit);
+    entryPrompt.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (!entryPromptSubmit.disabled) entrySubmit();
+      }
+    });
+    entryPromptSubmit.addEventListener('click', () => { if (!entryPromptSubmit.disabled) entrySubmit(); });
+    entryPromptSuggestion.addEventListener('click', () => {
+      entryPrompt.value = SAMPLE_PROMPT;
+      // Add the sample file too so the demo shows the full intake
+      if (!entryFiles.some(f => f.name.startsWith('VSU-Campus-Safety'))) {
+        addEntryFile({ name: 'VSU-Campus-Safety-Policy-2025.pdf', pages: 42 });
+      }
+      refreshEntrySubmit();
+      entryPrompt.focus();
+    });
+    entryDropzone.addEventListener('click', () => {
+      // Mock: simulate file pick
+      addEntryFile({ name: 'VSU-Campus-Safety-Policy-2025.pdf', pages: 42 });
+    });
+    entryDropzone.addEventListener('dragover', (e) => { e.preventDefault(); entryDropzone.classList.add('drag-over'); });
+    entryDropzone.addEventListener('dragleave', () => entryDropzone.classList.remove('drag-over'));
+    entryDropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      entryDropzone.classList.remove('drag-over');
+      addEntryFile({ name: 'VSU-Campus-Safety-Policy-2025.pdf', pages: 42 });
+    });
+
+    function addEntryFile(file) {
+      if (entryFiles.some(f => f.name === file.name)) return;
+      entryFiles.push(file);
+      renderEntryFiles();
+    }
+    function removeEntryFile(name) {
+      entryFiles = entryFiles.filter(f => f.name !== name);
+      renderEntryFiles();
+    }
+    function renderEntryFiles() {
+      entryFileChips.innerHTML = entryFiles.map(f => `
+        <span class="entry-file-chip">
+          <i class="fa-solid fa-file-pdf"></i>
+          <span class="name">${f.name}</span>
+          <span class="meta">${f.pages} pages</span>
+          <button class="remove" data-name="${f.name}" aria-label="Remove">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </span>
+      `).join('');
+      entryFileChips.querySelectorAll('.remove').forEach(btn => {
+        btn.addEventListener('click', () => removeEntryFile(btn.dataset.name));
+      });
+    }
+
+    async function entrySubmit() {
+      // Move to the preparing step in the demo flow
+      goNext();
+    }
+
+    let state = {
+      step: 0,
+      tone: null, visual: null, supp: null,
+      locks: [],
+      checkpoints: { brief: false, tone: false, visual: false, supplementary: false, ready: false },
+    };
+
+    const COURSE = {
+      los: [
+        { num: 1, title: 'Welcome & Campus Safety Overview', duration: 1.5, intent: 'Introduce-concept', source: 'VSU §1', refinements: 0 },
+        { num: 2, title: 'Emergency Alerts & VSU Alert System', duration: 2.5, intent: 'Build-skill', source: 'VSU §2', refinements: 0 },
+        { num: 3, title: 'Severe Weather & Shelter-in-Place', duration: 2.5, intent: 'Build-skill', source: 'VSU §3', refinements: 0 },
+        { num: 4, title: 'Active Threat Response', duration: 3, intent: 'Build-skill', source: 'VSU §4', refinements: 1 },
+        { num: 5, title: 'Reporting Incidents & Campus Resources', duration: 2.5, intent: 'Reinforce', source: 'VSU §5', refinements: 0 },
+      ]
+    };
+
+    /* ---------- Helpers ---------- */
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    // For pre-warp chat (left column)
+    function appendPreMessage(kind, content) {
+      const msg = document.createElement('div');
+      msg.className = `msg ${kind}`;
+      if (kind === 'system') {
+        msg.innerHTML = `<div class="bubble">${content}</div>`;
+      } else {
+        const avIcon = kind === 'ai' ? 'fa-wand-magic-sparkles' : 'fa-user';
+        msg.innerHTML = `<div class="av"><i class="fa-solid ${avIcon}"></i></div><div class="bubble">${content}</div>`;
+      }
+      preChatInner.appendChild(msg);
+      scrollPreChatBottom();
+      return msg;
+    }
+    function appendPreCustom(html) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = html;
+      preChatInner.appendChild(wrap.firstElementChild);
+      scrollPreChatBottom();
+      return preChatInner.lastElementChild;
+    }
+    function scrollPreChatBottom() {
+      const cont = document.getElementById('preChatMessages');
+      // Double-RAF so the browser lays out the just-appended node before we measure scrollHeight.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          cont.scrollTop = cont.scrollHeight;
+        });
+      });
+    }
+    function appendPreTyping() {
+      const el = document.createElement('div');
+      el.className = 'msg ai';
+      el.innerHTML = `<div class="av"><i class="fa-solid fa-wand-magic-sparkles"></i></div><div class="typing"><span></span><span></span><span></span></div>`;
+      preChatInner.appendChild(el);
+      scrollPreChatBottom();
+      return el;
+    }
+    async function preAiSay(text, delay = 700) {
+      const t = appendPreTyping(); await sleep(delay); t.remove();
+      return appendPreMessage('ai', text);
+    }
+    function setPreQuickActions(actions) {
+      preQuickActions.innerHTML = '';
+      actions.forEach(a => {
+        const btn = document.createElement('button');
+        btn.textContent = a.label;
+        if (a.primary) btn.classList.add('primary-action');
+        btn.addEventListener('click', () => a.onClick());
+        preQuickActions.appendChild(btn);
+      });
+    }
+    function clearPreQuickActions() { preQuickActions.innerHTML = ''; }
+
+    // For post-warp command chat
+    function appendCmdMessage(kind, content) {
+      const msg = document.createElement('div');
+      msg.className = `msg ${kind}`;
+      if (kind === 'system') {
+        msg.innerHTML = `<div class="bubble">${content}</div>`;
+      } else {
+        const avIcon = kind === 'ai' ? 'fa-wand-magic-sparkles' : 'fa-user';
+        msg.innerHTML = `<div class="av"><i class="fa-solid ${avIcon}"></i></div><div class="bubble">${content}</div>`;
+      }
+      cmdChatMessages.appendChild(msg);
+      cmdChatMessages.scrollTop = cmdChatMessages.scrollHeight;
+      return msg;
+    }
+    function appendCmdTyping() {
+      const el = document.createElement('div');
+      el.className = 'msg ai';
+      el.innerHTML = `<div class="av"><i class="fa-solid fa-wand-magic-sparkles"></i></div><div class="typing"><span></span><span></span><span></span></div>`;
+      cmdChatMessages.appendChild(el);
+      cmdChatMessages.scrollTop = cmdChatMessages.scrollHeight;
+      return el;
+    }
+    async function cmdAiSay(text, delay = 600) {
+      const t = appendCmdTyping(); await sleep(delay); t.remove();
+      return appendCmdMessage('ai', text);
+    }
+    function setCmdQuickActions(actions) {
+      cmdQuickActions.innerHTML = '';
+      actions.forEach(a => {
+        const btn = document.createElement('button');
+        btn.textContent = a.label;
+        if (a.primary) btn.classList.add('primary-action');
+        btn.addEventListener('click', () => a.onClick());
+        cmdQuickActions.appendChild(btn);
+      });
+    }
+    function clearCmdQuickActions() { cmdQuickActions.innerHTML = ''; }
+
+    /* ---------- Canvas view switching (post-warp) ---------- */
+    function showView(viewName) {
+      document.querySelectorAll('.canvas-view').forEach(v => v.hidden = true);
+      const target = document.getElementById('view-' + viewName);
+      if (target) {
+        target.hidden = false;
+        target.style.animation = 'none'; target.offsetHeight; target.style.animation = '';
+        document.getElementById('canvas').scrollTop = 0;
+      }
+    }
+
+    /* ---------- Rail updates ---------- */
+    function renderLocks() {
+      if (state.locks.length === 0) {
+        locksEl.innerHTML = `<span class="empty-state">Decisions appear here as you confirm them.</span>`;
+        return;
+      }
+      locksEl.innerHTML = state.locks.map(l =>
+        `<span class="lock-pill" data-source="${l.source}"><i class="fa-solid fa-lock"></i>${l.label}</span>`
+      ).join('');
+    }
+    function addLock(label, source = 'user') {
+      if (state.locks.some(l => l.label === label)) return;
+      state.locks.push({ label, source });
+      renderLocks();
+    }
+    function setCheckpoint(name, done = true) {
+      state.checkpoints[name] = done;
+      checkpointsEl.querySelectorAll('.checkpoint').forEach(cp => {
+        const key = cp.getAttribute('data-cp');
+        cp.classList.toggle('done', !!state.checkpoints[key]);
+        cp.classList.remove('active');
+      });
+      const order = ['brief','tone','visual','supplementary','ready'];
+      for (const k of order) {
+        if (!state.checkpoints[k]) {
+          const el = checkpointsEl.querySelector(`.checkpoint[data-cp="${k}"]`);
+          if (el) el.classList.add('active');
+          break;
+        }
+      }
+    }
+    function updateGenerateBtn() {
+      const missing = [];
+      if (!state.tone) missing.push('tone');
+      if (!state.visual) missing.push('visual style');
+      if (missing.length === 0) {
+        generateBtn.disabled = false;
+        generateBtnLabel.textContent = 'Generate course';
+        generateBlocker.classList.add('ready');
+        generateBlocker.innerHTML = `<i class="fa-solid fa-bolt"></i>Ready · ~3 min · 5 LOs`;
+        setCheckpoint('ready');
+      } else {
+        generateBtn.disabled = true;
+        generateBtnLabel.textContent = `Generate (${missing[0]} not selected)`;
+        generateBlocker.classList.remove('ready');
+        generateBlocker.textContent = `Select ${missing.join(' and ')} to enable.`;
+      }
+    }
+
+    function renderStructure() {
+      const grid = document.getElementById('structureGrid');
+      grid.innerHTML = COURSE.los.map(lo => `
+        <div class="lo-card">
+          <div class="header">
+            <div class="num">${lo.num}</div>
+            <div class="title">${lo.title}</div>
+            <div class="duration">${lo.duration} min</div>
+          </div>
+          <div class="intent">${lo.intent}</div>
+          <div class="footer">
+            <span class="meta-chip source"><i class="fa-solid fa-file-pdf"></i> ${lo.source}</span>
+            ${lo.refinements ? `<span class="meta-chip refinement"><i class="fa-solid fa-clock"></i> ${lo.refinements} refinement pending</span>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    /* ---------- Picker setup ---------- */
+    function setupPicker(containerId, onSelect) {
+      const container = document.getElementById(containerId);
+      container.querySelectorAll('.picker-card').forEach(card => {
+        // Remove existing listeners by cloning
+        const clone = card.cloneNode(true);
+        card.replaceWith(clone);
+      });
+      container.querySelectorAll('.picker-card').forEach(card => {
+        card.addEventListener('click', () => {
+          container.querySelectorAll('.picker-card').forEach(c => c.classList.remove('selected'));
+          card.classList.add('selected');
+          onSelect({
+            value: card.dataset.value,
+            label: card.dataset.label,
+          });
+        });
+      });
+    }
+
+    /* ---------- WARP sequence ---------- */
+    async function runWarpSequence() {
+      // 1. Pre-stage exits
+      preStage.classList.add('exiting');
+      await sleep(450);
+      preStage.style.display = 'none';
+
+      // 2. Warp stage active, stream status lines
+      warpStatusList.innerHTML = '';
+      // Clear any inline styles left over from a prior reset/run (display, opacity, transition)
+      warpStage.style.display = '';
+      warpStage.style.opacity = '';
+      warpStage.style.transition = '';
+      warpStage.classList.add('active');
+
+      const statusLines = [
+        { label: 'Analyzing policy structure', meta: '5 sections' },
+        { label: 'Mapping sources to learning objects', meta: '5/5' },
+        { label: 'Allocating durations', meta: '12 min' },
+        { label: 'Drafting talking points per LO', meta: '18 points' },
+        { label: 'Initializing planning workspace', meta: '' },
+      ];
+
+      const rows = [];
+      for (let i = 0; i < statusLines.length; i++) {
+        const row = document.createElement('div');
+        row.className = 'warp-status-row';
+        row.style.animationDelay = `${i * 60}ms`;
+        row.innerHTML = `
+          <div class="indicator"></div>
+          <div class="label">${statusLines[i].label}…</div>
+          <div class="meta">${statusLines[i].meta}</div>
+        `;
+        warpStatusList.appendChild(row);
+        rows.push(row);
+      }
+
+      // Mark each as done sequentially
+      for (let i = 0; i < rows.length; i++) {
+        await sleep(450);
+        rows[i].classList.add('done');
+        rows[i].querySelector('.label').textContent = statusLines[i].label;
+      }
+
+      await sleep(500);
+
+      // 3. Warp stage exits, post stage appears
+      warpStage.style.transition = 'opacity 400ms ease';
+      warpStage.style.opacity = '0';
+      await sleep(420);
+      warpStage.classList.remove('active');
+      warpStage.style.display = 'none';
+
+      // 4. Post stage materializes
+      postStage.style.display = 'grid';
+      renderStructure();
+      showView('structure');
+      // Trigger reflow then animate in
+      void postStage.offsetWidth;
+      postStage.classList.add('active');
+
+      // Initialize state in rail
+      setCheckpoint('brief');
+      addLock('Scenario-led', 'ai-inferred');
+      addLock('Prevention & response', 'user');
+      addLock('~12 min', 'user');
+
+      await sleep(900); // wait for cmd-chat slide-in
+
+      // 5. Greet from command chat
+      await cmdAiSay("Workspace ready. Three quick stylistic decisions before we generate. First — <strong>how should the course sound?</strong>");
+      setCmdQuickActions([
+        { label: 'Show tone samples', primary: true, onClick: () => goNext() }
+      ]);
+    }
+
+    /* ============================================================
+       STEPS
+       ============================================================ */
+    const steps = [];
+
+    // STEP 0 — Entry screen, awaiting prompt
+    steps.push({
+      phase: 'Phase 0 · Start',
+      run: async () => {
+        // Reset all later stages
+        preStage.classList.remove('active', 'exiting');
+        preStage.style.display = 'none';
+        warpStage.classList.remove('active');
+        warpStage.style.display = 'none';
+        postStage.classList.remove('active');
+        postStage.style.display = 'none';
+        // Show entry stage
+        entryStage.classList.remove('exiting', 'preparing');
+        entryStage.style.display = 'flex';
+        entryPrompt.value = '';
+        entryFiles = [];
+        renderEntryFiles();
+        refreshEntrySubmit();
+        // No quick actions needed in chats yet
+      }
+    });
+
+    // STEP 1 — Submitted: preparing state → warp into chat/file split with prompt already sent
+    steps.push({
+      phase: 'Phase 1 · Intake',
+      run: async () => {
+        // If user came via demo nav without typing, seed the sample prompt + file
+        if (entryPrompt.value.trim().length === 0) {
+          entryPrompt.value = SAMPLE_PROMPT;
+          refreshEntrySubmit();
+        }
+        if (entryFiles.length === 0) {
+          addEntryFile({ name: 'VSU-Campus-Safety-Policy-2025.pdf', pages: 42 });
+        }
+        const submittedPrompt = entryPrompt.value.trim();
+        const submittedFiles = [...entryFiles];
+
+        // Show preparing state
+        entryStage.classList.add('preparing');
+        entryPrepList.innerHTML = '';
+
+        const prepLines = [
+          'Reading prompt',
+          ...submittedFiles.map(f => `Analyzing ${f.name}`),
+          'Mapping topics to learning objects',
+        ];
+        const rows = [];
+        for (let i = 0; i < prepLines.length; i++) {
+          const row = document.createElement('div');
+          row.className = 'entry-prep-row';
+          row.style.animationDelay = `${i * 60}ms`;
+          row.innerHTML = `<div class="indicator"></div><div class="label">${prepLines[i]}…</div>`;
+          entryPrepList.appendChild(row);
+          rows.push(row);
+        }
+        for (let i = 0; i < rows.length; i++) {
+          await sleep(420);
+          rows[i].classList.add('done');
+          rows[i].querySelector('.label').textContent = prepLines[i];
+        }
+
+        await sleep(500);
+
+        // Fade out entry, fade in pre-stage
+        entryStage.classList.add('exiting');
+        await sleep(450);
+        entryStage.style.display = 'none';
+        preStage.style.display = 'grid';
+        // Force reflow then activate for opacity transition
+        void preStage.offsetWidth;
+        preStage.classList.add('active');
+
+        // Seed the pre-chat with the user's submitted prompt and the analyzed file
+        preChatInner.innerHTML = '';
+        document.getElementById('uploadList').innerHTML = `
+          <div class="uploaded-file analyzed" id="upFile">
+            <i class="fa-solid fa-file-pdf"></i>
+            <div class="info">
+              <div class="name">${submittedFiles[0].name}</div>
+              <div class="meta">${submittedFiles[0].pages} pages · analyzed · 5 sections detected</div>
+            </div>
+            <div class="progress"><span></span></div>
+            <div class="checkmark"><i class="fa-solid fa-circle-check"></i></div>
+          </div>
+        `;
+        document.getElementById('analysisSummary').hidden = false;
+
+        appendPreMessage('user', submittedPrompt);
+        crumbProject.textContent = 'Campus Safety & Emergency Procedures';
+
+        await preAiSay("Got it. I've read through your policy and pulled five clear sections. Here's a starting plan — see what you think.", 700);
+        await sleep(300);
+
+        // Rich brief message in chat
+        appendPreCustom(`
+          <div class="brief-msg">
+            <div class="section-label">Proposed brief</div>
+            <h3>Campus Safety &amp; Emergency Procedures</h3>
+            <div class="brief-meta">
+              <div>Audience:<strong>New students</strong></div>
+              <div>Duration:<strong>~12 min</strong></div>
+              <div>Approach:<strong>Scenario-led</strong></div>
+              <div>Focus:<strong id="briefFocus">— pending —</strong></div>
+            </div>
+            <div class="section-label">5 learning objects</div>
+            <div class="lo-list">
+              <div class="lo-row"><div class="num">1</div><div class="title">Welcome &amp; Campus Safety Overview</div><div class="source-chip">VSU §1</div><div class="duration">1.5 min</div></div>
+              <div class="lo-row"><div class="num">2</div><div class="title">Emergency Alerts &amp; VSU Alert System</div><div class="source-chip">VSU §2</div><div class="duration">2.5 min</div></div>
+              <div class="lo-row"><div class="num">3</div><div class="title">Severe Weather &amp; Shelter-in-Place</div><div class="source-chip">VSU §3</div><div class="duration">2.5 min</div></div>
+              <div class="lo-row"><div class="num">4</div><div class="title">Active Threat Response</div><div class="source-chip">VSU §4</div><div class="duration">3 min</div></div>
+              <div class="lo-row"><div class="num">5</div><div class="title">Reporting Incidents &amp; Campus Resources</div><div class="source-chip">VSU §5</div><div class="duration">2.5 min</div></div>
+            </div>
+          </div>
+        `);
+
+        await sleep(500);
+        await preAiSay("One question before I lock it in: should this focus on <strong>prevention</strong>, <strong>response</strong>, or both?");
+        setPreQuickActions([
+          { label: 'Both', primary: true, onClick: () => goNext() },
+          { label: 'Just response', onClick: () => goNext() },
+          { label: 'Just prevention', onClick: () => goNext() }
+        ]);
+      }
+    });
+
+    // STEP 3 — Focus answered
+    steps.push({
+      phase: 'Phase 2 · Brief',
+      run: async () => {
+        appendPreMessage('user', "Both — incoming students need to be prepared AND know what to do.");
+        const focusEl = document.getElementById('briefFocus');
+        if (focusEl) focusEl.textContent = 'Prevention & response';
+        await preAiSay("Good call. Anything else you want to change, or should we accept this brief and move on?");
+        setPreQuickActions([
+          { label: 'Accept brief', primary: true, onClick: () => goNext() },
+          { label: 'Adjust LO 4 duration', onClick: () => goNext() },
+          { label: 'Add an LO on bystander training', onClick: () => goNext() }
+        ]);
+      }
+    });
+
+    // STEP 4 — THE WARP
+    steps.push({
+      phase: 'Phase 3 · Style',
+      run: async () => {
+        appendPreMessage('user', "Looks great — accept it.");
+        clearPreQuickActions();
+        await sleep(500);
+        await runWarpSequence();
+      }
+    });
+
+    // STEP 5 — Tone picker
+    steps.push({
+      phase: 'Phase 3 · Tone',
+      run: async () => {
+        showView('tone');
+        await cmdAiSay("Take your time — each is the same talking point from LO 2 in a different voice. They're previews, not final content.");
+        setupPicker('tonePicker', (sel) => {
+          state.tone = sel;
+          addLock(`Tone: ${sel.label}`, 'user');
+          setCheckpoint('tone');
+          updateGenerateBtn();
+          cmdAiSay(`Locked in <strong>${sel.label.toLowerCase()}</strong>. Onto visual style.`, 400).then(() => {
+            setCmdQuickActions([{ label: 'Continue to visual style', primary: true, onClick: () => goNext() }]);
+          });
+        });
+        setCmdQuickActions([
+          { label: 'Pick "Direct & reassuring"', primary: true, onClick: () => {
+              document.querySelector('#tonePicker [data-value="direct-reassuring"]').click();
+            }
+          },
+          { label: 'Show me more options', onClick: async () => {
+              await cmdAiSay("Sure — I can spin up three more in different registers.", 400);
+            }
+          }
+        ]);
+      }
+    });
+
+    // STEP 6 — Visual picker
+    steps.push({
+      phase: 'Phase 3 · Visual',
+      run: async () => {
+        showView('visual');
+        await cmdAiSay("Same illustrative subject — an emergency alert — in four styles. Which feels right?");
+        setupPicker('visualPicker', (sel) => {
+          state.visual = sel;
+          addLock(`Visual: ${sel.label}`, 'user');
+          setCheckpoint('visual');
+          updateGenerateBtn();
+          cmdAiSay(`Got it — <strong>${sel.label.toLowerCase()}</strong>. One more.`, 400).then(() => {
+            setCmdQuickActions([{ label: 'Continue', primary: true, onClick: () => goNext() }]);
+          });
+        });
+        setCmdQuickActions([
+          { label: 'Pick "Illustrated flat"', primary: true, onClick: () => {
+              document.querySelector('#visualPicker [data-value="illustrated"]').click();
+            }
+          }
+        ]);
+      }
+    });
+
+    // STEP 7 — Supplementary picker
+    steps.push({
+      phase: 'Phase 3 · Supplementary',
+      run: async () => {
+        showView('supp');
+        await cmdAiSay("Last one — knowledge checks and callouts. The default works for most courses.");
+        setupPicker('suppPicker', (sel) => {
+          state.supp = sel;
+          addLock(`Checks: ${sel.label}`, 'user');
+          setCheckpoint('supplementary');
+          updateGenerateBtn();
+          cmdAiSay(`Locked. <strong>You're ready to generate.</strong>`, 400).then(() => {
+            setCmdQuickActions([{ label: 'Review and generate', primary: true, onClick: () => goNext() }]);
+          });
+        });
+        setCmdQuickActions([
+          { label: 'Accept default (Standard)', primary: true, onClick: () => {
+              document.querySelector('#suppPicker [data-value="standard"]').click();
+            }
+          },
+          { label: 'Scenario-based instead', onClick: () => {
+              document.querySelector('#suppPicker [data-value="scenario"]').click();
+            }
+          }
+        ]);
+      }
+    });
+
+    // STEP 8 — Ready to generate
+    steps.push({
+      phase: 'Phase 4 · Ready',
+      run: async () => {
+        showView('ready');
+        await cmdAiSay("Here's everything we've decided. <strong>5 LOs, ~18 scenes, about 3 min to generate.</strong>");
+        setCmdQuickActions([
+          { label: 'Looks good — generate', primary: true, onClick: () => {
+              appendCmdMessage('user', "Looks good — generate.");
+              appendCmdMessage('system', '🚀 Starting generation… (out of scope for this prototype)');
+              clearCmdQuickActions();
+            }
+          },
+          { label: 'Show me LO 4 talking points', onClick: () => {
+              cmdAiSay("LO 4 — Active Threat Response — has these talking points:<br>— Run, Hide, Fight: sequence and decision points<br>— Locking down vs. evacuating<br>— Communicating with responders", 500);
+            }
+          },
+        ]);
+      }
+    });
+
+    /* ---------- Step running ---------- */
+    function updatePhasePill() {
+      const cur = steps[state.step];
+      if (cur && cur.phase) phasePill.textContent = cur.phase;
+    }
+    async function runStep(idx) {
+      state.step = idx;
+      updatePhasePill();
+      await steps[idx].run();
+    }
+    async function goNext() {
+      if (state.step >= steps.length - 1) return;
+      clearPreQuickActions();
+      clearCmdQuickActions();
+      await runStep(state.step + 1);
+    }
+    async function reset(toStep = 0) {
+      state = {
+        step: 0, tone: null, visual: null, supp: null,
+        locks: [], checkpoints: { brief: false, tone: false, visual: false, supplementary: false, ready: false }
+      };
+      // Reset entry stage
+      entryStage.classList.remove('exiting', 'preparing');
+      entryStage.style.display = 'flex';
+      entryPrompt.value = '';
+      entryFiles = [];
+      renderEntryFiles();
+      refreshEntrySubmit();
+      entryPrepList.innerHTML = '';
+      // Reset other stages
+      preStage.classList.remove('exiting', 'active');
+      preStage.style.display = 'none';
+      warpStage.classList.remove('active');
+      warpStage.style.display = 'none';
+      warpStage.style.opacity = '1';
+      warpStage.style.transition = '';
+      postStage.classList.remove('active');
+      postStage.style.display = 'none';
+      preChatInner.innerHTML = '';
+      cmdChatMessages.innerHTML = '';
+      clearPreQuickActions();
+      clearCmdQuickActions();
+      renderLocks();
+      ['brief','tone','visual','supplementary','ready'].forEach(k => setCheckpoint(k, false));
+      updateGenerateBtn();
+      crumbProject.textContent = 'New course';
+      document.getElementById('uploadList').innerHTML = '';
+      document.getElementById('analysisSummary').hidden = true;
+      for (let i = 0; i <= toStep; i++) {
+        await runStep(i);
+      }
+    }
+
+    renderLocks();
+    updateGenerateBtn();
+    runStep(0);
+  </script>
+</body>
+</html>

@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CheckIt-2 — Block Creator</title>
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.5.1/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.1.1/styles.js"></script>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+  <link rel="stylesheet" href="_shell.css" />
+  <link rel="stylesheet" href="_mobile.css" />
+  <link rel="stylesheet" href="_theme.css" />
+
+  <style>
+
+    /* ==============================
+       EDITOR SHELL
+       Full-viewport layout matching ceremony shell pattern:
+       sticky header → scrollable canvas → sticky footer
+       No sidebar nav — this is a focused editor context
+       ============================== */
+
+    html { background-color: #0e1628; }
+    html[data-theme="light"] { background-color: #f0f2f8; }
+
+    body {
+      margin: 0;
+      overflow-x: hidden;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 0%,  rgba(56,96,186,0.30) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 20%, rgba(99,60,180,0.20) 0%, transparent 55%),
+        #0e1628;
+      background-attachment: fixed;
+    }
+    html[data-theme="light"] body { background: #f0f2f8; }
+
+    .editor-shell {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ── Sticky header ── */
+    .editor-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px;
+      height: 56px;
+      background: rgba(20,30,52,0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 1px 0 rgba(255,255,255,0.05), 0 2px 16px rgba(0,0,0,0.3);
+      flex-shrink: 0;
+    }
+    html[data-theme="light"] .editor-header {
+      background: rgba(255,255,255,0.92);
+      border-bottom-color: rgba(0,0,0,0.07);
+      box-shadow: 0 1px 0 rgba(255,255,255,0.9), 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    /* Back button */
+    .editor-back-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      font-size: 14px;
+      color: rgba(165,180,252,0.9);
+      text-decoration: none;
+      border-radius: 6px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+      flex-shrink: 0;
+    }
+    .editor-back-btn:hover { background: rgba(255,255,255,0.08); color: #a5b4fc; }
+    html[data-theme="light"] .editor-back-btn { color: #4338ca; }
+    html[data-theme="light"] .editor-back-btn:hover { background: rgba(99,102,241,0.08); }
+
+    /* Breadcrumb */
+    .editor-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: rgba(165,180,252,0.6);
+      flex-shrink: 0;
+    }
+    .editor-breadcrumb a {
+      color: rgba(165,180,252,0.6);
+      text-decoration: none;
+      transition: color 0.12s;
+    }
+    .editor-breadcrumb a:hover { color: #a5b4fc; }
+    .editor-breadcrumb .sep { font-size: 10px; opacity: 0.5; }
+    .editor-breadcrumb .current { color: #e2e6f0; font-weight: 600; }
+    html[data-theme="light"] .editor-breadcrumb { color: #6b7a99; }
+    html[data-theme="light"] .editor-breadcrumb a { color: #4338ca; }
+    html[data-theme="light"] .editor-breadcrumb a:hover { color: #312e81; }
+    html[data-theme="light"] .editor-breadcrumb .current { color: #1a2340; }
+
+    /* Status pill in header */
+    .editor-status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-left: 4px;
+    }
+    .editor-status-pill.draft {
+      background: rgba(255,255,255,0.10);
+      color: #9aa3b8;
+    }
+    .editor-status-pill.saved {
+      background: rgba(16,185,129,0.18);
+      color: #34d399;
+    }
+    html[data-theme="light"] .editor-status-pill.draft { background: rgba(0,0,0,0.07); color: #4a5673; }
+    html[data-theme="light"] .editor-status-pill.saved { background: rgba(5,150,105,0.10); color: #059669; }
+
+    /* Header right actions */
+    .editor-header-actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Theme toggle button */
+    .editor-theme-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      border: none;
+      background: none;
+      color: rgba(165,180,252,0.7);
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.12s, color 0.12s;
+    }
+    .editor-theme-btn:hover { background: rgba(255,255,255,0.08); color: #a5b4fc; }
+    html[data-theme="light"] .editor-theme-btn { color: #6b7a99; }
+    html[data-theme="light"] .editor-theme-btn:hover { background: rgba(0,0,0,0.06); color: #4338ca; }
+
+    /* ── Scrollable canvas ── */
+    .editor-canvas {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 20px 120px; /* bottom pad clears sticky footer */
+    }
+
+    @media (min-width: 700px) {
+      .editor-canvas {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 32px 0 120px;
+        width: 100%;
+      }
+    }
+
+    /* ── Section label ── */
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: rgba(165,180,252,0.55);
+      margin-bottom: 10px;
+    }
+    html[data-theme="light"] .section-label { color: #6b7a99; }
+
+    /* ── Glass card ── */
+    .editor-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    html[data-theme="light"] .editor-card {
+      background: rgba(255,255,255,0.85);
+      border-color: rgba(0,0,0,0.08);
+      box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+    }
+
+    /* ── Block metadata card ── */
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 599px) {
+      .meta-grid { grid-template-columns: 1fr; }
+    }
+
+    .meta-field { display: flex; flex-direction: column; gap: 6px; }
+    .meta-field-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(165,180,252,0.6);
+    }
+    html[data-theme="light"] .meta-field-label { color: #6b7a99; }
+
+    /* Multi-use toggle row */
+    .multi-use-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 0 0;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      margin-top: 16px;
+    }
+    html[data-theme="light"] .multi-use-row { border-top-color: rgba(0,0,0,0.07); }
+
+    .multi-use-text { flex: 1; }
+    .multi-use-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e6f0;
+      margin-bottom: 3px;
+    }
+    html[data-theme="light"] .multi-use-title { color: #1a2340; }
+    .multi-use-desc {
+      font-size: 12px;
+      color: rgba(165,180,252,0.6);
+      line-height: 1.5;
+    }
+    html[data-theme="light"] .multi-use-desc { color: #6b7a99; }
+
+    /* ── Steps section ── */
+    .steps-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .steps-count {
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(165,180,252,0.6);
+    }
+    html[data-theme="light"] .steps-count { color: #6b7a99; }
+
+    /* ── Step card ── */
+    .step-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      margin-bottom: 8px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .step-card:focus-within {
+      border-color: rgba(99,102,241,0.5);
+      box-shadow: 0 0 0 2px rgba(99,102,241,0.12);
+    }
+    html[data-theme="light"] .step-card {
+      background: rgba(255,255,255,0.90);
+      border-color: rgba(0,0,0,0.07);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    html[data-theme="light"] .step-card:focus-within {
+      border-color: rgba(99,102,241,0.4);
+      box-shadow: 0 0 0 2px rgba(99,102,241,0.10);
+    }
+
+    /* Step card top row — drag handle + number + actions */
+    .step-card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px 8px;
+    }
+
+    .drag-handle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 24px;
+      color: rgba(165,180,252,0.25);
+      cursor: grab;
+      font-size: 11px;
+      flex-shrink: 0;
+      transition: color 0.12s;
+      touch-action: none;
+    }
+    .drag-handle:hover { color: rgba(165,180,252,0.6); }
+    html[data-theme="light"] .drag-handle { color: rgba(0,0,0,0.18); }
+    html[data-theme="light"] .drag-handle:hover { color: rgba(0,0,0,0.45); }
+
+    .step-number {
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(165,180,252,0.45);
+      width: 20px;
+      flex-shrink: 0;
+    }
+    html[data-theme="light"] .step-number { color: #9aa3b8; }
+
+    .step-card-actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .step-action-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: none;
+      background: none;
+      color: rgba(165,180,252,0.4);
+      cursor: pointer;
+      font-size: 11px;
+      transition: background 0.12s, color 0.12s;
+    }
+    .step-action-btn:hover { background: rgba(255,255,255,0.08); color: rgba(165,180,252,0.9); }
+    .step-action-btn.delete:hover { background: rgba(239,68,68,0.12); color: #f87171; }
+    html[data-theme="light"] .step-action-btn { color: #9aa3b8; }
+    html[data-theme="light"] .step-action-btn:hover { background: rgba(0,0,0,0.06); color: #4a5673; }
+    html[data-theme="light"] .step-action-btn.delete:hover { background: rgba(220,38,38,0.08); color: #dc2626; }
+
+    /* Step card body — label input + attributes row */
+    .step-card-body {
+      padding: 0 12px 12px 52px; /* indent aligns with step label past drag+number */
+    }
+
+    .step-label-input {
+      width: 100%;
+      background: none;
+      border: none;
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+      color: #e2e6f0;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 4px 0 7px;
+      outline: none;
+      transition: border-color 0.12s;
+      box-sizing: border-box;
+    }
+    .step-label-input::placeholder { color: rgba(165,180,252,0.3); }
+    .step-label-input:focus { border-bottom-color: #6366f1; }
+    html[data-theme="light"] .step-label-input {
+      color: #1a2340;
+      border-bottom-color: rgba(0,0,0,0.12);
+    }
+    html[data-theme="light"] .step-label-input::placeholder { color: #9aa3b8; }
+    html[data-theme="light"] .step-label-input:focus { border-bottom-color: #6366f1; }
+
+    /* Attribute row: severity + photo toggle */
+    .step-attrs {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .severity-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(165,180,252,0.45);
+      margin-right: 2px;
+    }
+    html[data-theme="light"] .severity-label { color: #9aa3b8; }
+
+    /* Severity toggle group */
+    .severity-group {
+      display: flex;
+      gap: 4px;
+    }
+
+    .sev-btn {
+      padding: 3px 10px;
+      border-radius: 5px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: none;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.12s;
+      color: rgba(165,180,252,0.5);
+    }
+    .sev-btn:hover { border-color: rgba(255,255,255,0.20); color: #c4cce0; }
+    .sev-btn.active-critical { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.35); color: #f87171; }
+    .sev-btn.active-warning  { background: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.35); color: #fbbf24; }
+    .sev-btn.active-none     { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.15); color: #9aa3b8; }
+    html[data-theme="light"] .sev-btn { border-color: rgba(0,0,0,0.10); color: #9aa3b8; }
+    html[data-theme="light"] .sev-btn:hover { border-color: rgba(0,0,0,0.20); color: #4a5673; }
+    html[data-theme="light"] .sev-btn.active-critical { background: rgba(220,38,38,0.09); border-color: rgba(220,38,38,0.30); color: #dc2626; }
+    html[data-theme="light"] .sev-btn.active-warning  { background: rgba(180,83,9,0.09);  border-color: rgba(180,83,9,0.30);  color: #b45309; }
+    html[data-theme="light"] .sev-btn.active-none     { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.12); color: #6b7a99; }
+
+    /* Photo required toggle */
+    .photo-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 5px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: none;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(165,180,252,0.5);
+      cursor: pointer;
+      transition: all 0.12s;
+      user-select: none;
+      margin-left: 6px;
+    }
+    .photo-toggle:hover { border-color: rgba(255,255,255,0.20); color: #c4cce0; }
+    .photo-toggle.active {
+      background: rgba(99,102,241,0.15);
+      border-color: rgba(99,102,241,0.35);
+      color: #a5b4fc;
+    }
+    .photo-toggle i { font-size: 10px; }
+    html[data-theme="light"] .photo-toggle { border-color: rgba(0,0,0,0.10); color: #9aa3b8; }
+    html[data-theme="light"] .photo-toggle:hover { border-color: rgba(0,0,0,0.20); color: #4a5673; }
+    html[data-theme="light"] .photo-toggle.active { background: rgba(99,102,241,0.10); border-color: rgba(99,102,241,0.30); color: #4338ca; }
+
+    /* Step being dragged */
+    .step-card.dragging {
+      opacity: 0.45;
+      border-color: rgba(99,102,241,0.5);
+    }
+    .step-card.drag-over {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 2px rgba(99,102,241,0.20);
+    }
+
+    /* ── Add step button ── */
+    .add-step-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 11px;
+      border-radius: 10px;
+      border: 1px dashed rgba(99,102,241,0.30);
+      background: none;
+      color: rgba(165,180,252,0.55);
+      font-family: 'Open Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-top: 4px;
+    }
+    .add-step-btn:hover {
+      border-color: rgba(99,102,241,0.6);
+      background: rgba(99,102,241,0.07);
+      color: #a5b4fc;
+    }
+    html[data-theme="light"] .add-step-btn { border-color: rgba(99,102,241,0.25); color: #6b7a99; }
+    html[data-theme="light"] .add-step-btn:hover { background: rgba(99,102,241,0.06); color: #4338ca; border-color: rgba(99,102,241,0.45); }
+
+    /* ── Empty state ── */
+    .steps-empty {
+      text-align: center;
+      padding: 32px 20px;
+      color: rgba(165,180,252,0.35);
+      font-size: 13px;
+    }
+    .steps-empty i { font-size: 28px; display: block; margin-bottom: 10px; opacity: 0.4; }
+    html[data-theme="light"] .steps-empty { color: #9aa3b8; }
+
+    /* ── Sticky footer ── */
+    .editor-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 90;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: rgba(14,22,40,0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 -2px 16px rgba(0,0,0,0.30);
+    }
+    html[data-theme="light"] .editor-footer {
+      background: rgba(255,255,255,0.95);
+      border-top-color: rgba(0,0,0,0.08);
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+    }
+
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .footer-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .autosave-indicator {
+      font-size: 11px;
+      color: rgba(165,180,252,0.4);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    html[data-theme="light"] .autosave-indicator { color: #9aa3b8; }
+
+    /* ── Blast radius dialog ── */
+    .blast-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .blast-dialog {
+      background: #1a2744;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 14px;
+      padding: 24px;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    }
+    html[data-theme="light"] .blast-dialog {
+      background: #fff;
+      border-color: rgba(0,0,0,0.10);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+    }
+    .blast-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: rgba(245,158,11,0.15);
+      color: #fbbf24;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin-bottom: 16px;
+    }
+    html[data-theme="light"] .blast-icon { background: rgba(180,83,9,0.10); color: #b45309; }
+    .blast-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f0f2f8;
+      margin-bottom: 6px;
+    }
+    html[data-theme="light"] .blast-title { color: #1a2340; }
+    .blast-desc {
+      font-size: 13px;
+      color: #8b96b0;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+    html[data-theme="light"] .blast-desc { color: #6b7a99; }
+    .blast-affected-list {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 20px;
+    }
+    html[data-theme="light"] .blast-affected-list { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.07); }
+    .blast-affected-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12.5px;
+      color: #c4cce0;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .blast-affected-item:last-child { border-bottom: none; }
+    html[data-theme="light"] .blast-affected-item { color: #1a2340; border-bottom-color: rgba(0,0,0,0.05); }
+    .blast-affected-item i { color: rgba(165,180,252,0.5); font-size: 11px; width: 14px; text-align: center; }
+    html[data-theme="light"] .blast-affected-item i { color: #9aa3b8; }
+    .blast-compliance-warn {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      background: rgba(245,158,11,0.10);
+      border: 1px solid rgba(245,158,11,0.25);
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 12px;
+      color: #fbbf24;
+      line-height: 1.5;
+    }
+    html[data-theme="light"] .blast-compliance-warn { background: rgba(180,83,9,0.07); border-color: rgba(180,83,9,0.20); color: #92400e; }
+    .blast-compliance-warn i { margin-top: 1px; flex-shrink: 0; }
+    .blast-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    /* ── Vaadin field overrides for dark editor context ── */
+    html[data-theme="dark"] vaadin-text-field,
+    html[data-theme="dark"] vaadin-text-area,
+    html[data-theme="dark"] vaadin-select {
+      --lumo-body-text-color: #c4cce0;
+      --lumo-secondary-text-color: #8b96b0;
+      --lumo-primary-color: #a5b4fc;
+      --lumo-primary-color-10pct: rgba(99,102,241,0.18);
+      --lumo-contrast-10pct: rgba(255,255,255,0.10);
+      --lumo-contrast-20pct: rgba(255,255,255,0.15);
+      --lumo-base-color: rgba(255,255,255,0.06);
+      --lumo-tint-5pct: rgba(255,255,255,0.05);
+      color-scheme: dark;
+    }
+
+    html[data-theme="dark"] vwc-switch {
+      --lumo-body-text-color: #c4cce0;
+      --lumo-secondary-text-color: #8b96b0;
+      --lumo-primary-color: #a5b4fc;
+      --lumo-contrast-20pct: rgba(255,255,255,0.15);
+    }
+
+  </style>
+</head>
+<body>
+<div class="editor-shell">
+
+  <!-- ==============================
+       STICKY HEADER
+       ============================== -->
+  <header class="editor-header">
+    <!-- Back button — returns to checklists.html Content Blocks tab -->
+    <button class="editor-back-btn" onclick="handleBack()" aria-label="Back to Content Blocks">
+      <i class="fa-solid fa-chevron-left"></i>
+    </button>
+
+    <!-- Breadcrumb (sandbox: one hop back to the sandbox index) -->
+    <nav class="editor-breadcrumb" aria-label="Breadcrumb">
+      <a href="index.html">Sandbox</a>
+      <span class="sep"><i class="fa-solid fa-chevron-right"></i></span>
+      <span class="current" id="breadcrumbCurrent">New Block</span>
+    </nav>
+
+    <!-- Draft status pill -->
+    <span class="editor-status-pill draft" id="statusPill">
+      <i class="fa-solid fa-circle" style="font-size:6px;"></i>
+      Draft
+    </span>
+
+    <!-- Right actions: theme toggle -->
+    <div class="editor-header-actions">
+      <button class="editor-theme-btn" onclick="toggleTheme()" aria-label="Toggle theme" id="themeToggleBtn">
+        <i class="fa-solid fa-moon" id="themeIcon"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- ==============================
+       SCROLLABLE CANVAS
+       ============================== -->
+  <div class="editor-canvas">
+
+    <!-- Block metadata -->
+    <div class="section-label">Block Info</div>
+    <div class="editor-card">
+      <div class="meta-grid">
+
+        <div class="meta-field" style="grid-column: 1 / -1;">
+          <vaadin-text-field
+            theme="outlined"
+            label="Block Name"
+            placeholder="e.g. Wheels &amp; Tires"
+            id="blockNameField"
+            style="width:100%;"
+            oninput="onBlockNameChange(this.value)"
+          ></vaadin-text-field>
+        </div>
+
+        <div class="meta-field">
+          <vaadin-select
+            theme="outlined"
+            label="Domain / Category"
+            id="blockDomain"
+            style="width:100%;"
+          ></vaadin-select>
+        </div>
+
+        <div class="meta-field">
+          <vaadin-text-field
+            theme="outlined"
+            label="Short Description"
+            placeholder="e.g. General vehicle check · All apparatus types"
+            id="blockDesc"
+            style="width:100%;"
+          ></vaadin-text-field>
+        </div>
+
+      </div>
+
+      <!-- Multi-use toggle -->
+      <div class="multi-use-row">
+        <div class="multi-use-text">
+          <div class="multi-use-title">Allow multiple uses per checklist</div>
+          <div class="multi-use-desc">When on, this block can appear more than once in a single template or checklist — each instance requires a context label (e.g. "Driver Front", "Passenger Rear"). When off, duplicate use is flagged.</div>
+        </div>
+        <vwc-switch id="multiUseSwitch" aria-label="Allow multiple uses per checklist"></vwc-switch>
+      </div>
+    </div>
+
+    <!-- Steps -->
+    <div class="section-label" style="margin-top: 8px;">Check Steps</div>
+    <div class="editor-card" style="padding: 16px;">
+
+      <div class="steps-header">
+        <span class="steps-count" id="stepCount">0 steps</span>
+      </div>
+
+      <!-- Step list (JS-rendered) -->
+      <div id="stepList">
+        <div class="steps-empty" id="stepsEmpty">
+          <i class="fa-solid fa-list-check"></i>
+          No steps yet. Add the first check step below.
+        </div>
+      </div>
+
+      <!-- Add step -->
+      <button class="add-step-btn" onclick="addStep()" id="addStepBtn">
+        <i class="fa-solid fa-plus"></i>
+        Add Check Step
+      </button>
+
+    </div>
+
+  </div><!-- /editor-canvas -->
+
+  <!-- ==============================
+       STICKY FOOTER
+       ============================== -->
+  <footer class="editor-footer">
+    <div class="footer-left">
+      <span class="autosave-indicator" id="autosaveIndicator">
+        <i class="fa-regular fa-circle-dot"></i>
+        Unsaved changes
+      </span>
+    </div>
+    <div class="footer-right">
+      <vaadin-button theme="secondary" onclick="handleBack()">
+        Discard &amp; Exit
+      </vaadin-button>
+      <vaadin-button theme="secondary" onclick="saveDraft()">
+        Save Draft
+      </vaadin-button>
+      <vaadin-button theme="primary" onclick="publishBlock()">
+        <i class="fa-solid fa-bolt" slot="prefix"></i>
+        Publish Block
+      </vaadin-button>
+    </div>
+  </footer>
+
+</div><!-- /editor-shell -->
+
+<!-- ==============================
+     BLAST RADIUS DIALOG
+     (shown on Publish when block has existing links)
+     ============================== -->
+<div class="blast-overlay" id="blastOverlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="blastTitle">
+  <div class="blast-dialog">
+    <div class="blast-icon"><i class="fa-solid fa-bolt"></i></div>
+    <div class="blast-title" id="blastTitle">Review blast radius before publishing</div>
+    <div class="blast-desc">
+      This block is linked to <strong id="blastCount">6 templates and 14 checklists</strong>. Publishing will push these changes to all of them immediately. Checklists with broken block links will not be affected.
+    </div>
+
+    <!-- Affected templates list -->
+    <div class="blast-affected-list" id="blastAffectedList">
+      <div class="blast-affected-item"><i class="fa-solid fa-file-lines"></i> Apparatus Check — Morning</div>
+      <div class="blast-affected-item"><i class="fa-solid fa-file-lines"></i> EMS Rig Check + CS Count</div>
+      <div class="blast-affected-item"><i class="fa-solid fa-file-lines"></i> Pump Test — Annual PM</div>
+      <div class="blast-affected-item"><i class="fa-solid fa-file-lines"></i> Aerial Ladder PM</div>
+      <div class="blast-affected-item"><i class="fa-solid fa-file-lines"></i> Brush Unit Check</div>
+      <div class="blast-affected-item"><i class="fa-solid fa-file-lines"></i> Reserve Apparatus Check</div>
+    </div>
+
+    <!-- Compliance risk callout (conditional — shown when a removed/changed step maps to a compliance obligation) -->
+    <div class="blast-compliance-warn" id="blastComplianceWarn">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <div>Step 1 ("Tire condition") maps to NFPA 1911 §6.3.2 — a compliance-required check. Removing or weakening this step may create a compliance gap. Review before publishing.</div>
+    </div>
+
+    <div class="blast-actions">
+      <vaadin-button theme="secondary" onclick="closeBlast()">Cancel</vaadin-button>
+      <vaadin-button theme="warning primary" onclick="confirmPublish()">
+        <i class="fa-solid fa-bolt" slot="prefix"></i>
+        Publish Changes
+      </vaadin-button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="_theme.js"></script>
+<!-- Sandbox store: scripts live alongside this file in the sandbox folder. -->
+<script src="sandbox-seed.js"></script>
+<script src="sandbox-store.js"></script>
+<script>
+
+  // ============================================================
+  // STATE
+  // ============================================================
+
+  // Determine context: new block vs. editing existing block.
+  // Three modes:
+  //   1. Sandbox edit:    ?id=block_xxx     → load from Store and save back
+  //   2. Sandbox new:     ?new=1            → blank form; save creates a new Store record
+  //   3. Standalone demo: ?blockId=…  or no params (original behavior, unchanged)
+  const urlParams       = new URLSearchParams(location.search);
+  const sandboxBlockId  = urlParams.get('id');          // sandbox-mode edit
+  const sandboxIsNew    = urlParams.get('new') === '1'; // sandbox-mode new
+  const sandboxMode     = !!(sandboxBlockId || sandboxIsNew);
+  const blockId         = urlParams.get('blockId');     // legacy demo path
+  const returnTo        = sessionStorage.getItem('blockCreatorReturn') || 'index.html';
+
+  // Snapshot of the loaded sandbox block — populated synchronously below,
+  // then fields are hydrated after component upgrade.
+  let sandboxRecord = null;
+  if (sandboxBlockId && window.Store) {
+    sandboxRecord = window.Store.getBlock(sandboxBlockId);
+    if (!sandboxRecord) {
+      console.warn('[block-creator] sandbox id not found:', sandboxBlockId);
+    }
+  }
+
+  let steps = [];
+  let stepCounter = 0;
+  let isDirty = false;
+  let dragSrcIndex = null;
+
+  // ----- Sandbox: hydrate steps + breadcrumb synchronously ----------
+  if (sandboxRecord) {
+    document.title = 'CheckIt-2 — Edit Block: ' + sandboxRecord.name;
+    const crumb = document.getElementById('breadcrumbCurrent');
+    if (crumb) crumb.textContent = sandboxRecord.name;
+    const pill = document.getElementById('statusPill');
+    if (pill) {
+      pill.className = 'editor-status-pill saved';
+      pill.innerHTML = '<i class="fa-solid fa-circle" style="font-size:6px;"></i> Active';
+    }
+    // Map stored step shape into the in-page shape. Block-creator's editor
+    // only knows `label / severity / photo`; the stored record may also carry
+    // `kind` and other universal-slot fields. We preserve those via a hidden
+    // field on each step so save round-trips don't drop them.
+    steps = (sandboxRecord.steps || []).map(s => {
+      stepCounter++;
+      return Object.assign({}, s, {
+        id: stepCounter,
+        label: s.label || '',
+        severity: s.severity || 'none',
+        photo: !!s.allowPhoto || !!s.photo
+      });
+    });
+  }
+
+  // ----- Sandbox: hydrate metadata fields after components upgrade --
+  if (sandboxRecord) {
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        const nameField = document.getElementById('blockNameField');
+        if (nameField) nameField.value = sandboxRecord.name || '';
+        const descField = document.getElementById('blockDesc');
+        if (descField) descField.value = sandboxRecord.description || '';
+        const multiSwitch = document.getElementById('multiUseSwitch');
+        if (multiSwitch) multiSwitch.checked = !!sandboxRecord.multiUse;
+        const domainSelect = document.getElementById('blockDomain');
+        if (domainSelect && sandboxRecord.domain) domainSelect.value = sandboxRecord.domain;
+      }, 300);
+    });
+  }
+
+  // Seed mock data when editing an existing block
+  if (blockId === 'wheels-tires') {
+    document.title = 'CheckIt-2 — Edit Block: Wheels & Tires';
+    document.getElementById('breadcrumbCurrent').textContent = 'Wheels & Tires';
+    document.getElementById('statusPill').className = 'editor-status-pill saved';
+    document.getElementById('statusPill').innerHTML = '<i class="fa-solid fa-circle" style="font-size:6px;"></i> Active';
+    // Pre-populate fields after components upgrade
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        const nameField = document.getElementById('blockNameField');
+        if (nameField) nameField.value = 'Wheels & Tires';
+        const descField = document.getElementById('blockDesc');
+        if (descField) descField.value = 'General vehicle check · All apparatus types';
+        document.getElementById('multiUseSwitch').checked = true;
+      }, 300);
+    });
+    steps = [
+      { id: ++stepCounter, label: 'Tire condition — cuts, bulges, or embedded objects', severity: 'critical', photo: false },
+      { id: ++stepCounter, label: 'Tread depth — measure at wear indicators',           severity: 'critical', photo: true  },
+      { id: ++stepCounter, label: 'Tire pressure — verify against door placard spec',    severity: 'warning',  photo: false },
+      { id: ++stepCounter, label: 'Lug nuts — visually confirm all present and seated',  severity: 'critical', photo: false },
+      { id: ++stepCounter, label: 'Valve stems — check for caps and damage',             severity: 'none',     photo: false },
+      { id: ++stepCounter, label: 'Wheel chocks — present and accessible',               severity: 'warning',  photo: false },
+      { id: ++stepCounter, label: 'Wheel well — clear of debris and obstructions',       severity: 'none',     photo: false },
+      { id: ++stepCounter, label: 'Spare tire — present, secure, inflated',              severity: 'warning',  photo: false },
+    ];
+  }
+
+  // ============================================================
+  // DOMAIN SELECT OPTIONS
+  // ============================================================
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const domainSelect = document.getElementById('blockDomain');
+      if (domainSelect) {
+        domainSelect.items = [
+          { label: 'General Vehicle',     value: 'vehicle'    },
+          { label: 'Apparatus — Fire',    value: 'apparatus'  },
+          { label: 'EMS / Medical',       value: 'ems'        },
+          { label: 'Controlled Substance',value: 'cs'         },
+          { label: 'Facility',            value: 'facility'   },
+          { label: 'Equipment / PPE',     value: 'equipment'  },
+          { label: 'Law Enforcement',     value: 'le'         },
+          { label: 'Administrative',      value: 'admin'      },
+        ];
+        if (blockId === 'wheels-tires') domainSelect.value = 'vehicle';
+      }
+    }, 300);
+  });
+
+  // ============================================================
+  // RENDER STEPS
+  // ============================================================
+  function renderSteps() {
+    const list  = document.getElementById('stepList');
+    const empty = document.getElementById('stepsEmpty');
+    const count = document.getElementById('stepCount');
+
+    count.textContent = steps.length === 1 ? '1 step' : `${steps.length} steps`;
+
+    if (steps.length === 0) {
+      empty.style.display = 'block';
+      // Remove all step cards
+      list.querySelectorAll('.step-card').forEach(c => c.remove());
+      return;
+    }
+    empty.style.display = 'none';
+
+    // Rebuild — remove existing step cards then re-render
+    list.querySelectorAll('.step-card').forEach(c => c.remove());
+
+    steps.forEach((step, index) => {
+      const card = document.createElement('div');
+      card.className = 'step-card';
+      card.dataset.stepId = step.id;
+      card.draggable = true;
+
+      card.innerHTML = `
+        <div class="step-card-header">
+          <div class="drag-handle" title="Drag to reorder">
+            <i class="fa-solid fa-grip-vertical"></i>
+          </div>
+          <span class="step-number">${index + 1}</span>
+          <div class="step-card-actions">
+            <button class="step-action-btn" onclick="duplicateStep(${step.id})" title="Duplicate step" aria-label="Duplicate step">
+              <i class="fa-regular fa-copy"></i>
+            </button>
+            <button class="step-action-btn delete" onclick="deleteStep(${step.id})" title="Delete step" aria-label="Delete step">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+        </div>
+        <div class="step-card-body">
+          <input
+            type="text"
+            class="step-label-input"
+            placeholder="Describe what to check…"
+            value="${escHtml(step.label)}"
+            oninput="updateStepLabel(${step.id}, this.value)"
+            aria-label="Step ${index + 1} label"
+          />
+          <div class="step-attrs">
+            <span class="severity-label">Failure</span>
+            <div class="severity-group">
+              <button class="sev-btn ${step.severity === 'critical' ? 'active-critical' : ''}"
+                onclick="setSeverity(${step.id}, 'critical')" aria-pressed="${step.severity === 'critical'}">Critical</button>
+              <button class="sev-btn ${step.severity === 'warning' ? 'active-warning' : ''}"
+                onclick="setSeverity(${step.id}, 'warning')" aria-pressed="${step.severity === 'warning'}">Warning</button>
+              <button class="sev-btn ${step.severity === 'none' ? 'active-none' : ''}"
+                onclick="setSeverity(${step.id}, 'none')" aria-pressed="${step.severity === 'none'}">None</button>
+            </div>
+            <button class="photo-toggle ${step.photo ? 'active' : ''}"
+              onclick="togglePhoto(${step.id})"
+              aria-pressed="${step.photo}"
+              title="${step.photo ? 'Photo required' : 'Photo optional'}">
+              <i class="fa-solid fa-camera"></i>
+              ${step.photo ? 'Photo required' : 'Photo optional'}
+            </button>
+          </div>
+        </div>
+      `;
+
+      // Drag-and-drop handlers
+      card.addEventListener('dragstart', onDragStart);
+      card.addEventListener('dragover',  onDragOver);
+      card.addEventListener('dragleave', onDragLeave);
+      card.addEventListener('drop',      onDrop);
+      card.addEventListener('dragend',   onDragEnd);
+
+      list.insertBefore(card, document.getElementById('stepsEmpty'));
+    });
+
+    markDirty();
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ============================================================
+  // STEP OPERATIONS
+  // ============================================================
+  function addStep() {
+    steps.push({ id: ++stepCounter, label: '', severity: 'none', photo: false });
+    renderSteps();
+    // Focus the new step's input
+    setTimeout(() => {
+      const inputs = document.querySelectorAll('.step-label-input');
+      if (inputs.length) inputs[inputs.length - 1].focus();
+    }, 30);
+  }
+
+  function deleteStep(id) {
+    steps = steps.filter(s => s.id !== id);
+    renderSteps();
+  }
+
+  function duplicateStep(id) {
+    const src   = steps.find(s => s.id === id);
+    const index = steps.findIndex(s => s.id === id);
+    if (!src) return;
+    const copy = { ...src, id: ++stepCounter, label: src.label + ' (copy)' };
+    steps.splice(index + 1, 0, copy);
+    renderSteps();
+  }
+
+  function updateStepLabel(id, value) {
+    const step = steps.find(s => s.id === id);
+    if (step) step.label = value;
+    markDirty();
+  }
+
+  function setSeverity(id, severity) {
+    const step = steps.find(s => s.id === id);
+    if (step) step.severity = severity;
+    renderSteps();
+  }
+
+  function togglePhoto(id) {
+    const step = steps.find(s => s.id === id);
+    if (step) step.photo = !step.photo;
+    renderSteps();
+  }
+
+  // ============================================================
+  // DRAG AND DROP REORDER
+  // ============================================================
+  function stepIndexFromCard(card) {
+    return steps.findIndex(s => s.id === parseInt(card.dataset.stepId));
+  }
+
+  function onDragStart(e) {
+    dragSrcIndex = stepIndexFromCard(this);
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  }
+
+  function onDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    this.classList.add('drag-over');
+  }
+
+  function onDragLeave() {
+    this.classList.remove('drag-over');
+  }
+
+  function onDrop(e) {
+    e.preventDefault();
+    this.classList.remove('drag-over');
+    const targetIndex = stepIndexFromCard(this);
+    if (dragSrcIndex === null || dragSrcIndex === targetIndex) return;
+    const [moved] = steps.splice(dragSrcIndex, 1);
+    steps.splice(targetIndex, 0, moved);
+    renderSteps();
+  }
+
+  function onDragEnd() {
+    this.classList.remove('dragging');
+    document.querySelectorAll('.step-card.drag-over').forEach(c => c.classList.remove('drag-over'));
+    dragSrcIndex = null;
+  }
+
+  // ============================================================
+  // DIRTY STATE / AUTOSAVE INDICATOR
+  // ============================================================
+  function markDirty() {
+    isDirty = true;
+    const ind = document.getElementById('autosaveIndicator');
+    ind.innerHTML = '<i class="fa-regular fa-circle-dot"></i> Unsaved changes';
+    ind.style.color = '';
+  }
+
+  function markSaved() {
+    isDirty = false;
+    const ind = document.getElementById('autosaveIndicator');
+    ind.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
+    ind.style.color = '#34d399';
+    setTimeout(() => {
+      ind.innerHTML = '<i class="fa-regular fa-circle-dot"></i> All changes saved';
+      ind.style.color = '';
+    }, 2500);
+  }
+
+  // ============================================================
+  // BLOCK NAME → BREADCRUMB
+  // ============================================================
+  function onBlockNameChange(val) {
+    document.getElementById('breadcrumbCurrent').textContent = val.trim() || 'New Block';
+    markDirty();
+  }
+
+  // ============================================================
+  // SAVE / PUBLISH / BACK
+  // ============================================================
+
+  // Collect current form state into the Store's block shape.
+  // Preserves any extra step fields (kind, threshold, options, allowNote, etc.)
+  // that the editor UI doesn't expose but that may have come from the store.
+  function collectBlockRecord() {
+    const nameField   = document.getElementById('blockNameField');
+    const domainSel   = document.getElementById('blockDomain');
+    const descField   = document.getElementById('blockDesc');
+    const multiSwitch = document.getElementById('multiUseSwitch');
+    const stored = sandboxRecord || {};
+    return {
+      id:          stored.id || undefined,
+      name:        (nameField && nameField.value) || stored.name || 'Untitled block',
+      domain:      (domainSel && domainSel.value) || stored.domain || '',
+      description: (descField && descField.value) || '',
+      multiUse:    !!(multiSwitch && multiSwitch.checked),
+      steps: steps.map((s, idx) => {
+        // Merge: editor-managed fields override; everything else passes through.
+        const passthrough = Object.assign({}, s);
+        delete passthrough.id;     // re-numbered on save
+        delete passthrough.label;
+        delete passthrough.severity;
+        delete passthrough.photo;
+        return Object.assign(passthrough, {
+          id: idx + 1,
+          kind: s.kind || 'check',
+          label: s.label || '',
+          severity: s.severity || 'none',
+          allowPhoto: !!s.photo
+        });
+      })
+    };
+  }
+
+  function saveDraft() {
+    if (sandboxMode && window.Store) {
+      const saved = window.Store.upsertBlock(collectBlockRecord());
+      sandboxRecord = saved;
+      // Reflect newly-assigned id in URL so a refresh stays on the same record.
+      if (sandboxIsNew && saved.id) {
+        history.replaceState(null, '', '?id=' + encodeURIComponent(saved.id));
+      }
+    }
+    const pill = document.getElementById('statusPill');
+    pill.className = 'editor-status-pill draft';
+    pill.innerHTML = '<i class="fa-solid fa-circle" style="font-size:6px;"></i> Draft';
+    markSaved();
+    showToast('Block saved as draft', 'success');
+    if (sandboxMode) setTimeout(returnToSandbox, 600);
+  }
+
+  function publishBlock() {
+    // Blast-radius dialog only fires for the legacy demo path (the one block
+    // wired up in the static mock with linked templates). Sandbox blocks
+    // publish directly — we haven't modeled template-linking in v1.
+    const hasLinks = (blockId === 'wheels-tires');
+    if (hasLinks) {
+      document.getElementById('blastOverlay').style.display = 'flex';
+      document.getElementById('blastOverlay').querySelector('.blast-dialog').focus?.();
+    } else {
+      confirmPublish();
+    }
+  }
+
+  function confirmPublish() {
+    closeBlast();
+    if (sandboxMode && window.Store) {
+      const saved = window.Store.upsertBlock(collectBlockRecord());
+      sandboxRecord = saved;
+      if (sandboxIsNew && saved.id) {
+        history.replaceState(null, '', '?id=' + encodeURIComponent(saved.id));
+      }
+    }
+    const pill = document.getElementById('statusPill');
+    pill.className = 'editor-status-pill saved';
+    pill.innerHTML = '<i class="fa-solid fa-circle" style="font-size:6px;"></i> Active';
+    markSaved();
+    showToast(sandboxMode
+      ? 'Block saved to sandbox'
+      : 'Block published — changes live across all linked templates and checklists',
+      'success');
+    if (sandboxMode) setTimeout(returnToSandbox, 600);
+  }
+
+  // Navigate back to the page that opened this editor. Sandbox flows set
+  // sessionStorage.blockCreatorReturn; standalone falls back to checklists.html.
+  function returnToSandbox() {
+    const dest = sessionStorage.getItem('blockCreatorReturn') || returnTo;
+    window.location.href = dest;
+  }
+
+  function closeBlast() {
+    document.getElementById('blastOverlay').style.display = 'none';
+  }
+
+  function handleBack() {
+    if (isDirty) {
+      if (!confirm('You have unsaved changes. Discard and exit?')) return;
+    }
+    const dest = sessionStorage.getItem('blockCreatorReturn') || 'index.html';
+    window.location.href = dest;
+  }
+
+  // Keyboard: Escape closes blast dialog
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeBlast();
+  });
+
+  // ============================================================
+  // TOAST
+  // ============================================================
+  function showToast(msg, type) {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = msg;
+    container.appendChild(toast);
+    setTimeout(() => toast.classList.add('visible'), 10);
+    setTimeout(() => {
+      toast.classList.remove('visible');
+      setTimeout(() => toast.remove(), 300);
+    }, 3500);
+  }
+
+  // ============================================================
+  // THEME TOGGLE
+  // ============================================================
+  function toggleTheme() {
+    const html  = document.documentElement;
+    const icon  = document.getElementById('themeIcon');
+    const isDark = html.getAttribute('data-theme') === 'dark';
+    html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    html.setAttribute('theme',      isDark ? 'light' : 'dark');
+    icon.className = isDark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+  }
+
+  // ============================================================
+  // INIT
+  // ============================================================
+  renderSteps();
+
+  // Wire "New Block" button on checklists.html to set return destination
+  // (that page does: sessionStorage.setItem('blockCreatorReturn', 'checklists.html?tab=blocks'))
+
+</script>
+</body>
+</html>
