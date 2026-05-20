@@ -101,6 +101,7 @@ For the complete list with props and examples, see `CORE-CONTEXT.md`
 1. Create a new directory under the product directory specified. If no mock name is given, ask and use that for the directory name.
 2. Copy the index.html from /base-template as your starting point.
 3. If no details about the mock description are given, simply copy the index.html and then ask about where to start with the new mock.
+4. **Always add the new prototype to the `PRODUCTS` array in `/index.html`** so it appears in the shareable index. Add it under the correct product block. Use `{ name: 'Display Name', href: 'products/ProductName/folder-name/' }` for an index.html prototype or `{ name: 'Display Name', href: 'products/ProductName/file.html' }` for a single-file prototype. If the prototype belongs in a sub-folder group, add it inside the matching `{ folder: '...', items: [...] }` entry, or create a new one.
 
 Required resources are provided in the header to load Core and Themes bundles from the CDN plus the main font and icon set.
 

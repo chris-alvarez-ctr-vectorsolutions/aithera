@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convergence — Location Navigation Redesign</title>
+
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+    </script>
+    <script
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+    </script>
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+
+    <style>
+        /* ──────────────────────────────────────────────
+           Base
+        ────────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Open Sans', sans-serif;
+            background: #f0f2f5;
+            height: 100vh;
+            overflow: hidden;
+            color: #1f2937;
+        }
+
+        /* ──────────────────────────────────────────────
+           App shell
+        ────────────────────────────────────────────── */
+        .app-layout {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .app-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ──────────────────────────────────────────────
+           Header  (custom — matches Convergence dark navy)
+        ────────────────────────────────────────────── */
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #142b5e;        /* Convergence dark navy */
+            height: 52px;
+            padding: 0 16px 0 12px;
+            flex-shrink: 0;
+            gap: 16px;
+            z-index: 100;
+        }
+
+        /* Left: logo + divider + location trigger */
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        /* Vector Solutions logo */
+        .vs-logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #fff;
+            text-decoration: none;
+            user-select: none;
+        }
+        .vs-icon {
+            width: 30px;
+            height: 30px;
+            background: rgba(255,255,255,0.12);
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .vs-icon svg { display: block; }
+        .vs-wordmark {
+            line-height: 1.15;
+        }
+        .vs-wordmark .vs-brand {
+            display: block;
+            font-size: 13.5px;
+            font-weight: 700;
+            letter-spacing: -0.2px;
+        }
+        .vs-wordmark .vs-brand span { font-weight: 400; }
+        .vs-wordmark .vs-sub {
+            display: block;
+            font-size: 9px;
+            opacity: 0.6;
+            letter-spacing: 0.1px;
+        }
+
+        .header-divider {
+            width: 1px;
+            height: 22px;
+            background: rgba(255,255,255,0.2);
+        }
+
+        /* ──────────────────────────────────────────────
+           Location trigger button
+        ────────────────────────────────────────────── */
+        .location-trigger {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 10px 5px 9px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px;
+            cursor: pointer;
+            color: #fff;
+            font-family: inherit;
+            transition: background 0.15s, border-color 0.15s;
+            min-width: 175px;
+            line-height: 1;
+        }
+        .location-trigger:hover {
+            background: rgba(255,255,255,0.15);
+            border-color: rgba(255,255,255,0.3);
+        }
+        .location-trigger.open {
+            background: rgba(255,255,255,0.18);
+            border-color: rgba(255,255,255,0.4);
+        }
+
+        .loc-pin { font-size: 13px; flex-shrink: 0; opacity: 0.9; }
+
+        .loc-text {
+            flex: 1;
+            text-align: left;
+        }
+        .loc-name {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .loc-ancestors {
+            display: block;
+            font-size: 10.5px;
+            opacity: 0.65;
+            margin-top: 1px;
+        }
+
+        .loc-chevron {
+            font-size: 9px;
+            opacity: 0.65;
+            flex-shrink: 0;
+            transition: transform 0.2s;
+        }
+        .location-trigger.open .loc-chevron { transform: rotate(180deg); }
+
+        /* Home badge on trigger — shown when viewing home location */
+        .loc-home-badge {
+            display: none;
+            align-items: center;
+            gap: 3px;
+            background: rgba(255,255,255,0.18);
+            border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 10px;
+            padding: 1px 6px;
+            font-size: 10px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.9);
+            letter-spacing: 0.2px;
+            flex-shrink: 0;
+        }
+        .loc-home-badge i { font-size: 9px; }
+        .location-trigger.is-home .loc-home-badge { display: flex; }
+
+        /* "Away from home" — subtle orange dot on trigger */
+        .loc-away-dot {
+            display: none;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #f59e0b;
+            flex-shrink: 0;
+            box-shadow: 0 0 0 2px rgba(245,158,11,0.3);
+        }
+        .location-trigger.is-away .loc-away-dot { display: block; }
+
+        /* ──────────────────────────────────────────────
+           Header nav tabs (center)
+        ────────────────────────────────────────────── */
+        .header-nav {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+        .nav-tab {
+            padding: 5px 14px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.78);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.12s, color 0.12s;
+        }
+        .nav-tab:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        .nav-tab.active {
+            background: rgba(255,255,255,0.16);
+            color: #fff;
+            font-weight: 600;
+            border-bottom: 2px solid rgba(255,255,255,0.7);
+        }
+
+        /* Header right: utility icons */
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+        .header-icon-btn {
+            width: 34px;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            border: none;
+            background: none;
+            color: rgba(255,255,255,0.75);
+            cursor: pointer;
+            font-size: 15px;
+            transition: background 0.12s, color 0.12s;
+        }
+        .header-icon-btn:hover {
+            background: rgba(255,255,255,0.12);
+            color: #fff;
+        }
+        .help-btn {
+            margin-left: 4px;
+            width: auto;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: inherit;
+            gap: 5px;
+            display: flex;
+            align-items: center;
+        }
+
+        /* ──────────────────────────────────────────────
+           Location dropdown panel
+        ────────────────────────────────────────────── */
+        .loc-panel {
+            position: fixed;
+            top: 0;     /* set via JS */
+            left: 0;    /* set via JS */
+            width: 340px;
+            background: #fff;
+            border-radius: 0 8px 8px 8px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.1);
+            border: 1px solid #d1d5db;
+            z-index: 500;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .loc-panel.open { display: flex; }
+
+        /* Panel header: label + search */
+        .panel-head {
+            padding: 12px 14px 10px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .panel-head-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            color: #9ca3af;
+            margin-bottom: 9px;
+        }
+        .search-wrap {
+            position: relative;
+        }
+        .search-wrap .fa-magnifying-glass {
+            position: absolute;
+            left: 9px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 11px;
+            color: #9ca3af;
+            pointer-events: none;
+        }
+        .loc-search {
+            width: 100%;
+            padding: 7px 10px 7px 29px;
+            border: 1px solid #d1d5db;
+            border-radius: 5px;
+            font-family: inherit;
+            font-size: 13px;
+            color: #111827;
+            background: #f9fafb;
+            outline: none;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .loc-search:focus {
+            border-color: #2563eb;
+            background: #fff;
+        }
+
+        /* Current path strip (inside panel) */
+        .current-path-strip {
+            padding: 8px 14px;
+            background: #eff6ff;
+            border-bottom: 1px solid #dbeafe;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 4px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .strip-tag {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #3b82f6;
+            margin-right: 3px;
+            flex-shrink: 0;
+        }
+        .path-node {
+            color: #6b7280;
+        }
+        .path-node.is-current {
+            color: #1d4ed8;
+            font-weight: 600;
+        }
+        .path-sep {
+            color: #93c5fd;
+            font-size: 11px;
+        }
+
+        /* Tree scroll container */
+        .tree-scroll {
+            overflow-y: auto;
+            max-height: 300px;
+            padding: 4px 0;
+        }
+
+        /* Override vwc-tree-list default padding slightly */
+        vwc-tree-list {
+            display: block;
+            --vwc-tree-list-padding: 0 6px;
+        }
+
+        /* Panel footer */
+        .panel-foot {
+            padding: 9px 14px;
+            border-top: 1px solid #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+        }
+        .viewing-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #374151;
+        }
+        .active-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #22c55e;
+            flex-shrink: 0;
+        }
+        .panel-hint {
+            font-size: 11px;
+            color: #9ca3af;
+        }
+
+        /* Return to Home button in panel footer */
+        .return-home-btn {
+            display: none;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 9px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 5px;
+            color: #1d4ed8;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.12s;
+        }
+        .return-home-btn:hover { background: #dbeafe; }
+        .return-home-btn i { font-size: 10px; }
+        .return-home-btn.visible { display: flex; }
+
+        /* Content loading fade */
+        .main-content { transition: opacity 0.12s; }
+        .main-content.is-loading { opacity: 0.45; pointer-events: none; }
+
+        /* Stat card update flash */
+        @keyframes stat-pop {
+            0%   { transform: scale(0.97); opacity: 0.5; }
+            100% { transform: scale(1);    opacity: 1; }
+        }
+        .stat-card.updating { animation: stat-pop 0.22s ease-out; }
+
+        /* Backdrop */
+        .loc-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 499;
+            display: none;
+        }
+        .loc-backdrop.open { display: block; }
+
+        /* ──────────────────────────────────────────────
+           Left sidenav
+        ────────────────────────────────────────────── */
+        .sidenav-host {
+            height: 100%;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: #1e2d4e;   /* slightly lighter than header for depth */
+        }
+
+        /* Custom sidenav — built here for icon support */
+        .cv-sidenav {
+            width: 220px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 12px 0 20px;
+        }
+        .cv-sidenav::-webkit-scrollbar { width: 4px; }
+        .cv-sidenav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+
+        .sidenav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px;
+            font-size: 13px;
+            color: rgba(255,255,255,0.72);
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-family: inherit;
+            text-align: left;
+            width: 100%;
+            transition: background 0.12s, color 0.12s;
+        }
+        .sidenav-item:hover {
+            background: rgba(255,255,255,0.07);
+            color: rgba(255,255,255,0.95);
+        }
+        .sidenav-item.active {
+            background: rgba(255,255,255,0.12);
+            color: #fff;
+            font-weight: 600;
+            border-left: 3px solid #4f87ff;
+            padding-left: 13px;
+        }
+        .sidenav-item i {
+            width: 16px;
+            text-align: center;
+            font-size: 14px;
+            opacity: 0.8;
+            flex-shrink: 0;
+        }
+
+        /* ──────────────────────────────────────────────
+           Main content
+        ────────────────────────────────────────────── */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px 28px;
+            background: #f0f2f5;
+        }
+
+        /* Page title */
+        .page-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 3px;
+        }
+        /* Location breadcrumb subtitle under title */
+        .page-loc-crumb {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: #9ca3af;
+            margin-bottom: 22px;
+        }
+        .page-loc-crumb i { font-size: 11px; color: #2563eb; }
+        .crumb-seg { color: #6b7280; }
+        .crumb-seg.active { color: #2563eb; font-weight: 600; }
+        .crumb-slash { color: #d1d5db; }
+
+        /* Admin Quick Access */
+        .quick-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+        }
+        .quick-tile {
+            background: #1a56db;
+            border-radius: 8px;
+            padding: 26px 14px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            cursor: pointer;
+            color: #fff;
+            border: none;
+            font-family: inherit;
+            transition: background 0.15s, transform 0.1s;
+        }
+        .quick-tile:hover {
+            background: #1648c0;
+            transform: translateY(-2px);
+        }
+        .quick-tile i { font-size: 32px; }
+        .quick-tile-label {
+            font-size: 12.5px;
+            font-weight: 600;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        /* Stats row */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-top: 20px;
+        }
+        .stat-card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 16px 18px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+        }
+        .stat-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: #9ca3af;
+            margin-bottom: 6px;
+        }
+        .stat-value {
+            font-size: 26px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+        .stat-delta {
+            font-size: 11px;
+            color: #6b7280;
+        }
+        .stat-delta.up { color: #16a34a; }
+        .stat-delta.down { color: #dc2626; }
+
+        /* Bottom panels */
+        .bottom-panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-top: 20px;
+        }
+        .bpanel {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+            overflow: hidden;
+        }
+        .bpanel-header {
+            padding: 13px 18px;
+            border-bottom: 1px solid #f3f4f6;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .bpanel-header i { font-size: 14px; color: #9ca3af; }
+        .bpanel-title { font-size: 13px; font-weight: 600; color: #374151; }
+        .bpanel-body { padding: 4px 0; }
+        .bpanel-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 9px 18px;
+            border-bottom: 1px solid #f9fafb;
+            font-size: 13px;
+        }
+        .bpanel-row:last-child { border-bottom: none; }
+        .bpanel-row-label { color: #374151; }
+        .bpanel-row-val { font-weight: 600; color: #1a56db; font-size: 12px; }
+
+        /* Version footer */
+        .version-strip {
+            text-align: right;
+            font-size: 11px;
+            color: #9ca3af;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-layout">
+
+    <!-- ════════════════════════════════════════
+         HEADER
+    ════════════════════════════════════════ -->
+    <header class="app-header">
+
+        <!-- Left: logo + divider + location trigger -->
+        <div class="header-left">
+
+            <!-- Vector Solutions logo placeholder -->
+            <div class="vs-logo">
+                <div class="vs-icon">
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M2 3 L9 15 L16 3 H12.5 L9 9.5 L5.5 3 Z" fill="white"/>
+                    </svg>
+                </div>
+                <div class="vs-wordmark">
+                    <span class="vs-brand">Vector<span>Solutions</span></span>
+                    <span class="vs-sub">Vector LMS, Convergence Training Edition</span>
+                </div>
+            </div>
+
+            <div class="header-divider"></div>
+
+            <!-- Location trigger -->
+            <button class="location-trigger is-home" id="locationTrigger"
+                    aria-haspopup="dialog" aria-expanded="false" aria-label="Switch location">
+                <i class="fa-solid fa-location-dot loc-pin"></i>
+                <span class="loc-text">
+                    <span class="loc-name" id="triggerName">Boston Site</span>
+                    <span class="loc-ancestors" id="triggerAncestors">CSM Organization › NE Region</span>
+                </span>
+                <span class="loc-home-badge"><i class="fa-solid fa-house"></i> Home</span>
+                <div class="loc-away-dot"></div>
+                <i class="fa-solid fa-chevron-down loc-chevron"></i>
+            </button>
+        </div>
+
+        <!-- Center: primary nav tabs -->
+        <div class="header-nav">
+            <button class="nav-tab">Home</button>
+            <button class="nav-tab">Training</button>
+            <button class="nav-tab">Catalog</button>
+            <button class="nav-tab active">Administration</button>
+        </div>
+
+        <!-- Right: utility icon buttons -->
+        <div class="header-right">
+            <button class="header-icon-btn" title="Language"><i class="fa-solid fa-globe"></i></button>
+            <button class="header-icon-btn" title="My Account"><i class="fa-solid fa-user"></i></button>
+            <button class="header-icon-btn" title="Apps"><i class="fa-solid fa-grip"></i></button>
+            <button class="header-icon-btn help-btn" title="Help">
+                <i class="fa-regular fa-circle-question"></i>
+                <span>Help</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ════════════════════════════════════════
+         LOCATION DROPDOWN PANEL
+    ════════════════════════════════════════ -->
+    <div class="loc-backdrop" id="locBackdrop"></div>
+
+    <div class="loc-panel" id="locPanel" role="dialog" aria-label="Switch Location">
+
+        <!-- Search + label -->
+        <div class="panel-head">
+            <div class="panel-head-label">Switch Location</div>
+            <div class="search-wrap">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" class="loc-search" id="locSearch"
+                       placeholder="Search locations…" autocomplete="off">
+            </div>
+        </div>
+
+        <!-- Current path context strip -->
+        <div class="current-path-strip" id="currentPathStrip">
+            <!-- filled by JS -->
+        </div>
+
+        <!-- Tree list -->
+        <div class="tree-scroll">
+            <vwc-tree-list id="locTree"></vwc-tree-list>
+        </div>
+
+        <!-- Footer -->
+        <div class="panel-foot">
+            <div class="viewing-row">
+                <div class="active-dot"></div>
+                <span>Viewing: <strong id="footerLocName">Boston Site</strong></span>
+            </div>
+            <button class="return-home-btn" id="returnHomeBtn" title="Go to your home location">
+                <i class="fa-solid fa-house"></i>
+                <span>Boston Site</span>
+            </button>
+            <span class="panel-hint" id="panelHint">Click any node to switch</span>
+        </div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         APP BODY
+    ════════════════════════════════════════ -->
+    <div class="app-body">
+
+        <!-- Left sidenav -->
+        <div class="sidenav-host">
+            <nav class="cv-sidenav" aria-label="Main navigation">
+                <button class="sidenav-item active">
+                    <i class="fa-solid fa-gauge-high"></i>
+                    Dashboard
+                </button>
+                <button class="sidenav-item">
+                    <i class="fa-solid fa-sitemap"></i>
+                    Organization
+                </button>
+                <button class="sidenav-item">
+                    <i class="fa-solid fa-file-import"></i>
+                    Training Import &amp; Creation
+                </button>
+                <button class="sidenav-item">
+                    <i class="fa-solid fa-folder"></i>
+                    Files
+                </button>
+                <button class="sidenav-item">
+                    <i class="fa-solid fa-list-check"></i>
+                    Activities
+                </button>
+                <button class="sidenav-item">
+                    <i class="fa-solid fa-medal"></i>
+                    Qualifications
+                </button>
+                <button class="sidenav-item">
+                    <i class="fa-solid fa-book-open-reader"></i>
+                    Assignments
+                </button>
+                <button class="sidenav-item">
+                    <i class="fa-solid fa-star"></i>
+                    Electives
+                </button>
+                <button class="sidenav-item">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    Authorizations
+                </button>
+                <button class="sidenav-item">
+                    <i class="fa-solid fa-circle-check"></i>
+                    Tracking &amp; Completions
+                </button>
+                <button class="sidenav-item">
+                    <i class="fa-solid fa-hard-hat"></i>
+                    MSHA Compliance
+                </button>
+                <button class="sidenav-item">
+                    <i class="fa-solid fa-chart-bar"></i>
+                    Reports
+                </button>
+                <button class="sidenav-item">
+                    <i class="fa-solid fa-lock"></i>
+                    Security
+                </button>
+                <button class="sidenav-item">
+                    <i class="fa-solid fa-gear"></i>
+                    System
+                </button>
+            </nav>
+        </div>
+
+        <!-- Main content -->
+        <main class="main-content">
+
+            <!-- Page title + dynamic location breadcrumb -->
+            <h1 class="page-title">Administration Dashboard</h1>
+            <div class="page-loc-crumb" id="pageCrumb">
+                <!-- filled by JS -->
+            </div>
+
+            <!-- Quick Access -->
+            <vwc-card theme="elevated">
+                <div slot="header" style="padding: 14px 18px 0;">
+                    <span style="font-size:13.5px;font-weight:600;color:#374151;">
+                        <i class="fa-solid fa-bolt" style="margin-right:7px;color:#9ca3af;"></i>Admin Quick Access
+                    </span>
+                </div>
+                <div slot="content" style="padding: 14px 18px 18px;">
+                    <div class="quick-grid">
+                        <button class="quick-tile">
+                            <i class="fa-solid fa-users"></i>
+                            <span class="quick-tile-label">Manage Your Personnel</span>
+                        </button>
+                        <button class="quick-tile">
+                            <i class="fa-solid fa-file-arrow-down"></i>
+                            <span class="quick-tile-label">Import Training Materials</span>
+                        </button>
+                        <button class="quick-tile">
+                            <i class="fa-solid fa-calendar-days"></i>
+                            <span class="quick-tile-label">Quizzes, Tasklists, Classes</span>
+                        </button>
+                        <button class="quick-tile">
+                            <i class="fa-solid fa-book"></i>
+                            <span class="quick-tile-label">Assign Training</span>
+                        </button>
+                        <button class="quick-tile">
+                            <i class="fa-solid fa-scroll"></i>
+                            <span class="quick-tile-label">Manage Completion Records</span>
+                        </button>
+                        <button class="quick-tile">
+                            <i class="fa-solid fa-chart-bar"></i>
+                            <span class="quick-tile-label">View Reports</span>
+                        </button>
+                    </div>
+                </div>
+            </vwc-card>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Active Personnel</div>
+                    <div class="stat-value" id="statPersonnel">248</div>
+                    <div class="stat-delta up"><i class="fa-solid fa-arrow-up"></i> 12 this month</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Training Completions</div>
+                    <div class="stat-value" id="statCompletions">1,340</div>
+                    <div class="stat-delta up"><i class="fa-solid fa-arrow-up"></i> 89 this week</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Pending Assignments</div>
+                    <div class="stat-value" id="statPending">57</div>
+                    <div class="stat-delta down"><i class="fa-solid fa-arrow-up" style="transform:rotate(45deg);display:inline-block;"></i> 5 overdue</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Compliance Rate</div>
+                    <div class="stat-value" id="statCompliance">94%</div>
+                    <div class="stat-delta up"><i class="fa-solid fa-arrow-up"></i> 2% vs last month</div>
+                </div>
+            </div>
+
+            <!-- Bottom panels -->
+            <div class="bottom-panels">
+                <div class="bpanel">
+                    <div class="bpanel-header">
+                        <i class="fa-regular fa-calendar"></i>
+                        <span class="bpanel-title">Class Session Approvals</span>
+                    </div>
+                    <div class="bpanel-body">
+                        <div class="bpanel-row">
+                            <span class="bpanel-row-label">Safety Orientation — Mar 20</span>
+                            <span class="bpanel-row-val">12 pending</span>
+                        </div>
+                        <div class="bpanel-row">
+                            <span class="bpanel-row-label">MSHA Part 46 — Mar 22</span>
+                            <span class="bpanel-row-val">3 pending</span>
+                        </div>
+                        <div class="bpanel-row">
+                            <span class="bpanel-row-label">Forklift Certification — Mar 25</span>
+                            <span class="bpanel-row-val">8 pending</span>
+                        </div>
+                        <div class="bpanel-row">
+                            <span class="bpanel-row-label">Fire Safety — Mar 28</span>
+                            <span class="bpanel-row-val">5 pending</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="bpanel">
+                    <div class="bpanel-header">
+                        <i class="fa-solid fa-signature"></i>
+                        <span class="bpanel-title">Tasklist Sign-Off</span>
+                    </div>
+                    <div class="bpanel-body">
+                        <div class="bpanel-row">
+                            <span class="bpanel-row-label">Monthly Safety Checklist</span>
+                            <span class="bpanel-row-val">7 awaiting</span>
+                        </div>
+                        <div class="bpanel-row">
+                            <span class="bpanel-row-label">Equipment Inspection Log</span>
+                            <span class="bpanel-row-val">2 awaiting</span>
+                        </div>
+                        <div class="bpanel-row">
+                            <span class="bpanel-row-label">Emergency Procedures Review</span>
+                            <span class="bpanel-row-val">14 awaiting</span>
+                        </div>
+                        <div class="bpanel-row">
+                            <span class="bpanel-row-label">Compliance Documentation</span>
+                            <span class="bpanel-row-val">4 awaiting</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="version-strip">Version: 2.571.0.0 &nbsp;|&nbsp; Instance: WN0MDWK0000W8</div>
+
+        </main>
+    </div><!-- app-body -->
+</div><!-- app-layout -->
+
+
+<script>
+// ══════════════════════════════════════════════════
+// Location hierarchy data
+// ══════════════════════════════════════════════════
+const LOCATION_TREE = [
+    {
+        id: 'org-csm',
+        text: 'CSM Organization',
+        subtitle: 'Organization',
+        children: [
+            {
+                id: 'region-ne',
+                text: 'NE Region',
+                subtitle: 'Region',
+                children: [
+                    {
+                        id: 'site-boston',
+                        text: 'Boston Site',
+                        subtitle: 'Site',
+                        children: [
+                            {
+                                id: 'dept-eng',
+                                text: 'Engineering',
+                                subtitle: 'Department',
+                                children: [
+                                    { id: 'team-alpha', text: 'Team Alpha', subtitle: 'Team' },
+                                    { id: 'team-beta',  text: 'Team Beta',  subtitle: 'Team' }
+                                ]
+                            },
+                            {
+                                id: 'dept-ops',
+                                text: 'Operations',
+                                subtitle: 'Department',
+                                children: [
+                                    { id: 'team-day',   text: 'Day Shift',   subtitle: 'Team' },
+                                    { id: 'team-night', text: 'Night Shift', subtitle: 'Team' }
+                                ]
+                            },
+                            {
+                                id: 'dept-safety',
+                                text: 'Safety & Compliance',
+                                subtitle: 'Department',
+                                children: [
+                                    { id: 'team-safety', text: 'Safety Team', subtitle: 'Team' }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        id: 'site-providence',
+                        text: 'Providence Site',
+                        subtitle: 'Site',
+                        children: [
+                            {
+                                id: 'dept-prov-ops',
+                                text: 'Operations',
+                                subtitle: 'Department',
+                                children: [
+                                    { id: 'team-prov-ops', text: 'Operations Team', subtitle: 'Team' }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'region-sw',
+                text: 'SW Region',
+                subtitle: 'Region',
+                children: [
+                    {
+                        id: 'site-dallas',
+                        text: 'Dallas Site',
+                        subtitle: 'Site',
+                        children: [
+                            {
+                                id: 'dept-dal-eng',
+                                text: 'Engineering',
+                                subtitle: 'Department',
+                                children: [
+                                    { id: 'team-dal-eng', text: 'Engineering Team', subtitle: 'Team' }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        id: 'site-houston',
+                        text: 'Houston Site',
+                        subtitle: 'Site',
+                        children: [
+                            {
+                                id: 'dept-hou-ops',
+                                text: 'Operations',
+                                subtitle: 'Department',
+                                children: []
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+];
+
+// ══════════════════════════════════════════════════
+// Build a flat lookup: id → { node, ancestors[] }
+// ══════════════════════════════════════════════════
+function buildMap(nodes, ancestors = []) {
+    const map = {};
+    for (const node of nodes) {
+        map[node.id] = { node, ancestors: [...ancestors] };
+        if (node.children && node.children.length) {
+            Object.assign(map, buildMap(node.children, [...ancestors, node]));
+        }
+    }
+    return map;
+}
+const NODE_MAP = buildMap(LOCATION_TREE);
+
+// ══════════════════════════════════════════════════
+// Per-location mock dashboard data
+// ══════════════════════════════════════════════════
+const LOCATION_DATA = {
+    'org-csm': {
+        personnel: '1,847', compRate: '91%',
+        completions: '12,450', pending: '342',
+        sessions: [
+            ['All-Hands Safety Training — Mar 20', '34 pending'],
+            ['Leadership Seminar — Mar 24',        '18 pending'],
+            ['OSHA Annual Refresher — Apr 1',      '67 pending'],
+            ['Compliance Overview — Apr 5',        '22 pending'],
+        ],
+        signoffs: [
+            ['Q1 Safety Audit',             '28 awaiting'],
+            ['Annual Policy Review',        '15 awaiting'],
+            ['Equipment Certification Log', '9 awaiting'],
+            ['Emergency Response Plan',     '44 awaiting'],
+        ],
+    },
+    'region-ne': {
+        personnel: '743', compRate: '93%',
+        completions: '5,210', pending: '128',
+        sessions: [
+            ['Regional Safety Forum — Mar 21',  '18 pending'],
+            ['MSHA Part 48 — Mar 23',            '9 pending'],
+            ['Confined Space Entry — Mar 29',   '12 pending'],
+            ['Fire Prevention — Apr 2',          '7 pending'],
+        ],
+        signoffs: [
+            ['Regional Safety Checklist',   '12 awaiting'],
+            ['Equipment Inspection Log',     '5 awaiting'],
+            ['Incident Response Review',     '8 awaiting'],
+            ['Compliance Documentation',     '6 awaiting'],
+        ],
+    },
+    'site-boston': {
+        personnel: '248', compRate: '94%',
+        completions: '1,340', pending: '57',
+        sessions: [
+            ['Safety Orientation — Mar 20',     '12 pending'],
+            ['MSHA Part 46 — Mar 22',            '3 pending'],
+            ['Forklift Certification — Mar 25',  '8 pending'],
+            ['Fire Safety — Mar 28',             '5 pending'],
+        ],
+        signoffs: [
+            ['Monthly Safety Checklist',       '7 awaiting'],
+            ['Equipment Inspection Log',       '2 awaiting'],
+            ['Emergency Procedures Review',   '14 awaiting'],
+            ['Compliance Documentation',       '4 awaiting'],
+        ],
+    },
+    'site-providence': {
+        personnel: '142', compRate: '89%',
+        completions: '710', pending: '43',
+        sessions: [
+            ['New Employee Orientation — Mar 21', '6 pending'],
+            ['Forklift Recertification — Mar 27', '4 pending'],
+            ['OSHA 10-Hour — Apr 3',              '11 pending'],
+            ['First Aid / CPR — Apr 8',           '3 pending'],
+        ],
+        signoffs: [
+            ['Monthly Safety Checklist',  '5 awaiting'],
+            ['Equipment Log Review',      '1 awaiting'],
+            ['Compliance Sign-Off',       '7 awaiting'],
+            ['Emergency Procedures',      '3 awaiting'],
+        ],
+    },
+    'region-sw': {
+        personnel: '501', compRate: '90%',
+        completions: '3,860', pending: '97',
+        sessions: [
+            ['MSHA Part 48 — Mar 22',        '14 pending'],
+            ['Electrical Safety — Mar 26',    '8 pending'],
+            ['Hazmat Awareness — Apr 1',     '19 pending'],
+            ['Lock-Out Tag-Out — Apr 6',      '7 pending'],
+        ],
+        signoffs: [
+            ['Quarterly Audit',              '11 awaiting'],
+            ['Equipment Certification',       '6 awaiting'],
+            ['Incident Debrief Log',          '4 awaiting'],
+            ['Compliance Documentation',      '9 awaiting'],
+        ],
+    },
+    'site-dallas': {
+        personnel: '287', compRate: '91%',
+        completions: '2,140', pending: '64',
+        sessions: [
+            ['Safety Induction — Mar 20',   '9 pending'],
+            ['MSHA Part 46 — Mar 25',       '5 pending'],
+            ['Crane Safety — Apr 2',       '11 pending'],
+            ['Hazmat Level 1 — Apr 7',      '6 pending'],
+        ],
+        signoffs: [
+            ['Monthly Safety Checklist',  '8 awaiting'],
+            ['Crane Inspection Log',      '3 awaiting'],
+            ['Emergency Procedures',      '6 awaiting'],
+            ['Incident Review',           '2 awaiting'],
+        ],
+    },
+    'site-houston': {
+        personnel: '214', compRate: '88%',
+        completions: '1,720', pending: '33',
+        sessions: [
+            ['H2S Awareness — Mar 23',        '7 pending'],
+            ['Well Control Basics — Mar 28',  '4 pending'],
+            ['Ergonomics Training — Apr 4',   '9 pending'],
+            ['PPE Refresher — Apr 9',         '3 pending'],
+        ],
+        signoffs: [
+            ['Weekly Safety Inspection',  '5 awaiting'],
+            ['Equipment Sign-Off',        '2 awaiting'],
+            ['Emergency Response Plan',   '8 awaiting'],
+            ['Compliance Docs',           '1 awaiting'],
+        ],
+    },
+    'dept-eng': {
+        personnel: '64', compRate: '97%',
+        completions: '310', pending: '14',
+        sessions: [
+            ['Electrical Safety — Mar 21',  '4 pending'],
+            ['PPE Training — Mar 26',       '2 pending'],
+            ['Machine Guarding — Apr 4',    '5 pending'],
+            ['CAD Safety Review — Apr 9',   '3 pending'],
+        ],
+        signoffs: [
+            ['Equipment Certification Log', '3 awaiting'],
+            ['Monthly Safety Checklist',    '2 awaiting'],
+            ['Incident Log Review',         '1 awaiting'],
+            ['Design Safety Review',        '4 awaiting'],
+        ],
+    },
+    'dept-ops': {
+        personnel: '112', compRate: '93%',
+        completions: '598', pending: '27',
+        sessions: [
+            ['Forklift Recertification — Mar 22', '6 pending'],
+            ['LOTO Procedures — Mar 27',          '3 pending'],
+            ['Shift Handover Safety — Apr 3',     '7 pending'],
+        ],
+        signoffs: [
+            ['Shift Safety Check',     '4 awaiting'],
+            ['Equipment Log',          '2 awaiting'],
+            ['Incident Review',        '3 awaiting'],
+            ['Compliance Sign-Off',    '5 awaiting'],
+        ],
+    },
+    'dept-safety': {
+        personnel: '22', compRate: '100%',
+        completions: '178', pending: '2',
+        sessions: [
+            ['Incident Investigation — Mar 24', '1 pending'],
+            ['Audit Prep Review — Apr 5',       '1 pending'],
+        ],
+        signoffs: [
+            ['Audit Completion Sign-Off',  '1 awaiting'],
+            ['Incident Close-Out',         '1 awaiting'],
+        ],
+    },
+    'team-alpha': {
+        personnel: '18', compRate: '100%',
+        completions: '92', pending: '3',
+        sessions: [
+            ['PPE Refresher — Mar 22',  '2 pending'],
+            ['Machine Safety — Apr 3',  '1 pending'],
+        ],
+        signoffs: [
+            ['Weekly Safety Check',  '1 awaiting'],
+            ['Equipment Sign-Off',   '2 awaiting'],
+        ],
+    },
+    'team-beta': {
+        personnel: '16', compRate: '94%',
+        completions: '78', pending: '5',
+        sessions: [
+            ['Electrical Safety — Mar 25',  '3 pending'],
+            ['Tool Safety — Apr 2',         '2 pending'],
+        ],
+        signoffs: [
+            ['Weekly Safety Check',    '2 awaiting'],
+            ['Equipment Sign-Off',     '3 awaiting'],
+        ],
+    },
+};
+
+// Fallback for nodes without specific data
+function getLocationData(id) {
+    return LOCATION_DATA[id] || {
+        personnel: '—', compRate: '—',
+        completions: '—', pending: '—',
+        sessions:  [['No session data for this level', '']],
+        signoffs:  [['No sign-off data for this level', '']],
+    };
+}
+
+// ══════════════════════════════════════════════════
+// Home location
+// ══════════════════════════════════════════════════
+const HOME_ID   = 'site-boston';
+const HOME_NAME = 'Boston Site';
+
+// ══════════════════════════════════════════════════
+// State
+// ══════════════════════════════════════════════════
+let currentId = HOME_ID;
+
+// ══════════════════════════════════════════════════
+// DOM references
+// ══════════════════════════════════════════════════
+const trigger       = document.getElementById('locationTrigger');
+const panel         = document.getElementById('locPanel');
+const backdrop      = document.getElementById('locBackdrop');
+const treeEl        = document.getElementById('locTree');
+const searchInput   = document.getElementById('locSearch');
+const returnHomeBtn = document.getElementById('returnHomeBtn');
+const panelHint     = document.getElementById('panelHint');
+const mainContent   = document.querySelector('.main-content');
+
+// ══════════════════════════════════════════════════
+// Panel open / close
+// ══════════════════════════════════════════════════
+function openPanel() {
+    const rect = trigger.getBoundingClientRect();
+    panel.style.top  = (rect.bottom + 5) + 'px';
+    panel.style.left = rect.left + 'px';
+
+    trigger.classList.add('open');
+    trigger.setAttribute('aria-expanded', 'true');
+    panel.classList.add('open');
+    backdrop.classList.add('open');
+
+    setTimeout(() => searchInput.focus(), 60);
+}
+
+function closePanel() {
+    trigger.classList.remove('open');
+    trigger.setAttribute('aria-expanded', 'false');
+    panel.classList.remove('open');
+    backdrop.classList.remove('open');
+    searchInput.value = '';
+    renderTree(LOCATION_TREE);
+}
+
+trigger.addEventListener('click', () =>
+    panel.classList.contains('open') ? closePanel() : openPanel()
+);
+backdrop.addEventListener('click', closePanel);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+
+returnHomeBtn.addEventListener('click', () => applyLocation(HOME_ID));
+
+// ══════════════════════════════════════════════════
+// Tree helpers
+// ══════════════════════════════════════════════════
+function renderTree(items) {
+    treeEl.items = items;
+    treeEl.value = currentId;
+}
+
+function filterTree(query) {
+    if (!query.trim()) { renderTree(LOCATION_TREE); return; }
+    const q = query.toLowerCase();
+    function filterNodes(nodes) {
+        return nodes.reduce((acc, node) => {
+            const kids = filterNodes(node.children || []);
+            if (node.text.toLowerCase().includes(q) || kids.length) {
+                acc.push({ ...node, children: kids });
+            }
+            return acc;
+        }, []);
+    }
+    treeEl.items = filterNodes(LOCATION_TREE);
+}
+
+searchInput.addEventListener('input', e => filterTree(e.target.value));
+
+// ══════════════════════════════════════════════════
+// Update dashboard data for the selected location
+// ══════════════════════════════════════════════════
+function updateDashboard(id) {
+    const data = getLocationData(id);
+
+    // --- Brief loading flash ---
+    mainContent.classList.add('is-loading');
+    setTimeout(() => {
+        mainContent.classList.remove('is-loading');
+
+        // Update stats
+        document.getElementById('statPersonnel').textContent  = data.personnel;
+        document.getElementById('statCompletions').textContent = data.completions;
+        document.getElementById('statPending').textContent    = data.pending;
+        document.getElementById('statCompliance').textContent = data.compRate;
+
+        // Animate stat cards
+        document.querySelectorAll('.stat-card').forEach(card => {
+            card.classList.remove('updating');
+            void card.offsetWidth;  // reflow to restart animation
+            card.classList.add('updating');
+        });
+
+        // Update Class Sessions panel
+        const sessBody = document.querySelector('.bpanel:first-child .bpanel-body');
+        sessBody.innerHTML = data.sessions.map(([label, val]) =>
+            `<div class="bpanel-row">
+                <span class="bpanel-row-label">${label}</span>
+                ${val ? `<span class="bpanel-row-val">${val}</span>` : ''}
+            </div>`
+        ).join('');
+
+        // Update Sign-Off panel
+        const signBody = document.querySelector('.bpanel:last-child .bpanel-body');
+        signBody.innerHTML = data.signoffs.map(([label, val]) =>
+            `<div class="bpanel-row">
+                <span class="bpanel-row-label">${label}</span>
+                ${val ? `<span class="bpanel-row-val">${val}</span>` : ''}
+            </div>`
+        ).join('');
+
+    }, 120);
+}
+
+// ══════════════════════════════════════════════════
+// Apply a new location selection
+// ══════════════════════════════════════════════════
+function applyLocation(id) {
+    const entry = NODE_MAP[id];
+    if (!entry) return;
+
+    currentId = id;
+    const { node, ancestors } = entry;
+    const fullPath = [...ancestors, node];
+    const isHome   = id === HOME_ID;
+
+    // --- Trigger: text ---
+    document.getElementById('triggerName').textContent = node.text;
+    document.getElementById('triggerAncestors').textContent =
+        ancestors.length ? ancestors.map(a => a.text).join(' › ') : (node.subtitle || '');
+
+    // --- Trigger: home / away state ---
+    trigger.classList.toggle('is-home', isHome);
+    trigger.classList.toggle('is-away', !isHome);
+
+    // --- Panel path strip ---
+    const strip = document.getElementById('currentPathStrip');
+    strip.innerHTML =
+        '<span class="strip-tag">Now viewing</span>' +
+        fullPath.map((n, i) => {
+            const last = i === fullPath.length - 1;
+            return (i > 0 ? '<span class="path-sep">›</span>' : '') +
+                `<span class="path-node${last ? ' is-current' : ''}">${n.text}</span>`;
+        }).join('');
+
+    // --- Footer: viewing label + home button ---
+    document.getElementById('footerLocName').textContent = node.text;
+    returnHomeBtn.classList.toggle('visible', !isHome);
+    panelHint.style.display = isHome ? '' : 'none';
+
+    // --- Page sub-crumb ---
+    renderPageCrumb(fullPath);
+
+    // --- Tree selection ---
+    treeEl.value = id;
+
+    // --- Reload dashboard data ---
+    updateDashboard(id);
+
+    closePanel();
+}
+
+function renderPageCrumb(fullPath) {
+    const el = document.getElementById('pageCrumb');
+    el.innerHTML =
+        '<i class="fa-solid fa-location-dot"></i>' +
+        fullPath.map((n, i) => {
+            const last = i === fullPath.length - 1;
+            return (i > 0 ? '<span class="crumb-slash">/</span>' : '') +
+                `<span class="crumb-seg${last ? ' active' : ''}">${n.text}</span>`;
+        }).join('');
+}
+
+// ══════════════════════════════════════════════════
+// Tree selection event
+// ══════════════════════════════════════════════════
+treeEl.addEventListener('value-change', e => {
+    if (e.detail) applyLocation(e.detail);
+});
+
+// ══════════════════════════════════════════════════
+// Init
+// ══════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+    renderTree(LOCATION_TREE);
+    applyLocation(currentId);
+});
+</script>
+</body>
+</html>

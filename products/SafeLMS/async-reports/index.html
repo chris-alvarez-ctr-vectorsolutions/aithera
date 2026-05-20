@@ -190,6 +190,9 @@
   .pos-block .lines .l2 { color: var(--ink); font-weight: 600; }
 
   .filter-grid {
+    /* Pin to col 2 / row 1 so the grid doesn't auto-place into the empty
+       200px col 1 when pos-block is hidden (which would cramp the pills). */
+    grid-column: 2; grid-row: 1;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 10px;
@@ -403,13 +406,30 @@
     max-width: 380px; text-align: center; line-height: 1.5;
   }
   .loading-email-btn {
+    display: inline-flex; align-items: center; gap: 6px;
     padding: 7px 18px;
     background: #1D4ED8; color: #fff;
     border: none; border-radius: 5px;
     font-family: inherit; font-weight: 600; font-size: 12px;
-    cursor: pointer; transition: background .12s;
+    cursor: pointer; transition: background .12s, box-shadow .12s, transform .08s;
   }
   .loading-email-btn:hover { background: #1A44C2; }
+  /* Pressed/requested state — lighter secondary look to signal it's no longer clickable. */
+  .loading-email-btn.is-pressed,
+  .loading-email-btn.is-pressed:hover {
+    background: #fff;
+    color: #6A7282;
+    border: 1px solid var(--hair);
+    /* keep visual width consistent with the non-pressed (no-border) state */
+    padding: 6px 17px;
+    box-shadow: none;
+    cursor: default;
+    pointer-events: none;
+    transform: none;
+  }
+  .loading-email-btn.is-pressed .check-ico { color: #16a34a; }
+  .loading-email-btn .check-ico { display: none; }
+  .loading-email-btn.is-pressed .check-ico { display: inline-flex; }
 
 
   /* ── Report Log ── */
@@ -900,7 +920,10 @@ Results</div>
         <span class="loading-text" id="loading-text-default">Loading...</span>
         <!-- Completions-emp only: message + email button + confirmation banner -->
         <span class="loading-msg" id="loading-msg-completions" style="display:none;">Your report request has been saved to the Report Log and is currently generating.</span>
-        <button class="loading-email-btn" id="email-me-btn" style="display:none;">Email me the report when ready</button>
+        <button class="loading-email-btn" id="email-me-btn" style="display:none;">
+          <span class="check-ico" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+          <span class="btn-label">Email me the report when ready</span>
+        </button>
       </div>
     </div>
 
@@ -1401,6 +1424,14 @@ Results</div>
     document.getElementById('result-count').textContent = cfg.resultCount || '';
 
     // pos block & email toggle visibility
+    applyFilterVisibility(tabKey);
+  }
+
+  // Sync filter-panel visibility (pos block + email toggle) with the active tab,
+  // so the layout settles on tab change instead of shifting on Run Report.
+  function applyFilterVisibility(tabKey) {
+    const cfg = TABS[tabKey];
+    if (!cfg) return;
     document.getElementById('pos-block').style.display = cfg.showPosBlock ? '' : 'none';
     document.getElementById('email-toggle-row').style.display = cfg.showEmailToggle ? '' : 'none';
   }
@@ -1417,7 +1448,11 @@ Results</div>
     document.getElementById('email-me-btn-toast').style.display = '';
     // reset completions-emp message, button + shared confirmation banner
     document.getElementById('loading-msg-completions').style.display = 'none';
-    document.getElementById('email-me-btn').style.display = 'none';
+    const emailBtn = document.getElementById('email-me-btn');
+    emailBtn.style.display = 'none';
+    emailBtn.classList.remove('is-pressed');
+    emailBtn.removeAttribute('aria-disabled');
+    emailBtn.querySelector('.btn-label').textContent = 'Email me the report when ready';
     document.getElementById('email-confirm-completions').classList.add('hidden');
   }
 
@@ -1461,10 +1496,12 @@ Results</div>
     reportTimer = setTimeout(finishLoading, REPORT_DELAY_MS);
   });
 
-  // Completions-emp: hide message + button, show confirmation banner under filters
+  // Completions-emp: keep spinner + message + button visible; show the confirmation banner
+  // and put the button into its "pressed / requested" state so it can't be clicked again.
   document.getElementById('email-me-btn').addEventListener('click', function () {
-    this.style.display = 'none';
-    document.getElementById('loading-msg-completions').style.display = 'none';
+    this.classList.add('is-pressed');
+    this.setAttribute('aria-disabled', 'true');
+    this.querySelector('.btn-label').textContent = 'Email request sent';
     document.getElementById('email-confirm-completions').classList.remove('hidden');
   });
   document.getElementById('dismiss-email-confirm').addEventListener('click', () => {
@@ -1506,10 +1543,14 @@ Results</div>
         showReportLog();
       } else {
         hideReportLog();
+        applyFilterVisibility(activeTab);
         showEmptyState();
       }
     });
   });
+
+  // Initial sync so the filters reflect the starting tab on page load.
+  applyFilterVisibility(activeTab);
 
   /* ── Email toggle ────────────────────────────────────── */
   document.getElementById('email-toggle').addEventListener('click', function () {

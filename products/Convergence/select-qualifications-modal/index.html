@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Select Qualifications Modal — Responsive Sizing Spec</title>
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Open Sans', sans-serif;
+      background: var(--vvd-color-neutral-50, #f5f5f5);
+      padding: 32px 24px 64px;
+      color: var(--vvd-color-neutral-900, #1a1a1a);
+    }
+
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+    .page-subtitle { font-size: 13px; color: #666; margin-bottom: 40px; }
+
+    /* ── Section ─────────────────────────────────────────────── */
+    .section { margin-bottom: 64px; }
+
+    .section-label {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+    }
+    .section-label h2 { font-size: 15px; font-weight: 700; white-space: nowrap; }
+    .section-line { flex: 1; height: 1px; background: #ddd; }
+
+    .spec-pill {
+      font-size: 11px; font-weight: 600;
+      background: #e8f0fe; color: #1a56db;
+      border-radius: 20px; padding: 3px 10px; white-space: nowrap;
+    }
+    .spec-pill.green { background: #dcfce7; color: #166534; }
+    .spec-pill.gray  { background: #f0f0f0; color: #555; }
+
+    /* ── Scale frame ─────────────────────────────────────────── */
+    /*
+      Each viewport is shown at a consistent visual scale.
+      Scale = frame height / real viewport height.
+      We use 0.46× for all frames so vertical rulers are comparable.
+    */
+    .frame-outer {
+      display: inline-flex;
+      align-items: flex-start;
+      gap: 0;
+      position: relative;
+    }
+
+    /* vertical ruler on the right — full viewport height */
+    .vp-ruler {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 52px;
+      position: relative;
+    }
+    .vp-ruler-line {
+      width: 1px;
+      background: #94a3b8;
+      flex: 1;
+    }
+    .vp-ruler-line.accent { background: #3b82f6; }
+    .vp-ruler-label {
+      font-size: 10px; font-weight: 700;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      padding: 6px 0;
+      white-space: nowrap;
+    }
+    .vp-ruler-label.blue { color: #1d4ed8; }
+    .vp-ruler-label.gray { color: #64748b; }
+
+    /* tick marks on ruler */
+    .vp-ruler-tick {
+      width: 8px; height: 1px; background: #94a3b8;
+      position: absolute;
+      left: 0;
+    }
+
+    .viewport-frame {
+      background: #d1d5db;
+      border-radius: 10px;
+      padding: 5px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.14);
+    }
+
+    .viewport-inner {
+      background: #b0b8c8;
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* fake topnav */
+    .fake-topnav {
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 20px; /* scaled: real 44px × 0.46 */
+      background: #1e2d40;
+      display: flex; align-items: center; padding: 0 10px; gap: 6px; z-index: 1;
+    }
+    .fake-topnav-logo { width: 22px; height: 12px; background: rgba(255,255,255,0.25); border-radius: 2px; }
+    .fake-topnav-items { display: flex; gap: 4px; margin-left: auto; }
+    .fake-topnav-dot { width: 14px; height: 14px; background: rgba(255,255,255,0.2); border-radius: 50%; }
+
+    /* backdrop */
+    .modal-backdrop {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 10;
+    }
+
+    /* modal shell */
+    .modal {
+      background: #fff;
+      border-radius: 5px;
+      display: flex; flex-direction: column;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.28);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 10px;
+      border-bottom: 1px solid #e5e5e5;
+      flex-shrink: 0;
+    }
+    .modal-title { font-size: 7px; font-weight: 700; }
+    .modal-close {
+      width: 14px; height: 14px; border: none; background: none; cursor: pointer;
+      color: #888; display: flex; align-items: center; justify-content: center;
+      border-radius: 2px; font-size: 7px;
+    }
+
+    .modal-search { padding: 5px 10px 0; flex-shrink: 0; }
+    .search-input-wrap { position: relative; display: flex; align-items: center; }
+    .search-input-wrap i { position: absolute; left: 5px; color: #aaa; font-size: 6px; }
+    .search-input {
+      width: 100%; height: 16px;
+      border: 1px solid #ccc; border-radius: 3px;
+      padding: 0 6px 0 14px;
+      font-family: inherit; font-size: 6px; outline: none;
+    }
+
+    .modal-filter-row {
+      padding: 4px 10px 0; display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+    }
+    .filter-chip {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 6px; color: #1a56db; background: #e8f0fe;
+      border-radius: 10px; padding: 2px 5px; cursor: pointer; border: none; font-family: inherit;
+    }
+
+    .modal-body { flex: 1; overflow-y: auto; min-height: 0; }
+
+    .qual-table { width: 100%; border-collapse: collapse; font-size: 6px; }
+    .qual-table thead tr {
+      background: #fafafa; border-bottom: 1px solid #e5e5e5;
+    }
+    .qual-table th {
+      padding: 4px 6px; text-align: left; font-weight: 600;
+      font-size: 6px; color: #444; white-space: nowrap;
+    }
+    .qual-table td {
+      padding: 4px 6px; border-bottom: 1px solid #f0f0f0;
+      vertical-align: middle; color: #1a1a1a;
+    }
+    .qual-table tr:hover td { background: #fafafa; }
+
+    .cell-name { display: flex; align-items: center; gap: 4px; }
+    .new-badge {
+      font-size: 5px; font-weight: 700;
+      background: #d1fae5; color: #065f46;
+      border-radius: 2px; padding: 1px 3px;
+    }
+    .link-action { color: #1d4ed8; text-decoration: none; font-size: 6px; }
+    .cb {
+      width: 7px; height: 7px;
+      border: 1px solid #aaa; border-radius: 1px; flex-shrink: 0; background: #fff;
+    }
+
+    .modal-footer {
+      padding: 6px 10px;
+      border-top: 1px solid #e5e5e5;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0; gap: 6px;
+    }
+    .pagination-info { font-size: 6px; color: #666; white-space: nowrap; }
+    .footer-buttons { display: flex; gap: 4px; }
+    .btn {
+      font-family: inherit; font-size: 6px; font-weight: 600;
+      padding: 3px 8px; border-radius: 3px; border: 1px solid transparent; cursor: pointer;
+    }
+    .btn-secondary { background: #fff; border-color: #ccc; color: #333; }
+    .btn-primary { background: #1d4ed8; color: #fff; }
+    .btn-primary:disabled { background: #ccc; color: #888; cursor: default; }
+
+    /* ── Modal height ruler (right side of modal) ────────────── */
+    .modal-height-ruler {
+      position: absolute;
+      right: -44px; top: 0; bottom: 0;
+      width: 40px;
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .mhr-line { width: 1px; flex: 1; background: #3b82f6; }
+    .mhr-label {
+      font-size: 9px; font-weight: 700; color: #1d4ed8;
+      writing-mode: vertical-rl; transform: rotate(180deg);
+      padding: 5px 0; white-space: nowrap;
+    }
+    .mhr-end {
+      width: 8px; height: 1px; background: #3b82f6;
+      position: absolute; right: 32px;
+    }
+    .mhr-end.top { top: 0; }
+    .mhr-end.bottom { bottom: 0; }
+
+    /* ── Viewport height ruler (outside frame) ───────────────── */
+    .vph-ruler-wrap {
+      display: flex; flex-direction: column; align-items: center;
+      width: 52px; flex-shrink: 0;
+    }
+    .vph-line { width: 1px; flex: 1; background: #94a3b8; }
+    .vph-label {
+      font-size: 9px; font-weight: 700; color: #475569;
+      writing-mode: vertical-rl; transform: rotate(180deg);
+      padding: 5px 0; white-space: nowrap;
+    }
+
+    /* ── Width ruler (above frame) ───────────────────────────── */
+    .width-ruler {
+      display: flex; align-items: center; gap: 4px;
+      margin-bottom: 6px; height: 18px;
+    }
+    .width-ruler-line { flex: 1; height: 1px; background: #3b82f6; }
+    .width-ruler-label { font-size: 10px; font-weight: 700; color: #1d4ed8; white-space: nowrap; }
+
+    /* ── Annotations ─────────────────────────────────────────── */
+    .dim-annotation {
+      margin-top: 14px; display: flex; flex-wrap: wrap; gap: 12px;
+    }
+    .dim-tag {
+      display: flex; align-items: center; gap: 5px; font-size: 12px;
+    }
+    .dim-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+    /* ── Reference table ─────────────────────────────────────── */
+    .ref-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+    .ref-table th {
+      padding: 7px 10px; text-align: left; font-size: 11px; font-weight: 600;
+      background: #f0f0f0; border-bottom: 2px solid #ddd;
+    }
+    .ref-table td { padding: 7px 10px; border-bottom: 1px solid #eee; }
+    .ref-table tr:last-child td { border-bottom: none; }
+    .ref-table td strong { font-weight: 600; }
+    code {
+      font-family: 'Menlo', 'Consolas', monospace;
+      font-size: 11px;
+      background: #f0f0f0;
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+
+    .note-box {
+      background: #fff8e1; border-left: 3px solid #f59e0b; border-radius: 4px;
+      padding: 10px 14px; font-size: 12px; color: #78350f; margin-top: 14px; line-height: 1.5;
+    }
+    .mobile-note {
+      background: #fafafa; border: 1px solid #e5e5e5; border-radius: 6px;
+      padding: 14px 16px; font-size: 12px; margin-top: 14px; line-height: 1.6;
+    }
+    .mobile-note strong { display: block; margin-bottom: 6px; font-size: 13px; }
+
+    /* phone chrome */
+    .phone-chrome-top {
+      height: 16px; background: #1e2d40; border-radius: 14px 14px 0 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .phone-chrome-bottom {
+      height: 14px; background: #1e2d40; border-radius: 0 0 14px 14px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .phone-notch { width: 32px; height: 4px; background: rgba(255,255,255,0.3); border-radius: 3px; }
+    .phone-bar { width: 48px; height: 3px; background: rgba(255,255,255,0.4); border-radius: 3px; }
+
+  </style>
+</head>
+<body>
+
+<h1>Select Qualifications — Modal Height Spec</h1>
+<p class="page-subtitle">Pixel dimensions at common viewport heights · for developer handoff</p>
+
+
+<!-- ═══════════════════════════════════════════════════
+     BREAKPOINT 1: Large Desktop — 1080px viewport height
+════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-label">
+    <h2>Large Desktop</h2>
+    <span class="spec-pill gray">≥ 1280px wide</span>
+    <span class="spec-pill">Viewport height: 1080px</span>
+    <div class="section-line"></div>
+    <span class="spec-pill green">Modal: 800px wide · 720px tall</span>
+  </div>
+
+  <!--
+    Scale = 0.46
+    Viewport frame height = 1080 × 0.46 = 497px
+    Modal height = 720 × 0.46 = 331px
+    Gap above modal = (1080 - 720) / 2 × 0.46 = 83px  (+20px topnav)
+  -->
+  <div class="frame-outer">
+    <!-- viewport frame + modal -->
+    <div>
+      <!-- width ruler -->
+      <div class="width-ruler" style="width: 480px; margin-left: 0;">
+        <div class="width-ruler-line"></div>
+        <span class="width-ruler-label">800px modal width (fixed)</span>
+        <div class="width-ruler-line"></div>
+      </div>
+      <div style="display:flex; align-items:stretch; gap:0;">
+        <div class="viewport-frame">
+          <div class="viewport-inner" style="width: 500px; height: 497px;">
+            <div class="fake-topnav">
+              <div class="fake-topnav-logo"></div>
+              <div class="fake-topnav-items">
+                <div class="fake-topnav-dot"></div>
+                <div class="fake-topnav-dot"></div>
+                <div class="fake-topnav-dot"></div>
+              </div>
+            </div>
+            <div class="modal-backdrop">
+              <!-- modal: 800×720 → scaled 368×331 -->
+              <div style="position:relative;">
+                <div class="modal" style="width: 368px; height: 331px;">
+                  <div class="modal-header">
+                    <span class="modal-title">Select Qualifications</span>
+                    <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+                  </div>
+                  <div class="modal-search">
+                    <div class="search-input-wrap">
+                      <i class="fa-solid fa-magnifying-glass"></i>
+                      <input class="search-input" type="text" placeholder="Search">
+                    </div>
+                  </div>
+                  <div class="modal-filter-row">
+                    <button class="filter-chip"><i class="fa-solid fa-chevron-down" style="font-size:5px;"></i> View All</button>
+                  </div>
+                  <div class="modal-body">
+                    <table class="qual-table">
+                      <thead>
+                        <tr>
+                          <th style="width:18px;"></th>
+                          <th>Qualification Name</th>
+                          <th>Completions Needed</th>
+                          <th>Completion Order</th>
+                          <th>Req.</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr><td><div class="cb"></div></td><td><div class="cell-name">Architectural Design Software Proficiency <span class="new-badge">New</span></div></td><td>All Items</td><td>Any Order</td><td>2</td><td><a class="link-action">View Details</a></td></tr>
+                        <tr><td><div class="cb"></div></td><td>Blueprint Reading and Interpretation</td><td>All Items</td><td>Any Order</td><td>12</td><td><a class="link-action">View Details</a></td></tr>
+                        <tr><td><div class="cb"></div></td><td>Construction Safety Certification</td><td>1 of 3</td><td>Any Order</td><td>4</td><td><a class="link-action">View Details</a></td></tr>
+                        <tr><td><div class="cb"></div></td><td>Factory Floor Management</td><td>All Items</td><td>Any Order</td><td>4</td><td><a class="link-action">View Details</a></td></tr>
+                        <tr><td><div class="cb"></div></td><td>Industrial Equipment Operation</td><td>9 of 10</td><td>Any Order</td><td>10</td><td><a class="link-action">View Details</a></td></tr>
+                        <tr><td><div class="cb"></div></td><td>Industrial Hygiene Practices</td><td>All Items</td><td>Specific Order</td><td>1</td><td><a class="link-action">View Details</a></td></tr>
+                        <tr><td><div class="cb"></div></td><td>Industrial Hygiene Practices</td><td>All Items</td><td>Any Order</td><td>3</td><td><a class="link-action">View Details</a></td></tr>
+                        <tr><td><div class="cb"></div></td><td>Industrial Hygiene Practices</td><td>2 of 4</td><td>Any Order</td><td>4</td><td><a class="link-action">View Details</a></td></tr>
+                        <tr><td><div class="cb"></div></td><td>Landscape Architecture Principles</td><td>All Items</td><td>Any Order</td><td>6</td><td><a class="link-action">View Details</a></td></tr>
+                        <tr><td><div class="cb"></div></td><td>OSHA Electrical Safety Standards</td><td>3 of 5</td><td>Any Order</td><td>8</td><td><a class="link-action">View Details</a></td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="modal-footer">
+                    <span class="pagination-info">1 to 20 of 9,618 &nbsp;·&nbsp; Page 1 of 431</span>
+                    <div class="footer-buttons">
+                      <button class="btn btn-secondary">Cancel</button>
+                      <button class="btn btn-primary" disabled>Add Selected</button>
+                    </div>
+                  </div>
+                  <!-- modal height ruler -->
+                  <div class="modal-height-ruler">
+                    <div class="mhr-end top"></div>
+                    <div class="mhr-line"></div>
+                    <div class="mhr-label">720px modal height</div>
+                    <div class="mhr-line"></div>
+                    <div class="mhr-end bottom"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- viewport height ruler -->
+        <div class="vph-ruler-wrap" style="height: 509px; padding: 5px 0;">
+          <div class="vph-line"></div>
+          <div class="vph-label gray">1080px viewport height</div>
+          <div class="vph-line"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dim-annotation">
+    <div class="dim-tag"><div class="dim-swatch" style="background:#3b82f6;"></div><strong>Modal height:</strong>&nbsp;<span>720px</span></div>
+    <div class="dim-tag"><div class="dim-swatch" style="background:#94a3b8;"></div><strong>Viewport height:</strong>&nbsp;<span>1080px (67% occupied by modal)</span></div>
+    <div class="dim-tag"><div class="dim-swatch" style="background:#10b981;"></div><strong>Table rows visible:</strong>&nbsp;<span>~11 before body scroll</span></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════
+     BREAKPOINT 2: Desktop — 768px viewport height (common laptop)
+════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-label">
+    <h2>Desktop</h2>
+    <span class="spec-pill gray">1024px – 1279px wide</span>
+    <span class="spec-pill">Viewport height: 768px</span>
+    <div class="section-line"></div>
+    <span class="spec-pill green">Modal: 720px wide · 620px tall</span>
+  </div>
+
+  <!--
+    Scale = 0.46
+    Viewport frame height = 768 × 0.46 = 353px
+    Modal height = 620 × 0.46 = 285px
+  -->
+  <div class="frame-outer">
+    <div>
+      <div class="width-ruler" style="width: 440px;">
+        <div class="width-ruler-line"></div>
+        <span class="width-ruler-label">720px modal width (fixed)</span>
+        <div class="width-ruler-line"></div>
+      </div>
+      <div style="display:flex; align-items:stretch; gap:0;">
+        <div class="viewport-frame">
+          <div class="viewport-inner" style="width: 460px; height: 353px;">
+            <div class="fake-topnav">
+              <div class="fake-topnav-logo"></div>
+              <div class="fake-topnav-items">
+                <div class="fake-topnav-dot"></div>
+                <div class="fake-topnav-dot"></div>
+              </div>
+            </div>
+            <div class="modal-backdrop">
+              <!-- 720×620 → scaled 331×285 -->
+              <div style="position:relative;">
+                <div class="modal" style="width: 331px; height: 285px;">
+                  <div class="modal-header">
+                    <span class="modal-title">Select Qualifications</span>
+                    <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+                  </div>
+                  <div class="modal-search">
+                    <div class="search-input-wrap">
+                      <i class="fa-solid fa-magnifying-glass"></i>
+                      <input class="search-input" type="text" placeholder="Search">
+                    </div>
+                  </div>
+                  <div class="modal-filter-row">
+                    <button class="filter-chip"><i class="fa-solid fa-chevron-down" style="font-size:5px;"></i> View All</button>
+                  </div>
+                  <div class="modal-body">
+                    <table class="qual-table">
+                      <thead>
+                        <tr>
+                          <th style="width:18px;"></th>
+                          <th>Qualification Name</th>
+                          <th>Completions Needed</th>
+                          <th>Completion Order</th>
+                          <th>Req.</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr><td><div class="cb"></div></td><td><div class="cell-name">Architectural Design Software Proficiency <span class="new-badge">New</span></div></td><td>All Items</td><td>Any Order</td><td>2</td><td><a class="link-action">View Details</a></td></tr>
+                        <tr><td><div class="cb"></div></td><td>Blueprint Reading and Interpretation</td><td>All Items</td><td>Any Order</td><td>12</td><td><a class="link-action">View Details</a></td></tr>
+                        <tr><td><div class="cb"></div></td><td>Construction Safety Certification</td><td>1 of 3</td><td>Any Order</td><td>4</td><td><a class="link-action">View Details</a></td></tr>
+                        <tr><td><div class="cb"></div></td><td>Factory Floor Management</td><td>All Items</td><td>Any Order</td><td>4</td><td><a class="link-action">View Details</a></td></tr>
+                        <tr><td><div class="cb"></div></td><td>Industrial Equipment Operation</td><td>9 of 10</td><td>Any Order</td><td>10</td><td><a class="link-action">View Details</a></td></tr>
+                        <tr><td><div class="cb"></div></td><td>Industrial Hygiene Practices</td><td>All Items</td><td>Any Order</td><td>3</td><td><a class="link-action">View Details</a></td></tr>
+                        <tr><td><div class="cb"></div></td><td>Industrial Hygiene Practices</td><td>2 of 4</td><td>Any Order</td><td>4</td><td><a class="link-action">View Details</a></td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="modal-footer">
+                    <span class="pagination-info">1 to 20 of 9,618 &nbsp;·&nbsp; Page 1 of 431</span>
+                    <div class="footer-buttons">
+                      <button class="btn btn-secondary">Cancel</button>
+                      <button class="btn btn-primary" disabled>Add Selected</button>
+                    </div>
+                  </div>
+                  <div class="modal-height-ruler">
+                    <div class="mhr-end top"></div>
+                    <div class="mhr-line"></div>
+                    <div class="mhr-label">620px modal height</div>
+                    <div class="mhr-line"></div>
+                    <div class="mhr-end bottom"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="vph-ruler-wrap" style="height: 363px; padding: 5px 0;">
+          <div class="vph-line"></div>
+          <div class="vph-label gray">768px viewport height</div>
+          <div class="vph-line"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dim-annotation">
+    <div class="dim-tag"><div class="dim-swatch" style="background:#3b82f6;"></div><strong>Modal height:</strong>&nbsp;<span>620px</span></div>
+    <div class="dim-tag"><div class="dim-swatch" style="background:#94a3b8;"></div><strong>Viewport height:</strong>&nbsp;<span>768px (81% occupied — comfortable on a standard laptop)</span></div>
+    <div class="dim-tag"><div class="dim-swatch" style="background:#10b981;"></div><strong>Table rows visible:</strong>&nbsp;<span>~8–9 before body scroll</span></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════
+     BREAKPOINT 3: Tablet Landscape — 768px viewport height
+════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-label">
+    <h2>Tablet Landscape</h2>
+    <span class="spec-pill gray">768px – 1023px wide</span>
+    <span class="spec-pill">Viewport height: 768px (iPad)</span>
+    <div class="section-line"></div>
+    <span class="spec-pill green">Modal: 85vw · 580px tall</span>
+  </div>
+
+  <!--
+    Scale = 0.46
+    Viewport = 900 × 768 → frame 414 × 353px
+    Modal 85% of 900 = 765px → scaled 352px wide
+    Modal height 580 → scaled 267px
+  -->
+  <div class="frame-outer">
+    <div>
+      <div class="width-ruler" style="width: 362px;">
+        <div class="width-ruler-line"></div>
+        <span class="width-ruler-label">85vw (fluid)</span>
+        <div class="width-ruler-line"></div>
+      </div>
+      <div style="display:flex; align-items:stretch; gap:0;">
+        <div class="viewport-frame">
+          <div class="viewport-inner" style="width: 420px; height: 353px;">
+            <div class="fake-topnav">
+              <div class="fake-topnav-logo"></div>
+              <div class="fake-topnav-items">
+                <div class="fake-topnav-dot"></div>
+                <div class="fake-topnav-dot"></div>
+              </div>
+            </div>
+            <div class="modal-backdrop">
+              <!-- 85% of 420-10 = 349px wide; 580 × 0.46 = 267px tall -->
+              <div style="position:relative; width:349px;">
+                <div class="modal" style="width:100%; height:267px;">
+                  <div class="modal-header">
+                    <span class="modal-title">Select Qualifications</span>
+                    <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+                  </div>
+                  <div class="modal-search">
+                    <div class="search-input-wrap">
+                      <i class="fa-solid fa-magnifying-glass"></i>
+                      <input class="search-input" type="text" placeholder="Search">
+                    </div>
+                  </div>
+                  <div class="modal-filter-row">
+                    <button class="filter-chip"><i class="fa-solid fa-chevron-down" style="font-size:5px;"></i> View All</button>
+                  </div>
+                  <div class="modal-body">
+                    <table class="qual-table">
+                      <thead>
+                        <tr>
+                          <th style="width:18px;"></th>
+                          <th>Qualification Name</th>
+                          <th>Completions Needed</th>
+                          <th>Completion Order</th>
+                          <th>Req.</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr><td><div class="cb"></div></td><td><div class="cell-name">Architectural Design Software Proficiency <span class="new-badge">New</span></div></td><td>All Items</td><td>Any Order</td><td>2</td><td><a class="link-action">View Details</a></td></tr>
+                        <tr><td><div class="cb"></div></td><td>Blueprint Reading and Interpretation</td><td>All Items</td><td>Any Order</td><td>12</td><td><a class="link-action">View Details</a></td></tr>
+                        <tr><td><div class="cb"></div></td><td>Construction Safety Certification</td><td>1 of 3</td><td>Any Order</td><td>4</td><td><a class="link-action">View Details</a></td></tr>
+                        <tr><td><div class="cb"></div></td><td>Factory Floor Management</td><td>All Items</td><td>Any Order</td><td>4</td><td><a class="link-action">View Details</a></td></tr>
+                        <tr><td><div class="cb"></div></td><td>Industrial Equipment Operation</td><td>9 of 10</td><td>Any Order</td><td>10</td><td><a class="link-action">View Details</a></td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="modal-footer">
+                    <span class="pagination-info">1–20 of 9,618 &nbsp;·&nbsp; Page 1 of 431</span>
+                    <div class="footer-buttons">
+                      <button class="btn btn-secondary">Cancel</button>
+                      <button class="btn btn-primary" disabled>Add Selected</button>
+                    </div>
+                  </div>
+                  <div class="modal-height-ruler">
+                    <div class="mhr-end top"></div>
+                    <div class="mhr-line"></div>
+                    <div class="mhr-label">580px modal height</div>
+                    <div class="mhr-line"></div>
+                    <div class="mhr-end bottom"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="vph-ruler-wrap" style="height: 363px; padding: 5px 0;">
+          <div class="vph-line"></div>
+          <div class="vph-label gray">768px viewport height</div>
+          <div class="vph-line"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note-box">
+    At 768px height the modal fills 76% of the screen — still has comfortable visible background. Table body scrolls independently; header + footer stay fixed.
+  </div>
+  <div class="dim-annotation">
+    <div class="dim-tag"><div class="dim-swatch" style="background:#3b82f6;"></div><strong>Modal height:</strong>&nbsp;<span>580px</span></div>
+    <div class="dim-tag"><div class="dim-swatch" style="background:#94a3b8;"></div><strong>Viewport height:</strong>&nbsp;<span>768px (76% occupied)</span></div>
+    <div class="dim-tag"><div class="dim-swatch" style="background:#10b981;"></div><strong>Table rows visible:</strong>&nbsp;<span>~6–7 before body scroll</span></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════
+     BREAKPOINT 4: Mobile — 844px viewport height (iPhone 14)
+════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-label">
+    <h2>Mobile</h2>
+    <span class="spec-pill gray">&lt; 576px wide</span>
+    <span class="spec-pill">Viewport height: 844px (iPhone 14)</span>
+    <div class="section-line"></div>
+    <span class="spec-pill green">Modal: 100vw · 100dvh (full screen)</span>
+  </div>
+
+  <div style="display:flex; gap: 40px; align-items: flex-start; flex-wrap: wrap;">
+
+    <!-- phone mockup -->
+    <div>
+      <!--
+        Scale = 0.46
+        Phone: 390 × 844 → frame 179 × 388px
+        Modal: full screen = 388px
+      -->
+      <div style="display:flex; align-items:stretch; gap:0;">
+        <div>
+          <div class="viewport-frame" style="border-radius: 24px; padding: 0; overflow:hidden; width:179px;">
+            <div class="phone-chrome-top"><div class="phone-notch"></div></div>
+            <div class="viewport-inner" style="width:179px; height:356px; border-radius:0; position:relative;">
+              <!-- status bar -->
+              <div style="height:14px;background:#1e2d40;display:flex;align-items:center;justify-content:space-between;padding:0 8px;flex-shrink:0;">
+                <span style="color:rgba(255,255,255,0.8);font-size:6px;font-weight:600;">9:41</span>
+                <div style="display:flex;gap:3px;">
+                  <i class="fa-solid fa-signal" style="color:rgba(255,255,255,0.8);font-size:6px;"></i>
+                  <i class="fa-solid fa-wifi" style="color:rgba(255,255,255,0.8);font-size:6px;"></i>
+                  <i class="fa-solid fa-battery-full" style="color:rgba(255,255,255,0.8);font-size:6px;"></i>
+                </div>
+              </div>
+              <!-- full-screen modal — no backdrop, no border-radius -->
+              <div class="modal" style="width:100%; height:342px; border-radius:0; position:absolute; top:14px; left:0;">
+                <div class="modal-header">
+                  <span class="modal-title">Select Qualifications</span>
+                  <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-search">
+                  <div class="search-input-wrap">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input class="search-input" type="text" placeholder="Search">
+                  </div>
+                </div>
+                <div class="modal-filter-row">
+                  <button class="filter-chip"><i class="fa-solid fa-chevron-down" style="font-size:5px;"></i> View All</button>
+                </div>
+                <div class="modal-body" style="overflow-x:auto;">
+                  <table class="qual-table" style="min-width:280px;">
+                    <thead>
+                      <tr>
+                        <th style="width:14px;"></th>
+                        <th>Name</th>
+                        <th>Completions</th>
+                        <th>Order</th>
+                        <th>Req.</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td><div class="cb"></div></td><td>Architectural Design…</td><td>All Items</td><td>Any</td><td>2</td><td><a class="link-action">Details</a></td></tr>
+                      <tr><td><div class="cb"></div></td><td>Blueprint Reading…</td><td>All Items</td><td>Any</td><td>12</td><td><a class="link-action">Details</a></td></tr>
+                      <tr><td><div class="cb"></div></td><td>Construction Safety…</td><td>1 of 3</td><td>Any</td><td>4</td><td><a class="link-action">Details</a></td></tr>
+                      <tr><td><div class="cb"></div></td><td>Factory Floor Mgmt</td><td>All Items</td><td>Any</td><td>4</td><td><a class="link-action">Details</a></td></tr>
+                      <tr><td><div class="cb"></div></td><td>Industrial Equipment…</td><td>9 of 10</td><td>Any</td><td>10</td><td><a class="link-action">Details</a></td></tr>
+                      <tr><td><div class="cb"></div></td><td>Industrial Hygiene…</td><td>All Items</td><td>Specific</td><td>1</td><td><a class="link-action">Details</a></td></tr>
+                      <tr><td><div class="cb"></div></td><td>Industrial Hygiene…</td><td>2 of 4</td><td>Any</td><td>4</td><td><a class="link-action">Details</a></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="modal-footer" style="flex-direction:column; align-items:stretch; gap:5px;">
+                  <span class="pagination-info" style="text-align:center;">1–20 of 9,618 · Page 1 of 431</span>
+                  <div class="footer-buttons" style="justify-content:stretch;">
+                    <button class="btn btn-secondary" style="flex:1;">Cancel</button>
+                    <button class="btn btn-primary" style="flex:1;" disabled>Add Selected</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="phone-chrome-bottom"><div class="phone-bar"></div></div>
+          </div>
+          <div style="margin-top:10px; font-size:11px; color:#666; text-align:center;">390 × 844px (iPhone 14)</div>
+        </div>
+        <!-- viewport height ruler -->
+        <div class="vph-ruler-wrap" style="height: 392px; padding: 5px 0; margin-left: 6px;">
+          <div class="vph-line"></div>
+          <div class="vph-label gray">844px viewport height</div>
+          <div class="vph-line"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- notes + summary table -->
+    <div style="flex:1; min-width:280px;">
+      <div class="mobile-note">
+        <strong>Mobile behavior</strong>
+        <ul style="padding-left:16px; display:flex; flex-direction:column; gap:5px;">
+          <li>Full-screen takeover — no backdrop, no border-radius, no margin</li>
+          <li>Table body scrolls <strong>horizontally</strong></li>
+          <li>Column header labels abbreviated where needed</li>
+          <li>Footer buttons full-width (50/50 split)</li>
+          <li>Pagination text centered above buttons</li>
+        </ul>
+      </div>
+
+      <!-- SUMMARY TABLE -->
+      <h3 style="font-size:13px; font-weight:700; margin: 24px 0 10px;">Full Breakpoint Summary</h3>
+      <table class="ref-table">
+        <thead>
+          <tr>
+            <th>Breakpoint</th>
+            <th>Viewport Width</th>
+            <th>Typical Viewport Height</th>
+            <th>Modal Width</th>
+            <th>Modal Max-Height</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Mobile</strong></td>
+            <td>&lt; 576px</td>
+            <td>667–896px</td>
+            <td><code>100vw</code></td>
+            <td><code>100dvh</code> (full)</td>
+          </tr>
+          <tr>
+            <td><strong>Mobile L</strong></td>
+            <td>576px–767px</td>
+            <td>667–896px</td>
+            <td><code>calc(100% − 32px)</code></td>
+            <td><code>90dvh</code></td>
+          </tr>
+          <tr>
+            <td><strong>Tablet</strong></td>
+            <td>768px–1023px</td>
+            <td>768px (iPad)</td>
+            <td><code>85vw</code></td>
+            <td><code>580px</code></td>
+          </tr>
+          <tr>
+            <td><strong>Desktop</strong></td>
+            <td>1024px–1279px</td>
+            <td>768px (laptop)</td>
+            <td><code>720px</code></td>
+            <td><code>620px</code></td>
+          </tr>
+          <tr>
+            <td><strong>Large Desktop</strong></td>
+            <td>≥ 1280px</td>
+            <td>900–1080px</td>
+            <td><code>800px</code></td>
+            <td><code>720px</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="note-box" style="margin-top:14px;">
+        <strong>Min-width constraint:</strong> Apply <code>min-width: 640px</code> alongside all responsive width rules — prevents the 5-column table collapsing to an unusable state on edge-case viewports.
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
