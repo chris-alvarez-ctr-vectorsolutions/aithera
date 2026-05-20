@@ -1,0 +1,3577 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checklist Sandbox — Apparatus Rig Check: Engine 7</title>
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.5.1/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.1.1/styles.js"></script>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+  <link rel="stylesheet" href="_shell.css" />
+  <link rel="stylesheet" href="_mobile.css" />
+  <link rel="stylesheet" href="_theme.css" />
+
+  <style>
+
+    /* ==============================
+       CEREMONY SHELL
+       Full-viewport layout: fixed header + scrollable body
+       Desktop: left step rail + right content
+       Mobile: sticky progress strip replaces rail; content is full-width
+       ============================== */
+
+    html {
+      background-color: #0e1628;
+    }
+    body {
+      margin: 0;
+      overflow-x: hidden;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 0%,   rgba(56,96,186,0.35) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 20%,  rgba(139,60,160,0.25) 0%, transparent 55%),
+        radial-gradient(ellipse 70% 60% at 50% 80%,  rgba(20,100,140,0.20) 0%, transparent 60%),
+        #0e1628;
+      background-attachment: fixed;
+    }
+
+    .ceremony-shell {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .ceremony-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px;
+      height: 56px;
+      background: rgba(20,30,52,0.82);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 1px 0 rgba(255,255,255,0.05), 0 2px 16px rgba(0,0,0,0.3);
+      flex-shrink: 0;
+    }
+
+
+    .ceremony-back-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      font-size: 14px;
+      color: rgba(165,180,252,0.9);
+      text-decoration: none;
+      border-radius: 6px;
+      transition: background 0.12s, color 0.12s;
+      flex-shrink: 0;
+    }
+    .ceremony-back-btn:hover { background: rgba(255,255,255,0.08); color: #a5b4fc; }
+
+    .ceremony-context {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .ceremony-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #f0f2f8;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .ceremony-subtitle {
+      font-size: 11px;
+      color: #8b96b0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 1px;
+    }
+
+    .fused-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: rgba(99,102,241,0.20);
+      color: #a5b4fc;
+      border: 1px solid rgba(99,102,241,0.35);
+      white-space: nowrap;
+    }
+
+    /* Header right cluster: step counter + status pill + actions */
+    .ceremony-header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .step-counter {
+      font-size: 12px;
+      font-weight: 600;
+      color: #9aa3b8;
+      background: rgba(255,255,255,0.07);
+      padding: 4px 10px;
+      border-radius: 10px;
+      white-space: nowrap;
+    }
+
+    /* Hide step counter, status pill, and actions on mobile — strip takes over */
+    @media (max-width: 899px) {
+      .step-counter { display: none; }
+      .ceremony-header-right .ceremony-header-actions { display: none; }
+      .ceremony-header-right #headerPill { display: none; }
+    }
+
+    /* ── Mobile progress strip ──
+       Pinned below the ceremony header on mobile only.
+       Tapping opens the step overview bottom sheet. */
+    .progress-strip {
+      display: none; /* shown via media query */
+      position: sticky;
+      top: 56px; /* sits below ceremony-header */
+      z-index: 90;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      background: rgba(13,20,40,0.97);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.12s;
+    }
+    .progress-strip:hover { background: rgba(255,255,255,0.05); }
+
+    @media (max-width: 899px) {
+      .progress-strip { display: flex; }
+    }
+
+    .progress-strip-steps {
+      display: flex;
+      gap: 3px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .progress-pip {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.20);
+      transition: background 0.2s, width 0.2s;
+    }
+    .progress-pip.done    { background: rgba(165,180,252,0.7); }
+    .progress-pip.active  { background: #a5b4fc; width: 14px; border-radius: 3px; }
+
+    .progress-strip-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .progress-strip-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e6f0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .progress-strip-sub {
+      font-size: 11px;
+      color: #8b96b0;
+      margin-top: 1px;
+    }
+
+    .progress-strip-caret {
+      font-size: 11px;
+      color: #6b7a99;
+      flex-shrink: 0;
+    }
+
+    /* ── Step overview bottom sheet ──
+       Reuses .bottom-sheet infrastructure from _mobile.css.
+       Custom content inside. */
+    .step-overview-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .step-overview-item:last-child { border-bottom: none; }
+    .step-overview-item:hover { background: rgba(255,255,255,0.04); margin: 0 -20px; padding: 11px 20px; }
+
+    .step-overview-dot {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .step-overview-dot.completed { background: rgba(99,102,241,0.20); color: #a5b4fc; }
+    .step-overview-dot.active    { background: #6366f1; color: #fff; }
+    .step-overview-dot.pending   { background: rgba(255,255,255,0.08); color: #8b96b0; }
+
+    .step-overview-info { flex: 1; min-width: 0; }
+
+    .step-overview-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e6f0;
+    }
+
+    .step-overview-meta {
+      font-size: 11px;
+      color: #8b96b0;
+      margin-top: 1px;
+    }
+
+    .step-overview-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .step-overview-badge.pass  { background: rgba(16,185,129,0.15); color: #34d399; }
+    .step-overview-badge.def   { background: rgba(239,68,68,0.15);  color: #f87171; }
+    .step-overview-badge.warn  { background: rgba(245,158,11,0.15); color: #fbbf24; }
+    .step-overview-badge.match { background: rgba(16,185,129,0.15); color: #34d399; }
+
+    .step-overview-section-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #6b7a99;
+      padding: 10px 0 4px;
+    }
+
+    /* ── Body: desktop two-column layout ── */
+    .ceremony-body {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* ── Desktop left step rail ── */
+    .ceremony-rail {
+      width: 224px;
+      flex-shrink: 0;
+      border-right: 1px solid rgba(255,255,255,0.07);
+      padding: 20px 0;
+      overflow-y: auto;
+      position: sticky;
+      top: 56px;
+      height: calc(100vh - 56px);
+    }
+
+    @media (max-width: 899px) {
+      .ceremony-rail { display: none; }
+    }
+
+    .rail-section-label {
+      padding: 6px 16px 3px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #6b7a99;
+    }
+
+    .rail-divider {
+      height: 1px;
+      background: rgba(255,255,255,0.07);
+      margin: 8px 16px;
+    }
+
+    .rail-step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      border-radius: 0;
+      transition: background 0.1s;
+    }
+    .rail-step.completed { cursor: pointer; }
+    .rail-step.completed:hover { background: rgba(255,255,255,0.05); }
+
+    .rail-step-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      flex-shrink: 0;
+      border: 1.5px solid rgba(255,255,255,0.15);
+      color: #8b96b0;
+      background: transparent;
+    }
+    .rail-step.active .rail-step-dot {
+      background: #6366f1;
+      border-color: #6366f1;
+      color: #fff;
+    }
+    .rail-step.completed .rail-step-dot {
+      background: rgba(99,102,241,0.20);
+      border-color: rgba(99,102,241,0.40);
+      color: #a5b4fc;
+    }
+
+    .rail-step-label {
+      font-size: 12.5px;
+      font-weight: 500;
+      color: #9aa3b8;
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .rail-step.active .rail-step-label { color: #e2e6f0; font-weight: 600; }
+    .rail-step.completed .rail-step-label { color: #c4cce0; }
+
+    /* ── Content area ── */
+    .ceremony-content {
+      flex: 1;
+      min-width: 0;
+      padding: 20px 24px 80px;
+      overflow-y: auto;
+    }
+
+    @media (max-width: 899px) {
+      /* overflow-y: auto creates a containing block that traps fixed children —
+         let the body scroll on mobile instead */
+      .ceremony-content {
+        padding: 16px 16px 136px;
+        overflow-y: visible;
+      }
+    }
+
+    /* ── State bar ── */
+    .ceremony-state-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 8px 14px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      font-size: 12px;
+      color: #9aa3b8;
+      margin-bottom: 16px;
+    }
+    .ceremony-state-bar .sep { color: rgba(255,255,255,0.15); }
+
+    /* ── Step card ── */
+    .step-card {
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 14px;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset, 0 4px 24px rgba(0,0,0,0.25);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 899px) {
+      /* backdrop-filter creates a containing block that traps fixed children —
+         disable it on mobile so the fixed footer escapes to the viewport */
+      .step-card {
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+      }
+    }
+
+
+    .step-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+    }
+
+    .step-card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f0f2f8;
+      line-height: 1.3;
+      margin-bottom: 4px;
+    }
+
+    .step-card-meta {
+      font-size: 12px;
+      color: #8b96b0;
+      line-height: 1.5;
+    }
+
+    /* ── Step card body ── */
+    .step-card-body { padding: 16px 20px; }
+
+    /* ── Step card footer ──
+       Desktop: sticky within the card column.
+       Mobile: fixed to viewport bottom. */
+    .step-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 20px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      position: sticky;
+      bottom: 0;
+    }
+
+    @media (max-width: 899px) {
+      .step-card-footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 80;
+        padding: 12px 16px;
+        background: rgba(13,20,40,0.97);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-top: 1px solid rgba(255,255,255,0.10);
+        /* safe area for notched phones */
+        padding-bottom: calc(12px + env(safe-area-inset-bottom));
+      }
+    }
+
+    @media (max-width: 899px) {
+    }
+
+    .step-footer-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Pass All button — small ghost, lives in step card header */
+    .btn-pass-all {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 6px;
+      border: 1.5px solid rgba(52,211,153,0.35);
+      background: rgba(16,185,129,0.08);
+      color: #34d399;
+      font-size: 11.5px;
+      font-weight: 700;
+      font-family: 'Open Sans', sans-serif;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .btn-pass-all:hover {
+      background: rgba(16,185,129,0.16);
+      border-color: rgba(52,211,153,0.55);
+    }
+
+    /* Ghost back button — dark-safe, no Vaadin secondary white-fill problem */
+    .btn-back {
+      display: inline-flex;
+      align-items: center;
+      height: 36px;
+      padding: 0 14px;
+      border-radius: 6px;
+      border: 1.5px solid rgba(255,255,255,0.18);
+      background: transparent;
+      color: #9aa3b8;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Open Sans', sans-serif;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      white-space: nowrap;
+    }
+    .btn-back:hover {
+      background: rgba(255,255,255,0.07);
+      color: #c4cce0;
+      border-color: rgba(255,255,255,0.28);
+    }
+
+    /* ── Verify rows ── */
+    .verify-section {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Controls always visible inline on both desktop and mobile */
+    .verify-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 11px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .verify-row:last-child { border-bottom: none; }
+
+    /* Status dot — shows answer state on dense row */
+    .verify-row-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 7px;
+      background: rgba(255,255,255,0.15);
+      transition: background 0.15s;
+    }
+    .verify-row-dot.pass { background: #34d399; }
+    .verify-row-dot.deficiency { background: #f87171; }
+
+    .verify-row-name {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: #c4cce0;
+      padding-top: 3px;
+    }
+
+    .verify-row-sub {
+      font-size: 11px;
+      color: #8b96b0;
+      margin-top: 2px;
+      font-weight: 400;
+    }
+
+    /* Controls always visible inline on all viewports */
+    .verify-controls {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+      align-self: flex-start;
+      padding-top: 1px;
+    }
+
+    /* Hide chevron everywhere — no promote pattern */
+    .verify-row-chevron { display: none; }
+
+    .verify-btn {
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: 1.5px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.05);
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: 'Open Sans', sans-serif;
+      transition: all 0.12s;
+      color: #9aa3b8;
+      white-space: nowrap;
+    }
+    .verify-btn:hover { background: rgba(255,255,255,0.10); color: #e2e6f0; }
+    .verify-btn.pass.selected { background: rgba(16,185,129,0.15); border-color: #34d399; color: #34d399; }
+    .verify-btn.deficiency.selected { background: rgba(239,68,68,0.15); border-color: #f87171; color: #f87171; }
+    .verify-btn.na.selected { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.25); color: #e2e6f0; }
+
+    /* On mobile, stack label above controls and use larger touch targets */
+    @media (max-width: 599px) {
+      .verify-row { flex-wrap: wrap; gap: 8px; }
+      .verify-row-name { flex-basis: 100%; padding-top: 0; }
+      .verify-row-dot { margin-top: 4px; }
+      .verify-controls { padding-top: 0; gap: 8px; }
+      .verify-btn { padding: 8px 14px; font-size: 13px; min-height: 36px; }
+    }
+
+    /* ── Deficiency inline form ── */
+    .deficiency-inline {
+      display: none;
+      background: rgba(239,68,68,0.08);
+      border-left: 3px solid #ef4444;
+      border-radius: 0 6px 6px 0;
+      padding: 12px 16px;
+      margin-top: 2px;
+    }
+    .deficiency-inline.visible { display: block; }
+
+    .deficiency-inline-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #f87171;
+      margin-bottom: 8px;
+    }
+
+    /* ── CS section header ── */
+    .cs-section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+    }
+
+    .cs-section-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(99,102,241,0.20);
+      color: #a5b4fc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    /* ── Seal row ── */
+    .seal-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      font-size: 13px;
+      flex-wrap: wrap;
+    }
+
+    .seal-label { flex: 1; min-width: 140px; }
+    .seal-label-main { font-weight: 600; color: #c4cce0; }
+    .seal-label-sub { font-size: 11px; color: #8b96b0; margin-top: 2px; }
+
+    /* ── Blind notice ── */
+    .blind-notice {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: rgba(99,102,241,0.10);
+      border-left: 3px solid #6366f1;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: #c4cce0;
+      line-height: 1.5;
+    }
+
+    /* ── CS count rows ── */
+    .cs-count-row {
+      display: grid;
+      grid-template-columns: 1fr 130px;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .cs-count-row:last-child { border-bottom: none; }
+
+    @media (max-width: 899px) {
+      .cs-count-row { grid-template-columns: 1fr 110px; }
+    }
+
+    .cs-count-name { font-size: 13px; font-weight: 600; color: #c4cce0; }
+    .cs-count-sched { font-size: 11px; color: #8b96b0; margin-top: 2px; }
+
+    /* ── Diff table ── */
+    .diff-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .diff-table th {
+      text-align: left;
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #8b96b0;
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.03);
+    }
+    .diff-table td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); color: #c4cce0; }
+    .diff-table tr:last-child td { border-bottom: none; }
+    .diff-table tr.flagged td { background: rgba(239,68,68,0.07); }
+    .diff-table .delta-cell { font-weight: 700; color: #f87171; }
+
+    @media (max-width: 899px) {
+      /* Collapse lot and delta columns on narrow screens */
+      .diff-table .col-lot,
+      .diff-table .col-delta { display: none; }
+    }
+
+    /* ── Auth rows (attestation) ── */
+    .auth-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      flex-wrap: wrap;
+    }
+    .auth-row:last-child { border-bottom: none; }
+
+    .auth-person { flex: 1; min-width: 120px; }
+    .auth-name { font-size: 13px; font-weight: 700; color: #e2e6f0; }
+    .auth-role { font-size: 11px; color: #8b96b0; margin-top: 2px; }
+
+    .auth-status { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; }
+    .auth-status.done { color: #34d399; }
+    .auth-status.waiting { color: #8b96b0; }
+
+    /* ── Summary sections ── */
+    .summary-section { margin-bottom: 16px; }
+    .summary-section-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #8b96b0;
+      margin-bottom: 8px;
+    }
+
+    .summary-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 12.5px;
+    }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-row-label { flex: 1; color: #c4cce0; }
+    .summary-row-result { font-weight: 600; }
+
+    /* ── Callout block (state callout) ── */
+    .state-callout {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border-left: 3px solid;
+      margin-bottom: 16px;
+      font-size: 12.5px;
+    }
+    .state-callout-title { font-weight: 700; margin-bottom: 3px; }
+    .state-callout-desc { color: #9aa3b8; line-height: 1.5; }
+
+    .state-callout.required {
+      background: rgba(99,102,241,0.10);
+      border-left-color: #6366f1;
+      color: #c4cce0;
+    }
+    .state-callout.required .state-callout-title { color: #a5b4fc; }
+    .state-callout.optional {
+      background: rgba(255,255,255,0.05);
+      border-left-color: rgba(255,255,255,0.20);
+      color: #9aa3b8;
+    }
+    .state-callout.optional .state-callout-title { color: #c4cce0; }
+    .state-callout.success {
+      background: rgba(16,185,129,0.10);
+      border-left-color: #10b981;
+      color: #c4cce0;
+    }
+    .state-callout.success .state-callout-title { color: #34d399; }
+    .state-callout.discrepancy {
+      background: rgba(245,158,11,0.08);
+      border-left-color: #f59e0b;
+      color: #c4cce0;
+    }
+    .state-callout.discrepancy .state-callout-title { color: #fbbf24; }
+    .state-callout.mismatch {
+      background: rgba(239,68,68,0.08);
+      border-left-color: #ef4444;
+      color: #c4cce0;
+    }
+    .state-callout.mismatch .state-callout-title { color: #f87171; }
+
+
+    /* ── Status pills (reused from shell) ── */
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 9px;
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+    .status-pill.info    { background: rgba(99,102,241,0.15);  color: #a5b4fc; }
+    .status-pill.ok      { background: rgba(16,185,129,0.15);  color: #34d399; }
+    .status-pill.warn    { background: rgba(245,158,11,0.15);  color: #fbbf24; }
+    .status-pill.error   { background: rgba(239,68,68,0.15);   color: #f87171; }
+    .status-pill.neutral { background: rgba(255,255,255,0.08); color: #9aa3b8; }
+
+    /* ── Rail note ── */
+    .rail-note {
+      margin: 16px 12px 0;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 8px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: #8b96b0;
+    }
+
+    /* ── Toast (standalone — no shell wrapper on ceremony page) ── */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: center;
+      pointer-events: none;
+    }
+    .toast {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(30,40,65,0.97);
+      border: 1px solid rgba(255,255,255,0.10);
+      backdrop-filter: blur(16px);
+      color: #e2e6f0;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      pointer-events: all;
+      max-width: min(480px, calc(100vw - 32px));
+    }
+    .toast-icon { font-size: 14px; color: #a5b4fc; flex-shrink: 0; }
+    .toast a { color: #a5b4fc; font-weight: 600; }
+    .toast-close {
+      background: none; border: none; cursor: pointer; color: #6b7a99;
+      font-size: 12px; padding: 0; line-height: 1; flex-shrink: 0;
+    }
+
+    /* ── Asset chips (failed / replacement) ──
+       Visible inside the inline deficiency form once a WO is created.
+       Two-line layout: identity (tag/SN) + variant/location. */
+    .asset-chip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 8px;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+    .asset-chip.failed     { border-left: 3px solid #ef4444; }
+    .asset-chip.replacement{ border-left: 3px solid #10b981; }
+    .asset-chip-icon {
+      width: 28px; height: 28px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; flex-shrink: 0;
+    }
+    .asset-chip.failed .asset-chip-icon {
+      background: rgba(239,68,68,0.15); color: #f87171;
+    }
+    .asset-chip.replacement .asset-chip-icon {
+      background: rgba(16,185,129,0.15); color: #34d399;
+    }
+    .asset-chip-body { flex: 1; min-width: 0; }
+    .asset-chip-id {
+      font-weight: 700; color: #e2e6f0; font-size: 12.5px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .asset-chip-sub { font-size: 11px; color: #8b96b0; margin-top: 1px; }
+    .asset-chip-tag {
+      font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px;
+      text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0;
+    }
+    .asset-chip.failed .asset-chip-tag {
+      background: rgba(239,68,68,0.15); color: #f87171;
+    }
+    .asset-chip.replacement .asset-chip-tag {
+      background: rgba(16,185,129,0.15); color: #34d399;
+    }
+
+    /* Arrow between failed → replacement chips */
+    .swap-arrow {
+      display: flex; align-items: center; justify-content: center;
+      margin: 2px 0 -2px 14px;
+      font-size: 11px; color: #6b7a99;
+    }
+
+    /* ════════════════════════════════════════════════════════════════════
+       VAADIN FORM-CONTROL VISIBILITY OVERRIDES
+       The Lumo `theme="outlined"` border is nearly invisible on our dark
+       glass card. These overrides force a visible border + subtle inset
+       background on every vaadin form control we use, plus light-mode
+       variants for contrast there too.
+       ════════════════════════════════════════════════════════════════════ */
+    .ceremony-content vaadin-text-field,
+    .ceremony-content vaadin-text-area,
+    .ceremony-content vaadin-password-field,
+    .ceremony-content vaadin-number-field,
+    .ceremony-content vaadin-date-picker,
+    .ceremony-content vaadin-date-time-picker,
+    .ceremony-content vaadin-select {
+      /* Lumo CSS variables — the cleanest way to control input chrome */
+      --lumo-contrast-10pct:   rgba(255,255,255,0.08);   /* idle bg */
+      --lumo-contrast-20pct:   rgba(255,255,255,0.20);   /* border */
+      --lumo-contrast-30pct:   rgba(255,255,255,0.32);   /* hover border */
+      --lumo-contrast-50pct:   rgba(255,255,255,0.55);   /* placeholder */
+      --lumo-contrast-60pct:   rgba(255,255,255,0.65);
+      --lumo-contrast-80pct:   #c4cce0;
+      --lumo-body-text-color:  #e2e6f0;
+      --lumo-secondary-text-color: #9aa3b8;
+      --lumo-primary-color:    #6366f1;
+      --lumo-primary-color-50pct: rgba(99,102,241,0.50);
+      --lumo-error-color:      #f87171;
+    }
+
+    /* Force a visible 1.5px border on the input-field container.
+       Vaadin renders the "outlined" border via ::part(input-field).
+       We also paint a subtle inset background so the field has form even
+       when empty. */
+    .ceremony-content vaadin-text-field::part(input-field),
+    .ceremony-content vaadin-text-area::part(input-field),
+    .ceremony-content vaadin-number-field::part(input-field),
+    .ceremony-content vaadin-date-picker::part(input-field),
+    .ceremony-content vaadin-date-time-picker::part(input-field),
+    .ceremony-content vaadin-select::part(input-field) {
+      background: rgba(255,255,255,0.06) !important;
+      border: 1.5px solid rgba(255,255,255,0.22) !important;
+      border-radius: 6px !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04) !important;
+      transition: border-color 0.12s, background 0.12s !important;
+    }
+    .ceremony-content vaadin-text-field:hover::part(input-field),
+    .ceremony-content vaadin-text-area:hover::part(input-field),
+    .ceremony-content vaadin-number-field:hover::part(input-field),
+    .ceremony-content vaadin-date-picker:hover::part(input-field),
+    .ceremony-content vaadin-date-time-picker:hover::part(input-field),
+    .ceremony-content vaadin-select:hover::part(input-field) {
+      border-color: rgba(165,180,252,0.55) !important;
+      background: rgba(255,255,255,0.09) !important;
+    }
+    .ceremony-content vaadin-text-field[focused]::part(input-field),
+    .ceremony-content vaadin-text-area[focused]::part(input-field),
+    .ceremony-content vaadin-number-field[focused]::part(input-field),
+    .ceremony-content vaadin-date-picker[focused]::part(input-field),
+    .ceremony-content vaadin-date-time-picker[focused]::part(input-field),
+    .ceremony-content vaadin-select[focused]::part(input-field) {
+      border-color: #6366f1 !important;
+      background: rgba(99,102,241,0.08) !important;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important;
+    }
+
+    /* Make text inside the input itself readable on dark theme.
+       Vaadin's internal <input> inherits from --lumo-body-text-color which
+       we've remapped above, but enforce here too in case theming bypasses it. */
+    .ceremony-content vaadin-text-field input,
+    .ceremony-content vaadin-text-area textarea,
+    .ceremony-content vaadin-number-field input,
+    .ceremony-content vaadin-date-picker input,
+    .ceremony-content vaadin-date-time-picker input,
+    .ceremony-content vaadin-select input {
+      color: #e2e6f0 !important;
+      font-family: 'Open Sans', sans-serif !important;
+    }
+    /* Date-picker calendar-icon button needs to be visible too */
+    .ceremony-content vaadin-date-picker::part(toggle-button),
+    .ceremony-content vaadin-date-time-picker::part(toggle-button) {
+      color: #a5b4fc !important;
+    }
+
+    /* Checkbox visibility — Lumo's default check box is faint on dark glass */
+    .ceremony-content vaadin-checkbox {
+      --lumo-contrast-30pct: rgba(255,255,255,0.45);
+      --lumo-contrast-60pct: #c4cce0;
+      --lumo-primary-color:  #6366f1;
+      --lumo-primary-contrast-color: #fff;
+      --lumo-body-text-color: #e2e6f0;
+    }
+    .ceremony-content vaadin-checkbox::part(checkbox) {
+      border: 2px solid rgba(255,255,255,0.45) !important;
+      background: rgba(255,255,255,0.06) !important;
+      border-radius: 4px !important;
+      width: 20px !important; height: 20px !important;
+    }
+    .ceremony-content vaadin-checkbox[checked]::part(checkbox) {
+      background: #6366f1 !important;
+      border-color: #6366f1 !important;
+    }
+
+    /* Vaadin date-picker dropdown panels need explicit theme matching too —
+       they render outside the ceremony-content tree. Apply globally and they
+       stay readable. */
+    vaadin-date-picker-overlay,
+    vaadin-date-time-picker-overlay,
+    vaadin-select-overlay {
+      --lumo-base-color: #1a2340;
+      --lumo-body-text-color: #e2e6f0;
+      --lumo-secondary-text-color: #9aa3b8;
+    }
+
+    /* ════════════════════════════════════════════════════════════════════
+       MULTI-KIND STEP ITEM ROWS
+       Each item in a check step picks one kind; the row layout is shared
+       (dot + name + controls), the controls differ by kind.
+       ════════════════════════════════════════════════════════════════════ */
+
+    /* Kind chip — small label in the row name area showing the item kind */
+    .kind-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 9.5px; font-weight: 700;
+      padding: 1px 6px; border-radius: 4px;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      background: rgba(99,102,241,0.12); color: #a5b4fc;
+      vertical-align: 2px; margin-left: 8px;
+    }
+    .kind-chip i { font-size: 9px; }
+
+    /* Generic 'answered' state on the row dot (non-check kinds) */
+    .verify-row-dot.answered { background: #a5b4fc; }
+
+    /* yes-no controls — same shape as pass/def buttons, different palette */
+    .yn-btn {
+      padding: 5px 14px; border-radius: 6px;
+      border: 1.5px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.05);
+      font-size: 11.5px; font-weight: 700; cursor: pointer;
+      color: #9aa3b8; font-family: 'Open Sans', sans-serif;
+      transition: all 0.12s; white-space: nowrap;
+    }
+    .yn-btn:hover { background: rgba(255,255,255,0.10); color: #e2e6f0; }
+    .yn-btn.selected.yes { background: rgba(99,102,241,0.15); border-color: #6366f1; color: #a5b4fc; }
+    .yn-btn.selected.no  { background: rgba(245,158,11,0.15); border-color: #f59e0b; color: #fbbf24; }
+
+    /* Numeric input row — compact field + unit chip + threshold pill */
+    .num-control {
+      display: flex; align-items: center; gap: 6px;
+      flex-wrap: wrap; justify-content: flex-end;
+    }
+    .num-control vaadin-number-field { width: 110px; }
+    .num-unit {
+      font-size: 11px; font-weight: 700; color: #9aa3b8;
+      padding: 4px 8px; border-radius: 4px;
+      background: rgba(255,255,255,0.05);
+    }
+    .threshold-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 10.5px; font-weight: 700;
+      padding: 2px 7px; border-radius: 4px;
+      background: rgba(99,102,241,0.12); color: #a5b4fc;
+      white-space: nowrap;
+    }
+    .threshold-pill.failed { background: rgba(239,68,68,0.15); color: #f87171; }
+
+    /* Text / long-text inputs */
+    .text-control { width: 280px; max-width: 100%; }
+    .longtext-control { width: 100%; }
+    @media (max-width: 599px) {
+      .text-control { width: 100%; }
+    }
+    /* Text expected-match indicator */
+    .text-match-indicator {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11px; font-weight: 700; margin-top: 5px;
+    }
+    .text-match-indicator.match    { color: #34d399; }
+    .text-match-indicator.mismatch { color: #fbbf24; }
+
+    /* Select / multi-select */
+    .select-control { width: 220px; }
+    @media (max-width: 599px) { .select-control { width: 100%; } }
+    .native-select {
+      padding: 6px 8px; border-radius: 6px;
+      border: 1.5px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.04);
+      color: #e2e6f0; font-size: 13px;
+      font-family: 'Open Sans', sans-serif;
+    }
+
+    /* Multi-select chip group (token chips, not vaadin combobox) */
+    .ms-chip-group {
+      display: flex; flex-wrap: wrap; gap: 6px; padding-top: 2px;
+      justify-content: flex-end;
+    }
+    .ms-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 5px 10px; border-radius: 14px;
+      border: 1.5px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04);
+      font-size: 11.5px; color: #9aa3b8; cursor: pointer;
+      transition: all 0.12s; white-space: nowrap;
+    }
+    .ms-chip:hover { background: rgba(255,255,255,0.08); color: #e2e6f0; }
+    .ms-chip.selected {
+      background: rgba(99,102,241,0.15);
+      border-color: #6366f1;
+      color: #a5b4fc; font-weight: 600;
+    }
+    .ms-chip.required-unselected {
+      border-color: rgba(245,158,11,0.40);
+      color: #fbbf24;
+    }
+
+    /* Count control — numeric + par chip */
+    .count-par {
+      font-size: 10.5px; font-weight: 700;
+      padding: 2px 7px; border-radius: 4px;
+      background: rgba(255,255,255,0.05); color: #9aa3b8;
+      white-space: nowrap;
+    }
+    .count-par.low { background: rgba(239,68,68,0.15); color: #f87171; }
+
+    /* Signature row — special: full width below name, no controls in row */
+    .verify-row.signature-row { flex-direction: column; align-items: stretch; }
+    .signature-pad-shell {
+      margin-top: 10px;
+      padding: 14px;
+      border: 1.5px dashed rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.03);
+      border-radius: 10px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .signature-pad-shell.signed {
+      border-style: solid;
+      border-color: rgba(16,185,129,0.40);
+      background: rgba(16,185,129,0.06);
+    }
+    .signature-signed-meta { font-size: 12px; color: #34d399; font-weight: 600; }
+
+    /* Date / datetime control widths */
+    vaadin-date-picker, vaadin-date-time-picker { width: 200px; max-width: 100%; }
+
+    /* Info card — read-only display, no input */
+    .info-card {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 12px 16px; margin: 4px 0;
+      background: rgba(99,102,241,0.08);
+      border-left: 3px solid #6366f1;
+      border-radius: 0 8px 8px 0;
+    }
+    .info-card-icon {
+      width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; color: #a5b4fc; background: rgba(99,102,241,0.15);
+    }
+    .info-card-body { flex: 1; min-width: 0; font-size: 13px; line-height: 1.55; }
+    .info-card-title { font-weight: 700; color: #e2e6f0; margin-bottom: 4px; }
+    .info-card-text { color: #c4cce0; }
+
+    /* Acknowledge — info-card style but with a checkbox at the right */
+    .ack-row {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 12px 16px; margin: 4px 0;
+      background: rgba(99,102,241,0.06);
+      border-left: 3px solid #6366f1;
+      border-radius: 0 8px 8px 0;
+    }
+    .ack-row.acked { background: rgba(16,185,129,0.08); border-left-color: #10b981; }
+    .ack-body { flex: 1; min-width: 0; }
+
+    /* ── Universal photo + note slots ──
+       Available on every kind except signature. Stays small and unobtrusive
+       until the user opens them. */
+    .row-slots {
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 6px; padding-left: 16px;
+      flex-wrap: wrap;
+    }
+    .row-slot-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 9px; border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.03);
+      font-size: 10.5px; font-weight: 600;
+      color: #8b96b0; cursor: pointer;
+      transition: all 0.12s;
+    }
+    .row-slot-btn:hover { background: rgba(255,255,255,0.08); color: #e2e6f0; }
+    .row-slot-btn.has-content {
+      background: rgba(99,102,241,0.12);
+      border-color: rgba(99,102,241,0.30);
+      color: #a5b4fc;
+    }
+
+    .slot-expansion {
+      width: 100%;
+      margin-top: 8px; padding: 10px 14px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 8px;
+      display: none;
+    }
+    .slot-expansion.open { display: block; }
+
+    /* Section heads inside the slot expansion — uniform across photo + note */
+    .slot-section-label {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      color: #8b96b0;
+      margin-bottom: 6px;
+    }
+    .slot-section-label i { font-size: 11px; color: #a5b4fc; }
+
+    .photo-thumb-strip {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px;
+    }
+    .photo-thumb {
+      width: 64px; height: 64px; border-radius: 6px; flex-shrink: 0;
+      background: rgba(99,102,241,0.10);
+      border: 1px solid rgba(99,102,241,0.30);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; color: #a5b4fc;
+      position: relative;
+    }
+    .photo-thumb-name {
+      position: absolute; bottom: 2px; left: 2px; right: 2px;
+      font-size: 8.5px; color: #fff; background: rgba(0,0,0,0.55);
+      padding: 1px 3px; border-radius: 3px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .photo-thumb-x {
+      position: absolute; top: -6px; right: -6px;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: #ef4444; color: #fff;
+      border: 2px solid #0e1628;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; cursor: pointer;
+    }
+
+    /* ── Replacement picker dialog (vaadin-dialog renderer target) ── */
+    .picker-summary {
+      padding: 12px 14px;
+      background: rgba(99,102,241,0.10);
+      border: 1px solid rgba(99,102,241,0.20);
+      border-radius: 8px;
+      font-size: 12.5px;
+      color: #c4cce0;
+      line-height: 1.55;
+      margin-bottom: 14px;
+    }
+    .picker-summary strong { color: #e2e6f0; }
+
+    .picker-section-label {
+      font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: #8b96b0; margin: 12px 0 6px;
+    }
+
+    .picker-option {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 12px;
+      border: 1.5px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.03);
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 6px;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .picker-option:hover {
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(165,180,252,0.40);
+    }
+    .picker-option.selected {
+      background: rgba(99,102,241,0.10);
+      border-color: #6366f1;
+    }
+    .picker-option-radio {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.30);
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    }
+    .picker-option.selected .picker-option-radio {
+      border-color: #6366f1;
+      background: #6366f1;
+    }
+    .picker-option.selected .picker-option-radio::after {
+      content: ''; width: 8px; height: 8px; border-radius: 50%; background: #fff;
+    }
+
+    .picker-option-body { flex: 1; min-width: 0; }
+    .picker-option-id {
+      font-weight: 700; font-size: 13px; color: #e2e6f0;
+    }
+    .picker-option-meta {
+      font-size: 11.5px; color: #8b96b0; margin-top: 2px;
+    }
+
+    .picker-option-badge {
+      font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px;
+      text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0;
+      background: rgba(16,185,129,0.15); color: #34d399;
+    }
+
+  </style>
+</head>
+<body>
+
+<div class="ceremony-shell">
+
+  <!-- ============================================================
+       CEREMONY HEADER
+       ============================================================ -->
+  <header class="ceremony-header">
+
+    <a class="ceremony-back-btn" href="index.html" id="backBtn" aria-label="Back to Sandbox">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+
+    <div class="ceremony-context">
+      <div class="ceremony-title">Engine 7 — Apparatus Rig Check</div>
+      <div class="ceremony-subtitle">
+        <span>Station 7 · Alpha Shift · May 18, 2026 · 06:05</span>
+      </div>
+    </div>
+
+    <div class="ceremony-header-right">
+      <span class="step-counter" id="stepCounter">Step 1 of 7</span>
+      <span class="status-pill info" id="headerPill">In Progress</span>
+      <div class="ceremony-header-actions">
+        <vaadin-button theme="tertiary small" onclick="resetCeremony()">
+          <i class="fa-solid fa-rotate-left" slot="prefix"></i>Reset
+        </vaadin-button>
+        <vaadin-button theme="tertiary small" onclick="suspendCeremony()">
+          <i class="fa-solid fa-pause" slot="prefix"></i>Suspend
+        </vaadin-button>
+      </div>
+    </div>
+
+  </header>
+
+  <!-- ============================================================
+       MOBILE PROGRESS STRIP
+       Tapping opens the step overview bottom sheet
+       ============================================================ -->
+  <div class="progress-strip" id="progressStrip" onclick="openStepSheet()">
+    <div class="progress-strip-steps" id="progressPips">
+      <!-- rendered by JS -->
+    </div>
+    <div class="progress-strip-text">
+      <div class="progress-strip-label" id="stripLabel">Step 1 of 7 — Cab &amp; Driver Systems</div>
+      <!-- label is overwritten by JS on render; placeholder for SSR/snapshot only -->
+      <div class="progress-strip-sub">Tap to see all steps</div>
+    </div>
+    <i class="fa-solid fa-chevron-up progress-strip-caret"></i>
+  </div>
+
+  <!-- ============================================================
+       CEREMONY BODY
+       Desktop: left rail + content
+       Mobile: content only (rail hidden)
+       ============================================================ -->
+  <div class="ceremony-body">
+
+    <!-- Left step rail (desktop only) -->
+    <div class="ceremony-rail" id="ceremonyRail">
+      <!-- rendered by JS -->
+    </div>
+
+    <!-- Main content -->
+    <div class="ceremony-content" id="ceremonyContent">
+      <!-- rendered by JS -->
+    </div>
+
+  </div>
+
+</div><!-- /ceremony-shell -->
+
+<!-- ============================================================
+     STEP OVERVIEW BOTTOM SHEET (mobile)
+     ============================================================ -->
+<div class="bottom-sheet-backdrop" id="stepSheetBackdrop" onclick="closeStepSheet()"></div>
+<div class="bottom-sheet" id="stepSheet" role="dialog" aria-label="Step overview">
+  <div class="bottom-sheet-handle"></div>
+  <div class="bottom-sheet-header">
+    <div class="bottom-sheet-title">All Steps</div>
+  </div>
+  <div class="bottom-sheet-body" id="stepSheetBody">
+    <!-- rendered by JS -->
+  </div>
+</div>
+
+<!-- Replacement-asset picker dialog (renderer-driven; see openReplacementPicker) -->
+<vaadin-dialog id="replacementDialog"></vaadin-dialog>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Shared scripts -->
+<!-- Sandbox store + compile: scripts live alongside this file. -->
+<script src="sandbox-seed.js"></script>
+<script src="sandbox-store.js"></script>
+<script src="sandbox-compile.js"></script>
+
+<script>
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CEREMONY DEFINITION — Engine 7 Apparatus Rig Check
+//
+// Step-type architecture (see project_checklist_step_types.md memory):
+//   Step-level `type`: 'check' (mixed-item section) | 'attest' (officer sign-off)
+//     · A 'check' step contains one or more items.
+//     · Each item carries `kind` — the step-type primitive that drives rendering:
+//         check, yes-no, numeric, text, long-text, select, multi-select, count,
+//         signature, date, datetime, info, acknowledge, cs-count
+//       (cs-count and full whole-record attest are step-level types only.)
+//     · Every kind EXCEPT signature can opt in to universal slots:
+//         allowPhoto: true   → render a photo attach affordance under the row
+//         allowNote:  true   → render a brief note/description field under the row
+//
+// Items with `assetTag` participate in the WO + replacement-asset swap pattern.
+// `kind: 'numeric'` items with a `threshold` auto-flag as deficiency on fail
+// (re-uses the same deficiency form).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// `let` (not const) so sandbox mode can swap in a compiled-from-store version
+// before buildActiveSteps() first runs.
+let STEPS = [
+
+  // ── Step 1 — Driver Pre-Trip Briefing ─────────────────────────────────────
+  // Exercises: info, acknowledge, yes-no, select, signature, date.
+  {
+    id: 'briefing',
+    type: 'check',
+    title: 'Driver Pre-Trip Briefing',
+    meta: 'Read safety reminders, confirm shift context, sign on as engineer.',
+    icon: 'fa-clipboard',
+    items: [
+      { key: 'safety-notice', kind: 'info',
+        label: 'NFPA 1500 — daily pre-trip reminder',
+        sub: 'Confirm wheel chocks placed, parking brake set, area clear of personnel before pump engagement. Notify dispatch before moving apparatus from quarters.',
+        infoIcon: 'fa-shield-halved' },
+
+      { key: 'crew-briefed', kind: 'acknowledge',
+        label: 'Crew briefing acknowledgement',
+        sub: 'I have briefed the crew on today\'s assignment, weather, and hazards.' },
+
+      { key: 'second-driver', kind: 'yes-no',
+        label: 'Is a second qualified driver on shift today?',
+        sub: 'Required for extended scene operations per SOG 3.04',
+        allowNote: true },
+
+      { key: 'shift-type', kind: 'select',
+        label: 'Shift type',
+        sub: 'Drives which compliance scope applies',
+        options: [
+          { value: 'normal',   label: '24-hour normal shift' },
+          { value: 'extended', label: 'Extended (overtime hold-over)' },
+          { value: 'trade',    label: 'Trade — different department' },
+          { value: 'training', label: 'Training detail' },
+        ],
+        default: 'normal' },
+
+      { key: 'check-date', kind: 'date',
+        label: 'Rig check date',
+        sub: 'Defaults to today; override only if back-filling',
+        default: 'today' },
+
+      { key: 'engineer-sign-on', kind: 'signature',
+        label: 'Engineer sign-on',
+        sub: 'Engineer Reyes, A. — F02-ENGR · By signing I confirm I am qualified to operate this apparatus today.',
+        signerName: 'Engineer Reyes, A.',
+        signerRole: 'F02-ENGR · Engine 7 · Alpha Shift' },
+    ]
+  },
+
+  // ── Step 2 — Mechanical & Fluids ──────────────────────────────────────────
+  // Exercises: check (with photo/note slots), numeric (with thresholds),
+  //            text (with expected comparison), long-text.
+  {
+    id: 'mechanical',
+    type: 'check',
+    title: 'Mechanical & Fluids',
+    meta: 'Walk-around, fluid levels, brakes, tires, instrument readings.',
+    icon: 'fa-wrench',
+    items: [
+      { key: 'walk-around', kind: 'check',
+        label: 'Walk-around — no leaks, no new damage',
+        sub: 'Under-rig fluid leaks, body panels, door seals',
+        allowPhoto: true, allowNote: true },
+
+      { key: 'vin-confirm', kind: 'text',
+        label: 'Confirm VIN matches plate',
+        sub: 'Type the last 6 of VIN visible on the door jamb',
+        expectedValue: 'K1234567',
+        expectedHint: 'Last 6 should match 1F9AE3SX1K1234567' },
+
+      { key: 'fuel-level', kind: 'numeric',
+        label: 'Fuel level',
+        sub: 'Minimum 75% per SOG 2.11',
+        unit: '%',
+        threshold: { min: 75, label: '≥ 75%' },
+        thresholdSource: 'SOG 2.11',
+        allowNote: true },
+
+      { key: 'air-pressure', kind: 'numeric',
+        label: 'Air brake build-up at 45s',
+        sub: 'Engine warm-up cycle, NFPA 1911',
+        unit: 'psi',
+        threshold: { min: 90, label: '≥ 90 psi' },
+        thresholdSource: 'NFPA 1911 §6.3' },
+
+      { key: 'mileage', kind: 'numeric',
+        label: 'Record odometer mileage',
+        sub: 'Tracks against PM schedule (next PM @ 40,000 mi)',
+        unit: 'mi',
+        default: 38420 },
+
+      { key: 'engine-hours', kind: 'numeric',
+        label: 'Engine hours',
+        sub: 'Last recorded: 1,204 hrs',
+        unit: 'hrs',
+        default: 1204 },
+
+      { key: 'oil', kind: 'check',
+        label: 'Engine oil level — between MIN and MAX',
+        sub: '', allowPhoto: true },
+
+      { key: 'coolant', kind: 'check',
+        label: 'Coolant level',
+        sub: '' },
+
+      { key: 'tires-condition', kind: 'multi-select',
+        label: 'Tire condition observations',
+        sub: 'Check all that apply across all 6 tires',
+        options: [
+          { value: 'good',         label: 'All good' },
+          { value: 'low-tread',    label: 'Low tread depth (one or more)' },
+          { value: 'uneven-wear',  label: 'Uneven wear pattern' },
+          { value: 'sidewall',     label: 'Sidewall damage / cracking' },
+          { value: 'pressure-low', label: 'Pressure below spec' },
+        ],
+        allowPhoto: true, allowNote: true },
+
+      { key: 'driving-notes', kind: 'long-text',
+        label: 'Notes on driving behavior',
+        sub: 'Any pulls, vibrations, unusual sounds during warm-up. Leave blank if none.',
+        placeholder: 'e.g., Slight pull right under braking; no engine noise issues.',
+        optional: true },
+    ]
+  },
+
+  // ── Step 3 — Pump & Water Systems ─────────────────────────────────────────
+  // Exercises: check, numeric (with threshold), count.
+  {
+    id: 'pump',
+    type: 'check',
+    title: 'Pump & Water Systems',
+    meta: 'NFPA 1911 daily operational pump check.',
+    icon: 'fa-droplet',
+    items: [
+      { key: 'pump-engage', kind: 'check',
+        label: 'Pump engagement — PTO + indicator',
+        sub: '' },
+
+      { key: 'tank-level-pct', kind: 'numeric',
+        label: 'Water tank level',
+        sub: '750 gal tank · target 100%',
+        unit: '%',
+        threshold: { min: 95, label: '≥ 95% full' } },
+
+      { key: 'tank-to-pump', kind: 'check',
+        label: 'Tank-to-pump valve — flow confirmed',
+        sub: '' },
+
+      { key: 'primer', kind: 'check',
+        label: 'Primer function',
+        sub: '' },
+
+      { key: 'governor', kind: 'check',
+        label: 'Pressure governor — set & responsive',
+        sub: '' },
+
+      { key: 'discharges', kind: 'check',
+        label: 'Discharge valves (×4) — smooth operation',
+        sub: '' },
+
+      { key: 'foam-tank-level', kind: 'numeric',
+        label: 'Class A foam tank level',
+        sub: '30 gal tank · target ≥ 25 gal',
+        unit: 'gal',
+        threshold: { min: 25, label: '≥ 25 gal' } },
+
+      { key: 'cribbing-count', kind: 'count',
+        label: 'Cribbing pieces in stabilization compartment',
+        sub: 'Par level: 16',
+        par: 16, unit: 'pieces',
+        allowPhoto: true },
+    ]
+  },
+
+  // ── Step 4 — SCBA & Life Safety ───────────────────────────────────────────
+  // Exercises: numeric with assetTag (auto-flag → WO + replacement) ×4 SCBAs,
+  //            plus check items for the rest.
+  {
+    id: 'scba',
+    type: 'check',
+    title: 'SCBA & Life Safety',
+    meta: 'Per-seat SCBA pressure readings. OSHA 29 CFR 1910.134 / NFPA 1852.',
+    icon: 'fa-mask',
+    items: [
+      { key: 'scba-driver', kind: 'numeric',
+        label: 'Driver seat SCBA — cylinder pressure',
+        sub: 'Asset: SCBA-E7-01 · SN: SCT-2278 · Cyl: CYL-44182',
+        unit: 'psi',
+        threshold: { min: 4050, label: '≥ 4050 psi (90% of 4500)' },
+        thresholdSource: '29 CFR 1910.134 / NFPA 1852',
+        assetTag: 'SCBA-E7-01', assetSn: 'SCT-2278', variantKey: 'scba-30min',
+        variantLabel: 'SCBA — 30-min · Scott X3 Pro', slot: 'Driver Seat',
+        allowPhoto: true },
+
+      { key: 'scba-officer', kind: 'numeric',
+        label: 'Officer seat SCBA — cylinder pressure',
+        sub: 'Asset: SCBA-E7-02 · SN: SCT-2279 · Cyl: CYL-44183',
+        unit: 'psi',
+        threshold: { min: 4050, label: '≥ 4050 psi (90% of 4500)' },
+        thresholdSource: '29 CFR 1910.134 / NFPA 1852',
+        assetTag: 'SCBA-E7-02', assetSn: 'SCT-2279', variantKey: 'scba-30min',
+        variantLabel: 'SCBA — 30-min · Scott X3 Pro', slot: 'Officer Seat' },
+
+      { key: 'scba-jump-1', kind: 'numeric',
+        label: 'Jump seat 1 SCBA — cylinder pressure',
+        sub: 'Asset: SCBA-E7-03 · SN: SCT-2280 · Cyl: CYL-44184',
+        unit: 'psi',
+        threshold: { min: 4050, label: '≥ 4050 psi (90% of 4500)' },
+        thresholdSource: '29 CFR 1910.134 / NFPA 1852',
+        assetTag: 'SCBA-E7-03', assetSn: 'SCT-2280', variantKey: 'scba-30min',
+        variantLabel: 'SCBA — 30-min · Scott X3 Pro', slot: 'Jump Seat 1' },
+
+      { key: 'scba-jump-2', kind: 'numeric',
+        label: 'Jump seat 2 SCBA — cylinder pressure',
+        sub: 'Asset: SCBA-E7-04 · SN: SCT-2281 · Cyl: CYL-44185',
+        unit: 'psi',
+        threshold: { min: 4050, label: '≥ 4050 psi (90% of 4500)' },
+        thresholdSource: '29 CFR 1910.134 / NFPA 1852',
+        assetTag: 'SCBA-E7-04', assetSn: 'SCT-2281', variantKey: 'scba-30min',
+        variantLabel: 'SCBA — 30-min · Scott X3 Pro', slot: 'Jump Seat 2' },
+
+      { key: 'spare-cyl-count', kind: 'count',
+        label: 'Spare cylinders in compartment B3',
+        sub: 'Par level: 2',
+        par: 2, unit: 'cylinders' },
+
+      { key: 'pass-devices', kind: 'check',
+        label: 'PASS devices — operational, audible',
+        sub: 'All 4 seat-mounted devices',
+        allowNote: true },
+
+      { key: 'hydro-due-driver', kind: 'date',
+        label: 'Driver SCBA cylinder — hydro test due date',
+        sub: 'Pulled from CYL-44182 record; verify against label',
+        default: '2031-08-15' },
+    ]
+  },
+
+  // ── Step 5 — Equipment & Compartments ─────────────────────────────────────
+  // Exercises: check (with assetTag), count, multi-select.
+  {
+    id: 'equipment',
+    type: 'check',
+    title: 'Equipment & Compartments',
+    meta: 'Tools, hoses, ladders, hand lines. Riding-position equipment.',
+    icon: 'fa-toolbox',
+    items: [
+      { key: 'hose-1-3-4', kind: 'check',
+        label: '1¾" attack line — flaked, ready',
+        sub: 'Asset: HOSE-E7-AT1 · 200ft preconnect',
+        assetTag: 'HOSE-E7-AT1', assetSn: '—', variantKey: 'hose-attack-175',
+        variantLabel: 'Attack hose — 1¾" × 200ft', slot: 'Front bumper preconnect',
+        allowPhoto: true },
+
+      { key: 'hose-2-5', kind: 'check',
+        label: '2½" supply line — packed',
+        sub: 'Asset: HOSE-E7-SP1 · 100ft section',
+        assetTag: 'HOSE-E7-SP1', assetSn: '—', variantKey: 'hose-supply-250',
+        variantLabel: 'Supply hose — 2½" × 100ft', slot: 'Crosslay 2' },
+
+      { key: 'nozzles', kind: 'check',
+        label: 'Smooth-bore & fog nozzles — present',
+        sub: '' },
+
+      { key: 'salvage-cover-count', kind: 'count',
+        label: 'Salvage covers in compartment L2',
+        sub: 'Par level: 4',
+        par: 4, unit: 'covers' },
+
+      { key: 'tic', kind: 'check',
+        label: 'Thermal imaging camera',
+        sub: 'Asset: TIC-E7-01 · Battery ≥ 80%',
+        assetTag: 'TIC-E7-01', assetSn: 'MSA-TC-9912', variantKey: 'tic',
+        variantLabel: 'Thermal Imaging Camera — MSA G1',
+        slot: 'Driver compartment' },
+
+      { key: 'extrication-tools', kind: 'multi-select',
+        label: 'Hydraulic extrication tools present',
+        sub: 'Check all confirmed present and functional',
+        options: [
+          { value: 'cutter',  label: 'Cutter' },
+          { value: 'spreader',label: 'Spreader' },
+          { value: 'ram',     label: 'Telescopic ram' },
+          { value: 'combi',   label: 'Combi tool' },
+          { value: 'power',   label: 'Power unit' },
+        ],
+        required: ['cutter','spreader','power'] },
+
+      { key: 'medical-bag', kind: 'check',
+        label: 'BLS medical bag — par complete',
+        sub: 'Trauma, airway, BLS meds' },
+
+      { key: 'portable-radios', kind: 'count',
+        label: 'Portable radios charged & on rig',
+        sub: 'Par level: 4',
+        par: 4, unit: 'radios' },
+    ]
+  },
+
+  // ── Step 6 — Cab & Communications ─────────────────────────────────────────
+  // Exercises: check, datetime.
+  {
+    id: 'cab',
+    type: 'check',
+    title: 'Cab & Communications',
+    meta: 'Emergency lights, siren, MDT, mobile radio.',
+    icon: 'fa-car',
+    items: [
+      { key: 'emergency-lights', kind: 'check', label: 'Emergency lights — all heads', sub: 'LED bars, takedowns, traffic advisor' },
+      { key: 'siren',            kind: 'check', label: 'Siren — all tones', sub: 'Wail, yelp, hi-lo' },
+      { key: 'air-horn',         kind: 'check', label: 'Air horn', sub: '' },
+      { key: 'mirrors',          kind: 'check', label: 'Mirrors — adjusted, no cracks', sub: '' },
+      { key: 'wipers',           kind: 'check', label: 'Wipers & washer fluid', sub: '' },
+      { key: 'backup-camera',    kind: 'check', label: 'Backup camera', sub: '' },
+      { key: 'mdt',              kind: 'check', label: 'MDT — powered, CAD connected', sub: '' },
+      { key: 'mobile-radio',     kind: 'check', label: 'Mobile radio — programmed, all channels', sub: 'Last firmware push: Apr 28' },
+      { key: 'check-completed-at', kind: 'datetime',
+        label: 'Rig check completion timestamp',
+        sub: 'Captured automatically; override only if clock drift',
+        default: 'now' },
+    ]
+  },
+
+  // ── Step 7 — Officer Attestation ──────────────────────────────────────────
+  {
+    id: 'attestation',
+    type: 'attest',
+    title: 'Officer Attestation',
+    meta: 'Company officer signs off on apparatus readiness.',
+    icon: 'fa-signature',
+  }
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// IN-STOCK REPLACEMENT POOL (mock)
+// Keyed by variantKey on each item. The picker filters this list when a
+// deficiency is logged on an asset-tagged item. id+sn+location+condition mirror
+// what a real query against the station's spare-asset inventory would return.
+// ─────────────────────────────────────────────────────────────────────────────
+const REPLACEMENT_POOL = {
+  'scba-30min': [
+    { id: 'SCBA-SPARE-01', sn: 'SCT-3104', location: 'Station 7 · Spare rack A2', condition: 'Inspected · Last hydro: Aug 2025', cylPressure: '4500 psi (100%)' },
+    { id: 'SCBA-SPARE-02', sn: 'SCT-3105', location: 'Station 7 · Spare rack A2', condition: 'Inspected · Last hydro: Aug 2025', cylPressure: '4500 psi (100%)' },
+    { id: 'SCBA-SPARE-03', sn: 'SCT-3119', location: 'Station 4 · Loaner pool',   condition: 'Inspected · Last hydro: Mar 2026', cylPressure: '4400 psi (98%)' },
+  ],
+  'hose-attack-175': [
+    { id: 'HOSE-STK-AT-014', sn: '—', location: 'Station 7 · Hose tower', condition: 'Tested 2026-04-12 · Pass', cylPressure: null },
+    { id: 'HOSE-STK-AT-018', sn: '—', location: 'Station 7 · Hose tower', condition: 'Tested 2026-04-12 · Pass', cylPressure: null },
+  ],
+  'hose-supply-250': [
+    { id: 'HOSE-STK-SP-007', sn: '—', location: 'Station 7 · Hose tower', condition: 'Tested 2026-04-12 · Pass', cylPressure: null },
+  ],
+  'tic': [
+    { id: 'TIC-SPARE-01', sn: 'MSA-TC-9920', location: 'Station 1 · Reserve', condition: 'Charged 100% · NFPA 1801 current', cylPressure: null },
+  ],
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────────────────
+let currentStep  = 0;
+let checkState   = {};   // key → 'pass' | 'deficiency' | 'na' | null  (kind: check)
+let answers      = {};   // key → typed answer (yes-no | numeric | text | select | etc.)
+let attachments  = {};   // key → { photos: [{name}], note: string }
+let defNotes     = {};   // key → string  (legacy deficiency description field)
+let workOrders   = {};   // key → { woId, urgency, createdAt }
+let replacements = {};   // key → { failedAssetTag, replacement: {id,sn,location}, swappedAt }
+let attestA      = false;
+let activeSteps  = [];
+let promotedVerifyKey = null; // currently expanded verify row (mobile)
+
+// Which kinds count as "answered" for footer/next-button gating.
+// `optional: true` on an item exempts it from this gate.
+function isItemAnswered(it) {
+  if (it.optional) return true;
+  switch (it.kind || 'check') {
+    case 'check':       return checkState[it.key] != null;
+    case 'yes-no':      return answers[it.key] === 'yes' || answers[it.key] === 'no';
+    case 'numeric':
+    case 'count':       return answers[it.key] != null && answers[it.key] !== '';
+    case 'text':
+    case 'long-text':   return typeof answers[it.key] === 'string' && answers[it.key].trim() !== '';
+    case 'select':      return !!answers[it.key];
+    case 'multi-select':return Array.isArray(answers[it.key]) && answers[it.key].length > 0;
+    case 'signature':   return !!answers[it.key]; // signed-name string
+    case 'date':
+    case 'datetime':    return !!answers[it.key];
+    case 'acknowledge': return answers[it.key] === true;
+    case 'info':        return true; // info is read-only; viewed-on-advance
+    default:            return true;
+  }
+}
+
+// Numeric items auto-flag as deficiency when value crosses threshold.
+function isNumericFailed(it) {
+  if (it.kind !== 'numeric' && it.kind !== 'count') return false;
+  const v = answers[it.key];
+  if (v == null || v === '') return false;
+  const n = Number(v);
+  if (Number.isNaN(n)) return false;
+  if (it.kind === 'count') {
+    return typeof it.par === 'number' && n < it.par;
+  }
+  const t = it.threshold;
+  if (!t) return false;
+  if (typeof t.min === 'number' && n < t.min) return true;
+  if (typeof t.max === 'number' && n > t.max) return true;
+  return false;
+}
+
+// True if this item should surface the deficiency form (description + WO +
+// replacement). Applies to: kind:check marked deficiency; OR kind:numeric/count
+// that auto-failed its threshold/par.
+function isItemFlagged(it) {
+  if ((it.kind || 'check') === 'check') return checkState[it.key] === 'deficiency';
+  if (it.kind === 'numeric' || it.kind === 'count') return isNumericFailed(it);
+  return false;
+}
+
+function buildActiveSteps() {
+  activeSteps = STEPS.slice();
+  document.getElementById('stepCounter').textContent = `Step 1 of ${activeSteps.length}`;
+}
+
+function initState() {
+  checkState = {}; answers = {}; attachments = {}; defNotes = {};
+  workOrders = {}; replacements = {};
+  attestA = false;
+  promotedVerifyKey = null;
+  STEPS.filter(s => s.type === 'check').forEach(s =>
+    s.items.forEach(it => {
+      const kind = it.kind || 'check';
+      if (kind === 'check') checkState[it.key] = null;
+      // Seed defaults so the input renders the right initial value.
+      if (it.default !== undefined) {
+        if (it.default === 'today')  answers[it.key] = new Date().toISOString().slice(0,10);
+        else if (it.default === 'now') {
+          const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+          answers[it.key] = d.toISOString().slice(0,16);
+        } else {
+          answers[it.key] = it.default;
+        }
+      }
+    })
+  );
+}
+
+// Find the step + item that owns a given key.
+function findItemByKey(key) {
+  for (const s of STEPS) {
+    if (s.type !== 'check') continue;
+    const it = s.items.find(i => i.key === key);
+    if (it) return { step: s, item: it };
+  }
+  return null;
+}
+
+// Mint a mock work-order id. Persisted in workOrders[key] so re-renders keep it.
+let _woCounter = 2847;
+function nextWoId() { return 'WO-' + (++_woCounter); }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RAIL (desktop left column)
+// ─────────────────────────────────────────────────────────────────────────────
+function renderRail() {
+  const rail = document.getElementById('ceremonyRail');
+  rail.innerHTML = '';
+
+  const rigLabel = document.createElement('div');
+  rigLabel.className = 'rail-section-label';
+  rigLabel.textContent = 'Rig Check';
+  rail.appendChild(rigLabel);
+
+  activeSteps.forEach((step, i) => {
+    const isCompleted = i < currentStep;
+    const isActive    = i === currentStep;
+
+    const el = document.createElement('div');
+    el.className = 'rail-step ' + (isCompleted ? 'completed' : isActive ? 'active' : 'locked');
+    if (isCompleted || isActive) {
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', () => goToStep(i));
+    }
+
+    const dot = document.createElement('div');
+    dot.className = 'rail-step-dot';
+    if (isCompleted) {
+      dot.innerHTML = '<i class="fa-solid fa-check" style="font-size:9px;"></i>';
+    } else {
+      dot.textContent = String(i + 1);
+      if (!isActive) dot.style.opacity = '0.4';
+    }
+
+    const lbl = document.createElement('div');
+    lbl.className = 'rail-step-label';
+    lbl.textContent = step.title;
+    if (!isCompleted && !isActive) lbl.style.opacity = '0.5';
+
+    el.appendChild(dot);
+    el.appendChild(lbl);
+
+    // Summary badge on completed steps
+    if (isCompleted) {
+      const badge = document.createElement('span');
+      badge.style.cssText = 'font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:auto; flex-shrink:0;';
+      if (step.type === 'check') {
+        const defs = step.items.filter(it => checkState[it.key] === 'deficiency').length;
+        if (defs > 0) {
+          badge.style.background = 'rgba(239,68,68,0.15)'; badge.style.color = '#f87171';
+          badge.textContent = defs + ' def';
+        } else {
+          badge.style.background = 'rgba(16,185,129,0.15)'; badge.style.color = '#34d399';
+          badge.textContent = 'Pass';
+        }
+      } else if (step.type === 'attest') {
+        badge.style.background = 'rgba(16,185,129,0.15)'; badge.style.color = '#34d399';
+        badge.textContent = 'Done';
+      }
+      el.appendChild(badge);
+    }
+
+    rail.appendChild(el);
+  });
+
+  // Rail note — summary of WOs/replacements so far
+  const woCount = Object.keys(workOrders).length;
+  const repCount = Object.keys(replacements).length;
+  const note = document.createElement('div');
+  note.className = 'rail-note';
+  if (woCount === 0) {
+    note.innerHTML = '<strong style="color:#c4cce0;">Apparatus rig check</strong><br>Engine 7 · Daily shift-start.';
+  } else {
+    note.innerHTML = `<strong style="color:#c4cce0;"><i class="fa-solid fa-ticket" style="margin-right:4px; color:#fbbf24;"></i>${woCount} work order${woCount > 1 ? 's' : ''}</strong>` +
+      (repCount > 0 ? `<br>${repCount} replacement${repCount > 1 ? 's' : ''} from station stock` : '<br>No replacements selected');
+  }
+  rail.appendChild(note);
+
+  updateProgressStrip();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MOBILE PROGRESS STRIP
+// ─────────────────────────────────────────────────────────────────────────────
+function updateProgressStrip() {
+  const pips = document.getElementById('progressPips');
+  const label = document.getElementById('stripLabel');
+  if (!pips || !label) return;
+
+  pips.innerHTML = '';
+  activeSteps.forEach((step, i) => {
+    const pip = document.createElement('div');
+    pip.className = 'progress-pip ' + (i < currentStep ? 'done' : i === currentStep ? 'active' : '');
+    pips.appendChild(pip);
+  });
+
+  const step = activeSteps[currentStep];
+  label.textContent = `Step ${currentStep + 1} of ${activeSteps.length} — ${step.title}`;
+  document.getElementById('stepCounter').textContent = `Step ${currentStep + 1} of ${activeSteps.length}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STEP OVERVIEW BOTTOM SHEET
+// ─────────────────────────────────────────────────────────────────────────────
+function openStepSheet() {
+  const body = document.getElementById('stepSheetBody');
+  body.innerHTML = '';
+
+  // Rig check section
+  const rigLabel = document.createElement('div');
+  rigLabel.className = 'step-overview-section-label';
+  rigLabel.textContent = 'Rig Check';
+  body.appendChild(rigLabel);
+
+  activeSteps.forEach((step, i) => {
+    const item = document.createElement('div');
+    item.className = 'step-overview-item';
+    item.addEventListener('click', () => { closeStepSheet(); goToStep(i); });
+
+    const dotState = i < currentStep ? 'completed' : i === currentStep ? 'active' : 'pending';
+    const dotContent = i < currentStep ? '<i class="fa-solid fa-check" style="font-size:9px;"></i>' : String(i + 1);
+
+    let badgeHTML = '';
+    if (i < currentStep && step.type === 'check') {
+      const defs = step.items.filter(it => checkState[it.key] === 'deficiency').length;
+      badgeHTML = defs > 0
+        ? `<span class="step-overview-badge def">${defs} def</span>`
+        : `<span class="step-overview-badge pass">Pass</span>`;
+    }
+
+    item.innerHTML = `
+      <div class="step-overview-dot ${dotState}">${dotContent}</div>
+      <div class="step-overview-info">
+        <div class="step-overview-title">${step.title}</div>
+        <div class="step-overview-meta">${step.meta}</div>
+      </div>
+      ${badgeHTML}
+    `;
+    body.appendChild(item);
+  });
+
+  document.getElementById('stepSheetBackdrop').classList.add('open');
+  document.getElementById('stepSheet').classList.add('open');
+}
+
+function closeStepSheet() {
+  document.getElementById('stepSheetBackdrop').classList.remove('open');
+  document.getElementById('stepSheet').classList.remove('open');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STEP ROUTING
+// ─────────────────────────────────────────────────────────────────────────────
+function renderStep() {
+  const step = activeSteps[currentStep];
+  updateProgressStrip();
+  if (step.type === 'check')  renderCheckStep(step);
+  else if (step.type === 'attest') renderAttestStep(step);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RIG CHECK STEP
+// ─────────────────────────────────────────────────────────────────────────────
+function renderCheckStep(step) {
+  const container = document.getElementById('ceremonyContent');
+  const unmarked  = step.items.filter(it => checkState[it.key] === null).length;
+  const allMarked = unmarked === 0;
+  promotedVerifyKey = null;
+
+  container.innerHTML = `
+    <div class="ceremony-state-bar">
+      <span class="status-pill info">Rig Check — In Progress</span>
+      <span class="sep">·</span>
+      <span><i class="fa-solid fa-user" style="margin-right:4px;"></i>Engineer Reyes, A.</span>
+      <span class="sep">·</span>
+      <span><i class="fa-solid fa-truck" style="margin-right:4px;"></i>Engine 7 · Station 7</span>
+    </div>
+
+    <div class="step-card">
+      <div class="step-card-header">
+        <div>
+          <div class="step-card-title">
+            <i class="fa-solid ${step.icon}" style="margin-right:8px; color:#a5b4fc;"></i>${step.title}
+          </div>
+          <div class="step-card-meta">${step.meta}</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+          <span class="status-pill ${allMarked ? 'ok' : 'info'}" id="stepBadge">
+            ${allMarked ? 'All marked' : (step.items.length - unmarked) + ' / ' + step.items.length + ' marked'}
+          </span>
+          <button class="btn-pass-all" id="passAllBtn" onclick="passAllItems()" ${step.items.every(it => checkState[it.key] === 'pass') ? 'style="display:none"' : ''}>
+            <i class="fa-solid fa-check-double"></i> Pass All
+          </button>
+        </div>
+      </div>
+
+      <div class="step-card-body">
+        <div class="verify-section" id="verifySection">
+          ${step.items.map(it => renderVerifyRow(it)).join('')}
+        </div>
+      </div>
+
+      <div class="step-card-footer">
+        ${currentStep > 0
+          ? `<button class="btn-back" onclick="goToStep(${currentStep - 1})">Back</button>`
+          : '<div></div>'}
+        <vaadin-button theme="primary" id="nextBtn" ${allMarked ? '' : 'disabled'} onclick="advanceStep()">
+          ${activeSteps[currentStep + 1]?.type === 'attest'
+            ? 'Officer Attestation <i class="fa-solid fa-signature" style="margin-left:6px;"></i>'
+            : 'Next Step <i class="fa-solid fa-arrow-right" style="margin-left:6px;"></i>'}
+        </vaadin-button>
+      </div>
+    </div>
+  `;
+
+  restoreDefNotes(step);
+  wireVerifyRows(step);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VERIFY ROW DISPATCHER
+// Each step item carries a `kind`. The row dispatches on kind, renders the
+// kind-specific controls, and (for kinds that support it) appends universal
+// photo + note slots.
+// ─────────────────────────────────────────────────────────────────────────────
+function renderVerifyRow(item) {
+  const kind = item.kind || 'check';
+
+  // info and acknowledge are full-row presentation; no dot/controls layout.
+  if (kind === 'info')        return renderInfoRow(item);
+  if (kind === 'acknowledge') return renderAckRow(item);
+  if (kind === 'signature')   return renderSignatureRow(item);
+
+  const dotClass = computeDotClass(item);
+  const kindChip = kindChipHtml(kind);
+
+  return `
+    <div id="wrap-${item.key}">
+      <div class="verify-row" id="vrow-${item.key}">
+        <div class="verify-row-dot ${dotClass}" id="dot-${item.key}"></div>
+        <div class="verify-row-name">
+          ${item.label}${kindChip}
+          ${item.sub ? `<div class="verify-row-sub">${item.sub}</div>` : ''}
+          ${renderSlotButtons(item)}
+          ${renderSlotExpansion(item)}
+        </div>
+        <div class="verify-controls" id="ctrl-${item.key}">
+          ${renderKindControls(item)}
+        </div>
+      </div>
+
+      <!-- Deficiency form (kind:check deficiency, OR kind:numeric/count auto-fail) -->
+      <div class="deficiency-inline ${isItemFlagged(item) ? 'visible' : ''}" id="deskdef-${item.key}">
+        ${isItemFlagged(item) ? buildDeficiencyForm(item.key) : ''}
+      </div>
+    </div>
+  `;
+}
+
+// Map kind → the dot-state class for the row left-rail indicator.
+function computeDotClass(item) {
+  const kind = item.kind || 'check';
+  if (kind === 'check') return checkState[item.key] || '';
+  if (isItemFlagged(item)) return 'deficiency';
+  if (isItemAnswered(item)) return kind === 'check' ? 'pass' : 'answered';
+  return '';
+}
+
+function kindChipHtml(kind) {
+  if (kind === 'check') return ''; // implicit / no chip
+  const map = {
+    'yes-no':       { i: 'fa-circle-question', t: 'Yes / No' },
+    'numeric':      { i: 'fa-gauge-high',      t: 'Reading' },
+    'text':         { i: 'fa-keyboard',        t: 'Text' },
+    'long-text':    { i: 'fa-align-left',      t: 'Notes' },
+    'select':       { i: 'fa-list',            t: 'Choice' },
+    'multi-select': { i: 'fa-list-check',      t: 'Multi-pick' },
+    'count':        { i: 'fa-hashtag',         t: 'Count' },
+    'date':         { i: 'fa-calendar-day',    t: 'Date' },
+    'datetime':     { i: 'fa-clock',           t: 'Date/Time' },
+  };
+  const c = map[kind];
+  if (!c) return '';
+  return ` <span class="kind-chip"><i class="fa-solid ${c.i}"></i> ${c.t}</span>`;
+}
+
+// Render kind-specific controls (the right side of the row).
+function renderKindControls(item) {
+  const kind = item.kind || 'check';
+  const key  = item.key;
+  switch (kind) {
+    case 'check': {
+      const s = checkState[key];
+      return `
+        <button class="verify-btn pass ${s === 'pass' ? 'selected' : ''}"
+          onclick="markItem(event,'${key}','pass')">
+          <i class="fa-solid fa-check"></i> Pass
+        </button>
+        <button class="verify-btn deficiency ${s === 'deficiency' ? 'selected' : ''}"
+          onclick="markItem(event,'${key}','deficiency')">
+          <i class="fa-solid fa-triangle-exclamation"></i> Deficiency
+        </button>
+        <button class="verify-btn na ${s === 'na' ? 'selected' : ''}"
+          onclick="markItem(event,'${key}','na')">N/A</button>`;
+    }
+    case 'yes-no': {
+      const a = answers[key];
+      return `
+        <button class="yn-btn ${a === 'yes' ? 'selected yes' : ''}"
+          onclick="setYesNo(event,'${key}','yes')">
+          <i class="fa-solid fa-check"></i> Yes
+        </button>
+        <button class="yn-btn ${a === 'no' ? 'selected no' : ''}"
+          onclick="setYesNo(event,'${key}','no')">
+          <i class="fa-solid fa-xmark"></i> No
+        </button>`;
+    }
+    case 'numeric': {
+      const v = answers[key] ?? '';
+      const failed = isNumericFailed(item);
+      const tLabel = item.threshold?.label || '';
+      return `
+        <div class="num-control">
+          ${tLabel ? `<span class="threshold-pill ${failed ? 'failed' : ''}" title="${item.thresholdSource || ''}">
+            <i class="fa-solid fa-bullseye"></i> ${tLabel}
+          </span>` : ''}
+          <vaadin-number-field theme="outlined" id="num-${key}"
+            placeholder="—"
+          ></vaadin-number-field>
+          ${item.unit ? `<span class="num-unit">${item.unit}</span>` : ''}
+        </div>`;
+    }
+    case 'text': {
+      const v = answers[key] ?? '';
+      const expected = item.expectedValue;
+      let indicator = '';
+      if (expected != null && v !== '') {
+        const match = String(v).trim().toLowerCase() === String(expected).trim().toLowerCase();
+        indicator = `<div class="text-match-indicator ${match ? 'match' : 'mismatch'}">
+          <i class="fa-solid ${match ? 'fa-circle-check' : 'fa-triangle-exclamation'}"></i>
+          ${match ? 'Matches expected' : 'Does not match expected — flagged on record'}
+        </div>`;
+      }
+      return `
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0;">
+          <vaadin-text-field theme="outlined" class="text-control" id="txt-${key}"
+            placeholder="${escapeAttr(item.placeholder || '')}"
+          ></vaadin-text-field>
+          ${indicator}
+        </div>`;
+    }
+    case 'long-text': {
+      const v = answers[key] ?? '';
+      // Long-text is intrinsically wide; put it under the name on its own line.
+      return `
+        <vaadin-text-area theme="outlined" class="longtext-control" id="ltxt-${key}"
+          rows="3"
+          placeholder="${escapeAttr(item.placeholder || '')}"
+        ></vaadin-text-area>`;
+    }
+    case 'select': {
+      const v = answers[key] ?? '';
+      // Render a native <select> wrapped to look like a control. Avoids
+      // vaadin-select async-items wiring noise in this fast-iterate prototype.
+      const opts = (item.options || []).map(o =>
+        `<option value="${escapeAttr(o.value)}" ${o.value === v ? 'selected' : ''}>${o.label}</option>`
+      ).join('');
+      return `
+        <select class="select-control native-select"
+          onchange="setText('${key}', this.value)">
+          <option value="" ${!v ? 'selected' : ''}>— select —</option>
+          ${opts}
+        </select>`;
+    }
+    case 'multi-select': {
+      const selected = Array.isArray(answers[key]) ? answers[key] : [];
+      const required = item.required || [];
+      const chips = (item.options || []).map(o => {
+        const isSel = selected.includes(o.value);
+        const isReq = required.includes(o.value) && !isSel;
+        return `<span class="ms-chip ${isSel ? 'selected' : ''} ${isReq ? 'required-unselected' : ''}"
+          onclick="toggleMulti('${key}','${escapeAttr(o.value)}')">
+          ${isSel ? '<i class="fa-solid fa-check"></i>' : ''}
+          ${o.label}
+        </span>`;
+      }).join('');
+      return `<div class="ms-chip-group">${chips}</div>`;
+    }
+    case 'count': {
+      const v = answers[key] ?? '';
+      const par = item.par;
+      const low = isNumericFailed(item);
+      return `
+        <div class="num-control">
+          ${par != null ? `<span class="count-par ${low ? 'low' : ''}"><i class="fa-solid fa-bullseye"></i> Par ${par}</span>` : ''}
+          <vaadin-number-field theme="outlined" id="num-${key}"
+            placeholder="—"
+          ></vaadin-number-field>
+          ${item.unit ? `<span class="num-unit">${item.unit}</span>` : ''}
+        </div>`;
+    }
+    case 'date': {
+      return `<vaadin-date-picker theme="outlined" id="dt-${key}"></vaadin-date-picker>`;
+    }
+    case 'datetime': {
+      return `<vaadin-date-time-picker theme="outlined" id="dt-${key}"></vaadin-date-time-picker>`;
+    }
+    default:
+      return '';
+  }
+}
+
+// info-card row — purely informational
+function renderInfoRow(item) {
+  return `
+    <div id="wrap-${item.key}">
+      <div class="info-card">
+        <div class="info-card-icon"><i class="fa-solid ${item.infoIcon || 'fa-circle-info'}"></i></div>
+        <div class="info-card-body">
+          <div class="info-card-title">${item.label}</div>
+          <div class="info-card-text">${item.sub || ''}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// acknowledge row — info + required checkbox
+function renderAckRow(item) {
+  const acked = answers[item.key] === true;
+  return `
+    <div id="wrap-${item.key}">
+      <div class="ack-row ${acked ? 'acked' : ''}">
+        <div class="info-card-icon" style="${acked ? 'background:rgba(16,185,129,0.15); color:#34d399;' : ''}">
+          <i class="fa-solid ${acked ? 'fa-circle-check' : 'fa-bell'}"></i>
+        </div>
+        <div class="ack-body">
+          <div class="info-card-title">${item.label}</div>
+          <div class="info-card-text">${item.sub || ''}</div>
+          <div style="margin-top:8px;">
+            <vaadin-checkbox label="I confirm" ${acked ? 'checked' : ''}></vaadin-checkbox>
+          </div>
+          ${renderSlotButtons(item)}
+          ${renderSlotExpansion(item)}
+        </div>
+      </div>
+    </div>`;
+}
+
+// signature row — name + role + sign button (typed name authenticator for prototype)
+function renderSignatureRow(item) {
+  const signed = !!answers[item.key];
+  return `
+    <div id="wrap-${item.key}">
+      <div class="verify-row signature-row" id="vrow-${item.key}">
+        <div style="display:flex; align-items:flex-start; gap:12px; width:100%;">
+          <div class="verify-row-dot ${signed ? 'answered' : ''}" id="dot-${item.key}"></div>
+          <div class="verify-row-name" style="flex:1;">
+            ${item.label}<span class="kind-chip"><i class="fa-solid fa-signature"></i> Signature</span>
+            ${item.sub ? `<div class="verify-row-sub">${item.sub}</div>` : ''}
+          </div>
+        </div>
+        <div class="signature-pad-shell ${signed ? 'signed' : ''}">
+          ${signed ? `
+            <div class="signature-signed-meta">
+              <i class="fa-solid fa-circle-check"></i> Signed by ${answers[item.key]}
+              <span style="margin-left:10px; color:#8b96b0; font-weight:500;">${new Date().toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'})}</span>
+            </div>
+            <div style="font-family:'Brush Script MT', cursive; font-size:28px; color:#a5b4fc;
+                        padding:6px 12px; background:rgba(255,255,255,0.04); border-radius:8px;
+                        text-align:center; letter-spacing: 1px;">
+              ${answers[item.key]}
+            </div>
+            <vaadin-button theme="tertiary small" onclick="clearSignature('${item.key}')">
+              <i class="fa-solid fa-rotate-left" slot="prefix"></i> Clear
+            </vaadin-button>
+          ` : `
+            <div style="font-size:12px; color:#9aa3b8;">
+              <i class="fa-solid fa-pen-nib" style="margin-right:6px; color:#a5b4fc;"></i>
+              Type your name to sign. In production this would be a drawn signature pad
+              or biometric authentication.
+            </div>
+            <vaadin-text-field theme="outlined" placeholder="${escapeAttr(item.signerName || 'Type your full name')}"
+              id="sig-${item.key}"
+              style="width:100%;"
+              oninput="document.getElementById('sigBtn-${item.key}').disabled = !this.value.trim();"
+            ></vaadin-text-field>
+            <div>
+              <vaadin-button theme="primary small" id="sigBtn-${item.key}" disabled
+                onclick="captureSignature('${item.key}')">
+                <i class="fa-solid fa-signature" slot="prefix"></i> Sign
+              </vaadin-button>
+            </div>
+          `}
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── Universal slot buttons (photo + note). signature kind opts out.
+// Slot button — ONE combined affordance per row.
+// If the row allows either a photo or a note (or both), a single chip toggles
+// the expansion that holds both fields together. Chip label adapts to what
+// the row supports and what's already attached.
+function renderSlotButtons(item) {
+  const kind = item.kind || 'check';
+  if (kind === 'signature' || kind === 'info') return '';
+  if (!item.allowPhoto && !item.allowNote) return '';
+
+  const a = attachments[item.key] || {};
+  const photoCount = (a.photos || []).length;
+  const hasNote    = !!(a.note && a.note.trim());
+  const hasContent = photoCount > 0 || hasNote;
+
+  // Idle label depends on which slots the row supports.
+  const idleLabel =
+    item.allowPhoto && item.allowNote ? 'Add photo or note' :
+    item.allowPhoto                   ? 'Add photo'         :
+                                        'Add note';
+  const idleIcon =
+    item.allowPhoto && item.allowNote ? 'fa-paperclip' :
+    item.allowPhoto                   ? 'fa-camera'    :
+                                        'fa-note-sticky';
+
+  // Active label summarizes what's attached.
+  let activeBits = [];
+  if (photoCount > 0) activeBits.push(`<i class="fa-solid fa-camera"></i> ${photoCount} photo${photoCount > 1 ? 's' : ''}`);
+  if (hasNote)        activeBits.push(`<i class="fa-solid fa-note-sticky"></i> Note`);
+  const label = hasContent
+    ? activeBits.join(' &middot; ')
+    : `<i class="fa-solid ${idleIcon}"></i> ${idleLabel}`;
+
+  return `<div class="row-slots">
+    <span class="row-slot-btn ${hasContent ? 'has-content' : ''}" onclick="toggleSlot('${item.key}')">
+      ${label}
+    </span>
+  </div>`;
+}
+
+// Slot expansion — single panel holding both photo and note fields when
+// the row supports both. Hidden by default; toggled by the combined chip.
+function renderSlotExpansion(item) {
+  const kind = item.kind || 'check';
+  if (kind === 'signature' || kind === 'info') return '';
+  if (!item.allowPhoto && !item.allowNote) return '';
+  const a = attachments[item.key] || {};
+  return `
+    <div class="slot-expansion" id="slotexp-${item.key}">
+      ${item.allowPhoto ? `
+        <div class="slot-section-label">
+          <i class="fa-solid fa-camera"></i> Photos
+        </div>
+        <vaadin-button theme="secondary small" onclick="mockAddPhoto('${item.key}')">
+          <i class="fa-solid fa-camera" slot="prefix"></i> Capture / Upload
+        </vaadin-button>
+        <div class="photo-thumb-strip" id="photos-${item.key}">
+          ${(a.photos || []).map((p, i) => `
+            <div class="photo-thumb">
+              <i class="fa-solid fa-image"></i>
+              <span class="photo-thumb-name">${p.name}</span>
+              <span class="photo-thumb-x" onclick="removePhoto('${item.key}', ${i})"><i class="fa-solid fa-xmark"></i></span>
+            </div>`).join('')}
+        </div>
+      ` : ''}
+      ${item.allowNote ? `
+        <div class="slot-section-label" style="margin-top:${item.allowPhoto ? '14px' : '0'};">
+          <i class="fa-solid fa-note-sticky"></i> Note
+        </div>
+        <vaadin-text-area theme="outlined" placeholder="Brief description, context, or follow-up"
+          rows="2" style="width:100%;"></vaadin-text-area>
+      ` : ''}
+    </div>`;
+}
+
+// Tiny escaper for putting strings inside HTML attribute values.
+function escapeAttr(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+function buildDeficiencyForm(key) {
+  const lookup = findItemByKey(key);
+  const item = lookup?.item;
+  const isReplaceable = !!item?.assetTag;
+  const wo  = workOrders[key];
+  const rep = replacements[key];
+
+  // Urgency options — fleet workflow 1.6 step 2: officer assesses urgency.
+  const urgency = wo?.urgency || 'normal';
+
+  const failedChip = isReplaceable ? `
+    <div class="asset-chip failed">
+      <div class="asset-chip-icon"><i class="fa-solid fa-ban"></i></div>
+      <div class="asset-chip-body">
+        <div class="asset-chip-id">${item.assetTag} · ${item.variantLabel || 'Asset'}</div>
+        <div class="asset-chip-sub">${item.slot ? item.slot + ' · ' : ''}SN ${item.assetSn || '—'}</div>
+      </div>
+      <span class="asset-chip-tag">Failed → OOS</span>
+    </div>` : '';
+
+  const replacementChip = rep ? `
+    <div class="swap-arrow"><i class="fa-solid fa-arrow-down"></i></div>
+    <div class="asset-chip replacement">
+      <div class="asset-chip-icon"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="asset-chip-body">
+        <div class="asset-chip-id">${rep.replacement.id} · ${item.variantLabel || 'Asset'}</div>
+        <div class="asset-chip-sub">${rep.replacement.location} · ${rep.replacement.condition}</div>
+      </div>
+      <span class="asset-chip-tag">Swapped in</span>
+    </div>` : '';
+
+  // Header changes for numeric/count auto-fails so the language matches the
+  // trigger ("Out-of-spec reading" instead of "Deficiency").
+  const kind = item?.kind || 'check';
+  const autoFail = (kind === 'numeric' || kind === 'count') && isNumericFailed(item);
+  const headerLabel = autoFail
+    ? 'Out-of-spec reading — describe & route'
+    : 'Deficiency — describe & route';
+  const headerSub = autoFail
+    ? (kind === 'count'
+        ? `Count ${answers[key]} is below par ${item.par}. Document the cause and route.`
+        : `Reading ${answers[key]}${item.unit ? ' ' + item.unit : ''} is below threshold ${item.threshold?.label || ''}. Document the cause and route.`)
+    : null;
+
+  return `
+    <div class="deficiency-inline-label">
+      <i class="fa-solid fa-triangle-exclamation"></i> ${headerLabel}
+    </div>
+    ${headerSub ? `<div style="font-size:11.5px; color:#9aa3b8; margin-bottom:8px;">${headerSub}</div>` : ''}
+
+    <vaadin-text-area theme="outlined" id="defnote-${key}" label="Description"
+      style="width:100%;" rows="2" value="${defNotes[key] || ''}"
+      placeholder="e.g., Cylinder gauge reads 78% — below 90% threshold"></vaadin-text-area>
+
+    <div style="margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <label style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:#8b96b0;">Urgency</label>
+      <vaadin-select theme="outlined" id="urgency-${key}" value="${urgency}" style="width:160px;"
+        onchange="setUrgency('${key}', this.value)"></vaadin-select>
+    </div>
+
+    ${failedChip}
+    ${replacementChip}
+
+    <div style="margin-top:12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:12px;">
+      ${!wo ? `
+      <vaadin-button theme="secondary small" onclick="createWO('${key}')" id="woBtn-${key}">
+        <i class="fa-solid fa-ticket" slot="prefix"></i> Create Work Order
+      </vaadin-button>` : `
+      <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:#fbbf24;
+                   padding:5px 10px; border-radius:6px; background:rgba(245,158,11,0.10); border:1px solid rgba(245,158,11,0.30);">
+        <i class="fa-solid fa-ticket"></i> ${wo.woId} created · routed to Fleet Manager
+      </span>`}
+
+      ${isReplaceable && !rep ? `
+      <vaadin-button theme="primary small" onclick="openReplacementPicker('${key}')" id="repBtn-${key}">
+        <i class="fa-solid fa-right-left" slot="prefix"></i> Find Replacement Asset
+      </vaadin-button>` : ''}
+
+      ${rep ? `
+      <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:#34d399;
+                   padding:5px 10px; border-radius:6px; background:rgba(16,185,129,0.10); border:1px solid rgba(16,185,129,0.30);">
+        <i class="fa-solid fa-circle-check"></i> Replacement assigned — swap recorded
+      </span>
+      <vaadin-button theme="tertiary small" onclick="undoReplacement('${key}')">
+        <i class="fa-solid fa-rotate-left" slot="prefix"></i> Undo swap
+      </vaadin-button>` : ''}
+    </div>
+
+    ${isReplaceable && !rep && wo ? `
+    <div style="margin-top:8px; font-size:11.5px; color:#9aa3b8; line-height:1.5;">
+      <i class="fa-solid fa-circle-info" style="color:#a5b4fc; margin-right:4px;"></i>
+      Work order created. Apparatus still needs ${item.variantLabel || 'this asset'} for in-service status —
+      pull a replacement from station stock or place Engine 7 OOS at attestation.
+    </div>` : ''}
+  `;
+}
+
+// Populate vaadin-select urgency options after the row is in the DOM.
+function wireUrgencySelect(key) {
+  setTimeout(() => {
+    const el = document.getElementById('urgency-' + key);
+    if (!el) return;
+    el.items = [
+      { label: 'Normal — non-blocking', value: 'normal' },
+      { label: 'Priority — same shift', value: 'priority' },
+      { label: 'Urgent — apparatus may be OOS', value: 'urgent' },
+    ];
+    el.value = workOrders[key]?.urgency || 'normal';
+  }, 30);
+}
+
+function setUrgency(key, value) {
+  if (workOrders[key]) {
+    workOrders[key].urgency = value;
+  } else {
+    // Stash so it carries into the WO when created.
+    workOrders[key] = { _pendingUrgency: value };
+  }
+}
+
+function wireVerifyRows(step) {
+  restoreDefNotes(step);
+  // Wire urgency selects for any items currently in deficiency state.
+  step.items.forEach(it => {
+    if (isItemFlagged(it)) wireUrgencySelect(it.key);
+  });
+  // Wire kind-specific controls that need real event listeners (vaadin
+  // components fire custom events that can't be bound via inline attrs).
+  step.items.forEach(it => wireRowControls(it));
+}
+
+function wireRowControls(item) {
+  const kind = item.kind || 'check';
+  const key  = item.key;
+
+  // Helper: seed an element's `value` programmatically, then attach the
+  // change listener. Order matters: seeding before attaching avoids a
+  // value-changed → setNumeric → rerenderRow → wireRowControls → seed → loop.
+  const seedThenWire = (el, seedValue, eventName, handler) => {
+    if (!el || el._wired) return;
+    if (seedValue !== undefined && seedValue !== null && seedValue !== '') {
+      el.value = (typeof seedValue === 'number') ? String(seedValue) : seedValue;
+    }
+    el._wired = true;
+    el.addEventListener(eventName, handler);
+  };
+
+  setTimeout(() => {
+    if (kind === 'numeric' || kind === 'count') {
+      seedThenWire(
+        document.getElementById('num-' + key),
+        answers[key],
+        'value-changed',
+        e => {
+          // Ignore the synthetic value-changed that fires for empty → empty.
+          if (e.detail.value === '' && (answers[key] == null || answers[key] === '')) return;
+          // Also ignore when the new value matches state (programmatic seed).
+          if (String(e.detail.value) === String(answers[key])) return;
+          setNumeric(key, e.detail.value);
+        }
+      );
+    }
+    if (kind === 'date' || kind === 'datetime') {
+      seedThenWire(
+        document.getElementById('dt-' + key),
+        answers[key],
+        'value-changed',
+        e => {
+          if (e.detail.value === answers[key]) return;
+          setText(key, e.detail.value);
+        }
+      );
+    }
+    if (kind === 'acknowledge') {
+      const el = document.querySelector(`#wrap-${key} vaadin-checkbox`);
+      if (el && !el._wired) {
+        el._wired = true;
+        el.addEventListener('checked-changed', e => {
+          if (!!e.detail.value === !!answers[key]) return;
+          setAck(key, e.detail.value);
+        });
+      }
+    }
+    if (kind === 'text' || kind === 'long-text') {
+      seedThenWire(
+        document.getElementById((kind === 'text' ? 'txt-' : 'ltxt-') + key),
+        answers[key],
+        'value-changed',
+        e => {
+          if ((e.detail.value || '') === (answers[key] || '')) return;
+          setText(key, e.detail.value);
+        }
+      );
+    }
+    if (kind === 'signature') {
+      const sigField = document.getElementById('sig-' + key);
+      if (sigField && !sigField._wired) {
+        sigField._wired = true;
+        sigField.addEventListener('value-changed', e => {
+          const btn = document.getElementById('sigBtn-' + key);
+          if (btn) btn.disabled = !(e.detail.value && e.detail.value.trim());
+        });
+      }
+    }
+    // Wire note-slot textarea once it's in the DOM (slot is conditionally
+    // present; only inside the expansion panel).
+    if (item.allowNote) {
+      const ta = document.querySelector(`#slotexp-${key} vaadin-text-area`);
+      if (ta && !ta._wired) {
+        const cur = attachments[key]?.note;
+        if (cur != null) ta.value = cur;
+        ta._wired = true;
+        ta.addEventListener('value-changed', e => {
+          if ((e.detail.value || '') === (attachments[key]?.note || '')) return;
+          setSlotNote(key, e.detail.value);
+        });
+      }
+    }
+  }, 40);
+}
+
+function markItem(event, key, result) {
+  event.stopPropagation();
+  saveCurrentDefNotes();
+
+  checkState[key] = (checkState[key] === result) ? null : result;
+
+  // Update dot
+  const dot = document.getElementById('dot-' + key);
+  if (dot) { dot.className = 'verify-row-dot ' + (checkState[key] || ''); }
+
+  // Refresh verify buttons
+  ['pass','deficiency','na'].forEach(t => {
+    const btn = document.querySelector(`#ctrl-${key} .verify-btn.${t}`);
+    if (btn) btn.classList.toggle('selected', checkState[key] === t);
+  });
+
+  // Show/hide deficiency form
+  const isDef = checkState[key] === 'deficiency';
+  const deskDef = document.getElementById('deskdef-' + key);
+  if (deskDef) {
+    deskDef.classList.toggle('visible', isDef);
+    deskDef.innerHTML = isDef ? buildDeficiencyForm(key) : '';
+    if (isDef) {
+      restoreDefNoteForKey(key);
+      wireUrgencySelect(key);
+    }
+  }
+
+  updateFooterState();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PER-KIND HANDLERS
+// All handlers follow the same pattern: write into state, then either
+// surgically update the row (cheap) or re-render the whole row (when controls
+// or the deficiency form need to redraw — e.g., numeric crossing threshold).
+// ─────────────────────────────────────────────────────────────────────────────
+
+function setYesNo(event, key, value) {
+  event.stopPropagation();
+  answers[key] = (answers[key] === value) ? null : value;
+  rerenderRow(key);
+  updateFooterState();
+}
+
+function setNumeric(key, value) {
+  const item = findItemByKey(key)?.item;
+  if (!item) return;
+  // Empty string clears the answer. Otherwise store as number.
+  if (value === '' || value == null) {
+    delete answers[key];
+  } else {
+    const n = Number(value);
+    answers[key] = Number.isNaN(n) ? value : n;
+  }
+  // Rerender so the threshold pill flips state and the deficiency form
+  // attaches/detaches on auto-fail.
+  rerenderRow(key);
+  updateFooterState();
+}
+
+function setText(key, value) {
+  answers[key] = value;
+  // Live-update the match indicator without re-rendering the whole row to
+  // avoid input cursor jumps. Cheap surgical update for text/long-text/select/date.
+  const item = findItemByKey(key)?.item;
+  if (item?.kind === 'text' && item.expectedValue != null) {
+    rerenderRow(key);
+  } else {
+    // Update dot + slot-button counts
+    const dot = document.getElementById('dot-' + key);
+    if (dot) dot.className = 'verify-row-dot ' + computeDotClass(item);
+  }
+  updateFooterState();
+}
+
+function toggleMulti(key, value) {
+  const cur = Array.isArray(answers[key]) ? answers[key].slice() : [];
+  const idx = cur.indexOf(value);
+  if (idx >= 0) cur.splice(idx, 1); else cur.push(value);
+  answers[key] = cur;
+  rerenderRow(key);
+  updateFooterState();
+}
+
+function setAck(key, checked) {
+  answers[key] = !!checked;
+  rerenderRow(key);
+  updateFooterState();
+}
+
+function captureSignature(key) {
+  const input = document.getElementById('sig-' + key);
+  const name = (input?.value || '').trim();
+  if (!name) return;
+  answers[key] = name;
+  rerenderRow(key);
+  updateFooterState();
+  showToast(`Signed: ${name}`, 'fa-signature', 2500);
+}
+
+function clearSignature(key) {
+  delete answers[key];
+  rerenderRow(key);
+  updateFooterState();
+}
+
+// ── Universal photo + note slots ─────────────────────────────────────────────
+let _openSlot = {}; // key → 'photo' | 'note' | null  (which slot panel is open)
+function toggleSlot(key /*, which */) {
+  // Single expansion panel per row; clicking either button toggles it.
+  const panel = document.getElementById('slotexp-' + key);
+  if (!panel) return;
+  const open = panel.classList.toggle('open');
+  _openSlot[key] = open ? 'open' : null;
+}
+
+let _photoCounter = 0;
+function mockAddPhoto(key) {
+  // Mock photo capture — in production this would open camera or file picker.
+  _photoCounter++;
+  attachments[key] = attachments[key] || {};
+  attachments[key].photos = attachments[key].photos || [];
+  attachments[key].photos.push({
+    name: `IMG_${String(Date.now()).slice(-6)}-${_photoCounter}.jpg`,
+    capturedAt: new Date().toISOString(),
+  });
+  rerenderRow(key);
+  // Keep slot panel open
+  const panel = document.getElementById('slotexp-' + key);
+  if (panel) panel.classList.add('open');
+  _openSlot[key] = 'open';
+}
+
+function removePhoto(key, idx) {
+  const a = attachments[key];
+  if (!a?.photos) return;
+  a.photos.splice(idx, 1);
+  rerenderRow(key);
+  const panel = document.getElementById('slotexp-' + key);
+  if (panel) panel.classList.add('open');
+}
+
+function setSlotNote(key, value) {
+  attachments[key] = attachments[key] || {};
+  attachments[key].note = value;
+  // Update the combined slot chip's label without re-rendering the row, so
+  // the textarea keeps focus mid-typing.
+  refreshSlotChip(key);
+}
+
+// Recompute the combined chip's label + state. Called by setSlotNote
+// (surgical update — preserves focus) and after add/remove photo.
+function refreshSlotChip(key) {
+  const item = findItemByKey(key)?.item;
+  if (!item) return;
+  const btn = document.querySelector(`#wrap-${key} .row-slot-btn`);
+  if (!btn) return;
+  const a = attachments[key] || {};
+  const photoCount = (a.photos || []).length;
+  const hasNote    = !!(a.note && a.note.trim());
+  const hasContent = photoCount > 0 || hasNote;
+
+  let html;
+  if (hasContent) {
+    const bits = [];
+    if (photoCount > 0) bits.push(`<i class="fa-solid fa-camera"></i> ${photoCount} photo${photoCount > 1 ? 's' : ''}`);
+    if (hasNote)        bits.push(`<i class="fa-solid fa-note-sticky"></i> Note`);
+    html = bits.join(' &middot; ');
+  } else {
+    const idleLabel =
+      item.allowPhoto && item.allowNote ? 'Add photo or note' :
+      item.allowPhoto                   ? 'Add photo'         :
+                                          'Add note';
+    const idleIcon =
+      item.allowPhoto && item.allowNote ? 'fa-paperclip' :
+      item.allowPhoto                   ? 'fa-camera'    :
+                                          'fa-note-sticky';
+    html = `<i class="fa-solid ${idleIcon}"></i> ${idleLabel}`;
+  }
+  btn.classList.toggle('has-content', hasContent);
+  btn.innerHTML = html;
+}
+
+// Re-render a single row in place. Cheap; preserves the rest of the step DOM.
+function rerenderRow(key) {
+  const item = findItemByKey(key)?.item;
+  if (!item) return;
+  saveCurrentDefNotes();
+  const wrap = document.getElementById('wrap-' + key);
+  if (!wrap) return;
+  wrap.outerHTML = renderVerifyRow(item);
+  // Re-wire interactive sub-components for this row.
+  restoreDefNoteForKey(key);
+  if (isItemFlagged(item)) wireUrgencySelect(key);
+  wireRowControls(item);
+  // Restore the slot expansion's open/closed state.
+  if (_openSlot[key] === 'open') {
+    const panel = document.getElementById('slotexp-' + key);
+    if (panel) panel.classList.add('open');
+  }
+}
+
+// "Pass All" applies only to kind:check items (the original pass/def/na flow).
+// Other kinds need an explicit answer and are skipped.
+function passAllItems() {
+  const step = activeSteps[currentStep];
+  if (!step || step.type !== 'check') return;
+  saveCurrentDefNotes();
+  step.items.forEach(it => {
+    if ((it.kind || 'check') === 'check') checkState[it.key] = 'pass';
+  });
+  const section = document.getElementById('verifySection');
+  if (section) section.innerHTML = step.items.map(it => renderVerifyRow(it)).join('');
+  wireVerifyRows(step);
+  updateFooterState();
+  const btn = document.getElementById('passAllBtn');
+  if (btn) btn.style.display = 'none';
+}
+
+function updateFooterState() {
+  const step = activeSteps[currentStep];
+  if (!step || step.type !== 'check') return;
+  const total     = step.items.length;
+  const answered  = step.items.filter(isItemAnswered).length;
+  const allMarked = answered === total;
+
+  const badge   = document.getElementById('stepBadge');
+  const nextBtn = document.getElementById('nextBtn');
+  if (badge) {
+    badge.textContent = allMarked ? 'All marked' : `${answered} / ${total} marked`;
+    badge.className = 'status-pill ' + (allMarked ? 'ok' : 'info');
+  }
+  if (nextBtn) { nextBtn.disabled = !allMarked; }
+
+  // Pass-All button is only useful when every check-kind item is unset or
+  // not-passed. Hide it if there are no check-kind items in this step.
+  const checkItems = step.items.filter(it => (it.kind || 'check') === 'check');
+  const passAllBtn = document.getElementById('passAllBtn');
+  if (passAllBtn) {
+    if (checkItems.length === 0 || checkItems.every(it => checkState[it.key] === 'pass')) {
+      passAllBtn.style.display = 'none';
+    } else {
+      passAllBtn.style.display = '';
+    }
+  }
+}
+
+function restoreDefNotes(step) {
+  step.items.forEach(it => restoreDefNoteForKey(it.key));
+}
+
+function restoreDefNoteForKey(key) {
+  if (!defNotes[key]) return;
+  setTimeout(() => {
+    const el = document.getElementById('defnote-' + key);
+    if (el) el.value = defNotes[key];
+  }, 50);
+}
+
+function saveCurrentDefNotes() {
+  const step = activeSteps[currentStep];
+  if (step?.type !== 'check') return;
+  step.items.forEach(it => {
+    const el = document.getElementById('defnote-' + it.key);
+    if (el) defNotes[it.key] = el.value || '';
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WORK ORDER + REPLACEMENT FLOW
+// Workflow 1.6 (fire): deficiency → WO routed to Fleet Manager (1.5).
+// Workflow 1.1.1 step 4b: equipment swap from station spare equipment.
+// ─────────────────────────────────────────────────────────────────────────────
+function createWO(key) {
+  const noteEl = document.getElementById('defnote-' + key);
+  if (noteEl) defNotes[key] = noteEl.value || '';
+  const urgEl = document.getElementById('urgency-' + key);
+  const urgency = (urgEl?.value) || workOrders[key]?._pendingUrgency || 'normal';
+
+  const lookup = findItemByKey(key);
+  workOrders[key] = {
+    woId: nextWoId(),
+    urgency,
+    createdAt: new Date().toISOString(),
+    description: defNotes[key] || '',
+    itemLabel: lookup?.item.label || key,
+    assetTag:  lookup?.item.assetTag || null,
+  };
+
+  // Re-render this row's deficiency block in place so the WO badge replaces
+  // the button and the "Find Replacement" button appears if applicable.
+  const deskDef = document.getElementById('deskdef-' + key);
+  if (deskDef) {
+    deskDef.innerHTML = buildDeficiencyForm(key);
+    restoreDefNoteForKey(key);
+    wireUrgencySelect(key);
+  }
+
+  renderRail();
+  showToast(`${workOrders[key].woId} created · ${lookup?.item.label || key} · routed to Fleet Manager`, 'fa-ticket');
+}
+
+// Open the picker dialog. Replacement candidates come from REPLACEMENT_POOL
+// keyed by the item's variantKey.
+let _pickerCurrentKey = null;
+let _pickerSelectedId = null;
+function openReplacementPicker(key) {
+  const lookup = findItemByKey(key);
+  if (!lookup?.item.assetTag || !lookup.item.variantKey) return;
+
+  _pickerCurrentKey = key;
+  _pickerSelectedId = null;
+
+  const dialog = document.getElementById('replacementDialog');
+  dialog.headerTitle = 'Find Replacement Asset';
+  dialog.renderer = (root) => {
+    root.innerHTML = '';
+    const item = lookup.item;
+    const pool = REPLACEMENT_POOL[item.variantKey] || [];
+
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'width:min(560px, 90vw); max-height:60vh; overflow-y:auto;';
+    wrapper.innerHTML = `
+      <div class="picker-summary">
+        <strong>${item.label}</strong> failed inspection on Engine 7.
+        Failed asset <strong>${item.assetTag}</strong> will be marked
+        out-of-service and unassigned from <em>${item.slot || 'this slot'}</em>.
+        Pick a replacement from station stock to keep Engine 7 in service.
+      </div>
+      <div class="picker-section-label">
+        In-stock — ${item.variantLabel || item.variantKey}
+        <span style="text-transform:none; letter-spacing:0; font-weight:500; color:#9aa3b8; margin-left:6px;">
+          (${pool.length} available)
+        </span>
+      </div>
+      ${pool.length > 0 ? pool.map(opt => `
+        <div class="picker-option" data-id="${opt.id}" onclick="pickerSelect('${opt.id}')">
+          <div class="picker-option-radio"></div>
+          <div class="picker-option-body">
+            <div class="picker-option-id">${opt.id}${opt.sn !== '—' ? ` · SN ${opt.sn}` : ''}</div>
+            <div class="picker-option-meta">${opt.location} · ${opt.condition}${opt.cylPressure ? ' · ' + opt.cylPressure : ''}</div>
+          </div>
+          <span class="picker-option-badge">Available</span>
+        </div>
+      `).join('') : `
+        <div style="padding:14px; text-align:center; color:#8b96b0; font-size:12.5px;
+                    background:rgba(239,68,68,0.06); border:1px dashed rgba(239,68,68,0.30); border-radius:8px;">
+          <i class="fa-solid fa-triangle-exclamation" style="color:#f87171; margin-right:6px;"></i>
+          No in-stock replacements available at any station.
+          The work order is the only recourse — apparatus may need to go OOS.
+        </div>
+      `}
+    `;
+    root.appendChild(wrapper);
+  };
+  dialog.footerRenderer = (root) => {
+    root.innerHTML = '';
+    const cancel = document.createElement('vaadin-button');
+    cancel.setAttribute('theme', 'tertiary');
+    cancel.textContent = 'Cancel';
+    cancel.addEventListener('click', () => { dialog.opened = false; });
+
+    const confirm = document.createElement('vaadin-button');
+    confirm.setAttribute('theme', 'primary');
+    confirm.id = 'pickerConfirmBtn';
+    confirm.setAttribute('disabled', '');
+    confirm.innerHTML = '<i class="fa-solid fa-right-left" slot="prefix"></i>Confirm Swap';
+    confirm.addEventListener('click', confirmReplacement);
+
+    root.appendChild(cancel);
+    root.appendChild(confirm);
+  };
+  dialog.opened = true;
+}
+
+function pickerSelect(id) {
+  _pickerSelectedId = id;
+  document.querySelectorAll('.picker-option').forEach(el => {
+    el.classList.toggle('selected', el.dataset.id === id);
+  });
+  const btn = document.getElementById('pickerConfirmBtn');
+  if (btn) btn.removeAttribute('disabled');
+}
+
+function confirmReplacement() {
+  if (!_pickerCurrentKey || !_pickerSelectedId) return;
+  const key = _pickerCurrentKey;
+  const lookup = findItemByKey(key);
+  const pool = REPLACEMENT_POOL[lookup.item.variantKey] || [];
+  const picked = pool.find(o => o.id === _pickerSelectedId);
+  if (!picked) return;
+
+  // Ensure a WO exists — replacement is the operational fix, the WO is the
+  // maintenance record for the failed asset's eventual repair/disposition.
+  if (!workOrders[key] || !workOrders[key].woId) createWO(key);
+
+  replacements[key] = {
+    failedAssetTag: lookup.item.assetTag,
+    failedSn:       lookup.item.assetSn,
+    slot:           lookup.item.slot,
+    replacement:    picked,
+    swappedAt:      new Date().toISOString(),
+  };
+
+  // Remove picked asset from the in-stock pool so it can't be picked again
+  // for another deficiency in this same ceremony.
+  REPLACEMENT_POOL[lookup.item.variantKey] = pool.filter(o => o.id !== picked.id);
+
+  document.getElementById('replacementDialog').opened = false;
+  _pickerCurrentKey = null;
+  _pickerSelectedId = null;
+
+  // Re-render the deficiency block to show the swap chips + Undo button.
+  const deskDef = document.getElementById('deskdef-' + key);
+  if (deskDef) {
+    deskDef.innerHTML = buildDeficiencyForm(key);
+    restoreDefNoteForKey(key);
+    wireUrgencySelect(key);
+  }
+  renderRail();
+  showToast(`Swap recorded — ${lookup.item.assetTag} → OOS, ${picked.id} assigned to ${lookup.item.slot || 'slot'}`, 'fa-right-left', 5000);
+}
+
+function undoReplacement(key) {
+  const rep = replacements[key];
+  if (!rep) return;
+  const lookup = findItemByKey(key);
+  // Return the asset to the pool.
+  const pool = REPLACEMENT_POOL[lookup.item.variantKey] || [];
+  REPLACEMENT_POOL[lookup.item.variantKey] = [rep.replacement, ...pool];
+  delete replacements[key];
+
+  const deskDef = document.getElementById('deskdef-' + key);
+  if (deskDef) {
+    deskDef.innerHTML = buildDeficiencyForm(key);
+    restoreDefNoteForKey(key);
+    wireUrgencySelect(key);
+  }
+  renderRail();
+  showToast(`Swap undone — ${rep.replacement.id} returned to stock`, 'fa-rotate-left');
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OFFICER ATTESTATION STEP
+// Company officer signs off on apparatus readiness (per workflow 1.3.2).
+// If unresolved deficiencies remain, attestation records "in service with
+// noted deficiencies" or "OOS" based on officer judgment (Principle 7).
+// ─────────────────────────────────────────────────────────────────────────────
+function renderAttestStep(step) {
+  const container = document.getElementById('ceremonyContent');
+
+  // Aggregate deficiencies across all check steps. Includes:
+  //   · kind:check items explicitly marked 'deficiency'
+  //   · kind:numeric / kind:count items that auto-failed their threshold/par
+  //   · kind:text items whose value mismatches an expectedValue (soft discrepancy)
+  // Tracks which have a replacement vs. WO-only so the summary distinguishes
+  // resolved-in-ceremony from work-orders-pending.
+  const rigDefs = activeSteps.filter(s => s.type === 'check')
+    .flatMap(s => s.items.filter(it => {
+        if (isItemFlagged(it)) return true; // check def OR numeric/count fail
+        if (it.kind === 'text' && it.expectedValue != null) {
+          const v = answers[it.key];
+          return v && String(v).trim().toLowerCase() !== String(it.expectedValue).trim().toLowerCase();
+        }
+        return false;
+      }).map(it => ({
+        key: it.key,
+        kind: it.kind || 'check',
+        label: it.label,
+        section: s.title,
+        assetTag: it.assetTag || null,
+        replaced: !!replacements[it.key],
+        wo: workOrders[it.key] || null,
+        readingValue: (it.kind === 'numeric' || it.kind === 'count') ? answers[it.key] : null,
+        readingUnit: it.unit || null,
+        textValue: it.kind === 'text' ? answers[it.key] : null,
+        textExpected: it.kind === 'text' ? it.expectedValue : null,
+      })));
+
+  // Also surface free-form answers that have business value to show on the
+  // record summary (mileage, engine hours, completion timestamp, narrative).
+  const recordedReadings = activeSteps.filter(s => s.type === 'check')
+    .flatMap(s => s.items
+      .filter(it => answers[it.key] != null && answers[it.key] !== ''
+        && ['numeric','count','date','datetime','long-text','select'].includes(it.kind)
+        && !isItemFlagged(it)) // failures are already in rigDefs
+      .map(it => ({
+        key: it.key, kind: it.kind, label: it.label, section: s.title,
+        value: answers[it.key], unit: it.unit || null,
+        options: it.options || null,
+      })));
+
+  // Photos + notes attached to any item.
+  const totalPhotos = Object.values(attachments).reduce((n, a) => n + (a.photos?.length || 0), 0);
+  const totalNotes  = Object.values(attachments).filter(a => a.note && a.note.trim()).length;
+
+  const replacedCount  = rigDefs.filter(d => d.replaced).length;
+  const woOnlyCount    = rigDefs.filter(d => !d.replaced && d.wo).length;
+  const unresolvedCount = rigDefs.filter(d => !d.replaced && !d.wo).length;
+  const hasAnyIssues   = rigDefs.length > 0;
+
+  container.innerHTML = `
+    <div class="ceremony-state-bar">
+      <span class="status-pill ${attestA ? 'ok' : 'info'}">
+        Officer Attestation — ${attestA ? 'Complete' : 'Awaiting'}
+      </span>
+      <span class="sep">·</span>
+      <span>Engine 7 · Station 7 · Alpha Shift</span>
+    </div>
+
+    <!-- Record summary -->
+    <div class="step-card" style="margin-bottom:16px;">
+      <div class="step-card-header">
+        <div>
+          <div class="step-card-title">Apparatus Rig Check — Record Summary</div>
+          <div class="step-card-meta">Officer review before in-service sign-off. Work orders and replacements are part of this record.</div>
+        </div>
+        <span class="status-pill ${hasAnyIssues ? 'warn' : 'ok'}">
+          ${hasAnyIssues ? `${rigDefs.length} deficienc${rigDefs.length > 1 ? 'ies' : 'y'}` : 'All sections pass'}
+        </span>
+      </div>
+      <div class="step-card-body">
+
+        <div class="summary-section">
+          <div class="summary-section-label">Rig Check — Sections</div>
+          ${activeSteps.filter(s => s.type === 'check').map(s => {
+            const defs = s.items.filter(it => isItemFlagged(it)).length;
+            const items = s.items.length;
+            return `
+            <div class="summary-row">
+              <i class="fa-solid ${defs > 0 ? 'fa-triangle-exclamation' : 'fa-circle-check'}"
+                 style="color:${defs > 0 ? '#f87171' : '#34d399'}; width:14px;"></i>
+              <span class="summary-row-label">${s.title}
+                <span style="font-size:11px; color:#8b96b0; margin-left:6px;">${items} item${items > 1 ? 's' : ''}</span>
+              </span>
+              <span class="summary-row-result" style="color:${defs > 0 ? '#f87171' : '#34d399'};">
+                ${defs > 0 ? defs + ' deficienc' + (defs !== 1 ? 'ies' : 'y') : 'Pass'}
+              </span>
+            </div>`;
+          }).join('')}
+        </div>
+
+        ${recordedReadings.length > 0 ? `
+        <div class="summary-section">
+          <div class="summary-section-label">Recorded Values</div>
+          ${recordedReadings.map(r => {
+            let display = r.value;
+            if (r.kind === 'select') {
+              const opt = r.options?.find(o => o.value === r.value);
+              display = opt?.label || r.value;
+            } else if (r.kind === 'long-text') {
+              display = r.value.length > 60 ? r.value.slice(0,60) + '…' : r.value;
+            } else if (r.unit) {
+              display = `${r.value} ${r.unit}`;
+            }
+            return `
+            <div class="summary-row">
+              <i class="fa-solid fa-circle-dot" style="color:#a5b4fc; width:14px;"></i>
+              <span class="summary-row-label">${r.label}
+                <span style="font-size:11px; color:#8b96b0; margin-left:6px;">${r.section}</span>
+              </span>
+              <span class="summary-row-result" style="color:#c4cce0; font-weight:600;">${display}</span>
+            </div>`;
+          }).join('')}
+        </div>` : ''}
+
+        ${(totalPhotos > 0 || totalNotes > 0) ? `
+        <div class="summary-section">
+          <div class="summary-section-label">Attachments</div>
+          <div class="summary-row">
+            <i class="fa-solid fa-paperclip" style="color:#a5b4fc; width:14px;"></i>
+            <span class="summary-row-label">Photos &amp; notes captured during check</span>
+            <span class="summary-row-result" style="color:#c4cce0; font-weight:600;">
+              ${totalPhotos > 0 ? `${totalPhotos} photo${totalPhotos > 1 ? 's' : ''}` : ''}
+              ${totalPhotos > 0 && totalNotes > 0 ? ' · ' : ''}
+              ${totalNotes > 0 ? `${totalNotes} note${totalNotes > 1 ? 's' : ''}` : ''}
+            </span>
+          </div>
+        </div>` : ''}
+
+        ${rigDefs.length > 0 ? `
+        <div class="summary-section">
+          <div class="summary-section-label" style="color:#f87171;">
+            Deficiencies — ${rigDefs.length} item${rigDefs.length > 1 ? 's' : ''}
+            ${replacedCount > 0 ? `<span style="color:#34d399; margin-left:8px;">· ${replacedCount} replaced from stock</span>` : ''}
+            ${woOnlyCount > 0 ? `<span style="color:#fbbf24; margin-left:8px;">· ${woOnlyCount} WO pending</span>` : ''}
+          </div>
+          ${rigDefs.map(d => {
+            const rep = replacements[d.key];
+            const woId = d.wo?.woId;
+            let triggerChip = '';
+            if (d.kind === 'numeric' || d.kind === 'count') {
+              triggerChip = `<span style="color:#f87171;"><i class="fa-solid fa-gauge-high"></i> Reading: ${d.readingValue}${d.readingUnit ? ' ' + d.readingUnit : ''}</span>`;
+            } else if (d.kind === 'text') {
+              triggerChip = `<span style="color:#fbbf24;"><i class="fa-solid fa-keyboard"></i> "${d.textValue}" ≠ "${d.textExpected}"</span>`;
+            }
+            return `
+            <div class="summary-row" style="align-items:flex-start;">
+              <i class="fa-solid fa-triangle-exclamation" style="color:#f87171; width:14px; margin-top:3px;"></i>
+              <div style="flex:1;">
+                <div><span style="color:#c4cce0; font-weight:600;">${d.label}</span>
+                  <span style="font-size:11px; color:#8b96b0; margin-left:8px;">${d.section}</span></div>
+                <div style="margin-top:4px; font-size:11.5px; display:flex; gap:12px; flex-wrap:wrap;">
+                  ${triggerChip}
+                  ${woId ? `<span style="color:#fbbf24;"><i class="fa-solid fa-ticket"></i> ${woId}</span>` : ''}
+                  ${rep ? `<span style="color:#34d399;"><i class="fa-solid fa-right-left"></i> ${d.assetTag} → ${rep.replacement.id}</span>` : ''}
+                  ${!rep && d.assetTag && woId ? `<span style="color:#f87171;"><i class="fa-solid fa-ban"></i> ${d.assetTag} → OOS, no replacement</span>` : ''}
+                </div>
+                ${defNotes[d.key] ? `<div style="margin-top:3px; font-size:11px; color:#9aa3b8; font-style:italic;">"${defNotes[d.key]}"</div>` : ''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>` : ''}
+
+        <div class="summary-section">
+          <div class="summary-section-label">Readiness Determination</div>
+          ${unresolvedCount > 0 ? `
+          <div class="state-callout discrepancy" style="margin-bottom:0;">
+            <i class="fa-solid fa-triangle-exclamation" style="flex-shrink:0; margin-top:1px;"></i>
+            <div>
+              <div class="state-callout-title">Officer judgment required</div>
+              <div>${unresolvedCount} deficienc${unresolvedCount > 1 ? 'ies' : 'y'} without replacement or work order. Officer may sign off in service with noted deficiency (if it does not prevent safe response, per workflow 1.3.2) or place apparatus OOS.</div>
+            </div>
+          </div>` : hasAnyIssues ? `
+          <div class="state-callout success" style="margin-bottom:0;">
+            <i class="fa-solid fa-circle-check" style="flex-shrink:0; margin-top:1px;"></i>
+            <div>
+              <div class="state-callout-title">In service — deficiencies addressed</div>
+              <div>${replacedCount > 0 ? `${replacedCount} item${replacedCount > 1 ? 's' : ''} replaced from station stock. ` : ''}${woOnlyCount > 0 ? `${woOnlyCount} work order${woOnlyCount > 1 ? 's' : ''} routed to Fleet Manager. ` : ''}Apparatus cleared for response.</div>
+            </div>
+          </div>` : `
+          <div class="state-callout success" style="margin-bottom:0;">
+            <i class="fa-solid fa-circle-check" style="flex-shrink:0; margin-top:1px;"></i>
+            <div>
+              <div class="state-callout-title">In service — fully ready</div>
+              <div>All sections pass. Apparatus cleared for response.</div>
+            </div>
+          </div>`}
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Attestation -->
+    <div class="step-card">
+      <div class="step-card-header">
+        <div>
+          <div class="step-card-title">
+            <i class="fa-solid fa-signature" style="margin-right:8px; color:#a5b4fc;"></i>Company Officer Attestation
+          </div>
+          <div class="step-card-meta">
+            The company officer is accountable for the readiness determination
+            and signs off on this record (workflow 1.3.2).
+            ${hasAnyIssues ? '<strong>Deficiencies are recorded with this attestation — they do not block sign-off.</strong>' : ''}
+          </div>
+        </div>
+        <span class="status-pill ${attestA ? 'ok' : 'info'}" id="attestBadge">
+          ${attestA ? 'Attested' : 'Pending'}
+        </span>
+      </div>
+
+      <div class="step-card-body">
+
+        <div class="auth-row">
+          <div class="auth-person">
+            <div class="auth-name">Capt. S. Chen</div>
+            <div class="auth-role">Company Officer · F03-CAPT · Engine 7 · Alpha Shift</div>
+          </div>
+          ${attestA ? `
+          <div class="auth-status done">
+            <i class="fa-solid fa-circle-check"></i> Attested — 06:38
+          </div>` : `
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span class="auth-status waiting"><i class="fa-solid fa-clock"></i> Pending</span>
+            <vaadin-button theme="primary small" onclick="attest()">
+              <i class="fa-solid fa-signature" slot="prefix"></i>
+              Sign off on apparatus readiness
+            </vaadin-button>
+          </div>`}
+        </div>
+
+        ${attestA ? `
+        <div style="margin-top:12px; padding:10px 14px; background:rgba(16,185,129,0.10); border-radius:8px; font-size:12px; color:#c4cce0;">
+          <i class="fa-solid fa-circle-check" style="margin-right:6px; color:#34d399;"></i>
+          <strong>Record is ready to submit.</strong>
+          On submit: Engine 7 status → ${unresolvedCount > 0 ? '<em>in service with noted deficiency</em>' : '<em>in service · checked</em>'};
+          ${Object.keys(workOrders).length > 0 ? `${Object.keys(workOrders).length} work order${Object.keys(workOrders).length > 1 ? 's' : ''} routed to Fleet Manager (1.5);` : ''}
+          ${Object.keys(replacements).length > 0 ? `${Object.keys(replacements).length} asset swap${Object.keys(replacements).length > 1 ? 's' : ''} committed to inventory.` : ''}
+        </div>` : ''}
+
+      </div>
+
+      <div class="step-card-footer">
+        <button class="btn-back" onclick="goToStep(activeSteps.length - 2)">Back</button>
+        <vaadin-button theme="primary" id="submitRecordBtn" ${attestA ? '' : 'disabled'} onclick="submitRecord()">
+          <i class="fa-solid fa-paper-plane" slot="prefix"></i>
+          Submit Rig Check Record
+        </vaadin-button>
+      </div>
+    </div>
+  `;
+}
+
+function attest() {
+  attestA = true;
+  renderStep();
+  renderRail();
+  showToast('Officer attestation recorded. Record is ready to submit.', 'fa-circle-check', 3000);
+}
+
+function submitRecord() {
+  document.getElementById('headerPill').textContent = 'Submitted';
+  document.getElementById('headerPill').className = 'status-pill ok';
+  const woCount = Object.keys(workOrders).length;
+  const repCount = Object.keys(replacements).length;
+  let msg = 'Apparatus rig check submitted — Engine 7, Alpha Shift, ' +
+            new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '. ';
+  if (woCount > 0)  msg += `${woCount} work order${woCount > 1 ? 's' : ''} routed to Fleet Manager. `;
+  if (repCount > 0) msg += `${repCount} asset swap${repCount > 1 ? 's' : ''} committed. `;
+  msg += '<a href="index.html">Return to Home →</a>';
+  showToast(msg, 'fa-circle-check', 8000);
+  setTimeout(() => { window.location.href = 'index.html'; }, 4000);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NAVIGATION
+// ─────────────────────────────────────────────────────────────────────────────
+function advanceStep() {
+  saveCurrentDefNotes();
+  currentStep++;
+  promotedVerifyKey = null;
+  renderRail();
+  renderStep();
+  window.scrollTo(0, 0);
+}
+
+function goToStep(index) {
+  saveCurrentDefNotes();
+  currentStep = index;
+  promotedVerifyKey = null;
+  renderRail();
+  renderStep();
+  window.scrollTo(0, 0);
+}
+
+function resetCeremony() {
+  initState();
+  currentStep = 0;
+  document.getElementById('headerPill').textContent = 'In Progress';
+  document.getElementById('headerPill').className = 'status-pill info';
+  renderRail();
+  renderStep();
+  window.scrollTo(0, 0);
+  showToast('Ceremony reset — starting from Step 1.', 'fa-rotate-left');
+}
+
+function suspendCeremony() {
+  showToast('Ceremony suspended — state preserved. Resume from the Home task queue.', 'fa-pause', 4000);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────────────────────────────────────────
+function showToast(msg, icon = 'fa-circle-info', duration = 4000) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.innerHTML = `
+    <i class="fa-solid ${icon} toast-icon"></i>
+    <span>${msg}</span>
+    <button class="toast-close" onclick="this.closest('.toast').remove()">
+      <i class="fa-solid fa-xmark"></i>
+    </button>`;
+  container.appendChild(toast);
+  if (duration > 0) setTimeout(() => toast.remove(), duration);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// SANDBOX MODE — when invoked with ?deploymentId=…, swap STEPS with a
+// compiled version of the assigned checklist before init runs. Falls back
+// to the hard-coded demo (with a warning banner) if the lookup fails.
+// ─────────────────────────────────────────────────────────────────────────────
+function applySandboxDeployment() {
+  const params = new URLSearchParams(location.search);
+  const depId  = params.get('deploymentId');
+  if (!depId) return; // standalone demo path — leave STEPS untouched
+
+  if (!window.Store || !window.SandboxCompile) {
+    showSandboxFallbackBanner('Sandbox scripts failed to load — showing default demo.');
+    return;
+  }
+
+  const found = window.Store.findDeployment(depId);
+  if (!found) {
+    showSandboxFallbackBanner('Deployment not found in this browser — showing default demo.');
+    return;
+  }
+  const { checklist, deployment } = found;
+  const vehicle = window.Store.getVehicle(deployment.vehicleTag);
+
+  const compiled = window.SandboxCompile.compileChecklistToSteps(
+    checklist,
+    (blockId) => window.Store.getBlock(blockId)
+  );
+
+  if (!compiled.length) {
+    showSandboxFallbackBanner(
+      `"${checklist.name}" has no deployable steps — showing default demo.`);
+    return;
+  }
+
+  STEPS = compiled;
+
+  // Update header text so the ceremony matches the assigned vehicle.
+  const vehicleName = vehicle ? vehicle.name : deployment.vehicleTag;
+  document.title = `CheckIt-2 — ${checklist.name}: ${vehicleName}`;
+  const titleEl = document.querySelector('.ceremony-title');
+  if (titleEl) titleEl.textContent = `${vehicleName} — ${checklist.name}`;
+  const subEl = document.querySelector('.ceremony-subtitle');
+  if (subEl) {
+    const station = vehicle ? vehicle.station : '';
+    const stamp = new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+    subEl.innerHTML = `<span>${station ? station + ' · ' : ''}${stamp}</span>`;
+  }
+}
+
+function showSandboxFallbackBanner(msg) {
+  const banner = document.createElement('div');
+  banner.style.cssText =
+    'position:sticky; top:0; z-index:50;' +
+    'background:#f59e0b; color:#000; padding:10px 16px;' +
+    'font-size:13px; font-weight:600; text-align:center;';
+  banner.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="margin-right:8px;"></i>${msg}`;
+  document.body.insertBefore(banner, document.body.firstChild);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  applySandboxDeployment();
+
+  const returnTo = sessionStorage.getItem('returnTo') ||
+                   sessionStorage.getItem('ceremonyReturn');
+  const backBtn  = document.getElementById('backBtn');
+  if (backBtn && returnTo) {
+    backBtn.href = returnTo;
+    const label = returnTo.includes('index') ? 'Home' :
+                  returnTo.includes('fleet') ? 'Fleet' :
+                  returnTo.includes('sandbox') ? 'Sandbox' : 'Back';
+    backBtn.setAttribute('aria-label', 'Back to ' + label);
+  }
+  initState();
+  buildActiveSteps();
+  renderRail();
+  renderStep();
+});
+
+</script>
+</body>
+</html>

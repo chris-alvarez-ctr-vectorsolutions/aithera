@@ -1,0 +1,1757 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checklist Sandbox — Checklist Builder</title>
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.5.1/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.1.1/styles.js"></script>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+  <link rel="stylesheet" href="_shell.css" />
+  <link rel="stylesheet" href="_mobile.css" />
+  <link rel="stylesheet" href="_theme.css" />
+
+  <style>
+
+    /* ============================================================
+       EDITOR SHELL — same full-page pattern as template-builder.html
+       Only exit is the × button top-left. All sub-surfaces are
+       in-editor overlays (no page navigation).
+       ============================================================ */
+
+    html { background-color: #0e1628; }
+
+    body {
+      margin: 0; overflow-x: hidden; min-height: 100vh;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 0%,  rgba(56,96,186,0.30) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 20%, rgba(99,60,180,0.20) 0%, transparent 55%),
+        #0e1628;
+      background-attachment: fixed;
+    }
+
+    .editor-shell { display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* ── Sticky header ── */
+    .editor-header {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; gap: 12px;
+      padding: 0 16px; height: 56px;
+      background: rgba(20,30,52,0.88);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 1px 0 rgba(255,255,255,0.05), 0 2px 16px rgba(0,0,0,0.3);
+      flex-shrink: 0;
+    }
+
+    .exit-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 6px; border: none;
+      background: none; color: rgba(165,180,252,0.6); cursor: pointer;
+      font-size: 14px; transition: background 0.12s, color 0.12s; flex-shrink: 0;
+    }
+    .exit-btn:hover { background: rgba(239,68,68,0.12); color: #f87171; }
+
+    .header-checklist-name {
+      flex: 1; min-width: 0;
+      font-size: 14px; font-weight: 700;
+      color: #e2e6f0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .editor-status-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .editor-status-pill.draft  { background: rgba(255,255,255,0.10); color: #9aa3b8; }
+    .editor-status-pill.active { background: rgba(16,185,129,0.18);  color: #34d399; }
+
+    .editor-header-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+    .editor-icon-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 6px; border: none;
+      background: none; color: rgba(165,180,252,0.6); cursor: pointer;
+      font-size: 13px; transition: background 0.12s, color 0.12s;
+    }
+    .editor-icon-btn:hover { background: rgba(255,255,255,0.08); color: #a5b4fc; }
+
+    /* ── Two-column body ── */
+    .editor-body { flex: 1; display: flex; overflow: hidden; }
+
+    .editor-canvas {
+      flex: 1; overflow-y: auto; min-width: 0;
+      padding: 24px 20px 140px;
+    }
+    @media (min-width: 900px) { .editor-canvas { padding: 28px 28px 140px; } }
+
+    .config-sidebar {
+      width: 288px; flex-shrink: 0;
+      border-left: 1px solid rgba(255,255,255,0.07);
+      overflow-y: auto; padding: 20px 18px 140px;
+      display: none;
+    }
+    @media (min-width: 900px) { .config-sidebar { display: block; } }
+
+    /* ── Labels & cards ── */
+    .section-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.07em; color: rgba(165,180,252,0.50); margin-bottom: 10px;
+    }
+
+    .editor-card {
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 12px; padding: 20px; margin-bottom: 16px;
+    }
+
+    .checklist-name-input {
+      width: 100%; background: none; border: none;
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+      color: #f0f2f8; font-family: 'Open Sans', sans-serif;
+      font-size: 20px; font-weight: 700; padding: 4px 0 8px;
+      outline: none; transition: border-color 0.12s; box-sizing: border-box;
+    }
+    .checklist-name-input::placeholder { color: rgba(165,180,252,0.22); }
+    .checklist-name-input:focus { border-bottom-color: #6366f1; }
+
+    /* ── Origin banner ── */
+    .origin-banner {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 12px 14px; border-radius: 10px; margin-bottom: 16px;
+      border: 1px solid;
+    }
+    .origin-banner.template-linked {
+      background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.25);
+    }
+    .origin-banner.scratch {
+      background: rgba(139,92,246,0.07); border-color: rgba(139,92,246,0.20);
+    }
+    .origin-banner-icon {
+      width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 13px;
+    }
+    .origin-banner.template-linked .origin-banner-icon { background: rgba(99,102,241,0.18); color: #a5b4fc; }
+    .origin-banner.scratch .origin-banner-icon { background: rgba(139,92,246,0.15); color: #c4b5fd; }
+    .origin-banner-body { flex: 1; min-width: 0; }
+    .origin-banner-title { font-size: 12px; font-weight: 700; color: #e2e6f0; margin-bottom: 2px; }
+    .origin-banner-detail { font-size: 11.5px; color: #8b96b0; line-height: 1.45; }
+
+    /* ── Section canvas ── */
+    .section-wrap { margin-bottom: 10px; transition: opacity 0.15s; }
+    .section-wrap.dragging { opacity: 0.4; }
+    .section-wrap.drag-over-section > .section-card { border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,0.20); }
+
+    .section-card {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 12px; overflow: hidden; transition: border-color 0.15s;
+    }
+
+    /* Link state indicator strip on section card left edge */
+    .section-card.link-template { border-left: 3px solid rgba(99,102,241,0.55); }
+    .section-card.link-block    { border-left: 3px solid rgba(245,158,11,0.55);  }
+    .section-card.link-unique   { border-left: 3px solid rgba(107,114,153,0.40); }
+
+    .section-header {
+      display: flex; align-items: center; gap: 8px; padding: 11px 14px;
+      background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.07);
+      cursor: pointer; user-select: none;
+    }
+    .section-header:hover { background: rgba(255,255,255,0.05); }
+
+    .section-drag-handle { color: rgba(165,180,252,0.22); font-size: 11px; cursor: grab; flex-shrink: 0; transition: color 0.12s; }
+    .section-drag-handle:hover { color: rgba(165,180,252,0.6); }
+
+    .section-chevron { font-size: 10px; color: rgba(165,180,252,0.4); transition: transform 0.2s; flex-shrink: 0; }
+    .section-wrap.collapsed .section-chevron { transform: rotate(-90deg); }
+
+    .section-name-display {
+      flex: 1; min-width: 0; font-size: 13px; font-weight: 700; color: #e2e6f0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .link-state-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; flex-shrink: 0;
+    }
+    .link-state-badge.template { background: rgba(99,102,241,0.15); color: #a5b4fc; }
+    .link-state-badge.block    { background: rgba(245,158,11,0.13);  color: #fbbf24; }
+    .link-state-badge.unique   { background: rgba(255,255,255,0.07); color: #6b7a99; }
+
+    .section-block-count { font-size: 11px; color: rgba(165,180,252,0.38); white-space: nowrap; flex-shrink: 0; }
+
+    .section-action-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px; border-radius: 5px; border: none;
+      background: none; color: rgba(165,180,252,0.30); cursor: pointer;
+      font-size: 11px; transition: background 0.12s, color 0.12s; flex-shrink: 0;
+    }
+    .section-action-btn:hover { background: rgba(255,255,255,0.08); color: rgba(165,180,252,0.9); }
+    .section-action-btn.delete:hover { background: rgba(239,68,68,0.12); color: #f87171; }
+
+    .section-body { padding: 10px 14px 12px; }
+    .section-wrap.collapsed .section-body { display: none; }
+
+    /* Template-locked overlay within a template-linked section body */
+    .template-lock-notice {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; margin-bottom: 8px;
+      border-radius: 7px; background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.18);
+      font-size: 11.5px; color: rgba(165,180,252,0.65); line-height: 1.4;
+    }
+    .template-lock-notice i { color: #a5b4fc; flex-shrink: 0; }
+    .template-lock-link { background: none; border: none; color: #a5b4fc; text-decoration: underline; cursor: pointer; font-family: inherit; font-size: inherit; padding: 0; }
+
+    /* Append zone — shown at bottom of template-linked sections */
+    .append-zone {
+      margin-top: 8px; padding: 10px 12px;
+      border: 1px dashed rgba(99,102,241,0.22); border-radius: 8px;
+      background: rgba(99,102,241,0.04);
+    }
+    .append-zone-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(165,180,252,0.32); margin-bottom: 7px; }
+
+    /* ── Block rollup (shared with template-builder) ── */
+    .block-rollup-wrap { margin-bottom: 6px; }
+
+    .block-rollup {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 10px; background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07); border-radius: 8px;
+      cursor: pointer; transition: background 0.12s, border-color 0.12s; user-select: none;
+    }
+    .block-rollup:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
+    .block-rollup.expanded { background: rgba(99,102,241,0.07); border-color: rgba(99,102,241,0.25); border-radius: 8px 8px 0 0; }
+
+    /* Per-block link state indicator dot */
+    .block-link-dot {
+      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-left: -4px;
+    }
+    .block-link-dot.template { background: #6366f1; }
+    .block-link-dot.block    { background: #f59e0b; }
+    .block-link-dot.unique   { background: rgba(107,114,153,0.45); }
+
+    .block-drag-handle { color: rgba(165,180,252,0.18); font-size: 10px; cursor: grab; flex-shrink: 0; transition: color 0.12s; }
+    .block-drag-handle:hover { color: rgba(165,180,252,0.55); }
+
+    .block-rollup-icon {
+      width: 28px; height: 28px; border-radius: 6px; display: flex;
+      align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0;
+      background: rgba(99,102,241,0.15); color: #a5b4fc;
+    }
+    .block-rollup-icon.custom { background: rgba(139,92,246,0.15); color: #c4b5fd; }
+    .block-rollup-icon.unique { background: rgba(107,114,153,0.15); color: #9aa3b8; }
+
+    .block-rollup-info { flex: 1; min-width: 0; }
+    .block-rollup-name { font-size: 12.5px; font-weight: 600; color: #e2e6f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .block-rollup-meta { font-size: 11px; color: rgba(165,180,252,0.45); display: flex; align-items: center; gap: 8px; margin-top: 2px; flex-wrap: wrap; }
+
+    .context-label-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700;
+      background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25);
+    }
+
+    .rollup-actions { margin-left: auto; display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+    .rollup-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px; border-radius: 5px; border: none;
+      background: none; color: rgba(165,180,252,0.28); cursor: pointer;
+      font-size: 11px; transition: background 0.12s, color 0.12s;
+    }
+    .rollup-btn:hover { background: rgba(255,255,255,0.08); color: rgba(165,180,252,0.9); }
+    .rollup-btn.remove:hover { background: rgba(239,68,68,0.12); color: #f87171; }
+
+    /* ── Block expand panel ── */
+    .block-expand-panel {
+      display: none; border: 1px solid rgba(99,102,241,0.25); border-top: none;
+      border-radius: 0 0 8px 8px; background: rgba(0,0,0,0.15); padding: 12px 14px 14px;
+    }
+    .block-expand-panel.open { display: block; }
+
+    .expand-step-item {
+      display: flex; align-items: flex-start; gap: 8px; padding: 5px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 12px; color: #8b96b0;
+    }
+    .expand-step-item:last-child { border-bottom: none; }
+    .expand-step-num { font-size: 10px; font-weight: 700; color: rgba(165,180,252,0.28); width: 16px; flex-shrink: 0; padding-top: 1px; }
+    .expand-step-sev { font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 3px; margin-left: auto; flex-shrink: 0; }
+    .expand-step-sev.critical { background: rgba(239,68,68,0.12); color: #f87171; }
+    .expand-step-sev.warning  { background: rgba(245,158,11,0.12); color: #fbbf24; }
+
+    .expand-panel-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+    .expand-read-only-note { font-size: 11px; color: rgba(165,180,252,0.35); margin-left: auto; }
+
+    /* ── Add buttons ── */
+    .add-to-section-btns { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 8px; }
+    .add-block-btn, .add-freestanding-btn {
+      display: flex; align-items: center; gap: 6px; padding: 7px 12px;
+      border-radius: 8px; border: 1px dashed; font-size: 12px;
+      font-family: 'Open Sans', sans-serif; font-weight: 600; cursor: pointer; background: none; transition: all 0.15s;
+    }
+    .add-block-btn { border-color: rgba(99,102,241,0.28); color: rgba(165,180,252,0.50); }
+    .add-block-btn:hover { border-color: rgba(99,102,241,0.58); background: rgba(99,102,241,0.07); color: #a5b4fc; }
+    .add-freestanding-btn { border-color: rgba(139,92,246,0.22); color: rgba(196,181,253,0.45); }
+    .add-freestanding-btn:hover { border-color: rgba(139,92,246,0.48); background: rgba(139,92,246,0.07); color: #c4b5fd; }
+
+    .add-section-btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 12px; border-radius: 10px;
+      border: 1px dashed rgba(255,255,255,0.10); background: none;
+      color: rgba(165,180,252,0.35); font-family: 'Open Sans', sans-serif;
+      font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; margin-top: 4px;
+    }
+    .add-section-btn:hover { border-color: rgba(99,102,241,0.38); background: rgba(99,102,241,0.05); color: #a5b4fc; }
+
+    /* ── Config sidebar ── */
+    .config-section { margin-bottom: 22px; }
+    .config-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(165,180,252,0.42); margin-bottom: 10px; }
+    .config-field { margin-bottom: 14px; }
+
+    .assignment-row {
+      display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+      border-radius: 8px; background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07); margin-bottom: 8px;
+    }
+    .assignment-row-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(165,180,252,0.38); min-width: 64px; flex-shrink: 0; }
+    .assignment-row-value { flex: 1; font-size: 12.5px; font-weight: 600; color: #c4cce0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .assignment-row-edit { background: none; border: none; color: rgba(165,180,252,0.30); cursor: pointer; font-size: 11px; padding: 2px; transition: color 0.12s; }
+    .assignment-row-edit:hover { color: #a5b4fc; }
+
+    /* Link state legend */
+    .link-legend { padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); }
+    .link-legend-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 11.5px; color: #8b96b0; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .legend-dot.template { background: #6366f1; }
+    .legend-dot.block    { background: #f59e0b; }
+    .legend-dot.unique   { background: rgba(107,114,153,0.50); }
+
+    /* Vaadin token re-scope for dark sidebar */
+    html[data-theme="dark"] .config-sidebar vaadin-text-field,
+    html[data-theme="dark"] .config-sidebar vaadin-select,
+    html[data-theme="dark"] .config-sidebar vaadin-text-area {
+      --lumo-body-text-color: #c4cce0; --lumo-secondary-text-color: #8b96b0;
+      --lumo-primary-color: #a5b4fc; --lumo-primary-color-10pct: rgba(99,102,241,0.18);
+      --lumo-contrast-10pct: rgba(255,255,255,0.10); --lumo-contrast-20pct: rgba(255,255,255,0.15);
+      --lumo-base-color: rgba(255,255,255,0.06); --lumo-tint-5pct: rgba(255,255,255,0.05);
+      color-scheme: dark;
+    }
+
+    /* ── Sticky footer ── */
+    .editor-footer {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 90;
+      display: flex; align-items: center; justify-content: space-between; padding: 12px 20px;
+      background: rgba(14,22,40,0.93); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(255,255,255,0.08); box-shadow: 0 -2px 16px rgba(0,0,0,0.30);
+    }
+    .footer-left { display: flex; align-items: center; gap: 8px; }
+    .footer-right { display: flex; align-items: center; gap: 8px; }
+    .autosave-indicator { font-size: 11px; color: rgba(165,180,252,0.38); display: flex; align-items: center; gap: 5px; }
+
+    /* ============================================================
+       OVERLAY BASE
+       ============================================================ */
+    .overlay-backdrop {
+      position: fixed; inset: 0; z-index: 150;
+      background: rgba(0,0,0,0.50); backdrop-filter: blur(3px);
+      display: flex;
+    }
+
+    /* ── Import panel ── */
+    .import-panel {
+      margin-left: auto; width: 360px; max-width: 95vw; height: 100%;
+      background: #131f38; border-left: 1px solid rgba(255,255,255,0.09);
+      display: flex; flex-direction: column; box-shadow: -4px 0 32px rgba(0,0,0,0.40);
+      animation: slideInRight 0.20s ease;
+    }
+    @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+    .panel-header {
+      display: flex; align-items: center; gap: 10px; padding: 15px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0;
+    }
+    .panel-title { font-size: 14px; font-weight: 700; color: #f0f2f8; flex: 1; }
+    .panel-close-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 6px; border: none;
+      background: none; color: rgba(165,180,252,0.55); cursor: pointer; font-size: 13px; transition: background 0.12s;
+    }
+    .panel-close-btn:hover { background: rgba(255,255,255,0.08); color: #a5b4fc; }
+
+    .panel-search-wrap { padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
+    .panel-search-inner { position: relative; }
+    .panel-search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 11px; color: rgba(165,180,252,0.38); pointer-events: none; }
+    .panel-search-input {
+      width: 100%; height: 34px; padding: 0 10px 0 30px;
+      border: 1px solid rgba(255,255,255,0.11); border-radius: 7px;
+      background: rgba(255,255,255,0.06); color: #e2e6f0;
+      font-family: 'Open Sans', sans-serif; font-size: 13px;
+      outline: none; box-sizing: border-box; transition: border-color 0.12s;
+    }
+    .panel-search-input:focus { border-color: #6366f1; background: rgba(255,255,255,0.09); }
+    .panel-search-input::placeholder { color: rgba(165,180,252,0.28); }
+
+    .panel-list { flex: 1; overflow-y: auto; padding: 8px; }
+
+    .import-block-item {
+      display: flex; align-items: center; gap: 10px; padding: 9px 10px;
+      border-radius: 8px; cursor: pointer; transition: background 0.12s;
+      border: 1px solid transparent; margin-bottom: 3px;
+    }
+    .import-block-item:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.07); }
+    .import-block-icon { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; background: rgba(99,102,241,0.14); color: #a5b4fc; flex-shrink: 0; }
+    .import-block-info { flex: 1; min-width: 0; }
+    .import-block-name { font-size: 13px; font-weight: 600; color: #e2e6f0; }
+    .import-block-meta { font-size: 11px; color: #6b7a99; margin-top: 2px; }
+    .import-block-steps { font-size: 11px; font-weight: 600; color: rgba(165,180,252,0.45); flex-shrink: 0; }
+    .import-domain-label { padding: 6px 10px 3px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(165,180,252,0.30); }
+
+    .panel-footer { padding: 12px 14px; border-top: 1px solid rgba(255,255,255,0.07); flex-shrink: 0; }
+
+    /* ── Freestanding steps editor ── */
+    .block-editor-panel {
+      margin-left: auto; width: 520px; max-width: 98vw; height: 100%;
+      background: #131f38; border-left: 1px solid rgba(255,255,255,0.09);
+      display: flex; flex-direction: column; box-shadow: -4px 0 40px rgba(0,0,0,0.50);
+      animation: slideInRight 0.22s ease;
+    }
+
+    .block-editor-header {
+      display: flex; align-items: center; gap: 10px; padding: 0 16px; height: 54px;
+      border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0;
+    }
+
+    .block-editor-mode-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 9px; border-radius: 10px; font-size: 11px; font-weight: 700;
+    }
+    .block-editor-mode-badge.editing  { background: rgba(245,158,11,0.15); color: #fbbf24; }
+
+    .block-editor-scroll { flex: 1; overflow-y: auto; padding: 16px; }
+
+    .be-step-card {
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px; margin-bottom: 6px; padding: 10px 12px;
+    }
+
+    .be-step-row { display: flex; align-items: flex-start; gap: 8px; }
+    .be-step-num { font-size: 10px; font-weight: 700; color: rgba(165,180,252,0.30); width: 18px; flex-shrink: 0; padding-top: 2px; }
+    .be-step-input {
+      flex: 1; background: none; border: none; border-bottom: 1px solid rgba(255,255,255,0.10);
+      color: #e2e6f0; font-family: 'Open Sans', sans-serif; font-size: 13px; font-weight: 500;
+      padding: 2px 0 5px; outline: none; transition: border-color 0.12s;
+    }
+    .be-step-input:focus { border-bottom-color: #6366f1; }
+    .be-step-attrs { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .be-sev-btn {
+      padding: 2px 9px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.09);
+      background: none; font-family: 'Open Sans', sans-serif; font-size: 11px; font-weight: 700;
+      cursor: pointer; transition: all 0.12s; color: rgba(165,180,252,0.42);
+    }
+    .be-sev-btn:hover { border-color: rgba(255,255,255,0.18); color: #c4cce0; }
+    .be-sev-btn.active-critical { background: rgba(239,68,68,0.14); border-color: rgba(239,68,68,0.32); color: #f87171; }
+    .be-sev-btn.active-warning  { background: rgba(245,158,11,0.14); border-color: rgba(245,158,11,0.32); color: #fbbf24; }
+    .be-sev-btn.active-none     { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.14); color: #9aa3b8; }
+    .be-step-delete {
+      display: flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px; border-radius: 4px; border: none; background: none;
+      color: rgba(165,180,252,0.25); cursor: pointer; font-size: 11px; flex-shrink: 0; transition: all 0.12s;
+    }
+    .be-step-delete:hover { background: rgba(239,68,68,0.12); color: #f87171; }
+
+    .block-editor-footer {
+      padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.08); flex-shrink: 0;
+      display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;
+    }
+
+    /* ── Confirm modals ── */
+    .blast-modal-wrap {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.60); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .blast-modal {
+      background: #1a2744; border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 14px; padding: 24px; max-width: 460px; width: 100%;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    }
+    .blast-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 14px; }
+    .blast-title { font-size: 15px; font-weight: 700; color: #f0f2f8; margin-bottom: 6px; }
+    .blast-desc { font-size: 13px; color: #8b96b0; line-height: 1.5; margin-bottom: 18px; }
+    .blast-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+    .confirm-modal-wrap {
+      position: fixed; inset: 0; z-index: 300;
+      background: rgba(0,0,0,0.60); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .confirm-modal {
+      background: #1a2744; border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 14px; padding: 24px; max-width: 380px; width: 100%;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    }
+    .confirm-title { font-size: 15px; font-weight: 700; color: #f0f2f8; margin-bottom: 8px; }
+    .confirm-body { font-size: 13px; color: #8b96b0; line-height: 1.5; margin-bottom: 20px; }
+    .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+    /* Toast */
+    .toast-container { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .toast {
+      padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      background: rgba(30,42,68,0.95); color: #e2e6f0; border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.40); white-space: nowrap;
+      animation: fadeIn 0.15s ease; display: flex; align-items: center; gap: 8px;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+  </style>
+</head>
+<body>
+<div class="editor-shell">
+
+  <!-- ==============================
+       STICKY HEADER — single × exit only
+       ============================== -->
+  <header class="editor-header">
+    <button class="exit-btn" onclick="handleExit()" aria-label="Exit checklist builder" title="Exit">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+
+    <span class="header-checklist-name" id="headerChecklistName">New Checklist</span>
+
+    <span class="editor-status-pill draft" id="statusPill">
+      <i class="fa-solid fa-circle" style="font-size:6px;"></i> Draft
+    </span>
+
+  </header>
+
+  <!-- ==============================
+       EDITOR BODY
+       ============================== -->
+  <div class="editor-body">
+
+    <!-- ── Canvas ── -->
+    <div class="editor-canvas">
+
+      <!-- Origin banner — shows how this checklist was started -->
+      <div id="originBanner"></div>
+
+      <div class="section-label">Checklist Name</div>
+      <div class="editor-card" style="padding:16px 20px 18px;">
+        <input type="text" class="checklist-name-input" id="checklistNameInput"
+          placeholder="e.g. Engine 7 — Apparatus Check, A Shift"
+          oninput="onNameChange(this.value)" aria-label="Checklist name" />
+      </div>
+
+      <div class="section-label" style="margin-top:4px;">
+        Sections &amp; Blocks
+        <span style="margin-left:8px;font-size:10px;font-weight:400;text-transform:none;color:rgba(165,180,252,0.30);">Link state shown per section</span>
+      </div>
+
+      <div id="sectionList"></div>
+
+      <button class="add-section-btn" onclick="addSection()">
+        <i class="fa-solid fa-plus"></i> Add Section
+      </button>
+
+    </div>
+
+    <!-- ── Config sidebar ── -->
+    <aside class="config-sidebar" aria-label="Checklist configuration">
+
+      <!-- Default cadence — belongs to the checklist, not a deployment -->
+      <div class="config-section">
+        <div class="config-section-label">Default Cadence</div>
+        <div class="config-field">
+          <vaadin-select theme="outlined" label="Cadence" id="cadenceSelect" style="width:100%;"></vaadin-select>
+        </div>
+        <div style="font-size:11px;color:rgba(165,180,252,0.32);line-height:1.45;">Sets the default schedule for this checklist. Individual deployments can override this when assigned.</div>
+      </div>
+
+      <!-- Link state legend -->
+      <div class="config-section">
+        <div class="config-section-label">Link States</div>
+        <div class="link-legend">
+          <div class="link-legend-item"><span class="legend-dot template"></span> Template-linked — live, updates propagate</div>
+          <div class="link-legend-item"><span class="legend-dot block"></span> Block-linked — template section edited; block links remain</div>
+          <div class="link-legend-item"><span class="legend-dot unique"></span> Fully unique — block content edited; no live links</div>
+        </div>
+      </div>
+
+    </aside>
+  </div>
+
+  <!-- ==============================
+       STICKY FOOTER
+       ============================== -->
+  <footer class="editor-footer">
+    <div class="footer-left">
+      <span class="autosave-indicator" id="autosaveIndicator">
+        <i class="fa-regular fa-circle-dot"></i> Unsaved changes
+      </span>
+    </div>
+    <div class="footer-right">
+      <vaadin-button theme="secondary" onclick="saveDraft()">Save Draft</vaadin-button>
+      <vaadin-button theme="primary" onclick="activateChecklist()">
+        <i class="fa-solid fa-check" slot="prefix"></i> Activate Checklist
+      </vaadin-button>
+    </div>
+  </footer>
+
+</div><!-- /editor-shell -->
+
+<!-- ============================================================
+     IMPORT BLOCK PANEL (slide in from right)
+     ============================================================ -->
+<div id="importOverlay" style="display:none;" class="overlay-backdrop" role="dialog" aria-modal="true" aria-label="Import content block">
+  <div class="import-panel">
+    <div class="panel-header">
+      <span class="panel-title">Import Content Block</span>
+      <button class="panel-close-btn" onclick="closeImport()" aria-label="Close">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div class="panel-search-wrap">
+      <div class="panel-search-inner">
+        <i class="fa-solid fa-magnifying-glass panel-search-icon"></i>
+        <input type="text" class="panel-search-input" id="importSearch"
+          placeholder="Search blocks…" oninput="filterImportBlocks(this.value)" />
+      </div>
+    </div>
+    <div class="panel-list" id="importList"></div>
+    <div class="panel-footer">
+      <vaadin-button theme="secondary" style="width:100%;" onclick="openFreestandingNew()">
+        <i class="fa-solid fa-plus" slot="prefix"></i> Add Custom Steps Instead
+      </vaadin-button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     FREESTANDING STEPS EDITOR (slide in from right)
+     ============================================================ -->
+<div id="freestandingOverlay" style="display:none;" class="overlay-backdrop" role="dialog" aria-modal="true" aria-label="Add custom steps">
+  <div class="block-editor-panel">
+    <div class="block-editor-header">
+      <button class="panel-close-btn" onclick="closeFreestanding()" aria-label="Close">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <span class="panel-title" id="freestandingTitle">Custom Steps</span>
+      <span class="block-editor-mode-badge editing" style="margin-left:auto;">
+        <i class="fa-solid fa-pen"></i> Editing
+      </span>
+    </div>
+    <div class="block-editor-scroll" id="freestandingScroll"></div>
+    <div class="block-editor-footer">
+      <vaadin-button theme="tertiary" onclick="addFreestandingStep()">
+        <i class="fa-solid fa-plus" slot="prefix"></i> Add Step
+      </vaadin-button>
+      <vaadin-button theme="secondary" onclick="cancelFreestanding()">Cancel</vaadin-button>
+      <vaadin-button theme="primary" onclick="saveFreestanding()">
+        <i class="fa-solid fa-check" slot="prefix"></i> Save Steps
+      </vaadin-button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     BREAK TEMPLATE LINK CONFIRMATION
+     Shown when user attempts to edit inside a template-linked section
+     ============================================================ -->
+<div id="breakTemplateLinkModal" style="display:none;" class="blast-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="breakTemplateLinkTitle">
+  <div class="blast-modal">
+    <div class="blast-icon" style="background:rgba(245,158,11,0.15);color:#fbbf24;"><i class="fa-solid fa-link-slash"></i></div>
+    <div class="blast-title" id="breakTemplateLinkTitle">Break template link?</div>
+    <div class="blast-desc" id="breakTemplateLinkDesc">
+      Adding or removing steps from this section will break the link to <strong id="breakTemplateName">Apparatus Check — Morning</strong>. Template updates will no longer propagate to this section automatically.<br><br>
+      Individual block links within the section will remain intact.
+    </div>
+    <div class="blast-actions">
+      <vaadin-button theme="secondary" onclick="closeBreakTemplateLink()">Keep Linked</vaadin-button>
+      <vaadin-button theme="warning primary" onclick="confirmBreakTemplateLink()">
+        <i class="fa-solid fa-link-slash" slot="prefix"></i> Break &amp; Edit
+      </vaadin-button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     BREAK BLOCK LINK CONFIRMATION
+     Shown when user edits a block's content within this checklist
+     ============================================================ -->
+<div id="breakBlockLinkModal" style="display:none;" class="blast-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="breakBlockLinkTitle">
+  <div class="blast-modal">
+    <div class="blast-icon" style="background:rgba(107,114,153,0.15);color:#9aa3b8;"><i class="fa-solid fa-cube"></i></div>
+    <div class="blast-title" id="breakBlockLinkTitle">Break block link?</div>
+    <div class="blast-desc" id="breakBlockLinkDesc">
+      Editing the content of <strong id="breakBlockName">Wheels &amp; Tires</strong> within this checklist will break the link to the shared block. Changes to the original block will no longer propagate here — these steps become local to this checklist only.
+    </div>
+    <div class="blast-actions">
+      <vaadin-button theme="secondary" onclick="closeBreakBlockLink()">Keep Linked</vaadin-button>
+      <vaadin-button theme="warning primary" onclick="confirmBreakBlockLink()">
+        <i class="fa-solid fa-pen" slot="prefix"></i> Edit Locally
+      </vaadin-button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     EXIT CONFIRMATION MODAL
+     ============================================================ -->
+<div id="exitConfirmModal" style="display:none;" class="confirm-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="exitConfirmTitle">
+  <div class="confirm-modal">
+    <div class="confirm-title" id="exitConfirmTitle">Exit without saving?</div>
+    <div class="confirm-body">You have unsaved changes to this checklist. Exiting now will discard them.</div>
+    <div class="confirm-actions">
+      <vaadin-button theme="secondary" onclick="closeExitConfirm()">Keep Editing</vaadin-button>
+      <vaadin-button theme="error primary" onclick="confirmExit()">Discard &amp; Exit</vaadin-button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Sandbox store: scripts live alongside this file in the sandbox folder. -->
+<script src="sandbox-seed.js"></script>
+<script src="sandbox-store.js"></script>
+<script>
+
+  // ============================================================
+  // CONSTANTS / MOCK DATA
+  // ============================================================
+
+  const urlParams    = new URLSearchParams(location.search);
+  const checklistId  = urlParams.get('checklistId');
+  const startMode    = urlParams.get('startMode') || 'template'; // 'template' | 'scratch' | 'blocks'
+  const RETURN_URL   = sessionStorage.getItem('checklistBuilderReturn') || 'index.html';
+
+  // ----- Sandbox mode detection -------------------------------------
+  // Modes:
+  //   sandboxChecklistId  → editing a checklist in the sandbox store
+  //   sandboxIsNew        → creating a new checklist in the sandbox store
+  //   neither             → standalone demo (legacy ?checklistId=engine7-am path)
+  const sandboxChecklistId = urlParams.get('id');
+  const sandboxIsNew       = urlParams.get('new') === '1';
+  const sandboxMode        = !!(sandboxChecklistId || sandboxIsNew);
+  let   sandboxRecord      = null;
+  if (sandboxChecklistId && window.Store) {
+    sandboxRecord = window.Store.getChecklist(sandboxChecklistId);
+    if (!sandboxRecord) console.warn('[checklist-builder] sandbox id not found:', sandboxChecklistId);
+  }
+
+  // Domain → fa-icon lookup so store-backed blocks render with a sensible icon
+  // in the import picker (which expects `lib.icon`).
+  function iconForDomain(domain) {
+    switch ((domain || '').toLowerCase()) {
+      case 'vehicle':   return 'fa-circle-dot';
+      case 'apparatus': return 'fa-truck';
+      case 'ems':       return 'fa-truck-medical';
+      case 'cs':        return 'fa-flask';
+      case 'facility':  return 'fa-building';
+      case 'equipment': return 'fa-shield';
+      case 'le':        return 'fa-shield-halved';
+      case 'admin':     return 'fa-clipboard';
+      default:          return 'fa-cube';
+    }
+  }
+  function prettyDomain(domain) {
+    switch ((domain || '').toLowerCase()) {
+      case 'vehicle':   return 'General Vehicle';
+      case 'apparatus': return 'Apparatus — Fire';
+      case 'ems':       return 'EMS / Medical';
+      case 'cs':        return 'Controlled Substance';
+      case 'facility':  return 'Facility';
+      case 'equipment': return 'Equipment / PPE';
+      case 'le':        return 'Law Enforcement';
+      case 'admin':     return 'Administrative';
+      default:          return domain || '';
+    }
+  }
+
+  // BLOCK_LIBRARY: in sandbox mode it's a live mapping from Store.listBlocks();
+  // standalone falls back to the original hard-coded library.
+  const HARD_BLOCK_LIBRARY = [
+    { id:'cab-controls',    name:'Cab & Controls',            domain:'General Vehicle',      steps:11, icon:'fa-sliders',    multi:false },
+    { id:'wheels-tires',    name:'Wheels & Tires',            domain:'General Vehicle',      steps:8,  icon:'fa-circle-dot', multi:true  },
+    { id:'lights-warning',  name:'Lights & Warning Systems',  domain:'Apparatus — Fire',     steps:6,  icon:'fa-lightbulb',  multi:false },
+    { id:'pump-panel',      name:'Pump Panel',                domain:'Apparatus — Fire',     steps:9,  icon:'fa-gauge-high', multi:false },
+    { id:'hose-fittings',   name:'Hose & Fittings',           domain:'Apparatus — Fire',     steps:7,  icon:'fa-fire-extinguisher', multi:false },
+    { id:'scba-storage',    name:'SCBA Storage',              domain:'Equipment / PPE',      steps:5,  icon:'fa-wind',       multi:false },
+    { id:'ground-ladders',  name:'Ground Ladders',            domain:'Apparatus — Fire',     steps:6,  icon:'fa-stairs',     multi:false },
+    { id:'airway-breathing',name:'Airway & Breathing Equipment',domain:'EMS / Medical',      steps:8,  icon:'fa-lungs',      multi:false },
+    { id:'cardiac-monitor', name:'Cardiac & Monitoring',      domain:'EMS / Medical',        steps:7,  icon:'fa-heart-pulse',multi:false },
+    { id:'cs-drug-box',     name:'CS Drug Box',               domain:'Controlled Substance', steps:6,  icon:'fa-flask',      multi:false },
+    { id:'bay-doors',       name:'Bay Doors & Access',        domain:'Facility',             steps:4,  icon:'fa-door-open',  multi:false },
+    { id:'generator',       name:'Generator & Utilities',     domain:'Facility',             steps:5,  icon:'fa-bolt',       multi:false },
+    { id:'safety-equip',    name:'Safety Equipment',          domain:'Equipment / PPE',      steps:6,  icon:'fa-shield',     multi:false },
+  ];
+
+  // In sandbox mode, build BLOCK_LIBRARY from the store. Re-built fresh on
+  // every load (and after returning from block-creator) so newly-authored
+  // blocks immediately appear in the picker.
+  function buildSandboxBlockLibrary() {
+    if (!window.Store) return [];
+    return window.Store.listBlocks().map(b => ({
+      id:     b.id,
+      name:   b.name,
+      domain: prettyDomain(b.domain),
+      steps:  (b.steps || []).length,
+      icon:   iconForDomain(b.domain),
+      multi:  !!b.multiUse
+    }));
+  }
+  // `let` so we can refresh it (e.g. via Store change event).
+  let BLOCK_LIBRARY = sandboxMode ? buildSandboxBlockLibrary() : HARD_BLOCK_LIBRARY;
+
+  const BLOCK_STEPS = {
+    'wheels-tires': [
+      { label:'Tire condition — cuts, bulges, or embedded objects', sev:'critical' },
+      { label:'Tread depth — measure at wear indicators',           sev:'critical' },
+      { label:'Tire pressure — verify against door placard spec',   sev:'warning'  },
+      { label:'Lug nuts — visually confirm all present and seated', sev:'critical' },
+      { label:'Valve stems — check for caps and damage',            sev:null       },
+      { label:'Wheel chocks — present and accessible',              sev:'warning'  },
+      { label:'Wheel well — clear of debris and obstructions',      sev:null       },
+      { label:'Spare tire — present, secure, inflated',             sev:'warning'  },
+    ],
+    'cab-controls': [
+      { label:'Dashboard warning lights — none active on startup',  sev:'critical' },
+      { label:'Fuel level — minimum ¾ tank',                        sev:'warning'  },
+      { label:'Oil pressure gauge — within normal range',           sev:'critical' },
+      { label:'Air brake pressure — builds to spec within 60 sec',  sev:'critical' },
+      { label:'Seatbelts — all positions present and latch',        sev:'critical' },
+      { label:'Mirrors — adjusted and unobstructed',               sev:null       },
+      { label:'Horn — functional',                                  sev:'critical' },
+      { label:'Radio — powered on and communicating',               sev:'critical' },
+    ],
+  };
+
+  // ============================================================
+  // CHECKLIST STATE
+  // ============================================================
+  let isDirty = false;
+  let sectionCounter = 0;
+  let blockCounter   = 0;
+  let sections = [];
+
+  // Import panel state
+  let importTargetSectionId = null;
+
+  // Freestanding steps state
+  let freestandingSectionId    = null;
+  let freestandingSteps        = [];
+  let freestandingCounter      = 0;
+  let freestandingEditInstanceId = null;
+
+  // Link-break pending state
+  let pendingBreakTemplateSectionId = null;
+  let pendingBreakBlockSectionId    = null;
+  let pendingBreakBlockInstanceId   = null;
+
+  // Origin of this checklist
+  let originMode = startMode; // 'template' | 'scratch' | 'blocks'
+  let originTemplateName = 'Apparatus Check — Morning';
+
+  // ============================================================
+  // SEED MOCK DATA
+  // ============================================================
+
+  // Demo: checklist started from a template, with one section
+  // that has been edited (block-linked) and one still template-linked
+  if (checklistId === 'engine7-am') {
+    originMode = 'template';
+    originTemplateName = 'Apparatus Check — Morning';
+    document.title = 'CheckIt-2 — Checklist Builder: Engine 7 AM Check';
+    document.getElementById('headerChecklistName').textContent = 'Engine 7 — AM Check';
+    document.getElementById('statusPill').className = 'editor-status-pill active';
+    document.getElementById('statusPill').innerHTML = '<i class="fa-solid fa-circle" style="font-size:6px;"></i> Active';
+
+    // Section 1: still template-linked
+    sections.push({ id:++sectionCounter, name:'Cab & Vehicle', collapsed:false, linkState:'template', templateLocked:true,
+      blocks:[
+        { instanceId:++blockCounter, blockId:'cab-controls',  contextLabel:'', linkState:'template', expanded:false },
+        { instanceId:++blockCounter, blockId:'wheels-tires',  contextLabel:'Driver Front',    linkState:'template', expanded:false },
+        { instanceId:++blockCounter, blockId:'wheels-tires',  contextLabel:'Driver Rear',     linkState:'template', expanded:false },
+        { instanceId:++blockCounter, blockId:'wheels-tires',  contextLabel:'Passenger Front', linkState:'template', expanded:false },
+        { instanceId:++blockCounter, blockId:'wheels-tires',  contextLabel:'Passenger Rear',  linkState:'template', expanded:false },
+      ],
+      appendBlocks: [], // local additions after template section
+    });
+    // Section 2: template link was broken by adding a local block → block-linked
+    sections.push({ id:++sectionCounter, name:'Fire Systems', collapsed:false, linkState:'block', templateLocked:false,
+      blocks:[
+        { instanceId:++blockCounter, blockId:'lights-warning', contextLabel:'', linkState:'block', expanded:false },
+        { instanceId:++blockCounter, blockId:'pump-panel',     contextLabel:'', linkState:'block', expanded:false },
+        { instanceId:++blockCounter, blockId:'hose-fittings',  contextLabel:'', linkState:'block', expanded:false },
+        // locally added block — unique
+        { instanceId:++blockCounter, blockId:'freestanding', name:'Pre-pump operator briefing', steps:[
+          { label:'Confirm pump operator assigned and briefed', sev:'critical' },
+          { label:'Review known apparatus anomalies from prior shift', sev:'warning' },
+        ], contextLabel:'', linkState:'unique', expanded:false },
+      ],
+      appendBlocks: [],
+    });
+    // Section 3: still template-linked, no local additions
+    sections.push({ id:++sectionCounter, name:'Crew Equipment', collapsed:false, linkState:'template', templateLocked:true,
+      blocks:[
+        { instanceId:++blockCounter, blockId:'scba-storage',   contextLabel:'', linkState:'template', expanded:false },
+        { instanceId:++blockCounter, blockId:'ground-ladders', contextLabel:'', linkState:'template', expanded:false },
+      ],
+      appendBlocks: [],
+    });
+
+    window.addEventListener('load', () => setTimeout(() => {
+      const ni = document.getElementById('checklistNameInput');
+      if (ni) ni.value = 'Engine 7 — AM Check';
+      const cs = document.getElementById('cadenceSelect');
+      if (cs) cs.value = 'daily';
+    }, 350));
+  } else if (checklistId === null && startMode === 'scratch') {
+    // Brand-new checklist from scratch
+    originMode = 'scratch';
+    sections.push({ id:++sectionCounter, name:'', collapsed:false, linkState:'unique', templateLocked:false,
+      blocks:[], appendBlocks:[] });
+  } else if (sandboxRecord) {
+    // Sandbox mode: rehydrate an existing checklist from the store.
+    originMode = sandboxRecord.origin || 'scratch';
+    document.title = 'CheckIt-2 — Checklist Builder: ' + sandboxRecord.name;
+    sections = (sandboxRecord.sections || []).map(s => {
+      const blocks = (s.blocks || []).map(b => {
+        blockCounter++;
+        return Object.assign({}, b, { instanceId: blockCounter, expanded: false });
+      });
+      sectionCounter++;
+      return {
+        id: sectionCounter,
+        name: s.name || '',
+        collapsed: false,
+        linkState: s.linkState || 'unique',
+        templateLocked: !!s.templateLocked,
+        blocks,
+        appendBlocks: s.appendBlocks || []
+      };
+    });
+    if (!sections.length) {
+      sections.push({ id:++sectionCounter, name:'', collapsed:false, linkState:'unique',
+        templateLocked:false, blocks:[], appendBlocks:[] });
+    }
+    // Populate header + name + cadence after components upgrade.
+    window.addEventListener('load', () => setTimeout(() => {
+      const headerName = document.getElementById('headerChecklistName');
+      if (headerName) headerName.textContent = sandboxRecord.name || 'Untitled';
+      const ni = document.getElementById('checklistNameInput');
+      if (ni) ni.value = sandboxRecord.name || '';
+      const cs = document.getElementById('cadenceSelect');
+      if (cs && sandboxRecord.cadence) cs.value = sandboxRecord.cadence;
+      const pill = document.getElementById('statusPill');
+      if (pill && sandboxRecord.status === 'active') {
+        pill.className = 'editor-status-pill active';
+        pill.innerHTML = '<i class="fa-solid fa-circle" style="font-size:6px;"></i> Active';
+      }
+    }, 350));
+  } else if (sandboxIsNew) {
+    // Sandbox mode: brand-new checklist — start with an empty section.
+    originMode = 'scratch';
+    sections.push({ id:++sectionCounter, name:'', collapsed:false, linkState:'unique',
+      templateLocked:false, blocks:[], appendBlocks:[] });
+  } else {
+    // Default demo: template-based, no mock sections seeded
+    originMode = 'template';
+  }
+
+  window.addEventListener('load', () => setTimeout(() => {
+    const cs = document.getElementById('cadenceSelect');
+    if (cs) cs.items = [
+      { label:'Not set',  value:''        },
+      { label:'Daily',    value:'daily'   },
+      { label:'Weekly',   value:'weekly'  },
+      { label:'Monthly',  value:'monthly' },
+      { label:'Annual',   value:'annual'  },
+      { label:'Manual',   value:'manual'  },
+    ];
+    if (cs && checklistId === 'engine7-am') cs.value = 'daily';
+
+    renderOriginBanner();
+    renderSections();
+    markSaved();
+  }, 350));
+
+  // ============================================================
+  // ORIGIN BANNER
+  // ============================================================
+  function renderOriginBanner() {
+    const el = document.getElementById('originBanner');
+    if (originMode === 'template') {
+      el.innerHTML = `
+        <div class="origin-banner template-linked">
+          <div class="origin-banner-icon"><i class="fa-solid fa-file-lines"></i></div>
+          <div class="origin-banner-body">
+            <div class="origin-banner-title">Started from template: ${escHtml(originTemplateName)}</div>
+            <div class="origin-banner-detail">Template-linked sections update automatically when the template changes. Editing a section's content breaks the template link for that section only.</div>
+          </div>
+        </div>`;
+    } else if (originMode === 'scratch') {
+      el.innerHTML = `
+        <div class="origin-banner scratch">
+          <div class="origin-banner-icon"><i class="fa-solid fa-pencil"></i></div>
+          <div class="origin-banner-body">
+            <div class="origin-banner-title">New checklist — started from scratch</div>
+            <div class="origin-banner-detail">Import blocks from the library or add custom steps. Blocks stay linked to their source unless you edit their content locally.</div>
+          </div>
+        </div>`;
+    } else {
+      el.innerHTML = '';
+    }
+  }
+
+  // ============================================================
+  // RENDER SECTIONS
+  // ============================================================
+  function renderSections() {
+    const list = document.getElementById('sectionList');
+    list.innerHTML = '';
+
+    sections.forEach((section) => {
+      const blockIdCounts = {};
+      section.blocks.forEach(b => {
+        if (b.blockId !== 'freestanding') blockIdCounts[b.blockId] = (blockIdCounts[b.blockId] || 0) + 1;
+      });
+
+      const totalSteps = section.blocks.reduce((sum, b) => {
+        if (b.blockId === 'freestanding') return sum + (b.steps ? b.steps.length : 0);
+        const lib = BLOCK_LIBRARY.find(bl => bl.id === b.blockId);
+        return sum + (lib ? lib.steps : 0);
+      }, 0);
+
+      const linkBadgeClass  = section.linkState === 'template' ? 'template' : section.linkState === 'block' ? 'block' : 'unique';
+      const linkBadgeIcon   = section.linkState === 'template' ? 'fa-link' : section.linkState === 'block' ? 'fa-cubes' : 'fa-pen';
+      const linkBadgeLabel  = section.linkState === 'template' ? 'Template-linked' : section.linkState === 'block' ? 'Block-linked' : 'Unique';
+      const cardLinkClass   = `section-card link-${section.linkState}`;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'section-wrap' + (section.collapsed ? ' collapsed' : '');
+      wrap.dataset.sectionId = section.id;
+      wrap.draggable = true;
+
+      wrap.innerHTML = `
+        <div class="${cardLinkClass}">
+          <div class="section-header" onclick="toggleSection(${section.id},event)">
+            <i class="fa-solid fa-grip-vertical section-drag-handle" onclick="event.stopPropagation()"></i>
+            <i class="fa-solid fa-chevron-down section-chevron"></i>
+            <span class="section-name-display">${escHtml(section.name || 'Untitled Section')}</span>
+            <span class="link-state-badge ${linkBadgeClass}">
+              <i class="fa-solid ${linkBadgeIcon}"></i> ${linkBadgeLabel}
+            </span>
+            <span class="section-block-count">${section.blocks.length} block${section.blocks.length !== 1 ? 's' : ''} · ${totalSteps} steps</span>
+            <button class="section-action-btn delete" onclick="event.stopPropagation();deleteSection(${section.id})" aria-label="Remove section">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+          <div class="section-body">
+            ${section.templateLocked ? renderTemplateLockNotice(section) : ''}
+            ${section.blocks.length === 0
+              ? '<div style="padding:10px 0 8px;font-size:12px;color:rgba(165,180,252,0.28);text-align:center;">No blocks yet — add a block or custom steps below.</div>'
+              : section.blocks.map(b => renderBlockRollupHTML(b, section, blockIdCounts)).join('')
+            }
+            ${renderAppendZone(section)}
+          </div>
+        </div>`;
+
+      wrap.addEventListener('dragstart', onSectionDragStart);
+      wrap.addEventListener('dragover',  onSectionDragOver);
+      wrap.addEventListener('dragleave', onSectionDragLeave);
+      wrap.addEventListener('drop',      onSectionDrop);
+      wrap.addEventListener('dragend',   onSectionDragEnd);
+
+      list.appendChild(wrap);
+    });
+  }
+
+  function renderTemplateLockNotice(section) {
+    return `<div class="template-lock-notice">
+      <i class="fa-solid fa-lock"></i>
+      <span>This section mirrors the <strong>${escHtml(originTemplateName)}</strong> template.
+      <button class="template-lock-link" onclick="event.stopPropagation();requestBreakTemplateLink(${section.id})">Add or edit steps here</button> to break the template link for this section — block links remain intact.</span>
+    </div>`;
+  }
+
+  function renderAppendZone(section) {
+    // Template-linked sections get an append zone; block/unique sections get full add buttons
+    if (section.templateLocked) {
+      const count = (section.appendBlocks || []).length;
+      return `<div class="append-zone">
+        <div class="append-zone-label">Local additions · ${count} item${count !== 1 ? 's' : ''} (appended after template steps)</div>
+        <div id="appendZone_${section.id}">
+          ${(section.appendBlocks || []).map(b => renderBlockRollupHTML(b, section, {})).join('')}
+        </div>
+        <div class="add-to-section-btns">
+          <button class="add-block-btn" onclick="openImportAppend(${section.id})">
+            <i class="fa-solid fa-cube"></i> Add Block
+          </button>
+          <button class="add-freestanding-btn" onclick="openFreestandingAppend(${section.id})">
+            <i class="fa-solid fa-list-ul"></i> Add Steps
+          </button>
+        </div>
+      </div>`;
+    }
+    return `<div class="add-to-section-btns">
+      <button class="add-block-btn" onclick="openImport(${section.id})">
+        <i class="fa-solid fa-cube"></i> Add Block
+      </button>
+      <button class="add-freestanding-btn" onclick="openFreestanding(${section.id})">
+        <i class="fa-solid fa-list-ul"></i> Add Steps
+      </button>
+    </div>`;
+  }
+
+  function renderBlockRollupHTML(b, section, blockIdCounts) {
+    const isFree    = b.blockId === 'freestanding';
+    const lib       = BLOCK_LIBRARY.find(bl => bl.id === b.blockId);
+    const name      = isFree ? (b.name || 'Custom Steps') : (lib ? lib.name : b.blockId);
+    const steps     = isFree ? (b.steps ? b.steps.length : 0) : (lib ? lib.steps : 0);
+    const isMulti   = lib ? lib.multi : false;
+    const icon      = isFree ? 'fa-list-ul' : (lib ? lib.icon : 'fa-cube');
+    const isDupe    = !isFree && (blockIdCounts[b.blockId] > 1);
+    const linkState = b.linkState || 'unique';
+    const iconClass = linkState === 'template' ? '' : linkState === 'block' ? '' : ' unique';
+
+    const ctxBadge = b.contextLabel
+      ? `<span class="context-label-badge"><i class="fa-solid fa-tag"></i> ${escHtml(b.contextLabel)}</span>`
+      : '';
+
+    const expandPanel = b.expanded ? renderExpandPanel(b, lib, isFree, section) : '';
+
+    return `
+      <div class="block-rollup-wrap">
+        <div class="block-rollup ${b.expanded ? 'expanded' : ''}"
+          onclick="toggleBlockRollup(${section.id},${b.instanceId})"
+          role="button" tabindex="0" aria-expanded="${b.expanded}"
+          data-instance="${b.instanceId}">
+          <i class="fa-solid fa-grip-vertical block-drag-handle" onclick="event.stopPropagation()"></i>
+          <span class="block-link-dot ${linkState}" title="${linkState === 'template' ? 'Template-linked' : linkState === 'block' ? 'Block-linked' : 'Fully unique'}"></span>
+          <div class="block-rollup-icon${iconClass}"><i class="fa-solid ${icon}"></i></div>
+          <div class="block-rollup-info">
+            <div class="block-rollup-name">${escHtml(name)}</div>
+            <div class="block-rollup-meta">
+              <span>${steps} step${steps !== 1 ? 's' : ''}</span>
+              ${isMulti ? '<span style="color:rgba(245,158,11,0.65);"><i class="fa-solid fa-arrows-repeat" style="font-size:9px;"></i> Multi-use</span>' : ''}
+              ${ctxBadge}
+            </div>
+          </div>
+          <div class="rollup-actions" onclick="event.stopPropagation()">
+            <button class="rollup-btn remove" onclick="removeBlock(${section.id},${b.instanceId})" title="Remove" aria-label="Remove block">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        </div>
+        ${b.expanded ? `<div class="block-expand-panel open">${expandPanel}</div>` : ''}
+      </div>`;
+  }
+
+  // Steps for a known blockId, normalized to { label, sev }.
+  // In sandbox mode, prefer Store.getBlock(...).steps (which uses
+  // { label, severity }); fall back to the hard-coded BLOCK_STEPS.
+  function getStepsForBlockId(id) {
+    if (sandboxMode && window.Store) {
+      const rec = window.Store.getBlock(id);
+      if (rec && Array.isArray(rec.steps)) {
+        return rec.steps.map(s => ({ label: s.label || '', sev: s.severity || null }));
+      }
+    }
+    return BLOCK_STEPS[id] || [];
+  }
+
+  function renderExpandPanel(b, lib, isFree, section) {
+    const steps = isFree ? (b.steps || []) : getStepsForBlockId(b.blockId);
+    const linkState = b.linkState || 'unique';
+
+    const previewRows = steps.map((s, i) => `
+      <div class="expand-step-item">
+        <span class="expand-step-num">${i + 1}</span>
+        <span style="flex:1;">${escHtml(s.label)}</span>
+        ${s.sev ? `<span class="expand-step-sev ${s.sev}">${s.sev === 'critical' ? 'Critical' : 'Warning'}</span>` : ''}
+      </div>`).join('');
+
+    const libStepCount = lib ? lib.steps : (b.steps ? b.steps.length : 0);
+    const preview = steps.length
+      ? previewRows
+      : `<div style="font-size:12px;color:rgba(165,180,252,0.35);padding:6px 0;">${libStepCount} steps — preview not available in mock</div>`;
+
+    // Actions depend on link state
+    let actions = '';
+    if (isFree || linkState === 'unique') {
+      actions = `<vaadin-button theme="tertiary" onclick="openFreestandingEdit(${b.instanceId},${section.id})">
+        <i class="fa-solid fa-pen" slot="prefix"></i> Edit Steps
+      </vaadin-button>`;
+    } else if (linkState === 'block') {
+      actions = `<vaadin-button theme="tertiary" onclick="requestBreakBlockLink(${section.id},${b.instanceId},'${escHtml(b.blockId)}')">
+        <i class="fa-solid fa-pen" slot="prefix"></i> Edit Locally
+      </vaadin-button>`;
+    } else {
+      // template-linked block — must break block link to edit
+      actions = `<vaadin-button theme="tertiary" onclick="requestBreakBlockLink(${section.id},${b.instanceId},'${escHtml(b.blockId)}')">
+        <i class="fa-solid fa-pen" slot="prefix"></i> Edit Locally
+      </vaadin-button>`;
+    }
+
+    const note = linkState === 'template'
+      ? `<span class="expand-read-only-note"><i class="fa-solid fa-link" style="margin-right:3px;font-size:9px;"></i> Template-linked</span>`
+      : linkState === 'block'
+      ? `<span class="expand-read-only-note"><i class="fa-solid fa-cubes" style="margin-right:3px;font-size:9px;"></i> Block-linked</span>`
+      : `<span class="expand-read-only-note"><i class="fa-solid fa-pen" style="margin-right:3px;font-size:9px;"></i> Local copy</span>`;
+
+    return `
+      ${preview}
+      <div class="expand-panel-actions">
+        ${actions}
+        ${note}
+      </div>`;
+  }
+
+  // ============================================================
+  // SECTION OPERATIONS
+  // ============================================================
+  function addSection() {
+    sections.push({ id:++sectionCounter, name:'', collapsed:false, linkState:'unique', templateLocked:false,
+      blocks:[], appendBlocks:[] });
+    renderSections();
+    markDirty();
+  }
+
+  function deleteSection(id) {
+    const s = sections.find(s => s.id === id);
+    if (s && s.blocks.length) {
+      if (!confirm('Remove this section and all its blocks from the checklist?')) return;
+    }
+    sections = sections.filter(s => s.id !== id);
+    renderSections();
+    markDirty();
+  }
+
+  function toggleSection(id, e) {
+    const s = sections.find(s => s.id === id);
+    if (s) s.collapsed = !s.collapsed;
+    renderSections();
+  }
+
+  // ============================================================
+  // BLOCK OPERATIONS
+  // ============================================================
+  function removeBlock(sectionId, instanceId) {
+    const s = sections.find(s => s.id === sectionId);
+    if (!s) return;
+    s.blocks = s.blocks.filter(b => b.instanceId !== instanceId);
+    if (s.appendBlocks) s.appendBlocks = s.appendBlocks.filter(b => b.instanceId !== instanceId);
+    renderSections();
+    markDirty();
+  }
+
+  function toggleBlockRollup(sectionId, instanceId) {
+    const s = sections.find(s => s.id === sectionId);
+    if (!s) return;
+    const allBlocks = [...s.blocks, ...(s.appendBlocks || [])];
+    const b = allBlocks.find(b => b.instanceId === instanceId);
+    if (!b) return;
+    allBlocks.forEach(bl => { if (bl.instanceId !== instanceId) bl.expanded = false; });
+    b.expanded = !b.expanded;
+    renderSections();
+  }
+
+  // ============================================================
+  // BREAK TEMPLATE LINK
+  // ============================================================
+  function requestBreakTemplateLink(sectionId) {
+    const s = sections.find(s => s.id === sectionId);
+    if (!s) return;
+    document.getElementById('breakTemplateName').textContent = originTemplateName;
+    pendingBreakTemplateSectionId = sectionId;
+    document.getElementById('breakTemplateLinkModal').style.display = 'flex';
+  }
+
+  function closeBreakTemplateLink() {
+    document.getElementById('breakTemplateLinkModal').style.display = 'none';
+    pendingBreakTemplateSectionId = null;
+  }
+
+  function confirmBreakTemplateLink() {
+    const s = sections.find(s => s.id === pendingBreakTemplateSectionId);
+    if (s) {
+      s.templateLocked = false;
+      s.linkState = 'block';
+      s.blocks.forEach(b => { if (b.linkState === 'template') b.linkState = 'block'; });
+    }
+    closeBreakTemplateLink();
+    renderSections();
+    markDirty();
+    showToast('Template link broken — block links remain intact');
+  }
+
+  // ============================================================
+  // BREAK BLOCK LINK
+  // ============================================================
+  function requestBreakBlockLink(sectionId, instanceId, blockId) {
+    const lib = BLOCK_LIBRARY.find(bl => bl.id === blockId);
+    document.getElementById('breakBlockName').textContent = lib ? lib.name : blockId;
+    pendingBreakBlockSectionId  = sectionId;
+    pendingBreakBlockInstanceId = instanceId;
+    document.getElementById('breakBlockLinkModal').style.display = 'flex';
+  }
+
+  function closeBreakBlockLink() {
+    document.getElementById('breakBlockLinkModal').style.display = 'none';
+    pendingBreakBlockSectionId  = null;
+    pendingBreakBlockInstanceId = null;
+  }
+
+  function confirmBreakBlockLink() {
+    const s = sections.find(s => s.id === pendingBreakBlockSectionId);
+    if (s) {
+      const allBlocks = [...s.blocks, ...(s.appendBlocks || [])];
+      const b = allBlocks.find(b => b.instanceId === pendingBreakBlockInstanceId);
+      if (b) {
+        b.linkState = 'unique';
+        // Promote section link state if it was template-linked
+        if (s.linkState === 'template') { s.linkState = 'block'; s.templateLocked = false; }
+        // Open freestanding editor with pre-populated steps
+        const sourceSteps = getStepsForBlockId(b.blockId);
+        const bSteps = sourceSteps.length ? JSON.parse(JSON.stringify(sourceSteps)) : [];
+        b.blockId = 'freestanding';
+        b.steps   = bSteps;
+      }
+    }
+    closeBreakBlockLink();
+    renderSections();
+    markDirty();
+    showToast('Block link broken — steps are now local to this checklist');
+    // Open the freestanding editor for the newly-local block
+    setTimeout(() => openFreestandingEdit(pendingBreakBlockInstanceId || instanceId, pendingBreakBlockSectionId), 200);
+  }
+
+  // ============================================================
+  // IMPORT PANEL
+  // ============================================================
+  function openImport(sectionId) {
+    importTargetSectionId = sectionId;
+    document.getElementById('importOverlay').style.display = 'flex';
+    document.getElementById('importSearch').value = '';
+    renderImportList('');
+    setTimeout(() => document.getElementById('importSearch').focus(), 50);
+  }
+
+  function openImportAppend(sectionId) {
+    // Same panel but drops into append zone
+    importTargetSectionId = -sectionId; // negative = append
+    document.getElementById('importOverlay').style.display = 'flex';
+    document.getElementById('importSearch').value = '';
+    renderImportList('');
+    setTimeout(() => document.getElementById('importSearch').focus(), 50);
+  }
+
+  function closeImport() {
+    document.getElementById('importOverlay').style.display = 'none';
+    importTargetSectionId = null;
+  }
+
+  function filterImportBlocks(q) { renderImportList(q); }
+
+  function renderImportList(query) {
+    const list = document.getElementById('importList');
+    const q = query.toLowerCase();
+    const domains = {};
+    BLOCK_LIBRARY.forEach(b => {
+      if (!q || b.name.toLowerCase().includes(q) || b.domain.toLowerCase().includes(q)) {
+        if (!domains[b.domain]) domains[b.domain] = [];
+        domains[b.domain].push(b);
+      }
+    });
+    list.innerHTML = '';
+    if (!Object.keys(domains).length) {
+      list.innerHTML = '<div style="padding:24px;text-align:center;font-size:13px;color:rgba(165,180,252,0.30);">No blocks found</div>';
+      return;
+    }
+    Object.entries(domains).forEach(([domain, blocks]) => {
+      const d = document.createElement('div');
+      d.className = 'import-domain-label'; d.textContent = domain;
+      list.appendChild(d);
+      blocks.forEach(block => {
+        const item = document.createElement('div');
+        item.className = 'import-block-item';
+        item.innerHTML = `
+          <div class="import-block-icon"><i class="fa-solid ${block.icon}"></i></div>
+          <div class="import-block-info">
+            <div class="import-block-name">${escHtml(block.name)}</div>
+            <div class="import-block-meta">${block.domain}${block.multi ? ' · <span style="color:#fbbf24;">Multi-use</span>' : ''}</div>
+          </div>
+          <span class="import-block-steps">${block.steps} steps</span>`;
+        item.addEventListener('click', () => importBlock(block.id));
+        list.appendChild(item);
+      });
+    });
+  }
+
+  function importBlock(blockId) {
+    const isAppend = importTargetSectionId < 0;
+    const realId   = isAppend ? -importTargetSectionId : importTargetSectionId;
+    const s = sections.find(s => s.id === realId);
+    if (!s) return;
+
+    const newBlock = { instanceId:++blockCounter, blockId, contextLabel:'', linkState:'block', expanded:false };
+    if (isAppend) {
+      if (!s.appendBlocks) s.appendBlocks = [];
+      s.appendBlocks.push(newBlock);
+    } else {
+      s.blocks.push(newBlock);
+      if (s.linkState === 'template') { s.linkState = 'block'; s.templateLocked = false; }
+    }
+    closeImport();
+    renderSections();
+    markDirty();
+    showToast('Block added');
+  }
+
+  // ============================================================
+  // FREESTANDING STEPS EDITOR
+  // ============================================================
+  function openFreestanding(sectionId) {
+    freestandingSectionId      = sectionId;
+    freestandingEditInstanceId = null;
+    freestandingSteps          = [];
+    document.getElementById('freestandingTitle').textContent = 'Custom Steps';
+    renderFreestandingSteps();
+    document.getElementById('freestandingOverlay').style.display = 'flex';
+    addFreestandingStep();
+  }
+
+  function openFreestandingAppend(sectionId) {
+    freestandingSectionId      = -sectionId; // negative = append
+    freestandingEditInstanceId = null;
+    freestandingSteps          = [];
+    document.getElementById('freestandingTitle').textContent = 'Custom Steps (Append)';
+    renderFreestandingSteps();
+    document.getElementById('freestandingOverlay').style.display = 'flex';
+    addFreestandingStep();
+  }
+
+  function openFreestandingEdit(instanceId, sectionId) {
+    const s = sectionId !== undefined ? sections.find(s => s.id === sectionId) : null;
+    let b = null;
+    if (s) {
+      b = [...s.blocks, ...(s.appendBlocks || [])].find(bl => bl.instanceId === instanceId);
+    } else {
+      sections.forEach(sec => {
+        const found = [...sec.blocks, ...(sec.appendBlocks || [])].find(bl => bl.instanceId === instanceId);
+        if (found) b = found;
+      });
+    }
+    if (!b) return;
+    freestandingSectionId      = sectionId;
+    freestandingEditInstanceId = instanceId;
+    freestandingSteps          = JSON.parse(JSON.stringify(b.steps || []));
+    document.getElementById('freestandingTitle').textContent = b.name || 'Custom Steps';
+    renderFreestandingSteps();
+    document.getElementById('freestandingOverlay').style.display = 'flex';
+  }
+
+  function openFreestandingNew() {
+    closeImport();
+    const realId = importTargetSectionId !== null ? Math.abs(importTargetSectionId) : null;
+    if (realId) openFreestanding(realId);
+  }
+
+  function closeFreestanding() {
+    const hasContent = freestandingSteps.some(s => s.label.trim());
+    if (hasContent && freestandingEditInstanceId === null) {
+      if (!confirm('Discard these steps?')) return;
+    }
+    document.getElementById('freestandingOverlay').style.display = 'none';
+    freestandingSteps          = [];
+    freestandingSectionId      = null;
+    freestandingEditInstanceId = null;
+  }
+
+  function cancelFreestanding() { closeFreestanding(); }
+
+  function addFreestandingStep() {
+    freestandingSteps.push({ id:++freestandingCounter, label:'', sev:null });
+    renderFreestandingSteps();
+    setTimeout(() => {
+      const inputs = document.querySelectorAll('#freestandingScroll .be-step-input');
+      if (inputs.length) inputs[inputs.length - 1].focus();
+    }, 30);
+  }
+
+  function deleteFreestandingStep(idx) {
+    freestandingSteps.splice(idx, 1);
+    renderFreestandingSteps();
+  }
+
+  function setFreestandingSev(idx, sev) {
+    freestandingSteps[idx].sev = freestandingSteps[idx].sev === sev ? null : sev;
+    renderFreestandingSteps();
+  }
+
+  function renderFreestandingSteps() {
+    const scroll = document.getElementById('freestandingScroll');
+    if (!freestandingSteps.length) {
+      scroll.innerHTML = '<div style="padding:24px;text-align:center;font-size:13px;color:rgba(165,180,252,0.30);">No steps yet — click Add Step below.</div>';
+      return;
+    }
+    scroll.innerHTML = freestandingSteps.map((s, i) => `
+      <div class="be-step-card">
+        <div class="be-step-row">
+          <span class="be-step-num">${i + 1}</span>
+          <input class="be-step-input" type="text" value="${escHtml(s.label)}"
+            placeholder="Step description…"
+            oninput="freestandingSteps[${i}].label=this.value" />
+          <button class="be-step-delete" onclick="deleteFreestandingStep(${i})" aria-label="Delete step">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+        </div>
+        <div class="be-step-attrs">
+          <span style="font-size:11px;color:rgba(165,180,252,0.35);margin-right:4px;">Severity:</span>
+          <button class="be-sev-btn ${s.sev === 'critical' ? 'active-critical' : ''}" onclick="setFreestandingSev(${i},'critical')">Critical</button>
+          <button class="be-sev-btn ${s.sev === 'warning'  ? 'active-warning'  : ''}" onclick="setFreestandingSev(${i},'warning')">Warning</button>
+          <button class="be-sev-btn ${s.sev === null       ? 'active-none'     : ''}" onclick="setFreestandingSev(${i},null)">None</button>
+        </div>
+      </div>`).join('');
+  }
+
+  function saveFreestanding() {
+    const validSteps = freestandingSteps.filter(s => s.label.trim());
+    if (!validSteps.length) { showToast('Add at least one step first'); return; }
+
+    const isAppend = typeof freestandingSectionId === 'number' && freestandingSectionId < 0;
+    const realId   = isAppend ? -freestandingSectionId : freestandingSectionId;
+
+    if (freestandingEditInstanceId !== null) {
+      // Update existing freestanding block
+      sections.forEach(sec => {
+        const allBlocks = [...sec.blocks, ...(sec.appendBlocks || [])];
+        const b = allBlocks.find(bl => bl.instanceId === freestandingEditInstanceId);
+        if (b) b.steps = validSteps;
+      });
+    } else {
+      const s = sections.find(sec => sec.id === realId);
+      if (s) {
+        const newBlock = { instanceId:++blockCounter, blockId:'freestanding',
+          name:'Custom Steps', steps:validSteps, contextLabel:'', linkState:'unique', expanded:false };
+        if (isAppend) {
+          if (!s.appendBlocks) s.appendBlocks = [];
+          s.appendBlocks.push(newBlock);
+        } else {
+          s.blocks.push(newBlock);
+          if (s.linkState === 'template') { s.linkState = 'block'; s.templateLocked = false; }
+        }
+      }
+    }
+
+    document.getElementById('freestandingOverlay').style.display = 'none';
+    freestandingSteps          = [];
+    freestandingSectionId      = null;
+    freestandingEditInstanceId = null;
+    renderSections();
+    markDirty();
+    showToast('Steps saved');
+  }
+
+  // ============================================================
+  // DRAG-AND-DROP (section level)
+  // ============================================================
+  let dragSrcSectionIndex = null;
+
+  function onSectionDragStart(e) {
+    const wrap = e.currentTarget;
+    dragSrcSectionIndex = sections.findIndex(s => s.id == wrap.dataset.sectionId);
+    wrap.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  }
+  function onSectionDragOver(e) {
+    e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('drag-over-section');
+  }
+  function onSectionDragLeave(e) { e.currentTarget.classList.remove('drag-over-section'); }
+  function onSectionDrop(e) {
+    e.preventDefault(); e.stopPropagation();
+    const wrap  = e.currentTarget;
+    wrap.classList.remove('drag-over-section');
+    const dstId = wrap.dataset.sectionId;
+    const dstIdx = sections.findIndex(s => s.id == dstId);
+    if (dragSrcSectionIndex === null || dragSrcSectionIndex === dstIdx) return;
+    const [moved] = sections.splice(dragSrcSectionIndex, 1);
+    sections.splice(dstIdx, 0, moved);
+    renderSections(); markDirty();
+  }
+  function onSectionDragEnd(e) {
+    e.currentTarget.classList.remove('dragging');
+    document.querySelectorAll('.drag-over-section').forEach(el => el.classList.remove('drag-over-section'));
+    dragSrcSectionIndex = null;
+  }
+
+  // ============================================================
+  // NAME / HEADER SYNC
+  // ============================================================
+  function onNameChange(val) {
+    document.getElementById('headerChecklistName').textContent = val || 'New Checklist';
+    markDirty();
+  }
+
+  // ============================================================
+  // DIRTY / SAVE STATE
+  // ============================================================
+  function markDirty() {
+    isDirty = true;
+    document.getElementById('autosaveIndicator').innerHTML =
+      '<i class="fa-regular fa-circle-dot"></i> Unsaved changes';
+  }
+
+  function markSaved() {
+    isDirty = false;
+    document.getElementById('autosaveIndicator').innerHTML =
+      '<i class="fa-solid fa-circle-check" style="color:#34d399;"></i> Saved';
+  }
+
+  // Collect current editor state into the Store's checklist shape.
+  // Preserves deployments[] from the existing record (the deploy dialog
+  // owns that array — checklist-builder doesn't edit it).
+  function collectChecklistRecord(nextStatus) {
+    const ni = document.getElementById('checklistNameInput');
+    const cs = document.getElementById('cadenceSelect');
+    const stored = sandboxRecord || {};
+    return {
+      id:       stored.id || undefined,
+      name:     (ni && ni.value.trim()) || stored.name || 'Untitled checklist',
+      type:     stored.type || 'apparatus',
+      cadence:  (cs && cs.value) || stored.cadence || '',
+      status:   nextStatus || stored.status || 'draft',
+      origin:   originMode || stored.origin || 'scratch',
+      sections: sections.map(s => ({
+        id: s.id,
+        name: s.name || '',
+        collapsed: !!s.collapsed,
+        linkState: s.linkState || 'unique',
+        templateLocked: !!s.templateLocked,
+        blocks: (s.blocks || []).map(b => {
+          const out = {
+            instanceId: b.instanceId,
+            blockId: b.blockId,
+            contextLabel: b.contextLabel || '',
+            linkState: b.linkState || 'unique'
+          };
+          if (b.blockId === 'freestanding') {
+            out.name  = b.name || '';
+            out.steps = b.steps || [];
+          }
+          return out;
+        }),
+        appendBlocks: s.appendBlocks || []
+      })),
+      deployments: stored.deployments || []
+    };
+  }
+
+  function saveDraft() {
+    if (sandboxMode && window.Store) {
+      const saved = window.Store.upsertChecklist(collectChecklistRecord('draft'));
+      sandboxRecord = saved;
+      if (sandboxIsNew && saved.id) {
+        history.replaceState(null, '', '?id=' + encodeURIComponent(saved.id));
+      }
+    }
+    markSaved();
+    showToast('Draft saved');
+    if (sandboxMode) setTimeout(doExit, 600);
+  }
+
+  function activateChecklist() {
+    const name = document.getElementById('checklistNameInput').value.trim();
+    if (!name) { showToast('Add a checklist name first'); return; }
+    if (sandboxMode && window.Store) {
+      const saved = window.Store.upsertChecklist(collectChecklistRecord('active'));
+      sandboxRecord = saved;
+      if (sandboxIsNew && saved.id) {
+        history.replaceState(null, '', '?id=' + encodeURIComponent(saved.id));
+      }
+    }
+    document.getElementById('statusPill').className = 'editor-status-pill active';
+    document.getElementById('statusPill').innerHTML = '<i class="fa-solid fa-circle" style="font-size:6px;"></i> Active';
+    markSaved();
+    showToast('Checklist activated');
+    if (sandboxMode) setTimeout(doExit, 600);
+  }
+
+  // ============================================================
+  // EXIT
+  // ============================================================
+  function handleExit() {
+    if (isDirty) {
+      document.getElementById('exitConfirmModal').style.display = 'flex';
+    } else {
+      doExit();
+    }
+  }
+
+  function closeExitConfirm() { document.getElementById('exitConfirmModal').style.display = 'none'; }
+
+  function confirmExit() { doExit(); }
+
+  function doExit() {
+    sessionStorage.removeItem('checklistBuilderReturn');
+    location.href = RETURN_URL;
+  }
+
+  // ============================================================
+  // ESCAPE KEY STACK
+  // Topmost overlay closes first
+  // ============================================================
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (document.getElementById('exitConfirmModal').style.display !== 'none') {
+      closeExitConfirm(); return;
+    }
+    if (document.getElementById('breakBlockLinkModal').style.display !== 'none') {
+      closeBreakBlockLink(); return;
+    }
+    if (document.getElementById('breakTemplateLinkModal').style.display !== 'none') {
+      closeBreakTemplateLink(); return;
+    }
+    if (document.getElementById('freestandingOverlay').style.display !== 'none') {
+      cancelFreestanding(); return;
+    }
+    if (document.getElementById('importOverlay').style.display !== 'none') {
+      closeImport(); return;
+    }
+    handleExit();
+  });
+
+  // Backdrop click closes import and freestanding panels
+  document.getElementById('importOverlay').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeImport();
+  });
+  document.getElementById('freestandingOverlay').addEventListener('click', e => {
+    if (e.target === e.currentTarget) cancelFreestanding();
+  });
+
+  // ============================================================
+  // TOAST
+  // ============================================================
+  function showToast(msg, icon = 'fa-check-circle') {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.innerHTML = `<i class="fa-solid ${icon}"></i> ${msg}`;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+  }
+
+  // ============================================================
+  // UTILS
+  // ============================================================
+  function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+</script>
+</body>
+</html>

@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checklist Sandbox</title>
+
+  <!-- Vector + Font Awesome -->
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.5.1/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.1.1/styles.js"></script>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+  <!-- Prototype shell (path is one level up since sandbox/ is a subfolder) -->
+  <link rel="stylesheet" href="_shell.css" />
+  <link rel="stylesheet" href="_mobile.css" />
+  <link rel="stylesheet" href="_theme.css" />
+
+  <style>
+    /* ---- Layout: sidebar + main, copied from existing pages ---- */
+    .body-wrap {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .main-content {
+      flex: 1;
+      overflow: auto;
+      padding: 20px 24px;
+    }
+    @media (max-width: 768px) { .main-content { padding: 14px; } }
+
+    /* ---- Sandbox banner (above each view) ---- */
+    .sandbox-banner {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap;
+      background: linear-gradient(135deg, rgba(2,113,206,0.10), rgba(2,113,206,0.03));
+      border: 1px solid var(--lumo-contrast-10pct);
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+    }
+    .sandbox-banner-text {
+      font-size: 12px;
+      color: var(--lumo-secondary-text-color);
+      line-height: 1.45;
+      flex: 1; min-width: 240px;
+    }
+    .sandbox-banner-text strong { color: var(--lumo-body-text-color); font-weight: 700; }
+    .sandbox-banner-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .sandbox-banner-meta { font-size: 11px; color: var(--lumo-secondary-text-color); margin-right: 8px; white-space: nowrap; }
+    .file-hidden { display: none; }
+
+    /* ---- View header ---- */
+    .view-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px; gap: 12px; flex-wrap: wrap;
+    }
+    .view-head h1 { font-size: 20px; font-weight: 700; color: var(--lumo-header-text-color); margin-bottom: 2px; }
+    .view-head .desc { font-size: 12px; color: var(--lumo-secondary-text-color); }
+    .view-head .actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+    .view-panel { display: none; }
+    .view-panel.active { display: block; }
+
+    /* ---- Sub-nav tabs (within Checklists page) ---- */
+    .subnav {
+      display: flex; gap: 0;
+      border-bottom: 1px solid var(--lumo-contrast-10pct);
+      margin-bottom: 20px;
+      overflow-x: auto; scrollbar-width: none;
+    }
+    .subnav::-webkit-scrollbar { display: none; }
+    .subnav-tab {
+      padding: 9px 18px; font-size: 13px; font-weight: 600;
+      color: var(--lumo-secondary-text-color);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px; white-space: nowrap;
+      transition: color 0.15s; user-select: none;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .subnav-tab:hover { color: var(--lumo-body-text-color); }
+    .subnav-tab.active { color: var(--lumo-primary-color); border-bottom-color: var(--lumo-primary-color); }
+    .subnav-tab .tab-count {
+      background: var(--lumo-contrast-10pct);
+      color: var(--lumo-secondary-text-color);
+      font-size: 11px; font-weight: 700;
+      padding: 2px 7px; border-radius: 10px; line-height: 1;
+    }
+    .subnav-tab.active .tab-count {
+      background: var(--lumo-primary-color); color: #fff;
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ---- Record cards (used in Blocks view) ---- */
+    .record-list { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .record-card {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      background: var(--lumo-base-color, #fff);
+      border: 1px solid var(--lumo-contrast-10pct);
+      border-radius: 8px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .record-card:hover { border-color: var(--lumo-contrast-20pct); box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+    .record-main { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
+    .record-icon {
+      width: 36px; height: 36px; border-radius: 8px;
+      background: rgba(2,113,206,0.10); color: var(--lumo-primary-color);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; font-size: 15px;
+    }
+    .record-name { font-size: 14px; font-weight: 600; color: var(--lumo-body-text-color); margin-bottom: 2px; }
+    .record-meta { font-size: 11px; color: var(--lumo-secondary-text-color); display: flex; gap: 10px; flex-wrap: wrap; }
+    .record-meta .id-chip {
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 10px;
+      background: var(--lumo-contrast-5pct);
+      padding: 1px 6px; border-radius: 3px;
+      color: var(--lumo-secondary-text-color);
+    }
+    .record-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+    /* ---- Empty state ---- */
+    .empty {
+      text-align: center; padding: 40px 24px;
+      color: var(--lumo-secondary-text-color);
+      border: 1px dashed var(--lumo-contrast-20pct);
+      border-radius: 8px;
+      background: var(--lumo-contrast-5pct);
+    }
+    .empty i { font-size: 28px; color: var(--lumo-contrast-20pct); margin-bottom: 10px; display: block; }
+    .empty .empty-title { font-size: 14px; font-weight: 600; color: var(--lumo-body-text-color); margin-bottom: 4px; }
+    .empty .empty-desc { font-size: 12px; max-width: 360px; margin: 0 auto; line-height: 1.5; }
+
+    /* ---- Checklist row (mirrors checklists.html .template-row) ---- */
+    .cl-row-wrap {
+      background: var(--lumo-base-color, #fff);
+      border: 1px solid var(--lumo-contrast-10pct);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      overflow: hidden;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .cl-row-wrap:hover { border-color: var(--lumo-contrast-20pct); box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+    .cl-row {
+      display: grid; grid-template-columns: 1fr auto auto;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      cursor: pointer;
+    }
+    .cl-name-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .cl-type-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; font-size: 14px;
+      background: rgba(2,113,206,0.12); color: var(--lumo-primary-color);
+    }
+    .cl-type-icon.apparatus { background: rgba(2,113,206,0.12); color: var(--lumo-primary-color); }
+    .cl-type-icon.ems       { background: rgba(220,38,38,0.12);  color: #dc2626; }
+    .cl-type-icon.facility  { background: rgba(99,102,241,0.12); color: #6366f1; }
+    .cl-type-icon.pm        { background: rgba(245,158,11,0.12); color: #f59e0b; }
+    .cl-name { font-size: 13px; font-weight: 600; color: var(--lumo-body-text-color); }
+    .cl-sub { font-size: 11px; color: var(--lumo-secondary-text-color); margin-top: 1px; }
+    .cl-row-chevron { color: var(--lumo-secondary-text-color); font-size: 10px; transition: transform 0.18s; }
+    .cl-row.open .cl-row-chevron { transform: rotate(90deg); }
+    .cl-row-actions { display: flex; gap: 4px; }
+
+    /* Status pills */
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 10px; font-weight: 700;
+      padding: 3px 8px; border-radius: 10px;
+      text-transform: capitalize;
+    }
+    .status-pill.active   { background: rgba(16,185,129,0.18); color: #34d399; }
+    .status-pill.draft    { background: rgba(255,255,255,0.08); color: var(--lumo-secondary-text-color); }
+    .status-pill.paused   { background: rgba(255,255,255,0.08); color: var(--lumo-secondary-text-color); }
+    .status-pill.retired  { background: rgba(216,62,56,0.16); color: #f87171; }
+
+    /* ---- Checklist expand panel: deployments ---- */
+    .cl-expand {
+      display: none;
+      border-top: 1px solid var(--lumo-contrast-5pct);
+      background: var(--lumo-contrast-5pct);
+      padding: 8px 14px 12px 56px;
+    }
+    .cl-expand.open { display: block; }
+    .deployments-header {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--lumo-tertiary-text-color);
+      padding: 8px 0 6px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .deployment-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 0;
+      border-top: 1px solid var(--lumo-contrast-5pct);
+      font-size: 12px;
+    }
+    .deployment-row:first-of-type { border-top: none; }
+    .deployment-icon {
+      width: 28px; height: 28px; border-radius: 6px;
+      background: rgba(99,102,241,0.12); color: #6366f1;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; flex-shrink: 0;
+    }
+    .deployment-target { flex: 1; min-width: 0; }
+    .deployment-target-name { font-size: 12.5px; font-weight: 500; color: var(--lumo-body-text-color); }
+    .deployment-target-sub  { font-size: 11px; color: var(--lumo-secondary-text-color); margin-top: 1px; }
+    .deployment-cadence { font-size: 11px; color: var(--lumo-secondary-text-color); }
+    .deployment-actions { display: flex; gap: 4px; }
+    .no-deployments {
+      font-size: 12px;
+      color: var(--lumo-secondary-text-color);
+      padding: 10px 0;
+      font-style: italic;
+    }
+
+    /* ---- Fleet view (mirrors fleet.html .fleet-row) ---- */
+    .fleet-list-wrap {
+      background: var(--lumo-base-color, #fff);
+      border: 1px solid var(--lumo-contrast-10pct);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .fleet-list-header {
+      display: grid;
+      grid-template-columns: 50px 1fr 130px 160px 130px 90px 40px;
+      gap: 12px;
+      padding: 9px 16px;
+      background: var(--lumo-contrast-5pct);
+      border-bottom: 1px solid var(--lumo-contrast-10pct);
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--lumo-tertiary-text-color);
+    }
+    .fleet-row {
+      display: grid;
+      grid-template-columns: 50px 1fr 130px 160px 130px 90px 40px;
+      gap: 12px;
+      padding: 10px 16px;
+      align-items: center;
+      border-bottom: 1px solid var(--lumo-contrast-5pct);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .fleet-row:last-child { border-bottom: none; }
+    .fleet-row:hover { background: var(--lumo-contrast-5pct); }
+    .vehicle-photo {
+      position: relative;
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, rgba(2,113,206,0.18), rgba(2,113,206,0.06));
+      color: var(--lumo-primary-color);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .vehicle-photo-dot {
+      position: absolute; bottom: -2px; right: -2px;
+      width: 10px; height: 10px; border-radius: 50%;
+      border: 2px solid var(--lumo-base-color, #fff);
+    }
+    .vehicle-photo-dot.ok   { background: #10b981; }
+    .vehicle-photo-dot.warn { background: #f59e0b; }
+    .vehicle-photo-dot.oos  { background: #d83e38; }
+    .fleet-row-name { font-size: 13px; font-weight: 600; color: var(--lumo-body-text-color); }
+    .fleet-row-sub  { font-size: 11px; color: var(--lumo-secondary-text-color); margin-top: 1px; }
+    .fleet-col-type, .fleet-col-station, .fleet-col-lastcheck {
+      font-size: 12px; color: var(--lumo-secondary-text-color);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .fleet-col-status { display: flex; justify-content: flex-end; }
+    .status-pill.ok    { background: rgba(16,185,129,0.18); color: #34d399; }
+    .status-pill.warn  { background: rgba(245,158,11,0.18); color: #f59e0b; }
+    .status-pill.oos   { background: rgba(216,62,56,0.18);  color: #f87171; }
+    .fleet-row-chevron { color: var(--lumo-secondary-text-color); font-size: 10px; justify-self: end; }
+
+    /* ---- Vehicle detail panel (expand-on-click) ---- */
+    .vehicle-detail {
+      display: none;
+      background: var(--lumo-contrast-5pct);
+      padding: 14px 16px 16px 78px;
+      border-bottom: 1px solid var(--lumo-contrast-5pct);
+    }
+    .vehicle-detail.open { display: block; }
+    .vehicle-detail h3 {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--lumo-tertiary-text-color);
+      margin-bottom: 8px;
+    }
+    .vehicle-checklist-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 12px;
+      background: var(--lumo-base-color);
+      border: 1px solid var(--lumo-contrast-10pct);
+      border-radius: 6px;
+      margin-bottom: 6px;
+    }
+    .vehicle-checklist-row .left { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .vehicle-checklist-row .name { font-size: 13px; font-weight: 600; color: var(--lumo-body-text-color); }
+    .vehicle-checklist-row .sub  { font-size: 11px; color: var(--lumo-secondary-text-color); margin-top: 1px; }
+    .vehicle-no-checklists { font-size: 12px; color: var(--lumo-secondary-text-color); font-style: italic; padding: 8px 0; }
+
+    /* ---- Dialog content ---- */
+    .deploy-dialog-content { padding: 4px 0; min-width: 360px; }
+    .deploy-dialog-content label { display:block; font-size: 12px; font-weight: 600; margin: 12px 0 4px; color: var(--lumo-body-text-color); }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ============================================================
+       TOP HEADER
+       ============================================================ -->
+  <header class="top-header">
+    <div class="top-header-brand">
+      <div class="brand-logo"><i class="fa-solid fa-list-check"></i></div>
+    </div>
+    <div style="flex:1; display:flex; align-items:center; padding-left:16px;">
+      <div>
+        <div style="font-size:15px; font-weight:700;">Checklist Sandbox</div>
+        <div style="font-size:11px; color: var(--lumo-secondary-text-color);">
+          Author blocks &amp; checklists, deploy to vehicles, run from Fleet
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================================================
+       BODY: sidebar + main
+       ============================================================ -->
+  <div class="body-wrap">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-cluster-label">Checklists</div>
+      <ul class="sidebar-nav">
+        <li data-nav-id="checklists">
+          <a class="nav-item active" data-view="checklists" href="#checklists">
+            <span class="nav-icon"><i class="fa-solid fa-list-check"></i></span>
+            Checklists
+          </a>
+        </li>
+      </ul>
+
+      <div class="sidebar-cluster-label">Fleet</div>
+      <ul class="sidebar-nav">
+        <li data-nav-id="vehicles">
+          <a class="nav-item" data-view="vehicles" href="#vehicles">
+            <span class="nav-icon"><i class="fa-solid fa-truck-medical"></i></span>
+            Vehicles
+          </a>
+        </li>
+      </ul>
+
+      <div class="sidebar-spacer"></div>
+      <div class="sidebar-bottom" style="padding: 12px 16px; font-size:11px; color: var(--lumo-secondary-text-color);">
+        <div id="lastSavedMeta">Loading…</div>
+        <div style="margin-top:4px; opacity:0.6;">v<span id="schemaVersionLabel">?</span> · sandbox only</div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+
+      <!-- Sandbox banner -->
+      <div class="sandbox-banner">
+        <div class="sandbox-banner-text">
+          <strong>Sandbox state lives only in your browser.</strong>
+          Use <strong>Export</strong> to share your state; <strong>Import</strong> to load someone else's; <strong>Reset</strong> to wipe.
+        </div>
+        <div class="sandbox-banner-actions">
+          <vaadin-button theme="secondary" id="exportBtn">
+            <i class="fa-solid fa-download" style="margin-right:6px;"></i> Export
+          </vaadin-button>
+          <vaadin-button theme="secondary" id="importBtn">
+            <i class="fa-solid fa-upload" style="margin-right:6px;"></i> Import
+          </vaadin-button>
+          <vaadin-button theme="tertiary" id="resetBtn">
+            <i class="fa-solid fa-rotate-left" style="margin-right:6px;"></i> Reset
+          </vaadin-button>
+          <input type="file" id="importFileInput" class="file-hidden" accept="application/json,.json" />
+        </div>
+      </div>
+
+      <!-- ============================================================
+           VIEW: CHECKLISTS (tabs: Checklists | Blocks)
+           ============================================================ -->
+      <section class="view-panel active" data-view="checklists">
+        <div class="view-head">
+          <div>
+            <h1>Checklists</h1>
+            <div class="desc">Author checklists and the blocks they're built from. Deploy a checklist to a vehicle to make it runnable.</div>
+          </div>
+          <div class="actions">
+            <vaadin-button theme="primary" id="newChecklistBtn" data-tab-action="checklists">
+              <i class="fa-solid fa-plus" style="margin-right:6px;"></i> New checklist
+            </vaadin-button>
+            <vaadin-button theme="primary" id="newBlockBtn" data-tab-action="blocks" style="display:none;">
+              <i class="fa-solid fa-plus" style="margin-right:6px;"></i> New content block
+            </vaadin-button>
+          </div>
+        </div>
+
+        <div class="subnav" role="tablist">
+          <div class="subnav-tab active" data-tab="checklists" role="tab">
+            <i class="fa-solid fa-list-check"></i> Checklists <span class="tab-count" id="count-checklists">0</span>
+          </div>
+          <div class="subnav-tab" data-tab="blocks" role="tab">
+            <i class="fa-solid fa-cube"></i> Content Blocks <span class="tab-count" id="count-blocks">0</span>
+          </div>
+        </div>
+
+        <div class="tab-panel active" data-tab-panel="checklists">
+          <div id="list-checklists"></div>
+        </div>
+        <div class="tab-panel" data-tab-panel="blocks">
+          <div class="record-list" id="list-blocks"></div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           VIEW: VEHICLES (fleet)
+           ============================================================ -->
+      <section class="view-panel" data-view="vehicles">
+        <div class="view-head">
+          <div>
+            <h1>Vehicles</h1>
+            <div class="desc">Click a vehicle to see deployed checklists and start a check.</div>
+          </div>
+        </div>
+        <div class="fleet-list-wrap">
+          <div class="fleet-list-header">
+            <div></div>
+            <div>Vehicle</div>
+            <div>Type</div>
+            <div>Station</div>
+            <div>Last check</div>
+            <div style="text-align:right;">Status</div>
+            <div></div>
+          </div>
+          <div id="list-vehicles"></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ============================================================
+     DEPLOY DIALOG
+     ============================================================ -->
+<vaadin-dialog id="deployDialog" header-title="Deploy checklist to a vehicle"></vaadin-dialog>
+
+<!-- ============================================================
+     SCRIPTS
+     ============================================================ -->
+<script src="sandbox-seed.js"></script>
+<script src="sandbox-store.js"></script>
+
+<script>
+  // ============================================================
+  // STATE
+  // ============================================================
+  let pendingDeployChecklistId = null;
+  let openVehicleTag = null; // which vehicle is expanded in the fleet view
+
+  // ============================================================
+  // HELPERS
+  // ============================================================
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function fmtRel(iso) {
+    if (!iso) return '—';
+    const ms = Date.now() - new Date(iso).getTime();
+    if (ms < 60_000)   return 'just now';
+    if (ms < 3600_000) return Math.floor(ms/60_000) + 'm ago';
+    if (ms < 86_400_000) return Math.floor(ms/3600_000) + 'h ago';
+    return Math.floor(ms/86_400_000) + 'd ago';
+  }
+  function typeIconClass(t) {
+    switch (t) {
+      case 'apparatus': return 'apparatus';
+      case 'ems':       return 'ems';
+      case 'facility':  return 'facility';
+      case 'pm':        return 'pm';
+      default:          return 'apparatus';
+    }
+  }
+  function typeIconGlyph(t) {
+    switch (t) {
+      case 'apparatus': return 'fa-truck';
+      case 'ems':       return 'fa-truck-medical';
+      case 'facility':  return 'fa-building';
+      case 'pm':        return 'fa-gauge-high';
+      default:          return 'fa-list-check';
+    }
+  }
+  function vehicleGlyph(type) {
+    switch ((type||'').toLowerCase()) {
+      case 'engine':    return 'fa-truck';
+      case 'ladder':    return 'fa-truck-arrow-right';
+      case 'ambulance': return 'fa-truck-medical';
+      case 'brush':     return 'fa-tractor';
+      default:          return 'fa-truck';
+    }
+  }
+
+  // ============================================================
+  // NAVIGATION (sidebar → view switching)
+  // ============================================================
+  function activateView(viewName) {
+    document.querySelectorAll('.sidebar-nav .nav-item').forEach(a =>
+      a.classList.toggle('active', a.dataset.view === viewName));
+    document.querySelectorAll('.view-panel').forEach(p =>
+      p.classList.toggle('active', p.dataset.view === viewName));
+    try { localStorage.setItem('checkit-sandbox-active-view', viewName); } catch (e) {}
+    // Reset any open vehicle detail when leaving the fleet view
+    if (viewName !== 'vehicles') openVehicleTag = null;
+  }
+  document.querySelectorAll('.sidebar-nav .nav-item').forEach(a => {
+    a.addEventListener('click', (e) => { e.preventDefault(); activateView(a.dataset.view); });
+  });
+
+  // Restore last view (default: checklists)
+  try {
+    const last = localStorage.getItem('checkit-sandbox-active-view');
+    if (last) activateView(last);
+  } catch (e) {}
+
+  // ============================================================
+  // TAB SWITCHING (within Checklists view)
+  // ============================================================
+  function activateTab(tabName) {
+    document.querySelectorAll('.subnav-tab').forEach(t =>
+      t.classList.toggle('active', t.dataset.tab === tabName));
+    document.querySelectorAll('.tab-panel').forEach(p =>
+      p.classList.toggle('active', p.dataset.tabPanel === tabName));
+    // Swap which "New" action shows in the header
+    document.querySelectorAll('[data-tab-action]').forEach(btn => {
+      btn.style.display = (btn.dataset.tabAction === tabName) ? '' : 'none';
+    });
+  }
+  document.querySelectorAll('.subnav-tab').forEach(t => {
+    t.addEventListener('click', () => activateTab(t.dataset.tab));
+  });
+
+  // ============================================================
+  // RENDER: badges, last-saved
+  // ============================================================
+  function renderBadges() {
+    const blocksCount     = Store.listBlocks().length;
+    const checklistsCount = Store.listChecklists().length;
+    const blockCountEl     = document.getElementById('count-blocks');
+    const checklistCountEl = document.getElementById('count-checklists');
+    if (blockCountEl)     blockCountEl.textContent     = blocksCount;
+    if (checklistCountEl) checklistCountEl.textContent = checklistsCount;
+    document.getElementById('schemaVersionLabel').textContent = Store.SCHEMA_VERSION;
+    const meta = Store.load().meta || {};
+    document.getElementById('lastSavedMeta').textContent =
+      meta.lastModified ? 'Saved ' + fmtRel(meta.lastModified) : 'Not yet saved';
+  }
+
+  // ============================================================
+  // RENDER: empty markup
+  // ============================================================
+  function emptyMarkup(icon, title, desc) {
+    return `<div class="empty">
+      <i class="${icon}"></i>
+      <div class="empty-title">${escapeHtml(title)}</div>
+      <div class="empty-desc">${escapeHtml(desc)}</div>
+    </div>`;
+  }
+
+  // ============================================================
+  // RENDER: BLOCKS
+  // ============================================================
+  function renderBlocks() {
+    const list = document.getElementById('list-blocks');
+    const items = Store.listBlocks().sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
+    if (!items.length) {
+      list.innerHTML = emptyMarkup('fa-solid fa-cube',
+        'No content blocks yet',
+        'Click "New content block" to author your first reusable group of steps.');
+      return;
+    }
+    list.innerHTML = items.map(b => `
+      <div class="record-card">
+        <div class="record-main">
+          <div class="record-icon"><i class="fa-solid fa-cube"></i></div>
+          <div style="min-width:0; flex:1;">
+            <div class="record-name">${escapeHtml(b.name)}</div>
+            <div class="record-meta">
+              <span><i class="fa-solid fa-list-ol"></i> ${(b.steps||[]).length} steps</span>
+              <span><i class="fa-solid fa-tag"></i> ${escapeHtml(b.domain||'—')}</span>
+              ${b.multiUse ? '<span><i class="fa-solid fa-clone"></i> multi-use</span>' : ''}
+              <span class="id-chip">${escapeHtml(b.id)}</span>
+              <span>Updated ${fmtRel(b.updatedAt)}</span>
+            </div>
+          </div>
+        </div>
+        <div class="record-actions">
+          <vaadin-button theme="tertiary" onclick="openBlockEditor('${b.id}')" title="Edit"><i class="fa-solid fa-pen"></i></vaadin-button>
+          <vaadin-button theme="tertiary" onclick="confirmDelete('block','${b.id}','${escapeHtml(b.name).replace(/'/g,'&#39;')}')" title="Delete"><i class="fa-solid fa-trash"></i></vaadin-button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ============================================================
+  // RENDER: CHECKLISTS (with deployments expand)
+  // ============================================================
+  function renderChecklists() {
+    const list = document.getElementById('list-checklists');
+    const items = Store.listChecklists().sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
+    if (!items.length) {
+      list.innerHTML = emptyMarkup('fa-solid fa-list-check',
+        'No checklists yet',
+        'Click "New checklist" to compose content blocks into a checklist that can be deployed to vehicles.');
+      return;
+    }
+    list.innerHTML = items.map(c => {
+      const sectionsCount = (c.sections||[]).length;
+      const blocksCount = (c.sections||[]).reduce((n, s) => n + ((s.blocks||[]).length), 0);
+      const deployments = c.deployments || [];
+      const status = c.status || 'draft';
+      const subParts = [
+        escapeHtml(c.type || '—'),
+        escapeHtml(c.cadence || '—'),
+        deployments.length === 0 ? 'Not deployed' : `${deployments.length} deployment${deployments.length === 1 ? '' : 's'}`,
+        `${sectionsCount} sections · ${blocksCount} blocks`,
+        'Updated ' + fmtRel(c.updatedAt)
+      ];
+      const depRows = deployments.map(d => {
+        const v = Store.getVehicle(d.vehicleTag);
+        const vehicleName = v ? v.name : d.vehicleTag;
+        const vehicleSub  = v ? `${v.type} · ${v.station}` : '';
+        const cadence = d.cadenceOverride || c.cadence || '—';
+        return `
+          <div class="deployment-row">
+            <div class="deployment-icon"><i class="fa-solid ${vehicleGlyph(v ? v.type : '')}"></i></div>
+            <div class="deployment-target">
+              <div class="deployment-target-name">${escapeHtml(vehicleName)}</div>
+              <div class="deployment-target-sub">${escapeHtml(vehicleSub)}</div>
+            </div>
+            <div class="deployment-cadence">${escapeHtml(cadence)}</div>
+            <span class="status-pill ${d.status}">${escapeHtml(d.status)}</span>
+            <div class="deployment-actions">
+              <vaadin-button theme="tertiary" onclick="event.stopPropagation(); removeDeployment('${c.id}','${d.id}')" title="Remove deployment">
+                <i class="fa-solid fa-xmark"></i>
+              </vaadin-button>
+            </div>
+          </div>`;
+      }).join('');
+      const depBlock = deployments.length
+        ? `<div class="deployments-header">
+             <span>Deployments</span>
+             <vaadin-button theme="tertiary" onclick="event.stopPropagation(); openDeployDialog('${c.id}')">
+               <i class="fa-solid fa-plus" style="margin-right:4px;"></i> Add deployment
+             </vaadin-button>
+           </div>
+           ${depRows}`
+        : `<div class="no-deployments">No deployments yet.</div>
+           <vaadin-button theme="secondary" onclick="event.stopPropagation(); openDeployDialog('${c.id}')">
+             <i class="fa-solid fa-plus" style="margin-right:6px;"></i> Deploy to a vehicle
+           </vaadin-button>`;
+
+      return `
+        <div class="cl-row-wrap" data-cl-id="${c.id}">
+          <div class="cl-row" onclick="toggleChecklistExpand('${c.id}')">
+            <div class="cl-name-cell">
+              <div class="cl-type-icon ${typeIconClass(c.type)}"><i class="fa-solid ${typeIconGlyph(c.type)}"></i></div>
+              <div style="min-width:0;">
+                <div class="cl-name">${escapeHtml(c.name)}</div>
+                <div class="cl-sub">${subParts.join(' · ')}</div>
+              </div>
+            </div>
+            <div class="cl-row-actions" onclick="event.stopPropagation()">
+              <vaadin-button theme="tertiary" onclick="openChecklistEditor('${c.id}')" title="Edit"><i class="fa-solid fa-pen"></i></vaadin-button>
+              <vaadin-button theme="tertiary" onclick="confirmDelete('checklist','${c.id}','${escapeHtml(c.name).replace(/'/g,'&#39;')}')" title="Delete"><i class="fa-solid fa-trash"></i></vaadin-button>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="status-pill ${status}">${escapeHtml(status)}</span>
+              <i class="fa-solid fa-chevron-right cl-row-chevron"></i>
+            </div>
+          </div>
+          <div class="cl-expand" data-cl-expand="${c.id}">
+            ${depBlock}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function toggleChecklistExpand(checklistId) {
+    const expand = document.querySelector(`[data-cl-expand="${checklistId}"]`);
+    const row = expand?.previousElementSibling;
+    if (!expand) return;
+    const isOpen = expand.classList.toggle('open');
+    if (row) row.classList.toggle('open', isOpen);
+  }
+  window.toggleChecklistExpand = toggleChecklistExpand;
+
+  function removeDeployment(checklistId, deploymentId) {
+    if (!confirm('Remove this deployment?')) return;
+    Store.removeDeployment(checklistId, deploymentId);
+  }
+  window.removeDeployment = removeDeployment;
+
+  // ============================================================
+  // RENDER: VEHICLES (fleet)
+  // ============================================================
+  function renderVehicles() {
+    const list = document.getElementById('list-vehicles');
+    const items = Store.listVehicles();
+    if (!items.length) {
+      list.innerHTML = emptyMarkup('fa-solid fa-truck-medical',
+        'No vehicles',
+        'Vehicles are seeded from sandbox-seed.js. Reset to restore the default fleet.');
+      return;
+    }
+    list.innerHTML = items.map(v => {
+      const deps = Store.listDeploymentsForVehicle(v.tag);
+      const isOpen = openVehicleTag === v.tag;
+      const statusLabel = v.status === 'oos' ? 'Out of service'
+                        : v.status === 'warn' ? 'Attention'
+                        : 'In Service';
+      const detailRows = deps.length
+        ? deps.map(({checklist, deployment}) => `
+            <div class="vehicle-checklist-row">
+              <div class="left">
+                <div class="cl-type-icon ${typeIconClass(checklist.type)}" style="width:28px;height:28px;font-size:12px;">
+                  <i class="fa-solid ${typeIconGlyph(checklist.type)}"></i>
+                </div>
+                <div style="min-width:0;">
+                  <div class="name">${escapeHtml(checklist.name)}</div>
+                  <div class="sub">${escapeHtml(deployment.cadenceOverride || checklist.cadence || '—')} · <span class="status-pill ${deployment.status}" style="vertical-align:middle;">${escapeHtml(deployment.status)}</span></div>
+                </div>
+              </div>
+              <vaadin-button theme="primary" onclick="event.stopPropagation(); startChecklist('${deployment.id}')">
+                <i class="fa-solid fa-play" style="margin-right:6px;"></i> Start checklist
+              </vaadin-button>
+            </div>`).join('')
+        : `<div class="vehicle-no-checklists">No checklists deployed to this vehicle yet. Deploy one from the Checklists view.</div>`;
+
+      return `
+        <div class="fleet-row" onclick="toggleVehicleDetail('${v.tag}')">
+          <div class="vehicle-photo">
+            <i class="fa-solid ${vehicleGlyph(v.type)}"></i>
+            <span class="vehicle-photo-dot ${v.status}"></span>
+          </div>
+          <div style="min-width:0;">
+            <div class="fleet-row-name">${escapeHtml(v.name)}</div>
+            <div class="fleet-row-sub">${escapeHtml(v.tag + ' · ' + v.year + ' ' + v.make + ' ' + v.model)}</div>
+          </div>
+          <div class="fleet-col-type">${escapeHtml(v.type)}</div>
+          <div class="fleet-col-station">${escapeHtml(v.station)}</div>
+          <div class="fleet-col-lastcheck">${escapeHtml(v.lastCheckLabel || '—')}</div>
+          <div class="fleet-col-status"><span class="status-pill ${v.status}">${escapeHtml(statusLabel)}</span></div>
+          <div><i class="fa-solid fa-chevron-${isOpen ? 'down' : 'right'} fleet-row-chevron"></i></div>
+        </div>
+        <div class="vehicle-detail ${isOpen ? 'open' : ''}">
+          <h3>Deployed checklists</h3>
+          ${detailRows}
+        </div>`;
+    }).join('');
+  }
+
+  function toggleVehicleDetail(tag) {
+    openVehicleTag = (openVehicleTag === tag) ? null : tag;
+    renderVehicles();
+  }
+  window.toggleVehicleDetail = toggleVehicleDetail;
+
+  // ============================================================
+  // START CHECKLIST (deep-link to ceremony with deployment id)
+  // ============================================================
+  function startChecklist(deploymentId) {
+    // Phase 5 will patch ceremony-fire-rig-check.html to read this.
+    // For now we set sessionStorage so the patched ceremony can return us here.
+    try { sessionStorage.setItem('ceremonyReturn', 'index.html#vehicles'); } catch(e){}
+    window.location.href = 'ceremony-fire-rig-check.html?deploymentId=' + encodeURIComponent(deploymentId);
+  }
+  window.startChecklist = startChecklist;
+
+  // ============================================================
+  // EDITOR ENTRY POINTS (deep-link into existing authoring pages)
+  // ============================================================
+  function openBlockEditor(id) {
+    try { sessionStorage.setItem('blockCreatorReturn', 'index.html'); } catch(e){}
+    window.location.href = 'block-creator.html?id=' + encodeURIComponent(id);
+  }
+  function openChecklistEditor(id) {
+    // The product calls the higher-level page "checklist-builder.html"; that's
+    // the page that composes blocks into a checklist (our "template+deployments" thing).
+    try { sessionStorage.setItem('checklistBuilderReturn', 'index.html'); } catch(e){}
+    window.location.href = 'checklist-builder.html?id=' + encodeURIComponent(id);
+  }
+  window.openBlockEditor = openBlockEditor;
+  window.openChecklistEditor = openChecklistEditor;
+
+  // ============================================================
+  // DEPLOY DIALOG (Add deployment from a checklist)
+  // ============================================================
+  function openDeployDialog(checklistId) {
+    pendingDeployChecklistId = checklistId;
+    const dialog = document.getElementById('deployDialog');
+    dialog.renderer = renderDeployDialogBody;
+    dialog.footerRenderer = renderDeployDialogFooter;
+    dialog.opened = true;
+  }
+  window.openDeployDialog = openDeployDialog;
+
+  function renderDeployDialogBody(root) {
+    root.innerHTML = '';
+    const cl = Store.getChecklist(pendingDeployChecklistId);
+    if (!cl) return;
+    const existing = new Set((cl.deployments || []).map(d => d.vehicleTag));
+    const available = Store.listVehicles().filter(v => !existing.has(v.tag));
+
+    const wrap = document.createElement('div');
+    wrap.className = 'deploy-dialog-content';
+
+    wrap.innerHTML = `
+      <div style="font-size:13px; color: var(--lumo-body-text-color); margin-bottom: 4px;">
+        Deploy <strong>${escapeHtml(cl.name)}</strong> to a vehicle.
+      </div>
+      <div style="font-size:11px; color: var(--lumo-secondary-text-color); margin-bottom: 12px;">
+        Cadence inherits from the checklist (<strong>${escapeHtml(cl.cadence || '—')}</strong>) unless overridden.
+      </div>
+
+      <label>Vehicle</label>
+      <vaadin-select id="deployVehicleSelect" theme="outlined" style="width:100%;"></vaadin-select>
+
+      <label>Cadence override (optional)</label>
+      <vaadin-select id="deployCadenceSelect" theme="outlined" style="width:100%;"></vaadin-select>
+
+      <label>Initial status</label>
+      <vaadin-select id="deployStatusSelect" theme="outlined" style="width:100%;"></vaadin-select>
+    `;
+    root.appendChild(wrap);
+
+    // Populate selects after they're in the DOM
+    const vehicleSelect  = wrap.querySelector('#deployVehicleSelect');
+    const cadenceSelect  = wrap.querySelector('#deployCadenceSelect');
+    const statusSelect   = wrap.querySelector('#deployStatusSelect');
+
+    if (!available.length) {
+      vehicleSelect.items = [{ label: 'No available vehicles (all already deployed)', value: '' }];
+      vehicleSelect.disabled = true;
+    } else {
+      vehicleSelect.items = available.map(v => ({
+        label: `${v.name}  (${v.tag} · ${v.type} · ${v.station})`,
+        value: v.tag
+      }));
+      vehicleSelect.value = available[0].tag;
+    }
+
+    cadenceSelect.items = [
+      { label: 'Inherit from checklist', value: '' },
+      { label: 'Daily',    value: 'daily' },
+      { label: 'Weekly',   value: 'weekly' },
+      { label: 'Monthly',  value: 'monthly' },
+      { label: 'Annual',   value: 'annual' }
+    ];
+    cadenceSelect.value = '';
+
+    statusSelect.items = [
+      { label: 'Active',  value: 'active' },
+      { label: 'Paused',  value: 'paused' },
+      { label: 'Pending', value: 'pending' }
+    ];
+    statusSelect.value = 'active';
+  }
+
+  function renderDeployDialogFooter(root) {
+    if (root.firstChild) return;
+    const dialog = document.getElementById('deployDialog');
+
+    const cancel = document.createElement('vaadin-button');
+    cancel.setAttribute('theme', 'secondary');
+    cancel.textContent = 'Cancel';
+    cancel.addEventListener('click', () => { dialog.opened = false; });
+
+    const confirm = document.createElement('vaadin-button');
+    confirm.setAttribute('theme', 'primary');
+    confirm.textContent = 'Deploy';
+    confirm.addEventListener('click', () => {
+      const vehicleSelect = document.getElementById('deployVehicleSelect');
+      const cadenceSelect = document.getElementById('deployCadenceSelect');
+      const statusSelect  = document.getElementById('deployStatusSelect');
+      const vehicleTag = vehicleSelect ? vehicleSelect.value : '';
+      if (!vehicleTag) { alert('Pick a vehicle first.'); return; }
+      Store.addDeployment(pendingDeployChecklistId, {
+        vehicleTag,
+        cadenceOverride: (cadenceSelect && cadenceSelect.value) || null,
+        status: (statusSelect && statusSelect.value) || 'active'
+      });
+      dialog.opened = false;
+      pendingDeployChecklistId = null;
+    });
+
+    root.appendChild(cancel);
+    root.appendChild(confirm);
+  }
+
+  // ============================================================
+  // NEW-RECORD BUTTONS
+  // ============================================================
+  document.getElementById('newBlockBtn').addEventListener('click', () => {
+    try { sessionStorage.setItem('blockCreatorReturn', 'index.html'); } catch(e){}
+    window.location.href = 'block-creator.html?new=1';
+  });
+  document.getElementById('newChecklistBtn').addEventListener('click', () => {
+    try { sessionStorage.setItem('checklistBuilderReturn', 'index.html'); } catch(e){}
+    window.location.href = 'checklist-builder.html?new=1';
+  });
+
+  // ============================================================
+  // DELETE WITH CONFIRM
+  // ============================================================
+  function confirmDelete(kind, id, label) {
+    if (!confirm(`Delete this ${kind}?\n\n${label}\n\nThis cannot be undone unless you re-import a saved JSON.`)) return;
+    if (kind === 'block')     Store.deleteBlock(id);
+    if (kind === 'checklist') Store.deleteChecklist(id);
+  }
+  window.confirmDelete = confirmDelete;
+
+  // ============================================================
+  // EXPORT / IMPORT / RESET
+  // ============================================================
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    const json = Store.exportJson();
+    const stamp = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+    const blob = new Blob([json], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `checkit-sandbox-${stamp}.json`;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  });
+  document.getElementById('importBtn').addEventListener('click', () => {
+    document.getElementById('importFileInput').click();
+  });
+  document.getElementById('importFileInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const ok = Store.importJson(ev.target.result);
+      if (ok) { alert('Sandbox imported. Reloading…'); location.reload(); }
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  });
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    if (!confirm('Reset the sandbox?\n\nAll authored blocks, checklists, and deployments will be wiped and re-seeded with the defaults.\n\nExport first if you want to keep your state.')) return;
+    Store.reset();
+    alert('Sandbox reset. Reloading…');
+    location.reload();
+  });
+
+  // ============================================================
+  // MASTER RENDER + REACT TO CHANGES
+  // ============================================================
+  function renderAll() {
+    renderBadges();
+    renderBlocks();
+    renderChecklists();
+    renderVehicles();
+  }
+  window.addEventListener('checkit-sandbox-change', renderAll);
+  document.addEventListener('DOMContentLoaded', renderAll);
+  if (document.readyState !== 'loading') renderAll();
+
+  // If an editor flagged which sub-tab to land on, honor it once.
+  try {
+    const openSubTab = sessionStorage.getItem('openSubTab');
+    if (openSubTab) {
+      sessionStorage.removeItem('openSubTab');
+      activateTab(openSubTab);
+    }
+  } catch(e){}
+</script>
+
+</body>
+</html>
