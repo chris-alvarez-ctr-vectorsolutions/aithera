@@ -1298,6 +1298,77 @@ function FormInput({ value, onChange, placeholder, type = 'text' }) {
   );
 }
 
+// Native styled <select> used for fields whose options map 1:1 to the chips
+// the AI offered in chat — lets the user manually pick the same value they
+// would have selected via the chip.
+function FieldSelect({ value, onChange, options, placeholder = 'Not set' }) {
+  return (
+    <select value={value || ''} onChange={e => onChange(e.target.value)}
+      style={{ width: '100%', height: 36, padding: '0 36px 0 12px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: value ? 'rgba(24,39,58,.94)' : 'rgba(0,0,0,.45)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
+      <option value="">{placeholder}</option>
+      {options.map(o => <option key={o} value={o}>{o}</option>)}
+    </select>
+  );
+}
+
+// Multi-select pill toggles — used for callbackStatuses / callbackResponses
+// where the chat offered a "Pick all that apply" multi chip set.
+function FieldMultiSelect({ values, onChange, options }) {
+  const set = new Set(values || []);
+  const toggle = (opt) => {
+    const next = new Set(set);
+    if (next.has(opt)) next.delete(opt); else next.add(opt);
+    onChange(Array.from(next));
+  };
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      {options.map(opt => {
+        const on = set.has(opt);
+        return (
+          <button key={opt} type="button" onClick={() => toggle(opt)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '4px 10px', borderRadius: 12,
+              background: on ? 'rgba(124,58,237,.1)' : '#fff',
+              border: `1px solid ${on ? 'rgba(124,58,237,.32)' : 'rgba(0,0,0,.15)'}`,
+              font: `${on ? 600 : 500} 11.5px/1 Inter,sans-serif`,
+              color: on ? '#7C3AED' : 'rgba(24,39,58,.75)',
+              cursor: 'pointer', transition: 'all .12s',
+            }}>
+            {on && <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16l-4-4 1.4-1.4L9 13.2l8.6-8.6L19 6z"/></svg>}
+            {opt}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Option lists for every configurable field — mirror the chip choices the AI
+// offers in chat so manual edits stay in lockstep with the conversational flow.
+const FIELD_OPTIONS = {
+  rolodexAcceptMove:    ['Move to end of list', 'Stay at the top', 'Custom — let me describe'],
+  responseTime:         ['2 minutes', '3 minutes', '5 minutes', '10 minutes', 'Custom'],
+  hoursCountedOutcomes: ['Accepted only', 'Accepted + denied', 'Anyone contacted', 'Custom mix'],
+  sortDirection:        ['Ascending (A → Z, 0 → 9)', 'Descending (Z → A, 9 → 0)'],
+  newHirePlacement:     ['Natural position by ID', 'Top of list', 'Bottom of list'],
+  caseSensitivity:      ['Yes, ignore case', 'No, case-sensitive'],
+  randomizeFrequency:   ['Every callback', 'Every shift', 'Daily', 'Weekly'],
+  randomWeighting:      ['Pure random', 'Weight by last callback gap', 'Weight by total hours'],
+  randomGuardrail:      ['No guardrails', 'Cap consecutive picks', 'Cool-down after a pick', 'Custom'],
+  callbackStatuses:     ['Active / Done Calling', 'Filled / Partially Filled', 'Not Filled', 'Cancelled'],
+  callbackResponses:    ['Accepted', 'Denied', 'No answer'],
+};
+
+// tieBreakerOrder options shift based on which tiebreaker the user picked.
+function tieBreakerOrderOptions(tieBreaker) {
+  if (tieBreaker === 'Seniority (hire date)') return ['Most senior first', 'Least senior first'];
+  if (tieBreaker === 'Last shift worked')     return ['Longest gap first', 'Most recent first'];
+  if (tieBreaker === 'Last callback date')    return ['Longest gap first', 'Most recent first'];
+  if (tieBreaker === 'Alphabetical')          return ['A → Z', 'Z → A'];
+  return ['A → Z', 'Z → A', 'Most senior first', 'Least senior first', 'Longest gap first', 'Most recent first'];
+}
+
 // ── Branch map: manual form edits → AI follow-up questions ───────────────────
 const BRANCH_MAP = {
   ruleType: {
@@ -2804,14 +2875,14 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           {shown('rolodexAcceptMove') && form.ruleType === 'rolodex' && (
             <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('rolodexAcceptMove') }} data-field="rolodexAcceptMove">
               <FormGroup label="After Accepting">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.rolodexAcceptMove}</span>
+                <FieldSelect value={form.rolodexAcceptMove} onChange={v => patchForm({ rolodexAcceptMove: v })} options={FIELD_OPTIONS.rolodexAcceptMove} />
               </FormGroup>
             </div>
           )}
           {shown('responseTime') && form.ruleType === 'rolodex' && (
             <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('responseTime') }} data-field="responseTime">
               <FormGroup label="Response Window">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.responseTime}</span>
+                <FieldSelect value={form.responseTime} onChange={v => patchForm({ responseTime: v })} options={FIELD_OPTIONS.responseTime} />
               </FormGroup>
             </div>
           )}
@@ -2854,7 +2925,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           {shown('hoursCountedOutcomes') && form.ruleType === 'hours' && (
             <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('hoursCountedOutcomes') }} data-field="hoursCountedOutcomes">
               <FormGroup label="Outcomes Counted">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.hoursCountedOutcomes}</span>
+                <FieldSelect value={form.hoursCountedOutcomes} onChange={v => patchForm({ hoursCountedOutcomes: v })} options={FIELD_OPTIONS.hoursCountedOutcomes} />
               </FormGroup>
             </div>
           )}
@@ -2878,21 +2949,21 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           {shown('sortDirection') && form.ruleType === 'employee_id' && (
             <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('sortDirection') }} data-field="sortDirection">
               <FormGroup label="Sort Direction">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.sortDirection}</span>
+                <FieldSelect value={form.sortDirection} onChange={v => patchForm({ sortDirection: v })} options={FIELD_OPTIONS.sortDirection} />
               </FormGroup>
             </div>
           )}
           {shown('newHirePlacement') && form.ruleType === 'employee_id' && (
             <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('newHirePlacement') }} data-field="newHirePlacement">
               <FormGroup label="New Hire Placement">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.newHirePlacement}</span>
+                <FieldSelect value={form.newHirePlacement} onChange={v => patchForm({ newHirePlacement: v })} options={FIELD_OPTIONS.newHirePlacement} />
               </FormGroup>
             </div>
           )}
           {shown('caseSensitivity') && form.ruleType === 'employee_id' && (
             <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('caseSensitivity') }} data-field="caseSensitivity">
               <FormGroup label="Case Handling">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.caseSensitivity}</span>
+                <FieldSelect value={form.caseSensitivity} onChange={v => patchForm({ caseSensitivity: v })} options={FIELD_OPTIONS.caseSensitivity} />
               </FormGroup>
             </div>
           )}
@@ -2901,21 +2972,21 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           {shown('randomizeFrequency') && form.ruleType === 'random' && (
             <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('randomizeFrequency') }} data-field="randomizeFrequency">
               <FormGroup label="Re-randomize">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.randomizeFrequency}</span>
+                <FieldSelect value={form.randomizeFrequency} onChange={v => patchForm({ randomizeFrequency: v })} options={FIELD_OPTIONS.randomizeFrequency} />
               </FormGroup>
             </div>
           )}
           {shown('randomWeighting') && form.ruleType === 'random' && (
             <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('randomWeighting') }} data-field="randomWeighting">
               <FormGroup label="Weighting">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.randomWeighting}</span>
+                <FieldSelect value={form.randomWeighting} onChange={v => patchForm({ randomWeighting: v })} options={FIELD_OPTIONS.randomWeighting} />
               </FormGroup>
             </div>
           )}
           {shown('randomGuardrail') && form.ruleType === 'random' && (
             <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('randomGuardrail') }} data-field="randomGuardrail">
               <FormGroup label="Guardrail">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.randomGuardrail}</span>
+                <FieldSelect value={form.randomGuardrail} onChange={v => patchForm({ randomGuardrail: v })} options={FIELD_OPTIONS.randomGuardrail} />
               </FormGroup>
             </div>
           )}
@@ -2970,9 +3041,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           {shown('tieBreakerOrder') && form.tieBreaker && (
             <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('tieBreakerOrder') }} data-field="tieBreakerOrder">
               <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Sort order</div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>
-                {form.tieBreakerOrder}
-              </div>
+              <FieldSelect value={form.tieBreakerOrder} onChange={v => patchForm({ tieBreakerOrder: v })} options={tieBreakerOrderOptions(form.tieBreaker)} />
             </div>
           )}
 
@@ -3043,14 +3112,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           {shown('callbackStatuses') && (
             <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('callbackStatuses') }} data-field="callbackStatuses">
               <FormGroup label="Callback Statuses">
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {(form.callbackStatuses || []).map(s => (
-                    <span key={s} style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', background: 'rgba(124,58,237,.08)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 12, font: '500 11.5px/1 Inter,sans-serif', color: '#7C3AED' }}>{s}</span>
-                  ))}
-                  {(!form.callbackStatuses || form.callbackStatuses.length === 0) && (
-                    <span style={{ font: '400 12px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', fontStyle: 'italic' }}>None selected</span>
-                  )}
-                </div>
+                <FieldMultiSelect values={form.callbackStatuses} onChange={v => patchForm({ callbackStatuses: v })} options={FIELD_OPTIONS.callbackStatuses} />
               </FormGroup>
             </div>
           )}
@@ -3058,14 +3120,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           {shown('callbackResponses') && (
             <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('callbackResponses') }} data-field="callbackResponses">
               <FormGroup label="Callback Responses">
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {(form.callbackResponses || []).map(s => (
-                    <span key={s} style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', background: 'rgba(124,58,237,.08)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 12, font: '500 11.5px/1 Inter,sans-serif', color: '#7C3AED' }}>{s}</span>
-                  ))}
-                  {(!form.callbackResponses || form.callbackResponses.length === 0) && (
-                    <span style={{ font: '400 12px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', fontStyle: 'italic' }}>None selected</span>
-                  )}
-                </div>
+                <FieldMultiSelect values={form.callbackResponses} onChange={v => patchForm({ callbackResponses: v })} options={FIELD_OPTIONS.callbackResponses} />
               </FormGroup>
             </div>
           )}
