@@ -37,7 +37,8 @@
     padding: 14px 16px; border-bottom: 1px solid var(--line);
     background: rgba(11,18,32,0.85); backdrop-filter: blur(14px);
   }
-  .topbar h1 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.01em; flex: 1; }
+  .topbar > div:first-child { flex: 1; min-width: 0; }
+  .topbar h1 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.01em; }
   .topbar .kicker { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
     color: var(--accent); display: block; margin-bottom: 2px; }
   .topbar .close {
@@ -125,6 +126,14 @@
     padding: 22px 26px 26px;
     box-shadow: 0 10px 28px rgba(0,0,0,0.35);
     position: relative;
+    animation: cardIn 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  @keyframes cardIn {
+    0%   { opacity: 0; transform: translateY(8px) scale(0.985); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scenecard, .outcome, .final { animation: none !important; }
   }
   .scenecard .scene-tag {
     display: inline-flex; align-items: center; gap: 6px;
@@ -212,6 +221,7 @@
     background:
       linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)),
       rgba(15,23,41,0.6);
+    animation: cardIn 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
   .outcome .out-label {
     display: inline-flex; align-items: center; gap: 6px;
@@ -237,6 +247,7 @@
     border-radius: 18px;
     background: linear-gradient(180deg, rgba(176,123,255,0.10), rgba(62,200,255,0.06));
     border: 1px solid rgba(176,123,255,0.30);
+    animation: cardIn 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
   .final .kicker { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
     color: var(--accent); margin-bottom: 4px; }
@@ -328,7 +339,7 @@
 
   /* Text-mode inner: textarea + send */
   .composer-inner {
-    display: flex; gap: 8px; align-items: flex-end;
+    display: flex; gap: 8px; align-items: center;
     background: rgba(255,255,255,0.04); border: 1px solid var(--line);
     border-radius: 18px; padding: 8px 8px 8px 14px;
   }
@@ -1362,6 +1373,8 @@ voiceSendBtn.onclick = () => {
 function setMode(next) {
   // If voice isn't supported, lock to text.
   if (next === 'voice' && !speechAvailable) next = 'text';
+  if (next === mode) return;
+  const prev = mode;
   mode = next;
   modeVoiceBtn.classList.toggle('on', mode === 'voice');
   modeVoiceBtn.setAttribute('aria-selected', mode === 'voice');
@@ -1370,14 +1383,31 @@ function setMode(next) {
   voiceComposer.hidden = mode !== 'voice';
   textComposer.hidden = mode !== 'text';
   if (mode === 'voice') {
+    // Carry any typed text into the voice buffer so it isn't lost.
+    const carry = (input.value || '').trim();
+    if (carry) {
+      voiceBuffer = (voiceBuffer ? voiceBuffer.trim() + ' ' : '') + carry + ' ';
+      input.value = '';
+      autoResize();
+    }
     modeHint.textContent = 'Tap the mic, then speak.';
     paintVoice();
     // Switching back to voice when the learner has the floor → resume.
     maybeAutoListen();
   } else {
     if (recording) stopRecording();
+    // Carry any captured speech into the textarea so it isn't lost.
+    const carry = (voiceBuffer + ' ' + interimText).trim();
+    if (carry) {
+      input.value = input.value ? (input.value.trim() + ' ' + carry) : carry;
+      voiceBuffer = '';
+      interimText = '';
+      paintVoice();
+      autoResize();
+      sendBtn.disabled = !input.value.trim() || awaitingAI;
+    }
     modeHint.textContent = 'Type your response, then Enter to send.';
-    setTimeout(() => input.focus(), 50);
+    setTimeout(() => { input.focus(); const v = input.value; input.value = ''; input.value = v; }, 50);
   }
 }
 
