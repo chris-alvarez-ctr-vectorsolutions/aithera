@@ -75,6 +75,13 @@ const EXPERIMENTS = [
     desc: 'Place apparatus on a live map; get a scored critique',
     href: 'staging.html',
     icon: '🗺'
+  },
+  {
+    id: 'scenario-marshall',
+    label: 'Scenario simulator — The Marshall scenario',
+    desc: '3-phase AI chat: sex-based harassment, empathy, bystander intervention',
+    href: 'scenario-marshall.html',
+    icon: '💬'
   }
 ];
 

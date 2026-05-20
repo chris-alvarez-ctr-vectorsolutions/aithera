@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Scenario Simulator — The Marshall Scenario</title>
+<style>
+  :root {
+    --bg: #0b1220;
+    --bg-2: #0f1729;
+    --panel: rgba(20, 28, 48, 0.92);
+    --panel-2: rgba(255,255,255,0.04);
+    --line: rgba(255,255,255,0.10);
+    --text: #e8ecf4;
+    --muted: rgba(232,236,244,0.55);
+    --accent: #b07bff;
+    --accent-2: #3ec8ff;
+    --ok: #4ade80;
+    --warn: #f5a524;
+    --bad: #ff5470;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased; }
+  body { background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(176,123,255,0.18), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(62,200,255,0.12), transparent 60%),
+    var(--bg); }
+
+  /* ---------- App shell ---------- */
+  .app { max-width: 720px; margin: 0 auto; min-height: 100vh;
+    display: flex; flex-direction: column; }
+  .topbar {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px; border-bottom: 1px solid var(--line);
+    background: rgba(11,18,32,0.85); backdrop-filter: blur(14px);
+  }
+  .topbar h1 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.01em; flex: 1; }
+  .topbar .kicker { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--accent); display: block; margin-bottom: 2px; }
+  .topbar .close {
+    width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line);
+    background: rgba(255,255,255,0.04); color: var(--text); font-size: 16px;
+    cursor: pointer; display: grid; place-items: center;
+  }
+  .topbar .close:hover { background: rgba(255,255,255,0.10); }
+
+  /* ---------- Chat thread ---------- */
+  .thread {
+    flex: 1; padding: 18px 16px 24px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  /* Chat bubbles — speech-bubble shape via asymmetric corner radii.
+     AI is left-aligned with a small bottom-left corner radius (where a
+     tail would sit); user is right-aligned with a small bottom-right
+     corner radius. No separate tail element — the silhouette alone
+     reads as a chat bubble, the same way Telegram / Discord / iMessage-
+     style minimal chat does. Clean, no fail modes, works at every size. */
+  .msg { display: flex; width: 100%; }
+  .msg.ai { justify-content: flex-start; }
+  .msg.user { justify-content: flex-end; }
+  .bubble {
+    position: relative;
+    max-width: 78%;
+    padding: 11px 14px;
+    font-size: 14.5px; line-height: 1.5;
+    border: 1px solid var(--line);
+  }
+  .msg.ai .bubble {
+    background: var(--panel);
+    border-radius: 18px 18px 18px 4px;
+  }
+  .msg.user .bubble {
+    background: rgba(62,200,255,0.10);
+    border-color: rgba(62,200,255,0.30);
+    border-radius: 18px 18px 4px 18px;
+  }
+  /* Tier shading is applied AFTER the AI replies. */
+  .msg.user.tier-negative .bubble {
+    background: rgba(255,84,112,0.10);
+    border-color: rgba(255,84,112,0.45);
+  }
+  .msg.user.tier-neutral .bubble {
+    background: rgba(245,165,36,0.10);
+    border-color: rgba(245,165,36,0.45);
+  }
+  .msg.user.tier-strong .bubble {
+    background: rgba(74,222,128,0.10);
+    border-color: rgba(74,222,128,0.45);
+  }
+  .msg.user.tier-tagged .bubble {
+    transition: background 0.45s ease, border-color 0.45s ease;
+  }
+
+  /* Inline tier badge — appears INSIDE the AI's feedback bubble, not on
+     the user bubble. Tells the learner how their response was read. */
+  .tier-badge {
+    display: inline-block; margin-bottom: 8px;
+    font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 999px;
+    border: 1px solid currentColor; line-height: 1;
+  }
+  .tier-badge.tier-negative { color: var(--bad); }
+  .tier-badge.tier-neutral  { color: var(--warn); }
+  .tier-badge.tier-strong   { color: var(--ok); }
+  .bubble p { margin: 0 0 8px; }
+  .bubble p:last-child { margin: 0; }
+  .bubble strong { color: #fff; font-weight: 600; }
+
+  /* Scene card — standalone narrative beat, NOT something the AI "says".
+     Renders full-width with a stage-like frame, distinct from chat bubbles. */
+  .scenecard {
+    margin: 6px 0;
+    border: 1px solid rgba(176,123,255,0.30);
+    background:
+      linear-gradient(180deg, rgba(176,123,255,0.06), rgba(62,200,255,0.04)),
+      rgba(15,23,41,0.6);
+    border-radius: 18px;
+    padding: 18px 18px 16px;
+    position: relative;
+  }
+  .scenecard .scene-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 10px; letter-spacing: 0.20em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 10px;
+  }
+  .scenecard .scene-tag::before {
+    content: ''; display: inline-block; width: 6px; height: 6px;
+    border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 8px rgba(176,123,255,0.7);
+  }
+  .scenecard p { margin: 0 0 10px; font-size: 14.5px; line-height: 1.55; }
+  .scenecard p:last-child { margin: 0; }
+  .scenecard .scene-quote {
+    margin: 8px 0 4px;
+    padding: 10px 14px;
+    border-left: 3px solid var(--accent-2);
+    background: rgba(62,200,255,0.06);
+    border-radius: 0 10px 10px 0;
+    font-style: italic; color: var(--text);
+  }
+
+
+  /* Phase transition divider */
+  .divider {
+    display: flex; align-items: center; gap: 10px;
+    color: var(--muted); font-size: 10px; letter-spacing: 0.18em;
+    text-transform: uppercase; margin: 6px 4px;
+  }
+  .divider::before, .divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--line);
+  }
+
+  /* Typing indicator */
+  .typing { display: inline-flex; gap: 4px; align-items: center; padding: 4px 0; }
+  .typing span {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(255,255,255,0.4);
+    animation: tBounce 1.2s infinite ease-in-out;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.15s; }
+  .typing span:nth-child(3) { animation-delay: 0.30s; }
+  @keyframes tBounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+    40% { transform: translateY(-4px); opacity: 1; }
+  }
+
+  /* Outcome card — same visual treatment as a scene card. Centered, full-
+     width, tier-colored. Distinct from anything the AI "says". */
+  .outcome {
+    margin: 8px auto; max-width: 92%;
+    padding: 18px 18px 16px; border-radius: 18px;
+    text-align: center;
+    border: 1px solid var(--line);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)),
+      rgba(15,23,41,0.6);
+  }
+  .outcome .out-label {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 10px; letter-spacing: 0.20em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 10px;
+  }
+  .outcome .out-label::before {
+    content: ''; display: inline-block; width: 6px; height: 6px;
+    border-radius: 50%; background: currentColor;
+  }
+  .outcome .out-body { font-size: 14.5px; line-height: 1.55; }
+  .outcome.strong   { border-color: rgba(74,222,128,0.45); background: linear-gradient(180deg, rgba(74,222,128,0.08), rgba(74,222,128,0.02)), rgba(15,23,41,0.6); }
+  .outcome.strong   .out-label { color: var(--ok); }
+  .outcome.neutral  { border-color: rgba(245,165,36,0.45); background: linear-gradient(180deg, rgba(245,165,36,0.08), rgba(245,165,36,0.02)), rgba(15,23,41,0.6); }
+  .outcome.neutral  .out-label { color: var(--warn); }
+  .outcome.negative { border-color: rgba(255,84,112,0.45); background: linear-gradient(180deg, rgba(255,84,112,0.08), rgba(255,84,112,0.02)), rgba(15,23,41,0.6); }
+  .outcome.negative .out-label { color: var(--bad); }
+
+  /* Final feedback card */
+  .final {
+    margin-top: 8px;
+    padding: 18px 18px 16px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(176,123,255,0.10), rgba(62,200,255,0.06));
+    border: 1px solid rgba(176,123,255,0.30);
+  }
+  .final .kicker { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 4px; }
+  .final h2 { margin: 0 0 10px; font-size: 18px; }
+  .final h3 { margin: 12px 0 4px; font-size: 12px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--muted); }
+  .final p { margin: 0 0 8px; font-size: 14px; line-height: 1.55; }
+  .final ol { margin: 6px 0 0; padding-left: 20px; }
+  .final ol li { margin-bottom: 8px; font-size: 14px; line-height: 1.5; }
+  .final .restart {
+    margin-top: 16px; display: flex; gap: 8px;
+  }
+  .final .restart button {
+    flex: 1; padding: 11px 14px; border-radius: 12px; cursor: pointer; font-size: 13px;
+    font-weight: 600; border: 1px solid var(--line); background: rgba(255,255,255,0.04);
+    color: var(--text);
+  }
+  .final .restart button.primary {
+    background: linear-gradient(180deg, var(--accent), var(--accent-2));
+    color: #0b1220; border: none;
+  }
+
+  /* ---------- Composer ---------- */
+  [hidden] { display: none !important; }
+  .composer {
+    position: sticky; bottom: 0;
+    padding: 12px 14px calc(14px + env(safe-area-inset-bottom));
+    background: rgba(11,18,32,0.92); backdrop-filter: blur(14px);
+    border-top: 1px solid var(--line);
+  }
+  /* Mode toggle row above the input/mic */
+  .mode-row {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 10px; padding: 0 2px 8px;
+  }
+  .mode-toggle {
+    display: inline-flex; background: rgba(255,255,255,0.04);
+    border: 1px solid var(--line); border-radius: 999px; padding: 3px;
+  }
+  .mode-toggle button {
+    border: none; background: transparent; color: var(--muted);
+    padding: 5px 12px; border-radius: 999px; cursor: pointer;
+    font-size: 12px; letter-spacing: 0.04em;
+  }
+  .mode-toggle button.on {
+    background: rgba(176,123,255,0.18); color: var(--text);
+    box-shadow: inset 0 0 0 1px rgba(176,123,255,0.35);
+  }
+  .mode-hint { font-size: 11px; color: var(--muted); }
+  /* Show/hide hints (chip rail) — keeps the default UX clean. */
+  .hints-toggle {
+    border: 1px solid var(--line); background: rgba(255,255,255,0.04);
+    color: var(--muted);
+    padding: 5px 12px; border-radius: 999px;
+    font-size: 11px; cursor: pointer; letter-spacing: 0.04em;
+  }
+  .hints-toggle:hover { background: rgba(255,255,255,0.10); color: var(--text); }
+  .hints-toggle.on { background: rgba(176,123,255,0.18); color: var(--text);
+    border-color: rgba(176,123,255,0.40); }
+
+  /* Quick-reply row — shown only at pause beats. A single primary pill
+     that submits "continue" through the normal pipeline. Right-aligned
+     to sit on the same side as user messages — it IS the learner's
+     response, just one tap away. */
+  .quick-reply {
+    display: flex; justify-content: flex-end;
+    padding: 0 2px 10px;
+  }
+  .quick-reply-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    border: 1px solid rgba(176,123,255,0.50);
+    background: rgba(176,123,255,0.18);
+    color: var(--text);
+    font-size: 13px; font-weight: 600; letter-spacing: 0.01em;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .quick-reply-btn:hover { background: rgba(176,123,255,0.28); }
+  .quick-reply-btn::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px rgba(176,123,255,0.8);
+  }
+
+  /* Text-mode inner: textarea + send */
+  .composer-inner {
+    display: flex; gap: 8px; align-items: flex-end;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--line);
+    border-radius: 18px; padding: 8px 8px 8px 14px;
+  }
+  .composer textarea {
+    flex: 1; resize: none; border: none; background: transparent;
+    color: var(--text); font: inherit; font-size: 14.5px; line-height: 1.4;
+    outline: none; padding: 6px 0; max-height: 180px;
+  }
+  .composer textarea::placeholder { color: rgba(232,236,244,0.4); }
+  .send-btn {
+    flex: none; width: 40px; height: 40px; border-radius: 50%;
+    border: none; cursor: pointer; font-size: 18px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #0b1220; display: grid; place-items: center;
+    transition: opacity 0.2s ease;
+  }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Voice-mode inner: mic + live transcript */
+  .voice-inner {
+    display: flex; align-items: center; gap: 14px;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--line);
+    border-radius: 18px; padding: 10px 14px 10px 12px;
+    min-height: 60px;
+  }
+  .mic-btn {
+    flex: none; width: 48px; height: 48px; border-radius: 50%;
+    border: none; cursor: pointer;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #0b1220; display: grid; place-items: center;
+    font-size: 20px; position: relative;
+    transition: transform 0.15s ease;
+  }
+  .mic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .mic-btn.recording { background: var(--bad); color: #fff; }
+  .mic-btn.recording::after {
+    content: ''; position: absolute; inset: -6px; border-radius: 50%;
+    border: 2px solid rgba(255, 84, 112, 0.55);
+    animation: micPulse 1.4s ease-out infinite;
+  }
+  @keyframes micPulse {
+    0% { transform: scale(0.85); opacity: 1; }
+    100% { transform: scale(1.35); opacity: 0; }
+  }
+  .voice-status {
+    flex: 1; min-width: 0;
+    font-size: 13.5px; line-height: 1.4;
+    color: var(--text);
+  }
+  .voice-status .label {
+    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 2px;
+  }
+  .voice-status .transcript-live {
+    color: var(--text); white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .voice-status .transcript-live.empty { color: rgba(232,236,244,0.4); font-style: italic; }
+  .voice-send {
+    flex: none; padding: 8px 14px; border-radius: 999px;
+    border: 1px solid rgba(74,222,128,0.45);
+    background: rgba(74,222,128,0.14); color: var(--ok);
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    letter-spacing: 0.04em;
+  }
+  .voice-send:hover { background: rgba(74,222,128,0.22); }
+  .voice-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Suggested-response chips (shown only briefly to seed the test) */
+  .chips {
+    display: flex; gap: 6px; padding: 0 0 8px; overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip {
+    flex: none; padding: 6px 10px; border-radius: 999px;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--line);
+    color: var(--muted); font-size: 12px; cursor: pointer;
+    white-space: nowrap;
+  }
+  .chip:hover { background: rgba(255,255,255,0.10); color: var(--text); }
+  .chip-negative { border-color: rgba(255,84,112,0.45); color: rgba(255,84,112,0.95); }
+  .chip-neutral  { border-color: rgba(245,165,36,0.45); color: rgba(245,165,36,0.95); }
+  .chip-strong   { border-color: rgba(74,222,128,0.45); color: rgba(74,222,128,0.95); }
+
+  @media (max-width: 540px) {
+    .bubble { font-size: 14px; }
+    .outcome { margin-left: 32px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div>
+      <span class="kicker">Scenario simulator</span>
+      <h1>The Marshall Scenario</h1>
+    </div>
+    <button class="close" id="closeBtn" aria-label="Close">✕</button>
+  </header>
+
+  <main class="thread" id="thread" aria-live="polite"></main>
+
+  <footer class="composer" id="composer">
+    <div class="chips" id="chips" hidden></div>
+
+    <div class="quick-reply" id="quickReply" hidden>
+      <button class="quick-reply-btn" id="continueBtn">Continue</button>
+    </div>
+
+    <div class="mode-row">
+      <div class="mode-toggle" role="tablist" aria-label="Response mode">
+        <button id="modeVoice" class="on" role="tab" aria-selected="true">🎙 Voice</button>
+        <button id="modeText" role="tab" aria-selected="false">⌨ Type</button>
+      </div>
+      <button class="hints-toggle" id="hintsToggle" aria-pressed="false">Show hints</button>
+    </div>
+
+    <!-- Voice mode -->
+    <div class="voice-inner" id="voiceComposer">
+      <button class="mic-btn" id="micBtn" aria-label="Toggle microphone">🎙</button>
+      <div class="voice-status">
+        <span class="label" id="voiceLabel">Tap the mic to begin</span>
+        <div class="transcript-live empty" id="transcriptLive">Your words will appear here…</div>
+      </div>
+      <button class="voice-send" id="voiceSendBtn" disabled>Send</button>
+    </div>
+
+    <!-- Text mode (hidden by default) -->
+    <div class="composer-inner" id="textComposer" hidden>
+      <textarea id="input" rows="1" placeholder="Type your response…"></textarea>
+      <button class="send-btn" id="sendBtn" aria-label="Send" disabled>↑</button>
+    </div>
+  </footer>
+</div>
+
+<script>
+/* =========================================================
+ *  The Marshall Scenario — scripted AI chat experience
+ *  Reference: Marshall_Scenario_Simulator_POC_Harassment.pdf
+ *  Responses lifted from VERSION B (Full Dialogue) drafts.
+ * =========================================================
+ *  The AI's reply per phase is selected by classifying the
+ *  learner's free-text into one of three tiers: negative,
+ *  neutral, strong. Until we hook a live backend, classification
+ *  is loose keyword matching — designed for a believable demo,
+ *  not for accuracy outside the scripted ranges.
+ */
+
+const SCRIPT = {
+  scenario: [
+    `You've been working alongside Marshall for about eight months. He's an administrative assistant — organized, a good communicator, clearly someone who takes his job seriously. But lately, he's not himself.`,
+    `It started with Ethan, the project manager. He'd greet Marshall with "Hey Marsha!" in the hallway. A couple of times he asked if Marshall had a skirt on "under that desk." Marshall let it go — he thought some joking might come with the job, especially given the way he dresses.`,
+    `Then Jake started. A junior engineer, hired not long after Marshall. He'd ask if the coffee was made whenever he passed Marshall's desk. He called Marshall's role a "cozy lady job." What started as occasional became almost daily.`,
+    `What Marshall didn't know, at first, was the group chat — sexist memes, jokes, and two altered images: his face on a woman in a frilly princess dress, and on a lingerie model's body, captioned "Marsha's true calling." Marshall was going to try to let it go. Until those images ended up on public social media — shareable, commentable, out there.`,
+    `You've seen most of the day-to-day. Marshall has gotten quieter — keeps his head down, doesn't linger. You're not sure what to call any of it, or what your role is.`
+  ],
+  reflectPrompt: `Before we get into the specifics — what's your gut reaction to what you've been observing? Is there anything that's stood out to you, or felt unclear?`,
+
+  // ---- Phase 1: Legal qualification ----
+  phase1: {
+    transition: `Let's take a closer look at what's actually happening here.`,
+    prompt: `Based on what you know about workplace harassment — take a moment to think through what Marshall is experiencing. In your view, does this qualify as sexual harassment? Walk through your reasoning.`,
+    tiers: {
+      negative: {
+        ai: `Two things worth separating. First: the way Marshall dresses and the fact that he anticipated some treatment don't change the legal analysis — you can't consent to harassment, and prior tolerance doesn't make mistreatment legal. Second: harassment doesn't have to be explicitly sexual. Under Title VII, it includes conduct based on gender stereotypes — the nickname, the "cozy lady job" framing, the princess dress, the lingerie image captioned "Marsha's true calling." All of it targets how Marshall presents. The pattern meets the hostile work environment standard, and Marshall should report it.`,
+        outcome: `Without the right legal frame, conduct like this often gets written off as "rough banter" — and that's how it keeps escalating, week after week.`
+      },
+      neutral: {
+        ai: `You're reading the gender-targeting correctly — and that's the core of it. What you're describing as "no exchange" is the quid pro quo model of harassment. But there are two types. The second is hostile work environment: conduct based on sex or gender that is severe or pervasive enough to make the workplace intimidating. Marshall's situation — daily comments, altered images, public exposure — meets that standard. Under Title VII, this is sexual harassment. He should report it immediately.`,
+        outcome: `Naming the standard correctly is what unlocks the next step. Marshall now has a clear path to report this — with confidence that it qualifies.`
+      },
+      strong: {
+        ai: `That's exactly right — and you've named the points most people miss: no explicit sexual content required, no quid pro quo required, same-sex harassment is fully covered. One addition: the fact that altered images of Marshall are on public social media is a major escalation. Reporting it promptly — with documentation of specific incidents, dates, and witnesses — is exactly the right call.`,
+        outcome: `With a clear-eyed read of the law, Marshall has the grounding to bring this to HR — documented, on his terms, and on solid footing.`
+      }
+    }
+  },
+
+  // ---- Phase 2: Empathy ----
+  phase2: {
+    transition: `Now that we've established what this is legally — let's shift gears. Set the law aside for a moment. What do you think this situation is actually doing to Marshall as a person — professionally and personally?`,
+    tiers: {
+      negative: {
+        ai: `It sounds like you're giving Marshall credit for his resilience — and that instinct makes sense. But research on sustained harassment tells us "putting it aside" has a real cost, even for people genuinely trying. When this is daily and inescapable — your name mocked, your role belittled, your face on public social media — it doesn't just fade. Studies consistently link this kind of exposure to anxiety, declining performance, and loss of motivation. What would it actually cost Marshall to keep showing up that way, every day?`,
+        outcome: `If the team reads this as something Marshall should just absorb, the conduct stays. He keeps showing up — quieter every week — until something gives.`
+      },
+      neutral: {
+        ai: `You're reading it well — especially the public images, which take this beyond the workplace and into his personal reputation. The "pulling back" instinct is important too: when someone is in survival mode at work, they stop taking risks, stop putting themselves forward professionally. Marshall has been here eight months — a critical window for establishing credibility. Sustained harassment in that window doesn't just affect how he feels today; it affects where he ends up.`,
+        outcome: `Understanding the toll helps — but until someone names it out loud, Marshall is still carrying it alone.`
+      },
+      strong: {
+        ai: `"Sustained assault on his dignity" — that's the right frame. And here's the broader reality: this doesn't just affect Marshall in isolation. When conduct like this goes unchallenged day after day, it shapes what feels normal for everyone in that environment — what people think is acceptable to say, what they feel allowed to push back on. That's what a hostile work environment actually means in practice. And that's exactly where bystanders come in. Which brings us to you.`,
+        outcome: `Holding the full weight of it is what makes intervention feel necessary instead of optional. The next moment is where that conviction gets tested.`
+      }
+    }
+  },
+
+  // ---- Phase 3: Bystander intervention ----
+  phase3: {
+    transition: `You're in the break room. Marshall is getting coffee when Jake walks in, pours himself a cup, and says — loud enough for the room to hear:`,
+    sceneQuote: `"Hey, did you make this? Guess that's what you're here for — living your best Marsha life."`,
+    prompt: `He grins and looks around. What do you do — specifically?`,
+    tiers: {
+      negative: {
+        ai: `Silence reads as permission — to Jake, and as a signal to Marshall that no one notices, even though others in the room are likely uncomfortable too. Intervening doesn't require confrontation. What feels manageable here? Even a small signal tells Marshall he isn't alone — and it doesn't have to be calling Jake out directly.`,
+        outcome: `Jake keeps going. Marshall goes quiet. The room moves on. Nothing changes — except Marshall noticed you didn't say anything.`
+      },
+      neutral: {
+        ai: `Redirecting is a real bystander move. The gap is specificity — "shift things somehow" stays invisible. Try something concrete: "Hey Jake, what's the update on Henderson?" pivots the room clearly. And after: check in with Marshall. Letting him know you noticed matters as much as what happened in the moment.`,
+        outcome: `Jake moves on. The tension eases. Later you notice Marshall glanced at you when it happened. You're not sure what he made of it.`
+      },
+      strong: {
+        ai: `All three components. You picked an action in the moment, you're planning to check in with Marshall, and you're thinking about escalation. Worth noting: your org's harassment policy may define specific obligations for witnesses — that's worth knowing exactly. Any of these three moves beats silence.`,
+        outcome: `Jake goes quiet. Marshall catches your eye — a brief nod. Later, at his desk: "Hey — thanks for saying something back there."`
+      }
+    }
+  },
+
+  final: {
+    kicker: 'What the experts say',
+    title: 'Marshall\'s situation — the complete picture',
+    paragraphs: [
+      `What Marshall is experiencing is <strong>sex-based harassment under Title VII</strong> — not because the conduct is explicitly sexual, but because it targets his gender expression and enforces stereotypes about what roles people of his gender "should" occupy. That is the legal definition of a hostile work environment, and it applies here fully.`,
+      `It also doesn't stay contained to Marshall. When conduct like this goes unchallenged, it shapes what feels normal for everyone who witnesses it — what people think is acceptable to say and what they feel safe to push back on. That's what a hostile work environment means in practice.`,
+      `Marshall should report — to HR, documented, as soon as possible. The fact that altered images of him are now on public social media makes this urgent.`,
+      `As for everyone around Marshall: <strong>bystanders are never neutral.</strong> The most effective response combines three things:`
+    ],
+    framework: [
+      `<strong>Pick an action in the moment</strong> — a direct signal ("that's not cool") or an indirect redirect ("Hey Jake, what's the update on X?") changes the dynamic. Direct confrontation is one option — not the only one.`,
+      `<strong>Offer support</strong> — check in with Marshall privately after. It tells him he isn't invisible.`,
+      `<strong>Consider escalating</strong> — review your organization's harassment policy. It may define specific obligations for employees who witness conduct like this. Bystanders can bring concerns to HR independently of what Marshall decides to do.`
+    ]
+  }
+};
+
+/* ---------- Classifier ----------
+ * Per-phase keyword scoring. Phrases were lifted from the PDF's
+ * VERSION B example learner responses, so a tester can quote any
+ * snippet from those exemplars and reliably hit that tier.
+ * Strong wins ties over neutral; neutral wins ties over negative.
+ */
+const CLASSIFIERS = {
+  1: {
+    // From PDF Phase 1 "Strong / Ideal":
+    //   "this is sex-based harassment under Title VII … gender stereotypes …
+    //    hostile work environment … same-sex harassment is covered"
+    strong: [
+      'title vii', 'hostile work environment', 'hostile work',
+      'gender stereotype', 'gender stereotyping', 'gender stereotypes',
+      'sex-based', 'sex based harassment', 'sex-based harassment',
+      'same-sex', 'same sex',
+      'gender expression', 'doesn\'t need to be explicitly sexual',
+      'public images', 'escalate', 'escalation', 'should report it now'
+    ],
+    // From PDF Phase 1 "Neutral / Average":
+    //   "It feels really wrong … but I'm not sure it technically qualifies
+    //    since no one is demanding anything from him or threatening his job"
+    neutral: [
+      'feels really wrong', 'feels wrong', 'really wrong',
+      'less than', 'not sure it technically', 'technically qualif',
+      'no one is demanding', 'demanding anything', 'threatening his job',
+      'quid pro quo', 'no exchange', 'not sure', 'gender-targeting',
+      'based on how he presents'
+    ],
+    // From PDF Phase 1 "Unthoughtful / Negative":
+    //   "he knew some of this would come with the job given how he dresses …
+    //    nothing sexual is actually happening … workplace bullying"
+    negative: [
+      'knew some of this', 'knew it would', 'comes with the job',
+      'come with the job', 'given how he dress', 'how he dresses',
+      'the way he dresses', 'the way he dress',
+      'nothing sexual', 'not actually happening',
+      'no one\'s demanding', 'no ones demanding',
+      'workplace bullying', 'just bullying', 'just teasing',
+      'just jokes', 'just a joke', 'banter',
+      'asked for it', 'not harassment', 'doesn\'t qualify', 'doesnt qualify'
+    ]
+  },
+  2: {
+    // From PDF Phase 2 "Strong / Ideal":
+    //   "exhausting and isolating … sustained assault on his dignity …
+    //    second-guessing his future here … no obvious safe path"
+    strong: [
+      'exhausting and isolating', 'exhausting', 'isolating',
+      'sustained assault', 'assault on his dignity', 'dignity',
+      'misnamed every day', 'punchline',
+      'second-guessing', 'second guessing',
+      'no obvious safe path', 'no safe path', 'no safe way',
+      'whole team', 'everyone watching', 'normalize', 'normalise',
+      'project manager involved'
+    ],
+    // From PDF Phase 2 "Neutral / Average":
+    //   "probably making him anxious and dread coming to work … public images …
+    //    feels like a real violation … pulling back"
+    neutral: [
+      'anxious', 'anxiety', 'dread coming', 'dread coming to work', 'dread',
+      'real violation', 'feels like a violation', 'violation',
+      'pulling back', 'pull back',
+      'not wanting to draw attention', 'draw attention', 'survival mode',
+      'public images', 'his reputation'
+    ],
+    // From PDF Phase 2 "Unthoughtful / Negative":
+    //   "probably annoyed and a bit embarrassed … put it aside and stay
+    //    professional … part of working with difficult people"
+    negative: [
+      'annoyed and a bit embarrassed', 'annoyed and embarrassed',
+      'a bit embarrassed', 'put it aside', 'putting it aside',
+      'brush it off', 'shake it off',
+      'stay professional', 'be professional',
+      'difficult people', 'part of the job', 'part of working',
+      'tough it out', 'thick skin', 'resilien', 'man up',
+      'just teasing', 'just annoyed', 'overreact'
+    ]
+  },
+  3: {
+    // From PDF Phase 3 "Strong / Ideal":
+    //   "I'd say 'Hey, that's not cool, Jake' … check in with Marshall after …
+    //    talk to my manager or HR about it"
+    strong: [
+      'not cool', 'that\'s not okay', 'thats not okay', 'not okay',
+      'signal it\'s not okay', 'signal its not okay',
+      'check in with marshall', 'check on marshall',
+      'talk to marshall', 'follow up with marshall',
+      'my manager', 'manager or hr', 'talk to hr', 'go to hr', ' hr ',
+      'report it', 'reporting', 'escalate',
+      'policy', 'witness', 'directly', 'call him out', 'call jake out'
+    ],
+    // From PDF Phase 3 "Neutral / Average":
+    //   "I'd feel pretty uncomfortable. I might give Jake a look or try to
+    //    change the subject quickly … shift things somehow"
+    neutral: [
+      'pretty uncomfortable', 'feel uncomfortable', 'uncomfortable',
+      'give jake a look', 'give him a look', 'shoot him a look',
+      'change the subject', 'change subject', 'change topic',
+      'shift things', 'shift things somehow', 'somehow',
+      'wouldn\'t call it out directly', 'wouldnt call it out directly',
+      'wouldn\'t call it out', 'wouldnt call it out',
+      'redirect', 'pivot', 'shut it down', 'move on'
+    ],
+    // From PDF Phase 3 "Unthoughtful / Negative":
+    //   "Honestly I'd probably just look down. I don't want to get in the
+    //    middle of something between two colleagues. If I say something, I
+    //    might make it a bigger deal than it needs to be"
+    negative: [
+      'look down', 'just look down',
+      'don\'t want to get in the middle', 'dont want to get in the middle',
+      'get in the middle', 'in the middle of',
+      'between two colleagues', 'between colleagues', 'between them',
+      'make it a bigger deal', 'bigger deal than it needs',
+      'bigger deal', 'not my place', 'stay out', 'mind my own',
+      'make it worse', 'awkward to', 'laugh along',
+      'wouldn\'t say anything', 'wouldnt say anything',
+      'i\'d ignore', 'id ignore', 'pretend'
+    ]
+  }
+};
+
+function classify(phase, text) {
+  const t = (text || '').toLowerCase();
+  if (!t.trim()) return 'neutral';
+  const c = CLASSIFIERS[phase];
+  const score = (list) => list.reduce((n, k) => n + (t.includes(k) ? 1 : 0), 0);
+  const s = score(c.strong), n = score(c.neutral), neg = score(c.negative);
+  if (s >= n && s >= neg && s > 0) return 'strong';
+  if (neg > s && neg >= n) return 'negative';
+  if (n > 0) return 'neutral';
+  // No matches — guess from length and confidence cues.
+  if (t.length > 180) return 'neutral';
+  return 'neutral';
+}
+
+/* ---------- Calibration response after reflection ----------
+ * The reflection prompt isn't graded, but the AI's bridge should still
+ * match the sentiment of the answer. Check uncertainty/negation FIRST
+ * — phrases like "I don't think it counts as harassment" contain the
+ * word "harassment" but lean negative, and a naive `/harass/` match
+ * would falsely classify them as a strong read.
+ */
+function reflectionBridge(text) {
+  const t = (text || '').toLowerCase();
+
+  // Uncertainty / dismissive: learner is downplaying, hedging, or denying.
+  const uncertaintyHits = [
+    'not sure', 'isn\'t sure', 'doesn\'t count', 'doesnt count',
+    'doesn\'t qualify', 'doesnt qualify', 'not really', "isn't really",
+    'not harassment', 'just joke', 'just teasing', 'just bullying',
+    'banter', 'overreact', 'how he dress', 'the way he dress',
+    'comes with the job', 'come with the job', 'nothing sexual',
+    'wouldn\'t call', 'wouldnt call', "don't think it", 'dont think it',
+    'maybe not', 'probably not', 'i guess'
+  ];
+  if (uncertaintyHits.some((h) => t.includes(h))) {
+    return `That hesitation — wondering whether this technically "counts" — is one of the most common places people get stuck. Let's look at what's actually happening here.`;
+  }
+
+  // Strong read: learner has already named the legal frame, the targeting,
+  // or the pattern. We require a hit that ISN'T just the bare word
+  // "harassment" — otherwise denials sneak through.
+  const strongHits = [
+    'title vii', 'hostile work environment', 'gender stereotyp',
+    'sex-based', 'sex based', 'same-sex', 'same sex', 'gender expression',
+    'targeting him', 'targeted at him', 'pattern of', 'pervasive',
+    'this is harassment', 'it\'s harassment', 'its harassment',
+    'sexual harassment'
+  ];
+  if (strongHits.some((h) => t.includes(h))) {
+    return `You're already seeing the shape of it — that this is targeting Marshall for who he is, not what he did. Let's look at what's actually happening here.`;
+  }
+
+  // Concerned but not specific: "feels wrong", "something's off", etc.
+  if (/(feels|seems|sounds|looks).{0,12}(wrong|off|bad)|something.{0,8}(wrong|off)|uncomfortable|cruel|mean/.test(t)) {
+    return `You're picking up on the wrongness of it — that instinct matters. Let's look at what's actually happening here and put a name on it.`;
+  }
+
+  return `Holding that uncertainty is the right starting place — most of this isn't obvious in the moment. Let's take a closer look at what's actually happening here.`;
+}
+
+/* ---------- Suggested chips per stage ----------
+ * One chip per tier so a tester can sample each branch fast.
+ * Each chip's `tier` lights up its border in the matching color, so the
+ * tester knows what they're about to trigger. The reflection stage has
+ * no tiering — it's calibration only. */
+const CHIPS = {
+  // Reflection chips. Reflection isn't graded, but the chips still hint
+  // at which way each one leans so testers know what they're sampling:
+  //   negative → triggers the "wondering whether this counts" bridge
+  //   neutral  → triggers the "picking up on the wrongness" bridge
+  //   strong   → triggers the "seeing the shape of it" bridge
+  reflect: [
+    { tier: 'negative', text: `It feels off but I'm not sure it really counts as harassment.` },
+    { tier: 'neutral',  text: `Something feels wrong. He's miserable and the comments keep going.` },
+    { tier: 'strong',   text: `This looks like gender-based harassment — Marshall's being targeted for how he presents.` }
+  ],
+  1: [
+    { tier: 'negative', text: `He knew some of this would come with the job given how he dresses. Nothing sexual is actually happening — it's more workplace bullying.` },
+    { tier: 'neutral',  text: `It feels really wrong, but I'm not sure it technically qualifies since no one is demanding anything from him or threatening his job.` },
+    { tier: 'strong',   text: `Yes — this is sex-based harassment under Title VII. Gender stereotyping, hostile work environment, and same-sex harassment is fully covered.` }
+  ],
+  2: [
+    { tier: 'negative', text: `He's probably annoyed and a bit embarrassed. He should be able to put it aside and stay professional — it's part of working with difficult people.` },
+    { tier: 'neutral',  text: `It's probably making him anxious and dread coming to work. The public images especially feel like a real violation. He might be pulling back.` },
+    { tier: 'strong',   text: `It sounds exhausting and isolating — a sustained assault on his dignity. With a project manager involved, there's no obvious safe path to push back.` }
+  ],
+  3: [
+    { tier: 'negative', text: `Honestly I'd probably just look down. I don't want to get in the middle of something between two colleagues.` },
+    { tier: 'neutral',  text: `I'd feel pretty uncomfortable. I might give Jake a look or try to change the subject — shift things somehow.` },
+    { tier: 'strong',   text: `I'd say "Hey, that's not cool, Jake" — then I'd check in with Marshall after and talk to my manager or HR about it.` }
+  ]
+};
+
+/* ---------- State ---------- */
+// Stage drives which classifier and response set we use next. The learner
+// never sees these labels — they exist only to thread the script together.
+let stage = 'reflect';
+let awaitingAI = false;
+let mode = 'voice'; // 'voice' | 'text'
+
+/* ---------- DOM ---------- */
+const thread = document.getElementById('thread');
+const input = document.getElementById('input');
+const sendBtn = document.getElementById('sendBtn');
+const chipsEl = document.getElementById('chips');
+const voiceComposer = document.getElementById('voiceComposer');
+const textComposer = document.getElementById('textComposer');
+const micBtn = document.getElementById('micBtn');
+const voiceSendBtn = document.getElementById('voiceSendBtn');
+const transcriptLive = document.getElementById('transcriptLive');
+const voiceLabel = document.getElementById('voiceLabel');
+const modeVoiceBtn = document.getElementById('modeVoice');
+const modeTextBtn = document.getElementById('modeText');
+// modeHint was a small status line on the composer; the redesign drops
+// it in favor of the chip-rail "Show hints" toggle. Keeping a no-op
+// stub so older code paths (mic errors, etc.) don't throw.
+const modeHint = { set textContent(_) {}, get textContent() { return ''; } };
+const hintsToggle = document.getElementById('hintsToggle');
+const quickReply = document.getElementById('quickReply');
+const continueBtn = document.getElementById('continueBtn');
+document.getElementById('closeBtn').onclick = () => {
+  if (history.length > 1 && document.referrer) history.back();
+  else location.href = 'index.html';
+};
+
+/* ---------- Helpers ---------- */
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const k in attrs) {
+    if (k === 'class') n.className = attrs[k];
+    else if (k === 'html') n.innerHTML = attrs[k];
+    else n.setAttribute(k, attrs[k]);
+  }
+  for (const k of kids) n.append(k.nodeType ? k : document.createTextNode(k));
+  return n;
+}
+
+function scrollDown() {
+  requestAnimationFrame(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }));
+}
+
+function aiBubble(htmlContent) {
+  const msg = el('div', { class: 'msg ai' });
+  msg.append(el('div', { class: 'bubble', html: htmlContent }));
+  thread.append(msg);
+  scrollDown();
+  return msg;
+}
+
+function userBubble(text) {
+  // Bubble starts neutral. Tier styling is applied later (markUserTier)
+  // once the AI has "thought about" the response.
+  const msg = el('div', { class: 'msg user' });
+  msg.append(el('div', { class: 'bubble', html: escapeHtml(text).replace(/\n/g, '<br>') }));
+  thread.append(msg);
+  scrollDown();
+  return msg;
+}
+
+function markUserTier(msgEl, tier) {
+  msgEl.classList.add(`tier-${tier}`, 'tier-tagged');
+}
+
+function tierBadgeHtml(tier) {
+  const label = tier === 'strong' ? 'Response: strong'
+              : tier === 'neutral' ? 'Response: on the right track'
+              : 'Response: needs sharpening';
+  return `<span class="tier-badge tier-${tier}">${label}</span>`;
+}
+
+function outcomeCard(tier, text) {
+  return el('div', { class: `outcome ${tier}`,
+    html: `<div class="out-label">What happens next</div>` +
+          `<div class="out-body">${escapeHtml(text)}</div>` });
+}
+
+/* Render a standalone "scene" panel — not an AI bubble. Returns the
+ * element so the caller can wait for the learner to acknowledge. */
+function sceneCard({ label, paragraphs = [], quote = null }) {
+  const card = el('div', { class: 'scenecard' });
+  card.innerHTML = `<div class="scene-tag">${escapeHtml(label)}</div>` +
+    paragraphs.map((p) => `<p>${p}</p>`).join('') +
+    (quote ? `<div class="scene-quote">${escapeHtml(quote)}</div>` : '');
+  thread.append(card);
+  scrollDown();
+  return card;
+}
+
+/* Words that count as "I'm ready, continue" when the learner is at a
+ * ready-ack beat. Anything short and affirmative passes — we accept any
+ * non-empty reply so off-script answers still advance, but checking lets
+ * the AI reply more warmly when they actually say "ready" or "yes". */
+const READY_TERMS = [
+  'ready', 'yes', 'yeah', 'yep', 'yup', 'sure', 'ok', 'okay',
+  'sounds good', 'lets go', "let's go", 'go', 'continue',
+  "i'm ready", 'im ready', 'im good', "i'm good", 'good to go'
+];
+function isReadyAck(text) {
+  const t = (text || '').toLowerCase().trim();
+  if (!t) return false;
+  if (t.length <= 24) return true; // short replies count
+  return READY_TERMS.some((w) => t.includes(w));
+}
+
+function divider(label) {
+  thread.append(el('div', { class: 'divider' }, label));
+  scrollDown();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+function typingBubble() {
+  const msg = el('div', { class: 'msg ai' });
+  msg.append(el('div', { class: 'bubble',
+    html: `<div class="typing"><span></span><span></span><span></span></div>` }));
+  thread.append(msg);
+  scrollDown();
+  return msg;
+}
+
+async function aiSay(htmlContent, { delay = 700, who = 'AI Coach' } = {}) {
+  const t = typingBubble();
+  await wait(delay);
+  t.remove();
+  return aiBubble(htmlContent, { who });
+}
+
+function wait(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+function setStage(next) {
+  stage = next;
+  renderChips();
+  // Pause beats expose the "Continue" CTA. Phase prompts and the
+  // reflection prompt hide it — the learner needs to type a real answer.
+  const isPause = typeof next === 'string' && next.startsWith('ready-');
+  quickReply.hidden = !isPause;
+}
+
+function renderChips() {
+  chipsEl.innerHTML = '';
+  const list = CHIPS[stage] || [];
+  // Hide the toggle entirely on stages with no hints (ready-ack beats,
+  // done state). Avoids a dead button.
+  hintsToggle.hidden = list.length === 0;
+  if (list.length === 0) { chipsEl.hidden = true; return; }
+  if (hintsOn) chipsEl.hidden = false;
+  for (const item of list) {
+    const { text, tier } = item;
+    const c = el('button', { class: 'chip' + (tier ? ` chip-${tier}` : '') },
+      text.length > 80 ? text.slice(0, 78) + '…' : text);
+    c.onclick = () => {
+      // Auto-collapse the hints rail after picking one — keeps the
+      // composer area uncluttered while the answer is being composed.
+      if (hintsOn) setHints(false);
+      if (mode === 'text') {
+        input.value = text;
+        autoResize();
+        input.focus();
+        sendBtn.disabled = false;
+      } else {
+        // In voice mode, chips act as quick-send — submit immediately so
+        // testers can sample tiers without speaking.
+        submitResponse(text);
+      }
+    };
+    chipsEl.append(c);
+  }
+}
+
+function autoResize() {
+  input.style.height = 'auto';
+  input.style.height = Math.min(180, input.scrollHeight) + 'px';
+}
+
+input.addEventListener('input', () => {
+  sendBtn.disabled = !input.value.trim() || awaitingAI;
+  autoResize();
+});
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    if (!sendBtn.disabled) submitFromText();
+  }
+});
+sendBtn.onclick = submitFromText;
+
+function submitFromText() {
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  autoResize();
+  submitResponse(text);
+}
+
+// "Let me think" interim lines, picked at random for variety.
+const THINKING_LINES = [
+  `Let me think about your response for a moment…`,
+  `Hmm — sitting with what you said…`,
+  `Taking that in for a second…`
+];
+const pickThinking = () => THINKING_LINES[Math.floor(Math.random() * THINKING_LINES.length)];
+
+// Phase stages that go through the evaluate-and-feedback pattern.
+const PHASE_BLOCKS = {
+  '1': () => SCRIPT.phase1,
+  '2': () => SCRIPT.phase2,
+  '3': () => SCRIPT.phase3
+};
+const PHASE_NUM = { '1': 1, '2': 2, '3': 3 };
+
+/* ---------- Ready-ack transitions ----------
+ * Centralized table: each ready-ack stage maps to a function that runs
+ * the next AI beats AFTER the learner confirms. Keeps the conversation
+ * pacing predictable — the AI never dumps multiple beats without a
+ * learner acknowledgment in between. */
+const READY_TRANSITIONS = {
+  'ready-after-intro': async () => {
+    setStage('reflect');
+    await aiSay(`<p>Before we get into the specifics — what's your gut reaction to what you've been observing? Is there anything that's stood out to you, or felt unclear?</p>`, { delay: 700 });
+  },
+  'ready-after-phase-1': async () => {
+    setStage('2');
+    await aiSay(`<p>${SCRIPT.phase2.transition}</p>`, { delay: 700 });
+  },
+  'ready-after-phase-2': async () => {
+    // Setup beat: AI introduces the scene, then renders the scene card,
+    // then pauses again before the break-room prompt.
+    await aiSay(`<p>I'll set the scene.</p>`, { delay: 500 });
+    await wait(400);
+    sceneCard({
+      label: 'Scene · break room',
+      paragraphs: [ SCRIPT.phase3.transition ],
+      quote: SCRIPT.phase3.sceneQuote
+    });
+    await wait(500);
+    setStage('ready-before-break-room');
+    await aiSay(`<p>Take a moment with that. When you're ready, I'll ask what you'd do.</p>`, { delay: 700 });
+  },
+  'ready-before-break-room': async () => {
+    setStage('3');
+    await aiSay(`<p>${SCRIPT.phase3.prompt}</p>`, { delay: 600 });
+  },
+  'ready-after-phase-3': async () => {
+    setStage('done');
+    await aiSay(`<p>Here's the complete picture — what the experts say a strong response to a situation like Marshall's looks like.</p>`, { delay: 600 });
+    await wait(400);
+    renderFinal();
+    document.getElementById('composer').style.display = 'none';
+  }
+};
+
+// Friendly opening line for the AI's response to a ready-ack message.
+function readyAckOpener(stage, text) {
+  const warm = isReadyAck(text);
+  switch (stage) {
+    case 'ready-after-intro':
+      return warm ? `Great — let's begin.` : `Okay, let's begin.`;
+    case 'ready-after-phase-1':
+      return warm ? `Good. Let's shift gears.` : `Okay, shifting gears.`;
+    case 'ready-after-phase-2':
+      return warm ? `Good.` : `Okay.`;
+    case 'ready-before-break-room':
+      return warm ? `Alright — picture yourself there.` : `Okay — picture yourself there.`;
+    case 'ready-after-phase-3':
+      return warm ? `Good work. Let's bring it together.` : `Okay, let's bring it together.`;
+    default:
+      return warm ? `Got it.` : `Okay.`;
+  }
+}
+
+async function submitResponse(text) {
+  if (!text || awaitingAI) return;
+  awaitingAI = true;
+  setComposerBusy(true);
+
+  // -- Ready-ack beats: any reply advances the scene. We don't tier or
+  // critique; we just acknowledge and hand off to the next beat.
+  if (typeof stage === 'string' && stage.startsWith('ready-')) {
+    userBubble(text);
+    const opener = readyAckOpener(stage, text);
+    await aiSay(`<p>${opener}</p>`, { delay: 500 });
+    await wait(300);
+    const next = READY_TRANSITIONS[stage];
+    if (next) await next();
+    awaitingAI = false;
+    setComposerBusy(false);
+    return;
+  }
+
+  // -- Reflection: calibration only, no tier.
+  if (stage === 'reflect') {
+    userBubble(text);
+    await aiSay(`<p>${reflectionBridge(text)}</p>`, { delay: 900 });
+    await wait(400);
+    setStage('1');
+    await aiSay(`<p>${SCRIPT.phase1.prompt}</p>`, { delay: 700 });
+    awaitingAI = false;
+    setComposerBusy(false);
+    return;
+  }
+
+  // -- Evaluated phases: send → think → mark → feedback → outcome → next.
+  const blockFn = PHASE_BLOCKS[stage];
+  if (blockFn) {
+    const phase = PHASE_NUM[stage];
+    const tier = classify(phase, text);
+    const userMsg = userBubble(text); // intentionally uncolored at first
+
+    // Interim — AI takes a moment before evaluating.
+    await aiSay(`<p>${pickThinking()}</p>`, { delay: 700 });
+    await wait(700);
+
+    // Now the AI tags the user response (border colorizes) AND delivers
+    // its feedback bubble with the tier badge as a header inside it.
+    markUserTier(userMsg, tier);
+    const tiered = blockFn().tiers[tier];
+    await aiSay(`${tierBadgeHtml(tier)}<p>${tiered.ai}</p>`, { delay: 900 });
+
+    // Outcome — distinct, centered visual.
+    await wait(450);
+    thread.append(outcomeCard(tier, tiered.outcome));
+    scrollDown();
+    await wait(900);
+
+    // After the outcome card, ALWAYS hand off to a ready-ack pause so
+    // the learner controls the pacing — no auto-flow into the next beat.
+    if (stage === '1') {
+      setStage('ready-after-phase-1');
+      await aiSay(
+        `<p>Now let's set the legal frame aside and think about Marshall as a person. Let me know when you're ready.</p>`,
+        { delay: 700 }
+      );
+    } else if (stage === '2') {
+      setStage('ready-after-phase-2');
+      await aiSay(
+        `<p>I want to put you in a specific moment next. Let me know when you're ready and I'll set the scene.</p>`,
+        { delay: 700 }
+      );
+    } else if (stage === '3') {
+      setStage('ready-after-phase-3');
+      await aiSay(
+        `<p>That's the heart of it. When you're ready, I'll bring it together with the full picture experts use for situations like Marshall's.</p>`,
+        { delay: 700 }
+      );
+    }
+
+    awaitingAI = false;
+    setComposerBusy(false);
+    return;
+  }
+
+  awaitingAI = false;
+  setComposerBusy(false);
+}
+
+function setComposerBusy(busy) {
+  sendBtn.disabled = busy || !input.value.trim();
+  // Voice composer locks the mic while AI is replying.
+  micBtn.disabled = busy || !speechAvailable;
+  voiceSendBtn.disabled = busy || !voiceBuffer.trim();
+  if (busy && recording) stopRecording();
+}
+
+function renderFinal() {
+  divider('Wrap-up');
+  const card = el('div', { class: 'final' });
+  let html = `<div class="kicker">${SCRIPT.final.kicker}</div>`;
+  html += `<h2>${SCRIPT.final.title}</h2>`;
+  for (const p of SCRIPT.final.paragraphs) html += `<p>${p}</p>`;
+  html += `<h3>The framework</h3><ol>`;
+  for (const item of SCRIPT.final.framework) html += `<li>${item}</li>`;
+  html += `</ol>`;
+  html += `<div class="restart">
+    <button id="restartBtn">Restart scenario</button>
+    <button id="doneBtn" class="primary">Done</button>
+  </div>`;
+  card.innerHTML = html;
+  thread.append(card);
+  card.querySelector('#restartBtn').onclick = () => location.reload();
+  card.querySelector('#doneBtn').onclick = () => {
+    if (history.length > 1 && document.referrer) history.back();
+    else location.href = 'index.html';
+  };
+  scrollDown();
+}
+
+/* =========================================================
+ *  Voice capture (Web Speech API)
+ *  We accumulate finalised segments into voiceBuffer so the
+ *  learner can pause and resume mid-response. Send commits the
+ *  buffer + any in-flight interim text and clears it.
+ * ========================================================= */
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+const speechAvailable = !!SpeechRec;
+let recognition = null;
+let recording = false;
+let voiceBuffer = '';   // accumulated final transcripts
+let interimText = '';   // latest interim (not yet finalised)
+
+if (speechAvailable) {
+  recognition = new SpeechRec();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  recognition.onresult = (event) => {
+    interimText = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const r = event.results[i];
+      if (r.isFinal) voiceBuffer += r[0].transcript + ' ';
+      else interimText += r[0].transcript;
+    }
+    paintVoice();
+  };
+
+  const FATAL = new Set(['not-allowed', 'service-not-allowed', 'audio-capture']);
+  recognition.onerror = (e) => {
+    if (FATAL.has(e.error)) {
+      recording = false;
+      micBtn.classList.remove('recording');
+      micBtn.textContent = '🎙';
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        voiceLabel.textContent = 'Microphone access blocked';
+        modeHint.textContent = 'Switch to Type, or allow mic access.';
+      } else {
+        voiceLabel.textContent = 'No microphone detected';
+      }
+    }
+  };
+
+  // Auto-restart while the learner is recording — Chrome silently ends a
+  // continuous session after long pauses.
+  let lastRestart = 0;
+  recognition.onend = () => {
+    if (!recording) return;
+    const now = Date.now();
+    if (now - lastRestart < 400) { recording = false; updateMicUI(); return; }
+    lastRestart = now;
+    try { recognition.start(); } catch {}
+  };
+} else {
+  // Fall back to text mode automatically and disable the voice toggle.
+  modeHint.textContent = 'Voice isn\'t supported here — using typing.';
+}
+
+function paintVoice() {
+  const full = (voiceBuffer + ' ' + interimText).trim();
+  if (full) {
+    transcriptLive.textContent = full;
+    transcriptLive.classList.remove('empty');
+  } else {
+    transcriptLive.textContent = 'Your words will appear here…';
+    transcriptLive.classList.add('empty');
+  }
+  voiceSendBtn.disabled = awaitingAI || !voiceBuffer.trim() && !interimText.trim();
+}
+
+function startRecording() {
+  if (!recognition || recording || awaitingAI) return;
+  recording = true;
+  try { recognition.start(); } catch {}
+  updateMicUI();
+}
+
+function stopRecording() {
+  if (!recognition) return;
+  recording = false;
+  try { recognition.stop(); } catch {}
+  updateMicUI();
+}
+
+function updateMicUI() {
+  micBtn.classList.toggle('recording', recording);
+  micBtn.textContent = recording ? '■' : '🎙';
+  if (recording) {
+    voiceLabel.textContent = 'Listening — tap to stop';
+    modeHint.textContent = 'Speak naturally. Tap Send when you\'re done.';
+  } else {
+    voiceLabel.textContent = voiceBuffer.trim() ? 'Paused — review and send' : 'Tap the mic to begin';
+    modeHint.textContent = 'Tap the mic, then speak.';
+  }
+}
+
+micBtn.onclick = () => {
+  if (!speechAvailable) { setMode('text'); return; }
+  if (recording) stopRecording();
+  else startRecording();
+};
+
+voiceSendBtn.onclick = () => {
+  if (recording) stopRecording();
+  const text = (voiceBuffer + ' ' + interimText).trim();
+  if (!text) return;
+  voiceBuffer = '';
+  interimText = '';
+  paintVoice();
+  submitResponse(text);
+};
+
+/* ---------- Mode toggle ---------- */
+function setMode(next) {
+  // If voice isn't supported, lock to text.
+  if (next === 'voice' && !speechAvailable) next = 'text';
+  mode = next;
+  modeVoiceBtn.classList.toggle('on', mode === 'voice');
+  modeVoiceBtn.setAttribute('aria-selected', mode === 'voice');
+  modeTextBtn.classList.toggle('on', mode === 'text');
+  modeTextBtn.setAttribute('aria-selected', mode === 'text');
+  voiceComposer.hidden = mode !== 'voice';
+  textComposer.hidden = mode !== 'text';
+  if (mode === 'voice') {
+    modeHint.textContent = 'Tap the mic, then speak.';
+    paintVoice();
+  } else {
+    if (recording) stopRecording();
+    modeHint.textContent = 'Type your response, then Enter to send.';
+    setTimeout(() => input.focus(), 50);
+  }
+}
+
+modeVoiceBtn.onclick = () => setMode('voice');
+modeTextBtn.onclick = () => setMode('text');
+
+/* ---------- Hints toggle ---------- */
+let hintsOn = false;
+function setHints(on) {
+  hintsOn = on;
+  chipsEl.hidden = !on;
+  hintsToggle.classList.toggle('on', on);
+  hintsToggle.textContent = on ? 'Hide hints' : 'Show hints';
+  hintsToggle.setAttribute('aria-pressed', String(on));
+}
+hintsToggle.onclick = () => setHints(!hintsOn);
+
+/* ---------- Continue button ----------
+ * Tapping submits "continue" through the normal pipeline. submitResponse
+ * routes ready-ack stages, so a tap is equivalent to typing/speaking
+ * "ready" — same effect, faster path. */
+continueBtn.onclick = () => {
+  if (awaitingAI) return;
+  submitResponse('continue');
+};
+setHints(false);
+
+// If speech isn't available at all, kick the UI into text mode at boot.
+if (!speechAvailable) {
+  modeVoiceBtn.disabled = true;
+  modeVoiceBtn.style.opacity = '0.4';
+  setMode('text');
+}
+
+/* ---------- Boot: scene intro → chat-based ready → reflection ----------
+ * No buttons. The AI introduces the scene, the scene renders as its own
+ * panel, the AI asks the learner to reply when ready, and any short
+ * affirmative ("ready", "yes", "ok", etc.) advances the flow. */
+(async function boot() {
+  await aiSay(
+    `<p>Hi — I'm going to walk you through a scenario you might come across at work. Here's the situation. Take a moment with it, and let me know when you're ready.</p>`,
+    { delay: 400 }
+  );
+  await wait(300);
+  sceneCard({
+    label: 'The scenario',
+    paragraphs: SCRIPT.scenario
+  });
+  await wait(400);
+  setStage('ready-after-intro');
+  await aiSay(
+    `<p>When you're ready, just reply with a quick "ready" (or anything else) and we'll get started.</p>`,
+    { delay: 600 }
+  );
+})();
+</script>
+</body>
+</html>
