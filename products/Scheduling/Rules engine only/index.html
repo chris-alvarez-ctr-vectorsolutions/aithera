@@ -1812,20 +1812,28 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
   const msgEndRef    = useRef(null);
   const textareaRef  = useRef(null);
   const panelScrollRef = useRef(null);
-  const prevRevealedSize = useRef(0);
   useEffect(() => { msgEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, typing]);
-  // When a new configuration field appears in the right panel during chat,
-  // smoothly scroll the panel so the user sees the build progressing on the side.
+  // When the chat fills in a new field, scroll the right panel so the
+  // highlighted field is in view — NOT to the bottom of the panel. The panel
+  // starts at the top on mount and only moves in response to a chat answer.
   useEffect(() => {
-    if (revealedFields.size > prevRevealedSize.current && panelScrollRef.current) {
-      // Tiny delay so the freshly-revealed field has rendered before we scroll.
-      setTimeout(() => {
-        const c = panelScrollRef.current;
-        if (c) c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' });
-      }, 60);
-    }
-    prevRevealedSize.current = revealedFields.size;
-  }, [revealedFields]);
+    if (!newestField || !panelScrollRef.current) return;
+    // Tiny delay so the freshly-rendered field has its final DOM position.
+    const t = setTimeout(() => {
+      const container = panelScrollRef.current;
+      if (!container) return;
+      const target = container.querySelector(`[data-field="${newestField}"]`);
+      if (!target) return;
+      // Compute the field's position within the scroll container and center
+      // it vertically. Using scrollIntoView could scroll the whole page on
+      // some browsers; manually setting scrollTop keeps the scroll local.
+      const cRect = container.getBoundingClientRect();
+      const tRect = target.getBoundingClientRect();
+      const delta = (tRect.top - cRect.top) - (cRect.height / 2 - tRect.height / 2);
+      container.scrollTo({ top: container.scrollTop + delta, behavior: 'smooth' });
+    }, 80);
+    return () => clearTimeout(t);
+  }, [newestField]);
   // Auto-toggle the sticky summary based on scroll position. When the user is at the
   // top of the form, the summary is expanded; scroll down a little and it collapses
   // into a compact pill (still pinned to the top), freeing up vertical room for the form.
@@ -2703,7 +2711,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           ) : null}
 
           {shown('ruleAffects') && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('ruleAffects', 'selectedApproaches') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('ruleAffects', 'selectedApproaches') }} data-field="ruleAffects">
               <FormGroup label="Rule Affects">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {[{ v: 'all', l: 'All Approaches' }, { v: 'selected', l: 'Selected Approaches' }].map(opt => (
@@ -2757,7 +2765,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           {shown('ruleType') && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('ruleType') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('ruleType') }} data-field="ruleType">
               <FormGroup label="Rule Type">
                 <RichSelect
                   value={form.ruleType}
@@ -2769,7 +2777,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           {shown('turnsCounting') && form.ruleType === 'turns' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('turnsCounting') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('turnsCounting') }} data-field="turnsCounting">
               <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Counting method</div>
               <select value={form.turnsCounting} onChange={e => patchForm({ turnsCounting: e.target.value })}
                 style={{ width: '100%', height: 36, padding: '0 36px 0 12px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
@@ -2781,7 +2789,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           {shown('rolodexReset') && form.ruleType === 'rolodex' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('rolodexReset') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('rolodexReset') }} data-field="rolodexReset">
               <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>List reset</div>
               <select value={form.rolodexReset} onChange={e => patchForm({ rolodexReset: e.target.value })}
                 style={{ width: '100%', height: 36, padding: '0 36px 0 12px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
@@ -2794,14 +2802,14 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
 
           {/* Standard Rolodex — post-accept movement and per-employee response window */}
           {shown('rolodexAcceptMove') && form.ruleType === 'rolodex' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('rolodexAcceptMove') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('rolodexAcceptMove') }} data-field="rolodexAcceptMove">
               <FormGroup label="After Accepting">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.rolodexAcceptMove}</span>
               </FormGroup>
             </div>
           )}
           {shown('responseTime') && form.ruleType === 'rolodex' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('responseTime') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('responseTime') }} data-field="responseTime">
               <FormGroup label="Response Window">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.responseTime}</span>
               </FormGroup>
@@ -2810,7 +2818,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
 
           {/* Accumulating Rolodex — what accumulates and at what limit */}
           {shown('accumulationType') && form.ruleType === 'turns' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('accumulationType') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('accumulationType') }} data-field="accumulationType">
               <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Accumulates by</div>
               <select value={form.accumulationType} onChange={e => patchForm({ accumulationType: e.target.value })}
                 style={{ width: '100%', height: 36, padding: '0 36px 0 12px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
@@ -2821,7 +2829,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
             </div>
           )}
           {shown('accumulationLimit') && form.ruleType === 'turns' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('accumulationLimit') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('accumulationLimit') }} data-field="accumulationLimit">
               <FormGroup label="Rotation Limit">
                 <FormInput value={form.accumulationLimit} onChange={v => patchForm({ accumulationLimit: v })} placeholder="e.g. 24 hours or 3 callbacks" />
               </FormGroup>
@@ -2830,7 +2838,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
 
           {/* Accumulation Hours / Turns — reset cadence + which outcomes count */}
           {shown('resetCadence') && (form.ruleType === 'hours' || form.ruleType === 'turns') && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('resetCadence') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('resetCadence') }} data-field="resetCadence">
               <FormGroup label="Reset Cadence">
                 <select value={form.resetCadence} onChange={e => patchForm({ resetCadence: e.target.value })}
                   style={{ width: '100%', height: 36, padding: '0 36px 0 12px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
@@ -2844,7 +2852,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
             </div>
           )}
           {shown('hoursCountedOutcomes') && form.ruleType === 'hours' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('hoursCountedOutcomes') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('hoursCountedOutcomes') }} data-field="hoursCountedOutcomes">
               <FormGroup label="Outcomes Counted">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.hoursCountedOutcomes}</span>
               </FormGroup>
@@ -2853,7 +2861,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
 
           {/* Static — Seniority Based: date type */}
           {shown('seniorityDateType') && form.ruleType === 'hire_date' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('seniorityDateType') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('seniorityDateType') }} data-field="seniorityDateType">
               <FormGroup label="Seniority Date">
                 <select value={form.seniorityDateType} onChange={e => patchForm({ seniorityDateType: e.target.value })}
                   style={{ width: '100%', height: 36, padding: '0 36px 0 12px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
@@ -2868,21 +2876,21 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
 
           {/* Static — By Employee ID: sort direction, new-hire placement, case sensitivity */}
           {shown('sortDirection') && form.ruleType === 'employee_id' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('sortDirection') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('sortDirection') }} data-field="sortDirection">
               <FormGroup label="Sort Direction">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.sortDirection}</span>
               </FormGroup>
             </div>
           )}
           {shown('newHirePlacement') && form.ruleType === 'employee_id' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('newHirePlacement') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('newHirePlacement') }} data-field="newHirePlacement">
               <FormGroup label="New Hire Placement">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.newHirePlacement}</span>
               </FormGroup>
             </div>
           )}
           {shown('caseSensitivity') && form.ruleType === 'employee_id' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('caseSensitivity') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('caseSensitivity') }} data-field="caseSensitivity">
               <FormGroup label="Case Handling">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.caseSensitivity}</span>
               </FormGroup>
@@ -2891,21 +2899,21 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
 
           {/* Random / Lottery: how often, weighting, guardrails */}
           {shown('randomizeFrequency') && form.ruleType === 'random' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('randomizeFrequency') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('randomizeFrequency') }} data-field="randomizeFrequency">
               <FormGroup label="Re-randomize">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.randomizeFrequency}</span>
               </FormGroup>
             </div>
           )}
           {shown('randomWeighting') && form.ruleType === 'random' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('randomWeighting') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('randomWeighting') }} data-field="randomWeighting">
               <FormGroup label="Weighting">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.randomWeighting}</span>
               </FormGroup>
             </div>
           )}
           {shown('randomGuardrail') && form.ruleType === 'random' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('randomGuardrail') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('randomGuardrail') }} data-field="randomGuardrail">
               <FormGroup label="Guardrail">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.randomGuardrail}</span>
               </FormGroup>
@@ -2913,7 +2921,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           {(shown('minShift') || shown('maxShift')) && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('minShift', 'maxShift') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('minShift', 'maxShift') }} data-field="minShift">
               <FormGroup label="Shift Length">
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div>
@@ -2930,7 +2938,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           {(shown('lookBack') || shown('forecast')) && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('lookBack', 'forecast') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('lookBack', 'forecast') }} data-field="lookBack">
               <FormGroup label="Ranking Reference Range">
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div>
@@ -2947,7 +2955,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           {shown('tieBreaker') && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('tieBreaker') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('tieBreaker') }} data-field="tieBreaker">
               <FormGroup label="Tiebreaker">
                 <RichSelect
                   value={form.tieBreaker}
@@ -2960,7 +2968,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           {shown('tieBreakerOrder') && form.tieBreaker && (
-            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('tieBreakerOrder') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('tieBreakerOrder') }} data-field="tieBreakerOrder">
               <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Sort order</div>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>
                 {form.tieBreakerOrder}
@@ -2969,7 +2977,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           {shown('declineAction') && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('declineAction') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('declineAction') }} data-field="declineAction">
               <FormGroup label="Decline Action">
                 <RichSelect
                   value={form.declineAction}
@@ -2978,7 +2986,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
                   placeholder="Not set"
                 />
                 {shown('penaltyPoints') && form.declineAction === 'Penalty points' && (
-                  <div style={{ animation: 'fieldReveal .3s ease both', marginTop: 10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('penaltyPoints') }}>
+                  <div style={{ animation: 'fieldReveal .3s ease both', marginTop: 10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('penaltyPoints') }} data-field="penaltyPoints">
                     <div style={{ font: '600 10px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 7 }}>Points per decline</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <input type="number" value={form.penaltyPoints} onChange={e => patchForm({ penaltyPoints: e.target.value })} placeholder="e.g. 2"
@@ -2989,7 +2997,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
                   </div>
                 )}
                 {shown('declineScope') && form.declineAction === 'Move to back of list' && (
-                  <div style={{ animation: 'fieldReveal .3s ease both', marginTop: 10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('declineScope') }}>
+                  <div style={{ animation: 'fieldReveal .3s ease both', marginTop: 10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('declineScope') }} data-field="declineScope">
                     <div style={{ font: '600 10px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 7 }}>Apply to</div>
                     <select value={form.declineScope} onChange={e => patchForm({ declineScope: e.target.value })}
                       style={{ width: '100%', height: 34, padding: '0 32px 0 10px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center' }}>
@@ -3000,7 +3008,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
                   </div>
                 )}
                 {shown('declineCooldown') && form.declineAction === 'Stay in position' && (
-                  <div style={{ animation: 'fieldReveal .3s ease both', marginTop: 10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('declineCooldown') }}>
+                  <div style={{ animation: 'fieldReveal .3s ease both', marginTop: 10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('declineCooldown') }} data-field="declineCooldown">
                     <div style={{ font: '600 10px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 7 }}>Re-offer cooldown</div>
                     <select value={form.declineCooldown} onChange={e => patchForm({ declineCooldown: e.target.value })}
                       style={{ width: '100%', height: 34, padding: '0 32px 0 10px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center' }}>
@@ -3016,7 +3024,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
 
           {/* ── Common operational settings (revealed by the tail of every flow) ── */}
           {shown('ruleEvaluates') && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('ruleEvaluates') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('ruleEvaluates') }} data-field="ruleEvaluates">
               <FormGroup label="Rule Evaluates">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {[{ v: 'Callbacks only', l: 'Callbacks only' }, { v: 'All shifts', l: 'All shifts' }].map(opt => (
@@ -3033,7 +3041,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           {shown('callbackStatuses') && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('callbackStatuses') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('callbackStatuses') }} data-field="callbackStatuses">
               <FormGroup label="Callback Statuses">
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {(form.callbackStatuses || []).map(s => (
@@ -3048,7 +3056,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           {shown('callbackResponses') && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('callbackResponses') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('callbackResponses') }} data-field="callbackResponses">
               <FormGroup label="Callback Responses">
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {(form.callbackResponses || []).map(s => (
@@ -3063,7 +3071,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           {shown('includePrevShifts') && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('includePrevShifts') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('includePrevShifts') }} data-field="includePrevShifts">
               <FormGroup label="Include Previously Created Shifts">
                 <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => patchForm({ includePrevShifts: form.includePrevShifts === 'Yes' ? 'No' : 'Yes' })}>
                   <span style={{ width: 18, height: 18, borderRadius: 4, border: `1.5px solid ${form.includePrevShifts === 'Yes' ? '#7C3AED' : 'rgba(124,58,237,.4)'}`, background: form.includePrevShifts === 'Yes' ? '#7C3AED' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', transition: 'all .15s' }}>
