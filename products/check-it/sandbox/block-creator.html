@@ -1024,6 +1024,86 @@
   // ============================================================
   // RENDER STEPS
   // ============================================================
+  // Inner HTML for a single step card. Extracted so we can rerender just
+  // the affected card on changes that don't reindex (type/severity/photo/
+  // option add/remove) — full renderSteps() resets scroll because it rips
+  // out and rebuilds every card.
+  function buildStepCardInnerHtml(step, index) {
+    return `
+      <div class="step-card-header">
+        <div class="drag-handle" title="Drag to reorder">
+          <i class="fa-solid fa-grip-vertical"></i>
+        </div>
+        <span class="step-number">${index + 1}</span>
+        <div class="step-card-actions">
+          <button class="step-action-btn" onclick="duplicateStep(${step.id})" title="Duplicate step" aria-label="Duplicate step">
+            <i class="fa-regular fa-copy"></i>
+          </button>
+          <button class="step-action-btn delete" onclick="deleteStep(${step.id})" title="Delete step" aria-label="Delete step">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+        </div>
+      </div>
+      <div class="step-card-body">
+        <div class="step-type-row">
+          <span class="step-type-label">Response</span>
+          <select
+            class="step-type-select"
+            onchange="updateStepType(${step.id}, this.value)"
+            aria-label="Step ${index + 1} response type"
+          >
+            <option value="passfail" ${step.type === 'passfail' ? 'selected' : ''}>Pass / Fail</option>
+            <option value="text"     ${step.type === 'text'     ? 'selected' : ''}>Open text</option>
+            <option value="numeric"  ${step.type === 'numeric'  ? 'selected' : ''}>Numeric value</option>
+            <option value="single"   ${step.type === 'single'   ? 'selected' : ''}>Single select</option>
+            <option value="multi"    ${step.type === 'multi'    ? 'selected' : ''}>Multi select</option>
+          </select>
+        </div>
+        <input
+          type="text"
+          class="step-label-input"
+          placeholder="Describe what to check…"
+          value="${escHtml(step.label)}"
+          oninput="updateStepLabel(${step.id}, this.value)"
+          aria-label="Step ${index + 1} label"
+        />
+        ${renderStepConfig(step)}
+        <div class="step-attrs">
+          <span class="severity-label">Failure</span>
+          <div class="severity-group">
+            <button class="sev-btn ${step.severity === 'critical' ? 'active-critical' : ''}"
+              onclick="setSeverity(${step.id}, 'critical')" aria-pressed="${step.severity === 'critical'}">Critical</button>
+            <button class="sev-btn ${step.severity === 'warning' ? 'active-warning' : ''}"
+              onclick="setSeverity(${step.id}, 'warning')" aria-pressed="${step.severity === 'warning'}">Warning</button>
+            <button class="sev-btn ${step.severity === 'none' ? 'active-none' : ''}"
+              onclick="setSeverity(${step.id}, 'none')" aria-pressed="${step.severity === 'none'}">None</button>
+          </div>
+          <button class="photo-toggle ${step.photo ? 'active' : ''}"
+            onclick="togglePhoto(${step.id})"
+            aria-pressed="${step.photo}"
+            title="${step.photo ? 'Photo required' : 'Photo optional'}">
+            <i class="fa-solid fa-camera"></i>
+            ${step.photo ? 'Photo required' : 'Photo optional'}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  // Rerender just one step card without touching scroll. Used by per-card
+  // mutations (type swap, severity, photo toggle, option add/remove).
+  // Returns true if the card was found and updated.
+  function rerenderStepCard(id) {
+    const list = document.getElementById('stepList');
+    if (!list) return false;
+    const card = list.querySelector(`.step-card[data-step-id="${id}"]`);
+    if (!card) return false;
+    const index = steps.findIndex(s => s.id === id);
+    if (index < 0) return false;
+    card.innerHTML = buildStepCardInnerHtml(steps[index], index);
+    return true;
+  }
+
   function renderSteps() {
     const list  = document.getElementById('stepList');
     const empty = document.getElementById('stepsEmpty');
@@ -1047,66 +1127,7 @@
       card.className = 'step-card';
       card.dataset.stepId = step.id;
       card.draggable = true;
-
-      card.innerHTML = `
-        <div class="step-card-header">
-          <div class="drag-handle" title="Drag to reorder">
-            <i class="fa-solid fa-grip-vertical"></i>
-          </div>
-          <span class="step-number">${index + 1}</span>
-          <div class="step-card-actions">
-            <button class="step-action-btn" onclick="duplicateStep(${step.id})" title="Duplicate step" aria-label="Duplicate step">
-              <i class="fa-regular fa-copy"></i>
-            </button>
-            <button class="step-action-btn delete" onclick="deleteStep(${step.id})" title="Delete step" aria-label="Delete step">
-              <i class="fa-solid fa-trash-can"></i>
-            </button>
-          </div>
-        </div>
-        <div class="step-card-body">
-          <div class="step-type-row">
-            <span class="step-type-label">Response</span>
-            <select
-              class="step-type-select"
-              onchange="updateStepType(${step.id}, this.value)"
-              aria-label="Step ${index + 1} response type"
-            >
-              <option value="passfail" ${step.type === 'passfail' ? 'selected' : ''}>Pass / Fail</option>
-              <option value="text"     ${step.type === 'text'     ? 'selected' : ''}>Open text</option>
-              <option value="numeric"  ${step.type === 'numeric'  ? 'selected' : ''}>Numeric value</option>
-              <option value="single"   ${step.type === 'single'   ? 'selected' : ''}>Single select</option>
-              <option value="multi"    ${step.type === 'multi'    ? 'selected' : ''}>Multi select</option>
-            </select>
-          </div>
-          <input
-            type="text"
-            class="step-label-input"
-            placeholder="Describe what to check…"
-            value="${escHtml(step.label)}"
-            oninput="updateStepLabel(${step.id}, this.value)"
-            aria-label="Step ${index + 1} label"
-          />
-          ${renderStepConfig(step)}
-          <div class="step-attrs">
-            <span class="severity-label">Failure</span>
-            <div class="severity-group">
-              <button class="sev-btn ${step.severity === 'critical' ? 'active-critical' : ''}"
-                onclick="setSeverity(${step.id}, 'critical')" aria-pressed="${step.severity === 'critical'}">Critical</button>
-              <button class="sev-btn ${step.severity === 'warning' ? 'active-warning' : ''}"
-                onclick="setSeverity(${step.id}, 'warning')" aria-pressed="${step.severity === 'warning'}">Warning</button>
-              <button class="sev-btn ${step.severity === 'none' ? 'active-none' : ''}"
-                onclick="setSeverity(${step.id}, 'none')" aria-pressed="${step.severity === 'none'}">None</button>
-            </div>
-            <button class="photo-toggle ${step.photo ? 'active' : ''}"
-              onclick="togglePhoto(${step.id})"
-              aria-pressed="${step.photo}"
-              title="${step.photo ? 'Photo required' : 'Photo optional'}">
-              <i class="fa-solid fa-camera"></i>
-              ${step.photo ? 'Photo required' : 'Photo optional'}
-            </button>
-          </div>
-        </div>
-      `;
+      card.innerHTML = buildStepCardInnerHtml(step, index);
 
       // Drag-and-drop handlers
       card.addEventListener('dragstart', onDragStart);
@@ -1225,7 +1246,9 @@
     if ((value === 'single' || value === 'multi') && (!Array.isArray(step.options) || step.options.length === 0)) {
       step.options = ['', ''];
     }
-    renderSteps();
+    // Per-card rerender so the user's scroll position is preserved.
+    rerenderStepCard(id);
+    markDirty();
   }
 
   function updateStepConfig(id, key, value) {
@@ -1240,7 +1263,8 @@
     if (!step) return;
     if (!Array.isArray(step.options)) step.options = [];
     step.options.push('');
-    renderSteps();
+    rerenderStepCard(id);
+    markDirty();
     // Focus the newly added option's input
     setTimeout(() => {
       const inputs = document.querySelectorAll(`.step-card[data-step-id="${id}"] .step-option-input`);
@@ -1259,19 +1283,22 @@
     const step = steps.find(s => s.id === id);
     if (!step || !Array.isArray(step.options)) return;
     step.options.splice(index, 1);
-    renderSteps();
+    rerenderStepCard(id);
+    markDirty();
   }
 
   function setSeverity(id, severity) {
     const step = steps.find(s => s.id === id);
     if (step) step.severity = severity;
-    renderSteps();
+    rerenderStepCard(id);
+    markDirty();
   }
 
   function togglePhoto(id) {
     const step = steps.find(s => s.id === id);
     if (step) step.photo = !step.photo;
-    renderSteps();
+    rerenderStepCard(id);
+    markDirty();
   }
 
   // ============================================================

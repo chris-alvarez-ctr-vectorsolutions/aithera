@@ -421,8 +421,8 @@
       justify-content: space-between;
       gap: 12px;
       padding: 16px 20px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      background: rgba(255,255,255,0.04);
+      border-bottom: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.12);
     }
 
     .step-card-title {
@@ -529,10 +529,84 @@
       border-color: rgba(255,255,255,0.28);
     }
 
-    /* ── Verify rows ── */
+    /* ── Verify section: stack of item cards ── */
     .verify-section {
       display: flex;
       flex-direction: column;
+      gap: 10px;
+    }
+
+    /* Per-item mini-card — segments each check visually */
+    .verify-item-card {
+      position: relative;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 10px;
+      padding: 12px 14px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .verify-item-card:hover { border-color: rgba(255,255,255,0.18); }
+    .verify-item-card.state-pass {
+      background: rgba(16,185,129,0.04);
+      border-color: rgba(52,211,153,0.22);
+    }
+    .verify-item-card.state-deficiency {
+      background: rgba(239,68,68,0.05);
+      border-color: rgba(248,113,113,0.30);
+    }
+    .verify-item-card.state-na,
+    .verify-item-card.state-answered {
+      background: rgba(255,255,255,0.04);
+      border-color: rgba(255,255,255,0.16);
+    }
+
+    /* Corner badge — top right, communicates item state */
+    .verify-item-badge {
+      position: absolute;
+      top: 10px; right: 12px;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 9px;
+      border-radius: 10px;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      line-height: 1;
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.45);
+      border: 1px solid rgba(255,255,255,0.10);
+    }
+    .verify-item-badge.pass {
+      background: rgba(16,185,129,0.18);
+      color: #34d399;
+      border-color: rgba(52,211,153,0.30);
+    }
+    .verify-item-badge.deficiency {
+      background: rgba(239,68,68,0.18);
+      color: #f87171;
+      border-color: rgba(248,113,113,0.35);
+    }
+    .verify-item-badge.na {
+      background: rgba(255,255,255,0.12);
+      color: #c4cce0;
+      border-color: rgba(255,255,255,0.18);
+    }
+    .verify-item-badge.answered {
+      background: rgba(99,102,241,0.18);
+      color: #a5b4fc;
+      border-color: rgba(165,180,252,0.35);
+    }
+    .verify-item-badge i { font-size: 9.5px; }
+
+    /* Reserve right-side space so the label never collides with the badge */
+    .verify-item-card .verify-row {
+      padding: 0;
+      border-bottom: none;
+      padding-right: 96px;
+    }
+    @media (max-width: 599px) {
+      .verify-item-card .verify-row { padding-right: 0; }
+      .verify-item-badge { position: static; align-self: flex-start; margin-bottom: 4px; }
+      .verify-item-card { display: flex; flex-direction: column; }
     }
 
     /* Controls always visible inline on both desktop and mobile */
@@ -1456,54 +1530,7 @@
 // before buildActiveSteps() first runs.
 let STEPS = [
 
-  // ── Step 1 — Driver Pre-Trip Briefing ─────────────────────────────────────
-  // Exercises: info, acknowledge, yes-no, select, signature, date.
-  {
-    id: 'briefing',
-    type: 'check',
-    title: 'Driver Pre-Trip Briefing',
-    meta: 'Read safety reminders, confirm shift context, sign on as engineer.',
-    icon: 'fa-clipboard',
-    items: [
-      { key: 'safety-notice', kind: 'info',
-        label: 'NFPA 1500 — daily pre-trip reminder',
-        sub: 'Confirm wheel chocks placed, parking brake set, area clear of personnel before pump engagement. Notify dispatch before moving apparatus from quarters.',
-        infoIcon: 'fa-shield-halved' },
-
-      { key: 'crew-briefed', kind: 'acknowledge',
-        label: 'Crew briefing acknowledgement',
-        sub: 'I have briefed the crew on today\'s assignment, weather, and hazards.' },
-
-      { key: 'second-driver', kind: 'yes-no',
-        label: 'Is a second qualified driver on shift today?',
-        sub: 'Required for extended scene operations per SOG 3.04',
-        allowNote: true },
-
-      { key: 'shift-type', kind: 'select',
-        label: 'Shift type',
-        sub: 'Drives which compliance scope applies',
-        options: [
-          { value: 'normal',   label: '24-hour normal shift' },
-          { value: 'extended', label: 'Extended (overtime hold-over)' },
-          { value: 'trade',    label: 'Trade — different department' },
-          { value: 'training', label: 'Training detail' },
-        ],
-        default: 'normal' },
-
-      { key: 'check-date', kind: 'date',
-        label: 'Rig check date',
-        sub: 'Defaults to today; override only if back-filling',
-        default: 'today' },
-
-      { key: 'engineer-sign-on', kind: 'signature',
-        label: 'Engineer sign-on',
-        sub: 'Engineer Reyes, A. — F02-ENGR · By signing I confirm I am qualified to operate this apparatus today.',
-        signerName: 'Engineer Reyes, A.',
-        signerRole: 'F02-ENGR · Engine 7 · Alpha Shift' },
-    ]
-  },
-
-  // ── Step 2 — Mechanical & Fluids ──────────────────────────────────────────
+  // ── Step 1 — Mechanical & Fluids ──────────────────────────────────────────
   // Exercises: check (with photo/note slots), numeric (with thresholds),
   //            text (with expected comparison), long-text.
   {
@@ -2148,28 +2175,69 @@ function renderVerifyRow(item) {
 
   const dotClass = computeDotClass(item);
   const kindChip = kindChipHtml(kind);
+  const badgeState = computeBadgeState(item);
 
   return `
     <div id="wrap-${item.key}">
-      <div class="verify-row" id="vrow-${item.key}">
-        <div class="verify-row-dot ${dotClass}" id="dot-${item.key}"></div>
-        <div class="verify-row-name">
-          ${item.label}${kindChip}
-          ${item.sub ? `<div class="verify-row-sub">${item.sub}</div>` : ''}
-          ${renderSlotButtons(item)}
-          ${renderSlotExpansion(item)}
+      <div class="verify-item-card state-${badgeState.key}" id="card-${item.key}">
+        ${badgeState.html}
+        <div class="verify-row" id="vrow-${item.key}">
+          <div class="verify-row-dot ${dotClass}" id="dot-${item.key}" style="display:none;"></div>
+          <div class="verify-row-name">
+            ${item.label}${kindChip}
+            ${item.sub ? `<div class="verify-row-sub">${item.sub}</div>` : ''}
+            ${renderSlotButtons(item)}
+            ${renderSlotExpansion(item)}
+          </div>
+          <div class="verify-controls" id="ctrl-${item.key}">
+            ${renderKindControls(item)}
+          </div>
         </div>
-        <div class="verify-controls" id="ctrl-${item.key}">
-          ${renderKindControls(item)}
-        </div>
-      </div>
 
-      <!-- Deficiency form (kind:check deficiency, OR kind:numeric/count auto-fail) -->
-      <div class="deficiency-inline ${isItemFlagged(item) ? 'visible' : ''}" id="deskdef-${item.key}">
-        ${isItemFlagged(item) ? buildDeficiencyForm(item.key) : ''}
+        <!-- Deficiency form (kind:check deficiency, OR kind:numeric/count auto-fail) -->
+        <div class="deficiency-inline ${isItemFlagged(item) ? 'visible' : ''}" id="deskdef-${item.key}">
+          ${isItemFlagged(item) ? buildDeficiencyForm(item.key) : ''}
+        </div>
       </div>
     </div>
   `;
+}
+
+// Compute the top-right badge state for an item. Returns the CSS state key
+// (for the card class) and the badge HTML (for the corner pill).
+function computeBadgeState(item) {
+  const kind = item.kind || 'check';
+  // Deficiency wins: numeric/count auto-fails count as deficiency state.
+  if (isItemFlagged(item)) {
+    return {
+      key: 'deficiency',
+      html: `<span class="verify-item-badge deficiency"><i class="fa-solid fa-triangle-exclamation"></i> Deficiency</span>`
+    };
+  }
+  if (kind === 'check') {
+    const s = checkState[item.key];
+    if (s === 'pass')       return { key: 'pass',       html: `<span class="verify-item-badge pass"><i class="fa-solid fa-check"></i> Pass</span>` };
+    if (s === 'na')         return { key: 'na',         html: `<span class="verify-item-badge na">N/A</span>` };
+    return                       { key: 'unmarked',   html: `<span class="verify-item-badge">Unmarked</span>` };
+  }
+  // Non-check kinds: answered vs not.
+  if (isItemAnswered(item)) {
+    if (item.optional && !hasAnyAnswer(item)) {
+      return { key: 'unmarked', html: `<span class="verify-item-badge">Optional</span>` };
+    }
+    return { key: 'answered', html: `<span class="verify-item-badge answered"><i class="fa-solid fa-check"></i> Answered</span>` };
+  }
+  return { key: 'unmarked', html: `<span class="verify-item-badge">${item.optional ? 'Optional' : 'Pending'}</span>` };
+}
+
+// True if a non-check item carries an actual answer (used to keep the
+// "Optional" badge from claiming Answered for empty optionals).
+function hasAnyAnswer(item) {
+  const v = answers[item.key];
+  if (v == null) return false;
+  if (Array.isArray(v)) return v.length > 0;
+  if (typeof v === 'string') return v.trim() !== '';
+  return true;
 }
 
 // Map kind → the dot-state class for the row left-rail indicator.
@@ -2714,32 +2782,10 @@ function wireRowControls(item) {
 
 function markItem(event, key, result) {
   event.stopPropagation();
-  saveCurrentDefNotes();
-
   checkState[key] = (checkState[key] === result) ? null : result;
-
-  // Update dot
-  const dot = document.getElementById('dot-' + key);
-  if (dot) { dot.className = 'verify-row-dot ' + (checkState[key] || ''); }
-
-  // Refresh verify buttons
-  ['pass','deficiency','na'].forEach(t => {
-    const btn = document.querySelector(`#ctrl-${key} .verify-btn.${t}`);
-    if (btn) btn.classList.toggle('selected', checkState[key] === t);
-  });
-
-  // Show/hide deficiency form
-  const isDef = checkState[key] === 'deficiency';
-  const deskDef = document.getElementById('deskdef-' + key);
-  if (deskDef) {
-    deskDef.classList.toggle('visible', isDef);
-    deskDef.innerHTML = isDef ? buildDeficiencyForm(key) : '';
-    if (isDef) {
-      restoreDefNoteForKey(key);
-      wireUrgencySelect(key);
-    }
-  }
-
+  // Re-render the row so the item card, corner badge, button states, and
+  // deficiency form all stay in sync via a single render path.
+  rerenderRow(key);
   updateFooterState();
 }
 

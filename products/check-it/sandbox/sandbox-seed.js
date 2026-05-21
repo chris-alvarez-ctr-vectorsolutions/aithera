@@ -30,24 +30,6 @@
     // Block step shape (matches block-creator.html + the 14 step types):
     //   { id, kind, label, severity: 'critical'|'warning'|'none', allowPhoto?, allowNote?, ...kind-specific }
 
-    const blockBriefing = {
-      id: newId('block'),
-      name: 'Pre-Trip Briefing',
-      domain: 'admin',
-      description: 'Crew acknowledgment and shift opening.',
-      multiUse: false,
-      steps: [
-        { id: 1, kind: 'info',         label: 'Red flag warning in effect until 18:00. High wind, low humidity.', severity: 'none' },
-        { id: 2, kind: 'acknowledge',  label: 'I have read the morning safety notice', severity: 'none' },
-        { id: 3, kind: 'select',       label: 'Shift staffing level', severity: 'none', options: [
-            { value: 'full',    label: 'Full (4 personnel)' },
-            { value: 'minimum', label: 'Minimum (3 personnel)' },
-            { value: 'reduced', label: 'Reduced (2 personnel)' }
-        ]}
-      ],
-      createdAt: now, updatedAt: now
-    };
-
     const blockTires = {
       id: newId('block'),
       name: 'Wheels & Tires',
@@ -104,20 +86,16 @@
       origin: 'scratch',
       sections: [
         {
-          id: 1, name: 'Opening', collapsed: false,
-          blocks: [ { instanceId: 1, blockId: blockBriefing.id, contextLabel: '', expanded: false } ]
-        },
-        {
-          id: 2, name: 'Walkaround', collapsed: false,
+          id: 1, name: 'Walkaround', collapsed: false,
           blocks: [
-            { instanceId: 2, blockId: blockTires.id,  contextLabel: 'Driver Front',    expanded: false },
-            { instanceId: 3, blockId: blockTires.id,  contextLabel: 'Passenger Front', expanded: false },
-            { instanceId: 4, blockId: blockFluids.id, contextLabel: '',                expanded: false }
+            { instanceId: 1, blockId: blockTires.id,  contextLabel: 'Driver Front',    expanded: false },
+            { instanceId: 2, blockId: blockTires.id,  contextLabel: 'Passenger Front', expanded: false },
+            { instanceId: 3, blockId: blockFluids.id, contextLabel: '',                expanded: false }
           ]
         },
         {
-          id: 3, name: 'Equipment', collapsed: false,
-          blocks: [ { instanceId: 5, blockId: blockScba.id, contextLabel: 'Officer Seat', expanded: false } ]
+          id: 2, name: 'Equipment', collapsed: false,
+          blocks: [ { instanceId: 4, blockId: blockScba.id, contextLabel: 'Officer Seat', expanded: false } ]
         }
       ],
       deployments: [
@@ -135,7 +113,7 @@
 
     // ---------- assemble blob --------------------------------------------
     const blocksById = {};
-    [blockBriefing, blockTires, blockFluids, blockScba].forEach(b => { blocksById[b.id] = b; });
+    [blockTires, blockFluids, blockScba].forEach(b => { blocksById[b.id] = b; });
 
     return {
       schemaVersion: 2,

@@ -60,11 +60,63 @@
       .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'x';
   }
 
+  // Map block-creator's `step.type` vocabulary → ceremony's `kind` vocabulary.
+  // Block-creator stores: passfail | text | numeric | single | multi.
+  // Ceremony renders:    check    | text | numeric | select | multi-select.
+  // For legacy/seed records that still use `kind` directly (e.g. info, ack,
+  // yes-no, signature, date, count, long-text), fall through to that value.
+  function resolveKind(step) {
+    if (step.type) {
+      switch (step.type) {
+        case 'passfail': return 'check';
+        case 'single':   return 'select';
+        case 'multi':    return 'multi-select';
+        case 'text':     return 'text';
+        case 'numeric':  return 'numeric';
+        // Any future block-creator type lands here unchanged.
+        default:         return step.type;
+      }
+    }
+    return step.kind || 'check';
+  }
+
+  // Normalize a raw option entry from block-creator (flat string) into the
+  // ceremony's { value, label } shape. Passes through if already an object.
+  function normalizeOption(opt) {
+    if (opt && typeof opt === 'object') {
+      return { value: String(opt.value ?? opt.label ?? ''), label: String(opt.label ?? opt.value ?? '') };
+    }
+    const text = String(opt ?? '').trim();
+    if (!text) return null;
+    // value = slugged label so it's stable + URL-safe; label = original text.
+    return { value: slug(text), label: text };
+  }
+
+  // Convert block-creator's flat `min` / `max` / `unit` (all strings) into
+  // the ceremony's threshold object + separate unit string. Empty values are
+  // dropped so the renderer treats the field as unbounded on that side.
+  function buildNumericThreshold(step) {
+    const min = step.min;
+    const max = step.max;
+    const hasMin = min !== '' && min != null && !Number.isNaN(Number(min));
+    const hasMax = max !== '' && max != null && !Number.isNaN(Number(max));
+    if (!hasMin && !hasMax) return null;
+    const t = {};
+    if (hasMin) t.min = Number(min);
+    if (hasMax) t.max = Number(max);
+    // Friendly label shown in the threshold pill.
+    if (hasMin && hasMax) t.label = `${t.min}–${t.max}${step.unit ? ' ' + step.unit : ''}`;
+    else if (hasMin)      t.label = `≥ ${t.min}${step.unit ? ' ' + step.unit : ''}`;
+    else                   t.label = `≤ ${t.max}${step.unit ? ' ' + step.unit : ''}`;
+    return t;
+  }
+
   // Map a stored block-step → ceremony item.
-  // The two shapes overlap mostly cleanly: kind, label, severity, options,
-  // threshold, unit pass through; allowPhoto/allowNote stay as boolean slots.
+  // Translates block-creator's `type` vocabulary to the ceremony's `kind`
+  // vocabulary, and reshapes type-specific fields (numeric thresholds,
+  // select options) to the shape the ceremony renderer expects.
   function blockStepToItem(step, keyBase) {
-    const kind = step.kind || 'check';
+    const kind = resolveKind(step);
     const item = {
       key:   keyBase + '-s' + step.id,
       kind:  kind,
@@ -75,9 +127,34 @@
     if (step.severity && step.severity !== 'none') item.severity = step.severity;
     if (step.allowPhoto) item.allowPhoto = true;
     if (step.allowNote)  item.allowNote  = true;
-    if (step.unit)       item.unit       = step.unit;
-    if (step.threshold)  item.threshold  = step.threshold;
-    if (Array.isArray(step.options)) item.options = step.options;
+
+    // Numeric: prefer an existing threshold object (legacy/seed data), else
+    // build one from block-creator's flat min/max/unit.
+    if (kind === 'numeric') {
+      if (step.unit) item.unit = step.unit;
+      if (step.threshold && typeof step.threshold === 'object') {
+        item.threshold = step.threshold;
+      } else {
+        const t = buildNumericThreshold(step);
+        if (t) item.threshold = t;
+      }
+    } else if (step.unit) {
+      // Non-numeric kinds that still want a unit pass it through.
+      item.unit = step.unit;
+    } else if (step.threshold) {
+      // Preserve threshold on non-numeric (e.g. 'count') passthrough.
+      item.threshold = step.threshold;
+    }
+
+    // Select / multi-select: normalize options to { value, label } objects.
+    if ((kind === 'select' || kind === 'multi-select') && Array.isArray(step.options)) {
+      const normalized = step.options.map(normalizeOption).filter(Boolean);
+      if (normalized.length) item.options = normalized;
+    } else if (Array.isArray(step.options)) {
+      // Legacy kinds keep their original options array.
+      item.options = step.options;
+    }
+
     if (typeof step.par !== 'undefined')      item.par      = step.par;
     if (typeof step.default !== 'undefined')  item.default  = step.default;
     if (step.optional) item.optional = true;
