@@ -506,9 +506,9 @@ function AIAssistantCard({ onStart }) {
 
   return (
     <div style={{ background: '#fff', borderRadius: 8, border: '1px solid rgba(0,0,0,.08)', boxShadow: '0 1px 4px rgba(28,48,74,.07)', overflow: 'hidden' }}>
-      {/* Header — simple "+ Add new rule" title */}
+      {/* Header — sparkles glyph signals this is an AI-driven rule builder */}
       <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,.07)', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6D28D9" strokeWidth="2.4" strokeLinecap="round" style={{ flex: 'none' }}><path d="M12 5v14M5 12h14"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="#6D28D9" style={{ flex: 'none' }}><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
         <span style={{ font: '700 15px/1.2 Inter,sans-serif', color: 'rgba(24,39,58,.94)' }}>Add new rule</span>
       </div>
 
@@ -607,6 +607,31 @@ Object.assign(window, { AIAssistantCard, GroupPickerChips, PICKER_GROUPS });
      ===================================================================== -->
 <script type="text/babel">
 const { useEffect, useRef } = React;
+
+// Plain-English explanations the AI gives when the user asks "What is X?" mid-build.
+// Keyed by the same `ruleType` codes used throughout the form / FLOWS.
+const RULE_TYPE_EXPLANATIONS = {
+  rolodex:     "A **Standard Rolodex** rule cycles through your roster in a fixed order. Whoever sits at the top of the rotation gets called first; once they accept, they move to the back of the list and the next person up takes the lead. It's best when you want callbacks evenly distributed in a predictable sequence.",
+  turns:       "An **Accumulating Rolodex** counts each employee's accepted callbacks (or hours) and rotates them to the back once they hit a configured limit. Until then, the regular rolodex order applies. It's a good fit when you want to cap how often any one person can take callbacks in a cycle.",
+  hours:       "An **Accumulation — Hours Based** rule ranks employees by fewest accumulated overtime hours — whoever has worked the least gets called first. The counter resets on a cycle you choose (annually, quarterly, monthly, or rolling).",
+  hire_date:   "A **Static — Seniority Based** rule orders employees by hire (or promotion) date — most senior first by default. The order doesn't shift between callbacks; it's the same list every time, with a tiebreaker for employees who share the same date.",
+  employee_id: "A **Static — By Employee ID** rule uses a natural alphanumerical sort on employee ID/name. Like seniority it's a fixed list — useful when you want a deterministic, easy-to-explain order.",
+  random:      "A **Random / Lottery** rule generates a fresh random order on a schedule (every callback, daily, weekly, etc). You can weight it (pure random, weighted by gap since last callback, or weighted by hours) and add guardrails so the same person isn't called repeatedly.",
+};
+
+// Match a user's "what is X?" question to one of the rule-type keys above.
+function matchRuleTypeQuestion(text) {
+  const m = text.match(/^\s*what(?:'s| is| are)\s+(?:an?\s+|the\s+)?(.+?)\s*\??\s*$/i);
+  if (!m) return null;
+  const q = m[1].toLowerCase();
+  if (/accumulating\s*rolodex|accumulating/.test(q))       return 'turns';
+  if (/standard\s*rolodex|^rolodex$|\brolodex\b/.test(q))  return 'rolodex';
+  if (/hours[- ]based|accumulation.*hours|overtime hours|hours/.test(q)) return 'hours';
+  if (/seniority|hire\s*date/.test(q))                     return 'hire_date';
+  if (/employee\s*id|by\s*id|alphanumer/.test(q))          return 'employee_id';
+  if (/random|lottery/.test(q))                            return 'random';
+  return null;
+}
 
 // FLOWS keys MUST match the dashboard prompt titles in DASH_SUGGESTION_PAGES exactly —
 // that's how each prompt gets its own distinct set of follow-up questions.
@@ -1273,6 +1298,77 @@ function FormInput({ value, onChange, placeholder, type = 'text' }) {
   );
 }
 
+// Native styled <select> used for fields whose options map 1:1 to the chips
+// the AI offered in chat — lets the user manually pick the same value they
+// would have selected via the chip.
+function FieldSelect({ value, onChange, options, placeholder = 'Not set' }) {
+  return (
+    <select value={value || ''} onChange={e => onChange(e.target.value)}
+      style={{ width: '100%', height: 36, padding: '0 36px 0 12px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: value ? 'rgba(24,39,58,.94)' : 'rgba(0,0,0,.45)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
+      <option value="">{placeholder}</option>
+      {options.map(o => <option key={o} value={o}>{o}</option>)}
+    </select>
+  );
+}
+
+// Multi-select pill toggles — used for callbackStatuses / callbackResponses
+// where the chat offered a "Pick all that apply" multi chip set.
+function FieldMultiSelect({ values, onChange, options }) {
+  const set = new Set(values || []);
+  const toggle = (opt) => {
+    const next = new Set(set);
+    if (next.has(opt)) next.delete(opt); else next.add(opt);
+    onChange(Array.from(next));
+  };
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      {options.map(opt => {
+        const on = set.has(opt);
+        return (
+          <button key={opt} type="button" onClick={() => toggle(opt)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '4px 10px', borderRadius: 12,
+              background: on ? 'rgba(124,58,237,.1)' : '#fff',
+              border: `1px solid ${on ? 'rgba(124,58,237,.32)' : 'rgba(0,0,0,.15)'}`,
+              font: `${on ? 600 : 500} 11.5px/1 Inter,sans-serif`,
+              color: on ? '#7C3AED' : 'rgba(24,39,58,.75)',
+              cursor: 'pointer', transition: 'all .12s',
+            }}>
+            {on && <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16l-4-4 1.4-1.4L9 13.2l8.6-8.6L19 6z"/></svg>}
+            {opt}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Option lists for every configurable field — mirror the chip choices the AI
+// offers in chat so manual edits stay in lockstep with the conversational flow.
+const FIELD_OPTIONS = {
+  rolodexAcceptMove:    ['Move to end of list', 'Stay at the top', 'Custom — let me describe'],
+  responseTime:         ['2 minutes', '3 minutes', '5 minutes', '10 minutes', 'Custom'],
+  hoursCountedOutcomes: ['Accepted only', 'Accepted + denied', 'Anyone contacted', 'Custom mix'],
+  sortDirection:        ['Ascending (A → Z, 0 → 9)', 'Descending (Z → A, 9 → 0)'],
+  newHirePlacement:     ['Natural position by ID', 'Top of list', 'Bottom of list'],
+  caseSensitivity:      ['Yes, ignore case', 'No, case-sensitive'],
+  randomizeFrequency:   ['Every callback', 'Every shift', 'Daily', 'Weekly'],
+  randomWeighting:      ['Pure random', 'Weight by last callback gap', 'Weight by total hours'],
+  randomGuardrail:      ['No guardrails', 'Cap consecutive picks', 'Cool-down after a pick', 'Custom'],
+  callbackStatuses:     ['Active / Done Calling', 'Filled / Partially Filled', 'Not Filled', 'Cancelled'],
+  callbackResponses:    ['Accepted', 'Denied', 'No answer'],
+};
+
+// tieBreakerOrder options shift based on which tiebreaker the user picked.
+function tieBreakerOrderOptions(tieBreaker) {
+  if (tieBreaker === 'Seniority (hire date)') return ['Most senior first', 'Least senior first'];
+  if (tieBreaker === 'Last shift worked')     return ['Longest gap first', 'Most recent first'];
+  if (tieBreaker === 'Last callback date')    return ['Longest gap first', 'Most recent first'];
+  if (tieBreaker === 'Alphabetical')          return ['A → Z', 'Z → A'];
+  return ['A → Z', 'Z → A', 'Most senior first', 'Least senior first', 'Longest gap first', 'Most recent first'];
+}
+
 // ── Branch map: manual form edits → AI follow-up questions ───────────────────
 const BRANCH_MAP = {
   ruleType: {
@@ -1637,6 +1733,12 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
   // When entering edit mode, start with the config panel collapsed — the user
   // asked to keep it out of the way until they explicitly want to make changes.
   const [cfgOpen, setCfgOpen]           = useState(!existingRule);
+  // Drive the inline Preview Mode from inside the builder so the user can
+  // jump to / from the simulator without losing their in-progress rule.
+  const [previewing, setPreviewing]     = useState(false);
+  // Ref for the chat thread container — used to auto-scroll to the bottom
+  // whenever a new message is appended (typically right after a chip click).
+  const chatThreadRef                   = useRef(null);
   const [stickyOpen, setStickyOpen]     = useState(true);
   const [customAnswer, setCustomAnswer] = useState(false);
   const [chipSelections, setChipSelections] = useState(new Set());
@@ -1758,7 +1860,11 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
     onSaved?.({ form, existingRule });
   };
 
-  const shown = (key) => revealedFields.has(key);
+  // All configurable fields are visible on the right panel from the start.
+  // revealedFields is still tracked so the highlight glow can pulse when the
+  // chat fills in a previously-untouched field — but every field renders
+  // regardless of whether the chat has reached it yet.
+  const shown = () => true;
 
   // Glow ring + tinted background applied to the newest revealed field on the right panel
   // so users notice when a fresh configuration field appears after a chat answer.
@@ -1777,20 +1883,28 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
   const msgEndRef    = useRef(null);
   const textareaRef  = useRef(null);
   const panelScrollRef = useRef(null);
-  const prevRevealedSize = useRef(0);
   useEffect(() => { msgEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, typing]);
-  // When a new configuration field appears in the right panel during chat,
-  // smoothly scroll the panel so the user sees the build progressing on the side.
+  // When the chat fills in a new field, scroll the right panel so the
+  // highlighted field is in view — NOT to the bottom of the panel. The panel
+  // starts at the top on mount and only moves in response to a chat answer.
   useEffect(() => {
-    if (revealedFields.size > prevRevealedSize.current && panelScrollRef.current) {
-      // Tiny delay so the freshly-revealed field has rendered before we scroll.
-      setTimeout(() => {
-        const c = panelScrollRef.current;
-        if (c) c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' });
-      }, 60);
-    }
-    prevRevealedSize.current = revealedFields.size;
-  }, [revealedFields]);
+    if (!newestField || !panelScrollRef.current) return;
+    // Tiny delay so the freshly-rendered field has its final DOM position.
+    const t = setTimeout(() => {
+      const container = panelScrollRef.current;
+      if (!container) return;
+      const target = container.querySelector(`[data-field="${newestField}"]`);
+      if (!target) return;
+      // Compute the field's position within the scroll container and center
+      // it vertically. Using scrollIntoView could scroll the whole page on
+      // some browsers; manually setting scrollTop keeps the scroll local.
+      const cRect = container.getBoundingClientRect();
+      const tRect = target.getBoundingClientRect();
+      const delta = (tRect.top - cRect.top) - (cRect.height / 2 - tRect.height / 2);
+      container.scrollTo({ top: container.scrollTop + delta, behavior: 'smooth' });
+    }, 80);
+    return () => clearTimeout(t);
+  }, [newestField]);
   // Auto-toggle the sticky summary based on scroll position. When the user is at the
   // top of the form, the summary is expanded; scroll down a little and it collapses
   // into a compact pill (still pinned to the top), freeing up vertical room for the form.
@@ -1994,9 +2108,80 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
     if (Object.keys(updates).length) patchForm(updates);
   };
 
+  // True once the user has supplied enough info that a Preview Mode jump
+  // would actually rank a real roster: a rule type is chosen and either
+  // "All approaches" is selected or at least one approach is picked.
+  const minInfoComplete = !!form.ruleType
+    && (form.ruleAffects === 'all' || (form.selectedApproaches && form.selectedApproaches.length > 0));
+
   const send = (text, opts = {}) => {
     const isSkip = !!opts.skip;
     if (!isSkip && !text.trim() || typing) return;
+
+    // ── Universal chat handlers (apply in both edit + build modes) ──
+    // 1) "What is X?" — answer like an AI tutor and don't advance the flow.
+    const ruleTypeKey = matchRuleTypeQuestion(text);
+    if (ruleTypeKey && RULE_TYPE_EXPLANATIONS[ruleTypeKey]) {
+      setMessages(m => [...m, { role: 'user', text }]);
+      setInput('');
+      setTyping(true);
+      setTimeout(() => {
+        setMessages(m => [...m, { role: 'ai', text: RULE_TYPE_EXPLANATIONS[ruleTypeKey] }]);
+        setTyping(false);
+      }, 600);
+      return;
+    }
+    // 2) Save / Preview / Adjust chips from the end-of-flow "what's next?" message.
+    if (text === 'Save rule') {
+      setMessages(m => [...m, { role: 'user', text }]);
+      setInput('');
+      setTimeout(() => commitSave(), 350);
+      return;
+    }
+    if (text === 'Preview ranking') {
+      setMessages(m => [...m, { role: 'user', text }]);
+      setInput('');
+      setPreviewing(true);
+      return;
+    }
+    if (text === 'Adjust something') {
+      setMessages(m => [...m, { role: 'user', text }]);
+      setInput('');
+      setTyping(true);
+      setTimeout(() => {
+        setMessages(m => [...m, { role: 'ai', text: "What would you like to change?", chips: EDIT_MENU_CHIPS }]);
+        setTyping(false);
+      }, 400);
+      return;
+    }
+    // 3) "Change X" chip from the adjust menu — applies in both build + edit
+    //    mode so the user can iterate on the rule from inside a fresh build.
+    if (!existingRule && EDIT_ASK[text]) {
+      const ask = EDIT_ASK[text];
+      setMessages(m => [...m, { role: 'user', text }]);
+      setEditAwaitingFor(ask.field);
+      setInput('');
+      setCustomAnswer(false);
+      setTyping(true);
+      setTimeout(() => {
+        setMessages(m => [...m, { role: 'ai', text: ask.text, chips: ask.chips, multi: ask.multi }]);
+        setTyping(false);
+      }, 600);
+      return;
+    }
+    if (!existingRule && editAwaitingFor) {
+      parseAndPatch(text);
+      setMessages(m => [...m, { role: 'user', text, skipped: isSkip }]);
+      setEditAwaitingFor(null);
+      setInput('');
+      setCustomAnswer(false);
+      setTyping(true);
+      setTimeout(() => {
+        setMessages(m => [...m, { role: 'ai', text: "Updated — I've applied that to the configuration on the right. Want to save the rule, preview it, or change something else?", chips: ['Save rule','Preview ranking','Adjust something'] }]);
+        setTyping(false);
+      }, 600);
+      return;
+    }
 
     // ── Edit-mode dispatch ──
     // When editing an existing rule we don't walk a linear FLOWS[] array. Instead we
@@ -2209,14 +2394,33 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
         </div>
         <div>
-          <div style={{ font: '700 18px/1.2 Inter,sans-serif', color: '#fff', letterSpacing: '-.01em' }}>+ Add new rule</div>
+          <div style={{ font: '700 18px/1.2 Inter,sans-serif', color: '#fff', letterSpacing: '-.01em' }}>Add new rule</div>
         </div>
 
         <div style={{ flex: 1 }} />
 
+        {/* Preview Mode button — surfaces once the user has supplied the
+            minimum info needed for the simulator to rank a real roster.
+            Lets them jump into Preview from anywhere in the flow. */}
+        {minInfoComplete && (
+          <button onClick={() => setPreviewing(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,.18)', border: '1px solid rgba(255,255,255,.32)', borderRadius: 6, padding: '7px 14px', color: '#fff', font: '600 13px/1 Inter,sans-serif', cursor: 'pointer', flex: 'none', backdropFilter: 'blur(4px)' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.25)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,.18)'; }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            Preview Mode
+          </button>
+        )}
+
       </div>
     </div>
   );
+
+  // When the user jumps into Preview Mode from the builder, hand control to
+  // the SimulatorView; its own Back button returns us to the chat + config.
+  if (previewing) {
+    return <SimulatorView seed={{ form }} onBack={() => setPreviewing(false)} />;
+  }
 
   return (
     <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
@@ -2578,7 +2782,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           ) : null}
 
           {shown('ruleAffects') && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('ruleAffects', 'selectedApproaches') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('ruleAffects', 'selectedApproaches') }} data-field="ruleAffects">
               <FormGroup label="Rule Affects">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {[{ v: 'all', l: 'All Approaches' }, { v: 'selected', l: 'Selected Approaches' }].map(opt => (
@@ -2632,7 +2836,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           {shown('ruleType') && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('ruleType') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('ruleType') }} data-field="ruleType">
               <FormGroup label="Rule Type">
                 <RichSelect
                   value={form.ruleType}
@@ -2644,7 +2848,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           {shown('turnsCounting') && form.ruleType === 'turns' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('turnsCounting') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('turnsCounting') }} data-field="turnsCounting">
               <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Counting method</div>
               <select value={form.turnsCounting} onChange={e => patchForm({ turnsCounting: e.target.value })}
                 style={{ width: '100%', height: 36, padding: '0 36px 0 12px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
@@ -2656,7 +2860,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           {shown('rolodexReset') && form.ruleType === 'rolodex' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('rolodexReset') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('rolodexReset') }} data-field="rolodexReset">
               <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>List reset</div>
               <select value={form.rolodexReset} onChange={e => patchForm({ rolodexReset: e.target.value })}
                 style={{ width: '100%', height: 36, padding: '0 36px 0 12px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
@@ -2669,23 +2873,23 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
 
           {/* Standard Rolodex — post-accept movement and per-employee response window */}
           {shown('rolodexAcceptMove') && form.ruleType === 'rolodex' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('rolodexAcceptMove') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('rolodexAcceptMove') }} data-field="rolodexAcceptMove">
               <FormGroup label="After Accepting">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.rolodexAcceptMove}</span>
+                <FieldSelect value={form.rolodexAcceptMove} onChange={v => patchForm({ rolodexAcceptMove: v })} options={FIELD_OPTIONS.rolodexAcceptMove} />
               </FormGroup>
             </div>
           )}
           {shown('responseTime') && form.ruleType === 'rolodex' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('responseTime') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('responseTime') }} data-field="responseTime">
               <FormGroup label="Response Window">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.responseTime}</span>
+                <FieldSelect value={form.responseTime} onChange={v => patchForm({ responseTime: v })} options={FIELD_OPTIONS.responseTime} />
               </FormGroup>
             </div>
           )}
 
           {/* Accumulating Rolodex — what accumulates and at what limit */}
           {shown('accumulationType') && form.ruleType === 'turns' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('accumulationType') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('accumulationType') }} data-field="accumulationType">
               <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Accumulates by</div>
               <select value={form.accumulationType} onChange={e => patchForm({ accumulationType: e.target.value })}
                 style={{ width: '100%', height: 36, padding: '0 36px 0 12px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
@@ -2696,7 +2900,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
             </div>
           )}
           {shown('accumulationLimit') && form.ruleType === 'turns' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('accumulationLimit') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('accumulationLimit') }} data-field="accumulationLimit">
               <FormGroup label="Rotation Limit">
                 <FormInput value={form.accumulationLimit} onChange={v => patchForm({ accumulationLimit: v })} placeholder="e.g. 24 hours or 3 callbacks" />
               </FormGroup>
@@ -2705,7 +2909,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
 
           {/* Accumulation Hours / Turns — reset cadence + which outcomes count */}
           {shown('resetCadence') && (form.ruleType === 'hours' || form.ruleType === 'turns') && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('resetCadence') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('resetCadence') }} data-field="resetCadence">
               <FormGroup label="Reset Cadence">
                 <select value={form.resetCadence} onChange={e => patchForm({ resetCadence: e.target.value })}
                   style={{ width: '100%', height: 36, padding: '0 36px 0 12px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
@@ -2719,16 +2923,16 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
             </div>
           )}
           {shown('hoursCountedOutcomes') && form.ruleType === 'hours' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('hoursCountedOutcomes') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('hoursCountedOutcomes') }} data-field="hoursCountedOutcomes">
               <FormGroup label="Outcomes Counted">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.hoursCountedOutcomes}</span>
+                <FieldSelect value={form.hoursCountedOutcomes} onChange={v => patchForm({ hoursCountedOutcomes: v })} options={FIELD_OPTIONS.hoursCountedOutcomes} />
               </FormGroup>
             </div>
           )}
 
           {/* Static — Seniority Based: date type */}
           {shown('seniorityDateType') && form.ruleType === 'hire_date' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('seniorityDateType') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('seniorityDateType') }} data-field="seniorityDateType">
               <FormGroup label="Seniority Date">
                 <select value={form.seniorityDateType} onChange={e => patchForm({ seniorityDateType: e.target.value })}
                   style={{ width: '100%', height: 36, padding: '0 36px 0 12px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
@@ -2743,52 +2947,52 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
 
           {/* Static — By Employee ID: sort direction, new-hire placement, case sensitivity */}
           {shown('sortDirection') && form.ruleType === 'employee_id' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('sortDirection') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('sortDirection') }} data-field="sortDirection">
               <FormGroup label="Sort Direction">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.sortDirection}</span>
+                <FieldSelect value={form.sortDirection} onChange={v => patchForm({ sortDirection: v })} options={FIELD_OPTIONS.sortDirection} />
               </FormGroup>
             </div>
           )}
           {shown('newHirePlacement') && form.ruleType === 'employee_id' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('newHirePlacement') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('newHirePlacement') }} data-field="newHirePlacement">
               <FormGroup label="New Hire Placement">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.newHirePlacement}</span>
+                <FieldSelect value={form.newHirePlacement} onChange={v => patchForm({ newHirePlacement: v })} options={FIELD_OPTIONS.newHirePlacement} />
               </FormGroup>
             </div>
           )}
           {shown('caseSensitivity') && form.ruleType === 'employee_id' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('caseSensitivity') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('caseSensitivity') }} data-field="caseSensitivity">
               <FormGroup label="Case Handling">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.caseSensitivity}</span>
+                <FieldSelect value={form.caseSensitivity} onChange={v => patchForm({ caseSensitivity: v })} options={FIELD_OPTIONS.caseSensitivity} />
               </FormGroup>
             </div>
           )}
 
           {/* Random / Lottery: how often, weighting, guardrails */}
           {shown('randomizeFrequency') && form.ruleType === 'random' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('randomizeFrequency') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('randomizeFrequency') }} data-field="randomizeFrequency">
               <FormGroup label="Re-randomize">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.randomizeFrequency}</span>
+                <FieldSelect value={form.randomizeFrequency} onChange={v => patchForm({ randomizeFrequency: v })} options={FIELD_OPTIONS.randomizeFrequency} />
               </FormGroup>
             </div>
           )}
           {shown('randomWeighting') && form.ruleType === 'random' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('randomWeighting') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('randomWeighting') }} data-field="randomWeighting">
               <FormGroup label="Weighting">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.randomWeighting}</span>
+                <FieldSelect value={form.randomWeighting} onChange={v => patchForm({ randomWeighting: v })} options={FIELD_OPTIONS.randomWeighting} />
               </FormGroup>
             </div>
           )}
           {shown('randomGuardrail') && form.ruleType === 'random' && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('randomGuardrail') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('randomGuardrail') }} data-field="randomGuardrail">
               <FormGroup label="Guardrail">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>{form.randomGuardrail}</span>
+                <FieldSelect value={form.randomGuardrail} onChange={v => patchForm({ randomGuardrail: v })} options={FIELD_OPTIONS.randomGuardrail} />
               </FormGroup>
             </div>
           )}
 
           {(shown('minShift') || shown('maxShift')) && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('minShift', 'maxShift') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('minShift', 'maxShift') }} data-field="minShift">
               <FormGroup label="Shift Length">
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div>
@@ -2805,7 +3009,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           {(shown('lookBack') || shown('forecast')) && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('lookBack', 'forecast') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('lookBack', 'forecast') }} data-field="lookBack">
               <FormGroup label="Ranking Reference Range">
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div>
@@ -2822,7 +3026,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           {shown('tieBreaker') && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('tieBreaker') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('tieBreaker') }} data-field="tieBreaker">
               <FormGroup label="Tiebreaker">
                 <RichSelect
                   value={form.tieBreaker}
@@ -2835,16 +3039,14 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           {shown('tieBreakerOrder') && form.tieBreaker && (
-            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('tieBreakerOrder') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('tieBreakerOrder') }} data-field="tieBreakerOrder">
               <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Sort order</div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 5, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>
-                {form.tieBreakerOrder}
-              </div>
+              <FieldSelect value={form.tieBreakerOrder} onChange={v => patchForm({ tieBreakerOrder: v })} options={tieBreakerOrderOptions(form.tieBreaker)} />
             </div>
           )}
 
           {shown('declineAction') && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('declineAction') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('declineAction') }} data-field="declineAction">
               <FormGroup label="Decline Action">
                 <RichSelect
                   value={form.declineAction}
@@ -2853,7 +3055,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
                   placeholder="Not set"
                 />
                 {shown('penaltyPoints') && form.declineAction === 'Penalty points' && (
-                  <div style={{ animation: 'fieldReveal .3s ease both', marginTop: 10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('penaltyPoints') }}>
+                  <div style={{ animation: 'fieldReveal .3s ease both', marginTop: 10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('penaltyPoints') }} data-field="penaltyPoints">
                     <div style={{ font: '600 10px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 7 }}>Points per decline</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <input type="number" value={form.penaltyPoints} onChange={e => patchForm({ penaltyPoints: e.target.value })} placeholder="e.g. 2"
@@ -2864,7 +3066,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
                   </div>
                 )}
                 {shown('declineScope') && form.declineAction === 'Move to back of list' && (
-                  <div style={{ animation: 'fieldReveal .3s ease both', marginTop: 10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('declineScope') }}>
+                  <div style={{ animation: 'fieldReveal .3s ease both', marginTop: 10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('declineScope') }} data-field="declineScope">
                     <div style={{ font: '600 10px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 7 }}>Apply to</div>
                     <select value={form.declineScope} onChange={e => patchForm({ declineScope: e.target.value })}
                       style={{ width: '100%', height: 34, padding: '0 32px 0 10px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center' }}>
@@ -2875,7 +3077,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
                   </div>
                 )}
                 {shown('declineCooldown') && form.declineAction === 'Stay in position' && (
-                  <div style={{ animation: 'fieldReveal .3s ease both', marginTop: 10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('declineCooldown') }}>
+                  <div style={{ animation: 'fieldReveal .3s ease both', marginTop: 10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('declineCooldown') }} data-field="declineCooldown">
                     <div style={{ font: '600 10px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 7 }}>Re-offer cooldown</div>
                     <select value={form.declineCooldown} onChange={e => patchForm({ declineCooldown: e.target.value })}
                       style={{ width: '100%', height: 34, padding: '0 32px 0 10px', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, font: '400 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center' }}>
@@ -2891,7 +3093,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
 
           {/* ── Common operational settings (revealed by the tail of every flow) ── */}
           {shown('ruleEvaluates') && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('ruleEvaluates') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('ruleEvaluates') }} data-field="ruleEvaluates">
               <FormGroup label="Rule Evaluates">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {[{ v: 'Callbacks only', l: 'Callbacks only' }, { v: 'All shifts', l: 'All shifts' }].map(opt => (
@@ -2908,37 +3110,23 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           {shown('callbackStatuses') && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('callbackStatuses') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('callbackStatuses') }} data-field="callbackStatuses">
               <FormGroup label="Callback Statuses">
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {(form.callbackStatuses || []).map(s => (
-                    <span key={s} style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', background: 'rgba(124,58,237,.08)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 12, font: '500 11.5px/1 Inter,sans-serif', color: '#7C3AED' }}>{s}</span>
-                  ))}
-                  {(!form.callbackStatuses || form.callbackStatuses.length === 0) && (
-                    <span style={{ font: '400 12px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', fontStyle: 'italic' }}>None selected</span>
-                  )}
-                </div>
+                <FieldMultiSelect values={form.callbackStatuses} onChange={v => patchForm({ callbackStatuses: v })} options={FIELD_OPTIONS.callbackStatuses} />
               </FormGroup>
             </div>
           )}
 
           {shown('callbackResponses') && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('callbackResponses') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('callbackResponses') }} data-field="callbackResponses">
               <FormGroup label="Callback Responses">
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {(form.callbackResponses || []).map(s => (
-                    <span key={s} style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', background: 'rgba(124,58,237,.08)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 12, font: '500 11.5px/1 Inter,sans-serif', color: '#7C3AED' }}>{s}</span>
-                  ))}
-                  {(!form.callbackResponses || form.callbackResponses.length === 0) && (
-                    <span style={{ font: '400 12px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', fontStyle: 'italic' }}>None selected</span>
-                  )}
-                </div>
+                <FieldMultiSelect values={form.callbackResponses} onChange={v => patchForm({ callbackResponses: v })} options={FIELD_OPTIONS.callbackResponses} />
               </FormGroup>
             </div>
           )}
 
           {shown('includePrevShifts') && (
-            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('includePrevShifts') }}>
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('includePrevShifts') }} data-field="includePrevShifts">
               <FormGroup label="Include Previously Created Shifts">
                 <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => patchForm({ includePrevShifts: form.includePrevShifts === 'Yes' ? 'No' : 'Yes' })}>
                   <span style={{ width: 18, height: 18, borderRadius: 4, border: `1.5px solid ${form.includePrevShifts === 'Yes' ? '#7C3AED' : 'rgba(124,58,237,.4)'}`, background: form.includePrevShifts === 'Yes' ? '#7C3AED' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', transition: 'all .15s' }}>
@@ -2981,7 +3169,7 @@ Object.assign(window, { summarizeRule, rankEmployees });
      ===================================================================== -->
 <script type="text/babel">
 /* global React */
-const { useState: useSimSt, useMemo: useSimMemo } = React;
+const { useState: useSimSt, useMemo: useSimMemo, useRef: useSimRef, useEffect: useSimEffect } = React;
 
 // 12-person roster sampled from the Event Indicator UX-2474 mock — keeps names,
 // stations, and qualifiers consistent across mocks so the simulator feels
@@ -3161,6 +3349,13 @@ function SimulatorView({ seed, onBack }) {
     return [{ role: 'ai', text: intro }];
   });
   const [chatInput, setChatInput] = useSimSt('');
+  // Auto-scroll the scenario-assistant thread to the bottom whenever a new
+  // message appears (typically after a quick-prompt chip click).
+  const simChatRef = useSimRef(null);
+  useSimEffect(() => {
+    const el = simChatRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  }, [chat]);
 
   const MAX_STEPS = 7;
   const currentStepIdx = stepHistory.length;
@@ -3326,8 +3521,9 @@ function SimulatorView({ seed, onBack }) {
                 <div style={{ font: '400 10.5px/1.2 Inter,sans-serif', color: 'rgba(255,255,255,.78)', marginTop: 1 }}>Ask anything about this hypothetical</div>
               </div>
             </div>
-            {/* Chat thread — compact, scrollable */}
-            <div style={{ maxHeight: 180, overflowY: 'auto', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 7, background: 'linear-gradient(180deg, rgba(124,58,237,.03), #fff 60px)' }}>
+            {/* Chat thread — compact, scrollable; auto-scrolls to the latest
+                AI answer whenever the user clicks a quick-prompt chip. */}
+            <div ref={simChatRef} style={{ maxHeight: 180, overflowY: 'auto', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 7, background: 'linear-gradient(180deg, rgba(124,58,237,.03), #fff 60px)' }}>
               {chat.slice(-6).map((m, i) => (
                 m.role === 'user' ? (
                   <div key={i} style={{ alignSelf: 'flex-end', maxWidth: '85%', padding: '6px 11px', borderRadius: '12px 12px 4px 12px', background: 'rgba(124,58,237,.1)', border: '1px solid rgba(124,58,237,.18)', font: '500 12px/1.5 Inter,sans-serif', color: '#4C1D95' }}>{m.text}</div>
@@ -3475,8 +3671,41 @@ function SimulatorView({ seed, onBack }) {
           {/* Step history + controls */}
           <div style={{ borderTop: '1px solid rgba(0,0,0,.07)', padding: '12px 18px', background: '#FAFAFC', flex: 'none' }}>
             <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.5)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Callback chain {currentStepIdx > 0 && `· ${currentStepIdx} of ${MAX_STEPS} run`}</div>
+
+            {/* Stepper — shows the callback chain as a horizontal progression so
+                the user understands we're simulating callbacks #1 through #N
+                back-to-back, not isolated single calls. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 12, paddingBottom: 10, borderBottom: '1px dashed rgba(0,0,0,.08)' }}>
+              {Array.from({ length: MAX_STEPS }, (_, i) => {
+                const done    = i < currentStepIdx;
+                const active  = i === currentStepIdx && !isFinished;
+                const bg      = done ? '#7C3AED' : active ? '#fff' : 'rgba(0,0,0,.06)';
+                const ringCol = done ? '#7C3AED' : active ? '#7C3AED' : 'rgba(0,0,0,.18)';
+                const txtCol  = done ? '#fff'    : active ? '#7C3AED' : 'rgba(0,0,0,.45)';
+                return (
+                  <React.Fragment key={i}>
+                    <div title={`Callback #${i + 1}`} style={{
+                      width: 22, height: 22, borderRadius: '50%',
+                      background: bg, border: `1.5px solid ${ringCol}`,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      font: '700 10px/1 Inter,sans-serif', color: txtCol, flex: 'none',
+                      boxShadow: active ? '0 0 0 3px rgba(124,58,237,.18)' : 'none',
+                      transition: 'all .2s',
+                    }}>
+                      {done ? (
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16l-4-4 1.4-1.4L9 13.2l8.6-8.6L19 6z"/></svg>
+                      ) : (i + 1)}
+                    </div>
+                    {i < MAX_STEPS - 1 && (
+                      <div style={{ flex: 1, height: 2, background: i < currentStepIdx ? '#7C3AED' : 'rgba(0,0,0,.1)', transition: 'background .2s' }} />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+
             {stepHistory.length === 0 && (
-              <div style={{ font: '400 12px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.45)', marginBottom: 8 }}>No callbacks run yet. Auto-simulate the next one or pick a manual override.</div>
+              <div style={{ font: '400 12px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.45)', marginBottom: 8 }}>No callbacks run yet. Pick who accepts below (or leave it on Random) and run callback #1.</div>
             )}
             {stepHistory.map((step, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '6px 0', borderBottom: i < stepHistory.length - 1 ? '1px dashed rgba(0,0,0,.07)' : 'none' }}>
@@ -3499,40 +3728,32 @@ function SimulatorView({ seed, onBack }) {
             {!isFinished && (
               <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.5)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
-                  How should callback #{currentStepIdx + 1} resolve?
+                  Who accepts callback #{currentStepIdx + 1}?
                 </div>
-                {/* Option A — let the rule + decline behavior decide */}
-                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '8px 10px', border: `1.5px solid ${!overridePick ? '#7C3AED' : 'rgba(0,0,0,.12)'}`, background: !overridePick ? 'rgba(124,58,237,.05)' : '#fff', borderRadius: 7, cursor: 'pointer', transition: 'all .15s' }}
-                  onClick={() => setOverridePick('')}>
-                  <span style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${!overridePick ? '#7C3AED' : 'rgba(0,0,0,.28)'}`, background: !overridePick ? '#7C3AED' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', marginTop: 2 }}>
-                    {!overridePick && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#fff' }} />}
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ font: '600 12.5px/1.3 Inter,sans-serif', color: 'rgba(24,39,58,.9)' }}>System decides (auto-simulate)</div>
-                    <div style={{ font: '400 11.5px/1.45 Inter,sans-serif', color: 'rgba(0,0,0,.55)', marginTop: 2 }}>
-                      Run the rule as-is. {eligible.length >= 2 ? `Calls go down the list from ${eligible[0]?.name} until someone accepts — outcome varies per run` : eligible.length === 1 ? `${eligible[0]?.name} accepts` : 'No one available'} — apply the rule's decline behavior to update rankings for callback #{currentStepIdx + 2}.
-                    </div>
-                  </div>
-                </label>
-                {/* Option B — manual override; user picks the accepter */}
-                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '8px 10px', border: `1.5px solid ${overridePick ? '#7C3AED' : 'rgba(0,0,0,.12)'}`, background: overridePick ? 'rgba(124,58,237,.05)' : '#fff', borderRadius: 7, cursor: 'pointer', transition: 'all .15s' }}
-                  onClick={() => { if (!overridePick && eligible[0]) setOverridePick(eligible[0].name); }}>
-                  <span style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${overridePick ? '#7C3AED' : 'rgba(0,0,0,.28)'}`, background: overridePick ? '#7C3AED' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', marginTop: 2 }}>
-                    {overridePick && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#fff' }} />}
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ font: '600 12.5px/1.3 Inter,sans-serif', color: 'rgba(24,39,58,.9)' }}>Someone else accepted</div>
-                    <div style={{ font: '400 11.5px/1.45 Inter,sans-serif', color: 'rgba(0,0,0,.55)', marginTop: 2, marginBottom: overridePick ? 6 : 0 }}>
-                      Pick a specific person who took this callback — useful for testing what the next callback looks like after a particular accept.
-                    </div>
-                    {overridePick && (
-                      <select value={overridePick} onClick={e => e.stopPropagation()} onChange={e => setOverridePick(e.target.value)}
-                        style={{ ...selectStyle, padding: '0 28px 0 10px', height: 30, font: '500 12px/1 Inter,sans-serif', width: '100%', maxWidth: 260 }}>
-                        {eligible.slice(0, 10).map(p => <option key={p.name} value={p.name}>{p.name} · {p.station}</option>)}
-                      </select>
-                    )}
-                  </div>
-                </label>
+                {/* Single dropdown: "Random (system decides)" first, then every
+                    available person. Picking Random calls autoSimulate() — the
+                    rule walks the list until someone accepts. Picking a name
+                    calls overrideAccept() to test a specific outcome. */}
+                <select
+                  value={overridePick || '__random__'}
+                  onChange={e => setOverridePick(e.target.value === '__random__' ? '' : e.target.value)}
+                  style={{ ...selectStyle, padding: '0 28px 0 10px', height: 34, font: '500 13px/1 Inter,sans-serif', width: '100%' }}>
+                  <option value="__random__">🎲 Random (system decides)</option>
+                  <optgroup label="Pick a specific person">
+                    {eligible.map(p => (
+                      <option key={p.name} value={p.name}>{p.name} · {p.station} · {p.hours}h</option>
+                    ))}
+                  </optgroup>
+                </select>
+                <div style={{ font: '400 11.5px/1.45 Inter,sans-serif', color: 'rgba(0,0,0,.55)' }}>
+                  {overridePick
+                    ? `${overridePick} will accept — useful for testing what callback #${currentStepIdx + 2} looks like after this specific outcome.`
+                    : (eligible.length >= 2
+                        ? `Calls go down the list from ${eligible[0]?.name} until someone accepts — outcome varies per run.`
+                        : eligible.length === 1
+                          ? `${eligible[0]?.name} accepts.`
+                          : 'No one available.')}
+                </div>
                 <button onClick={() => overridePick ? overrideAccept(overridePick) : autoSimulate()}
                   style={{ marginTop: 4, height: 36, padding: '0 16px', borderRadius: 7, border: 'none', background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', color: '#fff', font: '600 13px/1 Inter,sans-serif', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 2px 6px rgba(124,58,237,.3)', alignSelf: 'flex-end' }}>
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M5 3l14 9-14 9z"/></svg>
@@ -3802,7 +4023,7 @@ const METHODOLOGY_STEPS = [
   },
   {
     label: 'Employees are notified',
-    sub: 'CrewSense sends the call',
+    sub: 'Crew Scheduler sends the call',
     accent: '#2563EB',
     icon: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -3949,8 +4170,10 @@ function ApproachesRulesPage({ onStart, savedToast, onDismissToast }) {
           )}
         </div>
 
-        {/* ── Unified container card: tabs + panels ── */}
-        <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,.1)', borderRadius: 8, overflow: 'hidden', flex: 1 }}>
+        {/* ── Unified container card: tabs + panels ──
+            The body of A&R is the page-level scroll container; the card itself
+            grows with its content and never traps overflow. */}
+        <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,.1)', borderRadius: 8, overflow: 'visible' }}>
 
           {/* Tab bar inside the card */}
           <div style={{ borderBottom: '1px solid rgba(0,0,0,.09)', padding: '0 20px', display: 'flex', alignItems: 'flex-end' }}>
@@ -4084,9 +4307,9 @@ function ApproachesRulesPage({ onStart, savedToast, onDismissToast }) {
                     <div style={{ position: 'absolute', top: -10, right: -10, width: 56, height: 56, borderRadius: '50%', background: 'rgba(124,58,237,.07)', pointerEvents: 'none' }} />
                     <div style={{ position: 'absolute', bottom: -6, right: 36, width: 30, height: 30, borderRadius: '50%', background: 'rgba(99,102,241,.09)', pointerEvents: 'none' }} />
 
-                    {/* Title — same style as the dashboard's "+ Add new rule" header */}
+                    {/* Title — sparkles glyph keeps the AI-driven feel consistent across surfaces */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6, position: 'relative' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6D28D9" strokeWidth="2.4" strokeLinecap="round" style={{ flex: 'none' }}><path d="M12 5v14M5 12h14"/></svg>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="#6D28D9" style={{ flex: 'none' }}><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
                       <span style={{ font: '700 13.5px/1.2 Inter,sans-serif', color: 'rgba(24,39,58,.94)' }}>Add new rule</span>
                     </div>
 
@@ -4648,7 +4871,9 @@ function App() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <TopBar />
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-          <SubSidebar active={subNav} onChange={handleSubNav} />
+          {/* Hide the sub-sidebar while the rule builder owns the screen — keeps
+              the user focused on the two-pane chat + configuration layout. */}
+          {!building && <SubSidebar active={subNav} onChange={handleSubNav} />}
           <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
             {building ? (
               /* Rule builder takes over the main area regardless of which tab launched it. */
