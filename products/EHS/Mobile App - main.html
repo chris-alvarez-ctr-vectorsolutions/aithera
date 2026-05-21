@@ -224,6 +224,17 @@
         }
         .record-card-header .rec-btn-icon { margin: -4px -8px 0 0; flex-shrink: 0; }
         .record-card-header .step-menu-wrapper { margin: -4px -8px 0 0; flex-shrink: 0; }
+        /* Drag handle on step cards */
+        .step-drag-handle {
+            background: none; border: none; padding: 4px 6px;
+            margin: -4px 2px 0 -8px; color: rgba(0,0,0,0.3);
+            cursor: grab; font-size: 16px; flex-shrink: 0;
+            touch-action: none;
+        }
+        .step-drag-handle:active { cursor: grabbing; color: rgba(0,0,0,0.55); }
+        .record-card-row.dragging { opacity: 0.45; }
+        .record-card-row.drag-over-top { box-shadow: inset 0 3px 0 0 #0271ce; }
+        .record-card-row.drag-over-bottom { box-shadow: inset 0 -3px 0 0 #0271ce; }
         .record-title { font-size: 15.5px; font-weight: 600; color: rgba(0,0,0,0.87); line-height: 1.3; margin-bottom: 0; }
         .record-id { font-size: 12px; color: rgba(0,0,0,0.87); display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
         .record-meta { display: flex; flex-direction: column; gap: 4px; }
@@ -2598,9 +2609,10 @@
 
             <div class="screen-body">
 
-                <div class="record-card-row">
+                <div class="record-card-row step-card" draggable="true">
                     <div class="record-card-header">
-                        <div>
+                        <button class="step-drag-handle" aria-label="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></button>
+                        <div style="flex:1;min-width:0;">
                             <div class="step-number">STEP 1</div>
                             <div class="record-title">Lockout / Tagout Panel</div>
                         </div>
@@ -2633,9 +2645,10 @@
                     </div>
                 </div>
 
-                <div class="record-card-row">
+                <div class="record-card-row step-card" draggable="true">
                     <div class="record-card-header">
-                        <div>
+                        <button class="step-drag-handle" aria-label="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></button>
+                        <div style="flex:1;min-width:0;">
                             <div class="step-number">STEP 2</div>
                             <div class="record-title">Inspect Electrical Panel</div>
                         </div>
@@ -4745,7 +4758,118 @@ window.addEventListener('DOMContentLoaded', () => {
         }, { passive: false });
         tc.addEventListener('touchend', () => sigTakeoverDrawing = false);
     }
+
+    initStepDragDrop();
 });
+
+/* ── Drag-and-drop reordering for JSA step cards ── */
+function initStepDragDrop() {
+    const container = document.querySelector('#screen-jsa-steps-filled .screen-body');
+    if (!container) return;
+
+    let draggedEl = null;
+
+    function clearDropIndicators() {
+        container.querySelectorAll('.step-card').forEach(c => {
+            c.classList.remove('drag-over-top', 'drag-over-bottom');
+        });
+    }
+
+    function placeBefore(card, target, above) {
+        if (above) container.insertBefore(card, target);
+        else container.insertBefore(card, target.nextSibling);
+    }
+
+    function attachDragListeners(card) {
+        card.addEventListener('dragstart', (e) => {
+            draggedEl = card;
+            card.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            try { e.dataTransfer.setData('text/plain', ''); } catch (_) {}
+        });
+        card.addEventListener('dragend', () => {
+            card.classList.remove('dragging');
+            clearDropIndicators();
+            draggedEl = null;
+            renumberSteps();
+        });
+        card.addEventListener('dragover', (e) => {
+            if (!draggedEl || card === draggedEl) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const rect = card.getBoundingClientRect();
+            const above = e.clientY < rect.top + rect.height / 2;
+            card.classList.toggle('drag-over-top', above);
+            card.classList.toggle('drag-over-bottom', !above);
+        });
+        card.addEventListener('dragleave', () => {
+            card.classList.remove('drag-over-top', 'drag-over-bottom');
+        });
+        card.addEventListener('drop', (e) => {
+            e.preventDefault();
+            card.classList.remove('drag-over-top', 'drag-over-bottom');
+            if (!draggedEl || card === draggedEl) return;
+            const rect = card.getBoundingClientRect();
+            const above = e.clientY < rect.top + rect.height / 2;
+            placeBefore(draggedEl, card, above);
+        });
+
+        /* Touch fallback — HTML5 drag-and-drop doesn't fire on mobile */
+        const handle = card.querySelector('.step-drag-handle');
+        if (handle) {
+            let touchActive = false;
+            let lastTarget = null;
+            let lastAbove = false;
+
+            handle.addEventListener('touchstart', (e) => {
+                touchActive = true;
+                draggedEl = card;
+                card.classList.add('dragging');
+                e.preventDefault();
+            }, { passive: false });
+
+            handle.addEventListener('touchmove', (e) => {
+                if (!touchActive) return;
+                e.preventDefault();
+                const t = e.touches[0];
+                const targetEl = document.elementFromPoint(t.clientX, t.clientY);
+                const targetCard = targetEl && targetEl.closest('.step-card');
+                clearDropIndicators();
+                lastTarget = null;
+                if (targetCard && targetCard !== card) {
+                    const r = targetCard.getBoundingClientRect();
+                    lastAbove = t.clientY < r.top + r.height / 2;
+                    targetCard.classList.toggle('drag-over-top', lastAbove);
+                    targetCard.classList.toggle('drag-over-bottom', !lastAbove);
+                    lastTarget = targetCard;
+                }
+            }, { passive: false });
+
+            const endTouch = () => {
+                if (!touchActive) return;
+                touchActive = false;
+                card.classList.remove('dragging');
+                clearDropIndicators();
+                if (lastTarget) placeBefore(card, lastTarget, lastAbove);
+                lastTarget = null;
+                draggedEl = null;
+                renumberSteps();
+            };
+            handle.addEventListener('touchend', endTouch);
+            handle.addEventListener('touchcancel', endTouch);
+        }
+    }
+
+    container.querySelectorAll('.step-card').forEach(attachDragListeners);
+}
+
+function renumberSteps() {
+    const cards = document.querySelectorAll('#screen-jsa-steps-filled .step-card');
+    cards.forEach((card, i) => {
+        const numEl = card.querySelector('.step-number');
+        if (numEl) numEl.textContent = 'STEP ' + (i + 1);
+    });
+}
 </script>
 </body>
 </html>
