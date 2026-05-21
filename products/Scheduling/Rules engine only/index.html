@@ -3880,7 +3880,7 @@ Object.assign(window, { SimulatorView });
      ===================================================================== -->
 <script type="text/babel">
 /* global React */
-const { useState: useAppSt, useEffect: useAppEffect } = React;
+const { useState: useAppSt, useEffect: useAppEffect, useRef: useAppRef } = React;
 
 // ── Approaches & Rules page data ─────────────────────────────────────────────
 const APPROACHES_DATA = [
@@ -4062,6 +4062,20 @@ function ApproachesRulesPage({ onStart, savedToast, onDismissToast }) {
     return () => clearTimeout(t);
   }, [savedToast, onDismissToast]);
 
+  // Auto-collapse the methodology accordion as soon as the user scrolls down
+  // a bit so the diagram tucks away cleanly and the page scrolls naturally.
+  // Reopening is a manual click on the thin banner.
+  const bodyScrollRef = useAppRef(null);
+  useAppEffect(() => {
+    const el = bodyScrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      if (el.scrollTop > 40 && methodologyOpen) setMethodologyOpen(false);
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [methodologyOpen]);
+
   const toggleBannerGroup = (g) => {
     setBannerGroups(prev => {
       const next = new Set(prev);
@@ -4123,13 +4137,13 @@ function ApproachesRulesPage({ onStart, savedToast, onDismissToast }) {
 
       {/* ── Scrollable body ── */}
       {!previewMode && (
-      <div style={{ flex: 1, overflowY: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div ref={bodyScrollRef} style={{ flex: 1, overflowY: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-        {/* ── CallBack Methodology — sticky thin banner + expanded panel ──
-            The banner stays pinned to the top of the scroll area so the user
-            can re-open the methodology any time, even after scrolling deep
-            into the rules table. The expanded panel below scrolls normally. */}
-        <div style={{ position: 'sticky', top: 0, zIndex: 5, background: '#fff', border: '1px solid rgba(0,0,0,.09)', borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
+        {/* ── CallBack Methodology — collapses as the user scrolls so the
+            diagram can't bleed through a sticky header. The accordion
+            scrolls naturally with the page; once collapsed, the thin
+            banner scrolls away with everything else (no sticky). */}
+        <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,.09)', borderRadius: 8, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
           <button onClick={() => setMethodologyOpen(o => !o)}
             style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.38)" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
@@ -4138,10 +4152,8 @@ function ApproachesRulesPage({ onStart, savedToast, onDismissToast }) {
             {/* chevron points down when closed (will open downward), up when open */}
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.38)" strokeWidth="2" strokeLinecap="round" style={{ transition: 'transform .2s', transform: methodologyOpen ? 'rotate(180deg)' : 'rotate(0deg)', flex: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
           </button>
-        </div>
-        {methodologyOpen && (
-          <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,.09)', borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,.04)', marginTop: -12 }}>
-            <div style={{ padding: '14px 20px 18px' }}>
+          {methodologyOpen && (
+            <div style={{ padding: '14px 20px 18px', borderTop: '1px solid rgba(0,0,0,.07)' }}>
               {/* 5 steps in one horizontal row */}
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0 }}>
                 {METHODOLOGY_STEPS.map((step, i) => (
@@ -4173,8 +4185,8 @@ function ApproachesRulesPage({ onStart, savedToast, onDismissToast }) {
                 ))}
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* ── Unified container card: tabs + panels ──
             The body of A&R is the page-level scroll container; the card itself
