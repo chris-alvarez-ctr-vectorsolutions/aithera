@@ -20,8 +20,17 @@ const fs = require('fs');
 const path = require('path');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const TAG = '<script src="/commentwidget/feedback-widget.js"></script>';
+const WIDGET_PATH = 'commentwidget/feedback-widget.js';
 const DRY_RUN = process.argv.includes('--dry-run');
+
+// Build a relative <script> tag from the HTML file's location to the widget.
+// Absolute "/commentwidget/..." doesn't work on GitHub Pages because the
+// site is served from /<repo>/, not from the domain root.
+function buildTag(file) {
+  const fromDir = path.dirname(file);
+  const rel = path.relative(fromDir, path.join(REPO_ROOT, WIDGET_PATH));
+  return `<script src="${rel}"></script>`;
+}
 
 const SKIP_DIRS = new Set(['.claude', '.sixth', 'scripts', 'commentwidget', 'node_modules', '.git']);
 
@@ -50,7 +59,7 @@ if (fs.existsSync(rootIndex)) candidates.push(rootIndex);
 
 for (const file of candidates) {
   const original = fs.readFileSync(file, 'utf8');
-  if (original.includes('/commentwidget/feedback-widget.js')) {
+  if (original.includes('commentwidget/feedback-widget.js')) {
     alreadyHadTag.push(file);
     continue;
   }
@@ -58,7 +67,7 @@ for (const file of candidates) {
     noBodyTag.push(file);
     continue;
   }
-  const next = original.replace('</body>', `${TAG}\n</body>`);
+  const next = original.replace('</body>', `${buildTag(file)}\n</body>`);
   if (!DRY_RUN) fs.writeFileSync(file, next);
   updated.push(file);
 }
