@@ -39,6 +39,14 @@
     from { transform: translateY(8px); opacity: 0; }
     to   { transform: translateY(0);   opacity: 1; }
   }
+  @keyframes caPulse {
+    0%,100% { box-shadow: 0 0 0 4px rgba(124,58,237,.10), 0 4px 14px rgba(124,58,237,.18); }
+    50%     { box-shadow: 0 0 0 8px rgba(124,58,237,.16), 0 6px 18px rgba(124,58,237,.28); }
+  }
+  @keyframes caArrow {
+    0%,100% { transform: translateY(0); opacity: .85; }
+    50%     { transform: translateY(3px); opacity: 1; }
+  }
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-thumb { background: rgba(0,0,0,.18); border-radius: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -1397,6 +1405,108 @@ const FIELD_OPTIONS = {
   callbackResponses:    ['Accepted', 'Denied', 'No answer'],
 };
 
+// ── Callback notification options ────────────────────────────────────────────
+// Channels and the cadence menus that apply to each. Phone-call rhythm is
+// different from push/text — calls usually need spacing because they're
+// disruptive, while pushes are cheap to repeat. Kept here as plain data so the
+// panel can render the right sub-menu when the user picks a channel.
+const NOTIFY_CHANNEL_OPTIONS = [
+  { value: 'Phone call',         title: 'Phone Call',          desc: 'Crew Scheduler auto-dials each ranked employee in turn.',                  icon: 'fa-solid fa-phone' },
+  { value: 'Text message',       title: 'Text Message',        desc: 'Send an SMS to each ranked employee with an accept / decline reply.',     icon: 'fa-solid fa-comment-sms' },
+  { value: 'Push notification',  title: 'Push Notification',   desc: 'Send an in-app push to each ranked employee with an accept / decline tap.', icon: 'fa-solid fa-bell' },
+];
+
+const NOTIFY_CADENCE_OPTIONS = {
+  'Phone call': [
+    'Call one at a time (top of list first)',
+    'Call the next person after a no-answer or decline',
+    'Call again in 4 hours if no fill',
+    'Call everyone all at once (broadcast)',
+  ],
+  'Text message': [
+    'Push every 15 minutes until filled',
+    'Push every 30 minutes until filled',
+    'Push every hour until filled',
+    'Text everyone all at once (broadcast)',
+    'Text one at a time (top of list first)',
+  ],
+  'Push notification': [
+    'Push every 15 minutes until filled',
+    'Push every 30 minutes until filled',
+    'Push every hour until filled',
+    'Push everyone all at once (broadcast)',
+    'Push one at a time (top of list first)',
+  ],
+};
+
+const NEXT_DAY_CADENCE_OPTIONS = {
+  'Phone call': [
+    'Single retry call the next morning',
+    'Two retry calls (morning + afternoon)',
+    'Hourly retry calls until filled',
+  ],
+  'Text message': [
+    'Single retry text the next morning',
+    'Retry text every 2 hours until filled',
+    'Retry text every 4 hours until filled',
+  ],
+  'Push notification': [
+    'Single retry push the next morning',
+    'Retry push every 2 hours until filled',
+    'Retry push every 4 hours until filled',
+  ],
+};
+
+// ── Human-readable labels for form fields ────────────────────────────────────
+// Used when patchForm records a manual right-panel edit in the chat thread —
+// e.g. "tie breaker → Last shift worked" instead of the raw "tieBreaker" key.
+const FIELD_LABELS = {
+  ruleName:             'Rule name',
+  ruleAffects:          'Applies to',
+  selectedApproaches:   'Selected approaches',
+  ruleType:             'Ranking type',
+  turnsCounting:        'What counts as a turn',
+  rolodexReset:         'Rolodex reset',
+  rolodexAcceptMove:    'Post-accept movement',
+  responseTime:         'Response window',
+  accumulationType:     'Accumulation type',
+  accumulationLimit:    'Accumulation limit',
+  resetCadence:         'Reset cadence',
+  hoursCountedOutcomes: 'Hours counted from',
+  seniorityDateType:    'Seniority date type',
+  sortDirection:        'Sort direction',
+  newHirePlacement:     'New-hire placement',
+  caseSensitivity:      'Case sensitivity',
+  randomizeFrequency:   'Randomize frequency',
+  randomWeighting:      'Random weighting',
+  randomGuardrail:      'Random guardrail',
+  minShift:             'Minimum shift length',
+  maxShift:             'Maximum shift length',
+  lookBack:             'Lookback window (days)',
+  forecast:             'Forecast window (days)',
+  tieBreaker:           'Tie breaker',
+  tieBreakerOrder:      'Tie-breaker order',
+  declineAction:        'Decline action',
+  penaltyPoints:        'Penalty points',
+  declineScope:         'Decline scope',
+  declineCooldown:      'Decline cooldown',
+  ruleEvaluates:        'Rule evaluates',
+  callbackStatuses:     'Callback statuses',
+  callbackResponses:    'Callback responses',
+  includePrevShifts:    'Include past shifts',
+  notifyChannel:        'Notification channel',
+  notifyCadence:        'Notification cadence',
+  nextDayRetry:         'Next-day retry',
+  nextDayCadence:       'Next-day cadence',
+};
+
+// Fields that update on every keystroke — recording each keystroke in the chat
+// would be noisy. They're still saved to the form silently.
+const PANEL_RECORD_SKIP = new Set([
+  'ruleName', 'minShift', 'maxShift', 'lookBack', 'forecast',
+  'accumulationLimit', 'penaltyPoints',
+]);
+
 // tieBreakerOrder options shift based on which tiebreaker the user picked.
 function tieBreakerOrderOptions(tieBreaker) {
   if (tieBreaker === 'Seniority (hire date)') return ['Most senior first', 'Least senior first'];
@@ -1753,9 +1863,18 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
         { role: 'ai', text: "Got it — I'll build a rule for those groups. Pick a ranking type below, or describe what you need." },
         { role: 'suggestions' },
       ] : [
-        { role: 'ai', text: introAiText },
-        { role: 'suggestions' },
+        // No seed: chat opens by asking about approaches first, then transitions
+        // to the template suggestions after the user answers.
+        { role: 'ai', text: "Hi! Let's create a new rule.\n\nWhich approach(es) should this rule apply to?",
+          chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','Battalion Chief','FF3','All approaches'],
+          multi: true },
       ];
+
+  // True only when we've opened a fresh build with no seed — the chat's first
+  // question asks about approaches and the next send() answer transitions to
+  // the template-suggestions state.
+  const noSeedFresh = !hasSeededGroups && !existingRule && !templateName && !initialPrompt;
+  const [awaitingInitialApproach, setAwaitingInitialApproach] = useState(noSeedFresh);
 
   const [messages, setMessages] = useState(initMsgs);
   // Tracks the template the user picked via the in-builder suggestion cards (selectSuggestion).
@@ -1834,6 +1953,14 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
     // ── Common operational settings (asked at the tail of every flow) ──
     ruleEvaluates:       '',  // 'Callbacks only' | 'All shifts'
     includePrevShifts:   '',  // 'Yes' | 'No'
+    // ── Callback delivery (how the system reaches employees) ──
+    // notifyChannel drives which `notifyCadence` and `nextDayCadence` menus render —
+    // phone calls and text/push notifications have different operational rhythms,
+    // so we keep their sub-options separate to avoid showing nonsensical options.
+    notifyChannel:       '',  // 'Phone call' | 'Text message' | 'Push notification'
+    notifyCadence:       '',  // varies per channel — see NOTIFY_CADENCE_OPTIONS
+    nextDayRetry:        '',  // 'Yes' | 'No'
+    nextDayCadence:      '',  // varies per channel — second-day retry rhythm
   });
 
   // Tracks which config fields have been surfaced by chat answers
@@ -1861,6 +1988,12 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
     return () => clearTimeout(t);
   }, [newestField]);
 
+  // Counts panel-driven edits so the chat can swap in a periodic "ready to
+  // save?" nudge after a small streak instead of just "let's build on top of
+  // that" every time. A ref (not state) avoids a re-render per increment.
+  const panelEditCountRef = useRef(0);
+  const PANEL_PROMPT_EVERY = 3;
+
   const patchForm = (updates, opts = {}) => {
     setForm(f => ({ ...f, ...updates }));
     setRevealedFields(r => {
@@ -1870,23 +2003,62 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
         if (!next.has(k)) newlyAdded.push(k);
         next.add(k);
       });
-      // Pick the last newly-added field as the one to highlight. Skip 'ruleName' since
-      // that's the always-visible header field and shouldn't pulse on every keystroke.
-      const focusField = newlyAdded.filter(k => k !== 'ruleName').pop();
-      if (focusField) setNewestField(focusField);
+      // Highlight pulses only fire for chat-driven updates. Manual right-panel
+      // edits intentionally skip the pulse — the user already knows what they
+      // just touched, and the chat record (added below) is the durable trail.
+      if (opts.fromChat) {
+        const focusField = newlyAdded.filter(k => k !== 'ruleName').pop();
+        if (focusField) setNewestField(focusField);
+      }
       return next;
     });
-    if (opts.fromUser) {
+
+    // Chat-driven calls already write their own user/AI messages from the chat
+    // flow, so don't double-record. Panel-driven calls (the default for any
+    // patchForm call out of the right-panel JSX) record the edit in the chat
+    // with a "edited in panel" tag and a generic "let's build on top of that"
+    // AI follow-up. BRANCH_MAP entries take precedence so the existing
+    // ruleAffects / ruleType / tieBreaker / declineAction follow-ups still fire.
+    if (!opts.fromChat) {
       for (const [key, val] of Object.entries(updates)) {
+        if (PANEL_RECORD_SKIP.has(key)) continue;          // skip per-keystroke text inputs
+        if (val === '' || val == null) continue;            // skip blank-out updates
+        if (Array.isArray(val) && val.length === 0) continue;
+        // Count this as a panel edit, then decide if it's a "nudge" turn.
+        panelEditCountRef.current += 1;
+        const isNudge = panelEditCountRef.current % PANEL_PROMPT_EVERY === 0;
+        const NUDGE_TEXT = "Would you like to save the rule, preview the ranking, or change anything else?";
+        const NUDGE_CHIPS = ['Save rule', 'Preview ranking', 'Adjust something'];
+
         const branch = BRANCH_MAP[key]?.[val];
-        if (!branch) continue;
-        setMessages(m => [...m, { role: 'user', text: branch.userMsg, fromForm: true }]);
-        setTyping(true);
-        setTimeout(() => {
-          if (branch.ai) setMessages(m => [...m, { role: 'ai', text: branch.ai.text, chips: branch.ai.chips || [] }]);
-          setTyping(false);
-        }, 700 + Math.random() * 300);
-        break;
+        if (branch) {
+          setMessages(m => [...m, { role: 'user', text: branch.userMsg, fromForm: true }]);
+          setTyping(true);
+          setTimeout(() => {
+            // Even on a BRANCH_MAP turn, swap in the nudge on every Nth edit so
+            // the rhythm of the chat surfaces save/preview affordances.
+            if (isNudge) {
+              setMessages(m => [...m, { role: 'ai', text: NUDGE_TEXT, chips: NUDGE_CHIPS }]);
+            } else if (branch.ai) {
+              setMessages(m => [...m, { role: 'ai', text: branch.ai.text, chips: branch.ai.chips || [] }]);
+            }
+            setTyping(false);
+          }, 700 + Math.random() * 300);
+        } else {
+          const label = FIELD_LABELS[key] || key;
+          const valueStr = Array.isArray(val) ? val.join(', ') : String(val);
+          setMessages(m => [...m, { role: 'user', text: `${label} → ${valueStr}`, fromForm: true }]);
+          setTyping(true);
+          setTimeout(() => {
+            if (isNudge) {
+              setMessages(m => [...m, { role: 'ai', text: NUDGE_TEXT, chips: NUDGE_CHIPS }]);
+            } else {
+              setMessages(m => [...m, { role: 'ai', text: "Got it — let's build on top of that." }]);
+            }
+            setTyping(false);
+          }, 500 + Math.random() * 200);
+        }
+        break; // one chat record per patchForm call keeps the thread readable
       }
     }
   };
@@ -2143,7 +2315,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
     else if (lower === 'no, most recent first') updates.tieBreakerOrder = 'Most recent first';
     else if (lower === 'yes, most senior first' || lower === 'most senior first') updates.tieBreakerOrder = 'Most senior first';
     else if (lower === 'least senior first') updates.tieBreakerOrder = 'Least senior first';
-    if (Object.keys(updates).length) patchForm(updates);
+    if (Object.keys(updates).length) patchForm(updates, { fromChat: true });
   };
 
   // True once the user has supplied enough info that a Preview Mode jump
@@ -2192,7 +2364,24 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
       }, 400);
       return;
     }
-    // 3) "Change X" chip from the adjust menu — applies in both build + edit
+    // 3) Initial approach question — when the chat opened with no seed, the
+    //    first AI message asks which approach(es) the rule should apply to.
+    //    Answering it patches form.ruleAffects / selectedApproaches and then
+    //    transitions the chat to the template-suggestions state.
+    if (awaitingInitialApproach && !existingRule) {
+      parseAndPatch(text);
+      setMessages(m => [
+        ...m,
+        { role: 'user', text },
+        { role: 'ai', text: "Got it — I'll build a rule for those groups. Pick a ranking type below, or describe what you need." },
+        { role: 'suggestions' },
+      ]);
+      setAwaitingInitialApproach(false);
+      setInput('');
+      setCustomAnswer(false);
+      return;
+    }
+    // 4) "Change X" chip from the adjust menu — applies in both build + edit
     //    mode so the user can iterate on the rule from inside a fresh build.
     if (!existingRule && EDIT_ASK[text]) {
       const ask = EDIT_ASK[text];
@@ -2383,9 +2572,15 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
     sortDirection: '', newHirePlacement: '', caseSensitivity: '',
     randomizeFrequency: '', randomWeighting: '', randomGuardrail: '',
     ruleEvaluates: '', includePrevShifts: '',
+    notifyChannel: '', notifyCadence: '', nextDayRetry: '', nextDayCadence: '',
   };
   const startOver = () => {
-    setMessages([{ role: 'ai', text: introAiText }, { role: 'suggestions' }]);
+    setMessages([
+      { role: 'ai', text: "Hi! Let's create a new rule.\n\nWhich approach(es) should this rule apply to?",
+        chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','Battalion Chief','FF3','All approaches'],
+        multi: true },
+    ]);
+    setAwaitingInitialApproach(true);
     setForm(blankForm);
     setInput('');
     setTyping(false);
@@ -2396,6 +2591,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
     setActiveTplName(null);
     setSelectionUsed(false);
     setNewestField(null);
+    panelEditCountRef.current = 0;
   };
 
   const selectSuggestion = (tplName) => {
@@ -2412,7 +2608,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
         : []),
       { role: 'ai', text: f[startIdx].text, chips: f[startIdx].chips },
     ]);
-    patchForm({ ruleName: tplName, ruleType: guessType(tplName) });
+    patchForm({ ruleName: tplName, ruleType: guessType(tplName) }, { fromChat: true });
     setInput('');
   };
 
@@ -2503,7 +2699,10 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
                             return (
                               <>
                                 <div style={{ font: '400 11px/1.3 Inter,sans-serif', color: 'rgba(0,0,0,.45)', marginBottom: 2 }}>Select all that apply</div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 18px', alignItems: 'center', padding: '10px 14px', background: 'rgba(124,58,237,.04)', border: '1px solid rgba(124,58,237,.18)', borderRadius: 10 }}>
+                                {/* Stacked one-per-row layout — each option gets its own line so
+                                    the list reads top-to-bottom like a checklist instead of
+                                    wrapping into a dense multi-line grid. */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'stretch', padding: '12px 14px', background: 'rgba(124,58,237,.04)', border: '1px solid rgba(124,58,237,.18)', borderRadius: 10, alignSelf: 'stretch' }}>
                                   {allChip && (
                                     <>
                                       <Checkbox label="Select all" bold checked={allSelected}
@@ -2512,7 +2711,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
                                           if (!allSelected) s.add(allChip);
                                           return s;
                                         })} />
-                                      <div style={{ width: 1, height: 18, background: 'rgba(124,58,237,.2)' }} />
+                                      <div style={{ height: 1, width: '100%', background: 'rgba(124,58,237,.2)', margin: '2px 0' }} />
                                     </>
                                   )}
                                   {itemChips.map(c => {
@@ -2652,6 +2851,39 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
                     onMouseLeave={e => e.currentTarget.style.color = 'rgba(0,0,0,.32)'}>
                     Skip for now
                   </button>
+
+                  {/* Tertiary "Bring in a Rules file" — alternative path to the
+                      template suggestions for users who already have a rules
+                      file from another system. Lives here so it doesn't
+                      compete with the primary "New Rule" entry button. */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8, paddingTop: 8, borderTop: '1px dashed rgba(0,0,0,.1)', alignSelf: 'stretch' }}>
+                    <span style={{ font: '400 11.5px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)' }}>Already have one?</span>
+                    <button
+                      onClick={() => {
+                        setMessages(curr => [...curr,
+                          { role: 'user', text: 'Bring in a Rules file' },
+                          { role: 'ai', text: "Sure — drop in your rules file (CSV, JSON, or YAML) and I'll parse the definitions so you can review them before saving." },
+                        ]);
+                      }}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        height: 22, padding: '0 4px',
+                        background: 'transparent', border: 'none',
+                        font: '600 12px/1 Inter,sans-serif', color: '#6D28D9',
+                        cursor: 'pointer', borderRadius: 4,
+                        transition: 'color .15s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.color = '#5B21B6'; e.currentTarget.style.textDecoration = 'underline'; }}
+                      onMouseLeave={e => { e.currentTarget.style.color = '#6D28D9'; e.currentTarget.style.textDecoration = 'none'; }}
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                      </svg>
+                      Bring in a Rules file
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -2684,23 +2916,54 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           {customAnswer && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '8px 12px 8px 14px', background: 'linear-gradient(135deg, rgba(124,58,237,.07), rgba(91,33,182,.05))', border: '1.5px solid rgba(124,58,237,.28)', borderRadius: 10 }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="2.2" strokeLinecap="round" style={{ flex: 'none' }}><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              <span style={{ flex: 1, font: '500 12px/1 Inter,sans-serif', color: '#7C3AED' }}>Custom answer</span>
-              <button onClick={handleSkip}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', font: '400 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', padding: '3px 6px', borderRadius: 4 }}
-                onMouseEnter={e => e.currentTarget.style.color = 'rgba(0,0,0,.65)'}
-                onMouseLeave={e => e.currentTarget.style.color = 'rgba(0,0,0,.4)'}>
-                Skip
-              </button>
-              <div style={{ width: 1, height: 12, background: 'rgba(0,0,0,.1)', flex: 'none' }} />
-              <button onClick={() => setCustomAnswer(false)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'none', border: '1px solid rgba(124,58,237,.25)', borderRadius: 5, cursor: 'pointer', font: '500 11px/1 Inter,sans-serif', color: '#7C3AED', padding: '3px 8px' }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.07)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}>
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-                Back to options
-              </button>
+            /* Custom-answer callout — sized up and visually loud so users
+               immediately understand the input below is the next step.
+               A subtle pulsing ring + downward chevron points to the textarea. */
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12,
+              padding: '14px 16px',
+              background: 'linear-gradient(135deg, rgba(124,58,237,.16) 0%, rgba(91,33,182,.10) 100%)',
+              border: '2px solid rgba(124,58,237,.55)',
+              borderRadius: 12,
+              boxShadow: '0 0 0 4px rgba(124,58,237,.10), 0 4px 14px rgba(124,58,237,.18)',
+              animation: 'caPulse 1.8s ease-in-out infinite',
+            }}>
+              <div style={{
+                width: 34, height: 34, borderRadius: 9,
+                background: 'linear-gradient(135deg, #7C3AED, #5B21B6)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none',
+                boxShadow: '0 2px 6px rgba(124,58,237,.4)',
+              }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+              </div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ font: '700 14px/1.2 Inter,sans-serif', color: '#5B21B6', letterSpacing: '-.005em' }}>Type your custom answer</span>
+                <span style={{ font: '400 12px/1.3 Inter,sans-serif', color: 'rgba(91,33,182,.78)' }}>
+                  Write what you want below, then press Enter or hit Send.
+                </span>
+              </div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+                style={{ flex: 'none', animation: 'caArrow 1.4s ease-in-out infinite' }}>
+                <path d="M12 5v14M19 12l-7 7-7-7"/>
+              </svg>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 'none' }}>
+                <button onClick={() => setCustomAnswer(false)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#fff', border: '1.5px solid rgba(124,58,237,.4)', borderRadius: 6, cursor: 'pointer', font: '600 12px/1 Inter,sans-serif', color: '#6D28D9', padding: '7px 11px' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.08)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+                  Back to options
+                </button>
+                <button onClick={handleSkip}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', font: '500 12px/1 Inter,sans-serif', color: 'rgba(91,33,182,.6)', padding: '6px 4px', borderRadius: 4 }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#5B21B6'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'rgba(91,33,182,.6)'}>
+                  Skip
+                </button>
+              </div>
             </div>
           )}
 
@@ -3176,6 +3439,61 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
             </div>
           )}
 
+          {/* ── Callback delivery section ─────────────────────────────────
+              How the system reaches employees on the ranked list. The cadence
+              menus differ per channel because phone calls and pushes have very
+              different ergonomics (calls disrupt, pushes don't). Each channel
+              also gets its own "next-day retry" cadence menu so the second-day
+              recovery rhythm matches the primary channel. */}
+          {shown('notifyChannel') && (
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('notifyChannel') }} data-field="notifyChannel">
+              <FormGroup label="How Should We Reach Employees?">
+                <RichSelect value={form.notifyChannel} onChange={v => patchForm({ notifyChannel: v, notifyCadence: '', nextDayCadence: '' })}
+                  options={NOTIFY_CHANNEL_OPTIONS} placeholder="Pick a delivery channel" />
+              </FormGroup>
+            </div>
+          )}
+
+          {form.notifyChannel && (
+            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('notifyCadence') }} data-field="notifyCadence">
+              <FormGroup label={`${form.notifyChannel} cadence`}>
+                <FieldSelect value={form.notifyCadence}
+                  onChange={v => patchForm({ notifyCadence: v })}
+                  options={NOTIFY_CADENCE_OPTIONS[form.notifyChannel] || []}
+                  placeholder="Pick a cadence" />
+              </FormGroup>
+            </div>
+          )}
+
+          {form.notifyChannel && (
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('nextDayRetry') }} data-field="nextDayRetry">
+              <FormGroup label="Retry the Next Day if Unfilled?">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {[{ v: 'Yes', l: 'Yes — try again the next day' }, { v: 'No', l: 'No — single attempt only' }].map(opt => (
+                    <label key={opt.v} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
+                      onClick={() => patchForm({ nextDayRetry: opt.v, ...(opt.v === 'No' ? { nextDayCadence: '' } : {}) })}>
+                      <span style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${form.nextDayRetry === opt.v ? '#7C3AED' : 'rgba(0,0,0,.28)'}`, background: form.nextDayRetry === opt.v ? '#7C3AED' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
+                        {form.nextDayRetry === opt.v && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#fff' }} />}
+                      </span>
+                      <span style={{ font: '400 14px/1 Inter,sans-serif', color: 'rgba(24,39,58,.87)' }}>{opt.l}</span>
+                    </label>
+                  ))}
+                </div>
+              </FormGroup>
+            </div>
+          )}
+
+          {form.notifyChannel && form.nextDayRetry === 'Yes' && (
+            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('nextDayCadence') }} data-field="nextDayCadence">
+              <FormGroup label="Next-day cadence">
+                <FieldSelect value={form.nextDayCadence}
+                  onChange={v => patchForm({ nextDayCadence: v })}
+                  options={NEXT_DAY_CADENCE_OPTIONS[form.notifyChannel] || []}
+                  placeholder="Pick a retry cadence" />
+              </FormGroup>
+            </div>
+          )}
+
           {/* Tall trailing spacer so dropdowns/menus opening near the bottom
               of the form aren't clipped by the panel — gives the user room
               to scroll past the last field and see every option. */}
@@ -3338,8 +3656,16 @@ function rankRosterForScenario({ rule, scenarioDate, baselineDate, approach, his
     return [0, p.hours];
   };
 
+  // Tiering: eligible (off-shift available) on top, on-shift in the middle
+  // (they can't take a callback), unavailable (PTO/sick) at the bottom.
+  const tier = (p) => {
+    if (!p.status.available) return 2;
+    if (p.status.code === 'on-shift') return 1;
+    return 0;
+  };
   return annotated.sort((a, b) => {
-    if (a.status.available !== b.status.available) return a.status.available ? -1 : 1;
+    const ta = tier(a), tb = tier(b);
+    if (ta !== tb) return ta - tb;
     const [ag, av] = sortKey(a), [bg, bv] = sortKey(b);
     if (ag !== bg) return ag - bg;
     if (typeof av === 'string') return av.localeCompare(bv);
@@ -3353,9 +3679,15 @@ function SimulatorView({ seed, onBack }) {
   // the simulator. Falls back to an empty list if RULES_DATA isn't yet exposed.
   const availableRules = (window.RULES_DATA && window.RULES_DATA.length > 0) ? window.RULES_DATA : [];
 
-  // Default to the seeded rule (when launched from the rule builder) or the
-  // first existing rule otherwise.
+  // When the user enters Preview Mode cold from the Rules section (no seed
+  // from the builder), start with no rule/approach picked so the right panel
+  // shows an empty state until they make an explicit choice.
+  const isFreshStart = !seed;
+
+  // Default to the seeded rule (when launched from the rule builder), or null
+  // for fresh-start so the user picks explicitly.
   const findSeedRuleId = () => {
+    if (isFreshStart) return null;
     if (seed?.form?.ruleName) {
       const match = availableRules.find(r => r.name === seed.form.ruleName || r.config?.ruleName === seed.form.ruleName);
       if (match) return match.id;
@@ -3367,10 +3699,13 @@ function SimulatorView({ seed, onBack }) {
   const activeRule = availableRules.find(r => r.id === selectedRuleId) || (seed?.form ? { id: 'in-progress', name: seed.form.ruleName || 'In-progress rule', config: seed.form } : null);
   const ruleForm   = activeRule?.config || activeRule || { ruleType: 'hours', ruleAffects: 'all', selectedApproaches: [], ruleName: 'New Rule' };
 
-  // Default approach: first approach the selected rule covers, or 'Firefighter 2'.
-  const seededApproach = (ruleForm.ruleAffects === 'selected' && ruleForm.selectedApproaches?.length)
-    ? ruleForm.selectedApproaches[0]
-    : 'Firefighter 2';
+  // Fresh-start: leave approach empty so the user picks. Otherwise, default to
+  // the first approach the seeded rule covers (or Firefighter 2 as a fallback).
+  const seededApproach = isFreshStart
+    ? ''
+    : ((ruleForm.ruleAffects === 'selected' && ruleForm.selectedApproaches?.length)
+        ? ruleForm.selectedApproaches[0]
+        : 'Firefighter 2');
 
   const baselineDate = useSimMemo(() => new Date(2026, 4, 19, 8, 0, 0), []);
 
@@ -3382,10 +3717,21 @@ function SimulatorView({ seed, onBack }) {
   const [approach, setApproach]   = useSimSt(seededApproach);
   const [stepHistory, setStepHistory] = useSimSt([]);
   const [overridePick, setOverridePick] = useSimSt('');
+  // Left-panel tab: 'settings' lets the user pick approach + rule and configure
+  // the callback shift; 'chat' is the scenario assistant. Default to settings
+  // on fresh start so the first thing the user sees is the picker.
+  const [leftTab, setLeftTab] = useSimSt(isFreshStart ? 'settings' : 'chat');
+  // Both picks required before the right panel exits its empty state.
+  const isReady = !!activeRule && !!approach;
   // simulationSeed shakes the predicted-call-order slightly each reset so the
   // ranking visibly changes between runs even when the rule itself doesn't.
   const [simulationSeed, setSimulationSeed] = useSimSt(() => Math.floor(Math.random() * 100000));
   const [chat, setChat] = useSimSt(() => {
+    // Fresh start: the user hasn't picked yet — wait for the picks before
+    // populating the AI summary. The Callback Settings tab is what's open.
+    if (isFreshStart) {
+      return [{ role: 'ai', text: "Welcome to Preview Mode. Pick a rule and an approach in Callback Settings — once both are set, I'll summarize the rule and you'll see the predicted call order on the right." }];
+    }
     // Lead with a quick summary of the rule the user pulled up so the preview
     // matches the rule-edit experience.
     const summary = (window.summarizeRule && activeRule)
@@ -3404,6 +3750,21 @@ function SimulatorView({ seed, onBack }) {
     const el = simChatRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
   }, [chat]);
+
+  // Once the user has picked both a rule AND an approach (fresh-start case),
+  // populate the AI summary in the chat thread. The ref guard prevents this
+  // from re-running on subsequent picks within the same session.
+  const hasInjectedSummary = useSimRef(!isFreshStart);
+  useSimEffect(() => {
+    if (hasInjectedSummary.current) return;
+    if (!activeRule || !approach) return;
+    hasInjectedSummary.current = true;
+    const summary = (window.summarizeRule && activeRule) ? window.summarizeRule(activeRule) : '';
+    const intro = summary
+      ? `Here's a quick summary of "${activeRule?.name || 'this rule'}":\n\n${summary}\n\nSwitch to the AI Chat tab to ask scenario questions, or run a callback on the right.`
+      : `Locked in "${activeRule?.name || 'this rule'}" for the ${approach} approach. Switch to the AI Chat tab to ask scenario questions, or run a callback on the right.`;
+    setChat(c => [...c, { role: 'ai', text: intro }]);
+  }, [activeRule, approach]);
 
   const MAX_STEPS = 7;
   const currentStepIdx = stepHistory.length;
@@ -3424,7 +3785,9 @@ function SimulatorView({ seed, onBack }) {
     return rankRosterForScenario({ rule: ruleForm, scenarioDate: prevDate, baselineDate, approach, history: prevHistory, seed: simulationSeed });
   }, [ruleForm, baselineDate, approach, stepHistory, startDate, simulationSeed]);
 
-  const eligible = ranking.filter(p => p.status.available);
+  // On-shift people can't take a callback (already working), so they're
+  // excluded from the eligible pool that drives auto-simulate + dropdown.
+  const eligible = ranking.filter(p => p.status.available && p.status.code !== 'on-shift');
 
   const autoSimulate = () => {
     if (eligible.length === 0) return;
@@ -3552,12 +3915,41 @@ function SimulatorView({ seed, onBack }) {
       {/* Body */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', gap: 0 }}>
 
-        {/* LEFT: chatbot card + form mimicking the production CallBack creation form.
-            Tall bottom padding so dropdowns near the end of the form don't get
-            clipped by the panel — the user can scroll past the last field. */}
-        <div style={{ width: '52%', overflowY: 'auto', padding: '20px 24px 320px', borderRight: '1px solid rgba(0,0,0,.08)' }}>
+        {/* LEFT: tabbed panel — AI Chat (scenario assistant) and Callback Settings
+            (the form below). Tabs let the form breathe on smaller screens
+            and keep the chat focused when the user wants scenario answers. */}
+        <div style={{ width: '52%', display: 'flex', flexDirection: 'column', borderRight: '1px solid rgba(0,0,0,.08)', overflow: 'hidden' }}>
 
-          {/* Scenario assistant — chatbot-style card sitting above the form */}
+          {/* Tab bar — sticky at the top of the left column */}
+          <div style={{ display: 'flex', borderBottom: '1px solid rgba(0,0,0,.08)', background: '#fff', flex: 'none' }}>
+            {[['chat', 'AI Chat'], ['settings', 'Callback Settings']].map(([val, label]) => (
+              <button key={val} onClick={() => setLeftTab(val)}
+                style={{
+                  padding: '12px 18px 13px',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  borderBottom: leftTab === val ? '2px solid #7C3AED' : '2px solid transparent',
+                  marginBottom: -1,
+                  font: `${leftTab === val ? 600 : 500} 13px/1 Inter,sans-serif`,
+                  color: leftTab === val ? '#7C3AED' : 'rgba(0,0,0,.55)',
+                  transition: 'color .15s',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                }}>
+                {val === 'chat' ? (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+                ) : (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33h0a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51h0a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82v0a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                )}
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab body — scrollable. Tall bottom padding so dropdowns near
+              the end of the form don't get clipped by the panel. */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px 320px' }}>
+
+          {leftTab === 'chat' && (
+          /* Scenario assistant — chatbot-style card */
           <div style={{ background: '#fff', border: '1px solid rgba(124,58,237,.22)', borderRadius: 10, marginBottom: 12, boxShadow: '0 2px 10px rgba(124,58,237,.1)', overflow: 'hidden' }}>
             {/* Chat header */}
             <div style={{ padding: '10px 14px', background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -3610,6 +4002,45 @@ function SimulatorView({ seed, onBack }) {
               </button>
             </div>
           </div>
+          )}
+
+          {leftTab === 'settings' && (
+          <>
+          {/* Inline nudge when the user lands on Preview Mode cold — calls out
+              that picks below populate the AI summary + preview list on the right. */}
+          {!isReady && (
+            <div style={{ background: 'linear-gradient(135deg, rgba(124,58,237,.06), rgba(91,33,182,.03))', border: '1px solid rgba(124,58,237,.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#7C3AED" style={{ flex: 'none', marginTop: 1 }}><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+              <div style={{ font: '400 12.5px/1.5 Inter,sans-serif', color: 'rgba(24,39,58,.85)' }}>
+                Pick an <strong>Approach</strong> and a <strong>Rule</strong> below — once both are set, the AI summary will appear in the AI Chat tab and the predicted call order will populate on the right.
+              </div>
+            </div>
+          )}
+
+          <SimSection icon="scales" title="Select Approach + Rule">
+            <SimRow label="Positions to fill">
+              <input type="number" value={positions} onChange={e => setPositions(Number(e.target.value))} style={{ ...inputStyle, width: 80 }} />
+            </SimRow>
+            <SimRow label="using Approach">
+              <select value={approach} onChange={e => { setApproach(e.target.value); resetSimulation(); }} style={selectStyle}>
+                <option value="">— Pick an approach —</option>
+                {Object.keys(APPROACH_ROSTERS).map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </SimRow>
+            <SimRow label="applying Rule">
+              {availableRules.length > 0 ? (
+                <select value={selectedRuleId || ''} onChange={e => { setSelectedRuleId(e.target.value ? Number(e.target.value) : null); resetSimulation(); }} style={selectStyle}>
+                  <option value="">— Pick a rule —</option>
+                  {availableRules.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+              ) : (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 11px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.25)', borderRadius: 5, font: '500 13px/1 Inter,sans-serif', color: '#7C3AED' }}>
+                  {activeRule?.name || 'New Rule'}
+                </span>
+              )}
+              <span style={{ font: '400 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.5)', marginLeft: 4 }}>· {ruleTypeLabel(ruleForm.ruleType)}</span>
+            </SimRow>
+          </SimSection>
 
           <SimSection icon="clock" title="Choose CallBack Shift date / time">
             <SimRow label="Start">
@@ -3632,42 +4063,119 @@ function SimulatorView({ seed, onBack }) {
             </SimRow>
           </SimSection>
 
-          <SimSection icon="scales" title="Select Approach + Rule">
-            <SimRow label="Positions to fill">
-              <input type="number" value={positions} onChange={e => setPositions(Number(e.target.value))} style={{ ...inputStyle, width: 80 }} />
-            </SimRow>
-            <SimRow label="using Approach">
-              <select value={approach} onChange={e => { setApproach(e.target.value); resetSimulation(); }} style={selectStyle}>
-                {Object.keys(APPROACH_ROSTERS).map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-            </SimRow>
-            <SimRow label="applying Rule">
-              {availableRules.length > 0 ? (
-                <select value={selectedRuleId || ''} onChange={e => { setSelectedRuleId(Number(e.target.value)); resetSimulation(); }} style={selectStyle}>
-                  {availableRules.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
-              ) : (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 11px', background: 'rgba(124,58,237,.06)', border: '1px solid rgba(124,58,237,.25)', borderRadius: 5, font: '500 13px/1 Inter,sans-serif', color: '#7C3AED' }}>
-                  {activeRule?.name || 'New Rule'}
-                </span>
-              )}
-              <span style={{ font: '400 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.5)', marginLeft: 4 }}>· {ruleTypeLabel(ruleForm.ruleType)}</span>
-            </SimRow>
-          </SimSection>
-
           <SimSection icon="filter" title="Auto-applied filters">
             <div style={{ font: '400 12.5px/1.6 Inter,sans-serif', color: 'rgba(0,0,0,.6)' }}>
-              <div>· Roster scope: <strong>{(APPROACH_ROSTERS[approach] || []).length} people on the {approach} approach</strong></div>
+              <div>· Roster scope: <strong>{approach ? `${(APPROACH_ROSTERS[approach] || []).length} people on the ${approach} approach` : 'pick an approach to see scope'}</strong></div>
               <div>· Filtering employees on PTO / sick days at scenario time</div>
+              <div>· On-shift employees are excluded from the eligible callback pool</div>
               <div>· Rolodex acceptance from prior steps moves accepters to bottom</div>
             </div>
           </SimSection>
+          </>
+          )}
 
+          </div>
         </div>
 
-        {/* RIGHT: live preview + step-through */}
+        {/* RIGHT: empty until rule + approach picked. Once ready:
+            TOP = stepper + callback chain results,
+            MIDDLE = predicted call order list (scrollable),
+            BOTTOM = "who accepts" dropdown + Run callback button. */}
         <div style={{ width: '48%', display: 'flex', flexDirection: 'column', background: '#fff', overflow: 'hidden' }}>
-          <div style={{ padding: '14px 22px 8px', borderBottom: '1px solid rgba(0,0,0,.07)', flex: 'none' }}>
+
+          {!isReady && (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', textAlign: 'center', background: 'linear-gradient(180deg, #FAFAFC 0%, #fff 100%)' }}>
+              <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, rgba(124,58,237,.12), rgba(91,33,182,.06))', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="#7C3AED"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+              </div>
+              <div style={{ font: '600 15px/1.3 Inter,sans-serif', color: 'rgba(24,39,58,.9)', marginBottom: 8 }}>Pick an approach and a rule to start</div>
+              <div style={{ font: '400 13px/1.55 Inter,sans-serif', color: 'rgba(0,0,0,.55)', maxWidth: 360 }}>
+                Once you set both in the <strong>Callback Settings</strong> tab on the left, I'll summarize the rule in chat and show the predicted call order here.
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 22, font: '500 12px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 16, height: 16, borderRadius: '50%', border: `1.5px solid ${approach ? '#7C3AED' : 'rgba(0,0,0,.2)'}`, background: approach ? '#7C3AED' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                    {approach ? <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16l-4-4 1.4-1.4L9 13.2l8.6-8.6L19 6z"/></svg> : null}
+                  </span>
+                  Approach
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 16, height: 16, borderRadius: '50%', border: `1.5px solid ${selectedRuleId ? '#7C3AED' : 'rgba(0,0,0,.2)'}`, background: selectedRuleId ? '#7C3AED' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                    {selectedRuleId ? <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16l-4-4 1.4-1.4L9 13.2l8.6-8.6L19 6z"/></svg> : null}
+                  </span>
+                  Rule
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isReady && (
+          <>
+          {/* TOP: callback chain stepper + the running results once callbacks
+              have been kicked off. Sits above the predicted-call-order list. */}
+          <div style={{ padding: '14px 22px 12px', borderBottom: '1px solid rgba(0,0,0,.07)', flex: 'none', background: '#FAFAFC' }}>
+            <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.5)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>Callback chain {currentStepIdx > 0 && `· ${currentStepIdx} of ${MAX_STEPS} run`}</div>
+
+            {/* Stepper — horizontal chain showing callbacks #1 through #N. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 10 }}>
+              {Array.from({ length: MAX_STEPS }, (_, i) => {
+                const done    = i < currentStepIdx;
+                const active  = i === currentStepIdx && !isFinished;
+                const bg      = done ? '#7C3AED' : active ? '#fff' : 'rgba(0,0,0,.06)';
+                const ringCol = done ? '#7C3AED' : active ? '#7C3AED' : 'rgba(0,0,0,.18)';
+                const txtCol  = done ? '#fff'    : active ? '#7C3AED' : 'rgba(0,0,0,.45)';
+                return (
+                  <React.Fragment key={i}>
+                    <div title={`Callback #${i + 1}`} style={{
+                      width: 22, height: 22, borderRadius: '50%',
+                      background: bg, border: `1.5px solid ${ringCol}`,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      font: '700 10px/1 Inter,sans-serif', color: txtCol, flex: 'none',
+                      boxShadow: active ? '0 0 0 3px rgba(124,58,237,.18)' : 'none',
+                      transition: 'all .2s',
+                    }}>
+                      {done ? (
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16l-4-4 1.4-1.4L9 13.2l8.6-8.6L19 6z"/></svg>
+                      ) : (i + 1)}
+                    </div>
+                    {i < MAX_STEPS - 1 && (
+                      <div style={{ flex: 1, height: 2, background: i < currentStepIdx ? '#7C3AED' : 'rgba(0,0,0,.1)', transition: 'background .2s' }} />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+
+            {/* Callback results — populated as each step runs. Empty until run. */}
+            {stepHistory.length === 0 ? (
+              <div style={{ font: '400 12px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.5)', padding: '4px 0' }}>
+                No callbacks run yet. Pick who accepts at the bottom (or leave on Random) and run callback #1.
+              </div>
+            ) : (
+              <div style={{ maxHeight: 150, overflowY: 'auto', paddingRight: 4 }}>
+                {stepHistory.map((step, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '6px 0', borderBottom: i < stepHistory.length - 1 ? '1px dashed rgba(0,0,0,.07)' : 'none' }}>
+                    <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#7C3AED', color: '#fff', font: '700 10px/1 Inter,sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', marginTop: 2 }}>{i + 1}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ font: '500 12px/1.3 Inter,sans-serif', color: 'rgba(24,39,58,.85)' }}>
+                        {formatDate(step.date)} {step.manual && <span style={{ font: '500 10px/1 Inter,sans-serif', color: '#7C3AED', marginLeft: 5 }}>· manual override</span>}
+                      </div>
+                      <div style={{ font: '400 11.5px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.55)', marginTop: 2 }}>
+                        {step.attempts.map((a, j) => (
+                          <span key={j} style={{ color: a.outcome.startsWith('accepted') ? '#158444' : '#D83E38' }}>
+                            {a.name} · {a.outcome}{j < step.attempts.length - 1 ? ' → ' : ''}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* MIDDLE: predicted call order list (scrollable). */}
+          <div style={{ padding: '12px 22px 6px', flex: 'none' }}>
             <div style={{ font: '600 12px/1 Inter,sans-serif', color: 'rgba(0,0,0,.5)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Predicted call order</div>
             <div style={{ font: '400 12px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.55)' }}>
               For callback <strong>#{currentStepIdx + 1}</strong> at <strong>{formatDate(activeDate)}</strong> · platoon {platoonForDay(daysBetween(baselineDate, activeDate))} is on-shift
@@ -3676,10 +4184,12 @@ function SimulatorView({ seed, onBack }) {
           </div>
 
           {/* Roster list — movement arrows compare to previousRanking */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '8px 18px 14px' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '4px 18px 14px' }}>
             {ranking.map((p, idx) => {
               const st = STATUS_STYLE[p.status.code] || STATUS_STYLE['off'];
-              const dim = !p.status.available;
+              // Gray out anyone who can't actually take this callback —
+              // both PTO/sick (status not available) AND on-shift (already working).
+              const dim = !p.status.available || p.status.code === 'on-shift';
               const prevIdx = previousRanking ? previousRanking.findIndex(x => x.name === p.name) : -1;
               const delta = previousRanking && prevIdx >= 0 ? prevIdx - idx : 0;
               return (
@@ -3716,70 +4226,17 @@ function SimulatorView({ seed, onBack }) {
             )}
           </div>
 
-          {/* Step history + controls */}
+          {/* BOTTOM: "who gets the callback" picker + Run simulation button.
+              Stays anchored at the bottom of the right panel so the primary
+              action is always reachable while the user scrolls the list. */}
           <div style={{ borderTop: '1px solid rgba(0,0,0,.07)', padding: '12px 18px', background: '#FAFAFC', flex: 'none' }}>
-            <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.5)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Callback chain {currentStepIdx > 0 && `· ${currentStepIdx} of ${MAX_STEPS} run`}</div>
-
-            {/* Stepper — shows the callback chain as a horizontal progression so
-                the user understands we're simulating callbacks #1 through #N
-                back-to-back, not isolated single calls. */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 12, paddingBottom: 10, borderBottom: '1px dashed rgba(0,0,0,.08)' }}>
-              {Array.from({ length: MAX_STEPS }, (_, i) => {
-                const done    = i < currentStepIdx;
-                const active  = i === currentStepIdx && !isFinished;
-                const bg      = done ? '#7C3AED' : active ? '#fff' : 'rgba(0,0,0,.06)';
-                const ringCol = done ? '#7C3AED' : active ? '#7C3AED' : 'rgba(0,0,0,.18)';
-                const txtCol  = done ? '#fff'    : active ? '#7C3AED' : 'rgba(0,0,0,.45)';
-                return (
-                  <React.Fragment key={i}>
-                    <div title={`Callback #${i + 1}`} style={{
-                      width: 22, height: 22, borderRadius: '50%',
-                      background: bg, border: `1.5px solid ${ringCol}`,
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      font: '700 10px/1 Inter,sans-serif', color: txtCol, flex: 'none',
-                      boxShadow: active ? '0 0 0 3px rgba(124,58,237,.18)' : 'none',
-                      transition: 'all .2s',
-                    }}>
-                      {done ? (
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16l-4-4 1.4-1.4L9 13.2l8.6-8.6L19 6z"/></svg>
-                      ) : (i + 1)}
-                    </div>
-                    {i < MAX_STEPS - 1 && (
-                      <div style={{ flex: 1, height: 2, background: i < currentStepIdx ? '#7C3AED' : 'rgba(0,0,0,.1)', transition: 'background .2s' }} />
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </div>
-
-            {stepHistory.length === 0 && (
-              <div style={{ font: '400 12px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.45)', marginBottom: 8 }}>No callbacks run yet. Pick who accepts below (or leave it on Random) and run callback #1.</div>
-            )}
-            {stepHistory.map((step, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '6px 0', borderBottom: i < stepHistory.length - 1 ? '1px dashed rgba(0,0,0,.07)' : 'none' }}>
-                <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#7C3AED', color: '#fff', font: '700 10px/1 Inter,sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', marginTop: 2 }}>{i + 1}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ font: '500 12px/1.3 Inter,sans-serif', color: 'rgba(24,39,58,.85)' }}>
-                    {formatDate(step.date)} {step.manual && <span style={{ font: '500 10px/1 Inter,sans-serif', color: '#7C3AED', marginLeft: 5 }}>· manual override</span>}
-                  </div>
-                  <div style={{ font: '400 11.5px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.55)', marginTop: 2 }}>
-                    {step.attempts.map((a, j) => (
-                      <span key={j} style={{ color: a.outcome.startsWith('accepted') ? '#158444' : '#D83E38' }}>
-                        {a.name} · {a.outcome}{j < step.attempts.length - 1 ? ' → ' : ''}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
-
             {!isFinished && (
-              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.5)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
                   Who accepts callback #{currentStepIdx + 1}?
                 </div>
                 {/* Single dropdown: "Random (system decides)" first, then every
-                    available person. Picking Random calls autoSimulate() — the
+                    eligible person. Picking Random calls autoSimulate() — the
                     rule walks the list until someone accepts. Picking a name
                     calls overrideAccept() to test a specific outcome. */}
                 <select
@@ -3810,11 +4267,13 @@ function SimulatorView({ seed, onBack }) {
               </div>
             )}
             {isFinished && (
-              <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(124,58,237,.08)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 6, font: '400 12px/1.4 Inter,sans-serif', color: '#5B21B6' }}>
+              <div style={{ padding: '8px 12px', background: 'rgba(124,58,237,.08)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 6, font: '400 12px/1.4 Inter,sans-serif', color: '#5B21B6' }}>
                 Hit the {MAX_STEPS}-callback limit. Reset to run more.
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
       </div>
     </div>
@@ -4037,56 +4496,184 @@ const AR_AI_CHIPS = [
   { label: "Let's build a new approach",seed: { text: "I need to set up a new approach" },   color: { bg: '#F0FDF4', border: '#86EFAC', text: '#15803D', hoverBg: '#DCFCE7', hoverBorder: '#4ADE80' } },
 ];
 
+// Each step renders as a tinted illustration card + numbered badge + bold
+// label + small sub. The `illustration` element is rendered centered inside
+// the card (170×140 viewBox so all five share the same scale).
 const METHODOLOGY_STEPS = [
   {
-    label: 'Select Approach',
-    sub: 'Choose a list to fill',
-    accent: '#64748B',
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-      </svg>
-    ),
-  },
-  {
-    label: 'Apply Rule to Approach',
-    sub: 'Set the ranking logic',
-    accent: '#475569',
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
-      </svg>
-    ),
-  },
-  {
-    label: 'AI builds & ranks',
-    sub: 'Smart prioritization',
-    accent: '#0D9488',
-    highlight: true,
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="#fff">
-        <path d="M12 3l1.4 4.2 4.2 1.4-4.2 1.4L12 14.2l-1.4-4.2L6.4 8.6l4.2-1.4zM19 14l.7 2.1 2.1.7-2.1.7L19 19.6l-.7-2.1-2.1-.7 2.1-.7zM6 17l.5 1.5 1.5.5-1.5.5L6 21l-.5-1.5-1.5-.5 1.5-.5z"/>
-      </svg>
-    ),
-  },
-  {
-    label: 'Employees are notified',
-    sub: 'Crew Scheduler sends the call',
+    n: 1,
+    label: 'Select an approach',
+    sub: 'Group of employees eligible for a shift',
     accent: '#2563EB',
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+    tint: 'linear-gradient(180deg, #DBEAFE 0%, #BFDBFE 100%)',
+    badge: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
+    illustration: (
+      <svg viewBox="0 0 170 140" style={{ width: '100%', height: '100%' }}>
+        {/* dotted selection ring around the middle person */}
+        <circle cx="85" cy="75" r="40" fill="none" stroke="#2563EB" strokeWidth="1.5" strokeDasharray="4 3" opacity="0.7" />
+        {/* left silhouette (faint) */}
+        <g transform="translate(35,60)" opacity="0.45">
+          <circle cx="0" cy="0" r="10" fill="#60A5FA" />
+          <path d="M-16 32 a16 16 0 0 1 32 0 Z" fill="#60A5FA" />
+        </g>
+        {/* middle silhouette (highlighted) */}
+        <g transform="translate(85,55)">
+          <circle cx="0" cy="0" r="13" fill="#2563EB" />
+          <path d="M-20 40 a20 20 0 0 1 40 0 Z" fill="#2563EB" />
+        </g>
+        {/* right silhouette (faint) */}
+        <g transform="translate(135,60)" opacity="0.45">
+          <circle cx="0" cy="0" r="10" fill="#60A5FA" />
+          <path d="M-16 32 a16 16 0 0 1 32 0 Z" fill="#60A5FA" />
+        </g>
+        {/* green checkmark badge */}
+        <g transform="translate(110,46)">
+          <circle r="11" fill="#16A34A" stroke="#fff" strokeWidth="2" />
+          <path d="M-4 0 l 3 3 6 -6" stroke="#fff" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </g>
       </svg>
     ),
   },
   {
-    label: 'Rankings adjust live',
-    sub: 'Real-time updates',
+    n: 2,
+    label: 'Apply a rule',
+    sub: 'Sorter decides who is called first',
+    accent: '#EA580C',
+    tint: 'linear-gradient(180deg, #FFEDD5 0%, #FED7AA 100%)',
+    badge: 'linear-gradient(135deg, #F97316, #EA580C)',
+    illustration: (
+      <svg viewBox="0 0 170 140" style={{ width: '100%', height: '100%' }}>
+        {/* left bars (unsorted input) */}
+        <g transform="translate(10,42)">
+          <rect x="0"  y="0"  width="38" height="8" rx="2" fill="#FED7AA" />
+          <rect x="0"  y="14" width="32" height="8" rx="2" fill="#FDBA74" />
+          <rect x="0"  y="28" width="36" height="8" rx="2" fill="#FED7AA" />
+          <rect x="0"  y="42" width="30" height="8" rx="2" fill="#FDBA74" />
+        </g>
+        {/* central gear */}
+        <g transform="translate(85,70)">
+          <g fill="#EA580C">
+            <circle r="20" />
+            {/* teeth */}
+            {[0,45,90,135,180,225,270,315].map((deg) => (
+              <rect key={deg} x="-3.5" y="-26" width="7" height="8" rx="1.5" transform={`rotate(${deg})`} />
+            ))}
+          </g>
+          <circle r="8" fill="#FFEDD5" />
+          <circle r="3" fill="#EA580C" />
+        </g>
+        {/* right bars (sorted output) with 1st / 2nd labels */}
+        <g transform="translate(116,42)">
+          <rect x="0" y="0"  width="44" height="14" rx="3" fill="#EA580C" />
+          <text x="6" y="11" fill="#fff" fontFamily="Inter, sans-serif" fontSize="9" fontWeight="700">1st</text>
+          <rect x="0" y="20" width="44" height="14" rx="3" fill="#FB923C" />
+          <text x="6" y="31" fill="#fff" fontFamily="Inter, sans-serif" fontSize="9" fontWeight="700">2nd</text>
+          <rect x="0" y="40" width="38" height="10" rx="2.5" fill="#FED7AA" />
+          <rect x="0" y="54" width="32" height="10" rx="2.5" fill="#FED7AA" />
+        </g>
+      </svg>
+    ),
+  },
+  {
+    n: 3,
+    label: 'Calling list generated',
+    sub: 'Ranked order built automatically',
     accent: '#7C3AED',
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
-        <polyline points="17 6 23 6 23 12"/>
+    tint: 'linear-gradient(180deg, #EDE9FE 0%, #DDD6FE 100%)',
+    badge: 'linear-gradient(135deg, #8B5CF6, #6D28D9)',
+    illustration: (
+      <svg viewBox="0 0 170 140" style={{ width: '100%', height: '100%' }}>
+        {/* document */}
+        <rect x="32" y="18" width="106" height="108" rx="8" fill="#fff" stroke="#C4B5FD" strokeWidth="1.5" />
+        {/* header bar */}
+        <rect x="44" y="30" width="42" height="6" rx="3" fill="#7C3AED" />
+        <rect x="44" y="42" width="28" height="4" rx="2" fill="#DDD6FE" />
+        {/* list items 1, 2, 3 */}
+        {[
+          { y: 64,  c: '#7C3AED', w: 60 },
+          { y: 86,  c: '#A78BFA', w: 54 },
+          { y: 108, c: '#C4B5FD', w: 48 },
+        ].map((row, i) => (
+          <g key={i} transform={`translate(44, ${row.y})`}>
+            <circle cx="8" cy="0" r="8" fill={row.c} />
+            <text x="8" y="3.5" fill="#fff" fontFamily="Inter, sans-serif" fontSize="9" fontWeight="700" textAnchor="middle">{i+1}</text>
+            <rect x="22" y="-4" width={row.w} height="6" rx="3" fill="#EDE9FE" />
+            <rect x="22" y="4"  width={row.w * 0.6} height="3" rx="1.5" fill="#F3F0FF" />
+          </g>
+        ))}
+        {/* sparkle badge */}
+        <g transform="translate(128,22)">
+          <circle r="11" fill="#7C3AED" stroke="#fff" strokeWidth="2" />
+          <path d="M0 -5 l1.6 3.4 3.4 1.6 -3.4 1.6 -1.6 3.4 -1.6 -3.4 -3.4 -1.6 3.4 -1.6 z" fill="#fff" />
+        </g>
+      </svg>
+    ),
+  },
+  {
+    n: 4,
+    label: 'Crew Scheduler reaches out',
+    sub: 'Notifies employees, collects responses',
+    accent: '#15803D',
+    tint: 'linear-gradient(180deg, #DCFCE7 0%, #BBF7D0 100%)',
+    badge: 'linear-gradient(135deg, #22C55E, #15803D)',
+    illustration: (
+      <svg viewBox="0 0 170 140" style={{ width: '100%', height: '100%' }}>
+        {/* left sound waves */}
+        <g transform="translate(38,70)" stroke="#16A34A" fill="none" strokeLinecap="round">
+          <path d="M-2 -16 Q-10 0 -2 16" strokeWidth="2.4" />
+          <path d="M-12 -26 Q-24 0 -12 26" strokeWidth="2.4" opacity="0.55" />
+        </g>
+        {/* phone */}
+        <g transform="translate(85,70)">
+          <rect x="-19" y="-40" width="38" height="76" rx="7" fill="#1F2937" />
+          <rect x="-16" y="-36" width="32" height="60" rx="3" fill="#fff" />
+          <rect x="-7"  y="-38" width="14" height="3" rx="1.5" fill="#374151" />
+          {/* person silhouette in screen */}
+          <g transform="translate(0,-8)">
+            <circle cx="0" cy="0" r="6" fill="#94A3B8" />
+            <path d="M-10 18 a10 10 0 0 1 20 0 Z" fill="#94A3B8" />
+          </g>
+          {/* home indicator */}
+          <circle cx="0" cy="30" r="2" fill="#94A3B8" />
+        </g>
+        {/* right sound waves */}
+        <g transform="translate(132,70)" stroke="#16A34A" fill="none" strokeLinecap="round">
+          <path d="M2 -16 Q10 0 2 16" strokeWidth="2.4" />
+          <path d="M12 -26 Q24 0 12 26" strokeWidth="2.4" opacity="0.55" />
+        </g>
+        {/* green checkmark speech bubble */}
+        <g transform="translate(115,28)">
+          <path d="M-16 -10 Q-18 -10 -18 -8 L-18 6 Q-18 8 -16 8 L-4 8 L-1 12 L2 8 L14 8 Q16 8 16 6 L16 -8 Q16 -10 14 -10 Z" fill="#16A34A" />
+          <path d="M-7 -1 l 4 4 8 -8" stroke="#fff" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </g>
+      </svg>
+    ),
+  },
+  {
+    n: 5,
+    label: 'Rankings adjust live',
+    sub: 'Updates as people accept or decline',
+    accent: '#1D4ED8',
+    tint: 'linear-gradient(180deg, #DBEAFE 0%, #BFDBFE 100%)',
+    badge: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
+    illustration: (
+      <svg viewBox="0 0 170 140" style={{ width: '100%', height: '100%' }}>
+        {/* bars rising left → right */}
+        {[
+          { x: 26,  h: 28, fill: '#BFDBFE' },
+          { x: 52,  h: 46, fill: '#93C5FD' },
+          { x: 78,  h: 62, fill: '#60A5FA' },
+          { x: 104, h: 80, fill: '#3B82F6' },
+          { x: 130, h: 98, fill: '#1D4ED8' },
+        ].map((b, i) => (
+          <rect key={i} x={b.x} y={120 - b.h} width="18" height={b.h} rx="3" fill={b.fill} />
+        ))}
+        {/* trend curve */}
+        <path d="M 30 100 Q 78 60 138 22" stroke="#1D4ED8" strokeWidth="2.4" fill="none" strokeLinecap="round" />
+        {/* arrow head */}
+        <path d="M 130 18 L 142 20 L 138 30" stroke="#1D4ED8" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        {/* marker dot on top bar */}
+        <circle cx="139" cy="21" r="5" fill="#fff" stroke="#1D4ED8" strokeWidth="2.2" />
       </svg>
     ),
   },
@@ -4098,8 +4685,6 @@ function ApproachesRulesPage({ onStart, savedToast, onDismissToast }) {
   // CallBack Methodology starts open so the user lands on the page already
   // oriented to how callback ranking works.
   const [methodologyOpen,  setMethodologyOpen]  = useAppSt(true);
-  const [ruleInput,        setRuleInput]        = useAppSt('');
-  const [bannerGroups,     setBannerGroups]     = useAppSt(new Set());
   const [previewMode,      setPreviewMode]      = useAppSt(false);
 
   // Auto-dismiss the "rule saved" toast after ~4.5s.
@@ -4123,21 +4708,42 @@ function ApproachesRulesPage({ onStart, savedToast, onDismissToast }) {
     return () => el.removeEventListener('scroll', onScroll);
   }, [methodologyOpen]);
 
-  const toggleBannerGroup = (g) => {
-    setBannerGroups(prev => {
-      const next = new Set(prev);
-      if (next.has(g)) next.delete(g); else next.add(g);
-      return next;
-    });
-  };
-  const bannerAllSelected = window.PICKER_GROUPS.every(g => bannerGroups.has(g));
-  const toggleBannerAll = () => setBannerGroups(bannerAllSelected ? new Set() : new Set(window.PICKER_GROUPS));
-  const bannerGroupArray = Array.from(bannerGroups);
-  const bannerHasSelection = bannerGroupArray.length > 0;
-
   const isArchived      = tab === 'archived';
   const approachesShown = isArchived ? APPROACHES_ARCHIVED : APPROACHES_DATA;
-  const rulesShown      = isArchived ? RULES_ARCHIVED      : RULES_DATA;
+
+  // ── Setup checklist — mock state for the first-time-setup helper that lives
+  // next to the methodology banner. Three steps: create approaches → create
+  // rules → send out callback. For this mock the user has already created
+  // approaches, so that step is checked; "Create rules" is the active next
+  // step (no rules exist yet) and "Send out callback" is locked behind that.
+  // Once every step is checked, the whole methodology card disappears.
+  // `helper` text appears under the active step inside the right-side
+  // checklist box to coach first-time users through the current task.
+  const SETUP_STEPS = [
+    {
+      key: 'approaches',
+      label: 'Create approaches',
+      helper: 'Group the employees who are eligible for a shift (e.g. Firefighter 2, Captains).',
+    },
+    {
+      key: 'rules',
+      label: 'Create rules',
+      helper: 'Rules decide who gets called first. Tap “Add New Rule with AI” below to build one.',
+    },
+    {
+      key: 'callback',
+      label: 'Send out callback',
+      helper: 'Preview the ranking, then dispatch the callback to your roster.',
+    },
+  ];
+  const setupDone = { approaches: true, rules: false, callback: false };
+  const setupAllDone = SETUP_STEPS.every(s => setupDone[s.key]);
+  // The first un-done step is "active" — it gets the highlighted treatment to
+  // tell the user what to do next.
+  const setupActiveKey = SETUP_STEPS.find(s => !setupDone[s.key])?.key;
+  // For the mock, rules don't exist yet — drives the empty state in the Rules
+  // card and hides the Preview Mode button (nothing to preview).
+  const hasRules = setupDone.rules;
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#F4F5F7' }}>
@@ -4187,42 +4793,110 @@ function ApproachesRulesPage({ onStart, savedToast, onDismissToast }) {
       {!previewMode && (
       <div ref={bodyScrollRef} style={{ flex: 1, overflowY: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-        {/* ── CallBack Methodology — diagram folds on scroll, banner scrolls
-            with the page (no sticky). `flexShrink: 0` keeps the banner from
-            being squashed by the column flex layout when the viewport gets
-            short, so the thin banner always renders at its full height. */}
-        <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,.09)', borderRadius: 8, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,.04)', flexShrink: 0 }}>
+        {/* ── Methodology accordion + Setup helper ──
+            Two side-by-side cards: the methodology diagram on the left and a
+            standalone Setup helper box on the right. The setup box walks the
+            user through their first-time tasks (Create approaches → Create
+            rules → Send out callback) and the whole row disappears once
+            every setup step is checked. */}
+        {!setupAllDone && (
+        <div style={{ display: 'flex', gap: 16, alignItems: 'stretch', flexShrink: 0 }}>
+
+        {/* Methodology card — owns the "How does callback ranking work?"
+            accordion and its illustrated diagram. */}
+        <div style={{ flex: 1, minWidth: 0, background: '#fff', border: '1px solid rgba(0,0,0,.09)', borderRadius: 8, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
           <button onClick={() => setMethodologyOpen(o => !o)}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.38)" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-            <span style={{ font: '500 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.72)', flex: 1 }}>CallBack Methodology</span>
-            <span style={{ font: '400 11.5px/1 Inter,sans-serif', color: 'rgba(0,0,0,.35)', marginRight: 6 }}>How does callback ranking work?</span>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.38)" strokeWidth="2" strokeLinecap="round" style={{ transition: 'transform .2s', transform: methodologyOpen ? 'rotate(180deg)' : 'rotate(0deg)', flex: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.45)" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            <span style={{ font: '600 15px/1.2 Inter,sans-serif', color: 'rgba(24,39,58,.94)', flex: 1 }}>How does callback ranking work?</span>
+            {/* Diagram pill — makes it explicit this expands to a reference diagram,
+                not an interactive stepper. */}
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '3px 8px',
+              borderRadius: 10,
+              background: 'rgba(124,58,237,.08)',
+              color: '#6D28D9',
+              font: '600 10.5px/1 Inter,sans-serif',
+              textTransform: 'uppercase', letterSpacing: '.06em',
+              flex: 'none',
+            }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="18" r="2"/>
+                <path d="M7 6h10M6 8l5 8M18 8l-5 8"/>
+              </svg>
+              Diagram
+            </span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.45)" strokeWidth="2" strokeLinecap="round" style={{ transition: 'transform .2s', transform: methodologyOpen ? 'rotate(180deg)' : 'rotate(0deg)', flex: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
           </button>
           {methodologyOpen && (
-            <div style={{ padding: '14px 20px 18px', borderTop: '1px solid rgba(0,0,0,.07)' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0 }}>
+            <div style={{
+              padding: '14px 18px 18px',
+              borderTop: '1px solid rgba(0,0,0,.07)',
+              background: '#FAFBFC',
+            }}>
+              {/* Intro line — sets context for the illustrated row below. */}
+              <div style={{ marginBottom: 12, font: '500 12px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="#7C3AED" style={{ flex: 'none' }}>
+                  <path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/>
+                </svg>
+                Five steps from picking who's eligible to filling a shift.
+              </div>
+
+              {/* Illustrated row — compact tinted cards with a unique small
+                  SVG illustration each, a numbered badge tucked at the
+                  top-left, dotted connectors between cards. Sized small enough
+                  to keep the methodology accordion from dominating the page. */}
+              <div style={{ display: 'flex', alignItems: 'flex-start' }}>
                 {METHODOLOGY_STEPS.map((step, i) => (
                   <React.Fragment key={i}>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', minWidth: 0 }}>
+                    <div style={{ flex: '1 1 0', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
+                      {/* Tinted illustration card */}
                       <div style={{
-                        width: 44, height: 44, borderRadius: 12,
-                        background: step.accent,
+                        position: 'relative',
+                        width: '100%',
+                        maxWidth: 96,
+                        height: 70,
+                        borderRadius: 10,
+                        background: step.tint,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flex: 'none',
-                        boxShadow: step.highlight
-                          ? `0 0 0 3px ${step.accent}28, 0 3px 10px ${step.accent}50`
-                          : '0 1px 4px rgba(0,0,0,.18)',
-                        marginBottom: 8,
+                        padding: 8,
+                        boxSizing: 'border-box',
                       }}>
-                        {React.cloneElement(step.icon, { width: 20, height: 20 })}
+                        {/* Numbered badge — circular gradient, tucked at top-left */}
+                        <div style={{
+                          position: 'absolute',
+                          top: -7, left: 6,
+                          width: 18, height: 18, borderRadius: '50%',
+                          background: step.badge,
+                          color: '#fff',
+                          font: '700 10px/1 Inter,sans-serif',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          boxShadow: `0 2px 5px ${step.accent}55, inset 0 0 0 1.5px #fff`,
+                        }}>
+                          {step.n}
+                        </div>
+                        {/* Per-step illustration fills the card */}
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {step.illustration}
+                        </div>
                       </div>
-                      <div style={{ font: `${step.highlight ? 600 : 500} 11.5px/1.25 Inter,sans-serif`, color: step.highlight ? step.accent : 'rgba(24,39,58,.84)', marginBottom: 2 }}>{step.label}</div>
-                      <div style={{ font: '400 10.5px/1.3 Inter,sans-serif', color: 'rgba(0,0,0,.38)' }}>{step.sub}</div>
+
+                      {/* Label */}
+                      <div style={{ marginTop: 8, font: '700 11px/1.25 Inter,sans-serif', color: 'rgba(24,39,58,.94)', textAlign: 'center' }}>
+                        {step.label}
+                      </div>
+                      {/* Sub */}
+                      <div style={{ marginTop: 2, font: '400 9.5px/1.3 Inter,sans-serif', color: 'rgba(0,0,0,.5)', textAlign: 'center', maxWidth: 110, paddingInline: 4 }}>
+                        {step.sub}
+                      </div>
                     </div>
+
+                    {/* Dotted connector — height matches the card so the dashed
+                        centerline sits at the card midline. */}
                     {i < METHODOLOGY_STEPS.length - 1 && (
-                      <div style={{ width: 28, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 12, paddingBottom: 32 }}>
-                        <div style={{ height: 1.5, width: '100%', background: `linear-gradient(to right, ${step.accent}70, ${METHODOLOGY_STEPS[i+1].accent}70)` }} />
+                      <div style={{ flex: '0 0 10px', height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ width: '100%', borderTop: '1.5px dashed rgba(0,0,0,.22)' }} />
                       </div>
                     )}
                   </React.Fragment>
@@ -4232,75 +4906,186 @@ function ApproachesRulesPage({ onStart, savedToast, onDismissToast }) {
           )}
         </div>
 
-        {/* ── Unified container card: tabs + panels ──
-            The body of A&R is the page-level scroll container; the card itself
-            grows with its content and never traps overflow. */}
-        <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,.1)', borderRadius: 8, overflow: 'visible' }}>
-
-          {/* Tab bar inside the card */}
-          <div style={{ borderBottom: '1px solid rgba(0,0,0,.09)', padding: '0 20px', display: 'flex', alignItems: 'flex-end' }}>
-            {[
-              ['active',   'Active',   APPROACHES_DATA.length     + RULES_DATA.length],
-              ['archived', 'Archived', APPROACHES_ARCHIVED.length + RULES_ARCHIVED.length],
-            ].map(([val, label, count]) => (
-              <button key={val} onClick={() => setTab(val)} style={{
-                padding: '11px 16px 10px', background: 'none', border: 'none', cursor: 'pointer',
-                borderBottom: tab === val ? '2px solid #0271CE' : '2px solid transparent',
-                font: `${tab === val ? 600 : 400} 13.5px/1 Inter,sans-serif`,
-                color: tab === val ? '#0271CE' : 'rgba(0,0,0,.48)',
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                transition: 'color .15s', marginBottom: -1,
-              }}>
-                {label}
-                <span style={{
-                  minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9,
-                  background: tab === val ? 'rgba(2,113,206,.12)' : 'rgba(0,0,0,.07)',
-                  color: tab === val ? '#0271CE' : 'rgba(0,0,0,.38)',
-                  font: '600 11px/18px Inter,sans-serif',
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                }}>{count}</span>
-              </button>
-            ))}
+        {/* Setup helper card — standalone box on the right of the methodology.
+            Wider than the diagram so the active step can show a helper
+            paragraph. `display:flex/column` + `justifyContent:space-between`
+            distributes header → checklist → bottom hint so the card stretches
+            cleanly to the diagram's height. */}
+        <div style={{ width: 380, flex: 'none', background: '#fff', border: '1px solid rgba(0,0,0,.09)', borderRadius: 8, padding: '14px 16px 14px', boxShadow: '0 1px 3px rgba(0,0,0,.04)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none' }}>
+                <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+              </svg>
+              <span style={{ font: '700 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)' }}>Setup checklist</span>
+            </div>
+            {(() => {
+              const doneCount = SETUP_STEPS.filter(s => setupDone[s.key]).length;
+              return (
+                <span style={{ font: '600 11px/1 Inter,sans-serif', color: '#6D28D9', background: 'rgba(124,58,237,.10)', padding: '3px 7px', borderRadius: 9 }}>
+                  {doneCount} of {SETUP_STEPS.length}
+                </span>
+              );
+            })()}
           </div>
 
-          {/* Two panels side-by-side inside the card */}
+          {/* Progress bar — fills proportionally to the completed steps. */}
+          {(() => {
+            const doneCount = SETUP_STEPS.filter(s => setupDone[s.key]).length;
+            const pct = (doneCount / SETUP_STEPS.length) * 100;
+            return (
+              <div style={{ height: 4, borderRadius: 4, background: 'rgba(124,58,237,.10)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #7C3AED, #5B21B6)', borderRadius: 4, transition: 'width .3s' }} />
+              </div>
+            );
+          })()}
+
+          {/* Vertical checklist. The active row expands to a two-line layout
+              with a description block under the label so the user understands
+              what the step actually is. Other rows stay single-line. */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+            {SETUP_STEPS.map((s) => {
+              const done = setupDone[s.key];
+              const active = s.key === setupActiveKey;
+              return (
+                <div key={s.key} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  padding: active ? '11px 12px 12px' : '9px 10px',
+                  borderRadius: 8,
+                  background: active ? 'linear-gradient(135deg, rgba(124,58,237,.10), rgba(99,102,241,.06))' : 'transparent',
+                  border: active ? '1px solid rgba(124,58,237,.30)' : '1px solid transparent',
+                }}>
+                  {done ? (
+                    <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#16A34A', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', marginTop: 1 }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5 9-9"/></svg>
+                    </span>
+                  ) : active ? (
+                    <span style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid #7C3AED', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', boxShadow: '0 0 0 3px rgba(124,58,237,.18)', marginTop: 1 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#7C3AED' }} />
+                    </span>
+                  ) : (
+                    <span style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid rgba(0,0,0,.18)', background: '#fff', flex: 'none', marginTop: 1 }} />
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={{
+                        font: `${active ? 700 : 600} 12.5px/1.3 Inter,sans-serif`,
+                        color: done ? 'rgba(22,163,74,.85)' : active ? '#6D28D9' : 'rgba(0,0,0,.55)',
+                        textDecoration: done ? 'line-through' : 'none',
+                      }}>{s.label}</span>
+                      {active && (
+                        <span style={{ font: '700 9px/1 Inter,sans-serif', letterSpacing: '.08em', textTransform: 'uppercase', color: '#fff', background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', padding: '3px 6px', borderRadius: 5, flex: 'none' }}>Next</span>
+                      )}
+                    </div>
+                    {/* Helper paragraph — only shown on the active step so the
+                        user gets a "how + what" cue inline without crowding the
+                        other rows. */}
+                    {active && s.helper && (
+                      <div style={{ marginTop: 6, font: '400 11.5px/1.5 Inter,sans-serif', color: 'rgba(24,39,58,.7)' }}>
+                        {s.helper}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        </div>
+        )}
+
+        {/* ── Approaches card — full width, owns the Active/Archived tabs ──
+            Approaches are the only thing that meaningfully archive on this
+            page (a Rule's archival state isn't something users sift through
+            here), so the tabs live with the data they actually filter. */}
+        <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,.1)', borderRadius: 8, overflow: 'visible' }}>
+
+          {/* Approaches body — full width */}
           <div style={{ display: 'flex', minHeight: 0 }}>
 
-            {/* Left: Approaches */}
             <div style={{ flex: 1, padding: '20px 22px', minWidth: 0 }}>
               <div style={{ marginBottom: 14 }}>
-                <div style={{ font: '700 16px/1.2 Inter,sans-serif', color: 'rgba(24,39,58,.94)', marginBottom: 3 }}>Approaches</div>
-                <div style={{ font: '400 12px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.42)', marginBottom: 10 }}>(used to fill Overtime / CallBack Shifts, also known as a 'List')</div>
-                {!isArchived && (
-                  <button
-                    style={{
+                {/* Title row — heading + description on the left, primary
+                    action (Add New Approach) anchored to the right edge so
+                    it mirrors the Rules card layout. */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ font: '700 16px/1.2 Inter,sans-serif', color: 'rgba(24,39,58,.94)', marginBottom: 3 }}>Approaches</div>
+                    <div style={{ font: '400 12px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.42)' }}>(used to fill Overtime / CallBack Shifts, also known as a 'List')</div>
+                  </div>
+                  {!isArchived && (
+                    <button
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        height: 30, padding: '0 11px',
+                        background: '#fff', border: '1.5px solid #0271CE',
+                        borderRadius: 6, cursor: 'pointer',
+                        font: '600 12.5px/1 Inter,sans-serif', color: '#0271CE',
+                        transition: 'background .15s', flex: 'none',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(2,113,206,.06)'}
+                      onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                      Add New Approach
+                    </button>
+                  )}
+                </div>
+
+                {/* Active / Archived tabs live inside the Approaches header so it's
+                    obvious they only filter approaches (the Rules card below
+                    intentionally has no archive). Sits on a thin baseline so the
+                    underline-style active indicator still reads as a tab bar. */}
+                <div style={{ borderBottom: '1px solid rgba(0,0,0,.09)', display: 'flex', alignItems: 'flex-end', gap: 4 }}>
+                  {[
+                    ['active',   'Active',   APPROACHES_DATA.length],
+                    ['archived', 'Archived', APPROACHES_ARCHIVED.length],
+                  ].map(([val, label, count]) => (
+                    <button key={val} onClick={() => setTab(val)} style={{
+                      padding: '8px 14px 9px', background: 'none', border: 'none', cursor: 'pointer',
+                      borderBottom: tab === val ? '2px solid #0271CE' : '2px solid transparent',
+                      font: `${tab === val ? 600 : 400} 13px/1 Inter,sans-serif`,
+                      color: tab === val ? '#0271CE' : 'rgba(0,0,0,.48)',
                       display: 'inline-flex', alignItems: 'center', gap: 6,
-                      height: 30, padding: '0 11px',
-                      background: '#fff', border: '1.5px solid #0271CE',
-                      borderRadius: 6, cursor: 'pointer',
-                      font: '600 12.5px/1 Inter,sans-serif', color: '#0271CE',
-                      transition: 'background .15s',
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(2,113,206,.06)'}
-                    onMouseLeave={e => e.currentTarget.style.background = '#fff'}
-                  >
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                    Add New Approach
-                  </button>
-                )}
+                      transition: 'color .15s', marginBottom: -1,
+                    }}>
+                      {label}
+                      <span style={{
+                        minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9,
+                        background: tab === val ? 'rgba(2,113,206,.12)' : 'rgba(0,0,0,.07)',
+                        color: tab === val ? '#0271CE' : 'rgba(0,0,0,.38)',
+                        font: '600 11px/18px Inter,sans-serif',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      }}>{count}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div style={{ border: '1px solid rgba(0,0,0,.09)', borderRadius: 5, overflow: 'hidden' }}>
-                {approachesShown.map((a, i) => {
+              {/* Grid layout — auto-fills as many ~240px tiles per row as the
+                  container allows, so on wide A&R pages users see several
+                  approaches side-by-side instead of one tall column. Each tile
+                  keeps its own border so the visual chunking still reads. */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                gap: 10,
+              }}>
+                {approachesShown.map((a) => {
                   const rowKey = `a-${a.id}`;
                   return (
                     <div key={a.id}
                       onMouseEnter={() => setHoveredRow(rowKey)}
                       onMouseLeave={() => setHoveredRow(null)}
                       style={{
-                        display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 13px',
-                        borderBottom: i < approachesShown.length - 1 ? '1px solid rgba(0,0,0,.06)' : 'none',
+                        display: 'flex', alignItems: 'flex-start', gap: 10,
+                        padding: '10px 12px',
+                        border: '1px solid rgba(0,0,0,.09)', borderRadius: 6,
                         background: hoveredRow === rowKey ? 'rgba(2,113,206,.03)' : isArchived ? 'rgba(0,0,0,.015)' : '#fff',
-                        transition: 'background .12s', opacity: isArchived ? 0.75 : 1,
+                        boxShadow: hoveredRow === rowKey ? '0 1px 4px rgba(0,0,0,.06)' : 'none',
+                        transition: 'background .12s, box-shadow .12s',
+                        opacity: isArchived ? 0.75 : 1,
+                        minWidth: 0,
                       }}>
                       {isArchived ? (
                         <div style={{ paddingTop: 3, flex: 'none' }}>
@@ -4320,233 +5105,165 @@ function ApproachesRulesPage({ onStart, savedToast, onDismissToast }) {
                         ) : (
                           <div style={{ font: '400 11.5px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.36)', marginTop: 1 }}>[{a.tag}]</div>
                         )}
+                        {isArchived && a.archivedDate && (
+                          <div style={{ font: '400 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.28)', marginTop: 4 }}>
+                            Archived {a.archivedDate}
+                          </div>
+                        )}
                       </div>
-                      {isArchived && a.archivedDate && (
-                        <div style={{ font: '400 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.28)', flex: 'none', whiteSpace: 'nowrap', paddingTop: 2 }}>
-                          Archived {a.archivedDate}
-                        </div>
-                      )}
                     </div>
                   );
                 })}
               </div>
             </div>
 
-            {/* Vertical divider */}
-            <div style={{ width: 1, background: 'rgba(0,0,0,.08)', flex: 'none', alignSelf: 'stretch' }} />
+          </div>
+        </div>
 
-            {/* Right: Rules */}
-            <div style={{ flex: 1, padding: '20px 22px', minWidth: 0 }}>
-              <div style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-                <div>
-                  <div style={{ font: '700 16px/1.2 Inter,sans-serif', color: 'rgba(24,39,58,.94)', marginBottom: 3 }}>Rules</div>
-                  <div style={{ font: '400 12px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.42)' }}>(applied to an Approach, to determine ranking)</div>
-                </div>
-                {/* Preview Mode toggle — lives in the Rules header so users can dry-run
-                    rules against the roster before going live. Takes over the page body. */}
-                <button onClick={() => setPreviewMode(true)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 12px', borderRadius: 6, border: '1px solid rgba(124,58,237,.35)', background: '#fff', color: '#7C3AED', font: '600 12.5px/1 Inter,sans-serif', cursor: 'pointer', flex: 'none', transition: 'all .15s' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.07)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                  Preview Mode
+        {/* ── Rules card — separate full-width box stacked below Approaches.
+            Doesn't carry Active/Archived tabs (the user clarified rules don't
+            need that filter). Always shows the live RULES_DATA list. */}
+        <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,.1)', borderRadius: 8, overflow: 'visible' }}>
+          <div style={{ padding: '20px 22px' }}>
+            {/* Title row — heading + description on the left; Preview Mode and
+                the gradient "Add New Rule with AI" entry button anchored to the
+                right edge so both header actions read as a single group. */}
+            <div style={{ marginBottom: 14, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ font: '700 16px/1.2 Inter,sans-serif', color: 'rgba(24,39,58,.94)', marginBottom: 3 }}>Rules</div>
+                <div style={{ font: '400 12px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.42)' }}>(applied to an Approach, to determine ranking)</div>
+              </div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flex: 'none' }}>
+                {/* Preview Mode toggle — only rendered when at least one rule
+                    exists. With nothing to preview the button would be a
+                    dead-end, so we hide it during first-time setup. */}
+                {hasRules && (
+                  <button onClick={() => setPreviewMode(true)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 30, padding: '0 12px', borderRadius: 6, border: '1px solid rgba(124,58,237,.35)', background: '#fff', color: '#7C3AED', font: '600 12.5px/1 Inter,sans-serif', cursor: 'pointer', flex: 'none', transition: 'all .15s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.07)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Preview Mode
+                  </button>
+                )}
+                {/* Primary gradient AI entry button. */}
+                <button
+                  onClick={() => onStart?.({})}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    height: 30, padding: '0 13px',
+                    background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 50%, #5B21B6 100%)',
+                    border: 'none', borderRadius: 6, cursor: 'pointer',
+                    font: '600 12.5px/1 Inter,sans-serif', color: '#fff',
+                    boxShadow: '0 2px 8px rgba(109,41,184,.3)',
+                    transition: 'transform .15s, box-shadow .15s', flex: 'none',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 3px 12px rgba(109,41,184,.45)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(109,41,184,.3)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" style={{ flex: 'none' }}><path d="M12 5v14M5 12h14"/></svg>
+                  Add New Rule with AI
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff" style={{ flex: 'none', opacity: .92 }}><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
                 </button>
               </div>
-
-              {/* ── AI rule builder banner ── */}
-              {!isArchived && (
-                <div style={{
-                    background: 'linear-gradient(135deg, #F5F3FF 0%, #EEF2FF 55%, #EFF6FF 100%)',
-                    border: '1px solid rgba(124,58,237,.22)',
-                    borderRadius: 10,
-                    padding: '13px 14px 12px',
-                    marginBottom: 14,
-                    boxShadow: '0 2px 8px rgba(124,58,237,.09)',
-                    position: 'relative',
-                    overflow: 'hidden',
-                  }}>
-                    {/* decorative blobs */}
-                    <div style={{ position: 'absolute', top: -10, right: -10, width: 56, height: 56, borderRadius: '50%', background: 'rgba(124,58,237,.07)', pointerEvents: 'none' }} />
-                    <div style={{ position: 'absolute', bottom: -6, right: 36, width: 30, height: 30, borderRadius: '50%', background: 'rgba(99,102,241,.09)', pointerEvents: 'none' }} />
-
-                    {/* Title — sparkles glyph keeps the AI-driven feel consistent across surfaces */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6, position: 'relative' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="#6D28D9" style={{ flex: 'none' }}><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
-                      <span style={{ font: '700 13.5px/1.2 Inter,sans-serif', color: 'rgba(24,39,58,.94)' }}>Add new rule</span>
-                    </div>
-
-                    {/* Subheader — own line, matches dashboard wording */}
-                    <div style={{ font: '500 12.5px/1.4 Inter,sans-serif', color: 'rgba(24,39,58,.85)', marginBottom: 8, position: 'relative' }}>
-                      Which approach(es) should this rule apply to?
-                    </div>
-
-                    {/* "Pick one or more" helper — matches dashboard */}
-                    <div style={{ font: '500 10.5px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 7, position: 'relative' }}>
-                      Pick one or more
-                    </div>
-
-                    {/* Multi-select group picker — pick approaches before opening the rule builder.
-                        Mirrors the dashboard AIAssistantCard step-1 picker so the two surfaces match. */}
-                    <div style={{ marginBottom: 8, position: 'relative' }}>
-                      {window.GroupPickerChips && (
-                        <window.GroupPickerChips
-                          groups={window.PICKER_GROUPS}
-                          selected={bannerGroups}
-                          onToggle={toggleBannerGroup}
-                        />
-                      )}
-                    </div>
-
-                    {/* Select all / Clear all — placed below the chips so it acts as a bulk toggle for the selections above */}
-                    <div style={{ marginBottom: 10, position: 'relative', display: 'flex', justifyContent: 'flex-start' }}>
-                      <button onClick={toggleBannerAll}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                          font: '600 11.5px/1 Inter,sans-serif', color: '#6D28D9' }}>
-                        {bannerAllSelected ? 'Clear all' : 'Select all'}
-                      </button>
-                    </div>
-
-                    {/* Continue button — only rendered once at least one group is picked */}
-                    {bannerHasSelection && (
-                      <button
-                        onClick={() => onStart?.({ approaches: bannerGroupArray, allApproaches: bannerAllSelected })}
-                        style={{
-                          marginBottom: 10, height: 34, width: '100%',
-                          borderRadius: 7, border: 'none',
-                          cursor: 'pointer',
-                          background: 'linear-gradient(135deg,#7C3AED,#5B21B6)',
-                          color: '#fff',
-                          font: '600 12.5px/1 Inter,sans-serif',
-                          boxShadow: '0 2px 6px rgba(124,58,237,.3)',
-                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                          transition: 'all .15s',
-                        }}>
-                        Continue with {bannerAllSelected ? 'all approaches' : `${bannerGroupArray.length} group${bannerGroupArray.length === 1 ? '' : 's'}`} <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-                      </button>
-                    )}
-
-                    {/* Freeform input — visually highlighted so users see they can write
-                        anything beyond the three chips above. */}
-                    <div style={{ position: 'relative' }}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                        style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: .8 }}>
-                        <path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4z"/>
-                      </svg>
-                      <input
-                        value={ruleInput}
-                        onChange={e => setRuleInput(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter' && ruleInput.trim()) { onStart?.({ text: ruleInput.trim(), approaches: bannerGroupArray, allApproaches: bannerAllSelected }); setRuleInput(''); } }}
-                        placeholder={bannerHasSelection ? "Or describe a custom rule for these groups…" : "Or write your own rule — describe what you need…"}
-                        style={{
-                          width: '100%', height: 38, padding: '0 42px 0 32px',
-                          border: '1.5px solid rgba(124,58,237,.45)', borderRadius: 8,
-                          background: 'linear-gradient(135deg, #FAF7FF 0%, #F3F0FF 100%)',
-                          outline: 'none',
-                          font: '500 12.5px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)',
-                          boxShadow: '0 0 0 3px rgba(124,58,237,.08), 0 1px 3px rgba(124,58,237,.12)',
-                          transition: 'border-color .15s, box-shadow .15s, background .15s',
-                        }}
-                        onFocus={e => { e.target.style.borderColor = '#7C3AED'; e.target.style.boxShadow = '0 0 0 3px rgba(124,58,237,.18), 0 1px 4px rgba(124,58,237,.2)'; e.target.style.background = '#fff'; }}
-                        onBlur={e => { e.target.style.borderColor = 'rgba(124,58,237,.45)'; e.target.style.boxShadow = '0 0 0 3px rgba(124,58,237,.08), 0 1px 3px rgba(124,58,237,.12)'; e.target.style.background = 'linear-gradient(135deg, #FAF7FF 0%, #F3F0FF 100%)'; }}
-                      />
-                      <button onClick={() => { if (ruleInput.trim()) { onStart?.({ text: ruleInput.trim(), approaches: bannerGroupArray, allApproaches: bannerAllSelected }); setRuleInput(''); } }}
-                        style={{
-                          position: 'absolute', right: 5, top: 5,
-                          width: 28, height: 28, borderRadius: 5, border: 'none',
-                          background: ruleInput.trim() ? 'linear-gradient(135deg,#7C3AED,#5B21B6)' : 'rgba(124,58,237,.25)',
-                          color: '#fff', cursor: ruleInput.trim() ? 'pointer' : 'default',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          boxShadow: ruleInput.trim() ? '0 2px 6px rgba(124,58,237,.35)' : 'none',
-                          transition: 'background .15s, box-shadow .15s',
-                        }}>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12l20-9-9 20-2-9z"/></svg>
-                      </button>
-                    </div>
-
-                    {/* Tertiary "Bring in a Rules file" — visually separate from suggestion chips */}
-                    <div style={{ marginTop: 8, position: 'relative', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ font: '400 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.32)' }}>Already have one?</span>
-                      <button
-                        onClick={() => onStart?.({ source: 'file' })}
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 5,
-                          height: 22, padding: '0 4px',
-                          background: 'transparent', border: 'none',
-                          font: '600 11.5px/1 Inter,sans-serif', color: '#6D28D9',
-                          cursor: 'pointer', borderRadius: 4,
-                          transition: 'background .15s, color .15s',
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.color = '#5B21B6'; e.currentTarget.style.textDecoration = 'underline'; }}
-                        onMouseLeave={e => { e.currentTarget.style.color = '#6D28D9'; e.currentTarget.style.textDecoration = 'none'; }}
-                      >
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                          <polyline points="17 8 12 3 7 8"/>
-                          <line x1="12" y1="3" x2="12" y2="15"/>
-                        </svg>
-                        Bring in a Rules file
-                      </button>
-                    </div>
-                  </div>
-              )}
-
-              <div style={{ border: '1px solid rgba(0,0,0,.09)', borderRadius: 5, overflow: 'hidden' }}>
-                {rulesShown.map((r, i) => {
-                  const rowKey = `r-${r.id}`;
-                  const clickable = !isArchived && !!r.config;
-                  return (
-                    <div key={r.id}
-                      onMouseEnter={() => setHoveredRow(rowKey)}
-                      onMouseLeave={() => setHoveredRow(null)}
-                      onClick={() => clickable && onStart?.({ existingRule: r })}
-                      style={{
-                        display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px',
-                        borderBottom: i < rulesShown.length - 1 ? '1px solid rgba(0,0,0,.06)' : 'none',
-                        background: hoveredRow === rowKey && clickable ? 'rgba(2,113,206,.05)' : isArchived ? 'rgba(0,0,0,.015)' : '#fff',
-                        cursor: clickable ? 'pointer' : 'default', transition: 'background .12s', opacity: isArchived ? 0.75 : 1,
-                      }}>
-                      {isArchived && (
-                        <div style={{ paddingTop: 2, flex: 'none' }}>
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.28)" strokeWidth="1.6" strokeLinecap="round"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg>
-                        </div>
-                      )}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
-                          <span style={{ font: '600 13.5px/1.3 Inter,sans-serif', color: isArchived ? 'rgba(24,39,58,.52)' : 'rgba(24,39,58,.94)' }}>{r.name}</span>
-                          {r.aiCreated && <AIBadge />}
-                          {r.isNew && (
-                            <span style={{
-                              display: 'inline-flex', alignItems: 'center', gap: 3,
-                              height: 18, padding: '0 7px',
-                              borderRadius: 9,
-                              background: 'linear-gradient(135deg, #16A34A, #15803D)',
-                              color: '#fff',
-                              font: '700 10px/1 Inter,sans-serif',
-                              textTransform: 'uppercase', letterSpacing: '.06em',
-                              whiteSpace: 'nowrap', flexShrink: 0,
-                              boxShadow: '0 1px 3px rgba(21,128,61,.35)',
-                            }}>New</span>
-                          )}
-                        </div>
-                        <div style={{ font: '400 11.5px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.36)' }}>{r.desc}</div>
-                      </div>
-                      {clickable && hoveredRow === rowKey && (
-                        <div style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, paddingTop: 2, font: '600 11px/1 Inter,sans-serif', color: '#0271CE' }}>
-                          Edit
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
-                        </div>
-                      )}
-                      {isArchived && r.archivedDate && (
-                        <div style={{ font: '400 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.28)', flex: 'none', whiteSpace: 'nowrap', paddingTop: 2 }}>
-                          Archived {r.archivedDate}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
             </div>
 
+            {/* Rules grid — same auto-fill pattern as Approaches, but tiles are
+                wider (~300px) since rule descriptions tend to need more room
+                than the short approach name + tag. Hidden during first-time
+                setup so the user sees the empty state below instead. */}
+            {hasRules && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+              gap: 10,
+            }}>
+              {RULES_DATA.map((r) => {
+                const rowKey = `r-${r.id}`;
+                const clickable = !!r.config;
+                return (
+                  <div key={r.id}
+                    onMouseEnter={() => setHoveredRow(rowKey)}
+                    onMouseLeave={() => setHoveredRow(null)}
+                    onClick={() => clickable && onStart?.({ existingRule: r })}
+                    style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 10,
+                      padding: '12px 14px',
+                      border: '1px solid rgba(0,0,0,.09)', borderRadius: 6,
+                      background: hoveredRow === rowKey && clickable ? 'rgba(2,113,206,.05)' : '#fff',
+                      boxShadow: hoveredRow === rowKey && clickable ? '0 1px 4px rgba(0,0,0,.06)' : 'none',
+                      cursor: clickable ? 'pointer' : 'default',
+                      transition: 'background .12s, box-shadow .12s',
+                      minWidth: 0,
+                    }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
+                        <span style={{ font: '600 13.5px/1.3 Inter,sans-serif', color: 'rgba(24,39,58,.94)' }}>{r.name}</span>
+                        {r.aiCreated && <AIBadge />}
+                        {r.isNew && (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 3,
+                            height: 18, padding: '0 7px',
+                            borderRadius: 9,
+                            background: 'linear-gradient(135deg, #16A34A, #15803D)',
+                            color: '#fff',
+                            font: '700 10px/1 Inter,sans-serif',
+                            textTransform: 'uppercase', letterSpacing: '.06em',
+                            whiteSpace: 'nowrap', flexShrink: 0,
+                            boxShadow: '0 1px 3px rgba(21,128,61,.35)',
+                          }}>New</span>
+                        )}
+                      </div>
+                      <div style={{ font: '400 11.5px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.36)' }}>{r.desc}</div>
+                    </div>
+                    {clickable && hoveredRow === rowKey && (
+                      <div style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, paddingTop: 2, font: '600 11px/1 Inter,sans-serif', color: '#0271CE' }}>
+                        Edit
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            )}
+
+            {/* First-time empty state — pairs with the "Create rules" setup
+                step. The dashed-outline panel makes the absence visible
+                without it feeling like an error; the AI sparkle + helper
+                copy point the user at the gradient "Add New Rule with AI"
+                button up in the header. */}
+            {!hasRules && (
+              <div style={{
+                border: '1.5px dashed rgba(124,58,237,.32)',
+                borderRadius: 10,
+                background: 'linear-gradient(135deg, rgba(124,58,237,.04), rgba(99,102,241,.03))',
+                padding: '26px 22px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
+                flexWrap: 'wrap', textAlign: 'left',
+              }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 12,
+                  background: 'linear-gradient(135deg, #7C3AED, #5B21B6)',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 4px 12px rgba(124,58,237,.35)', flex: 'none',
+                }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ font: '700 14px/1.3 Inter,sans-serif', color: '#5B21B6', marginBottom: 4 }}>No rules yet — let's create your first one</div>
+                  <div style={{ font: '400 12.5px/1.5 Inter,sans-serif', color: 'rgba(24,39,58,.65)' }}>
+                    Approaches are ready. Tap <span style={{ font: '600 12.5px/1.5 Inter,sans-serif', color: '#6D28D9' }}>+ Add New Rule with AI</span> above to start ranking employees.
+                  </div>
+                </div>
+                {/* Curved hint arrow pointing up and to the right — visually
+                    leads the eye from the empty state up to the CTA button. */}
+                <svg width="44" height="36" viewBox="0 0 44 36" fill="none" stroke="#7C3AED" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none', opacity: .6 }}>
+                  <path d="M4 32 Q22 22 36 6"/>
+                  <path d="M30 4 L38 4 L38 12"/>
+                </svg>
+              </div>
+            )}
           </div>
         </div>
 
