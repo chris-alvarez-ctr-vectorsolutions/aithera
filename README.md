@@ -1,5 +1,9 @@
 # Aithera — Adaptive Learning Prototype
 
+> **This repo has moved.** Active development now lives in
+> [`VectorLearning/ux-mockups`](https://github.com/VectorLearning/ux-mockups/tree/main/products/aithera)
+> under `products/aithera/`. This repo is kept for historical reference only.
+
 Mobile-first PWA prototype demonstrating an **adaptive learning layer** focused on mastery, practice, and a bounded AI coach. No backend; all behavior is JSON-driven.
 
 ## What this is meant to prove
