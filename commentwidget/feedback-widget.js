@@ -52,13 +52,16 @@
 
 /* Pick mode */
 .cw-picking, .cw-picking * { cursor: crosshair !important; }
-.cw-hover-outline { position: fixed; border: 2px dashed #2563eb; background: rgba(37,99,235,.08); pointer-events: none; z-index: 2147483630; transition: all .05s linear; }
+.cw-picking .cw-pin, .cw-picking .cw-pin * { cursor: grab !important; }
+.cw-picking .cw-pin--dragging, .cw-picking .cw-pin--dragging * { cursor: grabbing !important; }
+.cw-hover-outline { position: fixed; border: 2.5px dashed #f59e0b; background: rgba(245,158,11,.08); pointer-events: none; z-index: 2147483630; transition: all .05s linear; border-radius: 4px; }
 
-/* Popup (new pin) */
-.cw-popup { position: absolute; z-index: 2147483645; width: 320px; background: #fff; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.2); padding: 14px; }
-.cw-popup h4 { margin: 0 0 10px; font-size: 14px; }
-.cw-popup label { display: block; font-size: 12px; color: #555; margin-bottom: 4px; }
-.cw-popup input, .cw-popup textarea { width: 100%; border: 1px solid #d1d5db; border-radius: 4px; padding: 6px 8px; font: inherit; resize: vertical; }
+/* Popup (new pin) — sticky-note overlay */
+.cw-popup { position: absolute; z-index: 2147483645; width: 320px; background: #fffdf3; border: 1px solid #fcd34d; border-radius: 14px 18px 12px 16px; box-shadow: 0 14px 32px rgba(146,94,12,.18), 0 2px 6px rgba(0,0,0,.06); padding: 14px 16px; transform: rotate(-0.4deg); }
+.cw-popup h4 { margin: 0 0 10px; font-size: 14px; color: #78350f; letter-spacing: .01em; }
+.cw-popup label { display: block; font-size: 12px; color: #78350f; margin-bottom: 4px; }
+.cw-popup input, .cw-popup textarea { width: 100%; border: 1px solid #fde68a; background: #fffaeb; border-radius: 6px; padding: 6px 8px; font: inherit; resize: vertical; color: #1f2937; }
+.cw-popup input:focus, .cw-popup textarea:focus { outline: none; border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.18); }
 .cw-popup textarea { min-height: 70px; }
 .cw-popup .cw-row { margin-bottom: 10px; }
 .cw-popup .cw-actions { display: flex; justify-content: flex-end; gap: 8px; }
@@ -70,40 +73,44 @@
 .cw-author-change:hover { color: #1d4ed8; }
 
 /* Buttons */
-.cw-btn { font: inherit; cursor: pointer; padding: 6px 12px; border-radius: 4px; border: 1px solid transparent; }
-.cw-btn--primary { background: #2563eb; color: #fff; }
-.cw-btn--primary:disabled { background: #93c5fd; cursor: not-allowed; }
-.cw-btn--secondary { background: #fff; color: #374151; border-color: #d1d5db; }
-.cw-btn--secondary:hover { background: #f3f4f6; }
-.cw-btn--danger { color: #dc2626; }
+.cw-btn { font: inherit; cursor: pointer; padding: 6px 12px; border-radius: 6px; border: 1px solid transparent; transition: background .12s, transform .05s; }
+.cw-btn:active { transform: translateY(1px); }
+.cw-btn--primary { background: #f59e0b; color: #fff; border-color: #d97706; box-shadow: 0 1px 0 rgba(146,64,14,.25); }
+.cw-btn--primary:hover { background: #d97706; }
+.cw-btn--primary:disabled { background: #fcd34d; border-color: transparent; cursor: not-allowed; box-shadow: none; }
+.cw-btn--secondary { background: #fffaeb; color: #78350f; border-color: #fde68a; }
+.cw-btn--secondary:hover { background: #fef3c7; }
+.cw-btn--danger { color: #b91c1c; }
 .cw-btn--small { padding: 4px 8px; font-size: 12px; }
 .cw-kbd { margin-left: 8px; font-size: 11px; opacity: .75; font-weight: 500; letter-spacing: .02em; padding: 1px 5px; border-radius: 3px; background: rgba(255,255,255,.18); }
 .cw-btn--secondary .cw-kbd { background: rgba(0,0,0,.06); }
 
-/* Panel (pin detail) */
-.cw-panel { position: absolute; z-index: 2147483645; width: 360px; background: #fff; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.2); padding: 14px; }
-.cw-panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-.cw-panel-avatar { width: 26px; height: 26px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 11px; }
+/* Panel (pin detail) — sticky-note overlay */
+.cw-panel { position: absolute; z-index: 2147483645; width: 360px; background: #fffdf3; border: 1px solid #fcd34d; border-radius: 14px 18px 12px 16px; box-shadow: 0 14px 32px rgba(146,94,12,.18), 0 2px 6px rgba(0,0,0,.06); padding: 14px 16px; transform: rotate(-0.3deg); }
+.cw-panel-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; padding-right: 32px; }
+.cw-panel-avatar { width: 26px; height: 26px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 11px; flex-shrink: 0; }
 .cw-panel-meta { flex: 1; min-width: 0; }
 .cw-panel-meta strong { display: block; font-size: 13px; }
 .cw-panel-meta span { font-size: 11px; color: #6b7280; }
-.cw-panel-actions { display: flex; gap: 4px; }
+.cw-panel-actions { display: flex; gap: 6px; margin: 4px 0 12px; padding-bottom: 10px; border-bottom: 1px dashed #d6d3d1; }
 .cw-panel-body { font-size: 13px; line-height: 1.5; margin-bottom: 10px; white-space: pre-wrap; word-break: break-word; }
 .cw-panel-thumb { margin: 8px 0; cursor: zoom-in; max-width: 100%; border-radius: 4px; border: 1px solid #e5e7eb; }
 .cw-panel-thumb img { display: block; max-width: 100%; max-height: 120px; }
-.cw-panel-context { font-size: 11px; color: #6b7280; margin-bottom: 10px; }
-.cw-panel-context code { background: #f3f4f6; padding: 1px 4px; border-radius: 3px; font-size: 11px; word-break: break-all; }
-.cw-panel-context a { color: #2563eb; word-break: break-all; }
-.cw-panel-close { position: absolute; top: 8px; right: 8px; background: transparent; border: 0; cursor: pointer; font-size: 16px; color: #6b7280; }
+.cw-panel-context { font-size: 11px; color: #92400e; margin-bottom: 10px; }
+.cw-panel-context code { background: rgba(252,211,77,.25); padding: 1px 4px; border-radius: 3px; font-size: 11px; word-break: break-all; color: #78350f; }
+.cw-panel-context a { color: #b45309; word-break: break-all; }
+.cw-panel-close { position: absolute; top: 6px; right: 8px; background: transparent; border: 0; cursor: pointer; font-size: 18px; color: #92400e; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.cw-panel-close:hover { background: rgba(146,64,14,.08); }
 
 /* Thread */
-.cw-thread { border-top: 1px solid #e5e7eb; padding-top: 10px; }
+.cw-thread { border-top: 1px dashed #fcd34d; padding-top: 10px; }
 .cw-reply { margin-bottom: 8px; }
-.cw-reply-head { font-size: 11px; color: #6b7280; margin-bottom: 2px; }
-.cw-reply-head strong { color: #111827; margin-right: 6px; font-size: 12px; }
+.cw-reply-head { font-size: 11px; color: #92400e; margin-bottom: 2px; }
+.cw-reply-head strong { color: #1f2937; margin-right: 6px; font-size: 12px; }
 .cw-reply-text { font-size: 13px; white-space: pre-wrap; word-break: break-word; }
 .cw-reply-form { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
-.cw-reply-form input, .cw-reply-form textarea { width: 100%; border: 1px solid #d1d5db; border-radius: 4px; padding: 6px 8px; font: inherit; }
+.cw-reply-form input, .cw-reply-form textarea { width: 100%; border: 1px solid #fde68a; background: #fffaeb; border-radius: 6px; padding: 6px 8px; font: inherit; color: #1f2937; }
+.cw-reply-form input:focus, .cw-reply-form textarea:focus { outline: none; border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.18); }
 .cw-reply-form textarea { min-height: 50px; resize: vertical; }
 .cw-reply-form .cw-actions { display: flex; justify-content: flex-end; }
 
@@ -497,14 +504,23 @@
       title: `${pin.author} — ${rel(pin.timestamp)}  ·  drag to reposition`,
     }, [el('span', {}, [initial(pin.author)])]);
 
-    // Click vs drag: distinguish at mouseup. Threshold 5px.
+    // Two interaction modes on a pin:
+    //   - Comment mode active → mousedown starts a drag; click without movement is a no-op.
+    //     (Lets users reposition pins without opening their card.)
+    //   - Comment mode inactive (normal browse) → click opens the detail panel.
     let drag = null;
     dot.addEventListener('mousedown', (e) => {
-      if (state.pickMode || e.button !== 0) return;
+      if (e.button !== 0) return;
+      if (!state.pickMode) return; // normal click → panel handler below
       e.stopPropagation(); e.preventDefault();
       drag = { sx: e.clientX, sy: e.clientY, moved: false, nx: pin.x, ny: pin.y };
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
+    });
+    dot.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (state.pickMode) return; // pick mode owns the pin via drag handler
+      openPanel(pin);
     });
 
     function onMove(e) {
@@ -528,7 +544,7 @@
       document.removeEventListener('mouseup', onUp);
       const d = drag; drag = null;
       dot.classList.remove('cw-pin--dragging');
-      if (!d || !d.moved) { openPanel(pin); return; }
+      if (!d || !d.moved) return; // click without drag in pick mode = no-op
       const oldX = pin.x, oldY = pin.y;
       pin.x = d.nx; pin.y = d.ny;
       try {
@@ -603,7 +619,7 @@
       el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small cw-btn--danger', onclick: () => onDelete(pin) }, ['🗑 Delete']),
     ]);
 
-    const head = el('div', { class: 'cw-panel-head' }, [avatar, meta, actions]);
+    const head = el('div', { class: 'cw-panel-head' }, [avatar, meta]);
 
     let body;
     if (isEditing) {
@@ -650,7 +666,7 @@
       buildReplyForm(pin),
     ]);
 
-    return el('div', { class: 'cw-panel' }, [closeBtn, head, body, ...extras, thread]);
+    return el('div', { class: 'cw-panel' }, [closeBtn, head, actions, body, ...extras, thread]);
   }
 
   function reopenPanel(pin) {
