@@ -22,6 +22,8 @@
   };
 
   const pageUrl = location.href.split('#')[0];
+  const IS_MAC = /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || '');
+  const CMD_KEY = IS_MAC ? '⌘' : 'Ctrl';
 
   // ----- Styles ---------------------------------------------------------------
   const css = `
@@ -75,6 +77,8 @@
 .cw-btn--secondary:hover { background: #f3f4f6; }
 .cw-btn--danger { color: #dc2626; }
 .cw-btn--small { padding: 4px 8px; font-size: 12px; }
+.cw-kbd { margin-left: 8px; font-size: 11px; opacity: .75; font-weight: 500; letter-spacing: .02em; padding: 1px 5px; border-radius: 3px; background: rgba(255,255,255,.18); }
+.cw-btn--secondary .cw-kbd { background: rgba(0,0,0,.06); }
 
 /* Panel (pin detail) */
 .cw-panel { position: absolute; z-index: 2147483645; width: 360px; background: #fff; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.2); padding: 14px; }
@@ -403,7 +407,10 @@
     closePopup();
     const authorRow = buildAuthorRow(validate);
     const textArea = el('textarea', { placeholder: 'Describe your feedback… (⌘/Ctrl + Enter to add)', oninput: validate });
-    const submit = el('button', { class: 'cw-btn cw-btn--primary', disabled: true, onclick: doSubmit }, ['Add feedback']);
+    const submit = el('button', { class: 'cw-btn cw-btn--primary', disabled: true, onclick: doSubmit }, [
+      'Add feedback',
+      el('span', { class: 'cw-kbd', 'aria-hidden': 'true' }, [`${CMD_KEY} ↵`]),
+    ]);
     const cancel = el('button', { class: 'cw-btn cw-btn--secondary', onclick: () => { closePopup(); enterPickMode(); } }, ['Cancel']);
     textArea.addEventListener('keydown', (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !submit.disabled) {
@@ -610,7 +617,10 @@
           showToast('Updated', 'success');
         } catch (e) { showToast(e.message, 'error'); }
       }
-      const save = el('button', { class: 'cw-btn cw-btn--primary cw-btn--small', onclick: doSave }, ['Save']);
+      const save = el('button', { class: 'cw-btn cw-btn--primary cw-btn--small', onclick: doSave }, [
+        'Save',
+        el('span', { class: 'cw-kbd', 'aria-hidden': 'true' }, [`${CMD_KEY} ↵`]),
+      ]);
       const cancel = el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small', onclick: () => { panelEditing = false; reopenPanel(pin); } }, ['Cancel']);
       ta.addEventListener('keydown', (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); doSave(); }
@@ -651,7 +661,10 @@
   function buildReplyForm(pin) {
     const authorRow = buildAuthorRow(validate);
     const text = el('textarea', { placeholder: 'Add a reply… (⌘/Ctrl + Enter)', oninput: validate });
-    const submit = el('button', { class: 'cw-btn cw-btn--primary cw-btn--small', disabled: true, onclick: doSubmit }, ['Reply']);
+    const submit = el('button', { class: 'cw-btn cw-btn--primary cw-btn--small', disabled: true, onclick: doSubmit }, [
+      'Reply',
+      el('span', { class: 'cw-kbd', 'aria-hidden': 'true' }, [`${CMD_KEY} ↵`]),
+    ]);
     text.addEventListener('keydown', (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !submit.disabled) {
         e.preventDefault(); doSubmit();
