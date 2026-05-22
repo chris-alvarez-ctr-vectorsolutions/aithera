@@ -905,6 +905,60 @@
     .status-pill.error   { background: rgba(239,68,68,0.15);   color: #f87171; }
     .status-pill.neutral { background: rgba(255,255,255,0.08); color: #9aa3b8; }
 
+    /* Block-level optional treatment in the ceremony step card. */
+    .step-card.optional-block {
+      border: 1px dashed rgba(245,158,11,0.30);
+    }
+    .step-card.skipped-block .step-card-title { color: #9aa3b8; }
+
+    .optional-block-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      margin-left: 10px; padding: 2px 8px;
+      border-radius: 5px;
+      font-size: 10.5px; font-weight: 700;
+      background: rgba(245,158,11,0.12); color: #fbbf24;
+      border: 1px dashed rgba(245,158,11,0.40);
+      letter-spacing: 0.03em; text-transform: uppercase;
+      vertical-align: middle;
+    }
+    .optional-block-pill i { font-size: 9px; }
+
+    .btn-skip-block {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 6px;
+      border: 1px solid rgba(245,158,11,0.35);
+      background: rgba(245,158,11,0.08); color: #fbbf24;
+      font-family: 'Open Sans', sans-serif; font-size: 11.5px; font-weight: 700;
+      cursor: pointer; transition: background 0.12s, border-color 0.12s;
+    }
+    .btn-skip-block:hover { background: rgba(245,158,11,0.16); border-color: rgba(245,158,11,0.55); }
+    .btn-skip-block i { font-size: 10px; }
+
+    /* Optional STEP (item) pill inside the verify card. Lives near the
+       row name; mirrors the corner Optional badge that already exists. */
+    .item-optional-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      margin-left: 8px; padding: 1px 7px;
+      border-radius: 4px;
+      font-size: 10px; font-weight: 700;
+      background: rgba(245,158,11,0.10); color: #fbbf24;
+      border: 1px dashed rgba(245,158,11,0.35);
+      letter-spacing: 0.04em; text-transform: uppercase;
+      vertical-align: middle;
+    }
+    .item-optional-pill i { font-size: 9px; }
+
+    /* Rail step decoration: dim + dashed for optional, struck-through for skipped. */
+    .rail-step.optional .rail-step-dot {
+      border: 1px dashed rgba(245,158,11,0.45);
+      background: rgba(245,158,11,0.08);
+      color: #fbbf24;
+    }
+    .rail-step.skipped .rail-step-label {
+      text-decoration: line-through;
+      color: #6e7894 !important;
+    }
+
     /* ── Rail note ── */
     .rail-note {
       margin: 16px 12px 0;
@@ -1851,6 +1905,25 @@ let replacements = {};   // key → { failedAssetTag, replacement: {id,sn,locati
 let attestA      = false;
 let activeSteps  = [];
 let promotedVerifyKey = null; // currently expanded verify row (mobile)
+// Track which optional blocks the crew has explicitly skipped for this
+// ceremony. Keyed by step.id (the compiled section id). Skipped sections
+// stop gating Next Step, and items inside are visually inert.
+let skippedBlocks = {};
+
+// True when this section was authored optional AND the crew opted to skip.
+function isStepSkipped(step) {
+  return !!(step && step.optional && skippedBlocks[step.id]);
+}
+
+// Footer/Skip button click handler. Toggles the current step's skipped
+// state and re-renders so the gating + visual treatment update.
+function toggleSkipBlock() {
+  const step = activeSteps[currentStep];
+  if (!step || !step.optional) return;
+  skippedBlocks[step.id] = !skippedBlocks[step.id];
+  renderStep();
+  renderRail();
+}
 
 // Which kinds count as "answered" for footer/next-button gating.
 // `optional: true` on an item exempts it from this gate.
@@ -1910,6 +1983,7 @@ function initState() {
   workOrders = {}; replacements = {};
   attestA = false;
   promotedVerifyKey = null;
+  skippedBlocks = {};
   STEPS.filter(s => s.type === 'check').forEach(s =>
     s.items.forEach(it => {
       const kind = it.kind || 'check';
@@ -1959,7 +2033,10 @@ function renderRail() {
     const isActive    = i === currentStep;
 
     const el = document.createElement('div');
-    el.className = 'rail-step ' + (isCompleted ? 'completed' : isActive ? 'active' : 'locked');
+    const cls = ['rail-step', isCompleted ? 'completed' : isActive ? 'active' : 'locked'];
+    if (step.optional) cls.push('optional');
+    if (isStepSkipped(step)) cls.push('skipped');
+    el.className = cls.join(' ');
     if (isCompleted || isActive) {
       el.style.cursor = 'pointer';
       el.addEventListener('click', () => goToStep(i));
@@ -2064,10 +2141,16 @@ function openStepSheet() {
 
     let badgeHTML = '';
     if (i < currentStep && step.type === 'check') {
-      const defs = step.items.filter(it => checkState[it.key] === 'deficiency').length;
-      badgeHTML = defs > 0
-        ? `<span class="step-overview-badge def">${defs} def</span>`
-        : `<span class="step-overview-badge pass">Pass</span>`;
+      if (isStepSkipped(step)) {
+        badgeHTML = `<span class="step-overview-badge" style="background:rgba(255,255,255,0.08);color:#9aa3b8;">Skipped</span>`;
+      } else {
+        const defs = step.items.filter(it => checkState[it.key] === 'deficiency').length;
+        badgeHTML = defs > 0
+          ? `<span class="step-overview-badge def">${defs} def</span>`
+          : `<span class="step-overview-badge pass">Pass</span>`;
+      }
+    } else if (step.optional && step.type === 'check') {
+      badgeHTML = `<span class="step-overview-badge" style="background:rgba(245,158,11,0.10);color:#fbbf24;border:1px dashed rgba(245,158,11,0.35);">Optional</span>`;
     }
 
     item.innerHTML = `
@@ -2105,8 +2188,15 @@ function renderStep() {
 // ─────────────────────────────────────────────────────────────────────────────
 function renderCheckStep(step) {
   const container = document.getElementById('ceremonyContent');
-  const unmarked  = step.items.filter(it => checkState[it.key] === null).length;
-  const allMarked = unmarked === 0;
+  // Block-level optional: when the whole section is flagged skippable
+  // (either authored that way, or skipped at runtime), nothing gates Next.
+  const blockSkipped = isStepSkipped(step);
+  const isOptionalBlock = !!step.optional;
+  // Otherwise use the same "answered" rule the footer uses so optional
+  // items don't keep Next Step disabled.
+  const answered  = step.items.filter(isItemAnswered).length;
+  const total     = step.items.length;
+  const allMarked = blockSkipped || answered === total;
   promotedVerifyKey = null;
 
   container.innerHTML = `
@@ -2118,25 +2208,41 @@ function renderCheckStep(step) {
       <span><i class="fa-solid fa-truck" style="margin-right:4px;"></i>Engine 7 · Station 7</span>
     </div>
 
-    <div class="step-card">
+    <div class="step-card ${isOptionalBlock ? 'optional-block' : ''} ${blockSkipped ? 'skipped-block' : ''}">
       <div class="step-card-header">
         <div>
           <div class="step-card-title">
             <i class="fa-solid ${step.icon}" style="margin-right:8px; color:#a5b4fc;"></i>${step.title}
+            ${isOptionalBlock ? `<span class="optional-block-pill" title="This block is optional — crew may skip it for this run.">
+              <i class="fa-solid fa-circle-half-stroke"></i> Optional block
+            </span>` : ''}
           </div>
           <div class="step-card-meta">${step.meta}</div>
         </div>
         <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-          <span class="status-pill ${allMarked ? 'ok' : 'info'}" id="stepBadge">
-            ${allMarked ? 'All marked' : (step.items.length - unmarked) + ' / ' + step.items.length + ' marked'}
+          <span class="status-pill ${blockSkipped ? 'neutral' : (allMarked ? 'ok' : 'info')}" id="stepBadge">
+            ${blockSkipped ? 'Skipped' : (allMarked ? 'All marked' : answered + ' / ' + total + ' marked')}
           </span>
-          <button class="btn-pass-all" id="passAllBtn" onclick="passAllItems()" ${step.items.every(it => checkState[it.key] === 'pass') ? 'style="display:none"' : ''}>
+          ${isOptionalBlock ? `<button class="btn-skip-block" id="skipBlockBtn" onclick="toggleSkipBlock()">
+            <i class="fa-solid ${blockSkipped ? 'fa-rotate-left' : 'fa-forward'}"></i>
+            ${blockSkipped ? 'Include this block' : 'Skip this block'}
+          </button>` : ''}
+          <button class="btn-pass-all" id="passAllBtn" onclick="passAllItems()" ${blockSkipped || step.items.every(it => checkState[it.key] === 'pass') ? 'style="display:none"' : ''}>
             <i class="fa-solid fa-check-double"></i> Pass All
           </button>
         </div>
       </div>
 
-      <div class="step-card-body">
+      ${blockSkipped ? `
+        <div class="state-callout optional" style="margin: 0 16px 12px;">
+          <i class="fa-solid fa-forward" style="font-size:14px; color:#9aa3b8; margin-top:2px;"></i>
+          <div>
+            <div class="state-callout-title">Block skipped for this run</div>
+            <div class="state-callout-desc">All items in this block are excluded. Click "Include this block" to bring them back.</div>
+          </div>
+        </div>` : ''}
+
+      <div class="step-card-body" ${blockSkipped ? 'style="opacity:0.45; pointer-events:none;"' : ''}>
         <div class="verify-section" id="verifySection">
           ${step.items.map(it => renderVerifyRow(it)).join('')}
         </div>
@@ -2184,7 +2290,7 @@ function renderVerifyRow(item) {
         <div class="verify-row" id="vrow-${item.key}">
           <div class="verify-row-dot ${dotClass}" id="dot-${item.key}" style="display:none;"></div>
           <div class="verify-row-name">
-            ${item.label}${kindChip}
+            ${item.label}${kindChip}${item.optional ? '<span class="item-optional-pill" title="This step is optional — may be left unanswered."><i class="fa-solid fa-circle-half-stroke"></i> Optional</span>' : ''}
             ${item.sub ? `<div class="verify-row-sub">${item.sub}</div>` : ''}
             ${renderSlotButtons(item)}
             ${renderSlotExpansion(item)}
@@ -2981,15 +3087,16 @@ function passAllItems() {
 function updateFooterState() {
   const step = activeSteps[currentStep];
   if (!step || step.type !== 'check') return;
+  const skipped   = isStepSkipped(step);
   const total     = step.items.length;
   const answered  = step.items.filter(isItemAnswered).length;
-  const allMarked = answered === total;
+  const allMarked = skipped || answered === total;
 
   const badge   = document.getElementById('stepBadge');
   const nextBtn = document.getElementById('nextBtn');
   if (badge) {
-    badge.textContent = allMarked ? 'All marked' : `${answered} / ${total} marked`;
-    badge.className = 'status-pill ' + (allMarked ? 'ok' : 'info');
+    badge.textContent = skipped ? 'Skipped' : (allMarked ? 'All marked' : `${answered} / ${total} marked`);
+    badge.className = 'status-pill ' + (skipped ? 'neutral' : (allMarked ? 'ok' : 'info'));
   }
   if (nextBtn) { nextBtn.disabled = !allMarked; }
 

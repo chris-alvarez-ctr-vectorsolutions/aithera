@@ -528,6 +528,28 @@
     }
     .photo-toggle i { font-size: 10px; }
 
+    /* Inline Required/Optional selector — lives in the same row as the
+       Response type select. Push to the right edge so the response select
+       stays anchored next to its label. */
+    .step-required-label { margin-left: auto; }
+    .step-required-select[data-optional="true"] {
+      background-color: rgba(245,158,11,0.10);
+      border-color: rgba(245,158,11,0.35);
+      color: #fbbf24;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path fill='%23fbbf24' d='M3 4.5L6 7.5L9 4.5z'/></svg>");
+    }
+
+    /* Optional step card — dashed amber border + amber step number so the
+       row reads as a deliberate downgrade from the required default. */
+    .step-card.is-optional {
+      border-style: dashed;
+      border-color: rgba(245,158,11,0.25);
+    }
+    .step-card.is-optional .step-number {
+      background: rgba(245,158,11,0.18);
+      color: #fbbf24;
+    }
+
     /* Step being dragged */
     .step-card.dragging {
       opacity: 0.45;
@@ -946,6 +968,7 @@
         label: s.label || '',
         severity: s.severity || 'none',
         photo: !!s.allowPhoto || !!s.photo,
+        optional: !!s.optional,
         type: s.type || 'passfail',
         options: Array.isArray(s.options) ? s.options.slice() : [],
         min: s.min ?? '',
@@ -1058,6 +1081,16 @@
             <option value="single"   ${step.type === 'single'   ? 'selected' : ''}>Single select</option>
             <option value="multi"    ${step.type === 'multi'    ? 'selected' : ''}>Multi select</option>
           </select>
+          <span class="step-type-label step-required-label">Required</span>
+          <select
+            class="step-type-select step-required-select"
+            data-optional="${!!step.optional}"
+            onchange="setOptional(${step.id}, this.value === 'optional')"
+            aria-label="Step ${index + 1} required or optional"
+          >
+            <option value="required" ${!step.optional ? 'selected' : ''}>Required</option>
+            <option value="optional" ${step.optional ? 'selected' : ''}>Optional</option>
+          </select>
         </div>
         <input
           type="text"
@@ -1124,7 +1157,7 @@
 
     steps.forEach((step, index) => {
       const card = document.createElement('div');
-      card.className = 'step-card';
+      card.className = 'step-card' + (step.optional ? ' is-optional' : '');
       card.dataset.stepId = step.id;
       card.draggable = true;
       card.innerHTML = buildStepCardInnerHtml(step, index);
@@ -1150,7 +1183,7 @@
   // STEP OPERATIONS
   // ============================================================
   function addStep() {
-    steps.push({ id: ++stepCounter, label: '', severity: 'none', photo: false, type: 'passfail', options: [], min: '', max: '', unit: '' });
+    steps.push({ id: ++stepCounter, label: '', severity: 'none', photo: false, optional: false, type: 'passfail', options: [], min: '', max: '', unit: '' });
     renderSteps();
     // Focus the new step's input
     setTimeout(() => {
@@ -1301,6 +1334,20 @@
     markDirty();
   }
 
+  // Set whether this individual step is optional (from the inline
+  // Required/Optional select in the type row). Default is required;
+  // optional steps are non-gating in the ceremony.
+  function setOptional(id, isOptional) {
+    const step = steps.find(s => s.id === id);
+    if (!step) return;
+    step.optional = !!isOptional;
+    rerenderStepCard(id);
+    // Keep the outer card class in sync — rerenderStepCard only writes innerHTML.
+    const card = document.querySelector(`.step-card[data-step-id="${id}"]`);
+    if (card) card.classList.toggle('is-optional', !!step.optional);
+    markDirty();
+  }
+
   // ============================================================
   // DRAG AND DROP REORDER
   // ============================================================
@@ -1395,6 +1442,7 @@
         delete passthrough.label;
         delete passthrough.severity;
         delete passthrough.photo;
+        delete passthrough.optional;
         delete passthrough.type;
         delete passthrough.options;
         delete passthrough.min;
@@ -1408,6 +1456,10 @@
           allowPhoto: !!s.photo,
           type: s.type || 'passfail'
         });
+        // Required is the default; only write the flag when set so block
+        // records stay clean of false-y noise.
+        if (s.optional) out.optional = true;
+        else delete out.optional;
         if (s.type === 'numeric') {
           out.min  = s.min  ?? '';
           out.max  = s.max  ?? '';

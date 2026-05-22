@@ -681,8 +681,12 @@
         <!-- ══ TAB: Accepted Events ══ -->
         <div class="tab-panel" id="panel-accepted">
 
-            <!-- Action Needed Banner (slim summary) -->
-            <div class="action-needed-banner visible" id="action-banner">
+            <!--
+              Action Needed Banner (slim summary) — replaced by the inline
+              "Action Needed" filter in the filter row below. Kept here (hidden)
+              so we can revive it easily if the filter approach doesn't pan out.
+            -->
+            <div class="action-needed-banner visible" id="action-banner" hidden style="display:none;">
                 <div class="action-needed-summary">
                     <i class="fa-solid fa-circle-exclamation"></i>
                     <span><strong id="action-banner-count">2</strong> events need your attention</span>
@@ -716,6 +720,12 @@
                     label="Date Value"
                     value="start-date"
                     style="width:200px;"></vaadin-select>
+                <vaadin-select
+                    id="action-needed-accepted"
+                    theme="outlined"
+                    label="Action Needed"
+                    value="all"
+                    style="width:220px;"></vaadin-select>
                 <vaadin-button theme="secondary" class="filters-btn" id="filters-btn-accepted">Filters (2)</vaadin-button>
             </div>
             <div class="filter-actions-row">
@@ -1379,6 +1389,24 @@
     document.querySelectorAll('#date-value-accepted, #date-value-pending').forEach(el => {
         el.items = dateValueItems;
     });
+
+    // ── Action Needed filter (Accepted tab) ──
+    // Replaces the dismissed Action Needed banner/dialog as the primary entry
+    // point for filtering down to events that need the user's attention.
+    const actionNeededCounts = actionItems.reduce((acc, item) => {
+        acc[item.action] = (acc[item.action] || 0) + 1;
+        return acc;
+    }, {});
+    const totalActionNeeded = actionItems.length;
+    const actionNeededItems = [
+        { label: 'All Events',                                                         value: 'all' },
+        { label: `Any Action Needed (${totalActionNeeded})`,                            value: 'any' },
+        { label: `New Feedback (${actionNeededCounts['new-feedback'] || 0})`,           value: 'new-feedback' },
+        { label: `Pending Approvals (${actionNeededCounts['pending-approval'] || 0})`,  value: 'pending-approval' },
+    ];
+
+    const actionNeededSelect = document.getElementById('action-needed-accepted');
+    actionNeededSelect.items = actionNeededItems;
 
     // ── Quick Approve Dialog ──
     const approveDialog = document.getElementById('approve-dialog');

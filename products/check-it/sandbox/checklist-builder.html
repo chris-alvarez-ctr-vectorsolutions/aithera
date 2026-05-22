@@ -905,6 +905,45 @@
       background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25);
     }
 
+    /* The rollup itself dimmed + dashed when marked optional, mirroring the
+       step-card treatment in block-creator. */
+    .block-rollup.is-optional {
+      border-style: dashed;
+      border-color: rgba(245,158,11,0.30);
+      background: rgba(245,158,11,0.04);
+    }
+    .block-rollup.is-optional.expanded {
+      border-color: rgba(245,158,11,0.40);
+    }
+
+    /* Labeled action pill on the rollup — sits in .rollup-actions next to
+       the remove button. Reads as a labeled state (Required / Optional)
+       rather than an icon-only toggle. */
+    .rollup-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      height: 26px; padding: 0 10px;
+      border-radius: 5px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: none;
+      color: rgba(165,180,252,0.55);
+      font-family: 'Open Sans', sans-serif;
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.03em; text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s, color 0.12s;
+    }
+    .rollup-pill i { font-size: 10px; }
+    .rollup-pill:hover { border-color: rgba(255,255,255,0.22); color: #c4cce0; }
+    .rollup-pill.optional-toggle.active {
+      background: rgba(245,158,11,0.12);
+      border: 1px dashed rgba(245,158,11,0.45);
+      color: #fbbf24;
+    }
+    .rollup-pill.optional-toggle.active:hover {
+      background: rgba(245,158,11,0.20);
+      border-color: rgba(245,158,11,0.60);
+    }
+
     .rollup-actions { margin-left: auto; display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
     .rollup-btn {
       display: flex; align-items: center; justify-content: center;
@@ -2158,11 +2197,16 @@
       ? `<span class="context-label-badge"><i class="fa-solid fa-tag"></i> ${escHtml(b.contextLabel)}</span>`
       : '';
 
+    // Block-level optional: marks the entire block instance as skippable
+    // during the ceremony. Default is required (no flag). Visual state lives
+    // on the rollup border + the Required/Optional pill on the right.
+    const isOptional = !!b.optional;
+
     const expandPanel = b.expanded ? renderExpandPanel(b, lib, isFree, section) : '';
 
     return `
       <div class="block-rollup-wrap">
-        <div class="block-rollup ${b.expanded ? 'expanded' : ''}"
+        <div class="block-rollup ${b.expanded ? 'expanded' : ''}${isOptional ? ' is-optional' : ''}"
           onclick="toggleBlockRollup(${section.id},${b.instanceId})"
           role="button" tabindex="0" aria-expanded="${b.expanded}"
           data-instance="${b.instanceId}">
@@ -2178,6 +2222,13 @@
             </div>
           </div>
           <div class="rollup-actions" onclick="event.stopPropagation()">
+            <button class="rollup-pill optional-toggle ${isOptional ? 'active' : ''}"
+              onclick="toggleBlockOptional(${section.id},${b.instanceId})"
+              title="${isOptional ? 'Optional block — crew can skip during execution. Click to mark required.' : 'Required block (default). Click to mark optional.'}"
+              aria-pressed="${isOptional}">
+              <i class="fa-solid ${isOptional ? 'fa-circle-half-stroke' : 'fa-circle-check'}"></i>
+              <span>${isOptional ? 'Optional' : 'Required'}</span>
+            </button>
             <button class="rollup-btn remove" onclick="removeBlock(${section.id},${b.instanceId})" title="Remove" aria-label="Remove block">
               <i class="fa-solid fa-xmark"></i>
             </button>
@@ -2281,6 +2332,20 @@
     if (!s) return;
     s.blocks = s.blocks.filter(b => b.instanceId !== instanceId);
     if (s.appendBlocks) s.appendBlocks = s.appendBlocks.filter(b => b.instanceId !== instanceId);
+    renderSections();
+    markDirty();
+  }
+
+  // Toggle block-level optional state for this instance only. Default is
+  // required; setting it optional makes the entire block (every step inside)
+  // skippable during the ceremony.
+  function toggleBlockOptional(sectionId, instanceId) {
+    const s = sections.find(s => s.id === sectionId);
+    if (!s) return;
+    const all = [...s.blocks, ...(s.appendBlocks || [])];
+    const b = all.find(b => b.instanceId === instanceId);
+    if (!b) return;
+    b.optional = !b.optional;
     renderSections();
     markDirty();
   }
@@ -3563,6 +3628,8 @@
             out.name  = b.name || '';
             out.steps = b.steps || [];
           }
+          // Only persist when truthy — keeps default-required records clean.
+          if (b.optional) out.optional = true;
           return out;
         }),
         appendBlocks: s.appendBlocks || []

@@ -168,7 +168,7 @@
   // Convert a freestanding block-instance's inline steps (which use
   // checklist-builder's { label, sev } shape) into ceremony items.
   function freestandingStepToItem(step, keyBase, idx) {
-    return {
+    const item = {
       key:   keyBase + '-s' + (idx + 1),
       kind:  'check',
       label: step.label || '',
@@ -178,6 +178,8 @@
       allowPhoto: !!step.allowPhoto,
       allowNote:  !!step.allowNote
     };
+    if (step.optional) item.optional = true;
+    return item;
   }
 
   // Choose a default icon for a compiled section. Block-side icons (the ones
@@ -216,14 +218,18 @@
           if (!steps.length) return; // skip empty
 
           const keyBase = `s${section.id}-fs${b.instanceId}`;
-          out.push({
+          const compiled = {
             id:    keyBase,
             type:  'check',
             title: b.name || sectionName,
             meta:  sectionName,
             icon:  'fa-list-check',
             items: steps.map((st, i) => freestandingStepToItem(st, keyBase, i))
-          });
+          };
+          // Block-level optional carries through to the compiled section so
+          // the ceremony can render an "Optional — skippable" affordance.
+          if (b.optional) compiled.optional = true;
+          out.push(compiled);
           return;
         }
 
@@ -235,14 +241,16 @@
         const ctx = (b.contextLabel || '').trim();
         const title = ctx ? `${block.name} — ${ctx}` : block.name;
 
-        out.push({
+        const compiled = {
           id:    keyBase,
           type:  'check',
           title,
           meta:  sectionName,
           icon:  iconForBlock(block),
           items: block.steps.map(step => blockStepToItem(step, keyBase))
-        });
+        };
+        if (b.optional) compiled.optional = true;
+        out.push(compiled);
       });
     });
 

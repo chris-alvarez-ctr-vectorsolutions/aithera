@@ -70,7 +70,7 @@
         { id: 1, kind: 'numeric',     label: 'Cylinder pressure', unit: 'psi', threshold: { min: 4275, label: '≥ 95% of 4500 psi' }, severity: 'critical' },
         { id: 2, kind: 'check',       label: 'Mask + regulator — clean, no cracks', severity: 'critical', allowPhoto: true },
         { id: 3, kind: 'yes-no',      label: 'Heads-up display lit on activation?', severity: 'warning' },
-        { id: 4, kind: 'date',        label: 'Last hydrostatic test date',           severity: 'warning' },
+        { id: 4, kind: 'date',        label: 'Last hydrostatic test date',           severity: 'warning', optional: true },
         { id: 5, kind: 'acknowledge', label: 'SCBA confirmed mission-ready',         severity: 'none' }
       ],
       createdAt: now, updatedAt: now
@@ -89,7 +89,7 @@
           id: 1, name: 'Walkaround', collapsed: false,
           blocks: [
             { instanceId: 1, blockId: blockTires.id,  contextLabel: 'Driver Front',    expanded: false },
-            { instanceId: 2, blockId: blockTires.id,  contextLabel: 'Passenger Front', expanded: false },
+            { instanceId: 2, blockId: blockTires.id,  contextLabel: 'Passenger Front', expanded: false, optional: true },
             { instanceId: 3, blockId: blockFluids.id, contextLabel: '',                expanded: false }
           ]
         },
