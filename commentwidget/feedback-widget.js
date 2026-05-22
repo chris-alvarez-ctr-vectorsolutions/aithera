@@ -98,9 +98,30 @@
 .cw-panel-thumb img { display: block; max-width: 100%; max-height: 120px; }
 .cw-panel-context { font-size: 11px; color: #92400e; margin-bottom: 10px; }
 .cw-panel-context code { background: rgba(252,211,77,.25); padding: 1px 4px; border-radius: 3px; font-size: 11px; word-break: break-all; color: #78350f; }
-.cw-panel-context a { color: #b45309; word-break: break-all; }
+.cw-panel-context a { color: #b45309; word-break: break-all; text-decoration: none; }
+.cw-panel-context a:hover { text-decoration: underline; }
 .cw-panel-close { position: absolute; top: 6px; right: 8px; background: transparent; border: 0; cursor: pointer; font-size: 18px; color: #92400e; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 .cw-panel-close:hover { background: rgba(146,64,14,.08); }
+
+/* Element snippet — pulled quote of the captured element text */
+.cw-elem-snippet { background: rgba(252,211,77,.18); border-left: 3px solid #f59e0b; padding: 8px 12px; border-radius: 0 8px 8px 0; margin-bottom: 10px; display: flex; align-items: flex-start; gap: 8px; }
+.cw-elem-quote { flex: 1; min-width: 0; font-size: 12px; line-height: 1.5; color: #422006; font-style: italic; word-break: break-word; max-height: 80px; overflow: hidden; }
+.cw-elem-quote::before { content: "“"; font-size: 16px; color: #b45309; margin-right: 2px; font-style: normal; }
+.cw-elem-quote::after { content: "”"; font-size: 16px; color: #b45309; margin-left: 2px; font-style: normal; }
+.cw-copy-mini { background: transparent; border: 0; cursor: pointer; padding: 4px 6px; border-radius: 4px; font-size: 13px; opacity: .55; color: #78350f; flex-shrink: 0; line-height: 1; }
+.cw-copy-mini:hover { opacity: 1; background: rgba(146,64,14,.1); }
+
+/* Meta lines — Selector / Page */
+.cw-meta-line { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; font-size: 11px; }
+.cw-meta-line-label { color: #92400e; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: 10px; min-width: 56px; flex-shrink: 0; }
+.cw-meta-line-value { flex: 1; min-width: 0; word-break: break-all; }
+
+/* Copy-for-Claude button */
+.cw-prompt-row { margin: 12px 0 4px; display: flex; justify-content: flex-end; }
+.cw-prompt-btn { display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(180deg, #fff 0%, #fffaeb 100%); border: 1px dashed #b45309; color: #78350f; border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all .12s; }
+.cw-prompt-btn:hover { background: #fef3c7; border-style: solid; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(180,83,9,.18); }
+.cw-prompt-btn:active { transform: translateY(0); }
+.cw-prompt-btn:disabled { cursor: default; }
 
 /* Thread */
 .cw-thread { border-top: 1px dashed #fcd34d; padding-top: 10px; }
@@ -209,21 +230,139 @@
     return { row, getValue: () => current.trim() };
   }
 
+  // Build a CSS selector for an element, preferring stable, grep-friendly
+  // anchors (id, data-testid, aria-label, semantic classes) over brittle
+  // structural selectors. Falls back to :nth-of-type only when nothing
+  // better is available. Tries to stop early once the chain is unique.
   function cssPath(node) {
     if (!(node instanceof Element)) return '';
+    const anchor = uniqueAnchorFor(node);
+    if (anchor) return anchor;
     const parts = [];
     let n = node;
     while (n && n.nodeType === 1 && n !== document.body && parts.length < 6) {
-      let s = n.tagName.toLowerCase();
-      if (n.id) { s += '#' + CSS.escape(n.id); parts.unshift(s); return parts.join(' > '); }
-      let sib = n, idx = 1;
-      while ((sib = sib.previousElementSibling)) if (sib.tagName === n.tagName) idx++;
-      s += `:nth-of-type(${idx})`;
-      parts.unshift(s);
+      parts.unshift(segmentFor(n));
+      try {
+        if (document.querySelectorAll(parts.join(' > ')).length === 1) {
+          return parts.join(' > ');
+        }
+      } catch (_) {}
       n = n.parentElement;
     }
     if (n === document.body) parts.unshift('body');
     return parts.join(' > ');
+  }
+
+  function uniqueAnchorFor(el) {
+    const tag = el.tagName.toLowerCase();
+    if (isSafeId(el.id)) {
+      const sel = tag + '#' + CSS.escape(el.id);
+      if (countMatches(sel) === 1) return sel;
+    }
+    for (const attr of ['data-testid', 'data-test', 'data-cy']) {
+      const v = el.getAttribute && el.getAttribute(attr);
+      if (v) {
+        const sel = `${tag}[${attr}="${cssAttrEscape(v)}"]`;
+        if (countMatches(sel) === 1) return sel;
+      }
+    }
+    const aria = el.getAttribute && el.getAttribute('aria-label');
+    if (aria && aria.length < 60) {
+      const sel = `${tag}[aria-label="${cssAttrEscape(aria)}"]`;
+      if (countMatches(sel) === 1) return sel;
+    }
+    return null;
+  }
+
+  function segmentFor(el) {
+    const tag = el.tagName.toLowerCase();
+    if (isSafeId(el.id)) return tag + '#' + CSS.escape(el.id);
+    for (const attr of ['data-testid', 'data-test', 'data-cy']) {
+      const v = el.getAttribute && el.getAttribute(attr);
+      if (v) return `${tag}[${attr}="${cssAttrEscape(v)}"]`;
+    }
+    const classes = goodClasses(el);
+    if (classes.length) return tag + '.' + classes.map(c => CSS.escape(c)).join('.');
+    let sib = el, idx = 1;
+    while ((sib = sib.previousElementSibling)) if (sib.tagName === el.tagName) idx++;
+    return tag + `:nth-of-type(${idx})`;
+  }
+
+  function goodClasses(el) {
+    let cls = el.className;
+    if (cls && typeof cls.baseVal === 'string') cls = cls.baseVal; // SVG
+    if (typeof cls !== 'string') return [];
+    return cls.trim().split(/\s+/).filter(c => {
+      if (!c) return false;
+      if (c.startsWith('cw-')) return false;                // widget's own classes
+      if (c.length > 30) return false;                       // utility-class-soup
+      if (/^css-[a-z0-9]{4,}$/i.test(c)) return false;       // CSS-in-JS hashes
+      if (/^[a-z]+-\d+$/i.test(c)) return false;             // generated like btn-1
+      return true;
+    }).slice(0, 2);
+  }
+
+  const isSafeId = (id) => !!id && /^[A-Za-z][\w-]*$/.test(id);
+  const countMatches = (sel) => { try { return document.querySelectorAll(sel).length; } catch (_) { return 0; } };
+  const cssAttrEscape = (v) => String(v).replace(/(["\\])/g, '\\$1');
+
+  // --- Claude Code prompt builder ---------------------------------------------
+  function inferFilePath(url) {
+    try {
+      const u = new URL(url);
+      const m = u.pathname.match(/\/products\/(.+?)\/?(?:index\.html)?$/);
+      if (m) return `products/${decodeURIComponent(m[1])}/index.html`;
+    } catch (_) {}
+    return '';
+  }
+
+  function shortLocation(url) {
+    try {
+      const u = new URL(url);
+      const m = u.pathname.match(/\/products\/(.+?)\/?$/);
+      if (m) return decodeURIComponent(m[1]).replace(/\/index\.html$/, '');
+      return u.hostname + u.pathname;
+    } catch (_) { return url; }
+  }
+
+  function buildClaudePrompt(pin) {
+    const file = inferFilePath(pin.url);
+    const lines = [];
+    if (file) lines.push(`In ${file}, find the element matching:`);
+    else lines.push(`On ${pin.url}, find the element matching:`);
+    if (pin.selector)    lines.push(`  selector: ${pin.selector}`);
+    if (pin.elementText) {
+      const t = pin.elementText.trim().replace(/\s+/g, ' ');
+      lines.push(`  text: "${t.slice(0, 180)}${t.length > 180 ? '…' : ''}"`);
+    }
+    lines.push('');
+    lines.push(`Apply this feedback: ${pin.comment}`);
+    lines.push('');
+    lines.push(`(Posted by ${pin.author} on ${(pin.timestamp || '').slice(0,10)} — ${pin.url})`);
+    return lines.join('\n');
+  }
+
+  // --- Clipboard helper -------------------------------------------------------
+  async function copyToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_) {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } finally { ta.remove(); }
+      return true;
+    }
+  }
+
+  function flashCopied(btn, label = '✓ Copied') {
+    if (!btn) return;
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '';
+    btn.appendChild(document.createTextNode(label));
+    btn.disabled = true;
+    setTimeout(() => { btn.innerHTML = originalHTML; btn.disabled = false; }, 1400);
   }
 
   // ----- API ------------------------------------------------------------------
@@ -462,9 +601,34 @@
     positionFloater(popup, ctx.clickX, ctx.clickY);
     document.body.appendChild(popup);
     if (state.author) setTimeout(() => textArea.focus(), 0);
+    bindOutsideClose(popup, () => { closePopup(); enterPickMode(); });
   }
 
-  function closePopup() { if (popup) { popup.remove(); popup = null; } }
+  // Closes a floating surface when the user clicks/taps outside of it.
+  // Skips closing when the click lands on another widget surface (toast, etc.)
+  // and waits a tick so the opening click doesn't immediately close it.
+  let _outsideHandler = null;
+  function bindOutsideClose(surface, onClose) {
+    unbindOutsideClose();
+    const handler = (e) => {
+      if (!surface.isConnected) { unbindOutsideClose(); return; }
+      if (surface.contains(e.target)) return;
+      if (e.target.closest && e.target.closest('.cw-toast, .cw-bubble, .cw-banner, .cw-pin, .cw-lightbox')) return;
+      onClose();
+    };
+    setTimeout(() => {
+      document.addEventListener('mousedown', handler, true);
+      _outsideHandler = handler;
+    }, 0);
+  }
+  function unbindOutsideClose() {
+    if (_outsideHandler) {
+      document.removeEventListener('mousedown', _outsideHandler, true);
+      _outsideHandler = null;
+    }
+  }
+
+  function closePopup() { unbindOutsideClose(); if (popup) { popup.remove(); popup = null; } }
 
   function positionFloater(node, x, y) {
     const W = 360, H = 300;
@@ -584,6 +748,7 @@
   let panel, panelEditing = false;
 
   function closePanel() {
+    unbindOutsideClose();
     if (panel) { panel.remove(); panel = null; }
     state.openPanelPinId = null;
     panelEditing = false;
@@ -603,6 +768,7 @@
     }
     positionFloater(panel, x, y);
     document.body.appendChild(panel);
+    bindOutsideClose(panel, () => closePanel());
   }
 
   function renderPanel(pin) {
@@ -653,10 +819,35 @@
       ]);
       extras.push(thumb);
     }
-    extras.push(el('div', { class: 'cw-panel-context' }, [
-      pin.selector ? el('div', {}, ['Element: ', el('code', {}, [pin.selector])]) : null,
-      el('div', {}, ['Page: ', el('a', { href: pin.url, target: '_blank', rel: 'noopener' }, [pin.url])]),
+    const context = el('div', { class: 'cw-panel-context' });
+    if (pin.elementText) {
+      const quote = el('span', { class: 'cw-elem-quote' }, [pin.elementText]);
+      const copyText = el('button', {
+        class: 'cw-copy-mini', title: 'Copy element text',
+        onclick: async (e) => { e.stopPropagation(); await copyToClipboard(pin.elementText); flashCopied(e.currentTarget, '✓'); },
+      }, ['📋']);
+      context.appendChild(el('div', { class: 'cw-elem-snippet' }, [quote, copyText]));
+    }
+    if (pin.selector) {
+      context.appendChild(el('div', { class: 'cw-meta-line' }, [
+        el('span', { class: 'cw-meta-line-label' }, ['Selector']),
+        el('span', { class: 'cw-meta-line-value' }, [el('code', {}, [pin.selector])]),
+      ]));
+    }
+    context.appendChild(el('div', { class: 'cw-meta-line' }, [
+      el('span', { class: 'cw-meta-line-label' }, ['Page']),
+      el('span', { class: 'cw-meta-line-value' }, [
+        el('a', { href: pin.url, target: '_blank', rel: 'noopener', title: pin.url }, [shortLocation(pin.url)])
+      ]),
     ]));
+    context.appendChild(el('div', { class: 'cw-prompt-row' }, [
+      el('button', {
+        class: 'cw-prompt-btn',
+        title: 'Copies a ready-to-paste prompt that tells Claude Code where this element is and what feedback to apply.',
+        onclick: async (e) => { await copyToClipboard(buildClaudePrompt(pin)); flashCopied(e.currentTarget, '✓ Copied for Claude Code'); },
+      }, ['✨ Copy for Claude Code']),
+    ]));
+    extras.push(context);
 
     const thread = el('div', { class: 'cw-thread' }, [
       ...(pin.thread || []).map(r => el('div', { class: 'cw-reply' }, [
