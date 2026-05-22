@@ -162,6 +162,8 @@ async function updatePin(id, request, env) {
   if (body.comment !== undefined && body.comment !== pin.comment) {
     pin.comment = body.comment;
   }
+  if (body.x !== undefined) pin.x = Number(body.x);
+  if (body.y !== undefined) pin.y = Number(body.y);
 
   await env.PINS_KV.put(key, JSON.stringify(pin));
 

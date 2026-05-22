@@ -35,6 +35,7 @@
 .cw-pin span { transform: rotate(0); display: inline-block; }
 .cw-pin:hover { transform: translate(-50%, -100%) scale(1.1); }
 .cw-pin--done { background: #9ca3af; opacity: .7; }
+.cw-pin--dragging { cursor: grabbing; opacity: .65; transform: translate(-50%, -100%) scale(1.08); transition: none; }
 .cw-pin--done::after { content: "✓"; position: absolute; right: -4px; top: -4px; background: #10b981; color: #fff; width: 14px; height: 14px; border-radius: 50%; font-size: 10px; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; }
 
 /* Bubble (top-right activation) */
@@ -401,9 +402,14 @@
   function openNewPinPopup(ctx) {
     closePopup();
     const authorRow = buildAuthorRow(validate);
-    const textArea = el('textarea', { placeholder: 'Describe your feedback…', oninput: validate });
+    const textArea = el('textarea', { placeholder: 'Describe your feedback… (⌘/Ctrl + Enter to add)', oninput: validate });
     const submit = el('button', { class: 'cw-btn cw-btn--primary', disabled: true, onclick: doSubmit }, ['Add feedback']);
     const cancel = el('button', { class: 'cw-btn cw-btn--secondary', onclick: () => { closePopup(); enterPickMode(); } }, ['Cancel']);
+    textArea.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !submit.disabled) {
+        e.preventDefault(); doSubmit();
+      }
+    });
 
     function validate() { submit.disabled = !(authorRow.getValue() && textArea.value.trim()); }
     async function doSubmit() {
@@ -425,7 +431,8 @@
         state.pins.push(pin);
         renderPins();
         closePopup();
-        showToast('Feedback added', 'success');
+        showToast('Feedback added · click another element to add more', 'success');
+        enterPickMode();
       } catch (err) {
         submit.disabled = false;
         showToast(err.message || 'Could not save', 'error');
@@ -480,9 +487,56 @@
     const dot = el('div', {
       class: 'cw-pin' + (pin.done ? ' cw-pin--done' : ''),
       style: `left:${left}px; top:${top}px; background:${authorColor(pin.author)};`,
-      title: `${pin.author} — ${rel(pin.timestamp)}`,
-      onclick: (e) => { e.stopPropagation(); openPanel(pin); },
+      title: `${pin.author} — ${rel(pin.timestamp)}  ·  drag to reposition`,
     }, [el('span', {}, [initial(pin.author)])]);
+
+    // Click vs drag: distinguish at mouseup. Threshold 5px.
+    let drag = null;
+    dot.addEventListener('mousedown', (e) => {
+      if (state.pickMode || e.button !== 0) return;
+      e.stopPropagation(); e.preventDefault();
+      drag = { sx: e.clientX, sy: e.clientY, moved: false, nx: pin.x, ny: pin.y };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+
+    function onMove(e) {
+      if (!drag) return;
+      if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 5) {
+        drag.moved = true;
+        dot.classList.add('cw-pin--dragging');
+      }
+      if (drag.moved) {
+        const pageX = e.clientX;
+        const pageY = e.clientY + window.scrollY;
+        drag.nx = pageX / window.innerWidth;
+        drag.ny = pageY / window.innerHeight;
+        dot.style.left = pageX + 'px';
+        dot.style.top = pageY + 'px';
+      }
+    }
+
+    async function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      const d = drag; drag = null;
+      dot.classList.remove('cw-pin--dragging');
+      if (!d || !d.moved) { openPanel(pin); return; }
+      const oldX = pin.x, oldY = pin.y;
+      pin.x = d.nx; pin.y = d.ny;
+      try {
+        const { pin: updated } = await api('PATCH', '/pins/' + pin.id, {
+          url: pin.url, author: state.author || pin.author, x: d.nx, y: d.ny,
+        });
+        mergePin(updated);
+        showToast('Pin moved', 'success');
+      } catch (err) {
+        pin.x = oldX; pin.y = oldY;
+        renderPins();
+        showToast(err.message || 'Could not move pin', 'error');
+      }
+    }
+
     return dot;
   }
 
@@ -546,17 +600,21 @@
 
     let body;
     if (isEditing) {
-      const ta = el('textarea', { style: 'width:100%;min-height:80px;border:1px solid #d1d5db;border-radius:4px;padding:6px 8px;font:inherit;' });
+      const ta = el('textarea', { style: 'width:100%;min-height:80px;border:1px solid #d1d5db;border-radius:4px;padding:6px 8px;font:inherit;', placeholder: 'Edit comment… (⌘/Ctrl + Enter to save)' });
       ta.value = pin.comment || '';
-      const save = el('button', { class: 'cw-btn cw-btn--primary cw-btn--small', onclick: async () => {
+      async function doSave() {
         try {
           const { pin: updated } = await api('PATCH', '/pins/' + pin.id, { url: pin.url, author: state.author || pin.author, comment: ta.value.trim() });
           mergePin(updated);
           panelEditing = false; reopenPanel(updated);
           showToast('Updated', 'success');
         } catch (e) { showToast(e.message, 'error'); }
-      }}, ['Save']);
+      }
+      const save = el('button', { class: 'cw-btn cw-btn--primary cw-btn--small', onclick: doSave }, ['Save']);
       const cancel = el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small', onclick: () => { panelEditing = false; reopenPanel(pin); } }, ['Cancel']);
+      ta.addEventListener('keydown', (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); doSave(); }
+      });
       body = el('div', { class: 'cw-panel-body' }, [ta, el('div', { class: 'cw-actions', style: 'margin-top:6px;' }, [cancel, save])]);
     } else {
       body = el('div', { class: 'cw-panel-body' }, [pin.comment || '']);
@@ -592,8 +650,13 @@
 
   function buildReplyForm(pin) {
     const authorRow = buildAuthorRow(validate);
-    const text = el('textarea', { placeholder: 'Add a reply…', oninput: validate });
+    const text = el('textarea', { placeholder: 'Add a reply… (⌘/Ctrl + Enter)', oninput: validate });
     const submit = el('button', { class: 'cw-btn cw-btn--primary cw-btn--small', disabled: true, onclick: doSubmit }, ['Reply']);
+    text.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !submit.disabled) {
+        e.preventDefault(); doSubmit();
+      }
+    });
     function validate() { submit.disabled = !(authorRow.getValue() && text.value.trim()); }
     async function doSubmit() {
       submit.disabled = true;
