@@ -15,6 +15,8 @@
     pins: [],
     stranded: [],
     author: localStorage.getItem('cw-author') || '',
+    isAdmin: localStorage.getItem('cw-admin') === '1',
+    settings: { visitorMode: false, commentsDisabled: false },
     pickMode: false,
     hoverEl: null,
     openPanelPinId: null,
@@ -44,6 +46,9 @@
 .cw-bubble { position: fixed; top: 20px; right: 20px; z-index: 2147483640; width: 44px; height: 44px; border-radius: 50%; background: #111827; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.25); border: 0; padding: 0; transition: transform .15s, background .15s; }
 .cw-bubble:hover { transform: scale(1.06); }
 .cw-bubble--active { background: #dc2626; font-size: 18px; }
+.cw-bubble--disabled { background: #6b7280; opacity: .45; }
+.cw-bubble--disabled:hover { transform: none; }
+.cw-bubble--admin::after { content: ''; position: absolute; top: -1px; right: -1px; width: 10px; height: 10px; background: #f59e0b; border-radius: 50%; border: 2px solid #111827; }
 .cw-bubble-tip { position: absolute; top: 54px; right: 0; background: #111827; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .15s; }
 .cw-bubble:hover .cw-bubble-tip { opacity: 1; }
 .cw-banner { position: fixed; top: 28px; right: 76px; z-index: 2147483640; background: #111827; color: #fff; padding: 8px 8px 8px 14px; border-radius: 22px; display: flex; align-items: center; gap: 10px; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
@@ -151,6 +156,24 @@
 .cw-toast--neutral { background: #111827; }
 .cw-toast button { background: rgba(255,255,255,.15); color: #fff; border: 0; cursor: pointer; font: inherit; padding: 4px 10px; border-radius: 12px; }
 .cw-toast button:hover { background: rgba(255,255,255,.25); }
+
+/* Admin panel (right-click on bubble) */
+.cw-admin-panel { position: fixed; top: 74px; right: 20px; z-index: 2147483646; width: 300px; background: #fffdf3; border: 1px solid #fcd34d; border-radius: 14px 18px 12px 16px; box-shadow: 0 14px 32px rgba(146,94,12,.20), 0 2px 6px rgba(0,0,0,.06); padding: 14px 16px; transform: rotate(-0.3deg); }
+.cw-admin-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; position: relative; padding-right: 24px; }
+.cw-admin-title { font-weight: 700; font-size: 13px; color: #78350f; letter-spacing: .01em; }
+.cw-admin-row { display: flex; align-items: flex-start; gap: 14px; padding: 10px 0; border-bottom: 1px dashed #fcd34d; }
+.cw-admin-row:last-of-type { border-bottom: 0; }
+.cw-admin-label { flex: 1; min-width: 0; }
+.cw-admin-label strong { display: block; font-size: 13px; color: #1f2937; margin-bottom: 3px; }
+.cw-admin-label span { display: block; font-size: 11px; color: #92400e; line-height: 1.4; }
+.cw-admin-footer { font-size: 10.5px; color: #92400e; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #fcd34d; font-style: italic; }
+
+/* Toggle switch */
+.cw-toggle { position: relative; width: 38px; height: 22px; background: #d6d3d1; border-radius: 999px; cursor: pointer; transition: background .15s; flex-shrink: 0; margin-top: 4px; border: 0; padding: 0; }
+.cw-toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: transform .15s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.cw-toggle--on { background: #f59e0b; }
+.cw-toggle--on::after { transform: translateX(16px); }
+.cw-toggle:focus { outline: 2px solid rgba(245,158,11,.5); outline-offset: 2px; }
 
 /* Lightbox */
 .cw-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 2147483647; display: flex; align-items: center; justify-content: center; padding: 20px; cursor: zoom-out; }
@@ -436,7 +459,13 @@
       bubbleIcon,
       el('div', { class: 'cw-bubble-tip' }, ['Add feedback']),
     ]);
+    bubble.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      becomeAdmin();
+      openAdminPanel();
+    });
     document.body.appendChild(bubble);
+    applyAdminBubble();
 
     banner = el('div', { class: 'cw-banner cw-hidden' }, [
       document.createTextNode('Click any element to leave feedback'),
@@ -446,8 +475,105 @@
   }
 
   function togglePickMode() {
+    if (state.settings.commentsDisabled && !state.isAdmin) return;
     if (state.pickMode) exitPickMode();
     else enterPickMode();
+  }
+
+  // ----- Admin -----------------------------------------------------------------
+  function becomeAdmin() {
+    if (state.isAdmin) return;
+    state.isAdmin = true;
+    localStorage.setItem('cw-admin', '1');
+    applyAdminBubble();
+    renderPins();
+  }
+
+  function applyAdminBubble() {
+    if (!bubble) return;
+    const disabled = state.settings.commentsDisabled && !state.isAdmin;
+    bubble.classList.toggle('cw-bubble--disabled', disabled);
+    bubble.classList.toggle('cw-bubble--admin', state.isAdmin);
+    bubble.title = disabled ? 'Comments disabled (right-click for admin)' : 'Add feedback (right-click for admin)';
+  }
+
+  let adminPanel = null;
+  function closeAdminPanel() {
+    unbindOutsideClose();
+    if (adminPanel) { adminPanel.remove(); adminPanel = null; }
+  }
+
+  function openAdminPanel() {
+    closeAdminPanel();
+
+    const visitorToggle = makeToggle(state.settings.visitorMode, async (next) => {
+      await saveSetting({ visitorMode: next });
+    });
+    const disabledToggle = makeToggle(state.settings.commentsDisabled, async (next) => {
+      await saveSetting({ commentsDisabled: next });
+    });
+
+    adminPanel = el('div', { class: 'cw-admin-panel' }, [
+      el('div', { class: 'cw-admin-head' }, [
+        el('span', { class: 'cw-admin-title' }, ['⚙ Admin controls']),
+        el('button', { class: 'cw-panel-close', onclick: closeAdminPanel, 'aria-label': 'Close' }, ['×']),
+      ]),
+      el('div', { class: 'cw-admin-row' }, [
+        el('div', { class: 'cw-admin-label' }, [
+          el('strong', {}, ['Visitor mode']),
+          el('span', {}, ['Visitors only see their own comments. Their panel is stripped of screenshots, selectors, and the Copy-for-Claude-Code button.']),
+        ]),
+        visitorToggle.el,
+      ]),
+      el('div', { class: 'cw-admin-row' }, [
+        el('div', { class: 'cw-admin-label' }, [
+          el('strong', {}, ['Disable comments']),
+          el('span', {}, ['Hides every pin and disables the bubble for non-admins. Admins still see and can manage everything.']),
+        ]),
+        disabledToggle.el,
+      ]),
+      el('div', { class: 'cw-admin-footer' }, [
+        `You are admin on this browser. Right-click the bubble any time to reopen these controls.`
+      ]),
+    ]);
+    document.body.appendChild(adminPanel);
+    bindOutsideClose(adminPanel, closeAdminPanel);
+
+    async function saveSetting(patch) {
+      const prev = { ...state.settings };
+      state.settings = { ...state.settings, ...patch };
+      applyAdminBubble();
+      renderPins();
+      try {
+        const { settings } = await api('PATCH', '/settings', {
+          url: pageUrl, author: state.author || 'admin', ...patch,
+        });
+        state.settings = settings;
+        applyAdminBubble();
+      } catch (e) {
+        state.settings = prev;
+        applyAdminBubble();
+        renderPins();
+        showToast(e.message || 'Could not save setting', 'error');
+      }
+    }
+  }
+
+  function makeToggle(initial, onChange) {
+    let value = !!initial;
+    const node = el('button', {
+      type: 'button',
+      class: 'cw-toggle' + (value ? ' cw-toggle--on' : ''),
+      role: 'switch',
+      'aria-checked': value ? 'true' : 'false',
+    });
+    node.addEventListener('click', async () => {
+      value = !value;
+      node.classList.toggle('cw-toggle--on', value);
+      node.setAttribute('aria-checked', value ? 'true' : 'false');
+      try { await onChange(value); } catch (_) {}
+    });
+    return { el: node, get value() { return value; } };
   }
 
   // ----- Toast ----------------------------------------------------------------
@@ -638,6 +764,17 @@
     node.style.top = top + 'px';
   }
 
+  // Returns the pins this user is allowed to see right now.
+  // Admins see everything. Non-admins respect the per-page settings.
+  function visiblePins() {
+    if (state.settings.commentsDisabled && !state.isAdmin) return [];
+    let pins = state.pins.filter(p => !p.deleted);
+    if (state.settings.visitorMode && !state.isAdmin) {
+      pins = pins.filter(p => p.author === state.author);
+    }
+    return pins;
+  }
+
   // ----- Pin rendering --------------------------------------------------------
   function renderPins() {
     pinsLayer.innerHTML = '';
@@ -645,8 +782,7 @@
 
     pinsLayer.style.height = Math.max(document.documentElement.scrollHeight, window.innerHeight) + 'px';
 
-    for (const pin of state.pins) {
-      if (pin.deleted) continue;
+    for (const pin of visiblePins()) {
       const found = pin.selector ? safeQuery(pin.selector) : null;
       if (!found) { state.stranded.push(pin); continue; }
       const dot = makePinDot(pin);
@@ -773,13 +909,14 @@
 
   function renderPanel(pin) {
     const isEditing = panelEditing;
+    const stripped = state.settings.visitorMode && !state.isAdmin;
     const closeBtn = el('button', { class: 'cw-panel-close', onclick: closePanel, 'aria-label': 'Close' }, ['×']);
     const avatar = el('div', { class: 'cw-panel-avatar', style: `background:${authorColor(pin.author)};` }, [initial(pin.author)]);
     const meta = el('div', { class: 'cw-panel-meta' }, [
       el('strong', {}, [pin.author]),
       el('span', {}, [rel(pin.timestamp)]),
     ]);
-    const actions = el('div', { class: 'cw-panel-actions' }, [
+    const actions = stripped ? null : el('div', { class: 'cw-panel-actions' }, [
       el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small', onclick: () => onDone(pin) }, [pin.done ? '↺ Reopen' : '✓ Done']),
       el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small', onclick: () => { panelEditing = true; reopenPanel(pin); } }, ['✎ Edit']),
       el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small cw-btn--danger', onclick: () => onDelete(pin) }, ['🗑 Delete']),
@@ -813,12 +950,26 @@
     }
 
     const extras = [];
-    if (pin.screenshot) {
+    if (pin.screenshot && !stripped) {
       const thumb = el('div', { class: 'cw-panel-thumb', onclick: () => openLightbox(pin.screenshot) }, [
         el('img', { src: pin.screenshot, alt: 'screenshot' })
       ]);
       extras.push(thumb);
     }
+    const thread = el('div', { class: 'cw-thread' }, [
+      ...(pin.thread || []).map(r => el('div', { class: 'cw-reply' }, [
+        el('div', { class: 'cw-reply-head' }, [el('strong', {}, [r.author]), rel(r.timestamp)]),
+        el('div', { class: 'cw-reply-text' }, [r.text]),
+      ])),
+      buildReplyForm(pin),
+    ]);
+
+    // Stripped (visitor) mode: just identity, comment, and thread. No screenshot,
+    // no element snippet, no selector, no Claude prompt button.
+    if (stripped) {
+      return el('div', { class: 'cw-panel' }, [closeBtn, head, body, thread]);
+    }
+
     const context = el('div', { class: 'cw-panel-context' });
     if (pin.elementText) {
       const quote = el('span', { class: 'cw-elem-quote' }, [pin.elementText]);
@@ -848,14 +999,6 @@
       }, ['✨ Copy for Claude Code']),
     ]));
     extras.push(context);
-
-    const thread = el('div', { class: 'cw-thread' }, [
-      ...(pin.thread || []).map(r => el('div', { class: 'cw-reply' }, [
-        el('div', { class: 'cw-reply-head' }, [el('strong', {}, [r.author]), rel(r.timestamp)]),
-        el('div', { class: 'cw-reply-text' }, [r.text]),
-      ])),
-      buildReplyForm(pin),
-    ]);
 
     return el('div', { class: 'cw-panel' }, [closeBtn, head, actions, body, ...extras, thread]);
   }
@@ -961,8 +1104,13 @@
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePopup(); closePanel(); } });
 
     try {
-      const { pins } = await api('GET', '/pins?url=' + encodeURIComponent(pageUrl));
-      state.pins = pins || [];
+      const [pinsRes, settingsRes] = await Promise.all([
+        api('GET', '/pins?url=' + encodeURIComponent(pageUrl)),
+        api('GET', '/settings?url=' + encodeURIComponent(pageUrl)).catch(() => ({ settings: { visitorMode: false, commentsDisabled: false } })),
+      ]);
+      state.pins = pinsRes.pins || [];
+      state.settings = settingsRes.settings || state.settings;
+      applyAdminBubble();
       renderPins();
     } catch (e) {
       console.warn('[cw] failed to load pins', e);

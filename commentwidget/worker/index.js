@@ -32,6 +32,8 @@ export default {
       else if (route.name === 'update') res = await updatePin(route.id, request, env);
       else if (route.name === 'undo')   res = await undoPin(route.id, request, env);
       else if (route.name === 'reply')  res = await replyToPin(route.id, request, env);
+      else if (route.name === 'settings-get')   res = await getSettings(url, env);
+      else if (route.name === 'settings-patch') res = await patchSettings(request, env);
       else res = json({ error: 'Not found' }, 404);
     } catch (err) {
       res = json({ error: err.message || 'Server error' }, 500);
@@ -46,6 +48,8 @@ export default {
 function matchRoute(method, pathname) {
   if (method === 'GET'  && pathname === '/pins') return { name: 'list' };
   if (method === 'POST' && pathname === '/pins') return { name: 'create' };
+  if (method === 'GET'   && pathname === '/settings') return { name: 'settings-get' };
+  if (method === 'PATCH' && pathname === '/settings') return { name: 'settings-patch' };
   const m = pathname.match(/^\/pins\/([^/]+)(?:\/(undo|replies))?$/);
   if (m) {
     const id = m[1], sub = m[2];
@@ -83,6 +87,8 @@ function json(data, status = 200) {
 
 const pinKey = (pageUrl, id) => `pin:${encodeURIComponent(pageUrl)}:${id}`;
 const undoKey = (id) => `undo:${id}`;
+const settingsKey = (pageUrl) => `settings:${encodeURIComponent(pageUrl)}`;
+const DEFAULT_SETTINGS = { visitorMode: false, commentsDisabled: false };
 
 async function getPin(env, pageUrl, id) {
   const key = pinKey(pageUrl, id);
@@ -220,17 +226,48 @@ async function replyToPin(id, request, env) {
   return json({ pin });
 }
 
+// --- Settings (per-URL admin toggles) ----------------------------------------
+
+async function getSettings(url, env) {
+  const pageUrl = url.searchParams.get('url');
+  if (!pageUrl) return json({ error: 'Missing url' }, 400);
+  const stored = await env.PINS_KV.get(settingsKey(pageUrl), 'json');
+  return json({ settings: { ...DEFAULT_SETTINGS, ...(stored || {}) } });
+}
+
+async function patchSettings(request, env) {
+  const body = await request.json();
+  if (!body.url) return json({ error: 'Missing url' }, 400);
+  const key = settingsKey(body.url);
+  const stored = (await env.PINS_KV.get(key, 'json')) || { ...DEFAULT_SETTINGS };
+  if (typeof body.visitorMode === 'boolean') stored.visitorMode = body.visitorMode;
+  if (typeof body.commentsDisabled === 'boolean') stored.commentsDisabled = body.commentsDisabled;
+  await env.PINS_KV.put(key, JSON.stringify(stored));
+  const author = body.author || 'admin';
+  await logToConfluence(env,
+    `Settings changed by ${author} — visitorMode=${stored.visitorMode}, commentsDisabled=${stored.commentsDisabled}`,
+    body.url);
+  return json({ settings: stored });
+}
+
 // --- Confluence (append entry to page body) ----------------------------------
 
 async function logToConfluence(env, message, pageUrl) {
-  if (!env.CONFLUENCE_TOKEN || !env.CONFLUENCE_DOMAIN || !env.CONFLUENCE_PAGE_ID || !env.CONFLUENCE_EMAIL) return;
+  if (!env.CONFLUENCE_TOKEN || !env.CONFLUENCE_DOMAIN || !env.CONFLUENCE_PAGE_ID || !env.CONFLUENCE_EMAIL) {
+    console.log('[confluence] skipped — missing secret(s)');
+    return;
+  }
   const baseUrl = `https://${env.CONFLUENCE_DOMAIN}/wiki/rest/api/content/${env.CONFLUENCE_PAGE_ID}`;
   const auth = 'Basic ' + btoa(`${env.CONFLUENCE_EMAIL}:${env.CONFLUENCE_TOKEN}`);
 
   const getRes = await fetch(`${baseUrl}?expand=body.storage,version`, {
     headers: { authorization: auth, accept: 'application/json' }
   });
-  if (!getRes.ok) return;
+  if (!getRes.ok) {
+    const errBody = await getRes.text().catch(() => '');
+    console.log(`[confluence] GET failed ${getRes.status} ${getRes.statusText}: ${errBody.slice(0, 300)}`);
+    return;
+  }
   const page = await getRes.json();
 
   const ts = new Date().toISOString();
@@ -238,7 +275,7 @@ async function logToConfluence(env, message, pageUrl) {
   const entry = `<p><strong>${ts}</strong> — ${escapeXml(message)}${link}</p>`;
   const newBody = (page.body?.storage?.value || '') + entry;
 
-  await fetch(baseUrl, {
+  const putRes = await fetch(baseUrl, {
     method: 'PUT',
     headers: { authorization: auth, 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -249,6 +286,12 @@ async function logToConfluence(env, message, pageUrl) {
       body: { storage: { value: newBody, representation: 'storage' } }
     })
   });
+  if (!putRes.ok) {
+    const errBody = await putRes.text().catch(() => '');
+    console.log(`[confluence] PUT failed ${putRes.status} ${putRes.statusText}: ${errBody.slice(0, 300)}`);
+  } else {
+    console.log(`[confluence] appended OK (page v${(page.version?.number || 1) + 1})`);
+  }
 }
 
 function truncate(s, n) { s = s || ''; return s.length > n ? s.slice(0, n) + '…' : s; }
