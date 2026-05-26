@@ -15,9 +15,7 @@
             font-family: 'Open Sans', -apple-system, sans-serif;
             font-size: 13px;
             color: #0f2e3d;
-            background:
-                linear-gradient(140.604deg, rgba(125,205,238,0.35) 4%, rgba(213,236,181,0.35) 100%),
-                #f0f7fb;
+            background: #ffffff;
             min-height: 100vh;
         }
 
@@ -35,32 +33,24 @@
         }
 
         vwc-sidenav {
-            width: 240px;
+            --vwc-sidenav-width: 240px;
+            --vwc-sidenav-max-width: 240px;
+            --offset: 56px;
             flex-shrink: 0;
-            height: calc(100vh - 56px);
+            z-index: 10;
             background: var(--lumo-base-color);
             border-right: 1px solid rgba(28,55,90,0.1);
-            box-shadow: 2px 0 8px rgba(0,0,0,0.04);
-            position: fixed;
-            top: 56px;
-            left: 0;
-            z-index: 20;
-            transition: width 0.2s ease;
         }
 
         vwc-sidenav[collapsed] {
-            width: 56px;
+            --vwc-sidenav-width: 56px;
+            --vwc-sidenav-max-width: 56px;
         }
 
         .main-content {
-            margin-left: 240px;
             flex: 1;
+            min-width: 0;
             overflow-y: auto;
-            transition: margin-left 0.2s ease;
-        }
-
-        .main-content.sidenav-collapsed {
-            margin-left: 56px;
         }
 
         .content-inner {
@@ -129,68 +119,21 @@
             margin-bottom: 10px;
         }
 
-        /* ── Bulk action toolbar ── */
-        .bulk-toolbar {
-            display: none;
-            align-items: center;
-            gap: 10px;
-            padding: 9px 14px;
-            background: rgba(14,165,233,0.08);
-            border: 1px solid rgba(14,165,233,0.2);
-            border-radius: 6px;
-            margin-bottom: 10px;
-        }
-        .bulk-toolbar.visible { display: flex; }
-        .bulk-toolbar .bulk-count {
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--lumo-primary-color);
-            flex: 1;
-        }
-
-        /* ── Content table ── */
-        .content-table-wrapper {
+        /* ── vaadin-grid container ── */
+        vaadin-grid#content-grid {
             background: var(--lumo-base-color);
             border: 1px solid rgba(28,55,90,0.1);
             border-radius: 8px;
-            overflow: hidden;
             box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.03);
-        }
-
-        .content-table {
-            width: 100%;
-            border-collapse: collapse;
             font-size: 13px;
+            min-height: 400px;
         }
-
-        .content-table th {
-            background: #f8fafc;
-            padding: 10px 13px;
-            text-align: left;
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--lumo-secondary-text-color);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            border-bottom: 1px solid rgba(28,55,90,0.1);
-            white-space: nowrap;
-        }
-
-        .content-table td {
-            padding: 11px 13px;
-            border-bottom: 1px solid rgba(28,55,90,0.06);
-            vertical-align: middle;
-        }
-
-        .content-table tr:last-child td { border-bottom: none; }
-
-        .content-table tbody tr:hover td {
-            background: rgba(14,165,233,0.04);
-        }
-
-        .content-table input[type="checkbox"] {
-            width: 14px; height: 14px; cursor: pointer;
-            accent-color: var(--lumo-primary-color);
+        /* Ensure first/last cells get horizontal padding (Lumo strips it from edge cells) */
+        vaadin-grid#content-grid::part(first-column-cell),
+        vaadin-grid#content-grid::part(last-column-cell),
+        vaadin-grid#content-grid::part(cell) {
+            padding-left: 14px;
+            padding-right: 14px;
         }
 
         /* ── Thumbnail placeholder ── */
@@ -237,13 +180,14 @@
         .badge-archived { background: #fff3e0; color: #e65100; }
         .badge-sunset { background: #fce4ec; color: #c62828; }
         .badge-vector { background: rgba(14,165,233,0.1); color: #0271ce; }
-        .badge-mine { background: rgba(28,55,90,0.07); color: var(--lumo-secondary-text-color); }
+        .badge-user { background: rgba(28,55,90,0.07); color: var(--lumo-secondary-text-color); }
 
         /* ── Action buttons ── */
         .action-cell {
-            display: flex;
-            gap: 3px;
-            align-items: center;
+            white-space: nowrap;
+        }
+        .action-cell .icon-btn + .icon-btn {
+            margin-left: 3px;
         }
         .icon-btn {
             display: inline-flex;
@@ -321,7 +265,7 @@
                     <select id="filter-ownership" aria-label="Ownership">
                         <option value="">All Content</option>
                         <option value="vector">Vector-Provided</option>
-                        <option value="mine">My Content</option>
+                        <option value="user">User</option>
                     </select>
                     <select id="filter-status" aria-label="Status">
                         <option value="">All Statuses</option>
@@ -336,41 +280,17 @@
             <!-- Results count -->
             <div class="results-summary">Showing 24 items</div>
 
-            <!-- Bulk action toolbar (hidden until checkboxes selected) -->
-            <div class="bulk-toolbar" id="bulk-toolbar">
-                <span class="bulk-count" id="bulk-count">0 items selected</span>
-                <vaadin-button theme="secondary" onclick="clearSelection()">
-                    <i class="fa-solid fa-xmark" slot="prefix"></i> Deselect All
-                </vaadin-button>
-                <vaadin-button theme="secondary">
-                    <i class="fa-solid fa-box-archive" slot="prefix"></i> Archive Selected
-                </vaadin-button>
-                <vaadin-button theme="secondary">
-                    <i class="fa-solid fa-copy" slot="prefix"></i> Duplicate Selected
-                </vaadin-button>
-            </div>
-
-            <!-- Content table -->
-            <div class="content-table-wrapper">
-                <table class="content-table" aria-label="Content Library items">
-                    <thead>
-                        <tr>
-                            <th style="width:38px"><input type="checkbox" id="select-all" aria-label="Select all" onchange="toggleSelectAll(this)"></th>
-                            <th style="width:66px">Thumb</th>
-                            <th>Title</th>
-                            <th>Type</th>
-                            <th>Ownership</th>
-                            <th>Status</th>
-                            <th>Duration</th>
-                            <th>Last Modified</th>
-                            <th style="width:100px">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="content-tbody">
-                        <!-- Rows injected by JS -->
-                    </tbody>
-                </table>
-            </div>
+            <!-- Content grid -->
+            <vaadin-grid id="content-grid" theme="no-border row-stripes" all-rows-visible aria-label="Content Library items">
+                <vaadin-grid-column id="col-thumb" header="Img" width="74px" flex-grow="0" text-align="center"></vaadin-grid-column>
+                <vaadin-grid-sort-column id="col-title" path="title" header="Title" flex-grow="2"></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column path="type" header="Type" width="110px" flex-grow="0"></vaadin-grid-sort-column>
+                <vaadin-grid-column id="col-ownership" header="Ownership" width="130px" flex-grow="0"></vaadin-grid-column>
+                <vaadin-grid-column id="col-status" header="Status" width="130px" flex-grow="0"></vaadin-grid-column>
+                <vaadin-grid-sort-column path="duration" header="Duration" width="100px" flex-grow="0"></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column path="modified" header="Last Modified" width="130px" flex-grow="0"></vaadin-grid-sort-column>
+                <vaadin-grid-column id="col-actions" header="Actions" width="120px" flex-grow="0" frozen-to-end></vaadin-grid-column>
+            </vaadin-grid>
 
             <!-- Pagination -->
             <div class="pagination-row">
@@ -385,7 +305,7 @@
 customElements.whenDefined('vwc-sidenav').then(() => {
     // ── Topnav setup ──
     const topnav = document.getElementById('topnav');
-    topnav.logo = { src: '', alt: 'LearningStudio Content Portal' };
+    topnav.logo = { src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 32'><rect x='0' y='4' width='24' height='24' rx='4' fill='%230f2e3d'/><text x='32' y='22' font-family='Open Sans,sans-serif' font-size='16' font-weight='700' fill='%230f2e3d'>LOGO</text></svg>", alt: 'Logo' };
 
     // ── Sidenav setup ──
     const sidenav = document.getElementById('sidenav');
@@ -405,88 +325,87 @@ customElements.whenDefined('vwc-sidenav').then(() => {
     const contentItems = [
         { id: 1, title: 'Lockout/Tagout Safety — Fundamentals', type: 'Course', ownership: 'vector', status: 'published', duration: '45 min', modified: 'Apr 18, 2026', href: 'content-detail-vector.html', color: '#1976d2', icon: 'fa-shield-halved' },
         { id: 2, title: 'FERPA Compliance Overview', type: 'Course', ownership: 'vector', status: 'published', duration: '30 min', modified: 'Apr 15, 2026', href: 'content-detail-vector.html', color: '#388e3c', icon: 'fa-scale-balanced' },
-        { id: 3, title: 'Fire Safety — Custom (Acme Corp)', type: 'Course', ownership: 'mine', status: 'draft', duration: '20 min', modified: 'Apr 22, 2026', href: 'content-detail-customer.html', color: '#e64a19', icon: 'fa-fire-extinguisher' },
+        { id: 3, title: 'Fire Safety — Custom (Acme Corp)', type: 'Course', ownership: 'user', status: 'draft', duration: '20 min', modified: 'Apr 22, 2026', href: 'content-detail-customer.html', color: '#e64a19', icon: 'fa-fire-extinguisher' },
         { id: 4, title: 'Electrical Safety Awareness', type: 'Course', ownership: 'vector', status: 'published', duration: '60 min', modified: 'Mar 30, 2026', href: 'content-detail-vector.html', color: '#f9a825', icon: 'fa-bolt' },
         { id: 5, title: 'Bloodborne Pathogen Control', type: 'Module', ownership: 'vector', status: 'published', duration: '25 min', modified: 'Mar 12, 2026', href: 'content-detail-vector.html', color: '#c62828', icon: 'fa-syringe' },
-        { id: 6, title: 'Forklift Operator Certification', type: 'Course', ownership: 'mine', status: 'published', duration: '90 min', modified: 'Apr 10, 2026', href: 'content-detail-customer.html', color: '#6a1b9a', icon: 'fa-truck-ramp-box' },
+        { id: 6, title: 'Forklift Operator Certification', type: 'Course', ownership: 'user', status: 'published', duration: '90 min', modified: 'Apr 10, 2026', href: 'content-detail-customer.html', color: '#6a1b9a', icon: 'fa-truck-ramp-box' },
         { id: 7, title: 'PPE Selection & Fit Testing', type: 'Module', ownership: 'vector', status: 'archived', duration: '35 min', modified: 'Feb 01, 2026', href: 'content-detail-vector.html', color: '#00838f', icon: 'fa-hard-hat' },
-        { id: 8, title: 'Chemical Hazard Communication (HazCom)', type: 'Course', ownership: 'mine', status: 'draft', duration: '50 min', modified: 'Apr 25, 2026', href: 'content-detail-customer.html', color: '#558b2f', icon: 'fa-flask' },
+        { id: 8, title: 'Chemical Hazard Communication (HazCom)', type: 'Course', ownership: 'user', status: 'draft', duration: '50 min', modified: 'Apr 25, 2026', href: 'content-detail-customer.html', color: '#558b2f', icon: 'fa-flask' },
         { id: 9, title: 'Workplace Ergonomics Essentials', type: 'Course', ownership: 'vector', status: 'published', duration: '40 min', modified: 'Jan 20, 2026', href: 'content-detail-vector.html', color: '#1565c0', icon: 'fa-chair' },
         { id: 10, title: 'Fall Protection & Prevention', type: 'Course', ownership: 'vector', status: 'sunset', duration: '55 min', modified: 'Dec 05, 2025', href: 'content-detail-vector.html', color: '#4e342e', icon: 'fa-person-falling-burst' },
     ];
 
-    const statusBadge = (s) => {
-        const map = { published: ['badge-published','Published'], draft: ['badge-draft','Draft'], archived: ['badge-archived','Archived'], sunset: ['badge-sunset','Sunset'] };
-        const [cls, label] = map[s] || ['badge-draft', s];
-        return `<span class="badge ${cls}">${label}</span>`;
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
+    const grid = document.getElementById('content-grid');
+
+    // ── Column: thumbnail ──
+    document.getElementById('col-thumb').renderer = (root, _col, model) => {
+        root.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.style.display = 'flex';
+        wrap.style.justifyContent = 'center';
+        const thumb = document.createElement('div');
+        thumb.className = 'thumb';
+        thumb.style.background = model.item.color;
+        thumb.innerHTML = `<i class="fa-solid ${model.item.icon}"></i>`;
+        wrap.appendChild(thumb);
+        root.appendChild(wrap);
     };
-    const ownerBadge = (o) => o === 'vector'
-        ? `<span class="badge badge-vector"><i class="fa-solid fa-v"></i> Vector</span>`
-        : `<span class="badge badge-mine"><i class="fa-solid fa-user"></i> Mine</span>`;
 
-    const tbody = document.getElementById('content-tbody');
-    let selectedIds = new Set();
+    // ── Column: title (sortable, custom renderer for link styling) ──
+    document.getElementById('col-title').renderer = (root, _col, model) => {
+        root.innerHTML = '';
+        const a = document.createElement('a');
+        a.className = 'title-link';
+        a.href = model.item.href;
+        a.textContent = model.item.title;
+        root.appendChild(a);
+    };
 
-    contentItems.forEach(item => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><input type="checkbox" data-id="${item.id}" class="row-checkbox" aria-label="Select ${item.title}" onchange="handleRowCheck(this, ${item.id})"></td>
-            <td>
-                <div class="thumb" style="background:${item.color}">
-                    <i class="fa-solid ${item.icon}"></i>
-                </div>
-            </td>
-            <td class="title-cell">
-                <a class="title-link" href="${item.href}">${item.title}</a>
-                <span class="title-meta">${item.type}</span>
-            </td>
-            <td style="color:var(--lumo-secondary-text-color)">${item.type}</td>
-            <td>${ownerBadge(item.ownership)}</td>
-            <td>${statusBadge(item.status)}</td>
-            <td style="white-space:nowrap; color:var(--lumo-secondary-text-color)">${item.duration}</td>
-            <td style="white-space:nowrap; color:var(--lumo-secondary-text-color)">${item.modified}</td>
-            <td class="action-cell">
-                <button class="icon-btn" title="View" onclick="window.location='${item.href}'"><i class="fa-solid fa-eye"></i></button>
-                <button class="icon-btn" title="Edit" onclick="window.location='${item.href}'"><i class="fa-regular fa-pen-to-square"></i></button>
-                <button class="icon-btn" title="Duplicate"><i class="fa-regular fa-copy"></i></button>
-            </td>
+    // ── Column: ownership badge ──
+    document.getElementById('col-ownership').renderer = (root, _col, model) => {
+        root.innerHTML = '';
+        const o = model.item.ownership;
+        root.innerHTML = o === 'vector'
+            ? `<span class="badge badge-vector"><i class="fa-solid fa-v"></i> Vector</span>`
+            : `<span class="badge badge-user"><i class="fa-solid fa-user"></i> User</span>`;
+    };
+
+    // ── Column: status badge ──
+    const statusMap = { published: ['badge-published','Published'], draft: ['badge-draft','Draft'], archived: ['badge-archived','Archived'], sunset: ['badge-sunset','Sunset'] };
+    document.getElementById('col-status').renderer = (root, _col, model) => {
+        root.innerHTML = '';
+        const [cls, label] = statusMap[model.item.status] || ['badge-draft', model.item.status];
+        root.innerHTML = `<span class="badge ${cls}">${escapeHtml(label)}</span>`;
+    };
+
+    // ── Column: actions ──
+    document.getElementById('col-actions').renderer = (root, _col, model) => {
+        root.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.className = 'action-cell';
+        wrap.innerHTML = `
+            <button class="icon-btn" title="View" data-action="view"><i class="fa-solid fa-eye"></i></button>
+            <button class="icon-btn" title="Edit" data-action="edit"><i class="fa-regular fa-pen-to-square"></i></button>
+            <button class="icon-btn" title="Duplicate" data-action="duplicate"><i class="fa-regular fa-copy"></i></button>
         `;
-        tbody.appendChild(tr);
-    });
-
-    function handleRowCheck(checkbox, id) {
-        if (checkbox.checked) selectedIds.add(id);
-        else selectedIds.delete(id);
-        updateBulkToolbar();
-    }
-
-    function toggleSelectAll(checkbox) {
-        document.querySelectorAll('.row-checkbox').forEach(cb => {
-            cb.checked = checkbox.checked;
-            const id = parseInt(cb.dataset.id);
-            if (checkbox.checked) selectedIds.add(id);
-            else selectedIds.delete(id);
+        wrap.querySelectorAll('button').forEach(b => {
+            b.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const action = b.getAttribute('data-action');
+                if (action === 'view' || action === 'edit') {
+                    window.location = model.item.href;
+                }
+            });
         });
-        updateBulkToolbar();
-    }
+        root.appendChild(wrap);
+    };
 
-    function clearSelection() {
-        selectedIds.clear();
-        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
-        document.getElementById('select-all').checked = false;
-        updateBulkToolbar();
-    }
-
-    function updateBulkToolbar() {
-        const toolbar = document.getElementById('bulk-toolbar');
-        const count = selectedIds.size;
-        if (count > 0) {
-            toolbar.classList.add('visible');
-            document.getElementById('bulk-count').textContent = `${count} item${count > 1 ? 's' : ''} selected`;
-        } else {
-            toolbar.classList.remove('visible');
-        }
-    }
+    // Populate
+    grid.items = contentItems;
 }); // end whenDefined
 </script>
 </body>
