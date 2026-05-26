@@ -178,10 +178,48 @@
       padding: 3px 8px; border-radius: 10px;
       text-transform: capitalize;
     }
-    .status-pill.active   { background: rgba(16,185,129,0.18); color: #34d399; }
-    .status-pill.draft    { background: rgba(255,255,255,0.08); color: var(--lumo-secondary-text-color); }
-    .status-pill.paused   { background: rgba(255,255,255,0.08); color: var(--lumo-secondary-text-color); }
-    .status-pill.retired  { background: rgba(216,62,56,0.16); color: #f87171; }
+    .status-pill.active    { background: rgba(16,185,129,0.18); color: #34d399; }
+    .status-pill.published { background: rgba(16,185,129,0.18); color: #34d399; }
+    .status-pill.draft     { background: rgba(255,255,255,0.08); color: var(--lumo-secondary-text-color); }
+    .status-pill.paused    { background: rgba(255,255,255,0.08); color: var(--lumo-secondary-text-color); }
+    .status-pill.retired   { background: rgba(216,62,56,0.16); color: #f87171; }
+
+    /* Status filter row — chip group above each list */
+    .status-filter {
+      display: flex; gap: 6px; flex-wrap: wrap;
+      padding: 10px 0 14px;
+      border-bottom: 1px solid var(--lumo-contrast-5pct);
+      margin-bottom: 12px;
+    }
+    .status-filter-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 600;
+      padding: 5px 11px; border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.10);
+      color: var(--lumo-secondary-text-color);
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s, color 0.12s;
+    }
+    .status-filter-chip:hover {
+      background: rgba(255,255,255,0.08);
+      color: #e2e6f0;
+    }
+    .status-filter-chip.active {
+      background: rgba(99,102,241,0.18);
+      border-color: rgba(165,180,252,0.45);
+      color: #c7d2fe;
+    }
+    .status-filter-chip .count {
+      font-size: 11px; font-weight: 700;
+      padding: 1px 7px; border-radius: 9px;
+      background: rgba(255,255,255,0.08);
+      color: var(--lumo-secondary-text-color);
+    }
+    .status-filter-chip.active .count {
+      background: rgba(165,180,252,0.25);
+      color: #e0e7ff;
+    }
 
     /* ---- Checklist expand panel: deployments ---- */
     .cl-expand {
@@ -551,9 +589,11 @@
         </div>
 
         <div class="tab-panel active" data-tab-panel="checklists">
+          <div class="status-filter" id="filter-checklists" data-filter-for="checklists"></div>
           <div id="list-checklists"></div>
         </div>
         <div class="tab-panel" data-tab-panel="blocks">
+          <div class="status-filter" id="filter-blocks" data-filter-for="blocks"></div>
           <div class="record-list" id="list-blocks"></div>
         </div>
       </section>
@@ -721,18 +761,79 @@
   }
 
   // ============================================================
+  // STATUS FILTERS (local UI state, not persisted)
+  // ============================================================
+  // Filter values: 'all' | 'draft' | 'published' | 'retired'
+  // Default 'all' so the lists are visible on first load.
+  const statusFilter = { blocks: 'all', checklists: 'all' };
+
+  // Returns the records visible under the current filter for a given list.
+  function applyStatusFilter(records, which) {
+    const f = statusFilter[which];
+    if (f === 'all') return records;
+    return records.filter(r => (r.status || 'draft') === f);
+  }
+
+  // Render the chip row above a list. Counts are computed against the full
+  // unfiltered set so the chip labels stay stable as the user filters.
+  function renderStatusFilter(which) {
+    const wrap = document.getElementById('filter-' + which);
+    if (!wrap) return;
+    const records = which === 'blocks' ? Store.listBlocks() : Store.listChecklists();
+    const counts = { all: records.length, draft: 0, published: 0, retired: 0 };
+    records.forEach(r => {
+      const s = r.status || 'draft';
+      if (counts[s] !== undefined) counts[s]++;
+    });
+    const chips = [
+      { key: 'all',       label: 'All' },
+      { key: 'draft',     label: 'Draft' },
+      { key: 'published', label: 'Published' },
+      { key: 'retired',   label: 'Retired' }
+    ];
+    wrap.innerHTML = chips.map(c => `
+      <button class="status-filter-chip ${statusFilter[which] === c.key ? 'active' : ''}"
+        data-status="${c.key}" data-list="${which}">
+        ${c.label}<span class="count">${counts[c.key]}</span>
+      </button>
+    `).join('');
+  }
+
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.status-filter-chip');
+    if (!btn) return;
+    const which = btn.dataset.list;
+    const next  = btn.dataset.status;
+    if (!which || !next || statusFilter[which] === next) return;
+    statusFilter[which] = next;
+    renderStatusFilter(which);
+    if (which === 'blocks') renderBlocks(); else renderChecklists();
+  });
+
+  // ============================================================
   // RENDER: BLOCKS
   // ============================================================
   function renderBlocks() {
+    renderStatusFilter('blocks');
     const list = document.getElementById('list-blocks');
-    const items = Store.listBlocks().sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
-    if (!items.length) {
+    const all = Store.listBlocks().sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
+    if (!all.length) {
       list.innerHTML = emptyMarkup('fa-solid fa-cube',
         'No content blocks yet',
         'Click "New content block" to author your first reusable group of steps.');
       return;
     }
-    list.innerHTML = items.map(b => `
+    const items = applyStatusFilter(all, 'blocks');
+    if (!items.length) {
+      list.innerHTML = emptyMarkup('fa-solid fa-filter',
+        `No ${statusFilter.blocks} content blocks`,
+        'Switch the filter above to see blocks in other states.');
+      return;
+    }
+    list.innerHTML = items.map(b => {
+      const status = b.status || 'draft';
+      const version = b.version || 1;
+      return `
       <div class="record-card">
         <div class="record-main">
           <div class="record-icon"><i class="fa-solid fa-cube"></i></div>
@@ -742,29 +843,42 @@
               <span><i class="fa-solid fa-list-ol"></i> ${(b.steps||[]).length} steps</span>
               <span><i class="fa-solid fa-tag"></i> ${escapeHtml(b.domain||'—')}</span>
               ${b.multiUse ? '<span><i class="fa-solid fa-clone"></i> multi-use</span>' : ''}
+              <span>v${version}</span>
               <span class="id-chip">${escapeHtml(b.id)}</span>
               <span>Updated ${fmtRel(b.updatedAt)}</span>
             </div>
           </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="status-pill ${status}">${escapeHtml(status)}</span>
         </div>
         <div class="record-actions">
           <vaadin-button theme="tertiary" onclick="openBlockEditor('${b.id}')" title="Edit"><i class="fa-solid fa-pen"></i></vaadin-button>
           <vaadin-button theme="tertiary" onclick="confirmDelete('block','${b.id}','${escapeHtml(b.name).replace(/'/g,'&#39;')}')" title="Delete"><i class="fa-solid fa-trash"></i></vaadin-button>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
 
   // ============================================================
   // RENDER: CHECKLISTS (with deployments expand)
   // ============================================================
   function renderChecklists() {
+    renderStatusFilter('checklists');
     const list = document.getElementById('list-checklists');
-    const items = Store.listChecklists().sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
-    if (!items.length) {
+    const all = Store.listChecklists().sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
+    if (!all.length) {
       list.innerHTML = emptyMarkup('fa-solid fa-list-check',
         'No checklists yet',
         'Click "New checklist" to compose content blocks into a checklist that can be deployed to vehicles.');
+      return;
+    }
+    const items = applyStatusFilter(all, 'checklists');
+    if (!items.length) {
+      list.innerHTML = emptyMarkup('fa-solid fa-filter',
+        `No ${statusFilter.checklists} checklists`,
+        'Switch the filter above to see checklists in other states.');
       return;
     }
     list.innerHTML = items.map(c => {
@@ -772,9 +886,11 @@
       const blocksCount = (c.sections||[]).reduce((n, s) => n + ((s.blocks||[]).length), 0);
       const deployments = c.deployments || [];
       const status = c.status || 'draft';
+      const version = c.version || 1;
       const subParts = [
         escapeHtml(c.type || '—'),
         escapeHtml(c.cadence || '—'),
+        `v${version}`,
         deployments.length === 0 ? 'Not deployed' : `${deployments.length} deployment${deployments.length === 1 ? '' : 's'}`,
         `${sectionsCount} sections · ${blocksCount} blocks`,
         'Updated ' + fmtRel(c.updatedAt)

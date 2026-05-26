@@ -23,9 +23,11 @@
 
     Block CRUD:
       Store.listBlocks() / getBlock(id) / upsertBlock(b) / deleteBlock(id)
+      Store.setBlockStatus(id, 'draft' | 'published' | 'retired')
 
     Checklist CRUD:
       Store.listChecklists() / getChecklist(id) / upsertChecklist(c) / deleteChecklist(id)
+      Store.setChecklistStatus(id, 'draft' | 'published' | 'retired')
 
     Deployment helpers (deployments live inside a checklist):
       Store.addDeployment(checklistId, { vehicleTag, status?, cadenceOverride? })
@@ -48,7 +50,7 @@
   'use strict';
 
   const STORAGE_KEY    = 'checkit-sandbox-v1';   // shared key; schemaVersion gates compat
-  const SCHEMA_VERSION = 2;                       // bumped: dropped templates/assignments/instances/assets
+  const SCHEMA_VERSION = 3;                       // bumped: blocks + checklists gained status/version fields
   const CHANGE_EVENT   = 'checkit-sandbox-change';
 
   // ---------- helpers --------------------------------------------------
@@ -191,6 +193,33 @@
   const blocks     = makeCrud('block',     'blocks');
   const checklists = makeCrud('checklist', 'checklists');
 
+  // ---------- status helpers ------------------------------------------
+  // Shared lifecycle: 'draft' -> 'published' -> 'retired'.
+  // Going draft -> published bumps `version` (and `publishedAt`); other
+  // transitions just update the field. Production behavior would create a
+  // separate immutable revision on publish (see sandbox-seed.js header
+  // comment); this prototype mutates in place.
+  function setStatus(storeKey, kind, id, status) {
+    const allowed = ['draft', 'published', 'retired'];
+    if (!allowed.includes(status)) return null;
+    const blob = load();
+    const rec = blob[storeKey][id];
+    if (!rec) return null;
+    const prev = rec.status || 'draft';
+    if (prev === status) return rec;
+    if (prev === 'draft' && status === 'published') {
+      rec.version = (rec.version || 0) + 1;
+      rec.publishedAt = nowIso();
+    }
+    rec.status = status;
+    rec.updatedAt = nowIso();
+    save(blob, { silent: true });
+    emit(kind, 'update', id);
+    return rec;
+  }
+  function setBlockStatus(id, status)     { return setStatus('blocks',     'block',     id, status); }
+  function setChecklistStatus(id, status) { return setStatus('checklists', 'checklist', id, status); }
+
   // ---------- deployment helpers --------------------------------------
   // Deployments live inside a checklist's `deployments[]` array. These
   // helpers wrap the mutation so callers don't have to remember the shape.
@@ -278,12 +307,14 @@
     getBlock:     blocks.get,
     upsertBlock:  blocks.upsert,
     deleteBlock:  blocks.remove,
+    setBlockStatus,
 
     // checklists
     listChecklists:  checklists.list,
     getChecklist:    checklists.get,
     upsertChecklist: checklists.upsert,
     deleteChecklist: checklists.remove,
+    setChecklistStatus,
 
     // deployments (inside checklists)
     addDeployment, updateDeployment, removeDeployment,

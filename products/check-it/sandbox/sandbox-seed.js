@@ -29,6 +29,20 @@
     // ---------- blocks ---------------------------------------------------
     // Block step shape (matches block-creator.html + the 14 step types):
     //   { id, kind, label, severity: 'critical'|'warning'|'none', allowPhoto?, allowNote?, ...kind-specific }
+    //
+    // Status / version model (also applies to checklists below):
+    //   status:  'draft' | 'published' | 'retired'
+    //   version: integer, starts at 1, increments on each publish.
+    //
+    // PRODUCTION TARGET (not modeled in this prototype):
+    //   Draft is a separate revision layered on top of the published version,
+    //   not an in-place status field. Editing a published block creates a
+    //   draft revision; the published version stays immutable and live for
+    //   existing deployments until the draft is itself published, replacing
+    //   the prior version. Old checklist deployments pin to specific block
+    //   versions so editing a block doesn't silently mutate live checklists.
+    //   The prototype simplifies this to a single in-place status field —
+    //   good enough for demoing the filter UX but not the editing model.
 
     const blockTires = {
       id: newId('block'),
@@ -36,6 +50,8 @@
       domain: 'vehicle',
       description: 'Visual condition of tires, wheels, lugs, and pressures.',
       multiUse: true,
+      status: 'published',
+      version: 2,
       steps: [
         { id: 1, kind: 'check',   label: 'Tire tread depth ≥ 4/32"', severity: 'critical', allowPhoto: true, allowNote: true },
         { id: 2, kind: 'check',   label: 'Sidewalls — no cuts, bulges, weather cracking', severity: 'critical', allowPhoto: true },
@@ -51,6 +67,8 @@
       domain: 'apparatus',
       description: 'Engine, transmission, coolant, pump primer checks.',
       multiUse: false,
+      status: 'published',
+      version: 1,
       steps: [
         { id: 1, kind: 'check',  label: 'Engine oil — between min and max',  severity: 'critical', allowPhoto: true },
         { id: 2, kind: 'check',  label: 'Coolant level',                     severity: 'critical', allowPhoto: true },
@@ -66,6 +84,8 @@
       domain: 'equipment',
       description: 'Self-contained breathing apparatus per seat.',
       multiUse: true,
+      status: 'published',
+      version: 3,
       steps: [
         { id: 1, kind: 'numeric',     label: 'Cylinder pressure', unit: 'psi', threshold: { min: 4275, label: '≥ 95% of 4500 psi' }, severity: 'critical' },
         { id: 2, kind: 'check',       label: 'Mask + regulator — clean, no cracks', severity: 'critical', allowPhoto: true },
@@ -76,13 +96,53 @@
       createdAt: now, updatedAt: now
     };
 
-    // ---------- checklist (the template) + one active deployment ---------
+    // A block currently being authored — not yet published.
+    const blockHydrant = {
+      id: newId('block'),
+      name: 'Hydrant Inspection',
+      domain: 'facility',
+      description: 'Annual hydrant flow + visual condition check.',
+      multiUse: true,
+      status: 'draft',
+      version: 1,
+      steps: [
+        { id: 1, kind: 'check',   label: 'Caps present and removable', severity: 'warning', allowPhoto: true },
+        { id: 2, kind: 'numeric', label: 'Static pressure', unit: 'psi', threshold: { min: 20, label: 'Min 20 psi static' }, severity: 'critical' },
+        { id: 3, kind: 'check',   label: 'Drain valve operates correctly', severity: 'warning' }
+      ],
+      createdAt: now, updatedAt: now
+    };
+
+    // A block superseded by a newer process — retired.
+    const blockRadios = {
+      id: newId('block'),
+      name: 'Mobile Radio Check (legacy)',
+      domain: 'equipment',
+      description: 'Pre-replacement radio check; superseded by MDT-integrated routine.',
+      multiUse: false,
+      status: 'retired',
+      version: 4,
+      steps: [
+        { id: 1, kind: 'check', label: 'Primary radio powers on', severity: 'critical' },
+        { id: 2, kind: 'check', label: 'All channels programmed', severity: 'warning' }
+      ],
+      createdAt: now, updatedAt: now
+    };
+
+    // ---------- checklists (templates) + deployments ---------------------
+    // Status/version model identical to blocks above — see the production
+    // target comment near the block definitions.
+    //
+    // Only `published` checklists can be deployed. Drafts and retired
+    // checklists have no deployments.
+
     const checklist = {
       id: newId('checklist'),
       name: 'Apparatus Morning Check',
       type: 'apparatus',          // drives the colored icon (apparatus|ems|facility|pm)
       cadence: 'daily',
-      status: 'active',           // 'active'|'draft'|'retired'
+      status: 'published',        // 'draft' | 'published' | 'retired'
+      version: 5,
       origin: 'scratch',
       sections: [
         {
@@ -111,14 +171,61 @@
       createdAt: now, updatedAt: now
     };
 
+    // A new checklist being built — not yet published, no deployments.
+    const checklistDraft = {
+      id: newId('checklist'),
+      name: 'Quarterly Hydrant Check',
+      type: 'facility',
+      cadence: 'quarterly',
+      status: 'draft',
+      version: 1,
+      origin: 'scratch',
+      sections: [
+        {
+          id: 1, name: 'Inspection', collapsed: false,
+          blocks: [
+            { instanceId: 1, blockId: blockHydrant.id, contextLabel: '', expanded: false }
+          ]
+        }
+      ],
+      deployments: [],
+      createdAt: now, updatedAt: now
+    };
+
+    // A retired checklist — kept for historical run records, no deployments.
+    const checklistRetired = {
+      id: newId('checklist'),
+      name: 'Pre-Shift Radio Check (legacy)',
+      type: 'apparatus',
+      cadence: 'daily',
+      status: 'retired',
+      version: 7,
+      origin: 'scratch',
+      sections: [
+        {
+          id: 1, name: 'Radios', collapsed: false,
+          blocks: [
+            { instanceId: 1, blockId: blockRadios.id, contextLabel: '', expanded: false }
+          ]
+        }
+      ],
+      deployments: [],
+      createdAt: now, updatedAt: now
+    };
+
     // ---------- assemble blob --------------------------------------------
     const blocksById = {};
-    [blockTires, blockFluids, blockScba].forEach(b => { blocksById[b.id] = b; });
+    [blockTires, blockFluids, blockScba, blockHydrant, blockRadios]
+      .forEach(b => { blocksById[b.id] = b; });
+
+    const checklistsById = {};
+    [checklist, checklistDraft, checklistRetired]
+      .forEach(c => { checklistsById[c.id] = c; });
 
     return {
       schemaVersion: 2,
       blocks:      blocksById,
-      checklists:  { [checklist.id]: checklist },
+      checklists:  checklistsById,
       vehicles,
       meta: { seededAt: now, lastModified: now }
     };
