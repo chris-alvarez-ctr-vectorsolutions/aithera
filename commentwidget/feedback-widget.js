@@ -43,17 +43,20 @@
 .cw-pin--done::after { content: "✓"; position: absolute; right: -4px; top: -4px; background: #10b981; color: #fff; width: 14px; height: 14px; border-radius: 50%; font-size: 10px; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; }
 
 /* Bubble (top-right activation) */
-.cw-bubble { position: fixed; top: 20px; right: 20px; z-index: 2147483640; width: 44px; height: 44px; border-radius: 50%; background: #111827; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.25); border: 0; padding: 0; transition: transform .15s, background .15s; }
+.cw-bubble { position: fixed; top: 20px; right: 20px; z-index: 2147483640; width: 44px; height: 44px; border-radius: 50%; background: #111827; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.25); border: 0; padding: 0; opacity: 1; transition: transform .15s, background .15s, opacity .2s; }
 .cw-bubble:hover { transform: scale(1.06); }
 .cw-bubble--active { background: #dc2626; font-size: 18px; }
-.cw-bubble--disabled { background: #6b7280; opacity: .45; }
-.cw-bubble--disabled:hover { transform: none; }
+/* Comments-off: bubble fades fully out and stops reacting to hover so it never draws the eye. Still clickable for admins; visible again while actively in use. */
+.cw-bubble--ghost { opacity: 0; }
+.cw-bubble--ghost:hover { transform: none; }
+.cw-bubble--ghost.cw-bubble--active { opacity: 1; }
 .cw-bubble--admin::after { content: ''; position: absolute; top: -1px; right: -1px; width: 10px; height: 10px; background: #f59e0b; border-radius: 50%; border: 2px solid #111827; }
 .cw-bubble-tip { position: absolute; top: 54px; right: 0; background: #111827; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .15s; }
 .cw-bubble:hover .cw-bubble-tip { opacity: 1; }
 .cw-banner { position: fixed; top: 28px; right: 76px; z-index: 2147483640; background: #111827; color: #fff; padding: 8px 8px 8px 14px; border-radius: 22px; display: flex; align-items: center; gap: 10px; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
 .cw-banner button { background: rgba(255,255,255,.15); color: #fff; border: 0; cursor: pointer; font: inherit; padding: 4px 10px; border-radius: 12px; }
 .cw-banner button:hover { background: rgba(255,255,255,.25); }
+.cw-banner .cw-banner-gear { padding: 4px 8px; border-radius: 50%; font-size: 14px; line-height: 1; }
 
 /* Pick mode */
 .cw-picking, .cw-picking * { cursor: crosshair !important; }
@@ -157,7 +160,7 @@
 .cw-toast button { background: rgba(255,255,255,.15); color: #fff; border: 0; cursor: pointer; font: inherit; padding: 4px 10px; border-radius: 12px; }
 .cw-toast button:hover { background: rgba(255,255,255,.25); }
 
-/* Admin panel (right-click on bubble) */
+/* Admin panel (⚙ button in the comment-mode banner) */
 .cw-admin-panel { position: fixed; top: 74px; right: 20px; z-index: 2147483646; width: 300px; background: #fffdf3; border: 1px solid #fcd34d; border-radius: 14px 18px 12px 16px; box-shadow: 0 14px 32px rgba(146,94,12,.20), 0 2px 6px rgba(0,0,0,.06); padding: 14px 16px; transform: rotate(-0.3deg); }
 .cw-admin-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; position: relative; padding-right: 24px; }
 .cw-admin-title { font-weight: 700; font-size: 13px; color: #78350f; letter-spacing: .01em; }
@@ -195,6 +198,18 @@
       e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
     }
     return e;
+  }
+
+  const clamp01 = (n) => Math.min(Math.max(n, 0), 1);
+
+  // Topmost real page element at a viewport point, skipping the widget's own
+  // layers (pins, outlines, banner, etc.) so we anchor to the design, not us.
+  function topElementAt(clientX, clientY) {
+    const stack = document.elementsFromPoint(clientX, clientY);
+    for (const node of stack) {
+      if (!isWidgetEl(node)) return node;
+    }
+    return null;
   }
 
   function escapeHtml(s) {
@@ -459,16 +474,16 @@
       bubbleIcon,
       el('div', { class: 'cw-bubble-tip' }, ['Add feedback']),
     ]);
-    bubble.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      becomeAdmin();
-      openAdminPanel();
-    });
     document.body.appendChild(bubble);
     applyAdminBubble();
 
     banner = el('div', { class: 'cw-banner cw-hidden' }, [
       document.createTextNode('Click any element to leave feedback'),
+      el('button', {
+        type: 'button', class: 'cw-banner-gear', title: 'Settings & admin controls',
+        'aria-label': 'Settings',
+        onclick: () => { becomeAdmin(); openAdminPanel(); },
+      }, ['⚙']),
       el('button', { type: 'button', onclick: exitPickMode }, ['Esc to cancel']),
     ]);
     document.body.appendChild(banner);
@@ -491,10 +506,15 @@
 
   function applyAdminBubble() {
     if (!bubble) return;
-    const disabled = state.settings.commentsDisabled && !state.isAdmin;
-    bubble.classList.toggle('cw-bubble--disabled', disabled);
+    // Comments off → bubble goes fully transparent (and drops its hover state)
+    // so it never draws attention. It stays in the DOM and clickable, so admins
+    // can still open it; visitors who click it are no-ops (pick mode is gated).
+    // Comments on → fully visible.
+    bubble.classList.toggle('cw-bubble--ghost', state.settings.commentsDisabled);
     bubble.classList.toggle('cw-bubble--admin', state.isAdmin);
-    bubble.title = disabled ? 'Comments disabled (right-click for admin)' : 'Add feedback (right-click for admin)';
+    bubble.title = state.settings.commentsDisabled
+      ? (state.isAdmin ? 'Comments disabled — you can still manage them' : 'Comments disabled')
+      : 'Add feedback';
   }
 
   let adminPanel = null;
@@ -533,7 +553,7 @@
         disabledToggle.el,
       ]),
       el('div', { class: 'cw-admin-footer' }, [
-        `You are admin on this browser. Right-click the bubble any time to reopen these controls.`
+        `You are admin on this browser. Open comment mode and click the ⚙ button any time to reopen these controls.`
       ]),
     ]);
     document.body.appendChild(adminPanel);
@@ -606,6 +626,25 @@
   // ----- Pick mode ------------------------------------------------------------
   let hoverOutline;
 
+  // Outline shown under the cursor while dragging a pin, marking the element it
+  // will re-anchor to on drop. Reuses the pick-mode outline styling.
+  let dragOutline;
+  function showDragOutline() {
+    if (dragOutline) return;
+    dragOutline = el('div', { class: 'cw-hover-outline cw-hidden' });
+    document.body.appendChild(dragOutline);
+  }
+  function updateDragOutline(target) {
+    if (!dragOutline) return;
+    if (!target) { dragOutline.classList.add('cw-hidden'); return; }
+    const r = target.getBoundingClientRect();
+    Object.assign(dragOutline.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+    dragOutline.classList.remove('cw-hidden');
+  }
+  function hideDragOutline() {
+    if (dragOutline) { dragOutline.remove(); dragOutline = null; }
+  }
+
   function enterPickMode() {
     if (state.pickMode) return;
     state.pickMode = true;
@@ -665,11 +704,16 @@
     const elementText = (target.innerText || target.textContent || '').trim().slice(0, 200);
     const x = (e.clientX) / window.innerWidth;
     const y = (e.clientY + window.scrollY) / window.innerHeight;
+    // Relative offset within the clicked element's box — keeps the pin anchored
+    // to the element as the page scrolls or the layout reflows.
+    const rect = target.getBoundingClientRect();
+    const relX = rect.width ? clamp01((e.clientX - rect.left) / rect.width) : 0.5;
+    const relY = rect.height ? clamp01((e.clientY - rect.top) / rect.height) : 0;
     exitPickMode();
     showToast('Capturing screenshot…', 'neutral');
     const screenshot = await captureElement(target);
     if (state.activeToast) { state.activeToast.remove(); state.activeToast = null; }
-    openNewPinPopup({ x, y, selector, elementText, screenshot, clickX: e.clientX, clickY: e.clientY + window.scrollY });
+    openNewPinPopup({ x, y, relX, relY, selector, elementText, screenshot, clickX: e.clientX, clickY: e.clientY + window.scrollY });
   }
 
   // ----- New pin popup --------------------------------------------------------
@@ -704,6 +748,7 @@
           selector: ctx.selector,
           elementText: ctx.elementText,
           x: ctx.x, y: ctx.y,
+          relX: ctx.relX, relY: ctx.relY,
           screenshot: ctx.screenshot,
           author, comment,
         });
@@ -776,9 +821,14 @@
   }
 
   // ----- Pin rendering --------------------------------------------------------
+  // Dots currently on screen, so scroll/reflow can reposition them in place
+  // (anchored to their element) without rebuilding the whole layer.
+  let renderedPins = [];
+
   function renderPins() {
     pinsLayer.innerHTML = '';
     state.stranded = [];
+    renderedPins = [];
 
     pinsLayer.style.height = Math.max(document.documentElement.scrollHeight, window.innerHeight) + 'px';
 
@@ -786,7 +836,9 @@
       const found = pin.selector ? safeQuery(pin.selector) : null;
       if (!found) { state.stranded.push(pin); continue; }
       const dot = makePinDot(pin);
+      positionDot(dot, pin, found);
       pinsLayer.appendChild(dot);
+      renderedPins.push({ pin, dot });
     }
     renderStranded();
   }
@@ -795,13 +847,41 @@
     try { return document.querySelector(sel); } catch (e) { return null; }
   }
 
+  // Place a dot at its pin's anchor: the element's live bounding rect plus the
+  // stored relative offset, in page coordinates. Falls back to legacy x/y for
+  // pins saved before element anchoring existed.
+  function positionDot(dot, pin, target) {
+    const node = target || (pin.selector ? safeQuery(pin.selector) : null);
+    let left, top;
+    if (node && pin.relX != null && pin.relY != null) {
+      const r = node.getBoundingClientRect();
+      left = r.left + window.scrollX + pin.relX * r.width;
+      top = r.top + window.scrollY + pin.relY * r.height;
+    } else if (node) {
+      const r = node.getBoundingClientRect();
+      left = r.left + window.scrollX + r.width / 2;
+      top = r.top + window.scrollY;
+    } else {
+      left = pin.x * window.innerWidth;
+      top = pin.y * window.innerHeight;
+    }
+    dot.style.left = left + 'px';
+    dot.style.top = top + 'px';
+  }
+
+  // Re-anchor every visible dot to its element. Cheap enough to run on scroll.
+  function repositionDots() {
+    for (const { pin, dot } of renderedPins) {
+      if (dot.classList.contains('cw-pin--dragging')) continue;
+      positionDot(dot, pin);
+    }
+  }
+
   function makePinDot(pin) {
-    const left = pin.x * window.innerWidth;
-    const top = pin.y * window.innerHeight;
     const dot = el('div', {
       class: 'cw-pin' + (pin.done ? ' cw-pin--done' : ''),
-      style: `left:${left}px; top:${top}px; background:${authorColor(pin.author)};`,
-      title: `${pin.author} — ${rel(pin.timestamp)}  ·  drag to reposition`,
+      style: `background:${authorColor(pin.author)};`,
+      title: `${pin.author} — ${rel(pin.timestamp)}  ·  drag to re-pin to another element`,
     }, [el('span', {}, [initial(pin.author)])]);
 
     // Two interaction modes on a pin:
@@ -813,9 +893,9 @@
       if (e.button !== 0) return;
       if (!state.pickMode) return; // normal click → panel handler below
       e.stopPropagation(); e.preventDefault();
-      drag = { sx: e.clientX, sy: e.clientY, moved: false, nx: pin.x, ny: pin.y };
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
+      drag = { sx: e.clientX, sy: e.clientY, lastX: e.clientX, lastY: e.clientY, moved: false };
+      document.addEventListener('mousemove', onMove, true);
+      document.addEventListener('mouseup', onUp, true);
     });
     dot.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -825,36 +905,59 @@
 
     function onMove(e) {
       if (!drag) return;
+      drag.lastX = e.clientX; drag.lastY = e.clientY;
       if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 5) {
         drag.moved = true;
         dot.classList.add('cw-pin--dragging');
+        showDragOutline();
       }
       if (drag.moved) {
-        const pageX = e.clientX;
-        const pageY = e.clientY + window.scrollY;
-        drag.nx = pageX / window.innerWidth;
-        drag.ny = pageY / window.innerHeight;
-        dot.style.left = pageX + 'px';
-        dot.style.top = pageY + 'px';
+        // Dot follows the cursor in page coords while dragging…
+        dot.style.left = (e.clientX + window.scrollX) + 'px';
+        dot.style.top = (e.clientY + window.scrollY) + 'px';
+        // …and we outline the element it would attach to on drop.
+        drag.targetEl = topElementAt(e.clientX, e.clientY);
+        updateDragOutline(drag.targetEl);
       }
     }
 
-    async function onUp() {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
+    async function onUp(e) {
+      document.removeEventListener('mousemove', onMove, true);
+      document.removeEventListener('mouseup', onUp, true);
       const d = drag; drag = null;
       dot.classList.remove('cw-pin--dragging');
+      hideDragOutline();
       if (!d || !d.moved) return; // click without drag in pick mode = no-op
-      const oldX = pin.x, oldY = pin.y;
-      pin.x = d.nx; pin.y = d.ny;
+
+      const cx = (e && e.clientX != null) ? e.clientX : d.lastX;
+      const cy = (e && e.clientY != null) ? e.clientY : d.lastY;
+      const target = topElementAt(cx, cy);
+
+      const prev = { x: pin.x, y: pin.y, selector: pin.selector, elementText: pin.elementText, relX: pin.relX, relY: pin.relY };
+      const patch = { url: pin.url, author: state.author || pin.author };
+
+      // Re-anchor to whatever element we dropped on: new selector, element text
+      // and relative offset all travel with the pin.
+      if (target) {
+        const r = target.getBoundingClientRect();
+        pin.selector = cssPath(target);
+        pin.elementText = (target.innerText || target.textContent || '').trim().slice(0, 200);
+        pin.relX = r.width ? clamp01((cx - r.left) / r.width) : 0.5;
+        pin.relY = r.height ? clamp01((cy - r.top) / r.height) : 0;
+        Object.assign(patch, { selector: pin.selector, elementText: pin.elementText, relX: pin.relX, relY: pin.relY });
+      }
+      pin.x = cx / window.innerWidth;
+      pin.y = (cy + window.scrollY) / window.innerHeight;
+      patch.x = pin.x; patch.y = pin.y;
+
+      positionDot(dot, pin, target); // snap to the anchored spot immediately
       try {
-        const { pin: updated } = await api('PATCH', '/pins/' + pin.id, {
-          url: pin.url, author: state.author || pin.author, x: d.nx, y: d.ny,
-        });
+        const { pin: updated } = await api('PATCH', '/pins/' + pin.id, patch);
         mergePin(updated);
-        showToast('Pin moved', 'success');
+        renderPins();
+        showToast(target ? 'Pin re-anchored to element' : 'Pin moved', 'success');
       } catch (err) {
-        pin.x = oldX; pin.y = oldY;
+        Object.assign(pin, prev);
         renderPins();
         showToast(err.message || 'Could not move pin', 'error');
       }
@@ -1100,7 +1203,8 @@
   async function init() {
     buildRoot();
     window.addEventListener('resize', () => renderPins());
-    window.addEventListener('scroll', () => { /* pins are document-positioned, no-op */ }, { passive: true });
+    // Pins are anchored to elements — keep them glued as the page scrolls/reflows.
+    window.addEventListener('scroll', () => repositionDots(), { passive: true });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePopup(); closePanel(); } });
 
     try {

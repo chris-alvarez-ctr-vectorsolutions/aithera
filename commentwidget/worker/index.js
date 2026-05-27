@@ -131,6 +131,8 @@ async function createPin(request, env) {
     elementText: (body.elementText || '').slice(0, 200),
     x: Number(body.x) || 0,
     y: Number(body.y) || 0,
+    relX: body.relX != null ? Number(body.relX) : null,
+    relY: body.relY != null ? Number(body.relY) : null,
     screenshot: body.screenshot || '',
     comment: body.comment,
     author: body.author,
@@ -171,6 +173,14 @@ async function updatePin(id, request, env) {
   if (body.x !== undefined) pin.x = Number(body.x);
   if (body.y !== undefined) pin.y = Number(body.y);
 
+  // Re-anchoring: a dragged pin can land on a different element, so the
+  // selector / element text / relative offset travel with the move.
+  const prevSelector = pin.selector;
+  if (body.selector !== undefined) pin.selector = body.selector;
+  if (body.elementText !== undefined) pin.elementText = String(body.elementText).slice(0, 200);
+  if (body.relX !== undefined) pin.relX = body.relX != null ? Number(body.relX) : null;
+  if (body.relY !== undefined) pin.relY = body.relY != null ? Number(body.relY) : null;
+
   await env.PINS_KV.put(key, JSON.stringify(pin));
 
   if (stashUndo) {
@@ -185,6 +195,9 @@ async function updatePin(id, request, env) {
   if (body.deleted === true) await logToConfluence(env, `Deleted by ${author} — pin ${id}`, pin.url);
   if (body.comment !== undefined && body.comment !== prevComment) {
     await logToConfluence(env, `Edited by ${author} — pin ${id} — ${truncate(pin.comment, 100)}`, pin.url);
+  }
+  if (body.selector !== undefined && body.selector !== prevSelector) {
+    await logToConfluence(env, `Re-anchored by ${author} — pin ${id} — now ${truncate(pin.selector, 100)}`, pin.url);
   }
 
   return json({ pin });
