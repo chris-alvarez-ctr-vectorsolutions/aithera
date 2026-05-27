@@ -144,6 +144,8 @@ Browsers may cache the widget aggressively. If teammates aren't seeing the updat
 
 - **On load**, the widget fetches all non-deleted pins for the current page URL and draws them.
 - **Pin dot**: colored circle with the author's first initial. Click to open the detail panel.
+- **Element-anchored**: each pin stores its target element's selector plus a relative offset (`relX`/`relY`) inside that element's box. Dots are positioned from the element's live bounding rect, so they scroll and reflow with the page instead of floating at a fixed spot.
+- **Drag to re-pin**: in comment mode, drag a dot onto another element. The element under the cursor is outlined as you drag; on drop the pin re-anchors — its `selector`, `elementText`, and offset are recaptured (so the "Copy for Claude Code" prompt points at the new element).
 - **Done pins** render muted with a checkmark and stay visible until the next page refresh.
 - **Deleted pins** are soft-deleted (`deleted: true` in KV) and never shown.
 - **Stranded pins**: if a pin's CSS selector no longer matches anything on the page (mockup changed), the pin appears in a small sidebar instead of on the canvas, with a "Element no longer found on this page" note.
@@ -160,8 +162,10 @@ Browsers may cache the widget aggressively. If teammates aren't seeing the updat
   product: "Scheduling",
   selector: "...",
   elementText: "first 200 chars",
-  x: 0.0,            // viewport-width fraction
-  y: 0.0,            // viewport-height fraction
+  x: 0.0,            // legacy fallback: viewport-width fraction
+  y: 0.0,            // legacy fallback: page-height fraction
+  relX: 0.5,         // anchor offset within the element box (0–1), null if pre-anchoring
+  relY: 0.0,         // anchor offset within the element box (0–1), null if pre-anchoring
   screenshot: "data:image/jpeg;base64,...",
   comment: "...",
   author: "Sarah Chen",
@@ -185,7 +189,7 @@ Browsers may cache the widget aggressively. If teammates aren't seeing the updat
 |---|---|---|---|
 | `GET` | `/pins?url=<encoded>` | — | Returns active (non-deleted) pins for the URL. |
 | `POST` | `/pins` | pin fields | Creates a pin. |
-| `PATCH` | `/pins/:id` | `{ url, done?, deleted?, comment?, author? }` | Updates a pin. `url` is required for direct KV lookup. |
+| `PATCH` | `/pins/:id` | `{ url, done?, deleted?, comment?, author?, x?, y?, selector?, elementText?, relX?, relY? }` | Updates a pin. `url` is required for direct KV lookup. Passing `selector`/`relX`/`relY` re-anchors a dragged pin to a new element. |
 | `POST` | `/pins/:id/undo` | `{ url, author? }` | Reverts last done/delete on this pin if within 10s window. 409 if expired. |
 | `POST` | `/pins/:id/replies` | `{ url, author, text }` | Appends a reply to the pin thread. |
 

@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assigned Training Wizard — Convergence</title>
+
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+    </script>
+    <script
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+    </script>
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Open Sans', sans-serif;
+            background: #f4f5f7;
+            color: #1a1a1a;
+        }
+
+        /* ── Top nav ── */
+        .topnav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fff;
+            border-bottom: 1px solid #e2e4e8;
+            padding: 0 24px;
+            height: 56px;
+        }
+        .topnav .brand {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0066cc;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .topnav .brand .vs-logo {
+            width: 22px; height: 22px;
+            background: #0066cc;
+            clip-path: polygon(50% 0, 100% 100%, 0 100%);
+        }
+        .topnav nav {
+            display: flex;
+            gap: 28px;
+            font-size: 14px;
+            color: #4a5060;
+        }
+        .topnav nav a {
+            text-decoration: none;
+            color: inherit;
+            padding: 18px 0;
+            border-bottom: 3px solid transparent;
+        }
+        .topnav nav a.active {
+            color: #0066cc;
+            border-bottom-color: #0066cc;
+            font-weight: 600;
+        }
+        .topnav .right-icons {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            color: #4a5060;
+            font-size: 16px;
+        }
+        .user-pill {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: #d0d3d9;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+
+        /* ── App shell ── */
+        .shell {
+            display: flex;
+            min-height: calc(100vh - 56px);
+        }
+
+        /* ── Sidenav ── */
+        .sidenav {
+            width: 240px;
+            background: #fff;
+            border-right: 1px solid #e2e4e8;
+            padding: 14px 0;
+            flex-shrink: 0;
+        }
+        .sidenav-search {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0 14px 12px;
+            padding: 7px 10px;
+            border: 1px solid #d0d3d9;
+            border-radius: 6px;
+            color: #9aa0ac;
+            font-size: 13px;
+        }
+        .sidenav-search i { font-size: 12px; }
+        .sidenav-search .sep { flex: 1; }
+        .sidenav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 9px 18px;
+            font-size: 14px;
+            color: #2c3142;
+            cursor: pointer;
+        }
+        .sidenav-item:hover { background: #f4f5f7; }
+        .sidenav-item.active {
+            background: #eef1f5;
+            font-weight: 600;
+        }
+        .sidenav-item i.fa-solid:first-child { width: 16px; color: #6b7280; }
+        .sidenav-item .caret { margin-left: auto; font-size: 11px; color: #9aa0ac; }
+        .sidenav-sub {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 18px 7px 46px;
+            font-size: 13px;
+            color: #4a5060;
+            cursor: pointer;
+        }
+        .sidenav-sub.current { color: #0066cc; }
+        .sidenav-sub.current::before {
+            content: '';
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: #0066cc;
+            margin-left: -14px;
+            margin-right: 9px;
+        }
+
+        /* ── Main area ── */
+        .main {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Page title strip ── */
+        .page-title-strip {
+            background: #353b48;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 28px;
+            font-size: 16px;
+        }
+        .location-pill {
+            background: #fff;
+            color: #0066cc;
+            font-weight: 600;
+            font-size: 13px;
+            padding: 5px 11px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .page-title-strip .crumbs { font-size: 15px; }
+        .page-title-strip .crumbs a { color: #fff; text-decoration: underline; }
+        .page-title-strip .help-btn {
+            margin-left: auto;
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            background: rgba(255,255,255,.12);
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+        }
+
+        /* ── Wizard header (stepper + audit btn) ──
+           Layout strategy:
+             - .wizard-header is full width and provides padding.
+             - .wizard-header-inner is the layout box; in sticky mode it has max-width.
+             - .stepper is centered within the inner box.
+             - .audit-slot is absolutely pinned to the right edge of the inner box.
+             - We never let the audit button visually overlap the stepper:
+               JS measures gap and swaps to the icon-only button when the gap is too small. */
+        .wizard-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e4e8;
+            position: relative;
+            padding: 28px 28px 22px;
+        }
+        .wizard-header-inner {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Mode A: right-aligned. Inner is full width; button pins to far right. */
+        .wizard-header[data-mode="right-aligned"] .wizard-header-inner {
+            max-width: none;
+            margin: 0;
+        }
+
+        /* Mode B: sticky. Inner is centered with a max-width; button rides with it.
+           Cap = 1194 px — matches the Figma design's wizard content-area width
+           (1449 frame − 255 sidenav). Below this viewport size, the cap doesn't
+           engage (max-width has no effect when content is narrower) and the
+           layout behaves like right-aligned. */
+        .wizard-header[data-mode="sticky"] .wizard-header-inner {
+            max-width: 1194px;
+            margin: 0 auto;
+        }
+
+        .audit-slot {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+        }
+
+        /* ── Stepper ── */
+        .stepper {
+            display: flex;
+            align-items: flex-start;
+            gap: 0;
+            /* 800 = 1194 (Figma content area / sticky cap) − 2 × (~185 button + 8 gap).
+               Keeps the centered stepper from running into the audit button at the
+               sticky cap so the full button can show at wide viewports. */
+            max-width: 800px;
+            width: 100%;
+        }
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
+            position: relative;
+        }
+        .step-row {
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+        .step-circle {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 1.5px solid #d0d3d9;
+            background: #fff;
+            color: #6b7280;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        .step.active .step-circle {
+            background: #0066cc;
+            border-color: #0066cc;
+            color: #fff;
+        }
+        .step.complete .step-circle {
+            background: #2bb673;
+            border-color: #2bb673;
+            color: #fff;
+        }
+        .step-line {
+            flex: 1;
+            height: 1.5px;
+            background: #d0d3d9;
+            margin: 0 4px;
+        }
+        .step:first-child .step-line.left,
+        .step:last-child .step-line.right {
+            visibility: hidden;
+        }
+        .step-label {
+            font-size: 13.5px;
+            color: #2c3142;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .step.active .step-label { font-weight: 600; }
+        .step-label .req { color: #e53935; margin-left: 2px; }
+
+        /* ── Audit button (full + icon-only variants) ── */
+        .audit-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #fff;
+            color: #0066cc;
+            border: 1.5px solid #0066cc;
+            border-radius: 8px;
+            padding: 8px 14px;
+            font: 600 13px 'Open Sans', sans-serif;
+            cursor: pointer;
+        }
+        .audit-btn:hover { background: #eef5ff; }
+        .audit-btn i { font-size: 13px; }
+
+        .audit-icon-btn {
+            display: none;
+            background: #fff;
+            border: 1.5px solid #0066cc;
+            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            color: #0066cc;
+            font-size: 14px;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+        }
+        .audit-icon-btn:hover { background: #eef5ff; }
+
+        /* JS-driven swap: when the full button no longer fits next to the stepper
+           with the required gap, .wizard-header gets .icon-mode and the full button
+           is replaced by the icon-only variant. */
+        .wizard-header.icon-mode .audit-btn { display: none; }
+        .wizard-header.icon-mode .audit-icon-btn { display: inline-flex; }
+
+        /* Last-resort small-screen tweak — hide step labels so the circles fit. */
+        @media (max-width: 720px) {
+            .step-label { display: none; }
+        }
+
+        /* ── Page content ── */
+        .content-wrap {
+            padding: 22px 28px 40px;
+            flex: 1;
+        }
+        .card {
+            background: #fff;
+            border: 1px solid #e2e4e8;
+            border-radius: 10px;
+            padding: 28px;
+            max-width: 1194px;
+            margin: 0 auto;
+        }
+        .card h2 {
+            font-size: 19px;
+            font-weight: 700;
+            margin: 0 0 6px;
+        }
+        .card .sub {
+            color: #4a5060;
+            font-size: 13.5px;
+            margin-bottom: 22px;
+        }
+
+        .filter-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 18px;
+        }
+        .field-label {
+            font-size: 12.5px;
+            color: #4a5060;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+        .input, .select {
+            width: 100%;
+            border: 1px solid #d0d3d9;
+            border-radius: 6px;
+            padding: 9px 12px;
+            font: 14px 'Open Sans';
+            background: #fff;
+        }
+        .select { appearance: none; background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%23666' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 32px; }
+
+        .view-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 5px 11px;
+            border: 1.5px solid #0066cc;
+            color: #0066cc;
+            border-radius: 999px;
+            font-size: 12.5px;
+            font-weight: 600;
+            margin-bottom: 14px;
+            background: #fff;
+        }
+        .view-pill i { font-size: 11px; }
+
+        /* Table */
+        table.qual-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13.5px;
+        }
+        .qual-table th, .qual-table td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #e2e4e8;
+            text-align: left;
+        }
+        .qual-table th {
+            background: #fafbfc;
+            font-weight: 700;
+            color: #2c3142;
+            font-size: 12.5px;
+        }
+        .qual-table th i { color: #9aa0ac; font-size: 10px; margin-left: 4px; }
+        .qual-table td .new-tag {
+            display: inline-block;
+            background: #d6ecff;
+            color: #0066cc;
+            font-size: 10.5px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 999px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        .qual-table td .view-link {
+            color: #0066cc;
+            text-decoration: underline;
+            font-weight: 600;
+        }
+        .qual-table input[type="checkbox"] {
+            width: 16px; height: 16px;
+        }
+
+        /* Footer */
+        .wizard-footer {
+            background: #fff;
+            border-top: 1px solid #e2e4e8;
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 28px;
+        }
+        .btn {
+            font: 600 13.5px 'Open Sans';
+            padding: 9px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 1.5px solid #0066cc;
+            background: #fff;
+            color: #0066cc;
+        }
+        .btn.primary {
+            background: #0066cc;
+            color: #fff;
+        }
+        .btn.ghost { border-color: #d0d3d9; color: #4a5060; }
+
+        /* ── Mode toggle (UX team only) ── */
+        .mode-toggle {
+            position: fixed;
+            bottom: 16px;
+            left: 16px;
+            z-index: 2147483000;
+            background: #fff;
+            border: 1px solid #d0d3d9;
+            border-radius: 999px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+            padding: 6px;
+            display: inline-flex;
+            gap: 4px;
+            font: 600 12px 'SF Mono', Menlo, monospace;
+        }
+        .mode-toggle button {
+            border: none;
+            background: transparent;
+            color: #4a5060;
+            padding: 8px 14px;
+            border-radius: 999px;
+            cursor: pointer;
+        }
+        .mode-toggle button.active {
+            background: #0066cc;
+            color: #fff;
+        }
+        .mode-toggle .lbl {
+            font-size: 10.5px;
+            color: #9aa0ac;
+            align-self: center;
+            padding: 0 8px;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+
+        /* ── Audit modal ── */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(20,24,32,0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .modal-backdrop.open { display: flex; }
+        .modal {
+            background: #fff;
+            border-radius: 12px;
+            width: min(640px, 92vw);
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+            overflow: hidden;
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e4e8;
+        }
+        .modal-header h3 {
+            font-size: 16px;
+            font-weight: 700;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+        }
+        .modal-header h3 i { color: #0066cc; }
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: #6b7280;
+            font-size: 16px;
+            cursor: pointer;
+            width: 30px; height: 30px;
+            border-radius: 50%;
+        }
+        .modal-close:hover { background: #f4f5f7; }
+        .modal-body {
+            padding: 14px 20px 20px;
+            overflow: auto;
+        }
+        table.audit-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .audit-table th, .audit-table td {
+            padding: 9px 8px;
+            border-bottom: 1px solid #eaecf0;
+            text-align: left;
+        }
+        .audit-table th {
+            font-weight: 700;
+            font-size: 12px;
+            color: #4a5060;
+            text-transform: uppercase;
+            letter-spacing: .03em;
+            background: #fafbfc;
+        }
+        .audit-table td .who {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .audit-avatar {
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            background: #d6ecff;
+            color: #0066cc;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 700;
+        }
+        .audit-table td .change-tag {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: #eef1f5;
+            color: #2c3142;
+        }
+        .audit-table td .change-tag.added { background: #e7f7ee; color: #1b7a45; }
+        .audit-table td .change-tag.edited { background: #fff5d6; color: #8a6d09; }
+        .audit-table td .change-tag.removed { background: #fde7e7; color: #b3261e; }
+    </style>
+</head>
+<body>
+
+    <!-- Top nav -->
+    <header class="topnav">
+        <div class="brand">
+            <span class="vs-logo"></span>
+            VectorSolutions
+        </div>
+        <nav>
+            <a href="#">Home</a>
+            <a href="#">Training</a>
+            <a href="#">Catalog</a>
+            <a href="#" class="active">Administration</a>
+        </nav>
+        <div class="right-icons">
+            <i class="fa-solid fa-globe"></i>
+            <span class="user-pill">ZM</span>
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </div>
+    </header>
+
+    <div class="shell">
+        <!-- Sidenav -->
+        <aside class="sidenav">
+            <div class="sidenav-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <span>Search</span>
+                <span class="sep"></span>
+                <i class="fa-solid fa-filter"></i>
+            </div>
+            <div class="sidenav-item"><i class="fa-solid fa-table-columns"></i> Dashboard</div>
+            <div class="sidenav-item"><i class="fa-solid fa-building"></i> Organization <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-square-plus"></i> Training Import &amp; Creation <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-file"></i> Files <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-book-open"></i> Activities <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-graduation-cap"></i> Training Programs <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item active"><i class="fa-solid fa-clipboard-list"></i> Assignments <i class="fa-solid fa-chevron-up caret"></i></div>
+            <div class="sidenav-sub current">Assign Training</div>
+            <div class="sidenav-sub">Assignments</div>
+            <div class="sidenav-item"><i class="fa-solid fa-star"></i> Electives <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-key"></i> Authorizations <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-list-check"></i> Tracking and Completions <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-shield-halved"></i> MSHA Compliance <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-chart-column"></i> Reports <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-shield"></i> Security <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-gear"></i> System <i class="fa-solid fa-chevron-down caret"></i></div>
+        </aside>
+
+        <!-- Main -->
+        <section class="main">
+            <!-- Page title strip -->
+            <div class="page-title-strip">
+                <span class="location-pill"><i class="fa-solid fa-location-dot"></i> Location</span>
+                <span class="crumbs"><a href="#">Demo Org (lms.convergencetraining.com)</a> &gt; Assign Training</span>
+                <span class="help-btn"><i class="fa-regular fa-circle-question"></i></span>
+            </div>
+
+            <!-- Wizard header w/ stepper + audit button -->
+            <div class="wizard-header" id="wizardHeader" data-mode="right-aligned">
+                <div class="wizard-header-inner">
+                    <div class="stepper">
+                        <div class="step active">
+                            <div class="step-row">
+                                <div class="step-line left"></div>
+                                <div class="step-circle">1</div>
+                                <div class="step-line right"></div>
+                            </div>
+                            <div class="step-label">Select Training<span class="req">*</span></div>
+                        </div>
+                        <div class="step">
+                            <div class="step-row">
+                                <div class="step-line left"></div>
+                                <div class="step-circle">2</div>
+                                <div class="step-line right"></div>
+                            </div>
+                            <div class="step-label">Select Assignees<span class="req">*</span></div>
+                        </div>
+                        <div class="step">
+                            <div class="step-row">
+                                <div class="step-line left"></div>
+                                <div class="step-circle">3</div>
+                                <div class="step-line right"></div>
+                            </div>
+                            <div class="step-label">Scheduling<span class="req">*</span></div>
+                        </div>
+                        <div class="step">
+                            <div class="step-row">
+                                <div class="step-line left"></div>
+                                <div class="step-circle">4</div>
+                                <div class="step-line right"></div>
+                            </div>
+                            <div class="step-label">Optional Settings</div>
+                        </div>
+                        <div class="step">
+                            <div class="step-row">
+                                <div class="step-line left"></div>
+                                <div class="step-circle">5</div>
+                                <div class="step-line right"></div>
+                            </div>
+                            <div class="step-label">Review<span class="req">*</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Audit slot (full button OR icon-only depending on viewport) -->
+                    <div class="audit-slot">
+                        <button class="audit-btn" id="auditBtn" type="button">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                            View Audit History
+                        </button>
+                        <button class="audit-icon-btn" id="auditIconBtn" type="button" aria-label="View Audit History" title="View Audit History">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="content-wrap">
+                <div class="card">
+                    <h2>Select Training</h2>
+                    <p class="sub">Select what training you want to assign to your learners.</p>
+
+                    <div class="filter-row">
+                        <div>
+                            <div class="field-label">Search</div>
+                            <input class="input" type="text" placeholder="" />
+                        </div>
+                        <div>
+                            <div class="field-label">View by Training Type</div>
+                            <select class="select">
+                                <option>Qualification</option>
+                                <option>Course</option>
+                                <option>Learning Path</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="view-pill"><i class="fa-solid fa-globe"></i> View All</div>
+
+                    <table class="qual-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 36px;"><input type="checkbox" /></th>
+                                <th>Qualification Name <i class="fa-solid fa-arrow-up"></i></th>
+                                <th>Completions Needed</th>
+                                <th>Completion Order</th>
+                                <th>Requirements</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><input type="checkbox"></td><td>Architectural Design Software Proficiency <span class="new-tag">New</span></td><td>All Items</td><td>Any Order</td><td>2</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                            <tr><td><input type="checkbox"></td><td>Blueprint Reading and Interpretation</td><td>All Items</td><td>Any Order</td><td>12</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                            <tr><td><input type="checkbox"></td><td>Construction Safety Certification</td><td>1 of 3</td><td>Any Order</td><td>3</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                            <tr><td><input type="checkbox"></td><td>Factory Floor Management</td><td>All Items</td><td>Any Order</td><td>4</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                            <tr><td><input type="checkbox"></td><td>Industrial Equipment Operation</td><td>9 of 10</td><td>Any Order</td><td>10</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                            <tr><td><input type="checkbox"></td><td>Industrial Hygiene Practices</td><td>All Items</td><td>Specific Order</td><td>1</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                            <tr><td><input type="checkbox"></td><td>Industrial Hygiene Practices</td><td>All Items</td><td>Any Order</td><td>1</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <footer class="wizard-footer">
+                <button class="btn ghost" type="button">Cancel</button>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn" type="button">Previous</button>
+                    <button class="btn primary" type="button">Go to Select Assignees</button>
+                </div>
+            </footer>
+        </section>
+    </div>
+
+    <!-- Audit history modal -->
+    <div class="modal-backdrop" id="auditModal" role="dialog" aria-modal="true" aria-labelledby="auditModalTitle">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="auditModalTitle"><i class="fa-solid fa-clock-rotate-left"></i> Audit History</h3>
+                <button class="modal-close" id="modalClose" type="button" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <table class="audit-table">
+                    <thead>
+                        <tr>
+                            <th>Change</th>
+                            <th>User</th>
+                            <th>Date &amp; Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Updated scheduling start date <span class="change-tag edited">Edited</span></td>
+                            <td><span class="who"><span class="audit-avatar">ZM</span> Zoe Morris</span></td>
+                            <td>May 27, 2026 · 9:42 AM</td>
+                        </tr>
+                        <tr>
+                            <td>Added 3 qualifications <span class="change-tag added">Added</span></td>
+                            <td><span class="who"><span class="audit-avatar">DP</span> Dani Patel</span></td>
+                            <td>May 26, 2026 · 4:18 PM</td>
+                        </tr>
+                        <tr>
+                            <td>Removed assignee group "Plant B" <span class="change-tag removed">Removed</span></td>
+                            <td><span class="who"><span class="audit-avatar">KS</span> Ken Sato</span></td>
+                            <td>May 26, 2026 · 1:05 PM</td>
+                        </tr>
+                        <tr>
+                            <td>Changed completion order to "Specific Order" <span class="change-tag edited">Edited</span></td>
+                            <td><span class="who"><span class="audit-avatar">DP</span> Dani Patel</span></td>
+                            <td>May 25, 2026 · 11:22 AM</td>
+                        </tr>
+                        <tr>
+                            <td>Created assignment <span class="change-tag added">Added</span></td>
+                            <td><span class="who"><span class="audit-avatar">ZM</span> Zoe Morris</span></td>
+                            <td>May 24, 2026 · 8:47 AM</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mode toggle (prototype-only) -->
+    <div class="mode-toggle" aria-label="Right-side layout mode">
+        <span class="lbl">Audit btn layout</span>
+        <button type="button" data-mode="right-aligned" class="active">Right-aligned (always)</button>
+        <button type="button" data-mode="sticky">Sticky (max-width)</button>
+    </div>
+
+    <script>
+        // Mode toggle
+        const wizardHeader = document.getElementById('wizardHeader');
+        document.querySelectorAll('.mode-toggle button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mode-toggle button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                wizardHeader.dataset.mode = btn.dataset.mode;
+                // Re-measure right away since layout changed.
+                evaluateAuditFit();
+            });
+        });
+
+        // ── Dynamic icon-mode swap ───────────────────────────────────────────
+        // We swap the full audit button for the icon-only variant whenever the
+        // stepper would run within MIN_GAP px of the full button. Because the
+        // stepper is centered in the inner box, the available "side gutter" is
+        // (innerW - stepperW)/2 — we need that >= (full button width + MIN_GAP).
+        const MIN_GAP = 8;
+        const innerEl   = wizardHeader.querySelector('.wizard-header-inner');
+        const stepperEl = wizardHeader.querySelector('.stepper');
+        const auditBtnEl = document.getElementById('auditBtn');
+
+        // Measure the full button's width even when it's hidden so we know the
+        // threshold at which we should swap back to it.
+        let measuredBtnWidth = 0;
+        function measureButtonWidth() {
+            const wasIcon = wizardHeader.classList.contains('icon-mode');
+            if (wasIcon) wizardHeader.classList.remove('icon-mode');
+            measuredBtnWidth = auditBtnEl.getBoundingClientRect().width || measuredBtnWidth;
+            if (wasIcon) wizardHeader.classList.add('icon-mode');
+        }
+
+        function evaluateAuditFit() {
+            if (!measuredBtnWidth) measureButtonWidth();
+            const innerW = innerEl.getBoundingClientRect().width;
+            // Stepper natural width is harder to know while it's flex-stretched,
+            // but the centered stepper has max-width 900 and shrinks below that
+            // when the inner is narrower. Use the rendered width as truth.
+            const stepperW = stepperEl.getBoundingClientRect().width;
+            const sideGutter = (innerW - stepperW) / 2;
+            const needed = measuredBtnWidth + MIN_GAP;
+
+            if (sideGutter < needed) {
+                wizardHeader.classList.add('icon-mode');
+            } else {
+                wizardHeader.classList.remove('icon-mode');
+            }
+        }
+
+        // Watch the header's size for changes (viewport resize, sidenav collapse, etc.)
+        const ro = new ResizeObserver(() => evaluateAuditFit());
+        ro.observe(wizardHeader);
+        ro.observe(stepperEl);
+        window.addEventListener('load', () => {
+            measureButtonWidth();
+            evaluateAuditFit();
+        });
+        // Initial pass in case load already fired.
+        requestAnimationFrame(() => {
+            measureButtonWidth();
+            evaluateAuditFit();
+        });
+        // Late re-check after fonts/components settle.
+        setTimeout(() => { measureButtonWidth(); evaluateAuditFit(); }, 300);
+
+        // Audit modal open/close
+        const auditModal = document.getElementById('auditModal');
+        const openAudit = () => auditModal.classList.add('open');
+        const closeAudit = () => auditModal.classList.remove('open');
+
+        document.getElementById('auditBtn').addEventListener('click', openAudit);
+        document.getElementById('auditIconBtn').addEventListener('click', openAudit);
+        document.getElementById('modalClose').addEventListener('click', closeAudit);
+        auditModal.addEventListener('click', (e) => {
+            if (e.target === auditModal) closeAudit();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeAudit();
+        });
+    </script>
+
+    <!-- GitHub Pages share pill -->
+    <style>
+      .gh-share-pill {
+        position: fixed; bottom: 16px; right: 16px; z-index: 2147483000;
+        display: inline-flex; align-items: center; gap: 8px;
+        background: #18181b; color: #fff; padding: 9px 14px;
+        border-radius: 999px; font: 600 12px/1 'SF Mono', Menlo, Consolas, monospace;
+        border: none; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.22);
+        opacity: 0.85; transition: opacity 0.15s ease, transform 0.15s ease; text-decoration: none;
+      }
+      .gh-share-pill:hover { opacity: 1; transform: translateY(-2px); }
+      .gh-share-pill.is-copied { background: #10b981; }
+    </style>
+    <button class="gh-share-pill" id="ghSharePill" type="button" aria-label="Copy live GitHub Pages URL">🔗 Share Link</button>
+    <script>
+      (function() {
+        const pill = document.getElementById('ghSharePill');
+        if (!pill) return;
+        const m = window.location.pathname.match(/\/products\/([^/]+)\/(.+?)\/(?:index\.html)?$/i);
+        const url = m
+          ? `https://vectorlearning.github.io/ux-mockups/products/${m[1]}/${m[2]}/`
+          : 'https://vectorlearning.github.io/ux-mockups/';
+        pill.title = url;
+        pill.addEventListener('click', () => {
+          navigator.clipboard.writeText(url).then(() => {
+            pill.innerHTML = '✓ Copied!';
+            pill.classList.add('is-copied');
+            setTimeout(() => {
+              pill.innerHTML = '🔗 Share Link';
+              pill.classList.remove('is-copied');
+            }, 1500);
+          });
+        });
+      })();
+    </script>
+</body>
+</html>
