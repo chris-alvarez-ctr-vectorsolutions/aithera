@@ -1192,6 +1192,7 @@ function buildSummary(form) {
   parts.push(`Callback list for ${approachLabel} ranked by ${typeLabels[form.ruleType] || 'fewest accumulated callback hours'}`);
   if (form.lookBack) parts[0] += ` over a ${form.lookBack}-day window`;
   if (form.tieBreaker) parts.push(`Ties broken by ${form.tieBreaker.toLowerCase()}`);
+  if (form.callMethod) parts.push(form.callMethod === 'candidate' ? 'Candidate method (notify all eligible at once)' : 'Wait-time method (call one at a time)');
   if (form.declineAction) parts.push(`Declines: ${form.declineAction.toLowerCase()}`);
   if (form.minShift || form.maxShift) {
     const range = [form.minShift && `min ${form.minShift}h`, form.maxShift && `max ${form.maxShift}h`].filter(Boolean).join(', ');
@@ -1494,6 +1495,7 @@ const FIELD_LABELS = {
   callbackStatuses:     'Callback statuses',
   callbackResponses:    'Callback responses',
   includePrevShifts:    'Include past shifts',
+  callMethod:           'Callback method',
   notifyChannel:        'Notification channel',
   notifyCadence:        'Notification cadence',
   nextDayRetry:         'Next-day retry',
@@ -1863,18 +1865,20 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
         { role: 'ai', text: "Got it — I'll build a rule for those groups. Pick a ranking type below, or describe what you need." },
         { role: 'suggestions' },
       ] : [
-        // No seed: chat opens by asking about approaches first, then transitions
-        // to the template suggestions after the user answers.
-        { role: 'ai', text: "Hi! Let's create a new rule.\n\nWhich approach(es) should this rule apply to?",
-          chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','Battalion Chief','FF3','All approaches'],
-          multi: true },
+        // No seed: chat opens by asking HOW the user wants to set up the rule —
+        // a guided walkthrough, a free-text description, or an MOU upload. The
+        // answer routes into the matching path (guided → approach question,
+        // describe/upload → template suggestions).
+        { role: 'ai', text: "Hi! Let's create a new rule.\n\nWould you like a guided setup, or would you rather give me a description or upload your MOU?",
+          chips: ['Guided setup','Give me a description','Upload my MOU'] },
       ];
 
-  // True only when we've opened a fresh build with no seed — the chat's first
-  // question asks about approaches and the next send() answer transitions to
-  // the template-suggestions state.
+  // True only when we've opened a fresh build with no seed. The chat's first
+  // question is the guided/describe/upload choice; once the user picks
+  // "Guided setup" we flip awaitingInitialApproach on to ask about approaches.
   const noSeedFresh = !hasSeededGroups && !existingRule && !templateName && !initialPrompt;
-  const [awaitingInitialApproach, setAwaitingInitialApproach] = useState(noSeedFresh);
+  const [awaitingSetupChoice, setAwaitingSetupChoice] = useState(noSeedFresh);
+  const [awaitingInitialApproach, setAwaitingInitialApproach] = useState(false);
 
   const [messages, setMessages] = useState(initMsgs);
   // Tracks the template the user picked via the in-builder suggestion cards (selectSuggestion).
@@ -1954,6 +1958,10 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
     ruleEvaluates:       '',  // 'Callbacks only' | 'All shifts'
     includePrevShifts:   '',  // 'Yes' | 'No'
     // ── Callback delivery (how the system reaches employees) ──
+    // callMethod is the dispatch strategy: 'wait' = call down the ranked list
+    // one at a time, waiting between calls; 'candidate' = notify every eligible
+    // candidate at once and the first to accept takes the shift.
+    callMethod:          existingRule?.config?.callMethod || 'wait',
     // notifyChannel drives which `notifyCadence` and `nextDayCadence` menus render —
     // phone calls and text/push notifications have different operational rhythms,
     // so we keep their sub-options separate to avoid showing nonsensical options.
@@ -2348,10 +2356,16 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
       setTimeout(() => commitSave(), 350);
       return;
     }
-    if (text === 'Preview ranking') {
+    if (text === 'Preview ranking' || text === 'Preview' || (!previewing && /^(preview|preview mode|run a preview)$/i.test(text.trim()))) {
       setMessages(m => [...m, { role: 'user', text }]);
       setInput('');
-      setPreviewing(true);
+      enterPreview();
+      return;
+    }
+    if (text === 'Exit preview' || (previewing && /^(exit preview|exit|close preview|done previewing|back to building)$/i.test(text.trim()))) {
+      setMessages(m => [...m, { role: 'user', text }]);
+      setInput('');
+      exitPreview();
       return;
     }
     if (text === 'Adjust something') {
@@ -2364,8 +2378,42 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
       }, 400);
       return;
     }
-    // 3) Initial approach question — when the chat opened with no seed, the
-    //    first AI message asks which approach(es) the rule should apply to.
+    // 2.5) Initial setup-mode choice — guided walkthrough vs. free-text
+    //      description vs. MOU upload. Routes the conversation into the
+    //      matching path. Guided → ask about employees/approaches next;
+    //      describe/upload → jump straight to the template suggestions so the
+    //      user can type freely or pick a starting point.
+    if (awaitingSetupChoice && !existingRule) {
+      setAwaitingSetupChoice(false);
+      setInput('');
+      setCustomAnswer(false);
+      if (text === 'Guided setup') {
+        setMessages(m => [...m,
+          { role: 'user', text },
+          { role: 'ai', text: "Great — let's walk through it together.\n\nWhich employees would you like to apply rules to?",
+            chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','Battalion Chief','FF3','All approaches'],
+            multi: true },
+        ]);
+        setAwaitingInitialApproach(true);
+      } else if (text === 'Upload my MOU') {
+        setMessages(m => [...m,
+          { role: 'user', text },
+          { role: 'ai', text: "Sure — drop in your MOU (PDF, DOCX, or text) and I'll pull out the callback rules so you can review them before saving. Or pick a starting point below to build from scratch." },
+          { role: 'suggestions' },
+        ]);
+      } else {
+        // "Give me a description", "Something else", a typed sentence, or a skip.
+        const echo = text && text !== 'Give me a description' ? text : 'Give me a description';
+        setMessages(m => [...m,
+          { role: 'user', text: echo },
+          { role: 'ai', text: "Go ahead — describe the rule you'd like in your own words below, or pick a starting point to build from." },
+          { role: 'suggestions' },
+        ]);
+      }
+      return;
+    }
+    // 3) Initial approach question — when the user chose the guided setup, the
+    //    AI message asks which approach(es) the rule should apply to.
     //    Answering it patches form.ruleAffects / selectedApproaches and then
     //    transitions the chat to the template-suggestions state.
     if (awaitingInitialApproach && !existingRule) {
@@ -2614,6 +2662,21 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
 
   const toggleArr = (arr, item) => arr.includes(item) ? arr.filter(x => x !== item) : [...arr, item];
 
+  // Preview Mode is now embedded: instead of navigating to a full-page
+  // simulator, the right configuration panel swaps to the live callback chain
+  // while the AI chat stays on the left. Entering/exiting drops a chat note so
+  // the conversation narrates the mode switch; the user can exit from the chat
+  // ("Exit preview" chip) or the panel's own Exit button.
+  const enterPreview = () => {
+    if (previewing) return;
+    setPreviewing(true);
+    setMessages(m => [...m, { role: 'ai', text: "Entering preview mode — the panel on the right is now a live callback simulator. Pick who accepts and run the chain to watch the order and accrued hours shift. Say “Exit preview” or hit Exit when you're done.", chips: ['Exit preview'] }]);
+  };
+  const exitPreview = () => {
+    setPreviewing(false);
+    setMessages(m => [...m, { role: 'ai', text: "Exited preview mode — back to building. Adjust anything on the right, then save when you're ready.", chips: ['Save rule','Preview ranking','Adjust something'] }]);
+  };
+
   const sharedHeader = (
     <div style={{ padding: '20px 32px', background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 50%, #5B21B6 100%)', position: 'relative', overflow: 'hidden', flex: 'none' }}>
       <div style={{ position: 'absolute', top: -30, right: 60, width: 110, height: 110, borderRadius: '50%', background: 'rgba(167,139,250,.22)', filter: 'blur(28px)', pointerEvents: 'none' }} />
@@ -2633,28 +2696,26 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
 
         <div style={{ flex: 1 }} />
 
-        {/* Preview Mode button — surfaces once the user has supplied the
+        {/* Preview Mode toggle — surfaces once the user has supplied the
             minimum info needed for the simulator to rank a real roster.
-            Lets them jump into Preview from anywhere in the flow. */}
+            Toggles the embedded preview in the right panel. */}
         {minInfoComplete && (
-          <button onClick={() => setPreviewing(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,.18)', border: '1px solid rgba(255,255,255,.32)', borderRadius: 6, padding: '7px 14px', color: '#fff', font: '600 13px/1 Inter,sans-serif', cursor: 'pointer', flex: 'none', backdropFilter: 'blur(4px)' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.25)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,.18)'; }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            Preview Mode
+          <button onClick={() => previewing ? exitPreview() : enterPreview()}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: previewing ? '#fff' : 'rgba(255,255,255,.18)', border: '1px solid rgba(255,255,255,.32)', borderRadius: 6, padding: '7px 14px', color: previewing ? '#6D28D9' : '#fff', font: '600 13px/1 Inter,sans-serif', cursor: 'pointer', flex: 'none', backdropFilter: 'blur(4px)' }}
+            onMouseEnter={e => { if (!previewing) e.currentTarget.style.background = 'rgba(255,255,255,.25)'; }}
+            onMouseLeave={e => { if (!previewing) e.currentTarget.style.background = 'rgba(255,255,255,.18)'; }}>
+            {previewing ? (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            ) : (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            )}
+            {previewing ? 'Exit Preview' : 'Preview Mode'}
           </button>
         )}
 
       </div>
     </div>
   );
-
-  // When the user jumps into Preview Mode from the builder, hand control to
-  // the SimulatorView; its own Back button returns us to the chat + config.
-  if (previewing) {
-    return <SimulatorView seed={{ form }} onBack={() => setPreviewing(false)} />;
-  }
 
   return (
     <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
@@ -2983,7 +3044,19 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
         </div>
       </div>
 
-      {/* ── RIGHT: Rule Configuration Form ── */}
+      {/* ── RIGHT: embedded Preview Mode OR the Rule Configuration Form ──
+          When previewing, the config panel is replaced in place by the live
+          callback simulator (chain + ranking + summary) while the AI chat
+          stays on the left. Exiting returns to the configuration form. */}
+      {previewing ? (
+        /* Same slot as the config panel — identical width/border/position so
+           the dual-screen layout is unchanged; only the panel contents swap
+           from the configuration form to the preview simulator. */
+        <div style={{ width: 460, flex: 'none', display: 'flex', flexDirection: 'column', background: '#F8F7FC', borderLeft: '1px solid rgba(0,0,0,.08)', overflow: 'hidden' }}>
+          <SimulatorView seed={{ form }} panelOnly onBack={exitPreview} />
+        </div>
+      ) : (
+      <>
       {!cfgOpen && (
         <div style={{ width: 40, flex: 'none', borderLeft: '1px solid rgba(0,0,0,.08)', background: '#F8F7FC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <button onClick={() => setCfgOpen(true)}
@@ -3445,6 +3518,31 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
               different ergonomics (calls disrupt, pushes don't). Each channel
               also gets its own "next-day retry" cadence menu so the second-day
               recovery rhythm matches the primary channel. */}
+
+          {/* Callback method — dispatch strategy for the ranked list. Always
+              shown (it's core to how the rule runs). */}
+          <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('callMethod') }} data-field="callMethod">
+            <FormGroup label="Callback Method">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[
+                  { v: 'wait', l: 'Wait time', sub: 'Call down the list one at a time, waiting for a response before moving on.' },
+                  { v: 'candidate', l: 'Candidate method', sub: 'Notify every eligible candidate at once — first to accept takes the shift.' },
+                ].map(opt => (
+                  <label key={opt.v} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}
+                    onClick={() => patchForm({ callMethod: opt.v })}>
+                    <span style={{ width: 16, height: 16, marginTop: 2, borderRadius: '50%', border: `2px solid ${form.callMethod === opt.v ? '#7C3AED' : 'rgba(0,0,0,.28)'}`, background: form.callMethod === opt.v ? '#7C3AED' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
+                      {form.callMethod === opt.v && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#fff' }} />}
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', font: '500 14px/1.3 Inter,sans-serif', color: 'rgba(24,39,58,.87)' }}>{opt.l}</span>
+                      <span style={{ display: 'block', font: '400 12px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.5)', marginTop: 2 }}>{opt.sub}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </FormGroup>
+          </div>
+
           {shown('notifyChannel') && (
             <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('notifyChannel') }} data-field="notifyChannel">
               <FormGroup label="How Should We Reach Employees?">
@@ -3512,12 +3610,16 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
         </div>
       </div>
       )}
+      </>
+      )}
     </div>
   );
 }
 
 // Expose helpers that the SimulatorView (next <script> block) needs.
-Object.assign(window, { summarizeRule, rankEmployees });
+// RuleSummary is published too so the embedded (panel-only) preview can show
+// the Preview Ranking + Rule Summary tabs inside the builder's right panel.
+Object.assign(window, { summarizeRule, rankEmployees, RuleSummary });
 </script>
 
 <!-- =====================================================================
@@ -3621,6 +3723,17 @@ function seededRand(seed, key) {
 // shifts slightly without changing the underlying rule.
 function rankRosterForScenario({ rule, scenarioDate, baselineDate, approach, history, seed = 0 }) {
   const rosterNames = APPROACH_ROSTERS[approach] || [];
+
+  // Hours accrued during this simulation run: each accepted callback adds its
+  // shift duration to the accepter's running total, so accumulated hours climb
+  // step-by-step (and, for hours-based rules, that person drops in the order).
+  const accruedHoursMap = new Map();
+  history.forEach(step => {
+    if (step.acceptedBy) {
+      accruedHoursMap.set(step.acceptedBy, (accruedHoursMap.get(step.acceptedBy) || 0) + (step.shiftHours || 0));
+    }
+  });
+
   const annotated = CALLBACK_ROSTER
     .filter(p => rosterNames.includes(p.name))
     .map(p => {
@@ -3629,9 +3742,11 @@ function rankRosterForScenario({ rule, scenarioDate, baselineDate, approach, his
       // so static rules still produce the same canonical order.
       const hourJitter = Math.round((seededRand(seed, p.name + ':h') - 0.5) * 6);
       const callJitter = Math.round((seededRand(seed, p.name + ':c') - 0.5) * 4);
+      const accrued    = accruedHoursMap.get(p.name) || 0;
       return {
         ...p,
-        hours:        Math.max(0, p.hours + hourJitter),
+        hours:        Math.max(0, p.hours + hourJitter) + accrued,
+        accruedBonus: accrued,
         lastCallback: Math.max(0, p.lastCallback + callJitter),
         status: shiftStatusAt(p, scenarioDate, baselineDate),
       };
@@ -3674,7 +3789,11 @@ function rankRosterForScenario({ rule, scenarioDate, baselineDate, approach, his
 }
 
 // ── SimulatorView ────────────────────────────────────────────────────────────
-function SimulatorView({ seed, onBack }) {
+// `panelOnly` renders the preview embedded inside the rule builder's right
+// panel: the full-page banner + the left chat/settings column are dropped, a
+// compact header + settings strip + the Preview Ranking/Summary box are shown
+// above the callback chain, and the chain column stretches to full width.
+function SimulatorView({ seed, onBack, panelOnly }) {
   // Pull the full rule list from the App so the user can swap rules from inside
   // the simulator. Falls back to an empty list if RULES_DATA isn't yet exposed.
   const availableRules = (window.RULES_DATA && window.RULES_DATA.length > 0) ? window.RULES_DATA : [];
@@ -3717,6 +3836,9 @@ function SimulatorView({ seed, onBack }) {
   const [approach, setApproach]   = useSimSt(seededApproach);
   const [stepHistory, setStepHistory] = useSimSt([]);
   const [overridePick, setOverridePick] = useSimSt('');
+  // Read-only revisit: which already-run callback step the user is inspecting
+  // in the chain. null = not revisiting (live on the active step).
+  const [revisitIdx, setRevisitIdx] = useSimSt(null);
   // Left-panel tab: 'settings' lets the user pick approach + rule and configure
   // the callback shift; 'chat' is the scenario assistant. Default to settings
   // on fresh start so the first thing the user sees is the picker.
@@ -3792,7 +3914,7 @@ function SimulatorView({ seed, onBack }) {
   const autoSimulate = () => {
     if (eligible.length === 0) return;
     if (eligible.length === 1) {
-      setStepHistory(h => [...h, { date: activeDate, attempts: [{ name: eligible[0].name, outcome: 'accepted' }], acceptedBy: eligible[0].name }]);
+      setStepHistory(h => [...h, { date: activeDate, attempts: [{ name: eligible[0].name, outcome: 'accepted' }], acceptedBy: eligible[0].name, shiftHours: duration }]);
       return;
     }
     // Randomize how many people decline before someone accepts. Weighted to
@@ -3815,7 +3937,7 @@ function SimulatorView({ seed, onBack }) {
     attempts.push({ name: accepter.name, outcome: 'accepted' });
     setStepHistory(h => [
       ...h,
-      { date: activeDate, attempts, acceptedBy: accepter.name },
+      { date: activeDate, attempts, acceptedBy: accepter.name, shiftHours: duration },
     ]);
   };
 
@@ -3823,13 +3945,14 @@ function SimulatorView({ seed, onBack }) {
     if (!name) return;
     setStepHistory(h => [
       ...h,
-      { date: activeDate, attempts: [{ name, outcome: 'accepted (manual override)' }], acceptedBy: name, manual: true },
+      { date: activeDate, attempts: [{ name, outcome: 'accepted (manual override)' }], acceptedBy: name, manual: true, shiftHours: duration },
     ]);
     setOverridePick('');
   };
 
   const resetSimulation = () => {
     setStepHistory([]);
+    setRevisitIdx(null);
     // Re-shake the seed so the predicted-call-order shifts subtly each reset —
     // gives "ranking changing" feedback even when the rule hasn't changed.
     setSimulationSeed(s => (s + 1 + Math.floor(Math.random() * 9973)) | 0);
@@ -3896,7 +4019,10 @@ function SimulatorView({ seed, onBack }) {
   // ── Render ──
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F4F5F7', overflow: 'hidden', position: 'relative' }}>
-      {/* Top banner mimicking the production "Add new CallBacks" header */}
+      {/* Top banner mimicking the production "Add new CallBacks" header.
+          Hidden in panelOnly mode — the embedded preview uses a compact
+          header instead (see below). */}
+      {!panelOnly && (
       <div style={{ background: '#fff', borderBottom: '1px solid rgba(0,0,0,.08)', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 14, flex: 'none' }}>
         <button onClick={onBack} aria-label="Back" title="Back" style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid rgba(0,0,0,.18)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(0,0,0,.7)' }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
@@ -3911,13 +4037,33 @@ function SimulatorView({ seed, onBack }) {
           Reset simulation
         </button>
       </div>
+      )}
+
+      {/* Compact preview header — only in panelOnly (embedded) mode. */}
+      {panelOnly && (
+        <div style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, flex: 'none' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none' }}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span style={{ font: '700 13px/1 Inter,sans-serif', color: '#fff', flex: 1 }}>Preview Mode</span>
+          <button onClick={resetSimulation} title="Reset simulation"
+            style={{ height: 28, padding: '0 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,.35)', background: 'rgba(255,255,255,.12)', color: '#fff', font: '500 11.5px/1 Inter,sans-serif', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, flex: 'none' }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></svg>
+            Reset
+          </button>
+          <button onClick={onBack}
+            style={{ height: 28, padding: '0 11px', borderRadius: 6, border: 'none', background: '#fff', color: '#6D28D9', font: '600 11.5px/1 Inter,sans-serif', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, flex: 'none' }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            Exit preview
+          </button>
+        </div>
+      )}
 
       {/* Body */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', gap: 0 }}>
 
-        {/* LEFT: tabbed panel — AI Chat (scenario assistant) and Callback Settings
-            (the form below). Tabs let the form breathe on smaller screens
-            and keep the chat focused when the user wants scenario answers. */}
+        {/* LEFT: tabbed panel — AI Chat (scenario assistant) and Callback Settings.
+            Hidden in panelOnly mode: the builder's own chat owns the left side,
+            and the key settings move into a compact strip in the right column. */}
+        {!panelOnly && (
         <div style={{ width: '52%', display: 'flex', flexDirection: 'column', borderRight: '1px solid rgba(0,0,0,.08)', overflow: 'hidden' }}>
 
           {/* Tab bar — sticky at the top of the left column */}
@@ -4044,10 +4190,18 @@ function SimulatorView({ seed, onBack }) {
 
           <SimSection icon="clock" title="Choose CallBack Shift date / time">
             <SimRow label="Start">
-              <DateTimeInputs date={startDate} onDateChange={d => { setStartDate(d); resetSimulation(); }} />
+              {/* Shows the ACTIVE callback date — it advances one day per run so
+                  the user sees the simulation walk forward day-by-day. Picking
+                  a new date resets the chain back to that day. */}
+              <DateTimeInputs date={activeDate} editable onDateChange={d => { setStartDate(d); resetSimulation(); }} />
+              {currentStepIdx > 0 && (
+                <span style={{ marginLeft: 8, font: '600 11px/1 Inter,sans-serif', color: '#7C3AED', background: 'rgba(124,58,237,.1)', padding: '3px 7px', borderRadius: 10, whiteSpace: 'nowrap' }}>
+                  day {currentStepIdx + 1} of the chain
+                </span>
+              )}
             </SimRow>
             <SimRow label="End">
-              <span style={{ font: '500 13px/1.6 Inter,sans-serif', color: 'rgba(0,0,0,.65)' }}>{formatDate(new Date(startDate.getTime() + duration * 3600000))} <span style={{ color: 'rgba(0,0,0,.4)', marginLeft: 8 }}>· {duration} hours</span></span>
+              <span style={{ font: '500 13px/1.6 Inter,sans-serif', color: 'rgba(0,0,0,.65)' }}>{formatDate(new Date(activeDate.getTime() + duration * 3600000))} <span style={{ color: 'rgba(0,0,0,.4)', marginLeft: 8 }}>· {duration} hours</span></span>
             </SimRow>
             <SimRow label="Duration">
               <select value={duration} onChange={e => setDuration(Number(e.target.value))} style={selectStyle}>
@@ -4076,12 +4230,14 @@ function SimulatorView({ seed, onBack }) {
 
           </div>
         </div>
+        )}
 
         {/* RIGHT: empty until rule + approach picked. Once ready:
             TOP = stepper + callback chain results,
             MIDDLE = predicted call order list (scrollable),
-            BOTTOM = "who accepts" dropdown + Run callback button. */}
-        <div style={{ width: '48%', display: 'flex', flexDirection: 'column', background: '#fff', overflow: 'hidden' }}>
+            BOTTOM = "who accepts" dropdown + Run callback button.
+            In panelOnly mode this column stretches to full width. */}
+        <div style={{ width: panelOnly ? '100%' : '48%', display: 'flex', flexDirection: 'column', background: '#fff', overflow: 'hidden' }}>
 
           {!isReady && (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', textAlign: 'center', background: 'linear-gradient(180deg, #FAFAFC 0%, #fff 100%)' }}>
@@ -4111,29 +4267,61 @@ function SimulatorView({ seed, onBack }) {
 
           {isReady && (
           <>
+          {/* Embedded-mode settings strip + Preview Ranking/Summary box. Only
+              shown in panelOnly mode, where the left settings column is gone —
+              gives the user the key simulation controls (shift date + duration)
+              plus the live ranking/summary right above the chain. The callback
+              method itself is a rule-config choice (set in the config panel),
+              so it surfaces in the Rule Summary rather than as a control here. */}
+          {panelOnly && (
+            <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(0,0,0,.07)', background: '#fff', flex: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ font: '500 11.5px/1 Inter,sans-serif', color: 'rgba(0,0,0,.5)', flex: 'none' }}>Shift start</span>
+                <DateTimeInputs date={activeDate} editable onDateChange={d => { setStartDate(d); resetSimulation(); }} />
+                {currentStepIdx > 0 && (
+                  <span style={{ font: '600 10px/1 Inter,sans-serif', color: '#7C3AED', background: 'rgba(124,58,237,.1)', padding: '3px 6px', borderRadius: 9, whiteSpace: 'nowrap' }}>day {currentStepIdx + 1}</span>
+                )}
+                <span style={{ font: '500 11.5px/1 Inter,sans-serif', color: 'rgba(0,0,0,.5)', flex: 'none', marginLeft: 6 }}>Duration</span>
+                <select value={duration} onChange={e => setDuration(Number(e.target.value))} style={{ ...selectStyle, height: 30, font: '400 12px/1 Inter,sans-serif' }}>
+                  {[4, 8, 12, 24, 48].map(h => <option key={h} value={h}>{h} hours</option>)}
+                </select>
+              </div>
+              {window.RuleSummary && React.createElement(window.RuleSummary, { form: ruleForm })}
+            </div>
+          )}
           {/* TOP: callback chain stepper + the running results once callbacks
               have been kicked off. Sits above the predicted-call-order list. */}
           <div style={{ padding: '14px 22px 12px', borderBottom: '1px solid rgba(0,0,0,.07)', flex: 'none', background: '#FAFAFC' }}>
-            <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.5)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>Callback chain {currentStepIdx > 0 && `· ${currentStepIdx} of ${MAX_STEPS} run`}</div>
+            <div style={{ font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.5)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>Callback chain {currentStepIdx > 0 && `· ${currentStepIdx} of ${MAX_STEPS} run`}</span>
+              {currentStepIdx > 0 && <span style={{ font: '500 10px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)', textTransform: 'none', letterSpacing: 0 }}>· click a completed step to revisit it</span>}
+            </div>
 
-            {/* Stepper — horizontal chain showing callbacks #1 through #N. */}
+            {/* Stepper — horizontal chain showing callbacks #1 through #N.
+                Completed circles are clickable to revisit that step (read-only:
+                it just highlights the run below, it does NOT rewind the sim). */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 10 }}>
               {Array.from({ length: MAX_STEPS }, (_, i) => {
-                const done    = i < currentStepIdx;
-                const active  = i === currentStepIdx && !isFinished;
+                const done      = i < currentStepIdx;
+                const active    = i === currentStepIdx && !isFinished;
+                const revisiting = done && revisitIdx === i;
                 const bg      = done ? '#7C3AED' : active ? '#fff' : 'rgba(0,0,0,.06)';
                 const ringCol = done ? '#7C3AED' : active ? '#7C3AED' : 'rgba(0,0,0,.18)';
                 const txtCol  = done ? '#fff'    : active ? '#7C3AED' : 'rgba(0,0,0,.45)';
                 return (
                   <React.Fragment key={i}>
-                    <div title={`Callback #${i + 1}`} style={{
-                      width: 22, height: 22, borderRadius: '50%',
-                      background: bg, border: `1.5px solid ${ringCol}`,
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      font: '700 10px/1 Inter,sans-serif', color: txtCol, flex: 'none',
-                      boxShadow: active ? '0 0 0 3px rgba(124,58,237,.18)' : 'none',
-                      transition: 'all .2s',
-                    }}>
+                    <div
+                      title={done ? `Revisit callback #${i + 1}` : `Callback #${i + 1}`}
+                      onClick={done ? () => setRevisitIdx(revisitIdx === i ? null : i) : undefined}
+                      style={{
+                        width: 22, height: 22, borderRadius: '50%',
+                        background: bg, border: `1.5px solid ${ringCol}`,
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        font: '700 10px/1 Inter,sans-serif', color: txtCol, flex: 'none',
+                        boxShadow: revisiting ? '0 0 0 3px rgba(124,58,237,.45)' : active ? '0 0 0 3px rgba(124,58,237,.18)' : 'none',
+                        cursor: done ? 'pointer' : 'default',
+                        transition: 'all .2s',
+                      }}>
                       {done ? (
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16l-4-4 1.4-1.4L9 13.2l8.6-8.6L19 6z"/></svg>
                       ) : (i + 1)}
@@ -4153,12 +4341,21 @@ function SimulatorView({ seed, onBack }) {
               </div>
             ) : (
               <div style={{ maxHeight: 150, overflowY: 'auto', paddingRight: 4 }}>
-                {stepHistory.map((step, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '6px 0', borderBottom: i < stepHistory.length - 1 ? '1px dashed rgba(0,0,0,.07)' : 'none' }}>
+                {stepHistory.map((step, i) => {
+                  const revisiting = revisitIdx === i;
+                  return (
+                  <div key={i}
+                    onClick={() => setRevisitIdx(revisitIdx === i ? null : i)}
+                    style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '6px 8px', borderRadius: 6, cursor: 'pointer', borderBottom: i < stepHistory.length - 1 ? '1px dashed rgba(0,0,0,.07)' : 'none', background: revisiting ? 'rgba(124,58,237,.08)' : 'transparent', boxShadow: revisiting ? 'inset 0 0 0 1px rgba(124,58,237,.35)' : 'none', transition: 'background .15s' }}>
                     <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#7C3AED', color: '#fff', font: '700 10px/1 Inter,sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', marginTop: 2 }}>{i + 1}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ font: '500 12px/1.3 Inter,sans-serif', color: 'rgba(24,39,58,.85)' }}>
-                        {formatDate(step.date)} {step.manual && <span style={{ font: '500 10px/1 Inter,sans-serif', color: '#7C3AED', marginLeft: 5 }}>· manual override</span>}
+                      <div style={{ font: '500 12px/1.3 Inter,sans-serif', color: 'rgba(24,39,58,.85)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        {formatDate(step.date)} {step.manual && <span style={{ font: '500 10px/1 Inter,sans-serif', color: '#7C3AED' }}>· manual override</span>}
+                        {step.acceptedBy && step.shiftHours > 0 && (
+                          <span style={{ font: '700 10px/1 Inter,sans-serif', color: '#158444', background: 'rgba(21,132,68,.12)', padding: '2px 6px', borderRadius: 8 }}>
+                            {step.acceptedBy} +{step.shiftHours}h
+                          </span>
+                        )}
                       </div>
                       <div style={{ font: '400 11.5px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.55)', marginTop: 2 }}>
                         {step.attempts.map((a, j) => (
@@ -4168,8 +4365,10 @@ function SimulatorView({ seed, onBack }) {
                         ))}
                       </div>
                     </div>
+                    {revisiting && <span style={{ font: '600 9px/1 Inter,sans-serif', color: '#7C3AED', background: 'rgba(124,58,237,.14)', padding: '3px 6px', borderRadius: 8, flex: 'none', textTransform: 'uppercase', letterSpacing: '.05em', marginTop: 2 }}>Viewing</span>}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -4200,7 +4399,20 @@ function SimulatorView({ seed, onBack }) {
                   opacity: dim ? .55 : 1,
                   marginBottom: 4,
                 }}>
-                  <div style={{ width: 22, height: 22, borderRadius: '50%', background: idx === 0 && !dim ? 'linear-gradient(135deg,#7C3AED,#5B21B6)' : 'rgba(0,0,0,.07)', color: idx === 0 && !dim ? '#fff' : 'rgba(0,0,0,.55)', font: '700 11px/1 Inter,sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{idx + 1}</div>
+                  {/* Big accrued-hours figure — the dominant metric. Replaces
+                      the rank number as the lead element; rank now reads as a
+                      small "#N" in the meta line. A green "+Nh" badge appears
+                      on anyone who accrued hours from a callback this run. */}
+                  <div style={{ flex: 'none', width: 62, textAlign: 'center' }}>
+                    <div style={{ font: '700 22px/1 Inter,sans-serif', color: idx === 0 && !dim ? '#5B21B6' : 'rgba(24,39,58,.92)' }}>
+                      {p.hours}<span style={{ font: '600 12px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)' }}>h</span>
+                    </div>
+                    {p.accruedBonus > 0 && (
+                      <div style={{ display: 'inline-block', marginTop: 4, font: '700 10px/1 Inter,sans-serif', color: '#158444', background: 'rgba(21,132,68,.12)', padding: '2px 6px', borderRadius: 8 }}>
+                        +{p.accruedBonus}h
+                      </div>
+                    )}
+                  </div>
                   {/* Movement indicator (music-chart style) */}
                   <MovementArrow delta={delta} hasPrev={previousRanking != null} />
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -4209,7 +4421,7 @@ function SimulatorView({ seed, onBack }) {
                       {idx === 0 && !dim && <span style={{ font: '700 9px/1 Inter,sans-serif', color: '#fff', background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', padding: '3px 6px', borderRadius: 3, textTransform: 'uppercase', letterSpacing: '.05em' }}>Next</span>}
                     </div>
                     <div style={{ font: '400 11px/1.3 Inter,sans-serif', color: 'rgba(0,0,0,.5)', marginTop: 2 }}>
-                      {p.qualifiers.join(' · ')} · {p.station} · {p.hours}h · plat {p.platoon}
+                      #{idx + 1} · {p.qualifiers.join(' · ')} · {p.station} · plat {p.platoon}
                     </div>
                   </div>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 12, background: st.bg, color: st.fg, font: '600 10.5px/1 Inter,sans-serif', flex: 'none' }}>
@@ -4344,7 +4556,7 @@ function SimRow({ label, children }) {
   );
 }
 
-function DateTimeInputs({ date, onDateChange }) {
+function DateTimeInputs({ date, onDateChange, editable }) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day   = String(date.getDate()).padStart(2, '0');
   const year  = date.getFullYear();
@@ -4356,7 +4568,19 @@ function DateTimeInputs({ date, onDateChange }) {
   const tightSelect = { ...selectStyle, padding: '0 22px 0 8px', backgroundPosition: 'right 6px center' };
   return (
     <>
+      {editable ? (
+        /* Native date picker so the user can actually pick the shift's start
+           day — preserves the existing time-of-day on the date object. */
+        <input type="date" value={`${year}-${month}-${day}`}
+          onChange={e => {
+            if (!e.target.value) return;
+            const [y, m, d] = e.target.value.split('-').map(Number);
+            const next = new Date(date); next.setFullYear(y, m - 1, d); onDateChange(next);
+          }}
+          style={{ ...inputStyle, width: 140, padding: '0 8px', cursor: 'pointer' }} />
+      ) : (
       <input value={`${month}/${day}/${year}`} readOnly style={{ ...inputStyle, width: 104, padding: '0 8px' }} />
+      )}
       <select value={hr12} onChange={e => {
         const newHr12 = Number(e.target.value);
         const newH24 = (ampm === 'PM' ? (newHr12 === 12 ? 12 : newHr12 + 12) : (newHr12 === 12 ? 0 : newHr12));
@@ -4679,7 +4903,7 @@ const METHODOLOGY_STEPS = [
   },
 ];
 
-function ApproachesRulesPage({ onStart, savedToast, onDismissToast }) {
+function ApproachesRulesPage({ onStart, savedToast, onDismissToast, setupAcknowledged }) {
   const [tab,              setTab]              = useAppSt('active');
   const [hoveredRow,       setHoveredRow]       = useAppSt(null);
   // CallBack Methodology starts open so the user lands on the page already
@@ -4711,14 +4935,15 @@ function ApproachesRulesPage({ onStart, savedToast, onDismissToast }) {
   const isArchived      = tab === 'archived';
   const approachesShown = isArchived ? APPROACHES_ARCHIVED : APPROACHES_DATA;
 
-  // ── Setup checklist — mock state for the first-time-setup helper that lives
-  // next to the methodology banner. Three steps: create approaches → create
-  // rules → send out callback. For this mock the user has already created
-  // approaches, so that step is checked; "Create rules" is the active next
-  // step (no rules exist yet) and "Send out callback" is locked behind that.
-  // Once every step is checked, the whole methodology card disappears.
-  // `helper` text appears under the active step inside the right-side
-  // checklist box to coach first-time users through the current task.
+  // ── Setup stepper — mock state for the first-time-setup helper that lives
+  // above the methodology card. Three steps: create approaches → create
+  // rules → ready to send out callbacks. For this mock the user has already
+  // created approaches, so that step is checked; "Create rules" is the active
+  // next step (no rules exist yet) and the final step is locked behind that.
+  // The whole stepper card disappears once "Create rules" is done — the
+  // first save flips setupDone.rules to true and the helper vanishes.
+  // `helper` text appears below the stepper row to coach the user through
+  // the active task.
   const SETUP_STEPS = [
     {
       key: 'approaches',
@@ -4732,15 +4957,27 @@ function ApproachesRulesPage({ onStart, savedToast, onDismissToast }) {
     },
     {
       key: 'callback',
-      label: 'Send out callback',
-      helper: 'Preview the ranking, then dispatch the callback to your roster.',
+      label: 'Ready to send out callbacks',
+      helper: "Your rule is live and your roster is ranked. When a shift opens up, dispatch a callback and we'll work down the list in order.",
     },
   ];
-  const setupDone = { approaches: true, rules: false, callback: false };
+  // `rules` flips to true once the user has saved their first rule in this
+  // session (tracked via the `isNew` flag set in handleRuleSaved). That hides
+  // the empty-state placeholder in the Rules card and advances the stepper
+  // so "Ready to send out callbacks" becomes the active step (with its own
+  // helper paragraph + send-callback CTA below the stepper row). The stepper
+  // hides entirely once the user opens any existing rule for editing — at
+  // that point the methodology diagram expands to full row width.
+  const userCreatedRule = RULES_DATA.some(r => r.isNew);
+  const setupDone = { approaches: true, rules: userCreatedRule, callback: false };
   const setupAllDone = SETUP_STEPS.every(s => setupDone[s.key]);
   // The first un-done step is "active" — it gets the highlighted treatment to
-  // tell the user what to do next.
+  // tell the user what to do next. Undefined when every step is done.
   const setupActiveKey = SETUP_STEPS.find(s => !setupDone[s.key])?.key;
+  // Stepper hides once the user has acknowledged setup by clicking into any
+  // existing rule (handled at App level). When hidden, the methodology card
+  // takes the full row width.
+  const stepperVisible = !setupAcknowledged;
   // For the mock, rules don't exist yet — drives the empty state in the Rules
   // card and hides the Preview Mode button (nothing to preview).
   const hasRules = setupDone.rules;
@@ -4793,17 +5030,19 @@ function ApproachesRulesPage({ onStart, savedToast, onDismissToast }) {
       {!previewMode && (
       <div ref={bodyScrollRef} style={{ flex: 1, overflowY: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-        {/* ── Methodology accordion + Setup helper ──
+        {/* ── Methodology diagram + Setup stepper ──
             Two side-by-side cards: the methodology diagram on the left and a
-            standalone Setup helper box on the right. The setup box walks the
+            standalone Setup stepper box on the right. The stepper walks the
             user through their first-time tasks (Create approaches → Create
-            rules → Send out callback) and the whole row disappears once
-            every setup step is checked. */}
-        {!setupAllDone && (
+            rules → Ready to send out callbacks). The stepper hides once the
+            user has acknowledged setup (by opening any existing rule), at
+            which point the methodology card naturally expands to full width. */}
         <div style={{ display: 'flex', gap: 16, alignItems: 'stretch', flexShrink: 0 }}>
 
         {/* Methodology card — owns the "How does callback ranking work?"
-            accordion and its illustrated diagram. */}
+            accordion and its illustrated diagram. flex:1 + the conditional
+            stepper sibling below means this card expands to full width when
+            the stepper is hidden. */}
         <div style={{ flex: 1, minWidth: 0, background: '#fff', border: '1px solid rgba(0,0,0,.09)', borderRadius: 8, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
           <button onClick={() => setMethodologyOpen(o => !o)}
             style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
@@ -4906,18 +5145,19 @@ function ApproachesRulesPage({ onStart, savedToast, onDismissToast }) {
           )}
         </div>
 
-        {/* Setup helper card — standalone box on the right of the methodology.
-            Wider than the diagram so the active step can show a helper
-            paragraph. `display:flex/column` + `justifyContent:space-between`
-            distributes header → checklist → bottom hint so the card stretches
-            cleanly to the diagram's height. */}
-        <div style={{ width: 380, flex: 'none', background: '#fff', border: '1px solid rgba(0,0,0,.09)', borderRadius: 8, padding: '14px 16px 14px', boxShadow: '0 1px 3px rgba(0,0,0,.04)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* Setup stepper — standalone box on the right of the methodology.
+            Horizontal stepper with three steps connected by progress lines.
+            Hides entirely once the user has opened any existing rule (the
+            setup has served its purpose), letting the methodology card
+            expand to fill the full row width. */}
+        {stepperVisible && (
+        <div style={{ width: 380, flex: 'none', background: '#fff', border: '1px solid rgba(0,0,0,.09)', borderRadius: 8, padding: '14px 16px 16px', boxShadow: '0 1px 3px rgba(0,0,0,.04)', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none' }}>
                 <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
               </svg>
-              <span style={{ font: '700 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)' }}>Setup checklist</span>
+              <span style={{ font: '700 13px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)' }}>Getting started</span>
             </div>
             {(() => {
               const doneCount = SETUP_STEPS.filter(s => setupDone[s.key]).length;
@@ -4929,71 +5169,92 @@ function ApproachesRulesPage({ onStart, savedToast, onDismissToast }) {
             })()}
           </div>
 
-          {/* Progress bar — fills proportionally to the completed steps. */}
-          {(() => {
-            const doneCount = SETUP_STEPS.filter(s => setupDone[s.key]).length;
-            const pct = (doneCount / SETUP_STEPS.length) * 100;
-            return (
-              <div style={{ height: 4, borderRadius: 4, background: 'rgba(124,58,237,.10)', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #7C3AED, #5B21B6)', borderRadius: 4, transition: 'width .3s' }} />
-              </div>
-            );
-          })()}
-
-          {/* Vertical checklist. The active row expands to a two-line layout
-              with a description block under the label so the user understands
-              what the step actually is. Other rows stay single-line. */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
-            {SETUP_STEPS.map((s) => {
+          {/* Horizontal stepper — three step columns separated by progress
+              line connectors. Each column has a badge (check / number) on
+              top and a multi-line label below. The connector turns green
+              once the preceding step is done so progress reads at a glance. */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', paddingTop: 4 }}>
+            {SETUP_STEPS.map((s, i) => {
               const done = setupDone[s.key];
               const active = s.key === setupActiveKey;
+              const isLast = i === SETUP_STEPS.length - 1;
               return (
-                <div key={s.key} style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 10,
-                  padding: active ? '11px 12px 12px' : '9px 10px',
-                  borderRadius: 8,
-                  background: active ? 'linear-gradient(135deg, rgba(124,58,237,.10), rgba(99,102,241,.06))' : 'transparent',
-                  border: active ? '1px solid rgba(124,58,237,.30)' : '1px solid transparent',
-                }}>
-                  {done ? (
-                    <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#16A34A', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', marginTop: 1 }}>
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5 9-9"/></svg>
-                    </span>
-                  ) : active ? (
-                    <span style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid #7C3AED', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', boxShadow: '0 0 0 3px rgba(124,58,237,.18)', marginTop: 1 }}>
-                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#7C3AED' }} />
-                    </span>
-                  ) : (
-                    <span style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid rgba(0,0,0,.18)', background: '#fff', flex: 'none', marginTop: 1 }} />
-                  )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                      <span style={{
-                        font: `${active ? 700 : 600} 12.5px/1.3 Inter,sans-serif`,
-                        color: done ? 'rgba(22,163,74,.85)' : active ? '#6D28D9' : 'rgba(0,0,0,.55)',
-                        textDecoration: done ? 'line-through' : 'none',
-                      }}>{s.label}</span>
-                      {active && (
-                        <span style={{ font: '700 9px/1 Inter,sans-serif', letterSpacing: '.08em', textTransform: 'uppercase', color: '#fff', background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', padding: '3px 6px', borderRadius: 5, flex: 'none' }}>Next</span>
-                      )}
-                    </div>
-                    {/* Helper paragraph — only shown on the active step so the
-                        user gets a "how + what" cue inline without crowding the
-                        other rows. */}
-                    {active && s.helper && (
-                      <div style={{ marginTop: 6, font: '400 11.5px/1.5 Inter,sans-serif', color: 'rgba(24,39,58,.7)' }}>
-                        {s.helper}
-                      </div>
+                <React.Fragment key={s.key}>
+                  <div style={{ flex: '1 1 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                    {done ? (
+                      <span style={{ width: 28, height: 28, borderRadius: '50%', background: '#16A34A', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', boxShadow: '0 2px 5px rgba(22,163,74,.28)' }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5 9-9"/></svg>
+                      </span>
+                    ) : active ? (
+                      <span style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', boxShadow: '0 0 0 4px rgba(124,58,237,.18), 0 2px 5px rgba(124,58,237,.32)', color: '#fff', font: '700 12px/1 Inter,sans-serif' }}>
+                        {i + 1}
+                      </span>
+                    ) : (
+                      <span style={{ width: 28, height: 28, borderRadius: '50%', border: '2px solid rgba(0,0,0,.18)', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', color: 'rgba(0,0,0,.4)', font: '600 12px/1 Inter,sans-serif' }}>
+                        {i + 1}
+                      </span>
+                    )}
+                    <div style={{
+                      textAlign: 'center',
+                      font: `${active ? 700 : 600} 11px/1.3 Inter,sans-serif`,
+                      color: done ? 'rgba(22,163,74,.85)' : active ? '#6D28D9' : 'rgba(0,0,0,.55)',
+                      textDecoration: done ? 'line-through' : 'none',
+                      paddingInline: 2,
+                    }}>{s.label}</div>
+                    {active && (
+                      <span style={{ font: '700 8.5px/1 Inter,sans-serif', letterSpacing: '.08em', textTransform: 'uppercase', color: '#fff', background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', padding: '3px 6px', borderRadius: 5 }}>Next</span>
                     )}
                   </div>
-                </div>
+                  {!isLast && (
+                    <div style={{ flex: '0 0 18px', height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 0 }}>
+                      <div style={{ width: '100%', height: 2, background: done ? '#16A34A' : 'rgba(0,0,0,.12)', borderRadius: 2, transition: 'background .3s' }} />
+                    </div>
+                  )}
+                </React.Fragment>
               );
             })}
           </div>
-        </div>
 
+          {/* Active step helper — full-width hint below the stepper row.
+              For the final "Ready to send out callbacks" step the hint also
+              gets a primary CTA button so the user has an obvious next
+              action once the setup work is done. */}
+          {(() => {
+            const activeStep = SETUP_STEPS.find(s => s.key === setupActiveKey);
+            if (!activeStep || !activeStep.helper) return null;
+            const isCallbackStep = activeStep.key === 'callback';
+            return (
+              <div style={{ padding: '12px 14px', background: 'linear-gradient(135deg, rgba(124,58,237,.07), rgba(99,102,241,.04))', border: '1px solid rgba(124,58,237,.18)', borderRadius: 6 }}>
+                <div style={{ font: '400 11.5px/1.5 Inter,sans-serif', color: 'rgba(24,39,58,.72)' }}>
+                  {activeStep.helper}
+                </div>
+                {isCallbackStep && (
+                  <button
+                    type="button"
+                    style={{
+                      marginTop: 10,
+                      display: 'inline-flex', alignItems: 'center', gap: 7,
+                      height: 32, padding: '0 14px',
+                      background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 50%, #5B21B6 100%)',
+                      border: 'none', borderRadius: 6, cursor: 'pointer',
+                      font: '600 12.5px/1 Inter,sans-serif', color: '#fff',
+                      boxShadow: '0 2px 8px rgba(109,41,184,.3)',
+                      transition: 'transform .15s, box-shadow .15s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 3px 12px rgba(109,41,184,.45)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(109,41,184,.3)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" style={{ flex: 'none' }}><path d="M12 5v14M5 12h14"/></svg>
+                    Send out new callback
+                  </button>
+                )}
+              </div>
+            );
+          })()}
         </div>
         )}
+
+        </div>
 
         {/* ── Approaches card — full width, owns the Active/Archived tabs ──
             Approaches are the only thing that meaningfully archive on this
@@ -5178,7 +5439,7 @@ function ApproachesRulesPage({ onStart, savedToast, onDismissToast }) {
               gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
               gap: 10,
             }}>
-              {RULES_DATA.map((r) => {
+              {RULES_DATA.filter(r => r.isNew).map((r) => {
                 const rowKey = `r-${r.id}`;
                 const clickable = !!r.config;
                 return (
@@ -5604,10 +5865,19 @@ function App() {
   // Used to force ApproachesRulesPage to re-read the (mutated) RULES_DATA after
   // a save — by remounting it with a fresh key.
   const [rulesVersion, setRulesVersion] = useAppSt(0);
+  // Once the user opens an existing rule for editing, the setup stepper has
+  // done its job — flip this flag so the stepper hides on return and the
+  // methodology diagram expands to fill the full row.
+  const [setupAcknowledged, setSetupAcknowledged] = useAppSt(false);
 
   const handleSubNav = (key) => {
     setSubNav(key);
     // Don't drop in-progress rule when switching tabs — preserves the user's work.
+  };
+
+  const handleStart = (seed) => {
+    if (seed?.existingRule) setSetupAcknowledged(true);
+    setBuilding(seed);
   };
 
   // Save handler: push or update RULES_DATA in place, then route to Approaches &
@@ -5646,9 +5916,12 @@ function App() {
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#F4F5F7' }}>
-      <OuterSidebar />
+      {/* Hide the outer navbar while the rule builder owns the screen so the
+          dual split-screen view (chat + config/preview) is full-bleed. */}
+      {!building && <OuterSidebar />}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <TopBar />
+        {/* Hide the top heading bar during rule building too. */}
+        {!building && <TopBar />}
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {/* Hide the sub-sidebar while the rule builder owns the screen — keeps
               the user focused on the two-pane chat + configuration layout. */}
@@ -5667,7 +5940,7 @@ function App() {
                 </div>
               </>
             ) : subNav === 'approaches' ? (
-              <ApproachesRulesPage key={rulesVersion} onStart={seed => setBuilding(seed)} savedToast={savedToast} onDismissToast={() => setSavedToast(null)} />
+              <ApproachesRulesPage key={rulesVersion} onStart={handleStart} savedToast={savedToast} onDismissToast={() => setSavedToast(null)} setupAcknowledged={setupAcknowledged} />
             ) : subNav === 'history' ? (
               <HistoryPage />
             ) : (
