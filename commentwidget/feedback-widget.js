@@ -526,12 +526,14 @@
   function openAdminPanel() {
     closeAdminPanel();
 
-    const visitorToggle = makeToggle(state.settings.visitorMode, async (next) => {
-      await saveSetting({ visitorMode: next });
-    });
-    const disabledToggle = makeToggle(state.settings.commentsDisabled, async (next) => {
-      await saveSetting({ commentsDisabled: next });
-    });
+    const visitorToggle = makeToggle(
+      () => state.settings.visitorMode,
+      (next) => saveSetting({ visitorMode: next }, next ? 'Visitor mode on' : 'Visitor mode off'),
+    );
+    const disabledToggle = makeToggle(
+      () => state.settings.commentsDisabled,
+      (next) => saveSetting({ commentsDisabled: next }, next ? 'Comments disabled' : 'Comments enabled'),
+    );
 
     adminPanel = el('div', { class: 'cw-admin-panel' }, [
       el('div', { class: 'cw-admin-head' }, [
@@ -559,7 +561,9 @@
     document.body.appendChild(adminPanel);
     bindOutsideClose(adminPanel, closeAdminPanel);
 
-    async function saveSetting(patch) {
+    function syncToggles() { visitorToggle.render(); disabledToggle.render(); }
+
+    async function saveSetting(patch, successMsg) {
       const prev = { ...state.settings };
       state.settings = { ...state.settings, ...patch };
       applyAdminBubble();
@@ -570,30 +574,37 @@
         });
         state.settings = settings;
         applyAdminBubble();
+        renderPins();
+        syncToggles();
+        if (successMsg) showToast(successMsg, 'success');
       } catch (e) {
         state.settings = prev;
         applyAdminBubble();
         renderPins();
+        syncToggles();
         showToast(e.message || 'Could not save setting', 'error');
       }
     }
   }
 
-  function makeToggle(initial, onChange) {
-    let value = !!initial;
-    const node = el('button', {
-      type: 'button',
-      class: 'cw-toggle' + (value ? ' cw-toggle--on' : ''),
-      role: 'switch',
-      'aria-checked': value ? 'true' : 'false',
-    });
+  // Toggle whose visual state is always derived from `getValue()` (the live
+  // setting), so a failed save snaps it back. Disabled during the async call.
+  function makeToggle(getValue, onChange) {
+    const node = el('button', { type: 'button', class: 'cw-toggle', role: 'switch' });
+    function render() {
+      const v = !!getValue();
+      node.classList.toggle('cw-toggle--on', v);
+      node.setAttribute('aria-checked', v ? 'true' : 'false');
+    }
     node.addEventListener('click', async () => {
-      value = !value;
-      node.classList.toggle('cw-toggle--on', value);
-      node.setAttribute('aria-checked', value ? 'true' : 'false');
-      try { await onChange(value); } catch (_) {}
+      if (node.disabled) return;
+      node.disabled = true;
+      try { await onChange(!getValue()); }
+      catch (_) {}
+      finally { node.disabled = false; render(); }
     });
-    return { el: node, get value() { return value; } };
+    render();
+    return { el: node, render };
   }
 
   // ----- Toast ----------------------------------------------------------------
