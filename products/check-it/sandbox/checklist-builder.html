@@ -78,8 +78,41 @@
     }
     .editor-icon-btn:hover { background: rgba(255,255,255,0.08); color: #a5b4fc; }
 
-    /* ── Two-column body ── */
-    .editor-body { flex: 1; display: flex; overflow: hidden; }
+    /* ── Single-column body (tabbed) ── */
+    .editor-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* Tab strip across the top of the canvas */
+    .editor-tabs {
+      display: flex; align-items: center; gap: 4px;
+      padding: 0 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      background: rgba(20,30,52,0.45);
+      flex-shrink: 0;
+    }
+    .editor-tab {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 16px;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 13px; font-weight: 600;
+      color: rgba(165,180,252,0.55);
+      background: none; border: none;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.12s, border-color 0.12s;
+    }
+    .editor-tab:hover { color: #c4cce0; }
+    .editor-tab.active { color: #a5b4fc; border-bottom-color: #6366f1; }
+    .editor-tab .tab-count {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 20px; padding: 1px 7px;
+      border-radius: 10px;
+      background: rgba(99,102,241,0.18);
+      color: #a5b4fc;
+      font-size: 11px; font-weight: 700;
+      line-height: 1;
+    }
+    .editor-tab.active .tab-count { background: rgba(99,102,241,0.30); }
 
     .editor-canvas {
       flex: 1; overflow-y: auto; min-width: 0;
@@ -87,6 +120,626 @@
     }
     @media (min-width: 900px) { .editor-canvas { padding: 28px 28px 140px; } }
 
+    .editor-canvas-inner { max-width: 1100px; margin: 0 auto; }
+    .editor-tab-panel { display: none; }
+    .editor-tab-panel.active { display: block; }
+
+    /* ── Deployments tab ── */
+    .deploy-tab-header {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      gap: 16px; flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .deploy-tab-title h1 {
+      font-size: 20px; font-weight: 700; color: #f0f2f8;
+      margin: 0 0 4px;
+    }
+    .deploy-tab-title p {
+      font-size: 12.5px; color: rgba(165,180,252,0.6);
+      margin: 0; line-height: 1.45;
+    }
+
+    .deploy-toolbar {
+      display: flex; align-items: center; gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .deploy-search-wrap {
+      position: relative; flex: 1; min-width: 240px;
+    }
+    .deploy-search-icon {
+      position: absolute; left: 12px; top: 50%;
+      transform: translateY(-50%);
+      color: rgba(165,180,252,0.5);
+      font-size: 12px;
+      pointer-events: none;
+    }
+    .deploy-search-input {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.32);
+      border-radius: 7px;
+      color: #e2e6f0;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 13px;
+      padding: 8px 12px 8px 34px;
+      outline: none;
+      transition: border-color 0.12s, background 0.12s;
+      box-sizing: border-box;
+    }
+    .deploy-search-input::placeholder { color: rgba(165,180,252,0.40); }
+    .deploy-search-input:hover { border-color: rgba(255,255,255,0.50); }
+    .deploy-search-input:focus { border-color: #a5b4fc; background-color: rgba(165,180,252,0.06); }
+
+    /* Add vehicles — trigger button */
+    .deploy-picker-trigger {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 14px;
+      border-radius: 7px;
+      border: 1px solid #a5b4fc;
+      background: rgba(165,180,252,0.10);
+      color: #c7d2fe;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 13px; font-weight: 600;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .deploy-picker-trigger:hover { background: rgba(165,180,252,0.18); border-color: #c7d2fe; }
+    .deploy-picker-trigger:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Full-screen vehicle picker modal ── */
+    .vp-overlay {
+      position: fixed; inset: 0;
+      background: rgba(8,14,28,0.65);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 300;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .vp-overlay.open { display: flex; }
+    .vp-modal {
+      width: 100%; max-width: 1100px;
+      max-height: 100%;
+      display: flex; flex-direction: column;
+      background: rgba(20,30,52,0.98);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+      overflow: hidden;
+    }
+    .vp-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-shrink: 0;
+    }
+    .vp-header h2 {
+      flex: 1;
+      font-size: 16px; font-weight: 700;
+      color: #f0f2f8;
+      margin: 0;
+    }
+    .vp-header-close {
+      width: 30px; height: 30px;
+      border-radius: 6px;
+      border: none;
+      background: rgba(255,255,255,0.06);
+      color: #9aa3b8;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.12s, color 0.12s;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .vp-header-close:hover { background: rgba(255,255,255,0.12); color: #e2e6f0; }
+
+    .vp-search-row {
+      padding: 12px 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      flex-shrink: 0;
+    }
+    .vp-search-wrap { position: relative; }
+    .vp-search-icon {
+      position: absolute; left: 12px; top: 50%;
+      transform: translateY(-50%);
+      color: rgba(165,180,252,0.5);
+      font-size: 12px;
+      pointer-events: none;
+    }
+    .vp-search-input {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.32);
+      border-radius: 7px;
+      color: #e2e6f0;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 13px;
+      padding: 9px 12px 9px 34px;
+      outline: none;
+      transition: border-color 0.12s, background 0.12s;
+      box-sizing: border-box;
+    }
+    .vp-search-input::placeholder { color: rgba(165,180,252,0.40); }
+    .vp-search-input:hover { border-color: rgba(255,255,255,0.50); }
+    .vp-search-input:focus { border-color: #a5b4fc; background-color: rgba(165,180,252,0.06); }
+
+    .vp-body {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Left filter rail */
+    .vp-rail {
+      width: 240px;
+      flex-shrink: 0;
+      border-right: 1px solid rgba(255,255,255,0.06);
+      overflow-y: auto;
+      padding: 14px 14px 18px;
+    }
+    .vp-rail-header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .vp-rail-header h3 {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: rgba(165,180,252,0.50);
+      margin: 0;
+    }
+    .vp-rail-clear {
+      background: none; border: none; cursor: pointer;
+      color: rgba(165,180,252,0.55);
+      font-family: 'Open Sans', sans-serif;
+      font-size: 11px;
+      text-decoration: underline;
+      padding: 0;
+    }
+    .vp-rail-clear:hover { color: #c7d2fe; }
+    .vp-rail-clear:disabled { opacity: 0.4; cursor: not-allowed; text-decoration: none; }
+    .vp-facet { margin-bottom: 14px; }
+    .vp-facet-label {
+      font-size: 11px; font-weight: 700;
+      color: #c4cce0;
+      margin-bottom: 6px;
+    }
+    .vp-facet-search {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.20);
+      border-radius: 5px;
+      color: #e2e6f0;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 11.5px;
+      padding: 5px 8px;
+      outline: none;
+      margin-bottom: 5px;
+      box-sizing: border-box;
+    }
+    .vp-facet-search:focus { border-color: #a5b4fc; }
+    .vp-facet-list {
+      max-height: 200px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+    .vp-facet-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 4px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .vp-facet-row:hover { background: rgba(255,255,255,0.04); }
+    .vp-facet-row input[type="checkbox"] {
+      accent-color: #6366f1;
+      width: 13px; height: 13px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .vp-facet-row-label {
+      flex: 1; min-width: 0;
+      font-size: 12px;
+      color: #c4cce0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .vp-facet-row-count {
+      font-size: 10.5px;
+      color: rgba(165,180,252,0.45);
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .vp-facet-empty {
+      font-size: 11px;
+      color: rgba(165,180,252,0.40);
+      font-style: italic;
+      padding: 4px 4px;
+    }
+
+    /* Right results pane */
+    .vp-results {
+      flex: 1;
+      display: flex; flex-direction: column;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .vp-results-meta {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap;
+      padding: 10px 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      flex-shrink: 0;
+    }
+    .vp-results-count {
+      font-size: 12.5px;
+      color: rgba(165,180,252,0.70);
+    }
+    .vp-results-count strong { color: #e2e6f0; }
+    .vp-select-all-banner {
+      flex: 1;
+      text-align: center;
+      font-size: 12px;
+      color: #a5b4fc;
+    }
+    .vp-select-all-banner button {
+      background: none; border: none; cursor: pointer;
+      color: #a5b4fc;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: underline;
+      padding: 0;
+    }
+    .vp-select-all-banner button:hover { color: #c7d2fe; }
+    .vp-table-wrap {
+      flex: 1;
+      overflow-y: auto;
+    }
+    .vp-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .vp-table thead {
+      position: sticky; top: 0;
+      background: rgba(20,30,52,0.98);
+      z-index: 5;
+    }
+    .vp-table thead th {
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: rgba(165,180,252,0.55);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      white-space: nowrap;
+      user-select: none;
+    }
+    .vp-table thead th.sortable { cursor: pointer; }
+    .vp-table thead th.sortable:hover { color: #c7d2fe; }
+    .vp-table thead th .sort-icon {
+      margin-left: 4px;
+      font-size: 9px;
+      opacity: 0.7;
+    }
+    .vp-table thead th:first-child { padding-left: 18px; width: 36px; }
+    .vp-table tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      cursor: pointer;
+      transition: background 0.08s;
+    }
+    .vp-table tbody tr:hover { background: rgba(255,255,255,0.03); }
+    .vp-table tbody tr.selected { background: rgba(99,102,241,0.08); }
+    .vp-table tbody td {
+      padding: 9px 12px;
+      vertical-align: middle;
+      color: #c4cce0;
+    }
+    .vp-table tbody td:first-child { padding-left: 18px; }
+    .vp-table tbody input[type="checkbox"] {
+      accent-color: #6366f1;
+      width: 14px; height: 14px;
+      cursor: pointer;
+    }
+    .vp-table .vp-col-vehicle { min-width: 220px; }
+    .vp-table .vp-col-type    { width: 130px; color: rgba(165,180,252,0.7); font-size: 12px; }
+    .vp-table .vp-col-station { width: 180px; color: rgba(165,180,252,0.7); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
+    .vp-table .vp-col-status  { width: 140px; }
+    .vp-vehicle-cell {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .vp-vehicle-icon {
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, rgba(99,102,241,0.30), rgba(99,102,241,0.10));
+      color: #a5b4fc;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+    .vp-vehicle-name { font-size: 13px; font-weight: 600; color: #e2e6f0; }
+    .vp-status-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .vp-status-pill.ok    { background: rgba(16,185,129,0.18);  color: #34d399; }
+    .vp-status-pill.warn  { background: rgba(245,158,11,0.18);  color: #fbbf24; }
+    .vp-status-pill.oos   { background: rgba(239,68,68,0.18);   color: #f87171; }
+    .vp-empty {
+      padding: 48px 24px;
+      text-align: center;
+      color: rgba(165,180,252,0.50);
+    }
+    .vp-empty i { font-size: 28px; color: rgba(165,180,252,0.30); margin-bottom: 10px; }
+    .vp-empty h3 { font-size: 14px; color: rgba(165,180,252,0.8); margin: 0 0 4px; }
+    .vp-empty p { font-size: 12.5px; margin: 0; }
+
+    /* Footer */
+    .vp-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px;
+      padding: 12px 18px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      flex-shrink: 0;
+    }
+    .vp-footer-info {
+      font-size: 12.5px;
+      color: rgba(165,180,252,0.65);
+    }
+    .vp-footer-info strong { color: #c7d2fe; }
+    .vp-footer-actions { display: flex; gap: 8px; }
+
+    /* Bulk action bar */
+    .deploy-bulk-bar {
+      display: none;
+      align-items: center; gap: 12px;
+      padding: 10px 14px;
+      background: rgba(99,102,241,0.10);
+      border: 1px solid rgba(99,102,241,0.30);
+      border-radius: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .deploy-bulk-bar.visible { display: flex; }
+    .deploy-bulk-count {
+      font-size: 12.5px; font-weight: 700; color: #c7d2fe;
+      padding: 2px 10px;
+      background: rgba(165,180,252,0.15);
+      border-radius: 4px;
+    }
+    .deploy-bulk-label {
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      color: rgba(165,180,252,0.55);
+    }
+    .deploy-bulk-select {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.32);
+      border-radius: 5px;
+      color: #e2e6f0;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 24px 4px 10px;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.12s, background 0.12s;
+      appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path fill='%23a5b4fc' d='M3 4.5L6 7.5L9 4.5z'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 7px center;
+      background-size: 9px;
+    }
+    .deploy-bulk-select:hover { border-color: rgba(165,180,252,0.45); }
+    .deploy-bulk-select:focus { border-color: #a5b4fc; }
+    .deploy-bulk-remove {
+      padding: 4px 10px;
+      border-radius: 5px;
+      border: 1px solid rgba(239,68,68,0.40);
+      background: rgba(239,68,68,0.08);
+      color: #f87171;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 12px; font-weight: 600;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .deploy-bulk-remove:hover { background: rgba(239,68,68,0.18); border-color: #f87171; }
+    .deploy-bulk-clear {
+      background: none; border: none; cursor: pointer;
+      color: rgba(165,180,252,0.6);
+      font-family: 'Open Sans', sans-serif;
+      font-size: 12px;
+      text-decoration: underline;
+      margin-left: auto;
+    }
+    .deploy-bulk-clear:hover { color: #e2e6f0; }
+
+    /* Table */
+    .deploy-table-wrap {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .deploy-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .deploy-table thead th {
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: rgba(165,180,252,0.55);
+      background: rgba(255,255,255,0.04);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      white-space: nowrap;
+    }
+    .deploy-table thead th:first-child { padding-left: 14px; }
+    .deploy-table tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      transition: background 0.10s;
+    }
+    .deploy-table tbody tr:last-child { border-bottom: none; }
+    .deploy-table tbody tr:hover { background: rgba(255,255,255,0.03); }
+    .deploy-table tbody tr.selected { background: rgba(99,102,241,0.08); }
+    .deploy-table tbody td {
+      padding: 9px 12px;
+      vertical-align: middle;
+      color: #c4cce0;
+    }
+    .deploy-table tbody td:first-child { padding-left: 14px; width: 1%; }
+    .deploy-table tbody input[type="checkbox"] {
+      accent-color: #6366f1;
+      width: 14px; height: 14px;
+      cursor: pointer;
+    }
+    .deploy-table .col-vehicle { min-width: 200px; }
+    .deploy-table .col-type    { width: 110px; color: rgba(165,180,252,0.7); font-size: 12px; }
+    .deploy-table .col-station { width: 160px; color: rgba(165,180,252,0.7); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+    .deploy-table .col-cadence,
+    .deploy-table .col-status  { width: 130px; }
+    .deploy-table .col-remove  { width: 36px; text-align: right; padding-right: 14px; }
+    .deploy-vehicle-cell {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .deploy-vehicle-icon {
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, rgba(99,102,241,0.30), rgba(99,102,241,0.10));
+      color: #a5b4fc;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+    .deploy-vehicle-name {
+      font-size: 13px; font-weight: 600; color: #e2e6f0;
+    }
+    .deploy-vehicle-tag {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 0 6px;
+      font-family: 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 10.5px; font-weight: 600;
+      color: #a5b4fc;
+      background: rgba(99,102,241,0.18);
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      vertical-align: middle;
+    }
+    .deploy-cell-select {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.20);
+      border-radius: 5px;
+      color: #e2e6f0;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 22px 4px 8px;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.12s, background 0.12s;
+      appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path fill='%23a5b4fc' d='M3 4.5L6 7.5L9 4.5z'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 6px center;
+      background-size: 9px;
+      box-sizing: border-box;
+    }
+    .deploy-cell-select.inherit { color: rgba(165,180,252,0.55); font-style: italic; }
+    .deploy-cell-select:hover { border-color: rgba(165,180,252,0.45); }
+    .deploy-cell-select:focus { border-color: #a5b4fc; background-color: rgba(165,180,252,0.08); }
+    .deploy-row-remove-btn {
+      width: 26px; height: 26px;
+      border-radius: 5px;
+      background: none;
+      border: 1px solid transparent;
+      color: rgba(165,180,252,0.4);
+      cursor: pointer;
+      font-size: 11px;
+      transition: all 0.12s;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .deploy-row-remove-btn:hover { background: rgba(239,68,68,0.12); color: #f87171; }
+
+    .deploy-empty-state {
+      padding: 40px 24px;
+      text-align: center;
+      color: rgba(165,180,252,0.50);
+    }
+    .deploy-empty-state i {
+      font-size: 28px;
+      color: rgba(165,180,252,0.30);
+      margin-bottom: 10px;
+    }
+    .deploy-empty-state h3 {
+      font-size: 14px; font-weight: 600;
+      color: rgba(165,180,252,0.8);
+      margin: 0 0 4px;
+    }
+    .deploy-empty-state p {
+      font-size: 12.5px;
+      margin: 0;
+    }
+
+    /* Settings tab */
+    .settings-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-bottom: 14px;
+    }
+    .settings-card h2 {
+      font-size: 13px; font-weight: 700;
+      color: #e2e6f0;
+      margin: 0 0 10px;
+    }
+    .settings-card p {
+      font-size: 12.5px; color: rgba(165,180,252,0.60);
+      line-height: 1.5;
+      margin: 0;
+    }
+    .settings-placeholder {
+      padding: 28px 20px;
+      text-align: center;
+      background: rgba(255,255,255,0.025);
+      border: 1px dashed rgba(255,255,255,0.12);
+      border-radius: 10px;
+      color: rgba(165,180,252,0.50);
+      font-size: 12.5px;
+      font-style: italic;
+    }
+
+    /* Vaadin token re-scope for canvas (replaces old .config-sidebar scoping) */
+    html[data-theme="dark"] .editor-canvas vaadin-text-field,
+    html[data-theme="dark"] .editor-canvas vaadin-select,
+    html[data-theme="dark"] .editor-canvas vaadin-text-area {
+      --lumo-body-text-color: #c4cce0; --lumo-secondary-text-color: #8b96b0;
+      --lumo-primary-color: #a5b4fc; --lumo-primary-color-10pct: rgba(99,102,241,0.18);
+      --lumo-contrast-10pct: rgba(255,255,255,0.10); --lumo-contrast-20pct: rgba(255,255,255,0.15);
+      --lumo-base-color: rgba(255,255,255,0.06); --lumo-tint-5pct: rgba(255,255,255,0.05);
+      color-scheme: dark;
+    }
+
+    /* DEPRECATED: kept temporarily so any orphaned references don't break.
+       The .config-sidebar element is no longer rendered. */
     .config-sidebar {
       width: 288px; flex-shrink: 0;
       border-left: 1px solid rgba(255,255,255,0.07);
@@ -252,6 +905,45 @@
       background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25);
     }
 
+    /* The rollup itself dimmed + dashed when marked optional, mirroring the
+       step-card treatment in block-creator. */
+    .block-rollup.is-optional {
+      border-style: dashed;
+      border-color: rgba(245,158,11,0.30);
+      background: rgba(245,158,11,0.04);
+    }
+    .block-rollup.is-optional.expanded {
+      border-color: rgba(245,158,11,0.40);
+    }
+
+    /* Labeled action pill on the rollup — sits in .rollup-actions next to
+       the remove button. Reads as a labeled state (Required / Optional)
+       rather than an icon-only toggle. */
+    .rollup-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      height: 26px; padding: 0 10px;
+      border-radius: 5px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: none;
+      color: rgba(165,180,252,0.55);
+      font-family: 'Open Sans', sans-serif;
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.03em; text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s, color 0.12s;
+    }
+    .rollup-pill i { font-size: 10px; }
+    .rollup-pill:hover { border-color: rgba(255,255,255,0.22); color: #c4cce0; }
+    .rollup-pill.optional-toggle.active {
+      background: rgba(245,158,11,0.12);
+      border: 1px dashed rgba(245,158,11,0.45);
+      color: #fbbf24;
+    }
+    .rollup-pill.optional-toggle.active:hover {
+      background: rgba(245,158,11,0.20);
+      border-color: rgba(245,158,11,0.60);
+    }
+
     .rollup-actions { margin-left: auto; display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
     .rollup-btn {
       display: flex; align-items: center; justify-content: center;
@@ -317,6 +1009,117 @@
     .assignment-row-value { flex: 1; font-size: 12.5px; font-weight: 600; color: #c4cce0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .assignment-row-edit { background: none; border: none; color: rgba(165,180,252,0.30); cursor: pointer; font-size: 11px; padding: 2px; transition: color 0.12s; }
     .assignment-row-edit:hover { color: #a5b4fc; }
+
+    /* ── Deployments section (config sidebar) ── */
+    .deploy-row {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      transition: border-color 0.12s;
+    }
+    .deploy-row:focus-within { border-color: rgba(165,180,252,0.40); }
+    .deploy-row-head {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 8px;
+    }
+    .deploy-row-vehicle-icon {
+      width: 26px; height: 26px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, rgba(99,102,241,0.30), rgba(99,102,241,0.10));
+      color: #a5b4fc;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+    .deploy-row-vehicle-text { flex: 1; min-width: 0; }
+    .deploy-row-vehicle-name {
+      font-size: 12.5px; font-weight: 600; color: #e2e6f0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .deploy-row-vehicle-sub {
+      font-size: 10.5px; color: rgba(165,180,252,0.55);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .deploy-row-remove {
+      width: 24px; height: 24px;
+      border-radius: 5px;
+      border: 1px solid transparent;
+      background: none;
+      color: rgba(165,180,252,0.4);
+      cursor: pointer;
+      font-size: 11px;
+      transition: all 0.12s;
+      flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .deploy-row-remove:hover { background: rgba(239,68,68,0.12); color: #f87171; }
+    .deploy-row-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .deploy-row-field {
+      display: flex; flex-direction: column; gap: 3px;
+    }
+    .deploy-row-field label {
+      font-size: 9.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(165,180,252,0.50);
+    }
+    .deploy-row-select {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.20);
+      border-radius: 5px;
+      color: #e2e6f0;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 11.5px;
+      font-weight: 500;
+      padding: 4px 22px 4px 8px;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.12s, background 0.12s;
+      appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path fill='%23a5b4fc' d='M3 4.5L6 7.5L9 4.5z'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 6px center;
+      background-size: 9px;
+    }
+    .deploy-row-select:hover { border-color: rgba(165,180,252,0.45); }
+    .deploy-row-select:focus { border-color: #a5b4fc; background-color: rgba(165,180,252,0.08); }
+    .deploy-add-btn {
+      width: 100%;
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 6px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px dashed rgba(165,180,252,0.35);
+      background: none;
+      color: #a5b4fc;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .deploy-add-btn:hover { background: rgba(165,180,252,0.10); border-color: #a5b4fc; }
+    .deploy-add-btn:disabled {
+      opacity: 0.4; cursor: not-allowed;
+      border-style: solid; border-color: rgba(255,255,255,0.10);
+      color: rgba(165,180,252,0.4);
+    }
+    .deploy-empty {
+      font-size: 11px; font-style: italic;
+      color: rgba(165,180,252,0.5);
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px dashed rgba(255,255,255,0.10);
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
 
     /* Link state legend */
     .link-legend { padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); }
@@ -459,6 +1262,137 @@
     }
     .be-step-delete:hover { background: rgba(239,68,68,0.12); color: #f87171; }
 
+    /* ── Response type selector (freestanding step) ── */
+    .be-step-type-row {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 8px;
+    }
+    .be-step-type-label {
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      color: rgba(165,180,252,0.45);
+      flex-shrink: 0;
+    }
+    .be-step-type-select {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 6px;
+      color: #c4cce0;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 12px; font-weight: 600;
+      padding: 4px 26px 4px 10px;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.12s, background 0.12s;
+      appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path fill='%23a5b4fc' d='M3 4.5L6 7.5L9 4.5z'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 10px;
+    }
+    .be-step-type-select:hover { border-color: rgba(165,180,252,0.35); }
+    .be-step-type-select:focus { border-color: #a5b4fc; background-color: rgba(165,180,252,0.08); }
+
+    /* ── Type-specific configuration panel ── */
+    .be-step-config {
+      margin-top: 8px;
+      padding: 9px 11px;
+      background: rgba(165,180,252,0.05);
+      border: 1px dashed rgba(165,180,252,0.20);
+      border-radius: 7px;
+    }
+    .be-step-config-label {
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      color: rgba(165,180,252,0.55);
+      margin-bottom: 7px;
+    }
+
+    .be-step-numeric-row { display: flex; gap: 7px; flex-wrap: wrap; }
+    .be-step-numeric-field { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 78px; }
+    .be-step-numeric-field label {
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.04em;
+      color: rgba(165,180,252,0.45);
+    }
+    .be-step-numeric-input {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 5px;
+      color: #e2e6f0;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 12px;
+      padding: 5px 8px;
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .be-step-numeric-input:focus { border-color: #a5b4fc; }
+    .be-step-numeric-input::placeholder { color: rgba(165,180,252,0.3); }
+
+    .be-step-option-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+    .be-step-option-row:last-of-type { margin-bottom: 8px; }
+    .be-step-option-input {
+      flex: 1;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 5px;
+      color: #e2e6f0;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 12px;
+      padding: 5px 10px;
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .be-step-option-input:focus { border-color: #a5b4fc; }
+    .be-step-option-input::placeholder { color: rgba(165,180,252,0.3); }
+    .be-step-option-delete {
+      width: 26px; height: 26px;
+      border-radius: 5px;
+      background: none;
+      border: 1px solid transparent;
+      color: rgba(165,180,252,0.4);
+      cursor: pointer;
+      font-size: 11px;
+      transition: all 0.12s;
+      flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .be-step-option-delete:hover { background: rgba(239,68,68,0.12); color: #f87171; }
+    .be-step-option-add {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px;
+      border-radius: 5px;
+      border: 1px dashed rgba(165,180,252,0.35);
+      background: none;
+      color: #a5b4fc;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 11px; font-weight: 600;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .be-step-option-add:hover { background: rgba(165,180,252,0.10); border-color: #a5b4fc; }
+
+    /* Photo-required toggle (matches block-creator) */
+    .be-photo-toggle {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 2px 9px;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.09);
+      background: none;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 11px; font-weight: 600;
+      color: rgba(165,180,252,0.42);
+      cursor: pointer;
+      transition: all 0.12s;
+      user-select: none;
+    }
+    .be-photo-toggle:hover { border-color: rgba(255,255,255,0.18); color: #c4cce0; }
+    .be-photo-toggle.active {
+      background: rgba(99,102,241,0.18);
+      border-color: rgba(99,102,241,0.40);
+      color: #a5b4fc;
+    }
+
     .block-editor-footer {
       padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.08); flex-shrink: 0;
       display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;
@@ -530,55 +1464,117 @@
        ============================== -->
   <div class="editor-body">
 
-    <!-- ── Canvas ── -->
-    <div class="editor-canvas">
-
-      <!-- Origin banner — shows how this checklist was started -->
-      <div id="originBanner"></div>
-
-      <div class="section-label">Checklist Name</div>
-      <div class="editor-card" style="padding:16px 20px 18px;">
-        <input type="text" class="checklist-name-input" id="checklistNameInput"
-          placeholder="e.g. Engine 7 — Apparatus Check, A Shift"
-          oninput="onNameChange(this.value)" aria-label="Checklist name" />
-      </div>
-
-      <div class="section-label" style="margin-top:4px;">
-        Sections &amp; Blocks
-        <span style="margin-left:8px;font-size:10px;font-weight:400;text-transform:none;color:rgba(165,180,252,0.30);">Link state shown per section</span>
-      </div>
-
-      <div id="sectionList"></div>
-
-      <button class="add-section-btn" onclick="addSection()">
-        <i class="fa-solid fa-plus"></i> Add Section
+    <!-- ── Tab strip ── -->
+    <nav class="editor-tabs" role="tablist" aria-label="Checklist editor sections">
+      <button type="button" class="editor-tab active" data-tab="checklist" role="tab" aria-selected="true" onclick="activateBuilderTab('checklist')">
+        <i class="fa-solid fa-list-check"></i> Checklist
       </button>
+      <button type="button" class="editor-tab" data-tab="deployments" role="tab" aria-selected="false" onclick="activateBuilderTab('deployments')">
+        <i class="fa-solid fa-truck-medical"></i> Deployments
+        <span class="tab-count" id="deployTabCount" style="display:none;">0</span>
+      </button>
+      <button type="button" class="editor-tab" data-tab="settings" role="tab" aria-selected="false" onclick="activateBuilderTab('settings')">
+        <i class="fa-solid fa-sliders"></i> Settings
+      </button>
+    </nav>
 
+    <!-- ── Canvas (single scrolling area; tabs swap inner content) ── -->
+    <div class="editor-canvas">
+      <div class="editor-canvas-inner">
+
+        <!-- TAB: Checklist (name + cadence + sections/blocks) -->
+        <div class="editor-tab-panel active" data-panel="checklist">
+          <!-- Origin banner — shows how this checklist was started -->
+          <div id="originBanner"></div>
+
+          <div class="section-label">Checklist Name</div>
+          <div class="editor-card" style="padding:16px 20px 18px;">
+            <input type="text" class="checklist-name-input" id="checklistNameInput"
+              placeholder="e.g. Engine 7 — Apparatus Check, A Shift"
+              oninput="onNameChange(this.value)" aria-label="Checklist name" />
+          </div>
+
+          <div class="section-label" style="margin-top:4px;">Default Cadence</div>
+          <div class="editor-card" style="padding:14px 20px 16px;">
+            <vaadin-select theme="outlined" label="Cadence" id="cadenceSelect" style="width:100%; max-width: 320px;"></vaadin-select>
+            <div style="font-size:11.5px; color: rgba(165,180,252,0.55); line-height: 1.5; margin-top: 8px;">Sets the default schedule for this checklist. Individual deployments can override this when assigned.</div>
+          </div>
+
+          <div class="section-label" style="margin-top:4px;">
+            Sections &amp; Blocks
+            <span style="margin-left:8px;font-size:10px;font-weight:400;text-transform:none;color:rgba(165,180,252,0.30);">Link state shown per section</span>
+          </div>
+
+          <div id="sectionList"></div>
+
+          <button class="add-section-btn" onclick="addSection()">
+            <i class="fa-solid fa-plus"></i> Add Section
+          </button>
+        </div>
+
+        <!-- TAB: Deployments -->
+        <div class="editor-tab-panel" data-panel="deployments">
+          <div class="deploy-tab-header">
+            <div class="deploy-tab-title">
+              <h1>Deployments <span id="deployHeaderCount" style="font-weight:400; color: rgba(165,180,252,0.55);"></span></h1>
+              <p>Bind this checklist to vehicles. Each row inherits the default cadence unless overridden. Saved when you Activate or Save Draft.</p>
+            </div>
+          </div>
+
+          <div class="deploy-toolbar">
+            <div class="deploy-search-wrap">
+              <i class="fa-solid fa-magnifying-glass deploy-search-icon"></i>
+              <input type="text" class="deploy-search-input" id="deploySearch" placeholder="Search deployed vehicles by name, tag, type, or station…" oninput="onDeploySearch(this.value)" />
+            </div>
+            <button class="deploy-picker-trigger" id="deployPickerTrigger" onclick="openDeployPicker()">
+              <i class="fa-solid fa-plus"></i> Add vehicles
+            </button>
+          </div>
+
+          <div class="deploy-bulk-bar" id="deployBulkBar">
+            <span class="deploy-bulk-count" id="deployBulkCount">0 selected</span>
+            <span class="deploy-bulk-label">Set cadence</span>
+            <select class="deploy-bulk-select" id="deployBulkCadence" onchange="applyBulkCadence(this.value); this.value='';">
+              <option value="">Apply cadence…</option>
+            </select>
+            <span class="deploy-bulk-label">Status</span>
+            <select class="deploy-bulk-select" id="deployBulkStatus" onchange="applyBulkStatus(this.value); this.value='';">
+              <option value="">Apply status…</option>
+            </select>
+            <button class="deploy-bulk-remove" onclick="removeSelectedDeployments()">
+              <i class="fa-solid fa-trash-can"></i> Remove
+            </button>
+            <button class="deploy-bulk-clear" onclick="clearDeploySelection()">Clear selection</button>
+          </div>
+
+          <div id="deployTableHost"></div>
+        </div>
+
+        <!-- TAB: Settings -->
+        <div class="editor-tab-panel" data-panel="settings">
+          <div class="deploy-tab-header">
+            <div class="deploy-tab-title">
+              <h1>Settings</h1>
+              <p>Configure how this checklist is performed and what the completion experience looks like.</p>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <h2>Link states</h2>
+            <div class="link-legend" style="margin-top: 8px;">
+              <div class="link-legend-item"><span class="legend-dot template"></span> Template-linked — live, updates propagate</div>
+              <div class="link-legend-item"><span class="legend-dot block"></span> Block-linked — template section edited; block links remain</div>
+              <div class="link-legend-item"><span class="legend-dot unique"></span> Fully unique — block content edited; no live links</div>
+            </div>
+          </div>
+
+          <div class="settings-placeholder">
+            More checklist behavior settings will appear here — completion rules, photo &amp; signature requirements, escalation policies, and how results route after submission.
+          </div>
+        </div>
+
+      </div>
     </div>
-
-    <!-- ── Config sidebar ── -->
-    <aside class="config-sidebar" aria-label="Checklist configuration">
-
-      <!-- Default cadence — belongs to the checklist, not a deployment -->
-      <div class="config-section">
-        <div class="config-section-label">Default Cadence</div>
-        <div class="config-field">
-          <vaadin-select theme="outlined" label="Cadence" id="cadenceSelect" style="width:100%;"></vaadin-select>
-        </div>
-        <div style="font-size:11px;color:rgba(165,180,252,0.32);line-height:1.45;">Sets the default schedule for this checklist. Individual deployments can override this when assigned.</div>
-      </div>
-
-      <!-- Link state legend -->
-      <div class="config-section">
-        <div class="config-section-label">Link States</div>
-        <div class="link-legend">
-          <div class="link-legend-item"><span class="legend-dot template"></span> Template-linked — live, updates propagate</div>
-          <div class="link-legend-item"><span class="legend-dot block"></span> Block-linked — template section edited; block links remain</div>
-          <div class="link-legend-item"><span class="legend-dot unique"></span> Fully unique — block content edited; no live links</div>
-        </div>
-      </div>
-
-    </aside>
   </div>
 
   <!-- ==============================
@@ -692,6 +1688,70 @@
         <i class="fa-solid fa-pen" slot="prefix"></i> Edit Locally
       </vaadin-button>
     </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     VEHICLE PICKER MODAL (full-screen, filter rail + table)
+     ============================================================ -->
+<div class="vp-overlay" id="vpOverlay" role="dialog" aria-modal="true" aria-labelledby="vpTitle">
+  <div class="vp-modal">
+
+    <div class="vp-header">
+      <h2 id="vpTitle">Add vehicles to this checklist</h2>
+      <button type="button" class="vp-header-close" onclick="closeDeployPicker()" aria-label="Close" title="Close (Esc)">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="vp-search-row">
+      <div class="vp-search-wrap">
+        <i class="fa-solid fa-magnifying-glass vp-search-icon"></i>
+        <input type="text" id="vpSearch" class="vp-search-input" placeholder="Search by name, tag, type, or station…" oninput="onVpSearch(this.value)" />
+      </div>
+    </div>
+
+    <div class="vp-body">
+      <aside class="vp-rail" aria-label="Filters">
+        <div class="vp-rail-header">
+          <h3>Filters</h3>
+          <button type="button" class="vp-rail-clear" id="vpClearFilters" onclick="vpClearAllFilters()">Clear filters</button>
+        </div>
+
+        <div class="vp-facet">
+          <div class="vp-facet-label">Type</div>
+          <div class="vp-facet-list" id="vpFacetType"></div>
+        </div>
+
+        <div class="vp-facet">
+          <div class="vp-facet-label">Station</div>
+          <input type="text" class="vp-facet-search" id="vpStationFilterSearch" placeholder="Search stations…" oninput="onVpFacetSearch('station', this.value)" />
+          <div class="vp-facet-list" id="vpFacetStation"></div>
+        </div>
+
+        <div class="vp-facet">
+          <div class="vp-facet-label">Status</div>
+          <div class="vp-facet-list" id="vpFacetStatus"></div>
+        </div>
+      </aside>
+
+      <div class="vp-results">
+        <div class="vp-results-meta">
+          <div class="vp-results-count" id="vpResultsCount"></div>
+          <div class="vp-select-all-banner" id="vpSelectAllBanner"></div>
+        </div>
+        <div class="vp-table-wrap" id="vpTableWrap"></div>
+      </div>
+    </div>
+
+    <div class="vp-footer">
+      <div class="vp-footer-info" id="vpFooterInfo"><strong>0</strong> selected</div>
+      <div class="vp-footer-actions">
+        <vaadin-button theme="secondary" onclick="closeDeployPicker()">Cancel</vaadin-button>
+        <vaadin-button theme="primary" id="vpAddBtn" onclick="confirmAddVehicles()">Add 0 vehicles</vaadin-button>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -853,6 +1913,13 @@
   let originMode = startMode; // 'template' | 'scratch' | 'blocks'
   let originTemplateName = 'Apparatus Check — Morning';
 
+  // Deployments authored in this editor session. Each row:
+  //   { tempId, id?, vehicleTag, cadenceOverride (''|cadence), status }
+  // `id` is present for rows that already exist in the store; new rows
+  // omit it and get one assigned on save.
+  let deployments = [];
+  let deployTempCounter = 0;
+
   // ============================================================
   // SEED MOCK DATA
   // ============================================================
@@ -936,6 +2003,14 @@
       sections.push({ id:++sectionCounter, name:'', collapsed:false, linkState:'unique',
         templateLocked:false, blocks:[], appendBlocks:[] });
     }
+    // Hydrate deployments from the stored record so they appear in the sidebar.
+    deployments = (sandboxRecord.deployments || []).map(d => ({
+      tempId: ++deployTempCounter,
+      id: d.id,
+      vehicleTag: d.vehicleTag,
+      cadenceOverride: d.cadenceOverride || '',
+      status: d.status || 'active'
+    }));
     // Populate header + name + cadence after components upgrade.
     window.addEventListener('load', () => setTimeout(() => {
       const headerName = document.getElementById('headerChecklistName');
@@ -949,6 +2024,7 @@
         pill.className = 'editor-status-pill active';
         pill.innerHTML = '<i class="fa-solid fa-circle" style="font-size:6px;"></i> Active';
       }
+      renderDeployments();
     }, 350));
   } else if (sandboxIsNew) {
     // Sandbox mode: brand-new checklist — start with an empty section.
@@ -974,6 +2050,7 @@
 
     renderOriginBanner();
     renderSections();
+    renderDeployments();
     markSaved();
   }, 350));
 
@@ -1120,11 +2197,16 @@
       ? `<span class="context-label-badge"><i class="fa-solid fa-tag"></i> ${escHtml(b.contextLabel)}</span>`
       : '';
 
+    // Block-level optional: marks the entire block instance as skippable
+    // during the ceremony. Default is required (no flag). Visual state lives
+    // on the rollup border + the Required/Optional pill on the right.
+    const isOptional = !!b.optional;
+
     const expandPanel = b.expanded ? renderExpandPanel(b, lib, isFree, section) : '';
 
     return `
       <div class="block-rollup-wrap">
-        <div class="block-rollup ${b.expanded ? 'expanded' : ''}"
+        <div class="block-rollup ${b.expanded ? 'expanded' : ''}${isOptional ? ' is-optional' : ''}"
           onclick="toggleBlockRollup(${section.id},${b.instanceId})"
           role="button" tabindex="0" aria-expanded="${b.expanded}"
           data-instance="${b.instanceId}">
@@ -1140,6 +2222,13 @@
             </div>
           </div>
           <div class="rollup-actions" onclick="event.stopPropagation()">
+            <button class="rollup-pill optional-toggle ${isOptional ? 'active' : ''}"
+              onclick="toggleBlockOptional(${section.id},${b.instanceId})"
+              title="${isOptional ? 'Optional block — crew can skip during execution. Click to mark required.' : 'Required block (default). Click to mark optional.'}"
+              aria-pressed="${isOptional}">
+              <i class="fa-solid ${isOptional ? 'fa-circle-half-stroke' : 'fa-circle-check'}"></i>
+              <span>${isOptional ? 'Optional' : 'Required'}</span>
+            </button>
             <button class="rollup-btn remove" onclick="removeBlock(${section.id},${b.instanceId})" title="Remove" aria-label="Remove block">
               <i class="fa-solid fa-xmark"></i>
             </button>
@@ -1243,6 +2332,20 @@
     if (!s) return;
     s.blocks = s.blocks.filter(b => b.instanceId !== instanceId);
     if (s.appendBlocks) s.appendBlocks = s.appendBlocks.filter(b => b.instanceId !== instanceId);
+    renderSections();
+    markDirty();
+  }
+
+  // Toggle block-level optional state for this instance only. Default is
+  // required; setting it optional makes the entire block (every step inside)
+  // skippable during the ceremony.
+  function toggleBlockOptional(sectionId, instanceId) {
+    const s = sections.find(s => s.id === sectionId);
+    if (!s) return;
+    const all = [...s.blocks, ...(s.appendBlocks || [])];
+    const b = all.find(b => b.instanceId === instanceId);
+    if (!b) return;
+    b.optional = !b.optional;
     renderSections();
     markDirty();
   }
@@ -1447,7 +2550,15 @@
     if (!b) return;
     freestandingSectionId      = sectionId;
     freestandingEditInstanceId = instanceId;
-    freestandingSteps          = JSON.parse(JSON.stringify(b.steps || []));
+    // Clone, then fill in defaults for fields added after these steps were saved.
+    freestandingSteps = JSON.parse(JSON.stringify(b.steps || [])).map(s => Object.assign({
+      type: 'passfail',
+      options: [],
+      min: '',
+      max: '',
+      unit: '',
+      photo: false
+    }, s));
     document.getElementById('freestandingTitle').textContent = b.name || 'Custom Steps';
     renderFreestandingSteps();
     document.getElementById('freestandingOverlay').style.display = 'flex';
@@ -1473,7 +2584,17 @@
   function cancelFreestanding() { closeFreestanding(); }
 
   function addFreestandingStep() {
-    freestandingSteps.push({ id:++freestandingCounter, label:'', sev:null });
+    freestandingSteps.push({
+      id: ++freestandingCounter,
+      label: '',
+      sev: null,
+      type: 'passfail',
+      options: [],
+      min: '',
+      max: '',
+      unit: '',
+      photo: false
+    });
     renderFreestandingSteps();
     setTimeout(() => {
       const inputs = document.querySelectorAll('#freestandingScroll .be-step-input');
@@ -1499,26 +2620,180 @@
     }
     scroll.innerHTML = freestandingSteps.map((s, i) => `
       <div class="be-step-card">
+        <div class="be-step-type-row">
+          <span class="be-step-type-label">Response</span>
+          <select class="be-step-type-select" onchange="updateFreestandingType(${i}, this.value)" aria-label="Step ${i + 1} response type">
+            <option value="passfail" ${s.type === 'passfail' ? 'selected' : ''}>Pass / Fail</option>
+            <option value="text"     ${s.type === 'text'     ? 'selected' : ''}>Open text</option>
+            <option value="numeric"  ${s.type === 'numeric'  ? 'selected' : ''}>Numeric value</option>
+            <option value="single"   ${s.type === 'single'   ? 'selected' : ''}>Single select</option>
+            <option value="multi"    ${s.type === 'multi'    ? 'selected' : ''}>Multi select</option>
+          </select>
+        </div>
         <div class="be-step-row">
           <span class="be-step-num">${i + 1}</span>
           <input class="be-step-input" type="text" value="${escHtml(s.label)}"
             placeholder="Step description…"
-            oninput="freestandingSteps[${i}].label=this.value" />
+            oninput="freestandingSteps[${i}].label=this.value; markDirty();" />
           <button class="be-step-delete" onclick="deleteFreestandingStep(${i})" aria-label="Delete step">
             <i class="fa-solid fa-trash-can"></i>
           </button>
         </div>
+        ${renderFreestandingConfig(s, i)}
         <div class="be-step-attrs">
-          <span style="font-size:11px;color:rgba(165,180,252,0.35);margin-right:4px;">Severity:</span>
+          <span style="font-size:11px;color:rgba(165,180,252,0.35);margin-right:4px;">Failure:</span>
           <button class="be-sev-btn ${s.sev === 'critical' ? 'active-critical' : ''}" onclick="setFreestandingSev(${i},'critical')">Critical</button>
           <button class="be-sev-btn ${s.sev === 'warning'  ? 'active-warning'  : ''}" onclick="setFreestandingSev(${i},'warning')">Warning</button>
           <button class="be-sev-btn ${s.sev === null       ? 'active-none'     : ''}" onclick="setFreestandingSev(${i},null)">None</button>
+          <button class="be-photo-toggle ${s.photo ? 'active' : ''}" onclick="toggleFreestandingPhoto(${i})"
+            aria-pressed="${s.photo ? 'true' : 'false'}"
+            title="${s.photo ? 'Photo required' : 'Photo optional'}">
+            <i class="fa-solid fa-camera"></i>
+            ${s.photo ? 'Photo required' : 'Photo optional'}
+          </button>
         </div>
       </div>`).join('');
   }
 
+  // Type-specific configuration sub-panel for the freestanding step editor.
+  function renderFreestandingConfig(step, i) {
+    const t = step.type || 'passfail';
+    if (t === 'numeric') {
+      return `
+        <div class="be-step-config">
+          <div class="be-step-config-label">Numeric range</div>
+          <div class="be-step-numeric-row">
+            <div class="be-step-numeric-field">
+              <label>Min</label>
+              <input class="be-step-numeric-input" type="number" inputmode="decimal"
+                value="${escHtml(String(step.min ?? ''))}" placeholder="e.g. 80"
+                oninput="updateFreestandingConfig(${i}, 'min', this.value)" />
+            </div>
+            <div class="be-step-numeric-field">
+              <label>Max</label>
+              <input class="be-step-numeric-input" type="number" inputmode="decimal"
+                value="${escHtml(String(step.max ?? ''))}" placeholder="e.g. 120"
+                oninput="updateFreestandingConfig(${i}, 'max', this.value)" />
+            </div>
+            <div class="be-step-numeric-field">
+              <label>Unit</label>
+              <input class="be-step-numeric-input" type="text"
+                value="${escHtml(step.unit || '')}" placeholder="e.g. psi"
+                oninput="updateFreestandingConfig(${i}, 'unit', this.value)" />
+            </div>
+          </div>
+        </div>`;
+    }
+    if (t === 'single' || t === 'multi') {
+      const opts = Array.isArray(step.options) ? step.options : [];
+      const rows = opts.map((opt, k) => `
+        <div class="be-step-option-row">
+          <input class="be-step-option-input" type="text"
+            value="${escHtml(opt)}"
+            placeholder="Option ${k + 1}"
+            oninput="updateFreestandingOption(${i}, ${k}, this.value)" />
+          <button class="be-step-option-delete" onclick="removeFreestandingOption(${i}, ${k})"
+            aria-label="Remove option ${k + 1}" title="Remove option">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+        </div>`).join('');
+      const labelText = t === 'single' ? 'Single-select options' : 'Multi-select options';
+      return `
+        <div class="be-step-config">
+          <div class="be-step-config-label">${labelText}</div>
+          ${rows || '<div style="font-size:11px; color: rgba(165,180,252,0.5); margin-bottom: 8px;">No options yet — add the first choice below.</div>'}
+          <button class="be-step-option-add" onclick="addFreestandingOption(${i})">
+            <i class="fa-solid fa-plus"></i> Add option
+          </button>
+        </div>`;
+    }
+    return '';
+  }
+
+  function updateFreestandingType(i, value) {
+    const s = freestandingSteps[i];
+    if (!s) return;
+    s.type = value;
+    if ((value === 'single' || value === 'multi') && (!Array.isArray(s.options) || s.options.length === 0)) {
+      s.options = ['', ''];
+    }
+    renderFreestandingSteps();
+    markDirty();
+  }
+  window.updateFreestandingType = updateFreestandingType;
+
+  function updateFreestandingConfig(i, key, value) {
+    const s = freestandingSteps[i];
+    if (!s) return;
+    s[key] = value;
+    markDirty();
+  }
+  window.updateFreestandingConfig = updateFreestandingConfig;
+
+  function addFreestandingOption(i) {
+    const s = freestandingSteps[i];
+    if (!s) return;
+    if (!Array.isArray(s.options)) s.options = [];
+    s.options.push('');
+    renderFreestandingSteps();
+    setTimeout(() => {
+      const inputs = document.querySelectorAll('.be-step-card .be-step-option-input');
+      if (inputs.length) inputs[inputs.length - 1].focus();
+    }, 30);
+    markDirty();
+  }
+  window.addFreestandingOption = addFreestandingOption;
+
+  function updateFreestandingOption(i, index, value) {
+    const s = freestandingSteps[i];
+    if (!s || !Array.isArray(s.options)) return;
+    s.options[index] = value;
+    markDirty();
+  }
+  window.updateFreestandingOption = updateFreestandingOption;
+
+  function removeFreestandingOption(i, index) {
+    const s = freestandingSteps[i];
+    if (!s || !Array.isArray(s.options)) return;
+    s.options.splice(index, 1);
+    renderFreestandingSteps();
+    markDirty();
+  }
+  window.removeFreestandingOption = removeFreestandingOption;
+
+  function toggleFreestandingPhoto(i) {
+    const s = freestandingSteps[i];
+    if (!s) return;
+    s.photo = !s.photo;
+    renderFreestandingSteps();
+    markDirty();
+  }
+  window.toggleFreestandingPhoto = toggleFreestandingPhoto;
+
   function saveFreestanding() {
-    const validSteps = freestandingSteps.filter(s => s.label.trim());
+    // Keep steps with content; normalize the shape so type-irrelevant fields
+    // don't ride along (e.g. a 'text' step shouldn't store stale options).
+    const validSteps = freestandingSteps
+      .filter(s => s.label.trim())
+      .map(s => {
+        const type = s.type || 'passfail';
+        const out = {
+          id: s.id,
+          label: s.label,
+          sev: s.sev || null,
+          type,
+          photo: !!s.photo
+        };
+        if (type === 'numeric') {
+          out.min  = s.min ?? '';
+          out.max  = s.max ?? '';
+          out.unit = s.unit || '';
+        }
+        if (type === 'single' || type === 'multi') {
+          out.options = Array.isArray(s.options) ? s.options.filter(o => o && o.trim() !== '') : [];
+        }
+        return out;
+      });
     if (!validSteps.length) { showToast('Add at least one step first'); return; }
 
     const isAppend = typeof freestandingSectionId === 'number' && freestandingSectionId < 0;
@@ -1611,9 +2886,720 @@
       '<i class="fa-solid fa-circle-check" style="color:#34d399;"></i> Saved';
   }
 
+  // ============================================================
+  // BUILDER TABS
+  // ============================================================
+  function activateBuilderTab(name) {
+    document.querySelectorAll('.editor-tab').forEach(t => {
+      const on = t.dataset.tab === name;
+      t.classList.toggle('active', on);
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    document.querySelectorAll('.editor-tab-panel').forEach(p => {
+      p.classList.toggle('active', p.dataset.panel === name);
+    });
+    // Close the vehicle picker when switching away
+    if (name !== 'deployments') closeDeployPicker();
+    // Scroll to top of canvas
+    const canvas = document.querySelector('.editor-canvas');
+    if (canvas) canvas.scrollTop = 0;
+  }
+  window.activateBuilderTab = activateBuilderTab;
+
+  // ============================================================
+  // DEPLOYMENTS (Deployments tab)
+  // ============================================================
+  const CADENCE_OPTS = [
+    { label: 'Inherit',  value: ''         },
+    { label: 'Daily',    value: 'daily'    },
+    { label: 'Weekly',   value: 'weekly'   },
+    { label: 'Monthly',  value: 'monthly'  },
+    { label: 'Annual',   value: 'annual'   },
+    { label: 'Manual',   value: 'manual'   },
+  ];
+  const STATUS_OPTS = [
+    { label: 'Active',   value: 'active'   },
+    { label: 'Paused',   value: 'paused'   },
+    { label: 'Pending',  value: 'pending'  },
+  ];
+  // Bulk-apply selects allow setting cadence/status. Cadence allows 'inherit'
+  // (empty string) as an explicit choice when bulk-applying.
+  const CADENCE_BULK_OPTS = CADENCE_OPTS; // identical: Inherit + 5 cadences
+  const STATUS_BULK_OPTS  = STATUS_OPTS;
+
+  function vehicleGlyph(type) {
+    switch ((type || '').toLowerCase()) {
+      case 'engine':    return 'fa-truck-medical';
+      case 'ladder':    return 'fa-truck-arrow-right';
+      case 'ambulance': return 'fa-truck-medical';
+      case 'brush':     return 'fa-truck-pickup';
+      default:          return 'fa-truck';
+    }
+  }
+
+  // ----- State for table + selection + filters -----
+  let deployTableFilter   = '';        // search input value (lowercased)
+  let deploySelectedIds   = new Set(); // set of selected tempIds
+
+  function cadenceLabel(value) {
+    const o = CADENCE_OPTS.find(x => x.value === value);
+    return o ? o.label : 'Inherit';
+  }
+
+  function renderDeployments() {
+    renderDeployTable();
+    renderDeployTabBadge();
+    renderDeployBulkBar();
+    populateBulkSelects();
+  }
+  window.renderDeployments = renderDeployments;
+
+  function renderDeployTabBadge() {
+    const badge = document.getElementById('deployTabCount');
+    const hdrCount = document.getElementById('deployHeaderCount');
+    const count = deployments.length;
+    if (badge) {
+      badge.textContent = count;
+      badge.style.display = count > 0 ? '' : 'none';
+    }
+    if (hdrCount) hdrCount.textContent = count ? `(${count})` : '';
+  }
+
+  function populateBulkSelects() {
+    const cadSel = document.getElementById('deployBulkCadence');
+    const stSel  = document.getElementById('deployBulkStatus');
+    if (cadSel && cadSel.options.length <= 1) {
+      cadSel.innerHTML = '<option value="">Apply cadence…</option>' + CADENCE_BULK_OPTS
+        .map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+    }
+    if (stSel && stSel.options.length <= 1) {
+      stSel.innerHTML = '<option value="">Apply status…</option>' + STATUS_BULK_OPTS
+        .map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+    }
+  }
+
+  function getDefaultCadence() {
+    const cs = document.getElementById('cadenceSelect');
+    return (cs && cs.value) || '';
+  }
+
+  function renderDeployTable() {
+    const host = document.getElementById('deployTableHost');
+    if (!host) return;
+    const allVehicles = (window.Store && window.Store.listVehicles) ? window.Store.listVehicles() : [];
+
+    if (!deployments.length) {
+      host.innerHTML = `
+        <div class="deploy-empty-state">
+          <div><i class="fa-solid fa-truck-medical"></i></div>
+          <h3>No deployments yet</h3>
+          <p>Use “Add vehicles” above to bind this checklist to one or more units.</p>
+        </div>`;
+      return;
+    }
+
+    // Filter
+    const q = deployTableFilter.trim().toLowerCase();
+    const visible = q
+      ? deployments.filter(dep => {
+          const v = allVehicles.find(x => x.tag === dep.vehicleTag);
+          if (!v) return false;
+          return [v.name, v.tag, v.type, v.station].some(s => (s || '').toLowerCase().includes(q));
+        })
+      : deployments.slice();
+
+    if (!visible.length) {
+      host.innerHTML = `
+        <div class="deploy-empty-state">
+          <div><i class="fa-solid fa-magnifying-glass"></i></div>
+          <h3>No matches</h3>
+          <p>No deployments match “${escHtml(deployTableFilter)}”.</p>
+        </div>`;
+      return;
+    }
+
+    const allSelected = visible.length > 0 && visible.every(d => deploySelectedIds.has(d.tempId));
+
+    const rows = visible.map(dep => {
+      const v = allVehicles.find(x => x.tag === dep.vehicleTag);
+      const isSel = deploySelectedIds.has(dep.tempId);
+      const cadenceOpts = CADENCE_OPTS.map(o => {
+        const label = o.value === '' ? `Inherit (${cadenceLabel(getDefaultCadence())})` : o.label;
+        return `<option value="${o.value}" ${o.value === (dep.cadenceOverride || '') ? 'selected' : ''}>${escHtml(label)}</option>`;
+      }).join('');
+      const statusOpts = STATUS_OPTS.map(o =>
+        `<option value="${o.value}" ${o.value === (dep.status || 'active') ? 'selected' : ''}>${o.label}</option>`
+      ).join('');
+      const inheritClass = (dep.cadenceOverride || '') === '' ? ' inherit' : '';
+      return `
+        <tr class="${isSel ? 'selected' : ''}" data-tid="${dep.tempId}">
+          <td><input type="checkbox" ${isSel ? 'checked' : ''} onchange="toggleDeploySelect(${dep.tempId}, this.checked)" aria-label="Select deployment" /></td>
+          <td class="col-vehicle">
+            <div class="deploy-vehicle-cell">
+              <div class="deploy-vehicle-icon"><i class="fa-solid ${v ? vehicleGlyph(v.type) : 'fa-truck'}"></i></div>
+              <div>
+                <span class="deploy-vehicle-name">${v ? escHtml(v.name) : 'Unknown vehicle'}</span>
+                <span class="deploy-vehicle-tag">${escHtml(dep.vehicleTag)}</span>
+              </div>
+            </div>
+          </td>
+          <td class="col-type">${v ? escHtml(v.type) : '—'}</td>
+          <td class="col-station">${v ? escHtml(v.station) : '—'}</td>
+          <td class="col-cadence">
+            <select class="deploy-cell-select${inheritClass}" onchange="updateDeployment(${dep.tempId}, 'cadenceOverride', this.value)">${cadenceOpts}</select>
+          </td>
+          <td class="col-status">
+            <select class="deploy-cell-select" onchange="updateDeployment(${dep.tempId}, 'status', this.value)">${statusOpts}</select>
+          </td>
+          <td class="col-remove">
+            <button class="deploy-row-remove-btn" onclick="removeDeployment(${dep.tempId})" aria-label="Remove deployment" title="Remove">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </td>
+        </tr>`;
+    }).join('');
+
+    host.innerHTML = `
+      <div class="deploy-table-wrap">
+        <table class="deploy-table" role="grid">
+          <thead>
+            <tr>
+              <th><input type="checkbox" ${allSelected ? 'checked' : ''} onchange="toggleSelectAllVisible(this.checked)" aria-label="Select all visible" /></th>
+              <th class="col-vehicle">Vehicle</th>
+              <th class="col-type">Type</th>
+              <th class="col-station">Station</th>
+              <th class="col-cadence">Cadence</th>
+              <th class="col-status">Status</th>
+              <th class="col-remove"></th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function renderDeployBulkBar() {
+    const bar = document.getElementById('deployBulkBar');
+    const count = deploySelectedIds.size;
+    if (!bar) return;
+    bar.classList.toggle('visible', count > 0);
+    const label = document.getElementById('deployBulkCount');
+    if (label) label.textContent = count === 1 ? '1 selected' : `${count} selected`;
+  }
+
+  function toggleDeploySelect(tempId, checked) {
+    if (checked) deploySelectedIds.add(tempId);
+    else deploySelectedIds.delete(tempId);
+    // Update row class without full rerender for snappier UX
+    const tr = document.querySelector(`.deploy-table tr[data-tid="${tempId}"]`);
+    if (tr) tr.classList.toggle('selected', checked);
+    renderDeployBulkBar();
+    // Refresh the header checkbox state
+    syncSelectAllHeader();
+  }
+  window.toggleDeploySelect = toggleDeploySelect;
+
+  function syncSelectAllHeader() {
+    const allVehicles = (window.Store && window.Store.listVehicles) ? window.Store.listVehicles() : [];
+    const q = deployTableFilter.trim().toLowerCase();
+    const visible = q
+      ? deployments.filter(dep => {
+          const v = allVehicles.find(x => x.tag === dep.vehicleTag);
+          return v && [v.name, v.tag, v.type, v.station].some(s => (s || '').toLowerCase().includes(q));
+        })
+      : deployments;
+    const headerCb = document.querySelector('.deploy-table thead input[type="checkbox"]');
+    if (headerCb) {
+      headerCb.checked = visible.length > 0 && visible.every(d => deploySelectedIds.has(d.tempId));
+    }
+  }
+
+  function toggleSelectAllVisible(checked) {
+    const allVehicles = (window.Store && window.Store.listVehicles) ? window.Store.listVehicles() : [];
+    const q = deployTableFilter.trim().toLowerCase();
+    const visible = q
+      ? deployments.filter(dep => {
+          const v = allVehicles.find(x => x.tag === dep.vehicleTag);
+          return v && [v.name, v.tag, v.type, v.station].some(s => (s || '').toLowerCase().includes(q));
+        })
+      : deployments;
+    visible.forEach(d => {
+      if (checked) deploySelectedIds.add(d.tempId);
+      else deploySelectedIds.delete(d.tempId);
+    });
+    renderDeployTable();
+    renderDeployBulkBar();
+  }
+  window.toggleSelectAllVisible = toggleSelectAllVisible;
+
+  function clearDeploySelection() {
+    deploySelectedIds.clear();
+    renderDeployTable();
+    renderDeployBulkBar();
+  }
+  window.clearDeploySelection = clearDeploySelection;
+
+  function applyBulkCadence(value) {
+    if (!deploySelectedIds.size) return;
+    deployments.forEach(d => {
+      if (deploySelectedIds.has(d.tempId)) d.cadenceOverride = value;
+    });
+    renderDeployTable();
+    markDirty();
+  }
+  window.applyBulkCadence = applyBulkCadence;
+
+  function applyBulkStatus(value) {
+    if (!deploySelectedIds.size || !value) return;
+    deployments.forEach(d => {
+      if (deploySelectedIds.has(d.tempId)) d.status = value;
+    });
+    renderDeployTable();
+    markDirty();
+  }
+  window.applyBulkStatus = applyBulkStatus;
+
+  function removeSelectedDeployments() {
+    if (!deploySelectedIds.size) return;
+    deployments = deployments.filter(d => !deploySelectedIds.has(d.tempId));
+    deploySelectedIds.clear();
+    renderDeployments();
+    markDirty();
+  }
+  window.removeSelectedDeployments = removeSelectedDeployments;
+
+  function onDeploySearch(value) {
+    deployTableFilter = value || '';
+    renderDeployTable();
+    syncSelectAllHeader();
+  }
+  window.onDeploySearch = onDeploySearch;
+
+  function removeDeployment(tempId) {
+    deployments = deployments.filter(d => d.tempId !== tempId);
+    deploySelectedIds.delete(tempId);
+    renderDeployments();
+    markDirty();
+  }
+  window.removeDeployment = removeDeployment;
+
+  function updateDeployment(tempId, field, value) {
+    const d = deployments.find(x => x.tempId === tempId);
+    if (!d) return;
+    d[field] = value;
+    markDirty();
+    // Inherit-row visual depends on cadenceOverride; refresh just the row.
+    if (field === 'cadenceOverride') {
+      const sel = document.querySelector(`.deploy-table tr[data-tid="${tempId}"] .col-cadence select`);
+      if (sel) sel.classList.toggle('inherit', !value);
+    }
+  }
+  window.updateDeployment = updateDeployment;
+
+  // ============================================================
+  // VEHICLE PICKER MODAL (full-screen, filter rail + table)
+  // ============================================================
+  // Internal state for the modal — distinct from the deployments-table state.
+  const vp = {
+    open: false,
+    search: '',
+    selected: new Set(),     // vehicleTag strings staged for add
+    typeFilter: new Set(),   // selected types
+    stationFilter: new Set(),
+    statusFilter: new Set(),
+    stationFacetSearch: '',
+    sortKey: 'name',
+    sortDir: 'asc',          // 'asc' | 'desc'
+    selectAllFiltered: false // when true, every filtered row is selected (incl. off-screen)
+  };
+
+  function statusLabel(s) {
+    return s === 'oos' ? 'Out of service' : s === 'warn' ? 'Attention' : 'In service';
+  }
+
+  function openDeployPicker() {
+    vp.open = true;
+    // Reset transient state every open so the modal is predictable.
+    vp.search = '';
+    vp.selected = new Set();
+    vp.typeFilter = new Set();
+    vp.stationFilter = new Set();
+    vp.statusFilter = new Set();
+    vp.stationFacetSearch = '';
+    vp.sortKey = 'name';
+    vp.sortDir = 'asc';
+    vp.selectAllFiltered = false;
+    const ov = document.getElementById('vpOverlay');
+    if (ov) ov.classList.add('open');
+    const search = document.getElementById('vpSearch');
+    if (search) { search.value = ''; setTimeout(() => search.focus(), 30); }
+    const stSearch = document.getElementById('vpStationFilterSearch');
+    if (stSearch) stSearch.value = '';
+    renderVpAll();
+  }
+  window.openDeployPicker = openDeployPicker;
+
+  function closeDeployPicker() {
+    vp.open = false;
+    const ov = document.getElementById('vpOverlay');
+    if (ov) ov.classList.remove('open');
+  }
+  window.closeDeployPicker = closeDeployPicker;
+
+  // Vehicles available for picking = fleet minus those already in deployments[].
+  function vpAvailableVehicles() {
+    const all = (window.Store && window.Store.listVehicles) ? window.Store.listVehicles() : [];
+    const usedTags = new Set(deployments.map(d => d.vehicleTag));
+    return all.filter(v => !usedTags.has(v.tag));
+  }
+
+  // Apply text + facet filters to the available pool.
+  function vpFilteredVehicles() {
+    const q = vp.search.trim().toLowerCase();
+    return vpAvailableVehicles().filter(v => {
+      if (q && ![v.name, v.tag, v.type, v.station, v.make, v.model].some(s => (s || '').toLowerCase().includes(q))) return false;
+      if (vp.typeFilter.size && !vp.typeFilter.has(v.type)) return false;
+      if (vp.stationFilter.size && !vp.stationFilter.has(v.station)) return false;
+      if (vp.statusFilter.size && !vp.statusFilter.has(v.status)) return false;
+      return true;
+    });
+  }
+
+  function vpSortedVehicles() {
+    const rows = vpFilteredVehicles().slice();
+    const dir = vp.sortDir === 'desc' ? -1 : 1;
+    const cmp = (a, b) => {
+      const av = (a[vp.sortKey] || '').toString().toLowerCase();
+      const bv = (b[vp.sortKey] || '').toString().toLowerCase();
+      // status sorts by severity rather than alpha
+      if (vp.sortKey === 'status') {
+        const order = { ok: 0, warn: 1, oos: 2 };
+        return ((order[a.status] ?? 99) - (order[b.status] ?? 99)) * dir;
+      }
+      if (av < bv) return -1 * dir;
+      if (av > bv) return  1 * dir;
+      return 0;
+    };
+    return rows.sort(cmp);
+  }
+
+  function renderVpAll() {
+    renderVpFacets();
+    renderVpTable();
+    renderVpFooter();
+    renderVpClearBtn();
+  }
+
+  function renderVpClearBtn() {
+    const btn = document.getElementById('vpClearFilters');
+    if (!btn) return;
+    const hasFilters = vp.search || vp.typeFilter.size || vp.stationFilter.size || vp.statusFilter.size;
+    btn.disabled = !hasFilters;
+  }
+
+  // ----- Facet rendering -----
+  // Counts are computed against the *available* pool ignoring the facet
+  // being rendered, so users can see how many vehicles each value would add.
+  function renderVpFacets() {
+    const available = vpAvailableVehicles();
+    renderFacet('vpFacetType', 'type', available, vp.typeFilter, null);
+    renderFacet('vpFacetStation', 'station', available, vp.stationFilter, vp.stationFacetSearch);
+    renderFacet('vpFacetStatus', 'status', available, vp.statusFilter, null,
+      v => statusLabel(v));
+  }
+
+  function renderFacet(hostId, field, available, selected, facetSearch, labelFn) {
+    const host = document.getElementById(hostId);
+    if (!host) return;
+    // Count occurrences across the available pool, restricted by all
+    // OTHER active filters so counts stay meaningful when stacking.
+    const otherFiltered = available.filter(v => {
+      if (field !== 'type'    && vp.typeFilter.size    && !vp.typeFilter.has(v.type)) return false;
+      if (field !== 'station' && vp.stationFilter.size && !vp.stationFilter.has(v.station)) return false;
+      if (field !== 'status'  && vp.statusFilter.size  && !vp.statusFilter.has(v.status)) return false;
+      const q = vp.search.trim().toLowerCase();
+      if (q && ![v.name, v.tag, v.type, v.station, v.make, v.model].some(s => (s || '').toLowerCase().includes(q))) return false;
+      return true;
+    });
+    const counts = {};
+    otherFiltered.forEach(v => {
+      const key = v[field];
+      if (!key) return;
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    let keys = Object.keys(counts).sort((a, b) => {
+      if (field === 'status') {
+        const order = { ok: 0, warn: 1, oos: 2 };
+        return (order[a] ?? 99) - (order[b] ?? 99);
+      }
+      return a.localeCompare(b);
+    });
+    if (facetSearch) {
+      const q = facetSearch.toLowerCase();
+      keys = keys.filter(k => k.toLowerCase().includes(q));
+    }
+    if (!keys.length) {
+      host.innerHTML = `<div class="vp-facet-empty">${facetSearch ? 'No matches.' : 'No values available.'}</div>`;
+      return;
+    }
+    host.innerHTML = keys.map(key => {
+      const isSel = selected.has(key);
+      const label = labelFn ? labelFn(key) : key;
+      return `
+        <label class="vp-facet-row">
+          <input type="checkbox" ${isSel ? 'checked' : ''} onchange="toggleVpFacet('${field}', ${JSON.stringify(key).replace(/"/g, '&quot;')}, this.checked)" />
+          <span class="vp-facet-row-label">${escHtml(label)}</span>
+          <span class="vp-facet-row-count">${counts[key]}</span>
+        </label>`;
+    }).join('');
+  }
+
+  function toggleVpFacet(field, value, checked) {
+    const set = field === 'type' ? vp.typeFilter
+              : field === 'station' ? vp.stationFilter
+              : vp.statusFilter;
+    if (checked) set.add(value);
+    else set.delete(value);
+    // Filter changes invalidate the "select all filtered" state if it was on.
+    vp.selectAllFiltered = false;
+    // Drop selections that no longer match the filtered set.
+    pruneVpSelection();
+    renderVpAll();
+  }
+  window.toggleVpFacet = toggleVpFacet;
+
+  function pruneVpSelection() {
+    const visibleTags = new Set(vpFilteredVehicles().map(v => v.tag));
+    vp.selected.forEach(tag => { if (!visibleTags.has(tag)) vp.selected.delete(tag); });
+  }
+
+  function onVpFacetSearch(field, value) {
+    if (field === 'station') vp.stationFacetSearch = (value || '');
+    renderVpFacets();
+  }
+  window.onVpFacetSearch = onVpFacetSearch;
+
+  function vpClearAllFilters() {
+    vp.search = '';
+    vp.typeFilter.clear();
+    vp.stationFilter.clear();
+    vp.statusFilter.clear();
+    vp.stationFacetSearch = '';
+    vp.selectAllFiltered = false;
+    const s = document.getElementById('vpSearch'); if (s) s.value = '';
+    const fs = document.getElementById('vpStationFilterSearch'); if (fs) fs.value = '';
+    renderVpAll();
+  }
+  window.vpClearAllFilters = vpClearAllFilters;
+
+  function onVpSearch(value) {
+    vp.search = value || '';
+    vp.selectAllFiltered = false;
+    pruneVpSelection();
+    renderVpAll();
+  }
+  window.onVpSearch = onVpSearch;
+
+  // ----- Table rendering -----
+  function renderVpTable() {
+    const host = document.getElementById('vpTableWrap');
+    const meta = document.getElementById('vpResultsCount');
+    const banner = document.getElementById('vpSelectAllBanner');
+    if (!host) return;
+
+    const rows = vpSortedVehicles();
+    const available = vpAvailableVehicles();
+
+    // Header text
+    if (meta) {
+      if (available.length === 0) {
+        meta.innerHTML = `<strong>Every vehicle in the fleet</strong> is already deployed.`;
+      } else {
+        meta.innerHTML = `<strong>${rows.length}</strong> of <strong>${available.length}</strong> vehicle${available.length === 1 ? '' : 's'} shown`;
+      }
+    }
+
+    // Two-level select-all banner
+    if (banner) {
+      const visibleSelected = rows.length > 0 && rows.every(v => vp.selected.has(v.tag));
+      if (vp.selectAllFiltered) {
+        banner.innerHTML = `All <strong style="color:#c7d2fe;">${rows.length}</strong> filtered vehicles selected. <button onclick="clearVpSelection()">Clear selection</button>`;
+      } else if (visibleSelected && rows.length > 0 && rows.length < available.length) {
+        banner.innerHTML = `<button onclick="selectAllFilteredVp()">Select all ${rows.length} filtered vehicles</button>`;
+      } else {
+        banner.innerHTML = '';
+      }
+    }
+
+    if (!rows.length) {
+      host.innerHTML = available.length === 0
+        ? `<div class="vp-empty"><i class="fa-solid fa-truck"></i><h3>Nothing to add</h3><p>Every vehicle in the fleet already has a deployment on this checklist.</p></div>`
+        : `<div class="vp-empty"><i class="fa-solid fa-filter"></i><h3>No vehicles match these filters</h3><p>Adjust your search or clear filters to see more results.</p></div>`;
+      return;
+    }
+
+    const allSelected = rows.every(v => vp.selected.has(v.tag));
+
+    const sortIcon = (col) =>
+      vp.sortKey === col
+        ? `<i class="fa-solid fa-${vp.sortDir === 'asc' ? 'caret-up' : 'caret-down'} sort-icon"></i>`
+        : '';
+
+    const tbody = rows.map(v => {
+      const isSel = vp.selected.has(v.tag);
+      return `
+        <tr class="${isSel ? 'selected' : ''}" data-tag="${escHtml(v.tag)}" onclick="onVpRowClick(event, ${JSON.stringify(v.tag).replace(/"/g, '&quot;')})">
+          <td><input type="checkbox" ${isSel ? 'checked' : ''} onclick="event.stopPropagation();" onchange="toggleVpRow(${JSON.stringify(v.tag).replace(/"/g, '&quot;')}, this.checked)" aria-label="Select ${escHtml(v.name)}" /></td>
+          <td class="vp-col-vehicle">
+            <div class="vp-vehicle-cell">
+              <div class="vp-vehicle-icon"><i class="fa-solid ${vehicleGlyph(v.type)}"></i></div>
+              <div>
+                <span class="vp-vehicle-name">${escHtml(v.name)}</span>
+                <span class="deploy-vehicle-tag">${escHtml(v.tag)}</span>
+              </div>
+            </div>
+          </td>
+          <td class="vp-col-type">${escHtml(v.type)}</td>
+          <td class="vp-col-station">${escHtml(v.station)}</td>
+          <td class="vp-col-status"><span class="vp-status-pill ${v.status}">${escHtml(statusLabel(v.status))}</span></td>
+        </tr>`;
+    }).join('');
+
+    host.innerHTML = `
+      <table class="vp-table" role="grid">
+        <thead>
+          <tr>
+            <th><input type="checkbox" ${allSelected ? 'checked' : ''} onchange="toggleVpVisibleAll(this.checked)" aria-label="Select all visible" /></th>
+            <th class="vp-col-vehicle sortable" onclick="sortVp('name')">Vehicle ${sortIcon('name')}</th>
+            <th class="vp-col-type sortable" onclick="sortVp('type')">Type ${sortIcon('type')}</th>
+            <th class="vp-col-station sortable" onclick="sortVp('station')">Station ${sortIcon('station')}</th>
+            <th class="vp-col-status sortable" onclick="sortVp('status')">Status ${sortIcon('status')}</th>
+          </tr>
+        </thead>
+        <tbody>${tbody}</tbody>
+      </table>`;
+  }
+
+  function sortVp(key) {
+    if (vp.sortKey === key) {
+      vp.sortDir = vp.sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      vp.sortKey = key;
+      vp.sortDir = 'asc';
+    }
+    renderVpTable();
+  }
+  window.sortVp = sortVp;
+
+  function toggleVpRow(tag, checked) {
+    if (checked) vp.selected.add(tag);
+    else { vp.selected.delete(tag); vp.selectAllFiltered = false; }
+    // Light-touch DOM update (no full rerender) for snappier checkbox response.
+    const tr = document.querySelector(`.vp-table tr[data-tag="${tag.replace(/"/g, '\\"')}"]`);
+    if (tr) tr.classList.toggle('selected', checked);
+    renderVpFooter();
+    // Update the banner state if visible-all just changed.
+    renderVpHeaderState();
+  }
+  window.toggleVpRow = toggleVpRow;
+
+  function onVpRowClick(e, tag) {
+    // Row click toggles selection (but ignore clicks on the checkbox itself).
+    if (e.target.tagName === 'INPUT') return;
+    const checked = !vp.selected.has(tag);
+    toggleVpRow(tag, checked);
+    // Also toggle the actual checkbox visually
+    const cb = document.querySelector(`.vp-table tr[data-tag="${tag.replace(/"/g, '\\"')}"] input[type="checkbox"]`);
+    if (cb) cb.checked = checked;
+  }
+  window.onVpRowClick = onVpRowClick;
+
+  function toggleVpVisibleAll(checked) {
+    const visible = vpSortedVehicles();
+    if (checked) {
+      visible.forEach(v => vp.selected.add(v.tag));
+    } else {
+      visible.forEach(v => vp.selected.delete(v.tag));
+      vp.selectAllFiltered = false;
+    }
+    renderVpTable();
+    renderVpFooter();
+  }
+  window.toggleVpVisibleAll = toggleVpVisibleAll;
+
+  function selectAllFilteredVp() {
+    vpFilteredVehicles().forEach(v => vp.selected.add(v.tag));
+    vp.selectAllFiltered = true;
+    renderVpTable();
+    renderVpFooter();
+  }
+  window.selectAllFilteredVp = selectAllFilteredVp;
+
+  function clearVpSelection() {
+    vp.selected.clear();
+    vp.selectAllFiltered = false;
+    renderVpTable();
+    renderVpFooter();
+  }
+  window.clearVpSelection = clearVpSelection;
+
+  function renderVpHeaderState() {
+    const rows = vpSortedVehicles();
+    const allSelected = rows.length > 0 && rows.every(v => vp.selected.has(v.tag));
+    const headerCb = document.querySelector('.vp-table thead input[type="checkbox"]');
+    if (headerCb) headerCb.checked = allSelected;
+    // Re-render banner since "visible-all selected" might have changed.
+    const banner = document.getElementById('vpSelectAllBanner');
+    if (!banner) return;
+    const available = vpAvailableVehicles();
+    if (vp.selectAllFiltered) {
+      banner.innerHTML = `All <strong style="color:#c7d2fe;">${rows.length}</strong> filtered vehicles selected. <button onclick="clearVpSelection()">Clear selection</button>`;
+    } else if (allSelected && rows.length > 0 && rows.length < available.length) {
+      banner.innerHTML = `<button onclick="selectAllFilteredVp()">Select all ${rows.length} filtered vehicles</button>`;
+    } else {
+      banner.innerHTML = '';
+    }
+  }
+
+  function renderVpFooter() {
+    const info = document.getElementById('vpFooterInfo');
+    const btn  = document.getElementById('vpAddBtn');
+    const n = vp.selected.size;
+    if (info) info.innerHTML = `<strong>${n}</strong> selected`;
+    if (btn) {
+      btn.textContent = n === 1 ? 'Add 1 vehicle' : `Add ${n} vehicles`;
+      btn.disabled = n === 0;
+    }
+  }
+
+  function confirmAddVehicles() {
+    if (!vp.selected.size) return;
+    Array.from(vp.selected).forEach(tag => {
+      deployments.push({
+        tempId: ++deployTempCounter,
+        vehicleTag: tag,
+        cadenceOverride: '',
+        status: 'active'
+      });
+    });
+    closeDeployPicker();
+    renderDeployments();
+    markDirty();
+  }
+  window.confirmAddVehicles = confirmAddVehicles;
+
+  // Backdrop click + ESC close the modal
+  document.addEventListener('click', (e) => {
+    if (!vp.open) return;
+    if (e.target && e.target.id === 'vpOverlay') closeDeployPicker();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && vp.open) closeDeployPicker();
+  });
+
   // Collect current editor state into the Store's checklist shape.
-  // Preserves deployments[] from the existing record (the deploy dialog
-  // owns that array — checklist-builder doesn't edit it).
+  // Deployments come from the in-editor `deployments` state (the sidebar
+  // section owns them; rows with no vehicle assigned are dropped).
   function collectChecklistRecord(nextStatus) {
     const ni = document.getElementById('checklistNameInput');
     const cs = document.getElementById('cadenceSelect');
@@ -1642,12 +3628,38 @@
             out.name  = b.name || '';
             out.steps = b.steps || [];
           }
+          // Only persist when truthy — keeps default-required records clean.
+          if (b.optional) out.optional = true;
           return out;
         }),
         appendBlocks: s.appendBlocks || []
       })),
-      deployments: stored.deployments || []
+      deployments: collectDeployments(stored.deployments || [])
     };
+  }
+
+  // Merge the editor's deployment rows back into Store shape. Preserves
+  // existing `id`, `deployedAt`, `lastRunAt` for rows that already had them;
+  // drops rows that never got a vehicle assigned.
+  function collectDeployments(prev) {
+    const prevById = new Map();
+    (prev || []).forEach(d => { if (d.id) prevById.set(d.id, d); });
+    const now = new Date().toISOString();
+    let nextId = 1;
+    while (prev.some(d => d.id === `deploy-local-${nextId}`)) nextId++;
+    return deployments
+      .filter(d => d.vehicleTag)
+      .map(d => {
+        const existing = d.id ? prevById.get(d.id) : null;
+        return {
+          id: d.id || existing?.id || `deploy-local-${nextId++}`,
+          vehicleTag: d.vehicleTag,
+          cadenceOverride: d.cadenceOverride || null,
+          status: d.status || 'active',
+          deployedAt: existing?.deployedAt || now,
+          lastRunAt: existing?.lastRunAt || null
+        };
+      });
   }
 
   function saveDraft() {
@@ -1676,7 +3688,10 @@
     document.getElementById('statusPill').className = 'editor-status-pill active';
     document.getElementById('statusPill').innerHTML = '<i class="fa-solid fa-circle" style="font-size:6px;"></i> Active';
     markSaved();
-    showToast('Checklist activated');
+    const liveDeploys = deployments.filter(d => d.vehicleTag).length;
+    showToast(liveDeploys
+      ? `Checklist activated · deployed to ${liveDeploys} vehicle${liveDeploys === 1 ? '' : 's'}`
+      : 'Checklist activated');
     if (sandboxMode) setTimeout(doExit, 600);
   }
 
@@ -1697,6 +3712,8 @@
 
   function doExit() {
     sessionStorage.removeItem('checklistBuilderReturn');
+    // Land on the Checklists sub-tab when returning to the sandbox index.
+    try { sessionStorage.setItem('openSubTab', 'checklists'); } catch(e){}
     location.href = RETURN_URL;
   }
 
