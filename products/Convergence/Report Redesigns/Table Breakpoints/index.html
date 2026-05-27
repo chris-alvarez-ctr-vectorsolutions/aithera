@@ -21,6 +21,81 @@
   --radius-sm: 4px;
   --shadow-sm: 0 1px 3px rgba(0,0,0,.08);
   --shadow-md: 0 4px 20px rgba(0,0,0,.10);
+
+  /* ────────────────────────────────────────────────────────────────
+     RESPONSIVE BREAKPOINT SCALE — tune these values to change the stages
+     ────────────────────────────────────────────────────────────────
+     Stage    Range            Behavior
+     ─────    ──────────────   ──────────────────────────────────────
+     XL       ≥ 1600px         Long cols get maximum breathing room
+     LG       1200 – 1599px    Comfortable, similar to current default
+     MD        900 – 1199px    Long cols compress, text wraps multi-line
+     SM        600 –  899px    Long cols truncate (ellipsis), short cols hold
+     XS       <  600px         Horizontal scroll as last resort
+  */
+  --bp-xl: 1600px;
+  --bp-lg: 1200px;
+  --bp-md:  900px;
+  --bp-sm:  600px;
+
+  /* ────────────────────────────────────────────────────────────────
+     COLUMN WIDTHS — the values below are the LG (baseline) defaults.
+     Stage classes (.stage-xl, .stage-md, etc.) override the LONG-TEXT
+     columns. SHORT data columns intentionally stay stable from MD → XL so
+     numeric / status / date cells don't dance around as the viewport flexes.
+
+     ▶ STANDARD DEFAULTS for long-text columns (bumped to give descriptions
+       more breathing room than v1 of this prototype):
+         Tasklist & Activity Description (col 1)   LG baseline: 340px
+           XL=420 · LG=340 · MD=240 · SM=170 · XS=280
+         Employee / Department           (col 2)   LG baseline: 250px
+           XL=300 · LG=250 · MD=180 · SM=140 · XS=200
+         Location                        (col 3)   LG baseline: 140px
+           XL=160 · LG=140 · MD=120 · SM=110 · XS=120
+
+     ▶ KEEP IN SYNC: any changes here must also update the STAGE_WIDTHS
+       lookup in the <script> block at the bottom — that lookup is the
+       source of truth for the column-resize logic.
+
+     ▶ RESIZE / PIN BEHAVIOR: when a user drags a column's resize handle,
+       that column gets "pinned" — its width is locked in pixels and the
+       viewport-stage logic will no longer touch it. If pinned widths
+       exceed the available space, the table-container scrolls
+       horizontally rather than shrinking pinned columns. Click "Reset
+       columns" in the simulator toolbar to clear all pins.
+
+     LONG-TEXT cols (shed width proportionally more as viewport shrinks):
+       --cw-tasklist, --cw-employee, --cw-location
+     SHORT cols (stable across MD → XL):
+       --cw-status, --cw-tasksreq, --cw-pct, --cw-tasksdone, --cw-doneBar,
+       --cw-compdate, --cw-time, --cw-assigned, --cw-assigndate,
+       --cw-created, --cw-checkoff
+  */
+  --cw-expand:     32px;
+  --cw-tasklist:  340px;  /* LG baseline — bumped from 260 so long descriptions stay readable */
+  --cw-employee:  250px;  /* LG baseline — bumped from 200 */
+  --cw-location:  140px;  /* mid-length; lightly tuned per stage */
+  --cw-status:    110px;
+  --cw-tasksreq:   80px;
+  --cw-pct:       140px;
+  --cw-tasksdone:  90px;
+  --cw-doneBar:   140px;
+  --cw-compdate:  110px;
+  --cw-time:       80px;
+  --cw-assigned:   70px;
+  --cw-assigndate:110px;
+  --cw-created:   110px;
+  --cw-checkoff:  120px;
+
+  /* Long-cell text behavior (overridden per stage). Always clip — table-layout:
+     fixed means a long single-line value would otherwise paint past the column
+     edge and visually bleed into the next column. */
+  --long-wrap:          nowrap;   /* white-space */
+  --long-overflow:      hidden;   /* overflow */
+  --long-text-overflow: ellipsis; /* text-overflow */
+
+  /* Table-level min-width — only set at XS to force horizontal scroll */
+  --table-min: 0px;
 }
 body {
   font-family: 'Open Sans', var(--lumo-font-family, sans-serif);
@@ -194,47 +269,140 @@ body {
 .vp-table-container { flex: 1; overflow-x: auto; }
 
 /*
-  Table layout strategy:
-  - width: 100%  → stretches to fill available space when viewport is wide
-  - min-width    → readable floor per column; table scrolls below their sum (~1,620px)
-  - table-layout: auto → browser sizes each column to its content, never below min-width
+  Table layout strategy (per stage):
+  - table-layout: fixed + colgroup widths so column sizes are deterministic and
+    a single long cell can NEVER blow out its column or push neighbors aside.
+  - Total of all --cw-* values acts like a "preferred proportions" — when the
+    table width (100% of parent) differs from that total, all columns scale
+    proportionally. So at wider XL viewports long cols genuinely stretch wider.
+  - Long cols (tasklist, employee, location) shed width per stage via CSS vars.
+  - MD: long cells switch to multi-line wrap.
+  - SM: long cells truncate with ellipsis (overflow + nowrap).
+  - XS: --table-min lifts so the table exceeds the viewport → horizontal scroll.
 */
 .vp-table {
+  table-layout: fixed;
   width: 100%;
+  min-width: var(--table-min);
   border-collapse: collapse;
   font-size: 12.5px;
 }
 .vp-table thead tr { background: #f8fafc; border-bottom: 2px solid var(--border); }
 .vp-table th {
+  position: relative;          /* anchor for .col-resizer */
   padding: 9px 12px; text-align: left;
   font-size: 10.5px; font-weight: 700;
   color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   border-right: 1px solid #f1f5f9;
+}
+
+/* ── Column resize handle ──
+   Drag the right edge of any column header to resize. Once resized, that
+   column's width is "pinned" — viewport-stage changes will leave it alone
+   and (if the total exceeds the viewport) the container scrolls instead. */
+.col-resizer {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 3;
+  /* Subtle hint that the handle exists */
+  background: linear-gradient(to right, transparent 0%, transparent 60%, rgba(148,163,184,.35) 60%, rgba(148,163,184,.35) 70%, transparent 70%);
+}
+.col-resizer:hover,
+.col-resizer.dragging {
+  background: var(--primary);
+  opacity: .85;
+}
+body.col-resizing { cursor: col-resize !important; }
+body.col-resizing * { cursor: col-resize !important; user-select: none !important; }
+
+/* Pinned-column header indicator — a small lock badge on the col label */
+.vp-table th.col-pinned::before {
+  content: '\f023';                  /* fa-lock */
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  font-size: 8.5px;
+  color: var(--primary);
+  margin-right: 5px;
+  opacity: .75;
 }
 .vp-table th.locked { color: #6366f1; background: #fafaff; }
 .vp-table td {
   padding: 10px 12px; border-bottom: 1px solid var(--border);
   color: var(--text-secondary); white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .vp-table tbody tr:hover { background: #f8fafc; }
 
-/* Column min-widths — readable floor, browser distributes extra space via auto layout */
-.col-expand    { min-width: 32px;  width: 32px; }
-.col-tasklist  { min-width: 200px; }
-.col-employee  { min-width: 130px; }
-.col-location  { min-width: 110px; }
-.col-status    { min-width: 100px; }
-.col-tasksreq  { min-width: 75px;  }
-.col-pct       { min-width: 145px; }
-.col-tasksdone { min-width: 90px;  }
-.col-doneBar   { min-width: 140px; }
-.col-compdate  { min-width: 110px; }
-.col-time      { min-width: 80px;  }
-.col-assigned  { min-width: 70px;  }
-.col-assigndate{ min-width: 110px; }
-.col-created   { min-width: 110px; }
-.col-checkoff  { min-width: 120px; }
+/* Column widths — applied to <col> elements in colgroup. Fixed-layout uses
+   these to allocate column space; cell min-widths are ignored. */
+.col-expand    { width: var(--cw-expand);    }
+.col-tasklist  { width: var(--cw-tasklist);  }
+.col-employee  { width: var(--cw-employee);  }
+.col-location  { width: var(--cw-location);  }
+.col-status    { width: var(--cw-status);    }
+.col-tasksreq  { width: var(--cw-tasksreq);  }
+.col-pct       { width: var(--cw-pct);       }
+.col-tasksdone { width: var(--cw-tasksdone); }
+.col-doneBar   { width: var(--cw-doneBar);   }
+.col-compdate  { width: var(--cw-compdate);  }
+.col-time      { width: var(--cw-time);      }
+.col-assigned  { width: var(--cw-assigned);  }
+.col-assigndate{ width: var(--cw-assigndate);}
+.col-created   { width: var(--cw-created);   }
+.col-checkoff  { width: var(--cw-checkoff);  }
+
+/* Long-text cells (cols 1 & 2) honor per-stage wrap/truncate behavior */
+.vp-table .vp-tasklist-cell,
+.vp-table .vp-employee-cell {
+  white-space: var(--long-wrap);
+  overflow: var(--long-overflow);
+  text-overflow: var(--long-text-overflow);
+}
+
+/* ────────────────────────────────────────────────────────────────
+   STAGE OVERRIDES — change ONLY the long-text col widths + wrap behavior.
+   Short cols intentionally inherit the :root defaults (stable MD → XL).
+   ──────────────────────────────────────────────────────────────── */
+.vp-table.stage-xl {
+  --cw-tasklist: 420px;
+  --cw-employee: 300px;
+  --cw-location: 160px;
+}
+.vp-table.stage-lg {
+  --cw-tasklist: 340px;
+  --cw-employee: 250px;
+  --cw-location: 140px;
+}
+.vp-table.stage-md {
+  --cw-tasklist: 240px;
+  --cw-employee: 180px;
+  --cw-location: 120px;
+  --long-wrap: normal;        /* tasklist/employee text wraps to multiple lines */
+}
+.vp-table.stage-md .vp-tasklist-cell,
+.vp-table.stage-md .vp-employee-cell {
+  word-break: break-word;
+  line-height: 1.35;
+}
+.vp-table.stage-sm {
+  --cw-tasklist: 170px;
+  --cw-employee: 140px;
+  --cw-location: 110px;
+}
+.vp-table.stage-xs {
+  /* Last resort: lift min-width past typical XS viewports so the wrapper scrolls */
+  --table-min: 1100px;
+  --cw-tasklist: 280px;
+  --cw-employee: 200px;
+  --cw-location: 120px;
+}
 
 .vp-table .expand-cell { text-align: center; }
 .vp-expand-btn {
@@ -278,6 +446,8 @@ body {
 .col-guide-table tbody tr:hover { background: #fafbfc; }
 .col-guide-table tfoot td { background: #f8fafc; font-weight: 700; border-top: 2px solid var(--border); padding: 9px 14px; font-size: 12px; }
 .col-guide-table tfoot td.num { font-feature-settings: 'tnum'; }
+.col-guide-table tr.row-stable td { color: var(--text-muted); }
+.col-guide-table tr.row-stable td:first-child { color: var(--text-secondary); }
 .lock-icon { font-size: 9px; color: #6366f1; margin-left: 3px; opacity: .7; }
 .tier-badge {
   display: inline-flex; align-items: center;
@@ -394,21 +564,37 @@ body {
   padding: 8px 9px; border-bottom: 1px solid var(--border);
   color: var(--text-secondary); white-space: nowrap;
 }
-.fi-table .col-expand { min-width: 28px; width: 28px; text-align: center; }
-.fi-table .col-tasklist  { min-width: 200px; }
-.fi-table .col-employee  { min-width: 130px; }
-.fi-table .col-location  { min-width: 110px; }
-.fi-table .col-status    { min-width: 100px; }
-.fi-table .col-tasksreq  { min-width: 75px;  }
-.fi-table .col-pct       { min-width: 145px; }
-.fi-table .col-tasksdone { min-width: 90px;  }
-.fi-table .col-doneBar   { min-width: 140px; }
-.fi-table .col-compdate  { min-width: 110px; }
-.fi-table .col-time      { min-width: 80px;  }
-.fi-table .col-assigned  { min-width: 70px;  }
-.fi-table .col-assigndate{ min-width: 110px; }
-.fi-table .col-created   { min-width: 110px; }
-.fi-table .col-checkoff  { min-width: 120px; }
+/* Frame mini-table uses the same CSS vars + stage classes as the simulator */
+.fi-table { table-layout: fixed; width: 100%; min-width: var(--table-min); }
+.fi-table th, .fi-table td { overflow: hidden; text-overflow: ellipsis; }
+.fi-table .col-expand    { width: var(--cw-expand);     text-align: center; }
+.fi-table .col-tasklist  { width: var(--cw-tasklist);  }
+.fi-table .col-employee  { width: var(--cw-employee);  }
+.fi-table .col-location  { width: var(--cw-location);  }
+.fi-table .col-status    { width: var(--cw-status);    }
+.fi-table .col-tasksreq  { width: var(--cw-tasksreq);  }
+.fi-table .col-pct       { width: var(--cw-pct);       }
+.fi-table .col-tasksdone { width: var(--cw-tasksdone); }
+.fi-table .col-doneBar   { width: var(--cw-doneBar);   }
+.fi-table .col-compdate  { width: var(--cw-compdate);  }
+.fi-table .col-time      { width: var(--cw-time);      }
+.fi-table .col-assigned  { width: var(--cw-assigned);  }
+.fi-table .col-assigndate{ width: var(--cw-assigndate);}
+.fi-table .col-created   { width: var(--cw-created);   }
+.fi-table .col-checkoff  { width: var(--cw-checkoff);  }
+.fi-table .vp-tasklist-cell,
+.fi-table .vp-employee-cell {
+  white-space: var(--long-wrap);
+  overflow: var(--long-overflow);
+  text-overflow: var(--long-text-overflow);
+}
+.fi-table.stage-xl { --cw-tasklist: 420px; --cw-employee: 300px; --cw-location: 160px; }
+.fi-table.stage-lg { --cw-tasklist: 340px; --cw-employee: 250px; --cw-location: 140px; }
+.fi-table.stage-md { --cw-tasklist: 240px; --cw-employee: 180px; --cw-location: 120px; --long-wrap: normal; }
+.fi-table.stage-md .vp-tasklist-cell,
+.fi-table.stage-md .vp-employee-cell { word-break: break-word; line-height: 1.35; }
+.fi-table.stage-sm { --cw-tasklist: 170px; --cw-employee: 140px; --cw-location: 110px; }
+.fi-table.stage-xs { --table-min: 1100px; --cw-tasklist: 280px; --cw-employee: 200px; --cw-location: 120px; }
 .fi-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: 999px; font-size: 9.5px; font-weight: 600; white-space: nowrap; }
 .fi-badge-complete    { background: #dcfce7; color: #15803d; }
 .fi-badge-progress    { background: #dbeafe; color: #1d4ed8; }
@@ -430,6 +616,21 @@ body {
   pointer-events: none;
 }
 .frame-scroll-indicator i { font-size: 9px; }
+
+/* ── Stage badge (corner indicator on each frame) ── */
+.frame-stage-badge {
+  position: absolute; top: 8px; left: 8px;
+  z-index: 5;
+  font-size: 10px; font-weight: 800; letter-spacing: .04em;
+  padding: 3px 8px; border-radius: 4px;
+  background: white; color: var(--text-primary);
+  box-shadow: 0 1px 4px rgba(0,0,0,.18);
+}
+.frame-stage-xl { color: #15803d; }
+.frame-stage-lg { color: #15803d; }
+.frame-stage-md { color: #92400e; }
+.frame-stage-sm { color: #92400e; }
+.frame-stage-xs { color: #dc2626; }
 </style>
 </head>
 <body>
@@ -442,16 +643,17 @@ body {
     <div class="page-title-group">
       <a class="back-link" href="../../../.."><i class="fa-solid fa-arrow-left"></i> Prototype Index</a>
       <h1 class="page-title">Report Table — Responsive Breakpoints</h1>
-      <p class="page-subtitle">All 15 columns always visible · Columns size to content · Horizontal scroll below ~1,620 px (sum of column min-widths)</p>
+      <p class="page-subtitle">Five-stage scale · XL ≥ 1600 · LG 1200–1599 · MD 900–1199 · SM 600–899 · XS &lt; 600 · Long cols shed width, short cols hold · <strong>Drag column header edges to resize</strong> (pinned cols stay put across viewport changes)</p>
     </div>
     <div class="bp-selector">
-      <button class="bp-btn" data-bp="qhd">QHD<span class="bp-range">2560px</span></button>
-      <button class="bp-btn" data-bp="fhd">FHD<span class="bp-range">1920px</span></button>
-      <button class="bp-btn active" data-bp="xl">XL<span class="bp-range">~1600px</span></button>
-      <button class="bp-btn" data-bp="lg">LG<span class="bp-range">1280–1599</span></button>
-      <button class="bp-btn" data-bp="md">MD<span class="bp-range">1024–1279</span></button>
-      <button class="bp-btn" data-bp="sm">SM<span class="bp-range">768–1023</span></button>
-      <button class="bp-btn" data-bp="xs">XS<span class="bp-range">&lt;768px</span></button>
+      <button class="bp-btn" data-bp="xl2560" data-stage="xl">XL<span class="bp-range">2560</span></button>
+      <button class="bp-btn" data-bp="xl1920" data-stage="xl">XL<span class="bp-range">1920</span></button>
+      <button class="bp-btn active" data-bp="xl1600" data-stage="xl">XL<span class="bp-range">1600</span></button>
+      <button class="bp-btn" data-bp="lg1440" data-stage="lg">LG<span class="bp-range">1440</span></button>
+      <button class="bp-btn" data-bp="lg1200" data-stage="lg">LG<span class="bp-range">1200</span></button>
+      <button class="bp-btn" data-bp="md1024" data-stage="md">MD<span class="bp-range">1024</span></button>
+      <button class="bp-btn" data-bp="sm768"  data-stage="sm">SM<span class="bp-range">768</span></button>
+      <button class="bp-btn" data-bp="xs480"  data-stage="xs">XS<span class="bp-range">480</span></button>
     </div>
   </div>
 </header>
@@ -475,9 +677,10 @@ body {
         <div class="sim-sep"></div>
         <div class="sim-status">
           <span id="simStatTag" class="tag tag-green"><i class="fa-solid fa-check"></i> Columns at natural widths</span>
-          <span id="simSpareTag" class="tag tag-green" style="display:none;"><i class="fa-solid fa-arrows-left-right"></i> <span id="simSpareAmt"></span> spare — columns stretch</span>
-          <span id="simScrollTag" class="tag tag-amber" style="display:none;"><i class="fa-solid fa-left-right"></i> <span id="simScrollAmt"></span> horizontal scroll</span>
+          <span id="simSpareTag" class="tag tag-green" style="display:none;"><i class="fa-solid fa-arrows-left-right"></i> Long cols at maximum width</span>
+          <span id="simScrollTag" class="tag tag-red" style="display:none;"><i class="fa-solid fa-left-right"></i> Horizontal scroll required</span>
           <span id="simSidebarTag" class="tag tag-purple" style="display:none;"><i class="fa-solid fa-sidebar"></i> Sidebar collapses</span>
+          <span id="simPinnedTag" class="tag tag-blue" style="display:none;"><i class="fa-solid fa-thumbtack"></i> <span id="simPinnedCount">0</span> col(s) pinned · <button type="button" id="simResetCols" style="background:transparent;border:0;color:inherit;font:inherit;text-decoration:underline;cursor:pointer;padding:0;margin-left:4px;">Reset</button></span>
         </div>
       </div>
 
@@ -553,7 +756,7 @@ body {
               </div>
 
               <div class="vp-table-container">
-                <table class="vp-table">
+                <table class="vp-table stage-xl" id="simTable">
                   <colgroup>
                     <col class="col-expand">
                     <col class="col-tasklist">
@@ -574,8 +777,8 @@ body {
                   <thead>
                     <tr>
                       <th class="expand-cell locked"></th>
-                      <th class="locked">Tasklist <i class="fa-solid fa-arrow-up" style="font-size:8px;opacity:.5;"></i></th>
-                      <th class="locked">Employee</th>
+                      <th class="locked">Tasklist &amp; Activity Description <i class="fa-solid fa-arrow-up" style="font-size:8px;opacity:.5;"></i></th>
+                      <th class="locked">Employee / Department</th>
                       <th>Location</th>
                       <th>Status</th>
                       <th>Tasks Req.</th>
@@ -593,8 +796,8 @@ body {
                   <tbody>
                     <tr>
                       <td class="expand-cell"><button class="vp-expand-btn"><i class="fa-solid fa-chevron-right"></i></button></td>
-                      <td class="vp-tasklist-cell">Workplace Safety 2025</td>
-                      <td class="vp-employee-cell">Rodriguez, Maria</td>
+                      <td class="vp-tasklist-cell col-tasklist">Workplace Safety &amp; Compliance Standards 2025 — Annual Refresh</td>
+                      <td class="vp-employee-cell col-employee">Rodriguez, Maria — Operations &amp; EHS Compliance</td>
                       <td>Portland, OR</td>
                       <td><span class="badge badge-complete"><i class="fa-solid fa-check" style="font-size:8px;"></i> Complete</span></td>
                       <td>12</td>
@@ -610,8 +813,8 @@ body {
                     </tr>
                     <tr>
                       <td class="expand-cell"><button class="vp-expand-btn"><i class="fa-solid fa-chevron-right"></i></button></td>
-                      <td class="vp-tasklist-cell">Emergency Procedures</td>
-                      <td class="vp-employee-cell">Chen, David</td>
+                      <td class="vp-tasklist-cell col-tasklist">Emergency Response &amp; Evacuation Procedures — Quarterly Drill</td>
+                      <td class="vp-employee-cell col-employee">Chen, David — Facilities Engineering Team</td>
                       <td>Seattle, WA</td>
                       <td><span class="badge badge-progress"><i class="fa-solid fa-clock" style="font-size:8px;"></i> In Progress</span></td>
                       <td>10</td>
@@ -627,8 +830,8 @@ body {
                     </tr>
                     <tr>
                       <td class="expand-cell"><button class="vp-expand-btn"><i class="fa-solid fa-chevron-right"></i></button></td>
-                      <td class="vp-tasklist-cell">Equipment Operation</td>
-                      <td class="vp-employee-cell">Williams, Sarah</td>
+                      <td class="vp-tasklist-cell col-tasklist">Heavy Equipment Operation &amp; Preventive Maintenance Procedures</td>
+                      <td class="vp-employee-cell col-employee">Williams, Sarah — Plant Operations Lead</td>
                       <td>Denver, CO</td>
                       <td><span class="badge badge-not-started">Not Started</span></td>
                       <td>8</td>
@@ -644,8 +847,8 @@ body {
                     </tr>
                     <tr>
                       <td class="expand-cell"><button class="vp-expand-btn"><i class="fa-solid fa-chevron-right"></i></button></td>
-                      <td class="vp-tasklist-cell">Hazmat Handling</td>
-                      <td class="vp-employee-cell">Martinez, James</td>
+                      <td class="vp-tasklist-cell col-tasklist">Hazardous Materials Handling, Storage &amp; Spill Response</td>
+                      <td class="vp-employee-cell col-employee">Martinez, James — Environmental Services Coordinator</td>
                       <td>Austin, TX</td>
                       <td><span class="badge badge-progress"><i class="fa-solid fa-clock" style="font-size:8px;"></i> In Progress</span></td>
                       <td>12</td>
@@ -661,8 +864,8 @@ body {
                     </tr>
                     <tr>
                       <td class="expand-cell"><button class="vp-expand-btn"><i class="fa-solid fa-chevron-right"></i></button></td>
-                      <td class="vp-tasklist-cell">Fire Safety</td>
-                      <td class="vp-employee-cell">Thompson, Lisa</td>
+                      <td class="vp-tasklist-cell col-tasklist">Fire Safety &amp; Suppression Systems — Field Inspector Training</td>
+                      <td class="vp-employee-cell col-employee">Thompson, Lisa — Safety Compliance Officer</td>
                       <td>Chicago, IL</td>
                       <td><span class="badge badge-complete"><i class="fa-solid fa-check" style="font-size:8px;"></i> Complete</span></td>
                       <td>10</td>
@@ -702,123 +905,114 @@ body {
        SECTION 3 — Column min-width guide
   ════════════════════════════════════════════════════════ -->
   <div class="section-constrained"><section>
-    <h2 class="section-title">Column min-width spec — minimum readable widths for dev implementation</h2>
+    <h2 class="section-title">Column width spec — LG (bold) is the standard default · long cols shed by stage, short cols hold steady</h2>
     <table class="col-guide-table">
       <thead>
         <tr>
           <th>Column</th>
-          <th>% of table width</th>
-          <th class="num">Min-width</th>
-          <th>Content type</th>
-          <th>Priority</th>
+          <th class="num">XL ≥1600</th>
+          <th class="num">LG 1200+</th>
+          <th class="num">MD 900+</th>
+          <th class="num">SM 600+</th>
+          <th class="num">XS &lt;600</th>
+          <th>Behavior</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td>Expand / collapse<i class="lock-icon fa-solid fa-lock"></i></td>
-          <td>fixed</td><td class="num">32px</td>
-          <td>Icon button</td>
-          <td><span class="tier-badge tier-1">Locked</span></td>
+          <td><strong>Tasklist &amp; Activity Description</strong><i class="lock-icon fa-solid fa-lock"></i></td>
+          <td class="num">420px</td><td class="num"><strong>340px</strong></td><td class="num">240px</td><td class="num">170px</td><td class="num">280px</td>
+          <td><span class="tier-badge tier-1">Long-text · sheds heavily</span></td>
         </tr>
         <tr>
-          <td>Tasklist<i class="lock-icon fa-solid fa-lock"></i></td>
-          <td>auto</td><td class="num">200px</td>
-          <td>Text (truncates)</td>
-          <td><span class="tier-badge tier-1">Locked</span></td>
-        </tr>
-        <tr>
-          <td>Employee<i class="lock-icon fa-solid fa-lock"></i></td>
-          <td>auto</td><td class="num">130px</td>
-          <td>Text (truncates)</td>
-          <td><span class="tier-badge tier-1">Locked</span></td>
-        </tr>
-        <tr>
-          <td>Status</td>
-          <td>auto</td><td class="num">100px</td>
-          <td>Badge</td>
-          <td><span class="tier-badge tier-2">High</span></td>
-        </tr>
-        <tr>
-          <td>Req. Tasks Completed %</td>
-          <td>auto</td><td class="num">145px</td>
-          <td>Progress bar + %</td>
-          <td><span class="tier-badge tier-2">High</span></td>
-        </tr>
-        <tr>
-          <td>Completed Date</td>
-          <td>auto</td><td class="num">110px</td>
-          <td>Date string</td>
-          <td><span class="tier-badge tier-2">High</span></td>
+          <td><strong>Employee / Department</strong><i class="lock-icon fa-solid fa-lock"></i></td>
+          <td class="num">300px</td><td class="num"><strong>250px</strong></td><td class="num">180px</td><td class="num">140px</td><td class="num">200px</td>
+          <td><span class="tier-badge tier-1">Long-text · sheds heavily</span></td>
         </tr>
         <tr>
           <td>Location</td>
-          <td>auto</td><td class="num">110px</td>
-          <td>Text (truncates)</td>
-          <td><span class="tier-badge tier-3">Medium</span></td>
+          <td class="num">160px</td><td class="num"><strong>140px</strong></td><td class="num">120px</td><td class="num">110px</td><td class="num">120px</td>
+          <td><span class="tier-badge tier-2">Mid-length · sheds modestly</span></td>
         </tr>
-        <tr>
+        <tr class="row-stable">
+          <td>Expand / collapse<i class="lock-icon fa-solid fa-lock"></i></td>
+          <td colspan="5" class="num">32px (fixed)</td>
+          <td><span class="tier-badge tier-3">Icon · stable</span></td>
+        </tr>
+        <tr class="row-stable">
+          <td>Status</td>
+          <td colspan="5" class="num">110px (stable)</td>
+          <td><span class="tier-badge tier-3">Badge · stable</span></td>
+        </tr>
+        <tr class="row-stable">
+          <td>Req. Tasks Completed %</td>
+          <td colspan="5" class="num">140px (stable)</td>
+          <td><span class="tier-badge tier-3">Progress bar · stable</span></td>
+        </tr>
+        <tr class="row-stable">
+          <td>Completed Date</td>
+          <td colspan="5" class="num">110px (stable)</td>
+          <td><span class="tier-badge tier-3">Date · stable</span></td>
+        </tr>
+        <tr class="row-stable">
           <td>Tasks Required</td>
-          <td>auto</td><td class="num">75px</td>
-          <td>Number</td>
-          <td><span class="tier-badge tier-3">Medium</span></td>
+          <td colspan="5" class="num">80px (stable)</td>
+          <td><span class="tier-badge tier-3">Number · stable</span></td>
         </tr>
-        <tr>
+        <tr class="row-stable">
           <td>Tasks Completed (count)</td>
-          <td>auto</td><td class="num">90px</td>
-          <td>Fraction (7 / 10)</td>
-          <td><span class="tier-badge tier-3">Medium</span></td>
+          <td colspan="5" class="num">90px (stable)</td>
+          <td><span class="tier-badge tier-3">Fraction · stable</span></td>
         </tr>
-        <tr>
+        <tr class="row-stable">
           <td>Tasks Completed % (bar)</td>
-          <td>auto</td><td class="num">140px</td>
-          <td>Progress bar + %</td>
-          <td><span class="tier-badge tier-3">Medium</span></td>
+          <td colspan="5" class="num">140px (stable)</td>
+          <td><span class="tier-badge tier-3">Progress bar · stable</span></td>
         </tr>
-        <tr>
+        <tr class="row-stable">
           <td>Time Spent</td>
-          <td>auto</td><td class="num">80px</td>
-          <td>Duration string</td>
-          <td><span class="tier-badge tier-3">Medium</span></td>
+          <td colspan="5" class="num">80px (stable)</td>
+          <td><span class="tier-badge tier-3">Duration · stable</span></td>
         </tr>
-        <tr>
+        <tr class="row-stable">
           <td>Assigned</td>
-          <td>auto</td><td class="num">70px</td>
-          <td>Yes / No</td>
-          <td><span class="tier-badge tier-4">Low</span></td>
+          <td colspan="5" class="num">70px (stable)</td>
+          <td><span class="tier-badge tier-4">Yes/No · stable</span></td>
         </tr>
-        <tr>
+        <tr class="row-stable">
           <td>Assignment Date</td>
-          <td>auto</td><td class="num">110px</td>
-          <td>Date string</td>
-          <td><span class="tier-badge tier-4">Low</span></td>
+          <td colspan="5" class="num">110px (stable)</td>
+          <td><span class="tier-badge tier-4">Date · stable</span></td>
         </tr>
-        <tr>
+        <tr class="row-stable">
           <td>Tasklist Created</td>
-          <td>auto</td><td class="num">110px</td>
-          <td>Date string</td>
-          <td><span class="tier-badge tier-4">Low</span></td>
+          <td colspan="5" class="num">110px (stable)</td>
+          <td><span class="tier-badge tier-4">Date · stable</span></td>
         </tr>
-        <tr>
+        <tr class="row-stable">
           <td>Check-off Type</td>
-          <td>auto</td><td class="num">120px</td>
-          <td>Text (truncates)</td>
-          <td><span class="tier-badge tier-4">Low</span></td>
+          <td colspan="5" class="num">120px (stable)</td>
+          <td><span class="tier-badge tier-4">Text · stable</span></td>
         </tr>
       </tbody>
-      <tfoot>
-        <tr>
-          <td colspan="2"><strong>Total min-width</strong> — table scrolls horizontally below this threshold</td>
-          <td class="num"><strong>1,620px</strong></td>
-          <td colspan="2" style="font-size:11.5px;font-weight:400;color:var(--text-muted);">This is the <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;font-size:11px;">min-width</code> to set on the <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;font-size:11px;">&lt;table&gt;</code> element</td>
-        </tr>
-      </tfoot>
     </table>
     <p style="margin-top:12px;font-size:12px;color:var(--text-muted);line-height:1.6;">
       <strong style="color:var(--text-secondary);">Implementation note:</strong>
-      Use <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:11px;">table-layout: auto</code> (the default) with <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:11px;">min-width</code> on each column
-      and <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:11px;">overflow-x: auto</code> on the wrapper.
-      Do <strong>not</strong> set a fixed <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:11px;">width: X%</code> on columns — that forces compression regardless of content.
-      With auto layout the browser sizes each column to its content (wider when there's room) and never shrinks below its <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:11px;">min-width</code>, triggering scroll instead.
+      All breakpoint widths and column widths are wired to CSS custom properties at the top of the stylesheet
+      (<code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:11px;">--bp-*</code>,
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:11px;">--cw-*</code>).
+      Stage classes <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:11px;">.stage-xl</code> …
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:11px;">.stage-xs</code>
+      on the <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:11px;">&lt;table&gt;</code>
+      override only the long-text column widths (and switch wrap → truncate behavior) — short columns
+      inherit stable defaults so numeric / status cells never dance around as the viewport flexes.
+    </p>
+    <p style="margin-top:8px;font-size:12px;color:var(--text-muted);line-height:1.6;">
+      <strong style="color:var(--text-secondary);"><i class="fa-solid fa-grip-lines-vertical" style="color:var(--primary);margin-right:4px;"></i>Resize behavior:</strong>
+      Hover the right edge of any column header in the simulator to grab the resize handle. Once a column is dragged,
+      it's <em>pinned</em> at that pixel width — viewport-stage changes leave it alone, and if the total of all column
+      widths exceeds the simulated viewport the table-container scrolls horizontally instead of compressing the pinned
+      column. The simulator toolbar shows how many columns are pinned and offers a "Reset" link to clear all pins.
     </p>
   </section></div>
 
@@ -826,149 +1020,74 @@ body {
        SECTION 4 — Viewport vs. table width
   ════════════════════════════════════════════════════════ -->
   <div class="section-constrained"><section>
-    <h2 class="section-title">Viewport width vs. table min-width — when does scroll kick in?</h2>
+    <h2 class="section-title">Five-stage scale — what happens to columns at each viewport size</h2>
     <div class="width-ref-list">
 
-      <!-- All bars scaled to 2,560px (widest breakpoint) = 100% · Table min 1,620px = 63% -->
-
-      <div class="width-ref-item" id="widthItem-qhd">
-        <div class="width-ref-header">
-          <span class="width-ref-bp">QHD — 2560px</span>
-          <span class="width-ref-range">1440p / ultrawide monitor</span>
-          <div class="width-ref-state"><span class="tag tag-green"><i class="fa-solid fa-check"></i> No scroll — columns stretch wide</span></div>
-        </div>
-        <div class="bar-row">
-          <span class="bar-label">Viewport</span>
-          <div class="bar-track"><div class="bar-fill bar-vp" style="width:100%;"><span class="bar-val">2,560px</span></div></div>
-        </div>
-        <div class="bar-row">
-          <span class="bar-label">Table min</span>
-          <div class="bar-track" style="overflow:visible;">
-            <div class="bar-fill bar-table-fits" style="width:63%;"><span class="bar-val">1,620px</span></div>
-            <span class="bar-end-tag bar-end-fits"><i class="fa-solid fa-check"></i> 940px spare — columns stretch</span>
-          </div>
-        </div>
-        <p class="bar-scale-note">Plenty of room. The table fills the viewport and columns scale up proportionally beyond their minimums. 940px of extra space is distributed across all columns.</p>
-      </div>
-
-      <div class="width-ref-item" id="widthItem-fhd">
-        <div class="width-ref-header">
-          <span class="width-ref-bp">FHD — 1920px</span>
-          <span class="width-ref-range">1080p monitor — most common desktop resolution</span>
-          <div class="width-ref-state"><span class="tag tag-green"><i class="fa-solid fa-check"></i> No scroll — columns flex comfortably</span></div>
-        </div>
-        <div class="bar-row">
-          <span class="bar-label">Viewport</span>
-          <div class="bar-track"><div class="bar-fill bar-vp" style="width:75%;"><span class="bar-val">1,920px</span></div></div>
-        </div>
-        <div class="bar-row">
-          <span class="bar-label">Table min</span>
-          <div class="bar-track" style="overflow:visible;">
-            <div class="bar-fill bar-table-fits" style="width:63%;"><span class="bar-val">1,620px</span></div>
-            <span class="bar-end-tag bar-end-fits"><i class="fa-solid fa-check"></i> 300px spare (60px with sidebar)</span>
-          </div>
-        </div>
-        <p class="bar-scale-note">Table fits with room to spare. With the filter sidebar open (240px), there's still 60px of breathing room and columns sit at comfortable widths.</p>
-      </div>
+      <!-- All bars scaled with 2,560px = 100% so all 5 stages fit on the same horizontal axis -->
 
       <div class="width-ref-item" id="widthItem-xl">
         <div class="width-ref-header">
-          <span class="width-ref-bp">XL — ~1600px</span>
-          <span class="width-ref-range">Large laptop / smaller desktop — scroll threshold</span>
-          <div class="width-ref-state"><span class="tag tag-amber"><i class="fa-solid fa-left-right"></i> At threshold — ~20px overflow (sidebar adds ~260px)</span></div>
+          <span class="width-ref-bp">XL — ≥ 1600px</span>
+          <span class="width-ref-range">FHD &amp; QHD monitors · open-ended top of scale</span>
+          <div class="width-ref-state"><span class="tag tag-green"><i class="fa-solid fa-check"></i> Long cols at most generous widths</span></div>
         </div>
         <div class="bar-row">
           <span class="bar-label">Viewport</span>
-          <div class="bar-track"><div class="bar-fill bar-vp" style="width:62.5%;"><span class="bar-val">1,600px</span></div></div>
+          <div class="bar-track"><div class="bar-fill bar-vp" style="width:100%;"><span class="bar-val">1600px → 2560px+</span></div></div>
         </div>
-        <div class="bar-row">
-          <span class="bar-label">Table min</span>
-          <div class="bar-track" style="overflow:visible;">
-            <div class="bar-fill bar-table-scroll" style="width:63%;"><span class="bar-val">1,620px</span></div>
-            <span class="bar-end-tag bar-end-scroll">+20px scroll</span>
-          </div>
-        </div>
-        <p class="bar-scale-note">Right at the scroll threshold. Sidebar closed → effectively no scroll. Sidebar open → ~260px scroll. This is the breakpoint where collapsing the sidebar by default makes sense.</p>
+        <p class="bar-scale-note">Tasklist 420px · Employee 300px · Location 160px. Short cols hold steady. Above 1600px the table fills the viewport and long cols keep stretching proportionally.</p>
       </div>
 
       <div class="width-ref-item" id="widthItem-lg">
         <div class="width-ref-header">
-          <span class="width-ref-bp">LG — 1280–1599px</span>
-          <span class="width-ref-range">Representative: 1,440px</span>
-          <div class="width-ref-state"><span class="tag tag-amber"><i class="fa-solid fa-left-right"></i> Horizontal scroll — ~180px overflow</span></div>
+          <span class="width-ref-bp">LG — 1200 – 1599px</span>
+          <span class="width-ref-range">Standard laptop · default / comfortable</span>
+          <div class="width-ref-state"><span class="tag tag-green"><i class="fa-solid fa-check"></i> Comfortable widths, no compression</span></div>
         </div>
         <div class="bar-row">
           <span class="bar-label">Viewport</span>
-          <div class="bar-track"><div class="bar-fill bar-vp" style="width:56.3%;"><span class="bar-val">1,440px</span></div></div>
+          <div class="bar-track"><div class="bar-fill bar-vp" style="width:62.5%;"><span class="bar-val">1200 – 1599px</span></div></div>
         </div>
-        <div class="bar-row">
-          <span class="bar-label">Table min</span>
-          <div class="bar-track" style="overflow:visible;">
-            <div class="bar-fill bar-table-scroll" style="width:63%;"><span class="bar-val">1,620px</span></div>
-            <span class="bar-end-tag bar-end-scroll">+180px scroll</span>
-          </div>
-        </div>
-        <p class="bar-scale-note">Light horizontal scroll. Columns are at readable min-widths. Closing the filter sidebar (saves 240px) eliminates scroll at this range.</p>
+        <p class="bar-scale-note"><strong>Standard default:</strong> Tasklist 340px · Employee 250px · Location 140px. The baseline experience — long cols read on a single line, short cols at their resting widths.</p>
       </div>
 
       <div class="width-ref-item" id="widthItem-md">
         <div class="width-ref-header">
-          <span class="width-ref-bp">MD — 1024–1279px</span>
-          <span class="width-ref-range">Representative: 1,200px</span>
-          <div class="width-ref-state"><span class="tag tag-amber"><i class="fa-solid fa-left-right"></i> Horizontal scroll — ~420px overflow</span></div>
+          <span class="width-ref-bp">MD — 900 – 1199px</span>
+          <span class="width-ref-range">Small laptop / large tablet</span>
+          <div class="width-ref-state"><span class="tag tag-amber"><i class="fa-solid fa-text-width"></i> Long cols compress, text wraps multi-line</span></div>
         </div>
         <div class="bar-row">
           <span class="bar-label">Viewport</span>
-          <div class="bar-track"><div class="bar-fill bar-vp" style="width:46.9%;"><span class="bar-val">1,200px</span></div></div>
+          <div class="bar-track"><div class="bar-fill bar-vp" style="width:46.9%;"><span class="bar-val">900 – 1199px</span></div></div>
         </div>
-        <div class="bar-row">
-          <span class="bar-label">Table min</span>
-          <div class="bar-track" style="overflow:visible;">
-            <div class="bar-fill bar-table-scroll" style="width:63%;"><span class="bar-val">1,620px</span></div>
-            <span class="bar-end-tag bar-end-scroll">+420px scroll</span>
-          </div>
-        </div>
-        <p class="bar-scale-note">Moderate scroll. All columns remain at minimum readable widths — nothing truncates. Collapsing the sidebar reduces overflow by 240px.</p>
+        <p class="bar-scale-note">Tasklist 240px · Employee 180px · Location 120px. The two long cells switch to <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;font-size:11px;">white-space: normal</code> so descriptions wrap to 2–3 lines. Short cols still at full stable widths.</p>
       </div>
 
       <div class="width-ref-item" id="widthItem-sm">
         <div class="width-ref-header">
-          <span class="width-ref-bp">SM — 768–1023px</span>
-          <span class="width-ref-range">Representative: 900px (tablet)</span>
-          <div class="width-ref-state"><span class="tag tag-red"><i class="fa-solid fa-left-right"></i> Horizontal scroll — ~720px overflow</span></div>
+          <span class="width-ref-bp">SM — 600 – 899px</span>
+          <span class="width-ref-range">Tablet / small laptop in narrow window</span>
+          <div class="width-ref-state"><span class="tag tag-amber"><i class="fa-solid fa-ellipsis"></i> Long cols truncate, short cols hold</span></div>
         </div>
         <div class="bar-row">
           <span class="bar-label">Viewport</span>
-          <div class="bar-track"><div class="bar-fill bar-vp" style="width:35.2%;"><span class="bar-val">900px</span></div></div>
+          <div class="bar-track"><div class="bar-fill bar-vp" style="width:35.2%;"><span class="bar-val">600 – 899px</span></div></div>
         </div>
-        <div class="bar-row">
-          <span class="bar-label">Table min</span>
-          <div class="bar-track" style="overflow:visible;">
-            <div class="bar-fill bar-table-scroll" style="width:63%;"><span class="bar-val">1,620px</span></div>
-            <span class="bar-end-tag bar-end-scroll">+720px scroll</span>
-          </div>
-        </div>
-        <p class="bar-scale-note">Significant scroll on tablet — expected for a 15-column report. Sticky first columns (Tasklist + Employee) are important here so the row identity stays visible while scrolling.</p>
+        <p class="bar-scale-note">Tasklist 170px · Employee 140px · Location 110px. Long cells back to <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;font-size:11px;">nowrap + ellipsis</code> — single-line truncation. Filter sidebar auto-collapses to give the table room.</p>
       </div>
 
       <div class="width-ref-item" id="widthItem-xs">
         <div class="width-ref-header">
-          <span class="width-ref-bp">XS — &lt;768px</span>
-          <span class="width-ref-range">Representative: 390px (phone)</span>
-          <div class="width-ref-state"><span class="tag tag-red"><i class="fa-solid fa-left-right"></i> Horizontal scroll — ~1,230px overflow</span></div>
+          <span class="width-ref-bp">XS — &lt; 600px</span>
+          <span class="width-ref-range">Phone</span>
+          <div class="width-ref-state"><span class="tag tag-red"><i class="fa-solid fa-left-right"></i> Horizontal scroll as last resort</span></div>
         </div>
         <div class="bar-row">
           <span class="bar-label">Viewport</span>
-          <div class="bar-track"><div class="bar-fill bar-vp" style="width:15.2%;"><span class="bar-val" style="color:#475569;">390px</span></div></div>
+          <div class="bar-track"><div class="bar-fill bar-vp" style="width:18.8%;"><span class="bar-val" style="color:#475569;">&lt; 600px</span></div></div>
         </div>
-        <div class="bar-row">
-          <span class="bar-label">Table min</span>
-          <div class="bar-track" style="overflow:visible;">
-            <div class="bar-fill bar-table-scroll" style="width:63%;"><span class="bar-val">1,620px</span></div>
-            <span class="bar-end-tag bar-end-scroll">+1,230px scroll</span>
-          </div>
-        </div>
-        <p class="bar-scale-note">Heavy scroll on phone. Sticky first columns are essential. Consider whether this dense admin report is expected to be used on mobile at all.</p>
+        <p class="bar-scale-note">Table forces <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;font-size:11px;">min-width: 1100px</code> so the wrapper scrolls horizontally. Tasklist/Employee bumped back up (280/200) so headings remain legible while scrolling. Consider whether dense admin reports are expected on mobile at all.</p>
       </div>
 
     </div>
@@ -981,75 +1100,254 @@ body {
 </div>
 
 <script>
-const BP_CONFIG = {
-  qhd: { width: 2560, name: 'QHD', range: '2560px',       sidebarCollapsed: false, scrollPx: 0,    sparePx: 940, statTag: 'green', statText: 'Columns stretch wide' },
-  fhd: { width: 1920, name: 'FHD', range: '1920px',       sidebarCollapsed: false, scrollPx: 0,    sparePx: 300, statTag: 'green', statText: 'Columns flex to fill' },
-  xl:  { width: 1600, name: 'XL',  range: '~1600px',      sidebarCollapsed: false, scrollPx: 20,   sparePx: 0,   statTag: 'amber', statText: 'At scroll threshold' },
-  lg:  { width: 1440, name: 'LG',  range: '1280–1599px',  sidebarCollapsed: false, scrollPx: 180,  sparePx: 0,   statTag: 'amber', statText: 'Horizontal scroll' },
-  md:  { width: 1200, name: 'MD',  range: '1024–1279px',  sidebarCollapsed: false, scrollPx: 420,  sparePx: 0,   statTag: 'amber', statText: 'Horizontal scroll' },
-  sm:  { width: 900,  name: 'SM',  range: '768–1023px',   sidebarCollapsed: true,  scrollPx: 720,  sparePx: 0,   statTag: 'red',   statText: 'Significant scroll' },
-  xs:  { width: 390,  name: 'XS',  range: '<768px',       sidebarCollapsed: true,  scrollPx: 1230, sparePx: 0,   statTag: 'red',   statText: 'Heavy scroll' },
+/* ────────────────────────────────────────────────────────────────
+   Breakpoint stage thresholds (mirror the CSS vars at the top).
+   Update these AND the :root --bp-* vars together if you re-tune.
+   ──────────────────────────────────────────────────────────────── */
+const STAGE_THRESHOLDS = { xl: 1600, lg: 1200, md: 900, sm: 600 };
+function getStage(w) {
+  if (w >= STAGE_THRESHOLDS.xl) return 'xl';
+  if (w >= STAGE_THRESHOLDS.lg) return 'lg';
+  if (w >= STAGE_THRESHOLDS.md) return 'md';
+  if (w >= STAGE_THRESHOLDS.sm) return 'sm';
+  return 'xs';
+}
+
+/* ────────────────────────────────────────────────────────────────
+   COLUMN WIDTH LOOKUP — mirrors the CSS vars at the top of the
+   stylesheet. Source of truth for the column-resize JS. If you tune
+   widths here, also update the matching --cw-* CSS vars (and vice
+   versa) so the static frames render at the same proportions.
+   ──────────────────────────────────────────────────────────────── */
+const COL_KEYS = [
+  'expand','tasklist','employee','location','status','tasksreq',
+  'pct','tasksdone','doneBar','compdate','time','assigned',
+  'assigndate','created','checkoff'
+];
+const STAGE_WIDTHS = {
+  xl: { expand:32, tasklist:420, employee:300, location:160, status:110, tasksreq:80, pct:140, tasksdone:90, doneBar:140, compdate:110, time:80, assigned:70, assigndate:110, created:110, checkoff:120 },
+  lg: { expand:32, tasklist:340, employee:250, location:140, status:110, tasksreq:80, pct:140, tasksdone:90, doneBar:140, compdate:110, time:80, assigned:70, assigndate:110, created:110, checkoff:120 },
+  md: { expand:32, tasklist:240, employee:180, location:120, status:110, tasksreq:80, pct:140, tasksdone:90, doneBar:140, compdate:110, time:80, assigned:70, assigndate:110, created:110, checkoff:120 },
+  sm: { expand:32, tasklist:170, employee:140, location:110, status:110, tasksreq:80, pct:140, tasksdone:90, doneBar:140, compdate:110, time:80, assigned:70, assigndate:110, created:110, checkoff:120 },
+  xs: { expand:32, tasklist:280, employee:200, location:120, status:110, tasksreq:80, pct:140, tasksdone:90, doneBar:140, compdate:110, time:80, assigned:70, assigndate:110, created:110, checkoff:120 },
 };
-const TABLE_MIN = 1620;
+
+/* Pinned-column set — col keys (e.g. 'tasklist') the user has manually
+   resized. Stage changes leave these alone; the table widens past the
+   viewport if needed so the container can scroll horizontally. */
+const PINNED_COLS = new Set();
+const PINNED_WIDTHS = {};  // colKey → exact px width set by the user
+
+function applyColumnWidths(stage) {
+  const table = document.getElementById('simTable');
+  if (!table) return;
+  const cols = table.querySelectorAll('colgroup col');
+  const ths  = table.querySelectorAll('thead th');
+
+  // If nothing has been pinned, hand control back to CSS vars + stage class.
+  // The table fills its container at 100% width with cols scaled proportionally.
+  if (PINNED_COLS.size === 0) {
+    cols.forEach(col => col.style.width = '');
+    table.style.width = '';
+    table.style.minWidth = '';
+    ths.forEach(th => th.classList.remove('col-pinned'));
+    return;
+  }
+
+  // Mixed mode: everything is explicit px. Pinned cols hold their pinned
+  // width; non-pinned cols snap to the new stage's default. Table width is
+  // the sum so pinned widths are exact (no proportional rescaling).
+  let total = 0;
+  COL_KEYS.forEach((key, i) => {
+    const col = cols[i];
+    const th  = ths[i];
+    const px = PINNED_COLS.has(key) ? PINNED_WIDTHS[key] : STAGE_WIDTHS[stage][key];
+    col.style.width = px + 'px';
+    if (th) th.classList.toggle('col-pinned', PINNED_COLS.has(key));
+    total += px;
+  });
+  table.style.width = total + 'px';
+}
+
+function initColumnResize() {
+  const table = document.getElementById('simTable');
+  if (!table) return;
+  const cols = table.querySelectorAll('colgroup col');
+  const ths  = table.querySelectorAll('thead th');
+
+  ths.forEach((th, i) => {
+    // Avoid re-adding handles on re-init
+    if (th.querySelector('.col-resizer')) return;
+    const resizer = document.createElement('div');
+    resizer.className = 'col-resizer';
+    resizer.title = 'Drag to resize · this column will then be pinned';
+    th.appendChild(resizer);
+
+    const col = cols[i];
+    const key = COL_KEYS[i];
+
+    resizer.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Snapshot rendered widths from the <th>s before switching to explicit-
+      // px mode. <col>.offsetWidth is unreliable across browsers, but <th>'s
+      // offsetWidth is exact — using it means no visual jump at drag start.
+      cols.forEach((c, idx) => {
+        if (!c.style.width) {
+          c.style.width = ths[idx].offsetWidth + 'px';
+        }
+      });
+
+      const startX = e.clientX;
+      const startWidth = parseInt(col.style.width, 10);
+      resizer.classList.add('dragging');
+      document.body.classList.add('col-resizing');
+
+      function onMove(ev) {
+        const newWidth = Math.max(40, startWidth + (ev.clientX - startX));
+        col.style.width = newWidth + 'px';
+        // Re-sum and update table width so the resized col is exact
+        let total = 0;
+        cols.forEach(c => total += parseInt(c.style.width, 10) || 0);
+        table.style.width = total + 'px';
+      }
+      function onUp() {
+        const finalWidth = parseInt(col.style.width, 10);
+        PINNED_COLS.add(key);
+        PINNED_WIDTHS[key] = finalWidth;
+        ths[i].classList.add('col-pinned');
+        resizer.classList.remove('dragging');
+        document.body.classList.remove('col-resizing');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        updatePinnedBadge();
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+}
+
+function resetPinnedColumns() {
+  PINNED_COLS.clear();
+  for (const k in PINNED_WIDTHS) delete PINNED_WIDTHS[k];
+  const currentStage = getStage(parseInt(document.getElementById('simViewport').style.maxWidth, 10) || 1600);
+  applyColumnWidths(currentStage);
+  updatePinnedBadge();
+}
+
+function updatePinnedBadge() {
+  const tag = document.getElementById('simPinnedTag');
+  const count = document.getElementById('simPinnedCount');
+  if (!tag) return;
+  if (PINNED_COLS.size === 0) {
+    tag.style.display = 'none';
+  } else {
+    tag.style.display = '';
+    count.textContent = PINNED_COLS.size;
+  }
+}
+const STAGE_DESC = {
+  xl: { tag: 'green',  text: 'XL — long cols at their most generous widths' },
+  lg: { tag: 'green',  text: 'LG — comfortable widths, no compression' },
+  md: { tag: 'amber',  text: 'MD — long cols compress, text wraps multi-line' },
+  sm: { tag: 'amber',  text: 'SM — long cols truncate (ellipsis), short cols hold' },
+  xs: { tag: 'red',    text: 'XS — horizontal scroll triggered' },
+};
+
+/*
+  Each simulator preset is a viewport width that falls into one of the 5 stages.
+  Multiple presets share a stage so designers can see how column behavior holds
+  steady within a stage while raw viewport width changes.
+*/
+const BP_CONFIG = {
+  xl2560: { width: 2560 },
+  xl1920: { width: 1920 },
+  xl1600: { width: 1600 },
+  lg1440: { width: 1440 },
+  lg1200: { width: 1200 },
+  md1024: { width: 1024 },
+  sm768:  { width:  768 },
+  xs480:  { width:  480 },
+};
 
 function switchBP(bp) {
   const cfg = BP_CONFIG[bp];
+  if (!cfg) return;
+  const stage = getStage(cfg.width);
+  const desc  = STAGE_DESC[stage];
 
   document.querySelectorAll('.bp-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.bp === bp));
   document.getElementById('simViewport').style.maxWidth = cfg.width + 'px';
   document.getElementById('simWidthBadge').textContent = cfg.width.toLocaleString() + 'px';
-  document.getElementById('simBpBadge').textContent = cfg.name;
-  document.getElementById('simSidebar').classList.toggle('collapsed', cfg.sidebarCollapsed);
+  document.getElementById('simBpBadge').textContent = stage.toUpperCase();
+
+  // Apply the stage class to the simulator table — drives all column behavior.
+  const table = document.getElementById('simTable');
+  ['stage-xl','stage-lg','stage-md','stage-sm','stage-xs'].forEach(c => table.classList.remove(c));
+  table.classList.add('stage-' + stage);
+
+  // Auto-collapse the filter sidebar at SM / XS to give the table more room.
+  const sidebarCollapsed = (stage === 'sm' || stage === 'xs');
+  document.getElementById('simSidebar').classList.toggle('collapsed', sidebarCollapsed);
 
   const statTag    = document.getElementById('simStatTag');
   const scrollTag  = document.getElementById('simScrollTag');
   const sidebarTag = document.getElementById('simSidebarTag');
+  const spareTag   = document.getElementById('simSpareTag');
 
-  statTag.className = 'tag tag-' + cfg.statTag;
-  statTag.innerHTML = (cfg.statTag === 'green' ? '<i class="fa-solid fa-check"></i> ' : '<i class="fa-solid fa-left-right"></i> ') + cfg.statText;
+  statTag.className = 'tag tag-' + desc.tag;
+  statTag.innerHTML = (desc.tag === 'green' ? '<i class="fa-solid fa-check"></i> ' :
+                       desc.tag === 'amber' ? '<i class="fa-solid fa-text-width"></i> ' :
+                                              '<i class="fa-solid fa-left-right"></i> ') + desc.text;
 
-  const spareTag = document.getElementById('simSpareTag');
-  spareTag.style.display   = cfg.sparePx > 0 ? '' : 'none';
-  scrollTag.style.display  = cfg.scrollPx > 0 ? '' : 'none';
-  sidebarTag.style.display = cfg.sidebarCollapsed ? '' : 'none';
-  if (cfg.sparePx > 0)  document.getElementById('simSpareAmt').textContent  = '+' + cfg.sparePx.toLocaleString() + 'px';
-  if (cfg.scrollPx > 0) document.getElementById('simScrollAmt').textContent = '+' + cfg.scrollPx.toLocaleString() + 'px';
+  // Show "spare" tag at XL (long cols stretching) and "scroll" tag at XS.
+  spareTag.style.display   = (stage === 'xl') ? '' : 'none';
+  scrollTag.style.display  = (stage === 'xs') ? '' : 'none';
+  sidebarTag.style.display = sidebarCollapsed ? '' : 'none';
 
   document.querySelectorAll('.width-ref-item').forEach(el => el.classList.remove('active-item'));
-  const item = document.getElementById('widthItem-' + bp);
+  const item = document.getElementById('widthItem-' + stage);
   if (item) item.classList.add('active-item');
 
   document.querySelectorAll('.frame-outer').forEach(el => el.classList.remove('frame-active'));
   const frame = document.getElementById('frame-' + bp);
   if (frame) frame.classList.add('frame-active');
+
+  // Re-apply column widths: non-pinned cols snap to the new stage's defaults,
+  // pinned cols hold their user-set width (table widens past the viewport if
+  // needed → container scrolls horizontally).
+  applyColumnWidths(stage);
 }
 
-/* ── Build static comparison frames ── */
+/* ── Build static comparison frames — one per simulator preset ── */
 const FRAME_DATA = [
-  { bp: 'qhd', innerW: 2560, name: 'QHD', range: '2560px',     sidebarW: 240 },
-  { bp: 'fhd', innerW: 1920, name: 'FHD', range: '1920px',     sidebarW: 240 },
-  { bp: 'xl',  innerW: 1600, name: 'XL',  range: '~1600px',    sidebarW: 240 },
-  { bp: 'lg',  innerW: 1440, name: 'LG',  range: '1280–1599px', sidebarW: 240 },
-  { bp: 'md',  innerW: 1200, name: 'MD',  range: '1024–1279px', sidebarW: 240 },
-  { bp: 'sm',  innerW: 900,  name: 'SM',  range: '768–1023px',  sidebarW: 0   },
-  { bp: 'xs',  innerW: 390,  name: 'XS',  range: '<768px',      sidebarW: 0   },
+  { bp: 'xl2560', innerW: 2560, sidebarW: 240 },
+  { bp: 'xl1920', innerW: 1920, sidebarW: 240 },
+  { bp: 'xl1600', innerW: 1600, sidebarW: 240 },
+  { bp: 'lg1440', innerW: 1440, sidebarW: 240 },
+  { bp: 'lg1200', innerW: 1200, sidebarW: 240 },
+  { bp: 'md1024', innerW: 1024, sidebarW: 240 },
+  { bp: 'sm768',  innerW:  768, sidebarW: 0   },
+  { bp: 'xs480',  innerW:  480, sidebarW: 0   },
 ];
 
 const DISPLAY_W = 300;
 const DISPLAY_H = 260;
 
 const ROWS = [
-  { tasklist: 'Workplace Safety 2025', employee: 'Rodriguez, Maria', location: 'Portland, OR', statusClass: 'fi-badge-complete',    statusText: 'Complete',     tasksReq: '12', pct: 100, tasksDone: '12/12', doneBar: 100, compDate: 'Mar 15, 2026', time: '4h 20m',  assigned: 'Yes', assignDate: 'Jan 10, 2026', created: 'Dec 1, 2025',  checkoff: 'Both' },
-  { tasklist: 'Emergency Procedures',  employee: 'Chen, David',      location: 'Seattle, WA',  statusClass: 'fi-badge-progress',    statusText: 'In Progress',  tasksReq: '10', pct:  70, tasksDone: '7/10',   doneBar:  70, compDate: '—',            time: '2h 15m',  assigned: 'Yes', assignDate: 'Feb 5, 2026',  created: 'Jan 15, 2026', checkoff: 'Employee Only' },
-  { tasklist: 'Equipment Operation',   employee: 'Williams, Sarah',  location: 'Denver, CO',   statusClass: 'fi-badge-not-started', statusText: 'Not Started',  tasksReq: '8',  pct:   0, tasksDone: '0/8',    doneBar:   0, compDate: '—',            time: '—',       assigned: 'No',  assignDate: 'Mar 1, 2026',  created: 'Feb 10, 2026', checkoff: 'Instructor Only' },
-  { tasklist: 'Hazmat Handling',       employee: 'Martinez, James',  location: 'Austin, TX',   statusClass: 'fi-badge-progress',    statusText: 'In Progress',  tasksReq: '12', pct:  33, tasksDone: '4/12',   doneBar:  33, compDate: '—',            time: '1h 05m',  assigned: 'Yes', assignDate: 'Jan 25, 2026', created: 'Jan 5, 2026',  checkoff: 'Both' },
+  { tasklist: 'Workplace Safety & Compliance Standards 2025 — Annual Refresh',    employee: 'Rodriguez, Maria — Operations & EHS Compliance', location: 'Portland, OR', statusClass: 'fi-badge-complete',    statusText: 'Complete',     tasksReq: '12', pct: 100, tasksDone: '12/12', doneBar: 100, compDate: 'Mar 15, 2026', time: '4h 20m',  assigned: 'Yes', assignDate: 'Jan 10, 2026', created: 'Dec 1, 2025',  checkoff: 'Both' },
+  { tasklist: 'Emergency Response & Evacuation Procedures — Quarterly Drill',     employee: 'Chen, David — Facilities Engineering Team',      location: 'Seattle, WA',  statusClass: 'fi-badge-progress',    statusText: 'In Progress',  tasksReq: '10', pct:  70, tasksDone: '7/10',   doneBar:  70, compDate: '—',            time: '2h 15m',  assigned: 'Yes', assignDate: 'Feb 5, 2026',  created: 'Jan 15, 2026', checkoff: 'Employee Only' },
+  { tasklist: 'Heavy Equipment Operation & Preventive Maintenance Procedures',    employee: 'Williams, Sarah — Plant Operations Lead',        location: 'Denver, CO',   statusClass: 'fi-badge-not-started', statusText: 'Not Started',  tasksReq: '8',  pct:   0, tasksDone: '0/8',    doneBar:   0, compDate: '—',            time: '—',       assigned: 'No',  assignDate: 'Mar 1, 2026',  created: 'Feb 10, 2026', checkoff: 'Instructor Only' },
+  { tasklist: 'Hazardous Materials Handling, Storage & Spill Response',           employee: 'Martinez, James — Environmental Services Coord.',location: 'Austin, TX',   statusClass: 'fi-badge-progress',    statusText: 'In Progress',  tasksReq: '12', pct:  33, tasksDone: '4/12',   doneBar:  33, compDate: '—',            time: '1h 05m',  assigned: 'Yes', assignDate: 'Jan 25, 2026', created: 'Jan 5, 2026',  checkoff: 'Both' },
 ];
 
 function buildRow(r) {
   return `<tr>
     <td class="col-expand" style="text-align:center;"><span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:var(--text-muted);font-size:8px;"><i class="fa-solid fa-chevron-right"></i></span></td>
-    <td class="col-tasklist vp-tasklist-cell" style="overflow:hidden;text-overflow:ellipsis;">${r.tasklist}</td>
-    <td class="col-employee vp-employee-cell" style="overflow:hidden;text-overflow:ellipsis;">${r.employee}</td>
+    <td class="col-tasklist vp-tasklist-cell">${r.tasklist}</td>
+    <td class="col-employee vp-employee-cell">${r.employee}</td>
     <td class="col-location" style="overflow:hidden;text-overflow:ellipsis;">${r.location}</td>
     <td class="col-status"><span class="fi-badge ${r.statusClass}">${r.statusText}</span></td>
     <td class="col-tasksreq">${r.tasksReq}</td>
@@ -1068,10 +1366,10 @@ function buildRow(r) {
 const container = document.getElementById('framesRow');
 
 FRAME_DATA.forEach(fd => {
-  const scale = DISPLAY_W / fd.innerW;
+  const scale  = DISPLAY_W / fd.innerW;
   const innerH = Math.ceil(DISPLAY_H / scale);
-  const needsScroll = fd.innerW < TABLE_MIN;
-  const scrollOverflow = Math.max(0, TABLE_MIN - fd.innerW);
+  const stage  = getStage(fd.innerW);
+  const stageName = stage.toUpperCase();
 
   const sidebarHTML = fd.sidebarW > 0
     ? `<div class="fi-sidebar" style="width:${fd.sidebarW}px;">
@@ -1086,8 +1384,9 @@ FRAME_DATA.forEach(fd => {
 
   const html = `
     <div class="frame-wrap">
-      <div class="frame-label">${fd.name} <span class="fl-sub">${fd.range}</span></div>
+      <div class="frame-label">${stageName} <span class="fl-sub">${fd.innerW}px</span></div>
       <div class="frame-outer" id="frame-${fd.bp}" style="width:${DISPLAY_W}px;height:${DISPLAY_H}px;">
+        <div class="frame-stage-badge frame-stage-${stage}">${stageName}</div>
         <div class="frame-inner" style="width:${fd.innerW}px;height:${innerH}px;transform:scale(${scale});">
           <div class="fi-nav">
             <div class="fi-brand"><span class="fi-brand-v">Vector</span><span class="fi-brand-s">Solutions</span></div>
@@ -1117,7 +1416,7 @@ FRAME_DATA.forEach(fd => {
                 </div>
               </div>
               <div class="fi-table-container" style="overflow-x:auto;flex:1;">
-                <table class="fi-table" style="width:100%;min-width:${TABLE_MIN}px;">
+                <table class="fi-table stage-${stage}">
                   <colgroup>
                     <col class="col-expand"><col class="col-tasklist"><col class="col-employee"><col class="col-location">
                     <col class="col-status"><col class="col-tasksreq"><col class="col-pct"><col class="col-tasksdone">
@@ -1127,8 +1426,8 @@ FRAME_DATA.forEach(fd => {
                   <thead>
                     <tr>
                       <th class="col-expand locked"></th>
-                      <th class="col-tasklist locked">Tasklist</th>
-                      <th class="col-employee locked">Employee</th>
+                      <th class="col-tasklist locked">Tasklist &amp; Activity Description</th>
+                      <th class="col-employee locked">Employee / Department</th>
                       <th class="col-location">Location</th>
                       <th class="col-status">Status</th>
                       <th class="col-tasksreq">Tasks Req.</th>
@@ -1149,7 +1448,7 @@ FRAME_DATA.forEach(fd => {
             </div>
           </div>
         </div>
-        ${scrollOverflow > 0 ? `<div class="frame-scroll-indicator"><i class="fa-solid fa-left-right"></i> +${scrollOverflow}px scroll</div>` : ''}
+        ${stage === 'xs' ? `<div class="frame-scroll-indicator"><i class="fa-solid fa-left-right"></i> scroll required</div>` : ''}
       </div>
     </div>`;
 
@@ -1160,7 +1459,10 @@ document.querySelectorAll('.bp-btn').forEach(btn => {
   btn.addEventListener('click', () => switchBP(btn.dataset.bp));
 });
 
-switchBP('xl');
+document.getElementById('simResetCols').addEventListener('click', resetPinnedColumns);
+
+initColumnResize();
+switchBP('xl1600');
 </script>
 </body>
 </html>
