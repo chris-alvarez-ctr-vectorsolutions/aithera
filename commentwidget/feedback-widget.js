@@ -525,6 +525,10 @@
 
   function openAdminPanel() {
     closeAdminPanel();
+    // The gear lives in the comment-mode banner, so leave pick mode first —
+    // otherwise the pick handlers would treat clicks on this panel as
+    // "place a new pin" and the toggles would never get the click.
+    exitPickMode();
 
     const visitorToggle = makeToggle(
       () => state.settings.visitorMode,
@@ -691,7 +695,7 @@
 
   function isWidgetEl(node) {
     if (!node || !node.closest) return false;
-    return !!(node.closest('.cw-root') || node.closest('.cw-bubble') || node.closest('.cw-banner') || node.closest('.cw-popup') || node.closest('.cw-panel') || node.closest('.cw-toast') || node.closest('.cw-stranded') || node.closest('.cw-hover-outline') || node.closest('.cw-lightbox'));
+    return !!(node.closest('.cw-root') || node.closest('.cw-bubble') || node.closest('.cw-banner') || node.closest('.cw-popup') || node.closest('.cw-panel') || node.closest('.cw-admin-panel') || node.closest('.cw-toast') || node.closest('.cw-stranded') || node.closest('.cw-hover-outline') || node.closest('.cw-lightbox'));
   }
 
   function onPickHover(e) {
