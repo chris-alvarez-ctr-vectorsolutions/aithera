@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Attendance — Sport Safety and Incident Response</title>
+
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: 'Open Sans', sans-serif;
+            font-size: 14px;
+            color: #1a1a1a;
+            background: #fafbfc;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Top app bar (thin blue accent strip + product chrome) ── */
+        .top-strip { height: 4px; background: #0271ce; }
+        .top-app-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 6px 32px; background: #fff;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            position: relative;
+            z-index: 10;
+        }
+        .top-app-bar .brand-logo {
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        .top-app-bar .brand-logo svg { width: 22px; height: 22px; }
+        .top-app-bar-right {
+            display: flex; align-items: center; gap: 4px;
+            color: #5a6470; font-size: 16px;
+        }
+        /* Icon-only buttons: dark gray, no fill (overrides any inherited link color) */
+        vaadin-button[theme~="icon"] { color: #5a6470; }
+        vaadin-button[theme~="icon"]:hover { color: #1a1a1a; }
+        .topbar-icon-btn { position: relative; }
+        .topbar-icon-btn .bell-dot {
+            position: absolute; top: 4px; right: 4px;
+            width: 7px; height: 7px; background: #e53935; border-radius: 50%;
+            border: 2px solid #fff;
+        }
+
+        /* ── Page header (tight, matches manage-activities) ── */
+        .page-header {
+            background: #fff;
+            padding: 12px 32px 14px;
+            border-bottom: 1px solid #eef0f3;
+        }
+        .back-link {
+            display: inline-flex; align-items: center; gap: 6px;
+            color: #0271ce; text-decoration: none; font-size: 13px; font-weight: 500;
+            margin-bottom: 6px;
+        }
+        .back-link:hover { text-decoration: underline; }
+        .page-header-row {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 16px;
+        }
+        .page-title {
+            margin: 0; font-size: 22px; font-weight: 600;
+            display: flex; align-items: baseline; gap: 10px;
+        }
+        .page-title .subtitle {
+            font-size: 13px; font-weight: 400; color: #5a6470;
+        }
+        .page-actions { display: flex; align-items: center; gap: 12px; }
+        .feedback-link {
+            color: #0271ce; text-decoration: none; font-weight: 500;
+            padding: 0 8px;
+        }
+        .feedback-link:hover { text-decoration: underline; }
+
+        /* ── Main content area ── */
+        .content { padding: 16px 32px; flex: 1; }
+
+        /* ── Filter card ── */
+        .filter-card {
+            background: #fff; border: 1px solid #e6e9ee; border-radius: 8px;
+            padding: 18px 20px; margin-bottom: 16px;
+        }
+        .filter-row {
+            display: grid;
+            grid-template-columns: 1fr 220px 220px auto;
+            gap: 16px; align-items: end;
+        }
+        .filter-row.no-session-select {
+            grid-template-columns: 1fr 220px auto;
+        }
+        .filter-row.no-session-select #selectSessions { display: none; }
+        .filter-row > vaadin-text-field,
+        .filter-row > vaadin-select { width: 100%; }
+        .filter-field-button {
+            /* Align the Filters button with the inputs (Vaadin fields have label height above) */
+            padding-bottom: 0;
+        }
+
+        /* ── Active filter chips ── */
+        .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+        .chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 10px; background: #e3f2fd; color: #0271ce;
+            border-radius: 999px; font-size: 13px; font-weight: 500;
+        }
+        .chip button {
+            background: none; border: 0; color: #0271ce; cursor: pointer;
+            font-size: 14px; padding: 0; display: inline-flex; line-height: 1;
+        }
+        .chip button:hover { color: #025ca8; }
+
+        /* ── Table card ── */
+        .table-card {
+            background: #fff; border: 1px solid #e6e9ee; border-radius: 8px;
+            overflow: hidden;
+        }
+        .table-head-row {
+            display: grid;
+            grid-template-columns: 40px 1.2fr 1.4fr 1.4fr 60px;
+            padding: 12px 16px; background: #f5f7fa;
+            color: #5a6470; font-weight: 600; font-size: 13px;
+            border-bottom: 1px solid #e6e9ee;
+            align-items: center;
+        }
+        .table-head-row .right-cell {
+            grid-column: 5; display: flex; align-items: center; justify-content: flex-end;
+        }
+        .table-head-row vaadin-checkbox {
+            white-space: nowrap;
+        }
+
+        /* ── User row ── */
+        .user-row {
+            display: grid;
+            grid-template-columns: 40px 1.2fr 1.4fr 1.4fr 60px;
+            padding: 14px 16px;
+            align-items: center;
+            background: #fff;
+            position: relative;
+            z-index: 2;
+            /* Elevation: subtle top + bottom shadow so user rows always appear above sub-tables */
+            box-shadow:
+                0 -1px 3px rgba(0, 0, 0, 0.06),
+                0 1px 3px rgba(0, 0, 0, 0.06);
+        }
+        /* Hairline only when a user-row sits directly above another user-row (no sub-table between) */
+        .sub-table + .user-row { border-top: 0; }
+        .user-row + .user-row { border-top: 1px solid #eef0f3; }
+
+        /* Expand/collapse trigger — covers chevron + user name (columns 1 & 2) only */
+        .user-row .user-row-trigger {
+            grid-column: 1 / span 2;
+            display: grid;
+            grid-template-columns: subgrid;
+            align-items: center;
+            background: none;
+            border: 0;
+            padding: 0;
+            font: inherit;
+            color: inherit;
+            text-align: left;
+            cursor: pointer;
+        }
+        .user-row .user-row-trigger:hover { background: #fafbfc; }
+        .user-row .user-row-trigger:focus-visible {
+            outline: 2px solid #0271ce;
+            outline-offset: -2px;
+            border-radius: 4px;
+        }
+        .user-row .caret {
+            color: #5a6470; transition: transform 0.15s ease;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        .user-row.expanded .caret { transform: rotate(90deg); }
+        .user-row .user-name { font-weight: 600; color: #1a1a1a; }
+        .user-row .user-school { color: #1a1a1a; }
+        .user-row .envelope {
+            color: #5a6470; justify-self: end;
+            font-size: 18px;
+        }
+        .user-row .envelope:hover { color: #0271ce; }
+
+        /* ── Event-level metadata on the multi-session parent row ── */
+        .user-row .event-pills {
+            display: inline-flex; align-items: center; gap: 16px;
+            justify-self: start; flex-wrap: wrap;
+            font-size: 13px;
+        }
+        /* Evidence — tertiary text button styled to read as a single phrase.
+           Strip vaadin-button's intrinsic padding/min-height so the linked and
+           plain (Evidence: No) variants share the same baseline & x-position. */
+        vaadin-button.evidence-pill-link {
+            margin: 0;
+            min-width: 0;
+            min-height: 0;
+            height: auto;
+            padding: 0;
+            font-weight: 400;
+            font-size: 13px;
+            line-height: 1.4;
+            color: #0271ce;
+            cursor: pointer;
+        }
+        vaadin-button.evidence-pill-link:hover { text-decoration: underline; }
+        /* "Evidence: No" — plain non-interactive text */
+        .evidence-plain {
+            color: #5a6470;
+            font-weight: 400;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        /* "Feedback: Yes" — plain non-interactive text */
+        .feedback-plain {
+            color: #1a1a1a;
+            font-weight: 400;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        /* ── Expanded sub-table ── */
+        .sub-table {
+            display: none;
+            background: #f8f9fb;
+            position: relative;
+            z-index: 1;
+            border-left: 3px solid #d6eaff;
+        }
+        .user-row.expanded + .sub-table { display: block; }
+        .sub-table-inner { padding: 0; }
+        .sub-table table {
+            width: 100%; border-collapse: collapse;
+            font-size: 13px;
+        }
+        .sub-table th {
+            text-align: left; padding: 10px 12px;
+            color: #5a6470; font-weight: 600; font-size: 12px;
+            border-bottom: 1px solid #d0d5dd;
+            background: #e6e9ee;
+            white-space: nowrap;
+            line-height: 1.3;
+        }
+        .sub-table th:first-child,
+        .sub-table td:first-child { padding-left: 56px; }
+        .sub-table th:last-child,
+        .sub-table td:last-child { padding-right: 16px; }
+        .sub-table td {
+            padding: 12px; vertical-align: top; color: #1a1a1a;
+            border-bottom: 1px solid #eef0f3;
+            background: #f5f7fa;
+        }
+        .sub-table tr:last-child td { border-bottom: 0; }
+        .sub-table td.session-title { font-weight: 500; max-width: 220px; }
+        .sub-table td.checkbox-cell { width: 32px; }
+        .sub-table vaadin-checkbox { --vaadin-checkbox-size: 16px; }
+        .sub-table td.kebab-cell { width: 40px; text-align: right; }
+
+        /* ── Sticky footer with split-button + pagination ── */
+        .page-footer {
+            position: sticky;
+            bottom: 0;
+            z-index: 90;
+            background: #fff;
+            border-top: 1px solid #eef0f3;
+            box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.06);
+            padding: 12px 32px;
+            display: flex; align-items: center; justify-content: space-between; gap: 16px;
+        }
+        .footer-right {
+            display: flex; align-items: center; gap: 16px;
+        }
+        .selection-summary {
+            color: #5a6470; font-size: 13px;
+        }
+        .pagination {
+            display: flex; align-items: center; gap: 10px;
+            color: #5a6470; font-size: 13px;
+        }
+        .pagination .page-number-field {
+            width: 70px;
+        }
+
+        /* ── Split button ── */
+        .split-button {
+            display: inline-flex; align-items: stretch;
+        }
+        .split-button #splitPrimary {
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+            margin-right: 0;
+        }
+        .split-button #splitCaret {
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+            min-width: 36px;
+            padding-left: 8px;
+            padding-right: 8px;
+            border-left: 1px solid rgba(255, 255, 255, 0.25);
+        }
+
+        /* ── Split-button action menu (popover) ── */
+        .action-menu {
+            position: fixed;
+            background: #fff;
+            border: 1px solid #e6e9ee;
+            border-radius: 6px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+            padding: 4px 0;
+            min-width: 180px;
+            z-index: 250;
+        }
+        .action-menu-item {
+            display: block; width: 100%;
+            padding: 8px 14px; text-align: left;
+            background: none; border: 0; cursor: pointer;
+            font-family: inherit; font-size: 14px; color: #1a1a1a;
+        }
+        .action-menu-item:hover { background: #f1f8ff; color: #0271ce; }
+
+        /* ── Filters drawer (vwc-drawer slot styling) ── */
+        vwc-drawer#filtersDrawer {
+            --vwc-drawer-width: 380px;
+        }
+        .ds-drawer-header { padding: 6px 4px 0; }
+        .ds-drawer-header h2 { margin: 0; font-size: 18px; font-weight: 600; }
+        .ds-drawer-content {
+            padding: 4px 4px 0;
+            display: flex; flex-direction: column;
+        }
+        .ds-drawer-footer {
+            margin-top: 8px;
+            padding-top: 16px; border-top: 1px solid #eef0f3;
+            display: flex; gap: 10px; justify-content: flex-end;
+        }
+        .filter-group { margin-bottom: 22px; }
+        .filter-group h3 {
+            margin: 0 0 10px; font-size: 13px; font-weight: 700;
+            color: #5a6470; text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .date-range-row { display: flex; gap: 10px; }
+        .date-range-row > vaadin-date-picker { flex: 1; }
+
+        /* ── Vaadin-dialog body content (used inside renderer templates) ── */
+        .vd-body { width: 560px; max-width: 90vw; }
+        .vd-body p { color: #5a6470; margin: 0 0 14px; }
+        .dialog-search { margin-bottom: 14px; }
+        .dialog-users {
+            border: 1px solid #e6e9ee; border-radius: 6px;
+            max-height: 280px; overflow-y: auto;
+        }
+        .dialog-user-row {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 14px; border-bottom: 1px solid #eef0f3;
+            cursor: pointer;
+        }
+        .dialog-user-row:last-child { border-bottom: 0; }
+        .dialog-user-row:hover { background: #f8f9fb; }
+        .dialog-user-row .user-info { display: flex; flex-direction: column; }
+        .dialog-user-row .user-info .name { font-weight: 600; }
+        .dialog-user-row .user-info .email { font-size: 12px; color: #5a6470; }
+        .dialog-meta {
+            display: flex; align-items: center; justify-content: space-between;
+            margin: 14px 0 6px; color: #5a6470; font-size: 13px;
+        }
+
+        /* ── Evidence Review modal internals ── */
+        .evidence-meta {
+            background: #f5f7fa; border-radius: 6px;
+            padding: 12px 14px; margin-bottom: 18px;
+            display: flex; flex-direction: column; gap: 6px;
+        }
+        .evidence-meta-row { display: flex; gap: 10px; font-size: 13px; }
+        .evidence-meta-label {
+            color: #5a6470; font-weight: 600; min-width: 64px;
+        }
+        .evidence-meta-value { color: #1a1a1a; }
+
+        .evidence-section { margin-bottom: 18px; }
+        .evidence-section:last-child { margin-bottom: 0; }
+        .evidence-section-title {
+            margin: 0 0 8px; font-size: 13px; font-weight: 700;
+            color: #5a6470; text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .evidence-file-list {
+            list-style: none; padding: 0; margin: 0;
+            border: 1px solid #e6e9ee; border-radius: 6px;
+            overflow: hidden;
+        }
+        .evidence-file-list li {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 14px; border-bottom: 1px solid #eef0f3;
+            background: #fff;
+        }
+        .evidence-file-list li:last-child { border-bottom: 0; }
+        .evidence-file-list li a {
+            color: #0271ce; text-decoration: none; font-weight: 500; flex: 1;
+        }
+        .evidence-file-list li a:hover { text-decoration: underline; }
+        .evidence-file-list li .file-icon { color: #5a6470; }
+
+        /* ── Read-only decision pill in evidence modal ── */
+        .evidence-decision-pill {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-weight: 600; font-size: 13px;
+        }
+        .evidence-decision-pill.approved {
+            background: #e8f5e9; color: #2e7d32;
+        }
+        .evidence-decision-pill.declined {
+            background: #ffebee; color: #d32f2f;
+        }
+
+        .evidence-readonly-text {
+            background: #f5f7fa;
+            border-radius: 6px;
+            padding: 12px 14px;
+            color: #1a1a1a; font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            min-height: 44px;
+        }
+        .evidence-readonly-text.empty {
+            color: #5a6470; font-style: italic;
+        }
+
+        /* ── Buttons (vaadin-button overrides not needed — using vaadin themes) ── */
+
+        /* ── Prototype control (mode switcher) ── */
+        .proto-switcher {
+            position: fixed;
+            top: 60px;
+            right: 16px;
+            z-index: 200;
+            background: #fffbe6;
+            border: 1px solid #f0c040;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.12);
+            min-width: 200px;
+        }
+        .proto-switcher .ps-label {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 6px;
+            color: #8a6500;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: grab;
+            user-select: none;
+        }
+        .proto-switcher.dragging .ps-label { cursor: grabbing; }
+        .proto-switcher.dragging { box-shadow: 0 6px 18px rgba(0,0,0,.22); }
+        .proto-switcher .ps-drag-handle { color: #b48810; font-size: 11px; }
+        .proto-switcher select {
+            font-size: 12px;
+            padding: 4px 6px;
+            border: 1px solid #f0c040;
+            border-radius: 4px;
+            font-family: inherit;
+            width: 100%;
+            background: #fff;
+            cursor: pointer;
+        }
+        .proto-switcher .proto-field {
+            display: flex; flex-direction: column; gap: 3px;
+            margin-bottom: 6px;
+        }
+        .proto-switcher .proto-field:last-child { margin-bottom: 0; }
+        .proto-switcher .proto-field label {
+            font-size: 10px; color: #8a6500; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .proto-switcher .proto-field.disabled { opacity: 0.4; pointer-events: none; }
+
+        /* ── Single-session table ── */
+        .single-session-row {
+            display: grid;
+            grid-template-columns:
+                40px      /* checkbox */
+                1.4fr     /* user + school */
+                1fr       /* status */
+                90px      /* credit */
+                110px     /* credits approved */
+                120px     /* evidence */
+                130px     /* feedback */
+                130px     /* sign in details */
+                110px     /* credits released */
+                88px;     /* actions */
+            padding: 12px 16px;
+            align-items: center;
+            background: #fff;
+            position: relative;
+            z-index: 2;
+            box-shadow:
+                0 -1px 3px rgba(0, 0, 0, 0.06),
+                0 1px 3px rgba(0, 0, 0, 0.06);
+            gap: 12px;
+        }
+        .single-session-row + .single-session-row { border-top: 1px solid #eef0f3; }
+        .single-session-row:hover { background: #fafbfc; }
+        .single-session-row .user-cell { display: flex; flex-direction: column; min-width: 0; }
+        .single-session-row .user-cell .name { font-weight: 600; color: #1a1a1a; }
+        .single-session-row .user-cell .school { font-size: 12px; color: #5a6470; }
+        .single-session-row .row-actions {
+            display: flex; align-items: center; gap: 4px; justify-self: end;
+        }
+        .single-session-row .cell-label-mobile { display: none; }
+
+        /* Single-session table header row */
+        .single-session-head {
+            display: grid;
+            grid-template-columns:
+                40px 1.4fr 1fr 90px 110px 120px 130px 130px 110px 88px;
+            padding: 12px 16px;
+            background: #f5f7fa;
+            color: #5a6470; font-weight: 600; font-size: 13px;
+            border-bottom: 1px solid #e6e9ee;
+            gap: 12px;
+        }
+
+        /* ── Evidence cell in single-session table ── */
+        .single-session-row vaadin-button.evidence-status {
+            margin: 0;
+            min-width: 0;
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+        .single-session-row .evidence-status.evidence-no { color: #5a6470; }
+
+        /* Utility */
+        .hidden { display: none !important; }
+        body.modal-open { overflow: hidden; }
+    </style>
+</head>
+<body>
+
+    <!-- Top app chrome -->
+    <div class="top-strip"></div>
+    <div class="top-app-bar">
+        <div class="brand-logo">
+            <!-- Vector mark (simplified) -->
+            <svg viewBox="0 0 32 32" aria-label="Vector">
+                <path d="M2 4 L16 28 L30 4 L24 4 L16 18 L8 4 Z" fill="#0271ce"/>
+                <path d="M10 8 L16 18 L22 8 L18 8 L16 12 L14 8 Z" fill="#7cb342"/>
+            </svg>
+        </div>
+        <div class="top-app-bar-right">
+            <vaadin-button theme="icon" aria-label="Notifications" class="topbar-icon-btn">
+                <i class="fa-regular fa-bell"></i>
+                <span class="bell-dot"></span>
+            </vaadin-button>
+            <vaadin-button theme="icon" aria-label="Information">
+                <i class="fa-regular fa-circle-question"></i>
+            </vaadin-button>
+        </div>
+    </div>
+
+    <!-- Page header -->
+    <div class="page-header">
+        <a class="back-link" href="../manage-activities/">
+            <i class="fa-solid fa-chevron-left"></i>
+            Back to Manage Activities
+        </a>
+        <div class="page-header-row">
+            <h1 class="page-title">
+                Sport Safety and Incident Response
+                <span class="subtitle" id="pageSubtitle">Multiple Time Slots</span>
+            </h1>
+            <div class="page-actions">
+                <a href="#" class="feedback-link">Feedback Report</a>
+                <vaadin-button theme="secondary" id="addUsersBtn">
+                    <i class="fa-solid fa-user-plus" slot="prefix"></i>
+                    Add Users
+                </vaadin-button>
+                <vaadin-button theme="secondary">
+                    Export
+                    <i class="fa-solid fa-chevron-down" style="margin-left: 6px; font-size: 12px;"></i>
+                </vaadin-button>
+                <vaadin-button theme="primary">
+                    <i class="fa-solid fa-pen-to-square" slot="prefix"></i>
+                    e-Sign In
+                </vaadin-button>
+            </div>
+        </div>
+    </div>
+
+    <div class="content">
+
+        <!-- Filter card -->
+        <div class="filter-card">
+            <div class="filter-row" id="filterRow">
+                <vaadin-text-field
+                    id="searchUsers"
+                    theme="outlined"
+                    label="Search"
+                    placeholder="Search users...">
+                    <i class="fa-solid fa-magnifying-glass" slot="prefix"></i>
+                </vaadin-text-field>
+                <vaadin-select
+                    id="selectSessions"
+                    theme="outlined"
+                    label="Select Sessions"
+                    value="All Sessions">
+                </vaadin-select>
+                <vaadin-select
+                    id="selectColumns"
+                    theme="outlined"
+                    label="Select Columns"
+                    value="All Columns">
+                </vaadin-select>
+                <div class="filter-field-button">
+                    <vaadin-button theme="secondary" id="openFiltersBtn">
+                        <i class="fa-solid fa-sliders" slot="prefix"></i>
+                        Filters (<span id="filterCount">5</span>)
+                    </vaadin-button>
+                </div>
+            </div>
+
+            <!-- Active filter chips -->
+            <div class="chips" id="filterChips">
+                <span class="chip">Administrator
+                    <button aria-label="Remove">×</button>
+                </span>
+                <span class="chip">Vector High School
+                    <button aria-label="Remove">×</button>
+                </span>
+                <span class="chip">Grades 6-8
+                    <button aria-label="Remove">×</button>
+                </span>
+                <span class="chip">Grades 9-12
+                    <button aria-label="Remove">×</button>
+                </span>
+                <span class="chip">HR department
+                    <button aria-label="Remove">×</button>
+                </span>
+            </div>
+        </div>
+
+        <!-- Multi-session Table (default) -->
+        <div class="table-card" id="multiSessionTable">
+            <div class="table-head-row">
+                <div></div>
+                <div>User</div>
+                <div>School</div>
+                <div></div>
+                <div class="right-cell">
+                    <vaadin-checkbox id="selectAllSessions" label="Select All Filtered Sessions"></vaadin-checkbox>
+                </div>
+            </div>
+
+            <div id="userRows"></div>
+        </div>
+
+        <!-- Single-session Table -->
+        <div class="table-card hidden" id="singleSessionTable">
+            <div class="single-session-head">
+                <div></div>
+                <div>User</div>
+                <div>Status</div>
+                <div>Credit</div>
+                <div>Credits<br>Approved</div>
+                <div>Evidence<br>(Optional)</div>
+                <div>Feedback<br>(Optional)</div>
+                <div>Sign In Details</div>
+                <div>Credits<br>Released</div>
+                <div></div>
+            </div>
+            <div id="singleSessionRows"></div>
+        </div>
+
+    </div>
+
+    <!-- ── Sticky footer (pagination + action) ── -->
+    <footer class="page-footer">
+        <div class="pagination">
+            <vaadin-button theme="icon" aria-label="First page"><i class="fa-solid fa-angles-left"></i></vaadin-button>
+            <vaadin-button theme="icon" aria-label="Previous"><i class="fa-solid fa-angle-left"></i></vaadin-button>
+            <span>page</span>
+            <vaadin-number-field theme="outlined small" value="3" class="page-number-field"></vaadin-number-field>
+            <span>of 300</span>
+            <vaadin-button theme="icon" aria-label="Next"><i class="fa-solid fa-angle-right"></i></vaadin-button>
+            <vaadin-button theme="icon" aria-label="Last page"><i class="fa-solid fa-angles-right"></i></vaadin-button>
+            <span style="margin-left: 14px;">show</span>
+            <vaadin-number-field theme="outlined small" value="10" class="page-number-field"></vaadin-number-field>
+            <span>items per page</span>
+        </div>
+        <div class="footer-right">
+            <span class="selection-summary" id="selectionSummary">No sessions selected</span>
+            <div class="split-button" id="splitAction" data-action="enroll">
+                <vaadin-button theme="primary" id="splitPrimary" disabled>
+                    <span id="splitPrimaryLabel">Enroll</span>
+                </vaadin-button>
+                <vaadin-button theme="primary" id="splitCaret" aria-haspopup="true" aria-label="More actions" disabled>
+                    <i class="fa-solid fa-chevron-down"></i>
+                </vaadin-button>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Split-button action menu -->
+    <div class="action-menu hidden" id="actionMenu" role="menu">
+        <button class="action-menu-item" role="menuitem" data-action="enroll">Enroll</button>
+        <button class="action-menu-item" role="menuitem" data-action="waitlist">Waitlist</button>
+        <button class="action-menu-item" role="menuitem" data-action="remove">Remove</button>
+        <button class="action-menu-item" role="menuitem" data-action="approve">Approve</button>
+        <button class="action-menu-item" role="menuitem" data-action="release">Release Credits</button>
+    </div>
+
+
+    <!-- ── Filters Drawer (vwc-drawer overlay) ── -->
+    <vwc-drawer id="filtersDrawer" overlay position="end" closable>
+        <div slot="drawer-header" class="ds-drawer-header">
+            <h2>Advanced Filters</h2>
+        </div>
+        <div slot="drawer-content" class="ds-drawer-content">
+
+            <div class="filter-group">
+                <h3>User Roles</h3>
+                <vaadin-checkbox-group theme="vertical">
+                    <vaadin-checkbox label="Administrator" checked></vaadin-checkbox>
+                    <vaadin-checkbox label="Teacher"></vaadin-checkbox>
+                    <vaadin-checkbox label="Coordinator"></vaadin-checkbox>
+                    <vaadin-checkbox label="Staff"></vaadin-checkbox>
+                    <vaadin-checkbox label="Provider"></vaadin-checkbox>
+                    <vaadin-checkbox label="Student Services"></vaadin-checkbox>
+                </vaadin-checkbox-group>
+            </div>
+
+            <div class="filter-group">
+                <h3>Schools</h3>
+                <vaadin-checkbox-group theme="vertical">
+                    <vaadin-checkbox label="Vector Elementary School"></vaadin-checkbox>
+                    <vaadin-checkbox label="Vector High School" checked></vaadin-checkbox>
+                    <vaadin-checkbox label="Oakwood Middle School"></vaadin-checkbox>
+                    <vaadin-checkbox label="Riverside Academy"></vaadin-checkbox>
+                </vaadin-checkbox-group>
+            </div>
+
+            <div class="filter-group">
+                <h3>Grade Levels</h3>
+                <vaadin-checkbox-group theme="vertical">
+                    <vaadin-checkbox label="Grades K-5"></vaadin-checkbox>
+                    <vaadin-checkbox label="Grades 6-8" checked></vaadin-checkbox>
+                    <vaadin-checkbox label="Grades 9-12" checked></vaadin-checkbox>
+                    <vaadin-checkbox label="Adult Education"></vaadin-checkbox>
+                </vaadin-checkbox-group>
+            </div>
+
+            <div class="filter-group">
+                <h3>Departments</h3>
+                <vaadin-checkbox-group theme="vertical">
+                    <vaadin-checkbox label="Athletics"></vaadin-checkbox>
+                    <vaadin-checkbox label="Mathematics"></vaadin-checkbox>
+                    <vaadin-checkbox label="Science"></vaadin-checkbox>
+                    <vaadin-checkbox label="HR department" checked></vaadin-checkbox>
+                    <vaadin-checkbox label="Student Services"></vaadin-checkbox>
+                </vaadin-checkbox-group>
+            </div>
+
+            <div class="filter-group">
+                <h3>Enrollment Status</h3>
+                <vaadin-checkbox-group theme="vertical">
+                    <vaadin-checkbox label="Enrolled"></vaadin-checkbox>
+                    <vaadin-checkbox label="Waitlisted"></vaadin-checkbox>
+                    <vaadin-checkbox label="Completed"></vaadin-checkbox>
+                    <vaadin-checkbox label="Pending"></vaadin-checkbox>
+                </vaadin-checkbox-group>
+            </div>
+
+            <div class="filter-group">
+                <h3>Date Range</h3>
+                <div class="date-range-row">
+                    <vaadin-date-picker theme="outlined" label="From"></vaadin-date-picker>
+                    <vaadin-date-picker theme="outlined" label="To"></vaadin-date-picker>
+                </div>
+            </div>
+
+            <div class="ds-drawer-footer">
+                <vaadin-button theme="tertiary" id="clearFiltersBtn">Clear All</vaadin-button>
+                <vaadin-button theme="primary" id="applyFiltersBtn">Apply Filters</vaadin-button>
+            </div>
+        </div>
+    </vwc-drawer>
+
+    <!-- ── Add Users Dialog (vaadin-dialog) ── -->
+    <vaadin-dialog id="addUsersDialog" header-title="Add Users to Event"></vaadin-dialog>
+
+    <!-- Renderer templates -->
+    <template id="addUsersBodyTpl">
+        <div class="vd-body">
+            <p>Select users to enroll in this event</p>
+            <div class="dialog-search">
+                <vaadin-text-field
+                    theme="outlined"
+                    placeholder="Search by name or email..."
+                    style="width: 100%;">
+                    <i class="fa-solid fa-magnifying-glass" slot="prefix"></i>
+                </vaadin-text-field>
+            </div>
+            <div class="dialog-meta">
+                <vaadin-checkbox id="dialogSelectAll">
+                    <span slot="label">Select All (<span id="dialogTotal">12</span>)</span>
+                </vaadin-checkbox>
+                <span id="dialogSelectedCount">0 selected</span>
+            </div>
+            <div class="dialog-users" id="dialogUsers"></div>
+        </div>
+    </template>
+
+    <!-- ── Evidence Review Dialog (vaadin-dialog) ── -->
+    <vaadin-dialog id="evidenceDialog" header-title="Review Evidence"></vaadin-dialog>
+
+    <template id="evidenceBodyTpl">
+        <div class="vd-body">
+            <div class="evidence-meta">
+                <div class="evidence-meta-row">
+                    <span class="evidence-meta-label">User</span>
+                    <span class="evidence-meta-value" id="evidenceUser"></span>
+                </div>
+                <div class="evidence-meta-row">
+                    <span class="evidence-meta-label">Event</span>
+                    <span class="evidence-meta-value">Sport Safety and Incident Response</span>
+                </div>
+            </div>
+
+            <div class="evidence-section">
+                <h3 class="evidence-section-title">Submitted files</h3>
+                <ul class="evidence-file-list" id="evidenceFileList"></ul>
+            </div>
+
+            <!-- ── Editable view (status = submitted) ── -->
+            <div id="evidenceEditView">
+                <div class="evidence-section">
+                    <h3 class="evidence-section-title">Decision</h3>
+                    <vaadin-radio-group id="evidenceDecision" theme="horizontal" label="">
+                        <vaadin-radio-button value="approve" label="Approve"></vaadin-radio-button>
+                        <vaadin-radio-button value="decline" label="Decline"></vaadin-radio-button>
+                    </vaadin-radio-group>
+                </div>
+
+                <div class="evidence-section hidden" id="evidenceCommentsSection">
+                    <vaadin-text-area
+                        id="evidenceComments"
+                        theme="outlined"
+                        label="Comments (Optional)"
+                        placeholder="Add any notes about this approval..."
+                        style="width: 100%;">
+                    </vaadin-text-area>
+                </div>
+
+                <div class="evidence-section hidden" id="evidenceReasoningSection">
+                    <vaadin-text-area
+                        id="evidenceReasoning"
+                        theme="outlined"
+                        label="Reasoning"
+                        placeholder="Explain why this evidence is being declined..."
+                        required
+                        style="width: 100%;">
+                    </vaadin-text-area>
+                </div>
+            </div>
+
+            <!-- ── Read-only view (status = approved or declined) ── -->
+            <div id="evidenceReadView" class="hidden">
+                <div class="evidence-section">
+                    <h3 class="evidence-section-title">Decision</h3>
+                    <div class="evidence-decision-pill" id="evidenceDecisionPill">
+                        <i class="fa-solid fa-circle-check" id="evidenceDecisionIcon"></i>
+                        <span id="evidenceDecisionLabel">Approved</span>
+                    </div>
+                </div>
+
+                <div class="evidence-section">
+                    <h3 class="evidence-section-title" id="evidenceReadNoteLabel">Comments</h3>
+                    <div class="evidence-readonly-text" id="evidenceReadNote"></div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- ── Prototype mode switcher ── -->
+    <div class="proto-switcher">
+        <span class="ps-label"><i class="fa-solid fa-grip-vertical ps-drag-handle"></i>&#9881; Prototype controls</span>
+        <div class="proto-field">
+            <label for="proto-mode-select">Session type</label>
+            <select id="proto-mode-select">
+                <option value="multi">Multi-session</option>
+                <option value="single">Single session</option>
+            </select>
+        </div>
+        <div class="proto-field" id="protoFeedbackScopeField">
+            <label for="proto-feedback-scope">Feedback scope</label>
+            <select id="proto-feedback-scope">
+                <option value="session">Per-session</option>
+                <option value="event">Event-level</option>
+            </select>
+        </div>
+    </div>
+
+    <script>
+        // ── Populate vaadin-selects ────────────────────────────────
+        // Vaadin's <vaadin-select> takes an `items` array as a JS property.
+        customElements.whenDefined('vaadin-select').then(() => {
+            document.getElementById('selectSessions').items = [
+                { label: 'All Sessions', value: 'All Sessions' },
+                { label: 'Event Introduction Meeting', value: 'Event Introduction Meeting' },
+                { label: 'Head Trauma and Concussion Management', value: 'Head Trauma and Concussion Management' },
+                { label: 'Falls, Twists, and Sprains', value: 'Falls, Twists, and Sprains' },
+                { label: 'Transportation Policies', value: 'Transportation Policies' },
+            ];
+            document.getElementById('selectColumns').items = [
+                { label: 'All Columns', value: 'All Columns' },
+                { label: 'Session Title', value: 'Session Title' },
+                { label: 'Session Details', value: 'Session Details' },
+                { label: 'Status', value: 'Status' },
+                { label: 'Credit', value: 'Credit' },
+                { label: 'Credits Approved', value: 'Credits Approved' },
+                { label: 'Feedback', value: 'Feedback' },
+                { label: 'Sign In Details', value: 'Sign In Details' },
+                { label: 'Credits Released', value: 'Credits Released' },
+            ];
+        });
+
+        // ── Prototype state ────────────────────────────────────────
+        // Feedback scope on multi-session events. 'session' = each session row has
+        // its own feedback value; 'event' = a single feedback value lives at the
+        // event level (rendered on the parent user row instead of each session row).
+        let feedbackScope = 'session';
+
+        // ── Sample data ────────────────────────────────────────────
+        const district = 'Vector Solutions High School Dist. #123';
+
+        const users = [
+            { last: 'Allen',      first: 'Jennifer',   email: 'jennifer.allen@vectorsolutions.com' },
+            { last: 'Anderson',   first: 'David',      email: 'david.anderson@vectorsolutions.com' },
+            { last: 'Brown',      first: 'Robert',     email: 'robert.brown@vectorsolutions.com' },
+            { last: 'Davis',      first: 'Michael',    email: 'michael.davis@vectorsolutions.com' },
+            { last: 'Johnson',    first: 'Emily',      email: 'emily.johnson@vectorsolutions.com' },
+            { last: 'Jones',      first: 'Mark',       email: 'mark.jones@vectorsolutions.com' },
+            { last: 'Martinez',   first: 'Sarah',      email: 'sarah.martinez@vectorsolutions.com' },
+            { last: 'Smith',      first: 'John',       email: 'john.smith@vectorsolutions.com' },
+            { last: 'Taylor',     first: 'Jennifer',   email: 'jennifer.taylor@vectorsolutions.com' },
+            { last: 'Washington', first: 'Elizabeth',  email: 'elizabeth.washington@vectorsolutions.com' },
+            { last: 'Williams',   first: 'John',       email: 'john.williams@vectorsolutions.com' },
+            { last: 'Wilson',     first: 'Lisa',       email: 'lisa.wilson@vectorsolutions.com' },
+        ];
+
+        // ── Single-session data (one session per user) ─────────────
+        const singleSession = {
+            details: '10/20/2025 8:30 am · Vector Elementary School',
+            status: 'Enrolled',
+            credit: '1 ISH',
+            creditsApproved: 'Yes',
+            feedback: 'Yes',
+            signIn: 'Master Password',
+            creditsReleased: 'Yes',
+        };
+
+        // Per-user evidence in the single-session view.
+        // status: 'no' | 'submitted' | 'approved' | 'declined'
+        // comment is populated when status='approved' (optional reviewer notes)
+        // reasoning is populated when status='declined' (required reason)
+        const evidenceByUser = [
+            { status: 'submitted', files: ['training-certificate.pdf', 'sign-in-sheet.png'] },
+            { status: 'approved',  files: ['cpr-card.pdf'], comment: 'Valid CPR certification through 2026. Confirmed via American Red Cross verification portal.' },
+            { status: 'declined',  files: ['attendance-photo.jpg'], reasoning: 'Photo does not clearly show the participant at the event location. Please resubmit with a timestamped photo that includes visible signage or the instructor.' },
+            { status: 'no',        files: [] },
+            { status: 'submitted', files: ['quiz-results.pdf', 'completion-screenshot.png', 'manager-attestation.pdf'] },
+            { status: 'no',        files: [] },
+            { status: 'approved',  files: ['safety-checklist.pdf', 'site-photo.jpg'], comment: 'Checklist complete and site photo matches the event location. Approved for full credit.' },
+            { status: 'submitted', files: ['transcript.pdf'] },
+            { status: 'declined',  files: ['evidence.pdf'], reasoning: 'Submitted file is unreadable. Please re-upload as a PDF or clear image.' },
+            { status: 'no',        files: [] },
+            { status: 'approved',  files: ['certificate.pdf'], comment: '' },
+            { status: 'submitted', files: ['workshop-notes.pdf', 'agenda.pdf'] },
+        ];
+
+        const EVIDENCE_LABEL = {
+            'no':        'No',
+            'submitted': 'Submitted',
+            'approved':  'Approved',
+            'declined':  'Declined',
+        };
+
+        // Sessions belonging to each user (per the Figma screenshot)
+        const sessions = [
+            { title: 'Event Introduction Meeting',          details: '10/20/2025 8:30 am - Vector Elementary School',  status: 'Enrolled', credit: '1 ISH', creditsApproved: 'Yes', feedback: 'Yes', evidence: 'submitted',     signIn: 'Master Password',   creditsReleased: 'Yes' },
+            { title: 'Head Trauma and Concussion Management', details: '10/20/2025 9:00 am - Vector Elementary School',  status: 'Enrolled', credit: '1 ISH', creditsApproved: 'Yes', feedback: 'Yes', evidence: 'approved',      signIn: 'Master Password',   creditsReleased: 'Yes' },
+            { title: 'Falls, Twists, and Sprains',          details: '10/20/2025 10:00 am - Vector Elementary School', status: 'Enrolled', credit: '1 ISH', creditsApproved: 'Yes', feedback: 'Yes', evidence: 'not-submitted', signIn: 'By Code',           creditsReleased: 'Yes' },
+            { title: 'Transportation Policies',             details: '10/20/2025 11:00 am - Vector Elementary School', status: 'Enrolled', credit: '1 ISH', creditsApproved: 'Yes', feedback: 'Yes', evidence: 'declined',      signIn: 'Attendee Password', creditsReleased: 'Yes' },
+        ];
+
+        // ── Render user rows ───────────────────────────────────────
+        const userRowsEl = document.getElementById('userRows');
+
+        // Track which rows are expanded so re-renders preserve state.
+        // Allen (index 0) starts expanded to match the Figma.
+        const expandedRowIndices = new Set([0]);
+
+        function renderUserRows() {
+            const feedbackIsEvent = feedbackScope === 'event';
+
+            userRowsEl.innerHTML = users.map((u, i) => {
+                const ev = evidenceByUser[i] || { status: 'no', files: [] };
+                const evClickable = ev.status !== 'no';
+                // Evidence — tertiary text button when actionable, plain text when "No"
+                const evidenceCell = evClickable
+                    ? `<vaadin-button theme="tertiary" class="evidence-status evidence-pill-link" data-user-index="${i}">Evidence: ${EVIDENCE_LABEL[ev.status]}</vaadin-button>`
+                    : `<span class="evidence-plain">Evidence: ${EVIDENCE_LABEL[ev.status]}</span>`;
+                // Feedback — plain text only when scope is event-level
+                const feedbackCell = feedbackIsEvent
+                    ? `<span class="feedback-plain">Feedback: Yes</span>`
+                    : '';
+                const eventCluster = `
+                    <div class="event-pills">
+                        ${evidenceCell}
+                        ${feedbackCell}
+                    </div>
+                `;
+                return `
+                <div class="user-row" data-index="${i}">
+                    <button class="user-row-trigger" type="button" aria-expanded="false" aria-label="Toggle sessions for ${u.first} ${u.last}">
+                        <span class="caret"><i class="fa-solid fa-chevron-right"></i></span>
+                        <span class="user-name">${u.last}, ${u.first}</span>
+                    </button>
+                    <span class="user-school">${district}</span>
+                    ${eventCluster}
+                    <a href="mailto:${u.email}" class="envelope" aria-label="Email ${u.first} ${u.last}">
+                        <i class="fa-regular fa-envelope"></i>
+                    </a>
+                </div>
+                <div class="sub-table" data-sub="${i}">
+                    <div class="sub-table-inner">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th>Session Title</th>
+                                    <th>Session Details</th>
+                                    <th>Status</th>
+                                    <th>Credit</th>
+                                    <th>Credits<br>Approved</th>
+                                    ${feedbackIsEvent ? '' : '<th>Feedback<br>(Optional)</th>'}
+                                    <th>Sign In Details</th>
+                                    <th>Credits<br>Released</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${sessions.map(s => `
+                                        <tr>
+                                            <td class="checkbox-cell"><vaadin-checkbox></vaadin-checkbox></td>
+                                            <td class="session-title">${s.title}</td>
+                                            <td>${s.details.replace(/School$/, 'Elementary…')}</td>
+                                            <td>${s.status}</td>
+                                            <td>${s.credit}</td>
+                                            <td>${s.creditsApproved}</td>
+                                            ${feedbackIsEvent ? '' : `<td>${s.feedback}</td>`}
+                                            <td>${s.signIn}</td>
+                                            <td>${s.creditsReleased}</td>
+                                            <td class="kebab-cell"><vaadin-button theme="icon" aria-label="More"><i class="fa-solid fa-ellipsis-vertical"></i></vaadin-button></td>
+                                        </tr>
+                                    `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            }).join('');
+
+            // Restore expanded state + wire the chevron/name trigger only
+            userRowsEl.querySelectorAll('.user-row').forEach(row => {
+                const idx = Number(row.dataset.index);
+                const trigger = row.querySelector('.user-row-trigger');
+                if (expandedRowIndices.has(idx)) {
+                    row.classList.add('expanded');
+                    if (trigger) trigger.setAttribute('aria-expanded', 'true');
+                }
+                if (trigger) {
+                    trigger.addEventListener('click', () => {
+                        const isExpanded = row.classList.toggle('expanded');
+                        trigger.setAttribute('aria-expanded', String(isExpanded));
+                        if (isExpanded) expandedRowIndices.add(idx);
+                        else expandedRowIndices.delete(idx);
+                    });
+                }
+            });
+        }
+
+        renderUserRows();
+
+        // ── Render single-session rows ─────────────────────────────
+        const singleSessionRowsEl = document.getElementById('singleSessionRows');
+
+        function renderSingleSessionRows() {
+            singleSessionRowsEl.innerHTML = users.map((u, i) => {
+                const ev = evidenceByUser[i] || { status: 'no', files: [] };
+                const isClickable = ev.status !== 'no';
+                const evCell = isClickable
+                    ? `<vaadin-button theme="tertiary" class="evidence-status" data-user-index="${i}">${EVIDENCE_LABEL[ev.status]}</vaadin-button>`
+                    : `<span class="evidence-status evidence-no">${EVIDENCE_LABEL[ev.status]}</span>`;
+                return `
+                <div class="single-session-row" data-index="${i}">
+                    <vaadin-checkbox></vaadin-checkbox>
+                    <div class="user-cell">
+                        <span class="name">${u.last}, ${u.first}</span>
+                        <span class="school">${district}</span>
+                    </div>
+                    <span>${singleSession.status}</span>
+                    <span>${singleSession.credit}</span>
+                    <span>${singleSession.creditsApproved}</span>
+                    ${evCell}
+                    <span>${singleSession.feedback}</span>
+                    <span>${singleSession.signIn}</span>
+                    <span>${singleSession.creditsReleased}</span>
+                    <div class="row-actions">
+                        <vaadin-button theme="icon" aria-label="Message ${u.first} ${u.last}"
+                            onclick="window.location='mailto:${u.email}'">
+                            <i class="fa-regular fa-envelope"></i>
+                        </vaadin-button>
+                        <vaadin-button theme="icon" aria-label="More">
+                            <i class="fa-solid fa-ellipsis-vertical"></i>
+                        </vaadin-button>
+                    </div>
+                </div>
+            `;
+            }).join('');
+        }
+        renderSingleSessionRows();
+
+        // ── Evidence Review dialog ────────────────────────────────
+        const evidenceDialog = document.getElementById('evidenceDialog');
+        let evidenceCurrentIndex = null;
+        let evDecision = null, evCommentsSection = null, evReasoningSection = null;
+        let evCommentsField = null, evReasoningField = null;
+        let evFileListEl = null, evUserEl = null;
+        // Read-only view refs
+        let evEditView = null, evReadView = null;
+        let evDecisionPill = null, evDecisionIcon = null, evDecisionLabel = null;
+        let evReadNoteLabel = null, evReadNoteEl = null;
+        // Footer button refs (toggled by mode)
+        let evCancelBtn = null, evSaveBtn = null, evCloseBtn = null;
+
+        function updateEvidenceFields() {
+            if (!evDecision) return;
+            const decision = evDecision.value;
+            if (decision === 'approve') {
+                evCommentsSection.classList.remove('hidden');
+                evReasoningSection.classList.add('hidden');
+            } else if (decision === 'decline') {
+                evCommentsSection.classList.add('hidden');
+                evReasoningSection.classList.remove('hidden');
+            } else {
+                evCommentsSection.classList.add('hidden');
+                evReasoningSection.classList.add('hidden');
+            }
+        }
+
+        function populateEvidence(userIndex) {
+            if (userIndex == null || !evUserEl) return;
+            const u = users[userIndex];
+            const ev = evidenceByUser[userIndex] || { status: 'no', files: [] };
+            evUserEl.textContent = `${u.last}, ${u.first}`;
+            evFileListEl.innerHTML = ev.files.length
+                ? ev.files.map(f => `
+                    <li>
+                        <i class="fa-regular fa-file file-icon"></i>
+                        <a href="#" onclick="event.preventDefault()">${f}</a>
+                    </li>
+                `).join('')
+                : '<li style="color:#5a6470; font-style:italic;">No files submitted</li>';
+
+            const isReadOnly = ev.status === 'approved' || ev.status === 'declined';
+
+            if (isReadOnly) {
+                // ── Read-only view ──
+                evEditView.classList.add('hidden');
+                evReadView.classList.remove('hidden');
+
+                if (ev.status === 'approved') {
+                    evDecisionPill.className = 'evidence-decision-pill approved';
+                    evDecisionIcon.className = 'fa-solid fa-circle-check';
+                    evDecisionLabel.textContent = 'Approved';
+                    evReadNoteLabel.textContent = 'Comments';
+                    const text = ev.comment || '';
+                    evReadNoteEl.textContent = text || 'No comments were added.';
+                    evReadNoteEl.classList.toggle('empty', !text);
+                } else {
+                    evDecisionPill.className = 'evidence-decision-pill declined';
+                    evDecisionIcon.className = 'fa-solid fa-circle-xmark';
+                    evDecisionLabel.textContent = 'Declined';
+                    evReadNoteLabel.textContent = 'Reasoning';
+                    const text = ev.reasoning || '';
+                    evReadNoteEl.textContent = text || 'No reasoning was provided.';
+                    evReadNoteEl.classList.toggle('empty', !text);
+                }
+
+                // Footer: only Close
+                if (evCancelBtn) evCancelBtn.classList.add('hidden');
+                if (evSaveBtn)   evSaveBtn.classList.add('hidden');
+                if (evCloseBtn)  evCloseBtn.classList.remove('hidden');
+            } else {
+                // ── Editable view (status = submitted or no) ──
+                evReadView.classList.add('hidden');
+                evEditView.classList.remove('hidden');
+
+                // Reset radio + clear text
+                evDecision.value = '';
+                if (evCommentsField) evCommentsField.value = '';
+                if (evReasoningField) evReasoningField.value = '';
+                updateEvidenceFields();
+
+                // Footer: Cancel + Save
+                if (evCloseBtn)  evCloseBtn.classList.add('hidden');
+                if (evCancelBtn) evCancelBtn.classList.remove('hidden');
+                if (evSaveBtn)   evSaveBtn.classList.remove('hidden');
+            }
+        }
+
+        evidenceDialog.renderer = (root) => {
+            if (root.firstChild) return;
+            const tpl = document.getElementById('evidenceBodyTpl');
+            root.appendChild(tpl.content.cloneNode(true));
+
+            evUserEl           = root.querySelector('#evidenceUser');
+            evFileListEl       = root.querySelector('#evidenceFileList');
+            evEditView         = root.querySelector('#evidenceEditView');
+            evReadView         = root.querySelector('#evidenceReadView');
+            evDecision         = root.querySelector('#evidenceDecision');
+            evCommentsSection  = root.querySelector('#evidenceCommentsSection');
+            evReasoningSection = root.querySelector('#evidenceReasoningSection');
+            evCommentsField    = root.querySelector('#evidenceComments');
+            evReasoningField   = root.querySelector('#evidenceReasoning');
+            evDecisionPill     = root.querySelector('#evidenceDecisionPill');
+            evDecisionIcon     = root.querySelector('#evidenceDecisionIcon');
+            evDecisionLabel    = root.querySelector('#evidenceDecisionLabel');
+            evReadNoteLabel    = root.querySelector('#evidenceReadNoteLabel');
+            evReadNoteEl       = root.querySelector('#evidenceReadNote');
+
+            evDecision.addEventListener('value-changed', updateEvidenceFields);
+            // Initial fill in case the dialog opens with a pre-set user index
+            populateEvidence(evidenceCurrentIndex);
+        };
+
+        evidenceDialog.footerRenderer = (root) => {
+            if (root.firstChild) return;
+
+            evCancelBtn = document.createElement('vaadin-button');
+            evCancelBtn.setAttribute('theme', 'tertiary');
+            evCancelBtn.textContent = 'Cancel';
+            evCancelBtn.addEventListener('click', closeEvidenceModal);
+
+            evSaveBtn = document.createElement('vaadin-button');
+            evSaveBtn.setAttribute('theme', 'primary');
+            evSaveBtn.textContent = 'Save';
+            evSaveBtn.addEventListener('click', () => {
+                const decision = evDecision && evDecision.value;
+                if (decision === 'approve' || decision === 'decline') {
+                    const target = evidenceByUser[evidenceCurrentIndex];
+                    target.status = decision === 'approve' ? 'approved' : 'declined';
+                    if (decision === 'approve') {
+                        target.comment = (evCommentsField && evCommentsField.value) || '';
+                        delete target.reasoning;
+                    } else {
+                        target.reasoning = (evReasoningField && evReasoningField.value) || '';
+                        delete target.comment;
+                    }
+                    // Re-render both tables so the status pill updates in whichever mode is visible
+                    renderSingleSessionRows();
+                    renderUserRows();
+                }
+                closeEvidenceModal();
+            });
+
+            evCloseBtn = document.createElement('vaadin-button');
+            evCloseBtn.setAttribute('theme', 'primary');
+            evCloseBtn.textContent = 'Close';
+            evCloseBtn.classList.add('hidden');
+            evCloseBtn.addEventListener('click', closeEvidenceModal);
+
+            root.appendChild(evCancelBtn);
+            root.appendChild(evSaveBtn);
+            root.appendChild(evCloseBtn);
+        };
+
+        function openEvidenceModal(userIndex) {
+            evidenceCurrentIndex = userIndex;
+            evidenceDialog.opened = true;
+            // If renderer has already run (dialog has been opened once before),
+            // populate now; otherwise the renderer's populateEvidence(currentIndex) covers it.
+            if (evUserEl) populateEvidence(userIndex);
+            lockBodyScroll();
+        }
+        function closeEvidenceModal() {
+            if (!evidenceDialog.opened) return;
+            evidenceDialog.opened = false;
+        }
+        evidenceDialog.addEventListener('opened-changed', (e) => {
+            if (!e.detail.value) unlockBodyScroll();
+        });
+
+        // Click delegation for the evidence status pill in either mode
+        // (single-session rows or multi-session parent rows).
+        document.addEventListener('click', (e) => {
+            const status = e.target.closest('vaadin-button.evidence-status');
+            if (!status) return;
+            const idx = Number(status.dataset.userIndex);
+            if (!Number.isNaN(idx)) openEvidenceModal(idx);
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            const status = e.target.closest('vaadin-button.evidence-status');
+            if (!status) return;
+            e.preventDefault();
+            const idx = Number(status.dataset.userIndex);
+            if (!Number.isNaN(idx)) openEvidenceModal(idx);
+        });
+
+        // ── Prototype mode switcher ────────────────────────────────
+        const modeSelect = document.getElementById('proto-mode-select');
+        const feedbackScopeSelect = document.getElementById('proto-feedback-scope');
+        const feedbackScopeField  = document.getElementById('protoFeedbackScopeField');
+        const multiTable = document.getElementById('multiSessionTable');
+        const singleTable = document.getElementById('singleSessionTable');
+        const pageSubtitle = document.getElementById('pageSubtitle');
+
+        function applyMode(mode) {
+            const filterRow = document.getElementById('filterRow');
+            if (mode === 'single') {
+                multiTable.classList.add('hidden');
+                singleTable.classList.remove('hidden');
+                pageSubtitle.textContent = '10/20/2025 · 8:30 am · Vector Elementary School';
+                filterRow.classList.add('no-session-select');
+                feedbackScopeField.classList.add('disabled'); // not meaningful in single mode
+            } else {
+                multiTable.classList.remove('hidden');
+                singleTable.classList.add('hidden');
+                pageSubtitle.textContent = 'Multiple Time Slots';
+                filterRow.classList.remove('no-session-select');
+                feedbackScopeField.classList.remove('disabled');
+            }
+            // Refresh action/summary for the now-visible mode's selection state
+            if (typeof updateSelectionState === 'function') updateSelectionState();
+        }
+        modeSelect.addEventListener('change', (e) => applyMode(e.target.value));
+
+        feedbackScopeSelect.addEventListener('change', (e) => {
+            feedbackScope = e.target.value;
+            renderUserRows();
+        });
+
+        // ── Draggable prototype switcher ───────────────────────────
+        (() => {
+            const panel = document.querySelector('.proto-switcher');
+            const handle = panel.querySelector('.ps-label');
+            let dragging = false, offsetX = 0, offsetY = 0;
+
+            handle.addEventListener('pointerdown', (e) => {
+                if (e.button !== undefined && e.button !== 0) return;
+                dragging = true;
+                panel.classList.add('dragging');
+                const rect = panel.getBoundingClientRect();
+                panel.style.left = rect.left + 'px';
+                panel.style.top = rect.top + 'px';
+                panel.style.right = 'auto';
+                offsetX = e.clientX - rect.left;
+                offsetY = e.clientY - rect.top;
+                handle.setPointerCapture(e.pointerId);
+                e.preventDefault();
+            });
+            handle.addEventListener('pointermove', (e) => {
+                if (!dragging) return;
+                const w = panel.offsetWidth, h = panel.offsetHeight;
+                let x = Math.max(0, Math.min(window.innerWidth - w, e.clientX - offsetX));
+                let y = Math.max(0, Math.min(window.innerHeight - h, e.clientY - offsetY));
+                panel.style.left = x + 'px';
+                panel.style.top = y + 'px';
+            });
+            const endDrag = (e) => {
+                if (!dragging) return;
+                dragging = false;
+                panel.classList.remove('dragging');
+                try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+            };
+            handle.addEventListener('pointerup', endDrag);
+            handle.addEventListener('pointercancel', endDrag);
+        })();
+
+        // ── Chips: remove on × ─────────────────────────────────────
+        document.getElementById('filterChips').addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                const chip = e.target.closest('.chip');
+                if (chip) {
+                    chip.remove();
+                    const remaining = document.querySelectorAll('#filterChips .chip').length;
+                    document.getElementById('filterCount').textContent = remaining;
+                }
+            }
+        });
+
+        // ── Body scroll lock when any overlay is open ──────────────
+        let openOverlayCount = 0;
+        function lockBodyScroll() {
+            openOverlayCount++;
+            document.body.classList.add('modal-open');
+        }
+        function unlockBodyScroll() {
+            openOverlayCount = Math.max(0, openOverlayCount - 1);
+            if (openOverlayCount === 0) document.body.classList.remove('modal-open');
+        }
+
+        // ── Filters Drawer (vwc-drawer) ────────────────────────────
+        const filtersDrawer = document.getElementById('filtersDrawer');
+        let filtersOpen = false;
+
+        function openFilters() {
+            if (filtersOpen) return;
+            filtersOpen = true;
+            filtersDrawer.open = true;
+            lockBodyScroll();
+        }
+        function closeFilters() {
+            if (!filtersOpen) return;
+            filtersOpen = false;
+            filtersDrawer.open = false;
+            unlockBodyScroll();
+        }
+        // Keep our `filtersOpen` flag in sync if vwc-drawer closes itself
+        // (e.g. via built-in close button or backdrop click).
+        filtersDrawer.addEventListener('open-changed', (e) => {
+            const isOpen = e.detail;
+            if (!isOpen && filtersOpen) {
+                filtersOpen = false;
+                unlockBodyScroll();
+            } else if (isOpen && !filtersOpen) {
+                filtersOpen = true;
+                lockBodyScroll();
+            }
+        });
+
+        document.getElementById('openFiltersBtn').addEventListener('click', openFilters);
+        document.getElementById('applyFiltersBtn').addEventListener('click', () => {
+            const count = Array.from(filtersDrawer.querySelectorAll('vaadin-checkbox'))
+                .filter(cb => cb.checked).length;
+            document.getElementById('filterCount').textContent = count;
+            closeFilters();
+        });
+        document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+            filtersDrawer.querySelectorAll('vaadin-checkbox').forEach(cb => cb.checked = false);
+        });
+
+        // ── Add Users Dialog (vaadin-dialog) ───────────────────────
+        const addUsersDialog = document.getElementById('addUsersDialog');
+        let dialogUsersEl = null;     // populated in renderer
+        let selectedCountEl = null;
+        let dialogSelectAllEl = null;
+
+        function renderDialogUserList() {
+            if (!dialogUsersEl) return;
+            dialogUsersEl.innerHTML = users.map((u, i) => `
+                <div class="dialog-user-row">
+                    <vaadin-checkbox data-user="${i}"></vaadin-checkbox>
+                    <div class="user-info">
+                        <span class="name">${u.last}, ${u.first}</span>
+                        <span class="email">${u.email}</span>
+                    </div>
+                </div>
+            `).join('');
+            updateSelectedCount();
+        }
+        function updateSelectedCount() {
+            if (!dialogUsersEl || !selectedCountEl) return;
+            const count = Array.from(dialogUsersEl.querySelectorAll('vaadin-checkbox'))
+                .filter(cb => cb.checked).length;
+            selectedCountEl.textContent = `${count} selected`;
+        }
+
+        // vaadin-dialog body renderer — runs each time the dialog is opened
+        // (guarded by root.firstChild so we don't duplicate)
+        addUsersDialog.renderer = (root) => {
+            if (root.firstChild) return;
+            const tpl = document.getElementById('addUsersBodyTpl');
+            root.appendChild(tpl.content.cloneNode(true));
+
+            dialogUsersEl    = root.querySelector('#dialogUsers');
+            selectedCountEl  = root.querySelector('#dialogSelectedCount');
+            dialogSelectAllEl = root.querySelector('#dialogSelectAll');
+
+            renderDialogUserList();
+
+            // Click row body (outside checkbox) toggles the checkbox
+            dialogUsersEl.addEventListener('click', (e) => {
+                if (e.target.closest('vaadin-checkbox')) return;
+                const row = e.target.closest('.dialog-user-row');
+                if (!row) return;
+                const cb = row.querySelector('vaadin-checkbox');
+                cb.checked = !cb.checked;
+                updateSelectedCount();
+            });
+            dialogUsersEl.addEventListener('checked-changed', updateSelectedCount);
+            dialogSelectAllEl.addEventListener('checked-changed', (e) => {
+                const checked = e.target.checked;
+                dialogUsersEl.querySelectorAll('vaadin-checkbox').forEach(cb => cb.checked = checked);
+                updateSelectedCount();
+            });
+        };
+
+        addUsersDialog.footerRenderer = (root) => {
+            if (root.firstChild) return;
+            const cancelBtn = document.createElement('vaadin-button');
+            cancelBtn.setAttribute('theme', 'tertiary');
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('click', closeAddUsers);
+
+            const enrollBtn = document.createElement('vaadin-button');
+            enrollBtn.setAttribute('theme', 'primary');
+            enrollBtn.textContent = 'Enroll';
+            enrollBtn.addEventListener('click', closeAddUsers);
+
+            root.appendChild(cancelBtn);
+            root.appendChild(enrollBtn);
+        };
+
+        function openAddUsers() {
+            addUsersDialog.opened = true;
+            lockBodyScroll();
+        }
+        function closeAddUsers() {
+            if (!addUsersDialog.opened) return;
+            addUsersDialog.opened = false;
+        }
+        addUsersDialog.addEventListener('opened-changed', (e) => {
+            if (!e.detail.value) unlockBodyScroll();
+        });
+        document.getElementById('addUsersBtn').addEventListener('click', openAddUsers);
+
+        // ── Select All Filtered Sessions (header checkbox) ─────────
+        document.getElementById('selectAllSessions').addEventListener('checked-changed', (e) => {
+            const checked = e.target.checked;
+            document.querySelectorAll('.sub-table vaadin-checkbox').forEach(cb => {
+                cb.checked = checked;
+            });
+            updateSelectionState();
+        });
+
+        // ── Selection state → split-button enabled/label ───────────
+        const splitPrimary = document.getElementById('splitPrimary');
+        const splitCaret = document.getElementById('splitCaret');
+        const splitPrimaryLabel = document.getElementById('splitPrimaryLabel');
+        const selectionSummary = document.getElementById('selectionSummary');
+        const actionMenu = document.getElementById('actionMenu');
+
+        function getCurrentMode() {
+            return singleTable.classList.contains('hidden') ? 'multi' : 'single';
+        }
+
+        function countSelections() {
+            // Selections are scoped to the visible mode so the two modes
+            // maintain independent enabled-state.
+            const selector = getCurrentMode() === 'single'
+                ? '.single-session-row vaadin-checkbox'
+                : '.sub-table vaadin-checkbox';
+            return Array.from(document.querySelectorAll(selector))
+                .filter(cb => cb.checked).length;
+        }
+
+        function updateSelectionState() {
+            const mode = getCurrentMode();
+            const n = countSelections();
+            const enabled = n > 0;
+            splitPrimary.disabled = !enabled;
+            splitCaret.disabled = !enabled;
+
+            if (mode === 'single') {
+                selectionSummary.textContent = enabled
+                    ? `${n} user${n === 1 ? '' : 's'} selected`
+                    : 'No users selected';
+            } else {
+                selectionSummary.textContent = enabled
+                    ? `${n} session${n === 1 ? '' : 's'} selected`
+                    : 'No sessions selected';
+            }
+        }
+
+        // Listen for any session-checkbox change in either table.
+        // Vaadin's `checked-changed` bubbles; we also listen for native `change`
+        // as a fallback for any version of vaadin-checkbox that doesn't dispatch it.
+        function handleSessionCheckboxChange(e) {
+            const cb = e.target.closest && e.target.closest('vaadin-checkbox');
+            if (!cb) return;
+            if (cb.closest('.sub-table') || cb.closest('.single-session-row')) {
+                updateSelectionState();
+            }
+        }
+        document.addEventListener('checked-changed', handleSessionCheckboxChange);
+        document.addEventListener('change', handleSessionCheckboxChange);
+        updateSelectionState();
+
+        // ── Split-button action menu ───────────────────────────────
+        const ACTION_LABELS = {
+            'enroll':   'Enroll',
+            'waitlist': 'Waitlist',
+            'remove':   'Remove',
+            'approve':  'Approve',
+            'release':  'Release Credits',
+        };
+
+        function openActionMenu() {
+            if (splitCaret.disabled) return;
+            const rect = splitCaret.getBoundingClientRect();
+            actionMenu.style.left = (rect.right - actionMenu.offsetWidth || rect.left) + 'px';
+            actionMenu.classList.remove('hidden');
+            // Recompute after it's visible so width is known
+            const w = actionMenu.offsetWidth;
+            actionMenu.style.left = (rect.right - w) + 'px';
+            actionMenu.style.top = (rect.top - actionMenu.offsetHeight - 6) + 'px';
+        }
+        function closeActionMenu() { actionMenu.classList.add('hidden'); }
+
+        splitCaret.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (actionMenu.classList.contains('hidden')) openActionMenu();
+            else closeActionMenu();
+        });
+        document.addEventListener('click', (e) => {
+            if (!actionMenu.contains(e.target) && e.target !== splitCaret) closeActionMenu();
+        });
+
+        actionMenu.addEventListener('click', (e) => {
+            const item = e.target.closest('.action-menu-item');
+            if (!item) return;
+            const action = item.dataset.action;
+            splitPrimaryLabel.textContent = ACTION_LABELS[action];
+            document.getElementById('splitAction').dataset.action = action;
+            closeActionMenu();
+        });
+
+        splitPrimary.addEventListener('click', () => {
+            if (splitPrimary.disabled) return;
+            const action = document.getElementById('splitAction').dataset.action;
+            // Prototype: just log; real impl would dispatch the action against selections
+            console.log(`[prototype] ${action} → ${countSelections()} selected`);
+        });
+
+        // ── ESC closes overlays ────────────────────────────────────
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeFilters();
+                closeAddUsers();
+                closeActionMenu();
+                closeEvidenceModal();
+            }
+        });
+    </script>
+
+</body>
+</html>
