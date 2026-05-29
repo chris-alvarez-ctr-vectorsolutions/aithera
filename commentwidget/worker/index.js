@@ -129,6 +129,9 @@ async function createPin(request, env) {
     product: body.product || '',
     selector: body.selector,
     elementText: (body.elementText || '').slice(0, 200),
+    elementHtml: (body.elementHtml || '').slice(0, 500),
+    dataFile: (body.dataFile || '').slice(0, 300),
+    dataLine: (body.dataLine || '').toString().slice(0, 10),
     x: Number(body.x) || 0,
     y: Number(body.y) || 0,
     relX: body.relX != null ? Number(body.relX) : null,
@@ -178,6 +181,14 @@ async function updatePin(id, request, env) {
   const prevSelector = pin.selector;
   if (body.selector !== undefined) pin.selector = body.selector;
   if (body.elementText !== undefined) pin.elementText = String(body.elementText).slice(0, 200);
+  if (body.elementHtml !== undefined) pin.elementHtml = String(body.elementHtml).slice(0, 500);
+  if (body.dataFile !== undefined) pin.dataFile = String(body.dataFile).slice(0, 300);
+  if (body.dataLine !== undefined) pin.dataLine = String(body.dataLine).slice(0, 10);
+  // Screenshot updates land via a follow-up PATCH after drag-to-re-pin
+  // (recaptured by the widget once html2canvas finishes). Only overwrite when
+  // the client sent a non-empty value so a failed capture can't blank out the
+  // existing image.
+  if (body.screenshot !== undefined && body.screenshot) pin.screenshot = body.screenshot;
   if (body.relX !== undefined) pin.relX = body.relX != null ? Number(body.relX) : null;
   if (body.relY !== undefined) pin.relY = body.relY != null ? Number(body.relY) : null;
 
