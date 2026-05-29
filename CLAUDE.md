@@ -182,7 +182,7 @@ Commit the new files, then give the designer the dev build's **GitHub Pages URL*
 
 ### Style Guidelines
 
-Use THEMES-CONTEXT.md as the reference for design tokens and themeing provided from the themes bundle in styles.js.
+Use `context/themes/v1.9.2/CONTEXT.md` as the reference for design tokens and theming provided from the themes bundle in styles.js.
 
 #### Colors (Styleguide/Colors)
 - Use semantic color tokens from Vector theme rather than specific color hex values
