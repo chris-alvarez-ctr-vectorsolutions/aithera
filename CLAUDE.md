@@ -11,7 +11,7 @@ This project is used by the **UX team** to generate quick HTML/CSS prototypes fo
 - **Skill Level**: Team understands HTML/CSS but may not be familiar with advanced build tools or modern JavaScript frameworks
 
 ## Quick Reference
-- **Component Reference**: See @CORE-CONTEXT.md for complete list of Vector components with HTML tags, props, and usage examples
+- **Component Reference**: See @context/core/v1.22.2/CONTEXT.md for the component index; each component links to its own detailed CONTEXT.md under that directory
 - **Component Lookup**: Use the reference file for quick offline access to component tags and attributes
 
 Claude will:
@@ -67,7 +67,7 @@ Design assets including:
 
 #### 1. Check Component Reference First
 **Quick Lookup Process:**
-1. Check `CORE-CONTEXT.md` for component HTML tags and common props
+1. Check `context/core/v1.22.2/CONTEXT.md` for the component index, then follow the link to the specific component's CONTEXT.md for full props and usage
 2. Use Storybook MCP tools for detailed component information if needed:
    - `mcp__storybook__getComponentList` - List all available components
    - `mcp__storybook__getComponentsProps` - Get props/attributes for specific components
@@ -78,10 +78,10 @@ The reference file provides faster lookup for common components and usage patter
 - Web components use **Vaadin** custom element tags (e.g., `<vaadin-text-area>`, `<vaadin-button>`)
 - Components work directly in HTML without build tools
 - Most Vector components use either `vaadin-` or `vwc-` prefix
-- Set attributes and properties as documented in `CORE-CONTEXT.md`
+- Set attributes and properties as documented in the component's CONTEXT.md (linked from `context/core/v1.22.2/CONTEXT.md`)
 
 **IMPORTANT:**
-- **Always refer to `CORE-CONTEXT.md`** for correct component tag names
+- **Always refer to `context/core/v1.22.2/CONTEXT.md`** for correct component tag names
 - **NEVER fabricate or assume component tag names**
 - If a component is not in the reference file, check Storybook or ask the user
 - Do NOT use placeholder names like `<vector-component>` or `<vsp-component>` in code
@@ -94,7 +94,7 @@ The reference file provides faster lookup for common components and usage patter
 - Data Display: `vwc-icon`, `vwc-badge`, `vaadin-progress-bar`, `vwc-spinner`
 - Other: `vwc-switch`, `vwc-divider`, `vwc-headline`
 
-For the complete list with props and examples, see `CORE-CONTEXT.md`
+For the complete list with props and examples, see `context/core/v1.22.2/CONTEXT.md`
 
 #### 3. For a NEW mock
 
