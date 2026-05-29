@@ -1,0 +1,2940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Record Completions — Design Playground</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+<style>
+/* ═══════════════════════════════════════════
+   RESET
+═══════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+button { cursor: pointer; }
+
+/* ═══════════════════════════════════════════
+   PLAYGROUND SHELL (dark UI chrome)
+═══════════════════════════════════════════ */
+:root {
+  --sh-bg: #0c0e14;
+  --sh-surface: #13161f;
+  --sh-surface2: #1a1e2a;
+  --sh-border: rgba(255,255,255,0.07);
+  --sh-text: #e2e6f0;
+  --sh-muted: #7a84a0;
+  --sh-accent: #4f7cff;
+  --sh-font: 'Inter', system-ui, sans-serif;
+}
+
+html, body {
+  height: 100%;
+  font-family: var(--sh-font);
+  background: var(--sh-bg);
+  color: var(--sh-text);
+  overflow: hidden;
+}
+
+/* ── Shell Layout ── */
+.playground {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr auto;
+  height: 100vh;
+}
+
+/* ── Controls Drawer ── */
+.controls {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 270px;
+  z-index: 200;
+  background: var(--sh-surface);
+  border-right: 1px solid var(--sh-border);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+  transform: translateX(-100%);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.controls.drawer-open {
+  transform: translateX(0);
+}
+
+/* Backdrop */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 199;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.drawer-backdrop.drawer-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Toggle button */
+.drawer-toggle {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 198;
+  background: var(--sh-surface);
+  border: 1px solid var(--sh-border);
+  border-radius: 10px;
+  color: var(--sh-text);
+  font-family: var(--sh-font);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 9px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  transition: background 0.15s, transform 0.1s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+}
+
+.drawer-toggle:hover { background: var(--sh-border); transform: translateY(-1px); }
+.drawer-toggle:active { transform: translateY(0); }
+
+.drawer-toggle-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sh-accent);
+  box-shadow: 0 0 6px var(--sh-accent);
+  flex-shrink: 0;
+}
+
+.controls-header {
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid var(--sh-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.controls-header-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sh-muted);
+}
+
+.controls-header-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sh-accent);
+  margin-left: auto;
+  box-shadow: 0 0 6px var(--sh-accent);
+}
+
+.controls-section {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--sh-border);
+}
+
+.controls-section h4 {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sh-muted);
+  margin-bottom: 11px;
+}
+
+/* Presets */
+.presets-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.preset-btn {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--sh-border);
+  border-radius: 8px;
+  color: var(--sh-text);
+  font-family: var(--sh-font);
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.preset-btn .swatch {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.preset-btn:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.15);
+}
+
+.preset-btn.active {
+  border-color: var(--sh-accent);
+  background: rgba(79,124,255,0.1);
+  color: #7fa8ff;
+}
+
+/* Sliders */
+.control-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.control-label { font-size: 11.5px; color: var(--sh-muted); }
+
+.control-value {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--sh-text);
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+  text-align: right;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 3px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  outline: none;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  background: var(--sh-accent);
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(79,124,255,0.25);
+  transition: box-shadow 0.15s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 0 5px rgba(79,124,255,0.2);
+}
+
+/* Segment control */
+.segment-control {
+  display: flex;
+  background: rgba(255,255,255,0.04);
+  border-radius: 7px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.segment-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  color: var(--sh-muted);
+  font-family: var(--sh-font);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 5px 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.segment-btn.active {
+  background: rgba(255,255,255,0.1);
+  color: var(--sh-text);
+}
+
+/* ── Preview Area ── */
+.preview-frame {
+  overflow-y: auto;
+  background: #dde0ea;
+}
+
+/* ── Prompt Output ── */
+.prompt-output {
+  border-top: 1px solid var(--sh-border);
+  background: var(--sh-surface);
+  padding: 12px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 72px;
+}
+
+.prompt-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sh-muted);
+  white-space: nowrap;
+  padding-top: 3px;
+}
+
+.prompt-text {
+  flex: 1;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--sh-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.copy-btn {
+  background: var(--sh-accent);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-family: var(--sh-font);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 7px 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s, transform 0.1s;
+  flex-shrink: 0;
+}
+
+.copy-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+.copy-btn:active { transform: translateY(0); }
+
+/* ═══════════════════════════════════════════
+   PROTOTYPE STYLES
+═══════════════════════════════════════════ */
+.proto {
+  /* Design tokens (controls write here) */
+  --p-hue: 258;
+  --p-sat: 82%;
+  --p-lit: 58%;
+  --p-accent: hsl(var(--p-hue), var(--p-sat), var(--p-lit));
+  --p-accent-h: hsl(var(--p-hue), var(--p-sat), calc(var(--p-lit) - 7%));
+  --p-accent-soft: hsl(var(--p-hue), var(--p-sat), 95%);
+  --p-accent-glow: hsla(var(--p-hue), var(--p-sat), calc(var(--p-lit) + 10%), 0.35);
+  --p-bg: #f0f2f8;
+  --p-surface: #ffffff;
+  --p-border: rgba(0,0,0,0.08);
+  --p-border-strong: rgba(0,0,0,0.13);
+  --p-text: #111827;
+  --p-text-2: #374151;
+  --p-text-muted: #6b7280;
+  --p-text-subtle: #9ca3af;
+  --p-radius-card: 17px;
+  --p-radius-input: 4px;
+  --p-radius-btn: 50px;
+  --p-shadow: 0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+  --p-shadow-lg: 0 8px 28px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06);
+  --p-font: 'Inter', system-ui, sans-serif;
+
+  font-family: var(--p-font);
+  background: var(--p-bg);
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Top Nav (kept as-is) ── */
+.p-topnav {
+  height: 58px;
+  background: #ffffff;
+  border-bottom: 1px solid rgba(0,0,0,0.09);
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.p-logo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.p-logo svg { flex-shrink: 0; }
+
+.p-logo-text {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0f3460;
+  letter-spacing: -0.3px;
+}
+
+.p-logo-text span { font-weight: 400; color: #4a6e96; }
+
+.p-dept {
+  flex: 1;
+  text-align: center;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1a1d23;
+}
+
+.p-topnav-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.p-icon-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  color: #8896ae;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.p-icon-btn:hover { background: #f3f4f8; color: #374151; }
+
+.p-avatar {
+  width: 30px;
+  height: 30px;
+  background: #1a3557;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+/* ── App body ── */
+.p-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Sidebar (kept as-is) ── */
+.p-sidebar {
+  width: 238px;
+  background: #1c2b3a;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+.p-sidebar-badge {
+  padding: 22px 20px 14px;
+  display: flex;
+  justify-content: center;
+}
+
+.p-nav {
+  padding: 6px 10px 20px;
+  flex: 1;
+}
+
+.p-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 11px;
+  border-radius: 7px;
+  color: rgba(255,255,255,0.58);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.13s;
+  position: relative;
+  margin-bottom: 1px;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-family: var(--p-font);
+}
+
+.p-nav-item:hover {
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.88);
+}
+
+.p-nav-item.active {
+  background: rgba(255,255,255,0.1);
+  color: #ffffff;
+}
+
+.p-nav-item .nav-icon {
+  width: 16px;
+  font-size: 13px;
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+.p-nav-item .nav-label { flex: 1; }
+
+.p-nav-item .nav-arrow {
+  font-size: 9px;
+  opacity: 0.4;
+}
+
+/* ── Main ── */
+.p-main {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.p-content {
+  flex: 1;
+  padding: 20px 20px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Page header */
+.p-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.p-page-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--p-text);
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.p-ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: linear-gradient(135deg, #4361ee 0%, #7209b7 100%);
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.01em;
+  margin-top: 4px;
+}
+
+/* ── Add button ── */
+.p-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.22);
+  color: var(--p-text);
+  border: 1.5px solid rgba(255,255,255,0.38);
+  border-radius: var(--p-radius-btn);
+  font-family: var(--p-font);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 0 12px;
+  height: 32px;
+  box-sizing: border-box;
+  transition: background 0.15s, transform 0.1s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  backdrop-filter: blur(4px);
+}
+
+.p-add-btn:hover {
+  background: rgba(255,255,255,0.34);
+  transform: translateY(-1px);
+}
+
+/* ── Section stepper chips ── */
+.p-stepper {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.p-step-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 22px;
+  border-radius: 50px;
+  border: none;
+  cursor: pointer;
+  font-family: var(--p-font);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.p-step-chip.active {
+  background: var(--p-accent);
+  color: #fff;
+  box-shadow: 0 4px 16px hsla(var(--p-hue), var(--p-sat), 40%, 0.32);
+}
+
+.p-step-chip:not(.active) {
+  background: var(--p-surface);
+  color: var(--p-text-muted);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.p-step-chip:not(.active):hover {
+  color: var(--p-accent);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+
+.p-step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+}
+
+.p-step-chip.active .p-step-num {
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+}
+
+.p-step-chip:not(.active) .p-step-num {
+  background: rgba(0,0,0,0.07);
+  color: var(--p-text-muted);
+}
+
+.p-step-connector {
+  height: 2px;
+  width: 32px;
+  flex-shrink: 0;
+  background: var(--p-border-strong);
+  margin: 0 4px;
+}
+
+/* ── Split-pane layout (desktop) ── */
+.p-split-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.p-pane {
+  border-radius: var(--p-radius-card);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
+  cursor: default;
+}
+
+.p-pane.p-active {
+  background: hsl(var(--p-hue), 50%, 55%);
+  box-shadow:
+    0 24px 56px hsla(var(--p-hue), 70%, 28%, 0.42),
+    0 8px 18px rgba(0,0,0,0.12),
+    inset 0 1px 0 rgba(255,255,255,0.18);
+}
+
+.p-pane.p-inactive {
+  display: none;
+}
+
+/* Pane header */
+.p-pane-head {
+  padding: 16px 18px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.p-pane-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+/* Pane scrollable body */
+.p-pane-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 12px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,0.1) transparent;
+}
+
+/* In active pane, scrollbar stays light since bg is colored */
+.p-pane.p-active .p-pane-body {
+  scrollbar-color: rgba(255,255,255,0.2) transparent;
+}
+
+.p-pane.p-inactive .p-pane-body {
+  /* Show body in inactive too — just collapsed, not scrollable-clickable */
+  display: flex;
+  flex-direction: column;
+  overflow-y: hidden;
+  padding: 0 12px 16px;
+  pointer-events: none; /* clicking anywhere in pane activates it */
+}
+
+/* Compact list — not used in desktop stepper layout */
+.p-compact-list { display: none !important; }
+.p-compact-empty { display: none !important; }
+
+/* Override accordion card bg inside active pane so forms stay readable */
+.p-pane.p-active .p-acc-item {
+  background: var(--p-surface);
+  border-color: rgba(255,255,255,0.18);
+}
+
+/* Override p-empty inside active pane */
+.p-pane.p-active .p-empty {
+  background: rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.3);
+}
+
+.p-pane.p-active .p-empty-icon,
+.p-pane.p-active .p-empty-title,
+.p-pane.p-active .p-empty-sub { color: rgba(255,255,255,0.75); }
+
+.p-pane.p-active .p-add-btn {
+  background: rgba(255,255,255,0.18);
+  border-color: rgba(255,255,255,0.35);
+  color: #fff;
+}
+
+.p-pane.p-active .p-add-btn:hover {
+  background: rgba(255,255,255,0.28);
+}
+
+.p-pane.p-active .pt-head-kebab-btn {
+  border-color: rgba(255,255,255,0.45);
+  color: rgba(255,255,255,0.9);
+}
+
+.p-pane.p-active .pt-head-kebab-btn:hover,
+.p-pane.p-active .pt-head-kebab-btn.open {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+}
+
+/* Dark theme pane adjustments */
+.proto.t-dark .p-pane.p-active {
+  background: hsl(var(--p-hue), 55%, 35%);
+}
+
+.proto.t-dark .p-pane.p-inactive {
+  background: var(--p-surface);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.15);
+}
+
+.proto.t-dark .p-pane.p-inactive:hover {
+  box-shadow: 0 4px 14px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* ── Mobile tabs (shown only on mobile) ── */
+.p-mob-tabs-row { display: none; }
+
+.p-mob-tabs {
+  display: flex;
+  gap: 5px;
+  position: relative;
+  z-index: 2;
+  /* block elements stack flush — no negative margin needed */
+}
+
+.p-mob-tab {
+  padding: 10px 22px;
+  border-radius: var(--p-radius-card) var(--p-radius-card) 0 0;
+  border: none;
+  background: rgba(255, 255, 255, 0.52);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.75);
+  font-family: var(--p-font);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--p-text-muted);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+  position: relative;
+}
+
+.p-mob-tab.active {
+  background: hsl(var(--p-hue), 50%, 55%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+  color: #ffffff;
+  z-index: 3;
+}
+
+.p-mob-tab:not(.active):hover {
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--p-text);
+}
+
+/* Mobile single pane card */
+.p-mob-card {
+  border-radius: var(--p-radius-card);
+  background: hsl(var(--p-hue), 50%, 55%);
+  overflow: hidden;
+  box-shadow:
+    0 24px 56px hsla(var(--p-hue), 70%, 28%, 0.42),
+    0 8px 18px rgba(0,0,0,0.12),
+    inset 0 1px 0 rgba(255,255,255,0.18);
+  position: relative;
+  z-index: 1;
+}
+
+.p-mob-pane { display: none; padding: 14px; }
+.p-mob-pane.active { display: block; }
+
+/* right-active: card top-left stays flat — the glass Activities tab covers that corner */
+.p-mob-card.right-active {
+  border-radius: 0 var(--p-radius-card) var(--p-radius-card) var(--p-radius-card);
+}
+
+/* ── Accordion ── */
+.p-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.p-acc-item {
+  background: var(--p-surface);
+  border: 1px solid var(--p-border);
+  border-radius: var(--p-radius-card);
+  overflow: hidden;
+  box-shadow: var(--p-shadow);
+  transition: box-shadow 0.2s;
+}
+
+.p-acc-item.open {
+  box-shadow: var(--p-shadow-lg);
+  border-color: var(--p-border-strong);
+}
+
+.p-acc-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-family: var(--p-font);
+  transition: background 0.13s;
+}
+
+.p-acc-header:hover { background: rgba(0,0,0,0.015); }
+
+.p-acc-chevron {
+  font-size: 11px;
+  color: var(--p-text-muted);
+  transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
+  flex-shrink: 0;
+}
+
+.p-acc-item.open .p-acc-chevron { transform: rotate(90deg); }
+
+.p-acc-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--p-text);
+  flex: 1;
+}
+
+.p-acc-pill {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--p-text-muted);
+  background: rgba(0,0,0,0.05);
+  padding: 2px 8px;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+
+.p-acc-body {
+  padding: 0 18px 18px;
+  display: none;
+}
+
+.p-acc-item.open .p-acc-body { display: block; }
+
+/* ── Form Toolbar ── */
+.p-form-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--p-border);
+}
+
+.p-voice-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+  color: white;
+  border: none;
+  border-radius: var(--p-radius-btn);
+  font-family: var(--p-font);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 15px;
+  transition: opacity 0.15s, transform 0.1s;
+  position: relative;
+  overflow: hidden;
+}
+
+.p-voice-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.14) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.p-voice-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+.p-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.p-clear-btn {
+  background: none;
+  border: none;
+  font-family: var(--p-font);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--p-accent);
+  padding: 5px 2px;
+  transition: opacity 0.15s;
+}
+
+.p-clear-btn:hover { opacity: 0.65; }
+
+.p-trash-btn {
+  width: 30px;
+  height: 30px;
+  border: 1.5px solid #fca5a5;
+  background: #fff5f5;
+  border-radius: 7px;
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.p-trash-btn:hover { background: #fee2e2; border-color: #ef4444; }
+
+/* ── Form Fields ── */
+.p-field-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.p-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.p-field-row .p-field { margin-bottom: 0; }
+
+.p-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--p-text-muted);
+  letter-spacing: 0.03em;
+}
+
+.p-input {
+  width: 100%;
+  height: 38px;
+  border: 1.5px solid var(--p-border-strong);
+  border-radius: var(--p-radius-input);
+  padding: 0 11px;
+  font-family: var(--p-font);
+  font-size: 13px;
+  color: var(--p-text);
+  background: var(--p-surface);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.p-input:focus {
+  border-color: var(--p-accent);
+  box-shadow: 0 0 0 3px var(--p-accent-soft);
+}
+
+.p-input::placeholder { color: var(--p-text-subtle); }
+
+.p-input-icon-wrap { position: relative; }
+.p-input-icon-wrap .p-input { padding-left: 34px; }
+.p-input-icon-wrap .p-input-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--p-text-subtle);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+/* Time input */
+.p-time-wrap {
+  display: flex;
+  align-items: center;
+  height: 38px;
+  border: 1.5px solid var(--p-border-strong);
+  border-radius: var(--p-radius-input);
+  background: var(--p-surface);
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.p-time-wrap:focus-within {
+  border-color: var(--p-accent);
+  box-shadow: 0 0 0 3px var(--p-accent-soft);
+}
+
+.p-time-ico {
+  padding: 0 8px 0 10px;
+  color: var(--p-text-subtle);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.p-time-seg {
+  width: 28px;
+  border: none;
+  outline: none;
+  font-family: var(--p-font);
+  font-size: 13px;
+  color: var(--p-text);
+  background: none;
+  text-align: center;
+  padding: 0;
+}
+
+.p-time-sep { color: var(--p-text-muted); font-size: 13px; }
+
+.p-ampm {
+  margin-left: auto;
+  height: 100%;
+  padding: 0 10px;
+  border: none;
+  border-left: 1px solid var(--p-border);
+  background: rgba(0,0,0,0.02);
+  font-family: var(--p-font);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--p-text-muted);
+  letter-spacing: 0.04em;
+  transition: background 0.15s, color 0.15s;
+}
+
+.p-ampm:hover { background: rgba(0,0,0,0.05); }
+.p-ampm.on { background: var(--p-accent-soft); color: var(--p-accent); }
+
+/* Select */
+.p-select {
+  width: 100%;
+  height: 38px;
+  border: 1.5px solid var(--p-border-strong);
+  border-radius: var(--p-radius-input);
+  padding: 0 32px 0 11px;
+  font-family: var(--p-font);
+  font-size: 13px;
+  color: var(--p-text);
+  background: var(--p-surface);
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%239ca3af' d='M5 7L0.5 2.5h9z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.p-select:focus {
+  border-color: var(--p-accent);
+  box-shadow: 0 0 0 3px var(--p-accent-soft);
+}
+
+/* Multi-select */
+.p-ms { position: relative; }
+
+.p-ms-trigger {
+  width: 100%;
+  min-height: 38px;
+  border: 1.5px solid var(--p-border-strong);
+  border-radius: var(--p-radius-input);
+  padding: 0 32px 0 11px;
+  font-family: var(--p-font);
+  font-size: 13px;
+  color: var(--p-text-subtle);
+  background: var(--p-surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%239ca3af' d='M5 7L0.5 2.5h9z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  display: flex;
+  align-items: center;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  border: none;
+  outline: none;
+}
+
+.p-ms-trigger-wrap {
+  width: 100%;
+  min-height: 38px;
+  border: 1.5px solid var(--p-border-strong);
+  border-radius: var(--p-radius-input);
+  overflow: visible;
+  position: relative;
+  background: var(--p-surface);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  cursor: pointer;
+}
+
+.p-ms-trigger-wrap:focus-within,
+.p-ms.open .p-ms-trigger-wrap {
+  border-color: var(--p-accent);
+  box-shadow: 0 0 0 3px var(--p-accent-soft);
+}
+
+.p-ms-inner {
+  display: flex;
+  align-items: center;
+  padding: 0 32px 0 11px;
+  min-height: 36px;
+  font-size: 13px;
+  color: var(--p-text-subtle);
+}
+
+.p-ms-inner.has-val { color: var(--p-text); }
+
+.p-ms-arrow {
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  font-size: 9px;
+  pointer-events: none;
+  transition: transform 0.2s;
+}
+
+.p-ms.open .p-ms-arrow { transform: translateY(-50%) rotate(180deg); }
+
+.p-ms-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--p-surface);
+  border: 1.5px solid var(--p-border-strong);
+  border-radius: var(--p-radius-card);
+  box-shadow: var(--p-shadow-lg);
+  z-index: 50;
+  display: none;
+  overflow: hidden;
+}
+
+.p-ms.open .p-ms-dropdown { display: block; }
+
+.p-ms-opt {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 13px;
+  font-size: 13px;
+  color: var(--p-text);
+  transition: background 0.1s;
+  cursor: pointer;
+}
+
+.p-ms-opt:hover { background: rgba(0,0,0,0.03); }
+
+.p-ms-opt-check {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--p-border-strong);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 10px;
+  color: transparent;
+  transition: all 0.15s;
+}
+
+.p-ms-opt.selected .p-ms-opt-check {
+  background: var(--p-accent);
+  border-color: var(--p-accent);
+  color: white;
+}
+
+/* Apply date row */
+.p-apply-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+.p-apply-row .p-apply-label {
+  font-size: 13px;
+  color: var(--p-text-muted);
+  user-select: none;
+  cursor: pointer;
+}
+
+/* Checkboxes */
+.p-check-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.p-check-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.1s;
+}
+
+.p-check-item:hover { background: rgba(0,0,0,0.018); }
+
+.p-checkbox {
+  width: 17px;
+  height: 17px;
+  border: 1.5px solid var(--p-border-strong);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--p-surface);
+  transition: all 0.15s;
+  cursor: pointer;
+}
+
+.p-checkbox.checked {
+  background: var(--p-accent);
+  border-color: var(--p-accent);
+}
+
+.p-checkbox.checked::after {
+  content: '';
+  width: 5px;
+  height: 8px;
+  border: 2px solid white;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg) translate(-1px, -1px);
+  display: block;
+}
+
+.p-check-label {
+  font-size: 13px;
+  color: var(--p-text);
+  user-select: none;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+/* Notes */
+.p-notes-wrap { position: relative; }
+
+.p-textarea {
+  width: 100%;
+  min-height: 88px;
+  border: 1.5px solid var(--p-border-strong);
+  border-radius: var(--p-radius-input);
+  padding: 10px 38px 10px 11px;
+  font-family: var(--p-font);
+  font-size: 13px;
+  color: var(--p-text);
+  background: var(--p-surface);
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  line-height: 1.5;
+}
+
+.p-textarea:focus {
+  border-color: var(--p-accent);
+  box-shadow: 0 0 0 3px var(--p-accent-soft);
+}
+
+.p-textarea::placeholder { color: var(--p-text-subtle); }
+
+.p-mic-btn {
+  position: absolute;
+  right: 9px;
+  bottom: 9px;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: none;
+  color: var(--p-text-muted);
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.p-mic-btn:hover { background: var(--p-accent-soft); color: var(--p-accent); }
+
+/* ── Participants Empty State ── */
+.p-empty {
+  background: var(--p-surface);
+  border: 2px dashed var(--p-border-strong);
+  border-radius: var(--p-radius-card);
+  padding: 60px 24px;
+  text-align: center;
+}
+
+.p-empty-icon {
+  font-size: 36px;
+  color: var(--p-text-subtle);
+  margin-bottom: 14px;
+}
+
+.p-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--p-text);
+  margin-bottom: 5px;
+}
+
+.p-empty-sub { font-size: 13px; color: var(--p-text-muted); }
+
+/* ── Footer ── */
+.p-footer {
+  position: sticky;
+  bottom: 0;
+  background: rgba(248,249,252,0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--p-border);
+  padding: 12px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.p-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--p-radius-btn);
+  font-family: var(--p-font);
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 9px 18px;
+  border: none;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+
+.p-btn-prev {
+  background: var(--p-surface);
+  border: 1.5px solid var(--p-border-strong);
+  color: var(--p-text-muted);
+}
+
+.p-btn-prev:hover:not(:disabled) { background: rgba(0,0,0,0.04); color: var(--p-text); }
+.p-btn-prev:disabled { opacity: 0.38; cursor: not-allowed; }
+
+.p-btn-next {
+  background: var(--p-accent);
+  color: white;
+  box-shadow: 0 3px 10px var(--p-accent-glow);
+}
+
+.p-btn-next:hover {
+  background: var(--p-accent-h);
+  transform: translateY(-1px);
+  box-shadow: 0 5px 16px var(--p-accent-glow);
+}
+
+.p-btn-submit {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  color: white;
+  box-shadow: 0 3px 10px rgba(22,163,74,0.35);
+}
+
+.p-btn-submit:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 16px rgba(22,163,74,0.45);
+}
+
+/* ── Dark theme overrides ── */
+.proto.t-dark {
+  --p-bg: #0f1117;
+  --p-surface: #1a1f2e;
+  --p-border: rgba(255,255,255,0.07);
+  --p-border-strong: rgba(255,255,255,0.11);
+  --p-text: #e8ecf5;
+  --p-text-2: #c8d0e4;
+  --p-text-muted: #7a84a0;
+  --p-text-subtle: #4d5570;
+  --p-accent-soft: hsl(var(--p-hue), 50%, 20%);
+  --p-shadow: 0 2px 12px rgba(0,0,0,0.3), 0 1px 4px rgba(0,0,0,0.2);
+  --p-shadow-lg: 0 8px 28px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.proto.t-dark .p-topnav {
+  background: #141820;
+  border-bottom-color: rgba(255,255,255,0.07);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+.proto.t-dark .p-logo-text { color: #c4d4ec; }
+.proto.t-dark .p-logo-text span { color: #6e88a8; }
+.proto.t-dark .p-dept { color: #e8ecf5; }
+.proto.t-dark .p-icon-btn { color: #6a7490; }
+.proto.t-dark .p-icon-btn:hover { background: rgba(255,255,255,0.07); color: #c4d4ec; }
+
+.proto.t-dark .p-input,
+.proto.t-dark .p-select,
+.proto.t-dark .p-textarea,
+.proto.t-dark .p-time-wrap,
+.proto.t-dark .p-ms-trigger-wrap { background: rgba(255,255,255,0.04); }
+
+.proto.t-dark .p-input,
+.proto.t-dark .p-time-seg,
+.proto.t-dark .p-select { color: var(--p-text); }
+
+.proto.t-dark .p-ampm {
+  background: rgba(255,255,255,0.04);
+  border-left-color: rgba(255,255,255,0.08);
+}
+
+.proto.t-dark .p-ampm:hover { background: rgba(255,255,255,0.08); }
+.proto.t-dark .p-ampm.on { background: var(--p-accent-soft); }
+
+.proto.t-dark .p-acc-header:hover { background: rgba(255,255,255,0.025); }
+.proto.t-dark .p-check-item:hover { background: rgba(255,255,255,0.025); }
+.proto.t-dark .p-ms-opt:hover { background: rgba(255,255,255,0.04); }
+
+.proto.t-dark .p-footer {
+  background: rgba(15,17,23,0.92);
+  border-top-color: rgba(255,255,255,0.07);
+}
+
+.proto.t-dark .p-btn-prev {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.1);
+  color: var(--p-text-muted);
+}
+
+.proto.t-dark .p-trash-btn {
+  background: rgba(239,68,68,0.1);
+  border-color: rgba(239,68,68,0.28);
+}
+
+/* ── Glass surface override ── */
+.proto.t-glass .p-acc-item {
+  background: rgba(255,255,255,0.65);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.proto.t-glass .p-input,
+.proto.t-glass .p-select,
+.proto.t-glass .p-textarea {
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(8px);
+}
+
+.proto.t-glass .p-time-wrap { background: rgba(255,255,255,0.55); }
+.proto.t-glass .p-ms-trigger-wrap { background: rgba(255,255,255,0.55); }
+
+.proto.t-glass .p-footer {
+  background: rgba(240,242,248,0.78);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ── Warm theme ── */
+.proto.t-warm {
+  --p-bg: #faf6f0;
+  --p-surface: #fffdf8;
+  --p-border: rgba(180,130,80,0.1);
+  --p-border-strong: rgba(180,130,80,0.18);
+  --p-text: #2c1f12;
+  --p-text-2: #4a3020;
+  --p-text-muted: #8b6e52;
+  --p-text-subtle: #b89878;
+}
+
+/* ── Minimal theme ── */
+.proto.t-minimal {
+  --p-bg: #ffffff;
+  --p-surface: #ffffff;
+  --p-border: #e5e7eb;
+  --p-border-strong: #d1d5db;
+  --p-shadow: none;
+  --p-shadow-lg: 0 4px 16px rgba(0,0,0,0.07);
+}
+
+.proto.t-minimal .p-acc-item {
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+}
+
+.proto.t-minimal .p-accordion { gap: 0; }
+
+/* ── Participants Matrix ── */
+.pt-table-wrap {
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f3f4f6;
+}
+
+.pt-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #f3f4f6;
+}
+
+.pt-thead th {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--p-text);
+  background: hsl(var(--p-hue), 50%, 93%);
+  padding: 11px 14px;
+  text-align: left;
+  border-bottom: 1.5px solid hsl(var(--p-hue), 35%, 85%);
+  white-space: nowrap;
+}
+
+.pt-thead th:not(:first-child) { text-align: center; }
+
+.proto.t-dark .pt-thead th {
+  background: hsl(var(--p-hue), 30%, 22%);
+  border-bottom-color: hsl(var(--p-hue), 20%, 30%);
+}
+
+.pt-row { border-bottom: 1px solid rgba(0,0,0,0.07); background: #f3f4f6; }
+.pt-row:last-child { border-bottom: none; }
+.pt-row:hover { background: #e9eaec; }
+.proto.t-dark .pt-row:hover { background: rgba(255,255,255,0.03); }
+
+.pt-td {
+  padding: 10px 14px;
+  font-size: 13.5px;
+  color: var(--p-text);
+  vertical-align: middle;
+}
+
+.pt-td:not(:first-child) { text-align: center; }
+
+.pt-name-inner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Participant matrix checkbox */
+.pt-checkbox {
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--p-border-strong);
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--p-surface);
+  transition: all 0.15s;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.pt-checkbox.checked {
+  background: var(--p-accent);
+  border-color: var(--p-accent);
+}
+
+.pt-checkbox.checked::after {
+  content: '';
+  width: 5px;
+  height: 9px;
+  border: 2px solid white;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg) translate(-1px, -1px);
+  display: block;
+}
+
+/* Row kebab */
+.pt-kebab-wrap { position: relative; display: inline-block; }
+
+.pt-kebab-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  border-radius: 5px;
+  color: var(--p-text-muted);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s;
+}
+
+.pt-row:hover .pt-kebab-btn,
+.pt-kebab-btn.open { opacity: 1; }
+
+.pt-kebab-btn:hover,
+.pt-kebab-btn.open { background: rgba(0,0,0,0.07); }
+
+/* Header kebab */
+.pt-head-kebab-wrap { position: relative; }
+
+.pt-head-kebab-btn {
+  width: 32px;
+  height: 32px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--p-border-strong);
+  background: none;
+  border-radius: 7px;
+  color: var(--p-text-muted);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.pt-head-kebab-btn:hover,
+.pt-head-kebab-btn.open { background: rgba(0,0,0,0.05); color: var(--p-text); }
+
+/* Dropdown menus (fixed so they escape overflow clipping) */
+.pt-dropdown {
+  position: fixed;
+  background: var(--p-surface);
+  border: 1.5px solid var(--p-border-strong);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.07);
+  min-width: 190px;
+  z-index: 999;
+  display: none;
+  overflow: hidden;
+}
+
+.proto.t-dark .pt-dropdown {
+  box-shadow: 0 8px 28px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.pt-dropdown.open { display: block; }
+
+.pt-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--p-text);
+  cursor: pointer;
+  transition: background 0.1s;
+  white-space: nowrap;
+  font-family: var(--p-font);
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.pt-dropdown-item:hover { background: rgba(0,0,0,0.04); }
+.pt-dropdown-item.danger { color: #ef4444; }
+.pt-dropdown-item.danger:hover { background: rgba(239,68,68,0.08); }
+
+/* Head action group */
+.pt-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Desktop participants pane — shrink to content, no extra empty height */
+#pane-participants { align-self: flex-start; width: 100%; }
+
+/* Mobile per-activity mini tables */
+.pt-mob-activity-card {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  margin-bottom: 12px;
+}
+.pt-mob-activity-card:last-child { margin-bottom: 0; }
+
+.pt-mob-activity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: hsl(var(--p-hue), 30%, 93%);
+  cursor: pointer;
+  user-select: none;
+}
+
+.pt-mob-activity-header > span {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--p-text);
+}
+
+.pt-mob-chevron {
+  color: var(--p-text-muted);
+  font-size: 13px;
+  transition: transform 0.2s;
+}
+
+.pt-mob-activity-card.collapsed .pt-mob-chevron { transform: rotate(180deg); }
+.pt-mob-activity-card.collapsed .pt-mob-activity-body { display: none; }
+
+.pt-mob-participant-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+  border-top: 1px solid rgba(0,0,0,0.07);
+  font-size: 14px;
+  color: var(--p-text);
+}
+
+/* ── Mobile responsive ── */
+@media (max-width: 720px) {
+  .p-sidebar { display: none; }
+  .p-content { padding: 14px 12px; }
+  .p-footer { padding: 10px 16px; }
+  .p-field-row { grid-template-columns: 1fr; }
+  .p-page-title { font-size: 21px; }
+  /* Hide desktop split on mobile, show mobile card instead */
+  .p-split-layout { display: none; }
+  .p-mob-tabs-row { display: block; }
+  .p-stepper { justify-content: center; }
+}
+
+/* ── Playground responsive ── */
+@media (max-width: 860px) {
+  .drawer-toggle { bottom: 14px; left: 14px; }
+}
+</style>
+</head>
+<body>
+
+<div class="drawer-backdrop" id="drawer-backdrop" onclick="closeDrawer()"></div>
+
+<button class="drawer-toggle" id="drawer-toggle" onclick="toggleDrawer()">
+  <span class="drawer-toggle-dot"></span>
+  Design Playground
+</button>
+
+<div class="playground">
+
+  <!-- ══════════════════════════════════════
+       CONTROLS PANEL
+  ══════════════════════════════════════ -->
+  <aside class="controls" id="controls-drawer">
+    <div class="controls-header">
+      <span class="controls-header-title">Design Playground</span>
+      <span class="controls-header-dot"></span>
+      <button onclick="closeDrawer()" style="margin-left:auto;background:none;border:none;color:var(--sh-muted);cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;" title="Close">&times;</button>
+    </div>
+
+    <div class="controls-section">
+      <h4>Presets</h4>
+      <div class="presets-grid">
+        <button class="preset-btn active" data-preset="glass">
+          <span class="swatch" style="background:linear-gradient(90deg,#4361ee,#7209b7)"></span>
+          Glass Light
+        </button>
+        <button class="preset-btn" data-preset="dark">
+          <span class="swatch" style="background:linear-gradient(90deg,#4f7cff,#1a1f2e)"></span>
+          Dark Premium
+        </button>
+        <button class="preset-btn" data-preset="electric">
+          <span class="swatch" style="background:linear-gradient(90deg,#00b4d8,#0077b6)"></span>
+          Electric
+        </button>
+        <button class="preset-btn" data-preset="warm">
+          <span class="swatch" style="background:linear-gradient(90deg,#f48c06,#d62828)"></span>
+          Warm Earth
+        </button>
+        <button class="preset-btn" data-preset="minimal">
+          <span class="swatch" style="background:linear-gradient(90deg,#374151,#e5e7eb)"></span>
+          Minimal
+        </button>
+      </div>
+    </div>
+
+    <div class="controls-section">
+      <h4>Accent Color</h4>
+      <div class="control-row">
+        <span class="control-label">Hue</span>
+        <span class="control-value" id="v-hue">258°</span>
+      </div>
+      <input type="range" id="r-hue" min="0" max="360" value="258">
+      <div class="control-row">
+        <span class="control-label">Saturation</span>
+        <span class="control-value" id="v-sat">82%</span>
+      </div>
+      <input type="range" id="r-sat" min="30" max="100" value="82">
+      <div class="control-row">
+        <span class="control-label">Lightness</span>
+        <span class="control-value" id="v-lit">58%</span>
+      </div>
+      <input type="range" id="r-lit" min="32" max="72" value="58">
+    </div>
+
+    <div class="controls-section">
+      <h4>Shape</h4>
+      <div class="control-row">
+        <span class="control-label">Card radius</span>
+        <span class="control-value" id="v-cr">17px</span>
+      </div>
+      <input type="range" id="r-cr" min="0" max="24" value="17">
+      <div class="control-row">
+        <span class="control-label">Input radius</span>
+        <span class="control-value" id="v-ir">20px</span>
+      </div>
+      <input type="range" id="r-ir" min="0" max="24" value="20">
+    </div>
+
+    <div class="controls-section">
+      <h4>Surface Style</h4>
+      <div class="segment-control" id="seg-surface">
+        <button class="segment-btn active" data-val="flat">Flat</button>
+        <button class="segment-btn" data-val="glass">Glass</button>
+        <button class="segment-btn" data-val="elevated">Elevated</button>
+      </div>
+    </div>
+
+    <div class="controls-section">
+      <h4>Density</h4>
+      <div class="segment-control" id="seg-density">
+        <button class="segment-btn" data-val="compact">Compact</button>
+        <button class="segment-btn active" data-val="comfortable">Default</button>
+        <button class="segment-btn" data-val="spacious">Spacious</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══════════════════════════════════════
+       PREVIEW FRAME
+  ══════════════════════════════════════ -->
+  <div class="preview-frame">
+    <div class="proto" id="proto">
+
+      <!-- Top Nav (as-is) -->
+      <div class="p-topnav">
+        <div class="p-logo">
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+            <path d="M13 2L22 9L18 22H8L4 9Z" fill="#0f3460" opacity="0.15"/>
+            <path d="M13 5L19.5 10.5L16.5 20H9.5L6.5 10.5Z" fill="#0f3460" opacity="0.25"/>
+            <path d="M13 8L17 12L15 17H11L9 12Z" fill="#1a6ab0"/>
+          </svg>
+          <span class="p-logo-text">Vector<span>Solutions</span></span>
+        </div>
+        <div class="p-dept">Springfield Fire Department</div>
+        <div class="p-topnav-right">
+          <button class="p-icon-btn" title="Apps"><i class="fa-solid fa-table-cells"></i></button>
+          <button class="p-icon-btn" title="Help"><i class="fa-regular fa-circle-question"></i></button>
+          <button class="p-icon-btn" title="Notifications"><i class="fa-regular fa-bell"></i></button>
+          <div class="p-avatar">JL</div>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div class="p-body">
+
+        <!-- Sidebar (as-is) -->
+        <aside class="p-sidebar">
+          <div class="p-sidebar-badge">
+            <svg width="78" height="78" viewBox="0 0 78 78" fill="none">
+              <!-- Maltese cross -->
+              <path d="M39 3 L50 18 L63 13 L58 26 L73 39 L58 52 L63 65 L50 60 L39 75 L28 60 L15 65 L20 52 L5 39 L20 26 L15 13 L28 18 Z" fill="#8B1A1A"/>
+              <path d="M39 10 L47 22 L58 18 L54 29 L65 39 L54 49 L58 60 L47 56 L39 68 L31 56 L20 60 L24 49 L13 39 L24 29 L20 18 L31 22 Z" fill="#C42020"/>
+              <!-- center circle -->
+              <circle cx="39" cy="39" r="15" fill="#1c2b3a" stroke="#8B1A1A" stroke-width="2"/>
+              <circle cx="39" cy="39" r="10" fill="none" stroke="#c42020" stroke-width="1.5"/>
+              <text x="39" y="44" text-anchor="middle" font-size="12" fill="#ff6b6b">★</text>
+            </svg>
+          </div>
+          <nav class="p-nav">
+            <button class="p-nav-item">
+              <i class="fa-solid fa-house nav-icon"></i>
+              <span class="nav-label">Home</span>
+            </button>
+            <button class="p-nav-item">
+              <i class="fa-solid fa-shield-halved nav-icon"></i>
+              <span class="nav-label">Administration</span>
+              <i class="fa-solid fa-chevron-down nav-arrow"></i>
+            </button>
+            <button class="p-nav-item">
+              <i class="fa-solid fa-chart-line nav-icon"></i>
+              <span class="nav-label">Dashboard</span>
+            </button>
+            <button class="p-nav-item">
+              <i class="fa-solid fa-file-lines nav-icon"></i>
+              <span class="nav-label">Generate Reports</span>
+            </button>
+            <button class="p-nav-item active">
+              <i class="fa-solid fa-clipboard-check nav-icon"></i>
+              <span class="nav-label">Completions</span>
+              <i class="fa-solid fa-chevron-right nav-arrow"></i>
+            </button>
+            <button class="p-nav-item">
+              <i class="fa-solid fa-calendar-check nav-icon"></i>
+              <span class="nav-label">Assignments</span>
+              <i class="fa-solid fa-chevron-right nav-arrow"></i>
+            </button>
+            <button class="p-nav-item">
+              <i class="fa-solid fa-users nav-icon"></i>
+              <span class="nav-label">Manage Users</span>
+              <i class="fa-solid fa-chevron-right nav-arrow"></i>
+            </button>
+            <button class="p-nav-item">
+              <i class="fa-solid fa-id-badge nav-icon"></i>
+              <span class="nav-label">Manage Credentials</span>
+            </button>
+            <button class="p-nav-item">
+              <i class="fa-solid fa-calendar-days nav-icon"></i>
+              <span class="nav-label">Manage Events</span>
+            </button>
+          </nav>
+        </aside>
+
+        <!-- Main content -->
+        <main class="p-main">
+          <div class="p-content" id="p-content">
+
+            <!-- Page header -->
+            <div class="p-page-header">
+              <h1 class="p-page-title">Record Completions</h1>
+              <span class="p-ai-badge">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                powered by Vector AI
+              </span>
+            </div>
+
+            <!-- ── Section stepper ── -->
+            <div class="p-stepper">
+              <button class="p-step-chip active" id="step-activities" onclick="activatePane('activities')">
+                <span class="p-step-num">1</span>
+                Activities
+              </button>
+              <div class="p-step-connector"></div>
+              <button class="p-step-chip" id="step-participants" onclick="activatePane('participants')">
+                <span class="p-step-num">2</span>
+                Participants
+              </button>
+            </div>
+
+            <!-- ── Mobile card (hidden on desktop) ── -->
+            <div class="p-mob-tabs-row" id="mob-tabs-row">
+              <div class="p-mob-card" id="mob-card">
+                <div class="p-mob-pane active" id="mob-pane-activities">
+                  <!-- accordion duplicated for mobile -->
+                  <div class="p-accordion">
+                    <div class="p-acc-item open" style="border-color:rgba(255,255,255,0.18)">
+                      <button class="p-acc-header" onclick="toggleAcc(this)" style="background:var(--p-surface)">
+                        <i class="fa-solid fa-chevron-right p-acc-chevron"></i>
+                        <span class="p-acc-title">District Familiarization</span>
+                        <span class="p-acc-pill">1/3</span>
+                      </button>
+                      <div class="p-acc-body" style="background:var(--p-surface)">
+                        <div style="padding:6px 0 10px;display:flex;gap:8px;align-items:center">
+                          <button class="p-voice-btn" style="font-size:12px;padding:6px 12px"><i class="fa-solid fa-microphone"></i> VoiceComplete</button>
+                          <button class="p-clear-btn" style="margin-left:auto">Clear Form</button>
+                        </div>
+                        <div class="p-field">
+                          <label class="p-label">Completion Date</label>
+                          <div class="p-input-icon-wrap"><i class="fa-regular fa-calendar p-input-icon"></i><input type="date" class="p-input"></div>
+                        </div>
+                        <div class="p-field">
+                          <label class="p-label">Instructor</label>
+                          <select class="p-select"><option value="" disabled selected>Select instructor</option><option>John Martinez</option></select>
+                        </div>
+                        <div class="p-field">
+                          <label class="p-label">Training Objectives</label>
+                          <div class="p-check-list">
+                            <div class="p-check-item"><div class="p-checkbox" onclick="this.classList.toggle('checked')"></div><span class="p-check-label">Familiarize with building layouts</span></div>
+                            <div class="p-check-item"><div class="p-checkbox" onclick="this.classList.toggle('checked')"></div><span class="p-check-label">Learn hydrant locations</span></div>
+                            <div class="p-check-item"><div class="p-checkbox" onclick="this.classList.toggle('checked')"></div><span class="p-check-label">Identify access points</span></div>
+                          </div>
+                        </div>
+                        <div class="p-field">
+                          <label class="p-label">Notes</label>
+                          <div class="p-notes-wrap"><textarea class="p-textarea" placeholder="Add any additional notes..." style="min-height:70px"></textarea><button class="p-mic-btn"><i class="fa-solid fa-microphone"></i></button></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="p-acc-item" style="border-color:rgba(255,255,255,0.18)">
+                      <button class="p-acc-header" onclick="toggleAcc(this)" style="background:var(--p-surface)">
+                        <i class="fa-solid fa-chevron-right p-acc-chevron"></i>
+                        <span class="p-acc-title">Throwing Ladders</span>
+                        <span class="p-acc-pill">2/3</span>
+                      </button>
+                      <div class="p-acc-body" style="background:var(--p-surface)"></div>
+                    </div>
+                    <div class="p-acc-item" style="border-color:rgba(255,255,255,0.18)">
+                      <button class="p-acc-header" onclick="toggleAcc(this)" style="background:var(--p-surface)">
+                        <i class="fa-solid fa-chevron-right p-acc-chevron"></i>
+                        <span class="p-acc-title">Hydrant Training</span>
+                        <span class="p-acc-pill">3/3</span>
+                      </button>
+                      <div class="p-acc-body" style="background:var(--p-surface)"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="p-mob-pane" id="mob-pane-participants"></div>
+              </div>
+            </div>
+
+            <!-- ── Desktop split-pane layout ── -->
+            <div class="p-split-layout" id="p-split">
+
+              <!-- Activities pane -->
+              <div class="p-pane p-active" id="pane-activities">
+                <div class="p-pane-head">
+                  <span class="p-pane-title">Activities</span>
+                  <button class="p-add-btn"><i class="fa-solid fa-plus"></i> Add Activities</button>
+                </div>
+                <!-- Compact list (shown when inactive) -->
+                <div class="p-compact-list">
+                  <div class="p-compact-item"><span class="p-compact-num">1</span><span class="p-compact-name">District Familiarization</span></div>
+                  <div class="p-compact-item"><span class="p-compact-num">2</span><span class="p-compact-name">Throwing Ladders</span></div>
+                  <div class="p-compact-item"><span class="p-compact-num">3</span><span class="p-compact-name">Hydrant Training</span></div>
+                </div>
+                <!-- Full body (shown when active) -->
+                <div class="p-pane-body">
+              <div class="p-accordion" id="p-accordion">
+
+                <!-- Activity 1: District Familiarization (open) -->
+                <div class="p-acc-item open">
+                  <button class="p-acc-header" onclick="toggleAcc(this)">
+                    <i class="fa-solid fa-chevron-right p-acc-chevron"></i>
+                    <span class="p-acc-title">District Familiarization</span>
+                    <span class="p-acc-pill">1/3</span>
+                  </button>
+                  <div class="p-acc-body">
+                    <div class="p-form-toolbar">
+                      <button class="p-voice-btn">
+                        <i class="fa-solid fa-microphone"></i>
+                        VoiceComplete
+                      </button>
+                      <div class="p-toolbar-right">
+                        <button class="p-clear-btn">Clear Form</button>
+                        <button class="p-trash-btn"><i class="fa-solid fa-trash-can"></i></button>
+                      </div>
+                    </div>
+
+                    <div class="p-field-row">
+                      <div class="p-field">
+                        <label class="p-label">Completion Date</label>
+                        <div class="p-input-icon-wrap">
+                          <i class="fa-regular fa-calendar p-input-icon"></i>
+                          <input type="date" class="p-input">
+                        </div>
+                      </div>
+                      <div class="p-field">
+                        <label class="p-label">Time</label>
+                        <div class="p-time-wrap">
+                          <span class="p-time-ico"><i class="fa-regular fa-clock"></i></span>
+                          <input type="text" class="p-time-seg" placeholder="--" maxlength="2">
+                          <span class="p-time-sep">:</span>
+                          <input type="text" class="p-time-seg" placeholder="--" maxlength="2">
+                          <button class="p-ampm on" onclick="toggleAmpm(this)">AM</button>
+                        </div>
+                      </div>
+                      <div class="p-field">
+                        <label class="p-label">Duration</label>
+                        <input type="text" class="p-input" placeholder="e.g. 2h 30m">
+                      </div>
+                    </div>
+
+                    <div class="p-apply-row">
+                      <div class="p-checkbox" onclick="this.classList.toggle('checked')"></div>
+                      <span class="p-apply-label">Apply date to all</span>
+                    </div>
+
+                    <div class="p-field">
+                      <label class="p-label">Instructor</label>
+                      <select class="p-select">
+                        <option value="" disabled selected>Select instructor</option>
+                        <option>John Martinez</option>
+                        <option>Sarah Chen</option>
+                        <option>Mike Thompson</option>
+                      </select>
+                    </div>
+
+                    <div class="p-field">
+                      <label class="p-label">Training Type</label>
+                      <div class="p-ms" id="ms1">
+                        <div class="p-ms-trigger-wrap" onclick="toggleMs('ms1')">
+                          <div class="p-ms-inner" id="ms1-inner">Select techniques...</div>
+                          <i class="fa-solid fa-chevron-down p-ms-arrow"></i>
+                        </div>
+                        <div class="p-ms-dropdown">
+                          <div class="p-ms-opt" onclick="pickMs(this,'ms1')"><div class="p-ms-opt-check"><i class="fa-solid fa-check"></i></div> Structural</div>
+                          <div class="p-ms-opt" onclick="pickMs(this,'ms1')"><div class="p-ms-opt-check"><i class="fa-solid fa-check"></i></div> Wildland</div>
+                          <div class="p-ms-opt" onclick="pickMs(this,'ms1')"><div class="p-ms-opt-check"><i class="fa-solid fa-check"></i></div> Vehicle Extrication</div>
+                          <div class="p-ms-opt" onclick="pickMs(this,'ms1')"><div class="p-ms-opt-check"><i class="fa-solid fa-check"></i></div> Hazmat</div>
+                          <div class="p-ms-opt" onclick="pickMs(this,'ms1')"><div class="p-ms-opt-check"><i class="fa-solid fa-check"></i></div> Technical Rescue</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="p-field">
+                      <label class="p-label">Training Objectives</label>
+                      <div class="p-check-list">
+                        <div class="p-check-item"><div class="p-checkbox" onclick="this.classList.toggle('checked')"></div><span class="p-check-label">Familiarize with building layouts</span></div>
+                        <div class="p-check-item"><div class="p-checkbox" onclick="this.classList.toggle('checked')"></div><span class="p-check-label">Learn hydrant locations</span></div>
+                        <div class="p-check-item"><div class="p-checkbox" onclick="this.classList.toggle('checked')"></div><span class="p-check-label">Identify access points</span></div>
+                        <div class="p-check-item"><div class="p-checkbox" onclick="this.classList.toggle('checked')"></div><span class="p-check-label">Recognize fire hazards</span></div>
+                        <div class="p-check-item"><div class="p-checkbox" onclick="this.classList.toggle('checked')"></div><span class="p-check-label">Review response routes</span></div>
+                        <div class="p-check-item"><div class="p-checkbox" onclick="this.classList.toggle('checked')"></div><span class="p-check-label">Practice communication protocols</span></div>
+                      </div>
+                    </div>
+
+                    <div class="p-field">
+                      <label class="p-label">Notes</label>
+                      <div class="p-notes-wrap">
+                        <textarea class="p-textarea" placeholder="Add any additional notes..."></textarea>
+                        <button class="p-mic-btn"><i class="fa-solid fa-microphone"></i></button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Activity 2: Throwing Ladders (closed) -->
+                <div class="p-acc-item">
+                  <button class="p-acc-header" onclick="toggleAcc(this)">
+                    <i class="fa-solid fa-chevron-right p-acc-chevron"></i>
+                    <span class="p-acc-title">Throwing Ladders</span>
+                    <span class="p-acc-pill">2/3</span>
+                  </button>
+                  <div class="p-acc-body">
+                    <div class="p-form-toolbar">
+                      <button class="p-voice-btn"><i class="fa-solid fa-microphone"></i> VoiceComplete</button>
+                      <div class="p-toolbar-right">
+                        <button class="p-clear-btn">Clear Form</button>
+                        <button class="p-trash-btn"><i class="fa-solid fa-trash-can"></i></button>
+                      </div>
+                    </div>
+                    <div class="p-field-row">
+                      <div class="p-field">
+                        <label class="p-label">Completion Date</label>
+                        <div class="p-input-icon-wrap">
+                          <i class="fa-regular fa-calendar p-input-icon"></i>
+                          <input type="date" class="p-input">
+                        </div>
+                      </div>
+                      <div class="p-field">
+                        <label class="p-label">Time</label>
+                        <div class="p-time-wrap">
+                          <span class="p-time-ico"><i class="fa-regular fa-clock"></i></span>
+                          <input type="text" class="p-time-seg" placeholder="--" maxlength="2">
+                          <span class="p-time-sep">:</span>
+                          <input type="text" class="p-time-seg" placeholder="--" maxlength="2">
+                          <button class="p-ampm" onclick="toggleAmpm(this)">AM</button>
+                        </div>
+                      </div>
+                      <div class="p-field">
+                        <label class="p-label">Duration</label>
+                        <input type="text" class="p-input" placeholder="e.g. 2h 30m">
+                      </div>
+                    </div>
+                    <div class="p-apply-row">
+                      <div class="p-checkbox" onclick="this.classList.toggle('checked')"></div>
+                      <span class="p-apply-label">Apply date to all</span>
+                    </div>
+                    <div class="p-field">
+                      <label class="p-label">Instructor</label>
+                      <select class="p-select"><option value="" disabled selected>Select instructor</option><option>John Martinez</option><option>Sarah Chen</option></select>
+                    </div>
+                    <div class="p-field">
+                      <label class="p-label">Training Type</label>
+                      <div class="p-ms" id="ms2">
+                        <div class="p-ms-trigger-wrap" onclick="toggleMs('ms2')">
+                          <div class="p-ms-inner" id="ms2-inner">Select techniques...</div>
+                          <i class="fa-solid fa-chevron-down p-ms-arrow"></i>
+                        </div>
+                        <div class="p-ms-dropdown">
+                          <div class="p-ms-opt" onclick="pickMs(this,'ms2')"><div class="p-ms-opt-check"><i class="fa-solid fa-check"></i></div> Structural</div>
+                          <div class="p-ms-opt" onclick="pickMs(this,'ms2')"><div class="p-ms-opt-check"><i class="fa-solid fa-check"></i></div> Wildland</div>
+                          <div class="p-ms-opt" onclick="pickMs(this,'ms2')"><div class="p-ms-opt-check"><i class="fa-solid fa-check"></i></div> Vehicle Extrication</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="p-field">
+                      <label class="p-label">Training Objectives</label>
+                      <div class="p-check-list">
+                        <div class="p-check-item"><div class="p-checkbox" onclick="this.classList.toggle('checked')"></div><span class="p-check-label">Proper ladder selection and carry</span></div>
+                        <div class="p-check-item"><div class="p-checkbox" onclick="this.classList.toggle('checked')"></div><span class="p-check-label">Ladder placement and footing</span></div>
+                        <div class="p-check-item"><div class="p-checkbox" onclick="this.classList.toggle('checked')"></div><span class="p-check-label">Beam raise technique</span></div>
+                        <div class="p-check-item"><div class="p-checkbox" onclick="this.classList.toggle('checked')"></div><span class="p-check-label">Roof operations</span></div>
+                      </div>
+                    </div>
+                    <div class="p-field">
+                      <label class="p-label">Notes</label>
+                      <div class="p-notes-wrap">
+                        <textarea class="p-textarea" placeholder="Add any additional notes..."></textarea>
+                        <button class="p-mic-btn"><i class="fa-solid fa-microphone"></i></button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Activity 3: Hydrant Training (closed) -->
+                <div class="p-acc-item">
+                  <button class="p-acc-header" onclick="toggleAcc(this)">
+                    <i class="fa-solid fa-chevron-right p-acc-chevron"></i>
+                    <span class="p-acc-title">Hydrant Training</span>
+                    <span class="p-acc-pill">3/3</span>
+                  </button>
+                  <div class="p-acc-body">
+                    <div class="p-form-toolbar">
+                      <button class="p-voice-btn"><i class="fa-solid fa-microphone"></i> VoiceComplete</button>
+                      <div class="p-toolbar-right">
+                        <button class="p-clear-btn">Clear Form</button>
+                        <button class="p-trash-btn"><i class="fa-solid fa-trash-can"></i></button>
+                      </div>
+                    </div>
+                    <div class="p-field-row">
+                      <div class="p-field">
+                        <label class="p-label">Completion Date</label>
+                        <div class="p-input-icon-wrap">
+                          <i class="fa-regular fa-calendar p-input-icon"></i>
+                          <input type="date" class="p-input">
+                        </div>
+                      </div>
+                      <div class="p-field">
+                        <label class="p-label">Time</label>
+                        <div class="p-time-wrap">
+                          <span class="p-time-ico"><i class="fa-regular fa-clock"></i></span>
+                          <input type="text" class="p-time-seg" placeholder="--" maxlength="2">
+                          <span class="p-time-sep">:</span>
+                          <input type="text" class="p-time-seg" placeholder="--" maxlength="2">
+                          <button class="p-ampm" onclick="toggleAmpm(this)">AM</button>
+                        </div>
+                      </div>
+                      <div class="p-field">
+                        <label class="p-label">Duration</label>
+                        <input type="text" class="p-input" placeholder="e.g. 2h 30m">
+                      </div>
+                    </div>
+                    <div class="p-apply-row">
+                      <div class="p-checkbox" onclick="this.classList.toggle('checked')"></div>
+                      <span class="p-apply-label">Apply date to all</span>
+                    </div>
+                    <div class="p-field">
+                      <label class="p-label">Instructor</label>
+                      <select class="p-select"><option value="" disabled selected>Select instructor</option><option>John Martinez</option></select>
+                    </div>
+                    <div class="p-field">
+                      <label class="p-label">Training Type</label>
+                      <div class="p-ms" id="ms3">
+                        <div class="p-ms-trigger-wrap" onclick="toggleMs('ms3')">
+                          <div class="p-ms-inner" id="ms3-inner">Select techniques...</div>
+                          <i class="fa-solid fa-chevron-down p-ms-arrow"></i>
+                        </div>
+                        <div class="p-ms-dropdown">
+                          <div class="p-ms-opt" onclick="pickMs(this,'ms3')"><div class="p-ms-opt-check"><i class="fa-solid fa-check"></i></div> Structural</div>
+                          <div class="p-ms-opt" onclick="pickMs(this,'ms3')"><div class="p-ms-opt-check"><i class="fa-solid fa-check"></i></div> Hazmat</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="p-field">
+                      <label class="p-label">Training Objectives</label>
+                      <div class="p-check-list">
+                        <div class="p-check-item"><div class="p-checkbox" onclick="this.classList.toggle('checked')"></div><span class="p-check-label">Locate and identify hydrant types</span></div>
+                        <div class="p-check-item"><div class="p-checkbox" onclick="this.classList.toggle('checked')"></div><span class="p-check-label">Connect hose and charge line</span></div>
+                        <div class="p-check-item"><div class="p-checkbox" onclick="this.classList.toggle('checked')"></div><span class="p-check-label">Operate hydrant valves</span></div>
+                        <div class="p-check-item"><div class="p-checkbox" onclick="this.classList.toggle('checked')"></div><span class="p-check-label">Flow test and record pressure readings</span></div>
+                      </div>
+                    </div>
+                    <div class="p-field">
+                      <label class="p-label">Notes</label>
+                      <div class="p-notes-wrap">
+                        <textarea class="p-textarea" placeholder="Add any additional notes..."></textarea>
+                        <button class="p-mic-btn"><i class="fa-solid fa-microphone"></i></button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div><!-- /accordion -->
+                </div><!-- /p-pane-body -->
+              </div><!-- /pane-activities -->
+
+              <!-- Participants pane -->
+              <div class="p-pane p-inactive" id="pane-participants">
+                <div class="p-pane-head">
+                  <span class="p-pane-title">Participants</span>
+                  <div class="pt-head-actions" onclick="event.stopPropagation()">
+                    <button class="p-add-btn" onclick="ptAddParticipant()"><i class="fa-solid fa-plus"></i> Add Participants</button>
+                    <div class="pt-head-kebab-wrap">
+                      <button class="pt-head-kebab-btn" id="pt-head-kebab"
+                        aria-label="Participant options"
+                        aria-haspopup="menu"
+                        aria-expanded="false"
+                        aria-controls="pt-head-dropdown"
+                        onclick="ptToggleHeadMenu(event)">
+                        <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
+                      </button>
+                      <div class="pt-dropdown" id="pt-head-dropdown" role="menu">
+                        <button class="pt-dropdown-item danger" role="menuitem" onclick="ptDeleteAll()">
+                          <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+                          Delete all participants
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Compact (shown when inactive) - names only -->
+                <div class="p-compact-list" id="pt-compact-list">
+                  <div class="p-compact-empty" id="pt-compact-empty">
+                    <div class="p-compact-empty-icon"><i class="fa-solid fa-users"></i></div>
+                    <div class="p-compact-empty-label">No participants yet</div>
+                  </div>
+                  <div class="pt-compact-name-list" id="pt-compact-names"></div>
+                </div>
+                <!-- Full body (shown when active) -->
+                <div class="p-pane-body">
+                  <div class="pt-table-wrap">
+                    <table class="pt-table" id="pt-table"></table>
+                  </div>
+                </div>
+                <!-- Shared dropdown for row menus (fixed positioning) -->
+                <div class="pt-dropdown" id="pt-row-dropdown">
+                  <button class="pt-dropdown-item danger" id="pt-row-delete-btn" onclick="ptDeleteCurrentParticipant()">
+                    <i class="fa-solid fa-trash-can"></i>
+                    Delete participant
+                  </button>
+                </div>
+              </div><!-- /pane-participants -->
+
+            </div><!-- /p-split-layout -->
+
+          </div><!-- /p-content -->
+
+          <!-- Footer -->
+          <div class="p-footer">
+            <button class="p-btn p-btn-prev" id="p-prev-btn" disabled>
+              <i class="fa-solid fa-chevron-left"></i>
+              Previous
+            </button>
+            <button class="p-btn p-btn-next" id="p-next-btn">
+              Submit Completions
+              <i class="fa-solid fa-check"></i>
+            </button>
+          </div>
+
+        </main>
+      </div><!-- /p-body -->
+    </div><!-- /proto -->
+  </div><!-- /preview-frame -->
+
+  <!-- ══════════════════════════════════════
+       PROMPT OUTPUT
+  ══════════════════════════════════════ -->
+  <div class="prompt-output">
+    <span class="prompt-label">Prompt</span>
+    <pre class="prompt-text" id="prompt-text">Adjust the controls to customize the design, then copy the prompt.</pre>
+    <button class="copy-btn" onclick="copyPrompt()">Copy Prompt</button>
+  </div>
+
+</div><!-- /playground -->
+
+<script>
+/* ════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════ */
+const DEFAULTS = {
+  preset: 'custom',
+  hue: 258, sat: 82, lit: 58,
+  cardR: 17, inputR: 4,
+  surface: 'flat',
+  density: 'comfortable',
+  dark: false, warm: false, minimal: false
+};
+
+const PRESETS = {
+  glass:   { hue: 230, sat: 82, lit: 58,  cardR: 14, inputR: 9,  surface: 'glass',    density: 'comfortable', dark: false, warm: false, minimal: false },
+  dark:    { hue: 220, sat: 80, lit: 62,  cardR: 14, inputR: 9,  surface: 'elevated', density: 'comfortable', dark: true,  warm: false, minimal: false },
+  electric:{ hue: 196, sat: 90, lit: 44,  cardR: 10, inputR: 7,  surface: 'elevated', density: 'comfortable', dark: false, warm: false, minimal: false },
+  warm:    { hue: 26,  sat: 85, lit: 52,  cardR: 16, inputR: 12, surface: 'glass',    density: 'spacious',    dark: false, warm: true,  minimal: false },
+  minimal: { hue: 210, sat: 30, lit: 42,  cardR: 6,  inputR: 5,  surface: 'flat',     density: 'compact',     dark: false, warm: false, minimal: true  }
+};
+
+const state = { ...DEFAULTS };
+const proto = document.getElementById('proto');
+
+/* ════════════════════════════════════════════
+   RENDER
+════════════════════════════════════════════ */
+function renderPreview() {
+  const s = state;
+
+  proto.style.setProperty('--p-hue', s.hue);
+  proto.style.setProperty('--p-sat', s.sat + '%');
+  proto.style.setProperty('--p-lit', s.lit + '%');
+  proto.style.setProperty('--p-accent', `hsl(${s.hue},${s.sat}%,${s.lit}%)`);
+  proto.style.setProperty('--p-accent-h', `hsl(${s.hue},${s.sat}%,${s.lit - 7}%)`);
+  proto.style.setProperty('--p-accent-soft', s.dark
+    ? `hsl(${s.hue},50%,20%)`
+    : `hsl(${s.hue},${s.sat}%,94%)`);
+  proto.style.setProperty('--p-accent-glow', `hsla(${s.hue},${s.sat}%,${s.lit + 8}%,0.38)`);
+  proto.style.setProperty('--p-radius-card', s.cardR + 'px');
+  proto.style.setProperty('--p-radius-input', s.inputR + 'px');
+  proto.style.setProperty('--p-radius-btn', '50px');
+
+  /* Density — controls outer page padding only, not inside panes */
+  const content = document.getElementById('p-content');
+  const padMap = { compact: '14px 14px', comfortable: '20px 20px', spacious: '28px 28px' };
+  if (content) content.style.padding = padMap[s.density];
+
+  /* Theme classes */
+  proto.classList.remove('t-dark', 't-glass', 't-warm', 't-minimal');
+  if (s.dark)    proto.classList.add('t-dark');
+  if (s.warm)    proto.classList.add('t-warm');
+  if (s.minimal) proto.classList.add('t-minimal');
+  if (s.surface === 'glass' && !s.dark && !s.warm && !s.minimal) proto.classList.add('t-glass');
+
+  /* Shadows by surface */
+  if (s.surface === 'flat' || s.minimal) {
+    proto.style.setProperty('--p-shadow', 'none');
+    proto.style.setProperty('--p-shadow-lg', '0 2px 8px rgba(0,0,0,0.07)');
+  } else if (s.surface === 'elevated') {
+    proto.style.setProperty('--p-shadow', '0 4px 20px rgba(0,0,0,0.1), 0 1px 4px rgba(0,0,0,0.06)');
+    proto.style.setProperty('--p-shadow-lg', '0 12px 36px rgba(0,0,0,0.14), 0 4px 12px rgba(0,0,0,0.08)');
+  } else {
+    proto.style.setProperty('--p-shadow', '0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)');
+    proto.style.setProperty('--p-shadow-lg', '0 8px 28px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06)');
+  }
+}
+
+/* ════════════════════════════════════════════
+   PROMPT BUILDER
+════════════════════════════════════════════ */
+const HUE_NAMES = [[0,'red'],[20,'orange'],[40,'amber'],[60,'yellow'],[90,'lime'],[130,'green'],
+  [165,'teal'],[196,'cyan'],[220,'blue'],[250,'indigo'],[270,'violet'],[300,'purple'],[330,'pink'],[350,'rose']];
+
+function hueName(h) {
+  let best = 'blue', dist = 999;
+  for (const [v, n] of HUE_NAMES) {
+    const d = Math.min(Math.abs(h - v), 360 - Math.abs(h - v));
+    if (d < dist) { dist = d; best = n; }
+  }
+  return best;
+}
+
+const PRESET_LABELS = { glass: 'Glass Light', dark: 'Dark Premium', electric: 'Electric', warm: 'Warm Earth', minimal: 'Minimal', custom: 'Custom' };
+const SURFACE_DESC  = { flat: 'flat surfaces (no shadows)', glass: 'glassmorphism cards with backdrop blur', elevated: 'strongly elevated cards with deep shadows' };
+const DENSITY_DESC  = { compact: 'compact/dense spacing', comfortable: 'standard spacing', spacious: 'generous spacious layout' };
+
+function updatePrompt() {
+  const s = state;
+  const d = DEFAULTS;
+  const diffs = [];
+
+  if (Math.abs(s.hue - d.hue) > 12 || Math.abs(s.sat - d.sat) > 8 || Math.abs(s.lit - d.lit) > 5) {
+    const parts = [];
+    if (Math.abs(s.hue - d.hue) > 12) parts.push(`${hueName(s.hue)} hue (${s.hue}°)`);
+    if (s.sat < d.sat - 8) parts.push('muted/desaturated');
+    else if (s.sat > d.sat + 8) parts.push('highly saturated');
+    if (s.lit < d.lit - 5) parts.push('deeper/darker accent');
+    else if (s.lit > d.lit + 5) parts.push('lighter accent tone');
+    diffs.push('accent color: ' + parts.join(', '));
+  }
+
+  if (s.cardR !== d.cardR) diffs.push(s.cardR === 0 ? 'sharp-cornered cards' : s.cardR > 18 ? `very rounded cards (${s.cardR}px radius)` : `${s.cardR}px card border-radius`);
+  if (s.inputR !== d.inputR) diffs.push(s.inputR === 0 ? 'sharp inputs' : `${s.inputR}px input radius`);
+  if (s.surface !== d.surface) diffs.push(SURFACE_DESC[s.surface]);
+  if (s.density !== d.density) diffs.push(DENSITY_DESC[s.density]);
+  if (s.dark && !d.dark) diffs.push('dark color scheme');
+  if (s.warm && !d.warm) diffs.push('warm/earth color palette');
+  if (s.minimal && !d.minimal) diffs.push('minimal/borderless aesthetic');
+
+  const presetLabel = PRESET_LABELS[s.preset] || 'Custom';
+  let text;
+
+  if (diffs.length === 0) {
+    text = `Redesign the Record Completions main content with a polished ${presetLabel} aesthetic: glassmorphism card surfaces, Inter typeface, smooth inter-card shadows, custom checkboxes, and a ${hueName(s.hue)}-toned accent system. Keep the dark-navy sidebar and white topnav as-is.`;
+  } else {
+    text = `Redesign the Record Completions main content starting from the "${presetLabel}" preset, with these modifications: ${diffs.join('; ')}. Keep the dark-navy sidebar and white topnav unchanged.`;
+  }
+
+  document.getElementById('prompt-text').textContent = text;
+}
+
+function updateAll() { renderPreview(); updatePrompt(); }
+
+/* ════════════════════════════════════════════
+   CONTROLS — PRESETS
+════════════════════════════════════════════ */
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const p = PRESETS[btn.dataset.preset];
+    Object.assign(state, p, { preset: btn.dataset.preset });
+
+    // Sync slider values
+    syncSlider('r-hue', 'v-hue', state.hue, '°');
+    syncSlider('r-sat', 'v-sat', state.sat, '%');
+    syncSlider('r-lit', 'v-lit', state.lit, '%');
+    syncSlider('r-cr',  'v-cr',  state.cardR, 'px');
+    syncSlider('r-ir',  'v-ir',  state.inputR, 'px');
+
+    // Sync segments
+    syncSeg('seg-surface', state.surface);
+    syncSeg('seg-density', state.density);
+
+    updateAll();
+  });
+});
+
+function syncSlider(sliderId, valId, val, unit) {
+  document.getElementById(sliderId).value = val;
+  document.getElementById(valId).textContent = val + unit;
+}
+
+function syncSeg(segId, val) {
+  document.querySelectorAll(`#${segId} .segment-btn`).forEach(b => {
+    b.classList.toggle('active', b.dataset.val === val);
+  });
+}
+
+/* ── Sliders ── */
+function wireSlider(id, valId, unit, stateKey) {
+  const el = document.getElementById(id);
+  const vl = document.getElementById(valId);
+  el.addEventListener('input', () => {
+    state[stateKey] = Number(el.value);
+    vl.textContent = el.value + unit;
+    state.preset = 'custom';
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    updateAll();
+  });
+}
+
+wireSlider('r-hue', 'v-hue', '°',  'hue');
+wireSlider('r-sat', 'v-sat', '%',  'sat');
+wireSlider('r-lit', 'v-lit', '%',  'lit');
+wireSlider('r-cr',  'v-cr',  'px', 'cardR');
+wireSlider('r-ir',  'v-ir',  'px', 'inputR');
+
+/* ── Segment controls ── */
+document.querySelectorAll('#seg-surface .segment-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    syncSeg('seg-surface', btn.dataset.val);
+    state.surface = btn.dataset.val;
+    updateAll();
+  });
+});
+
+document.querySelectorAll('#seg-density .segment-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    syncSeg('seg-density', btn.dataset.val);
+    state.density = btn.dataset.val;
+    updateAll();
+  });
+});
+
+/* ════════════════════════════════════════════
+   PROTOTYPE INTERACTIVITY
+════════════════════════════════════════════ */
+
+/* Accordion */
+function toggleAcc(header) {
+  header.closest('.p-acc-item').classList.toggle('open');
+}
+
+/* AM/PM */
+function toggleAmpm(btn) {
+  btn.textContent = btn.textContent === 'AM' ? 'PM' : 'AM';
+  btn.classList.toggle('on');
+}
+
+/* Multi-select */
+function toggleMs(id) {
+  const ms = document.getElementById(id);
+  document.querySelectorAll('.p-ms').forEach(m => { if (m !== ms) m.classList.remove('open'); });
+  ms.classList.toggle('open');
+  event.stopPropagation();
+}
+
+function pickMs(opt, msId) {
+  opt.classList.toggle('selected');
+  const ms = document.getElementById(msId);
+  const inner = document.getElementById(msId + '-inner');
+  const sel = [...ms.querySelectorAll('.p-ms-opt.selected')].map(o => o.textContent.trim());
+  inner.textContent = sel.length ? sel.join(', ') : 'Select techniques...';
+  inner.classList.toggle('has-val', sel.length > 0);
+  event.stopPropagation();
+}
+
+document.addEventListener('click', () => {
+  document.querySelectorAll('.p-ms.open').forEach(ms => ms.classList.remove('open'));
+});
+
+/* Split-pane activation (desktop + mobile) */
+function activatePane(which) {
+  const actPane = document.getElementById('pane-activities');
+  const parPane = document.getElementById('pane-participants');
+  const actChip = document.getElementById('step-activities');
+  const parChip = document.getElementById('step-participants');
+  const mobActPane = document.getElementById('mob-pane-activities');
+  const mobParPane = document.getElementById('mob-pane-participants');
+  if (which === 'activities') {
+    actPane.classList.replace('p-inactive', 'p-active');
+    parPane.classList.replace('p-active', 'p-inactive');
+    actChip.classList.add('active');
+    parChip.classList.remove('active');
+    mobActPane.classList.add('active');
+    mobParPane.classList.remove('active');
+  } else {
+    parPane.classList.replace('p-inactive', 'p-active');
+    actPane.classList.replace('p-active', 'p-inactive');
+    parChip.classList.add('active');
+    actChip.classList.remove('active');
+    mobParPane.classList.add('active');
+    mobActPane.classList.remove('active');
+  }
+}
+
+/* Mobile tab switching */
+function switchMobTab(btn, which) {
+  document.querySelectorAll('.p-mob-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.p-mob-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('mob-pane-' + which).classList.add('active');
+  const card = document.getElementById('mob-card');
+  card.classList.toggle('right-active', which === 'participants');
+}
+
+/* ════════════════════════════════════════════
+   COPY PROMPT
+════════════════════════════════════════════ */
+/* ── Drawer ── */
+function toggleDrawer() {
+  const open = document.getElementById('controls-drawer').classList.contains('drawer-open');
+  open ? closeDrawer() : openDrawer();
+}
+function openDrawer() {
+  document.getElementById('controls-drawer').classList.add('drawer-open');
+  document.getElementById('drawer-backdrop').classList.add('drawer-open');
+}
+function closeDrawer() {
+  document.getElementById('controls-drawer').classList.remove('drawer-open');
+  document.getElementById('drawer-backdrop').classList.remove('drawer-open');
+}
+
+function copyPrompt() {
+  const text = document.getElementById('prompt-text').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    btn.style.background = '#22c55e';
+    setTimeout(() => {
+      btn.textContent = 'Copy Prompt';
+      btn.style.background = '';
+    }, 2000);
+  });
+}
+
+/* ════════════════════════════════════════════
+   PARTICIPANTS MATRIX
+════════════════════════════════════════════ */
+const PT_ACTIVITIES = ['District Familiarization', 'Throwing Ladders', 'Hydrant Training'];
+
+let ptNextId = 6;
+let ptParticipants = [
+  { id: 1, name: 'John Smith' },
+  { id: 2, name: 'Sarah Johnson' },
+  { id: 3, name: 'Mike Davis' },
+  { id: 4, name: 'Emily Brown' },
+  { id: 5, name: 'Sean Wright' },
+];
+
+// All activities checked by default for each participant
+const ptCompletions = {};
+ptParticipants.forEach(p => {
+  ptCompletions[p.id] = {};
+  PT_ACTIVITIES.forEach(a => { ptCompletions[p.id][a] = true; });
+});
+
+let ptActiveRowId = null; // which row's menu is open
+
+function ptRender() {
+  const table = document.getElementById('pt-table');
+  if (!table) return;
+
+  if (ptParticipants.length === 0) {
+    table.innerHTML = `
+      <tbody><tr><td colspan="${PT_ACTIVITIES.length + 1}" style="padding:60px 24px;text-align:center">
+        <div style="font-size:32px;color:var(--p-text-subtle);margin-bottom:12px"><i class="fa-solid fa-users"></i></div>
+        <div style="font-size:15px;font-weight:600;color:var(--p-text);margin-bottom:5px">No participants added yet</div>
+        <div style="font-size:13px;color:var(--p-text-muted)">Click "+ Add Participants" to get started</div>
+      </td></tr></tbody>`;
+    ptRenderMobile();
+    return;
+  }
+
+  const headerCols = PT_ACTIVITIES.map(a => `<th>${a}</th>`).join('');
+  const rows = ptParticipants.map(p => {
+    const cbs = PT_ACTIVITIES.map((a, i) => {
+      const checked = ptCompletions[p.id][a] ? 'checked' : '';
+      return `<td class="pt-td"><div class="pt-checkbox ${checked}" onclick="ptToggle(${p.id},${i},this,event)"></div></td>`;
+    }).join('');
+
+    return `<tr class="pt-row" data-pt-id="${p.id}">
+      <td class="pt-td">
+        <div class="pt-name-inner">
+          <span>${p.name}</span>
+          <div class="pt-kebab-wrap">
+            <button class="pt-kebab-btn" onclick="ptToggleRowMenu(event,${p.id})">
+              <i class="fa-solid fa-ellipsis-vertical"></i>
+            </button>
+          </div>
+        </div>
+      </td>
+      ${cbs}
+    </tr>`;
+  }).join('');
+
+  table.innerHTML = `
+    <thead class="pt-thead">
+      <tr><th>Participant</th>${headerCols}</tr>
+    </thead>
+    <tbody>${rows}</tbody>`;
+
+  ptRenderMobile();
+}
+
+function ptRenderMobile() {
+  const container = document.getElementById('mob-pane-participants');
+  if (!container) return;
+
+  if (ptParticipants.length === 0) {
+    container.innerHTML = `
+      <div class="p-empty" style="background:rgba(255,255,255,0.12);border:none;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.25)">
+        <div class="p-empty-icon" style="color:rgba(255,255,255,0.6)"><i class="fa-solid fa-users"></i></div>
+        <div class="p-empty-title" style="color:#fff">No participants added yet</div>
+        <div class="p-empty-sub" style="color:rgba(255,255,255,0.7)">Click "Add Participants" to get started</div>
+      </div>`;
+    return;
+  }
+
+  const cards = PT_ACTIVITIES.map((activity, actIdx) => {
+    const rows = ptParticipants.map(p => {
+      const checked = ptCompletions[p.id][activity] ? 'checked' : '';
+      return `<div class="pt-mob-participant-row">
+        <span>${p.name}</span>
+        <div class="pt-checkbox ${checked}" onclick="ptToggle(${p.id},${actIdx},this,event)"></div>
+      </div>`;
+    }).join('');
+
+    return `<div class="pt-mob-activity-card">
+      <div class="pt-mob-activity-header" onclick="ptToggleMobCard(this)">
+        <span>${activity}</span>
+        <i class="fa-solid fa-chevron-up pt-mob-chevron" aria-hidden="true"></i>
+      </div>
+      <div class="pt-mob-activity-body">${rows}</div>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = cards;
+}
+
+function ptToggleMobCard(header) {
+  header.closest('.pt-mob-activity-card').classList.toggle('collapsed');
+}
+
+function ptToggle(id, actIdx, el, e) {
+  if (e) e.stopPropagation();
+  const activity = PT_ACTIVITIES[actIdx];
+  ptCompletions[id][activity] = !ptCompletions[id][activity];
+  el.classList.toggle('checked');
+}
+
+function ptDeleteCurrentParticipant() {
+  if (ptActiveRowId === null) return;
+  ptParticipants = ptParticipants.filter(p => p.id !== ptActiveRowId);
+  delete ptCompletions[ptActiveRowId];
+  ptActiveRowId = null;
+  ptCloseAllMenus();
+  ptRender();
+}
+
+function ptDeleteAll() {
+  if (!confirm('Remove all participants?')) return;
+  ptParticipants = [];
+  Object.keys(ptCompletions).forEach(k => delete ptCompletions[k]);
+  ptCloseAllMenus();
+  ptRender();
+}
+
+function ptAddParticipant() {
+  const name = prompt('Participant name:');
+  if (!name || !name.trim()) return;
+  const id = ptNextId++;
+  ptParticipants.push({ id, name: name.trim() });
+  ptCompletions[id] = {};
+  PT_ACTIVITIES.forEach(a => { ptCompletions[id][a] = true; });
+  ptRender();
+}
+
+function ptToggleHeadMenu(e) {
+  e.stopPropagation();
+  const btn = document.getElementById('pt-head-kebab');
+  const dd = document.getElementById('pt-head-dropdown');
+  const isOpen = dd.classList.contains('open');
+  ptCloseAllMenus();
+  if (!isOpen) {
+    const rect = btn.getBoundingClientRect();
+    dd.style.top = (rect.bottom + 4) + 'px';
+    dd.style.right = (window.innerWidth - rect.right) + 'px';
+    dd.style.left = 'auto';
+    dd.classList.add('open');
+    btn.classList.add('open');
+    btn.setAttribute('aria-expanded', 'true');
+  }
+}
+
+function ptToggleRowMenu(e, id) {
+  e.stopPropagation();
+  const btn = e.currentTarget;
+  const dd = document.getElementById('pt-row-dropdown');
+  const isOpen = dd.classList.contains('open') && ptActiveRowId === id;
+  ptCloseAllMenus();
+  if (!isOpen) {
+    ptActiveRowId = id;
+    const rect = btn.getBoundingClientRect();
+    dd.style.top = (rect.bottom + 4) + 'px';
+    dd.style.left = rect.left + 'px';
+    dd.style.right = 'auto';
+    dd.classList.add('open');
+    btn.classList.add('open');
+  }
+}
+
+function ptCloseAllMenus() {
+  document.querySelectorAll('.pt-dropdown.open').forEach(d => d.classList.remove('open'));
+  document.querySelectorAll('.pt-kebab-btn.open, .pt-head-kebab-btn.open').forEach(b => {
+    b.classList.remove('open');
+    b.setAttribute('aria-expanded', 'false');
+  });
+}
+
+// Close participant menus on outside click
+document.addEventListener('click', ptCloseAllMenus);
+
+// Init participants table
+ptRender();
+
+/* ════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════ */
+updateAll();
+</script>
+</body>
+</html>
