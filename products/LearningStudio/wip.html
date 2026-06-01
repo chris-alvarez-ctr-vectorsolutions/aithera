@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WIP — Component Sandbox</title>
+
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+    </script>
+    <script
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+    </script>
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+
+    <style>
+        body {
+            font-family: 'Open Sans', sans-serif;
+            background: #f4f5f7;
+            color: #1a1a1a;
+            margin: 0;
+            padding: 40px;
+        }
+
+        .page-header {
+            margin-bottom: 32px;
+        }
+
+        .page-header h1 {
+            font-size: 22px;
+            font-weight: 700;
+            margin: 0 0 4px;
+        }
+
+        .page-header p {
+            font-size: 13px;
+            color: #6b7280;
+            margin: 0;
+        }
+
+        .section {
+            background: #fff;
+            border: 1px solid #e2e4e8;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+            max-width: 720px;
+        }
+
+        /* ── DS Usage Notes (nested inside a section) ── */
+        .ds-notes {
+            margin-top: 20px;
+            border-top: 1px dashed #e2e4e8;
+            padding-top: 16px;
+        }
+
+        .ds-notes summary {
+            list-style: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #6b7280;
+            user-select: none;
+            padding: 4px 0;
+        }
+
+        .ds-notes summary::-webkit-details-marker { display: none; }
+
+        .ds-notes summary .chev {
+            font-size: 10px;
+            transition: transform 0.15s ease;
+        }
+
+        .ds-notes[open] summary .chev {
+            transform: rotate(90deg);
+        }
+
+        .ds-notes summary:hover {
+            color: #1a1a1a;
+        }
+
+        .ds-notes-body {
+            margin-top: 12px;
+            padding: 14px 16px;
+            background: #f9fafb;
+            border: 1px solid #e2e4e8;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.55;
+            color: #1a1a1a;
+        }
+
+        .ds-notes-body p {
+            margin: 0 0 8px;
+        }
+
+        .ds-notes-body p:last-child {
+            margin-bottom: 0;
+        }
+
+        .ds-notes-body ul {
+            margin: 0 0 8px;
+            padding-left: 20px;
+        }
+
+        .ds-notes-body li {
+            margin-bottom: 4px;
+        }
+
+        .ds-notes-body code {
+            font-family: 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 12px;
+            background: rgba(0, 0, 0, 0.06);
+            padding: 1px 5px;
+            border-radius: 3px;
+        }
+
+        .ds-notes-body strong {
+            font-weight: 700;
+        }
+
+        .section h2 {
+            font-size: 15px;
+            font-weight: 600;
+            margin: 0 0 4px;
+            color: #1a1a1a;
+        }
+
+        .section .section-desc {
+            font-size: 12px;
+            color: #6b7280;
+            margin: 0 0 20px;
+        }
+
+        /* ── Searchable Dropdown ── */
+        .field-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 6px;
+        }
+
+        .combo {
+            position: relative;
+            width: 360px;
+        }
+
+        .combo-input-wrap {
+            display: flex;
+            align-items: center;
+            background: #fff;
+            border: 1px solid #c8ccd3;
+            border-radius: 4px;
+            padding: 0 10px 0 12px;
+            height: 36px;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+            cursor: text;
+        }
+
+        .combo-input-wrap:hover {
+            border-color: #9aa0ac;
+        }
+
+        .combo.is-open .combo-input-wrap,
+        .combo-input-wrap:focus-within {
+            border-color: #0066cc;
+            box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.15);
+        }
+
+        .combo-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-family: inherit;
+            font-size: 14px;
+            color: #1a1a1a;
+            min-width: 0;
+        }
+
+        .combo-input::placeholder {
+            color: #9aa0ac;
+        }
+
+        .combo-caret {
+            color: #6b7280;
+            font-size: 12px;
+            margin-left: 8px;
+            transition: transform 0.15s ease;
+        }
+
+        .combo.is-open .combo-caret {
+            transform: rotate(180deg);
+        }
+
+        .combo-menu {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: #fff;
+            border: 1px solid #e2e4e8;
+            border-radius: 6px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+            max-height: 260px;
+            overflow-y: auto;
+            z-index: 100;
+            padding: 4px 0;
+            display: none;
+        }
+
+        .combo.is-open .combo-menu {
+            display: block;
+        }
+
+        .combo-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            font-size: 14px;
+            color: #1a1a1a;
+            cursor: pointer;
+            transition: background 0.1s ease;
+        }
+
+        .combo-option:hover,
+        .combo-option.is-active {
+            background: #f4f7fb;
+        }
+
+        .combo-option.is-add-new {
+            color: #0066cc;
+            font-weight: 600;
+            border-bottom: 1px solid #e2e4e8;
+            margin-bottom: 4px;
+            padding-bottom: 10px;
+        }
+
+        .combo-option.is-add-new i {
+            font-size: 12px;
+        }
+
+        .combo-option .opt-text {
+            flex: 1;
+        }
+
+        .combo-empty {
+            padding: 16px 12px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 13px;
+        }
+
+        .combo-empty .empty-title {
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 2px;
+        }
+
+        .combo-empty .empty-sub {
+            font-size: 12px;
+        }
+
+        /* Hide native input "clear" cross in some browsers */
+        .combo-input::-webkit-search-cancel-button { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="page-header">
+        <h1>WIP — Component Sandbox</h1>
+        <p>A scratch page for individual components and pattern explorations.</p>
+    </div>
+
+    <!-- ── Searchable dropdown with "Add new" ── -->
+    <div class="section">
+        <h2>Searchable dropdown — with "Add new item"</h2>
+        <p class="section-desc">Type to filter. The "Add new item" action is always pinned to the top of the list.</p>
+
+        <label class="field-label" for="topicCombo">Topic</label>
+        <div class="combo" id="topicCombo">
+            <div class="combo-input-wrap">
+                <input
+                    type="text"
+                    class="combo-input"
+                    id="topicComboInput"
+                    placeholder="Select or search for a topic"
+                    autocomplete="off"
+                    role="combobox"
+                    aria-expanded="false"
+                    aria-controls="topicComboMenu"
+                />
+                <i class="fa-solid fa-chevron-down combo-caret"></i>
+            </div>
+            <div class="combo-menu" id="topicComboMenu" role="listbox"></div>
+        </div>
+
+        <!-- DS Usage Notes for this pattern -->
+        <details class="ds-notes">
+            <summary>
+                <i class="fa-solid fa-chevron-right chev"></i>
+                <i class="fa-solid fa-circle-info"></i>
+                <span>Claude DS Usage Notes</span>
+            </summary>
+            <div class="ds-notes-body">
+                <p>
+                    Built with <strong>plain HTML / CSS / JS</strong>, not
+                    <code>vaadin-combo-box</code>. Deliberate divergence from the
+                    design system — flagged here so it's visible.
+                </p>
+
+                <p><strong>Why custom instead of vaadin-combo-box:</strong></p>
+                <ul>
+                    <li>
+                        <strong>Pinned "Add new item" action.</strong>
+                        <code>vaadin-combo-box</code> has no clean slot for a sticky
+                        action row that survives filtering. Forcing it through the
+                        renderer API requires excluding a synthetic option from filter,
+                        sort, and selection logic — more workaround than the custom
+                        render function it replaces.
+                    </li>
+                    <li>
+                        <strong>Custom empty state.</strong> Vaadin's built-in
+                        "No items found" message is hard to restyle. The empty state
+                        here is a specific design (title + sub + the "Add new" action
+                        still available).
+                    </li>
+                    <li>
+                        <strong>Filter highlighting.</strong> Bolded substring on
+                        matches isn't a Vaadin built-in.
+                    </li>
+                </ul>
+
+                <p><strong>Where the design system IS followed:</strong></p>
+                <ul>
+                    <li><strong>Font:</strong> Open Sans via Vector assets CDN</li>
+                    <li><strong>Icons:</strong> Font Awesome (<code>fa-chevron-down</code>, <code>fa-plus</code>) per CLAUDE.md</li>
+                    <li><strong>Colors:</strong> Vector blue <code>#0066cc</code> for focus/primary accents; the project's standard neutral grays</li>
+                    <li><strong>Input visuals:</strong> 36px height, 4px radius, 1px border — mimics <code>vaadin-text-field theme="outlined"</code> so it sits next to real Vaadin fields without looking foreign</li>
+                    <li><strong>Focus ring:</strong> 2px <code>rgba(0,102,204,0.15)</code> halo — same pattern Vaadin outlined inputs use</li>
+                </ul>
+
+                <p><strong>Handoff note for devs:</strong></p>
+                <p>
+                    The visual <em>mimics</em> <code>vaadin-combo-box theme="outlined"</code>;
+                    it isn't using it. The "Add new" + custom-empty-state pattern is the
+                    real spec. In product code this should either (a) be rebuilt on top
+                    of <code>vaadin-combo-box</code> via its renderer API, or
+                    (b) prompt a request for a new Vector component if the pattern shows
+                    up in more than one place.
+                </p>
+            </div>
+        </details>
+    </div>
+
+    <script>
+        // Sample items — represent existing list options
+        const TOPIC_ITEMS = [
+            'Workplace Safety',
+            'Cybersecurity Awareness',
+            'Harassment Prevention',
+            'OSHA Compliance',
+            'Diversity & Inclusion',
+            'Customer Service',
+            'Emergency Response',
+            'Data Privacy',
+        ];
+
+        (function initCombo() {
+            const combo = document.getElementById('topicCombo');
+            const input = document.getElementById('topicComboInput');
+            const menu  = document.getElementById('topicComboMenu');
+
+            let activeIndex = -1;
+            let renderedOptions = []; // tracks current { type, value } in order
+
+            function open() {
+                combo.classList.add('is-open');
+                input.setAttribute('aria-expanded', 'true');
+                render(input.value);
+            }
+
+            function close() {
+                combo.classList.remove('is-open');
+                input.setAttribute('aria-expanded', 'false');
+                activeIndex = -1;
+            }
+
+            function render(query) {
+                const q = (query || '').trim().toLowerCase();
+                const matches = q
+                    ? TOPIC_ITEMS.filter(item => item.toLowerCase().includes(q))
+                    : TOPIC_ITEMS.slice();
+
+                menu.innerHTML = '';
+                renderedOptions = [];
+
+                // Always include the "Add new item" action first
+                const addNew = document.createElement('div');
+                addNew.className = 'combo-option is-add-new';
+                addNew.setAttribute('role', 'option');
+                addNew.innerHTML = `
+                    <i class="fa-solid fa-plus"></i>
+                    <span class="opt-text">${q ? `Add &ldquo;${escapeHtml(query.trim())}&rdquo;` : 'Add new item'}</span>
+                `;
+                addNew.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    handleAddNew(query.trim());
+                });
+                menu.appendChild(addNew);
+                renderedOptions.push({ type: 'add', value: query.trim() });
+
+                if (matches.length === 0 && q) {
+                    // Empty state for no search matches
+                    const empty = document.createElement('div');
+                    empty.className = 'combo-empty';
+                    empty.innerHTML = `
+                        <div class="empty-title">No matches for &ldquo;${escapeHtml(query.trim())}&rdquo;</div>
+                        <div class="empty-sub">Try a different search or add it as a new item.</div>
+                    `;
+                    menu.appendChild(empty);
+                    return;
+                }
+
+                matches.forEach(item => {
+                    const opt = document.createElement('div');
+                    opt.className = 'combo-option';
+                    opt.setAttribute('role', 'option');
+                    opt.innerHTML = `<span class="opt-text">${highlight(item, q)}</span>`;
+                    opt.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        selectItem(item);
+                    });
+                    menu.appendChild(opt);
+                    renderedOptions.push({ type: 'item', value: item });
+                });
+
+                activeIndex = -1;
+                refreshActive();
+            }
+
+            function refreshActive() {
+                const opts = menu.querySelectorAll('.combo-option');
+                opts.forEach((el, i) => {
+                    el.classList.toggle('is-active', i === activeIndex);
+                });
+                if (activeIndex >= 0 && opts[activeIndex]) {
+                    opts[activeIndex].scrollIntoView({ block: 'nearest' });
+                }
+            }
+
+            function selectItem(value) {
+                input.value = value;
+                close();
+            }
+
+            function handleAddNew(query) {
+                const name = query || prompt('Enter a name for the new item');
+                if (!name) return;
+                if (!TOPIC_ITEMS.includes(name)) {
+                    TOPIC_ITEMS.push(name);
+                }
+                selectItem(name);
+            }
+
+            function highlight(text, query) {
+                if (!query) return escapeHtml(text);
+                const idx = text.toLowerCase().indexOf(query);
+                if (idx === -1) return escapeHtml(text);
+                const before = escapeHtml(text.slice(0, idx));
+                const match  = escapeHtml(text.slice(idx, idx + query.length));
+                const after  = escapeHtml(text.slice(idx + query.length));
+                return `${before}<strong>${match}</strong>${after}`;
+            }
+
+            function escapeHtml(s) {
+                return String(s)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
+            // Events
+            input.addEventListener('focus', open);
+            input.addEventListener('click', open);
+            input.addEventListener('input', () => {
+                if (!combo.classList.contains('is-open')) open();
+                else render(input.value);
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    if (!combo.classList.contains('is-open')) { open(); return; }
+                    activeIndex = Math.min(activeIndex + 1, renderedOptions.length - 1);
+                    refreshActive();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    activeIndex = Math.max(activeIndex - 1, 0);
+                    refreshActive();
+                } else if (e.key === 'Enter') {
+                    if (activeIndex >= 0 && renderedOptions[activeIndex]) {
+                        e.preventDefault();
+                        const sel = renderedOptions[activeIndex];
+                        if (sel.type === 'add') handleAddNew(sel.value);
+                        else selectItem(sel.value);
+                    }
+                } else if (e.key === 'Escape') {
+                    close();
+                }
+            });
+
+            // Click the caret area to toggle
+            combo.querySelector('.combo-caret').addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                if (combo.classList.contains('is-open')) {
+                    close();
+                    input.blur();
+                } else {
+                    input.focus();
+                }
+            });
+
+            // Close on outside click
+            document.addEventListener('mousedown', (e) => {
+                if (!combo.contains(e.target)) close();
+            });
+        })();
+    </script>
+
+    <!-- GitHub Pages share pill -->
+    <style>
+      .gh-share-pill {
+        position: fixed;
+        bottom: 16px;
+        right: 16px;
+        z-index: 2147483000;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #18181b;
+        color: #fff;
+        padding: 9px 14px;
+        border-radius: 999px;
+        font: 600 12px/1 'SF Mono', Menlo, Consolas, monospace;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+        opacity: 0.85;
+        transition: opacity 0.15s ease, transform 0.15s ease;
+        text-decoration: none;
+      }
+      .gh-share-pill:hover { opacity: 1; transform: translateY(-2px); }
+      .gh-share-pill.is-copied { background: #10b981; }
+    </style>
+    <button class="gh-share-pill" id="ghSharePill" type="button" aria-label="Copy live GitHub Pages URL">🔗 Share Link</button>
+    <script>
+      (function() {
+        const pill = document.getElementById('ghSharePill');
+        if (!pill) return;
+        const m = window.location.pathname.match(/\/products\/([^/]+)\/(.+?)(?:\.html)?$/i);
+        const url = m
+          ? `https://vectorlearning.github.io/ux-mockups/products/${m[1]}/${m[2]}.html`
+          : 'https://vectorlearning.github.io/ux-mockups/';
+        pill.title = url;
+        pill.addEventListener('click', () => {
+          navigator.clipboard.writeText(url).then(() => {
+            pill.innerHTML = '✓ Copied!';
+            pill.classList.add('is-copied');
+            setTimeout(() => {
+              pill.innerHTML = '🔗 Share Link';
+              pill.classList.remove('is-copied');
+            }, 1500);
+          });
+        });
+      })();
+    </script>
+</body>
+</html>
