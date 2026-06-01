@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.0.0';
+  const WIDGET_VERSION = '1.2.1';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -125,7 +125,7 @@
 .cw-meta-line-value { flex: 1; min-width: 0; word-break: break-all; }
 
 /* Copy-for-Claude button */
-.cw-prompt-row { margin: 12px 0 4px; display: flex; justify-content: flex-end; }
+.cw-prompt-row { margin: 12px 0 4px; display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .cw-prompt-btn { display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(180deg, #fff 0%, #fffaeb 100%); border: 1px dashed #b45309; color: #78350f; border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all .12s; }
 .cw-prompt-btn:hover { background: #fef3c7; border-style: solid; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(180,83,9,.18); }
 .cw-prompt-btn:active { transform: translateY(0); }
@@ -344,6 +344,61 @@
   const countMatches = (sel) => { try { return document.querySelectorAll(sel).length; } catch (_) { return 0; } };
   const cssAttrEscape = (v) => String(v).replace(/(["\\])/g, '\\$1');
 
+  // The element's opening tag — the most grep-friendly "needle" for Claude
+  // Code to locate the line in source HTML. e.g. `<button class="primary"
+  // data-action="save">`. We strip the closing tag and children entirely.
+  function captureOpenTag(node) {
+    if (!(node instanceof Element)) return '';
+    const html = node.outerHTML || '';
+    const m = html.match(/^<[^>]+>/);
+    if (!m) return '';
+    return m[0].length > 300 ? m[0].slice(0, 297) + '…' : m[0];
+  }
+
+  // Walks up from the clicked element to find the nearest ancestor annotated
+  // with `data-file` + `data-line` (added by `scripts/annotate-source.py`).
+  // Mirrors the SOURCE-INSPECTOR.md Alt+click pattern — same attributes, same
+  // walk-up — so the widget reuses the existing locator instead of inventing
+  // a parallel one. Returns null if the page hasn't been annotated.
+  function findSourceAnchor(node) {
+    let n = node;
+    while (n && n.nodeType === 1) {
+      const f = n.getAttribute && n.getAttribute('data-file');
+      const l = n.getAttribute && n.getAttribute('data-line');
+      if (f && l) return { file: f, line: l };
+      n = n.parentElement;
+    }
+    return null;
+  }
+
+  // Opens the file:line in VS Code via the `vscode://file/<abs>:<line>` URL
+  // handler. Needs the user's local repo root (which only they know — the
+  // widget runs on GitHub Pages but VS Code opens local files). We cache it
+  // in localStorage under `cw-repo-root` after the first prompt.
+  function openInVSCode(pin) {
+    if (!pin.dataFile || !pin.dataLine) {
+      showToast('No source annotation on this element', 'error');
+      return;
+    }
+    let repoRoot = localStorage.getItem('cw-repo-root') || '';
+    if (!repoRoot) {
+      const entered = window.prompt(
+        'Set your local repo root path (saved in this browser only):\n\n' +
+        '  e.g. /Users/you/code/ux-mockups\n\n' +
+        'You can change this later by running:\n' +
+        '  localStorage.removeItem("cw-repo-root")'
+      );
+      if (!entered) return;
+      repoRoot = entered.trim().replace(/\/+$/, '');
+      if (!repoRoot) return;
+      localStorage.setItem('cw-repo-root', repoRoot);
+    }
+    const url = `vscode://file${repoRoot}/${pin.dataFile}:${pin.dataLine}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.click();
+  }
+
   // --- Claude Code prompt builder ---------------------------------------------
   function inferFilePath(url) {
     try {
@@ -364,19 +419,29 @@
   }
 
   function buildClaudePrompt(pin) {
-    const file = inferFilePath(pin.url);
+    const file = pin.dataFile || inferFilePath(pin.url);
     const lines = [];
-    if (file) lines.push(`In ${file}, find the element matching:`);
-    else lines.push(`On ${pin.url}, find the element matching:`);
-    if (pin.selector)    lines.push(`  selector: ${pin.selector}`);
+    // If we have a source-annotated file:line (from scripts/annotate-source.py),
+    // it's the most precise locator we can give Claude Code — point at it first.
+    if (pin.dataFile && pin.dataLine) {
+      lines.push(`Open ${pin.dataFile}:${pin.dataLine}.`);
+      lines.push('');
+      lines.push('That line is the element matching:');
+    } else if (file) {
+      lines.push(`In ${file}, find the element matching:`);
+    } else {
+      lines.push(`On ${pin.url}, find the element matching:`);
+    }
+    if (pin.elementHtml) lines.push(`  HTML: ${pin.elementHtml}`);
     if (pin.elementText) {
       const t = pin.elementText.trim().replace(/\s+/g, ' ');
       lines.push(`  text: "${t.slice(0, 180)}${t.length > 180 ? '…' : ''}"`);
     }
+    if (pin.selector) lines.push(`  selector: ${pin.selector}`);
     lines.push('');
     lines.push(`Apply this feedback: ${pin.comment}`);
     lines.push('');
-    lines.push(`(Posted by ${pin.author} on ${(pin.timestamp || '').slice(0,10)} — ${pin.url})`);
+    lines.push(`(Posted by ${pin.author} on ${(pin.timestamp || '').slice(0, 10)} — ${pin.url})`);
     return lines.join('\n');
   }
 
@@ -432,6 +497,31 @@
       document.head.appendChild(s);
     });
     return _h2c;
+  }
+
+  // Per-pin generation counter for background screenshot recapture after a
+  // drag. Incremented on every drag drop so an in-flight capture from a prior
+  // drag can detect it's stale and bail out before overwriting a newer image.
+  const pinDragGen = new Map();
+
+  async function recaptureScreenshot(pin, target, dragGen, panelWasOpen) {
+    const newShot = await captureElement(target);
+    if (!newShot) return;                                  // capture failed — keep the old screenshot
+    if (pinDragGen.get(pin.id) !== dragGen) return;        // newer drag superseded this one
+    try {
+      const { pin: updated } = await api('PATCH', '/pins/' + pin.id, {
+        url: pin.url,
+        author: state.author || pin.author,
+        screenshot: newShot,
+      });
+      mergePin(updated);
+      // Only refresh the panel if it's still open for this same pin — don't
+      // pop it back up if the user has since closed it or opened a different one.
+      if (panelWasOpen && state.openPanelPinId === updated.id) reopenPanel(updated);
+    } catch (_) {
+      // Swallow — the pin is already re-anchored; a missing screenshot update
+      // is not worth a toast. Old screenshot just stays for now.
+    }
   }
 
   async function captureElement(node) {
@@ -717,6 +807,10 @@
     const target = e.target;
     const selector = cssPath(target);
     const elementText = (target.innerText || target.textContent || '').trim().slice(0, 200);
+    const elementHtml = captureOpenTag(target);
+    const sourceAnchor = findSourceAnchor(target);
+    const dataFile = sourceAnchor ? sourceAnchor.file : '';
+    const dataLine = sourceAnchor ? sourceAnchor.line : '';
     const x = (e.clientX) / window.innerWidth;
     const y = (e.clientY + window.scrollY) / window.innerHeight;
     // Relative offset within the clicked element's box — keeps the pin anchored
@@ -728,7 +822,7 @@
     showToast('Capturing screenshot…', 'neutral');
     const screenshot = await captureElement(target);
     if (state.activeToast) { state.activeToast.remove(); state.activeToast = null; }
-    openNewPinPopup({ x, y, relX, relY, selector, elementText, screenshot, clickX: e.clientX, clickY: e.clientY + window.scrollY });
+    openNewPinPopup({ x, y, relX, relY, selector, elementText, elementHtml, dataFile, dataLine, screenshot, clickX: e.clientX, clickY: e.clientY + window.scrollY });
   }
 
   // ----- New pin popup --------------------------------------------------------
@@ -762,6 +856,9 @@
           product: getProduct(pageUrl),
           selector: ctx.selector,
           elementText: ctx.elementText,
+          elementHtml: ctx.elementHtml,
+          dataFile: ctx.dataFile,
+          dataLine: ctx.dataLine,
           x: ctx.x, y: ctx.y,
           relX: ctx.relX, relY: ctx.relY,
           screenshot: ctx.screenshot,
@@ -899,14 +996,20 @@
       title: `${pin.author} — ${rel(pin.timestamp)}  ·  drag to re-pin to another element`,
     }, [el('span', {}, [initial(pin.author)])]);
 
-    // Two interaction modes on a pin:
+    // Three interaction modes on a pin:
     //   - Comment mode active → mousedown starts a drag; click without movement is a no-op.
-    //     (Lets users reposition pins without opening their card.)
-    //   - Comment mode inactive (normal browse) → click opens the detail panel.
+    //   - This pin's detail panel is open → mousedown also starts a drag (so the
+    //     user can re-pin while reading the comment); click on the pin is a no-op
+    //     because the panel is already open.
+    //   - Normal browse → click opens the detail panel.
+    //
+    // The 5-px movement threshold in onMove keeps accidental jitter from being
+    // mistaken for a drag.
     let drag = null;
     dot.addEventListener('mousedown', (e) => {
       if (e.button !== 0) return;
-      if (!state.pickMode) return; // normal click → panel handler below
+      const canDrag = state.pickMode || state.openPanelPinId === pin.id;
+      if (!canDrag) return; // normal click → panel handler below
       e.stopPropagation(); e.preventDefault();
       drag = { sx: e.clientX, sy: e.clientY, lastX: e.clientX, lastY: e.clientY, moved: false };
       document.addEventListener('mousemove', onMove, true);
@@ -914,7 +1017,8 @@
     });
     dot.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (state.pickMode) return; // pick mode owns the pin via drag handler
+      if (state.pickMode) return;                       // pick mode owns the pin via drag handler
+      if (state.openPanelPinId === pin.id) return;      // panel already open for this pin → no-op
       openPanel(pin);
     });
 
@@ -948,32 +1052,56 @@
       const cy = (e && e.clientY != null) ? e.clientY : d.lastY;
       const target = topElementAt(cx, cy);
 
-      const prev = { x: pin.x, y: pin.y, selector: pin.selector, elementText: pin.elementText, relX: pin.relX, relY: pin.relY };
+      const prev = { x: pin.x, y: pin.y, selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY };
       const patch = { url: pin.url, author: state.author || pin.author };
 
-      // Re-anchor to whatever element we dropped on: new selector, element text
-      // and relative offset all travel with the pin.
+      // Re-anchor to whatever element we dropped on: new selector, element text,
+      // opening HTML tag, source file/line, and relative offset all travel
+      // with the pin. The elementHtml + dataFile/dataLine pair is what makes
+      // both "Copy for Claude Code" and "Open in VS Code" point at the *new*
+      // element after a move.
       if (target) {
         const r = target.getBoundingClientRect();
+        const anchor = findSourceAnchor(target);
         pin.selector = cssPath(target);
         pin.elementText = (target.innerText || target.textContent || '').trim().slice(0, 200);
+        pin.elementHtml = captureOpenTag(target);
+        pin.dataFile = anchor ? anchor.file : '';
+        pin.dataLine = anchor ? anchor.line : '';
         pin.relX = r.width ? clamp01((cx - r.left) / r.width) : 0.5;
         pin.relY = r.height ? clamp01((cy - r.top) / r.height) : 0;
-        Object.assign(patch, { selector: pin.selector, elementText: pin.elementText, relX: pin.relX, relY: pin.relY });
+        Object.assign(patch, { selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY });
       }
       pin.x = cx / window.innerWidth;
       pin.y = (cy + window.scrollY) / window.innerHeight;
       patch.x = pin.x; patch.y = pin.y;
 
       positionDot(dot, pin, target); // snap to the anchored spot immediately
+      const panelWasOpen = state.openPanelPinId === pin.id;
+      // Bump the per-pin drag generation so a slower-to-complete background
+      // screenshot capture from a *previous* drag of the same pin can detect
+      // that it's stale and skip writing its result.
+      const myDragGen = (pinDragGen.get(pin.id) || 0) + 1;
+      pinDragGen.set(pin.id, myDragGen);
       try {
         const { pin: updated } = await api('PATCH', '/pins/' + pin.id, patch);
         mergePin(updated);
         renderPins();
+        // If the user dragged a pin whose panel was open, refresh the panel so
+        // the snippet, HTML, selector, and Claude-prompt all reflect the new
+        // element they just re-anchored to.
+        if (panelWasOpen) reopenPanel(updated);
         showToast(target ? 'Pin re-anchored to element' : 'Pin moved', 'success');
+
+        // Recapture the screenshot in the background — html2canvas takes long
+        // enough (~hundreds of ms to seconds) that we don't want to block the
+        // drop confirmation on it. When it finishes, PATCH again with just the
+        // new image and refresh the panel if still open.
+        if (target) recaptureScreenshot(pin, target, myDragGen, panelWasOpen);
       } catch (err) {
         Object.assign(pin, prev);
         renderPins();
+        if (panelWasOpen) reopenPanel(pin);
         showToast(err.message || 'Could not move pin', 'error');
       }
     }
@@ -984,6 +1112,11 @@
   function renderStranded() {
     if (stranded) { stranded.remove(); stranded = null; }
     if (!state.stranded.length) return;
+    // Stranded pins are an admin-only concern. To a visitor or designer just
+    // viewing the mockup, a "broken pin" sidebar is noise — they can't do
+    // anything with it. Admins still see it so they can open the pin's panel
+    // and delete it (or re-anchor it by dragging once we surface that flow).
+    if (!state.isAdmin) return;
     stranded = el('div', { class: 'cw-stranded' }, [
       el('h5', {}, [`Stranded feedback (${state.stranded.length})`]),
       ...state.stranded.map(pin => el('div', {
@@ -1097,10 +1230,24 @@
       }, ['📋']);
       context.appendChild(el('div', { class: 'cw-elem-snippet' }, [quote, copyText]));
     }
+    if (pin.elementHtml) {
+      context.appendChild(el('div', { class: 'cw-meta-line' }, [
+        el('span', { class: 'cw-meta-line-label' }, ['HTML']),
+        el('span', { class: 'cw-meta-line-value' }, [el('code', {}, [pin.elementHtml])]),
+      ]));
+    }
     if (pin.selector) {
       context.appendChild(el('div', { class: 'cw-meta-line' }, [
         el('span', { class: 'cw-meta-line-label' }, ['Selector']),
         el('span', { class: 'cw-meta-line-value' }, [el('code', {}, [pin.selector])]),
+      ]));
+    }
+    if (pin.dataFile && pin.dataLine) {
+      context.appendChild(el('div', { class: 'cw-meta-line' }, [
+        el('span', { class: 'cw-meta-line-label' }, ['Source']),
+        el('span', { class: 'cw-meta-line-value' }, [
+          el('code', {}, [`${pin.dataFile}:${pin.dataLine}`])
+        ]),
       ]));
     }
     context.appendChild(el('div', { class: 'cw-meta-line' }, [
@@ -1109,13 +1256,20 @@
         el('a', { href: pin.url, target: '_blank', rel: 'noopener', title: pin.url }, [shortLocation(pin.url)])
       ]),
     ]));
-    context.appendChild(el('div', { class: 'cw-prompt-row' }, [
-      el('button', {
+    const promptButtons = [];
+    if (pin.dataFile && pin.dataLine) {
+      promptButtons.push(el('button', {
         class: 'cw-prompt-btn',
-        title: 'Copies a ready-to-paste prompt that tells Claude Code where this element is and what feedback to apply.',
-        onclick: async (e) => { await copyToClipboard(buildClaudePrompt(pin)); flashCopied(e.currentTarget, '✓ Copied for Claude Code'); },
-      }, ['✨ Copy for Claude Code']),
-    ]));
+        title: 'Opens this exact line in VS Code (vscode:// URL). First use prompts for your local repo root path.',
+        onclick: (e) => { e.stopPropagation(); openInVSCode(pin); },
+      }, ['📂 Open in VS Code']));
+    }
+    promptButtons.push(el('button', {
+      class: 'cw-prompt-btn',
+      title: 'Copies a ready-to-paste prompt that tells Claude Code where this element is and what feedback to apply.',
+      onclick: async (e) => { await copyToClipboard(buildClaudePrompt(pin)); flashCopied(e.currentTarget, '✓ Copied for Claude Code'); },
+    }, ['✨ Copy for Claude Code']));
+    context.appendChild(el('div', { class: 'cw-prompt-row' }, promptButtons));
     extras.push(context);
 
     return el('div', { class: 'cw-panel' }, [closeBtn, head, actions, body, ...extras, thread]);

@@ -145,10 +145,14 @@ Browsers may cache the widget aggressively. If teammates aren't seeing the updat
 - **On load**, the widget fetches all non-deleted pins for the current page URL and draws them.
 - **Pin dot**: colored circle with the author's first initial. Click to open the detail panel.
 - **Element-anchored**: each pin stores its target element's selector plus a relative offset (`relX`/`relY`) inside that element's box. Dots are positioned from the element's live bounding rect, so they scroll and reflow with the page instead of floating at a fixed spot.
-- **Drag to re-pin**: in comment mode, drag a dot onto another element. The element under the cursor is outlined as you drag; on drop the pin re-anchors — its `selector`, `elementText`, and offset are recaptured (so the "Copy for Claude Code" prompt points at the new element).
+- **Drag to re-pin**: drag a dot onto another element either (a) in comment mode, or (b) while that pin's detail panel is open. The element under the cursor is outlined as you drag; on drop the pin re-anchors — its `selector`, `elementText`, `elementHtml`, `dataFile`/`dataLine`, and offset are recaptured immediately (so the "Copy for Claude Code" prompt and "Open in VS Code" button both point at the new element). The screenshot is recaptured asynchronously in the background and PATCHed back once html2canvas finishes — the drop confirmation isn't blocked on it, and the panel auto-refreshes when the new image lands. If the user drags the same pin again before the previous capture completes, the stale capture is discarded. If the panel was open during the drag, it re-renders against the new anchor.
+- **Copy for Claude Code**: the panel's "✨ Copy for Claude Code" button copies a structured prompt — file path, the element's opening HTML tag, its inner text, and the CSS selector hint — telling Claude Code to Grep for the line first, then apply the feedback. The HTML tag is the most grep-friendly needle and is the strongest signal Claude Code gets to land on the right line. If the pinned element is annotated with `data-file`/`data-line` (see Source-Inspector annotations below), the prompt names the exact `file:line` outright.
+- **Open in VS Code**: a "📂 Open in VS Code" button appears alongside the Claude prompt button whenever the pinned element has `data-file` + `data-line` attributes (added by `scripts/annotate-source.py`, documented in [`SOURCE-INSPECTOR.md`](../SOURCE-INSPECTOR.md)). Clicking it opens the exact line in your local VS Code via the `vscode://file/<abs>:<line>` URL handler. The first click prompts you for your local repo-root path (e.g. `/Users/you/code/ux-mockups`) — that's saved in `localStorage` (`cw-repo-root`) per browser so you only do it once. To reset it: `localStorage.removeItem("cw-repo-root")`.
+  - **Static-HTML mockups** are fully supported once annotated. Re-run the annotation script after edits when line numbers drift.
+  - **React/SPA-style mockups** (anything that renders the UI from JSX inside `<script type="text/babel">`, e.g. `Scheduling/Rules engine only/`) have only their static shell annotated — the runtime React elements aren't tagged. For those, the VS Code button (when present) points at the shell line; "Copy for Claude Code" is the more useful path because Claude Code can grep the JSX source for the `HTML:` or `text:` needle.
 - **Done pins** render muted with a checkmark and stay visible until the next page refresh.
 - **Deleted pins** are soft-deleted (`deleted: true` in KV) and never shown.
-- **Stranded pins**: if a pin's CSS selector no longer matches anything on the page (mockup changed), the pin appears in a small sidebar instead of on the canvas, with a "Element no longer found on this page" note.
+- **Stranded pins**: if a pin's CSS selector no longer matches anything on the page (mockup changed), the pin can't be placed on the canvas. **Admins** see a small sidebar listing the stranded pins so they can open and delete (or otherwise clean up) each one. Non-admins don't see the sidebar — a broken pin is noise they can't act on.
 - **Undo**: marking a pin done or deleting it shows a toast with an `Undo` button. The undo window is 10 seconds, enforced by the Worker. After that the toast disappears and the Worker returns 409 if undo is attempted.
 - **Confluence logs**: every create / mark-done / delete / undo / reply / edit appends a timestamped entry to the configured Confluence page.
 
@@ -162,6 +166,9 @@ Browsers may cache the widget aggressively. If teammates aren't seeing the updat
   product: "Scheduling",
   selector: "...",
   elementText: "first 200 chars",
+  elementHtml: "<button class=\"primary\" data-action=\"save\">",  // opening tag only, ≤500 chars — used by the Claude Code prompt
+  dataFile: "products/Foo/index.html",  // from nearest data-file ancestor (annotate-source.py), empty if page not annotated
+  dataLine: "327",                       // from nearest data-line ancestor — pair with dataFile to enable "Open in VS Code"
   x: 0.0,            // legacy fallback: viewport-width fraction
   y: 0.0,            // legacy fallback: page-height fraction
   relX: 0.5,         // anchor offset within the element box (0–1), null if pre-anchoring
@@ -189,7 +196,7 @@ Browsers may cache the widget aggressively. If teammates aren't seeing the updat
 |---|---|---|---|
 | `GET` | `/pins?url=<encoded>` | — | Returns active (non-deleted) pins for the URL. |
 | `POST` | `/pins` | pin fields | Creates a pin. |
-| `PATCH` | `/pins/:id` | `{ url, done?, deleted?, comment?, author?, x?, y?, selector?, elementText?, relX?, relY? }` | Updates a pin. `url` is required for direct KV lookup. Passing `selector`/`relX`/`relY` re-anchors a dragged pin to a new element. |
+| `PATCH` | `/pins/:id` | `{ url, done?, deleted?, comment?, author?, x?, y?, selector?, elementText?, elementHtml?, dataFile?, dataLine?, relX?, relY? }` | Updates a pin. `url` is required for direct KV lookup. Passing `selector`/`elementHtml`/`dataFile`/`dataLine`/`relX`/`relY` re-anchors a dragged pin to a new element. |
 | `POST` | `/pins/:id/undo` | `{ url, author? }` | Reverts last done/delete on this pin if within 10s window. 409 if expired. |
 | `POST` | `/pins/:id/replies` | `{ url, author, text }` | Appends a reply to the pin thread. |
 
