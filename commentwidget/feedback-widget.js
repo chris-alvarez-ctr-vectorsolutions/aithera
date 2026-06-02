@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.4.1';
+  const WIDGET_VERSION = '1.5.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -23,7 +23,22 @@
     activeToast: null,
   };
 
-  const pageUrl = location.href.split('#')[0];
+  // Comments are keyed by a canonical page URL, NOT the raw location.href, so
+  // the same mock shows the same comments whether it's viewed on GitHub Pages,
+  // a local Live Server (localhost), or a file:// path. We rebuild the canonical
+  // GitHub Pages URL from the `/products/...` portion of the path (the same
+  // derivation the Share Link pill uses) and treat `/index.html` as the
+  // directory form so `…/folder/` and `…/folder/index.html` collapse together.
+  // Because GitHub Pages comments are already stored under this canonical URL,
+  // existing comments keep working — this only makes other environments match.
+  const PAGES_BASE = 'https://vectorlearning.github.io/ux-mockups';
+  function canonicalPageUrl() {
+    const m = location.pathname.match(/\/products\/.+$/i);
+    if (!m) return location.href.split('#')[0].split('?')[0]; // not a /products/ mock → best effort
+    const sub = m[0].replace(/\/index\.html?$/i, '/');         // drop the default document
+    return PAGES_BASE + sub;
+  }
+  const pageUrl = canonicalPageUrl();
   const IS_MAC = /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || '');
   const CMD_KEY = IS_MAC ? '⌘' : 'Ctrl';
 
