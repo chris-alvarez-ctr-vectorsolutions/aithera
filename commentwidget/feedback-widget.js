@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.3.0';
+  const WIDGET_VERSION = '1.4.1';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -46,7 +46,7 @@
 .cw-bubble { position: fixed; top: 20px; right: 20px; z-index: 2147483640; width: 44px; height: 44px; border-radius: 50%; background: #111827; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.25); border: 0; padding: 0; opacity: 1; transition: transform .15s, background .15s, opacity .2s; }
 .cw-bubble:hover { transform: scale(1.06); }
 .cw-bubble--active { background: #dc2626; font-size: 18px; }
-/* Comments-off: bubble fades fully out and stops reacting to hover so it never draws the eye. Still clickable for admins; visible again while actively in use. */
+/* Comments-off: the bubble fades fully out so it doesn't clutter the page, but it stays in the DOM and clickable for everyone (admins and visitors). Clicking it opens comment mode and reveals the pins; the bubble becomes visible again while comment mode is active, so it can be exited. No hotkey needed. */
 .cw-bubble--ghost { opacity: 0; }
 .cw-bubble--ghost:hover { transform: none; }
 .cw-bubble--ghost.cw-bubble--active { opacity: 1; }
@@ -486,7 +486,6 @@
   }
 
   function togglePickMode() {
-    if (state.settings.commentsDisabled && !state.isAdmin) return;
     if (state.pickMode) exitPickMode();
     else enterPickMode();
   }
@@ -502,15 +501,14 @@
 
   function applyAdminBubble() {
     if (!bubble) return;
-    // Comments off → bubble goes fully transparent (and drops its hover state)
-    // so it never draws attention. It stays in the DOM and clickable, so admins
-    // can still open it; visitors who click it are no-ops (pick mode is gated).
-    // Comments on → fully visible.
-    bubble.classList.toggle('cw-bubble--ghost', state.settings.commentsDisabled);
+    const off = !!state.settings.commentsDisabled;
+    // Comments off → the bubble fades fully out so it doesn't draw the eye, but
+    // it stays in the DOM and clickable for everyone. Clicking it opens comment
+    // mode and reveals the pins (see visiblePins), so neither admins nor
+    // visitors need a hotkey. Comments on → fully visible.
+    bubble.classList.toggle('cw-bubble--ghost', off);
     bubble.classList.toggle('cw-bubble--admin', state.isAdmin);
-    bubble.title = state.settings.commentsDisabled
-      ? (state.isAdmin ? 'Comments disabled — you can still manage them' : 'Comments disabled')
-      : 'Add feedback';
+    bubble.title = off ? 'Comments hidden — click to open' : 'Add feedback';
   }
 
   let adminPanel = null;
@@ -671,6 +669,7 @@
     document.addEventListener('mousemove', onPickHover, true);
     document.addEventListener('click', onPickClick, true);
     document.addEventListener('keydown', onPickKey, true);
+    renderPins(); // reveal pins if comments were hidden (dormant) until now
   }
 
   function exitPickMode() {
@@ -687,6 +686,7 @@
     document.removeEventListener('mousemove', onPickHover, true);
     document.removeEventListener('click', onPickClick, true);
     document.removeEventListener('keydown', onPickKey, true);
+    renderPins(); // hide pins again if comments are in the dormant (disabled) state
   }
 
   function isWidgetEl(node) {
@@ -828,9 +828,11 @@
   }
 
   // Returns the pins this user is allowed to see right now.
-  // Admins see everything. Non-admins respect the per-page settings.
+  // When comments are disabled the widget is dormant: pins stay hidden until
+  // someone clicks the (invisible) bubble to enter comment mode, which reveals
+  // them. Otherwise admins see everything and non-admins respect visitor mode.
   function visiblePins() {
-    if (state.settings.commentsDisabled && !state.isAdmin) return [];
+    if (state.settings.commentsDisabled && !state.pickMode) return [];
     let pins = state.pins.filter(p => !p.deleted);
     if (state.settings.visitorMode && !state.isAdmin) {
       pins = pins.filter(p => p.author === state.author);
