@@ -51,6 +51,184 @@
             padding: 16px 20px 120px;
         }
 
+        /* ─── Split / Compare Forms layout ─── */
+        /* Single column by default — primary pane fills the viewport, divider
+           and compare pane are hidden. When .compare-active is added to .split,
+           the layout becomes a CSS grid with --primary-pct controlling the
+           primary pane's column width. */
+        .split {
+            display: block;
+            position: relative;
+        }
+        .split.compare-active {
+            --primary-pct: 50%;
+            display: grid;
+            grid-template-columns: var(--primary-pct) 8px 1fr;
+            align-items: stretch;
+            /* Fix the split-container's height so the two panes can each become
+               their own scroll context. Height = viewport minus topnav, topbar,
+               and the sticky footer area. */
+            height: calc(100vh - var(--topnav-h, 56px) - var(--topbar-h, 56px) - 68px);
+        }
+        .split-pane {
+            min-width: 0;
+        }
+        .split-pane .app {
+            max-width: none;
+            margin: 0;
+        }
+        /* In compare mode, each pane scrolls independently. The pane header
+           stays pinned at the top of its own pane. */
+        .split.compare-active .split-pane {
+            overflow-y: auto;
+            position: relative;
+        }
+        .split-pane-compare { display: none; }
+        .split-divider { display: none; }
+        .split.compare-active .split-pane-compare { display: block; }
+        .split.compare-active .split-divider {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--border-soft);
+            cursor: col-resize;
+            position: relative;
+            transition: background 0.15s;
+        }
+        .split.compare-active .split-divider:hover,
+        .split.compare-active .split-divider.dragging {
+            background: var(--brand);
+        }
+        .split.compare-active .split-divider.dragging .split-divider-grip i {
+            color: #fff;
+        }
+        .split-divider-grip {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 36px;
+            background: #fff;
+            border: 1px solid var(--border-soft);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 10px;
+            pointer-events: none;
+        }
+        .split.compare-active .split-divider:hover .split-divider-grip,
+        .split.compare-active .split-divider.dragging .split-divider-grip {
+            border-color: var(--brand);
+        }
+
+        /* Pane headers — hidden by default, shown only in compare mode. The
+           strong visual difference (color + icon) makes it obvious which
+           pane is the original vs. the comparison. */
+        .pane-header {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--border-soft);
+            /* Pinned to the top of each pane's own scroll context */
+            position: sticky;
+            top: 0;
+            z-index: 40;
+        }
+        .split.compare-active .pane-header { display: flex; }
+        /* Primary pane: blue accent so it reads as 'this is yours, you can edit here' */
+        .split-pane-primary .pane-header {
+            background: #f0f7ff;
+            border-bottom-color: #c7e0fa;
+        }
+        /* Compare pane: muted/neutral so it reads as 'reference, not yours' */
+        .split-pane-compare .pane-header {
+            background: #f8f5ff;
+            border-bottom-color: #e2d6fa;
+        }
+        .pane-header-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            flex-shrink: 0;
+        }
+        .pane-header-badge-primary {
+            color: #0044aa;
+            background: #d8ebff;
+        }
+        .pane-header-badge-compare {
+            color: #5b21b6;
+            background: #ede4ff;
+        }
+        .pane-header-title {
+            flex: 1;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-strong);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+        }
+        .pane-header-close {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 14px;
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .pane-header-close:hover {
+            color: #b91c1c;
+            background: #fee2e2;
+        }
+        /* Compress padding inside the apps when in compare mode so two side-by-side
+           panes don't waste horizontal space */
+        .split.compare-active .split-pane .app {
+            padding: 16px 16px 120px;
+        }
+
+        /* Compare-forms dropdown menu items have a richer two-line layout */
+        .actions-menu-label {
+            font-size: 10px;
+            font-weight: 800;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 8px 12px 6px;
+        }
+        .compare-form-option { align-items: flex-start; }
+        .compare-option-meta {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.3;
+        }
+        .compare-option-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-strong);
+        }
+        .compare-option-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 1px;
+        }
+        #compareMenu { min-width: 260px; }
+
         /* ─── Top bar ─── */
         .topbar {
             position: sticky;
@@ -1122,7 +1300,9 @@
         .sig-signed-badge.locking { color: #92400e; background: #fef3c7; }
         .sig-signed-badge.locking i { font-size: 9px; }
 
-        /* Sticky footer actions */
+        /* Sticky footer actions — horizontal padding matches the topbar gutter
+           (24px) so the buttons hug the viewport edges as app chrome rather
+           than aligning to the form's content column. */
         .workspace-actions {
             position: fixed;
             left: 0; right: 0; bottom: 0;
@@ -1137,13 +1317,336 @@
             box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.04);
         }
         .workspace-actions-inner {
-            max-width: 1200px;
-            margin: 0 auto; width: 100%;
+            width: 100%;
             display: flex; justify-content: space-between; align-items: center;
             gap: 12px;
         }
         .workspace-actions-left { color: var(--text-muted); font-size: 13px; }
         .workspace-actions-right { display: flex; gap: 8px; }
+
+        /* ─── Assign assignment modal ─── */
+        .assign-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.5);
+            z-index: 320;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .assign-overlay.open { opacity: 1; pointer-events: auto; }
+        .assign-modal {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.25);
+            width: min(900px, 100%);
+            max-height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transform: translateY(10px);
+            transition: transform 0.2s;
+        }
+        .assign-overlay.open .assign-modal { transform: translateY(0); }
+        .assign-modal-header {
+            padding: 18px 24px 14px;
+            border-bottom: 1px solid var(--border-soft);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .assign-modal-header-body { flex: 1; min-width: 0; }
+        .assign-modal-title {
+            font-size: 17px;
+            font-weight: 700;
+            margin: 0 0 2px;
+        }
+        .assign-modal-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin: 0;
+        }
+        .assign-modal-close {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 16px;
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .assign-modal-close:hover {
+            color: #b91c1c;
+            background: #fef2f2;
+        }
+        .assign-modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 24px;
+        }
+
+        .assign-section-label {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--text-muted);
+            margin: 0 0 10px;
+        }
+
+        /* Batch defaults panel */
+        .assign-defaults {
+            background: #f8f9fb;
+            border: 1px solid var(--border-soft);
+            border-radius: 10px;
+            padding: 14px 16px;
+            margin-bottom: 22px;
+        }
+        .assign-defaults-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .assign-defaults-title {
+            font-size: 13px;
+            font-weight: 700;
+            margin: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .assign-defaults-title i { color: var(--brand); font-size: 12px; }
+        .assign-defaults-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            align-items: end;
+        }
+        @media (max-width: 720px) {
+            .assign-defaults-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        .assign-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+        .assign-field-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-strong);
+        }
+        .assign-field vaadin-date-picker { width: 100%; }
+        .assign-apply-row {
+            margin-top: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        /* Mandatory / Suggested segmented control */
+        .assign-segment {
+            display: inline-flex;
+            border: 1px solid var(--border-soft);
+            border-radius: 6px;
+            overflow: hidden;
+            background: #fff;
+        }
+        .assign-segment-btn {
+            background: #fff;
+            border: none;
+            padding: 7px 12px;
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-strong);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .assign-segment-btn + .assign-segment-btn {
+            border-left: 1px solid var(--border-soft);
+        }
+        .assign-segment-btn:hover { background: var(--page-bg); }
+        .assign-segment-btn.selected {
+            background: #e0ecf8;
+            color: var(--brand);
+        }
+        /* Selected state shows a leading checkmark; inactive state shows no icon. */
+        .assign-segment-btn.selected::before {
+            content: '\f00c'; /* fa-check */
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            font-size: 11px;
+            margin-right: 6px;
+            color: var(--brand);
+        }
+
+        /* Course rows */
+        .assign-courses-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .assign-courses-count {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        .assign-course {
+            background: #fff;
+            border: 1px solid var(--border-soft);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            overflow: hidden;
+        }
+        .assign-course.has-overrides {
+            border-color: #c7d2fe;
+            box-shadow: 0 0 0 1px #c7d2fe inset;
+        }
+        .assign-course-head {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            width: 100%;
+            font-family: inherit;
+            text-align: left;
+        }
+        .assign-course-head:hover { background: #fafbfc; }
+        .assign-course-chevron {
+            color: var(--text-muted);
+            font-size: 11px;
+            transition: transform 0.15s;
+            flex-shrink: 0;
+        }
+        .assign-course.expanded .assign-course-chevron { transform: rotate(90deg); }
+        .assign-course-title-block { flex: 1; min-width: 0; }
+        .assign-course-title {
+            font-size: 13px;
+            font-weight: 700;
+            margin: 0;
+            color: var(--text-strong);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .assign-course-meta {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin: 2px 0 0;
+            font-variant-numeric: tabular-nums;
+        }
+        .assign-course-tags {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        .assign-course-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 999px;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+        }
+        .assign-course-tag.mandatory { background: #fee2e2; color: #991b1b; }
+        .assign-course-tag.suggested { background: #e0e7ff; color: #3730a3; }
+        .assign-course-tag.custom { background: #ddd6fe; color: #5b21b6; }
+
+        .assign-course-body {
+            padding: 14px;
+            border-top: 1px solid var(--border-soft);
+            background: #fafbfc;
+        }
+        .assign-course-body[hidden] { display: none; }
+        .assign-course-fields {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            align-items: end;
+            margin-bottom: 10px;
+        }
+        @media (max-width: 720px) {
+            .assign-course-fields { grid-template-columns: repeat(2, 1fr); }
+        }
+        /* Visual indicator on overridden fields */
+        .assign-field.overridden vaadin-date-picker::part(input-field),
+        .assign-field.overridden .assign-segment {
+            box-shadow: 0 0 0 2px #c7d2fe;
+        }
+        .assign-field-overridden-marker {
+            display: none;
+            font-size: 10px;
+            font-weight: 700;
+            color: #5b21b6;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        .assign-field.overridden .assign-field-overridden-marker {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .assign-field-overridden-marker i { font-size: 9px; }
+        .assign-course-reset {
+            background: none;
+            border: none;
+            padding: 4px 0;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .assign-course-reset:hover { color: var(--brand); }
+
+        .assign-modal-footer {
+            padding: 14px 24px;
+            border-top: 1px solid var(--border-soft);
+            background: #fafbfc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+        .assign-modal-footer-left { font-size: 12px; color: var(--text-muted); }
+
+        /* "Assigned" chip on rec cards — uses the Vector design system success
+           color (--lumo-success-color: #158444, success text: #0a7637). */
+        .rec-card.assigned {
+            border-color: #158444;
+            box-shadow: 0 0 0 1px #158444 inset;
+        }
+        .rec-card-primary.assigned {
+            background: #158444;
+            pointer-events: none;
+        }
+        .rec-card-primary.assigned:hover { background: #0a7637; }
 
         /* Validation modal (reused) */
         .v-modal-overlay {
@@ -1294,10 +1797,44 @@
     </span>
 
     <div class="topbar-actions">
-        <vaadin-button theme="secondary" id="compareFormsBtn">
-            <i class="fa-solid fa-code-compare" style="margin-right:6px;"></i>
-            Compare Forms
-        </vaadin-button>
+        <div class="actions-menu-wrap" id="compareMenuWrap">
+            <vaadin-button theme="secondary" id="compareFormsBtn" aria-haspopup="true" aria-expanded="false">
+                <i class="fa-solid fa-code-compare" style="margin-right:6px;"></i>
+                Compare Forms
+                <i class="fa-solid fa-caret-down" style="margin-left:6px;"></i>
+            </vaadin-button>
+            <div class="actions-menu" id="compareMenu" role="menu" hidden>
+                <div class="actions-menu-label">Choose a form to compare</div>
+                <button class="actions-menu-item compare-form-option" type="button" role="menuitem" data-form-name="Mid-Year Review · 2025–26">
+                    <i class="fa-regular fa-clipboard"></i>
+                    <span class="compare-option-meta">
+                        <span class="compare-option-title">Mid-Year Review</span>
+                        <span class="compare-option-sub">2025–26 · Vincent Martinez</span>
+                    </span>
+                </button>
+                <button class="actions-menu-item compare-form-option" type="button" role="menuitem" data-form-name="End-of-Year Evaluation · 2024–25">
+                    <i class="fa-regular fa-clipboard"></i>
+                    <span class="compare-option-meta">
+                        <span class="compare-option-title">End-of-Year Evaluation</span>
+                        <span class="compare-option-sub">2024–25 · Vincent Martinez</span>
+                    </span>
+                </button>
+                <button class="actions-menu-item compare-form-option" type="button" role="menuitem" data-form-name="Walk-through Observation · Oct 2025">
+                    <i class="fa-regular fa-eye"></i>
+                    <span class="compare-option-meta">
+                        <span class="compare-option-title">Walk-through Observation</span>
+                        <span class="compare-option-sub">Oct 14, 2025 · S. Patel</span>
+                    </span>
+                </button>
+                <button class="actions-menu-item compare-form-option" type="button" role="menuitem" data-form-name="Self-Assessment · 2025–26">
+                    <i class="fa-regular fa-user"></i>
+                    <span class="compare-option-meta">
+                        <span class="compare-option-title">Self-Assessment</span>
+                        <span class="compare-option-sub">Submitted by Austin Smith</span>
+                    </span>
+                </button>
+            </div>
+        </div>
 
         <div class="actions-menu-wrap">
             <vaadin-button theme="secondary" id="actionsMenuBtn" aria-haspopup="true" aria-expanded="false">
@@ -1329,43 +1866,91 @@
     </div>
 </div>
 
-<div class="app">
+<!-- Split container — primary pane on the left, compare pane on the right (hidden by default).
+     When .compare-active is set on the container, the right pane becomes visible and the
+     divider sits between them. -->
+<div class="split" id="splitContainer">
 
-    <!-- Overall progress (only form-level progress the platform exposes) -->
-    <div class="progress-strip">
-        <div class="progress-strip-label">
-            <span>Overall progress</span>
-            <span class="count" id="overallCount">0 / 1</span>
+    <!-- Primary pane: the user's own form. Wrapped in a header strip so we can label
+         it clearly when in compare mode. -->
+    <div class="split-pane split-pane-primary" id="primaryPane">
+        <div class="pane-header" data-pane="primary">
+            <span class="pane-header-badge pane-header-badge-primary">
+                <i class="fa-solid fa-pen-to-square"></i>
+                Your form
+            </span>
+            <span class="pane-header-title">Performance Standards for Teacher Practice</span>
         </div>
-        <div class="progress-strip-bar"><div class="progress-strip-fill" id="overallFill"></div></div>
+        <div class="app">
+
+            <!-- Overall progress (only form-level progress the platform exposes) -->
+            <div class="progress-strip">
+                <div class="progress-strip-label">
+                    <span>Overall progress</span>
+                    <span class="count" id="overallCount">0 / 1</span>
+                </div>
+                <div class="progress-strip-bar"><div class="progress-strip-fill" id="overallFill"></div></div>
+            </div>
+
+            <!-- Flat list of "questions" rendered by the form builder. No grouping containers. -->
+            <div class="form-list" id="formList"></div>
+
+            <!-- Recommendations zone — external to the form builder -->
+            <div class="recs-zone">
+                <div class="recs-zone-header">
+                    <h2 class="recs-zone-title">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                        Course recommendations
+                    </h2>
+                    <p class="recs-zone-sub">Match low-rated items to relevant Vector Training courses.</p>
+                    <p class="recs-zone-note">This section is not part of the form builder — it's a separate feature.</p>
+                </div>
+                <div id="recommendationsSection"></div>
+            </div>
+        </div>
     </div>
 
-    <!-- Flat list of "questions" rendered by the form builder. No grouping containers. -->
-    <div class="form-list" id="formList"></div>
-
-    <!-- Recommendations zone — external to the form builder -->
-    <div class="recs-zone">
-        <div class="recs-zone-header">
-            <h2 class="recs-zone-title">
-                <i class="fa-solid fa-graduation-cap"></i>
-                Course recommendations
-            </h2>
-            <p class="recs-zone-sub">Match low-rated items to relevant Vector Training courses.</p>
-            <p class="recs-zone-note">This section is not part of the form builder — it's a separate feature.</p>
+    <!-- Draggable divider between the two panes (only visible in compare mode) -->
+    <div class="split-divider" id="splitDivider" role="separator" aria-orientation="vertical" aria-label="Resize comparison panes" tabindex="0">
+        <div class="split-divider-grip">
+            <i class="fa-solid fa-grip-vertical"></i>
         </div>
-        <div id="recommendationsSection"></div>
     </div>
 
-    <!-- Sticky footer actions -->
-    <div class="workspace-actions">
-        <div class="workspace-actions-inner">
-            <div class="workspace-actions-left">
-                <vaadin-button theme="tertiary">Cancel</vaadin-button>
+    <!-- Compare pane: shows another form for side-by-side reference. Hidden until activated. -->
+    <div class="split-pane split-pane-compare" id="comparePane">
+        <div class="pane-header" data-pane="compare">
+            <span class="pane-header-badge pane-header-badge-compare">
+                <i class="fa-solid fa-code-compare"></i>
+                Comparing
+            </span>
+            <span class="pane-header-title" id="comparePaneTitle">—</span>
+            <button type="button" class="pane-header-close" id="exitCompareBtn" aria-label="Close comparison">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="app">
+            <div class="progress-strip">
+                <div class="progress-strip-label">
+                    <span>Overall progress</span>
+                    <span class="count" id="compareOverallCount">0 / 1</span>
+                </div>
+                <div class="progress-strip-bar"><div class="progress-strip-fill" id="compareOverallFill"></div></div>
             </div>
-            <div class="workspace-actions-right">
-                <vaadin-button theme="secondary" id="saveDraftBtn">Save</vaadin-button>
-                <vaadin-button theme="success primary" id="submitEvaluationBtn">Submit evaluation</vaadin-button>
-            </div>
+            <div class="form-list" id="compareFormList"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Sticky footer actions (spans full width) -->
+<div class="workspace-actions">
+    <div class="workspace-actions-inner">
+        <div class="workspace-actions-left">
+            <vaadin-button theme="tertiary">Cancel</vaadin-button>
+        </div>
+        <div class="workspace-actions-right">
+            <vaadin-button theme="secondary" id="saveDraftBtn">Save</vaadin-button>
+            <vaadin-button theme="success primary" id="submitEvaluationBtn">Submit evaluation</vaadin-button>
         </div>
     </div>
 </div>
@@ -1913,6 +2498,9 @@ const TOTAL_COMPONENTS = 1;
 const ratings = {};
 const cart = new Set();
 const discarded = new Set();
+// Courses that have been assigned via the assign modal. Once assigned, the
+// rec card displays an "Assigned" chip instead of an "Add to assignment" CTA.
+const assigned = new Set();
 let recommendationsGenerated = false;
 
 const formList = document.getElementById('formList');
@@ -2629,9 +3217,11 @@ function renderRecommendations() {
 
 function renderRecCard(rec, isEditorsPick) {
     const c = rec.course;
+    const isAssigned = assigned.has(c.id);
     const inCart = cart.has(c.id);
+    const cardStateClass = isAssigned ? 'assigned' : (inCart ? 'in-cart' : '');
     return `
-        <div class="rec-card ${inCart ? 'in-cart' : ''}" data-course-id="${c.id}">
+        <div class="rec-card ${cardStateClass}" data-course-id="${c.id}">
             <div class="rec-card-image" style="background-image:url('${courseImageUrl(c.id)}');">
                 <div class="rec-card-type-stamp ${isEditorsPick ? 'vector-choice' : ''}">
                     ${isEditorsPick
@@ -2645,9 +3235,11 @@ function renderRecCard(rec, isEditorsPick) {
                         <h3 class="rec-card-title">${escapeHtml(c.title)}</h3>
                         <p class="rec-card-id">Course ${escapeHtml(c.id)} · ${escapeHtml(c.duration)}</p>
                     </div>
-                    <button type="button" class="rec-card-dismiss rec-card-discard" data-course-id="${c.id}" aria-label="Discard recommendation" title="Discard recommendation">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
+                    ${isAssigned ? '' : `
+                        <button type="button" class="rec-card-dismiss rec-card-discard" data-course-id="${c.id}" aria-label="Discard recommendation" title="Discard recommendation">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    `}
                 </div>
                 <p class="rec-card-desc">${escapeHtml(c.rationale)}</p>
                 <div class="rec-card-addresses">
@@ -2658,13 +3250,18 @@ function renderRecCard(rec, isEditorsPick) {
                 <button type="button" class="rec-card-secondary rec-card-details" data-course-id="${c.id}">
                     View details
                 </button>
-                <button type="button" class="rec-card-primary ${inCart ? 'added' : ''} rec-select"
-                        data-course-id="${c.id}"
-                        aria-pressed="${inCart ? 'true' : 'false'}">
-                    ${inCart
-                        ? '<i class="fa-solid fa-check"></i>Added'
-                        : '<i class="fa-solid fa-plus"></i>Add to assignment'}
-                </button>
+                ${isAssigned
+                    ? `<button type="button" class="rec-card-primary assigned" disabled>
+                            <i class="fa-solid fa-check"></i>Assigned
+                       </button>`
+                    : `<button type="button" class="rec-card-primary ${inCart ? 'added' : ''} rec-select"
+                            data-course-id="${c.id}"
+                            aria-pressed="${inCart ? 'true' : 'false'}">
+                        ${inCart
+                            ? '<i class="fa-solid fa-check"></i>Added'
+                            : '<i class="fa-solid fa-plus"></i>Add to assignment'}
+                    </button>`
+                }
             </div>
         </div>
     `;
@@ -2692,8 +3289,379 @@ function renderFloatingCart() {
         </button>
     `;
     el.querySelector('#floatingCartCta').addEventListener('click', () => {
-        alert('[Prototype] Assignment configuration flow comes next.');
+        openAssignModal();
     });
+}
+
+// ─── Assignment modal ───
+// Per-course settings: { effective, due, expire, type ('mandatory'|'suggested') }.
+// Each field is independently overrideable. The modal keeps a live copy of
+// these settings keyed by course ID; "Assign" commits them and marks the
+// courses as assigned. The floating cart triggers the modal.
+const courseAssignSettings = {};
+let assignBatchDefaults = null;
+
+function getDefaultAssignDates() {
+    const today = new Date();
+    const due = new Date(today); due.setMonth(due.getMonth() + 1);
+    const expire = new Date(today); expire.setFullYear(expire.getFullYear() + 1);
+    return {
+        effective: toIsoDate(today),
+        due: toIsoDate(due),
+        expire: toIsoDate(expire),
+        type: 'mandatory'
+    };
+}
+function toIsoDate(d) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+function formatDisplayDate(iso) {
+    if (!iso) return '—';
+    const [y, m, d] = iso.split('-').map(n => parseInt(n, 10));
+    const dt = new Date(y, m - 1, d);
+    return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function openAssignModal() {
+    // Initialize batch defaults and per-course settings on open
+    assignBatchDefaults = getDefaultAssignDates();
+    Array.from(cart).forEach(cid => {
+        // Seed every course with a copy of the current defaults
+        courseAssignSettings[cid] = { ...assignBatchDefaults, overrides: {} };
+    });
+    renderAssignModal();
+}
+
+function closeAssignModal() {
+    const overlay = document.getElementById('assignOverlay');
+    if (overlay) {
+        overlay.classList.remove('open');
+        setTimeout(() => overlay.remove(), 200);
+    }
+    document.body.style.overflow = '';
+}
+
+function renderAssignModal() {
+    let overlay = document.getElementById('assignOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'assignOverlay';
+        overlay.className = 'assign-overlay';
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeAssignModal();
+        });
+    }
+
+    const courseIds = Array.from(cart);
+    const courses = courseIds.map(cid => COURSES.find(c => c.id === cid)).filter(Boolean);
+
+    overlay.innerHTML = `
+        <div class="assign-modal" role="dialog" aria-modal="true" aria-labelledby="assignModalTitle">
+            <div class="assign-modal-header">
+                <div class="assign-modal-header-body">
+                    <h2 class="assign-modal-title" id="assignModalTitle">Configure assignment</h2>
+                    <p class="assign-modal-sub">Set training dates and type for ${courses.length} course${courses.length === 1 ? '' : 's'} assigned to <strong>Austin Smith</strong>.</p>
+                </div>
+                <button type="button" class="assign-modal-close" id="assignModalClose" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="assign-modal-body">
+                ${renderAssignDefaultsBlock()}
+                <div class="assign-courses-header">
+                    <p class="assign-section-label" style="margin:0;">
+                        Courses
+                        <span style="font-weight:400; text-transform:none; letter-spacing:0; color:var(--text-muted); margin-left:8px;">Override individually below if needed</span>
+                    </p>
+                    <span class="assign-courses-count">${courses.length} total</span>
+                </div>
+                ${courses.map(c => renderAssignCourseRow(c)).join('')}
+            </div>
+            <div class="assign-modal-footer">
+                <div class="assign-modal-footer-left">
+                    <span id="assignOverrideCount">${countOverriddenCourses()} customized</span>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <vaadin-button theme="tertiary" id="assignCancelBtn">Cancel</vaadin-button>
+                    <vaadin-button theme="primary" id="assignConfirmBtn">
+                        Assign ${courses.length} course${courses.length === 1 ? '' : 's'}
+                    </vaadin-button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    wireAssignModal();
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => overlay.classList.add('open'));
+}
+
+function renderAssignDefaultsBlock() {
+    const d = assignBatchDefaults;
+    return `
+        <div class="assign-defaults">
+            <div class="assign-defaults-grid">
+                <div class="assign-field">
+                    <label class="assign-field-label">Effective date</label>
+                    <vaadin-date-picker theme="outlined" value="${d.effective}" data-default-field="effective"></vaadin-date-picker>
+                </div>
+                <div class="assign-field">
+                    <label class="assign-field-label">Due date</label>
+                    <vaadin-date-picker theme="outlined" value="${d.due}" data-default-field="due"></vaadin-date-picker>
+                </div>
+                <div class="assign-field">
+                    <label class="assign-field-label">Expiration date</label>
+                    <vaadin-date-picker theme="outlined" value="${d.expire}" data-default-field="expire"></vaadin-date-picker>
+                </div>
+            </div>
+            <div class="assign-apply-row">
+                <div class="assign-field" style="flex-direction:row; align-items:center; gap:10px;">
+                    <label class="assign-field-label" style="margin:0;">Training type</label>
+                    <div class="assign-segment" data-default-field="type">
+                        <button type="button" class="assign-segment-btn ${d.type === 'mandatory' ? 'selected' : ''}" data-type-value="mandatory">Mandatory</button>
+                        <button type="button" class="assign-segment-btn ${d.type === 'suggested' ? 'selected' : ''}" data-type-value="suggested">Suggested</button>
+                    </div>
+                </div>
+                <vaadin-button theme="secondary" id="applyDefaultsBtn">
+                    <i class="fa-solid fa-arrows-rotate" style="margin-right:6px;"></i>
+                    Re-apply defaults to all courses
+                </vaadin-button>
+            </div>
+        </div>
+    `;
+}
+
+function renderAssignCourseRow(course) {
+    const settings = courseAssignSettings[course.id];
+    const overrides = settings.overrides || {};
+    const hasOverrides = Object.keys(overrides).length > 0;
+    const typeLabel = settings.type === 'mandatory' ? 'Mandatory' : 'Suggested';
+    return `
+        <div class="assign-course ${hasOverrides ? 'has-overrides' : ''}" data-course-id="${course.id}">
+            <button type="button" class="assign-course-head" data-toggle-course="${course.id}">
+                <i class="fa-solid fa-chevron-right assign-course-chevron"></i>
+                <div class="assign-course-title-block">
+                    <h4 class="assign-course-title">${escapeHtml(course.title)}</h4>
+                    <p class="assign-course-meta">
+                        ${escapeHtml(course.id)} · Due ${formatDisplayDate(settings.due)} · Expires ${formatDisplayDate(settings.expire)}
+                    </p>
+                </div>
+                <div class="assign-course-tags">
+                    ${hasOverrides ? '<span class="assign-course-tag custom"><i class="fa-solid fa-wand-magic-sparkles"></i>Custom</span>' : ''}
+                    <span class="assign-course-tag ${settings.type}">${escapeHtml(typeLabel)}</span>
+                </div>
+            </button>
+            <div class="assign-course-body" hidden>
+                <div class="assign-course-fields">
+                    <div class="assign-field ${overrides.effective ? 'overridden' : ''}">
+                        <label class="assign-field-label">
+                            Effective
+                            <span class="assign-field-overridden-marker"><i class="fa-solid fa-wand-magic-sparkles"></i>Custom</span>
+                        </label>
+                        <vaadin-date-picker theme="outlined" value="${settings.effective}" data-course-field="effective" data-course-id="${course.id}"></vaadin-date-picker>
+                    </div>
+                    <div class="assign-field ${overrides.due ? 'overridden' : ''}">
+                        <label class="assign-field-label">
+                            Due
+                            <span class="assign-field-overridden-marker"><i class="fa-solid fa-wand-magic-sparkles"></i>Custom</span>
+                        </label>
+                        <vaadin-date-picker theme="outlined" value="${settings.due}" data-course-field="due" data-course-id="${course.id}"></vaadin-date-picker>
+                    </div>
+                    <div class="assign-field ${overrides.expire ? 'overridden' : ''}">
+                        <label class="assign-field-label">
+                            Expire
+                            <span class="assign-field-overridden-marker"><i class="fa-solid fa-wand-magic-sparkles"></i>Custom</span>
+                        </label>
+                        <vaadin-date-picker theme="outlined" value="${settings.expire}" data-course-field="expire" data-course-id="${course.id}"></vaadin-date-picker>
+                    </div>
+                    <div class="assign-field ${overrides.type ? 'overridden' : ''}">
+                        <label class="assign-field-label">
+                            Type
+                            <span class="assign-field-overridden-marker"><i class="fa-solid fa-wand-magic-sparkles"></i>Custom</span>
+                        </label>
+                        <div class="assign-segment" data-course-id="${course.id}" data-course-field="type">
+                            <button type="button" class="assign-segment-btn ${settings.type === 'mandatory' ? 'selected' : ''}" data-type-value="mandatory">Mandatory</button>
+                            <button type="button" class="assign-segment-btn ${settings.type === 'suggested' ? 'selected' : ''}" data-type-value="suggested">Suggested</button>
+                        </div>
+                    </div>
+                </div>
+                ${hasOverrides ? `
+                    <button type="button" class="assign-course-reset" data-reset-course="${course.id}">
+                        <i class="fa-solid fa-arrow-rotate-left"></i>
+                        Reset to defaults
+                    </button>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
+function countOverriddenCourses() {
+    return Object.values(courseAssignSettings).filter(s => Object.keys(s.overrides || {}).length > 0).length;
+}
+
+function wireAssignModal() {
+    document.getElementById('assignModalClose').addEventListener('click', closeAssignModal);
+    document.getElementById('assignCancelBtn').addEventListener('click', closeAssignModal);
+    document.getElementById('assignConfirmBtn').addEventListener('click', commitAssignment);
+
+    // Batch defaults — track changes but don't push to courses automatically.
+    // The "Re-apply defaults to all courses" button explicitly broadcasts.
+    document.querySelectorAll('.assign-defaults [data-default-field]').forEach(el => {
+        const field = el.dataset.defaultField;
+        if (field === 'type') {
+            el.querySelectorAll('.assign-segment-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    assignBatchDefaults.type = btn.dataset.typeValue;
+                    el.querySelectorAll('.assign-segment-btn').forEach(b =>
+                        b.classList.toggle('selected', b === btn));
+                });
+            });
+        } else {
+            el.addEventListener('value-changed', (e) => {
+                assignBatchDefaults[field] = e.detail.value || '';
+            });
+        }
+    });
+
+    document.getElementById('applyDefaultsBtn').addEventListener('click', () => {
+        Array.from(cart).forEach(cid => {
+            courseAssignSettings[cid] = { ...assignBatchDefaults, overrides: {} };
+        });
+        // Re-render the modal body to reflect cleared overrides
+        renderAssignModal();
+    });
+
+    // Per-course field changes — track as overrides relative to current defaults
+    document.querySelectorAll('.assign-course-body').forEach(body => {
+        body.querySelectorAll('vaadin-date-picker[data-course-field]').forEach(picker => {
+            const cid = picker.dataset.courseId;
+            const field = picker.dataset.courseField;
+            picker.addEventListener('value-changed', (e) => {
+                const v = e.detail.value || '';
+                const settings = courseAssignSettings[cid];
+                settings[field] = v;
+                if (v !== assignBatchDefaults[field]) {
+                    settings.overrides[field] = true;
+                } else {
+                    delete settings.overrides[field];
+                }
+                refreshCourseRow(cid);
+            });
+        });
+        body.querySelectorAll('.assign-segment[data-course-field="type"] .assign-segment-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const cid = btn.closest('.assign-segment').dataset.courseId;
+                const v = btn.dataset.typeValue;
+                const settings = courseAssignSettings[cid];
+                settings.type = v;
+                if (v !== assignBatchDefaults.type) {
+                    settings.overrides.type = true;
+                } else {
+                    delete settings.overrides.type;
+                }
+                refreshCourseRow(cid);
+            });
+        });
+    });
+
+    // Toggle course expansion
+    document.querySelectorAll('[data-toggle-course]').forEach(head => {
+        head.addEventListener('click', () => {
+            const row = head.closest('.assign-course');
+            const body = row.querySelector('.assign-course-body');
+            const isOpen = !body.hidden;
+            body.hidden = isOpen;
+            row.classList.toggle('expanded', !isOpen);
+        });
+    });
+
+    // Reset row
+    document.querySelectorAll('[data-reset-course]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const cid = btn.dataset.resetCourse;
+            courseAssignSettings[cid] = { ...assignBatchDefaults, overrides: {} };
+            refreshCourseRow(cid, /* keepOpen */ true);
+        });
+    });
+}
+
+function refreshCourseRow(cid, keepOpen) {
+    const row = document.querySelector(`.assign-course[data-course-id="${cid}"]`);
+    if (!row) return;
+    const wasOpen = keepOpen || (row.classList.contains('expanded'));
+    const course = COURSES.find(c => c.id === cid);
+    const newHtml = renderAssignCourseRow(course);
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = newHtml.trim();
+    const newRow = wrapper.firstChild;
+    row.replaceWith(newRow);
+
+    // Re-wire just this row's listeners
+    const head = newRow.querySelector('[data-toggle-course]');
+    head.addEventListener('click', () => {
+        const body = newRow.querySelector('.assign-course-body');
+        const isOpen = !body.hidden;
+        body.hidden = isOpen;
+        newRow.classList.toggle('expanded', !isOpen);
+    });
+    newRow.querySelectorAll('vaadin-date-picker[data-course-field]').forEach(picker => {
+        const field = picker.dataset.courseField;
+        picker.addEventListener('value-changed', (e) => {
+            const v = e.detail.value || '';
+            const settings = courseAssignSettings[cid];
+            settings[field] = v;
+            if (v !== assignBatchDefaults[field]) {
+                settings.overrides[field] = true;
+            } else {
+                delete settings.overrides[field];
+            }
+            refreshCourseRow(cid, true);
+        });
+    });
+    newRow.querySelectorAll('.assign-segment[data-course-field="type"] .assign-segment-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const v = btn.dataset.typeValue;
+            const settings = courseAssignSettings[cid];
+            settings.type = v;
+            if (v !== assignBatchDefaults.type) {
+                settings.overrides.type = true;
+            } else {
+                delete settings.overrides.type;
+            }
+            refreshCourseRow(cid, true);
+        });
+    });
+    const resetBtn = newRow.querySelector('[data-reset-course]');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            courseAssignSettings[cid] = { ...assignBatchDefaults, overrides: {} };
+            refreshCourseRow(cid, true);
+        });
+    }
+
+    if (wasOpen) {
+        newRow.querySelector('.assign-course-body').hidden = false;
+        newRow.classList.add('expanded');
+    }
+
+    // Update footer counter
+    const counter = document.getElementById('assignOverrideCount');
+    if (counter) counter.textContent = `${countOverriddenCourses()} customized`;
+}
+
+function commitAssignment() {
+    // Mark all current cart courses as assigned and clear the cart
+    Array.from(cart).forEach(cid => assigned.add(cid));
+    cart.clear();
+    closeAssignModal();
+    // Re-render recs to swap "Added" buttons for "Assigned" chips
+    renderRecommendations();
+    // Floating cart auto-hides when cart is empty
 }
 
 function openDetailsPanel(courseId) {
@@ -3018,6 +3986,157 @@ document.getElementById('saveDraftBtn').addEventListener('click', handleSaveDraf
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
     menu.querySelectorAll('.actions-menu-item').forEach(item => {
         item.addEventListener('click', () => close());
+    });
+})();
+
+// ─── Compare Forms dropdown + split view ───
+(() => {
+    const btn = document.getElementById('compareFormsBtn');
+    const menu = document.getElementById('compareMenu');
+    const split = document.getElementById('splitContainer');
+    const divider = document.getElementById('splitDivider');
+    const compareTitle = document.getElementById('comparePaneTitle');
+    const compareFormList = document.getElementById('compareFormList');
+    const compareOverallCount = document.getElementById('compareOverallCount');
+    const compareOverallFill = document.getElementById('compareOverallFill');
+    const exitBtn = document.getElementById('exitCompareBtn');
+    if (!btn || !menu || !split || !divider) return;
+
+    function openMenu() { menu.hidden = false; btn.setAttribute('aria-expanded', 'true'); }
+    function closeMenu() { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.hidden ? openMenu() : closeMenu();
+    });
+    document.addEventListener('click', (e) => {
+        if (!menu.contains(e.target) && e.target !== btn) closeMenu();
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+
+    menu.querySelectorAll('.compare-form-option').forEach(item => {
+        item.addEventListener('click', () => {
+            const formName = item.dataset.formName;
+            enterCompareMode(formName);
+            closeMenu();
+        });
+    });
+
+    exitBtn.addEventListener('click', exitCompareMode);
+
+    function enterCompareMode(formName) {
+        compareTitle.textContent = formName;
+        split.classList.add('compare-active');
+        // Default to 50/50
+        split.style.setProperty('--primary-pct', '50%');
+
+        // Render an independent clone of the form into the compare pane.
+        // We reuse renderQuestion with the same items array but write into a
+        // different host, so state is not shared with the primary form.
+        renderCompareList();
+    }
+
+    function exitCompareMode() {
+        split.classList.remove('compare-active');
+        compareFormList.innerHTML = '';
+    }
+
+    // Build the compare pane's items independently of the primary form's
+    // current state. For the prototype, just clone the structure and
+    // pre-fill ratings to a plausible "previous evaluation" snapshot so
+    // the comparison visibly differs from the primary pane.
+    function renderCompareList() {
+        const d1 = DOMAINS[0];
+        const sampleComponent = d1.indicators[0].components[0];
+        const items = [
+            {
+                type: 'instruction',
+                divided: false,
+                bg: 'bg-d1',
+                align: 'left',
+                size: 'lg',
+                layout: 'under',
+                title: d1.title,
+                detailsHtml: `<p>${escapeHtml(d1.description)}</p>`
+            },
+            {
+                type: 'rating',
+                component: sampleComponent,
+                divided: true,
+                layout: 'under',
+                bg: ''
+            }
+        ];
+        compareFormList.innerHTML = items.map(renderQuestion).join('');
+
+        // Pre-fill a sample rating in the compare pane so it visibly differs.
+        // We don't want to affect the primary pane's `ratings` map, so apply
+        // the selected class directly to the compare pane DOM only.
+        const compareRatingLevel = 2; // "Effective" / "Proficient"
+        const tiles = compareFormList.querySelectorAll(`.rubric-tile[data-component-id="${sampleComponent.id}"]`);
+        tiles.forEach((t, i) => {
+            const sel = i === compareRatingLevel;
+            t.classList.toggle('selected', sel);
+            t.setAttribute('aria-checked', sel ? 'true' : 'false');
+        });
+        // Disable interactions in the compare pane (it's reference-only).
+        compareFormList.querySelectorAll('button, input, textarea, vaadin-button, vaadin-text-field, vaadin-text-area, vaadin-date-picker, vaadin-time-picker, vaadin-date-time-picker, vaadin-number-field, select').forEach(el => {
+            el.setAttribute('disabled', '');
+            el.style.pointerEvents = 'none';
+        });
+        // Fill the comparison progress strip
+        compareOverallCount.textContent = '1 / 1';
+        compareOverallFill.style.width = '100%';
+    }
+
+    // ── Drag-to-resize divider ──
+    // Each side is constrained to a minimum of 30% of the viewport width.
+    let dragging = false;
+    const MIN_PCT = 30;
+    const MAX_PCT = 70;
+
+    function onPointerDown(e) {
+        if (!split.classList.contains('compare-active')) return;
+        dragging = true;
+        divider.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        divider.setPointerCapture && divider.setPointerCapture(e.pointerId);
+        e.preventDefault();
+    }
+    function onPointerMove(e) {
+        if (!dragging) return;
+        const vw = window.innerWidth;
+        let pct = (e.clientX / vw) * 100;
+        // Clamp so neither pane shrinks below 30% of viewport width
+        pct = Math.max(MIN_PCT, Math.min(MAX_PCT, pct));
+        split.style.setProperty('--primary-pct', pct + '%');
+    }
+    function onPointerUp(e) {
+        if (!dragging) return;
+        dragging = false;
+        divider.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        try { divider.releasePointerCapture && divider.releasePointerCapture(e.pointerId); } catch (_) {}
+    }
+    divider.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+    document.addEventListener('pointercancel', onPointerUp);
+
+    // Keyboard accessibility: arrow keys nudge the divider in 2% steps
+    divider.addEventListener('keydown', (e) => {
+        if (!split.classList.contains('compare-active')) return;
+        const current = parseFloat(getComputedStyle(split).getPropertyValue('--primary-pct')) || 50;
+        const step = e.shiftKey ? 5 : 2;
+        let next = current;
+        if (e.key === 'ArrowLeft') next = current - step;
+        else if (e.key === 'ArrowRight') next = current + step;
+        else return;
+        e.preventDefault();
+        next = Math.max(MIN_PCT, Math.min(MAX_PCT, next));
+        split.style.setProperty('--primary-pct', next + '%');
     });
 })();
 
