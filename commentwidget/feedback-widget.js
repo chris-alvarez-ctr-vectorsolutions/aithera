@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.5.0';
+  const WIDGET_VERSION = '1.6.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -117,6 +117,9 @@
 .cw-panel-meta span { font-size: 11px; color: #6b7280; }
 .cw-panel-actions { display: flex; gap: 6px; margin: 4px 0 12px; padding-bottom: 10px; border-bottom: 1px dashed #d6d3d1; }
 .cw-panel-body { font-size: 13px; line-height: 1.5; margin-bottom: 10px; white-space: pre-wrap; word-break: break-word; }
+.cw-panel-selector { display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 6px 8px; background: #f5f5f4; border: 1px dashed #d6d3d1; border-radius: 6px; }
+.cw-panel-selector code { flex: 1; min-width: 0; font: 600 11px/1.4 'SF Mono', Menlo, Consolas, monospace; color: #1f2937; word-break: break-all; }
+.cw-panel-selector button { flex: none; }
 .cw-panel-thumb { margin: 8px 0; cursor: zoom-in; max-width: 100%; border-radius: 4px; border: 1px solid #e5e7eb; }
 .cw-panel-thumb img { display: block; max-width: 100%; max-height: 120px; }
 .cw-panel-close { position: absolute; top: 6px; right: 8px; background: transparent; border: 0; cursor: pointer; font-size: 18px; color: #92400e; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
@@ -387,6 +390,17 @@
     const a = document.createElement('a');
     a.href = url;
     a.click();
+  }
+
+  // Copies the pin's CSS selector. Handy for the React mocks where "Open in VS
+  // Code" can only reach the app-shell line — paste the selector into Claude
+  // Code (or DevTools) to jump straight to the real element.
+  function copySelector(pin) {
+    if (!pin.selector) { showToast('No selector on this pin', 'error'); return; }
+    navigator.clipboard.writeText(pin.selector).then(
+      () => showToast('Selector copied', 'success'),
+      () => showToast('Could not copy selector', 'error'),
+    );
   }
 
   // ----- API ------------------------------------------------------------------
@@ -1131,6 +1145,16 @@
     }
 
     const extras = [];
+    if (pin.selector && !stripped) {
+      extras.push(el('div', { class: 'cw-panel-selector' }, [
+        el('code', { title: pin.selector }, [pin.selector]),
+        el('button', {
+          class: 'cw-btn cw-btn--secondary cw-btn--small',
+          title: 'Copy this element’s CSS selector (paste into Claude Code or DevTools to locate it)',
+          onclick: (e) => { e.stopPropagation(); copySelector(pin); },
+        }, ['📋 Copy']),
+      ]));
+    }
     if (pin.screenshot && !stripped) {
       const thumb = el('div', { class: 'cw-panel-thumb', onclick: () => openLightbox(pin.screenshot) }, [
         el('img', { src: pin.screenshot, alt: 'screenshot' })
