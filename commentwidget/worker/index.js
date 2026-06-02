@@ -281,8 +281,11 @@ async function updatePin(id, request, env) {
   }
 
   const ev = (action, comment) => logEvent(env, { action, author, product: pin.product, url: pin.url, pinId: id, comment });
-  if (body.done !== undefined && body.done !== prevDone)       await ev(body.done ? 'done' : 'reopened');
-  if (body.deleted !== undefined && body.deleted !== prevDeleted) await ev(body.deleted ? 'deleted' : 'restored');
+  // Carry the comment text on every state change so the log row is identifiable
+  // (e.g. filtering action=done shows *which* comments were resolved, not just
+  // opaque pin ids).
+  if (body.done !== undefined && body.done !== prevDone)       await ev(body.done ? 'done' : 'reopened', pin.comment);
+  if (body.deleted !== undefined && body.deleted !== prevDeleted) await ev(body.deleted ? 'deleted' : 'restored', pin.comment);
   if (body.comment !== undefined && body.comment !== prevComment) await ev('edited', pin.comment);
   if (body.selector !== undefined && body.selector !== prevSelector) await ev('re-anchored', pin.selector);
 

@@ -33,6 +33,7 @@
     background: #fffaeb; color: var(--ink); min-width: 140px;
   }
   .toolbar input:focus, .toolbar select:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 3px rgba(245,158,11,.18); }
+  .toolbar select:disabled { background: #f3f1ea; color: #b3ada0; cursor: not-allowed; }
   .toolbar .grow { flex: 1; min-width: 200px; }
   button.refresh {
     align-self: flex-end; font: inherit; cursor: pointer; padding: 7px 14px; border-radius: 7px;
@@ -91,6 +92,9 @@
   <label>Product
     <select id="f-product"><option value="">All products</option></select>
   </label>
+  <label>Page
+    <select id="f-page" disabled><option value="">All pages</option></select>
+  </label>
   <label class="grow">Search
     <input id="f-search" type="search" placeholder="Filter by author, comment, or page…">
   </label>
@@ -147,12 +151,14 @@
     count: document.getElementById('count'),
     fAction: document.getElementById('f-action'),
     fProduct: document.getElementById('f-product'),
+    fPage: document.getElementById('f-page'),
     fSearch: document.getElementById('f-search'),
     refresh: document.getElementById('refresh'),
   };
 
   let allEvents = [];
   let productOptions = [];   // [{ value:'u:<url>', label, group }] built from the mock registry
+  let pagesByProduct = new Map(); // product name -> [{ url, label }] for the Page dropdown
   let sortKey = 'ts';
   let sortDir = -1; // newest first
 
@@ -213,46 +219,56 @@
     }
   }
 
-  // Build the grouped Product dropdown: an <optgroup> per product, an
-  // "— All <Product> —" entry to filter a whole product, then each mock. Any
-  // page that has events but isn't in the registry is added under its product
-  // (or "Other") so nothing is hidden.
-  function buildProductFilter(events) {
-    const groups = new Map();
-    for (const o of productOptions) {
-      if (!groups.has(o.group)) groups.set(o.group, []);
-      groups.get(o.group).push({ value: o.value, label: o.label });
-    }
-    const known = new Set(productOptions.map(o => o.value.slice(2)));
+  // Group every known page under its product, so the Product dropdown stays a
+  // short list (~a dozen products) and the Page dropdown only shows the pages of
+  // the chosen product. Registry pages come first; any page that has events but
+  // isn't in the registry is added under its product (or "Other") so nothing is
+  // hidden. Then (re)build both dropdowns.
+  function buildFilters(events) {
+    pagesByProduct = new Map();
+    const add = (product, url, label) => {
+      if (!pagesByProduct.has(product)) pagesByProduct.set(product, []);
+      pagesByProduct.get(product).push({ url, label });
+    };
+    const known = new Set();
+    for (const o of productOptions) { const url = o.value.slice(2); known.add(url); add(o.group, url, o.label); }
     for (const e of events) {
       if (!e.url || known.has(e.url)) continue;
       known.add(e.url);
-      const prod = e.product || 'Other';
-      if (!groups.has(prod)) groups.set(prod, []);
-      groups.get(prod).push({ value: 'u:' + e.url, label: pageLabel(e.url) + ' (from log)' });
+      add(e.product || 'Other', e.url, pageLabel(e.url) + ' (from log)');
     }
-    let html = '<option value="">All products</option>';
-    for (const product of [...groups.keys()].sort((a, b) => a.localeCompare(b))) {
-      html += `<optgroup label="${esc(product)}">`;
-      html += `<option value="p:${esc(product)}">— All ${esc(product)} —</option>`;
-      for (const o of groups.get(product).sort((a, b) => a.label.localeCompare(b.label))) {
-        html += `<option value="${esc(o.value)}">${esc(o.label)}</option>`;
-      }
-      html += '</optgroup>';
-    }
-    const prev = els.fProduct.value;
-    els.fProduct.innerHTML = html;
-    if (prev && [...els.fProduct.options].some(o => o.value === prev)) els.fProduct.value = prev;
+
+    // Product dropdown — just the product names.
+    const prevProduct = els.fProduct.value;
+    els.fProduct.innerHTML = '<option value="">All products</option>' +
+      [...pagesByProduct.keys()].sort((a, b) => a.localeCompare(b))
+        .map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+    if (prevProduct && pagesByProduct.has(prevProduct)) els.fProduct.value = prevProduct;
+
+    buildPageFilter(els.fProduct.value);
+  }
+
+  // Page dropdown — pages of the selected product only; disabled until a product
+  // is chosen (drill down: product → page).
+  function buildPageFilter(product) {
+    const prevPage = els.fPage.value;
+    const pages = product ? (pagesByProduct.get(product) || []) : [];
+    els.fPage.disabled = !product;
+    els.fPage.innerHTML = '<option value="">All pages</option>' +
+      [...pages].sort((a, b) => a.label.localeCompare(b.label))
+        .map(p => `<option value="${esc(p.url)}">${esc(p.label)}</option>`).join('');
+    if (prevPage && pages.some(p => p.url === prevPage)) els.fPage.value = prevPage;
   }
 
   function applyFilters() {
     const a = els.fAction.value;
-    const p = els.fProduct.value;   // ''=all, 'u:<url>'=one mock, 'p:<product>'=whole product
+    const prod = els.fProduct.value;   // '' = all products, else a product name
+    const page = els.fPage.value;      // '' = all pages, else a page URL
     const q = els.fSearch.value.trim().toLowerCase();
     return allEvents.filter(e => {
       if (a && e.action !== a) return false;
-      if (p.startsWith('u:') && e.url !== p.slice(2)) return false;
-      if (p.startsWith('p:') && (e.product || '') !== p.slice(2)) return false;
+      if (prod && (e.product || '') !== prod) return false;
+      if (page && e.url !== page) return false;
       if (q) {
         const hay = `${e.author} ${e.comment} ${e.product} ${e.url} ${e.pinId} ${e.action}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -321,7 +337,7 @@
     els.status.textContent = 'Loading activity…';
     try {
       await Promise.all([loadEvents(), loadProducts()]);
-      buildProductFilter(allEvents);
+      buildFilters(allEvents);
       render();
     } catch (err) {
       els.table.hidden = true;
@@ -338,7 +354,8 @@
   // Wire controls
   buildActionFilter();
   els.fAction.addEventListener('change', render);
-  els.fProduct.addEventListener('change', render);
+  els.fProduct.addEventListener('change', () => { buildPageFilter(els.fProduct.value); render(); });
+  els.fPage.addEventListener('change', render);
   els.fSearch.addEventListener('input', render);
   els.refresh.addEventListener('click', load);
   document.querySelectorAll('thead th').forEach(th => {
