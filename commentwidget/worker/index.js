@@ -6,11 +6,15 @@
 //   PATCH  /pins/:id            body: { url, author?, done?, deleted?, comment? }
 //   POST   /pins/:id/undo       body: { url, author? }
 //   POST   /pins/:id/replies    body: { url, author, text }
+//   GET    /log?limit=&action=&product=&url=   append-only activity history (newest first)
 //
 // KV layout:
 //   pin:<encoded-url>:<pin-id>   JSON Pin
 //   undo:<pin-id>                JSON { prevDone, prevDeleted, key, undoExpiresAt }  TTL 60s
 //                                (10s logical TTL enforced via undoExpiresAt; KV min TTL is 60s)
+//   log:<iso-timestamp>:<rand>   JSON Event  — append-only, never mutated or deleted.
+//                                A delete is a logged event, not an erasure, so the
+//                                history survives even when the pin is soft-deleted.
 
 const JSON_HEADERS = { 'content-type': 'application/json' };
 
@@ -28,6 +32,7 @@ export default {
     try {
       const route = matchRoute(request.method, url.pathname);
       if (route.name === 'list')       res = await listPins(url, env);
+      else if (route.name === 'log')    res = await listLog(url, env);
       else if (route.name === 'create') res = await createPin(request, env);
       else if (route.name === 'update') res = await updatePin(route.id, request, env);
       else if (route.name === 'undo')   res = await undoPin(route.id, request, env);
@@ -47,6 +52,7 @@ export default {
 
 function matchRoute(method, pathname) {
   if (method === 'GET'  && pathname === '/pins') return { name: 'list' };
+  if (method === 'GET'  && pathname === '/log')  return { name: 'log' };
   if (method === 'POST' && pathname === '/pins') return { name: 'create' };
   if (method === 'GET'   && pathname === '/settings') return { name: 'settings-get' };
   if (method === 'PATCH' && pathname === '/settings') return { name: 'settings-patch' };
@@ -94,6 +100,79 @@ async function getPin(env, pageUrl, id) {
   const key = pinKey(pageUrl, id);
   const pin = await env.PINS_KV.get(key, 'json');
   return pin ? { key, pin } : null;
+}
+
+// --- Activity log (append-only) ----------------------------------------------
+// Every meaningful action writes one immutable Event. Records are NEVER updated
+// or deleted, so the log is a true history — a deleted pin still has its
+// create/edit/delete events. Keyed by ISO timestamp so KV's lexicographic
+// list() returns them in chronological order; the viewer sorts newest-first.
+
+async function logEvent(env, { action, author, product, url, pinId, comment }) {
+  const ts = new Date().toISOString();
+  const evt = {
+    ts,
+    action,                                   // created | edited | done | reopened | deleted | restored | reply | re-anchored | settings | undo
+    author: author || 'anonymous',
+    product: product || '',
+    url: url || '',
+    pinId: pinId || '',
+    comment: truncate(comment || '', 200),
+  };
+  // rand suffix avoids key collisions when two events share a millisecond.
+  const rand = Math.random().toString(36).slice(2, 8);
+  try {
+    await env.PINS_KV.put(`log:${ts}:${rand}`, JSON.stringify(evt));
+  } catch (err) {
+    console.log(`[log] KV write failed: ${err.message}`);
+  }
+  // Mirror to Confluence so the existing audit page keeps working.
+  await logToConfluence(env, formatLogMessage(evt), url);
+}
+
+function formatLogMessage(e) {
+  const who = e.author;
+  const where = e.product || e.url;
+  switch (e.action) {
+    case 'created':     return `New feedback from ${who} on ${where} — ${truncate(e.comment, 100)}`;
+    case 'edited':      return `Edited by ${who} — pin ${e.pinId} — ${truncate(e.comment, 100)}`;
+    case 'done':        return `Marked done by ${who} — pin ${e.pinId}`;
+    case 'reopened':    return `Reopened by ${who} — pin ${e.pinId}`;
+    case 'deleted':     return `Deleted by ${who} — pin ${e.pinId}`;
+    case 'restored':    return `Restored by ${who} — pin ${e.pinId}`;
+    case 're-anchored': return `Re-anchored by ${who} — pin ${e.pinId} — now ${truncate(e.comment, 100)}`;
+    case 'reply':       return `Reply from ${who} on pin ${e.pinId}: ${truncate(e.comment, 100)}`;
+    case 'undo':        return `Undone by ${who} — pin ${e.pinId}`;
+    case 'settings':    return `Settings changed by ${who} — ${e.comment}`;
+    default:            return `${e.action} by ${who} — pin ${e.pinId}`;
+  }
+}
+
+async function listLog(url, env) {
+  const limit = Math.min(Number(url.searchParams.get('limit')) || 500, 2000);
+  const fAction = (url.searchParams.get('action') || '').trim();
+  const fProduct = (url.searchParams.get('product') || '').trim();
+  const fUrl = (url.searchParams.get('url') || '').trim();
+
+  const events = [];
+  let cursor;
+  do {
+    const res = await env.PINS_KV.list({ prefix: 'log:', cursor });
+    for (const key of res.keys) {
+      const evt = await env.PINS_KV.get(key.name, 'json');
+      if (!evt) continue;
+      if (fAction && evt.action !== fAction) continue;
+      if (fProduct && evt.product !== fProduct) continue;
+      if (fUrl && evt.url !== fUrl) continue;
+      events.push(evt);
+    }
+    cursor = res.cursor;
+    if (res.list_complete) break;
+  } while (cursor);
+
+  // Newest first; cap at limit.
+  events.sort((a, b) => b.ts.localeCompare(a.ts));
+  return json({ events: events.slice(0, limit), total: events.length });
 }
 
 // --- Handlers ----------------------------------------------------------------
@@ -145,9 +224,7 @@ async function createPin(request, env) {
     thread: []
   };
   await env.PINS_KV.put(pinKey(pin.url, id), JSON.stringify(pin));
-  await logToConfluence(env,
-    `New feedback from ${pin.author} on ${pin.product || pin.url} — ${truncate(pin.comment, 100)}`,
-    pin.url);
+  await logEvent(env, { action: 'created', author: pin.author, product: pin.product, url: pin.url, pinId: id, comment: pin.comment });
   return json({ pin }, 201);
 }
 
@@ -202,14 +279,11 @@ async function updatePin(id, request, env) {
     await env.PINS_KV.put(undoKey(id), JSON.stringify(undoVal), { expirationTtl: 60 });
   }
 
-  if (body.done === true)    await logToConfluence(env, `Marked done by ${author} — pin ${id}`, pin.url);
-  if (body.deleted === true) await logToConfluence(env, `Deleted by ${author} — pin ${id}`, pin.url);
-  if (body.comment !== undefined && body.comment !== prevComment) {
-    await logToConfluence(env, `Edited by ${author} — pin ${id} — ${truncate(pin.comment, 100)}`, pin.url);
-  }
-  if (body.selector !== undefined && body.selector !== prevSelector) {
-    await logToConfluence(env, `Re-anchored by ${author} — pin ${id} — now ${truncate(pin.selector, 100)}`, pin.url);
-  }
+  const ev = (action, comment) => logEvent(env, { action, author, product: pin.product, url: pin.url, pinId: id, comment });
+  if (body.done !== undefined && body.done !== prevDone)       await ev(body.done ? 'done' : 'reopened');
+  if (body.deleted !== undefined && body.deleted !== prevDeleted) await ev(body.deleted ? 'deleted' : 'restored');
+  if (body.comment !== undefined && body.comment !== prevComment) await ev('edited', pin.comment);
+  if (body.selector !== undefined && body.selector !== prevSelector) await ev('re-anchored', pin.selector);
 
   return json({ pin });
 }
@@ -227,7 +301,7 @@ async function undoPin(id, request, env) {
   pin.deleted = undoData.prevDeleted;
   await env.PINS_KV.put(undoData.key, JSON.stringify(pin));
   await env.PINS_KV.delete(undoKey(id));
-  await logToConfluence(env, `Undone by ${author} — pin ${id}`, pin.url);
+  await logEvent(env, { action: 'undo', author, product: pin.product, url: pin.url, pinId: id });
   return json({ pin });
 }
 
@@ -246,7 +320,7 @@ async function replyToPin(id, request, env) {
   pin.thread = pin.thread || [];
   pin.thread.push(reply);
   await env.PINS_KV.put(key, JSON.stringify(pin));
-  await logToConfluence(env, `Reply from ${reply.author} on pin ${id}: ${truncate(reply.text, 100)}`, pin.url);
+  await logEvent(env, { action: 'reply', author: reply.author, product: pin.product, url: pin.url, pinId: id, comment: reply.text });
   return json({ pin });
 }
 
@@ -268,9 +342,10 @@ async function patchSettings(request, env) {
   if (typeof body.commentsDisabled === 'boolean') stored.commentsDisabled = body.commentsDisabled;
   await env.PINS_KV.put(key, JSON.stringify(stored));
   const author = body.author || 'admin';
-  await logToConfluence(env,
-    `Settings changed by ${author} — visitorMode=${stored.visitorMode}, commentsDisabled=${stored.commentsDisabled}`,
-    body.url);
+  await logEvent(env, {
+    action: 'settings', author, url: body.url,
+    comment: `visitorMode=${stored.visitorMode}, commentsDisabled=${stored.commentsDisabled}`,
+  });
   return json({ settings: stored });
 }
 

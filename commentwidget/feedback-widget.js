@@ -39,6 +39,15 @@
     return PAGES_BASE + sub;
   }
   const pageUrl = canonicalPageUrl();
+
+  // The activity-log viewer is a sibling of this script (commentwidget/log.html).
+  // Resolving it against the widget's own src works at any mock depth and on
+  // GitHub Pages, localhost, or file://.
+  const LOG_URL = (() => {
+    const s = document.querySelector('script[src*="feedback-widget.js"]');
+    try { return new URL('log.html', s.src).href; }
+    catch (_) { return '/commentwidget/log.html'; }
+  })();
   const IS_MAC = /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || '');
   const CMD_KEY = IS_MAC ? '⌘' : 'Ctrl';
 
@@ -65,7 +74,6 @@
 .cw-bubble--ghost { opacity: 0; }
 .cw-bubble--ghost:hover { transform: none; }
 .cw-bubble--ghost.cw-bubble--active { opacity: 1; }
-.cw-bubble--admin::after { content: ''; position: absolute; top: -1px; right: -1px; width: 10px; height: 10px; background: #f59e0b; border-radius: 50%; border: 2px solid #111827; }
 .cw-bubble-tip { position: absolute; top: 54px; right: 0; background: #111827; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .15s; }
 .cw-bubble:hover .cw-bubble-tip { opacity: 1; }
 .cw-banner { position: fixed; top: 28px; right: 76px; z-index: 2147483640; background: #111827; color: #fff; padding: 8px 8px 8px 14px; border-radius: 22px; display: flex; align-items: center; gap: 10px; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
@@ -165,6 +173,8 @@
 .cw-admin-label { flex: 1; min-width: 0; }
 .cw-admin-label strong { display: block; font-size: 13px; color: #1f2937; margin-bottom: 3px; }
 .cw-admin-label span { display: block; font-size: 11px; color: #92400e; line-height: 1.4; }
+.cw-admin-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; padding: 7px 12px; border-radius: 8px; background: #fffaeb; border: 1px solid #fde68a; color: #78350f; font-size: 12px; font-weight: 600; text-decoration: none; transition: background .12s; }
+.cw-admin-link:hover { background: #fef3c7; }
 .cw-admin-footer { font-size: 10.5px; color: #92400e; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #fcd34d; font-style: italic; }
 
 /* Toggle switch */
@@ -564,7 +574,6 @@
     // mode and reveals the pins (see visiblePins), so neither admins nor
     // visitors need a hotkey. Comments on → fully visible.
     bubble.classList.toggle('cw-bubble--ghost', off);
-    bubble.classList.toggle('cw-bubble--admin', state.isAdmin);
     bubble.title = off ? 'Comments hidden — click to open' : 'Add feedback';
   }
 
@@ -609,6 +618,7 @@
         ]),
         disabledToggle.el,
       ]),
+      el('a', { class: 'cw-admin-link', href: LOG_URL, target: '_blank', rel: 'noopener' }, ['🗒️ View activity log ↗']),
       el('div', { class: 'cw-admin-footer' }, [
         `You are admin on this browser. Open comment mode and click the ⚙ button any time to reopen these controls.`
       ]),
