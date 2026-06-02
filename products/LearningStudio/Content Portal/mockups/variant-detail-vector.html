@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vector Variant — LearningStudio Content Portal</title>
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Open Sans', -apple-system, sans-serif;
+            font-size: 13px;
+            color: #0f2e3d;
+            background: #ffffff;
+            min-height: 100vh;
+        }
+
+        vwc-topnav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+        }
+
+        .app-body {
+            display: flex;
+            padding-top: 56px;
+            height: 100vh;
+        }
+
+        vwc-sidenav {
+            --vwc-sidenav-width: 240px;
+            --vwc-sidenav-max-width: 240px;
+            --offset: 56px;
+            flex-shrink: 0;
+            z-index: 10;
+            background: var(--lumo-base-color);
+            border-right: 1px solid rgba(28,55,90,0.1);
+        }
+
+        vwc-sidenav[collapsed] {
+            --vwc-sidenav-width: 56px;
+            --vwc-sidenav-max-width: 56px;
+        }
+
+        .main-content {
+            flex: 1;
+            min-width: 0;
+            overflow-y: auto;
+        }
+
+        .content-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px 32px;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--lumo-secondary-text-color);
+            margin-bottom: 16px;
+        }
+        .breadcrumb a {
+            color: var(--lumo-primary-color);
+            text-decoration: none;
+        }
+        .breadcrumb a:hover { text-decoration: underline; }
+        .breadcrumb .separator {
+            font-size: 9px;
+            color: var(--lumo-disabled-text-color);
+        }
+        .breadcrumb .current {
+            font-weight: 600;
+            color: #0f2e3d;
+        }
+
+        .detail-layout {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 24px;
+            align-items: start;
+        }
+
+        .detail-sidebar {
+            position: sticky;
+            top: 24px;
+            align-self: start;
+        }
+
+        /* ── Left column ── */
+        .variant-title-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .variant-title-block { min-width: 0; }
+        .variant-context {
+            font-size: 12px;
+            color: var(--lumo-secondary-text-color);
+            margin-bottom: 4px;
+        }
+        .variant-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #0f2e3d;
+            line-height: 1.3;
+        }
+
+        .ownership-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 11px;
+            border-radius: 20px;
+            font-size: 11.5px;
+            font-weight: 700;
+            white-space: nowrap;
+            flex-shrink: 0;
+            background: rgba(14,165,233,0.1);
+            color: #0271ce;
+            border: 1.5px solid rgba(14,165,233,0.3);
+        }
+
+        .meta-chips {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 5px;
+            background: rgba(28,55,90,0.06);
+            font-size: 12px;
+            color: var(--lumo-secondary-text-color);
+            border: 1px solid rgba(28,55,90,0.1);
+        }
+        .meta-chip.status-published { background: #e6f4ea; color: #2e7d32; border-color: rgba(46,125,50,0.2); }
+
+        /* Vector read-only banner */
+        .readonly-banner {
+            display: flex;
+            gap: 10px;
+            padding: 12px 14px;
+            background: #fff8e1;
+            border: 1px solid #ffe082;
+            border-radius: 6px;
+            font-size: 12.5px;
+            line-height: 1.5;
+            color: #5d4037;
+            margin-bottom: 20px;
+        }
+        .readonly-banner i { color: #f57c00; margin-top: 2px; flex-shrink: 0; }
+        .readonly-banner strong { font-weight: 700; }
+
+        .section-label {
+            font-size: 15px;
+            font-weight: 700;
+            color: #0f2e3d;
+            margin-bottom: 10px;
+            margin-top: 32px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(28,55,90,0.1);
+            letter-spacing: -0.01em;
+        }
+        .section-label:first-of-type { margin-top: 24px; }
+
+        .description-text {
+            font-size: 13px;
+            line-height: 1.7;
+            color: var(--lumo-body-text-color);
+        }
+
+        /* Sections list (LOs) */
+        .sections-list {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            border: 1px solid rgba(28,55,90,0.1);
+            border-bottom: none;
+            background: var(--lumo-base-color);
+            font-size: 13px;
+            color: #0f2e3d;
+        }
+        .section-item:first-child { border-radius: 6px 6px 0 0; }
+        .section-item:last-child { border-bottom: 1px solid rgba(28,55,90,0.1); border-radius: 0 0 6px 6px; }
+        .section-item .section-num {
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            background: rgba(14,165,233,0.12);
+            color: #0271ce;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 700; flex-shrink: 0;
+        }
+        .section-item-body { flex: 1; min-width: 0; }
+        .section-item-title { font-weight: 600; }
+        .section-item-meta {
+            display: flex;
+            gap: 12px;
+            font-size: 11.5px;
+            color: var(--lumo-secondary-text-color);
+            margin-top: 2px;
+        }
+        .lo-tag {
+            font-size: 9.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 1px 6px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        .lo-tag.shared { background: #e3f2fd; color: #1565c0; }
+        .lo-tag.unique { background: #fff3e0; color: #e65100; }
+
+        /* Authors */
+        .authors-list { display: flex; flex-direction: column; gap: 10px; }
+        .author-row { display: flex; align-items: center; gap: 12px; }
+        .author-avatar {
+            width: 34px; height: 34px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700; color: #fff;
+            flex-shrink: 0;
+        }
+        .author-name { font-size: 13px; font-weight: 600; color: #0f2e3d; }
+        .author-title { font-size: 11.5px; color: var(--lumo-secondary-text-color); }
+
+        /* ── Sidebar ── */
+        .sidebar-card {
+            background: var(--lumo-base-color);
+            border: 1px solid rgba(28,55,90,0.1);
+            border-radius: 8px;
+            padding: 18px 20px;
+            margin-bottom: 14px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        }
+        .sidebar-card-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--lumo-secondary-text-color);
+            margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(28,55,90,0.07);
+        }
+        .action-btn-stack { display: flex; flex-direction: column; gap: 8px; }
+
+        /* ── Version History card (sidebar) ── */
+        .vh-card-row {
+            display: flex;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(28,55,90,0.06);
+            font-size: 12px;
+        }
+        .vh-card-row:last-of-type { border-bottom: none; }
+        .vh-version-tag {
+            font-weight: 700;
+            color: var(--lumo-primary-color);
+            font-size: 11px;
+            min-width: 36px;
+            padding-top: 1px;
+        }
+        .vh-version-tag.current { color: #2e7d32; }
+        .vh-row-body { flex: 1; min-width: 0; }
+        .vh-row-summary {
+            color: #0f2e3d;
+            line-height: 1.4;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .vh-row-meta { font-size: 11px; color: var(--lumo-secondary-text-color); }
+        .vh-card-footer {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(28,55,90,0.07);
+            text-align: center;
+        }
+        .vh-card-footer a {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--lumo-primary-color);
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .vh-card-footer a:hover { text-decoration: underline; }
+
+        /* Version History dialog */
+        .vh-dialog-body { max-height: 60vh; overflow-y: auto; padding-right: 4px; }
+        .vh-timeline { position: relative; padding-left: 28px; }
+        .vh-timeline::before {
+            content: '';
+            position: absolute;
+            left: 9px; top: 6px; bottom: 6px;
+            width: 2px;
+            background: rgba(28,55,90,0.12);
+        }
+        .vh-event { position: relative; padding: 10px 0 14px 0; }
+        .vh-event-dot {
+            position: absolute;
+            left: -23px; top: 14px;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: var(--lumo-primary-color);
+            border: 2px solid #fff;
+            box-shadow: 0 0 0 2px rgba(28,55,90,0.12);
+        }
+        .vh-event.current .vh-event-dot {
+            background: #2e7d32;
+            box-shadow: 0 0 0 2px #c8e6c9;
+        }
+        .vh-event-card {
+            background: var(--lumo-base-color);
+            border: 1px solid rgba(28,55,90,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .vh-event.current .vh-event-card {
+            border-color: #2e7d32;
+            box-shadow: 0 0 0 1px #c8e6c9;
+        }
+        .vh-event-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            cursor: pointer;
+        }
+        .vh-expand-icon {
+            font-size: 10px;
+            color: var(--lumo-secondary-text-color);
+            width: 12px;
+            transition: transform 0.15s ease;
+        }
+        .vh-event.expanded .vh-expand-icon { transform: rotate(90deg); }
+        .vh-event-title { flex: 1; min-width: 0; }
+        .vh-version-line {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 13px; font-weight: 700; color: #0f2e3d;
+            margin-bottom: 2px;
+        }
+        .vh-current-badge {
+            font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            padding: 2px 7px; border-radius: 4px;
+            background: #c8e6c9; color: #1b5e20;
+        }
+        .vh-summary-line { font-size: 12px; color: var(--lumo-secondary-text-color); line-height: 1.4; }
+        .vh-event-meta {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 11px; color: var(--lumo-secondary-text-color);
+            padding-right: 8px;
+        }
+        .vh-event-meta .vh-avatar {
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 10px; font-weight: 700;
+            flex-shrink: 0;
+        }
+        .vh-event-body {
+            display: none;
+            padding: 0 14px 14px 14px;
+            border-top: 1px solid rgba(28,55,90,0.07);
+        }
+        .vh-event.expanded .vh-event-body { display: block; }
+        .vh-lo-label {
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--lumo-secondary-text-color);
+            margin: 12px 0 6px;
+        }
+        .vh-lo-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px; }
+        .vh-lo-row {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 10px;
+            background: #f7fafc;
+            border: 1px solid rgba(28,55,90,0.07);
+            border-radius: 6px;
+            font-size: 12px;
+        }
+        .vh-lo-icon {
+            width: 22px; height: 22px;
+            border-radius: 4px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px;
+            flex-shrink: 0;
+        }
+        .vh-lo-icon.shared { background: #e3f2fd; color: #1565c0; }
+        .vh-lo-icon.unique { background: #fff3e0; color: #e65100; }
+        .vh-lo-text { flex: 1; min-width: 0; }
+        .vh-lo-title {
+            font-weight: 600; color: #0f2e3d;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .vh-lo-meta { font-size: 11px; color: var(--lumo-secondary-text-color); margin-top: 1px; }
+        .vh-lo-tag {
+            font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            padding: 2px 6px; border-radius: 3px;
+        }
+        .vh-lo-tag.shared { background: #e3f2fd; color: #1565c0; }
+        .vh-lo-tag.unique { background: #fff3e0; color: #e65100; }
+
+        /* Copy-destination dialog body (mirrors content-detail-vector) */
+        .copy-dialog-body { padding: 8px 24px 4px; max-width: 460px; }
+        .copy-dialog-intro {
+            font-size: 13px;
+            line-height: 1.5;
+            margin-bottom: 14px;
+            color: #0f2e3d;
+        }
+        .copy-dialog-intro strong { font-weight: 700; }
+        .copy-option {
+            display: block;
+            padding: 14px 16px;
+            margin-bottom: 8px;
+            border: 1px solid rgba(28,55,90,0.12);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: border-color 0.12s, background 0.12s;
+        }
+        .copy-option:hover {
+            border-color: var(--lumo-primary-color);
+            background: rgba(14,165,233,0.04);
+        }
+        .copy-option input[type="radio"] { display: none; }
+        .copy-option.selected {
+            border-color: var(--lumo-primary-color);
+            background: rgba(14,165,233,0.06);
+            box-shadow: inset 0 0 0 1px var(--lumo-primary-color);
+        }
+        .copy-option-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f2e3d;
+            margin-bottom: 3px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .copy-option-desc {
+            font-size: 12px;
+            color: var(--lumo-secondary-text-color);
+            line-height: 1.5;
+        }
+        .copy-option-detail {
+            margin-top: 10px;
+            display: none;
+        }
+        .copy-option.selected .copy-option-detail { display: block; }
+    </style>
+</head>
+<body>
+
+    <vwc-topnav id="topnav" sidenav-id="sidenav"></vwc-topnav>
+
+    <div class="app-body">
+        <vwc-sidenav id="sidenav" active-item-id="library"></vwc-sidenav>
+
+        <main class="main-content">
+        <div class="content-inner">
+
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="content-library.html">Content Library</a>
+                <i class="fa-solid fa-chevron-right separator"></i>
+                <a href="content-detail-vector.html">Lockout/Tagout Safety — Fundamentals</a>
+                <i class="fa-solid fa-chevron-right separator"></i>
+                <span class="current">Vector Default — US (English)</span>
+            </nav>
+
+            <div class="detail-layout">
+
+                <!-- LEFT: Main detail -->
+                <div class="detail-main">
+
+                    <div class="variant-title-row">
+                        <div class="variant-title-block">
+                            <div class="variant-context">Variant of Lockout/Tagout Safety — Fundamentals</div>
+                            <h1 class="variant-title">Vector Default — US (English)</h1>
+                        </div>
+                        <span class="ownership-badge">
+                            <i class="fa-solid fa-v"></i> Vector
+                        </span>
+                    </div>
+
+                    <div class="meta-chips">
+                        <span class="meta-chip"><i class="fa-solid fa-bullseye"></i> General US workforce</span>
+                        <span class="meta-chip status-published"><i class="fa-solid fa-circle-check"></i> Published</span>
+                        <span class="meta-chip"><i class="fa-regular fa-clock"></i> 45 min</span>
+                        <span class="meta-chip"><i class="fa-solid fa-code-branch"></i> v2.1</span>
+                        <span class="meta-chip"><i class="fa-solid fa-language"></i> English</span>
+                    </div>
+
+                    <div class="readonly-banner">
+                        <i class="fa-solid fa-lock"></i>
+                        <div>
+                            <strong>Vector-managed variant.</strong> This content is read-only and maintained by the Vector Content Team. To make changes, copy it to your library &mdash; you'll get a fully editable user-owned copy with its own catalog details, version history, and publish lifecycle.
+                        </div>
+                    </div>
+
+                    <div class="section-label">Description</div>
+                    <p class="description-text">
+                        Foundational training on Lockout/Tagout (LOTO) procedures under OSHA 29 CFR 1910.147. Covers hazardous energy identification, the lockout/tagout sequence, and verification of energy isolation. Designed for general US workforce audiences and aligned to current federal standards.
+                    </p>
+
+                    <div class="section-label">Authors</div>
+                    <div class="authors-list">
+                        <div class="author-row">
+                            <div class="author-avatar" style="background:#1976d2">JK</div>
+                            <div>
+                                <div class="author-name">James Kowalski</div>
+                                <div class="author-title">EMS Training Officer</div>
+                            </div>
+                        </div>
+                        <div class="author-row">
+                            <div class="author-avatar" style="background:#388e3c">SM</div>
+                            <div>
+                                <div class="author-name">Dr. Sarah Mitchell</div>
+                                <div class="author-title">Industrial Safety Specialist</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-label">Content Sections (Learning Objects)</div>
+                    <div class="sections-list">
+                        <div class="section-item">
+                            <span class="section-num">1</span>
+                            <div class="section-item-body">
+                                <div class="section-item-title">Introduction to Hazardous Energy Control</div>
+                                <div class="section-item-meta">
+                                    <span><i class="fa-regular fa-clock"></i> 9 min</span>
+                                    <span><i class="fa-solid fa-code-branch"></i> v3</span>
+                                </div>
+                            </div>
+                            <span class="lo-tag shared">Shared LO</span>
+                        </div>
+                        <div class="section-item">
+                            <span class="section-num">2</span>
+                            <div class="section-item-body">
+                                <div class="section-item-title">Types of Energy and Isolation Methods</div>
+                                <div class="section-item-meta">
+                                    <span><i class="fa-regular fa-clock"></i> 12 min</span>
+                                    <span><i class="fa-solid fa-code-branch"></i> v5</span>
+                                </div>
+                            </div>
+                            <span class="lo-tag shared">Shared LO</span>
+                        </div>
+                        <div class="section-item">
+                            <span class="section-num">3</span>
+                            <div class="section-item-body">
+                                <div class="section-item-title">Lockout vs. Tagout: When and How</div>
+                                <div class="section-item-meta">
+                                    <span><i class="fa-regular fa-clock"></i> 14 min</span>
+                                    <span><i class="fa-solid fa-code-branch"></i> v3</span>
+                                </div>
+                            </div>
+                            <span class="lo-tag shared">Shared LO</span>
+                        </div>
+                        <div class="section-item">
+                            <span class="section-num">4</span>
+                            <div class="section-item-body">
+                                <div class="section-item-title">Re-energization Procedures &amp; Employee Responsibilities</div>
+                                <div class="section-item-meta">
+                                    <span><i class="fa-regular fa-clock"></i> 10 min</span>
+                                    <span><i class="fa-solid fa-code-branch"></i> v2</span>
+                                </div>
+                            </div>
+                            <span class="lo-tag shared">Shared LO</span>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- RIGHT: Sidebar -->
+                <div class="detail-sidebar">
+
+                    <!-- Primary actions -->
+                    <div class="sidebar-card">
+                        <div class="sidebar-card-title">Actions</div>
+                        <div class="action-btn-stack">
+                            <vaadin-button id="copy-btn" theme="primary" style="width:100%">
+                                <i class="fa-regular fa-copy" slot="prefix"></i>
+                                Copy to My Library
+                            </vaadin-button>
+                            <vaadin-button id="preview-btn" theme="secondary" style="width:100%">
+                                <i class="fa-solid fa-play" slot="prefix"></i>
+                                Preview as Learner
+                            </vaadin-button>
+                        </div>
+                        <div style="font-size:11.5px; color:var(--lumo-secondary-text-color); margin-top:10px; line-height:1.5;">
+                            <i class="fa-solid fa-circle-info" style="margin-right:4px"></i>
+                            Vector variants can't be edited directly. Copy this to your library to create a user-owned version you fully control.
+                        </div>
+                    </div>
+
+                    <!-- Version History (read-only — no revert) -->
+                    <div class="sidebar-card">
+                        <div class="sidebar-card-title">Version History</div>
+
+                        <div class="vh-card-row">
+                            <div class="vh-version-tag current">v2.1</div>
+                            <div class="vh-row-body">
+                                <div class="vh-row-summary">Refreshed Section 2 visuals; updated PPE references</div>
+                                <div class="vh-row-meta">Apr 18, 2026 · Vector Content Team</div>
+                            </div>
+                        </div>
+
+                        <div class="vh-card-row">
+                            <div class="vh-version-tag">v2.0</div>
+                            <div class="vh-row-body">
+                                <div class="vh-row-summary">OSHA 29 CFR 1910.147 2026 update incorporated</div>
+                                <div class="vh-row-meta">Mar 30, 2026 · Dr. Sarah Mitchell</div>
+                            </div>
+                        </div>
+
+                        <div class="vh-card-row">
+                            <div class="vh-version-tag">v1.2</div>
+                            <div class="vh-row-body">
+                                <div class="vh-row-summary">Minor edits; closed-captioning corrections</div>
+                                <div class="vh-row-meta">Feb 14, 2026 · James Kowalski</div>
+                            </div>
+                        </div>
+
+                        <div class="vh-card-footer">
+                            <a id="vh-open-dialog"><i class="fa-solid fa-clock-rotate-left" style="margin-right:5px"></i>View full history</a>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div><!-- /.content-inner -->
+        </main>
+    </div>
+
+    <!-- Version History dialog (read-only) -->
+    <vaadin-dialog id="vh-dialog" header-title="Variant Version History" theme="no-padding"></vaadin-dialog>
+
+    <!-- Copy variant destination dialog -->
+    <vaadin-dialog id="copy-dialog" header-title="Copy variant to your library"></vaadin-dialog>
+
+<script>
+const VARIANT_NAME = 'Vector Default — US (English)';
+
+const VERSION_HISTORY = [
+    {
+        version: 'v2.1', date: 'Apr 18, 2026', time: '10:12 AM',
+        author: 'Vector Content Team', avatar: { initials: 'VC', color: '#1976d2' },
+        summary: 'Refreshed Section 2 visuals; updated PPE references',
+        isCurrent: true,
+        los: [
+            { title: 'Types of Energy and Isolation Methods', type: 'shared', version: 'v5', note: 'Updated with new visual aids; propagated from shared library' }
+        ]
+    },
+    {
+        version: 'v2.0', date: 'Mar 30, 2026', time: '8:00 AM',
+        author: 'Dr. Sarah Mitchell', avatar: { initials: 'SM', color: '#388e3c' },
+        summary: 'OSHA 29 CFR 1910.147 2026 regulatory update incorporated',
+        isCurrent: false,
+        los: [
+            { title: 'Introduction to Hazardous Energy Control', type: 'shared', version: 'v3', note: 'Rewritten for 2026 OSHA standard' },
+            { title: 'Lockout vs. Tagout: When and How', type: 'shared', version: 'v3', note: 'Updated procedural steps' },
+            { title: 'Re-energization Procedures & Employee Responsibilities', type: 'shared', version: 'v2', note: 'Compliance language updated' }
+        ]
+    },
+    {
+        version: 'v1.2', date: 'Feb 14, 2026', time: '1:45 PM',
+        author: 'James Kowalski', avatar: { initials: 'JK', color: '#1976d2' },
+        summary: 'Minor edits; closed-captioning corrections',
+        isCurrent: false,
+        los: [
+            { title: 'Types of Energy and Isolation Methods', type: 'shared', version: 'v4', note: 'Caption fixes only' }
+        ]
+    },
+    {
+        version: 'v1.1', date: 'Jan 22, 2026', time: '11:30 AM',
+        author: 'James Kowalski', avatar: { initials: 'JK', color: '#1976d2' },
+        summary: 'Added quiz to Section 3',
+        isCurrent: false,
+        los: [
+            { title: 'Lockout vs. Tagout: When and How', type: 'shared', version: 'v2', note: 'Added end-of-section assessment' }
+        ]
+    },
+    {
+        version: 'v1.0', date: 'Jan 8, 2026', time: '9:00 AM',
+        author: 'Dr. Sarah Mitchell', avatar: { initials: 'SM', color: '#388e3c' },
+        summary: 'Initial publish',
+        isCurrent: false,
+        los: [
+            { title: 'Introduction to Hazardous Energy Control', type: 'shared', version: 'v1', note: 'Authored for this variant' },
+            { title: 'Types of Energy and Isolation Methods', type: 'shared', version: 'v1', note: 'Authored for this variant' },
+            { title: 'Lockout vs. Tagout: When and How', type: 'shared', version: 'v1', note: 'Authored for this variant' },
+            { title: 'Re-energization Procedures & Employee Responsibilities', type: 'shared', version: 'v1', note: 'Authored for this variant' }
+        ]
+    }
+];
+
+customElements.whenDefined('vwc-sidenav').then(() => {
+    const topnav = document.getElementById('topnav');
+    topnav.logo = { src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 32'><rect x='0' y='4' width='24' height='24' rx='4' fill='%230f2e3d'/><text x='32' y='22' font-family='Open Sans,sans-serif' font-size='16' font-weight='700' fill='%230f2e3d'>LOGO</text></svg>", alt: 'Logo' };
+
+    const sidenav = document.getElementById('sidenav');
+    sidenav.items = [
+        { type: 'link', id: 'library',  text: 'Content Library', href: 'content-library.html', icon: { type: 'svg', path: 'M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z' } },
+        { type: 'link', id: 'authors',  text: 'Authors', href: 'authors.html', icon: { type: 'svg', path: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z' } },
+        { type: 'divider' },
+        { type: 'link', id: 'assets',   text: 'Assets', href: 'global-assets.html', icon: { type: 'svg', path: 'M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z' } },
+        { type: 'link', id: 'settings', text: 'Settings', href: 'settings.html', icon: { type: 'svg', path: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.11-.22.06-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z' } }
+    ];
+
+    sidenav.addEventListener('collapsed-changed', () => {
+        document.querySelector('.main-content').classList.toggle('sidenav-collapsed', sidenav.collapsed);
+    });
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
+    // ── Version History dialog (read-only — no revert path) ──
+    const vhDialog = document.getElementById('vh-dialog');
+
+    vhDialog.renderer = (root) => {
+        root.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.className = 'vh-dialog-body';
+        wrap.style.padding = '8px 24px 20px';
+        wrap.innerHTML = `
+            <p style="font-size:12.5px; color:var(--lumo-secondary-text-color); margin-bottom:14px; line-height:1.5;">
+                This Vector-managed variant's publish history. Each entry can bundle one or more learning-object (LO)
+                publish events &mdash; expand a revision to see exactly what changed. Reverting is not available on
+                Vector content; copy this variant to your library to take ownership of its content and history.
+            </p>
+            <div class="vh-timeline">
+                ${VERSION_HISTORY.map((ev, idx) => `
+                    <div class="vh-event ${ev.isCurrent ? 'current' : ''}" data-idx="${idx}">
+                        <div class="vh-event-dot"></div>
+                        <div class="vh-event-card">
+                            <div class="vh-event-header" data-toggle="${idx}">
+                                <i class="fa-solid fa-chevron-right vh-expand-icon"></i>
+                                <div class="vh-event-title">
+                                    <div class="vh-version-line">
+                                        ${escapeHtml(ev.version)}
+                                        ${ev.isCurrent ? '<span class="vh-current-badge">Active</span>' : ''}
+                                    </div>
+                                    <div class="vh-summary-line">${escapeHtml(ev.summary)}</div>
+                                </div>
+                                <div class="vh-event-meta">
+                                    <div class="vh-avatar" style="background:${ev.avatar.color}">${escapeHtml(ev.avatar.initials)}</div>
+                                    <div>
+                                        <div style="font-weight:600; color:#0f2e3d;">${escapeHtml(ev.author)}</div>
+                                        <div>${escapeHtml(ev.date)} &middot; ${escapeHtml(ev.time)}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="vh-event-body">
+                                <div class="vh-lo-label">Learning objects published in this revision (${ev.los.length})</div>
+                                <div class="vh-lo-list">
+                                    ${ev.los.map(lo => `
+                                        <div class="vh-lo-row">
+                                            <div class="vh-lo-icon ${lo.type}">
+                                                <i class="fa-solid ${lo.type === 'shared' ? 'fa-share-nodes' : 'fa-user-pen'}"></i>
+                                            </div>
+                                            <div class="vh-lo-text">
+                                                <div class="vh-lo-title">${escapeHtml(lo.title)}</div>
+                                                <div class="vh-lo-meta">${escapeHtml(lo.note)}</div>
+                                            </div>
+                                            <span class="vh-lo-tag ${lo.type}">${lo.type === 'shared' ? 'Shared LO ' + lo.version : 'Unique LO ' + lo.version}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        root.appendChild(wrap);
+
+        wrap.querySelectorAll('[data-toggle]').forEach(header => {
+            header.addEventListener('click', () => {
+                header.closest('.vh-event').classList.toggle('expanded');
+            });
+        });
+
+        const first = wrap.querySelector('.vh-event');
+        if (first) first.classList.add('expanded');
+    };
+
+    vhDialog.footerRenderer = (root) => {
+        if (root.firstChild) return;
+        const closeBtn = document.createElement('vaadin-button');
+        closeBtn.setAttribute('theme', 'secondary');
+        closeBtn.textContent = 'Close';
+        closeBtn.addEventListener('click', () => { vhDialog.opened = false; });
+        root.appendChild(closeBtn);
+    };
+
+    document.getElementById('vh-open-dialog').addEventListener('click', () => {
+        vhDialog.opened = true;
+    });
+
+    // ── Copy variant destination dialog ──
+    const copyDialog = document.getElementById('copy-dialog');
+    let copySelection = 'new';
+
+    function openCopyDialog() {
+        copySelection = 'new';
+        copyDialog.renderer = (root) => {
+            root.innerHTML = '';
+            const body = document.createElement('div');
+            body.className = 'copy-dialog-body';
+            body.innerHTML = `
+                <p class="copy-dialog-intro">
+                    Copying <strong>${escapeHtml(VARIANT_NAME)}</strong> creates an editable, user-owned copy in your library.
+                    Choose where this copy should live.
+                </p>
+
+                <label class="copy-option selected" data-dest="new">
+                    <input type="radio" name="copy-dest" value="new" checked>
+                    <div class="copy-option-title">
+                        <i class="fa-solid fa-circle-plus" style="color:var(--lumo-primary-color)"></i>
+                        Create a new course shell
+                    </div>
+                    <div class="copy-option-desc">
+                        A new user-owned course shell is created, containing this single variant as its first.
+                        You'll be able to set its title, description, and catalog details.
+                    </div>
+                </label>
+
+                <label class="copy-option" data-dest="existing">
+                    <input type="radio" name="copy-dest" value="existing">
+                    <div class="copy-option-title">
+                        <i class="fa-solid fa-folder-tree" style="color:var(--lumo-secondary-text-color)"></i>
+                        Add to an existing course shell
+                    </div>
+                    <div class="copy-option-desc">
+                        Append this variant to one of your user-owned shells. Catalog details from the destination shell apply.
+                    </div>
+                    <div class="copy-option-detail">
+                        <vaadin-combo-box
+                            theme="outlined"
+                            label="Destination course"
+                            placeholder="Search your courses…"
+                            clear-button-visible
+                            style="width:100%"
+                            id="copy-dest-select">
+                        </vaadin-combo-box>
+                    </div>
+                </label>
+            `;
+            root.appendChild(body);
+
+            const options = body.querySelectorAll('.copy-option');
+            options.forEach(opt => {
+                opt.addEventListener('click', () => {
+                    options.forEach(o => o.classList.remove('selected'));
+                    opt.classList.add('selected');
+                    opt.querySelector('input[type="radio"]').checked = true;
+                    copySelection = opt.getAttribute('data-dest');
+                });
+            });
+
+            const select = body.querySelector('#copy-dest-select');
+            customElements.whenDefined('vaadin-combo-box').then(() => {
+                select.items = [
+                    { label: 'Fire Safety — Custom (Acme Corp)', value: 'fire-acme' },
+                    { label: 'Forklift Operator Certification', value: 'forklift' },
+                    { label: 'Chemical Hazard Communication (HazCom)', value: 'hazcom' },
+                    { label: 'Bloodborne Pathogen Control — Acme', value: 'bbp-acme' },
+                    { label: 'Electrical Safety Awareness — Acme Plant 3', value: 'electrical-acme-3' },
+                    { label: 'Confined Space Entry — Refinery East', value: 'confined-east' },
+                    { label: 'Fall Protection — Tower Crews', value: 'fall-tower' },
+                    { label: 'Workplace Ergonomics — Office Staff', value: 'ergo-office' },
+                    { label: 'Hearing Conservation — Stamping Floor', value: 'hearing-stamp' },
+                    { label: 'Respiratory Protection — Paint Booth', value: 'resp-paint' }
+                ];
+                select.itemLabelPath = 'label';
+                select.itemValuePath = 'value';
+            });
+        };
+
+        copyDialog.footerRenderer = (root) => {
+            root.innerHTML = '';
+            const cancel = document.createElement('vaadin-button');
+            cancel.setAttribute('theme', 'secondary');
+            cancel.textContent = 'Cancel';
+            cancel.addEventListener('click', () => { copyDialog.opened = false; });
+
+            const confirm = document.createElement('vaadin-button');
+            confirm.setAttribute('theme', 'primary');
+            confirm.innerHTML = '<i class="fa-regular fa-copy" slot="prefix"></i> Copy variant';
+            confirm.addEventListener('click', () => {
+                copyDialog.opened = false;
+                const msg = copySelection === 'new'
+                    ? `Copied <strong>${escapeHtml(VARIANT_NAME)}</strong> &mdash; created a new course shell in your library.`
+                    : `Copied <strong>${escapeHtml(VARIANT_NAME)}</strong> into the selected shell.`;
+                showToast(msg);
+            });
+
+            root.appendChild(cancel);
+            root.appendChild(confirm);
+        };
+
+        copyDialog.opened = true;
+    }
+
+    document.getElementById('copy-btn').addEventListener('click', openCopyDialog);
+    document.getElementById('preview-btn').addEventListener('click', () => {
+        showToast(`Preview not yet implemented — would open a learner view of <strong>${escapeHtml(VARIANT_NAME)}</strong>.`);
+    });
+
+    function showToast(html) {
+        const note = document.createElement('vaadin-notification');
+        note.position = 'bottom-end';
+        note.duration = 4000;
+        note.renderer = (root) => {
+            root.innerHTML = `<span style="display:inline-flex; align-items:center; gap:8px;"><i class="fa-solid fa-circle-check" style="color:#2e7d32"></i> ${html}</span>`;
+        };
+        document.body.appendChild(note);
+        note.opened = true;
+        note.addEventListener('opened-changed', e => { if (!e.detail.value) note.remove(); });
+    }
+
+}); // end whenDefined
+</script>
+</body>
+</html>

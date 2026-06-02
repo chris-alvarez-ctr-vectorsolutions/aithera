@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generate Audio — Phonetic Update</title>
+
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+  <style>
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: 'Open Sans', sans-serif;
+      background: #ffffff;
+      color: #1a1a1a;
+    }
+
+    /* ── Modal shell ── */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .modal {
+      width: 100%;
+      max-width: 720px;
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Modal header ── */
+    .modal-header {
+      padding: 20px 24px 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .ai-icon {
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #2563eb;
+      font-size: 20px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .modal-header-text { flex: 1; }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin: 0 0 4px;
+    }
+
+    .modal-subtitle {
+      font-size: 13px;
+      color: #6b7280;
+      margin: 0;
+      line-height: 1.4;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #6b7280;
+      font-size: 16px;
+      padding: 4px;
+      line-height: 1;
+    }
+
+    /* ── Modal body ── */
+    .modal-body {
+      padding: 8px 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 6px;
+    }
+
+    .field-label.is-active { color: #2563eb; }
+
+    .field-label .required { color: #2563eb; margin-left: 2px; }
+
+    .text-input {
+      width: 100%;
+      min-height: 96px;
+      padding: 10px 12px;
+      border: 1px solid #d0d3d9;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 13px;
+      color: #1a1a1a;
+      line-height: 1.5;
+      resize: vertical;
+      outline: none;
+    }
+
+    .text-input:focus,
+    .text-input.is-active {
+      border: 2px solid #2563eb;
+      padding: 9px 11px;
+    }
+
+    .field-hint {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 6px;
+    }
+
+    /* ── Voice row ── */
+    .voice-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+    }
+
+    .voice-select-wrap {
+      flex: 1;
+    }
+
+    .voice-select {
+      width: 100%;
+      height: 40px;
+      padding: 0 36px 0 12px;
+      border: 1px solid #d0d3d9;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 13px;
+      color: #1a1a1a;
+      background: #fff;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      cursor: pointer;
+    }
+
+    .btn {
+      height: 40px;
+      padding: 0 18px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid transparent;
+      background: none;
+    }
+
+    .btn-secondary {
+      border-color: #2563eb;
+      color: #2563eb;
+      background: #fff;
+    }
+
+    .btn-primary {
+      background: #2563eb;
+      border-color: #2563eb;
+      color: #fff;
+    }
+
+    .btn:disabled {
+      background: #e5e7eb;
+      color: #9ca3af;
+      border-color: #e5e7eb;
+      cursor: not-allowed;
+    }
+
+    /* ── Audio preview row ── */
+    .audio-preview {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #f4f5f7;
+      border-radius: 999px;
+      padding: 12px 20px;
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    .audio-preview .play-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 1.5px solid #9ca3af;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      color: #6b7280;
+      flex-shrink: 0;
+    }
+
+    /* ── Edit Phonetic link ── */
+    .edit-phonetic-row {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .edit-phonetic-link {
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      color: #2563eb;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .info-icon-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .info-icon {
+      color: #6b7280;
+      font-size: 13px;
+      cursor: help;
+    }
+
+    .info-tooltip {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1f2937;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.4;
+      padding: 8px 10px;
+      border-radius: 4px;
+      width: 220px;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+      z-index: 10;
+    }
+
+    .info-tooltip::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-top-color: #1f2937;
+    }
+
+    .info-icon-wrap:hover .info-tooltip,
+    .info-icon-wrap:focus-within .info-tooltip {
+      opacity: 1;
+    }
+
+    /* ── Reset warning hint ── */
+    .reset-hint {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .reset-hint i { color: #6b7280; }
+
+    /* ── Hidden state ── */
+    .hidden { display: none !important; }
+
+    /* ── Footer ── */
+    .modal-footer {
+      padding: 16px 24px;
+      background: #f4f5f7;
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      border-top: 1px solid #e5e7eb;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="modal-backdrop">
+    <div class="modal" role="dialog" aria-labelledby="modal-title" aria-modal="true">
+
+      <!-- Header -->
+      <div class="modal-header">
+        <span class="ai-icon" aria-hidden="true">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+        </span>
+        <div class="modal-header-text">
+          <h2 class="modal-title" id="modal-title">Generate Audio</h2>
+          <p class="modal-subtitle">Select a voice and edit phonetic text below to improve pronunciation accuracy.</p>
+        </div>
+        <button class="modal-close" aria-label="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="modal-body">
+
+        <!-- Transcript Text -->
+        <div>
+          <label class="field-label" for="transcript-text">
+            Transcript Text<span class="required">*</span>
+          </label>
+          <textarea class="text-input" id="transcript-text" rows="4">Two movements form the foundation of every escape you'll learn—hip escapes, also called shrimping, and bridging. Master these, and you'll unlock the ability to defend yourself from virtually any bad position. They're not flashy, but they're essential. this is now a new line.</textarea>
+
+          <!-- Edit Phonetic link (shown when phonetic textarea is hidden) -->
+          <div class="edit-phonetic-row" id="edit-phonetic-row">
+            <button type="button" class="edit-phonetic-link" id="edit-phonetic-link">Edit Phonetic Text</button>
+            <span class="info-icon-wrap" tabindex="0" aria-label="What is phonetic text?">
+              <i class="fa-solid fa-circle-info info-icon"></i>
+              <span class="info-tooltip" role="tooltip">Phonetic text lets you adjust the pronunciation of the generated audio.</span>
+            </span>
+          </div>
+
+          <!-- Reset warning hint (shown only after Edit Phonetic Text is clicked) -->
+          <div class="reset-hint hidden" id="reset-hint">
+            <i class="fa-solid fa-circle-info"></i>
+            <span>Changes to transcript will reset phonetic text.</span>
+          </div>
+        </div>
+
+        <!-- Phonetic Text (hidden until Edit Phonetic Text is clicked) -->
+        <div class="hidden" id="phonetic-wrap">
+          <label class="field-label is-active" for="phonetic-text">
+            Phonetic Text<span class="required">*</span>
+          </label>
+          <textarea class="text-input is-active" id="phonetic-text" rows="4">Two movements form the foundation of every escape you'll learn—hip escapes, also called shrimping, and bridging. Master these, and you'll unlock the ability to defend yourself from virtually any bad position. They're not flashy, but they're essential. this is now a new line.</textarea>
+          <div class="field-hint">Tip: Spell words phonetically, use hyphens for pauses, or write numbers as words.</div>
+        </div>
+
+        <!-- Voice -->
+        <div>
+          <label class="field-label" for="voice-select">
+            Voice<span class="required">*</span>
+          </label>
+          <div class="voice-row">
+            <div class="voice-select-wrap">
+              <select class="voice-select" id="voice-select">
+                <option>Eric(M)-American</option>
+                <option>Sarah(F)-American</option>
+                <option>James(M)-British</option>
+                <option>Emma(F)-British</option>
+              </select>
+            </div>
+            <button class="btn btn-secondary" type="button">Generate Audio</button>
+          </div>
+        </div>
+
+        <!-- Audio preview -->
+        <div class="audio-preview">
+          <span class="play-icon" aria-hidden="true">
+            <i class="fa-solid fa-play"></i>
+          </span>
+          <span>Select a voice and "Generate" to listen to the generated audio.</span>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="modal-footer">
+        <button class="btn btn-secondary" type="button">Cancel</button>
+        <button class="btn btn-primary" type="button" disabled>Add to Scene</button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const transcriptEl   = document.getElementById('transcript-text');
+    const phoneticEl     = document.getElementById('phonetic-text');
+    const phoneticWrap   = document.getElementById('phonetic-wrap');
+    const editLinkRow    = document.getElementById('edit-phonetic-row');
+    const editLink       = document.getElementById('edit-phonetic-link');
+    const resetHint      = document.getElementById('reset-hint');
+
+    // Track whether the user has chosen to edit phonetic separately.
+    let phoneticEdited = false;
+
+    // While phonetic is hidden/locked, keep it synced with transcript.
+    transcriptEl.addEventListener('input', () => {
+      if (!phoneticEdited) {
+        phoneticEl.value = transcriptEl.value;
+      } else {
+        // After Edit Phonetic Text has been engaged, transcript edits reset phonetic.
+        phoneticEl.value = transcriptEl.value;
+      }
+    });
+
+    // Reveal the phonetic textarea + reset-warning hint.
+    editLink.addEventListener('click', () => {
+      phoneticEdited = true;
+      phoneticWrap.classList.remove('hidden');
+      editLinkRow.classList.add('hidden');
+      resetHint.classList.remove('hidden');
+      phoneticEl.focus();
+    });
+  </script>
+
+</body>
+</html>

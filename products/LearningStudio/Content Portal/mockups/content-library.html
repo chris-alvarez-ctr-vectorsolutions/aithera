@@ -136,6 +136,33 @@
             padding-right: 14px;
         }
 
+        /* Whole row is the click target */
+        vaadin-grid#content-grid::part(body-cell) {
+            cursor: pointer;
+        }
+        vaadin-grid#content-grid::part(row):hover {
+            background: rgba(14,165,233,0.04);
+        }
+
+        /* Title cell with optional pending-updates badge */
+        .title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+        .title-wrap .title-link {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--lumo-primary-color);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .title-wrap [theme~="badge"] {
+            flex-shrink: 0;
+        }
+
         /* ── Thumbnail placeholder ── */
         .thumb {
             width: 52px;
@@ -274,6 +301,11 @@
                         <option value="archived">Archived</option>
                         <option value="sunset">Sunset</option>
                     </select>
+                    <select id="filter-updates" aria-label="Pending Updates">
+                        <option value="">All Courses</option>
+                        <option value="pending">Has Pending Updates</option>
+                        <option value="none">No Pending Updates</option>
+                    </select>
                 </div>
             </div>
 
@@ -289,7 +321,6 @@
                 <vaadin-grid-column id="col-status" header="Status" width="130px" flex-grow="0"></vaadin-grid-column>
                 <vaadin-grid-sort-column path="duration" header="Duration" width="100px" flex-grow="0"></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column path="modified" header="Last Modified" width="130px" flex-grow="0"></vaadin-grid-sort-column>
-                <vaadin-grid-column id="col-actions" header="Actions" width="120px" flex-grow="0" frozen-to-end></vaadin-grid-column>
             </vaadin-grid>
 
             <!-- Pagination -->
@@ -322,17 +353,18 @@ customElements.whenDefined('vwc-sidenav').then(() => {
     });
 
     // ── Content rows ──
+    // pendingUpdates = count of shared-LO updates available across variants in this shell
     const contentItems = [
-        { id: 1, title: 'Lockout/Tagout Safety — Fundamentals', type: 'Course', ownership: 'vector', status: 'published', duration: '45 min', modified: 'Apr 18, 2026', href: 'content-detail-vector.html', color: '#1976d2', icon: 'fa-shield-halved' },
-        { id: 2, title: 'FERPA Compliance Overview', type: 'Course', ownership: 'vector', status: 'published', duration: '30 min', modified: 'Apr 15, 2026', href: 'content-detail-vector.html', color: '#388e3c', icon: 'fa-scale-balanced' },
-        { id: 3, title: 'Fire Safety — Custom (Acme Corp)', type: 'Course', ownership: 'user', status: 'draft', duration: '20 min', modified: 'Apr 22, 2026', href: 'content-detail-customer.html', color: '#e64a19', icon: 'fa-fire-extinguisher' },
-        { id: 4, title: 'Electrical Safety Awareness', type: 'Course', ownership: 'vector', status: 'published', duration: '60 min', modified: 'Mar 30, 2026', href: 'content-detail-vector.html', color: '#f9a825', icon: 'fa-bolt' },
-        { id: 5, title: 'Bloodborne Pathogen Control', type: 'Module', ownership: 'vector', status: 'published', duration: '25 min', modified: 'Mar 12, 2026', href: 'content-detail-vector.html', color: '#c62828', icon: 'fa-syringe' },
-        { id: 6, title: 'Forklift Operator Certification', type: 'Course', ownership: 'user', status: 'published', duration: '90 min', modified: 'Apr 10, 2026', href: 'content-detail-customer.html', color: '#6a1b9a', icon: 'fa-truck-ramp-box' },
-        { id: 7, title: 'PPE Selection & Fit Testing', type: 'Module', ownership: 'vector', status: 'archived', duration: '35 min', modified: 'Feb 01, 2026', href: 'content-detail-vector.html', color: '#00838f', icon: 'fa-hard-hat' },
-        { id: 8, title: 'Chemical Hazard Communication (HazCom)', type: 'Course', ownership: 'user', status: 'draft', duration: '50 min', modified: 'Apr 25, 2026', href: 'content-detail-customer.html', color: '#558b2f', icon: 'fa-flask' },
-        { id: 9, title: 'Workplace Ergonomics Essentials', type: 'Course', ownership: 'vector', status: 'published', duration: '40 min', modified: 'Jan 20, 2026', href: 'content-detail-vector.html', color: '#1565c0', icon: 'fa-chair' },
-        { id: 10, title: 'Fall Protection & Prevention', type: 'Course', ownership: 'vector', status: 'sunset', duration: '55 min', modified: 'Dec 05, 2025', href: 'content-detail-vector.html', color: '#4e342e', icon: 'fa-person-falling-burst' },
+        { id: 1, title: 'Lockout/Tagout Safety — Fundamentals', type: 'Course', ownership: 'vector', status: 'published', duration: '45 min', modified: 'Apr 18, 2026', href: 'content-detail-vector.html', color: '#1976d2', icon: 'fa-shield-halved', pendingUpdates: 3 },
+        { id: 2, title: 'FERPA Compliance Overview', type: 'Course', ownership: 'vector', status: 'published', duration: '30 min', modified: 'Apr 15, 2026', href: 'content-detail-vector.html', color: '#388e3c', icon: 'fa-scale-balanced', pendingUpdates: 0 },
+        { id: 3, title: 'Fire Safety — Custom (Acme Corp)', type: 'Course', ownership: 'user', status: 'draft', duration: '20 min', modified: 'Apr 22, 2026', href: 'content-detail-customer.html', color: '#e64a19', icon: 'fa-fire-extinguisher', pendingUpdates: 2 },
+        { id: 4, title: 'Electrical Safety Awareness', type: 'Course', ownership: 'vector', status: 'published', duration: '60 min', modified: 'Mar 30, 2026', href: 'content-detail-vector.html', color: '#f9a825', icon: 'fa-bolt', pendingUpdates: 0 },
+        { id: 5, title: 'Bloodborne Pathogen Control', type: 'Module', ownership: 'vector', status: 'published', duration: '25 min', modified: 'Mar 12, 2026', href: 'content-detail-vector.html', color: '#c62828', icon: 'fa-syringe', pendingUpdates: 1 },
+        { id: 6, title: 'Forklift Operator Certification', type: 'Course', ownership: 'user', status: 'published', duration: '90 min', modified: 'Apr 10, 2026', href: 'content-detail-customer.html', color: '#6a1b9a', icon: 'fa-truck-ramp-box', pendingUpdates: 0 },
+        { id: 7, title: 'PPE Selection & Fit Testing', type: 'Module', ownership: 'vector', status: 'archived', duration: '35 min', modified: 'Feb 01, 2026', href: 'content-detail-vector.html', color: '#00838f', icon: 'fa-hard-hat', pendingUpdates: 0 },
+        { id: 8, title: 'Chemical Hazard Communication (HazCom)', type: 'Course', ownership: 'user', status: 'draft', duration: '50 min', modified: 'Apr 25, 2026', href: 'content-detail-customer.html', color: '#558b2f', icon: 'fa-flask', pendingUpdates: 5 },
+        { id: 9, title: 'Workplace Ergonomics Essentials', type: 'Course', ownership: 'vector', status: 'published', duration: '40 min', modified: 'Jan 20, 2026', href: 'content-detail-vector.html', color: '#1565c0', icon: 'fa-chair', pendingUpdates: 0 },
+        { id: 10, title: 'Fall Protection & Prevention', type: 'Course', ownership: 'vector', status: 'sunset', duration: '55 min', modified: 'Dec 05, 2025', href: 'content-detail-vector.html', color: '#4e342e', icon: 'fa-person-falling-burst', pendingUpdates: 0 },
     ];
 
     function escapeHtml(s) {
@@ -355,14 +387,17 @@ customElements.whenDefined('vwc-sidenav').then(() => {
         root.appendChild(wrap);
     };
 
-    // ── Column: title (sortable, custom renderer for link styling) ──
+    // ── Column: title (sortable, includes pending-updates badge) ──
     document.getElementById('col-title').renderer = (root, _col, model) => {
         root.innerHTML = '';
-        const a = document.createElement('a');
-        a.className = 'title-link';
-        a.href = model.item.href;
-        a.textContent = model.item.title;
-        root.appendChild(a);
+        const wrap = document.createElement('div');
+        wrap.className = 'title-wrap';
+        const pending = model.item.pendingUpdates || 0;
+        wrap.innerHTML = `
+            <span class="title-link">${escapeHtml(model.item.title)}</span>
+            ${pending > 0 ? `<span theme="badge warning"><i class="fa-solid fa-arrow-up-from-bracket" style="margin-right:4px"></i>${pending} update${pending !== 1 ? 's' : ''}</span>` : ''}
+        `;
+        root.appendChild(wrap);
     };
 
     // ── Column: ownership badge ──
@@ -382,30 +417,45 @@ customElements.whenDefined('vwc-sidenav').then(() => {
         root.innerHTML = `<span class="badge ${cls}">${escapeHtml(label)}</span>`;
     };
 
-    // ── Column: actions ──
-    document.getElementById('col-actions').renderer = (root, _col, model) => {
-        root.innerHTML = '';
-        const wrap = document.createElement('div');
-        wrap.className = 'action-cell';
-        wrap.innerHTML = `
-            <button class="icon-btn" title="View" data-action="view"><i class="fa-solid fa-eye"></i></button>
-            <button class="icon-btn" title="Edit" data-action="edit"><i class="fa-regular fa-pen-to-square"></i></button>
-            <button class="icon-btn" title="Duplicate" data-action="duplicate"><i class="fa-regular fa-copy"></i></button>
-        `;
-        wrap.querySelectorAll('button').forEach(b => {
-            b.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const action = b.getAttribute('data-action');
-                if (action === 'view' || action === 'edit') {
-                    window.location = model.item.href;
-                }
-            });
+    // ── Row click → navigate to detail ──
+    grid.addEventListener('click', (e) => {
+        const ctx = grid.getEventContext(e);
+        if (ctx && ctx.item) window.location = ctx.item.href;
+    });
+
+    // ── Filters ──
+    const filterType = document.getElementById('filter-type');
+    const filterOwnership = document.getElementById('filter-ownership');
+    const filterStatus = document.getElementById('filter-status');
+    const filterUpdates = document.getElementById('filter-updates');
+    const searchField = document.getElementById('search-field');
+
+    function applyFilters() {
+        const typeVal = filterType.value.toLowerCase();
+        const ownVal = filterOwnership.value;
+        const statusVal = filterStatus.value;
+        const updVal = filterUpdates.value;
+        const search = (searchField.value || '').toLowerCase().trim();
+
+        grid.items = contentItems.filter(item => {
+            if (typeVal && item.type.toLowerCase() !== typeVal) return false;
+            if (ownVal && item.ownership !== ownVal) return false;
+            if (statusVal && item.status !== statusVal) return false;
+            if (updVal === 'pending' && !(item.pendingUpdates > 0)) return false;
+            if (updVal === 'none' && item.pendingUpdates > 0) return false;
+            if (search && !item.title.toLowerCase().includes(search)) return false;
+            return true;
         });
-        root.appendChild(wrap);
-    };
+        document.querySelector('.results-summary').textContent = `Showing ${grid.items.length} of ${contentItems.length} items`;
+    }
+
+    [filterType, filterOwnership, filterStatus, filterUpdates].forEach(el =>
+        el.addEventListener('change', applyFilters)
+    );
+    searchField.addEventListener('value-changed', applyFilters);
 
     // Populate
-    grid.items = contentItems;
+    applyFilters();
 }); // end whenDefined
 </script>
 </body>
