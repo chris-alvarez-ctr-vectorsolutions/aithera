@@ -108,7 +108,7 @@ async function getPin(env, pageUrl, id) {
 // create/edit/delete events. Keyed by ISO timestamp so KV's lexicographic
 // list() returns them in chronological order; the viewer sorts newest-first.
 
-async function logEvent(env, { action, author, product, url, pinId, comment }) {
+async function logEvent(env, { action, author, product, url, pinId, comment, parent }) {
   const ts = new Date().toISOString();
   const evt = {
     ts,
@@ -118,6 +118,7 @@ async function logEvent(env, { action, author, product, url, pinId, comment }) {
     url: url || '',
     pinId: pinId || '',
     comment: truncate(comment || '', 200),
+    parent: truncate(parent || '', 200),      // for replies: the root comment being replied to
   };
   // rand suffix avoids key collisions when two events share a millisecond.
   const rand = Math.random().toString(36).slice(2, 8);
@@ -141,7 +142,7 @@ function formatLogMessage(e) {
     case 'deleted':     return `Deleted by ${who} — pin ${e.pinId}`;
     case 'restored':    return `Restored by ${who} — pin ${e.pinId}`;
     case 're-anchored': return `Re-anchored by ${who} — pin ${e.pinId} — now ${truncate(e.comment, 100)}`;
-    case 'reply':       return `Reply from ${who} on pin ${e.pinId}: ${truncate(e.comment, 100)}`;
+    case 'reply':       return `Reply from ${who}${e.parent ? ` to "${truncate(e.parent, 60)}"` : ` on pin ${e.pinId}`}: ${truncate(e.comment, 100)}`;
     case 'undo':        return `Undone by ${who} — pin ${e.pinId}`;
     case 'settings':    return `Settings changed by ${who} — ${e.comment}`;
     default:            return `${e.action} by ${who} — pin ${e.pinId}`;
@@ -320,7 +321,7 @@ async function replyToPin(id, request, env) {
   pin.thread = pin.thread || [];
   pin.thread.push(reply);
   await env.PINS_KV.put(key, JSON.stringify(pin));
-  await logEvent(env, { action: 'reply', author: reply.author, product: pin.product, url: pin.url, pinId: id, comment: reply.text });
+  await logEvent(env, { action: 'reply', author: reply.author, product: pin.product, url: pin.url, pinId: id, comment: reply.text, parent: pin.comment });
   return json({ pin });
 }
 

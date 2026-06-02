@@ -53,6 +53,7 @@
   .when { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
   .author { font-weight: 600; }
   .comment { max-width: 420px; }
+  .reply-to { margin-top: 3px; font-size: 12px; color: var(--muted); font-style: italic; border-left: 2px solid var(--line); padding-left: 7px; }
   .page a { color: #2563eb; text-decoration: none; word-break: break-word; }
   .page a:hover { text-decoration: underline; }
   .pin { color: var(--muted); font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
@@ -118,6 +119,27 @@
   // Same Worker the feedback widget talks to.
   const WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
 
+  // The mockups site root (…/ux-mockups), derived from this page's own location
+  // (…/ux-mockups/commentwidget/log.html). Used to read the canonical mock list
+  // and to match a dropdown choice against an event's stored page URL.
+  const PAGES_BASE = location.href.replace(/\/commentwidget\/log\.html.*$/, '');
+  const INDEX_URL = PAGES_BASE + '/index.html';
+
+  // Every action the Worker can log, with friendly labels. Listed up front so
+  // the filter is meaningful even before any of these have occurred yet.
+  const ACTIONS = [
+    ['created',     'Created'],
+    ['edited',      'Edited'],
+    ['reply',       'Reply'],
+    ['done',        'Resolved (done)'],
+    ['reopened',    'Reopened'],
+    ['deleted',     'Deleted'],
+    ['restored',    'Restored'],
+    ['re-anchored', 'Re-anchored'],
+    ['undo',        'Undo'],
+    ['settings',    'Settings change'],
+  ];
+
   const els = {
     status: document.getElementById('status'),
     table: document.getElementById('table'),
@@ -130,6 +152,7 @@
   };
 
   let allEvents = [];
+  let productOptions = [];   // [{ value:'u:<url>', label, group }] built from the mock registry
   let sortKey = 'ts';
   let sortDir = -1; // newest first
 
@@ -155,22 +178,81 @@
       ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   }
 
-  function populateFilters(events) {
-    const actions = [...new Set(events.map(e => e.action).filter(Boolean))].sort();
-    const products = [...new Set(events.map(e => e.product).filter(Boolean))].sort();
+  // Action filter is a fixed, known set — built once, independent of the data.
+  function buildActionFilter() {
     els.fAction.innerHTML = '<option value="">All actions</option>' +
-      actions.map(a => `<option value="${esc(a)}">${esc(a)}</option>`).join('');
-    els.fProduct.innerHTML = '<option value="">All products</option>' +
-      products.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+      ACTIONS.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('');
+  }
+
+  // Read the canonical mock list (the PRODUCTS array in index.html) so the
+  // Product dropdown lists every mock — not just ones that already have
+  // comments — and stays in sync as mocks are added or removed there. The array
+  // is { name, href } / { folder, items:[…] } entries; we just need each name +
+  // href pair, which a flat regex captures across the whole (nested) array.
+  async function loadProducts() {
+    try {
+      const html = await (await fetch(INDEX_URL)).text();
+      const re = /name:\s*'((?:[^'\\]|\\.)*)'\s*,\s*href:\s*'((?:[^'\\]|\\.)*)'/g;
+      const opts = [];
+      let m;
+      while ((m = re.exec(html))) {
+        const name = m[1].replace(/\\(['\\])/g, '$1');
+        const href = m[2].replace(/\\(['\\])/g, '$1');
+        if (!/^products\//.test(href)) continue;
+        const segs = href.replace(/^products\//, '').replace(/\/$/, '').split('/');
+        const group = decodeURIComponent(segs[0] || '');           // top-level product
+        const mid = segs.slice(1, -1).map(decodeURIComponent).join(' / '); // intermediate folders
+        const label = mid ? `${mid} / ${name}` : name;
+        // encodeURI so spaces etc. match the %-encoded URL the widget stores.
+        const url = PAGES_BASE + '/' + encodeURI(href);
+        opts.push({ value: 'u:' + url, label, group });
+      }
+      productOptions = opts;
+    } catch (_) {
+      productOptions = []; // viewer still works; falls back to log-derived urls below
+    }
+  }
+
+  // Build the grouped Product dropdown: an <optgroup> per product, an
+  // "— All <Product> —" entry to filter a whole product, then each mock. Any
+  // page that has events but isn't in the registry is added under its product
+  // (or "Other") so nothing is hidden.
+  function buildProductFilter(events) {
+    const groups = new Map();
+    for (const o of productOptions) {
+      if (!groups.has(o.group)) groups.set(o.group, []);
+      groups.get(o.group).push({ value: o.value, label: o.label });
+    }
+    const known = new Set(productOptions.map(o => o.value.slice(2)));
+    for (const e of events) {
+      if (!e.url || known.has(e.url)) continue;
+      known.add(e.url);
+      const prod = e.product || 'Other';
+      if (!groups.has(prod)) groups.set(prod, []);
+      groups.get(prod).push({ value: 'u:' + e.url, label: pageLabel(e.url) + ' (from log)' });
+    }
+    let html = '<option value="">All products</option>';
+    for (const product of [...groups.keys()].sort((a, b) => a.localeCompare(b))) {
+      html += `<optgroup label="${esc(product)}">`;
+      html += `<option value="p:${esc(product)}">— All ${esc(product)} —</option>`;
+      for (const o of groups.get(product).sort((a, b) => a.label.localeCompare(b.label))) {
+        html += `<option value="${esc(o.value)}">${esc(o.label)}</option>`;
+      }
+      html += '</optgroup>';
+    }
+    const prev = els.fProduct.value;
+    els.fProduct.innerHTML = html;
+    if (prev && [...els.fProduct.options].some(o => o.value === prev)) els.fProduct.value = prev;
   }
 
   function applyFilters() {
     const a = els.fAction.value;
-    const p = els.fProduct.value;
+    const p = els.fProduct.value;   // ''=all, 'u:<url>'=one mock, 'p:<product>'=whole product
     const q = els.fSearch.value.trim().toLowerCase();
     return allEvents.filter(e => {
       if (a && e.action !== a) return false;
-      if (p && e.product !== p) return false;
+      if (p.startsWith('u:') && e.url !== p.slice(2)) return false;
+      if (p.startsWith('p:') && (e.product || '') !== p.slice(2)) return false;
       if (q) {
         const hay = `${e.author} ${e.comment} ${e.product} ${e.url} ${e.pinId} ${e.action}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -217,22 +299,29 @@
         <td class="author">${esc(e.author)}</td>
         <td>${esc(e.product || '—')}</td>
         <td class="page">${e.url ? `<a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(pageLabel(e.url))}</a>` : '—'}</td>
-        <td class="comment">${esc(e.comment || '')}</td>
+        <td class="comment">${esc(e.comment || '')}${e.action === 'reply' && e.parent ? `<div class="reply-to">↳ in reply to: “${esc(e.parent)}”</div>` : ''}</td>
         <td class="pin">${esc(e.pinId || '')}</td>
       </tr>`).join('');
   }
 
+  // Fetch the activity events (the log itself).
+  async function loadEvents() {
+    const res = await fetch(`${WORKER_URL}/log?limit=2000`);
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    const data = await res.json();
+    allEvents = Array.isArray(data.events) ? data.events : [];
+  }
+
+  // Reload everything: events + the mock registry, then rebuild the product
+  // dropdown (so newly-added mocks and any new pages with activity show up).
   async function load() {
     els.status.hidden = false;
     els.table.hidden = true;
     els.status.className = 'state';
     els.status.textContent = 'Loading activity…';
     try {
-      const res = await fetch(`${WORKER_URL}/log?limit=2000`);
-      if (!res.ok) throw new Error(`Server returned ${res.status}`);
-      const data = await res.json();
-      allEvents = Array.isArray(data.events) ? data.events : [];
-      populateFilters(allEvents);
+      await Promise.all([loadEvents(), loadProducts()]);
+      buildProductFilter(allEvents);
       render();
     } catch (err) {
       els.table.hidden = true;
@@ -247,6 +336,7 @@
   }
 
   // Wire controls
+  buildActionFilter();
   els.fAction.addEventListener('change', render);
   els.fProduct.addEventListener('change', render);
   els.fSearch.addEventListener('input', render);

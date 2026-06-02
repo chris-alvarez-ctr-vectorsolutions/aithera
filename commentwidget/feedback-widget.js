@@ -897,7 +897,9 @@
   // them. Otherwise admins see everything and non-admins respect visitor mode.
   function visiblePins() {
     if (state.settings.commentsDisabled && !state.pickMode) return [];
-    let pins = state.pins.filter(p => !p.deleted);
+    // Done = resolved: the pin disappears from the page (history is kept in the
+    // activity log, and the just-marked-done toast offers a 10s Undo).
+    let pins = state.pins.filter(p => !p.deleted && !p.done);
     if (state.settings.visitorMode && !state.isAdmin) {
       pins = pins.filter(p => p.author === state.author);
     }
