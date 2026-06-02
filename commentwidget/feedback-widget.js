@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.6.0';
+  const WIDGET_VERSION = '1.7.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -117,9 +117,11 @@
 .cw-panel-meta span { font-size: 11px; color: #6b7280; }
 .cw-panel-actions { display: flex; gap: 6px; margin: 4px 0 12px; padding-bottom: 10px; border-bottom: 1px dashed #d6d3d1; }
 .cw-panel-body { font-size: 13px; line-height: 1.5; margin-bottom: 10px; white-space: pre-wrap; word-break: break-word; }
-.cw-panel-selector { display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 6px 8px; background: #f5f5f4; border: 1px dashed #d6d3d1; border-radius: 6px; }
-.cw-panel-selector code { flex: 1; min-width: 0; font: 600 11px/1.4 'SF Mono', Menlo, Consolas, monospace; color: #1f2937; word-break: break-all; }
-.cw-panel-selector button { flex: none; }
+.cw-panel-claude { margin: 8px 0; padding: 8px; background: #f5f5f4; border: 1px dashed #d6d3d1; border-radius: 6px; }
+.cw-claude-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.cw-claude-label { font-size: 11px; font-weight: 700; color: #6b7280; letter-spacing: .02em; }
+.cw-claude-head button { flex: none; }
+.cw-claude-text { display: block; max-height: 96px; overflow: auto; font: 500 11px/1.45 'SF Mono', Menlo, Consolas, monospace; color: #1f2937; white-space: pre-wrap; word-break: break-word; }
 .cw-panel-thumb { margin: 8px 0; cursor: zoom-in; max-width: 100%; border-radius: 4px; border: 1px solid #e5e7eb; }
 .cw-panel-thumb img { display: block; max-width: 100%; max-height: 120px; }
 .cw-panel-close { position: absolute; top: 6px; right: 8px; background: transparent; border: 0; cursor: pointer; font-size: 18px; color: #92400e; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
@@ -364,15 +366,28 @@
     return null;
   }
 
-  // Opens the file:line in VS Code via the `vscode://file/<abs>:<line>` URL
-  // handler. Needs the user's local repo root (which only they know — the
-  // widget runs on GitHub Pages but VS Code opens local files). We cache it
-  // in localStorage under `cw-repo-root` after the first prompt.
+  // The mock's repo-relative file path. Prefer the pin's own annotation
+  // (data-file, set when the element was clicked); otherwise derive it from the
+  // current page path so "Open in VS Code" works on ANY mock — even ones the
+  // annotate script never touched. A directory URL (…/folder/) maps to its
+  // index.html.
+  function pageFilePath() {
+    const m = location.pathname.match(/\/(products\/.+)$/i);
+    if (!m) return '';
+    let p = decodeURIComponent(m[1]);
+    if (p.endsWith('/')) p += 'index.html';
+    return p;
+  }
+  function pinFilePath(pin) { return pin.dataFile || pageFilePath(); }
+
+  // Opens the file (and line, when known) in VS Code via the
+  // `vscode://file/<abs>[:<line>]` URL handler. Needs the user's local repo
+  // root (which only they know — the widget runs on GitHub Pages but VS Code
+  // opens local files). We cache it in localStorage under `cw-repo-root` after
+  // the first prompt.
   function openInVSCode(pin) {
-    if (!pin.dataFile || !pin.dataLine) {
-      showToast('No source annotation on this element', 'error');
-      return;
-    }
+    const file = pinFilePath(pin);
+    if (!file) { showToast('Could not determine the source file for this page', 'error'); return; }
     let repoRoot = localStorage.getItem('cw-repo-root') || '';
     if (!repoRoot) {
       const entered = window.prompt(
@@ -386,20 +401,33 @@
       if (!repoRoot) return;
       localStorage.setItem('cw-repo-root', repoRoot);
     }
-    const url = `vscode://file${repoRoot}/${pin.dataFile}:${pin.dataLine}`;
+    const url = `vscode://file${repoRoot}/${file}` + (pin.dataLine ? `:${pin.dataLine}` : '');
     const a = document.createElement('a');
     a.href = url;
     a.click();
   }
 
-  // Copies the pin's CSS selector. Handy for the React mocks where "Open in VS
-  // Code" can only reach the app-shell line — paste the selector into Claude
-  // Code (or DevTools) to jump straight to the real element.
-  function copySelector(pin) {
-    if (!pin.selector) { showToast('No selector on this pin', 'error'); return; }
-    navigator.clipboard.writeText(pin.selector).then(
-      () => showToast('Selector copied', 'success'),
-      () => showToast('Could not copy selector', 'error'),
+  // Builds a ready-to-paste Claude Code prompt for a pin: file, CSS selector,
+  // line (if known), the element's visible text, and the feedback itself. The
+  // selector is what lets Claude Code locate the element even in React/JSX
+  // mocks where there's no usable line number.
+  function claudePrompt(pin) {
+    const file = pinFilePath(pin) || '(this mock file)';
+    let s = `In ${file}, find the element`;
+    if (pin.selector) s += ` matching \`${pin.selector}\``;
+    if (pin.dataLine) s += ` (near line ${pin.dataLine})`;
+    if (pin.elementText) s += ` — visible text: "${pin.elementText.slice(0, 80)}"`;
+    s += '.';
+    if (pin.comment) s += ` Feedback: "${pin.comment}"`;
+    return s;
+  }
+
+  // Generic clipboard copy with a toast.
+  function copyText(text, okMsg) {
+    if (!text) { showToast('Nothing to copy', 'error'); return; }
+    navigator.clipboard.writeText(text).then(
+      () => showToast(okMsg || 'Copied', 'success'),
+      () => showToast('Could not copy to clipboard', 'error'),
     );
   }
 
@@ -1108,10 +1136,12 @@
       el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small', onclick: () => { panelEditing = true; reopenPanel(pin); } }, ['✎ Edit']),
       el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small cw-btn--danger', onclick: () => onDelete(pin) }, ['🗑 Delete']),
     ];
-    if (pin.dataFile && pin.dataLine) {
+    if (pinFilePath(pin)) {
       actionButtons.push(el('button', {
         class: 'cw-btn cw-btn--secondary cw-btn--small',
-        title: 'Opens this exact line in VS Code (vscode:// URL). First use prompts for your local repo root path.',
+        title: pin.dataLine
+          ? 'Opens this exact line in VS Code (vscode:// URL). First use prompts for your local repo root path.'
+          : 'Opens this mock file in VS Code (vscode:// URL). First use prompts for your local repo root path.',
         onclick: (e) => { e.stopPropagation(); openInVSCode(pin); },
       }, ['📂 Open in VS Code']));
     }
@@ -1145,14 +1175,22 @@
     }
 
     const extras = [];
-    if (pin.selector && !stripped) {
-      extras.push(el('div', { class: 'cw-panel-selector' }, [
-        el('code', { title: pin.selector }, [pin.selector]),
-        el('button', {
-          class: 'cw-btn cw-btn--secondary cw-btn--small',
-          title: 'Copy this element’s CSS selector (paste into Claude Code or DevTools to locate it)',
-          onclick: (e) => { e.stopPropagation(); copySelector(pin); },
-        }, ['📋 Copy']),
+    // Ready-to-paste Claude Code prompt (file + selector + line + text + the
+    // feedback). Shown on every mock so you can hand the comment straight to
+    // Claude Code — especially useful on React mocks where the line number
+    // isn't reliable, but handy everywhere.
+    if (!stripped) {
+      const prompt = claudePrompt(pin);
+      extras.push(el('div', { class: 'cw-panel-claude' }, [
+        el('div', { class: 'cw-claude-head' }, [
+          el('span', { class: 'cw-claude-label' }, ['🤖 For Claude Code']),
+          el('button', {
+            class: 'cw-btn cw-btn--secondary cw-btn--small',
+            title: 'Copy this prompt, then paste it into Claude Code to jump to the element',
+            onclick: (e) => { e.stopPropagation(); copyText(prompt, 'Prompt copied — paste into Claude Code'); },
+          }, ['📋 Copy']),
+        ]),
+        el('code', { class: 'cw-claude-text', title: prompt }, [prompt]),
       ]));
     }
     if (pin.screenshot && !stripped) {
