@@ -40,14 +40,11 @@
   }
   const pageUrl = canonicalPageUrl();
 
-  // The activity-log viewer is a sibling of this script (commentwidget/log.html).
-  // Resolving it against the widget's own src works at any mock depth and on
-  // GitHub Pages, localhost, or file://.
-  const LOG_URL = (() => {
-    const s = document.querySelector('script[src*="feedback-widget.js"]');
-    try { return new URL('log.html', s.src).href; }
-    catch (_) { return '/commentwidget/log.html'; }
-  })();
+  // Always point at the published viewer on GitHub Pages, regardless of where
+  // the mock itself is being viewed (staging server, localhost, file://). The
+  // viewer only works there anyway — it's the one origin the Worker's CORS
+  // allows and the only place log.html is published.
+  const LOG_URL = PAGES_BASE + '/commentwidget/log.html';
   const IS_MAC = /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || '');
   const CMD_KEY = IS_MAC ? '⌘' : 'Ctrl';
 
