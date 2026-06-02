@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.7.0';
+  const WIDGET_VERSION = '1.8.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -962,7 +962,9 @@
     }, [el('span', {}, [initial(pin.author)])]);
 
     // Three interaction modes on a pin:
-    //   - Comment mode active → mousedown starts a drag; click without movement is a no-op.
+    //   - Comment mode active → mousedown starts a drag; a click without movement
+    //     opens the pin's detail panel (so comment info is viewable while placing
+    //     feedback), and a drag re-pins it to another element.
     //   - This pin's detail panel is open → mousedown also starts a drag (so the
     //     user can re-pin while reading the comment); click on the pin is a no-op
     //     because the panel is already open.
@@ -1011,7 +1013,14 @@
       const d = drag; drag = null;
       dot.classList.remove('cw-pin--dragging');
       hideDragOutline();
-      if (!d || !d.moved) return; // click without drag in pick mode = no-op
+      if (!d) return;
+      if (!d.moved) {
+        // Click without a drag: open this pin's detail panel so its comment +
+        // info are viewable even while in feedback (comment) mode. If the panel
+        // is already open for this pin, leave it as-is.
+        if (state.openPanelPinId !== pin.id) openPanel(pin);
+        return;
+      }
 
       const cx = (e && e.clientX != null) ? e.clientX : d.lastX;
       const cy = (e && e.clientY != null) ? e.clientY : d.lastY;
@@ -1315,7 +1324,7 @@
     window.addEventListener('resize', () => renderPins());
     // Pins are anchored to elements — keep them glued as the page scrolls/reflows.
     window.addEventListener('scroll', () => repositionDots(), { passive: true });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePopup(); closePanel(); } });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePopup(); closePanel(); closeAdminPanel(); } });
 
     try {
       const [pinsRes, settingsRes] = await Promise.all([
