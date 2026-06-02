@@ -34,6 +34,23 @@
   }
   .toolbar input:focus, .toolbar select:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 3px rgba(245,158,11,.18); }
   .toolbar select:disabled { background: #f3f1ea; color: #b3ada0; cursor: not-allowed; }
+
+  /* Product / Page flyout menu */
+  .menu { position: relative; }
+  .menu-btn { font: inherit; padding: 6px 9px; border: 1px solid #e3dcc7; border-radius: 7px; background: #fffaeb; color: var(--ink); min-width: 190px; text-align: left; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .menu-btn:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 3px rgba(245,158,11,.18); }
+  .menu-caret { color: var(--muted); font-size: 11px; }
+  /* Panel has no scroll/clip so submenus can fly out to the side; the product
+     list is short. Each submenu scrolls on its own when a product has many pages. */
+  .menu-panel { position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,.16); padding: 5px; min-width: 220px; }
+  .menu-item { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 8px 10px; border-radius: 7px; cursor: pointer; white-space: nowrap; font-size: 13px; }
+  .menu-item:hover, .menu-item:focus { background: #fef3c7; outline: none; }
+  .menu-item.active { background: #fde68a; font-weight: 600; }
+  .menu-item .chev { color: var(--muted); font-size: 11px; }
+  .submenu { display: none; position: absolute; top: -5px; left: 100%; z-index: 31; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,.16); padding: 5px; min-width: 200px; max-height: 65vh; overflow-y: auto; }
+  .menu-item.has-sub:hover > .submenu, .menu-item.has-sub:focus-within > .submenu { display: block; }
+  .submenu .menu-item { justify-content: flex-start; }
+  .submenu .sub-all { font-style: italic; color: #92400e; border-bottom: 1px dashed var(--line); border-radius: 0; margin-bottom: 3px; }
   .toolbar .grow { flex: 1; min-width: 200px; }
   button.refresh {
     align-self: flex-end; font: inherit; cursor: pointer; padding: 7px 14px; border-radius: 7px;
@@ -89,11 +106,13 @@
   <label>Action
     <select id="f-action"><option value="">All actions</option></select>
   </label>
-  <label>Product
-    <select id="f-product"><option value="">All products</option></select>
-  </label>
-  <label>Page
-    <select id="f-page" disabled><option value="">All pages</option></select>
+  <label>Product / Page
+    <div class="menu" id="pp-menu">
+      <button type="button" class="menu-btn" id="pp-btn" aria-haspopup="true" aria-expanded="false">
+        <span id="pp-label">All products</span><span class="menu-caret">▾</span>
+      </button>
+      <div class="menu-panel" id="pp-panel" hidden></div>
+    </div>
   </label>
   <label class="grow">Search
     <input id="f-search" type="search" placeholder="Filter by author, comment, or page…">
@@ -150,15 +169,19 @@
     rows: document.getElementById('rows'),
     count: document.getElementById('count'),
     fAction: document.getElementById('f-action'),
-    fProduct: document.getElementById('f-product'),
-    fPage: document.getElementById('f-page'),
+    menu: document.getElementById('pp-menu'),
+    menuBtn: document.getElementById('pp-btn'),
+    menuPanel: document.getElementById('pp-panel'),
+    menuLabel: document.getElementById('pp-label'),
     fSearch: document.getElementById('f-search'),
     refresh: document.getElementById('refresh'),
   };
 
   let allEvents = [];
   let productOptions = [];   // [{ value:'u:<url>', label, group }] built from the mock registry
-  let pagesByProduct = new Map(); // product name -> [{ url, label }] for the Page dropdown
+  let pagesByProduct = new Map(); // product name -> [{ url, label }] for the flyout menu
+  let filterProduct = '';    // '' = all products, else a product name
+  let filterPage = '';       // '' = all pages, else a page URL
   let sortKey = 'ts';
   let sortDir = -1; // newest first
 
@@ -219,12 +242,10 @@
     }
   }
 
-  // Group every known page under its product, so the Product dropdown stays a
-  // short list (~a dozen products) and the Page dropdown only shows the pages of
-  // the chosen product. Registry pages come first; any page that has events but
-  // isn't in the registry is added under its product (or "Other") so nothing is
-  // hidden. Then (re)build both dropdowns.
-  function buildFilters(events) {
+  // Group every known page under its product. Registry pages come first; any
+  // page that has events but isn't in the registry is added under its product
+  // (or "Other") so nothing is hidden. Then render the flyout menu.
+  function buildMenu(events) {
     pagesByProduct = new Map();
     const add = (product, url, label) => {
       if (!pagesByProduct.has(product)) pagesByProduct.set(product, []);
@@ -237,38 +258,57 @@
       known.add(e.url);
       add(e.product || 'Other', e.url, pageLabel(e.url) + ' (from log)');
     }
-
-    // Product dropdown — just the product names.
-    const prevProduct = els.fProduct.value;
-    els.fProduct.innerHTML = '<option value="">All products</option>' +
-      [...pagesByProduct.keys()].sort((a, b) => a.localeCompare(b))
-        .map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
-    if (prevProduct && pagesByProduct.has(prevProduct)) els.fProduct.value = prevProduct;
-
-    buildPageFilter(els.fProduct.value);
+    // Drop a stale selection if the product/page no longer exists.
+    if (filterProduct && !pagesByProduct.has(filterProduct)) { filterProduct = ''; filterPage = ''; }
+    renderMenu();
+    updateMenuLabel();
   }
 
-  // Page dropdown — pages of the selected product only; disabled until a product
-  // is chosen (drill down: product → page).
-  function buildPageFilter(product) {
-    const prevPage = els.fPage.value;
-    const pages = product ? (pagesByProduct.get(product) || []) : [];
-    els.fPage.disabled = !product;
-    els.fPage.innerHTML = '<option value="">All pages</option>' +
-      [...pages].sort((a, b) => a.label.localeCompare(b.label))
-        .map(p => `<option value="${esc(p.url)}">${esc(p.label)}</option>`).join('');
-    if (prevPage && pages.some(p => p.url === prevPage)) els.fPage.value = prevPage;
+  // Render the menu: a short list of products, each revealing a flyout submenu
+  // (on hover/focus) with "All pages" plus that product's pages.
+  function renderMenu() {
+    const products = [...pagesByProduct.keys()].sort((a, b) => a.localeCompare(b));
+    let html = `<div class="menu-item${!filterProduct ? ' active' : ''}" data-product="" data-page="">All products</div>`;
+    for (const product of products) {
+      const pages = [...pagesByProduct.get(product)].sort((a, b) => a.label.localeCompare(b.label));
+      const activeProd = filterProduct === product;
+      let sub = `<div class="menu-item sub-all${activeProd && !filterPage ? ' active' : ''}" data-product="${esc(product)}" data-page="">All pages</div>`;
+      sub += pages.map(p => `<div class="menu-item${filterPage === p.url ? ' active' : ''}" data-product="${esc(product)}" data-page="${esc(p.url)}">${esc(p.label)}</div>`).join('');
+      html += `<div class="menu-item has-sub${activeProd ? ' active' : ''}" data-product="${esc(product)}" tabindex="0">${esc(product)}<span class="chev">▸</span><div class="submenu">${sub}</div></div>`;
+    }
+    els.menuPanel.innerHTML = html;
+  }
+
+  function pageLabelFor(product, url) {
+    const hit = (pagesByProduct.get(product) || []).find(p => p.url === url);
+    return hit ? hit.label : pageLabel(url);
+  }
+
+  function updateMenuLabel() {
+    let txt = 'All products';
+    if (filterProduct && !filterPage) txt = `${filterProduct} · All pages`;
+    else if (filterProduct && filterPage) txt = `${filterProduct} · ${pageLabelFor(filterProduct, filterPage)}`;
+    els.menuLabel.textContent = txt;
+  }
+
+  function openMenu()  { renderMenu(); els.menuPanel.hidden = false; els.menuBtn.setAttribute('aria-expanded', 'true'); }
+  function closeMenu() { els.menuPanel.hidden = true;  els.menuBtn.setAttribute('aria-expanded', 'false'); }
+
+  function selectPP(product, page) {
+    filterProduct = product;
+    filterPage = page;
+    updateMenuLabel();
+    closeMenu();
+    render();
   }
 
   function applyFilters() {
     const a = els.fAction.value;
-    const prod = els.fProduct.value;   // '' = all products, else a product name
-    const page = els.fPage.value;      // '' = all pages, else a page URL
     const q = els.fSearch.value.trim().toLowerCase();
     return allEvents.filter(e => {
       if (a && e.action !== a) return false;
-      if (prod && (e.product || '') !== prod) return false;
-      if (page && e.url !== page) return false;
+      if (filterProduct && (e.product || '') !== filterProduct) return false;
+      if (filterPage && e.url !== filterPage) return false;
       if (q) {
         const hay = `${e.author} ${e.comment} ${e.product} ${e.url} ${e.pinId} ${e.action}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -337,7 +377,7 @@
     els.status.textContent = 'Loading activity…';
     try {
       await Promise.all([loadEvents(), loadProducts()]);
-      buildFilters(allEvents);
+      buildMenu(allEvents);
       render();
     } catch (err) {
       els.table.hidden = true;
@@ -354,10 +394,23 @@
   // Wire controls
   buildActionFilter();
   els.fAction.addEventListener('change', render);
-  els.fProduct.addEventListener('change', () => { buildPageFilter(els.fProduct.value); render(); });
-  els.fPage.addEventListener('change', render);
   els.fSearch.addEventListener('input', render);
   els.refresh.addEventListener('click', load);
+
+  // Product / Page flyout menu interactions
+  els.menuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    els.menuPanel.hidden ? openMenu() : closeMenu();
+  });
+  els.menuPanel.addEventListener('click', (e) => {
+    const item = e.target.closest('.menu-item');
+    // Product rows (no data-page) only reveal their submenu; only leaf items
+    // ("All products", "All pages", a specific page) make a selection.
+    if (!item || !('page' in item.dataset)) return;
+    selectPP(item.dataset.product || '', item.dataset.page || '');
+  });
+  document.addEventListener('click', (e) => { if (!els.menu.contains(e.target)) closeMenu(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
   document.querySelectorAll('thead th').forEach(th => {
     th.addEventListener('click', () => {
       const key = th.dataset.sort;
