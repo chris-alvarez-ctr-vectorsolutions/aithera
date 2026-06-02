@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incident Investigation Summary: FY26-00004 | IndustrySafe</title>
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --border: #d8dde2;
+            --border-soft: #e6eaee;
+            --text: #1f2937;
+            --text-muted: #5b6776;
+            --text-light: #8a96a3;
+            --surface: #ffffff;
+            --bg: #f4f6f8;
+            --primary: #1e5a96;
+            --primary-hover: #174670;
+            --primary-soft: #e8f0f9;
+            --success: #2d7a2d;
+            --warning: #b45309;
+            --danger: #b91c1c;
+        }
+        body {
+            font-family: 'Open Sans', Arial, sans-serif;
+            font-size: 13px;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        /* ── Top Navigation (matches IndustrySafe form chrome) ── */
+        .topnav {
+            background: #3d5267;
+            display: flex;
+            align-items: stretch;
+            height: 50px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            user-select: none;
+        }
+        .topnav-logo {
+            display: flex; align-items: center;
+            padding: 0 16px;
+            color: white; font-size: 15px; font-weight: 700;
+            letter-spacing: 0.2px;
+            border-right: 1px solid rgba(255,255,255,0.15);
+            white-space: nowrap;
+        }
+        .topnav-logo .vs-mark {
+            font-size: 19px; font-weight: 800;
+            letter-spacing: -0.5px; margin-right: 7px;
+            color: #ff6a13;
+        }
+        .topnav-items { display: flex; align-items: stretch; flex: 1; }
+        .topnav-item {
+            display: flex; align-items: center;
+            padding: 0 12px;
+            color: rgba(255,255,255,0.9);
+            font-size: 12.5px;
+            cursor: pointer;
+            white-space: nowrap;
+            border-bottom: 3px solid transparent;
+            gap: 4px;
+            text-decoration: none;
+        }
+        .topnav-item:hover { background: rgba(255,255,255,0.08); }
+        .topnav-item.active { color: #fff; border-bottom-color: #cc3300; }
+        .topnav-item .fa-chevron-down { font-size: 9px; opacity: 0.7; }
+        .topnav-right { display: flex; align-items: center; gap: 2px; padding: 0 8px; }
+        .topnav-right .nav-icon-btn {
+            color: rgba(255,255,255,0.8);
+            font-size: 16px; padding: 6px 8px;
+            cursor: pointer; border-radius: 3px;
+        }
+        .topnav-right .nav-icon-btn:hover { background: rgba(255,255,255,0.12); }
+        .industry-safe-badge {
+            background: #e07700; color: white;
+            font-size: 15px; font-weight: 700;
+            padding: 7px 16px; border-radius: 4px;
+            margin-left: 4px;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+        }
+
+        /* ── Page Layout ── */
+        .page-content { max-width: 1400px; margin: 0 auto; padding: 16px 20px 40px; }
+        .back-link {
+            color: var(--primary); text-decoration: none;
+            font-size: 13px;
+            display: inline-flex; align-items: center; gap: 5px;
+            margin-bottom: 14px;
+        }
+        .back-link:hover { text-decoration: underline; }
+
+        .page-header {
+            display: flex; align-items: flex-start; justify-content: space-between;
+            gap: 20px;
+            padding-bottom: 16px;
+            margin-bottom: 18px;
+            border-bottom: 1px solid var(--border-soft);
+        }
+        .page-title-wrap { min-width: 0; }
+        .page-eyebrow {
+            font-size: 11.5px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.6px;
+            color: var(--text-muted); margin-bottom: 4px;
+        }
+        .page-title {
+            font-size: 22px; font-weight: 700;
+            color: var(--text);
+            line-height: 1.2;
+            margin-bottom: 6px;
+        }
+        .page-subtitle {
+            font-size: 13.5px; color: var(--text-muted);
+            display: flex; align-items: center; gap: 10px;
+            flex-wrap: wrap;
+        }
+        .page-subtitle .dot {
+            width: 3px; height: 3px; border-radius: 50%;
+            background: var(--text-light); display: inline-block;
+        }
+        .page-actions {
+            display: flex; gap: 6px; flex-shrink: 0;
+        }
+        .btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 14px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            border-radius: 4px;
+            font-size: 12.5px; font-weight: 500;
+            cursor: pointer; font-family: inherit;
+            transition: background 0.12s, border-color 0.12s, color 0.12s;
+        }
+        .btn:hover { background: var(--bg); border-color: var(--text-light); }
+        .btn .fa { font-size: 12px; color: var(--text-muted); }
+        .btn-primary {
+            background: var(--primary); color: white;
+            border-color: var(--primary);
+        }
+        .btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+        .btn-primary .fa { color: white; }
+        .btn-disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ── Status / Key Facts strip ── */
+        .key-facts {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 1px;
+            background: var(--border-soft);
+            border: 1px solid var(--border-soft);
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 18px;
+        }
+        .fact {
+            background: var(--surface);
+            padding: 12px 14px;
+            min-height: 70px;
+            display: flex; flex-direction: column; justify-content: center;
+        }
+        .fact-label {
+            font-size: 11px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+        }
+        .fact-value {
+            font-size: 14px; font-weight: 600;
+            color: var(--text);
+            line-height: 1.3;
+        }
+        .fact-value.muted { color: var(--text-light); font-weight: 400; font-style: italic; }
+        .status-pill {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 10px; border-radius: 12px;
+            font-size: 12px; font-weight: 600;
+        }
+        .status-pill.open { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+        .status-pill.closed { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .status-pill i { font-size: 9px; }
+
+        /* ── Two-column body grid ── */
+        .body-grid {
+            display: grid;
+            grid-template-columns: 1fr 360px;
+            gap: 18px;
+            align-items: start;
+        }
+        @media (max-width: 1100px) {
+            .body-grid { grid-template-columns: 1fr; }
+            .key-facts { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        .col-stack { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+
+        /* ── Card ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border-soft);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .card-header {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-soft);
+            background: #fafbfc;
+        }
+        .card-title {
+            font-size: 13.5px; font-weight: 700;
+            color: var(--text);
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        .card-title .fa { color: var(--text-muted); font-size: 13px; }
+        .card-subtitle {
+            font-size: 12px; color: var(--text-muted);
+            margin-top: 2px;
+            font-weight: 400;
+        }
+        .card-body { padding: 16px; }
+        .card-body > * + * { margin-top: 14px; }
+
+        /* ── What Happened block ── */
+        .field-block-label {
+            font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+        .field-block-text {
+            font-size: 13.5px; color: var(--text);
+            line-height: 1.55;
+        }
+        .field-block-text.muted {
+            color: var(--text-light); font-style: italic;
+        }
+        .field-block + .field-block { margin-top: 12px; }
+
+        /* ── People grid ── */
+        .people-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px 24px;
+        }
+        .person-block {
+            display: flex; flex-direction: column; gap: 2px;
+            min-width: 0;
+        }
+        .person-label {
+            font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+        .person-name {
+            font-size: 14px; font-weight: 600;
+            color: var(--text);
+        }
+        .person-name.muted {
+            color: var(--text-light); font-weight: 400; font-style: italic;
+        }
+        .person-meta {
+            font-size: 12px; color: var(--text-muted);
+            margin-top: 1px;
+            line-height: 1.4;
+        }
+
+        /* ── Vehicle / details grid ── */
+        .kv-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px 20px;
+        }
+        .kv-block { min-width: 0; }
+        .kv-label {
+            font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 3px;
+        }
+        .kv-value {
+            font-size: 13.5px; color: var(--text);
+            line-height: 1.4;
+        }
+        .kv-value.muted {
+            color: var(--text-light); font-style: italic;
+        }
+
+        /* ── Recommended Training (plain — no AI styling per EHS rules) ── */
+        .rec-header-wrap { flex: 1; min-width: 0; }
+        .refresh-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            border-radius: 4px;
+            font-size: 12.5px; font-weight: 500;
+            cursor: pointer; font-family: inherit;
+            flex-shrink: 0;
+        }
+        .refresh-btn:hover { background: var(--bg); border-color: var(--text-light); }
+        .refresh-btn .fa { font-size: 11px; color: var(--text-muted); transition: transform 0.4s ease; }
+        .refresh-btn.spinning .fa { transform: rotate(360deg); }
+
+        .course-list {
+            display: flex; flex-direction: column;
+            border: 1px solid var(--border-soft);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .course-row {
+            display: flex; align-items: flex-start;
+            gap: 12px;
+            padding: 12px 14px;
+            background: var(--surface);
+            transition: background 0.12s;
+        }
+        .course-row + .course-row { border-top: 1px solid var(--border-soft); }
+        .course-row:hover { background: #fafbfc; }
+        .course-row.selected { background: var(--primary-soft); }
+        .course-row.selected:hover { background: #dfeaf6; }
+
+        .course-checkbox {
+            margin-top: 2px;
+            width: 16px; height: 16px;
+            accent-color: var(--primary);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .course-thumb {
+            width: 38px; height: 38px; flex-shrink: 0;
+            border-radius: 5px;
+            background: var(--primary-soft);
+            color: var(--primary);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 15px;
+        }
+        .course-info { flex: 1; min-width: 0; }
+        .course-title {
+            font-size: 13.5px; font-weight: 600;
+            color: var(--text);
+            line-height: 1.35;
+            margin-bottom: 3px;
+        }
+        .course-meta {
+            font-size: 12px; color: var(--text-muted);
+            display: flex; align-items: center; gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 5px;
+        }
+        .course-meta i { font-size: 11px; }
+        .course-meta .meta-divider {
+            width: 3px; height: 3px; border-radius: 50%;
+            background: var(--text-light); display: inline-block;
+        }
+        .course-rationale {
+            font-size: 12.5px; color: var(--text-muted);
+            line-height: 1.5;
+        }
+        .course-rationale strong { color: var(--text); font-weight: 600; }
+        .course-preview-link {
+            font-size: 12px; color: var(--primary);
+            text-decoration: none; font-weight: 500;
+            flex-shrink: 0; align-self: flex-start;
+            margin-top: 2px;
+        }
+        .course-preview-link:hover { text-decoration: underline; }
+
+        .rec-footer {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px dashed var(--border-soft);
+        }
+        .selected-count {
+            font-size: 12.5px; color: var(--text-muted);
+        }
+        .selected-count strong { color: var(--text); font-weight: 700; }
+        .rec-footer-actions { display: flex; gap: 8px; }
+
+        .rec-empty {
+            padding: 32px 16px; text-align: center;
+            color: var(--text-muted);
+        }
+        .rec-empty .fa { font-size: 28px; color: #cbd5d9; margin-bottom: 8px; }
+        .rec-empty-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+        .rec-empty-desc { font-size: 12.5px; max-width: 320px; margin: 0 auto; }
+
+        /* ── Right Column ── */
+        .related-list { display: flex; flex-direction: column; }
+        .related-row {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px;
+            padding: 11px 0;
+            border-bottom: 1px solid var(--border-soft);
+        }
+        .related-row:last-child { border-bottom: none; }
+        .related-left { display: inline-flex; align-items: center; gap: 10px; }
+        .related-icon {
+            width: 26px; height: 26px; border-radius: 4px;
+            background: var(--primary-soft); color: var(--primary);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+        .related-name {
+            font-size: 13px; font-weight: 500; color: var(--text);
+        }
+        .related-right { display: inline-flex; align-items: center; gap: 8px; }
+        .related-count {
+            min-width: 22px; padding: 1px 8px;
+            border-radius: 10px;
+            background: #eef1f5;
+            color: var(--text-muted);
+            font-size: 11.5px; font-weight: 700;
+            text-align: center;
+        }
+        .related-count.has { background: var(--primary-soft); color: var(--primary); }
+        .related-add {
+            color: var(--primary);
+            background: none; border: none;
+            font-size: 12px; font-weight: 500;
+            cursor: pointer; font-family: inherit;
+            padding: 2px 4px;
+        }
+        .related-add:hover { text-decoration: underline; }
+
+        /* Timeline */
+        .timeline {
+            list-style: none; position: relative;
+            padding-left: 18px;
+        }
+        .timeline::before {
+            content: ''; position: absolute;
+            top: 6px; bottom: 6px;
+            left: 5px; width: 2px;
+            background: var(--border-soft);
+        }
+        .timeline-item { position: relative; padding-bottom: 14px; }
+        .timeline-item:last-child { padding-bottom: 0; }
+        .timeline-dot {
+            position: absolute; left: -18px; top: 4px;
+            width: 12px; height: 12px; border-radius: 50%;
+            background: var(--surface);
+            border: 2px solid var(--primary);
+        }
+        .timeline-dot.muted { border-color: var(--text-light); }
+        .timeline-row {
+            display: flex; align-items: baseline; justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 2px;
+        }
+        .timeline-title { font-size: 13px; font-weight: 600; color: var(--text); }
+        .timeline-time { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; }
+        .timeline-desc { font-size: 12.5px; color: var(--text-muted); line-height: 1.45; }
+
+        /* Anchor scroll */
+        .anchor-target { scroll-margin-top: 70px; }
+    </style>
+</head>
+<body>
+
+<!-- Top Navigation -->
+<nav class="topnav">
+    <div class="topnav-logo">
+        <span class="vs-mark">V</span><span>Vector Solutions</span>
+    </div>
+    <div class="topnav-items">
+        <a class="topnav-item" href="#">Home <i class="fa-solid fa-chevron-down"></i></a>
+        <a class="topnav-item active" href="#">Incidents</a>
+        <a class="topnav-item" href="#">Claims <i class="fa-solid fa-chevron-down"></i></a>
+        <a class="topnav-item" href="#">Inspections <i class="fa-solid fa-chevron-down"></i></a>
+        <a class="topnav-item" href="#">Hazards</a>
+        <a class="topnav-item" href="#">Observations <i class="fa-solid fa-chevron-down"></i></a>
+        <a class="topnav-item" href="#">Corrective Actions</a>
+        <a class="topnav-item" href="#">Training <i class="fa-solid fa-chevron-down"></i></a>
+        <a class="topnav-item" href="#">Industrial Hygiene <i class="fa-solid fa-chevron-down"></i></a>
+        <a class="topnav-item" href="#">More <i class="fa-solid fa-chevron-down"></i></a>
+    </div>
+    <div class="topnav-right">
+        <div class="nav-icon-btn"><i class="fa-solid fa-table-cells"></i></div>
+        <div class="nav-icon-btn"><i class="fa-solid fa-circle-user"></i></div>
+        <div class="industry-safe-badge">IndustrySafe</div>
+    </div>
+</nav>
+
+<div class="page-content">
+    <a href="#" class="back-link"><i class="fa-solid fa-arrow-left"></i> Back to Incidents</a>
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="page-title-wrap">
+            <div class="page-eyebrow">Incident Investigation</div>
+            <h1 class="page-title">FY26-00004 — Hazardous Material Spill</h1>
+            <div class="page-subtitle">
+                <span><i class="fa-regular fa-calendar"></i> Reported 5/11/2026, 12:30 PM</span>
+                <span class="dot"></span>
+                <span><i class="fa-solid fa-location-dot"></i> Facility F-000003 · Division D-003</span>
+                <span class="dot"></span>
+                <span><i class="fa-regular fa-user"></i> Prepared by Andy Xia</span>
+            </div>
+        </div>
+        <div class="page-actions">
+            <a class="btn btn-primary" href="incident-investigation.html">
+                <i class="fa-regular fa-pen-to-square"></i> Edit / View Details
+            </a>
+            <button class="btn"><i class="fa-solid fa-print"></i> Print</button>
+            <button class="btn"><i class="fa-regular fa-rectangle-xmark"></i> Close</button>
+        </div>
+    </div>
+
+    <!-- Key Facts strip -->
+    <div class="key-facts">
+        <div class="fact">
+            <div class="fact-label">Status</div>
+            <div class="fact-value">
+                <span class="status-pill open"><i class="fa-solid fa-circle"></i> Open</span>
+            </div>
+        </div>
+        <div class="fact">
+            <div class="fact-label">Incident Type</div>
+            <div class="fact-value">Hazardous Material Spill</div>
+        </div>
+        <div class="fact">
+            <div class="fact-label">Severity</div>
+            <div class="fact-value muted">Not set</div>
+        </div>
+        <div class="fact">
+            <div class="fact-label">Risk Assessment</div>
+            <div class="fact-value muted">Not set</div>
+        </div>
+        <div class="fact">
+            <div class="fact-label">Injuries</div>
+            <div class="fact-value">None reported</div>
+        </div>
+        <div class="fact">
+            <div class="fact-label">Retraining Required</div>
+            <div class="fact-value muted">Pending review</div>
+        </div>
+    </div>
+
+    <!-- Body -->
+    <div class="body-grid">
+
+        <!-- Left column -->
+        <div class="col-stack">
+
+            <!-- What Happened -->
+            <section class="card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title"><i class="fa-regular fa-clipboard"></i> What Happened</div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="field-block">
+                        <div class="field-block-label">Initial Description</div>
+                        <p class="field-block-text">A hazardous material spill occurred during routine maintenance procedures in the storage facility. Immediate containment protocols were initiated.</p>
+                    </div>
+                    <div class="field-block">
+                        <div class="field-block-label">Description of Incident</div>
+                        <p class="field-block-text">Hazardous material spill during routine maintenance.</p>
+                    </div>
+                    <div class="field-block">
+                        <div class="field-block-label">Location Details</div>
+                        <p class="field-block-text muted">No description of location provided.</p>
+                    </div>
+                    <div class="field-block">
+                        <div class="field-block-label">Environmental Conditions</div>
+                        <p class="field-block-text muted">No environmental conditions recorded.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- People Involved -->
+            <section class="card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title"><i class="fa-regular fa-user"></i> People Involved</div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="people-grid">
+                        <div class="person-block">
+                            <div class="person-label">Preparer</div>
+                            <div class="person-name">Andy Xia</div>
+                            <div class="person-meta">Maintenance Supervisor · emp-ax-23872</div>
+                        </div>
+                        <div class="person-block">
+                            <div class="person-label">Involved Employee</div>
+                            <div class="person-name">Tester Smith</div>
+                            <div class="person-meta">Contractor · ID 123456789</div>
+                        </div>
+                        <div class="person-block">
+                            <div class="person-label">Supervisor</div>
+                            <div class="person-name muted">Not assigned</div>
+                            <div class="person-meta">&nbsp;</div>
+                        </div>
+                        <div class="person-block">
+                            <div class="person-label">Reported To</div>
+                            <div class="person-name muted">Not specified</div>
+                            <div class="person-meta">Reported on 5/11/2026</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Vehicle Involved -->
+            <section class="card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title"><i class="fa-solid fa-truck"></i> Vehicle Involved</div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="kv-grid">
+                        <div class="kv-block">
+                            <div class="kv-label">Driver</div>
+                            <div class="kv-value">Employee 123456789</div>
+                        </div>
+                        <div class="kv-block">
+                            <div class="kv-label">Unit Number</div>
+                            <div class="kv-value muted">Not provided</div>
+                        </div>
+                        <div class="kv-block">
+                            <div class="kv-label">Vehicle Type</div>
+                            <div class="kv-value muted">Not provided</div>
+                        </div>
+                        <div class="kv-block">
+                            <div class="kv-label">Vehicle Make</div>
+                            <div class="kv-value muted">Not provided</div>
+                        </div>
+                        <div class="kv-block">
+                            <div class="kv-label">License Plate</div>
+                            <div class="kv-value muted">Not provided</div>
+                        </div>
+                        <div class="kv-block">
+                            <div class="kv-label">Vehicle Action</div>
+                            <div class="kv-value muted">Not provided</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Recommended Training (no AI branding per EHS CLAUDE.md) -->
+            <section class="card" id="recommended-training">
+                <div class="card-header">
+                    <div class="rec-header-wrap">
+                        <div class="card-title"><i class="fa-solid fa-graduation-cap"></i> Recommended Training</div>
+                        <div class="card-subtitle">Courses suggested for this investigation based on incident type, contributing factors, and the people involved</div>
+                    </div>
+                    <button class="refresh-btn" id="refreshCoursesBtn" type="button">
+                        <i class="fa-solid fa-rotate-right"></i> Refresh
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="course-list" id="courseList">
+                        <!-- Course rows injected by JS -->
+                    </div>
+                    <div class="rec-footer">
+                        <div class="selected-count"><strong id="selectedCount">0</strong> of <span id="totalCount">0</span> selected</div>
+                        <div class="rec-footer-actions">
+                            <button class="btn"><i class="fa-solid fa-plus"></i> Add Course Manually</button>
+                            <button class="btn btn-primary btn-disabled" id="assignBtn" disabled>
+                                <i class="fa-solid fa-user-plus"></i> Assign Selected
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- Right column -->
+        <div class="col-stack">
+
+            <!-- Related Items -->
+            <section class="card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title"><i class="fa-regular fa-folder-open"></i> Related Items</div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="related-list">
+                        <div class="related-row">
+                            <div class="related-left">
+                                <span class="related-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                                <span class="related-name">Corrective Actions</span>
+                            </div>
+                            <div class="related-right">
+                                <span class="related-count has">2</span>
+                                <button class="related-add">View</button>
+                            </div>
+                        </div>
+                        <div class="related-row">
+                            <div class="related-left">
+                                <span class="related-icon"><i class="fa-solid fa-file-invoice-dollar"></i></span>
+                                <span class="related-name">Claims</span>
+                            </div>
+                            <div class="related-right">
+                                <span class="related-count">0</span>
+                                <button class="related-add">Add</button>
+                            </div>
+                        </div>
+                        <div class="related-row">
+                            <div class="related-left">
+                                <span class="related-icon"><i class="fa-solid fa-list-check"></i></span>
+                                <span class="related-name">Tasks</span>
+                            </div>
+                            <div class="related-right">
+                                <span class="related-count has">3</span>
+                                <button class="related-add">View</button>
+                            </div>
+                        </div>
+                        <div class="related-row">
+                            <div class="related-left">
+                                <span class="related-icon"><i class="fa-solid fa-helmet-safety"></i></span>
+                                <span class="related-name">Hazards</span>
+                            </div>
+                            <div class="related-right">
+                                <span class="related-count">0</span>
+                                <button class="related-add">Add</button>
+                            </div>
+                        </div>
+                        <div class="related-row">
+                            <div class="related-left">
+                                <span class="related-icon"><i class="fa-regular fa-calendar"></i></span>
+                                <span class="related-name">Events</span>
+                            </div>
+                            <div class="related-right">
+                                <span class="related-count">0</span>
+                                <button class="related-add">Add</button>
+                            </div>
+                        </div>
+                        <div class="related-row">
+                            <div class="related-left">
+                                <span class="related-icon"><i class="fa-regular fa-file"></i></span>
+                                <span class="related-name">Attachments</span>
+                            </div>
+                            <div class="related-right">
+                                <span class="related-count has">1</span>
+                                <button class="related-add">View</button>
+                            </div>
+                        </div>
+                        <div class="related-row">
+                            <div class="related-left">
+                                <span class="related-icon"><i class="fa-regular fa-envelope"></i></span>
+                                <span class="related-name">Emails</span>
+                            </div>
+                            <div class="related-right">
+                                <span class="related-count">0</span>
+                                <button class="related-add">Send</button>
+                            </div>
+                        </div>
+                        <div class="related-row">
+                            <div class="related-left">
+                                <span class="related-icon"><i class="fa-solid fa-signature"></i></span>
+                                <span class="related-name">Signatures</span>
+                            </div>
+                            <div class="related-right">
+                                <span class="related-count">0</span>
+                                <button class="related-add">Add</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Analysis snapshot -->
+            <section class="card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title"><i class="fa-solid fa-magnifying-glass-chart"></i> Analysis Snapshot</div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="field-block">
+                        <div class="field-block-label">Primary Cause</div>
+                        <p class="field-block-text muted">Not yet identified</p>
+                    </div>
+                    <div class="field-block">
+                        <div class="field-block-label">Root Cause</div>
+                        <p class="field-block-text muted">Not yet identified</p>
+                    </div>
+                    <div class="field-block">
+                        <div class="field-block-label">Responders</div>
+                        <p class="field-block-text muted">No responders recorded</p>
+                    </div>
+                    <div class="field-block">
+                        <div class="field-block-label">Witnesses</div>
+                        <p class="field-block-text muted">None recorded</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- History timeline -->
+            <section class="card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title"><i class="fa-regular fa-clock"></i> History</div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <ul class="timeline">
+                        <li class="timeline-item">
+                            <span class="timeline-dot"></span>
+                            <div class="timeline-row">
+                                <span class="timeline-title">Report created</span>
+                                <span class="timeline-time">May 11, 2026 · 2:34 PM EST</span>
+                            </div>
+                            <div class="timeline-desc">Tester Smith — Status set to Open</div>
+                        </li>
+                        <li class="timeline-item">
+                            <span class="timeline-dot muted"></span>
+                            <div class="timeline-row">
+                                <span class="timeline-title">Awaiting next update</span>
+                                <span class="timeline-time">—</span>
+                            </div>
+                            <div class="timeline-desc">Open the form to record analysis, root causes, and assignments.</div>
+                        </li>
+                    </ul>
+                </div>
+            </section>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // ── Recommended training course pool ─────────────────────────────────────
+    // Pool is rotated on each Refresh so users get a fresh list of suggestions.
+    // The pool is sized so a rotation always produces a different visible set.
+    const COURSE_POOL = [
+        {
+            title: 'Hazardous Material Spill Response',
+            icon: 'fa-solid fa-droplet',
+            duration: '45 min',
+            audience: 'Maintenance crew',
+            rationale: 'Directly tied to the <strong>Hazardous Material Spill</strong> incident type. Reviews containment protocols and reporting steps.'
+        },
+        {
+            title: 'HazCom & SDS Refresher (GHS)',
+            icon: 'fa-solid fa-flask',
+            duration: '30 min',
+            audience: 'All facility staff',
+            rationale: 'Reinforces SDS interpretation and chemical handling — typical gap after spill events involving routine maintenance.'
+        },
+        {
+            title: 'Contractor Safety Orientation',
+            icon: 'fa-solid fa-hard-hat',
+            duration: '25 min',
+            audience: 'Contractors on site',
+            rationale: 'Involved worker is a <strong>Contractor</strong>. Confirms site-specific hazard awareness and emergency procedures.'
+        },
+        {
+            title: 'PPE Selection for Chemical Handling',
+            icon: 'fa-solid fa-helmet-safety',
+            duration: '20 min',
+            audience: 'Maintenance crew',
+            rationale: 'Addresses PPE adequacy when working with stored hazardous materials during maintenance tasks.'
+        },
+        {
+            title: 'Lockout/Tagout (LOTO) Procedures',
+            icon: 'fa-solid fa-lock',
+            duration: '40 min',
+            audience: 'Maintenance crew',
+            rationale: 'Recommended for incidents occurring during <strong>routine maintenance</strong> in storage facilities.'
+        },
+        {
+            title: 'Emergency Response & Evacuation',
+            icon: 'fa-solid fa-bell',
+            duration: '35 min',
+            audience: 'All employees at facility',
+            rationale: 'Strengthens response readiness; aligns with site protocols at Facility F-000003.'
+        },
+        {
+            title: 'Spill Kit Use & Inspection',
+            icon: 'fa-solid fa-box-archive',
+            duration: '15 min',
+            audience: 'Maintenance crew',
+            rationale: 'Practical refresher on selecting and deploying spill kit contents — useful given the spill type reported.'
+        },
+        {
+            title: 'Incident Reporting Best Practices',
+            icon: 'fa-solid fa-clipboard-check',
+            duration: '20 min',
+            audience: 'Supervisors & preparers',
+            rationale: 'Improves completeness of incident reports; several fields in this report are currently incomplete.'
+        },
+        {
+            title: 'Storage of Hazardous Chemicals',
+            icon: 'fa-solid fa-warehouse',
+            duration: '30 min',
+            audience: 'Storage facility staff',
+            rationale: 'Location of incident was a storage facility — covers segregation, labeling, and inspection routines.'
+        },
+        {
+            title: 'OSHA 1910.120 HAZWOPER Awareness',
+            icon: 'fa-solid fa-book',
+            duration: '60 min',
+            audience: 'Maintenance & responders',
+            rationale: 'First-responder awareness level — appropriate baseline for personnel near hazardous material releases.'
+        }
+    ];
+
+    const VISIBLE_COUNT = 4;
+    const courseList   = document.getElementById('courseList');
+    const refreshBtn   = document.getElementById('refreshCoursesBtn');
+    const assignBtn    = document.getElementById('assignBtn');
+    const selectedEl   = document.getElementById('selectedCount');
+    const totalEl      = document.getElementById('totalCount');
+
+    let cursor = 0;
+
+    function buildCourseRow(course, idx) {
+        const row = document.createElement('label');
+        row.className = 'course-row';
+        row.innerHTML = `
+            <input class="course-checkbox" type="checkbox" data-idx="${idx}">
+            <span class="course-thumb"><i class="${course.icon}"></i></span>
+            <div class="course-info">
+                <div class="course-title">${course.title}</div>
+                <div class="course-meta">
+                    <span><i class="fa-regular fa-clock"></i> ${course.duration}</span>
+                    <span class="meta-divider"></span>
+                    <span><i class="fa-regular fa-user"></i> ${course.audience}</span>
+                </div>
+                <div class="course-rationale">${course.rationale}</div>
+            </div>
+            <a class="course-preview-link" href="#" onclick="event.preventDefault();">Preview</a>
+        `;
+        const cb = row.querySelector('.course-checkbox');
+        cb.addEventListener('change', () => {
+            row.classList.toggle('selected', cb.checked);
+            updateSelectedCount();
+        });
+        return row;
+    }
+
+    function updateSelectedCount() {
+        const checks = courseList.querySelectorAll('.course-checkbox:checked');
+        const n = checks.length;
+        selectedEl.textContent = n;
+        if (n > 0) {
+            assignBtn.disabled = false;
+            assignBtn.classList.remove('btn-disabled');
+        } else {
+            assignBtn.disabled = true;
+            assignBtn.classList.add('btn-disabled');
+        }
+    }
+
+    function renderCourses() {
+        courseList.innerHTML = '';
+        const visible = [];
+        for (let i = 0; i < VISIBLE_COUNT; i++) {
+            visible.push(COURSE_POOL[(cursor + i) % COURSE_POOL.length]);
+        }
+        visible.forEach((course, i) => {
+            courseList.appendChild(buildCourseRow(course, cursor + i));
+        });
+        totalEl.textContent = visible.length;
+        updateSelectedCount();
+    }
+
+    refreshBtn.addEventListener('click', () => {
+        refreshBtn.classList.add('spinning');
+        cursor = (cursor + VISIBLE_COUNT) % COURSE_POOL.length;
+        renderCourses();
+        // Reset rotation animation
+        setTimeout(() => refreshBtn.classList.remove('spinning'), 450);
+    });
+
+    assignBtn.addEventListener('click', () => {
+        const n = courseList.querySelectorAll('.course-checkbox:checked').length;
+        if (n === 0) return;
+        alert(`${n} course${n === 1 ? '' : 's'} would be assigned to the involved personnel.`);
+    });
+
+    renderCourses();
+</script>
+</body>
+</html>

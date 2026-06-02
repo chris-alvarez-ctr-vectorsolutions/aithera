@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Experience Creation Wizard — Pathways</title>
+
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+    <style>
+        :root {
+            --page-bg: #f3f6fa;
+            --panel-bg: #ffffff;
+            --panel-header-bg: #f5f7fa;
+            --border: #e4e7eb;
+            --border-strong: #c9d1d9;
+            --text: #1f2937;
+            --muted: #5f6b7a;
+            --link: #1976d2;
+            --link-strong: #0b66c2;
+            --required: #d32f2f;
+        }
+
+        html, body { margin: 0; padding: 0; }
+        body {
+            font-family: 'Open Sans', system-ui, sans-serif;
+            background: var(--page-bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* ---------- Wizard shell ---------- */
+        .wizard {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 32px 24px 120px;
+        }
+
+        /* ---------- Custom Stepper ---------- */
+        .stepper {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            margin-bottom: 28px;
+        }
+        .stepper-step {
+            border-top: 3px solid var(--border-strong);
+            padding-top: 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .stepper-step.active { border-top-color: var(--link); }
+        .stepper-step.complete { border-top-color: var(--link); }
+        .stepper-step .label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--muted);
+        }
+        .stepper-step.active .label { color: var(--link); }
+        .stepper-step.complete .label { color: var(--text); }
+        .stepper-step .sublabel {
+            margin-top: 2px;
+            font-size: 12px;
+            color: var(--muted);
+            font-weight: 400;
+        }
+        .stepper-step .label i { font-size: 14px; }
+        .stepper-step.active .label i { color: var(--link); }
+        .stepper-step.complete .label i { color: var(--link); }
+
+        /* ---------- Step header ---------- */
+        .step-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0 0 6px;
+        }
+        .step-desc {
+            font-size: 14px;
+            color: var(--muted);
+            margin: 0 0 20px;
+        }
+
+        /* ---------- Panel ---------- */
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .panel-header {
+            background: var(--panel-header-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 20px;
+            font-weight: 700;
+            font-size: 15px;
+        }
+        .panel-body { padding: 20px; }
+        .panel-body > * + * { margin-top: 18px; }
+
+        .panel-desc {
+            font-size: 13px;
+            color: var(--muted);
+            margin: 0 0 12px;
+        }
+
+        /* ---------- Form helpers ---------- */
+        .field-label {
+            display: block;
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+        .field-label .req { color: var(--required); }
+        /* Inline field + "Add New X" button — anchor both to the Vaadin input mid-line. */
+        .field-row { display: flex; gap: 10px; align-items: center; }
+        .field-row > vaadin-select,
+        .field-row > vaadin-combo-box,
+        .field-row > vaadin-text-field { flex: 1; }
+        .field-row > .pill-link { align-self: center; }
+
+        .sub-section { margin-top: 6px; }
+        .sub-section + .sub-section { margin-top: 18px; }
+        .question {
+            font-size: 14px;
+            font-weight: 600;
+            margin: 0 0 6px;
+            color: var(--text);
+        }
+        .question-desc {
+            font-size: 13px;
+            color: var(--muted);
+            margin: 0 0 10px;
+        }
+
+        /* Radio option helper */
+        .radio-option {
+            display: flex;
+            gap: 10px;
+            padding: 8px 0;
+        }
+        .radio-option .body { flex: 1; }
+        .radio-option .title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+            margin: 0 0 2px;
+        }
+        .radio-option .desc {
+            font-size: 13px;
+            color: var(--muted);
+            margin: 0;
+            line-height: 1.45;
+        }
+        .radio-option input[type="radio"] {
+            margin-top: 4px;
+            accent-color: var(--link);
+            width: 18px;
+            height: 18px;
+        }
+
+        .nested-block {
+            margin-top: 10px;
+            padding: 14px 16px;
+            border-radius: 4px;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+        }
+        .nested-block .question { margin-top: 0; }
+
+        .date-range {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .date-range .dash {
+            color: var(--muted);
+            font-size: 14px;
+            padding-top: 22px;
+        }
+
+        .pill-link {
+            color: var(--link);
+            background: transparent;
+            border: 1px solid var(--link);
+            border-radius: 4px;
+            padding: 0 14px;
+            height: 36px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            box-sizing: border-box;
+        }
+        .pill-link:hover { background: rgba(25, 118, 210, 0.06); }
+
+        .inline-checkbox {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+        .inline-checkbox input[type="checkbox"] {
+            accent-color: var(--link);
+            width: 18px;
+            height: 18px;
+            margin-top: 2px;
+        }
+        .inline-checkbox .body { flex: 1; }
+        .inline-checkbox .title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .inline-checkbox .desc {
+            font-size: 13px;
+            color: var(--muted);
+            margin-top: 2px;
+            line-height: 1.45;
+        }
+
+        .summary-text {
+            font-size: 13px;
+            color: var(--text);
+            margin: 14px 0 10px;
+            font-weight: 600;
+        }
+
+        /* ---------- Footer nav ---------- */
+        .wizard-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border-top: 1px solid var(--border);
+            padding: 14px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 -2px 8px rgba(0,0,0,.04);
+            z-index: 100;
+        }
+        .wizard-footer .left, .wizard-footer .right { display: flex; gap: 10px; }
+
+        /* Hide all steps except active */
+        .step-panel { display: none; }
+        .step-panel.active { display: block; }
+
+        /* ---------- Calendar preview ---------- */
+        .cal {
+            margin-top: 14px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 14px 14px 8px;
+            max-width: 420px;
+        }
+        .cal-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .cal-head .title { font-weight: 700; font-size: 14px; }
+        .cal-head .nav { display: flex; gap: 6px; }
+        .cal-head .nav button {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--muted);
+            padding: 4px 8px;
+            font-size: 14px;
+        }
+        .cal-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            text-align: center;
+            font-size: 12px;
+        }
+        .cal-grid .dow { color: var(--muted); padding: 4px 0; font-weight: 600; }
+        .cal-grid .cell {
+            padding: 6px 0;
+            border-radius: 4px;
+        }
+        .cal-grid .cell.in-range {
+            background: #bcdcff;
+            color: var(--text);
+        }
+        .cal-grid .cell.muted { color: #b0b8c2; }
+
+        /* ---------- Review (Finish Setup) ---------- */
+        .review-card {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            overflow: hidden;
+        }
+        .review-card .left {
+            padding: 22px 18px;
+            border-right: 1px solid var(--border);
+            text-align: center;
+        }
+        .review-card .avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: #d9dde2;
+            margin: 0 auto 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #8a93a0;
+            font-size: 28px;
+        }
+        .review-card .name { font-weight: 700; font-size: 16px; }
+        .review-card .meta { font-size: 13px; color: var(--muted); margin: 2px 0; }
+        .review-card .btn-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin: 16px 0;
+        }
+        .review-card .btn-stack button {
+            background: #4a8fe1;
+            color: #fff;
+            border: none;
+            border-radius: 999px;
+            padding: 9px 12px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .review-card .stat { text-align: left; font-size: 13px; margin: 10px 0; }
+        .review-card .stat .lbl { color: var(--muted); }
+        .review-card .stat .val { color: var(--text); }
+        .review-card .stat .val.green { color: #2e8b57; }
+        .review-card .stat .val.amber { color: #b58105; }
+
+        .review-card .right {
+            padding: 16px 18px;
+        }
+        .tab-bar {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+        }
+        .tab {
+            font-size: 13px;
+            font-weight: 600;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--link);
+        }
+        .tab.active { background: #d9dde2; color: var(--text); }
+
+        .kv {
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            gap: 8px 18px;
+            font-size: 13px;
+        }
+        .kv .k { color: var(--muted); }
+        .kv .v { color: var(--text); }
+
+        .map-block {
+            margin-top: 14px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .map-block .map-addr {
+            padding: 8px 12px;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border);
+            background: #fafbfc;
+        }
+        .map-block .map-img {
+            width: 100%;
+            height: 220px;
+            background:
+              linear-gradient(180deg, #d8e8f8 0%, #c9def0 100%);
+            position: relative;
+        }
+        .map-block .map-img::after {
+            content: '\f3c5';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            color: #1976d2;
+            font-size: 28px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -100%);
+        }
+
+        /* Three-column summary */
+        .summary-cols {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-top: 22px;
+        }
+        .summary-cols .col {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 16px 18px;
+        }
+        .summary-cols .col h3 {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 0 0 14px;
+            font-size: 15px;
+        }
+        .summary-cols .col h3 button {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--muted);
+        }
+        .summary-cols .col .row {
+            margin-bottom: 12px;
+            font-size: 13px;
+            line-height: 1.45;
+        }
+        .summary-cols .col .row .lbl {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text);
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        .summary-cols .col .row .lbl i { color: var(--muted); width: 14px; text-align: center; }
+        .summary-cols .col .row .val { color: var(--muted); padding-left: 22px; }
+        .summary-cols .col .row .val .indent { padding-left: 14px; display: block; }
+        .summary-cols .col .row .val .indent i { margin-right: 6px; color: var(--muted); }
+
+        /* Number stepper for spots */
+        .num-stepper {
+            display: inline-flex;
+            align-items: center;
+            border: 1px solid var(--border-strong);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .num-stepper button {
+            background: transparent;
+            border: none;
+            width: 32px;
+            height: 32px;
+            cursor: pointer;
+            color: var(--text);
+            font-size: 16px;
+        }
+        .num-stepper input {
+            width: 50px;
+            border: none;
+            border-left: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            text-align: center;
+            font-size: 14px;
+            height: 32px;
+            outline: none;
+        }
+
+        .form-divider {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 16px 0;
+        }
+
+        /* Help text styling under radios */
+        .help-blue {
+            font-size: 12.5px;
+            color: var(--link);
+            margin-top: 4px;
+            line-height: 1.45;
+        }
+
+        /* Tighten vaadin spacing */
+        vaadin-text-field, vaadin-text-area, vaadin-select, vaadin-combo-box,
+        vaadin-date-picker, vaadin-number-field {
+            width: 100%;
+        }
+
+        .stack-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: end; }
+    </style>
+</head>
+<body>
+
+<div class="wizard">
+
+    <!-- ============ STEPPER ============ -->
+    <div class="stepper" id="stepper">
+        <div class="stepper-step active" data-step="1">
+            <div class="label"><i class="fa-solid fa-pencil"></i> General</div>
+            <div class="sublabel">&nbsp;</div>
+        </div>
+        <div class="stepper-step" data-step="2">
+            <div class="label">Scheduling</div>
+            <div class="sublabel">Optional</div>
+        </div>
+        <div class="stepper-step" data-step="3">
+            <div class="label">Additional Settings</div>
+            <div class="sublabel">Optional</div>
+        </div>
+        <div class="stepper-step" data-step="4">
+            <div class="label">Finish Setup</div>
+            <div class="sublabel">&nbsp;</div>
+        </div>
+    </div>
+
+    <!-- ============ STEP 1 — GENERAL ============ -->
+    <section class="step-panel active" data-step="1">
+        <h1 class="step-title">General</h1>
+        <p class="step-desc">Fill out essential general information about this experience that your students may need to know.</p>
+
+        <div class="panel">
+            <div class="panel-header">Experience Details</div>
+            <div class="panel-body">
+                <vaadin-text-field theme="outlined" label="Experience Name" required></vaadin-text-field>
+                <vaadin-text-area theme="outlined" label="Experience Description" required></vaadin-text-area>
+
+                <div>
+                    <label class="field-label">Experience Type</label>
+                    <div class="field-row">
+                        <vaadin-select placeholder="Select Experience Type"></vaadin-select>
+                        <button class="pill-link"><i class="fa-solid fa-plus"></i> Add New Experience Type</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="field-label">Cluster</label>
+                    <vaadin-select placeholder="Select Cluster"></vaadin-select>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Student Instructions and Comments</div>
+            <div class="panel-body">
+                <vaadin-text-area theme="outlined" label="Student Instructions and Comments"
+                    placeholder="Write down information you want students taking this experience to know"></vaadin-text-area>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Experience Duration</div>
+            <div class="panel-body">
+                <p class="panel-desc">Set the start and end dates for the experience to define its active period.</p>
+
+                <div class="radio-option">
+                    <input type="radio" name="duration" id="dur-yes" checked>
+                    <div class="body">
+                        <label for="dur-yes" class="title">Yes</label>
+                        <p class="desc">Setting a start date makes the experience visible on the student job board. Once the end date passes, the experience is removed from the job board and marked as inactive.</p>
+
+                        <div class="date-range" style="margin-top: 12px;">
+                            <vaadin-date-picker theme="outlined" label="Start Date" value="2026-05-28" style="max-width:200px;"></vaadin-date-picker>
+                            <span class="dash">—</span>
+                            <vaadin-date-picker theme="outlined" label="End Date" value="2026-05-28" style="max-width:200px;"></vaadin-date-picker>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="radio-option">
+                    <input type="radio" name="duration" id="dur-no">
+                    <div class="body">
+                        <label for="dur-no" class="title">No</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Key Stakeholders</div>
+            <div class="panel-body">
+                <p class="panel-desc">Select which stakeholders you want to be associated with this experience.</p>
+
+                <div>
+                    <div class="question">Organization <span style="color:var(--required);">*</span></div>
+                    <p class="question-desc">Select an organization to be tied to this experience.</p>
+                    <div class="field-row">
+                        <vaadin-select placeholder="Select Organization"></vaadin-select>
+                        <button class="pill-link"><i class="fa-solid fa-plus"></i> Add New Organization</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ STEP 2 — SCHEDULING ============ -->
+    <section class="step-panel" data-step="2">
+        <h1 class="step-title">Scheduling</h1>
+        <p class="step-desc">Fill out settings having to do with scheduling.</p>
+
+        <div class="panel">
+            <div class="panel-header">Time Log Management</div>
+            <div class="panel-body">
+
+                <div class="sub-section">
+                    <p class="question">How will students log time?</p>
+
+                    <div class="radio-option">
+                        <input type="radio" name="logtype" id="log-total" checked>
+                        <div class="body">
+                            <label for="log-total" class="title">Total Timelog Submission</label>
+                            <p class="desc">Students can submit the total number of hours worked during a time period (e.g., bi-weekly or monthly) without specifying the exact times worked. For example, they can simply enter "40" for hours worked Jan 1st to Jan 7th. <strong>Set a Submission Schedule below</strong> so your students can submit their hours.</p>
+                        </div>
+                    </div>
+
+                    <div class="radio-option">
+                        <input type="radio" name="logtype" id="log-daily">
+                        <div class="body">
+                            <label for="log-daily" class="title">Daily Timelog Submission</label>
+                            <p class="desc">Students must log the hours they worked and when they worked them during the day. For example: 9AM – 5PM on January 1st, 2024.</p>
+
+                            <div class="nested-block" id="mobile-log-block" style="display:none;">
+                                <div class="question" style="margin-bottom:4px;">Mobile Logging</div>
+                                <p class="desc">Mobile logging allows students to track hours in real-time on their mobile device by starting a log upon arrival and stopping it when finished. The total hours are then recorded and submitted as a daily timelog.</p>
+                                <div class="inline-checkbox" style="margin-top:10px;">
+                                    <input type="checkbox" id="mobile-enable" checked>
+                                    <div class="body">
+                                        <label for="mobile-enable" class="title" style="font-weight:600;">Enable Mobile Logging</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="form-divider">
+
+                <div class="sub-section">
+                    <p class="question">Who approves time logs?</p>
+                    <p class="question-desc">Select who has permission to approve time logs that the student reports.</p>
+
+                    <div class="radio-option">
+                        <input type="radio" name="approver" id="appr-auto" checked>
+                        <div class="body">
+                            <label for="appr-auto" class="title">Automatic Approval</label>
+                            <p class="desc">Time logs get approved automatically.</p>
+                        </div>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="approver" id="appr-school">
+                        <div class="body">
+                            <label for="appr-school" class="title">School Staff</label>
+                            <p class="desc">A member of the school staff (teachers, principals, etc) must approve the time log.</p>
+                        </div>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="approver" id="appr-both">
+                        <div class="body">
+                            <label for="appr-both" class="title">Staff and Contact</label>
+                            <p class="desc">A staff member or contact at the experience must approve the time log.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Submission Schedule</div>
+            <div class="panel-body">
+                <p class="panel-desc">Submission schedules are specific date ranges during which students can log the total hours they have worked. If students will be entering daily time logs, all logs will be collected and submitted together at the end of the submission schedule. <strong>This setting can be changed later.</strong></p>
+
+                <div class="inline-checkbox">
+                    <input type="checkbox" id="set-sched" checked>
+                    <div class="body">
+                        <label for="set-sched" class="title">Set Submission Schedule</label>
+                        <p class="desc">You may set a specific time for this experience in which students can log their hours. Otherwise the period date range will be the same as the experience duration.</p>
+
+                        <div id="sched-detail" style="margin-top: 12px; padding-left: 16px;">
+                            <div class="radio-option">
+                                <input type="radio" name="schedtype" id="sched-manual" checked>
+                                <div class="body">
+                                    <label for="sched-manual" class="title">Set Manual Submission Schedule</label>
+                                    <p class="desc">Choose the start date and end date of your submission schedule. Ex: 10/9/2024 - 10/9/2025</p>
+                                </div>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" name="schedtype" id="sched-recurring">
+                                <div class="body">
+                                    <label for="sched-recurring" class="title">Set Recurring Submission Schedule</label>
+                                    <p class="desc">Set up recurring submission schedules, like weekly or bi-weekly, to automatically organize time logs.</p>
+                                </div>
+                            </div>
+
+                            <hr class="form-divider">
+
+                            <!-- MANUAL VIEW -->
+                            <div id="manual-view">
+                                <p class="question">Submission Schedule Length</p>
+                                <p class="question-desc">Determine the submission schedule length by selecting when the submission schedule starts and ends. You may manually set multiple submission schedules.</p>
+
+                                <div style="display:flex; align-items:flex-end; gap:14px;">
+                                    <div style="color: var(--muted); padding-bottom: 12px;">1.</div>
+                                    <vaadin-date-picker theme="outlined" label="Start Date" value="2026-05-28" style="max-width:200px;"></vaadin-date-picker>
+                                    <span class="dash">—</span>
+                                    <vaadin-date-picker theme="outlined" label="End Date" value="2026-05-28" style="max-width:200px;"></vaadin-date-picker>
+                                </div>
+
+                                <button class="pill-link" style="margin-top:16px;"><i class="fa-solid fa-plus"></i> Add New Pay Period</button>
+                            </div>
+
+                            <!-- RECURRING VIEW -->
+                            <div id="recurring-view" style="display:none;">
+                                <p class="question">When does this Submission Schedule start?</p>
+                                <vaadin-date-picker theme="outlined" label="Start Date" value="2026-05-28" required style="max-width:240px;"></vaadin-date-picker>
+
+                                <p class="question" style="margin-top:18px;">When does this Submission Schedule recur?</p>
+                                <vaadin-select theme="outlined" label="Submission Schedule Recurrence" value="weekly" style="max-width:280px;"></vaadin-select>
+
+                                <p class="question" style="margin-top:18px;">When does this Submission Schedule stop recurring</p>
+                                <div style="display:flex; flex-direction:column; gap:10px;">
+                                    <div style="display:flex; align-items:center; gap:14px;">
+                                        <input type="radio" name="rec-stop" id="rec-after" checked style="accent-color: var(--link); width:18px; height:18px;">
+                                        <label for="rec-after" style="min-width:60px; font-weight:600;">After</label>
+                                        <vaadin-number-field theme="outlined" label="Number of Occurrences" value="10" style="max-width:200px;"></vaadin-number-field>
+                                    </div>
+                                    <div style="display:flex; align-items:center; gap:14px;">
+                                        <input type="radio" name="rec-stop" id="rec-on" style="accent-color: var(--link); width:18px; height:18px;">
+                                        <label for="rec-on" style="min-width:60px; font-weight:600;">On</label>
+                                        <vaadin-date-picker theme="outlined" label="End Date" value="2026-05-28" style="max-width:200px;"></vaadin-date-picker>
+                                    </div>
+                                </div>
+
+                                <p class="summary-text">1 week (M-F) long Submission Schedule starts Monday, June 2, 2025 and recurs every week until Friday, August 29, 2025.</p>
+
+                                <!-- Calendar Preview -->
+                                <div class="cal" id="cal-preview">
+                                    <div class="cal-head">
+                                        <div class="title">June 2025</div>
+                                        <div class="nav">
+                                            <button><i class="fa-solid fa-chevron-left"></i></button>
+                                            <button><i class="fa-solid fa-chevron-right"></i></button>
+                                        </div>
+                                    </div>
+                                    <div class="cal-grid" id="cal-grid"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Student Reflection Form</div>
+            <div class="panel-body">
+                <p class="question">Will students be submitting reflection forms?</p>
+
+                <div class="radio-option">
+                    <input type="radio" name="reflection" id="refl-yes" checked>
+                    <div class="body">
+                        <label for="refl-yes" class="title">Yes</label>
+                        <p class="desc">This form will be submitted with pay period or daily log.</p>
+                        <div style="margin-top:10px; max-width:320px;">
+                            <vaadin-select theme="outlined" label="Reflection Form" placeholder="Select Reflection Form"></vaadin-select>
+                        </div>
+                    </div>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" name="reflection" id="refl-no">
+                    <div class="body">
+                        <label for="refl-no" class="title">No</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ STEP 3 — ADDITIONAL SETTINGS ============ -->
+    <section class="step-panel" data-step="3">
+        <h1 class="step-title">Additional Settings</h1>
+        <p class="step-desc">Fill out any additional settings for this Experience</p>
+
+        <div class="panel">
+            <div class="panel-header">Job Board Settings</div>
+            <div class="panel-body">
+                <p class="question">Show this experience on the Job Board?</p>
+                <div class="inline-checkbox">
+                    <input type="checkbox" id="show-jb">
+                    <div class="body">
+                        <label for="show-jb" class="title">Show Experience on Job Boards</label>
+                        <p class="desc">If checked, you may fill out more details on how and where this experience is shown.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Will students be applying to this Experience?</div>
+            <div class="panel-body">
+                <p class="panel-desc">Enable this option to allow students to apply directly through the job board. If disabled, students must be matched to the experience manually.</p>
+
+                <div class="inline-checkbox">
+                    <input type="checkbox" id="apply-jb" checked>
+                    <div class="body">
+                        <label for="apply-jb" class="title">Students may apply to this experience</label>
+                        <p class="desc" style="color: var(--link);">Select an application form from the Forms Library for students to fill out when applying to this experience. If no form is selected, students will receive a single text box that asks "Why are you applying to this experience?"</p>
+                        <div style="margin-top:10px; max-width:380px;">
+                            <vaadin-select theme="outlined" label="Application Form" value="na"></vaadin-select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Learning Target</div>
+            <div class="panel-body">
+                <p class="panel-desc">Setting this property will allow you to dynamically add learning targets to workflow forms in this experience.</p>
+
+                <div>
+                    <label class="field-label">Learning Target</label>
+                    <div class="field-row">
+                        <vaadin-select placeholder="Select Learning Target"></vaadin-select>
+                        <button class="pill-link"><i class="fa-solid fa-plus"></i> Add New Learning Target</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Location</div>
+            <div class="panel-body">
+                <p class="panel-desc">Where will this experience be taking place?</p>
+                <div>
+                    <label class="field-label">Location</label>
+                    <div class="field-row">
+                        <vaadin-select placeholder="Select Location"></vaadin-select>
+                        <button class="pill-link"><i class="fa-solid fa-plus"></i> Add New Location</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Number of Available Spots</div>
+            <div class="panel-body">
+                <p class="panel-desc">You may limit the number of spots available to this experience.</p>
+
+                <div class="radio-option">
+                    <input type="radio" name="spots" id="spots-unl" checked>
+                    <div class="body">
+                        <label for="spots-unl" class="title">Unlimited</label>
+                    </div>
+                </div>
+                <div class="radio-option" style="align-items:center;">
+                    <input type="radio" name="spots" id="spots-num">
+                    <div class="body">
+                        <label for="spots-num" class="field-label">Number of Spots</label>
+                        <div class="num-stepper">
+                            <button type="button" data-act="dec">−</button>
+                            <input type="text" value="1" id="spots-input">
+                            <button type="button" data-act="inc">+</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ STEP 4 — FINISH SETUP ============ -->
+    <section class="step-panel" data-step="4">
+        <h1 class="step-title">Experience Save Location</h1>
+        <p class="step-desc">You may save this experience to a folder for better organization.</p>
+
+        <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px; max-width: 600px; margin-bottom: 28px;">
+            <div>
+                <label class="field-label">Folder</label>
+                <vaadin-select theme="outlined" value="none" placeholder="None"></vaadin-select>
+            </div>
+            <button class="pill-link" style="align-self: end;"><i class="fa-solid fa-plus"></i> Add New Folder</button>
+        </div>
+
+        <h2 class="step-title" style="font-size:22px;">Review</h2>
+        <p class="step-desc">Here's what your students will see. Before you finish, make sure to review the details.</p>
+
+        <!-- Preview review card -->
+        <div class="review-card">
+            <div class="left">
+                <div class="avatar"><i class="fa-solid fa-user"></i></div>
+                <div class="name">Janis Doe</div>
+                <div class="meta">Ms</div>
+                <div class="meta">City Corp</div>
+
+                <div class="btn-stack">
+                    <button>Add Timelog</button>
+                    <button>Add Shifts</button>
+                    <button>Message Contact</button>
+                </div>
+
+                <div class="stat">
+                    <div class="lbl">Approved Hours</div>
+                    <div class="val green">0</div>
+                </div>
+                <div class="stat">
+                    <div class="lbl">Location</div>
+                    <div class="val">123 Lane Drive, Mableton, GA, USA</div>
+                </div>
+                <div class="stat">
+                    <div class="lbl">Status</div>
+                    <div class="val amber">In Progress</div>
+                </div>
+            </div>
+            <div class="right">
+                <div class="tab-bar">
+                    <div class="tab active">Information</div>
+                    <div class="tab">Time Logs</div>
+                    <div class="tab">Evaluations</div>
+                    <div class="tab">Pay Period Submissions</div>
+                </div>
+
+                <div class="kv">
+                    <div class="k">Name</div>             <div class="v">City Corp</div>
+                    <div class="k">Description</div>      <div class="v">In this role you'll learn how to gather, analyze, and interpret data to help businesses make informed decisions.</div>
+                    <div class="k">Contact Phone</div>    <div class="v">N/A</div>
+                    <div class="k">Organization</div>    <div class="v">City Corp</div>
+                    <div class="k">Location</div>        <div class="v">123 Lane Drive, Mableton, GA, USA</div>
+                    <div class="k">Start Date</div>      <div class="v">06/02/2025</div>
+                    <div class="k">End Date</div>        <div class="v">08/29/2025</div>
+                </div>
+
+                <div class="map-block">
+                    <div class="map-addr">123 Lane Drive, Mableton, GA, USA</div>
+                    <div class="map-img"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3-column summary -->
+        <div class="summary-cols">
+            <div class="col">
+                <h3>General Details <button data-edit="1"><i class="fa-solid fa-pencil"></i></button></h3>
+                <div class="row">
+                    <div class="lbl"><i class="fa-solid fa-briefcase"></i> Experience Type</div>
+                    <div class="val">Internship</div>
+                </div>
+                <div class="row">
+                    <div class="lbl"><i class="fa-regular fa-clock"></i> Experience Duration</div>
+                    <div class="val">Jun 1, 2025 — Aug 29, 2025</div>
+                </div>
+                <div class="row">
+                    <div class="lbl"><i class="fa-solid fa-users"></i> Organization</div>
+                    <div class="val">City Corp</div>
+                </div>
+                <div class="row">
+                    <div class="lbl"><i class="fa-solid fa-user"></i> Primary Contact</div>
+                    <div class="val">Janis Doe</div>
+                </div>
+            </div>
+
+            <div class="col">
+                <h3>Scheduling <button data-edit="2"><i class="fa-solid fa-pencil"></i></button></h3>
+                <div class="row">
+                    <div class="lbl"><i class="fa-regular fa-clock"></i> How will students log time?</div>
+                    <div class="val">Daily Timelog</div>
+                </div>
+                <div class="row">
+                    <div class="lbl"><i class="fa-solid fa-mobile-screen"></i> Mobile Logging</div>
+                    <div class="val">Enabled</div>
+                </div>
+                <div class="row">
+                    <div class="lbl"><i class="fa-regular fa-clock"></i> Who approves time logs?</div>
+                    <div class="val">Student daily timelogs</div>
+                </div>
+                <div class="row">
+                    <div class="lbl"><i class="fa-regular fa-clock"></i> Submission Schedule</div>
+                    <div class="val">1 week (M-F) long submission schedule starts Mon, Jun 2, 2025 and recurs weekly until Fri, Aug 29, 2025.</div>
+                </div>
+            </div>
+
+            <div class="col">
+                <h3>Additional Settings <button data-edit="3"><i class="fa-solid fa-pencil"></i></button></h3>
+                <div class="row">
+                    <div class="lbl"><i class="fa-solid fa-briefcase"></i> Showing on Job Board?</div>
+                    <div class="val">
+                        <span class="indent"><i class="fa-regular fa-eye"></i> Showing on External Job Board</span>
+                        <span class="indent"><i class="fa-regular fa-eye"></i> Showing on Student Job Board</span>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="lbl"><i class="fa-solid fa-tag"></i> Which schools can see on job board?</div>
+                    <div class="val">All Schools</div>
+                </div>
+                <div class="row">
+                    <div class="lbl"><i class="fa-regular fa-file-lines"></i> Student Applications</div>
+                    <div class="val">Students may apply to this experience</div>
+                </div>
+                <div class="row">
+                    <div class="lbl"><i class="fa-solid fa-graduation-cap"></i> Learning Target</div>
+                    <div class="val">Internship Learning Targets</div>
+                </div>
+                <div class="row">
+                    <div class="lbl"><i class="fa-solid fa-location-dot"></i> Location</div>
+                    <div class="val">123 Lane Atlanta, GA 30000</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</div>
+
+<!-- ============ Footer nav ============ -->
+<div class="wizard-footer">
+    <div class="left">
+        <vaadin-button theme="secondary" id="btn-cancel">Cancel</vaadin-button>
+    </div>
+    <div class="right">
+        <vaadin-button theme="tertiary" id="btn-back">Back</vaadin-button>
+        <vaadin-button theme="primary" id="btn-next">Next</vaadin-button>
+    </div>
+</div>
+
+<script>
+    // ----- Stepper navigation -----
+    const TOTAL_STEPS = 4;
+    let currentStep = 1;
+
+    const stepperEls = document.querySelectorAll('.stepper-step');
+    const stepPanels = document.querySelectorAll('.step-panel');
+    const btnBack = document.getElementById('btn-back');
+    const btnNext = document.getElementById('btn-next');
+
+    function gotoStep(n) {
+        if (n < 1 || n > TOTAL_STEPS) return;
+        currentStep = n;
+
+        stepperEls.forEach(el => {
+            const step = parseInt(el.dataset.step, 10);
+            el.classList.remove('active', 'complete');
+            const icon = el.querySelector('.label i');
+            if (icon) icon.remove();
+            const label = el.querySelector('.label');
+            const labelText = label.childNodes[label.childNodes.length - 1].nodeValue || label.textContent;
+
+            if (step < currentStep) {
+                el.classList.add('complete');
+                label.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${label.textContent.trim()}`;
+            } else if (step === currentStep) {
+                el.classList.add('active');
+                label.innerHTML = `<i class="fa-solid fa-pencil"></i> ${label.textContent.trim()}`;
+            } else {
+                label.innerHTML = label.textContent.trim();
+            }
+        });
+
+        stepPanels.forEach(p => {
+            p.classList.toggle('active', parseInt(p.dataset.step, 10) === currentStep);
+        });
+
+        // Buttons
+        btnBack.style.visibility = currentStep === 1 ? 'hidden' : 'visible';
+        btnNext.textContent = currentStep === TOTAL_STEPS ? 'Finish' : 'Next';
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    btnBack.addEventListener('click', () => gotoStep(currentStep - 1));
+    btnNext.addEventListener('click', () => {
+        if (currentStep < TOTAL_STEPS) gotoStep(currentStep + 1);
+    });
+    btnSkip.addEventListener('click', () => {
+        if (currentStep < TOTAL_STEPS) gotoStep(currentStep + 1);
+    });
+    stepperEls.forEach(el => {
+        el.addEventListener('click', () => gotoStep(parseInt(el.dataset.step, 10)));
+    });
+
+    // Allow edit pencils on the review step to jump back
+    document.querySelectorAll('[data-edit]').forEach(btn => {
+        btn.addEventListener('click', () => gotoStep(parseInt(btn.dataset.edit, 10)));
+    });
+
+    // ----- Step 2 conditional UI -----
+    const logDaily = document.getElementById('log-daily');
+    const logTotal = document.getElementById('log-total');
+    const mobileBlock = document.getElementById('mobile-log-block');
+    function syncLogType() {
+        mobileBlock.style.display = logDaily.checked ? 'block' : 'none';
+    }
+    logDaily.addEventListener('change', syncLogType);
+    logTotal.addEventListener('change', syncLogType);
+
+    const schedManual = document.getElementById('sched-manual');
+    const schedRecurring = document.getElementById('sched-recurring');
+    const manualView = document.getElementById('manual-view');
+    const recurringView = document.getElementById('recurring-view');
+    function syncSched() {
+        manualView.style.display = schedManual.checked ? 'block' : 'none';
+        recurringView.style.display = schedRecurring.checked ? 'block' : 'none';
+    }
+    schedManual.addEventListener('change', syncSched);
+    schedRecurring.addEventListener('change', syncSched);
+
+    const setSched = document.getElementById('set-sched');
+    const schedDetail = document.getElementById('sched-detail');
+    setSched.addEventListener('change', () => {
+        schedDetail.style.display = setSched.checked ? 'block' : 'none';
+    });
+
+    // ----- Calendar preview rendering (June 2025, Mon-Fri highlighted weekly through Aug 29) -----
+    (function renderCal() {
+        const grid = document.getElementById('cal-grid');
+        if (!grid) return;
+        const dows = ['S','M','T','W','T','F','S'];
+        dows.forEach(d => {
+            const el = document.createElement('div');
+            el.className = 'dow';
+            el.textContent = d;
+            grid.appendChild(el);
+        });
+
+        // June 2025 starts on a Sunday (June 1)
+        // First row: Jun 1 (S, muted? no — it's June so not muted), highlight M-F = 2-6
+        const cells = [
+            { d: 1,  inRange: false }, { d: 2,  inRange: true },  { d: 3,  inRange: true },
+            { d: 4,  inRange: true }, { d: 5,  inRange: true },  { d: 6,  inRange: true },
+            { d: 7,  inRange: false },
+
+            { d: 8,  inRange: false }, { d: 9,  inRange: true },  { d: 10, inRange: true },
+            { d: 11, inRange: true }, { d: 12, inRange: true },  { d: 13, inRange: true },
+            { d: 14, inRange: false },
+
+            { d: 15, inRange: false }, { d: 16, inRange: true }, { d: 17, inRange: true },
+            { d: 18, inRange: true }, { d: 19, inRange: true }, { d: 20, inRange: true },
+            { d: 21, inRange: false },
+
+            { d: 22, inRange: false }, { d: 23, inRange: true }, { d: 24, inRange: true },
+            { d: 25, inRange: true }, { d: 26, inRange: true }, { d: 27, inRange: true },
+            { d: 28, inRange: false },
+
+            { d: 29, inRange: false }, { d: 30, inRange: true },
+            // July
+            { d: 1, inRange: true, muted: true }, { d: 2, inRange: true, muted: true },
+            { d: 3, inRange: true, muted: true }, { d: 4, inRange: true, muted: true },
+            { d: 5, inRange: false, muted: true },
+        ];
+        cells.forEach(c => {
+            const el = document.createElement('div');
+            el.className = 'cell' + (c.inRange ? ' in-range' : '') + (c.muted ? ' muted' : '');
+            el.textContent = c.d;
+            grid.appendChild(el);
+        });
+    })();
+
+    // ----- Number stepper (spots) -----
+    const spotsInput = document.getElementById('spots-input');
+    document.querySelectorAll('.num-stepper button').forEach(b => {
+        b.addEventListener('click', () => {
+            const v = parseInt(spotsInput.value || '1', 10);
+            const next = b.dataset.act === 'inc' ? v + 1 : Math.max(1, v - 1);
+            spotsInput.value = next;
+        });
+    });
+
+    // Initial state
+    gotoStep(1);
+</script>
+
+<!-- GitHub Pages share pill -->
+<style>
+  .gh-share-pill {
+    position: fixed;
+    bottom: 80px;
+    right: 16px;
+    z-index: 2147483000;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #18181b;
+    color: #fff;
+    padding: 9px 14px;
+    border-radius: 999px;
+    font: 600 12px/1 'SF Mono', Menlo, Consolas, monospace;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+    opacity: 0.85;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    text-decoration: none;
+  }
+  .gh-share-pill:hover { opacity: 1; transform: translateY(-2px); }
+  .gh-share-pill.is-copied { background: #10b981; }
+</style>
+<button class="gh-share-pill" id="ghSharePill" type="button" aria-label="Copy live GitHub Pages URL">🔗 Share Link</button>
+<script>
+  (function() {
+    const pill = document.getElementById('ghSharePill');
+    if (!pill) return;
+    const m = window.location.pathname.match(/\/products\/([^/]+)\/(.+?)\/(?:index\.html)?$/i);
+    const url = m
+      ? `https://vectorlearning.github.io/ux-mockups/products/${m[1]}/${m[2]}/`
+      : 'https://vectorlearning.github.io/ux-mockups/';
+    pill.title = url;
+    pill.addEventListener('click', () => {
+      navigator.clipboard.writeText(url).then(() => {
+        pill.innerHTML = '✓ Copied!';
+        pill.classList.add('is-copied');
+        setTimeout(() => {
+          pill.innerHTML = '🔗 Share Link';
+          pill.classList.remove('is-copied');
+        }, 1500);
+      });
+    });
+  })();
+</script>
+
+</body>
+</html>
