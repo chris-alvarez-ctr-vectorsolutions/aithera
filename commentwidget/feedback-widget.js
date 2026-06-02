@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.2.1';
+  const WIDGET_VERSION = '1.3.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -104,32 +104,8 @@
 .cw-panel-body { font-size: 13px; line-height: 1.5; margin-bottom: 10px; white-space: pre-wrap; word-break: break-word; }
 .cw-panel-thumb { margin: 8px 0; cursor: zoom-in; max-width: 100%; border-radius: 4px; border: 1px solid #e5e7eb; }
 .cw-panel-thumb img { display: block; max-width: 100%; max-height: 120px; }
-.cw-panel-context { font-size: 11px; color: #92400e; margin-bottom: 10px; }
-.cw-panel-context code { background: rgba(252,211,77,.25); padding: 1px 4px; border-radius: 3px; font-size: 11px; word-break: break-all; color: #78350f; }
-.cw-panel-context a { color: #b45309; word-break: break-all; text-decoration: none; }
-.cw-panel-context a:hover { text-decoration: underline; }
 .cw-panel-close { position: absolute; top: 6px; right: 8px; background: transparent; border: 0; cursor: pointer; font-size: 18px; color: #92400e; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 .cw-panel-close:hover { background: rgba(146,64,14,.08); }
-
-/* Element snippet — pulled quote of the captured element text */
-.cw-elem-snippet { background: rgba(252,211,77,.18); border-left: 3px solid #f59e0b; padding: 8px 12px; border-radius: 0 8px 8px 0; margin-bottom: 10px; display: flex; align-items: flex-start; gap: 8px; }
-.cw-elem-quote { flex: 1; min-width: 0; font-size: 12px; line-height: 1.5; color: #422006; font-style: italic; word-break: break-word; max-height: 80px; overflow: hidden; }
-.cw-elem-quote::before { content: "“"; font-size: 16px; color: #b45309; margin-right: 2px; font-style: normal; }
-.cw-elem-quote::after { content: "”"; font-size: 16px; color: #b45309; margin-left: 2px; font-style: normal; }
-.cw-copy-mini { background: transparent; border: 0; cursor: pointer; padding: 4px 6px; border-radius: 4px; font-size: 13px; opacity: .55; color: #78350f; flex-shrink: 0; line-height: 1; }
-.cw-copy-mini:hover { opacity: 1; background: rgba(146,64,14,.1); }
-
-/* Meta lines — Selector / Page */
-.cw-meta-line { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; font-size: 11px; }
-.cw-meta-line-label { color: #92400e; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: 10px; min-width: 56px; flex-shrink: 0; }
-.cw-meta-line-value { flex: 1; min-width: 0; word-break: break-all; }
-
-/* Copy-for-Claude button */
-.cw-prompt-row { margin: 12px 0 4px; display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
-.cw-prompt-btn { display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(180deg, #fff 0%, #fffaeb 100%); border: 1px dashed #b45309; color: #78350f; border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all .12s; }
-.cw-prompt-btn:hover { background: #fef3c7; border-style: solid; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(180,83,9,.18); }
-.cw-prompt-btn:active { transform: translateY(0); }
-.cw-prompt-btn:disabled { cursor: default; }
 
 /* Thread */
 .cw-thread { border-top: 1px dashed #fcd34d; padding-top: 10px; }
@@ -344,9 +320,8 @@
   const countMatches = (sel) => { try { return document.querySelectorAll(sel).length; } catch (_) { return 0; } };
   const cssAttrEscape = (v) => String(v).replace(/(["\\])/g, '\\$1');
 
-  // The element's opening tag — the most grep-friendly "needle" for Claude
-  // Code to locate the line in source HTML. e.g. `<button class="primary"
-  // data-action="save">`. We strip the closing tag and children entirely.
+  // The element's opening tag, persisted on the pin for the data model and
+  // Confluence logs. e.g. `<button class="primary" data-action="save">`.
   function captureOpenTag(node) {
     if (!(node instanceof Element)) return '';
     const html = node.outerHTML || '';
@@ -397,75 +372,6 @@
     const a = document.createElement('a');
     a.href = url;
     a.click();
-  }
-
-  // --- Claude Code prompt builder ---------------------------------------------
-  function inferFilePath(url) {
-    try {
-      const u = new URL(url);
-      const m = u.pathname.match(/\/products\/(.+?)\/?(?:index\.html)?$/);
-      if (m) return `products/${decodeURIComponent(m[1])}/index.html`;
-    } catch (_) {}
-    return '';
-  }
-
-  function shortLocation(url) {
-    try {
-      const u = new URL(url);
-      const m = u.pathname.match(/\/products\/(.+?)\/?$/);
-      if (m) return decodeURIComponent(m[1]).replace(/\/index\.html$/, '');
-      return u.hostname + u.pathname;
-    } catch (_) { return url; }
-  }
-
-  function buildClaudePrompt(pin) {
-    const file = pin.dataFile || inferFilePath(pin.url);
-    const lines = [];
-    // If we have a source-annotated file:line (from scripts/annotate-source.py),
-    // it's the most precise locator we can give Claude Code — point at it first.
-    if (pin.dataFile && pin.dataLine) {
-      lines.push(`Open ${pin.dataFile}:${pin.dataLine}.`);
-      lines.push('');
-      lines.push('That line is the element matching:');
-    } else if (file) {
-      lines.push(`In ${file}, find the element matching:`);
-    } else {
-      lines.push(`On ${pin.url}, find the element matching:`);
-    }
-    if (pin.elementHtml) lines.push(`  HTML: ${pin.elementHtml}`);
-    if (pin.elementText) {
-      const t = pin.elementText.trim().replace(/\s+/g, ' ');
-      lines.push(`  text: "${t.slice(0, 180)}${t.length > 180 ? '…' : ''}"`);
-    }
-    if (pin.selector) lines.push(`  selector: ${pin.selector}`);
-    lines.push('');
-    lines.push(`Apply this feedback: ${pin.comment}`);
-    lines.push('');
-    lines.push(`(Posted by ${pin.author} on ${(pin.timestamp || '').slice(0, 10)} — ${pin.url})`);
-    return lines.join('\n');
-  }
-
-  // --- Clipboard helper -------------------------------------------------------
-  async function copyToClipboard(text) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch (_) {
-      const ta = document.createElement('textarea');
-      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta); ta.select();
-      try { document.execCommand('copy'); } finally { ta.remove(); }
-      return true;
-    }
-  }
-
-  function flashCopied(btn, label = '✓ Copied') {
-    if (!btn) return;
-    const originalHTML = btn.innerHTML;
-    btn.innerHTML = '';
-    btn.appendChild(document.createTextNode(label));
-    btn.disabled = true;
-    setTimeout(() => { btn.innerHTML = originalHTML; btn.disabled = false; }, 1400);
   }
 
   // ----- API ------------------------------------------------------------------
@@ -637,7 +543,7 @@
       el('div', { class: 'cw-admin-row' }, [
         el('div', { class: 'cw-admin-label' }, [
           el('strong', {}, ['Visitor mode']),
-          el('span', {}, ['Visitors only see their own comments. Their panel is stripped of screenshots, selectors, and the Copy-for-Claude-Code button.']),
+          el('span', {}, ['Visitors only see their own comments. Their panel is stripped of screenshots and the Open-in-VS-Code button.']),
         ]),
         visitorToggle.el,
       ]),
@@ -1057,9 +963,8 @@
 
       // Re-anchor to whatever element we dropped on: new selector, element text,
       // opening HTML tag, source file/line, and relative offset all travel
-      // with the pin. The elementHtml + dataFile/dataLine pair is what makes
-      // both "Copy for Claude Code" and "Open in VS Code" point at the *new*
-      // element after a move.
+      // with the pin. The dataFile/dataLine pair is what makes "Open in VS
+      // Code" point at the *new* element after a move.
       if (target) {
         const r = target.getBoundingClientRect();
         const anchor = findSourceAnchor(target);
@@ -1088,8 +993,8 @@
         mergePin(updated);
         renderPins();
         // If the user dragged a pin whose panel was open, refresh the panel so
-        // the snippet, HTML, selector, and Claude-prompt all reflect the new
-        // element they just re-anchored to.
+        // the Open-in-VS-Code button reflects the new element they just
+        // re-anchored to.
         if (panelWasOpen) reopenPanel(updated);
         showToast(target ? 'Pin re-anchored to element' : 'Pin moved', 'success');
 
@@ -1167,11 +1072,19 @@
       el('strong', {}, [pin.author]),
       el('span', {}, [rel(pin.timestamp)]),
     ]);
-    const actions = stripped ? null : el('div', { class: 'cw-panel-actions' }, [
+    const actionButtons = [
       el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small', onclick: () => onDone(pin) }, [pin.done ? '↺ Reopen' : '✓ Done']),
       el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small', onclick: () => { panelEditing = true; reopenPanel(pin); } }, ['✎ Edit']),
       el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small cw-btn--danger', onclick: () => onDelete(pin) }, ['🗑 Delete']),
-    ]);
+    ];
+    if (pin.dataFile && pin.dataLine) {
+      actionButtons.push(el('button', {
+        class: 'cw-btn cw-btn--secondary cw-btn--small',
+        title: 'Opens this exact line in VS Code (vscode:// URL). First use prompts for your local repo root path.',
+        onclick: (e) => { e.stopPropagation(); openInVSCode(pin); },
+      }, ['📂 Open in VS Code']));
+    }
+    const actions = stripped ? null : el('div', { class: 'cw-panel-actions' }, actionButtons);
 
     const head = el('div', { class: 'cw-panel-head' }, [avatar, meta]);
 
@@ -1216,61 +1129,10 @@
     ]);
 
     // Stripped (visitor) mode: just identity, comment, and thread. No screenshot,
-    // no element snippet, no selector, no Claude prompt button.
+    // no admin actions, no Open-in-VS-Code button.
     if (stripped) {
       return el('div', { class: 'cw-panel' }, [closeBtn, head, body, thread]);
     }
-
-    const context = el('div', { class: 'cw-panel-context' });
-    if (pin.elementText) {
-      const quote = el('span', { class: 'cw-elem-quote' }, [pin.elementText]);
-      const copyText = el('button', {
-        class: 'cw-copy-mini', title: 'Copy element text',
-        onclick: async (e) => { e.stopPropagation(); await copyToClipboard(pin.elementText); flashCopied(e.currentTarget, '✓'); },
-      }, ['📋']);
-      context.appendChild(el('div', { class: 'cw-elem-snippet' }, [quote, copyText]));
-    }
-    if (pin.elementHtml) {
-      context.appendChild(el('div', { class: 'cw-meta-line' }, [
-        el('span', { class: 'cw-meta-line-label' }, ['HTML']),
-        el('span', { class: 'cw-meta-line-value' }, [el('code', {}, [pin.elementHtml])]),
-      ]));
-    }
-    if (pin.selector) {
-      context.appendChild(el('div', { class: 'cw-meta-line' }, [
-        el('span', { class: 'cw-meta-line-label' }, ['Selector']),
-        el('span', { class: 'cw-meta-line-value' }, [el('code', {}, [pin.selector])]),
-      ]));
-    }
-    if (pin.dataFile && pin.dataLine) {
-      context.appendChild(el('div', { class: 'cw-meta-line' }, [
-        el('span', { class: 'cw-meta-line-label' }, ['Source']),
-        el('span', { class: 'cw-meta-line-value' }, [
-          el('code', {}, [`${pin.dataFile}:${pin.dataLine}`])
-        ]),
-      ]));
-    }
-    context.appendChild(el('div', { class: 'cw-meta-line' }, [
-      el('span', { class: 'cw-meta-line-label' }, ['Page']),
-      el('span', { class: 'cw-meta-line-value' }, [
-        el('a', { href: pin.url, target: '_blank', rel: 'noopener', title: pin.url }, [shortLocation(pin.url)])
-      ]),
-    ]));
-    const promptButtons = [];
-    if (pin.dataFile && pin.dataLine) {
-      promptButtons.push(el('button', {
-        class: 'cw-prompt-btn',
-        title: 'Opens this exact line in VS Code (vscode:// URL). First use prompts for your local repo root path.',
-        onclick: (e) => { e.stopPropagation(); openInVSCode(pin); },
-      }, ['📂 Open in VS Code']));
-    }
-    promptButtons.push(el('button', {
-      class: 'cw-prompt-btn',
-      title: 'Copies a ready-to-paste prompt that tells Claude Code where this element is and what feedback to apply.',
-      onclick: async (e) => { await copyToClipboard(buildClaudePrompt(pin)); flashCopied(e.currentTarget, '✓ Copied for Claude Code'); },
-    }, ['✨ Copy for Claude Code']));
-    context.appendChild(el('div', { class: 'cw-prompt-row' }, promptButtons));
-    extras.push(context);
 
     return el('div', { class: 'cw-panel' }, [closeBtn, head, actions, body, ...extras, thread]);
   }
