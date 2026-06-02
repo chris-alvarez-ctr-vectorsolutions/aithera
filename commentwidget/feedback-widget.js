@@ -758,6 +758,99 @@
     return !!(node.closest('.cw-root') || node.closest('.cw-bubble') || node.closest('.cw-banner') || node.closest('.cw-popup') || node.closest('.cw-panel') || node.closest('.cw-admin-panel') || node.closest('.cw-toast') || node.closest('.cw-stranded') || node.closest('.cw-hover-outline') || node.closest('.cw-lightbox'));
   }
 
+  // ----- Move pin (re-anchor an existing comment via the "Move pin" button) ---
+  // Same re-anchoring the drag-to-move flow does, but triggered by a button and
+  // a single click on the target element — more discoverable than dragging. The
+  // comment, author, replies, done state, and timestamp are untouched (the PATCH
+  // only sends element + position fields); the selector, element text/HTML,
+  // source file/line, screenshot, location copy, and Claude Code prompt are all
+  // re-captured for the new element.
+  let movePinId = null, moveOutline = null, movePanelWasOpen = false;
+
+  function enterMovePinMode(pin) {
+    if (movePinId) return;
+    closePopup();
+    movePinId = pin.id;
+    movePanelWasOpen = state.openPanelPinId === pin.id;
+    closePanel();                            // tuck the panel away while aiming
+    document.documentElement.classList.add('cw-picking');
+    moveOutline = el('div', { class: 'cw-hover-outline cw-hidden' });
+    document.body.appendChild(moveOutline);
+    document.addEventListener('mousemove', onMoveHover, true);
+    document.addEventListener('click', onMoveClick, true);
+    document.addEventListener('keydown', onMoveKey, true);
+    showToast('Click the element to move this comment to — Esc to cancel', 'neutral');
+  }
+
+  function exitMovePinMode() {
+    if (!movePinId) return;
+    movePinId = null;
+    document.documentElement.classList.remove('cw-picking');
+    if (moveOutline) { moveOutline.remove(); moveOutline = null; }
+    document.removeEventListener('mousemove', onMoveHover, true);
+    document.removeEventListener('click', onMoveClick, true);
+    document.removeEventListener('keydown', onMoveKey, true);
+  }
+
+  function onMoveHover(e) {
+    if (isWidgetEl(e.target)) { moveOutline.classList.add('cw-hidden'); return; }
+    const r = e.target.getBoundingClientRect();
+    Object.assign(moveOutline.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+    moveOutline.classList.remove('cw-hidden');
+  }
+
+  function onMoveKey(e) {
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    const id = movePinId, wasOpen = movePanelWasOpen;
+    exitMovePinMode();
+    const pin = state.pins.find(p => p.id === id);
+    if (wasOpen && pin) openPanel(pin);
+  }
+
+  async function onMoveClick(e) {
+    if (isWidgetEl(e.target)) return;
+    e.preventDefault(); e.stopPropagation();
+    const pin = state.pins.find(p => p.id === movePinId);
+    const panelWasOpen = movePanelWasOpen;
+    const target = e.target;
+    const cx = e.clientX, cy = e.clientY + window.scrollY;
+    exitMovePinMode();
+    if (!pin) return;
+
+    const prev = { x: pin.x, y: pin.y, selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY };
+    const r = target.getBoundingClientRect();
+    const anchor = findSourceAnchor(target);
+    pin.selector = cssPath(target);
+    pin.elementText = (target.innerText || target.textContent || '').trim().slice(0, 200);
+    pin.elementHtml = captureOpenTag(target);
+    pin.dataFile = anchor ? anchor.file : '';
+    pin.dataLine = anchor ? anchor.line : '';
+    pin.relX = r.width ? clamp01((e.clientX - r.left) / r.width) : 0.5;
+    pin.relY = r.height ? clamp01((e.clientY - r.top) / r.height) : 0;
+    pin.x = cx / window.innerWidth;
+    pin.y = cy / window.innerHeight;
+    const patch = { url: pin.url, author: state.author || pin.author, selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY, x: pin.x, y: pin.y };
+
+    const myDragGen = (pinDragGen.get(pin.id) || 0) + 1;
+    pinDragGen.set(pin.id, myDragGen);
+    try {
+      const { pin: updated } = await api('PATCH', '/pins/' + pin.id, patch);
+      mergePin(updated);
+      renderPins();
+      // Reopen so the location copy, "Open in VS Code", and Claude Code prompt
+      // all reflect the element just moved to.
+      if (panelWasOpen) reopenPanel(updated);
+      showToast('Comment moved to new element', 'success');
+      recaptureScreenshot(pin, target, myDragGen, panelWasOpen);
+    } catch (err) {
+      Object.assign(pin, prev);
+      renderPins();
+      if (panelWasOpen) reopenPanel(pin);
+      showToast(err.message || 'Could not move comment', 'error');
+    }
+  }
+
   function onPickHover(e) {
     const target = e.target;
     if (isWidgetEl(target)) { hoverOutline.classList.add('cw-hidden'); return; }
@@ -1152,6 +1245,11 @@
     const actionButtons = [
       el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small', onclick: () => onDone(pin) }, [pin.done ? '↺ Reopen' : '✓ Done']),
       el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small', onclick: () => { panelEditing = true; reopenPanel(pin); } }, ['✎ Edit']),
+      el('button', {
+        class: 'cw-btn cw-btn--secondary cw-btn--small',
+        title: 'Re-anchor this comment to a different element. Keeps the author, comment, and replies; re-captures the element, screenshot, location, and Claude Code prompt.',
+        onclick: (e) => { e.stopPropagation(); enterMovePinMode(pin); },
+      }, ['✥ Move pin']),
       el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small cw-btn--danger', onclick: () => onDelete(pin) }, ['🗑 Delete']),
     ];
     if (pinFilePath(pin)) {
