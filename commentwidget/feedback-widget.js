@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.10.0';
+  const WIDGET_VERSION = '1.10.1';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -151,6 +151,9 @@
 .cw-panel-meta strong { display: block; font-size: 13px; }
 .cw-panel-meta span { font-size: 11px; color: #6b7280; }
 .cw-panel-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; padding-bottom: 12px; border-bottom: 1px dashed #e3cf94; }
+/* Visitor (minimal) panel: no author header, so leave room at top-right for the
+   close button and keep the action row as the first thing the visitor sees. */
+.cw-panel--mini .cw-panel-actions { margin-top: 2px; padding-right: 30px; }
 .cw-panel-body { font-size: 13px; line-height: 1.55; margin-bottom: 10px; white-space: pre-wrap; word-break: break-word; }
 .cw-panel-claude { margin: 8px 0; padding: 10px; background: linear-gradient(140deg, #fafaf9, #f5f5f4); border: 1px solid #e7e5e4; border-radius: 10px; }
 .cw-claude-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
@@ -640,7 +643,7 @@
       el('div', { class: 'cw-admin-row' }, [
         el('div', { class: 'cw-admin-label' }, [
           el('strong', {}, ['Visitor mode']),
-          el('span', {}, ['Visitors only see their own comments. Their panel keeps Done / Edit / Delete and replies, but is stripped of the screenshot, the Claude Code prompt, and the Open-in-VS-Code button.']),
+          el('span', {}, ['Visitors only see their own comments, in a minimal panel: just the Done / Edit / Delete (and Save) buttons, the comment text, and replies. The author header, screenshot, Claude Code prompt, and Open-in-VS-Code button are all hidden.']),
         ]),
         visitorToggle.el,
       ]),
@@ -1385,11 +1388,13 @@
       buildReplyForm(pin),
     ]);
 
-    // Stripped (visitor) mode: a minimal panel — name, the Done / Edit / Delete
-    // actions, the comment, and the reply thread (with its Send button). Nothing
-    // else: no screenshot, no Claude Code prompt, no Open-in-VS-Code button.
+    // Stripped (visitor) mode: a minimal panel focused on the visitor's own
+    // actions — the Done / Edit / Delete buttons (and Save while editing), the
+    // comment text, and the reply thread (with its Reply button). The author
+    // header (avatar / name / timestamp) is dropped too, on top of the
+    // screenshot, Claude Code prompt, and Open-in-VS-Code button already left out.
     if (stripped) {
-      return el('div', { class: 'cw-panel' }, [closeBtn, head, actions, body, thread]);
+      return el('div', { class: 'cw-panel cw-panel--mini' }, [closeBtn, actions, body, thread]);
     }
 
     return el('div', { class: 'cw-panel' }, [closeBtn, head, actions, body, ...extras, thread]);
