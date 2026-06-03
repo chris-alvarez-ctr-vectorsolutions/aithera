@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.10.3';
+  const WIDGET_VERSION = '1.10.4';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -102,7 +102,7 @@
 .cw-bubble--ghost.cw-bubble--active { opacity: 1; }
 .cw-bubble-tip { position: absolute; top: 58px; right: 0; background: #111827; color: #fff; padding: 7px 11px; border-radius: 8px; font-size: 12px; font-weight: 500; white-space: nowrap; opacity: 0; transform: translateY(-4px); pointer-events: none; transition: opacity .18s, transform .18s; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
 .cw-bubble:hover .cw-bubble-tip { opacity: 1; transform: translateY(0); }
-.cw-banner { position: fixed; top: 28px; right: 80px; z-index: 2147483640; background: linear-gradient(140deg, #1f2937, #111827); color: #fff; padding: 8px 8px 8px 16px; border-radius: 999px; display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; box-shadow: 0 8px 22px rgba(17,24,39,.3); border: 1px solid rgba(255,255,255,.08); animation: cw-pop-in .3s var(--cw-ease); }
+.cw-banner { position: fixed; top: 28px; right: 80px; z-index: 2147483640; background: linear-gradient(140deg, #1f2937, #111827); color: #fff; padding: 8px 8px 8px 16px; border-radius: 999px; display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; box-shadow: 0 8px 22px rgba(17,24,39,.3); border: 1px solid rgba(255,255,255,.08); }
 .cw-banner button { background: rgba(255,255,255,.14); color: #fff; border: 0; cursor: pointer; font: inherit; padding: 5px 12px; border-radius: 999px; transition: background .15s, transform .1s; }
 .cw-banner button:hover { background: rgba(255,255,255,.26); }
 .cw-banner button:active { transform: scale(.95); }
@@ -115,7 +115,7 @@
 .cw-hover-outline { position: fixed; border: 2.5px dashed var(--cw-accent); background: rgba(245,158,11,.1); pointer-events: none; z-index: 2147483630; transition: all .08s var(--cw-ease); border-radius: 6px; box-shadow: 0 0 0 4px rgba(245,158,11,.08); }
 
 /* Popup (new pin) — sticky-note overlay */
-.cw-popup { position: absolute; z-index: 2147483645; width: 320px; background: var(--cw-paper); border: 1px solid var(--cw-paper-edge); border-radius: 16px; box-shadow: 0 18px 40px rgba(146,94,12,.2), 0 4px 10px rgba(0,0,0,.08); padding: 16px 18px; transform-origin: top left; animation: cw-pop-in .26s var(--cw-ease); }
+.cw-popup { position: absolute; z-index: 2147483645; width: 320px; background: var(--cw-paper); border: 1px solid var(--cw-paper-edge); border-radius: 16px; box-shadow: 0 18px 40px rgba(146,94,12,.2), 0 4px 10px rgba(0,0,0,.08); padding: 16px 18px; }
 .cw-popup h4 { margin: 0 0 12px; font-size: 15px; font-weight: 700; color: var(--cw-ink); letter-spacing: .01em; display: flex; align-items: center; gap: 6px; }
 .cw-popup h4::before { content: "✦"; color: var(--cw-accent); font-size: 13px; }
 .cw-popup label { display: block; font-size: 12px; font-weight: 600; color: var(--cw-ink); margin-bottom: 4px; }
@@ -147,7 +147,7 @@
 .cw-btn--secondary .cw-kbd { background: rgba(0,0,0,.06); }
 
 /* Panel (pin detail) — sticky-note overlay */
-.cw-panel { position: absolute; z-index: 2147483645; width: 360px; background: var(--cw-paper); border: 1px solid var(--cw-paper-edge); border-radius: 16px; box-shadow: 0 18px 40px rgba(146,94,12,.2), 0 4px 10px rgba(0,0,0,.08); padding: 16px 18px; transform-origin: top right; animation: cw-pop-in .26s var(--cw-ease); }
+.cw-panel { position: absolute; z-index: 2147483645; width: 360px; background: var(--cw-paper); border: 1px solid var(--cw-paper-edge); border-radius: 16px; box-shadow: 0 18px 40px rgba(146,94,12,.2), 0 4px 10px rgba(0,0,0,.08); padding: 16px 18px; }
 .cw-panel-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; padding-right: 32px; }
 .cw-panel-avatar { width: 30px; height: 30px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,.2), inset 0 1px 1px rgba(255,255,255,.3); }
 .cw-panel-meta { flex: 1; min-width: 0; }
@@ -182,7 +182,7 @@
 .cw-reply-form .cw-actions { display: flex; justify-content: flex-end; }
 
 /* Stranded sidebar */
-.cw-stranded { position: fixed; top: 20px; right: 20px; width: 260px; max-height: 60vh; overflow-y: auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; box-shadow: 0 10px 28px rgba(0,0,0,.12); padding: 12px; z-index: 2147483620; font-size: 12px; animation: cw-pop-in .26s var(--cw-ease); }
+.cw-stranded { position: fixed; top: 20px; right: 20px; width: 260px; max-height: 60vh; overflow-y: auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; box-shadow: 0 10px 28px rgba(0,0,0,.12); padding: 12px; z-index: 2147483620; font-size: 12px; }
 .cw-stranded h5 { margin: 0 0 8px; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: .03em; }
 .cw-stranded-item { padding: 8px; margin-bottom: 4px; border-radius: 8px; cursor: pointer; transition: background .12s; }
 .cw-stranded-item:hover { background: #f9fafb; }
@@ -200,7 +200,7 @@
 .cw-toast button:active { transform: scale(.95); }
 
 /* Admin panel (⚙ button in the comment-mode banner) */
-.cw-admin-panel { position: fixed; top: 78px; right: 20px; z-index: 2147483646; width: 300px; background: var(--cw-paper); border: 1px solid var(--cw-paper-edge); border-radius: 16px; box-shadow: 0 18px 40px rgba(146,94,12,.22), 0 4px 10px rgba(0,0,0,.08); padding: 16px 18px; transform-origin: top right; animation: cw-pop-in .26s var(--cw-ease); }
+.cw-admin-panel { position: fixed; top: 78px; right: 20px; z-index: 2147483646; width: 300px; background: var(--cw-paper); border: 1px solid var(--cw-paper-edge); border-radius: 16px; box-shadow: 0 18px 40px rgba(146,94,12,.22), 0 4px 10px rgba(0,0,0,.08); padding: 16px 18px; }
 .cw-admin-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; position: relative; padding-right: 24px; }
 .cw-admin-title { font-weight: 700; font-size: 14px; color: var(--cw-ink); letter-spacing: .01em; }
 .cw-admin-row { display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px dashed var(--cw-paper-edge); }
