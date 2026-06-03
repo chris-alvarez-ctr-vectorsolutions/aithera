@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.10.2';
+  const WIDGET_VERSION = '1.10.3';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -66,7 +66,10 @@
 }
 .cw-hidden { display: none !important; }
 
-@keyframes cw-pop-in { 0% { opacity: 0; transform: translateY(8px) scale(.94); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+/* Pop-in animates by slide + scale only — NO opacity fade — so the surface is
+   fully opaque on every frame. (A fade made popups/panels see-through mid-open,
+   letting the page bleed through.) */
+@keyframes cw-pop-in { 0% { transform: translateY(8px) scale(.96); } 100% { transform: translateY(0) scale(1); } }
 @keyframes cw-toast-in { 0% { opacity: 0; transform: translateX(-50%) translateY(20px) scale(.96); } 100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } }
 @keyframes cw-bubble-in { 0% { opacity: 0; transform: scale(.4) rotate(-30deg); } 100% { opacity: 1; transform: scale(1) rotate(0); } }
 @keyframes cw-pin-drop { 0% { opacity: 0; transform: translate(-50%, -130%) scale(.5); } 100% { opacity: 1; transform: translate(-50%, -100%) scale(1); } }
