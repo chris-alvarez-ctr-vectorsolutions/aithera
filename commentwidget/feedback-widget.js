@@ -765,13 +765,14 @@
   // only sends element + position fields); the selector, element text/HTML,
   // source file/line, screenshot, location copy, and Claude Code prompt are all
   // re-captured for the new element.
-  let movePinId = null, moveOutline = null, movePanelWasOpen = false;
+  let movePinId = null, moveOutline = null, movePanelWasOpen = false, moveThenEdit = false;
 
-  function enterMovePinMode(pin) {
+  function enterMovePinMode(pin, opts = {}) {
     if (movePinId) return;
     closePopup();
     movePinId = pin.id;
     movePanelWasOpen = state.openPanelPinId === pin.id;
+    moveThenEdit = !!opts.thenEdit;
     closePanel();                            // tuck the panel away while aiming
     document.documentElement.classList.add('cw-picking');
     moveOutline = el('div', { class: 'cw-hover-outline cw-hidden' });
@@ -779,12 +780,15 @@
     document.addEventListener('mousemove', onMoveHover, true);
     document.addEventListener('click', onMoveClick, true);
     document.addEventListener('keydown', onMoveKey, true);
-    showToast('Click the element to move this comment to — Esc to cancel', 'neutral');
+    showToast(moveThenEdit
+      ? 'Click a new element to move this comment — or Esc to keep it here. Then edit the text.'
+      : 'Click the element to move this comment to — Esc to cancel', 'neutral');
   }
 
   function exitMovePinMode() {
     if (!movePinId) return;
     movePinId = null;
+    moveThenEdit = false;
     document.documentElement.classList.remove('cw-picking');
     if (moveOutline) { moveOutline.remove(); moveOutline = null; }
     document.removeEventListener('mousemove', onMoveHover, true);
@@ -802,10 +806,14 @@
   function onMoveKey(e) {
     if (e.key !== 'Escape') return;
     e.preventDefault();
-    const id = movePinId, wasOpen = movePanelWasOpen;
+    // Keep the comment where it is; if this was an Edit/move, still open the
+    // text editor so the user can change the comment without moving it.
+    const id = movePinId, wasOpen = movePanelWasOpen, thenEdit = moveThenEdit;
     exitMovePinMode();
     const pin = state.pins.find(p => p.id === id);
-    if (wasOpen && pin) openPanel(pin);
+    if (!pin) return;
+    if (thenEdit) { panelEditing = true; openPanel(pin); }
+    else if (wasOpen) openPanel(pin);
   }
 
   async function onMoveClick(e) {
@@ -813,6 +821,7 @@
     e.preventDefault(); e.stopPropagation();
     const pin = state.pins.find(p => p.id === movePinId);
     const panelWasOpen = movePanelWasOpen;
+    const thenEdit = moveThenEdit;
     const target = e.target;
     const cx = e.clientX, cy = e.clientY + window.scrollY;
     exitMovePinMode();
@@ -839,14 +848,20 @@
       mergePin(updated);
       renderPins();
       // Reopen so the location copy, "Open in VS Code", and Claude Code prompt
-      // all reflect the element just moved to.
-      if (panelWasOpen) reopenPanel(updated);
-      showToast('Comment moved to new element', 'success');
-      recaptureScreenshot(pin, target, myDragGen, panelWasOpen);
+      // all reflect the element just moved to. For the Edit/move flow, open the
+      // panel straight into the comment editor.
+      if (thenEdit) { panelEditing = true; reopenPanel(updated); }
+      else if (panelWasOpen) reopenPanel(updated);
+      showToast(thenEdit ? 'Moved — now edit the comment' : 'Comment moved to new element', 'success');
+      // Don't let the background screenshot refresh reopen the panel over an
+      // open editor (it would discard in-progress edits); the new screenshot
+      // still saves and shows once editing ends.
+      recaptureScreenshot(pin, target, myDragGen, thenEdit ? false : panelWasOpen);
     } catch (err) {
       Object.assign(pin, prev);
       renderPins();
-      if (panelWasOpen) reopenPanel(pin);
+      if (thenEdit) { panelEditing = true; reopenPanel(pin); }
+      else if (panelWasOpen) reopenPanel(pin);
       showToast(err.message || 'Could not move comment', 'error');
     }
   }
@@ -1244,12 +1259,11 @@
     ]);
     const actionButtons = [
       el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small', onclick: () => onDone(pin) }, [pin.done ? '↺ Reopen' : '✓ Done']),
-      el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small', onclick: () => { panelEditing = true; reopenPanel(pin); } }, ['✎ Edit']),
       el('button', {
         class: 'cw-btn cw-btn--secondary cw-btn--small',
-        title: 'Re-anchor this comment to a different element. Keeps the author, comment, and replies; re-captures the element, screenshot, location, and Claude Code prompt.',
-        onclick: (e) => { e.stopPropagation(); enterMovePinMode(pin); },
-      }, ['✥ Move pin']),
+        title: 'Move this comment to a different element (click the new element, or press Esc to keep it here), then edit the text. Author and replies are kept; the element, screenshot, location, and Claude Code prompt are re-captured.',
+        onclick: (e) => { e.stopPropagation(); enterMovePinMode(pin, { thenEdit: true }); },
+      }, ['✎ Edit / move']),
       el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small cw-btn--danger', onclick: () => onDelete(pin) }, ['🗑 Delete']),
     ];
     if (pinFilePath(pin)) {
