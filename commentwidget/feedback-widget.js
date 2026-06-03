@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.10.1';
+  const WIDGET_VERSION = '1.10.2';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -99,7 +99,7 @@
 .cw-bubble--ghost.cw-bubble--active { opacity: 1; }
 .cw-bubble-tip { position: absolute; top: 58px; right: 0; background: #111827; color: #fff; padding: 7px 11px; border-radius: 8px; font-size: 12px; font-weight: 500; white-space: nowrap; opacity: 0; transform: translateY(-4px); pointer-events: none; transition: opacity .18s, transform .18s; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
 .cw-bubble:hover .cw-bubble-tip { opacity: 1; transform: translateY(0); }
-.cw-banner { position: fixed; top: 28px; right: 80px; z-index: 2147483640; background: linear-gradient(140deg, rgba(31,41,55,.96), rgba(17,24,39,.96)); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: #fff; padding: 8px 8px 8px 16px; border-radius: 999px; display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; box-shadow: 0 8px 22px rgba(17,24,39,.3); border: 1px solid rgba(255,255,255,.08); animation: cw-pop-in .3s var(--cw-ease); }
+.cw-banner { position: fixed; top: 28px; right: 80px; z-index: 2147483640; background: linear-gradient(140deg, #1f2937, #111827); color: #fff; padding: 8px 8px 8px 16px; border-radius: 999px; display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; box-shadow: 0 8px 22px rgba(17,24,39,.3); border: 1px solid rgba(255,255,255,.08); animation: cw-pop-in .3s var(--cw-ease); }
 .cw-banner button { background: rgba(255,255,255,.14); color: #fff; border: 0; cursor: pointer; font: inherit; padding: 5px 12px; border-radius: 999px; transition: background .15s, transform .1s; }
 .cw-banner button:hover { background: rgba(255,255,255,.26); }
 .cw-banner button:active { transform: scale(.95); }
@@ -168,7 +168,7 @@
 
 /* Thread */
 .cw-thread { border-top: 1px dashed var(--cw-paper-edge); padding-top: 10px; }
-.cw-reply { margin-bottom: 8px; background: rgba(255,255,255,.5); border-radius: 8px; padding: 6px 8px; }
+.cw-reply { margin-bottom: 8px; background: #fffaeb; border: 1px solid #f3e0a8; border-radius: 8px; padding: 6px 8px; }
 .cw-reply-head { font-size: 11px; color: #92400e; margin-bottom: 2px; }
 .cw-reply-head strong { color: #1f2937; margin-right: 6px; font-size: 12px; }
 .cw-reply-text { font-size: 13px; white-space: pre-wrap; word-break: break-word; }
