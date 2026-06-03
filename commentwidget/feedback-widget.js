@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.10.4';
+  const WIDGET_VERSION = '1.10.5';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -55,8 +55,13 @@
   // pure visual refresh, so none of the widget JS depends on it.
   const css = `
 .cw-root, .cw-root * { box-sizing: border-box; }
-.cw-root {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; color: #1f2937;
+.cw-root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; color: #1f2937; }
+/* Custom props MUST live on :root, not .cw-root. The floating surfaces (popup,
+   detail panel, admin panel, toast) are appended to document.body — OUTSIDE
+   .cw-root — so vars scoped to .cw-root would not resolve there, and a
+   background like var(--cw-paper) with no value collapses to transparent
+   (which made the panels see-through). :root cascades to every surface. */
+:root {
   --cw-ease: cubic-bezier(.34, 1.56, .64, 1);            /* springy overshoot for playful motion */
   --cw-paper: #fffdf6;
   --cw-paper-edge: #fde9b0;
@@ -115,7 +120,7 @@
 .cw-hover-outline { position: fixed; border: 2.5px dashed var(--cw-accent); background: rgba(245,158,11,.1); pointer-events: none; z-index: 2147483630; transition: all .08s var(--cw-ease); border-radius: 6px; box-shadow: 0 0 0 4px rgba(245,158,11,.08); }
 
 /* Popup (new pin) — sticky-note overlay */
-.cw-popup { position: absolute; z-index: 2147483645; width: 320px; background: var(--cw-paper); border: 1px solid var(--cw-paper-edge); border-radius: 16px; box-shadow: 0 18px 40px rgba(146,94,12,.2), 0 4px 10px rgba(0,0,0,.08); padding: 16px 18px; }
+.cw-popup { position: absolute; z-index: 2147483645; width: 320px; background: var(--cw-paper, #fffdf6); border: 1px solid var(--cw-paper-edge, #fde9b0); border-radius: 16px; box-shadow: 0 18px 40px rgba(146,94,12,.2), 0 4px 10px rgba(0,0,0,.08); padding: 16px 18px; }
 .cw-popup h4 { margin: 0 0 12px; font-size: 15px; font-weight: 700; color: var(--cw-ink); letter-spacing: .01em; display: flex; align-items: center; gap: 6px; }
 .cw-popup h4::before { content: "✦"; color: var(--cw-accent); font-size: 13px; }
 .cw-popup label { display: block; font-size: 12px; font-weight: 600; color: var(--cw-ink); margin-bottom: 4px; }
@@ -147,7 +152,7 @@
 .cw-btn--secondary .cw-kbd { background: rgba(0,0,0,.06); }
 
 /* Panel (pin detail) — sticky-note overlay */
-.cw-panel { position: absolute; z-index: 2147483645; width: 360px; background: var(--cw-paper); border: 1px solid var(--cw-paper-edge); border-radius: 16px; box-shadow: 0 18px 40px rgba(146,94,12,.2), 0 4px 10px rgba(0,0,0,.08); padding: 16px 18px; }
+.cw-panel { position: absolute; z-index: 2147483645; width: 360px; background: var(--cw-paper, #fffdf6); border: 1px solid var(--cw-paper-edge, #fde9b0); border-radius: 16px; box-shadow: 0 18px 40px rgba(146,94,12,.2), 0 4px 10px rgba(0,0,0,.08); padding: 16px 18px; }
 .cw-panel-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; padding-right: 32px; }
 .cw-panel-avatar { width: 30px; height: 30px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,.2), inset 0 1px 1px rgba(255,255,255,.3); }
 .cw-panel-meta { flex: 1; min-width: 0; }
@@ -200,7 +205,7 @@
 .cw-toast button:active { transform: scale(.95); }
 
 /* Admin panel (⚙ button in the comment-mode banner) */
-.cw-admin-panel { position: fixed; top: 78px; right: 20px; z-index: 2147483646; width: 300px; background: var(--cw-paper); border: 1px solid var(--cw-paper-edge); border-radius: 16px; box-shadow: 0 18px 40px rgba(146,94,12,.22), 0 4px 10px rgba(0,0,0,.08); padding: 16px 18px; }
+.cw-admin-panel { position: fixed; top: 78px; right: 20px; z-index: 2147483646; width: 300px; background: var(--cw-paper, #fffdf6); border: 1px solid var(--cw-paper-edge, #fde9b0); border-radius: 16px; box-shadow: 0 18px 40px rgba(146,94,12,.22), 0 4px 10px rgba(0,0,0,.08); padding: 16px 18px; }
 .cw-admin-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; position: relative; padding-right: 24px; }
 .cw-admin-title { font-weight: 700; font-size: 14px; color: var(--cw-ink); letter-spacing: .01em; }
 .cw-admin-row { display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px dashed var(--cw-paper-edge); }
