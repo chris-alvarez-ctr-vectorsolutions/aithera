@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.8.0';
+  const WIDGET_VERSION = '1.9.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -604,7 +604,7 @@
       el('div', { class: 'cw-admin-row' }, [
         el('div', { class: 'cw-admin-label' }, [
           el('strong', {}, ['Visitor mode']),
-          el('span', {}, ['Visitors only see their own comments. Their panel is stripped of screenshots and the Open-in-VS-Code button.']),
+          el('span', {}, ['Visitors only see their own comments. Their panel keeps Done / Edit / Delete and replies, but is stripped of the screenshot, the Claude Code prompt, and the Open-in-VS-Code button.']),
         ]),
         visitorToggle.el,
       ]),
@@ -1233,6 +1233,7 @@
 
   function openPanel(pin, opts = {}) {
     closePanel();
+    if (opts.editing) panelEditing = true;
     state.openPanelPinId = pin.id;
     panel = renderPanel(pin);
     let x, y;
@@ -1261,12 +1262,14 @@
       el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small', onclick: () => onDone(pin) }, [pin.done ? '↺ Reopen' : '✓ Done']),
       el('button', {
         class: 'cw-btn cw-btn--secondary cw-btn--small',
-        title: 'Move this comment to a different element (click the new element, or press Esc to keep it here), then edit the text. Author and replies are kept; the element, screenshot, location, and Claude Code prompt are re-captured.',
-        onclick: (e) => { e.stopPropagation(); enterMovePinMode(pin, { thenEdit: true }); },
-      }, ['✎ Edit / move']),
+        title: 'Edit the comment text.',
+        onclick: (e) => { e.stopPropagation(); reopenPanel(pin, { editing: true }); },
+      }, ['✎ Edit']),
       el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small cw-btn--danger', onclick: () => onDelete(pin) }, ['🗑 Delete']),
     ];
-    if (pinFilePath(pin)) {
+    // Open-in-VS-Code is an admin-only tool (visitors don't have the local
+    // repo), so it's left off the stripped/visitor panel.
+    if (pinFilePath(pin) && !stripped) {
       actionButtons.push(el('button', {
         class: 'cw-btn cw-btn--secondary cw-btn--small',
         title: pin.dataLine
@@ -1275,7 +1278,9 @@
         onclick: (e) => { e.stopPropagation(); openInVSCode(pin); },
       }, ['📂 Open in VS Code']));
     }
-    const actions = stripped ? null : el('div', { class: 'cw-panel-actions' }, actionButtons);
+    // Visitors keep the Done / Edit / Delete actions (just not VS Code), so
+    // build the action row in both modes.
+    const actions = el('div', { class: 'cw-panel-actions' }, actionButtons);
 
     const head = el('div', { class: 'cw-panel-head' }, [avatar, meta]);
 
@@ -1337,18 +1342,19 @@
       buildReplyForm(pin),
     ]);
 
-    // Stripped (visitor) mode: just identity, comment, and thread. No screenshot,
-    // no admin actions, no Open-in-VS-Code button.
+    // Stripped (visitor) mode: a minimal panel — name, the Done / Edit / Delete
+    // actions, the comment, and the reply thread (with its Send button). Nothing
+    // else: no screenshot, no Claude Code prompt, no Open-in-VS-Code button.
     if (stripped) {
-      return el('div', { class: 'cw-panel' }, [closeBtn, head, body, thread]);
+      return el('div', { class: 'cw-panel' }, [closeBtn, head, actions, body, thread]);
     }
 
     return el('div', { class: 'cw-panel' }, [closeBtn, head, actions, body, ...extras, thread]);
   }
 
-  function reopenPanel(pin) {
+  function reopenPanel(pin, opts = {}) {
     closePanel();
-    openPanel(pin);
+    openPanel(pin, opts);
   }
 
   function buildReplyForm(pin) {
