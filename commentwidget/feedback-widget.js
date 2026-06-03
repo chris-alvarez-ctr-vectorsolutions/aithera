@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.10.5';
+  const WIDGET_VERSION = '1.10.6';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -21,6 +21,10 @@
     hoverEl: null,
     openPanelPinId: null,
     activeToast: null,
+    // Admin-only, session-only: when true, the admin sees the page exactly as a
+    // non-admin visitor would (stripped panels, own pins only, no stranded
+    // sidebar). Not persisted, so a reload always returns to the admin view.
+    previewVisitor: false,
   };
 
   // Comments are keyed by a canonical page URL, NOT the raw location.href, so
@@ -602,6 +606,12 @@
   }
 
   // ----- Admin -----------------------------------------------------------------
+  // The admin's *effective* role for rendering. While previewing as a visitor,
+  // an admin is treated as a non-admin everywhere panels/pins are gated, so the
+  // admin sees the real visitor experience without giving up admin access (the
+  // gear still opens these controls to switch back).
+  function effectiveAdmin() { return state.isAdmin && !state.previewVisitor; }
+
   function becomeAdmin() {
     if (state.isAdmin) return;
     state.isAdmin = true;
@@ -642,6 +652,17 @@
       () => state.settings.commentsDisabled,
       (next) => saveSetting({ commentsDisabled: next }, next ? 'Comments disabled' : 'Comments enabled'),
     );
+    // Local, session-only preview — no server call. Flips the admin into the
+    // visitor's shoes so they can verify the stripped panel, then back.
+    const previewToggle = makeToggle(
+      () => state.previewVisitor,
+      (next) => {
+        state.previewVisitor = next;
+        closePanel();          // drop any open detail panel so it re-renders in the new role
+        renderPins();
+        showToast(next ? 'Previewing as a visitor — open a pin to see their panel' : 'Back to your admin view', 'neutral');
+      },
+    );
 
     adminPanel = el('div', { class: 'cw-admin-panel' }, [
       el('div', { class: 'cw-admin-head' }, [
@@ -654,6 +675,13 @@
           el('span', {}, ['Visitors only see their own comments, in a minimal panel: just the Done / Edit / Delete (and Save) buttons, the comment text, and replies. The author header, screenshot, Claude Code prompt, and Open-in-VS-Code button are all hidden.']),
         ]),
         visitorToggle.el,
+      ]),
+      el('div', { class: 'cw-admin-row' }, [
+        el('div', { class: 'cw-admin-label' }, [
+          el('strong', {}, ['Preview as visitor']),
+          el('span', {}, ['See the page exactly as a visitor would right now — stripped panels, their own comments only. Just for you, on this browser; reload or toggle off to return to the admin view.']),
+        ]),
+        previewToggle.el,
       ]),
       el('div', { class: 'cw-admin-row' }, [
         el('div', { class: 'cw-admin-label' }, [
@@ -1055,7 +1083,7 @@
     // Done = resolved: the pin disappears from the page (history is kept in the
     // activity log, and the just-marked-done toast offers a 10s Undo).
     let pins = state.pins.filter(p => !p.deleted && !p.done);
-    if (state.settings.visitorMode && !state.isAdmin) {
+    if (state.settings.visitorMode && !effectiveAdmin()) {
       pins = pins.filter(p => p.author === state.author);
     }
     return pins;
@@ -1260,7 +1288,7 @@
     // viewing the mockup, a "broken pin" sidebar is noise — they can't do
     // anything with it. Admins still see it so they can open the pin's panel
     // and delete it (or re-anchor it by dragging once we surface that flow).
-    if (!state.isAdmin) return;
+    if (!effectiveAdmin()) return;
     stranded = el('div', { class: 'cw-stranded' }, [
       el('h5', {}, [`Stranded feedback (${state.stranded.length})`]),
       ...state.stranded.map(pin => el('div', {
@@ -1305,7 +1333,7 @@
 
   function renderPanel(pin) {
     const isEditing = panelEditing;
-    const stripped = state.settings.visitorMode && !state.isAdmin;
+    const stripped = state.settings.visitorMode && !effectiveAdmin();
     const closeBtn = el('button', { class: 'cw-panel-close', onclick: closePanel, 'aria-label': 'Close' }, ['×']);
     const avatar = el('div', { class: 'cw-panel-avatar', style: `background:${authorColor(pin.author)};` }, [initial(pin.author)]);
     const meta = el('div', { class: 'cw-panel-meta' }, [
