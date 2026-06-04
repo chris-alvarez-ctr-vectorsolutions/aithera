@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.10.6';
+  const WIDGET_VERSION = '1.10.7';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -43,6 +43,19 @@
     return PAGES_BASE + sub;
   }
   const pageUrl = canonicalPageUrl();
+
+  // Is this the published GitHub Pages site, or somewhere else (the preview /
+  // staging server, localhost, file://)? On Pages the feedback bubble shows
+  // normally; everywhere else the widget stays dormant by default — an
+  // invisible, click-to-reveal bubble and hidden pins — so the comment UI
+  // doesn't clutter in-progress preview environments. (Comparing origins reuses
+  // the same canonical host the rest of the widget points at.)
+  const IS_GITHUB_PAGES = location.origin === new URL(PAGES_BASE).origin;
+
+  // Dormant = invisible (ghost) bubble + pins hidden until someone clicks to
+  // reveal. True when an admin has disabled comments, OR when we're not on the
+  // published Pages site (preview server, etc.).
+  function isDormant() { return state.settings.commentsDisabled || !IS_GITHUB_PAGES; }
 
   // Always point at the published viewer on GitHub Pages, regardless of where
   // the mock itself is being viewed (staging server, localhost, file://). The
@@ -622,11 +635,11 @@
 
   function applyAdminBubble() {
     if (!bubble) return;
-    const off = !!state.settings.commentsDisabled;
-    // Comments off → the bubble fades fully out so it doesn't draw the eye, but
-    // it stays in the DOM and clickable for everyone. Clicking it opens comment
-    // mode and reveals the pins (see visiblePins), so neither admins nor
-    // visitors need a hotkey. Comments on → fully visible.
+    const off = isDormant();
+    // Dormant (comments disabled, or not on the published Pages site) → the
+    // bubble fades fully out so it doesn't draw the eye, but it stays in the DOM
+    // and clickable for everyone. Clicking it opens comment mode and reveals the
+    // pins (see visiblePins), so no hotkey is needed. Otherwise → fully visible.
     bubble.classList.toggle('cw-bubble--ghost', off);
     bubble.title = off ? 'Comments hidden — click to open' : 'Add feedback';
   }
@@ -1075,11 +1088,12 @@
   }
 
   // Returns the pins this user is allowed to see right now.
-  // When comments are disabled the widget is dormant: pins stay hidden until
-  // someone clicks the (invisible) bubble to enter comment mode, which reveals
-  // them. Otherwise admins see everything and non-admins respect visitor mode.
+  // While dormant (comments disabled, or not on the published Pages site) pins
+  // stay hidden until someone clicks the (invisible) bubble to enter comment
+  // mode, which reveals them. Otherwise admins see everything and non-admins
+  // respect visitor mode.
   function visiblePins() {
-    if (state.settings.commentsDisabled && !state.pickMode) return [];
+    if (isDormant() && !state.pickMode) return [];
     // Done = resolved: the pin disappears from the page (history is kept in the
     // activity log, and the just-marked-done toast offers a 10s Undo).
     let pins = state.pins.filter(p => !p.deleted && !p.done);
