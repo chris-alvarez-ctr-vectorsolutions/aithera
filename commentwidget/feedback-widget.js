@@ -450,7 +450,7 @@
   const cssAttrEscape = (v) => String(v).replace(/(["\\])/g, '\\$1');
 
   // The element's opening tag, persisted on the pin for the data model and
-  // Confluence logs. e.g. `<button class="primary" data-action="save">`.
+  // activity log. e.g. `<button class="primary" data-action="save">`.
   function captureOpenTag(node) {
     if (!(node instanceof Element)) return '';
     const html = node.outerHTML || '';

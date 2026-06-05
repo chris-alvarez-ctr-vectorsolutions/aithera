@@ -127,26 +127,6 @@ async function logEvent(env, { action, author, product, url, pinId, comment, par
   } catch (err) {
     console.log(`[log] KV write failed: ${err.message}`);
   }
-  // Mirror to Confluence so the existing audit page keeps working.
-  await logToConfluence(env, formatLogMessage(evt), url);
-}
-
-function formatLogMessage(e) {
-  const who = e.author;
-  const where = e.product || e.url;
-  switch (e.action) {
-    case 'created':     return `New feedback from ${who} on ${where} — ${truncate(e.comment, 100)}`;
-    case 'edited':      return `Edited by ${who} — pin ${e.pinId} — ${truncate(e.comment, 100)}`;
-    case 'done':        return `Marked done by ${who} — pin ${e.pinId}`;
-    case 'reopened':    return `Reopened by ${who} — pin ${e.pinId}`;
-    case 'deleted':     return `Deleted by ${who} — pin ${e.pinId}`;
-    case 'restored':    return `Restored by ${who} — pin ${e.pinId}`;
-    case 're-anchored': return `Re-anchored by ${who} — pin ${e.pinId} — now ${truncate(e.comment, 100)}`;
-    case 'reply':       return `Reply from ${who}${e.parent ? ` to "${truncate(e.parent, 60)}"` : ` on pin ${e.pinId}`}: ${truncate(e.comment, 100)}`;
-    case 'undo':        return `Undone by ${who} — pin ${e.pinId}`;
-    case 'settings':    return `Settings changed by ${who} — ${e.comment}`;
-    default:            return `${e.action} by ${who} — pin ${e.pinId}`;
-  }
 }
 
 async function listLog(url, env) {
@@ -350,51 +330,4 @@ async function patchSettings(request, env) {
   return json({ settings: stored });
 }
 
-// --- Confluence (append entry to page body) ----------------------------------
-
-async function logToConfluence(env, message, pageUrl) {
-  if (!env.CONFLUENCE_TOKEN || !env.CONFLUENCE_DOMAIN || !env.CONFLUENCE_PAGE_ID || !env.CONFLUENCE_EMAIL) {
-    console.log('[confluence] skipped — missing secret(s)');
-    return;
-  }
-  const baseUrl = `https://${env.CONFLUENCE_DOMAIN}/wiki/rest/api/content/${env.CONFLUENCE_PAGE_ID}`;
-  const auth = 'Basic ' + btoa(`${env.CONFLUENCE_EMAIL}:${env.CONFLUENCE_TOKEN}`);
-
-  const getRes = await fetch(`${baseUrl}?expand=body.storage,version`, {
-    headers: { authorization: auth, accept: 'application/json' }
-  });
-  if (!getRes.ok) {
-    const errBody = await getRes.text().catch(() => '');
-    console.log(`[confluence] GET failed ${getRes.status} ${getRes.statusText}: ${errBody.slice(0, 300)}`);
-    return;
-  }
-  const page = await getRes.json();
-
-  const ts = new Date().toISOString();
-  const link = pageUrl ? ` <a href="${escapeXml(pageUrl)}">${escapeXml(pageUrl)}</a>` : '';
-  const entry = `<p><strong>${ts}</strong> — ${escapeXml(message)}${link}</p>`;
-  const newBody = (page.body?.storage?.value || '') + entry;
-
-  const putRes = await fetch(baseUrl, {
-    method: 'PUT',
-    headers: { authorization: auth, 'content-type': 'application/json' },
-    body: JSON.stringify({
-      id: env.CONFLUENCE_PAGE_ID,
-      type: 'page',
-      title: page.title,
-      version: { number: (page.version?.number || 1) + 1 },
-      body: { storage: { value: newBody, representation: 'storage' } }
-    })
-  });
-  if (!putRes.ok) {
-    const errBody = await putRes.text().catch(() => '');
-    console.log(`[confluence] PUT failed ${putRes.status} ${putRes.statusText}: ${errBody.slice(0, 300)}`);
-  } else {
-    console.log(`[confluence] appended OK (page v${(page.version?.number || 1) + 1})`);
-  }
-}
-
 function truncate(s, n) { s = s || ''; return s.length > n ? s.slice(0, n) + '…' : s; }
-function escapeXml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;' }[c]));
-}
