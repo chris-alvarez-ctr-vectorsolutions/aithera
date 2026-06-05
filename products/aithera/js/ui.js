@@ -157,9 +157,9 @@ export function readinessCard({
 }) {
   const bandMeta = {
     'behind':   { cls: 'rs-warn', headline: "Let's level up." },
-    'on-track': { cls: 'rs-good', headline: "You're on track." },
-    'ahead':    { cls: 'rs-ahead', headline: "You're ahead of the pack." }
-  }[band] || { cls: 'rs-good', headline: "You're on track." };
+    'on-track': { cls: 'rs-good', headline: "You're right with the pack." },
+    'ahead':    { cls: 'rs-ahead', headline: "You're a step beyond the pack." }
+  }[band] || { cls: 'rs-good', headline: "You're right with the pack." };
 
   const card = el('div', { class: `readiness-card r-${bandMeta.cls}` });
 
@@ -168,18 +168,13 @@ export function readinessCard({
     el('span', { class: 'rd-kicker' }, 'Development level')
   ));
 
-  // Headline row + sparkline
-  const headCol = el('div', { class: 'rd-headcol' },
-    el('h2', { class: 'rd-headline' }, headline || bandMeta.headline)
-  );
-  const sparkCol = el('div', { class: 'rd-sparkcol' },
-    sparkline(trend, band),
-    el('small', { class: 'rd-spark-label' }, 'Last 30 days')
-  );
-  card.appendChild(el('div', { class: 'rd-row' }, headCol, sparkCol));
+  // Headline (full width — the sparkline was removed in favor of the
+  // clearer you-vs-peers slider below).
+  card.appendChild(el('h2', { class: 'rd-headline' }, headline || bandMeta.headline));
 
-  // You-vs-peers scale
+  // You-vs-peers slider
   card.appendChild(readinessScale(level, peerLevel));
+  void trend;
 
   // Coach note
   if (coachNote) {
@@ -248,40 +243,31 @@ function moverRow(m) {
   );
 }
 
+// You-vs-peers slider. A calm gray track with a soft blue band marking
+// "where most peers are working" (a range centered on the cohort average),
+// the learner's own position as a solid blue handle labeled "You", and
+// plain-language end labels. Replaces the older gradient bar + pins.
 function readinessScale(level, peerLevel) {
-  const youPct = Math.max(0, Math.min(100, level));
-  const peerPct = Math.max(0, Math.min(100, peerLevel));
+  const youPct = Math.max(3, Math.min(97, level));
+  const half = 13; // peer band half-width — the cohort's working range
+  const bandStart = Math.max(0, Math.min(100, peerLevel - half));
+  const bandEnd   = Math.max(0, Math.min(100, peerLevel + half));
+
   const wrap = el('div', { class: 'rd-scale' });
-
-  // When the two values land within ~10% of each other, the precise gap
-  // doesn't carry meaning — collapse into a single "you & your peers"
-  // marker at the midpoint so the bar stays calm.
-  if (Math.abs(youPct - peerPct) < 10) {
-    const midPct = (youPct + peerPct) / 2;
-    wrap.innerHTML = `
-      <div class="rd-scale-track">
-        <div class="rd-pin rd-pin-merged" style="left:${midPct}%">
-          <span class="rd-pin-label">You &amp; your peers</span>
-          <span class="rd-pin-stem" aria-hidden="true"></span>
-          <span class="rd-pin-dot rd-pin-dot-merged" aria-hidden="true"></span>
-        </div>
-      </div>
-    `;
-    return wrap;
-  }
-
   wrap.innerHTML = `
     <div class="rd-scale-track">
-      <div class="rd-pin rd-pin-peers" style="left:${peerPct}%">
-        <span class="rd-pin-label">Your peers</span>
-        <span class="rd-pin-stem" aria-hidden="true"></span>
-        <span class="rd-pin-dot" aria-hidden="true"></span>
+      <div class="rd-band" style="left:${bandStart}%; width:${bandEnd - bandStart}%"></div>
+      <div class="rd-you" style="left:${youPct}%">
+        <span class="rd-you-label">You</span>
       </div>
-      <div class="rd-pin rd-pin-you" style="left:${youPct}%">
-        <span class="rd-pin-dot" aria-hidden="true"></span>
-        <span class="rd-pin-stem" aria-hidden="true"></span>
-        <span class="rd-pin-label">You</span>
-      </div>
+    </div>
+    <div class="rd-ends">
+      <span>Getting started</span>
+      <span>Well along</span>
+    </div>
+    <div class="rd-legend">
+      <span class="rd-legend-swatch" aria-hidden="true"></span>
+      <span>Where most of your peers are working</span>
     </div>
   `;
   return wrap;
@@ -446,29 +432,29 @@ export function coachMessage({ title, text, footer = '— Coach Vic' }) {
   return card;
 }
 
-export function coachPrompt({ question, primaryLabel, primaryHref, secondaryLabel = 'Later', secondaryHref = '#/coach' }) {
+export function coachPrompt({ question, primaryLabel, primaryHref, primaryVariant = 'primary', secondaryLabel = 'Later', secondaryHref = '#/coach' }) {
   return el('div', { class: 'coach-prompt' },
     el('div', { class: 'ph' }, el('span', { class: 'ph-mark' }, 'V'), el('span', null, 'Coach Vic')),
     el('p', { class: 'q' }, `"${question}"`),
     el('div', { class: 'actions' },
-      el('a', { class: 'btn primary', href: primaryHref, style: { flex: '1' } }, primaryLabel),
+      el('a', { class: `btn ${primaryVariant}`, href: primaryHref, style: { flex: '1' } }, primaryLabel),
       el('a', { class: 'btn ghost', href: secondaryHref }, secondaryLabel)
     )
   );
 }
 
 export function primaryCta(label, href, { percent } = {}) {
-  const hasPct = typeof percent === 'number';
+  // Progress is only meaningful (and only shows its bottom bar) when the
+  // learner is genuinely mid-course. A fresh 0% or finished 100% button is
+  // a clean, centered label with no underline track.
+  const showProgress = typeof percent === 'number' && percent > 0 && percent < 100;
   const row = el('span', { class: 'cta-row' },
     el('span', { class: 'cta-label' }, label),
-    hasPct && percent > 0 && percent < 100
-      ? el('span', { class: 'cta-meta' }, `${percent}% completed`)
-      : null,
-    icon('chevron')
+    showProgress ? el('span', { class: 'cta-meta' }, `${percent}% completed`) : null
   );
-  const cls = 'btn primary block cta-large' + (hasPct ? ' with-progress' : '');
+  const cls = 'btn primary block cta-large' + (showProgress ? ' with-progress' : '');
   const a = el('a', { class: cls, href }, row);
-  if (hasPct) {
+  if (showProgress) {
     const bar = el('span', { class: 'cta-progress', 'aria-hidden': 'true' });
     bar.innerHTML = `<span style="width:${Math.max(0, Math.min(100, percent))}%"></span>`;
     a.appendChild(bar);
@@ -633,16 +619,20 @@ export function blockShell({ children, onModality }) {
 
 // nextUpCard — preview of the upcoming lesson, mirrors the right-rail
 // "Next Up" card from the desktop mockup.
-export function nextUpCard({ kicker = 'Next up', title, subtitle, href, initials }) {
-  return el('a', { class: 'next-up', href },
+export function nextUpCard({ kicker = 'Next up', title, subtitle, href, initials, cta = false, onClick }) {
+  const card = el('a', { class: `next-up${cta ? ' cta' : ''}`, href },
     el('div', { class: 'nu-thumb' }, initials || icon('play')),
     el('div', { class: 'nu-body' },
       el('small', null, kicker),
       el('strong', null, title),
       subtitle ? el('span', { class: 'nu-sub' }, subtitle) : null
     ),
-    el('span', { class: 'nu-chev' }, icon('chevron'))
+    el('span', { class: 'nu-chev' }, icon(cta ? 'arrowRight' : 'chevron'))
   );
+  // When used as the page's primary CTA the card owns the advance action
+  // (mark-complete + navigate), so intercept the plain link navigation.
+  if (onClick) card.addEventListener('click', (e) => { e.preventDefault(); onClick(); });
+  return card;
 }
 
 // progressMini — compact "65% Complete · 7/12 Lessons" summary line.

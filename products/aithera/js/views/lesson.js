@@ -54,7 +54,26 @@ export function render(courseId, lessonId) {
   const phaseLabels = { watch: 'Watch', learn: 'Learn', check: 'Check' };
   const stepLabels = learningPhases.map((p) => phaseLabels[p]);
 
+  // Starting modality from the course-start chooser (?via=video|read|chat).
+  //   video → default video hero
+  //   read  → jump straight to the text (Learn) phase
+  //   chat  → open the first content phase in "Ask Coach Vic"
+  // pendingStartMode is consumed by the first content phase that renders,
+  // so it only affects the entry view — switching/advancing is unaffected.
+  const via = new URLSearchParams((location.hash.split('?')[1] || '')).get('via');
   let cursor = 0;
+  let pendingStartMode = null;
+  if (via === 'read') {
+    const li = phases.indexOf('learn');
+    if (li >= 0) cursor = li;
+  } else if (via === 'chat') {
+    pendingStartMode = 'chat';
+  }
+  function consumeStartMode(fallback) {
+    const m = pendingStartMode || fallback;
+    pendingStartMode = null;
+    return m;
+  }
 
   function show() {
     root.replaceChildren(buildPhase(phases[cursor]));
@@ -82,7 +101,12 @@ export function render(courseId, lessonId) {
       if (name === 'check') wrap.appendChild(buildCheck());
     }
 
-    wrap.appendChild(ui.stickyFooter({ children: footerCta(name) }));
+    // On the recap, the prominent "Up next" tile is the primary CTA, so we
+    // skip the footer button there — unless this is the final lesson, where
+    // the footer carries the "Finish course" action instead.
+    if (name !== 'recap' || !next) {
+      wrap.appendChild(ui.stickyFooter({ children: footerCta(name) }));
+    }
     return wrap;
   }
 
@@ -128,10 +152,8 @@ export function render(courseId, lessonId) {
     const stack = ui.el('div', { class: 'stack' });
     const vb = videoBlocks[0];
 
-    let mode = 'original';
-    const hint = ui.el('p', { class: 'lesson-instruction' });
+    let mode = consumeStartMode('original');
     const stage = ui.el('div', { class: 'modality-stage' });
-    const panelHost = ui.el('div', null);
 
     function renderHero() {
       const node = heroForMode('watch', mode, { videoBlock: vb, lesson, backToOriginal: () => switchMode('original') });
@@ -139,31 +161,21 @@ export function render(courseId, lessonId) {
       stage.replaceChildren(node);
       requestAnimationFrame(() => node.classList.remove('modality-enter'));
     }
-    function renderPanel() {
-      panelHost.replaceChildren(ui.assistantPanel({
-        current: mode,
-        originalLabel: 'Video',
-        onSelect: (nextMode) => switchMode(nextMode)
-      }));
-    }
-    function renderHint() {
-      hint.textContent = mode === 'original'
-        ? `Watch the ${vb ? 'briefing' : 'intro'}, then continue when you're ready. You can swap formats any time.`
-        : 'Tap "Original format · Video" below to return to the briefing, or pick another way.';
-    }
+    // Kept for the "Show original" affordance inside a modality view; the
+    // format chooser up front replaces the old "Try another way" panel.
     function switchMode(nextMode) {
       if (nextMode === mode) return;
       const cur = stage.firstElementChild;
       if (cur) {
         cur.classList.add('modality-exit');
-        setTimeout(() => { mode = nextMode; renderHero(); renderPanel(); renderHint(); }, 180);
+        setTimeout(() => { mode = nextMode; renderHero(); }, 180);
       } else {
-        mode = nextMode; renderHero(); renderPanel(); renderHint();
+        mode = nextMode; renderHero();
       }
     }
 
-    renderHero(); renderPanel(); renderHint();
-    stack.append(hint, stage, panelHost);
+    renderHero();
+    stack.append(stage);
     return stack;
   }
 
@@ -179,16 +191,8 @@ export function render(courseId, lessonId) {
     const aiTarget = proseBlocks.find((b) => b.type === 'prose' || b.type === 'text');
     const targetText = aiTarget ? (aiTarget.body || aiTarget.title || '') : '';
 
-    let mode = 'original';
-    const hint = ui.el('p', { class: 'lesson-instruction' });
+    let mode = consumeStartMode('original');
     const card = ui.el('article', { class: 'lesson-card learn-card' });
-    const panelHost = ui.el('div', null);
-
-    function renderHint() {
-      hint.textContent = mode === 'original'
-        ? 'Read through the key concept, then continue. You can swap formats any time.'
-        : 'Tap "Original format · Text" below to return to the original, or pick another way.';
-    }
 
     function renderCard() {
       card.replaceChildren();
@@ -201,29 +205,23 @@ export function render(courseId, lessonId) {
       stage.appendChild(hero);
       card.appendChild(stage);
       requestAnimationFrame(() => hero.classList.remove('modality-enter'));
-
     }
-    function renderPanel() {
-      panelHost.replaceChildren(ui.assistantPanel({
-        current: mode,
-        originalLabel: 'Text',
-        onSelect: (nextMode) => switchMode(nextMode)
-      }));
-    }
+    // Kept for the "Show original" affordance inside a modality view; the
+    // format chooser up front replaces the old "Try another way" panel.
     function switchMode(nextMode) {
       if (nextMode === mode) return;
       const stage = card.querySelector('.modality-stage');
       const cur = stage?.firstElementChild;
       if (cur) {
         cur.classList.add('modality-exit');
-        setTimeout(() => { mode = nextMode; renderCard(); renderPanel(); renderHint(); }, 180);
+        setTimeout(() => { mode = nextMode; renderCard(); }, 180);
       } else {
-        mode = nextMode; renderCard(); renderPanel(); renderHint();
+        mode = nextMode; renderCard();
       }
     }
 
-    renderCard(); renderPanel(); renderHint();
-    stack.append(hint, card, panelHost);
+    renderCard();
+    stack.append(card);
     return stack;
   }
 
@@ -272,7 +270,6 @@ export function render(courseId, lessonId) {
   function buildRecap() {
     const stack = ui.el('div', { class: 'stack' });
 
-    const pw = store.state.industry?.language?.practiceWord || 'scenario';
     const doneCount = completed + 1;     // this lesson is about to be marked complete
     const pct = Math.round((doneCount / total) * 100);
 
@@ -290,39 +287,20 @@ export function render(courseId, lessonId) {
         : `That's the last lesson. One tap to finish the course.`));
     stack.appendChild(head);
 
-    // Stats grid
+    // Condensed stat line — the three checkpoint stats on a single row.
     const minutes = course.lessons.slice(0, doneCount).reduce((s, l) => s + (l.minutes || 0), 0);
-    stack.appendChild(ui.el('div', { class: 'checkpoint-grid' },
-      ui.el('div', { class: 'cp-cell' },
-        ui.el('div', { class: 'cp-v' }, `${doneCount}`,
-          ui.el('span', { class: 'cp-v-sub' }, `/${total}`)),
-        ui.el('div', { class: 'cp-k' }, 'Lessons')),
-      ui.el('div', { class: 'cp-cell' },
-        ui.el('div', { class: 'cp-v' }, `${minutes}`,
-          ui.el('span', { class: 'cp-v-sub' }, 'min')),
-        ui.el('div', { class: 'cp-k' }, 'Invested')),
-      ui.el('div', { class: 'cp-cell' },
-        ui.el('div', { class: 'cp-v' }, `${pct}%`),
-        ui.el('div', { class: 'cp-k' }, 'Progress'))
-    ));
-
-    stack.appendChild(ui.el('p', { class: 'lesson-instruction', style: { marginTop: '4px' } },
-      `Save this lesson for later, or lock it in with a quick ${pw}.`));
-
-    // Save (bookmark) — Mark complete lives in the footer CTA below.
-    const isSaved = store.state.mastery.saved.includes(course.id);
-    stack.appendChild(ui.el('div', { class: 'recap-actions single' },
-      ui.el('button', {
-        class: `ch-action${isSaved ? ' on' : ''}`,
-        on: { click: (e) => {
-          store.toggleSaved(course.id);
-          const t = e.currentTarget;
-          const nowSaved = store.state.mastery.saved.includes(course.id);
-          t.classList.toggle('on', nowSaved);
-          t.querySelector('span:last-child').textContent = nowSaved ? 'Saved' : 'Save for later';
-        }},
-        'aria-label': 'Save reference'
-      }, ui.icon('star'), ui.el('span', null, isSaved ? 'Saved' : 'Save for later'))
+    stack.appendChild(ui.el('div', { class: 'checkpoint-statline' },
+      ui.el('div', { class: 'cps-item' },
+        ui.el('span', { class: 'cps-v' }, `${doneCount}/${total}`),
+        ui.el('span', { class: 'cps-k' }, 'Lessons')),
+      ui.el('span', { class: 'cps-div', 'aria-hidden': 'true' }),
+      ui.el('div', { class: 'cps-item' },
+        ui.el('span', { class: 'cps-v' }, `${minutes} min`),
+        ui.el('span', { class: 'cps-k' }, 'Invested')),
+      ui.el('span', { class: 'cps-div', 'aria-hidden': 'true' }),
+      ui.el('div', { class: 'cps-item' },
+        ui.el('span', { class: 'cps-v' }, `${pct}%`),
+        ui.el('span', { class: 'cps-k' }, 'Progress'))
     ));
 
     const courseScenarios = store.scenariosForCourse(course.id);
@@ -333,6 +311,7 @@ export function render(courseId, lessonId) {
         question: `You retain ~3× more from a ${store.state.industry.language.practiceWord} than from a re-read. Run "${sc.title}"?`,
         primaryLabel: 'Practice now',
         primaryHref: `#/practice/${sc.id}`,
+        primaryVariant: 'secondary',
         secondaryLabel: 'Skip',
         secondaryHref: `#/course/${course.id}/lesson/${lesson.id}`
       }));
@@ -354,12 +333,17 @@ export function render(courseId, lessonId) {
     }
 
     if (next) {
+      // The Up next card is the page's primary CTA (the separate "Continue"
+      // footer button was removed as redundant). It owns the advance action
+      // so the current lesson is still marked complete on the way out.
       stack.appendChild(ui.sectionHeader('Up next'));
       stack.appendChild(ui.nextUpCard({
         title: next.title,
         subtitle: `${next.minutes} min · Lesson ${String(idx + 2).padStart(2, '0')} of ${String(total).padStart(2, '0')}`,
         href: `#/course/${course.id}/lesson/${next.id}`,
-        initials: String(idx + 2)
+        initials: String(idx + 2),
+        cta: true,
+        onClick: advance
       }));
     }
     return stack;
@@ -384,6 +368,42 @@ function videoEl(block) {
   return wrap;
 }
 
+// Inline still image for reading mode. Removes itself on load error so a
+// dead URL never leaves a broken-image placeholder in the article.
+function figureEl(b) {
+  const fig = ui.el('figure', { class: 'lesson-figure' });
+  const img = ui.el('img', {
+    class: 'lf-img', src: b.src, alt: b.alt || '',
+    loading: 'lazy', decoding: 'async'
+  });
+  img.addEventListener('error', () => fig.remove());
+  fig.appendChild(img);
+  if (b.caption) fig.appendChild(ui.el('figcaption', { class: 'lf-cap' }, b.caption));
+  return fig;
+}
+
+// Lightweight horizontal bar chart built from CSS — no chart library,
+// no external image. `data` is [{ label, value }]; bars scale to the max.
+function chartEl(b) {
+  const fig = ui.el('figure', { class: 'lesson-chart' });
+  if (b.title) fig.appendChild(ui.el('div', { class: 'lch-title' }, b.title));
+  const max = Math.max(1, ...b.data.map((d) => d.value));
+  const rows = ui.el('div', { class: 'lch-rows' });
+  for (const d of b.data) {
+    const bar = ui.el('span', { class: 'lch-bar', style: { width: `${Math.round((d.value / max) * 100)}%` } });
+    rows.appendChild(ui.el('div', { class: 'lch-row' },
+      ui.el('div', { class: 'lch-rowhead' },
+        ui.el('span', { class: 'lch-label' }, d.label),
+        ui.el('span', { class: 'lch-val' }, `${d.value}${b.unit || ''}`)
+      ),
+      ui.el('span', { class: 'lch-track' }, bar)
+    ));
+  }
+  fig.appendChild(rows);
+  if (b.note) fig.appendChild(ui.el('figcaption', { class: 'lch-note' }, b.note));
+  return fig;
+}
+
 function renderBlock(b, course) {
   if (b.type === 'text' || b.type === 'prose') {
     const wrap = ui.el('div', null);
@@ -391,6 +411,8 @@ function renderBlock(b, course) {
     wrap.appendChild(ui.el('p', { style: { marginTop: b.title ? '6px' : '0' } }, b.body));
     return wrap;
   }
+  if (b.type === 'image') return figureEl(b);
+  if (b.type === 'chart') return chartEl(b);
   if (b.type === 'callout') {
     return ui.callout({ kind: b.kind, title: b.title, body: b.body, items: b.items });
   }

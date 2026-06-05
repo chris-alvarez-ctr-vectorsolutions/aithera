@@ -22,9 +22,7 @@ export function render(courseId) {
   const mastered = concepts.filter((c) => c.live >= 0.75).length;
   const weak     = concepts.filter((c) => c.live < 0.55);
   const pct = Math.round((progress?.percent ?? 0) * 100);
-  const resumeLessonId = progress?.lesson ?? course.lessons[0].id;
   const initials = course.title.split(/\s+/).slice(0,2).map((w) => w[0]).join('').toUpperCase();
-  const saved = store.state.mastery.saved.includes(course.id);
 
   // 1. Hero with mandated badge + course initials mark.
   // Image lookup convention: drop a file at assets/courses/<course.id>.jpg
@@ -39,25 +37,58 @@ export function render(courseId) {
       : { label: 'Recommended', variant: 'recommended' }
   }));
 
-  // 2. Title + subtitle (uses the lesson the learner is on if any)
-  const subline = progress
-    ? `Picking up at: ${course.lessons.find((c) => c.id === progress.lesson)?.title ?? course.lessons[0].title}`
-    : course.capabilities.join(' · ');
-
+  // 2. Title — the descriptive capability subtitle was removed to keep the
+  // course header clean and focused on the primary action.
   root.appendChild(ui.el('div', { class: 'stack', style: { marginBottom: '14px' } },
-    ui.el('div', { class: 'row between' },
-      ui.el('h2', { style: { margin: '0', fontSize: '20px' } }, course.title),
-      ui.el('button', { class: 'btn sm ghost', on: { click: () => store.toggleSaved(course.id) } },
-        saved ? '★ Saved' : '☆ Save')
-    ),
-    ui.el('p', { class: 'muted', style: { margin: '6px 0 0' } }, subline)
+    ui.el('h2', { style: { margin: '0', fontSize: '20px' } }, course.title)
   ));
 
-  // 3. Stat tiles row — lesson count + duration
-  root.appendChild(ui.statTileRow([
-    { icon: 'list',  value: String(course.lessons.length), label: 'Lessons' },
-    { icon: 'clock', value: `${course.estMinutes}m`,       label: 'Est. duration' }
-  ]));
+  // 3. Meta bar doubles as the lessons accordion. The quiet "N lessons ·
+  // duration" line is the summary; tapping it expands the lesson list
+  // right here (closed by default to keep focus on the CTA). The chevron
+  // rotates to point down when open.
+  const metaAccordion = ui.el('details', { class: 'course-meta-bar' });
+  metaAccordion.appendChild(ui.el('summary', { class: 'cmb-summary' },
+    ui.el('span', { class: 'cmb-item' }, ui.icon('list'), `${course.lessons.length} lessons`),
+    ui.el('span', { class: 'cmb-sep' }),
+    ui.el('span', { class: 'cmb-item' }, ui.icon('clock'), `${course.estMinutes}m`),
+    ui.icon('chevron', { class: 'cmb-chev' })
+  ));
+
+  const completedLessons = store.state.mastery.completedLessons?.[course.id] ?? [];
+  const skipMap = new Map((course.skipChips || []).map((s) => [s.lessonId, s]));
+  const lessonsBody = ui.el('div', { class: 'cmb-lessons' });
+
+  for (let i = 0; i < course.lessons.length; i++) {
+    const ch = course.lessons[i];
+    const isCurrent = progress?.lesson === ch.id;
+    const isDone = completedLessons.includes(ch.id);
+    const status = isDone ? 'done' : isCurrent ? 'current' : 'upcoming';
+    const skip = skipMap.get(ch.id);
+    const isScenario = ch.type === 'scenario';
+    const subParts = [`${ch.minutes} min`];
+    if (isScenario) subParts.unshift('Practice');
+    if (skip) subParts.push(skip.label);
+
+    const card = ui.el('a', {
+      class: `lesson-row-card ${status}`,
+      href: `#/course/${course.id}/lesson/${ch.id}`
+    });
+    card.appendChild(ui.el('div', { class: 'lrc-num' }, String(i + 1).padStart(2, '0')));
+    card.appendChild(ui.el('div', { class: 'lrc-body' },
+      ui.el('strong', null, ch.title),
+      ui.el('small', null, subParts.join(' · '))
+    ));
+    const statusGlyph = isDone ? 'check' : isCurrent ? 'arrowRight' : 'chevron';
+    card.appendChild(ui.el('div', { class: 'lrc-status' }, ui.icon(statusGlyph)));
+    lessonsBody.appendChild(card);
+
+    if (skip?.rationale) {
+      lessonsBody.appendChild(ui.el('p', { class: 'tiny muted', style: { margin: '-6px 12px 8px' } }, skip.rationale));
+    }
+  }
+  metaAccordion.appendChild(lessonsBody);
+  root.appendChild(metaAccordion);
 
   // 5. Coach message — adapts greeting tone
   root.appendChild(ui.coachMessage({
@@ -101,45 +132,11 @@ export function render(courseId) {
     root.appendChild(banner);
   }
 
-  // 7. Lessons — explicit done/current/locked status so the learner can
-  // tell at a glance where they are without reading the labels.
-  root.appendChild(ui.sectionHeader('Lessons'));
-  const completedLessons = store.state.mastery.completedLessons?.[course.id] ?? [];
-  const skipMap = new Map((course.skipChips || []).map((s) => [s.lessonId, s]));
-  for (let i = 0; i < course.lessons.length; i++) {
-    const ch = course.lessons[i];
-    const isCurrent = progress?.lesson === ch.id;
-    const isDone = completedLessons.includes(ch.id);
-    const status = isDone ? 'done' : isCurrent ? 'current' : 'upcoming';
-    const skip = skipMap.get(ch.id);
-    const isScenario = ch.type === 'scenario';
-    const subParts = [`${ch.minutes} min`];
-    if (isScenario) subParts.unshift('Practice');
-    if (skip) subParts.push(skip.label);
-
-    const card = ui.el('a', {
-      class: `lesson-row-card ${status}`,
-      href: `#/course/${course.id}/lesson/${ch.id}`
-    });
-    card.appendChild(ui.el('div', { class: 'lrc-num' }, String(i + 1).padStart(2, '0')));
-    card.appendChild(ui.el('div', { class: 'lrc-body' },
-      ui.el('strong', null, ch.title),
-      ui.el('small', null, subParts.join(' · '))
-    ));
-    const statusGlyph = isDone ? 'check' : isCurrent ? 'arrowRight' : 'chevron';
-    card.appendChild(ui.el('div', { class: 'lrc-status' }, ui.icon(statusGlyph)));
-    root.appendChild(card);
-
-    if (skip?.rationale) {
-      root.appendChild(ui.el('p', { class: 'tiny muted', style: { margin: '-6px 12px 8px' } }, skip.rationale));
-    }
-  }
-
-  // 8. Primary CTA — pinned to the bottom of the page in place of the
-  // tab bar so the next action is always reachable.
+  // 8. Primary CTA — pinned to the bottom of the page so the main action
+  // is always reachable with a thumb, regardless of scroll position.
   const ctaChildren = [
     ui.primaryCta(progress ? 'Resume course' : 'Start course',
-      `#/course/${course.id}/lesson/${resumeLessonId}`,
+      `#/course/${course.id}/start`,
       { percent: pct })
   ];
   if (course.mandated && isAtLeast(4)) {
