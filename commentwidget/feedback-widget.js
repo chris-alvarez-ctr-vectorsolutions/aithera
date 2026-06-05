@@ -36,9 +36,9 @@
   // Comments are keyed by a canonical page URL, NOT the raw location.href, so
   // the same mock shows the same comments whether it's viewed on GitHub Pages,
   // a local Live Server (localhost), or a file:// path. We rebuild the canonical
-  // GitHub Pages URL from the `/products/...` portion of the path (the same
-  // derivation the Share Link pill uses) and treat `/index.html` as the
-  // directory form so `…/folder/` and `…/folder/index.html` collapse together.
+  // GitHub Pages URL from the `/products/...` portion of the path and treat
+  // `/index.html` as the directory form so `…/folder/` and
+  // `…/folder/index.html` collapse together.
   // Because GitHub Pages comments are already stored under this canonical URL,
   // existing comments keep working — this only makes other environments match.
   const PAGES_BASE = 'https://vectorlearning.github.io/ux-mockups';
