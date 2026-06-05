@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.10.7';
+  const WIDGET_VERSION = '1.11.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -14,6 +14,12 @@
   const state = {
     pins: [],
     stranded: [],
+    // Comments whose anchored element exists in the DOM but isn't currently
+    // shown (it lives on a hidden screen/view of a single-file mock). These are
+    // pulled OFF the canvas — otherwise a display:none element reports a 0×0 box
+    // and the pin would pile up at the top-left of the landing screen — and
+    // listed in the "On other screens" drawer instead.
+    offscreen: [],
     author: localStorage.getItem('cw-author') || '',
     isAdmin: localStorage.getItem('cw-admin') === '1',
     settings: { visitorMode: false, commentsDisabled: false },
@@ -245,8 +251,40 @@
 .cw-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); z-index: 2147483647; display: flex; align-items: center; justify-content: center; padding: 20px; cursor: zoom-out; animation: cw-pop-in .2s ease; }
 .cw-lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: 0 20px 50px rgba(0,0,0,.5); }
 
+/* "On other screens" launcher + drawer.
+   In single-file mocks every screen shares one URL, so comments left deep in a
+   flow would otherwise land on the first screen. We divert those into this
+   drawer; clicking one reveals its screen and opens the pin. */
+.cw-offscreen-launcher { position: fixed; left: 20px; bottom: 20px; z-index: 2147483630; display: flex; align-items: center; gap: 9px; padding: 9px 14px 9px 12px; border: 0; border-radius: 999px; background: linear-gradient(140deg, #1f2937, #111827); color: #fff; font: 600 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; cursor: pointer; box-shadow: 0 8px 20px rgba(17,24,39,.28); transition: transform .2s var(--cw-ease), box-shadow .2s; }
+.cw-offscreen-launcher:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(17,24,39,.36); }
+.cw-offscreen-launcher .cw-offscreen-glyph { font-size: 14px; line-height: 1; }
+.cw-offscreen-count { background: linear-gradient(140deg, #fbbf24, var(--cw-accent)); color: #fff; border-radius: 999px; min-width: 20px; height: 20px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; box-shadow: inset 0 1px 1px rgba(255,255,255,.4); }
+
+.cw-offscreen-drawer { position: fixed; top: 0; right: 0; height: 100vh; width: 340px; max-width: 86vw; z-index: 2147483635; background: #fff; border-left: 1px solid #e5e7eb; box-shadow: -12px 0 32px rgba(0,0,0,.16); padding: 64px 18px 24px; overflow-y: auto; transform: translateX(104%); transition: transform .28s var(--cw-ease); }
+.cw-offscreen-drawer--open { transform: translateX(0); }
+.cw-offscreen-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.cw-offscreen-head strong { font-size: 15px; color: #111827; }
+.cw-offscreen-x { background: transparent; border: 0; cursor: pointer; font-size: 20px; color: #6b7280; line-height: 1; padding: 2px 7px; border-radius: 8px; transition: background .15s, color .15s, transform .15s var(--cw-ease); }
+.cw-offscreen-x:hover { background: #f3f4f6; color: #111827; transform: rotate(90deg); }
+.cw-offscreen-sub { font-size: 12px; color: #6b7280; line-height: 1.5; margin-bottom: 14px; }
+.cw-offscreen-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border: 1px solid #eef0f2; border-radius: 12px; margin-bottom: 8px; cursor: pointer; transition: background .12s, border-color .12s, transform .12s var(--cw-ease); }
+.cw-offscreen-item:hover { background: #f9fafb; border-color: #e5e7eb; transform: translateY(-1px); }
+.cw-offscreen-avatar { width: 28px; height: 28px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,.2), inset 0 1px 1px rgba(255,255,255,.3); }
+.cw-offscreen-item-body { flex: 1; min-width: 0; }
+.cw-offscreen-item-meta { font-size: 11px; color: #6b7280; margin-bottom: 2px; }
+.cw-offscreen-item-meta strong { color: #111827; font-size: 12px; }
+.cw-offscreen-item-text { font-size: 13px; color: #1f2937; line-height: 1.45; word-break: break-word; }
+.cw-offscreen-item-ctx { font-size: 11px; color: #9ca3af; margin-top: 3px; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cw-offscreen-go { font-size: 12px; font-weight: 600; color: var(--cw-accent-deep); flex-shrink: 0; align-self: center; }
+
+/* Bar shown while peeking at a revealed screen (top-center; toast owns the bottom). */
+.cw-reveal-bar { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 2147483646; display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; border-radius: 999px; background: linear-gradient(140deg, #1f2937, #111827); color: #fff; font: 500 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; box-shadow: 0 10px 28px rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.08); }
+.cw-reveal-bar button { background: rgba(255,255,255,.16); color: #fff; border: 0; cursor: pointer; font: inherit; font-weight: 600; padding: 6px 14px; border-radius: 999px; transition: background .15s, transform .1s; }
+.cw-reveal-bar button:hover { background: rgba(255,255,255,.28); }
+.cw-reveal-bar button:active { transform: scale(.95); }
+
 @media (prefers-reduced-motion: reduce) {
-  .cw-root *, .cw-bubble, .cw-pin, .cw-toast, .cw-popup, .cw-panel, .cw-admin-panel, .cw-banner { animation: none !important; }
+  .cw-root *, .cw-bubble, .cw-pin, .cw-toast, .cw-popup, .cw-panel, .cw-admin-panel, .cw-banner, .cw-offscreen-drawer, .cw-offscreen-launcher { animation: none !important; transition: none !important; }
 }
 `;
 
@@ -1111,6 +1149,7 @@
   function renderPins() {
     pinsLayer.innerHTML = '';
     state.stranded = [];
+    state.offscreen = [];
     renderedPins = [];
 
     pinsLayer.style.height = Math.max(document.documentElement.scrollHeight, window.innerHeight) + 'px';
@@ -1118,16 +1157,34 @@
     for (const pin of visiblePins()) {
       const found = pin.selector ? safeQuery(pin.selector) : null;
       if (!found) { state.stranded.push(pin); continue; }
+      // Element exists but isn't being shown (it's on a hidden screen/view).
+      // Divert to the "On other screens" drawer rather than dropping a dot at
+      // the 0×0 box a display:none element reports (which would stack pins in
+      // the top-left of whatever screen is currently visible).
+      if (!isRendered(found)) { state.offscreen.push(pin); continue; }
       const dot = makePinDot(pin);
       positionDot(dot, pin, found);
       pinsLayer.appendChild(dot);
       renderedPins.push({ pin, dot });
     }
     renderStranded();
+    renderOffscreen();
   }
 
   function safeQuery(sel) {
     try { return document.querySelector(sel); } catch (e) { return null; }
+  }
+
+  // Is this element actually painted right now? getClientRects() is empty when
+  // the element (or any ancestor) is display:none — the single-file-mock case
+  // we care about — and we also reject visibility:hidden. An element that's
+  // merely scrolled out of view still has client rects, so it stays on the
+  // canvas (it's on the current screen, just not in the viewport).
+  function isRendered(node) {
+    if (!(node instanceof Element)) return false;
+    if (node.getClientRects().length === 0) return false;
+    const cs = getComputedStyle(node);
+    return cs.visibility !== 'hidden' && cs.display !== 'none';
   }
 
   // Place a dot at its pin's anchor: the element's live bounding rect plus the
@@ -1315,6 +1372,200 @@
       ]))
     ]);
     document.body.appendChild(stranded);
+  }
+
+  // ----- "On other screens" drawer --------------------------------------------
+  // Single-file mocks switch screens with JS, so all comments share one URL and
+  // load together. The ones anchored to a hidden screen are collected in
+  // state.offscreen (see renderPins) and surfaced here, out of the way of the
+  // screen the user is actually looking at.
+  let offscreenLauncher = null, offscreenDrawer = null;
+
+  function renderOffscreen() {
+    if (offscreenLauncher) { offscreenLauncher.remove(); offscreenLauncher = null; }
+    if (!state.offscreen.length) { closeOffscreenDrawer(); return; }
+    const n = state.offscreen.length;
+    offscreenLauncher = el('button', {
+      type: 'button', class: 'cw-offscreen-launcher',
+      title: 'Comments left on other screens of this mock — click to list them',
+      onclick: toggleOffscreenDrawer,
+    }, [
+      el('span', { class: 'cw-offscreen-glyph', 'aria-hidden': 'true' }, ['💬']),
+      'On other screens',
+      el('span', { class: 'cw-offscreen-count' }, [String(n)]),
+    ]);
+    document.body.appendChild(offscreenLauncher);
+    if (offscreenDrawer) renderOffscreenBody(); // keep an open drawer in sync after re-renders
+  }
+
+  function toggleOffscreenDrawer() { offscreenDrawer ? closeOffscreenDrawer() : openOffscreenDrawer(); }
+
+  function closeOffscreenDrawer() {
+    if (offscreenDrawer) { offscreenDrawer.remove(); offscreenDrawer = null; }
+  }
+
+  function openOffscreenDrawer() {
+    closeOffscreenDrawer();
+    offscreenDrawer = el('div', { class: 'cw-offscreen-drawer' });
+    document.body.appendChild(offscreenDrawer);
+    renderOffscreenBody();
+    requestAnimationFrame(() => offscreenDrawer && offscreenDrawer.classList.add('cw-offscreen-drawer--open'));
+  }
+
+  function renderOffscreenBody() {
+    if (!offscreenDrawer) return;
+    offscreenDrawer.innerHTML = '';
+    offscreenDrawer.appendChild(el('div', { class: 'cw-offscreen-head' }, [
+      el('strong', {}, ['Comments on other screens']),
+      el('button', { class: 'cw-offscreen-x', onclick: closeOffscreenDrawer, 'aria-label': 'Close' }, ['×']),
+    ]));
+    offscreenDrawer.appendChild(el('div', { class: 'cw-offscreen-sub' }, [
+      'These comments live on screens that aren’t showing right now. Click one to jump to its screen and open it.',
+    ]));
+    for (const pin of state.offscreen) {
+      offscreenDrawer.appendChild(el('div', {
+        class: 'cw-offscreen-item', title: 'Jump to this comment’s screen',
+        onclick: () => revealPinScreen(pin),
+      }, [
+        el('div', { class: 'cw-offscreen-avatar', style: `background:${authorColor(pin.author)};` }, [initial(pin.author)]),
+        el('div', { class: 'cw-offscreen-item-body' }, [
+          el('div', { class: 'cw-offscreen-item-meta' }, [el('strong', {}, [pin.author]), ' · ' + rel(pin.timestamp)]),
+          el('div', { class: 'cw-offscreen-item-text' }, [(pin.comment || '').slice(0, 120) || '(no text)']),
+          pin.elementText ? el('div', { class: 'cw-offscreen-item-ctx' }, ['↳ ' + pin.elementText.slice(0, 60)]) : null,
+        ]),
+        el('span', { class: 'cw-offscreen-go' }, ['Go →']),
+      ]));
+    }
+  }
+
+  // ----- Reveal a hidden screen and open its comment --------------------------
+  // We can't know how an arbitrary mock switches screens, so reveal works
+  // structurally: walk up to each hidden ancestor and turn it on the way the
+  // mock most likely does — by mirroring the "active" class a visible sibling
+  // screen carries (preserves the mock's own layout), falling back to a forced
+  // display override. Every mutation is recorded so "Exit" restores the page
+  // exactly. Only one peek is active at a time.
+  let revealUndo = [];
+  let revealBar = null;
+
+  const classTokens = (elt) => (typeof elt.className === 'string' ? elt.className.trim().split(/\s+/).filter(Boolean) : []);
+  // Sibling that plausibly belongs to the same screen group: same tag, or shares a class.
+  function isScreenSibling(a, b) {
+    if (a.tagName === b.tagName) return true;
+    const bt = classTokens(b);
+    return classTokens(a).some(t => bt.includes(t));
+  }
+
+  function recordClassAdd(elt, cls) { if (!elt.classList.contains(cls)) { revealUndo.push({ t: 'cls-remove', elt, cls }); elt.classList.add(cls); } }
+  function recordClassRemove(elt, cls) { if (elt.classList.contains(cls)) { revealUndo.push({ t: 'cls-add', elt, cls }); elt.classList.remove(cls); } }
+  function recordAttrRemove(elt, attr) { if (elt.hasAttribute(attr)) { revealUndo.push({ t: 'attr-add', elt, attr, val: elt.getAttribute(attr) }); elt.removeAttribute(attr); } }
+  function recordStyle(elt, prop, val, important) {
+    revealUndo.push({ t: 'style', elt, prop, prev: elt.style.getPropertyValue(prop), prevPri: elt.style.getPropertyPriority(prop) });
+    elt.style.setProperty(prop, val, important ? 'important' : '');
+  }
+
+  function restoreReveal() {
+    for (let i = revealUndo.length - 1; i >= 0; i--) {
+      const u = revealUndo[i];
+      try {
+        if (u.t === 'cls-add') u.elt.classList.add(u.cls);
+        else if (u.t === 'cls-remove') u.elt.classList.remove(u.cls);
+        else if (u.t === 'attr-add') u.elt.setAttribute(u.attr, u.val);
+        else if (u.t === 'style') {
+          if (u.prev) u.elt.style.setProperty(u.prop, u.prev, u.prevPri);
+          else u.elt.style.removeProperty(u.prop);
+        }
+      } catch (_) {}
+    }
+    revealUndo = [];
+  }
+
+  // Make one hidden container visible, preferring the mock's own activation.
+  function revealContainer(H) {
+    const parent = H.parentElement;
+    const screenSibs = parent
+      ? Array.from(parent.children).filter(s => s !== H && s.nodeType === 1 && isScreenSibling(H, s) && isRendered(s))
+      : [];
+
+    // Class-activator: a visible sibling has all of H's classes plus extra
+    // tokens (e.g. "active"/"current"). Copy those onto H, strip them off the
+    // siblings — this is exactly what the mock's own click handler tends to do.
+    for (const s of screenSibs) {
+      const extra = classTokens(s).filter(t => !H.classList.contains(t));
+      const missing = classTokens(H).filter(t => !s.classList.contains(t));
+      if (extra.length && !missing.length) {
+        extra.forEach(t => recordClassAdd(H, t));
+        screenSibs.forEach(o => extra.forEach(t => recordClassRemove(o, t)));
+        break;
+      }
+    }
+
+    if (H.hasAttribute('hidden')) recordAttrRemove(H, 'hidden');
+
+    // Whatever the mock used, if H still isn't painting, force it — and hide the
+    // sibling screens so they don't stack on top of it. Mirror a visible
+    // sibling's display value (flex/grid/block) to keep the revealed screen's
+    // internal layout intact.
+    if (!isRendered(H)) {
+      const model = screenSibs.find(isRendered) || screenSibs[0];
+      const disp = model ? getComputedStyle(model).display : 'block';
+      recordStyle(H, 'display', disp === 'none' ? 'block' : disp, true);
+      recordStyle(H, 'visibility', 'visible', true);
+      screenSibs.forEach(s => { if (isRendered(s)) recordStyle(s, 'display', 'none', true); });
+    }
+  }
+
+  function revealPinScreen(pin) {
+    closeOffscreenDrawer();
+    const target = pin.selector ? safeQuery(pin.selector) : null;
+    if (!target) {
+      showToast('That element isn’t on this page anymore', 'error');
+      openPanel(pin, { stranded: true });
+      return;
+    }
+
+    restoreReveal(); // drop any previous peek before starting a new one
+
+    // Reveal hidden ancestors outermost-first, so each inner check sees its
+    // parent already shown.
+    const chain = [];
+    for (let n = target; n && n.nodeType === 1 && n !== document.body; n = n.parentElement) chain.push(n);
+    for (let i = chain.length - 1; i >= 0; i--) {
+      if (!isRendered(chain[i])) revealContainer(chain[i]);
+    }
+
+    // Let layout settle, then re-render (the dot returns to the canvas), scroll
+    // the element into view, open its panel, and offer a way back.
+    requestAnimationFrame(() => {
+      renderPins();
+      if (isRendered(target)) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        openPanel(pin);
+        if (revealUndo.length) showRevealBar(); // only offer "Exit" if we actually changed the page
+      } else {
+        // Reveal heuristic couldn't show it — fall back to the off-page panel.
+        openPanel(pin, { stranded: true });
+        showToast('Couldn’t fully switch to that screen — showing the comment here', 'neutral');
+      }
+    });
+  }
+
+  function showRevealBar() {
+    hideRevealBar();
+    revealBar = el('div', { class: 'cw-reveal-bar' }, [
+      el('span', {}, ['👀 Jumped to this comment’s screen']),
+      el('button', { type: 'button', onclick: exitReveal }, ['Exit']),
+    ]);
+    document.body.appendChild(revealBar);
+  }
+  function hideRevealBar() { if (revealBar) { revealBar.remove(); revealBar = null; } }
+
+  function exitReveal() {
+    if (!revealUndo.length && !revealBar) return;
+    closePanel();
+    restoreReveal();
+    hideRevealBar();
+    renderPins(); // the comment returns to the "On other screens" drawer
   }
 
   // ----- Pin detail panel -----------------------------------------------------
@@ -1549,7 +1800,7 @@
     window.addEventListener('resize', () => renderPins());
     // Pins are anchored to elements — keep them glued as the page scrolls/reflows.
     window.addEventListener('scroll', () => repositionDots(), { passive: true });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePopup(); closePanel(); closeAdminPanel(); } });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePopup(); closePanel(); closeAdminPanel(); closeOffscreenDrawer(); exitReveal(); } });
 
     try {
       const [pinsRes, settingsRes] = await Promise.all([
