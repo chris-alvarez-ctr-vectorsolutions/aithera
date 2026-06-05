@@ -287,7 +287,7 @@ async function updatePin(id, request, env) {
   if (body.done !== undefined && body.done !== prevDone)       await ev(body.done ? 'done' : 'reopened', pin.comment);
   if (body.deleted !== undefined && body.deleted !== prevDeleted) await ev(body.deleted ? 'deleted' : 'restored', pin.comment);
   if (body.comment !== undefined && body.comment !== prevComment) await ev('edited', pin.comment);
-  if (body.selector !== undefined && body.selector !== prevSelector) await ev('re-anchored', pin.selector);
+  // Moving/re-anchoring a pin is not logged — it's housekeeping, not feedback.
 
   return json({ pin });
 }
@@ -345,11 +345,8 @@ async function patchSettings(request, env) {
   if (typeof body.visitorMode === 'boolean') stored.visitorMode = body.visitorMode;
   if (typeof body.commentsDisabled === 'boolean') stored.commentsDisabled = body.commentsDisabled;
   await env.PINS_KV.put(key, JSON.stringify(stored));
-  const author = body.author || 'admin';
-  await logEvent(env, {
-    action: 'settings', author, url: body.url,
-    comment: `visitorMode=${stored.visitorMode}, commentsDisabled=${stored.commentsDisabled}`,
-  });
+  // Mode changes (visitor mode / disable comments) are admin housekeeping, not
+  // feedback activity — intentionally not logged.
   return json({ settings: stored });
 }
 
