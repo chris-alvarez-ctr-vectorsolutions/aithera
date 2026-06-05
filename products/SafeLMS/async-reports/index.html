@@ -1374,6 +1374,11 @@ Results</div>
 
   let activeTab = 'compliance-emp';
 
+  // Flow version (bottom switcher):
+  //   '1' = Compliance-by-Employee flow applied to every tab
+  //   '2' = Completions-by-Employee flow applied to every tab
+  let flowVersion = '1';
+
   function renderTable(tabKey) {
     const cfg = TABS[tabKey];
     if (!cfg) return;
@@ -1427,13 +1432,14 @@ Results</div>
     applyFilterVisibility(tabKey);
   }
 
-  // Sync filter-panel visibility (pos block + email toggle) with the active tab,
-  // so the layout settles on tab change instead of shifting on Run Report.
-  function applyFilterVisibility(tabKey) {
-    const cfg = TABS[tabKey];
-    if (!cfg) return;
-    document.getElementById('pos-block').style.display = cfg.showPosBlock ? '' : 'none';
-    document.getElementById('email-toggle-row').style.display = cfg.showEmailToggle ? '' : 'none';
+  // Filter-panel visibility now follows the FLOW VERSION (not the tab) so every
+  // tab presents the same flow:
+  //   V1 (Compliance-by-Employee flow): show position block + email-address toggle
+  //   V2 (Completions-by-Employee flow): hide both
+  function applyFilterVisibility() {
+    const compliance = flowVersion === '1';
+    document.getElementById('pos-block').style.display = compliance ? '' : 'none';
+    document.getElementById('email-toggle-row').style.display = compliance ? '' : 'none';
   }
 
   /* ── Show / hide results ─────────────────────────────── */
@@ -1480,12 +1486,14 @@ Results</div>
     document.getElementById('genrow').style.display        = 'none';
     document.getElementById('table-wrap').style.display    = 'none';
 
-    if (activeTab === 'completions-emp') {
+    if (flowVersion === '2') {
+      // Completions-by-Employee flow: inline message + "email me" button, no toast banner
       hideToast();
       document.getElementById('loading-text-default').style.display  = 'none';
       document.getElementById('loading-msg-completions').style.display = '';
       document.getElementById('email-me-btn').style.display           = '';
     } else {
+      // Compliance-by-Employee flow: default loading text + toast banner
       document.getElementById('loading-text-default').style.display  = '';
       document.getElementById('loading-msg-completions').style.display = 'none';
       document.getElementById('email-me-btn').style.display           = 'none';
@@ -1550,7 +1558,19 @@ Results</div>
   });
 
   // Initial sync so the filters reflect the starting tab on page load.
-  applyFilterVisibility(activeTab);
+  applyFilterVisibility();
+
+  /* ── Flow version switcher ───────────────────────────── */
+  // Switches every tab between the Compliance-by-Employee flow (V1) and the
+  // Completions-by-Employee flow (V2). Resets the report area to the empty
+  // state so the new flow is seen fresh on the next Run Report.
+  function setFlowVersion(v) {
+    flowVersion = v;
+    document.querySelectorAll('.version-switcher .vs-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.version === v));
+    applyFilterVisibility();
+    if (activeTab !== 'report-log') showEmptyState();
+  }
 
   /* ── Email toggle ────────────────────────────────────── */
   document.getElementById('email-toggle').addEventListener('click', function () {
@@ -1845,6 +1865,52 @@ Results</div>
   document.addEventListener('opened-changed', e => { if (e.detail?.value) setTimeout(dpFix, 30); }, true);
   new MutationObserver(() => setTimeout(dpFix, 30)).observe(document.body, { childList: true });
 </script>
+
+    <!-- Flow version switcher -->
+    <style>
+      .version-switcher {
+        position: fixed;
+        bottom: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 2147483000;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: #18181b;
+        padding: 6px 8px 6px 14px;
+        border-radius: 999px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+        font-family: 'SF Mono', Menlo, Consolas, monospace;
+      }
+      .version-switcher .vs-controller-label {
+        color: #a1a1aa;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+        margin-right: 4px;
+      }
+      .version-switcher .vs-btn {
+        background: transparent;
+        border: 0;
+        color: #d4d4d8;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 6px 14px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-family: inherit;
+        transition: background 0.15s ease, color 0.15s ease;
+        white-space: nowrap;
+      }
+      .version-switcher .vs-btn:hover { color: #fff; }
+      .version-switcher .vs-btn.active { background: #155DFC; color: #fff; }
+    </style>
+    <div class="version-switcher" role="group" aria-label="Switch report flow version">
+      <span class="vs-controller-label">FLOW</span>
+      <button class="vs-btn active" data-version="1" type="button" title="Compliance-by-Employee flow on every tab" onclick="setFlowVersion('1')">V1 · Compliance</button>
+      <button class="vs-btn" data-version="2" type="button" title="Completions-by-Employee flow on every tab" onclick="setFlowVersion('2')">V2 · Completions</button>
+    </div>
 
     <!-- GitHub Pages share pill (auto-derives URL from path) -->
     <style>
