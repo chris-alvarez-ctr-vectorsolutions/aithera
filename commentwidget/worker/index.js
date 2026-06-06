@@ -12,11 +12,13 @@
 //   pin:<encoded-url>:<pin-id>   JSON Pin
 //   undo:<pin-id>                JSON { prevDone, prevDeleted, key, undoExpiresAt }  TTL 60s
 //                                (10s logical TTL enforced via undoExpiresAt; KV min TTL is 60s)
-//   log:<iso-timestamp>:<rand>   JSON Event  — append-only, never mutated or deleted.
-//                                A delete is a logged event, not an erasure, so the
-//                                history survives even when the pin is soft-deleted.
+//   log:<iso-timestamp>:<rand>   JSON Event  — append-only, never mutated; auto-
+//                                expires after a ~90-day retention window (TTL).
+//                                Only lifecycle bookends are logged to conserve KV
+//                                writes: 'created' and 'deleted'.
 
 const JSON_HEADERS = { 'content-type': 'application/json' };
+const LOG_TTL_SECONDS = 90 * 24 * 60 * 60; // 90-day rolling retention for activity-log entries
 
 export default {
   async fetch(request, env) {
@@ -102,17 +104,20 @@ async function getPin(env, pageUrl, id) {
   return pin ? { key, pin } : null;
 }
 
-// --- Activity log (append-only) ----------------------------------------------
-// Every meaningful action writes one immutable Event. Records are NEVER updated
-// or deleted, so the log is a true history — a deleted pin still has its
-// create/edit/delete events. Keyed by ISO timestamp so KV's lexicographic
-// list() returns them in chronological order; the viewer sorts newest-first.
+// --- Activity log (append-only, retained ~90 days) ---------------------------
+// Records are never mutated, only appended, and auto-expire after a rolling
+// retention window (LOG_TTL_SECONDS) so the store stays small — listLog reads
+// every entry on each view, so unbounded growth would inflate metered reads.
+// To conserve KV writes, only 'created' and 'deleted' events are written (status
+// churn like done/edit/reply lives on the pin itself, not as separate events).
+// Keyed by ISO timestamp so KV's lexicographic list() returns them in
+// chronological order; the viewer sorts newest-first.
 
 async function logEvent(env, { action, author, product, url, pinId, comment, parent }) {
   const ts = new Date().toISOString();
   const evt = {
     ts,
-    action,                                   // created | edited | done | reopened | deleted | restored | reply | re-anchored | settings | undo
+    action,                                   // created | deleted
     author: author || 'anonymous',
     product: product || '',
     url: url || '',
@@ -123,7 +128,11 @@ async function logEvent(env, { action, author, product, url, pinId, comment, par
   // rand suffix avoids key collisions when two events share a millisecond.
   const rand = Math.random().toString(36).slice(2, 8);
   try {
-    await env.PINS_KV.put(`log:${ts}:${rand}`, JSON.stringify(evt));
+    // Retention: entries auto-expire after LOG_TTL_SECONDS so the log can't grow
+    // without bound — which matters because listLog reads EVERY entry on each
+    // view, and reads are also metered. A rolling ~90-day window is plenty of
+    // history for a prototyping tool.
+    await env.PINS_KV.put(`log:${ts}:${rand}`, JSON.stringify(evt), { expirationTtl: LOG_TTL_SECONDS });
   } catch (err) {
     console.log(`[log] KV write failed: ${err.message}`);
   }
@@ -221,7 +230,7 @@ async function updatePin(id, request, env) {
   const { key, pin } = found;
   const author = body.author || pin.author;
 
-  const prevDone = pin.done, prevDeleted = pin.deleted, prevComment = pin.comment;
+  const prevDone = pin.done, prevDeleted = pin.deleted;
   let stashUndo = false;
 
   if (body.done !== undefined && body.done !== pin.done) {
@@ -266,21 +275,20 @@ async function updatePin(id, request, env) {
     await env.PINS_KV.put(undoKey(id), JSON.stringify(undoVal), { expirationTtl: 60 });
   }
 
-  const ev = (action, comment) => logEvent(env, { action, author, product: pin.product, url: pin.url, pinId: id, comment });
-  // Carry the comment text on every state change so the log row is identifiable
-  // (e.g. filtering action=done shows *which* comments were resolved, not just
-  // opaque pin ids).
-  if (body.done !== undefined && body.done !== prevDone)       await ev(body.done ? 'done' : 'reopened', pin.comment);
-  if (body.deleted !== undefined && body.deleted !== prevDeleted) await ev(body.deleted ? 'deleted' : 'restored', pin.comment);
-  if (body.comment !== undefined && body.comment !== prevComment) await ev('edited', pin.comment);
-  // Moving/re-anchoring a pin is not logged — it's housekeeping, not feedback.
+  // KV write budget: the free tier allows only 1,000 writes/day, and a separate
+  // log entry on every action doubles that cost. So we log only the lifecycle
+  // bookends — created (in createPin) and deleted (here). Status churn (done,
+  // reopen, edit, restore, move) updates the pin but is NOT written as its own
+  // log event; the pin itself always carries the current state. The undo stash
+  // for done/delete is kept (it's the accidental-delete safety net).
+  if (body.deleted === true && prevDeleted !== true) {
+    await logEvent(env, { action: 'deleted', author, product: pin.product, url: pin.url, pinId: id, comment: pin.comment });
+  }
 
   return json({ pin });
 }
 
 async function undoPin(id, request, env) {
-  const body = await request.json().catch(() => ({}));
-  const author = body.author || 'anonymous';
   const undoData = await env.PINS_KV.get(undoKey(id), 'json');
   if (!undoData || undoData.undoExpiresAt < Date.now()) {
     return json({ error: 'Undo window has expired' }, 409);
@@ -291,7 +299,7 @@ async function undoPin(id, request, env) {
   pin.deleted = undoData.prevDeleted;
   await env.PINS_KV.put(undoData.key, JSON.stringify(pin));
   await env.PINS_KV.delete(undoKey(id));
-  await logEvent(env, { action: 'undo', author, product: pin.product, url: pin.url, pinId: id });
+  // Undo is not logged separately (KV write budget).
   return json({ pin });
 }
 
@@ -310,7 +318,7 @@ async function replyToPin(id, request, env) {
   pin.thread = pin.thread || [];
   pin.thread.push(reply);
   await env.PINS_KV.put(key, JSON.stringify(pin));
-  await logEvent(env, { action: 'reply', author: reply.author, product: pin.product, url: pin.url, pinId: id, comment: reply.text, parent: pin.comment });
+  // Replies are not logged separately (KV write budget) — they live on the pin.
   return json({ pin });
 }
 
