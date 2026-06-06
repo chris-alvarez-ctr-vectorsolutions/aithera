@@ -196,6 +196,10 @@ async function createPin(request, env) {
     y: Number(body.y) || 0,
     relX: body.relX != null ? Number(body.relX) : null,
     relY: body.relY != null ? Number(body.relY) : null,
+    // Interaction state the comment was left in (active toggle-group members:
+    // version switcher, tabs, nav, etc.). The widget only pins the comment when
+    // the page is back in this state; otherwise it lists in the side drawer.
+    viewState: cleanViewState(body.viewState),
     screenshot: body.screenshot || '',
     comment: body.comment,
     author: body.author,
@@ -249,6 +253,8 @@ async function updatePin(id, request, env) {
   if (body.screenshot !== undefined && body.screenshot) pin.screenshot = body.screenshot;
   if (body.relX !== undefined) pin.relX = body.relX != null ? Number(body.relX) : null;
   if (body.relY !== undefined) pin.relY = body.relY != null ? Number(body.relY) : null;
+  // A move/re-anchor recaptures the interaction state, so accept a replacement.
+  if (body.viewState !== undefined) pin.viewState = cleanViewState(body.viewState);
 
   await env.PINS_KV.put(key, JSON.stringify(pin));
 
@@ -331,3 +337,20 @@ async function patchSettings(request, env) {
 }
 
 function truncate(s, n) { s = s || ''; return s.length > n ? s.slice(0, n) + '…' : s; }
+
+// Sanitize the interaction-state snapshot sent by the widget. It's an array of
+// { sel, text } descriptors (one per active toggle-group member). We cap the
+// count and string lengths and drop anything malformed — it's display/matching
+// metadata, never executed, so light validation is enough.
+function cleanViewState(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const item of v) {
+    if (!item || typeof item !== 'object') continue;
+    const sel = String(item.sel || '').slice(0, 400);
+    if (!sel) continue;
+    out.push({ sel, text: String(item.text || '').slice(0, 80) });
+    if (out.length >= 16) break;
+  }
+  return out;
+}
