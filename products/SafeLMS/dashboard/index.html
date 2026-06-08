@@ -669,6 +669,45 @@
       .dev-btn i { transition: transform 0.2s ease; }
       .dev-btn:hover i { transform: translate(2px, -2px); }
 
+      /* Collapsed drawer holding the original design links on dev cards */
+      .design-links-drawer {
+        border: 1px dashed var(--border-strong);
+        border-radius: 6px;
+        padding: 2px 8px;
+        background: #fff;
+      }
+      .design-links-drawer > summary {
+        list-style: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 2px;
+        font-family: var(--display);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--text-muted);
+        user-select: none;
+      }
+      .design-links-drawer > summary::-webkit-details-marker { display: none; }
+      .design-links-drawer > summary:hover { color: var(--text); }
+      .drawer-note {
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 500;
+        color: var(--text-muted);
+      }
+      .drawer-chevron { transition: transform 0.2s ease; font-size: 10px; }
+      .design-links-drawer[open] > summary .drawer-chevron { transform: rotate(90deg); }
+      .drawer-rows {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 6px 0 8px;
+      }
+
       .view-btn {
         display: inline-flex;
         align-items: center;
@@ -1344,6 +1383,54 @@
           ticketHtml = `<span class="ticket-badge">${escapeHtml(ticket)}</span>`;
         }
 
+        // Original design links (the prototype that carries review comments).
+        const designRows = `
+            <div class="url-row">
+              <span class="url-label"><i class="fa-solid fa-globe"></i> Pages</span>
+              <a class="url-value" href="${pagesUrl}" target="_blank" rel="noopener" title="${pagesUrl}">${pagesUrl}</a>
+              <button class="copy-btn" data-copy="${pagesUrl}"><i class="fa-regular fa-copy"></i> Copy</button>
+            </div>
+            <div class="url-row">
+              <span class="url-label"><i class="fa-brands fa-github"></i> GitHub</span>
+              <a class="url-value" href="${blobUrl}" target="_blank" rel="noopener" title="${blobUrl}">${blobUrl}</a>
+              <button class="copy-btn" data-copy="${blobUrl}"><i class="fa-regular fa-copy"></i> Copy</button>
+            </div>`;
+
+        // Clean, widget-free build links shown to developers.
+        const devRows = `
+            <div class="url-row url-row--dev">
+              <span class="url-label"><i class="fa-solid fa-code"></i> Dev Page</span>
+              <a class="url-value" href="${devPagesUrl}" target="_blank" rel="noopener" title="${devPagesUrl}">${devPagesUrl}</a>
+              <button class="copy-btn" data-copy="${devPagesUrl}"><i class="fa-regular fa-copy"></i> Copy</button>
+            </div>
+            <div class="url-row url-row--dev">
+              <span class="url-label"><i class="fa-brands fa-github"></i> Dev HTML</span>
+              <a class="url-value" href="${devBlobUrl}" target="_blank" rel="noopener" title="${devBlobUrl}">${devBlobUrl}</a>
+              <button class="copy-btn" data-copy="${devBlobUrl}"><i class="fa-regular fa-copy"></i> Copy</button>
+            </div>`;
+
+        // When a dev handoff exists, lead with the dev links and tuck the
+        // original (commented) design links into a closed drawer.
+        const urlListInner = devHandoff
+          ? `${devRows}
+            <details class="design-links-drawer">
+              <summary><i class="fa-solid fa-chevron-right drawer-chevron"></i> Design version <span class="drawer-note">— prototype with review comments</span></summary>
+              <div class="drawer-rows">${designRows}
+              </div>
+            </details>`
+          : designRows;
+
+        // Primary action — opens the dev build when one exists, else the design.
+        const primaryBtn = devHandoff
+          ? `<a class="view-btn" href="${devPagesUrl}" target="_blank" rel="noopener" title="Clean, comment-widget-free build for developers">
+              <i class="fa-solid fa-code"></i>
+              View Dev Build
+            </a>`
+          : `<a class="view-btn" href="${pagesUrl}" target="_blank" rel="noopener">
+              View Design
+              <i class="fa-solid fa-arrow-up-right-from-square"></i>
+            </a>`;
+
         const card = document.createElement('div');
         card.className = 'mock-card';
         card.style.animationDelay = `${Math.min(idx * 0.05, 0.5)}s`;
@@ -1356,39 +1443,10 @@
             <span class="status-badge" data-status="${escapeHtml(status)}"><span class="status-dot"></span>${escapeHtml(statusLabel)}</span>
           </div>
           <p class="card-description">${escapeHtml(description)}</p>
-          <div class="url-list">
-            <div class="url-row">
-              <span class="url-label"><i class="fa-solid fa-globe"></i> Pages</span>
-              <a class="url-value" href="${pagesUrl}" target="_blank" rel="noopener" title="${pagesUrl}">${pagesUrl}</a>
-              <button class="copy-btn" data-copy="${pagesUrl}"><i class="fa-regular fa-copy"></i> Copy</button>
-            </div>
-            <div class="url-row">
-              <span class="url-label"><i class="fa-brands fa-github"></i> GitHub</span>
-              <a class="url-value" href="${blobUrl}" target="_blank" rel="noopener" title="${blobUrl}">${blobUrl}</a>
-              <button class="copy-btn" data-copy="${blobUrl}"><i class="fa-regular fa-copy"></i> Copy</button>
-            </div>
-            ${devHandoff ? `
-            <div class="url-row url-row--dev">
-              <span class="url-label"><i class="fa-solid fa-code"></i> Dev Page</span>
-              <a class="url-value" href="${devPagesUrl}" target="_blank" rel="noopener" title="${devPagesUrl}">${devPagesUrl}</a>
-              <button class="copy-btn" data-copy="${devPagesUrl}"><i class="fa-regular fa-copy"></i> Copy</button>
-            </div>
-            <div class="url-row url-row--dev">
-              <span class="url-label"><i class="fa-brands fa-github"></i> Dev HTML</span>
-              <a class="url-value" href="${devBlobUrl}" target="_blank" rel="noopener" title="${devBlobUrl}">${devBlobUrl}</a>
-              <button class="copy-btn" data-copy="${devBlobUrl}"><i class="fa-regular fa-copy"></i> Copy</button>
-            </div>` : ''}
+          <div class="url-list">${urlListInner}
           </div>
           <div class="card-actions">
-            <a class="view-btn" href="${pagesUrl}" target="_blank" rel="noopener">
-              View Design
-              <i class="fa-solid fa-arrow-up-right-from-square"></i>
-            </a>
-            ${devHandoff ? `
-            <a class="dev-btn" href="${devPagesUrl}" target="_blank" rel="noopener" title="Clean, comment-widget-free build for developers">
-              <i class="fa-solid fa-code"></i>
-              Dev Handoff
-            </a>` : ''}
+            ${primaryBtn}
           </div>
         `;
         return card;

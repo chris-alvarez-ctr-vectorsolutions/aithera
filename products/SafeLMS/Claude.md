@@ -24,7 +24,7 @@ There is a prototype index at [`./dashboard/index.html`](./dashboard/index.html)
 
 When you create a `dev_handoff.html` inside a mock folder (a clean, comment-widget-free copy a developer can build from), update that mock's `mocks[<folder-key>]` entry **in the same turn — automatically, without being asked**:
 
-- Set `"devHandoff": true`. The dashboard card then shows two extra links — the dev build's **GitHub Pages** URL (Dev Page) and its **GitHub** raw-HTML URL (Dev HTML) — plus a "Dev Handoff" button, alongside the existing design links.
+- Set `"devHandoff": true`. The dashboard card then leads with the dev build links — the **GitHub Pages** URL (Dev Page) and the **GitHub** raw-HTML URL (Dev HTML) — and a primary **View Dev Build** button. The original design links (Pages + GitHub for the commented prototype) collapse into a closed "Design version" drawer on the card, available when needed.
 - Set `"status": "ready-for-dev"`. This moves the card into the **Ready for Dev** group.
 
 `devHandoff` defaults to the filename `dev_handoff.html`; pass a filename string instead of `true` only if the handoff file is named differently. If you later delete the dev_handoff file, remove `devHandoff` and reset the status.
