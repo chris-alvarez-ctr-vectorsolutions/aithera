@@ -24,6 +24,15 @@ There is a prototype index at [`./dashboard/index.html`](./dashboard/index.html)
 4. **Delete the `mocks[<folder-key>]` entry whenever you delete or rename a mock folder.** Log the rename/deletion in `recentChanges`.
 5. **Trim `recentChanges` to the 20 most recent entries** — drop older entries beyond that. Newer entries go at the top.
 
+### Dev handoff files
+
+When you create a `dev_handoff.html` inside a mock folder (a clean, comment-widget-free copy a developer can build from), update that mock's `mocks[<folder-key>]` entry **in the same turn — automatically, without being asked**:
+
+- Set `"devHandoff": true`. The dashboard card then shows two extra links — the dev build's **GitHub Pages** URL (Dev Page) and its **GitHub** raw-HTML URL (Dev HTML) — plus a "Dev Handoff" button, alongside the existing design links.
+- Set `"status": "ready-for-dev"`. This moves the card into the **Ready for Dev** group.
+
+`devHandoff` defaults to the filename `dev_handoff.html`; pass a filename string instead of `true` only if the handoff file is named differently. If you later delete the dev_handoff file, remove `devHandoff` and reset the status.
+
 ### Why this matters
 
 This page is the single shareable link the team gives stakeholders. Because the repo is private, the dashboard can't fall back to filesystem discovery — meta.json is the entire source of truth. If you forget to update it, mocks vanish or show stale statuses, and the dashboard loses the team's trust. Updating meta.json takes 10 seconds; recovering from a "the dashboard is wrong" complaint costs much more.
@@ -41,9 +50,10 @@ This page is the single shareable link the team gives stakeholders. Because the 
     "<folder-key>": {
       "title": "Optional title override (default: humanized folder name)",
       "description": "Optional one-line description shown on the card",
-      "status": "concept | in-progress | review | ready | archived",
+      "status": "concept | in-progress | review | ready | ready-for-dev | archived",
       "ticket": "Optional ticket ID, e.g. UX-2474",
-      "ticketUrl": "Optional full ticket URL (only needed if it lives outside jiraBaseUrl)"
+      "ticketUrl": "Optional full ticket URL (only needed if it lives outside jiraBaseUrl)",
+      "devHandoff": "Optional. Set to true (or a filename) when a dev_handoff.html exists — the dashboard then shows the dev build links and the Ready for Dev status"
     }
   }
 }
