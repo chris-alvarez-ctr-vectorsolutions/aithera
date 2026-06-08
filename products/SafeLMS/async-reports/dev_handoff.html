@@ -928,11 +928,11 @@ Results</div>
     </div>
 
     <!-- Completions-emp email confirmation banner (shown after clicking email button) -->
-    <div id="email-confirm-completions" class="toast hidden" style="margin:16px auto 0; background:#fff; border-color:#e5e7eb; box-shadow:0 2px 8px rgba(0,0,0,.08);">
+    <div id="email-confirm-completions" class="toast hidden" style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%); margin:0; z-index:1200; background:#fff; border-color:#e5e7eb; box-shadow:0 8px 24px rgba(0,0,0,.16);">
       <span class="toast-icon" style="color:#16a34a;">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="#16a34a"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5-4-4 1.41-1.41L10 13.67l6.59-6.59L18 8.5l-8 8z"/></svg>
       </span>
-      <span class="toast-text" style="color:#111;">We'll email you when your report is ready.</span>
+      <span class="toast-text" style="color:#111;">We'll email you when the report is ready.</span>
       <button class="toast-dismiss" id="dismiss-email-confirm" aria-label="Dismiss">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
@@ -1517,6 +1517,20 @@ Results</div>
   function showToast() { document.getElementById('email-banner').classList.remove('hidden'); }
   function hideToast()  { document.getElementById('email-banner').classList.add('hidden'); }
 
+  // "We'll email you when the report is ready." confirmation toast.
+  // Floats above the content (never pushes the data table / report log down),
+  // auto-dismisses after 7s, and clears whenever the user leaves this view.
+  let emailConfirmTimer = null;
+  function showEmailConfirm() {
+    document.getElementById('email-confirm-completions').classList.remove('hidden');
+    if (emailConfirmTimer) clearTimeout(emailConfirmTimer);
+    emailConfirmTimer = setTimeout(hideEmailConfirm, 7000);
+  }
+  function hideEmailConfirm() {
+    if (emailConfirmTimer) { clearTimeout(emailConfirmTimer); emailConfirmTimer = null; }
+    document.getElementById('email-confirm-completions').classList.add('hidden');
+  }
+
   function resetLoadingContent() {
     // reset toast button
     document.getElementById('email-me-btn-toast').style.display = '';
@@ -1527,7 +1541,7 @@ Results</div>
     emailBtn.classList.remove('is-pressed');
     emailBtn.removeAttribute('aria-disabled');
     emailBtn.querySelector('.btn-label').textContent = 'Email me the report when ready';
-    document.getElementById('email-confirm-completions').classList.add('hidden');
+    hideEmailConfirm();
   }
 
   function showEmptyState() {
@@ -1548,6 +1562,7 @@ Results</div>
   }
 
   document.querySelector('.run-btn-main').addEventListener('click', () => {
+    hideEmailConfirm();
     renderTable(activeTab);
     document.getElementById('empty-state').style.display   = 'none';
     document.getElementById('loading-state').style.display = 'flex';
@@ -1578,16 +1593,14 @@ Results</div>
     this.classList.add('is-pressed');
     this.setAttribute('aria-disabled', 'true');
     this.querySelector('.btn-label').textContent = 'Email request sent';
-    document.getElementById('email-confirm-completions').classList.remove('hidden');
+    showEmailConfirm();
   });
-  document.getElementById('dismiss-email-confirm').addEventListener('click', () => {
-    document.getElementById('email-confirm-completions').classList.add('hidden');
-  });
+  document.getElementById('dismiss-email-confirm').addEventListener('click', hideEmailConfirm);
 
   // Other tabs: hide blue banner, show same white confirmation banner
   document.getElementById('email-me-btn-toast').addEventListener('click', function () {
     hideToast();
-    document.getElementById('email-confirm-completions').classList.remove('hidden');
+    showEmailConfirm();
   });
   document.getElementById('dismiss-banner').addEventListener('click', hideToast);
 
@@ -1595,6 +1608,7 @@ Results</div>
   const reportContent = ['daterow', 'filters', 'empty-state', 'loading-state', 'genrow', 'table-wrap'];
 
   function showReportLog() {
+    hideEmailConfirm();
     reportContent.forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
