@@ -80,6 +80,17 @@
 
     .list-body { padding: 20px 24px; }
 
+    /* Create button dropdown (V1) */
+    .create-btn-wrap { position: relative; }
+    .create-menu { position: absolute; top: calc(100% + 6px); right: 0; background: #fff; border: 1px solid #e5e9ef; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.14); z-index: 200; min-width: 264px; overflow: hidden; padding: 6px; }
+    .create-menu.hidden { display: none; }
+    .create-menu-item { display: flex; align-items: flex-start; gap: 11px; padding: 10px 12px; border-radius: 6px; cursor: pointer; transition: background 0.1s; }
+    .create-menu-item:hover { background: #f3f4f6; }
+    .create-menu-item > i { color: var(--vblue, #0271ce); font-size: 14px; margin-top: 2px; width: 18px; text-align: center; flex-shrink: 0; }
+    .create-menu-item div { display: flex; flex-direction: column; }
+    .create-menu-item strong { font-size: 13px; font-weight: 700; color: #1a1a2e; }
+    .create-menu-item span { font-size: 11.5px; color: #9ca3af; margin-top: 1px; }
+
     .lp-table-wrap { background: #fff; border: 1px solid #e5e9ef; border-radius: 8px; overflow: hidden; }
     table { width: 100%; border-collapse: collapse; }
     thead th { background: #f8fafc; padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1px solid #e5e9ef; white-space: nowrap; }
@@ -774,9 +785,22 @@
             <h1 id="list-title">Qualifications</h1>
             <div class="header-sub">Manage qualifications for your organization.</div>
           </div>
-          <button class="btn btn-primary" id="create-btn" onclick="openCreate()">
-            <i class="fa-solid fa-plus"></i> <span id="create-btn-label">Create Qualification</span>
-          </button>
+          <div class="create-btn-wrap">
+            <button class="btn btn-primary" id="create-btn" onclick="onCreateClick(event)">
+              <i class="fa-solid fa-plus"></i> <span id="create-btn-label">Create Qualification</span>
+              <i class="fa-solid fa-chevron-down" id="create-caret" style="font-size:10px;margin-left:4px"></i>
+            </button>
+            <div class="create-menu hidden" id="create-menu">
+              <div class="create-menu-item" onclick="createChoose('manual')">
+                <i class="fa-solid fa-pen-to-square"></i>
+                <div><strong>Create manually</strong><span>Start from a blank builder</span></div>
+              </div>
+              <div class="create-menu-item" onclick="createChoose('ai')">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                <div><strong>Build with AI</strong><span>Describe it and let AI draft it</span></div>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="list-toolbar">
           <div class="search-wrap">
@@ -960,6 +984,7 @@
   <div class="vs-seg">
     <button data-v="1" onclick="applyVersion(1)">V1</button>
     <button data-v="2" onclick="applyVersion(2)">V2</button>
+    <button data-v="3" onclick="applyVersion(3)">V3</button>
   </div>
   <div class="vs-caption" id="vs-caption"></div>
   <div class="vs-divider"></div>
@@ -1315,7 +1340,7 @@ const QUAL_FOLLOWUP_PROMPTS = [
 /* ═══════════════════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════════════════ */
-let VERSION = 1;                       // 1 (AI from the start) | 2 (manual + conversational AI panel)
+let VERSION = 3;                       // 1 (AI from start) | 2 (manual + chat) | 3 (combined, default)
 let programType = 'qualification';     // qualification-only for now
 let isAI = false;
 let requirements = [];                 // [{id,name,desc,acts:[],editing,completionOrder}]
@@ -1332,8 +1357,9 @@ let moveCtx = null;                    // {kind:'req'|'act', id, rid}
 let deleteCtx = null;                  // {row, name, enrolled}
 
 const VERSION_INFO = {
-  1: {title:'Qualifications', nav:'Qualifications', createBtn:'Create Qualification', caption:'V1 · AI from the start. You prompt the assistant and it builds the qualification (one and done).'},
+  1: {title:'Qualifications', nav:'Qualifications', createBtn:'Create Qualification', caption:'V1 · Pick manual or AI from the Create button. AI builds the qualification in a one-and-done side panel.'},
   2: {title:'Qualifications', nav:'Qualifications', createBtn:'Create Qualification', caption:'V2 · Manual builder alongside a conversational AI assistant you can chat with and re-prompt.'},
+  3: {title:'Qualifications', nav:'Qualifications', createBtn:'Create Qualification', caption:'V3 · Pick manual or AI from the Create button; either way the builder has a conversational AI side panel.'},
 };
 
 /* ─── Helpers (qualification-only) ─── */
@@ -1356,6 +1382,9 @@ function applyVersion(v){
   document.getElementById('create-btn-label').textContent = info.createBtn;
   document.getElementById('nav-programs-label').textContent = info.nav;
   document.getElementById('vs-caption').textContent = info.caption;
+  // The Create button is a dropdown in V1 & V3 (show the caret); a direct action in V2
+  document.getElementById('create-caret').classList.toggle('hidden', v === 2);
+  closeCreateMenu();
   // Always return to the list when switching versions to avoid stale builder chrome
   closeCreate(); closeSidePanel(); closeActivityPanel();
   returnToList();
@@ -1378,17 +1407,29 @@ function showScreen(id){
 /* ═══════════════════════════════════════════════════════════
    CREATE FLOW
 ═══════════════════════════════════════════════════════════ */
+/* Create button. V1 & V3 open a dropdown (manual vs AI); V2 goes straight to the builder + chat. */
+function onCreateClick(e){
+  if (VERSION === 1 || VERSION === 3){ e.stopPropagation(); toggleCreateMenu(); }
+  else openCreate();
+}
+function toggleCreateMenu(){ document.getElementById('create-menu').classList.toggle('hidden'); }
+function closeCreateMenu(){ const m=document.getElementById('create-menu'); if(m) m.classList.add('hidden'); }
+function createChoose(method){
+  closeCreateMenu();
+  programType = 'qualification';
+  if (method === 'ai'){
+    // V1: one-and-done over the list. V3: intake over the list first, then continue in the builder chat.
+    openAIOneShot(VERSION === 1 ? 'review' : 'chat');
+  } else {
+    startManual();                     // manual builder (V3 keeps the AI panel available via its button)
+  }
+}
 function openCreate(){
   closeAllCtxMenus(); closeDropdowns();
   programType = 'qualification';
-  if (VERSION === 1){
-    // V1 - AI from the start: open the one-shot AI prompt panel over the list (one-and-done)
-    openAIOneShot();
-  } else {
-    // V2 - manual builder alongside the conversational AI assistant (opens together)
-    startManual();
-    openChatPanel(true);
-  }
+  // V2 - manual builder alongside the conversational AI assistant (opens together)
+  startManual();
+  openChatPanel(true);
 }
 function closeCreate(){ const o=document.getElementById('create-overlay'); if(o) o.classList.add('hidden'); }
 
@@ -1397,6 +1438,7 @@ function closeCreate(){ const o=document.getElementById('create-overlay'); if(o)
 ═══════════════════════════════════════════════════════════ */
 function startManual(){
   isAI = false; editProtected = false;
+  chatStarted = false; chatMsgs = []; aiTarget = null; aiTitleOverride = null; aiDescOverride = null;
   requirements = []; rc = 0; lpAttributes = []; attrIdCounter = 0; lpAttrSelected = new Set();
   document.getElementById('attrs-count-badge').textContent = '0';
   clearTitleError();
@@ -1415,6 +1457,7 @@ function startManual(){
 /* List "edit" (pencil) → open an existing program in the builder (simulated). */
 function openExisting(name, type, enrolled){
   programType = type; isAI = false;
+  chatStarted = false; chatMsgs = []; aiTarget = null;
   editProtected = enrolled > 0;
   lpAttributes = []; attrIdCounter = 0; lpAttrSelected = new Set();
   clearTitleError();
@@ -1443,8 +1486,8 @@ function configureBuilderChrome(){
   const badge = document.getElementById('builder-type-badge');
   badge.className = 'type-chip qual';
   badge.innerHTML = '<i class="fa-solid fa-certificate"></i> Qualification';
-  // V2: show the conversational "AI Assistant" button in the builder
-  document.getElementById('enhance-ai-btn').classList.toggle('hidden', VERSION !== 2);
+  // V2 & V3: show the conversational "AI Assistant" button in the builder
+  document.getElementById('enhance-ai-btn').classList.toggle('hidden', !(VERSION === 2 || VERSION === 3));
   // Title field placeholder
   document.getElementById('lp-title').placeholder = 'e.g., AC Motor Controller Operation';
   // Breadcrumb current label
@@ -1732,7 +1775,9 @@ const SUGG_CATS = [
 let suggestRotate = 0;            // bumped by "Refresh suggestions"
 let oneShotSuggestions = [];      // currently rendered cards
 
-function openAIOneShot(){
+let oneshotNext = 'review';   // 'review' = V1 one-and-done; 'chat' = V3 continue in the conversational panel
+function openAIOneShot(next){
+  oneshotNext = next || 'review';
   showPanelMode('oneshot');
   document.getElementById('sp-eyebrow').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> AI Qualification Assistant';
   document.getElementById('sp-title').textContent = 'Build with AI';
@@ -1795,10 +1840,26 @@ function addSuggestion(i){
 function oneshotGenerate(){
   if(!oneShotPrompt()) return;                       // required
   const summary=(document.getElementById('sp-summary').value||'').trim();
-  aiTitleOverride = summary || null;
-  aiDescOverride = oneShotPrompt();
+  const prompt=oneShotPrompt();
   closeSidePanel();
-  runGeneration();                                   // one-and-done → builder review
+  if(oneshotNext === 'chat'){
+    startV3AIBuild(summary, prompt);                 // V3: into the builder, continue in the chat panel
+  } else {
+    aiTitleOverride = summary || null;
+    aiDescOverride = prompt;
+    runGeneration();                                 // V1: one-and-done → builder review
+  }
+}
+
+/* V3 "Build with AI": land in the builder, seed the chat with the intake, generate, then keep chatting */
+function startV3AIBuild(summary, prompt){
+  startManual();                          // blank builder + a fresh version baseline
+  chatStarted = true; chatMsgs = []; clarifyIdx = 0;   // suppress the default greeting
+  aiTitleOverride = summary || null;      // use the summary as the title
+  openChatPanel();                        // docked conversational panel (no greeting)
+  const inp = document.getElementById('sp-chat-input');
+  if(inp){ inp.value = prompt; updateSendEnabled(); }
+  sendChat();                             // first turn: generates the draft from the goals, then back-and-forth
 }
 
 /* ── V2: conversational AI assistant (docked in the builder, back-and-forth) ── */
@@ -1823,7 +1884,7 @@ function openChatPanel(){
   document.getElementById('main-col').classList.add('ai-push');
   if(!chatStarted){
     chatMsgs = [{role:'assistant', html:'Hi, I can help you build this qualification. To start, please tell me what this qualification\'s goals are.<br><br>Provide a short <strong>summary</strong> and <strong>description</strong> of the skills, tasks, and equipment involved, how competency should be checked, and anything else a learner who has finished this qualification should be able to do.'}];
-    chatStarted = true; clarifyIdx = 0;
+    chatStarted = true; clarifyIdx = 0; aiTitleOverride = null;
   }
   renderChat(); renderChatSuggest(); updateSendEnabled();
   setTimeout(()=>{ const i=document.getElementById('sp-chat-input'); if(i) i.focus(); }, 250);
@@ -1883,7 +1944,7 @@ function sendChat(){
       clearTarget();
     }, 850);
   } else if(firstTurn){
-    aiTitleOverride = null; aiDescOverride = text;
+    aiDescOverride = text;   // title may already be set from the V3 intake summary
     chatGenerate(() => {
       pushVersion('AI draft');
       const n=requirements.length;
@@ -2046,7 +2107,7 @@ function renderAIReasoning(){
     </div>
     <div class="ai-reasoning-body" id="ai-reasoning-body">
       <p class="ai-reasoning-text">This ${esc(tl)} was generated from what you described. The assistant identified ${n} requirement${n!==1?'s':''} covering the key competencies, sequenced so each builds on the previous one. Review and edit anything below.</p>
-      ${VERSION === 2 ? '<button class="ai-refine-btn" onclick="openAIRefine()"><i class="fa-solid fa-rotate"></i> Refine with AI</button>' : ''}
+      ${(VERSION === 2 || VERSION === 3) ? '<button class="ai-refine-btn" onclick="openAIRefine()"><i class="fa-solid fa-rotate"></i> Refine with AI</button>' : ''}
     </div>
   </div>`;
 }
@@ -2319,6 +2380,7 @@ function showToast(msg){
 ═══════════════════════════════════════════════════════════ */
 document.addEventListener('click', e => {
   if(!e.target.closest('.ctx-menu-wrap')){ document.querySelectorAll('.ctx-menu').forEach(m=>m.classList.add('hidden')); }
+  if(!e.target.closest('.create-btn-wrap')) closeCreateMenu();
   if(!e.target.closest('.corner-add') && !e.target.closest('.corner-menu')) closeCornerMenus();
   if(e.target.id==='create-overlay') closeCreate();
   if(e.target.id==='audit-overlay') closeAudit();
@@ -2493,7 +2555,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   setLoadingStyle('skeleton');   // default to the in-canvas skeleton treatment
-  applyVersion(1);
+  applyVersion(3);
 });
 </script>
 </body>
