@@ -282,6 +282,14 @@
     .sp-prompt-item:last-child { margin-bottom: 0; }
     .sp-prompt-item:hover { border-color: var(--lumo-primary-color); background: var(--lumo-primary-color-10pct); }
 
+    /* One-shot optional fields + examples helper */
+    .sp-optional { font-weight: 400; color: #9ca3af; font-size: 11px; }
+    .sp-field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .sp-help { font-size: 12px; color: var(--lumo-secondary-text-color,#6b7280); line-height: 1.55; background: var(--lumo-contrast-5pct,#f4f6f8); border: 1px solid var(--lumo-contrast-10pct,#e5e9ef); border-radius: 8px; padding: 11px 13px; }
+    .sp-help.hidden { display: none; }
+    .sp-help ul { margin: 7px 0 0; padding-left: 16px; display: flex; flex-direction: column; gap: 6px; }
+    .sp-help li { color: #4b5563; }
+
     /* ─── V1 one-shot: categorized AI suggestions ─── */
     .sp-suggest-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
     .sp-suggest-title { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: var(--lumo-body-text-color,#1a1a2e); }
@@ -936,10 +944,9 @@
 
             <div class="section-collapse">
               <div class="section-collapse-header" onclick="toggleAttrs()">
-                <i class="fa-solid fa-chevron-right" id="attrs-caret"></i>
                 <span>Attributes</span>
                 <span class="count-badge" id="attrs-count-badge">0</span>
-                <i class="fa-solid fa-chevron-down" style="margin-left:auto"></i>
+                <i class="fa-solid fa-chevron-down" id="attrs-caret" style="margin-left:auto"></i>
               </div>
               <div class="section-collapse-body hidden" id="attrs-body">
                 <div class="attr-bulk-bar hidden" id="attr-bulk-bar">
@@ -1026,6 +1033,11 @@
     <div>
       <p class="sp-section-title">Qualification summary</p>
       <vaadin-text-field theme="outlined" label="Summary" placeholder="e.g., Operate the Line 3 AC motor controller safely" id="sp-summary" style="width:100%"></vaadin-text-field>
+    </div>
+    <div>
+      <p class="sp-section-title">Timeline of training <span class="sp-optional">(optional)</span></p>
+      <vaadin-text-field theme="outlined" label="Timeline" placeholder="e.g., 2 days, 6 weeks, ongoing" id="sp-timeline" style="width:100%"></vaadin-text-field>
+      <div class="sp-hint" style="margin-top:6px">Helps shape how broad or technical the qualification is.</div>
     </div>
     <div>
       <p class="sp-section-title">Describe the goals of this qualification <span style="color:var(--lumo-error-color,#dc2626)">*</span></p>
@@ -1781,8 +1793,7 @@ function openAIOneShot(next){
   showPanelMode('oneshot');
   document.getElementById('sp-eyebrow').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> AI Qualification Assistant';
   document.getElementById('sp-title').textContent = 'Build with AI';
-  const s=document.getElementById('sp-summary'); if(s) s.value='';
-  const p=document.getElementById('sp-prompt'); if(p) p.value='';
+  ['sp-summary','sp-prompt','sp-timeline'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
   suggestRotate = 0;
   onOneShotInput();
   document.getElementById('main-col').classList.remove('ai-push');   // overlay
@@ -1837,16 +1848,23 @@ function addSuggestion(i){
   onOneShotInput();
   if(p.focus) p.focus();
 }
+/* Combine the required goals with the optional detail fields into one context string */
+function oneShotContext(){
+  const v = id => { const el=document.getElementById(id); return el && el.value ? el.value.trim() : ''; };
+  const parts = [oneShotPrompt()];
+  const tl=v('sp-timeline'); if(tl) parts.push('Timeline of training: ' + tl + '.');
+  return parts.join(' ');
+}
 function oneshotGenerate(){
   if(!oneShotPrompt()) return;                       // required
   const summary=(document.getElementById('sp-summary').value||'').trim();
-  const prompt=oneShotPrompt();
+  const context=oneShotContext();
   closeSidePanel();
   if(oneshotNext === 'chat'){
-    startV3AIBuild(summary, prompt);                 // V3: into the builder, continue in the chat panel
+    startV3AIBuild(summary, context);                // V3: into the builder, continue in the chat panel
   } else {
     aiTitleOverride = summary || null;
-    aiDescOverride = prompt;
+    aiDescOverride = context;
     runGeneration();                                 // V1: one-and-done → builder review
   }
 }
@@ -2164,7 +2182,6 @@ function renderRequirement(r,i){
         </div>
       </div>
       <div class="hdr-ctrls">
-        <button class="hdr-icon-btn" title="Requirement settings" onclick="toggleReqSettings(${r.id})"><i class="fa-solid fa-gear"></i></button>
         <button class="hdr-icon-btn" title="Move up" onclick="moveReq(${r.id},-1)" ${i===0?'disabled':''}><i class="fa-solid fa-arrow-up"></i></button>
         <button class="hdr-icon-btn" title="Move down" onclick="moveReq(${r.id},1)" ${i===requirements.length-1?'disabled':''}><i class="fa-solid fa-arrow-down"></i></button>
         <div class="ctx-menu-wrap">
@@ -2185,7 +2202,7 @@ function renderRequirement(r,i){
     <!-- Settings accordion (nested card, closed by default) -->
     <div class="sec-settings settings-card ${r.settingsOpen?'open':''}" id="reqsettings-${r.id}">
       <div class="sec-settings-head" onclick="toggleReqSettings(${r.id})">
-        <i class="fa-solid fa-gear gear"></i><span>Settings</span>
+        <span>Settings</span>
         <i class="fa-solid fa-chevron-right caret"></i>
       </div>
       <div class="sec-settings-body">
@@ -2256,7 +2273,7 @@ function closeDropdowns(){ document.querySelectorAll('.dropdown-menu').forEach(d
 function toggleAttrs(){
   const b=document.getElementById('attrs-body'),c=document.getElementById('attrs-caret');
   b.classList.toggle('hidden');
-  c.className=b.classList.contains('hidden')?'fa-solid fa-chevron-right':'fa-solid fa-chevron-down';
+  if(c) c.className=b.classList.contains('hidden')?'fa-solid fa-chevron-down':'fa-solid fa-chevron-up';
 }
 function attrInputHtml(attr){
   switch(attr.type){

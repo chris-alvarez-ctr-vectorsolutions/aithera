@@ -999,6 +999,23 @@ vaadin-dialog-overlay.send-report-overlay::part(overlay) {
 vaadin-dialog-overlay.send-report-overlay::part(content) {
     width: 100%;
 }
+vaadin-dialog-overlay.save-view-overlay::part(overlay) {
+    width: 680px;
+    max-width: 95vw;
+}
+vaadin-dialog-overlay.save-view-overlay-wide::part(overlay) {
+    width: 900px;
+    max-width: 95vw;
+}
+
+/* Save-as-new-view: two columns (info+filters | schedules to move).
+   Columns stretch to equal height so the divider runs full-height, and each
+   scrolls independently when the content (or the modal) gets short. */
+.sv-twocol { display: grid; grid-template-columns: 1fr 1fr; align-items: stretch; }
+.sv-col-left,
+.sv-col-right { max-height: 62vh; overflow-y: auto; }
+.sv-col-left { padding-right: 28px; }
+.sv-col-right { border-left: 1px solid #eef0f3; padding-left: 28px; }
 
 /* Give icon + label a bit more breathing room in all buttons */
 vaadin-button i[slot="prefix"] { margin-inline-end: 7px; }
@@ -2127,6 +2144,48 @@ vaadin-button i[slot="prefix"] { margin-inline-end: 7px; }
     padding: 0;
 }
 .recip-chip-x:hover { background: #dbeafe; }
+/* Invalid recipient (bad email / not in system) */
+.recip-chip.invalid {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
+}
+.recip-chip.invalid .recip-chip-x { color: #b91c1c; }
+.recip-chip.invalid .recip-chip-x:hover { background: #fee2e2; }
+.recip-chip-warn { font-size: 11px; margin-right: 2px; }
+
+/* Save / Save as new view split button (report actions row).
+   The two buttons are real vaadin-buttons so they match every other button;
+   we only own the wrapper layout and the dropdown menu. */
+.save-view-control { display: inline-flex; position: relative; }
+.split-btn-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    min-width: 190px;
+    padding: 4px;
+    z-index: 50;
+}
+.split-btn-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #374151;
+    text-align: left;
+}
+.split-btn-item:hover { background: #f3f4f6; color: #2563eb; }
+.split-btn-item i { color: #6b7280; width: 14px; }
 .recip-input {
     flex: 1;
     min-width: 160px;
@@ -2218,6 +2277,183 @@ vaadin-button i[slot="prefix"] { margin-inline-end: 7px; }
     font-weight: 600;
     vertical-align: middle;
 }
+
+/* In-dialog list of existing deliveries for the current view */
+#emailExistingDeliveries { margin-bottom: 4px; }
+.ed-heading {
+    margin: 18px 0 8px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6b7280;
+}
+.ed-heading i { color: #9ca3af; margin-right: 5px; }
+.ed-list {
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    overflow: hidden;
+}
+.ed-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 12px;
+    border-bottom: 1px solid #f3f4f6;
+}
+.ed-row:last-child { border-bottom: none; }
+.ed-row.editing { background: #eff6ff; box-shadow: inset 3px 0 0 #2563eb; }
+.ed-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ed-name { font-weight: 600; color: #111827; font-size: 13px; }
+.ed-sub { color: #6b7280; font-size: 12px; }
+.ed-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.ed-btn {
+    border: none;
+    background: transparent;
+    color: #6b7280;
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+}
+.ed-btn:hover { background: #eef2f7; color: #2563eb; }
+.ed-btn.ed-del:hover { background: #fef2f2; color: #dc2626; }
+.ed-new-link {
+    border: none;
+    background: transparent;
+    color: #2563eb;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 8px 2px 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.ed-new-link:hover { text-decoration: underline; }
+
+/* Scheduled Reports page — single table with saved-view group bands */
+.sr-table { table-layout: fixed; width: 100%; }
+/* Allow cell text to wrap within its fixed column (base table is nowrap) */
+.sr-table td { white-space: normal; word-break: break-word; vertical-align: middle; }
+.sr-table .msv-actions { white-space: nowrap; }
+/* Right-align row actions so they share the column with the band's Add button */
+.sr-table td:last-child .msv-actions { display: flex; justify-content: flex-end; }
+.sr-table th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #9ca3af;
+    font-weight: 700;
+    white-space: normal;
+}
+
+/* Saved-view band row (spans all columns) */
+.sr-group-row > td { padding: 0 !important; }
+.sr-band {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px 9px 20px;   /* slight left indent on the saved-view row */
+    background: #f1f5f9;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+}
+.sr-expand {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: #64748b;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+.sr-expand:hover { background: #e2e8f0; }
+.sr-expand i { transition: transform 0.15s; }
+.sr-group-row.collapsed .sr-expand i { transform: rotate(-90deg); }
+.sr-band-icon { color: #2563eb; }
+.sr-band-name { font-weight: 700; color: #0f172a; font-size: 15px; }
+.sr-band-spacer { flex: 1; }
+/* View name doubles as a "view details" trigger.
+   Use font-family (not the `font` shorthand) so the bold/larger size from
+   .sr-band-name is preserved instead of being reset to the inherited font. */
+.sr-details-btn {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 0;
+    font-family: inherit;
+}
+.sr-details-btn:hover { color: #1d4ed8; text-decoration: underline; }
+
+/* "Sent As" cell — channel + format */
+.sr-sentas, .sr-fmt { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.sr-sentas i { color: #6b7280; }
+.sr-fmt { color: #15803d; margin-left: 8px; }
+.sr-fmt i { color: #15803d; }
+
+/* Saved-view details dialog */
+.svd-top { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.svd-count { color: #6b7280; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
+.svd-count i { color: #9ca3af; }
+
+/* Report-type badge (color-coded so it stands out on the band) */
+.rt-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.rt-badge.rt-qual  { background: #dbeafe; color: #1d4ed8; }
+.rt-badge.rt-actex { background: #fef3c7; color: #92400e; }
+.rt-badge.rt-other { background: #e5e7eb; color: #374151; }
+
+/* Email rows aligned under the shared headers */
+.sr-delivery td { vertical-align: middle; }
+.sr-delivery:hover td { background: #f9fafb; }
+.sr-table td.sr-dname {
+    font-weight: 400;                /* content rows are not bold — saved view stands out */
+    color: #111827;
+    padding-left: 50px !important;   /* nest under the saved-view name */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sr-deliv-icon { color: #9ca3af; font-size: 12px; margin-right: 7px; }
+.sr-dim { color: #6b7280; }
+
+/* Saved-view edit warning — affected schedules list */
+.ved-list {
+    margin-top: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    overflow: hidden;
+}
+.ved-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid #f3f4f6;
+    font-size: 13px;
+}
+.ved-row:last-child { border-bottom: none; }
+.ved-row i { color: #9ca3af; }
+.ved-name { font-weight: 600; color: #111827; }
+.ved-sub { color: #6b7280; font-size: 12px; margin-left: auto; }
+.ved-row.ved-pick { cursor: pointer; }
+.ved-row.ved-pick:hover { background: #f9fafb; }
+.ved-cb { width: 16px; height: 16px; accent-color: #2563eb; cursor: pointer; flex-shrink: 0; }
 
 /* Recipient picker dialog */
 vaadin-dialog-overlay.recip-picker-overlay::part(overlay) { width: 560px; max-width: 95vw; }
