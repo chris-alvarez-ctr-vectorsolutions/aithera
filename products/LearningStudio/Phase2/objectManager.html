@@ -186,9 +186,262 @@
     .save-status i { color: var(--lumo-success-color); }
 
     /* =====================================================================
+       RENDER PIPELINE — LO-level "Complete & Render" affordance
+       Lives in wh-center. Drives a banner under the header (#render-banner)
+       and adds an `lo-rendering` lock class while a render is running.
+    ===================================================================== */
+    .render-action-group {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .render-status-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 24px; padding: 0 10px; border-radius: 999px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+      background: #f3f4f6; color: var(--lumo-secondary-text-color);
+      border: 1px solid var(--lumo-contrast-10pct);
+      white-space: nowrap;
+    }
+    .render-status-pill i { font-size: 10px; }
+    .render-status-pill.complete { background: #f0fdf4; color: var(--lumo-success-text-color); border-color: #bbf7d0; }
+    .render-status-pill.complete i { color: var(--lumo-success-color); }
+    .render-status-pill.outdated { background: #fff9e6; color: var(--vwc-notification-text-color); border-color: var(--vwc-notification-color); }
+    .render-status-pill.outdated i { color: var(--vwc-notification-text-color); }
+    .render-status-pill.rendering { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+    .render-status-pill.rendering i { color: #1d4ed8; }
+    .render-status-pill.error { background: #fef2f2; color: var(--lumo-error-text-color); border-color: #fecaca; }
+    .render-status-pill.error i { color: var(--lumo-error-color); }
+
+    /* Header "Complete & Render" button — sized to feel primary without dwarfing the header */
+    #btn-render {
+      height: 32px; padding: 0 14px;
+      display: inline-flex; align-items: center; gap: 7px;
+      border: 1px solid transparent; border-radius: 6px;
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: background .12s, color .12s, border-color .12s;
+      background: var(--lumo-primary-color); color: white;
+    }
+    #btn-render:hover { filter: brightness(0.94); }
+    #btn-render i { font-size: 11px; }
+    /* Visual "not ready" state — still clickable so the user gets the validation popover */
+    #btn-render.not-ready {
+      background: #e5e7eb; color: var(--lumo-secondary-text-color); border-color: #d1d5db;
+    }
+    #btn-render.not-ready:hover { background: #d1d5db; }
+    #btn-render.re-render {
+      background: white; color: var(--lumo-primary-color); border-color: var(--lumo-primary-color);
+    }
+    #btn-render.re-render:hover { background: var(--lumo-primary-color-10pct); }
+    #btn-render.outdated {
+      background: var(--vwc-notification-color); color: var(--lumo-warning-contrast-color); border-color: var(--vwc-notification-color);
+    }
+    #btn-render.outdated:hover { filter: brightness(0.94); }
+    #btn-render.rendering {
+      background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; cursor: default;
+    }
+
+    /* Validation popover anchored to the render button — listed reasons the LO isn't ready */
+    #render-validation-popover {
+      display: none;
+      position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+      width: 320px;
+      background: var(--lumo-base-color);
+      border: 1px solid var(--lumo-contrast-10pct);
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.14), 0 3px 10px rgba(0,0,0,0.06);
+      padding: 12px 14px; z-index: 250;
+      font-size: 12px; color: var(--lumo-body-text-color);
+    }
+    #render-validation-popover.visible { display: block; }
+    .rvp-header {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 700;
+      color: var(--vwc-notification-text-color);
+      margin-bottom: 8px;
+    }
+    .rvp-header i { color: var(--vwc-notification-text-color); }
+    .rvp-list { list-style: none; padding: 0; margin: 0; }
+    .rvp-list li {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 5px 0; font-size: 12px; color: var(--lumo-body-text-color);
+      border-top: 1px solid #f3f4f6;
+    }
+    .rvp-list li:first-child { border-top: none; }
+    .rvp-list li i { color: var(--lumo-disabled-text-color); font-size: 10px; margin-top: 4px; }
+    .rvp-foot {
+      margin-top: 8px; padding-top: 8px; border-top: 1px solid #f3f4f6;
+      font-size: 11px; color: var(--lumo-secondary-text-color); line-height: 1.5;
+    }
+
+    /* Render banner — full-width strip below the header for active/complete/outdated/error state */
+    #render-banner {
+      display: none;
+      flex-shrink: 0;
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+    }
+    #render-banner.visible { display: block; }
+    .rb-inner {
+      display: flex; align-items: center; gap: 14px;
+      padding: 10px 24px;
+    }
+    .rb-icon {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; font-size: 13px;
+    }
+    .rb-text { flex: 1; min-width: 0; }
+    .rb-title { font-size: 13px; font-weight: 700; line-height: 1.3; }
+    .rb-desc  { font-size: 12px; line-height: 1.4; margin-top: 2px; }
+    .rb-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .rb-progress {
+      flex: 1; max-width: 240px;
+      height: 6px; border-radius: 3px;
+      background: rgba(255,255,255,0.5);
+      overflow: hidden; position: relative;
+    }
+    .rb-progress-fill {
+      position: absolute; top: 0; left: 0; height: 100%;
+      background: white; transition: width 0.4s ease;
+    }
+    #render-banner.state-rendering {
+      background: linear-gradient(90deg, #dbeafe 0%, #bfdbfe 100%);
+      color: #1e3a8a;
+    }
+    #render-banner.state-rendering .rb-icon { background: #1d4ed8; color: white; }
+    #render-banner.state-outdated {
+      background: var(--vwc-notification-color); color: var(--lumo-warning-contrast-color);
+    }
+    #render-banner.state-outdated .rb-icon { background: rgba(0,0,0,0.15); color: var(--lumo-warning-contrast-color); }
+    #render-banner.state-error {
+      background: #fef2f2; color: var(--lumo-error-text-color);
+      border-bottom-color: #fecaca;
+    }
+    #render-banner.state-error .rb-icon { background: var(--lumo-error-color); color: white; }
+
+    /* Render-in-progress overlay — covers the editing surface (#main-content)
+       but leaves the wizard header interactive so the user can navigate to
+       a different LO while this one renders. The overlay sits ABOVE #main-content
+       and BELOW the wizard header z-index (header is z:40). */
+    /* The overlay itself carries the messaging — no card, no shadow, no
+       hard panel edge — so it reads as an ambient "this LO is rendering"
+       state rather than a blocking dialog. */
+    #render-overlay {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(239, 246, 255, 0.92);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+      z-index: 35;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      animation: ro-fade-in 0.22s ease;
+    }
+    #render-overlay.visible { display: flex; }
+    @keyframes ro-fade-in {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    .render-overlay-content {
+      width: 100%;
+      max-width: 520px;
+      text-align: center;
+    }
+    .render-overlay-icon {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: rgba(255,255,255,0.7);
+      color: #1d4ed8;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 26px; margin-bottom: 18px;
+    }
+    .render-overlay-title {
+      font-size: 22px; font-weight: 700; color: var(--lumo-contrast);
+      line-height: 1.3; margin-bottom: 8px;
+    }
+    .render-overlay-subtitle {
+      font-size: 14px; color: var(--lumo-secondary-text-color);
+      line-height: 1.55; margin-bottom: 28px;
+      max-width: 460px; margin-left: auto; margin-right: auto;
+    }
+    .render-overlay-progress-wrap {
+      width: 100%; height: 6px; border-radius: 3px;
+      background: rgba(15, 46, 61, 0.12);
+      overflow: hidden; position: relative; margin-bottom: 12px;
+    }
+    .render-overlay-progress-fill {
+      position: absolute; top: 0; left: 0; height: 100%;
+      background: var(--lumo-primary-color);
+      transition: width 0.4s ease;
+    }
+    .render-overlay-meta {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 12px; color: var(--lumo-secondary-text-color);
+      margin-bottom: 24px;
+    }
+    .render-overlay-phase i { color: #1d4ed8; margin-right: 6px; }
+    .render-overlay-hint {
+      font-size: 12.5px; line-height: 1.5;
+      color: var(--lumo-secondary-text-color);
+      max-width: 440px; margin: 0 auto;
+    }
+    .render-overlay-hint i { color: var(--lumo-primary-color); margin-right: 6px; }
+
+    /* While rendering: hide LO-scoped header controls that would mutate the rendering LO
+       (more-actions menu, preview, AI regenerate). LO navigation, search, and global
+       icons stay accessible. */
+    #app.lo-rendering #dd-lo-trigger,
+    #app.lo-rendering .wh-icon-btn.ai-regen,
+    #app.lo-rendering .wh-icon-btn.sky[title="Preview Learning Object"] { display: none; }
+
+    /* Auto-render-prompt toast — appears bottom-right when last scene flips to Ready */
+    #render-prompt-toast {
+      position: fixed; bottom: 24px; right: 24px;
+      width: 340px;
+      background: var(--lumo-base-color);
+      border: 1px solid var(--lumo-contrast-10pct);
+      border-left: 4px solid var(--lumo-success-color);
+      border-radius: 8px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.16), 0 4px 12px rgba(0,0,0,0.08);
+      padding: 14px 16px;
+      z-index: 500;
+      display: none;
+      animation: rpt-in .22s ease;
+    }
+    @keyframes rpt-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    #render-prompt-toast.visible { display: block; }
+    .rpt-head {
+      display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px;
+    }
+    .rpt-icon {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: #f0fdf4; color: var(--lumo-success-color);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; flex-shrink: 0;
+    }
+    .rpt-title { font-size: 13px; font-weight: 700; line-height: 1.3; }
+    .rpt-desc {
+      font-size: 12px; line-height: 1.45;
+      color: var(--lumo-secondary-text-color);
+      margin: 4px 0 12px 0;
+    }
+    .rpt-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .rpt-close {
+      margin-left: auto; flex-shrink: 0;
+      width: 22px; height: 22px; border: none; background: none;
+      border-radius: 4px; cursor: pointer; color: var(--lumo-disabled-text-color);
+      display: flex; align-items: center; justify-content: center; font-size: 11px;
+    }
+    .rpt-close:hover { background: #f3f4f6; color: var(--lumo-body-text-color); }
+
+    /* =====================================================================
        MAIN CONTENT AREA
     ===================================================================== */
-    #main-content { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+    #main-content { display: flex; flex: 1; overflow: hidden; min-height: 0; position: relative; }
 
     /* =====================================================================
        LEFT SIDEBAR
@@ -4080,6 +4333,23 @@
     </div>
 
     <div class="wh-center" data-file="products/LearningStudio/Phase2/index.html" data-line="1092">
+      <!-- LO render pipeline action — placed center so it reads as the headline action for the LO -->
+      <div class="render-action-group" style="position:relative;">
+        <span id="render-status-pill" class="render-status-pill" style="display:none;"></span>
+        <button id="btn-render" type="button" onclick="onRenderButtonClick(event)">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+          <span id="btn-render-label">Complete &amp; Render</span>
+        </button>
+        <!-- Validation popover (shown when user clicks while not all scenes ready) -->
+        <div id="render-validation-popover" role="dialog" aria-label="Render readiness">
+          <div class="rvp-header">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>Not ready to render yet</span>
+          </div>
+          <ul class="rvp-list" id="rvp-list"></ul>
+          <div class="rvp-foot">All scenes must be marked <strong>Ready</strong> before the LO can be rendered.</div>
+        </div>
+      </div>
     </div>
 
     <div class="wh-right" data-file="products/LearningStudio/Phase2/index.html" data-line="1099">
@@ -4115,6 +4385,23 @@
       </button>
     </div>
   </header>
+
+  <!-- ===================================================================
+       RENDER PIPELINE BANNER — surfaces rendering / outdated / error state
+  =================================================================== -->
+  <div id="render-banner" aria-live="polite">
+    <div class="rb-inner">
+      <div class="rb-icon"><i id="rb-icon-i" class="fa-solid fa-spinner fa-spin"></i></div>
+      <div class="rb-text">
+        <div class="rb-title" id="rb-title">Rendering Learning Object…</div>
+        <div class="rb-desc"  id="rb-desc">This may take several minutes. You can keep working in other LOs.</div>
+      </div>
+      <div class="rb-progress" id="rb-progress-wrap" style="display:none;">
+        <div class="rb-progress-fill" id="rb-progress-fill" style="width:0%;"></div>
+      </div>
+      <div class="rb-actions" id="rb-actions"></div>
+    </div>
+  </div>
 
   <!-- ===================================================================
        AI SEARCH RESULTS BANNER
@@ -4964,7 +5251,51 @@
 
     </div><!-- /citation-editor -->
 
+    <!-- Render-in-progress overlay — covers the editing surface only; header stays interactive -->
+    <div id="render-overlay" role="status" aria-live="polite">
+      <div class="render-overlay-content">
+        <div class="render-overlay-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+        <div class="render-overlay-title">Rendering Learning Object…</div>
+        <div class="render-overlay-subtitle">
+          Building the final output for delivery. This may take several minutes depending on the depth of your content.
+        </div>
+        <div class="render-overlay-progress-wrap">
+          <div class="render-overlay-progress-fill" id="render-overlay-fill" style="width:0%;"></div>
+        </div>
+        <div class="render-overlay-meta">
+          <span class="render-overlay-phase" id="render-overlay-phase">
+            <i class="fa-solid fa-spinner fa-spin"></i><span id="render-overlay-phase-text">Preparing scenes…</span>
+          </span>
+          <span id="render-overlay-pct">0%</span>
+        </div>
+        <div class="render-overlay-hint">
+          <i class="fa-solid fa-circle-info"></i>You can switch to another learning object using the LO arrows in the header above and keep working while this one finishes.
+        </div>
+      </div>
+    </div>
+
   </div><!-- /main-content -->
+
+  <!-- Auto-render-prompt toast — fires when last scene flips to Ready -->
+  <div id="render-prompt-toast" role="status" aria-live="polite">
+    <div class="rpt-head">
+      <div class="rpt-icon"><i class="fa-solid fa-circle-check"></i></div>
+      <div style="flex:1;">
+        <div class="rpt-title">All scenes are ready</div>
+      </div>
+      <button class="rpt-close" type="button" onclick="dismissRenderPrompt()" aria-label="Dismiss">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div class="rpt-desc">Every scene in this LO is marked Ready. Kick off the final render now to lock the content for delivery.</div>
+    <div class="rpt-actions">
+      <vaadin-button theme="tertiary" onclick="dismissRenderPrompt()">Not now</vaadin-button>
+      <vaadin-button theme="primary" onclick="dismissRenderPrompt(); startRender()">
+        <i class="fa-solid fa-wand-magic-sparkles" slot="prefix"></i>
+        Render now
+      </vaadin-button>
+    </div>
+  </div>
 
   <!-- LO State Banner (shared / locked) -->
   <div id="shared-lo-banner" class="shared-lo-banner" data-state="shared">
@@ -5509,6 +5840,51 @@
 </div>
 
 <!-- ===================================================================
+     CONFIRM RE-RENDER MODAL
+     Fires the first time the user edits a rendered LO. Warns that the
+     existing final render will be invalidated and re-rendering is costly.
+=================================================================== -->
+<div id="modal-confirm-rerender" class="modal-backdrop hidden">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <i class="fa-solid fa-triangle-exclamation" style="color:var(--vwc-notification-text-color); font-size:16px;"></i>
+        <div>
+          <div class="modal-title">Editing will invalidate the final render</div>
+          <div class="modal-desc">This LO has been rendered. Changes require a full re-render.</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-body" style="padding-top:16px; padding-bottom:4px;">
+      <p style="font-size:13px; color:#374151; line-height:1.6; margin-bottom:10px;">
+        You're about to edit content that's already been rendered for delivery. If you continue,
+        the existing final render will be marked <strong>outdated</strong> and you'll need to re-render
+        the entire LO before it can be used in production.
+      </p>
+      <div style="background:#fff9e6; border:1px solid var(--vwc-notification-color); border-radius:7px; padding:10px 12px; display:flex; gap:8px; align-items:flex-start; margin-bottom:10px;">
+        <i class="fa-solid fa-clock" style="color:var(--vwc-notification-text-color); font-size:13px; margin-top:1px; flex-shrink:0;"></i>
+        <span style="font-size:12px; color:var(--vwc-notification-text-color); line-height:1.5;">
+          Re-rendering can take <strong>several minutes</strong> depending on the depth of your content
+          (scenes, media, audio, questions).
+        </span>
+      </div>
+      <p style="font-size:12px; color:var(--lumo-secondary-text-color); line-height:1.5;">
+        You won't see this warning again for this LO until the next render completes.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <vaadin-button theme="secondary" onclick="cancelRerenderEdit()">
+        Cancel &amp; Undo
+      </vaadin-button>
+      <vaadin-button theme="primary" onclick="confirmRerenderEdit()">
+        <i class="fa-solid fa-pen-to-square" slot="prefix"></i>
+        Continue editing
+      </vaadin-button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================
      JAVASCRIPT
 =================================================================== -->
 <script>
@@ -5578,9 +5954,12 @@ let assessmentQuestions = [
 ];
 
 const ALL_LOS = [
-  { id:1, title:'Introduction to Video Creation',        section:'Getting Started',     shared: false, locked: false },
-  { id:2, title:'Advanced Template Customization',       section:'Advanced Techniques', shared: true,  locked: false },
-  { id:3, title:'AI-Powered Media Generation',           section:'Advanced Techniques', shared: false, locked: true  },
+  // renderState: 'idle' | 'rendering' | 'complete' | 'error'
+  // isOutdated: true when content has changed since the last successful render
+  // lastRenderedAt: ISO timestamp of the last successful render (null if never)
+  { id:1, title:'Introduction to Video Creation',        section:'Getting Started',     shared: false, locked: false, renderState:'idle',     isOutdated:false, lastRenderedAt:null },
+  { id:2, title:'Advanced Template Customization',       section:'Advanced Techniques', shared: true,  locked: false, renderState:'complete', isOutdated:false, lastRenderedAt:'2026-06-03T14:22:00Z' },
+  { id:3, title:'AI-Powered Media Generation',           section:'Advanced Techniques', shared: false, locked: true,  renderState:'idle',     isOutdated:false, lastRenderedAt:null },
 ];
 
 /* -----------------------------------------------------------------------
@@ -5670,6 +6049,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initPanelResize();
   updateNavBtns();
   updateSharedBanner();
+  updateRenderUI();
   document.getElementById('kc-badge').textContent = knowledgeChecks.length;
   document.getElementById('assess-badge').textContent = assessmentQuestions.length;
   document.getElementById('cit-badge').textContent = citations.length;
@@ -6762,7 +7142,28 @@ function openSceneVoicePicker(scId, anchorEl) {
 
 function updateStatus(id, status) {
   const sc = scenes.find(s=>s.id===id);
-  if (sc) { sc.status = status; renderMediaList(); }
+  if (!sc) return;
+  const prevStatus = sc.status;
+  // First-edit-after-render guard — a status change is an edit that affects the render
+  if (!guardEditOnRendered(() => {
+    sc.status = prevStatus;
+    renderMediaList();
+    renderTextList();
+    updateRenderUI();
+  }, 'scene status')) {
+    sc.status = status;
+    renderMediaList();
+    return;
+  }
+  sc.status = status;
+  renderMediaList();
+  // If this transition just made every scene Ready, surface the auto-trigger toast
+  if (status === 'ready' && prevStatus !== 'ready') {
+    if (scenes.every(s => s.status === 'ready')) {
+      maybeShowRenderPromptToast();
+    }
+  }
+  updateRenderUI();
 }
 
 function newScene() {
@@ -7878,8 +8279,13 @@ function navigateLO(dir) {
   document.getElementById('lo-title').textContent   = newLO.title;
   document.getElementById('section-label').textContent = newLO.section;
   lo.title = newLO.title;
+  // Note: do NOT clear in-flight render timers — renders continue in the
+  // background when the user navigates to another LO. The overlay simply
+  // hides/reappears based on which LO is currently in view.
   updateNavBtns();
   updateSharedBanner();
+  updateRenderUI();
+  dismissRenderPrompt();
 }
 
 function updateSharedBanner() {
@@ -7940,6 +8346,375 @@ function makeUniqueInstance() {
   const lo = ALL_LOS.find(l => l.id === currentLOId);
   if (lo) lo.shared = false;
   updateSharedBanner();
+}
+
+/* =====================================================================
+   LO RENDER PIPELINE
+   ---------------------------------------------------------------------
+   Lifecycle: idle -> rendering -> complete (-> outdated -> rendering...) -> error
+   - Manual trigger via #btn-render (always enabled; validates on click).
+   - Auto-trigger toast surfaces when the last scene flips to Ready.
+   - Once an LO is in `complete`, the first edit triggers a confirmation
+     modal that explains the cost of re-rendering. After confirm, the LO
+     enters `outdated` and the banner persists until re-rendered.
+===================================================================== */
+// Per-LO render simulation timers — render continues even when the user navigates
+// to a different LO. Keyed by LO id.
+let _renderTimers = {};
+// Per-LO progress + phase state for the overlay (so we can resume display on nav-back)
+let _renderProgress = {};      // { [loId]: { pct, phase } }
+let _pendingEdit = null;       // { undo, label } — the edit awaiting user confirmation
+let _autoPromptShownForLO = {}; // { [loId]: true } — prevent re-spamming the auto-prompt
+
+const RENDER_PHASES = [
+  { until: 20,  text: 'Preparing scenes…' },
+  { until: 45,  text: 'Generating media…' },
+  { until: 70,  text: 'Rendering audio…' },
+  { until: 90,  text: 'Assembling final output…' },
+  { until: 100, text: 'Finalizing…' },
+];
+function _phaseTextFor(pct) {
+  for (const p of RENDER_PHASES) if (pct <= p.until) return p.text;
+  return RENDER_PHASES[RENDER_PHASES.length - 1].text;
+}
+
+function getCurrentLO() {
+  return ALL_LOS.find(l => l.id === currentLOId);
+}
+
+/* Returns a list of human-readable reasons the LO is not ready to render.
+   Empty list === ready to render. */
+function getRenderBlockers() {
+  const blockers = [];
+  const notReady = scenes.filter(s => s.status !== 'ready').length;
+  if (notReady > 0) {
+    blockers.push({
+      icon: 'fa-list-ul',
+      label: `${notReady} ${notReady === 1 ? 'scene is' : 'scenes are'} not marked Ready`
+    });
+  }
+  const empty = scenes.filter(s => !(s.transcript && s.transcript.trim())).length;
+  if (empty > 0) {
+    blockers.push({
+      icon: 'fa-align-left',
+      label: `${empty} ${empty === 1 ? 'scene has' : 'scenes have'} an empty transcript`
+    });
+  }
+  const noMedia = scenes.filter(s => !s.img).length;
+  if (noMedia > 0) {
+    blockers.push({
+      icon: 'fa-image',
+      label: `${noMedia} ${noMedia === 1 ? 'scene is' : 'scenes are'} missing background media`
+    });
+  }
+  return blockers;
+}
+
+/* Refresh the header button + status pill + render banner to reflect the
+   current LO's renderState/isOutdated. Called on init, LO nav, status change,
+   and after the render simulation moves through its phases. */
+function updateRenderUI() {
+  const lo = getCurrentLO();
+  if (!lo) return;
+  const btn = document.getElementById('btn-render');
+  const lbl = document.getElementById('btn-render-label');
+  const pill = document.getElementById('render-status-pill');
+  const banner = document.getElementById('render-banner');
+  const app = document.getElementById('app');
+
+  // Reset button classes each pass so state transitions are clean
+  btn.classList.remove('not-ready', 're-render', 'outdated', 'rendering');
+  btn.disabled = false;
+
+  // Vector-locked LOs (read-only) hide the render action entirely
+  if (lo.locked) {
+    btn.style.display = 'none';
+    pill.style.display = 'none';
+    banner.classList.remove('visible');
+    app.classList.remove('lo-rendering');
+    return;
+  }
+  btn.style.display = '';
+
+  const blockers = getRenderBlockers();
+  const ready = blockers.length === 0;
+
+  // --- RENDERING ----------------------------------------------------
+  if (lo.renderState === 'rendering') {
+    btn.classList.add('rendering');
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span id="btn-render-label">Rendering…</span>';
+    btn.disabled = true;
+    pill.style.display = 'none';
+    app.classList.add('lo-rendering');
+    showRenderOverlay(lo);
+    hideRenderBanner();
+    return;
+  }
+  app.classList.remove('lo-rendering');
+  hideRenderOverlay();
+
+  // --- OUTDATED (rendered, then edited) -----------------------------
+  if (lo.renderState === 'complete' && lo.isOutdated) {
+    btn.classList.add('outdated');
+    btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i><span id="btn-render-label">Re-render Required</span>';
+    pill.className = 'render-status-pill outdated';
+    pill.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Outdated';
+    pill.style.display = '';
+    showRenderBanner('outdated');
+    return;
+  }
+
+  // --- COMPLETE (clean render) --------------------------------------
+  if (lo.renderState === 'complete') {
+    btn.classList.add('re-render');
+    btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i><span id="btn-render-label">Re-render</span>';
+    pill.className = 'render-status-pill complete';
+    pill.innerHTML = `<i class="fa-solid fa-circle-check"></i> Rendered ${formatRenderTimestamp(lo.lastRenderedAt)}`;
+    pill.style.display = '';
+    hideRenderBanner();
+    return;
+  }
+
+  // --- ERROR --------------------------------------------------------
+  if (lo.renderState === 'error') {
+    btn.classList.add('outdated'); // reuse warning palette
+    btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i><span id="btn-render-label">Retry Render</span>';
+    pill.className = 'render-status-pill error';
+    pill.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Render failed';
+    pill.style.display = '';
+    showRenderBanner('error');
+    return;
+  }
+
+  // --- IDLE (never rendered) ----------------------------------------
+  if (!ready) {
+    btn.classList.add('not-ready');
+  }
+  btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i><span id="btn-render-label">Complete &amp; Render</span>';
+  pill.style.display = 'none';
+  hideRenderBanner();
+}
+
+function formatRenderTimestamp(iso) {
+  if (!iso) return '';
+  // Friendly relative-ish label — fine for prototype purposes
+  const d = new Date(iso);
+  const opts = { month: 'short', day: 'numeric' };
+  return d.toLocaleDateString(undefined, opts);
+}
+
+function showRenderBanner(state) {
+  const banner  = document.getElementById('render-banner');
+  const title   = document.getElementById('rb-title');
+  const desc    = document.getElementById('rb-desc');
+  const iconI   = document.getElementById('rb-icon-i');
+  const progEl  = document.getElementById('rb-progress-wrap');
+  const actions = document.getElementById('rb-actions');
+
+  banner.classList.remove('state-rendering', 'state-outdated', 'state-error');
+  banner.classList.add('state-' + state, 'visible');
+
+  if (state === 'rendering') {
+    iconI.className = 'fa-solid fa-spinner fa-spin';
+    title.textContent = 'Rendering Learning Object…';
+    desc.textContent  = 'Building scenes, generating media, and assembling final output. You can keep working in other LOs while this runs.';
+    progEl.style.display = '';
+    actions.innerHTML = '';
+  } else if (state === 'outdated') {
+    iconI.className = 'fa-solid fa-triangle-exclamation';
+    title.textContent = 'Final render is out of date';
+    desc.innerHTML    = 'Content has changed since the last render. <strong>Re-render the LO</strong> before delivering or you risk learners seeing stale output.';
+    progEl.style.display = 'none';
+    actions.innerHTML = '';
+    const btn = document.createElement('vaadin-button');
+    btn.setAttribute('theme', 'primary small');
+    btn.style.cssText = 'background:white; color:var(--vwc-notification-text-color); border-color:white;';
+    btn.innerHTML = '<i class="fa-solid fa-rotate-right" slot="prefix"></i> Re-render Now';
+    btn.addEventListener('click', () => startRender());
+    actions.appendChild(btn);
+  } else if (state === 'error') {
+    iconI.className = 'fa-solid fa-circle-xmark';
+    title.textContent = 'Render failed';
+    desc.textContent  = 'Something went wrong during the final render. Retry from the Re-render button, or contact support if the failure persists.';
+    progEl.style.display = 'none';
+    actions.innerHTML = '';
+    const btn = document.createElement('vaadin-button');
+    btn.setAttribute('theme', 'error primary small');
+    btn.innerHTML = '<i class="fa-solid fa-rotate-right" slot="prefix"></i> Retry';
+    btn.addEventListener('click', () => startRender());
+    actions.appendChild(btn);
+  }
+}
+
+function hideRenderBanner() {
+  document.getElementById('render-banner').classList.remove('visible');
+}
+
+/* Render-overlay helpers. The overlay only appears when the *currently-viewed* LO
+   is the one rendering — if the user navigates to a different LO mid-render, the
+   overlay hides but the underlying timer keeps running. */
+function showRenderOverlay(lo) {
+  const ov   = document.getElementById('render-overlay');
+  const fill = document.getElementById('render-overlay-fill');
+  const pct  = document.getElementById('render-overlay-pct');
+  const ptxt = document.getElementById('render-overlay-phase-text');
+  const prog = _renderProgress[lo.id] || { pct: 0, phase: RENDER_PHASES[0].text };
+  fill.style.width = prog.pct + '%';
+  pct.textContent  = Math.floor(prog.pct) + '%';
+  ptxt.textContent = prog.phase;
+  ov.classList.add('visible');
+}
+function hideRenderOverlay() {
+  document.getElementById('render-overlay').classList.remove('visible');
+}
+function _updateOverlayProgress(loId, pct) {
+  const phase = _phaseTextFor(pct);
+  _renderProgress[loId] = { pct, phase };
+  // Only update DOM if this LO is the one being viewed
+  if (loId !== currentLOId) return;
+  const fillEl = document.getElementById('render-overlay-fill');
+  const pctEl  = document.getElementById('render-overlay-pct');
+  const ptxtEl = document.getElementById('render-overlay-phase-text');
+  if (fillEl) fillEl.style.width = pct + '%';
+  if (pctEl)  pctEl.textContent  = Math.floor(pct) + '%';
+  if (ptxtEl) ptxtEl.textContent = phase;
+}
+
+/* Click handler for #btn-render.
+   - If blockers exist, show the validation popover instead of starting.
+   - Otherwise start a render (works for both first-render and re-render). */
+function onRenderButtonClick(e) {
+  e.stopPropagation();
+  const lo = getCurrentLO();
+  if (!lo || lo.renderState === 'rendering') return;
+  const blockers = getRenderBlockers();
+  if (blockers.length > 0) {
+    showValidationPopover(blockers);
+    return;
+  }
+  hideValidationPopover();
+  startRender();
+}
+
+function showValidationPopover(blockers) {
+  const pop = document.getElementById('render-validation-popover');
+  const list = document.getElementById('rvp-list');
+  list.innerHTML = blockers.map(b =>
+    `<li><i class="fa-solid ${b.icon}"></i><span>${b.label}</span></li>`
+  ).join('');
+  pop.classList.add('visible');
+  // Dismiss on next outside click
+  const dismiss = (ev) => {
+    if (pop.contains(ev.target) || ev.target.closest('#btn-render')) return;
+    hideValidationPopover();
+    document.removeEventListener('mousedown', dismiss, true);
+  };
+  setTimeout(() => document.addEventListener('mousedown', dismiss, true), 0);
+}
+
+function hideValidationPopover() {
+  document.getElementById('render-validation-popover').classList.remove('visible');
+}
+
+/* Start a (simulated) render for the given LO (defaults to current).
+   Runs as a background per-LO timer so the user can navigate away mid-render
+   and the simulation continues. ~8s total in the prototype. */
+function startRender(loArg) {
+  const lo = loArg || getCurrentLO();
+  if (!lo || lo.renderState === 'rendering') return;
+  hideValidationPopover();
+  dismissRenderPrompt();
+  lo.renderState = 'rendering';
+  lo.isOutdated = false;
+  _renderProgress[lo.id] = { pct: 0, phase: RENDER_PHASES[0].text };
+  updateRenderUI();
+
+  if (_renderTimers[lo.id]) clearInterval(_renderTimers[lo.id]);
+  let pct = 0;
+  // ~10s total — 40 ticks @ 250ms, ~2.5%/tick on average so reviewers can
+  // watch the phase labels progress and try navigating away mid-render.
+  _renderTimers[lo.id] = setInterval(() => {
+    pct = Math.min(100, pct + (2 + Math.random() * 1.2));
+    _updateOverlayProgress(lo.id, pct);
+    if (pct >= 100) {
+      clearInterval(_renderTimers[lo.id]);
+      delete _renderTimers[lo.id];
+      finishRender(lo, /*success=*/true);
+    }
+  }, 250);
+}
+
+function finishRender(lo, success) {
+  if (success) {
+    lo.renderState = 'complete';
+    lo.isOutdated = false;
+    lo.lastRenderedAt = new Date().toISOString();
+    // Reset the per-LO "first edit since render" warning so it fires next time
+    _autoPromptShownForLO[lo.id] = true; // suppress auto-toast immediately after render
+  } else {
+    lo.renderState = 'error';
+  }
+  delete _renderProgress[lo.id];
+  // Only refresh the UI if the user is currently viewing this LO; otherwise the
+  // new state will be picked up next time they navigate back to it.
+  if (lo.id === currentLOId) {
+    updateRenderUI();
+  }
+}
+
+/* Auto-trigger toast — called from updateStatus when the LO transitions to
+   "all scenes ready" for the first time in this session. */
+function maybeShowRenderPromptToast() {
+  const lo = getCurrentLO();
+  if (!lo) return;
+  // Don't prompt for shared/locked, currently rendering, or already-rendered (use Outdated banner instead)
+  if (lo.locked || lo.renderState !== 'idle') return;
+  if (_autoPromptShownForLO[lo.id]) return;
+  if (getRenderBlockers().length > 0) return;
+  _autoPromptShownForLO[lo.id] = true;
+  document.getElementById('render-prompt-toast').classList.add('visible');
+}
+
+function dismissRenderPrompt() {
+  document.getElementById('render-prompt-toast').classList.remove('visible');
+}
+
+/* =====================================================================
+   FIRST-EDIT-AFTER-RENDER GUARD
+   ---------------------------------------------------------------------
+   When the LO is in `complete` state with isOutdated=false, the first
+   editing action triggers a confirmation modal. The caller passes:
+     - undo:  () => void   — reverts the edit if the user cancels
+     - label: 'transcript' | 'status' | 'scene order' | ...  (display only)
+   If confirmed, the LO flips to isOutdated=true and editing proceeds.
+===================================================================== */
+function guardEditOnRendered(undoFn, label) {
+  const lo = getCurrentLO();
+  if (!lo) return true;
+  // Pass-through unless we're in clean rendered state
+  if (!(lo.renderState === 'complete' && !lo.isOutdated)) return true;
+  _pendingEdit = { undo: undoFn, label: label || 'this content' };
+  openModal('modal-confirm-rerender');
+  return false; // caller should treat as "blocked pending confirm"
+}
+
+function confirmRerenderEdit() {
+  const lo = getCurrentLO();
+  if (lo) {
+    lo.isOutdated = true;
+    updateRenderUI();
+  }
+  _pendingEdit = null;
+  closeModal('modal-confirm-rerender');
+}
+
+function cancelRerenderEdit() {
+  if (_pendingEdit && typeof _pendingEdit.undo === 'function') {
+    try { _pendingEdit.undo(); } catch (e) { /* prototype — ignore */ }
+  }
+  _pendingEdit = null;
+  closeModal('modal-confirm-rerender');
+  updateRenderUI();
 }
 
 function openCustomizeModal() {
