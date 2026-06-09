@@ -82,7 +82,7 @@ The reports content sits on a **gray canvas** with each major block rendered as 
 
 ### Pencil banner
 
-The **pencil banner** is the Vector informational banner used inside reports screens (e.g. the "reports are still generating" notice during the async loading state). It is a **white card with a blue left accent, an info icon in a light-blue rounded square, dark body text, and a dismiss "✕"** — informational only (no primary action button in the default form).
+The **pencil banner** is the Vector informational banner used inside reports screens. In async-reports it sits **at the top of the Report Log page** (above the log table) as the "only Compliance/Completion reports are saved here while they generate" notice. It is a **white card with a blue left accent, an info icon in a light-blue rounded square, dark body text, and a dismiss "✕"** — informational only (no primary action button in the default form).
 
 Markup:
 
