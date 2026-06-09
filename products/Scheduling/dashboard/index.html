@@ -739,6 +739,18 @@
         transform: translate(2px, -2px);
       }
 
+      /* Secondary view button — e.g. a companion page like "Current UI" */
+      .view-btn--secondary {
+        background: #fff;
+        color: var(--text);
+        border: 1.5px solid var(--border);
+        box-shadow: none;
+      }
+      .view-btn--secondary:hover {
+        background: var(--bg-subtle, #f4f4f5);
+        box-shadow: 0 6px 16px -8px rgba(0,0,0,0.25);
+      }
+
       /* ---------- Footer ---------- */
       .page-footer {
         max-width: 1400px;
@@ -1227,6 +1239,15 @@
             devHandoff,
             devBlobUrl: devHandoff ? `${REPO_BASE}/${productEnc}/${relEnc}/${devFileEnc}` : null,
             devPagesUrl: devHandoff ? `${PAGES_BASE}/${productEnc}/${relEnc}/${devFileEnc}` : null,
+            // Optional companion pages (e.g. a "Current UI" comparison) living alongside index.html.
+            extraLinks: Array.isArray(m.extraLinks) ? m.extraLinks.map(l => {
+              const fileEnc = String(l.file || '').split('/').map(encodeURIComponent).join('/');
+              return {
+                label: l.label || l.file,
+                pagesUrl: `${PAGES_BASE}/${productEnc}/${relEnc}/${fileEnc}`,
+                blobUrl: `${REPO_BASE}/${productEnc}/${relEnc}/${fileEnc}`,
+              };
+            }) : [],
           };
         });
       }
@@ -1372,7 +1393,7 @@
       // Card construction
       // --------------------------------------------------------------
       function buildCard(mock, idx) {
-        const { title, ticket, ticketUrl, description, status, blobUrl, pagesUrl, devHandoff, devBlobUrl, devPagesUrl } = mock;
+        const { title, ticket, ticketUrl, description, status, blobUrl, pagesUrl, devHandoff, devBlobUrl, devPagesUrl, extraLinks } = mock;
         const statusLabel = STATUS_LABELS[status] || STATUS_LABELS[DEFAULT_STATUS];
 
         // Ticket badge — link to Jira when a URL is available, otherwise plain span
@@ -1431,6 +1452,19 @@
               <i class="fa-solid fa-arrow-up-right-from-square"></i>
             </a>`;
 
+        // Companion-page links (e.g. "Current UI") — a URL row plus a secondary button.
+        const extras = extraLinks || [];
+        const extraRows = extras.map(l => `
+            <div class="url-row">
+              <span class="url-label"><i class="fa-solid fa-eye"></i> ${escapeHtml(l.label)}</span>
+              <a class="url-value" href="${l.pagesUrl}" target="_blank" rel="noopener" title="${l.pagesUrl}">${l.pagesUrl}</a>
+              <button class="copy-btn" data-copy="${l.pagesUrl}"><i class="fa-regular fa-copy"></i> Copy</button>
+            </div>`).join('');
+        const extraBtns = extras.map(l => `
+            <a class="view-btn view-btn--secondary" href="${l.pagesUrl}" target="_blank" rel="noopener">
+              ${escapeHtml(l.label)} <i class="fa-solid fa-arrow-up-right-from-square"></i>
+            </a>`).join('');
+
         const card = document.createElement('div');
         card.className = 'mock-card';
         card.style.animationDelay = `${Math.min(idx * 0.05, 0.5)}s`;
@@ -1443,10 +1477,10 @@
             <span class="status-badge" data-status="${escapeHtml(status)}"><span class="status-dot"></span>${escapeHtml(statusLabel)}</span>
           </div>
           <p class="card-description">${escapeHtml(description)}</p>
-          <div class="url-list">${urlListInner}
+          <div class="url-list">${urlListInner}${extraRows}
           </div>
           <div class="card-actions">
-            ${primaryBtn}
+            ${primaryBtn}${extraBtns}
           </div>
         `;
         return card;
