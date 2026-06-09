@@ -4,68 +4,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The parent `CLAUDE.md` and `CORE-CONTEXT.md` at the repo root apply here. This file documents what is specific to Scheduling.
 
-## Required: GitHub Pages share pill
-
-**Every HTML mock under `products/Scheduling/` must include a floating "Share Link" pill at the bottom-right of the page that copies the live GitHub Pages URL to the clipboard.** This makes it easy for designers, PMs, and developers to grab and share the live URL without leaving the prototype.
-
-- The pill auto-derives the GitHub Pages URL from `window.location.pathname`, so the same snippet works on `file://`, `localhost`, and the live Pages site — no per-file configuration.
-- The pill snippet is **already present in `base-template/index.html`**. When creating a new mock by copying the base template, the pill comes along for free — do not remove it.
-- The dashboard at `products/Scheduling/dashboard/index.html` also includes the pill — it has its own shareable Pages URL.
-- When asked to add the pill to an existing mock that doesn't have it, paste the snippet just before the closing `</body>` tag.
-- **For the CallBack React prototypes** (`Rules engine only/`, `AI search engine dashboard/`): place the pill snippet **outside** the React mount point (`<div id="app">`) so it isn't replaced on re-render.
-
-### Canonical snippet
-
-```html
-<!-- GitHub Pages share pill (auto-derives URL from path) -->
-<style>
-  .gh-share-pill {
-    position: fixed;
-    bottom: 16px;
-    right: 16px;
-    z-index: 2147483000;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: #18181b;
-    color: #fff;
-    padding: 9px 14px;
-    border-radius: 999px;
-    font: 600 12px/1 'SF Mono', Menlo, Consolas, monospace;
-    border: none;
-    cursor: pointer;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
-    opacity: 0.85;
-    transition: opacity 0.15s ease, transform 0.15s ease;
-    text-decoration: none;
-  }
-  .gh-share-pill:hover { opacity: 1; transform: translateY(-2px); }
-  .gh-share-pill.is-copied { background: #10b981; }
-</style>
-<button class="gh-share-pill" id="ghSharePill" type="button" aria-label="Copy live GitHub Pages URL">🔗 Share Link</button>
-<script>
-  (function() {
-    const pill = document.getElementById('ghSharePill');
-    if (!pill) return;
-    const m = window.location.pathname.match(/\/products\/([^/]+)\/(.+?)\/(?:index\.html)?$/i);
-    const url = m
-      ? `https://vectorlearning.github.io/ux-mockups/products/${m[1]}/${m[2]}/`
-      : 'https://vectorlearning.github.io/ux-mockups/';
-    pill.title = url;
-    pill.addEventListener('click', () => {
-      navigator.clipboard.writeText(url).then(() => {
-        pill.innerHTML = '✓ Copied!';
-        pill.classList.add('is-copied');
-        setTimeout(() => {
-          pill.innerHTML = '🔗 Share Link';
-          pill.classList.remove('is-copied');
-        }, 1500);
-      });
-    });
-  })();
-</script>
-```
-
 ## Dashboard Maintenance
 
 There is a prototype index at [`./dashboard/index.html`](./dashboard/index.html) that the UX team shares with PMs and developers as a single link to every in-progress Scheduling mock. **The entire list of mocks plus their metadata and the recent-activity log come from [`./dashboard/meta.json`](./dashboard/meta.json)** — that JSON file is the *single source of truth* for what the dashboard shows. (The repo is private, so the dashboard cannot discover folders via the GitHub API; it relies on Claude to keep meta.json accurate.)
@@ -86,6 +24,15 @@ There is a prototype index at [`./dashboard/index.html`](./dashboard/index.html)
 4. **Delete the `mocks[<folder-key>]` entry whenever you delete or rename a mock folder.** Log the rename/deletion in `recentChanges`.
 5. **Trim `recentChanges` to the 20 most recent entries** — drop older entries beyond that. Newer entries go at the top.
 
+### Dev handoff files
+
+When you create a `dev_handoff.html` inside a mock folder (a clean, comment-widget-free copy a developer can build from), update that mock's `mocks[<folder-key>]` entry **in the same turn — automatically, without being asked**:
+
+- Set `"devHandoff": true`. The dashboard card then leads with the dev build links — the **GitHub Pages** URL (Dev Page) and the **GitHub** raw-HTML URL (Dev HTML) — and a primary **View Dev Build** button. The original design links (Pages + GitHub for the commented prototype) collapse into a closed "Design version" drawer on the card, available when needed.
+- Set `"status": "ready-for-dev"`. This moves the card into the **Ready for Dev** group.
+
+`devHandoff` defaults to the filename `dev_handoff.html`; pass a filename string instead of `true` only if the handoff file is named differently. If you later delete the dev_handoff file, remove `devHandoff` and reset the status.
+
 ### Why this matters
 
 This page is the single shareable link the team gives stakeholders. Because the repo is private, the dashboard can't fall back to filesystem discovery — meta.json is the entire source of truth. If you forget to update it, mocks vanish or show stale statuses, and the dashboard loses the team's trust. Updating meta.json takes 10 seconds; recovering from a "the dashboard is wrong" complaint costs much more.
@@ -103,9 +50,10 @@ This page is the single shareable link the team gives stakeholders. Because the 
     "<folder-key>": {
       "title": "Optional title override (default: humanized folder name)",
       "description": "Optional one-line description shown on the card",
-      "status": "concept | in-progress | review | ready | archived",
+      "status": "concept | in-progress | review | ready | ready-for-dev | archived",
       "ticket": "Optional ticket ID, e.g. UX-2474",
-      "ticketUrl": "Optional full ticket URL (only needed if it lives outside jiraBaseUrl)"
+      "ticketUrl": "Optional full ticket URL (only needed if it lives outside jiraBaseUrl)",
+      "devHandoff": "Optional. Set to true (or a filename) when a dev_handoff.html exists — the dashboard then shows the dev build links and the Ready for Dev status"
     }
   }
 }
