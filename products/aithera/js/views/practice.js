@@ -10,6 +10,7 @@
 
 import { store } from '../store.js';
 import * as ui from '../ui.js?v=course-flow-1';
+import * as discussion from './practice-discussion.js';
 
 export function render(scenarioId) {
   // Hash may carry a ?retry=N or ?from=ka suffix. The router strips the
@@ -56,6 +57,7 @@ export function render(scenarioId) {
   let vitals = null;
   let curVitals = sc.vitalsStart ? { ...sc.vitalsStart } : null;
   let dispatchEl = null; // welcome dispatch player — cancel speech on unmount
+  let threadEl = null;   // scrolling thread that accumulates each step turn
 
   function show(node) { root.replaceChildren(node); }
 
@@ -79,8 +81,14 @@ export function render(scenarioId) {
       ctaLabel: retryCount > 0 ? 'Begin retry' : 'Begin practice',
       onBegin: () => {
         if (dispatchEl?.stop) dispatchEl.stop();
-        stepIdx = 0;
-        renderStep();
+        // Discussion-mode scenarios hand off to the branching conversation
+        // engine; everything else runs the multiple-choice step engine.
+        if (sc.mode === 'discussion' && sc.beats?.length) {
+          if (!timer) timer = ui.scenarioTimer();
+          discussion.run({ root, sc, timer, onFinish: (score, results) => recordAndExit(score, results) });
+        } else {
+          renderStepPhase();
+        }
       }
     });
     // Dispatch audio sits inside the welcome card, just above the CTA,
@@ -95,89 +103,81 @@ export function render(scenarioId) {
   }
 
   // --------------------- STEP PHASE ---------------------
-  function renderStep() {
-    if (stepIdx >= sc.steps.length) return finish();
-    const step = sc.steps[stepIdx];
+  // The scenario plays out as a scrolling thread: a sticky, edge-to-edge
+  // hero ("the scene") is pinned at the top, and each step is appended
+  // below it as a "turn". Answering a step locks it in place and reveals
+  // the next turn underneath — so the full history stays scrollable rather
+  // than being replaced on every Continue.
+  function renderStepPhase() {
+    if (!timer) timer = ui.scenarioTimer();
+    const hero = ui.scenarioMedia({
+      id: sc.id,
+      label: sc.industry === 'healthcare' ? 'Emergency Department · triage' : 'I-95 · scene',
+      accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff7a3d',
+      image: sc.heroImage || `assets/scenarios/${sc.id}.jpg`,
+      height: 240
+    });
+    const heroSticky = ui.el('div', { class: 'scn-hero-sticky' },
+      hero,
+      ui.el('div', { class: 'scn-hero-timer' }, timer)
+    );
+    threadEl = ui.el('div', { class: 'scn-thread' });
+    show(ui.el('div', { class: 'scn-flow' }, heroSticky, threadEl));
+    appendStep(0);
+  }
 
-    // First step: spin up the timer
-    if (stepIdx === 0 && !timer) timer = ui.scenarioTimer();
+  function appendStep(i) {
+    stepIdx = i;
+    if (i >= sc.steps.length) return finish();
+    const step = sc.steps[i];
 
-    const wrap = ui.el('section', { class: 'stack' });
+    const turn = ui.el('section', { class: 'scn-turn' });
+    turn.appendChild(ui.el('div', { class: 'scn-turn-kicker' },
+      step.kicker || `${sc.kicker} · Step ${i + 1} of ${sc.steps.length}`));
 
-    // Step header. For choice steps the title moves down to sit directly
-    // above its answer options (see choiceInput); the header here stays a
-    // slim kicker+timer strip. Text-input steps keep the title up top.
-    const headerTitle = step.input === 'text' ? (step.title || `Step ${stepIdx + 1}`) : null;
-    wrap.appendChild(ui.stepHeader({
-      kicker: step.kicker || `${sc.kicker} · Step ${stepIdx + 1} of ${sc.steps.length}`,
-      title: headerTitle,
-      timerEl: timer
-    }));
-
-    // Briefing block — unifies hero image, tension chip, and "The scene"
-    // text into a single card on the first step. Subsequent steps stay
-    // focused: just tension + assessment.
-    if (stepIdx === 0) {
-      const briefing = ui.el('div', { class: 'scn-briefing' });
-      briefing.appendChild(ui.scenarioMedia({
-        id: sc.id,
-        label: sc.industry === 'healthcare' ? 'Emergency Department · triage' : 'I-95 · scene',
-        accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff7a3d',
-        image: sc.heroImage || `assets/scenarios/${sc.id}.jpg`
-      }));
-      const body = ui.el('div', { class: 'scn-briefing-body' });
-      if (step.tension) body.appendChild(ui.tensionTag(step.tension));
-      body.appendChild(ui.el('div', { class: 'scn-scene-kicker' }, 'The scene'));
-      body.appendChild(ui.el('p', { class: 'scn-scene-text' }, sc.context));
-      // Tip sits at the bottom of the briefing — closes out the scene
-      // with what the learner should be aiming for.
-      if (step.coachHint) {
-        body.appendChild(ui.el('div', { class: 'scn-task-hint scn-briefing-hint' },
-          ui.el('span', { class: 'scn-task-hint-avatar' }, ui.icon('lightbulb')),
-          ui.el('p', null, step.coachHint)));
-      }
-      briefing.appendChild(body);
-      wrap.appendChild(briefing);
-    } else {
-      if (step.tension) wrap.appendChild(ui.tensionTag(step.tension));
+    // The opening turn carries the scene description. The hero image that
+    // used to live here now sits in the persistent sticky header above.
+    if (i === 0) {
+      turn.appendChild(ui.el('div', { class: 'scn-scene-kicker' }, 'The scene'));
+      turn.appendChild(ui.el('p', { class: 'scn-scene-text' }, sc.context));
     }
 
-    // Live vitals — animated pulse + breathing, with haptic sync on
-    // mobile. Created once and re-attached each step so the heart
-    // animation never resets between transitions.
+    // Live vitals — same persistent node re-attached so it tracks the
+    // active turn (healthcare scenarios only).
     if (curVitals) {
       if (!vitals) vitals = ui.vitalsPanel(curVitals);
       else vitals.update(curVitals);
-      wrap.appendChild(vitals);
+      turn.appendChild(vitals);
     }
 
-    // On non-first steps the hint isn't part of a briefing, so it
-    // rides above the choices as a standalone element.
-    if (stepIdx > 0 && step.coachHint && step.input !== 'text' && step.input !== 'articulate') {
-      wrap.appendChild(ui.el('div', { class: 'scn-task-hint scn-standalone-hint' },
+    // Coach micro-hint for choice steps (text/articulate fold it into the
+    // input field themselves).
+    if (step.coachHint && step.input !== 'text' && step.input !== 'articulate') {
+      turn.appendChild(ui.el('div', { class: 'scn-task-hint scn-standalone-hint' },
         ui.el('span', { class: 'scn-task-hint-avatar' }, ui.icon('lightbulb')),
         ui.el('p', null, step.coachHint)));
     }
 
-    // Input mode — for choice questions, the coach hint is folded into the
-    // answer card so they read as one unit. For text input, the prompt sits
-    // above and the coach hint moves under the formulation field as
-    // contextual help for the answer entry.
+    // Input mode.
     if (step.input === 'text') {
-      if (step.prompt) wrap.appendChild(ui.scenarioPrompt({ text: step.prompt }));
-      wrap.appendChild(textInput(step));
+      if (step.prompt) turn.appendChild(ui.scenarioPrompt({ text: step.prompt }));
+      turn.appendChild(textInput(step, i));
     } else if (step.input === 'articulate') {
-      wrap.appendChild(articulateInput(step));
+      turn.appendChild(articulateInput(step, i));
     } else {
-      wrap.appendChild(choiceInput(step));
+      turn.appendChild(choiceInput(step, i));
     }
 
-    show(wrap);
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    threadEl.appendChild(turn);
+    // Bring each new turn up to just beneath the sticky hero. The opening
+    // turn stays put (the hero is already at the top).
+    if (i > 0) {
+      requestAnimationFrame(() => turn.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
   }
 
   // --------------------- INPUT MODES ---------------------
-  function choiceInput(step) {
+  function choiceInput(step, i) {
     const card = ui.el('div', { class: 'scn-choice' });
     // The question itself heads the choice card so the prompt and the
     // answers read as one bonded unit. After a pick it swaps to a
@@ -192,10 +192,12 @@ export function render(scenarioId) {
     // breathe.
     const explain = ui.el('div', { class: 'scn-explain', style: { display: 'none' } });
 
+    const ctaBar = ui.el('div', { class: 'scn-cta-bar' });
     const cta = ui.el('button', { class: 'btn primary block', disabled: true, on: { click: () => {
-      stepIdx++; renderStep();
+      ctaBar.remove();        // drop the Continue bar; the next turn appends below
+      appendStep(i + 1);
     }}}, 'Continue');
-    const ctaBar = ui.el('div', { class: 'scn-cta-bar' }, cta);
+    ctaBar.appendChild(cta);
 
     // Each option is wrapped so we can drop a "Your answer" / "Best
     // answer" label above the button without disturbing button layout.
@@ -284,8 +286,8 @@ export function render(scenarioId) {
         if (typeof o.vitalsDelta.rr === 'number') curVitals.rr = curVitals.rr + o.vitalsDelta.rr;
         if (vitals) vitals.update(curVitals);
       }
-      if (o.nextTension && sc.steps[stepIdx + 1]) {
-        sc.steps[stepIdx + 1].tension = o.nextTension;
+      if (o.nextTension && sc.steps[i + 1]) {
+        sc.steps[i + 1].tension = o.nextTension;
       }
     }
 
@@ -293,7 +295,7 @@ export function render(scenarioId) {
     return card;
   }
 
-  function textInput(step) {
+  function textInput(step, i) {
     const card = ui.el('div', { class: 'stack' });
     const fm = ui.formulationField({
       label: step.inputLabel || 'Your formulation',
@@ -307,8 +309,9 @@ export function render(scenarioId) {
     const rubricBlock = ui.el('div', { style: { display: 'none' } });
     card.appendChild(rubricBlock);
 
+    const ctaBar = ui.el('div', { class: 'scn-cta-bar' });
     const continueBtn = ui.el('button', { class: 'btn primary block', style: { display: 'none' }, on: { click: () => {
-      stepIdx++; renderStep();
+      ctaBar.remove(); appendStep(i + 1);
     }}}, 'Continue');
 
     const submit = ui.el('button', { class: 'btn primary block cta-large', on: { click: () => {
@@ -352,7 +355,8 @@ export function render(scenarioId) {
       continueBtn.style.display = 'block';
     }}}, ui.el('span', null, 'Submit formulation'), ui.icon('arrowRight'));
 
-    card.appendChild(ui.el('div', { class: 'scn-cta-bar' }, submit, continueBtn));
+    ctaBar.append(submit, continueBtn);
+    card.appendChild(ctaBar);
     return card;
   }
 
@@ -360,7 +364,7 @@ export function render(scenarioId) {
   // beginner / outsider) using voice (preferred) or typing. We mock the
   // AI analysis with keyword + length heuristics keyed to the audience,
   // but the UX matches what a real model-backed flow would look like.
-  function articulateInput(step) {
+  function articulateInput(step, i) {
     const card = ui.el('div', { class: 'stack' });
 
     card.appendChild(ui.audienceCard({ audience: step.audience, concept: step.concept }));
@@ -383,8 +387,9 @@ export function render(scenarioId) {
     const feedbackSlot = ui.el('div');
     card.appendChild(feedbackSlot);
 
+    const ctaBar = ui.el('div', { class: 'scn-cta-bar' });
     const continueBtn = ui.el('button', { class: 'btn primary block', style: { display: 'none' }, on: { click: () => {
-      stepIdx++; renderStep();
+      ctaBar.remove(); appendStep(i + 1);
     }}}, 'Continue');
 
     const submit = ui.el('button', { class: 'btn primary block cta-large', disabled: true, on: { click: () => {
@@ -408,35 +413,41 @@ export function render(scenarioId) {
 
       submit.style.display = 'none';
       continueBtn.style.display = 'block';
-      window.scrollTo({ top: feedbackSlot.offsetTop - 20, behavior: 'smooth' });
+      feedbackSlot.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }}}, ui.el('span', null, 'Submit explanation'), ui.icon('arrowRight'));
 
-    card.appendChild(ui.el('div', { class: 'scn-cta-bar' }, submit, continueBtn));
+    ctaBar.append(submit, continueBtn);
+    card.appendChild(ctaBar);
     return card;
   }
 
   // --------------------- FINISH ---------------------
-  function finish() {
+  // Shared exit used by both the step engine and the discussion engine:
+  // stop timers, record the attempt, credit any owning lesson, and route to
+  // the completion screen.
+  function recordAndExit(score, results) {
     if (timer?.stop) timer.stop();
     if (vitals?.stop) vitals.stop();
     if (dispatchEl?.stop) dispatchEl.stop();
-    const total = stepResults.reduce((s, r) => s + r.points, 0);
-    const score = total / sc.steps.length;
-    const result = {
+    store.recordPractice({
       scenarioId: sc.id,
       courseId:   sc.courseId,
       concepts:   sc.concepts,
       score,
-      stepResults,
+      stepResults: results,
       elapsed:    timer?.elapsed?.() ?? 0,
       retryCount,
       at: Date.now()
-    };
-    store.recordPractice(result);
+    });
     if (fromCourseId && fromLessonId) {
       store.markLessonComplete(fromCourseId, fromLessonId);
     }
     location.hash = '#/practice-complete';
+  }
+
+  function finish() {
+    const total = stepResults.reduce((s, r) => s + r.points, 0);
+    recordAndExit(total / sc.steps.length, stepResults);
   }
 
   renderWelcome();
