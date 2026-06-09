@@ -96,7 +96,7 @@ Markup:
   </span>
   <span class="pb-text">Only the Compliance and Completion reports are saved here while they generate. Refresh the page to see the latest updates.</span>
   <button class="pb-close" aria-label="Dismiss">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
          stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
   </button>
 </div>
@@ -111,7 +111,7 @@ CSS:
   margin: 16px 0 0;
   padding: 18px 48px 18px 22px;          /* right padding leaves room for the ✕ */
   background: #fff;
-  border-radius: 12px;
+  border-radius: 4px;
   border-left: 6px solid var(--blue-primary);   /* #155DFC blue accent */
   box-shadow: 0 1px 3px rgba(16,24,40,.10), 0 1px 2px rgba(16,24,40,.06);
 }
@@ -127,9 +127,9 @@ CSS:
   font-size: 14px; line-height: 1.55; color: #1D2939;
 }
 .pencil-banner .pb-close {
-  position: absolute; top: 14px; right: 14px;
+  position: absolute; top: 50%; right: 16px; transform: translateY(-50%);  /* vertically centered, stays right */
   background: 0; border: 0; color: #99A1AF; cursor: pointer;
-  display: grid; place-items: center; padding: 4px; border-radius: 6px;
+  display: grid; place-items: center; padding: 6px; border-radius: 6px;
   transition: color .12s, background .12s;
 }
 .pencil-banner .pb-close:hover { color: #475467; background: var(--hair-2); }
