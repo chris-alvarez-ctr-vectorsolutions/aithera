@@ -563,6 +563,24 @@ export function stepIndicator({ steps, current, variant }) {
   return wrap;
 }
 
+// phaseBar — a continuous segmented progress bar for a short, cross-screen
+// flow (e.g. Watch → Share observations). One segment per step: completed
+// steps fill green, the current step fills blue, upcoming steps stay grey.
+// Used by the scene-watch flow and the discussion engine so the learner reads
+// the two as one connected sequence even though they're separate routes.
+export function phaseBar({ steps, current }) {
+  const wrap = el('div', { class: 'phase-bar' });
+  wrap.appendChild(el('div', { class: 'phase-bar-label' },
+    `Step ${current + 1} of ${steps.length} — ${steps[current]}`));
+  const track = el('div', { class: 'phase-bar-track' });
+  for (let i = 0; i < steps.length; i++) {
+    const cls = i < current ? 'done' : i === current ? 'cur' : '';
+    track.appendChild(el('span', { class: `phase-seg ${cls}` }));
+  }
+  wrap.appendChild(track);
+  return wrap;
+}
+
 // stickyFooter — bottom-anchored bar holding the page's primary CTA.
 // Used on full-flow surfaces (lesson, etc.) so the next action is
 // always reachable without scrolling.
@@ -1321,6 +1339,101 @@ export function audienceCard({ audience, concept }) {
   );
 }
 
+// createDictation — the single Web Speech API integration shared by every
+// voice input in the app. It is HEADLESS: it owns SR feature-detection,
+// recognizer config (continuous + interim, en-US), the final/interim
+// transcript accumulation, the keep-alive restart that survives natural
+// pauses, and fatal-error classification — but renders NO DOM. Callers draw
+// their own chrome (a full mic panel, or a bare button inside a textarea) and
+// react through the callbacks. Returns null when speech recognition is
+// unavailable, so callers can fall back to typing.
+//
+//   onTranscript(finalText, interimText) — fires on each result. finalText is
+//       the cumulative confirmed transcript; interimText is the in-progress
+//       tail not yet finalized.
+//   onFatalError(message) — mic blocked / no device / service offline, with a
+//       ready-to-show message string.
+//   onStop() — recording has ended (via stop(), a rapid double-end, or a
+//       fatal error). Fires at most once per recording session.
+export function createDictation({ onTranscript, onFatalError, onStop } = {}) {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRec) return null;
+
+  const recognition = new SpeechRec();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  let recording = false;
+  let finalText = '';
+  let interimText = '';
+  let lastRestart = 0;
+
+  recognition.onresult = (event) => {
+    let interim = '', addedFinal = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const r = event.results[i];
+      if (r.isFinal) addedFinal += r[0].transcript + ' ';
+      else interim += r[0].transcript + ' ';
+    }
+    if (addedFinal) finalText = (finalText + ' ' + addedFinal).trim() + ' ';
+    interimText = interim.trim();
+    onTranscript?.(finalText.trim(), interimText);
+  };
+
+  const FATAL = new Set(['not-allowed', 'service-not-allowed', 'audio-capture', 'network']);
+  recognition.onerror = (e) => {
+    if (!FATAL.has(e.error)) return;
+    recording = false;
+    const msg = (e.error === 'not-allowed' || e.error === 'service-not-allowed')
+      ? 'Mic blocked — switch to typing, or enable mic access.'
+      : e.error === 'audio-capture'
+        ? 'No mic detected — switch to typing.'
+        : 'Voice service offline — tap to retry, or type below.';
+    // Reset chrome first, then write the specific message — order matters:
+    // onStop's setListeningChrome(false) rewrites status text, so it must not
+    // run after onFatalError or it would clobber the actionable message.
+    onStop?.();
+    onFatalError?.(msg);
+  };
+
+  // The platform recognizer ends itself after a silent gap. While we still
+  // mean to be recording, restart it to keep one continuous session — but a
+  // sub-400ms re-end means it can't get going (mic gone, etc.), so give up.
+  recognition.onend = () => {
+    if (!recording) return;
+    const now = Date.now();
+    if (now - lastRestart < 400) { recording = false; onStop?.(); return; }
+    lastRestart = now;
+    try { recognition.start(); } catch {}
+  };
+
+  return {
+    get recording() { return recording; },
+    get finalText() { return finalText; },
+    get interimText() { return interimText; },
+    // Fold any pending interim tail into the confirmed transcript. Callers that
+    // freeze the transcript on stop call this before reading finalText.
+    flushInterim() {
+      if (interimText) { finalText = (finalText + ' ' + interimText).trim() + ' '; interimText = ''; }
+      return finalText.trim();
+    },
+    // Zero the transcript so a caller can run several independent capture
+    // sessions on one helper (the discussion composer does this — each tap
+    // should contribute only its own words, not re-append the previous take).
+    reset() { finalText = ''; interimText = ''; },
+    // Set recording only once the engine actually starts; a synchronous throw
+    // (e.g. start() while already running) must not strand the flag at true.
+    start() { try { recognition.start(); recording = true; } catch {} },
+    stop() {
+      if (!recording) return;
+      recording = false;
+      try { recognition.stop(); } catch {}
+      onStop?.();
+    },
+  };
+}
+
 // articulationMic — the prominent "speak now" mic used in articulate
 // practice steps. Has three visible states:
 //   idle      — large pulsing-ring button, "Tap to start"
@@ -1332,13 +1445,14 @@ export function audienceCard({ audience, concept }) {
 // SpeechRecognition, the component opens in typing mode from the start
 // with a small footnote.
 export function articulationMic({ audienceLabel = 'Listening', onChange } = {}) {
-  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const supported = !!SpeechRec;
-
-  let recognition = null;
-  let recording = false;
-  let finalText = '';
-  let interimText = '';
+  // The Web Speech engine is shared with every other voice input via
+  // createDictation; this component only renders chrome and reacts.
+  const dictation = createDictation({
+    onTranscript: () => { paintTranscript(); emit(); },
+    onFatalError: (msg) => { status.textContent = msg; },
+    onStop: () => setListeningChrome(false),
+  });
+  const supported = !!dictation;
   let mode = supported ? 'voice' : 'type';
 
   const ring = el('span', { class: 'am-ring' });
@@ -1376,9 +1490,11 @@ export function articulationMic({ audienceLabel = 'Listening', onChange } = {}) 
   function emit() { onChange?.(getText()); }
   function getText() {
     if (mode === 'type') return typed.value.trim();
-    return (finalText + ' ' + interimText).trim();
+    return dictation ? (dictation.finalText + ' ' + dictation.interimText).trim() : '';
   }
   function paintTranscript() {
+    const finalText = dictation ? dictation.finalText : '';
+    const interimText = dictation ? dictation.interimText : '';
     if (!finalText && !interimText) {
       transcript.classList.remove('on');
       transcript.replaceChildren();
@@ -1396,6 +1512,8 @@ export function articulationMic({ audienceLabel = 'Listening', onChange } = {}) 
     stopIcon.style.display = on ? '' : 'none';
     button.setAttribute('aria-label', on ? 'Stop recording' : 'Start recording');
     status.classList.toggle('is-live', on);
+    const finalText = dictation ? dictation.finalText : '';
+    const interimText = dictation ? dictation.interimText : '';
     status.textContent = on
       ? `${audienceLabel} — speak now`
       : (finalText || interimText
@@ -1403,59 +1521,14 @@ export function articulationMic({ audienceLabel = 'Listening', onChange } = {}) 
           : 'Tap the mic and speak your explanation');
   }
 
-  if (supported) {
-    recognition = new SpeechRec();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-
-    recognition.onresult = (event) => {
-      let interim = '', addedFinal = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const r = event.results[i];
-        if (r.isFinal) addedFinal += r[0].transcript + ' ';
-        else interim += r[0].transcript + ' ';
-      }
-      if (addedFinal) finalText = (finalText + ' ' + addedFinal).trim() + ' ';
-      interimText = interim.trim();
-      paintTranscript();
-      emit();
-    };
-
-    const FATAL = new Set(['not-allowed', 'service-not-allowed', 'audio-capture', 'network']);
-    recognition.onerror = (e) => {
-      if (FATAL.has(e.error)) {
-        recording = false;
-        setListeningChrome(false);
-        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-          status.textContent = 'Mic blocked — switch to typing, or enable mic access.';
-        } else if (e.error === 'audio-capture') {
-          status.textContent = 'No mic detected — switch to typing.';
-        } else {
-          status.textContent = 'Voice service offline — tap to retry, or type below.';
-        }
-      }
-    };
-
-    let lastRestart = 0;
-    recognition.onend = () => {
-      if (!recording) return;
-      const now = Date.now();
-      if (now - lastRestart < 400) { recording = false; setListeningChrome(false); return; }
-      lastRestart = now;
-      try { recognition.start(); } catch {}
-    };
-  }
-
   button.addEventListener('click', () => {
-    if (!recognition) { status.textContent = 'Voice not supported — type below.'; return; }
-    recording = !recording;
-    if (recording) {
-      try { recognition.start(); } catch {}
+    if (!dictation) { status.textContent = 'Voice not supported — type below.'; return; }
+    if (!dictation.recording) {
+      dictation.start();
       setListeningChrome(true);
     } else {
-      try { recognition.stop(); } catch {}
-      if (interimText) { finalText = (finalText + ' ' + interimText).trim() + ' '; interimText = ''; }
+      dictation.stop();
+      dictation.flushInterim();
       paintTranscript();
       setListeningChrome(false);
       emit();
@@ -1466,13 +1539,13 @@ export function articulationMic({ audienceLabel = 'Listening', onChange } = {}) 
 
   toggle.addEventListener('click', () => {
     if (mode === 'voice') {
-      if (recording) {
-        recording = false;
-        try { recognition.stop(); } catch {}
-        if (interimText) { finalText = (finalText + ' ' + interimText).trim() + ' '; interimText = ''; }
+      if (dictation && dictation.recording) {
+        dictation.stop();
+        dictation.flushInterim();
         setListeningChrome(false);
       }
-      if (finalText && !typed.value) typed.value = finalText.trim();
+      const finalText = dictation ? dictation.finalText.trim() : '';
+      if (finalText && !typed.value) typed.value = finalText;
       voicePane.style.display = 'none';
       typePane.style.display = '';
       toggle.querySelector('.am-toggle-label').textContent = 'Use voice instead';
@@ -1497,10 +1570,9 @@ export function articulationMic({ audienceLabel = 'Listening', onChange } = {}) 
   root.value = getText;
   root.mode = () => mode;
   root.stop = () => {
-    if (recording) {
-      recording = false;
-      try { recognition.stop(); } catch {}
-      if (interimText) { finalText = (finalText + ' ' + interimText).trim() + ' '; interimText = ''; }
+    if (dictation && dictation.recording) {
+      dictation.stop();
+      dictation.flushInterim();
       paintTranscript();
       setListeningChrome(false);
     }

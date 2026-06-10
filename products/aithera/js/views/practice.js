@@ -9,8 +9,8 @@
 // Composed entirely from ui.js primitives.
 
 import { store } from '../store.js';
-import * as ui from '../ui.js?v=course-flow-1';
-import * as discussion from './practice-discussion.js';
+import * as ui from '../ui.js?v=scene-flow-1';
+import * as discussion from './practice-discussion.js?v=scene-flow-1';
 
 export function render(scenarioId) {
   // Hash may carry a ?retry=N or ?from=ka suffix. The router strips the
@@ -22,6 +22,10 @@ export function render(scenarioId) {
   const params = new URLSearchParams(hashQs);
   const retryCount = parseInt(params.get('retry') || '0', 10) || 0;
   const fromKa = params.get('from') === 'ka';
+  // from=watch means the learner just finished the lesson's scene-watch flow.
+  // The discussion is then "Step 2 of 2 — Share observations": we skip the
+  // welcome card and drop straight into the chat with a re-watch link.
+  const fromWatch = params.get('from') === 'watch';
   // When a scenario is run *as* a course lesson (slot 2), the route carries
   // courseLesson=<courseId>:<lessonId> so completion can credit the lesson.
   const [fromCourseId, fromLessonId] = (params.get('courseLesson') || '').split(':');
@@ -84,8 +88,7 @@ export function render(scenarioId) {
         // Discussion-mode scenarios hand off to the branching conversation
         // engine; everything else runs the multiple-choice step engine.
         if (sc.mode === 'discussion' && sc.beats?.length) {
-          if (!timer) timer = ui.scenarioTimer();
-          discussion.run({ root, sc, timer, onFinish: (score, results) => recordAndExit(score, results) });
+          startDiscussion();
         } else {
           renderStepPhase();
         }
@@ -100,6 +103,38 @@ export function render(scenarioId) {
       else welcomeCard.appendChild(dispatchEl);
     }
     show(welcomeCard);
+  }
+
+  // --------------------- DISCUSSION PHASE ---------------------
+  // Hand off to the branching-conversation engine. When the learner arrived
+  // straight from the lesson's scene-watch flow (from=watch), pass the 2-step
+  // phase framing and a re-watch link so the chat reads as "Step 2 of 2".
+  function startDiscussion() {
+    if (!timer) timer = ui.scenarioTimer();
+    let reviewHref = null, reviewPoster = null, flowTitle = null, flowKicker = null;
+    if (fromWatch && fromCourseId && fromLessonId) {
+      reviewHref = `#/course/${fromCourseId}/lesson/${fromLessonId}`;
+      const course = store.course(fromCourseId);
+      const cIdx = course?.lessons?.findIndex((l) => l.id === fromLessonId) ?? -1;
+      const cLesson = cIdx >= 0 ? course.lessons[cIdx] : null;
+      const vb = cLesson?.blocks?.find((b) => b.type === 'video' && b.scenes?.length);
+      reviewPoster = vb?.scenes?.[0]?.poster || vb?.image || sc.beats?.[0]?.keyframe?.image || null;
+      // Title = the scene-watch CTA question ("What would you do?"); kicker =
+      // the same "Lesson NN of MM · Section" locator the lesson header uses.
+      flowTitle = vb?.cta?.question || sc.title;
+      if (cLesson) {
+        const num = `Lesson ${String(cIdx + 1).padStart(2, '0')} of ${String(course.lessons.length).padStart(2, '0')}`;
+        const raw = cLesson.kicker || course.title || '';
+        const section = raw.replace(/^\s*Lesson\s+\d+\s*[·:-]\s*/i, '').trim();
+        flowKicker = section && section.toLowerCase() !== raw.toLowerCase() ? `${num} · ${section}` : num;
+      }
+    }
+    discussion.run({
+      root, sc, timer,
+      flowSteps: fromWatch ? ['Watch', 'Share observations'] : null,
+      flowTitle, flowKicker, reviewHref, reviewPoster,
+      onFinish: (score, results) => recordAndExit(score, results)
+    });
   }
 
   // --------------------- STEP PHASE ---------------------
@@ -450,7 +485,13 @@ export function render(scenarioId) {
     recordAndExit(total / sc.steps.length, stepResults);
   }
 
-  renderWelcome();
+  // Coming from the scene-watch flow, the welcome card is redundant — the
+  // learner was just framed by the pre-roll — so drop straight into the chat.
+  if (fromWatch && sc.mode === 'discussion' && sc.beats?.length) {
+    startDiscussion();
+  } else {
+    renderWelcome();
+  }
   return root;
 }
 

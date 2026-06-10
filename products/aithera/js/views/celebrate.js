@@ -4,7 +4,7 @@
 // "Return home" or "See full results" (primary).
 
 import { store } from '../store.js';
-import * as ui from '../ui.js?v=course-flow-1';
+import * as ui from '../ui.js?v=scene-flow-1';
 
 export function render() {
   const result = store.state.session.lastSummary;

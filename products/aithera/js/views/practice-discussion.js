@@ -16,9 +16,14 @@
 // It reuses the sticky-hero + scrolling-thread shell and CSS from the step
 // engine, and reports back through onFinish(score, results).
 
-import * as ui from '../ui.js?v=course-flow-1';
+import * as ui from '../ui.js?v=scene-flow-1';
 
-export function run({ root, sc, timer, onFinish }) {
+export function run({ root, sc, timer, onFinish, flowSteps = null, flowTitle = null, flowKicker = null, reviewHref = null, reviewPoster = null }) {
+  // When launched as the "Step 2 of 2" tail of the scene-watch flow, the
+  // engine drops its big sticky keyframe hero in favour of a compact header
+  // (kicker + title + 2-step phase bar) and a re-watch card. Otherwise it runs
+  // the original sticky-hero conversation shell.
+  const isFlow = !!flowSteps;
   const beats = Object.fromEntries((sc.beats || []).map((b) => [b.id, b]));
   const results = [];        // one entry per answered beat (for the debrief)
   const visited = [];        // beat ids in order, to score path quality
@@ -37,24 +42,64 @@ export function run({ root, sc, timer, onFinish }) {
   }
   window.addEventListener('hashchange', onRouteAway);
 
-  // ----- sticky keyframe hero + scrolling thread shell -----
-  const heroImg = ui.el('img', { class: 'scn-hero-photo', alt: '', decoding: 'async' });
-  heroImg.addEventListener('error', () => heroImg.style.display = 'none');
-  const heroCaption = ui.el('div', { class: 'scn-kf-caption' });
-  const hero = ui.el('div', { class: 'scn-hero has-photo scn-kf', style: { height: '240px' } },
-    heroImg,
-    ui.el('span', { class: 'scn-hero-scrim', 'aria-hidden': 'true' }),
-    heroCaption
-  );
-  const heroSticky = ui.el('div', { class: 'scn-hero-sticky' }, hero, ui.el('div', { class: 'scn-hero-timer' }, timer));
+  // ----- sticky keyframe hero (standard mode only) -----
+  let heroImg = null, heroCaption = null, hero = null;
   const threadEl = ui.el('div', { class: 'scn-thread scn-discussion' });
-  root.replaceChildren(ui.el('div', { class: 'scn-flow' }, heroSticky, threadEl));
+
+  if (isFlow) {
+    // Flow header: back + kicker + title + 2-step phase bar (current = step 2),
+    // then a compact "review again" card linking back to the scene-watch flow.
+    const top = ui.el('div', { class: 'dsc-flow-top' });
+    const headRow = ui.el('div', { class: 'scene-head-row' });
+    if (reviewHref) {
+      const back = ui.el('button', { class: 'scene-back', 'aria-label': 'Back to scenes', on: { click: () => { location.hash = reviewHref; } } });
+      back.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M11 18l-6-6 6-6"/></svg>';
+      headRow.appendChild(back);
+    }
+    if (flowKicker) headRow.appendChild(ui.el('div', { class: 'ch-kicker' }, ui.el('div', null, flowKicker)));
+    const header = ui.el('header', { class: 'lesson-head scene-watch-head' },
+      headRow,
+      ui.el('h2', { class: 'ch-title' }, flowTitle || sc.title || 'Share what you observed'),
+      ui.phaseBar({ steps: flowSteps, current: flowSteps.length - 1 }),
+      ui.el('div', { class: 'scn-hero-timer dsc-flow-timer' }, timer)
+    );
+    top.appendChild(header);
+    if (reviewHref) top.appendChild(reviewCard());
+    root.replaceChildren(ui.el('div', { class: 'scn-flow scn-flow-chat' }, top, threadEl));
+  } else {
+    heroImg = ui.el('img', { class: 'scn-hero-photo', alt: '', decoding: 'async' });
+    heroImg.addEventListener('error', () => heroImg.style.display = 'none');
+    heroCaption = ui.el('div', { class: 'scn-kf-caption' });
+    hero = ui.el('div', { class: 'scn-hero has-photo scn-kf', style: { height: '240px' } },
+      heroImg,
+      ui.el('span', { class: 'scn-hero-scrim', 'aria-hidden': 'true' }),
+      heroCaption
+    );
+    const heroSticky = ui.el('div', { class: 'scn-hero-sticky' }, hero, ui.el('div', { class: 'scn-hero-timer' }, timer));
+    root.replaceChildren(ui.el('div', { class: 'scn-flow' }, heroSticky, threadEl));
+  }
 
   appendBeat(sc.startBeat || sc.beats[0].id);
 
+  // Re-watch card shown atop the chat when entered from the scene-watch flow.
+  function reviewCard() {
+    const thumb = ui.el('div', { class: 'dsc-review-thumb' });
+    if (reviewPoster) {
+      const img = ui.el('img', { class: 'dsc-review-img', src: reviewPoster, alt: '', decoding: 'async' });
+      img.addEventListener('error', () => { img.style.display = 'none'; });
+      thumb.appendChild(img);
+    }
+    thumb.appendChild(ui.el('span', { class: 'dsc-review-play' }, ui.icon('play')));
+    const card = ui.el('button', { class: 'dsc-review-card', type: 'button', on: { click: () => { location.hash = reviewHref; } } },
+      thumb,
+      ui.el('p', { class: 'dsc-review-text' }, 'Need to review again? Tap the play button to re-visit all scenes.')
+    );
+    return card;
+  }
+
   // ----- beat rendering -----
   function setKeyframe(kf) {
-    if (!kf) return;
+    if (!kf || !hero) return;   // flow mode has no keyframe hero
     // Brief fade so the still swap reads as a scene change, not a glitch.
     hero.classList.remove('kf-in');
     heroImg.src = kf.image || '';
@@ -232,25 +277,25 @@ export function run({ root, sc, timer, onFinish }) {
   // Real Web Speech API mic. Hidden entirely where unsupported (graceful
   // fallback to typing). Dictation appends to whatever's already typed.
   function voiceButton(textarea, onUpdate) {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     const btn = ui.el('button', { class: 'dsc-mic', type: 'button', 'aria-label': 'Speak your answer' }, ui.icon('mic'));
-    if (!SR) { btn.style.display = 'none'; return btn; }
-    let listening = false, base = '';
-    btn.addEventListener('click', () => {
-      if (listening) { if (activeRec) { try { activeRec.stop(); } catch (e) {} } return; }
-      const rec = new SR();
-      activeRec = rec;
-      rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = true;
-      base = textarea.value ? textarea.value.trim() + ' ' : '';
-      rec.onresult = (e) => {
-        let t = '';
-        for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript;
-        textarea.value = base + t;
+    // The composer dictates into whatever's already typed: createDictation owns
+    // the Web Speech engine, we just append its transcript to `base`.
+    let base = '';
+    const dictation = ui.createDictation({
+      onTranscript: (finalText, interimText) => {
+        textarea.value = (base + finalText + (interimText ? ' ' + interimText : '')).trim();
         onUpdate();
-      };
-      const done = () => { listening = false; activeRec = null; btn.classList.remove('listening'); };
-      rec.onend = done; rec.onerror = done;
-      try { rec.start(); listening = true; btn.classList.add('listening'); } catch (e) { done(); }
+      },
+      onStop: () => { btn.classList.remove('listening'); if (activeRec === dictation) activeRec = null; },
+    });
+    if (!dictation) { btn.style.display = 'none'; return btn; }   // type-only fallback
+    btn.addEventListener('click', () => {
+      if (dictation.recording) { dictation.stop(); return; }
+      base = textarea.value ? textarea.value.trim() + ' ' : '';
+      dictation.reset();   // each take appends to `base`, not to the prior take
+      activeRec = dictation;
+      dictation.start();
+      btn.classList.add('listening');
     });
     return btn;
   }

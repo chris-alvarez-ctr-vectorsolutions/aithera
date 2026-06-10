@@ -7,7 +7,7 @@
 // "Try another way" panel, so this is a soft default, not a lock-in.
 
 import { store } from '../store.js';
-import * as ui from '../ui.js?v=course-flow-1';
+import * as ui from '../ui.js?v=scene-flow-1';
 
 export function render(courseId) {
   const course = store.course(courseId);

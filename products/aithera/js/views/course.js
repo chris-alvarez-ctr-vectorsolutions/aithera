@@ -4,7 +4,7 @@
 // status panel, coach message, primary CTA).
 
 import { store } from '../store.js';
-import * as ui from '../ui.js?v=course-flow-1';
+import * as ui from '../ui.js?v=scene-flow-1';
 import { isAtLeast } from '../phase.js';
 
 export function render(courseId) {

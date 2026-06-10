@@ -15,7 +15,7 @@
 // hidden so the lesson surface owns the screen.
 
 import { store } from '../store.js';
-import * as ui from '../ui.js?v=course-flow-1';
+import * as ui from '../ui.js?v=scene-flow-1';
 
 export function render(courseId, lessonId) {
   const course = store.course(courseId);
@@ -91,6 +91,26 @@ export function render(courseId, lessonId) {
   function buildPhase(name) {
     const wrap = ui.el('section', { class: 'chap-phase' });
 
+    // Scene-watch micro-flow owns the whole screen — it draws its own header
+    // (kicker + flow title + 2-step phase bar) and its own per-scene CTA
+    // buttons, so the standard lesson header + sticky footer are skipped.
+    const watchVb = videoBlocks[0];
+    if (name === 'watch' && watchVb?.scenes?.length) {
+      wrap.classList.add('chap-scene-watch');
+      consumeStartMode('original');   // swallow any ?via=chat so it doesn't leak into Learn
+      wrap.appendChild(sceneWatchEl(watchVb, {
+        headLabel: headLabel(),
+        onExit: () => { location.hash = `#/course/${course.id}`; },
+        onLaunch: (scenarioId) => {
+          // &from=watch tells the practice view to drop straight into the
+          // discussion as "Step 2 of 2" with a re-watch link, rather than
+          // showing a fresh welcome card.
+          location.hash = `#/practice/${scenarioId}?courseLesson=${course.id}:${lesson.id}&from=watch`;
+        }
+      }));
+      return wrap;
+    }
+
     if (name === 'recap') {
       wrap.classList.add('chap-checkpoint');
       wrap.appendChild(buildRecap());
@@ -113,18 +133,24 @@ export function render(courseId, lessonId) {
   // Unified header: course-level strip + kicker + title + within-lesson
   // step indicator. The strip answers "which lesson?", the indicator
   // answers "where in this lesson?".
-  function buildHeader(name) {
-    const header = ui.el('header', { class: 'lesson-head' });
+  // "Lesson 01 of 04 · Recognition" — the course-level locator shown atop
+  // every lesson phase. Pulled out so the scene-watch micro-flow can reuse
+  // the exact same label in its own header.
+  function headLabel() {
     const lessonNum = `Lesson ${String(idx + 1).padStart(2, '0')} of ${String(total).padStart(2, '0')}`;
     const rawKicker = lesson.kicker || course.title;
     // Strip the leading "Lesson N · " segment from the authored kicker so we
     // don't repeat "Lesson" twice; keep the section descriptor on the right.
     const section = rawKicker.replace(/^\s*Lesson\s+\d+\s*[·:-]\s*/i, '').trim();
-    const headLabel = section && section.toLowerCase() !== rawKicker.toLowerCase()
+    return section && section.toLowerCase() !== rawKicker.toLowerCase()
       ? `${lessonNum} · ${section}`
       : lessonNum;
+  }
+
+  function buildHeader(name) {
+    const header = ui.el('header', { class: 'lesson-head' });
     const kicker = ui.el('div', { class: 'ch-kicker' });
-    kicker.appendChild(ui.el('div', null, headLabel));
+    kicker.appendChild(ui.el('div', null, headLabel()));
     header.appendChild(kicker);
     header.appendChild(ui.el('h2', { class: 'ch-title' }, lesson.title));
     const learningIdx = learningPhases.indexOf(name);
@@ -442,6 +468,211 @@ function slideDeckEl(block, { onLaunch }) {
 
   wrap.append(hero, body, dots, controls);
   goTo(0);
+  return wrap;
+}
+
+// Scene-watch flow for a "video" block carrying `scenes`. A focused 2-step
+// micro-flow:
+//   1. Pre-roll — frames the task, shows a poster + scene-count/duration, and
+//      a "Play all scenes" CTA so the learner controls when watching starts.
+//   2. One page per scene — each scene plays its own clip with a description
+//      below. A segmented scrubber fills blue as the current clip plays and
+//      turns green once a scene completes. "Next Scene" stays disabled until
+//      the clip finishes (the video `ended` event); the final scene's button
+//      becomes the cta question and calls onLaunch(scenarioId).
+//
+// Real clips drive playback via the <video> element; when a clip is missing
+// or fails to load, a short simulated timer fills the scrubber and unlocks the
+// gate so the prototype stays clickable with placeholder data.
+function sceneWatchEl(block, { headLabel, onExit, onLaunch }) {
+  const scenes = block.scenes || [];
+  const flow = block.flow || {};
+  const steps = ['Watch', 'Share observations'];
+  const completed = new Set();        // indices of finished scenes
+
+  const wrap = ui.el('section', { class: 'scene-watch' });
+
+  // ---- persistent header: back + kicker + flow title + 2-step phase bar ----
+  const back = ui.el('button', { class: 'scene-back', 'aria-label': 'Back to course', on: { click: onExit } });
+  back.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M11 18l-6-6 6-6"/></svg>';
+  const head = ui.el('header', { class: 'lesson-head scene-watch-head' },
+    ui.el('div', { class: 'scene-head-row' },
+      back,
+      ui.el('div', { class: 'ch-kicker' }, ui.el('div', null, headLabel))
+    ),
+    ui.el('h2', { class: 'ch-title' }, flow.title || block.title || 'Watch'),
+    ui.phaseBar({ steps, current: 0 })
+  );
+
+  const body = ui.el('div', { class: 'scene-watch-body' });
+  wrap.append(head, body);
+
+  // ---- pre-roll ----
+  function renderPreroll() {
+    body.replaceChildren();
+    if (flow.intro) body.appendChild(ui.el('p', { class: 'scene-intro' }, flow.intro));
+
+    const poster = scenes[0]?.poster || block.image || '';
+    const stats = [`${scenes.length} scene${scenes.length === 1 ? '' : 's'}`];
+    if (flow.duration) stats.push(flow.duration);
+
+    const img = ui.el('img', { class: 'scene-poster', src: poster, alt: '', decoding: 'async' });
+    img.addEventListener('error', () => { img.style.display = 'none'; });
+    // Poster only — this is a preview thumbnail, not a player. Playback starts
+    // on the scene pages, so no play button here (the CTA advances instead).
+    const media = ui.el('div', { class: 'scene-preroll-media' },
+      img,
+      ui.el('span', { class: 'scene-poster-scrim', 'aria-hidden': 'true' })
+    );
+
+    body.appendChild(ui.el('div', { class: 'scene-preroll-card' },
+      ui.el('div', { class: 'scene-preroll-meta' },
+        ui.el('span', { class: 'scene-preroll-tag' }, 'Video'),
+        ui.el('span', { class: 'scene-preroll-stats' }, stats.join('   |   '))
+      ),
+      media
+    ));
+
+    body.appendChild(ui.el('button', { class: 'btn primary block cta-large scene-playall', on: { click: () => renderScene(0) } },
+      ui.el('span', null, 'Continue to Scene 1'), ui.icon('arrowRight')));
+  }
+
+  // ---- segmented scrubber (one segment per scene) ----
+  function buildScrubber(activeIdx) {
+    const el = ui.el('div', { class: 'scene-scrub', 'aria-hidden': 'true' });
+    const segs = scenes.map((_, si) => {
+      const fill = ui.el('span', { class: 'scene-seg-fill' });
+      const seg = ui.el('span', { class: 'scene-seg' }, fill);
+      if (completed.has(si)) { seg.classList.add('done'); fill.style.width = '100%'; }
+      else if (si === activeIdx) seg.classList.add('cur');
+      el.appendChild(seg);
+      return { seg, fill };
+    });
+    return {
+      el,
+      setProgress(i, p) {
+        if (completed.has(i)) return;
+        segs[i].fill.style.width = `${Math.max(0, Math.min(100, Math.round(p * 100)))}%`;
+      },
+      markDone(i) {
+        segs[i].seg.classList.remove('cur');
+        segs[i].seg.classList.add('done');
+        segs[i].fill.style.width = '100%';
+      }
+    };
+  }
+
+  // ---- one scene page ----
+  // Holds the previous scene's timer-cleanup so leaving a scene cancels any
+  // in-flight sim/guard timers (they'd otherwise fire against detached nodes).
+  let leaveScene = null;
+  function renderScene(i) {
+    if (leaveScene) { leaveScene(); leaveScene = null; }
+    body.replaceChildren();
+    const scene = scenes[i] || {};
+    const last = i === scenes.length - 1;
+
+    // Muted: the clips' audio is placeholder-only for now, so we play silent.
+    const hasClip = !!scene.video;
+    const video = ui.el('video', { class: 'scene-video', playsinline: '', muted: true, preload: hasClip ? 'auto' : 'metadata' });
+    if (hasClip) {
+      // Show the clip's OWN first frame as the still rather than the authored
+      // poster (which can mismatch the footage). The #t media fragment nudges
+      // the browser to decode and display frame ~0 before playback starts.
+      video.appendChild(ui.el('source', { src: scene.video + '#t=0.001', type: 'video/mp4' }));
+    } else if (scene.poster || block.image) {
+      video.poster = scene.poster || block.image;   // placeholder fallback (no clip)
+    }
+
+    const scrub = buildScrubber(i);
+    // Play/replay affordance — visible whenever the clip is paused (on arrival,
+    // and again once it ends). The learner taps it to start; videos never
+    // auto-play on load.
+    const playBtn = ui.el('button', { class: 'scene-play-overlay', 'aria-label': 'Play scene', on: { click: () => startPlayback(video.ended) } }, ui.icon('play'));
+    const frame = ui.el('div', { class: 'scene-video-frame' }, video, ui.el('span', { class: 'scene-video-scrim', 'aria-hidden': 'true' }), playBtn, scrub.el);
+    body.appendChild(frame);
+
+    // Title + description read as one block, so they sit tighter to each other
+    // than to the video above / button below.
+    const copy = ui.el('div', { class: 'scene-copy' },
+      ui.el('h3', { class: 'scene-title' }, scene.title || `Scene ${i + 1}`));
+    if (scene.description) copy.appendChild(ui.el('p', { class: 'scene-desc' }, scene.description));
+    body.appendChild(copy);
+
+    const btn = ui.el('button', { class: 'btn primary block cta-large scene-next', disabled: !completed.has(i) },
+      ui.el('span', null, last ? (block.cta?.question || 'Continue') : 'Next Scene'));
+    if (!last) btn.appendChild(ui.icon('arrowRight'));
+    btn.addEventListener('click', () => {
+      if (btn.disabled) return;
+      if (last) onLaunch(block.cta?.scenarioId);
+      else renderScene(i + 1);
+    });
+    body.appendChild(btn);
+
+    // Tells the learner why the button is greyed out — a disabled button alone
+    // is easy to miss. Flips to a "Scene complete!" confirmation once watched.
+    const gateHint = ui.el('p', { class: 'scene-gate-hint' },
+      ui.icon('play'),
+      ui.el('span', null, 'Watch the full scene to continue'));
+    body.appendChild(gateHint);
+    function markGateComplete() {
+      gateHint.classList.add('is-complete');
+      gateHint.replaceChildren(ui.icon('check'), ui.el('span', null, 'Scene complete!'));
+    }
+
+    // ---- playback + gating ----
+    let simTimer = null, guard = null;
+    function clearSim() { if (simTimer) { clearInterval(simTimer); simTimer = null; } if (guard) { clearTimeout(guard); guard = null; } }
+    leaveScene = clearSim;
+    function completeScene() {
+      clearSim();
+      completed.add(i);
+      scrub.markDone(i);
+      btn.disabled = false;
+      btn.classList.add('ready');
+      markGateComplete();
+      playBtn.hidden = false;          // becomes a replay affordance
+      frame.classList.remove('playing');
+    }
+    // Simulated playback for missing/broken clips — fills over ~5s.
+    function startSim() {
+      clearSim();
+      const DUR = 5000, t0 = performance.now();
+      simTimer = setInterval(() => {
+        const p = Math.min(1, (performance.now() - t0) / DUR);
+        scrub.setProgress(i, p);
+        if (p >= 1) completeScene();
+      }, 80);
+    }
+    function startPlayback(isReplay) {
+      playBtn.hidden = true;
+      frame.classList.add('playing');
+      if (!scene.video) { startSim(); return; }
+      if (isReplay) { try { video.currentTime = 0; } catch (e) {} }
+      const pr = video.play?.();
+      if (pr && pr.catch) pr.catch(() => startSim());
+      // If the file never loads (404 / missing), fall back to simulation.
+      guard = setTimeout(() => { if (video.readyState < 2 && !simTimer) startSim(); }, 1200);
+    }
+    video.addEventListener('loadeddata', () => { if (guard) { clearTimeout(guard); guard = null; } });
+    video.addEventListener('timeupdate', () => {
+      if (video.duration && !simTimer) scrub.setProgress(i, video.currentTime / video.duration);
+    });
+    video.addEventListener('ended', () => { scrub.setProgress(i, 1); completeScene(); });
+    video.addEventListener('error', () => { if (!completed.has(i)) startSim(); });
+    // A user pause (not the end-of-clip pause) brings the play button back so
+    // they can resume.
+    video.addEventListener('pause', () => { if (!video.ended) { playBtn.hidden = false; frame.classList.remove('playing'); } });
+
+    // No auto-play: the scene opens on its poster with the play button showing.
+    // Already-watched scenes stay unlocked and show the replay button.
+    if (completed.has(i)) { scrub.markDone(i); markGateComplete(); }
+    playBtn.hidden = false;
+
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
+  renderPreroll();
   return wrap;
 }
 
