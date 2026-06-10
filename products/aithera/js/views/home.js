@@ -4,7 +4,7 @@
 
 import { store } from '../store.js';
 import * as adaptive from '../adaptive.js';
-import * as ui from '../ui.js?v=scene-flow-7';
+import * as ui from '../ui.js?v=scene-flow-8';
 import { currentPhase, triggerPolicyEventIfNeeded, markPolicyModalShown,
          personaScenarioForPhase, personaAdaptiveCourse, personaPhase1Course } from '../phase.js';
 

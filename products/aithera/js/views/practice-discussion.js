@@ -16,7 +16,7 @@
 // It reuses the sticky-hero + scrolling-thread shell and CSS from the step
 // engine, and reports back through onFinish(score, results).
 
-import * as ui from '../ui.js?v=scene-flow-7';
+import * as ui from '../ui.js?v=scene-flow-8';
 
 export function run({ root, sc, timer, onFinish, flowSteps = null, flowTitle = null, flowKicker = null, reviewHref = null, reviewPoster = null }) {
   // When launched as the "Step 2 of 2" tail of the scene-watch flow, the
@@ -79,7 +79,23 @@ export function run({ root, sc, timer, onFinish, flowSteps = null, flowTitle = n
     root.replaceChildren(ui.el('div', { class: 'scn-flow' }, heroSticky, threadEl));
   }
 
-  appendBeat(sc.startBeat || sc.beats[0].id);
+  // Entry: from the scene-watch flow we play a short "Coach Vic is setting up"
+  // loader, then let the first beat arrive conversationally (Vic types the
+  // question, then the composer slides in) — so the hand-off from "What would
+  // you do?" reads as Vic asking live, not a form blinking into existence.
+  // The standalone (non-flow) shell keeps its instant entry.
+  if (isFlow) showEntryLoader(sc.startBeat || sc.beats[0].id);
+  else appendBeat(sc.startBeat || sc.beats[0].id);
+
+  // Brief loading beat between the previous page and the conversation.
+  function showEntryLoader(beatId) {
+    const loader = ui.el('div', { class: 'dsc-entry-loader' },
+      ui.el('span', { class: 'dsc-loader-spinner', 'aria-hidden': 'true' }),
+      ui.el('p', { class: 'dsc-loader-text' }, 'Coach Vic is reviewing the scene…')
+    );
+    threadEl.appendChild(loader);
+    setTimeout(() => { loader.remove(); appendBeat(beatId, true); }, 1300);
+  }
 
   // Re-watch card shown atop the chat when entered from the scene-watch flow.
   function reviewCard() {
@@ -108,55 +124,97 @@ export function run({ root, sc, timer, onFinish, flowSteps = null, flowTitle = n
     requestAnimationFrame(() => hero.classList.add('kf-in'));
   }
 
-  function appendBeat(beatId) {
+  function appendBeat(beatId, animate = false) {
     const beat = beats[beatId];
     if (!beat) return finishScenario('good');
     visited.push(beatId);
     setKeyframe(beat.keyframe);
 
     const turn = ui.el('section', { class: 'scn-turn dsc-turn' });
-    turn.appendChild(vicBubble(beat.prompt));
+    threadEl.appendChild(turn);
 
-    if (beat.terminal) {
-      turn.appendChild(ui.el('div', { class: 'scn-cta-bar' },
-        ui.el('button', { class: 'btn primary block cta-large', on: { click: () => finishScenario(beat.outcome || 'good') } },
-          ui.el('span', null, 'See your debrief'), ui.icon('arrowRight'))));
-      threadEl.appendChild(turn);
-      scrollToTurn(turn, beatId);
-      return;
+    // showPrompt drops Vic's question(s) and the learner's response affordance
+    // into the turn. A beat's `prompt` may be a single string or an array of
+    // messages — the array reads as Vic sending a few texts in a row. When
+    // `animate` is set (the entry beat from the scene-watch flow), Vic "types"
+    // each message in turn and the composer fades in just after the last one
+    // lands, so the moment reads as a live ask rather than a form.
+    function showPrompt() {
+      const msgs = Array.isArray(beat.prompt) ? beat.prompt : [beat.prompt];
+
+      // Mount the response affordance (or terminal CTA) once Vic has finished.
+      function afterPrompt() {
+        if (beat.terminal) {
+          turn.appendChild(ui.el('div', { class: 'scn-cta-bar' },
+            ui.el('button', { class: 'btn primary block cta-large', on: { click: () => finishScenario(beat.outcome || 'good') } },
+              ui.el('span', null, 'See your debrief'), ui.icon('arrowRight'))));
+          scrollToTurn(turn, beatId, animate);
+          return;
+        }
+
+        const input = discussionInput({
+          consider: beat.consider,
+          onSubmit: (text, forcedCls) => {
+            if (activeRec) { try { activeRec.stop(); } catch (e) {} activeRec = null; }
+            input.lock();
+            turn.appendChild(youBubble(text));
+
+            // A tapped "consider" chip carries its own branch (deterministic);
+            // a freely-typed answer is read by keyword heuristic.
+            const cls = forcedCls || classify(beat, text);
+            const reply = (beat.reply && (beat.reply[cls] || beat.reply.default)) || '';
+            const nextId = beat.next && (beat.next[cls] || beat.next.default);
+            // Keep the coaching reply with the result so the debrief can surface a
+            // real per-decision insight (results key off beat ids, not sc.steps).
+            results.push({ beatId, text, classification: cls, quality: qualityOf(cls), coaching: reply });
+
+            // Vic "types", replies, then the next beat appends below.
+            const typing = vicTyping();
+            turn.appendChild(typing);
+            scrollToTurn(turn, beatId, true);
+            setTimeout(() => {
+              typing.remove();
+              if (reply) turn.appendChild(vicBubble(reply));
+              setTimeout(() => { if (nextId) appendBeat(nextId); else finishScenario('good'); }, 550);
+            }, 900);
+          }
+        });
+
+        if (animate) {
+          input.el.classList.add('dsc-fade-in');
+          // Hold the composer back a beat so it lands after the last message.
+          setTimeout(() => { turn.appendChild(input.el); scrollToTurn(turn, beatId, true); }, 480);
+        } else {
+          turn.appendChild(input.el);
+          scrollToTurn(turn, beatId);
+        }
+      }
+
+      if (animate) {
+        // Type each message in sequence: a typing beat, then the bubble.
+        let i = 0;
+        const step = () => {
+          if (i >= msgs.length) return afterPrompt();
+          const typing = vicTyping();
+          turn.appendChild(typing);
+          scrollToTurn(turn, beatId, true);
+          setTimeout(() => {
+            typing.remove();
+            const b = vicBubble(msgs[i], i > 0);
+            b.classList.add('dsc-fade-in');
+            turn.appendChild(b);
+            i++;
+            setTimeout(step, 450);
+          }, i === 0 ? 1100 : 700);
+        };
+        step();
+      } else {
+        msgs.forEach((m, idx) => turn.appendChild(vicBubble(m, idx > 0)));
+        afterPrompt();
+      }
     }
 
-    const input = discussionInput({
-      consider: beat.consider,
-      onSubmit: (text, forcedCls) => {
-        if (activeRec) { try { activeRec.stop(); } catch (e) {} activeRec = null; }
-        input.lock();
-        turn.appendChild(youBubble(text));
-
-        // A tapped "consider" chip carries its own branch (deterministic);
-        // a freely-typed answer is read by keyword heuristic.
-        const cls = forcedCls || classify(beat, text);
-        const reply = (beat.reply && (beat.reply[cls] || beat.reply.default)) || '';
-        const nextId = beat.next && (beat.next[cls] || beat.next.default);
-        // Keep the coaching reply with the result so the debrief can surface a
-        // real per-decision insight (results key off beat ids, not sc.steps).
-        results.push({ beatId, text, classification: cls, quality: qualityOf(cls), coaching: reply });
-
-        // Vic "types", replies, then the next beat appends below.
-        const typing = vicTyping();
-        turn.appendChild(typing);
-        scrollToTurn(turn, beatId, true);
-        setTimeout(() => {
-          typing.remove();
-          if (reply) turn.appendChild(vicBubble(reply));
-          setTimeout(() => { if (nextId) appendBeat(nextId); else finishScenario('good'); }, 550);
-        }, 900);
-      }
-    });
-    turn.appendChild(input.el);
-
-    threadEl.appendChild(turn);
-    scrollToTurn(turn, beatId);
+    showPrompt();
   }
 
   // First turn stays put (hero already tops the view); later turns scroll up
@@ -167,14 +225,16 @@ export function run({ root, sc, timer, onFinish, flowSteps = null, flowTitle = n
   }
 
   // ----- chat bubbles -----
-  function vicBubble(text) {
-    return ui.el('div', { class: 'dsc-msg vic' },
-      ui.el('span', { class: 'dsc-avatar' }, 'V'),
-      ui.el('div', { class: 'dsc-bubble' },
-        ui.el('div', { class: 'dsc-author' }, 'Coach Vic'),
-        ui.el('p', null, text)
-      )
-    );
+  // grouped = a follow-on message from Vic in the same run (stacked text-style):
+  // drops the avatar + "Coach Vic" label and tucks up under the prior bubble.
+  function vicBubble(text, grouped = false) {
+    const avatar = grouped
+      ? ui.el('span', { class: 'dsc-avatar dsc-avatar-spacer', 'aria-hidden': 'true' })
+      : ui.el('span', { class: 'dsc-avatar' }, 'V');
+    const bubble = ui.el('div', { class: 'dsc-bubble' });
+    if (!grouped) bubble.appendChild(ui.el('div', { class: 'dsc-author' }, 'Coach Vic'));
+    bubble.appendChild(ui.el('p', null, text));
+    return ui.el('div', { class: `dsc-msg vic${grouped ? ' is-grouped' : ''}` }, avatar, bubble);
   }
   function youBubble(text) {
     return ui.el('div', { class: 'dsc-msg me' },
@@ -205,12 +265,6 @@ export function run({ root, sc, timer, onFinish, flowSteps = null, flowTitle = n
         if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); }
       } }
     });
-
-    // Prominent header so it's obvious this is where (and how) to respond.
-    wrap.appendChild(ui.el('div', { class: 'dsc-input-head' },
-      ui.el('span', { class: 'dsc-input-title' }, 'Your move — in your own words'),
-      ui.el('span', { class: 'dsc-input-sub' }, 'Type it or tap the mic to talk. There’s no single right answer.')
-    ));
 
     const mic = voiceButton(ta, () => { pendingCls = null; updateSend(); });
     const send = ui.el('button', { class: 'btn primary dsc-send', disabled: true, 'aria-label': 'Send response', on: { click: submit } },
