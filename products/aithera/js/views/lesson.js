@@ -152,6 +152,20 @@ export function render(courseId, lessonId) {
     const stack = ui.el('div', { class: 'stack' });
     const vb = videoBlocks[0];
 
+    // Slide-deck video: a paged image+text sequence (stand-in for a real video)
+    // that ends in a question-CTA launching this lesson's knowledge-check
+    // scenario. Falls back to the single video hero + modality swap when no
+    // slides are authored, so every other course is unaffected.
+    if (vb.slides && vb.slides.length) {
+      consumeStartMode('original');   // swallow any ?via=chat so it doesn't leak into Learn
+      stack.append(slideDeckEl(vb, {
+        onLaunch: (scenarioId) => {
+          location.hash = `#/practice/${scenarioId}?courseLesson=${course.id}:${lesson.id}`;
+        }
+      }));
+      return stack;
+    }
+
     let mode = consumeStartMode('original');
     const stage = ui.el('div', { class: 'modality-stage' });
 
@@ -306,11 +320,20 @@ export function render(courseId, lessonId) {
     const courseScenarios = store.scenariosForCourse(course.id);
     const sc = courseScenarios.find((s) => s.kind !== 'iv-math');
     const mini = courseScenarios.find((s) => s.kind === 'iv-math');
+    // When this lesson's video deck names a knowledge-check scenario, the recap
+    // surfaces the same check for Reading/AI-chat learners — and carries
+    // ?courseLesson so finishing it credits THIS lesson (not just the scenario).
+    const ctaScenarioId = videoBlocks[0]?.cta?.scenarioId;
     if (sc) {
+      const isCheck = sc.id === ctaScenarioId;
       stack.appendChild(ui.coachPrompt({
-        question: `You retain ~3× more from a ${store.state.industry.language.practiceWord} than from a re-read. Run "${sc.title}"?`,
-        primaryLabel: 'Practice now',
-        primaryHref: `#/practice/${sc.id}`,
+        question: isCheck
+          ? (videoBlocks[0].cta.question || `Ready to put this into practice? Run "${sc.title}".`)
+          : `You retain ~3× more from a ${store.state.industry.language.practiceWord} than from a re-read. Run "${sc.title}"?`,
+        primaryLabel: isCheck ? 'Start the knowledge check' : 'Practice now',
+        primaryHref: isCheck
+          ? `#/practice/${sc.id}?courseLesson=${course.id}:${lesson.id}`
+          : `#/practice/${sc.id}`,
         primaryVariant: 'secondary',
         secondaryLabel: 'Skip',
         secondaryHref: `#/course/${course.id}/lesson/${lesson.id}`
@@ -354,6 +377,73 @@ export function render(courseId, lessonId) {
 }
 
 // ---------- block renderers ----------
+
+// Paged image+text slide deck for a "video" block that carries `slides`.
+// Reuses the discussion engine's keyframe hero (image + caption + fade) and the
+// step-indicator dot CSS. The final slide swaps Next for a question-CTA that
+// calls onLaunch(scenarioId) to start the knowledge-check.
+function slideDeckEl(block, { onLaunch }) {
+  const slides = block.slides || [];
+  const wrap = ui.el('div', { class: 'slide-deck' });
+
+  const heroImg = ui.el('img', { class: 'scn-hero-photo', alt: '', decoding: 'async' });
+  heroImg.addEventListener('error', () => { heroImg.style.display = 'none'; });
+  const heroCaption = ui.el('div', { class: 'scn-kf-caption' });
+  const hero = ui.el('div', { class: 'scn-hero has-photo scn-kf', style: { height: '220px' } },
+    heroImg,
+    ui.el('span', { class: 'scn-hero-scrim', 'aria-hidden': 'true' }),
+    heroCaption
+  );
+
+  const body = ui.el('p', { class: 'slide-text' });
+  const dots = ui.el('div', { class: 'si-dots slide-dots' });
+  const controls = ui.el('div', { class: 'slide-nav' });
+
+  let i = 0;
+
+  function setSlide(slide) {
+    hero.classList.remove('kf-in');
+    heroImg.src = slide.image || '';
+    heroImg.style.display = '';
+    heroCaption.textContent = slide.caption || '';
+    requestAnimationFrame(() => hero.classList.add('kf-in'));
+    body.textContent = slide.text || '';
+  }
+
+  function renderDots() {
+    dots.replaceChildren(...slides.map((_, di) =>
+      ui.el('span', { class: `si-dot ${di < i ? 'done' : di === i ? 'cur' : ''}` })));
+  }
+
+  function renderControls() {
+    const last = i === slides.length - 1;
+    const back = ui.el('button',
+      { class: 'btn ghost slide-back', disabled: i === 0, on: { click: () => goTo(i - 1) } },
+      'Back');
+    let forward;
+    if (!last) {
+      forward = ui.el('button', { class: 'btn primary slide-next', on: { click: () => goTo(i + 1) } },
+        ui.el('span', null, 'Next'), ui.icon('arrowRight'));
+    } else if (block.cta && block.cta.scenarioId) {
+      forward = ui.el('button', { class: 'btn primary slide-cta', on: { click: () => onLaunch(block.cta.scenarioId) } },
+        ui.el('span', null, block.cta.question || 'Continue'), ui.icon('arrowRight'));
+    } else {
+      forward = ui.el('span', { class: 'slide-nav-spacer', 'aria-hidden': 'true' });
+    }
+    controls.replaceChildren(back, forward);
+  }
+
+  function goTo(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    setSlide(slides[i] || {});
+    renderDots();
+    renderControls();
+  }
+
+  wrap.append(hero, body, dots, controls);
+  goTo(0);
+  return wrap;
+}
 
 function videoEl(block) {
   const wrap = ui.el('div', { class: 'media', 'aria-label': `Video: ${block.title}` });
