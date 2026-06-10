@@ -96,6 +96,16 @@ The `Event Indicator: UX-2474/` mock is the active design artifact for ticket UX
 
 Layout structure (top-down): 40px dark topnav → 48px dark icon sidenav → toolbar with filter panel → colored shift date-nav → main schedule body with `.sched-col` cards in a wrapping flex row + a 300px collapsible right sidebar.
 
+### Shift-edit modal (`current-ui.html`)
+
+`Event Indicator UX-2474/current-ui.html` is the production-faithful "before" companion to the redesign. It contains a reusable **shift-edit modal** reproducing the live edit-shift dialog the scheduler sees when clicking an assigned person on the day view.
+
+- **Trigger:** clicking any assigned person row (`.prow[data-modby]` or `.drow[data-modby]`) opens it. The same rows still show the black hover-card on hover; the modal is the click action. Closes on the ✕, backdrop click, or Esc.
+- **Markup/CSS prefix:** everything is namespaced `.sm-*` (`.shift-modal`, `.sm-head`, `.sm-body`, `.sm-field`, `.sm-foot`, etc.); the overlay is `#shiftModal.modal-overlay`. It's plain vanilla CSS/JS in the file's production-reproduction style — **not** Vector web components (this page deliberately mimics current production, not the design system).
+- **Dynamic title:** `Name — Assignment — Date`, assembled in JS from the clicked row's name, its parent `.acard` title, and the date-nav date. Form field values (project code, work type, times, break) are static representative content.
+- **Concurrent-shift line:** when the clicked person has another shift that day (the row carries `data-cc-type` / `data-cc-assignment` / `data-cc-time`), `buildConcurrentBanner()` renders a compact single line **between the title and the form fields** — the orange concurrent flag (`.sm-cc-flag`), then the bold assignment name (`.sm-cc-name`) + plain time range (`.sm-cc-time`). No box, no caption. Rows without `data-cc-*` open the modal with no line. (This is the "school resource officer" readout pattern, pared down.)
+- **Footer:** four buttons on a **single line** (`.sm-foot` is `flex-wrap: nowrap`, `.sm-btn` is `white-space: nowrap` at 12px) — green Save / green "Save today and all future shifts" / red "Delete today only" / red "Delete from rotation". Keep them on one line when editing labels or widths.
+
 ## Theme Colors mock
 
 `Theme Colors/index.html` is a settings-page prototype for an interactive theme picker. Its `:root` declares two distinct token groups that are documented inline at the top of the file:
