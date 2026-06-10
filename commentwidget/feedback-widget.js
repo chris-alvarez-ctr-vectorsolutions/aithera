@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.15.0';
+  const WIDGET_VERSION = '1.15.1';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -424,10 +424,21 @@
       if (v) return `${tag}[${attr}="${cssAttrEscape(v)}"]`;
     }
     const classes = goodClasses(el);
-    if (classes.length) return tag + '.' + classes.map(c => CSS.escape(c)).join('.');
-    let sib = el, idx = 1;
-    while ((sib = sib.previousElementSibling)) if (sib.tagName === el.tagName) idx++;
-    return tag + `:nth-of-type(${idx})`;
+    const base = classes.length ? tag + '.' + classes.map(c => CSS.escape(c)).join('.') : tag;
+    // A segment must single this element out among its siblings. If the base
+    // (tag or tag.class) still matches more than one sibling, querySelector
+    // resolves the whole path to the FIRST match — making a dot jump to the
+    // wrong same-class element (e.g. the first of six identical .select filters).
+    // Pin it to its position with :nth-of-type whenever the base is ambiguous.
+    const parent = el.parentElement;
+    const matchesBase = (c) => c.tagName === el.tagName &&
+      (!classes.length || classes.every(cls => c.classList.contains(cls)));
+    if (parent && [...parent.children].filter(matchesBase).length > 1) {
+      let sib = el, idx = 1;
+      while ((sib = sib.previousElementSibling)) if (sib.tagName === el.tagName) idx++;
+      return base + `:nth-of-type(${idx})`;
+    }
+    return base;
   }
 
   function goodClasses(el) {
@@ -1434,6 +1445,23 @@
   // widget resolves a pin to its element, so re-anchoring stays consistent.
   function findPinEl(pin) {
     let n = pin.selector ? safeQuery(pin.selector) : null;
+    // A non-unique stored selector (pins saved before selectors carried a
+    // disambiguating :nth-of-type) resolves to the FIRST match, which may be the
+    // wrong same-class sibling. When the selector matches several elements,
+    // prefer the one whose visible text matches what was captured at placement.
+    if (n && pin.selector && pin.elementText) {
+      let all = [];
+      try { all = [...document.querySelectorAll(pin.selector)]; } catch (_) {}
+      if (all.length > 1) {
+        const want = pin.elementText.replace(/\s+/g, ' ').trim();
+        const truncated = pin.elementText.length >= 200; // elementText sliced to 200 at capture
+        const better = all.find(elt => {
+          const t = (elt.innerText || elt.textContent || '').replace(/\s+/g, ' ').trim();
+          return truncated ? t.startsWith(want) : t === want;
+        });
+        if (better) n = better;
+      }
+    }
     if (!n) { n = refindByText(pin); if (n) pin.selector = cssPath(n); }
     return n;
   }
