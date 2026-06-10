@@ -78,9 +78,11 @@ export function run({ root, sc, timer, onFinish }) {
         // A tapped "consider" chip carries its own branch (deterministic);
         // a freely-typed answer is read by keyword heuristic.
         const cls = forcedCls || classify(beat, text);
-        results.push({ beatId, text, classification: cls, quality: qualityOf(cls) });
         const reply = (beat.reply && (beat.reply[cls] || beat.reply.default)) || '';
         const nextId = beat.next && (beat.next[cls] || beat.next.default);
+        // Keep the coaching reply with the result so the debrief can surface a
+        // real per-decision insight (results key off beat ids, not sc.steps).
+        results.push({ beatId, text, classification: cls, quality: qualityOf(cls), coaching: reply });
 
         // Vic "types", replies, then the next beat appends below.
         const typing = vicTyping();
@@ -161,6 +163,10 @@ export function run({ root, sc, timer, onFinish }) {
     );
     wrap.appendChild(composer);
 
+    // Tell the learner why Respond is greyed out, rather than leaving a dead button.
+    const sendHint = ui.el('p', { class: 'dsc-send-hint', hidden: true }, 'A couple more words and you can respond.');
+    wrap.appendChild(sendHint);
+
     // "Need a hint?" — collapsed accordion holding the ambiguous framings.
     if (consider && consider.length) {
       const acc = ui.el('details', { class: 'dsc-hint' });
@@ -188,7 +194,11 @@ export function run({ root, sc, timer, onFinish }) {
       wrap.appendChild(acc);
     }
 
-    function updateSend() { send.disabled = ta.value.trim().split(/\s+/).filter(Boolean).length < 2; }
+    function updateSend() {
+      const words = ta.value.trim().split(/\s+/).filter(Boolean).length;
+      send.disabled = words < 2;
+      sendHint.hidden = words !== 1;   // show guidance once they've started typing
+    }
     function submit() {
       const text = ta.value.trim();
       if (text.split(/\s+/).filter(Boolean).length < 2) return;
@@ -267,6 +277,10 @@ export function run({ root, sc, timer, onFinish }) {
       text: r.text,
       outcome: r.quality >= 1 ? 'good' : r.quality > 0 ? 'ok' : 'bad',
       points: r.quality,
+      // insight/indicator let summary.generateInsights build a debrief card for
+      // discussion runs, whose ids never match sc.steps.
+      insight: r.coaching || '',
+      indicator: 'Judgment in the moment',
       assessment: { tone: r.quality >= 1 ? 'good' : 'warn', kicker: 'Your call', body: r.text }
     }));
     onFinish(score, stepResults);

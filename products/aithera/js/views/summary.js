@@ -144,7 +144,19 @@ function generateInsights(result, sc) {
   const out = [];
   for (const r of result.stepResults) {
     const step = sc.steps.find((s) => s.id === r.stepId);
-    if (!step) continue;
+    if (!step) {
+      // Discussion-mode results key off beat ids (not sc.steps), so they carry
+      // their own coaching text. Surface it directly rather than dropping it —
+      // otherwise the whole debrief comes back empty.
+      if (r.insight) {
+        out.push({
+          tone: r.outcome === 'good' ? 'strength' : 'growth',
+          quote: r.insight,
+          indicator: r.indicator || 'Decision-making'
+        });
+      }
+      continue;
+    }
     const indicator = step.indicator || 'Decision-making';
 
     // Choice step: paraphrase comes from the chosen option
