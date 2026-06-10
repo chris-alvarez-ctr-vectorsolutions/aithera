@@ -3,7 +3,7 @@
 // fast (mockup callout: "OSHA policy 1.2.3"). Loaded from data/reference.json.
 // Items default to industry-filtered with a toggle for "All".
 import { store } from '../store.js';
-import * as ui from '../ui.js?v=scene-flow-8';
+import * as ui from '../ui.js?v=scene-flow-9';
 
 let onlyMine = true;
 let query = '';
