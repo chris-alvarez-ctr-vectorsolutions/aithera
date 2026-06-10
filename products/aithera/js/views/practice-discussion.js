@@ -24,6 +24,19 @@ export function run({ root, sc, timer, onFinish }) {
   const visited = [];        // beat ids in order, to score path quality
   let activeRec = null;      // live SpeechRecognition, so we can stop on advance
 
+  // The router has no unmount hook (it just swaps the view's DOM), so a learner
+  // who leaves mid-scenario would otherwise leave the mic hot and the timer
+  // ticking. Stop both on the next real route change (ignore same-route query
+  // rewrites like the profile-slug append).
+  const myPath = location.hash.split('?')[0];
+  function onRouteAway() {
+    if (location.hash.split('?')[0] === myPath) return;
+    if (activeRec) { try { activeRec.stop(); } catch (e) {} activeRec = null; }
+    if (timer && timer.stop) { try { timer.stop(); } catch (e) {} }
+    window.removeEventListener('hashchange', onRouteAway);
+  }
+  window.addEventListener('hashchange', onRouteAway);
+
   // ----- sticky keyframe hero + scrolling thread shell -----
   const heroImg = ui.el('img', { class: 'scn-hero-photo', alt: '', decoding: 'async' });
   heroImg.addEventListener('error', () => heroImg.style.display = 'none');

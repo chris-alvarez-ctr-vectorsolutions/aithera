@@ -620,7 +620,13 @@ export function blockShell({ children, onModality }) {
 // nextUpCard — preview of the upcoming lesson, mirrors the right-rail
 // "Next Up" card from the desktop mockup.
 export function nextUpCard({ kicker = 'Next up', title, subtitle, href, initials, cta = false, onClick }) {
-  const card = el('a', { class: `next-up${cta ? ' cta' : ''}`, href },
+  // When the card owns the advance action (onClick = mark-complete + navigate),
+  // it must NOT also be a raw link: a cmd/middle-click would follow the href and
+  // skip the mark-complete step. In that mode drop href and behave as a button.
+  const attrs = { class: `next-up${cta ? ' cta' : ''}` };
+  if (onClick) { attrs.role = 'button'; attrs.tabIndex = 0; }
+  else if (href) { attrs.href = href; }
+  const card = el('a', attrs,
     el('div', { class: 'nu-thumb' }, initials || icon('play')),
     el('div', { class: 'nu-body' },
       el('small', null, kicker),
@@ -629,9 +635,12 @@ export function nextUpCard({ kicker = 'Next up', title, subtitle, href, initials
     ),
     el('span', { class: 'nu-chev' }, icon(cta ? 'arrowRight' : 'chevron'))
   );
-  // When used as the page's primary CTA the card owns the advance action
-  // (mark-complete + navigate), so intercept the plain link navigation.
-  if (onClick) card.addEventListener('click', (e) => { e.preventDefault(); onClick(); });
+  if (onClick) {
+    card.addEventListener('click', (e) => { e.preventDefault(); onClick(); });
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
+    });
+  }
   return card;
 }
 
