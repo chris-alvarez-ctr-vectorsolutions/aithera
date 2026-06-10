@@ -8,8 +8,9 @@ import * as launch    from './views/launch.js';
 import * as guide     from './views/guide.js';
 import * as home      from './views/home.js';
 import * as course    from './views/course.js';
+import * as courseStart from './views/course-start.js';
 import * as lesson    from './views/lesson.js';
-import * as practice  from './views/practice.js';
+import * as practice  from './views/practice.js?v=scene-flow-1';
 import * as ivMath    from './views/iv-math.js';
 import * as summary   from './views/summary.js';
 import * as celebrate from './views/celebrate.js';
@@ -36,6 +37,7 @@ const ROUTES = [
   { re: /^#\/reference$/,                         view: reference, shell: true,  top: true  },
   { re: /^#\/profile$/,                           view: profile,   shell: true,  parent: '#/home' },
   { re: /^#\/course\/([^/]+)$/,                   view: course,    shell: true,  hideTabbar: true, parent: '#/courses' },
+  { re: /^#\/course\/([^/]+)\/start$/,            view: courseStart, shell: true, hideTabbar: true, parent: (m) => `#/course/${m[1]}` },
   { re: /^#\/course\/([^/]+)\/lesson\/([^/]+)$/,  view: lesson,    shell: true,  fullscreen: true, parent: (m) => `#/course/${m[1]}` },
   { re: /^#\/practice\/([^/?]+)$/,                view: practice,  shell: true,  fullscreen: true, parent: '#/practice' },
   { re: /^#\/iv-math\/([^/?]+)$/,                 view: ivMath,    shell: true,  fullscreen: true, parent: '#/practice' },
