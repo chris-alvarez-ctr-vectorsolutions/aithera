@@ -9,7 +9,7 @@
 
 import { store } from '../store.js';
 import { coach } from '../coach.js';
-import * as ui from '../ui.js?v=scene-flow-8';
+import * as ui from '../ui.js?v=scene-flow-9';
 
 export function render() {
   const root = document.createElement('section');

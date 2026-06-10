@@ -10,7 +10,7 @@
 
 import { store } from '../store.js';
 import * as adaptive from '../adaptive.js';
-import * as ui from '../ui.js?v=scene-flow-8';
+import * as ui from '../ui.js?v=scene-flow-9';
 import { isAtLeast } from '../phase.js';
 
 export function render() {

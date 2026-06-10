@@ -10,7 +10,7 @@ import * as home      from './views/home.js';
 import * as course    from './views/course.js';
 import * as courseStart from './views/course-start.js';
 import * as lesson    from './views/lesson.js';
-import * as practice  from './views/practice.js?v=scene-flow-8';
+import * as practice  from './views/practice.js?v=scene-flow-9';
 import * as ivMath    from './views/iv-math.js';
 import * as summary   from './views/summary.js';
 import * as celebrate from './views/celebrate.js';

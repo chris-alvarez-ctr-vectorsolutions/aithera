@@ -16,7 +16,7 @@
 // It reuses the sticky-hero + scrolling-thread shell and CSS from the step
 // engine, and reports back through onFinish(score, results).
 
-import * as ui from '../ui.js?v=scene-flow-8';
+import * as ui from '../ui.js?v=scene-flow-9';
 
 export function run({ root, sc, timer, onFinish, flowSteps = null, flowTitle = null, flowKicker = null, reviewHref = null, reviewPoster = null }) {
   // When launched as the "Step 2 of 2" tail of the scene-watch flow, the
