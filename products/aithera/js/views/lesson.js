@@ -15,7 +15,7 @@
 // hidden so the lesson surface owns the screen.
 
 import { store } from '../store.js';
-import * as ui from '../ui.js?v=scene-flow-1';
+import * as ui from '../ui.js?v=scene-flow-7';
 
 export function render(courseId, lessonId) {
   const course = store.course(courseId);
@@ -550,9 +550,19 @@ function sceneWatchEl(block, { headLabel, onExit, onLaunch }) {
     });
     return {
       el,
+      // Live playhead for the scene on screen. Updates even on a re-watch
+      // (completed scene) so the learner can see where they are in the clip;
+      // other already-done segments are left untouched.
       setProgress(i, p) {
-        if (completed.has(i)) return;
+        if (i !== activeIdx && completed.has(i)) return;
         segs[i].fill.style.width = `${Math.max(0, Math.min(100, Math.round(p * 100)))}%`;
+      },
+      // Flip the active segment into "watching" (blue) and rewind it — called
+      // when a clip starts, including replaying one that was already finished.
+      beginPlay(i) {
+        segs[i].seg.classList.remove('done');
+        segs[i].seg.classList.add('cur');
+        segs[i].fill.style.width = '0%';
       },
       markDone(i) {
         segs[i].seg.classList.remove('cur');
@@ -585,12 +595,38 @@ function sceneWatchEl(block, { headLabel, onExit, onLaunch }) {
     }
 
     const scrub = buildScrubber(i);
-    // Play/replay affordance — visible whenever the clip is paused (on arrival,
-    // and again once it ends). The learner taps it to start; videos never
-    // auto-play on load.
-    const playBtn = ui.el('button', { class: 'scene-play-overlay', 'aria-label': 'Play scene', on: { click: () => startPlayback(video.ended) } }, ui.icon('play'));
+    // Play/pause affordance. On arrival (and once a clip ends) it shows a play
+    // triangle. Tapping it starts playback, the icon morphs to a pause bar, and
+    // it auto-fades after ~800ms so it doesn't sit over the footage. Hovering or
+    // tapping the frame brings it back so the learner can pause/resume.
+    const playIcon = ui.icon('play');
+    const pauseIcon = ui.icon('pause');
+    const playBtn = ui.el('button', { class: 'scene-play-overlay', 'aria-label': 'Play scene' }, playIcon);
+    playBtn.addEventListener('click', (e) => {
+      e.stopPropagation();                 // don't let the frame-tap handler re-show it
+      if (frame.classList.contains('playing')) pausePlayback();
+      else startPlayback(video.ended);
+    });
     const frame = ui.el('div', { class: 'scene-video-frame' }, video, ui.el('span', { class: 'scene-video-scrim', 'aria-hidden': 'true' }), playBtn, scrub.el);
+    // Tapping anywhere on the frame while playing reveals the (faded) control;
+    // hover does the same on pointer devices via CSS.
+    frame.addEventListener('click', () => { if (frame.classList.contains('playing')) revealControl(); });
     body.appendChild(frame);
+
+    // ---- control visibility (auto-fade while playing) ----
+    let fadeTimer = null;
+    function clearFade() { if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null; } }
+    // Show the control, then schedule it to fade back out after a beat.
+    function revealControl() {
+      clearFade();
+      frame.classList.remove('control-faded');
+      fadeTimer = setTimeout(() => {
+        // Only fade while still playing — a paused/ended clip keeps it visible.
+        if (frame.classList.contains('playing')) frame.classList.add('control-faded');
+      }, 800);
+    }
+    // Pin the control on (no fade) — used whenever the clip is paused or ended.
+    function pinControl() { clearFade(); frame.classList.remove('control-faded'); }
 
     // Title + description read as one block, so they sit tighter to each other
     // than to the video above / button below.
@@ -623,7 +659,7 @@ function sceneWatchEl(block, { headLabel, onExit, onLaunch }) {
     // ---- playback + gating ----
     let simTimer = null, guard = null;
     function clearSim() { if (simTimer) { clearInterval(simTimer); simTimer = null; } if (guard) { clearTimeout(guard); guard = null; } }
-    leaveScene = clearSim;
+    leaveScene = () => { clearSim(); clearFade(); };
     function completeScene() {
       clearSim();
       completed.add(i);
@@ -632,7 +668,10 @@ function sceneWatchEl(block, { headLabel, onExit, onLaunch }) {
       btn.classList.add('ready');
       markGateComplete();
       playBtn.hidden = false;          // becomes a replay affordance
+      playBtn.replaceChildren(playIcon);
+      playBtn.setAttribute('aria-label', 'Replay scene');
       frame.classList.remove('playing');
+      pinControl();
     }
     // Simulated playback for missing/broken clips — fills over ~5s.
     function startSim() {
@@ -645,14 +684,30 @@ function sceneWatchEl(block, { headLabel, onExit, onLaunch }) {
       }, 80);
     }
     function startPlayback(isReplay) {
-      playBtn.hidden = true;
       frame.classList.add('playing');
+      playBtn.replaceChildren(pauseIcon);   // toggles to a pause control while playing
+      playBtn.setAttribute('aria-label', 'Pause scene');
+      revealControl();                      // briefly show the pause state, then fade
+      // Rewind the scrubber when we're (re)starting from the top — a replay or
+      // re-watch of an already-finished scene. A mid-scene resume keeps its fill.
+      if (isReplay || completed.has(i)) scrub.beginPlay(i);
       if (!scene.video) { startSim(); return; }
       if (isReplay) { try { video.currentTime = 0; } catch (e) {} }
       const pr = video.play?.();
       if (pr && pr.catch) pr.catch(() => startSim());
       // If the file never loads (404 / missing), fall back to simulation.
       guard = setTimeout(() => { if (video.readyState < 2 && !simTimer) startSim(); }, 1200);
+    }
+    function pausePlayback() {
+      if (scene.video) video.pause();       // fires the 'pause' handler below
+      else { clearSim(); onUserPaused(); }  // simulated clips have no media events
+    }
+    // Restore the play affordance and pin it on whenever playback stops short.
+    function onUserPaused() {
+      frame.classList.remove('playing');
+      playBtn.replaceChildren(playIcon);
+      playBtn.setAttribute('aria-label', 'Play scene');
+      pinControl();
     }
     video.addEventListener('loadeddata', () => { if (guard) { clearTimeout(guard); guard = null; } });
     video.addEventListener('timeupdate', () => {
@@ -662,7 +717,7 @@ function sceneWatchEl(block, { headLabel, onExit, onLaunch }) {
     video.addEventListener('error', () => { if (!completed.has(i)) startSim(); });
     // A user pause (not the end-of-clip pause) brings the play button back so
     // they can resume.
-    video.addEventListener('pause', () => { if (!video.ended) { playBtn.hidden = false; frame.classList.remove('playing'); } });
+    video.addEventListener('pause', () => { if (!video.ended) onUserPaused(); });
 
     // No auto-play: the scene opens on its poster with the play button showing.
     // Already-watched scenes stay unlocked and show the replay button.
