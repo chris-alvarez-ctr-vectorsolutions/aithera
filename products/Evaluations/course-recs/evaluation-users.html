@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluation Users — Redesign</title>
+
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: var(--lumo-font-family, 'Open Sans', sans-serif);
+            font-size: 14px;
+            background: var(--lumo-contrast-5pct, #f4f6f8);
+            color: var(--lumo-body-text-color, #1a1a1a);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── Topnav ── */
+        vwc-topnav {
+            flex-shrink: 0;
+            z-index: 100;
+        }
+
+        /* ── App Shell ── */
+        .app-shell {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+        }
+
+        /* ── Sidenav ── */
+        #sidenav {
+            flex-shrink: 0;
+            align-self: stretch;
+            z-index: 50;
+        }
+
+        /* ── Main Content ── */
+        .main-content {
+            flex: 1;
+            min-width: 0;
+            overflow-y: auto;
+            background: #fff;
+            padding: 0 32px 24px;
+        }
+
+        /* ── Switch User Bar ── */
+        .switch-user-bar {
+            background: #f4f6f8;
+            border-bottom: 1px solid #ebebeb;
+            padding: 8px 32px;
+            margin: 0 -32px;
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--lumo-secondary-text-color, #555);
+        }
+        .switch-user-bar i { font-size: 14px; }
+        .switch-user-bar a {
+            color: var(--lumo-primary-color, #0271ce);
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .switch-user-bar a:hover { text-decoration: underline; }
+
+        /* ── Content Header ── */
+        .content-header {
+            background: #fff;
+            margin: 0 -32px 16px;
+            padding: 20px 32px 0;
+            position: relative;
+            z-index: 5;
+        }
+
+        /* ── Page Header ── */
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .page-title {
+            font-size: 22px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        /* ── Filter Row ── */
+        .filter-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+            margin-bottom: 6px;
+            flex-wrap: wrap;
+        }
+        .filter-row .filter-search {
+            flex: 1 1 280px;
+            min-width: 200px;
+        }
+        .filter-row .filter-spacer { flex: 1; }
+
+        /* View toggle (List / Calendar icon buttons) — aligned with input row */
+        .view-toggle-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            height: 36px; /* matches Vaadin outlined input height */
+        }
+        .view-toggle-label {
+            font-size: 13px;
+            color: var(--lumo-secondary-text-color, #666);
+            font-weight: 500;
+        }
+        .view-toggle-buttons {
+            display: inline-flex;
+            border: 1px solid var(--lumo-contrast-20pct, #d0d4d9);
+            border-radius: var(--lumo-border-radius-s, 4px);
+            overflow: hidden;
+            background: #fff;
+        }
+        .view-toggle-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: transparent;
+            color: var(--lumo-secondary-text-color, #666);
+            cursor: pointer;
+            font-size: 14px;
+            font-family: inherit;
+            transition: background 120ms ease, color 120ms ease;
+        }
+        .view-toggle-btn:not(:last-child) {
+            border-right: 1px solid var(--lumo-contrast-20pct, #d0d4d9);
+        }
+        .view-toggle-btn:hover {
+            background: var(--lumo-contrast-5pct, #f4f6f8);
+            color: var(--lumo-body-text-color, #1a1a1a);
+        }
+        .view-toggle-btn.is-active {
+            background: var(--lumo-primary-color-10pct, #e8f2fb);
+            color: var(--lumo-primary-color, #0271ce);
+        }
+
+        /* ── Form Cards (vwc-card theme="elevated") ── */
+        vwc-card.form-card {
+            display: block;
+            margin-bottom: var(--lumo-space-m, 12px);
+            position: relative;
+        }
+        /* Suppress the image-slot fallback placeholder (vwc-card always renders one).
+           Slotting an empty hidden element overrides the internal fallback. */
+        vwc-card.form-card [slot="image"] { display: none; }
+        /* Status tints applied to the card host */
+        vwc-card.form-card.status-deleted {
+            opacity: 0.85;
+        }
+        vwc-card.form-card.status-deleted::part(card) {
+            background: var(--lumo-error-color-10pct, #e71d131a);
+        }
+        vwc-card.form-card.status-shared::part(card) {
+            box-shadow: inset 3px 0 0 0 var(--lumo-primary-color, #0271ce);
+        }
+        /* In Progress — blue border around the card */
+        vwc-card.form-card.status-in-progress {
+            border-radius: var(--lumo-border-radius-m, 8px);
+            box-shadow: 0 0 0 1px var(--lumo-primary-color, #0271ce);
+        }
+        /* Slot padding — vwc-card has no built-in padding without theme="padded" */
+        vwc-card.form-card [slot="header"] {
+            padding: var(--lumo-space-s, 12px) var(--lumo-space-m, 16px) 0;
+        }
+        vwc-card.form-card [slot="content"] {
+            padding: var(--lumo-space-xs, 6px) var(--lumo-space-m, 16px) var(--lumo-space-s, 12px);
+        }
+
+        .card-top-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--lumo-space-s, 8px);
+            margin-bottom: var(--lumo-space-xs, 4px);
+        }
+        .card-top-row-main {
+            display: flex;
+            flex-direction: column;
+            gap: var(--lumo-space-xs, 4px);
+            min-width: 0;
+            flex: 1;
+        }
+        .card-meta {
+            font-size: var(--lumo-font-size-xs, 12px);
+            color: var(--lumo-secondary-text-color, #666);
+            display: flex;
+            align-items: center;
+            gap: var(--lumo-space-s, 8px);
+            flex-wrap: wrap;
+        }
+        .card-badges {
+            display: flex;
+            align-items: center;
+            gap: var(--lumo-space-m, 16px);
+            flex-wrap: wrap;
+        }
+        .card-actions {
+            display: flex;
+            align-items: center;
+            gap: var(--lumo-space-s, 8px);
+            flex-shrink: 0;
+        }
+        .card-title-link {
+            font-size: var(--lumo-font-size-l, 16px);
+            font-weight: 600;
+            color: var(--lumo-primary-color, #0271ce);
+            text-decoration: underline;
+            display: block;
+            margin-bottom: var(--lumo-space-xs, 4px);
+        }
+
+        /* Stacked detail rows — 2-column grid; column 2 pinned to the card's right edge */
+        .card-details {
+            display: grid;
+            grid-template-columns: max-content 1fr;
+            gap: 4px 32px;
+            font-size: 13px;
+            color: var(--lumo-body-text-color, #1a1a1a);
+        }
+        .detail-line {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            line-height: 1.6;
+        }
+        /* Right column: right-align label + value to the card edge */
+        .card-details .detail-line:nth-child(2n) {
+            justify-content: flex-end;
+            text-align: right;
+        }
+        .detail-line .detail-label {
+            color: var(--lumo-secondary-text-color, #666);
+            font-weight: 400;
+        }
+        .detail-line .detail-value {
+            color: var(--lumo-body-text-color, #1a1a1a);
+            font-weight: 400;
+        }
+
+        /* ── Tab panels ── */
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── Calendar ── */
+        .calendar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .calendar-nav {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .calendar-month {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0 8px;
+            min-width: 160px;
+            text-align: center;
+        }
+        .cal-mode-tabs vaadin-tab { padding: 6px 14px; }
+        .calendar-grid {
+            background: #fff;
+            border: 1px solid var(--lumo-contrast-20pct, #e0e0e0);
+            border-radius: var(--lumo-border-radius-m, 8px);
+            overflow: hidden;
+        }
+        .calendar-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            background: var(--lumo-contrast-5pct, #f4f6f8);
+            border-bottom: 1px solid var(--lumo-contrast-10pct, #ebebeb);
+        }
+        .calendar-weekday {
+            padding: 8px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--lumo-secondary-text-color, #666);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .calendar-days {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            grid-auto-rows: minmax(100px, 1fr);
+        }
+        .calendar-day {
+            border-right: 1px solid var(--lumo-contrast-10pct, #ebebeb);
+            border-bottom: 1px solid var(--lumo-contrast-10pct, #ebebeb);
+            padding: 6px 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            min-height: 100px;
+        }
+        .calendar-day:nth-child(7n) { border-right: none; }
+        .calendar-day.is-other-month {
+            background: var(--lumo-contrast-5pct, #f4f6f8);
+            color: var(--lumo-contrast-50pct, #b3b3b3);
+        }
+        .calendar-day.is-today .day-number {
+            background: var(--lumo-primary-color, #0271ce);
+            color: #fff;
+        }
+        .day-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        .cal-event {
+            background: var(--lumo-primary-color-10pct, #e8f2fb);
+            color: var(--lumo-primary-color, #0271ce);
+            border-left: 3px solid var(--lumo-primary-color, #0271ce);
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-decoration: none;
+            display: block;
+        }
+        .cal-event:hover { background: var(--lumo-primary-color, #0271ce); color: #fff; }
+        .cal-event.type-upload {
+            background: var(--lumo-success-color-10pct, #0094221a);
+            color: var(--lumo-success-text-color, #006616);
+            border-left-color: var(--lumo-success-color, #009422);
+        }
+        .cal-event.type-upload:hover { background: var(--lumo-success-color, #009422); color: #fff; }
+        .cal-event.type-event {
+            background: var(--vwc-notification-color-10pct, #ffc7001a);
+            color: var(--vwc-notification-text-color, #a66900);
+            border-left-color: var(--vwc-notification-color, #ffc700);
+        }
+        .cal-event.type-event:hover { background: var(--vwc-notification-color, #ffc700); color: #1a1a1a; }
+
+        body:not(.show-deleted) .form-card.status-deleted { display: none; }
+        body.only-deleted .form-card:not(.status-deleted) { display: none; }
+
+        /* ── New Item dialog ── */
+        .new-item-viewport {
+            width: 480px;
+            max-width: 100%;
+            overflow: hidden;
+            position: relative;
+        }
+        .new-item-track {
+            display: flex;
+            width: 200%;
+            transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateX(0);
+        }
+        .new-item-track.show-step-2 { transform: translateX(-50%); }
+        .new-item-step {
+            width: 50%;
+            flex-shrink: 0;
+            padding: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .new-item-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border: 1px solid var(--lumo-contrast-10pct, #ebebeb);
+            border-radius: var(--lumo-border-radius-m, 8px);
+            background: #fff;
+            cursor: pointer;
+            text-align: left;
+            font-family: inherit;
+            font-size: 14px;
+            width: 100%;
+        }
+        .new-item-row:hover {
+            background: var(--lumo-primary-color-10pct, #e8f2fb);
+            border-color: var(--lumo-primary-color-50pct, #0271cec2);
+        }
+        .new-item-row > .new-item-icon { font-size: 18px; width: 24px; text-align: center; flex-shrink: 0; }
+        .new-item-row > .new-item-body { flex: 1; min-width: 0; }
+        .new-item-row > .new-item-chevron {
+            color: var(--lumo-secondary-text-color, #888);
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+        .new-item-title { font-weight: 600; }
+        .new-item-desc { font-size: 12px; color: var(--lumo-secondary-text-color, #666); }
+
+        /* Step 2 — form list rows */
+        .step-list {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--lumo-contrast-10pct, #ebebeb);
+            border-radius: var(--lumo-border-radius-m, 8px);
+            overflow: hidden;
+            max-height: 360px;
+            overflow-y: auto;
+        }
+        .step-list-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            background: #fff;
+            border: none;
+            border-bottom: 1px solid var(--lumo-contrast-10pct, #ebebeb);
+            cursor: pointer;
+            text-align: left;
+            font-family: inherit;
+            font-size: 14px;
+            width: 100%;
+        }
+        .step-list-row:last-child { border-bottom: none; }
+        .step-list-row:hover { background: var(--lumo-primary-color-10pct, #e8f2fb); }
+        .step-list-row.is-selected {
+            background: var(--lumo-primary-color-10pct, #e8f2fb);
+        }
+        .step-list-row .row-meta { flex: 1; min-width: 0; }
+        .step-list-row .row-title { font-weight: 600; color: var(--lumo-body-text-color, #1a1a1a); }
+        .step-list-row .row-sub { font-size: 12px; color: var(--lumo-secondary-text-color, #666); margin-top: 2px; }
+        .step-list-row .row-radio {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--lumo-contrast-30pct, #a8acb3);
+            border-radius: 999px;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+        }
+        .step-list-row.is-selected .row-radio {
+            border-color: var(--lumo-primary-color, #0271ce);
+        }
+        .step-list-row.is-selected .row-radio::after {
+            content: '';
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: var(--lumo-primary-color, #0271ce);
+        }
+
+        /* Step 2 — upload / link tabs */
+        .step-upload {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .upload-dropzone {
+            border: 2px dashed var(--lumo-contrast-20pct, #d0d4d9);
+            border-radius: var(--lumo-border-radius-m, 8px);
+            padding: 28px 16px;
+            text-align: center;
+            background: var(--lumo-contrast-5pct, #f4f6f8);
+            color: var(--lumo-secondary-text-color, #666);
+        }
+        .upload-dropzone i {
+            font-size: 28px;
+            color: var(--lumo-primary-color, #0271ce);
+            display: block;
+            margin-bottom: 8px;
+        }
+        .upload-dropzone-strong { color: var(--lumo-body-text-color, #1a1a1a); font-weight: 600; }
+
+        /* Step 2 — coming-soon placeholder */
+        .step-placeholder {
+            text-align: center;
+            padding: 32px 16px;
+            color: var(--lumo-secondary-text-color, #666);
+        }
+        .step-placeholder i {
+            font-size: 36px;
+            color: var(--lumo-contrast-30pct, #a8acb3);
+            display: block;
+            margin-bottom: 12px;
+        }
+        .step-placeholder-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--lumo-body-text-color, #1a1a1a);
+            margin-bottom: 4px;
+        }
+
+        /* Footer layout — back on left, primary actions on right */
+        .dialog-footer-spacer { flex: 1; }
+
+        /* Quick Search stub modal */
+        .quick-search-stub {
+            width: 480px;
+            max-width: 100%;
+            padding: 24px 4px;
+        }
+
+    </style>
+</head>
+<body>
+
+<!-- ── Topnav ── -->
+<vwc-topnav id="main-topnav" sidenav-id="sidenav">
+    <div slot="leftSide" style="display:flex; align-items:center; margin-left:-8px;">
+        <svg viewBox="0 0 36 36" width="32" height="32" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 3 C18 3 26 11 26 20 C26 26 22 31 18 33 C14 31 10 26 10 20 C10 11 18 3 18 3Z" fill="white" opacity="0.9"/>
+            <circle cx="18" cy="20" r="4" fill="#0057b8"/>
+            <path d="M12 28 L8 34 L14 31Z" fill="white" opacity="0.7"/>
+            <path d="M24 28 L28 34 L22 31Z" fill="white" opacity="0.7"/>
+        </svg>
+    </div>
+    <vwc-notifications-menu slot="notifications-menu"></vwc-notifications-menu>
+    <vwc-user-menu slot="user-menu"></vwc-user-menu>
+</vwc-topnav>
+
+<!-- ── App Shell ── -->
+<div class="app-shell">
+
+    <vwc-sidenav id="sidenav"></vwc-sidenav>
+
+    <main class="main-content">
+
+        <!-- ── Switch User Bar ── -->
+        <div class="switch-user-bar">
+            <i class="fa-regular fa-user"></i>
+            Viewing forms for <a href="#" id="switch-user-link">Austin Smith (you)<i class="fa-solid fa-chevron-down" style="font-size:9px;"></i></a>
+        </div>
+
+        <!-- ── Content Header ── -->
+        <div class="content-header">
+            <div class="page-header">
+                <h1 class="page-title">Evaluation Users</h1>
+                <div style="display:flex; gap:8px;">
+                    <vaadin-button theme="secondary" id="quick-search-btn">
+                        <i class="fa-solid fa-magnifying-glass" style="margin-right:6px;"></i>
+                        Quick Search
+                    </vaadin-button>
+                    <vaadin-button theme="primary" id="new-btn">
+                        <i class="fa-solid fa-plus" style="margin-right:6px;"></i>
+                        New
+                    </vaadin-button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Shared Filter Row ── -->
+        <div class="filter-row">
+            <vaadin-text-field
+                id="search-list"
+                class="filter-search"
+                theme="outlined"
+                label="Search"
+                placeholder="Search by form name"
+                clear-button-visible>
+                <i class="fa-solid fa-magnifying-glass" slot="prefix" style="font-size:13px; color:#888;"></i>
+            </vaadin-text-field>
+            <vaadin-select
+                id="date-range"
+                theme="outlined"
+                label="Date Range"
+                value="current-year"
+                style="width:180px;"></vaadin-select>
+            <vaadin-multi-select-combo-box
+                id="type-filter"
+                theme="outlined"
+                label="Type"
+                placeholder="All types"
+                style="width:220px;"></vaadin-multi-select-combo-box>
+            <vaadin-multi-select-combo-box
+                id="status-filter"
+                theme="outlined"
+                label="Status"
+                placeholder="All statuses"
+                style="width:220px;"></vaadin-multi-select-combo-box>
+            <div class="filter-spacer"></div>
+            <div class="view-toggle-group" role="group" aria-label="View mode">
+                <span class="view-toggle-label">View:</span>
+                <div class="view-toggle-buttons">
+                    <button type="button" class="view-toggle-btn is-active" data-view="list" aria-label="List view" aria-pressed="true">
+                        <i class="fa-solid fa-list"></i>
+                    </button>
+                    <button type="button" class="view-toggle-btn" data-view="calendar" aria-label="Calendar view" aria-pressed="false">
+                        <i class="fa-regular fa-calendar"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ List view ══ -->
+        <div class="tab-panel active" id="panel-list">
+
+            <!-- Form Cards -->
+
+            <!-- Card 1: Question Types — signature present, no shared, no reflection, no attachments -->
+            <vwc-card theme="elevated" class="form-card">
+                <span slot="image"></span>
+                <div slot="header" class="card-top-row">
+                    <div class="card-top-row-main">
+                        <div class="card-badges">
+                            <span class="card-meta"><i class="fa-solid fa-file-lines" style="color:var(--lumo-secondary-text-color,#00000099); margin-right:4px;"></i>Evaluation Form</span>
+                            <span theme="badge warning">Submitted</span>
+                        </div>
+                        <a href="#" class="card-title-link">Question Types</a>
+                    </div>
+                    <div class="card-actions">
+                        <vaadin-button theme="secondary" class="view-form-btn">Review Form</vaadin-button>
+                        <vaadin-button theme="icon" aria-label="More options"><i class="fa-solid fa-ellipsis-vertical"></i></vaadin-button>
+                    </div>
+                </div>
+                <div slot="content" class="card-details">
+                    <div class="detail-line"><span class="detail-label">Author:</span><span class="detail-value">Austin Smith</span></div>
+                    <div class="detail-line"><span class="detail-label">Reflection:</span><span class="detail-value">No</span></div>
+                    <div class="detail-line"><span class="detail-label">User:</span><span class="detail-value">Austin Smith</span></div>
+                    <div class="detail-line"><span class="detail-label">Signatures:</span><span class="detail-value">Yes (1)</span></div>
+                    <div class="detail-line"><span class="detail-label">Last Modified:</span><span class="detail-value">Jun 2, 2026, 8:30 AM</span></div>
+                    <div class="detail-line"><span class="detail-label">Attachments:</span><span class="detail-value">No</span></div>
+                </div>
+            </vwc-card>
+
+            <!-- Card 2: Observation and Post Meeting Form — shared, reflection, no signature, 2 attachments -->
+            <vwc-card theme="elevated" class="form-card status-shared status-in-progress">
+                <span slot="image"></span>
+                <div slot="header" class="card-top-row">
+                    <div class="card-top-row-main">
+                        <div class="card-badges">
+                            <span class="card-meta"><i class="fa-solid fa-file-lines" style="color:var(--lumo-secondary-text-color,#00000099); margin-right:4px;"></i>Evaluation Form</span>
+                            <span theme="badge primary">In Progress</span>
+                            <span theme="badge contrast"><i class="fa-solid fa-share-nodes" style="margin-right:4px; font-size:10px;"></i>Shared</span>
+                        </div>
+                        <a href="#" class="card-title-link">Observation and Post Meeting Form</a>
+                    </div>
+                    <div class="card-actions">
+                        <vaadin-button theme="primary" class="view-form-btn">Continue</vaadin-button>
+                        <vaadin-button theme="icon" aria-label="More options"><i class="fa-solid fa-ellipsis-vertical"></i></vaadin-button>
+                    </div>
+                </div>
+                <div slot="content" class="card-details">
+                    <div class="detail-line"><span class="detail-label">Author:</span><span class="detail-value">Austin Smith</span></div>
+                    <div class="detail-line"><span class="detail-label">Reflection:</span><span class="detail-value">Yes</span></div>
+                    <div class="detail-line"><span class="detail-label">User:</span><span class="detail-value">Austin Smith</span></div>
+                    <div class="detail-line"><span class="detail-label">Signatures:</span><span class="detail-value">No</span></div>
+                    <div class="detail-line"><span class="detail-label">Last Modified:</span><span class="detail-value">Jun 2, 2026, 9:06 AM</span></div>
+                    <div class="detail-line"><span class="detail-label">Attachments:</span><span class="detail-value">Yes (2)</span></div>
+                </div>
+            </vwc-card>
+
+            <!-- Card 3: Performance Standards — no shared, no reflection, signature, no attachments -->
+            <vwc-card theme="elevated" class="form-card">
+                <span slot="image"></span>
+                <div slot="header" class="card-top-row">
+                    <div class="card-top-row-main">
+                        <div class="card-badges">
+                            <span class="card-meta"><i class="fa-solid fa-file-lines" style="color:var(--lumo-secondary-text-color,#00000099); margin-right:4px;"></i>Evaluation Form</span>
+                            <span theme="badge success">Completed</span>
+                        </div>
+                        <a href="#" class="card-title-link">Performance Standards for Teacher Practice (w/Rubric)</a>
+                    </div>
+                    <div class="card-actions">
+                        <vaadin-button theme="secondary" class="view-form-btn">Review Form</vaadin-button>
+                        <vaadin-button theme="icon" aria-label="More options"><i class="fa-solid fa-ellipsis-vertical"></i></vaadin-button>
+                    </div>
+                </div>
+                <div slot="content" class="card-details">
+                    <div class="detail-line"><span class="detail-label">Author:</span><span class="detail-value">Austin Smith</span></div>
+                    <div class="detail-line"><span class="detail-label">Reflection:</span><span class="detail-value">No</span></div>
+                    <div class="detail-line"><span class="detail-label">User:</span><span class="detail-value">Austin Smith</span></div>
+                    <div class="detail-line"><span class="detail-label">Signatures:</span><span class="detail-value">Yes (3)</span></div>
+                    <div class="detail-line"><span class="detail-label">Last Modified:</span><span class="detail-value">May 28, 2026, 11:13 AM</span></div>
+                    <div class="detail-line"><span class="detail-label">Attachments:</span><span class="detail-value">No</span></div>
+                </div>
+            </vwc-card>
+
+            <!-- Card 4: Deleted (visible only when Show Deleted is on) -->
+            <vwc-card theme="elevated" class="form-card status-deleted">
+                <span slot="image"></span>
+                <div slot="header" class="card-top-row">
+                    <div class="card-top-row-main">
+                        <div class="card-badges">
+                            <span class="card-meta"><i class="fa-solid fa-file-lines" style="color:var(--lumo-secondary-text-color,#666); margin-right:4px;"></i>Evaluation Form</span>
+                            <span theme="badge error">Deleted</span>
+                        </div>
+                        <a href="#" class="card-title-link" style="color:var(--lumo-secondary-text-color,#666);">Mid-Year Self-Reflection (Draft)</a>
+                    </div>
+                    <div class="card-actions">
+                        <vaadin-button theme="icon" aria-label="More options"><i class="fa-solid fa-ellipsis-vertical"></i></vaadin-button>
+                    </div>
+                </div>
+                <div slot="content" class="card-details">
+                    <div class="detail-line"><span class="detail-label">Author:</span><span class="detail-value">Austin Smith</span></div>
+                    <div class="detail-line"><span class="detail-label">Reflection:</span><span class="detail-value">No</span></div>
+                    <div class="detail-line"><span class="detail-label">User:</span><span class="detail-value">Austin Smith</span></div>
+                    <div class="detail-line"><span class="detail-label">Signatures:</span><span class="detail-value">No</span></div>
+                    <div class="detail-line"><span class="detail-label">Last Modified:</span><span class="detail-value">Apr 14, 2026, 3:42 PM</span></div>
+                    <div class="detail-line"><span class="detail-label">Attachments:</span><span class="detail-value">No</span></div>
+                </div>
+            </vwc-card>
+
+        </div><!-- end panel-list -->
+
+        <!-- ══ Calendar view ══ -->
+        <div class="tab-panel" id="panel-calendar">
+
+            <div class="calendar-header">
+                <div class="calendar-nav">
+                    <vaadin-button theme="icon" aria-label="Previous"><i class="fa-solid fa-angle-left"></i></vaadin-button>
+                    <h2 class="calendar-month" id="cal-month">June 2026</h2>
+                    <vaadin-button theme="icon" aria-label="Next"><i class="fa-solid fa-angle-right"></i></vaadin-button>
+                    <vaadin-button theme="tertiary" style="margin-left:4px;">Today</vaadin-button>
+                </div>
+                <vaadin-tabs id="cal-mode-tabs" selected="0" class="cal-mode-tabs">
+                    <vaadin-tab>Month</vaadin-tab>
+                    <vaadin-tab>Week</vaadin-tab>
+                    <vaadin-tab>Day</vaadin-tab>
+                </vaadin-tabs>
+            </div>
+
+            <div class="calendar-grid" role="grid" aria-label="Forms calendar">
+                <div class="calendar-weekdays">
+                    <div class="calendar-weekday">Sun</div>
+                    <div class="calendar-weekday">Mon</div>
+                    <div class="calendar-weekday">Tue</div>
+                    <div class="calendar-weekday">Wed</div>
+                    <div class="calendar-weekday">Thu</div>
+                    <div class="calendar-weekday">Fri</div>
+                    <div class="calendar-weekday">Sat</div>
+                </div>
+                <div class="calendar-days" id="calendar-days"></div>
+            </div>
+
+        </div><!-- end panel-calendar -->
+
+    </main>
+</div><!-- end app-shell -->
+
+<!-- ── Dialogs ── -->
+<vaadin-dialog id="switch-user-dialog" header-title="Switch User"></vaadin-dialog>
+<vaadin-dialog id="new-item-dialog"></vaadin-dialog>
+<vaadin-dialog id="quick-search-dialog" header-title="Quick Search"></vaadin-dialog>
+
+<script>
+(function() {
+    // ── Sidenav (matches manage-activities) ──
+    const sidenav = document.getElementById('sidenav');
+    sidenav.items = [
+        { type: 'link', id: 'home', text: 'Home', href: '#', icon: { path: 'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z' } },
+        { type: 'link', id: 'eval-dashboard', text: 'Evaluation Dashboard', href: '#', icon: { path: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z' } },
+        { type: 'link', id: 'eval-users', text: 'Evaluation Users', href: '#', icon: { path: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z' } },
+        { type: 'link', id: 'eval-plans', text: 'Evaluation Plans', href: '#', icon: { path: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z' } },
+        { type: 'link', id: 'eval-todo', text: 'Evaluator To Do List', href: '#', icon: { path: 'M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z' } },
+        {
+            type: 'group', id: 'pd-tracking', text: 'PD Tracking', icon: { path: 'M12 3L1 9l4 2.18V15c0 3.31 3.13 6 7 6s7-2.69 7-6v-3.82L22 9 12 3zm6 13c0 2.21-2.69 4-6 4s-6-1.79-6-4v-2.27L12 17l6-3.27V16zm-6-1L3.76 9 12 5.08 20.24 9 12 15z' },
+            children: [
+                { type: 'link', id: 'my-activities', text: 'My Activities', href: '#', icon: { path: 'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z' } },
+                { type: 'link', id: 'available-activities', text: 'Available Activities', href: '#', icon: { path: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z' } },
+                { type: 'link', id: 'manage-activities', text: 'Manage Activities', href: '#', icon: { path: 'M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z' } },
+            ],
+        },
+        { type: 'link', id: 'badges', text: 'Badges', href: '#', icon: { path: 'M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z' } },
+        { type: 'link', id: 'coaching', text: 'Coaching', href: '#', icon: { path: 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z' } },
+        { type: 'link', id: 'reports', text: 'Reports', href: '#', icon: { path: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z' } },
+        { type: 'link', id: 'activity', text: 'Activity', href: '#', icon: { path: 'M13 2.05v2.02c3.95.49 7 3.85 7 7.93 0 3.21-1.81 6-4.72 7.72L13 18v2.05c4.22-.56 7.5-3.5 7.5-8.05 0-4.85-3.42-8.93-7.5-9.95zM11 2.05C6.92 3.07 3.5 7.14 3.5 12c0 4.55 3.28 7.49 7.5 8.05V18l-2.28 1.7C5.81 18 4 15.21 4 12c0-4.08 3.05-7.44 7-7.93V2.05z' } },
+        { type: 'link', id: 'settings', text: 'Settings', href: '#', icon: { path: 'M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z' } },
+    ];
+    sidenav.activeItemId = 'eval-users';
+
+    // ── Vaadin Select items ──
+    function setSelectItems(selectEl, items) {
+        if (!selectEl) return;
+        selectEl.items = items;
+    }
+
+    customElements.whenDefined('vaadin-select').then(() => {
+        const dateItems = [
+            { label: 'Current Year', value: 'current-year' },
+            { label: 'Last Year', value: 'last-year' },
+            { label: 'Past Two Years', value: 'past-two-years' },
+        ];
+        setSelectItems(document.getElementById('date-range'), dateItems);
+    });
+
+    customElements.whenDefined('vaadin-multi-select-combo-box').then(() => {
+        const typeCombo = document.getElementById('type-filter');
+        if (typeCombo) typeCombo.items = ['Evaluation Forms', 'Uploaded Files', 'Scheduled Events'];
+
+        const statusCombo = document.getElementById('status-filter');
+        if (statusCombo) statusCombo.items = ['In Progress', 'Submitted', 'Completed', 'Deleted'];
+    });
+
+    // ── View toggle (List ↔ Calendar) ──
+    const panelList = document.getElementById('panel-list');
+    const panelCalendar = document.getElementById('panel-calendar');
+    document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const view = btn.dataset.view;
+            document.querySelectorAll('.view-toggle-btn').forEach(b => {
+                const active = b === btn;
+                b.classList.toggle('is-active', active);
+                b.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+            panelList.classList.toggle('active', view === 'list');
+            panelCalendar.classList.toggle('active', view === 'calendar');
+            if (view === 'calendar') renderCalendar();
+        });
+    });
+
+    // ── Status filter (replaces Show Deleted toggle) — multi-select ──
+    const statusFilter = document.getElementById('status-filter');
+    if (statusFilter) {
+        statusFilter.addEventListener('selected-items-changed', (e) => {
+            const selected = (e.detail.value || []);
+            const hasDeleted = selected.includes('Deleted');
+            const hasOther = selected.some(s => s !== 'Deleted');
+            // show-deleted: deleted cards visible. only-deleted: hide non-deleted cards.
+            document.body.classList.toggle('show-deleted', hasDeleted);
+            document.body.classList.toggle('only-deleted', hasDeleted && !hasOther && selected.length > 0);
+        });
+    }
+
+    // ── Switch User dialog ──
+    document.getElementById('switch-user-link').addEventListener('click', (e) => {
+        e.preventDefault();
+        const dialog = document.getElementById('switch-user-dialog');
+        dialog.renderer = (root) => {
+            if (root.firstChild) return;
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'min-width:420px; padding:4px;';
+            wrap.innerHTML = `
+                <p style="margin:0 0 12px; color:var(--lumo-secondary-text-color,#666);">Select a direct report to view their forms.</p>
+                <vaadin-text-field theme="outlined" label="Search users" placeholder="Start typing a name…" style="width:100%;">
+                    <i class="fa-solid fa-magnifying-glass" slot="prefix" style="font-size:13px; color:#888;"></i>
+                </vaadin-text-field>
+                <div style="margin-top:12px; border:1px solid var(--lumo-contrast-10pct,#ebebeb); border-radius:6px; max-height:280px; overflow-y:auto;">
+                    <vaadin-list-box>
+                        <vaadin-item>
+                            <div><strong>Jordan Lee</strong><div style="font-size:11px; color:var(--lumo-secondary-text-color,#666);">3rd Grade Teacher · Elementary</div></div>
+                        </vaadin-item>
+                        <vaadin-item>
+                            <div><strong>Maria Chen</strong><div style="font-size:11px; color:var(--lumo-secondary-text-color,#666);">Math Department · High School</div></div>
+                        </vaadin-item>
+                        <vaadin-item>
+                            <div><strong>Sam Patel</strong><div style="font-size:11px; color:var(--lumo-secondary-text-color,#666);">Science Department · High School</div></div>
+                        </vaadin-item>
+                    </vaadin-list-box>
+                </div>
+            `;
+            root.appendChild(wrap);
+        };
+        dialog.footerRenderer = (root) => {
+            if (root.firstChild) return;
+            const cancel = document.createElement('vaadin-button');
+            cancel.setAttribute('theme', 'secondary');
+            cancel.textContent = 'Cancel';
+            cancel.addEventListener('click', () => dialog.opened = false);
+            const confirm = document.createElement('vaadin-button');
+            confirm.setAttribute('theme', 'primary');
+            confirm.textContent = 'Switch';
+            confirm.addEventListener('click', () => dialog.opened = false);
+            root.appendChild(cancel);
+            root.appendChild(confirm);
+        };
+        dialog.opened = true;
+    });
+
+    // ── New button dialog — two-step with sliding transition ──
+    document.getElementById('new-btn').addEventListener('click', () => {
+        const dialog = document.getElementById('new-item-dialog');
+
+        const options = [
+            {
+                key: 'plan-form',
+                icon: 'fa-file-pen',
+                iconColor: 'var(--lumo-primary-color, #0271ce)',
+                title: 'Evaluation Plan Form',
+                desc: 'Start a form from an evaluation plan',
+                step2Title: 'Choose an Evaluation Plan Form',
+                step2: 'plan-form-list',
+            },
+            {
+                key: 'form',
+                icon: 'fa-file-lines',
+                iconColor: 'var(--lumo-primary-color, #0271ce)',
+                title: 'Evaluation Form',
+                desc: 'Create a standalone evaluation form',
+                step2Title: 'Choose an Evaluation Form',
+                step2: 'form-list',
+            },
+            {
+                key: 'upload',
+                icon: 'fa-paperclip',
+                iconColor: 'var(--lumo-success-color, #009422)',
+                title: 'Upload / Link File',
+                desc: 'Add an attachment or external link',
+                step2Title: 'Upload or Link a File',
+                step2: 'upload',
+            },
+            {
+                key: 'calendar',
+                icon: 'fa-calendar-day',
+                iconColor: 'var(--vwc-notification-text-color, #a66900)',
+                title: 'Calendar Event',
+                desc: 'Schedule an observation or meeting',
+                step2Title: 'Calendar Event',
+                step2: 'placeholder',
+            },
+            {
+                key: 'pd',
+                icon: 'fa-graduation-cap',
+                iconColor: 'var(--lumo-primary-color, #0271ce)',
+                title: 'Professional Development',
+                desc: 'Log a PD activity',
+                step2Title: 'Professional Development',
+                step2: 'placeholder',
+            },
+        ];
+
+        const planFormSamples = [
+            { title: 'Performance Standards for Teacher Practice (w/Rubric)', sub: '2025–26 Evaluation Plan · Principal evaluation' },
+            { title: 'Mid-Year Review', sub: '2025–26 Evaluation Plan · Required by Dec 15' },
+            { title: 'End-of-Year Evaluation', sub: '2025–26 Evaluation Plan · Required by Jun 1' },
+            { title: 'Walk-through Observation', sub: 'Optional · Any time during the school year' },
+        ];
+
+        const formSamples = [
+            { title: 'Question Types', sub: 'Standalone reference form' },
+            { title: 'Self-Assessment', sub: 'Submitted by Austin Smith' },
+            { title: 'Peer Observation', sub: 'Last used Apr 2026' },
+            { title: 'Coaching Feedback', sub: 'Last used Mar 2026' },
+        ];
+
+        let currentStep = 1;
+        let selectedOption = null;
+        let selectedListItem = null;
+
+        function renderStep1List(container) {
+            container.innerHTML = '';
+            options.forEach(opt => {
+                const row = document.createElement('button');
+                row.className = 'new-item-row';
+                row.type = 'button';
+                row.dataset.key = opt.key;
+                row.innerHTML = `
+                    <i class="fa-solid ${opt.icon} new-item-icon" style="color:${opt.iconColor};"></i>
+                    <div class="new-item-body">
+                        <div class="new-item-title">${opt.title}</div>
+                        <div class="new-item-desc">${opt.desc}</div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right new-item-chevron"></i>
+                `;
+                row.addEventListener('click', () => goToStep2(opt));
+                container.appendChild(row);
+            });
+        }
+
+        function renderStep2(container, opt) {
+            container.innerHTML = '';
+            if (opt.step2 === 'plan-form-list' || opt.step2 === 'form-list') {
+                const samples = opt.step2 === 'plan-form-list' ? planFormSamples : formSamples;
+                const list = document.createElement('div');
+                list.className = 'step-list';
+                samples.forEach(item => {
+                    const row = document.createElement('button');
+                    row.className = 'step-list-row';
+                    row.type = 'button';
+                    row.innerHTML = `
+                        <div class="row-meta">
+                            <div class="row-title">${item.title}</div>
+                            <div class="row-sub">${item.sub}</div>
+                        </div>
+                        <span class="row-radio"></span>
+                    `;
+                    row.addEventListener('click', () => {
+                        selectedListItem = item.title;
+                        list.querySelectorAll('.step-list-row').forEach(r => r.classList.remove('is-selected'));
+                        row.classList.add('is-selected');
+                        updateFooter();
+                    });
+                    list.appendChild(row);
+                });
+                container.appendChild(list);
+            } else if (opt.step2 === 'upload') {
+                const wrap = document.createElement('div');
+                wrap.className = 'step-upload';
+                wrap.innerHTML = `
+                    <vaadin-tabs id="upload-mode-tabs" selected="0">
+                        <vaadin-tab>Upload File</vaadin-tab>
+                        <vaadin-tab>Link URL</vaadin-tab>
+                    </vaadin-tabs>
+                    <div id="upload-pane">
+                        <div class="upload-dropzone">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            <div><span class="upload-dropzone-strong">Drag a file here</span> or click to browse</div>
+                            <div style="font-size:12px; margin-top:4px;">PDF, DOC, XLS, PNG, JPG up to 25 MB</div>
+                        </div>
+                        <vaadin-text-field theme="outlined" label="File name (optional)" placeholder="Defaults to original filename" style="width:100%; margin-top:12px;"></vaadin-text-field>
+                    </div>
+                    <div id="link-pane" style="display:none;">
+                        <vaadin-text-field theme="outlined" label="URL" placeholder="https://" style="width:100%;" required></vaadin-text-field>
+                        <vaadin-text-field theme="outlined" label="Display name" placeholder="Link to lesson plan" style="width:100%; margin-top:12px;"></vaadin-text-field>
+                    </div>
+                `;
+                container.appendChild(wrap);
+                const tabs = wrap.querySelector('#upload-mode-tabs');
+                tabs.addEventListener('selected-changed', (e) => {
+                    const isUpload = e.detail.value === 0;
+                    wrap.querySelector('#upload-pane').style.display = isUpload ? '' : 'none';
+                    wrap.querySelector('#link-pane').style.display = isUpload ? 'none' : '';
+                });
+            } else if (opt.step2 === 'placeholder') {
+                const wrap = document.createElement('div');
+                wrap.className = 'step-placeholder';
+                wrap.innerHTML = `
+                    <i class="fa-regular fa-clock"></i>
+                    <div class="step-placeholder-title">Coming soon</div>
+                    <div>The ${opt.title.toLowerCase()} workflow will appear here.</div>
+                `;
+                container.appendChild(wrap);
+            }
+        }
+
+        function goToStep2(opt) {
+            selectedOption = opt;
+            selectedListItem = null;
+            currentStep = 2;
+            const track = dialog._track;
+            const step2El = dialog._step2;
+            renderStep2(step2El, opt);
+            track.classList.add('show-step-2');
+            updateHeader();
+            updateFooter();
+        }
+
+        function goToStep1() {
+            currentStep = 1;
+            selectedListItem = null;
+            const track = dialog._track;
+            track.classList.remove('show-step-2');
+            updateHeader();
+            updateFooter();
+        }
+
+        function updateHeader() {
+            dialog.headerRenderer = (root) => {
+                root.innerHTML = '';
+                const title = document.createElement('h2');
+                title.style.cssText = 'margin:0; font-size:18px; font-weight:600;';
+                title.textContent = currentStep === 1 ? 'Create New' : (selectedOption?.step2Title || 'Create New');
+                root.appendChild(title);
+            };
+        }
+
+        function updateFooter() {
+            dialog.footerRenderer = (root) => {
+                root.innerHTML = '';
+                // Back button (left) — step 2 only
+                if (currentStep === 2) {
+                    const back = document.createElement('vaadin-button');
+                    back.setAttribute('theme', 'tertiary');
+                    back.innerHTML = '<i class="fa-solid fa-chevron-left" style="margin-right:6px;"></i>Back';
+                    back.addEventListener('click', goToStep1);
+                    root.appendChild(back);
+                }
+                // Spacer pushes the right-side buttons to the edge
+                const spacer = document.createElement('div');
+                spacer.className = 'dialog-footer-spacer';
+                root.appendChild(spacer);
+                // Cancel
+                const cancel = document.createElement('vaadin-button');
+                cancel.setAttribute('theme', 'secondary');
+                cancel.textContent = 'Cancel';
+                cancel.addEventListener('click', () => dialog.opened = false);
+                root.appendChild(cancel);
+                // Primary CTA varies by step-2 type
+                if (currentStep === 2) {
+                    const kind = selectedOption?.step2;
+                    if (kind === 'plan-form-list' || kind === 'form-list') {
+                        const create = document.createElement('vaadin-button');
+                        create.setAttribute('theme', 'primary');
+                        create.textContent = 'Create';
+                        if (!selectedListItem) create.setAttribute('disabled', '');
+                        create.addEventListener('click', () => dialog.opened = false);
+                        root.appendChild(create);
+                    } else if (kind === 'upload') {
+                        const add = document.createElement('vaadin-button');
+                        add.setAttribute('theme', 'primary');
+                        add.textContent = 'Add';
+                        add.addEventListener('click', () => dialog.opened = false);
+                        root.appendChild(add);
+                    }
+                }
+            };
+        }
+
+        dialog.renderer = (root) => {
+            if (root.firstChild) return;
+            const viewport = document.createElement('div');
+            viewport.className = 'new-item-viewport';
+            const track = document.createElement('div');
+            track.className = 'new-item-track';
+            const step1 = document.createElement('div');
+            step1.className = 'new-item-step';
+            const step2 = document.createElement('div');
+            step2.className = 'new-item-step';
+            renderStep1List(step1);
+            track.appendChild(step1);
+            track.appendChild(step2);
+            viewport.appendChild(track);
+            root.appendChild(viewport);
+            dialog._track = track;
+            dialog._step2 = step2;
+        };
+
+        // Reset to step 1 on open
+        currentStep = 1;
+        selectedOption = null;
+        updateHeader();
+        updateFooter();
+        dialog.opened = true;
+        // After open, ensure track resets if the dialog was previously rendered
+        requestAnimationFrame(() => {
+            if (dialog._track) dialog._track.classList.remove('show-step-2');
+            if (dialog._step2) dialog._step2.innerHTML = '';
+        });
+    });
+
+    // ── Quick Search — stubbed pending PM input ──
+    document.getElementById('quick-search-btn').addEventListener('click', () => {
+        const dialog = document.getElementById('quick-search-dialog');
+        dialog.renderer = (root) => {
+            if (root.firstChild) return;
+            const wrap = document.createElement('div');
+            wrap.className = 'quick-search-stub';
+            wrap.innerHTML = `
+                <p style="margin:0; font-size:14px; color:var(--lumo-secondary-text-color,#666);">
+                    Quick Search modal — placeholder pending design.
+                </p>
+            `;
+            root.appendChild(wrap);
+        };
+        dialog.footerRenderer = (root) => {
+            if (root.firstChild) return;
+            const close = document.createElement('vaadin-button');
+            close.setAttribute('theme', 'primary');
+            close.textContent = 'Close';
+            close.addEventListener('click', () => dialog.opened = false);
+            root.appendChild(close);
+        };
+        dialog.opened = true;
+    });
+
+    // ── View Form → opens flat-form with a from= marker so it can route back ──
+    document.querySelectorAll('.view-form-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            window.location.href = 'flat-form.html?from=evaluation-users';
+        });
+    });
+
+    // ── Calendar rendering ──
+    function renderCalendar() {
+        const days = document.getElementById('calendar-days');
+        if (days.children.length > 0) return;
+        const first = new Date(2026, 5, 1); // June 1 2026 = Monday
+        const startOffset = first.getDay(); // 1
+        const daysInMonth = 30;
+        const totalCells = 42;
+        const eventsByDate = {
+            2:  [{ name: 'Question Types', type: 'form' }, { name: 'Observation & Post Meeting', type: 'form' }],
+            '-3': [{ name: 'Performance Standards', type: 'form' }], // May 28 (3 days before June 1)
+            8:  [{ name: 'Pre-conference', type: 'event' }],
+            12: [{ name: 'Mid-Year Reflection', type: 'form' }],
+            18: [{ name: 'Lesson Plan Upload', type: 'upload' }],
+            22: [{ name: 'Post-observation', type: 'event' }],
+        };
+        for (let i = 0; i < totalCells; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'calendar-day';
+            const dayNum = i - startOffset + 1;
+            let label, isOther = false, dateKey = String(dayNum);
+            if (dayNum < 1) {
+                label = 31 + dayNum;
+                isOther = true;
+            } else if (dayNum > daysInMonth) {
+                label = dayNum - daysInMonth;
+                isOther = true;
+                dateKey = 'next-' + label;
+            } else {
+                label = dayNum;
+            }
+            if (isOther) cell.classList.add('is-other-month');
+            if (dayNum === 8) cell.classList.add('is-today');
+            const numEl = document.createElement('span');
+            numEl.className = 'day-number';
+            numEl.textContent = label;
+            cell.appendChild(numEl);
+            const events = eventsByDate[dateKey];
+            if (events) {
+                events.forEach(ev => {
+                    const a = document.createElement('a');
+                    a.href = '#';
+                    a.className = 'cal-event';
+                    if (ev.type === 'upload') a.classList.add('type-upload');
+                    if (ev.type === 'event') a.classList.add('type-event');
+                    a.textContent = ev.name;
+                    a.title = ev.name;
+                    cell.appendChild(a);
+                });
+            }
+            days.appendChild(cell);
+        }
+    }
+
+})();
+</script>
+
+</body>
+</html>

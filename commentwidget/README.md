@@ -1,6 +1,6 @@
 # Feedback Widget
 
-A drop-in visual feedback widget for the `ux-mockups` GitHub Pages site. Anyone visiting a mockup can drop pins on the page, leave a comment, reply in a thread, mark items done, or delete them. All pin state lives in Cloudflare KV (so every teammate sees the same pins) and every action is logged to a Confluence page as a permanent receipt.
+A drop-in visual feedback widget for the `ux-mockups` GitHub Pages site. Anyone visiting a mockup can drop pins on the page, leave a comment, reply in a thread, mark items done, or delete them. All pin state lives in Cloudflare KV (so every teammate sees the same pins) and every feedback action is recorded in an append-only activity log (also in KV), viewable at `commentwidget/log.html`.
 
 There is no login flow — users type their name once and it is remembered in `localStorage`.
 
@@ -18,13 +18,12 @@ That's it. A "＋ Add feedback" toolbar appears bottom-right of the page.
 
 ```
 Mockup HTML ──▶ feedback-widget.js ──▶ Cloudflare Worker ──▶ Cloudflare KV
-                                              │
-                                              └──▶ Confluence (logs)
+                                                              (pins + activity log)
 ```
 
 - HTML mockups are static and never modified by the widget.
-- Pins and threads live in Cloudflare KV — shared across all viewers.
-- The Worker is the only thing that talks to KV and Confluence.
+- Pins, threads, and the activity log all live in Cloudflare KV — shared across all viewers.
+- The Worker is the only thing that talks to KV.
 - The widget only talks to the Worker.
 
 ## Files
@@ -66,39 +65,13 @@ id = "abc123..."
 
 Copy that `id` value into `wrangler.toml`, replacing `REPLACE_WITH_KV_NAMESPACE_ID`.
 
-### 3. Set the Confluence secrets
+### 3. Verify the env vars
 
-```bash
-wrangler secret put CONFLUENCE_TOKEN
-wrangler secret put CONFLUENCE_EMAIL
-```
-
-`CONFLUENCE_TOKEN` is an Atlassian API token created at:
-https://id.atlassian.com/manage-profile/security/api-tokens
-
-`CONFLUENCE_EMAIL` is the email address associated with that token.
-
-### 4. Verify the other env vars
-
-The non-secret vars are already set in `wrangler.toml`. Confirm they're correct for your setup:
+The non-secret vars are set in `wrangler.toml`. Confirm they're correct for your setup:
 
 | Var | Default | Notes |
 |---|---|---|
-| `CONFLUENCE_DOMAIN` | `lmsportal.atlassian.net` | Confluence Cloud domain, no protocol. |
-| `CONFLUENCE_PAGE_ID` | `28919529490` | Page the Worker appends log entries to. |
 | `ALLOWED_ORIGIN` | GitHub Pages + localhost | Comma-separated CORS allowlist. Add any new origin that needs to call the Worker. |
-
-#### How to find a Confluence page ID
-
-Open the Confluence page in a browser. The URL looks like:
-
-```
-https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/28919529490/Designer+Workflow+...
-```
-
-The number between `/pages/` and the title slug is the page ID. In the current setup that page is:
-
-https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/28919529490/Designer+Workflow+Claude+Code+VS+Code
 
 #### Setting the allowed origin
 
@@ -110,7 +83,7 @@ ALLOWED_ORIGIN = "https://vectorlearning.github.io,http://localhost:8000,http://
 
 GitHub Pages projects sit under `https://<org>.github.io` — the path doesn't matter, only the origin (scheme + host + port).
 
-### 5. Deploy
+### 4. Deploy
 
 ```bash
 wrangler deploy
@@ -153,7 +126,7 @@ Browsers may cache the widget aggressively. If teammates aren't seeing the updat
 - **Deleted pins** are soft-deleted (`deleted: true` in KV) and never shown.
 - **Stranded pins**: if a pin's CSS selector no longer matches anything on the page (mockup changed), the pin can't be placed on the canvas. **Admins** see a small sidebar listing the stranded pins so they can open and delete (or otherwise clean up) each one. Non-admins don't see the sidebar — a broken pin is noise they can't act on.
 - **Undo**: marking a pin done or deleting it shows a toast with an `Undo` button. The undo window is 10 seconds, enforced by the Worker. After that the toast disappears and the Worker returns 409 if undo is attempted.
-- **Confluence logs**: every create / mark-done / delete / undo / reply / edit appends a timestamped entry to the configured Confluence page.
+- **Activity log**: every create / mark-done / delete / undo / reply / edit appends a timestamped, append-only entry in KV (`log:` keys), viewable at `commentwidget/log.html`. Pin moves and admin mode changes are intentionally not logged.
 
 ## Data model (KV)
 
@@ -165,7 +138,7 @@ Browsers may cache the widget aggressively. If teammates aren't seeing the updat
   product: "Scheduling",
   selector: "...",
   elementText: "first 200 chars",
-  elementHtml: "<button class=\"primary\" data-action=\"save\">",  // opening tag only, ≤500 chars — persisted for the data model / Confluence logs
+  elementHtml: "<button class=\"primary\" data-action=\"save\">",  // opening tag only, ≤500 chars — persisted for the data model / activity log
   dataFile: "products/Foo/index.html",  // from nearest data-file ancestor (annotate-source.py), empty if page not annotated
   dataLine: "327",                       // from nearest data-line ancestor — pair with dataFile to enable "Open in VS Code"
   x: 0.0,            // legacy fallback: viewport-width fraction
@@ -204,7 +177,5 @@ Browsers may cache the widget aggressively. If teammates aren't seeing the updat
 **Pins don't appear.** Check the browser console. If you see CORS errors, the page's origin isn't in `ALLOWED_ORIGIN`. Update `wrangler.toml` and redeploy.
 
 **"Failed to load pins" in the console.** Confirm `CW_WORKER_URL` in `feedback-widget.js` matches the deployed Worker URL.
-
-**Confluence logging silently fails.** The Worker swallows Confluence errors so users aren't blocked. Check Worker logs (`wrangler tail`) to see what's failing — most often a bad token or a version conflict (someone else edited the page).
 
 **Screenshots are missing.** `html2canvas` is loaded lazily from a CDN — if the user is offline or has CDN scripts blocked, the pin is created without a screenshot.

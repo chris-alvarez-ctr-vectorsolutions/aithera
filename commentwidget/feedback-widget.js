@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.10.7';
+  const WIDGET_VERSION = '1.13.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -14,6 +14,12 @@
   const state = {
     pins: [],
     stranded: [],
+    // Comments whose anchored element exists in the DOM but isn't currently
+    // shown (it lives on a hidden screen/view of a single-file mock). These are
+    // pulled OFF the canvas — otherwise a display:none element reports a 0×0 box
+    // and the pin would pile up at the top-left of the landing screen — and
+    // listed in the "On other screens" drawer instead.
+    offscreen: [],
     author: localStorage.getItem('cw-author') || '',
     isAdmin: localStorage.getItem('cw-admin') === '1',
     settings: { visitorMode: false, commentsDisabled: false },
@@ -30,9 +36,9 @@
   // Comments are keyed by a canonical page URL, NOT the raw location.href, so
   // the same mock shows the same comments whether it's viewed on GitHub Pages,
   // a local Live Server (localhost), or a file:// path. We rebuild the canonical
-  // GitHub Pages URL from the `/products/...` portion of the path (the same
-  // derivation the Share Link pill uses) and treat `/index.html` as the
-  // directory form so `…/folder/` and `…/folder/index.html` collapse together.
+  // GitHub Pages URL from the `/products/...` portion of the path and treat
+  // `/index.html` as the directory form so `…/folder/` and
+  // `…/folder/index.html` collapse together.
   // Because GitHub Pages comments are already stored under this canonical URL,
   // existing comments keep working — this only makes other environments match.
   const PAGES_BASE = 'https://vectorlearning.github.io/ux-mockups';
@@ -245,8 +251,40 @@
 .cw-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); z-index: 2147483647; display: flex; align-items: center; justify-content: center; padding: 20px; cursor: zoom-out; animation: cw-pop-in .2s ease; }
 .cw-lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: 0 20px 50px rgba(0,0,0,.5); }
 
+/* "On other screens" launcher + drawer.
+   In single-file mocks every screen shares one URL, so comments left deep in a
+   flow would otherwise land on the first screen. We divert those into this
+   drawer; clicking one reveals its screen and opens the pin. */
+.cw-offscreen-launcher { position: fixed; left: 20px; bottom: 20px; z-index: 2147483630; display: flex; align-items: center; gap: 9px; padding: 9px 14px 9px 12px; border: 0; border-radius: 999px; background: linear-gradient(140deg, #1f2937, #111827); color: #fff; font: 600 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; cursor: pointer; box-shadow: 0 8px 20px rgba(17,24,39,.28); transition: transform .2s var(--cw-ease), box-shadow .2s; }
+.cw-offscreen-launcher:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(17,24,39,.36); }
+.cw-offscreen-launcher .cw-offscreen-glyph { font-size: 14px; line-height: 1; }
+.cw-offscreen-count { background: linear-gradient(140deg, #fbbf24, var(--cw-accent)); color: #fff; border-radius: 999px; min-width: 20px; height: 20px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; box-shadow: inset 0 1px 1px rgba(255,255,255,.4); }
+
+.cw-offscreen-drawer { position: fixed; top: 0; right: 0; height: 100vh; width: 340px; max-width: 86vw; z-index: 2147483635; background: #fff; border-left: 1px solid #e5e7eb; box-shadow: -12px 0 32px rgba(0,0,0,.16); padding: 64px 18px 24px; overflow-y: auto; transform: translateX(104%); transition: transform .28s var(--cw-ease); }
+.cw-offscreen-drawer--open { transform: translateX(0); }
+.cw-offscreen-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.cw-offscreen-head strong { font-size: 15px; color: #111827; }
+.cw-offscreen-x { background: transparent; border: 0; cursor: pointer; font-size: 20px; color: #6b7280; line-height: 1; padding: 2px 7px; border-radius: 8px; transition: background .15s, color .15s, transform .15s var(--cw-ease); }
+.cw-offscreen-x:hover { background: #f3f4f6; color: #111827; transform: rotate(90deg); }
+.cw-offscreen-sub { font-size: 12px; color: #6b7280; line-height: 1.5; margin-bottom: 14px; }
+.cw-offscreen-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border: 1px solid #eef0f2; border-radius: 12px; margin-bottom: 8px; cursor: pointer; transition: background .12s, border-color .12s, transform .12s var(--cw-ease); }
+.cw-offscreen-item:hover { background: #f9fafb; border-color: #e5e7eb; transform: translateY(-1px); }
+.cw-offscreen-avatar { width: 28px; height: 28px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,.2), inset 0 1px 1px rgba(255,255,255,.3); }
+.cw-offscreen-item-body { flex: 1; min-width: 0; }
+.cw-offscreen-item-meta { font-size: 11px; color: #6b7280; margin-bottom: 2px; }
+.cw-offscreen-item-meta strong { color: #111827; font-size: 12px; }
+.cw-offscreen-item-text { font-size: 13px; color: #1f2937; line-height: 1.45; word-break: break-word; }
+.cw-offscreen-item-ctx { font-size: 11px; color: #9ca3af; margin-top: 3px; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cw-offscreen-go { font-size: 12px; font-weight: 600; color: var(--cw-accent-deep); flex-shrink: 0; align-self: center; }
+
+/* Bar shown while peeking at a revealed screen (top-center; toast owns the bottom). */
+.cw-reveal-bar { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 2147483646; display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; border-radius: 999px; background: linear-gradient(140deg, #1f2937, #111827); color: #fff; font: 500 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; box-shadow: 0 10px 28px rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.08); }
+.cw-reveal-bar button { background: rgba(255,255,255,.16); color: #fff; border: 0; cursor: pointer; font: inherit; font-weight: 600; padding: 6px 14px; border-radius: 999px; transition: background .15s, transform .1s; }
+.cw-reveal-bar button:hover { background: rgba(255,255,255,.28); }
+.cw-reveal-bar button:active { transform: scale(.95); }
+
 @media (prefers-reduced-motion: reduce) {
-  .cw-root *, .cw-bubble, .cw-pin, .cw-toast, .cw-popup, .cw-panel, .cw-admin-panel, .cw-banner { animation: none !important; }
+  .cw-root *, .cw-bubble, .cw-pin, .cw-toast, .cw-popup, .cw-panel, .cw-admin-panel, .cw-banner, .cw-offscreen-drawer, .cw-offscreen-launcher { animation: none !important; transition: none !important; }
 }
 `;
 
@@ -412,7 +450,7 @@
   const cssAttrEscape = (v) => String(v).replace(/(["\\])/g, '\\$1');
 
   // The element's opening tag, persisted on the pin for the data model and
-  // Confluence logs. e.g. `<button class="primary" data-action="save">`.
+  // activity log. e.g. `<button class="primary" data-action="save">`.
   function captureOpenTag(node) {
     if (!(node instanceof Element)) return '';
     const html = node.outerHTML || '';
@@ -435,6 +473,158 @@
       n = n.parentElement;
     }
     return null;
+  }
+
+  // ----- Interaction state (which "scene" a comment belongs to) ---------------
+  // Many mocks change what's on screen without changing the URL or removing
+  // elements from the DOM — a bottom version switcher (V1/V2), tabs, nav items,
+  // toggles. The commented element often stays rendered across those states, so
+  // a pin would otherwise show on every state. We snapshot the page's active
+  // toggle-group members when a comment is created (captureViewState), store
+  // them on the pin, and only pin the comment when the page is back in that
+  // state (viewMatches). Mismatched comments go to the "other views" drawer,
+  // and clicking one restores the state (restoreViewState) before jumping to it.
+
+  // Class / attribute markers that mean "this control is the selected one".
+  const ACTIVE_CLASSES = ['active', 'selected', 'current', 'is-active', 'is-selected', 'is-current', 'checked'];
+  // querySelectorAll union that finds every currently-active control on the page.
+  const ACTIVE_SELECTOR = ACTIVE_CLASSES.map(c => '.' + c).join(',') +
+    ',[aria-selected="true"],[aria-current]:not([aria-current="false"]),[aria-pressed="true"]';
+
+  function isActiveControl(node) {
+    if (!(node instanceof Element)) return false;
+    for (const c of ACTIVE_CLASSES) if (node.classList.contains(c)) return true;
+    if (node.getAttribute('aria-selected') === 'true') return true;
+    const ac = node.getAttribute('aria-current');
+    if (ac && ac !== 'false') return true;
+    if (node.getAttribute('aria-pressed') === 'true') return true;
+    return false;
+  }
+
+  // Class tokens with the "active/selected" markers (and the widget's own
+  // classes) removed — the stable part that identifies the control regardless
+  // of whether it's currently selected.
+  function nonStateClasses(node) {
+    let cls = node.className;
+    if (cls && typeof cls.baseVal === 'string') cls = cls.baseVal; // SVG
+    if (typeof cls !== 'string') return [];
+    return cls.trim().split(/\s+/).filter(c =>
+      c && !c.startsWith('cw-') && !ACTIVE_CLASSES.includes(c));
+  }
+
+  function controlText(node) {
+    const aria = node.getAttribute && node.getAttribute('aria-label');
+    const t = ((node.innerText || node.textContent || '') || aria || '').replace(/\s+/g, ' ').trim();
+    return t.slice(0, 80);
+  }
+
+  // True only when `node` is one option among alternatives — i.e. it has a
+  // sibling of the same kind (same tag, or sharing a base class) that is NOT
+  // currently active. This filters out lone "active" elements that are always
+  // on (so binding to them would be meaningless) and keeps real toggle groups
+  // (version switcher buttons, tabs, nav items, radio-style options).
+  function isToggleGroupMember(node) {
+    const p = node.parentElement;
+    if (!p) return false;
+    const base = nonStateClasses(node);
+    for (const s of p.children) {
+      if (s === node || s.nodeType !== 1 || isWidgetEl(s)) continue;
+      const sameTag = s.tagName === node.tagName;
+      const sharesClass = base.some(c => s.classList.contains(c));
+      if ((sameTag || sharesClass) && !isActiveControl(s)) return true;
+    }
+    return false;
+  }
+
+  // A stable selector + label for an active control, ignoring its state class
+  // so it can be re-found later whether or not it's selected. Prefers ids and
+  // stable data-*/aria attributes; matching tolerates multiple hits and
+  // disambiguates by text (see findStateControl).
+  function stateAnchor(node) {
+    const tag = node.tagName.toLowerCase();
+    const text = controlText(node);
+    if (isSafeId(node.id)) return { sel: tag + '#' + CSS.escape(node.id), text };
+    for (const attr of ['data-version', 'data-tab', 'data-value', 'data-id', 'data-testid', 'data-test', 'aria-label']) {
+      const v = node.getAttribute && node.getAttribute(attr);
+      if (v) return { sel: `${tag}[${attr}="${cssAttrEscape(v)}"]`, text };
+    }
+    const cls = nonStateClasses(node);
+    if (cls.length) return { sel: tag + '.' + cls.map(c => CSS.escape(c)).join('.'), text };
+    return { sel: tag, text };
+  }
+
+  // Snapshot every active toggle-group member on the page right now.
+  function captureViewState() {
+    const out = [];
+    const seen = new Set();
+    let nodes = [];
+    try { nodes = document.querySelectorAll(ACTIVE_SELECTOR); } catch (_) {}
+    for (const node of nodes) {
+      if (isWidgetEl(node) || !isActiveControl(node) || !isToggleGroupMember(node)) continue;
+      const anchor = stateAnchor(node);
+      const k = anchor.sel + '|' + anchor.text;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(anchor);
+      if (out.length >= 16) break;
+    }
+    return out;
+  }
+
+  // Re-find the control a descriptor points at. The selector may match several
+  // (e.g. all `.vs-btn`); the stored text picks the right one.
+  function findStateControl(desc) {
+    if (!desc || !desc.sel) return null;
+    let nodes;
+    try { nodes = document.querySelectorAll(desc.sel); } catch (_) { return null; }
+    if (!nodes.length) return null;
+    if (nodes.length === 1) return nodes[0];
+    if (desc.text) {
+      for (const n of nodes) if (controlText(n) === desc.text) return n;
+    }
+    return nodes[0];
+  }
+
+  // Does the page's current interaction state match the one this comment was
+  // left in? A comment with no captured state (legacy pins, or comments on
+  // shared chrome that wasn't in any toggle group) always matches.
+  function viewMatches(pin) {
+    const vs = pin.viewState;
+    if (!Array.isArray(vs) || !vs.length) return true;
+    return vs.every(desc => {
+      const node = findStateControl(desc);
+      return node && isActiveControl(node);
+    });
+  }
+
+  // Drive the mock back into a comment's state by clicking each captured
+  // control that isn't currently active. Clicking runs the mock's own handler
+  // (so the real switch happens — version var flips, table re-renders, etc.).
+  // A few passes let interdependent toggles settle (e.g. switch version, then
+  // re-pick the tab). Anchors with a real href are skipped to avoid navigation.
+  function restoreViewState(pin) {
+    const vs = pin.viewState;
+    if (!Array.isArray(vs) || !vs.length) return;
+    for (let pass = 0; pass < 3; pass++) {
+      let changed = false;
+      for (const desc of vs) {
+        const node = findStateControl(desc);
+        if (!node || isActiveControl(node)) continue;
+        if (node.tagName === 'A') {
+          const href = node.getAttribute('href') || '';
+          if (href && href !== '#' && !/^javascript:/i.test(href)) continue;
+        }
+        try { node.click(); changed = true; } catch (_) {}
+      }
+      if (!changed) break;
+    }
+  }
+
+  // Short human label for a comment's bound state, e.g. "Version 2 · Compliance".
+  function viewStateLabel(pin) {
+    const vs = pin.viewState;
+    if (!Array.isArray(vs) || !vs.length) return '';
+    return vs.map(d => d.text).filter(Boolean).join(' · ');
   }
 
   // The mock's repo-relative file path. Prefer the pin's own annotation
@@ -915,7 +1105,7 @@
     exitMovePinMode();
     if (!pin) return;
 
-    const prev = { x: pin.x, y: pin.y, selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY };
+    const prev = { x: pin.x, y: pin.y, selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY, viewState: pin.viewState };
     const r = target.getBoundingClientRect();
     const anchor = findSourceAnchor(target);
     pin.selector = cssPath(target);
@@ -927,7 +1117,8 @@
     pin.relY = r.height ? clamp01((e.clientY - r.top) / r.height) : 0;
     pin.x = cx / window.innerWidth;
     pin.y = cy / window.innerHeight;
-    const patch = { url: pin.url, author: state.author || pin.author, selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY, x: pin.x, y: pin.y };
+    pin.viewState = captureViewState();
+    const patch = { url: pin.url, author: state.author || pin.author, selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY, x: pin.x, y: pin.y, viewState: pin.viewState };
 
     const myDragGen = (pinDragGen.get(pin.id) || 0) + 1;
     pinDragGen.set(pin.id, myDragGen);
@@ -984,11 +1175,14 @@
     const rect = target.getBoundingClientRect();
     const relX = rect.width ? clamp01((e.clientX - rect.left) / rect.width) : 0.5;
     const relY = rect.height ? clamp01((e.clientY - rect.top) / rect.height) : 0;
+    // Snapshot the page's interaction state BEFORE leaving pick mode, so the
+    // comment binds to the version/tab/toggle the user is actually looking at.
+    const viewState = captureViewState();
     exitPickMode();
     showToast('Capturing screenshot…', 'neutral');
     const screenshot = await captureElement(target);
     if (state.activeToast) { state.activeToast.remove(); state.activeToast = null; }
-    openNewPinPopup({ x, y, relX, relY, selector, elementText, elementHtml, dataFile, dataLine, screenshot, clickX: e.clientX, clickY: e.clientY + window.scrollY });
+    openNewPinPopup({ x, y, relX, relY, selector, elementText, elementHtml, dataFile, dataLine, viewState, screenshot, clickX: e.clientX, clickY: e.clientY + window.scrollY });
   }
 
   // ----- New pin popup --------------------------------------------------------
@@ -1027,6 +1221,7 @@
           dataLine: ctx.dataLine,
           x: ctx.x, y: ctx.y,
           relX: ctx.relX, relY: ctx.relY,
+          viewState: ctx.viewState,
           screenshot: ctx.screenshot,
           author, comment,
         });
@@ -1109,8 +1304,12 @@
   let renderedPins = [];
 
   function renderPins() {
+    // Pause the DOM observer while WE rebuild the pins layer / stranded box /
+    // offscreen launcher — otherwise our own mutations would re-trigger it.
+    if (pinObserver) pinObserver.disconnect();
     pinsLayer.innerHTML = '';
     state.stranded = [];
+    state.offscreen = [];
     renderedPins = [];
 
     pinsLayer.style.height = Math.max(document.documentElement.scrollHeight, window.innerHeight) + 'px';
@@ -1118,16 +1317,94 @@
     for (const pin of visiblePins()) {
       const found = pin.selector ? safeQuery(pin.selector) : null;
       if (!found) { state.stranded.push(pin); continue; }
+      // Element exists but isn't being shown (it's on a hidden screen/view).
+      // Divert to the "On other screens" drawer rather than dropping a dot at
+      // the 0×0 box a display:none element reports (which would stack pins in
+      // the top-left of whatever screen is currently visible).
+      if (!isRendered(found)) { state.offscreen.push(pin); continue; }
+      // Element is on screen, but the comment was left in a different
+      // interaction state (other version/tab/toggle). Don't pin it on top of
+      // the current state — divert it to the drawer, where clicking restores
+      // its state and jumps to it.
+      if (!viewMatches(pin)) { state.offscreen.push(pin); continue; }
       const dot = makePinDot(pin);
       positionDot(dot, pin, found);
       pinsLayer.appendChild(dot);
       renderedPins.push({ pin, dot });
     }
     renderStranded();
+    renderOffscreen();
+    if (pinObserver) reconnectPinObserver();
+  }
+
+  // ----- Re-anchor on DOM changes (React/SPA screen swaps) ---------------------
+  // Single-file React mocks (e.g. the CallBack prototypes) mount/unmount whole
+  // screens instead of toggling display, so an element a pin is anchored to is
+  // GONE from the DOM until you navigate back to its screen — then it's a brand
+  // new node. Resize/scroll alone won't notice. This observer re-runs renderPins
+  // (debounced) whenever real page nodes are added or removed, so pins re-attach
+  // to a screen the moment React mounts it. We also watch a small set of
+  // attributes (class/aria/hidden) so in-place state toggles — the V1/V2
+  // version switcher, tab bars — re-bucket pins too (see reconnectPinObserver).
+  let pinObserver = null;
+  let pinRenderQueued = false;
+
+  function scheduleRenderPins() {
+    if (pinRenderQueued) return;
+    pinRenderQueued = true;
+    requestAnimationFrame(() => { pinRenderQueued = false; renderPins(); });
+  }
+
+  // True when every node touched by these mutations is one of the widget's own
+  // surfaces (pins, toast, panel, launcher, …). Those are OUR changes — ignore
+  // them so we never loop on our own rendering.
+  function recordsAreWidgetOnly(records) {
+    for (const m of records) {
+      if (isWidgetEl(m.target)) continue;            // mutation inside a widget surface
+      // A class / aria / hidden change on a real page element means a state
+      // toggle (version switch, tab change, modal show) — re-bucket the pins.
+      if (m.type === 'attributes') return false;
+      const nodes = [...m.addedNodes, ...m.removedNodes];
+      if (nodes.some(n => n.nodeType === 1 && !isWidgetEl(n))) return false; // a real page node changed
+    }
+    return true;
+  }
+
+  function reconnectPinObserver() {
+    if (!pinObserver) return;
+    // childList: React/SPA screen mounts. attributes (class/aria/hidden): in-place
+    // state toggles like the V1/V2 version switcher and tab bars, which flip an
+    // "active" class without adding or removing nodes. Both decide whether a
+    // pin belongs on the current view (see viewMatches / isRendered).
+    pinObserver.observe(document.body, {
+      childList: true, subtree: true,
+      attributes: true, attributeFilter: ['class', 'aria-selected', 'aria-current', 'aria-pressed', 'hidden'],
+    });
+  }
+
+  function startPinObserver() {
+    if (pinObserver || typeof MutationObserver === 'undefined') return;
+    pinObserver = new MutationObserver((records) => {
+      if (recordsAreWidgetOnly(records)) return;
+      scheduleRenderPins();
+    });
+    reconnectPinObserver();
   }
 
   function safeQuery(sel) {
     try { return document.querySelector(sel); } catch (e) { return null; }
+  }
+
+  // Is this element actually painted right now? getClientRects() is empty when
+  // the element (or any ancestor) is display:none — the single-file-mock case
+  // we care about — and we also reject visibility:hidden. An element that's
+  // merely scrolled out of view still has client rects, so it stays on the
+  // canvas (it's on the current screen, just not in the viewport).
+  function isRendered(node) {
+    if (!(node instanceof Element)) return false;
+    if (node.getClientRects().length === 0) return false;
+    const cs = getComputedStyle(node);
+    return cs.visibility !== 'hidden' && cs.display !== 'none';
   }
 
   // Place a dot at its pin's anchor: the element's live bounding rect plus the
@@ -1239,7 +1516,7 @@
       const cy = (e && e.clientY != null) ? e.clientY : d.lastY;
       const target = topElementAt(cx, cy);
 
-      const prev = { x: pin.x, y: pin.y, selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY };
+      const prev = { x: pin.x, y: pin.y, selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY, viewState: pin.viewState };
       const patch = { url: pin.url, author: state.author || pin.author };
 
       // Re-anchor to whatever element we dropped on: new selector, element text,
@@ -1256,7 +1533,8 @@
         pin.dataLine = anchor ? anchor.line : '';
         pin.relX = r.width ? clamp01((cx - r.left) / r.width) : 0.5;
         pin.relY = r.height ? clamp01((cy - r.top) / r.height) : 0;
-        Object.assign(patch, { selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY });
+        pin.viewState = captureViewState();
+        Object.assign(patch, { selector: pin.selector, elementText: pin.elementText, elementHtml: pin.elementHtml, dataFile: pin.dataFile, dataLine: pin.dataLine, relX: pin.relX, relY: pin.relY, viewState: pin.viewState });
       }
       pin.x = cx / window.innerWidth;
       pin.y = (cy + window.scrollY) / window.innerHeight;
@@ -1317,6 +1595,215 @@
     document.body.appendChild(stranded);
   }
 
+  // ----- "On other screens" drawer --------------------------------------------
+  // Single-file mocks switch screens with JS, so all comments share one URL and
+  // load together. The ones anchored to a hidden screen are collected in
+  // state.offscreen (see renderPins) and surfaced here, out of the way of the
+  // screen the user is actually looking at.
+  let offscreenLauncher = null, offscreenDrawer = null;
+
+  function renderOffscreen() {
+    if (offscreenLauncher) { offscreenLauncher.remove(); offscreenLauncher = null; }
+    if (!state.offscreen.length) { closeOffscreenDrawer(); return; }
+    const n = state.offscreen.length;
+    offscreenLauncher = el('button', {
+      type: 'button', class: 'cw-offscreen-launcher',
+      title: 'Comments left on other screens or interaction states of this mock — click to list them',
+      onclick: toggleOffscreenDrawer,
+    }, [
+      el('span', { class: 'cw-offscreen-glyph', 'aria-hidden': 'true' }, ['💬']),
+      'Comments elsewhere',
+      el('span', { class: 'cw-offscreen-count' }, [String(n)]),
+    ]);
+    document.body.appendChild(offscreenLauncher);
+    if (offscreenDrawer) renderOffscreenBody(); // keep an open drawer in sync after re-renders
+  }
+
+  function toggleOffscreenDrawer() { offscreenDrawer ? closeOffscreenDrawer() : openOffscreenDrawer(); }
+
+  function closeOffscreenDrawer() {
+    if (offscreenDrawer) { offscreenDrawer.remove(); offscreenDrawer = null; }
+  }
+
+  function openOffscreenDrawer() {
+    closeOffscreenDrawer();
+    offscreenDrawer = el('div', { class: 'cw-offscreen-drawer' });
+    document.body.appendChild(offscreenDrawer);
+    renderOffscreenBody();
+    requestAnimationFrame(() => offscreenDrawer && offscreenDrawer.classList.add('cw-offscreen-drawer--open'));
+  }
+
+  function renderOffscreenBody() {
+    if (!offscreenDrawer) return;
+    offscreenDrawer.innerHTML = '';
+    offscreenDrawer.appendChild(el('div', { class: 'cw-offscreen-head' }, [
+      el('strong', {}, ['Comments elsewhere']),
+      el('button', { class: 'cw-offscreen-x', onclick: closeOffscreenDrawer, 'aria-label': 'Close' }, ['×']),
+    ]));
+    offscreenDrawer.appendChild(el('div', { class: 'cw-offscreen-sub' }, [
+      'These comments belong to other screens or interaction states of this mock (a different version, tab, or toggle). Click one to switch there and open it.',
+    ]));
+    for (const pin of state.offscreen) {
+      const stateLabel = viewStateLabel(pin);
+      offscreenDrawer.appendChild(el('div', {
+        class: 'cw-offscreen-item', title: 'Switch to this comment’s view and open it',
+        onclick: () => revealPin(pin),
+      }, [
+        el('div', { class: 'cw-offscreen-avatar', style: `background:${authorColor(pin.author)};` }, [initial(pin.author)]),
+        el('div', { class: 'cw-offscreen-item-body' }, [
+          el('div', { class: 'cw-offscreen-item-meta' }, [el('strong', {}, [pin.author]), ' · ' + rel(pin.timestamp)]),
+          el('div', { class: 'cw-offscreen-item-text' }, [(pin.comment || '').slice(0, 120) || '(no text)']),
+          stateLabel ? el('div', { class: 'cw-offscreen-item-ctx' }, ['◫ ' + stateLabel]) : null,
+          pin.elementText ? el('div', { class: 'cw-offscreen-item-ctx' }, ['↳ ' + pin.elementText.slice(0, 60)]) : null,
+        ]),
+        el('span', { class: 'cw-offscreen-go' }, ['Go →']),
+      ]));
+    }
+  }
+
+  // ----- Reveal a comment's view and open it ----------------------------------
+  // revealPin (above) first restores the comment's captured interaction state
+  // (clicking the version/tab/toggle controls it was left in). The helpers here
+  // handle the second case — a hidden ancestor (display:none screen) that the
+  // state restore didn't reach. We can't know how an arbitrary mock switches
+  // screens, so this works structurally: walk up to each hidden ancestor and
+  // turn it on the way the mock most likely does — by mirroring the "active"
+  // class a visible sibling screen carries (preserves the mock's own layout),
+  // falling back to a forced display override. Every forced mutation is
+  // recorded so "Exit" restores the page exactly. Only one peek is active at a
+  // time. (State restored via clicks is real navigation and is NOT undone.)
+  let revealUndo = [];
+  let revealBar = null;
+
+  const classTokens = (elt) => (typeof elt.className === 'string' ? elt.className.trim().split(/\s+/).filter(Boolean) : []);
+  // Sibling that plausibly belongs to the same screen group: same tag, or shares a class.
+  function isScreenSibling(a, b) {
+    if (a.tagName === b.tagName) return true;
+    const bt = classTokens(b);
+    return classTokens(a).some(t => bt.includes(t));
+  }
+
+  function recordClassAdd(elt, cls) { if (!elt.classList.contains(cls)) { revealUndo.push({ t: 'cls-remove', elt, cls }); elt.classList.add(cls); } }
+  function recordClassRemove(elt, cls) { if (elt.classList.contains(cls)) { revealUndo.push({ t: 'cls-add', elt, cls }); elt.classList.remove(cls); } }
+  function recordAttrRemove(elt, attr) { if (elt.hasAttribute(attr)) { revealUndo.push({ t: 'attr-add', elt, attr, val: elt.getAttribute(attr) }); elt.removeAttribute(attr); } }
+  function recordStyle(elt, prop, val, important) {
+    revealUndo.push({ t: 'style', elt, prop, prev: elt.style.getPropertyValue(prop), prevPri: elt.style.getPropertyPriority(prop) });
+    elt.style.setProperty(prop, val, important ? 'important' : '');
+  }
+
+  function restoreReveal() {
+    for (let i = revealUndo.length - 1; i >= 0; i--) {
+      const u = revealUndo[i];
+      try {
+        if (u.t === 'cls-add') u.elt.classList.add(u.cls);
+        else if (u.t === 'cls-remove') u.elt.classList.remove(u.cls);
+        else if (u.t === 'attr-add') u.elt.setAttribute(u.attr, u.val);
+        else if (u.t === 'style') {
+          if (u.prev) u.elt.style.setProperty(u.prop, u.prev, u.prevPri);
+          else u.elt.style.removeProperty(u.prop);
+        }
+      } catch (_) {}
+    }
+    revealUndo = [];
+  }
+
+  // Make one hidden container visible, preferring the mock's own activation.
+  function revealContainer(H) {
+    const parent = H.parentElement;
+    const screenSibs = parent
+      ? Array.from(parent.children).filter(s => s !== H && s.nodeType === 1 && isScreenSibling(H, s) && isRendered(s))
+      : [];
+
+    // Class-activator: a visible sibling has all of H's classes plus extra
+    // tokens (e.g. "active"/"current"). Copy those onto H, strip them off the
+    // siblings — this is exactly what the mock's own click handler tends to do.
+    for (const s of screenSibs) {
+      const extra = classTokens(s).filter(t => !H.classList.contains(t));
+      const missing = classTokens(H).filter(t => !s.classList.contains(t));
+      if (extra.length && !missing.length) {
+        extra.forEach(t => recordClassAdd(H, t));
+        screenSibs.forEach(o => extra.forEach(t => recordClassRemove(o, t)));
+        break;
+      }
+    }
+
+    if (H.hasAttribute('hidden')) recordAttrRemove(H, 'hidden');
+
+    // Whatever the mock used, if H still isn't painting, force it — and hide the
+    // sibling screens so they don't stack on top of it. Mirror a visible
+    // sibling's display value (flex/grid/block) to keep the revealed screen's
+    // internal layout intact.
+    if (!isRendered(H)) {
+      const model = screenSibs.find(isRendered) || screenSibs[0];
+      const disp = model ? getComputedStyle(model).display : 'block';
+      recordStyle(H, 'display', disp === 'none' ? 'block' : disp, true);
+      recordStyle(H, 'visibility', 'visible', true);
+      screenSibs.forEach(s => { if (isRendered(s)) recordStyle(s, 'display', 'none', true); });
+    }
+  }
+
+  function revealPin(pin) {
+    closeOffscreenDrawer();
+    restoreReveal(); // drop any previous peek before starting a new one
+
+    // Step 1: drive the mock back into this comment's interaction state by
+    // clicking its captured controls (version, tab, toggle). This runs the
+    // mock's own handlers, so the real switch happens. Then wait a frame for
+    // those handlers to repaint before we look for the element.
+    restoreViewState(pin);
+
+    requestAnimationFrame(() => {
+      const target = pin.selector ? safeQuery(pin.selector) : null;
+      if (!target) {
+        renderPins();
+        showToast('That element isn’t on this page anymore', 'error');
+        openPanel(pin, { stranded: true });
+        return;
+      }
+
+      // Step 2: reveal any hidden ancestors outermost-first (single-file mocks
+      // that toggle display:none), so each inner check sees its parent shown.
+      const chain = [];
+      for (let n = target; n && n.nodeType === 1 && n !== document.body; n = n.parentElement) chain.push(n);
+      for (let i = chain.length - 1; i >= 0; i--) {
+        if (!isRendered(chain[i])) revealContainer(chain[i]);
+      }
+
+      // Let layout settle, then re-render (the dot returns to the canvas),
+      // scroll the element into view, open its panel, and offer a way back.
+      requestAnimationFrame(() => {
+        renderPins();
+        if (isRendered(target) && viewMatches(pin)) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          openPanel(pin);
+          if (revealUndo.length) showRevealBar(); // only offer "Exit" if we force-revealed a screen
+        } else {
+          // Couldn't fully reach the comment's view — fall back to the off-page panel.
+          openPanel(pin, { stranded: true });
+          showToast('Couldn’t fully switch to that view — showing the comment here', 'neutral');
+        }
+      });
+    });
+  }
+
+  function showRevealBar() {
+    hideRevealBar();
+    revealBar = el('div', { class: 'cw-reveal-bar' }, [
+      el('span', {}, ['👀 Jumped to this comment’s screen']),
+      el('button', { type: 'button', onclick: exitReveal }, ['Exit']),
+    ]);
+    document.body.appendChild(revealBar);
+  }
+  function hideRevealBar() { if (revealBar) { revealBar.remove(); revealBar = null; } }
+
+  function exitReveal() {
+    if (!revealUndo.length && !revealBar) return;
+    closePanel();
+    restoreReveal();
+    hideRevealBar();
+    renderPins(); // the comment returns to the "On other screens" drawer
+  }
+
   // ----- Pin detail panel -----------------------------------------------------
   let panel, panelEditing = false;
 
@@ -1350,9 +1837,10 @@
     const stripped = state.settings.visitorMode && !effectiveAdmin();
     const closeBtn = el('button', { class: 'cw-panel-close', onclick: closePanel, 'aria-label': 'Close' }, ['×']);
     const avatar = el('div', { class: 'cw-panel-avatar', style: `background:${authorColor(pin.author)};` }, [initial(pin.author)]);
+    const sl = viewStateLabel(pin);
     const meta = el('div', { class: 'cw-panel-meta' }, [
       el('strong', {}, [pin.author]),
-      el('span', {}, [rel(pin.timestamp)]),
+      el('span', {}, [rel(pin.timestamp) + (sl ? ' · on ' + sl : '')]),
     ]);
     const actionButtons = [
       el('button', { class: 'cw-btn cw-btn--secondary cw-btn--small', onclick: () => onDone(pin) }, [pin.done ? '↺ Reopen' : '✓ Done']),
@@ -1549,7 +2037,7 @@
     window.addEventListener('resize', () => renderPins());
     // Pins are anchored to elements — keep them glued as the page scrolls/reflows.
     window.addEventListener('scroll', () => repositionDots(), { passive: true });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePopup(); closePanel(); closeAdminPanel(); } });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePopup(); closePanel(); closeAdminPanel(); closeOffscreenDrawer(); exitReveal(); } });
 
     try {
       const [pinsRes, settingsRes] = await Promise.all([
@@ -1560,6 +2048,10 @@
       state.settings = settingsRes.settings || state.settings;
       applyAdminBubble();
       renderPins();
+      // Watch for SPA/React screen swaps so pins re-attach when their screen
+      // (re)mounts. Started after the first render so the initial paint isn't
+      // double-rendered. renderPins() pauses/resumes it around its own work.
+      startPinObserver();
     } catch (e) {
       console.warn('[cw] failed to load pins', e);
     }

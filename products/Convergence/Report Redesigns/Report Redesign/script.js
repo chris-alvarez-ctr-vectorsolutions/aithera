@@ -13,6 +13,7 @@ const REPORTS = {
     'incident-log':         { title: 'Incident Log Report',         breadcrumb: 'Incident Log' },
     'near-miss':            { title: 'Near Miss Report',            breadcrumb: 'Near Miss' },
     'manage-saved-views':   { title: 'Manage Saved Views',          breadcrumb: 'Manage Saved Views' },
+    'scheduled-reports':    { title: 'Scheduled Reports',           breadcrumb: 'Scheduled Reports' },
 };
 
 const NAV_ITEMS = [
@@ -45,10 +46,13 @@ const NAV_ITEMS = [
             { type: 'button', id: 'near-miss',    text: 'Near Miss Report' },
         ]
     },
+    { type: 'divider' },
+    { type: 'button', id: 'scheduled-reports',  text: 'Scheduled Reports' },
+    { type: 'button', id: 'manage-saved-views', text: 'Manage Saved Views' },
 ];
 
 reportsSidenav.items        = NAV_ITEMS;
-reportsSidenav.footerItems  = [{ type: 'button', id: 'manage-saved-views', text: 'Manage Saved Views' }];
+reportsSidenav.footerItems  = [];
 reportsSidenav.expandedGroupIds = NAV_ITEMS.filter(i => i.type === 'group').map(i => i.id);
 reportsSidenav.activeItemId = 'qualification-report';
 
@@ -63,15 +67,17 @@ reportsSidenav.addEventListener('item-click', (e) => {
     reportsSidenav.activeItemId = id;
     document.querySelector('.bc-current').textContent = report.breadcrumb;
 
-    const isQual    = id === 'qualification-report';
-    const isActEx   = id === 'activity-exception';
-    const isManage  = id === 'manage-saved-views';
+    const isQual      = id === 'qualification-report';
+    const isActEx     = id === 'activity-exception';
+    const isManage    = id === 'manage-saved-views';
+    const isScheduled = id === 'scheduled-reports';
 
-    document.getElementById('pageLayout').style.display              = isQual   ? '' : 'none';
-    document.getElementById('actExLayout').style.display             = isActEx  ? '' : 'none';
-    document.getElementById('manageSavedViewsLayout').style.display  = isManage ? '' : 'none';
-    document.getElementById('reportPlaceholder').style.display       = (!isQual && !isActEx && !isManage) ? 'flex' : 'none';
-    if (!isManage) document.getElementById('placeholderTitle').textContent = report.title;
+    document.getElementById('pageLayout').style.display              = isQual      ? '' : 'none';
+    document.getElementById('actExLayout').style.display            = isActEx     ? '' : 'none';
+    document.getElementById('manageSavedViewsLayout').style.display  = isManage    ? '' : 'none';
+    document.getElementById('scheduledReportsLayout').style.display  = isScheduled ? '' : 'none';
+    document.getElementById('reportPlaceholder').style.display       = (!isQual && !isActEx && !isManage && !isScheduled) ? 'flex' : 'none';
+    if (!isManage && !isScheduled) document.getElementById('placeholderTitle').textContent = report.title;
 
     // Ensure qual filter toggle is hidden when switching away
     if (!isQual) filterToggleBtn.style.display = 'none';
@@ -291,8 +297,8 @@ const FILTER_SUMMARY_ROWS = [
 
 saveViewDialog.renderer = (root) => {
     if (root.firstChild) return;
-    root.style.minWidth = '480px';
-    root.style.maxWidth = '560px';
+    root.style.minWidth = '600px';
+    root.style.maxWidth = '680px';
 
     const subtitle = document.createElement('p');
     subtitle.className = 'sv-dialog-subtitle';
@@ -660,13 +666,18 @@ applySavedViewBtn.addEventListener('click', () => {
     selectSavedViewDialog.opened = true;
 });
 
+// The saved view currently applied to the report (null = ad-hoc filters)
+let appliedSavedView = null;
+
 function applyView(view) {
+    appliedSavedView = view;
     document.getElementById('appliedBanner').style.display = 'flex';
     document.getElementById('appliedBannerName').textContent = view.name;
     saveNewViewBtn.innerHTML = '<i class="fa-solid fa-rotate" slot="prefix"></i> Update View';
 }
 
 document.getElementById('clearAppliedViewBtn').addEventListener('click', () => {
+    appliedSavedView = null;
     document.getElementById('appliedBanner').style.display = 'none';
     saveNewViewBtn.innerHTML = '<i class="fa-regular fa-bookmark" slot="prefix"></i> Save New View';
     selectedSavedViewId = null;
@@ -1499,6 +1510,14 @@ document.getElementById('locPanel')?.addEventListener('click', (e) => {
 // MANAGE SAVED VIEWS PAGE
 // ================================================================
 
+// Badge shown on a saved view that has one or more schedules tied to it
+function schedColumnBadge(viewId) {
+    const count = SCHEDULED_REPORTS.filter(s => s.savedViewId === viewId).length;
+    if (!count) return '';
+    const label = count > 1 ? `${count} Schedules` : 'Scheduled';
+    return `<span class="msv-sched-badge" title="This saved view is used by ${count} scheduled report${count > 1 ? 's' : ''}"><i class="fa-regular fa-clock"></i> ${label}</span>`;
+}
+
 function renderManageSavedViews() {
     const tbody = document.getElementById('msvTbody');
     if (!tbody) return;
@@ -1516,6 +1535,7 @@ function renderManageSavedViews() {
             </td>
             <td class="msv-name-cell">
                 <span class="msv-view-name">${view.name}</span>
+                ${schedColumnBadge(view.id)}
             </td>
             <td><span class="msv-report-badge">${view.report}</span></td>
             <td class="msv-desc">${view.desc}</td>
@@ -1593,4 +1613,861 @@ document.addEventListener('DOMContentLoaded', () => {
 // Also re-render whenever sidenav navigates to it
 reportsSidenav.addEventListener('item-click', (e) => {
     if (e.detail.id === 'manage-saved-views') renderManageSavedViews();
+    if (e.detail.id === 'scheduled-reports') renderScheduledReports();
 }, { capture: false });
+
+
+// ================================================================
+// EMAIL / SCHEDULE REPORT
+// ================================================================
+
+// ── Mock data: existing scheduled reports ──────────────────────────
+let SCHEDULED_REPORTS = [
+    {
+        id: 'sr1', name: 'Weekly Compliance Summary', report: 'Qualification Report',
+        savedViewId: 'q1-compliance', savedViewName: 'Q1 Compliance Review',
+        freqValue: 'weekly', days: ['Mon'], dayOfMonth: 1, startDate: '2026-04-06', endDate: '', timeValue: '08:00',
+        recipients: ['Anthony Davis', 'Draymond Green', 'Fred VanVleet'], nextSend: 'Jun 8, 2026',
+    },
+    {
+        id: 'sr2', name: 'Monthly Overdue Activities', report: 'Activity Exception Report',
+        savedViewId: 'overdue-nov', savedViewName: 'Overdue Activities Nov',
+        freqValue: 'monthly', days: [], dayOfMonth: 1, startDate: '2026-04-01', endDate: '2026-12-31', timeValue: '06:30',
+        recipients: ['Gary Payton II', 'Jalen Green'], nextSend: 'Jul 1, 2026',
+    },
+    {
+        id: 'sr3', name: 'Quarterly Safety Review', report: 'Qualification Report',
+        savedViewId: 'fall-protection', savedViewName: 'Fall Protection Group',
+        freqValue: 'quarterly', days: [], dayOfMonth: 1, startDate: '2026-07-01', endDate: '', timeValue: '09:00',
+        recipients: ['Anthony Davis'], nextSend: 'Jul 1, 2026',
+    },
+];
+
+// Recipients of the current dialog (names and/or typed emails)
+let currentRecipients = [];
+
+function userFullName(u) { return `${u.firstName} ${u.lastName}`; }
+function userEmail(u) {
+    return `${u.firstName}.${u.lastName}`.replace(/\s+/g, '').toLowerCase() + '@vectorsolutions.com';
+}
+
+function addRecipients(str) {
+    if (!str) return;
+    str.split(',').map(s => s.trim()).filter(Boolean).forEach(token => {
+        if (!currentRecipients.some(r => r.toLowerCase() === token.toLowerCase())) {
+            currentRecipients.push(token);
+        }
+    });
+    renderRecipientChips();
+}
+
+function renderRecipientChips() {
+    const wrap = document.getElementById('recipChips');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    currentRecipients.forEach((r, idx) => {
+        const chip = document.createElement('span');
+        chip.className = 'recip-chip';
+        const label = document.createElement('span');
+        label.textContent = r;
+        chip.appendChild(label);
+        const x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'recip-chip-x';
+        x.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+        x.addEventListener('click', (e) => {
+            e.stopPropagation();
+            currentRecipients.splice(idx, 1);
+            renderRecipientChips();
+        });
+        chip.appendChild(x);
+        wrap.appendChild(chip);
+    });
+    const err = document.getElementById('recipError');
+    if (err) err.textContent = '';
+    const box = document.getElementById('recipBox');
+    if (box) box.classList.remove('invalid');
+}
+
+// ── Recipient picker ("Browse all users") ──────────────────────────
+const recipientPickerDialog = document.getElementById('recipientPickerDialog');
+
+function openRecipientPicker() {
+    recipientPickerDialog.overlayClass = 'recip-picker-overlay';
+    recipientPickerDialog.opened = true;
+    recipientPickerDialog.requestContentUpdate();
+}
+
+function renderRecipientPickerRows(query) {
+    const list = document.getElementById('recipPickerList');
+    if (!list) return;
+    const q = (query || '').trim().toLowerCase();
+    list.innerHTML = '';
+    USERS_DATA
+        .filter(u => {
+            if (!q) return true;
+            return userFullName(u).toLowerCase().includes(q)
+                || userEmail(u).toLowerCase().includes(q)
+                || u.username.toLowerCase().includes(q);
+        })
+        .forEach(u => {
+            const checked = currentRecipients.some(r => r.toLowerCase() === userFullName(u).toLowerCase());
+            const row = document.createElement('label');
+            row.className = 'recip-pick-row';
+            row.innerHTML = `
+                <input type="checkbox" class="recip-pick-cb" data-id="${u.id}" ${checked ? 'checked' : ''}>
+                <span class="recip-pick-name">${userFullName(u)}</span>
+                <span class="recip-pick-email">${userEmail(u)}</span>
+                <span class="recip-pick-loc">${u.location}</span>
+            `;
+            list.appendChild(row);
+        });
+}
+
+recipientPickerDialog.renderer = (root) => {
+    root.innerHTML = '';
+    root.style.width = '560px';
+    root.style.maxWidth = '100%';
+    root.innerHTML = `
+        <p class="sv-dialog-subtitle">Select people to add as recipients.</p>
+        <div class="search-wrap recip-pick-search">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input class="search-input" type="text" id="recipPickerSearch" placeholder="Search by name, email, or username…">
+        </div>
+        <div class="recip-pick-list" id="recipPickerList"></div>
+    `;
+    renderRecipientPickerRows('');
+    root.querySelector('#recipPickerSearch').addEventListener('input', (e) => {
+        renderRecipientPickerRows(e.target.value);
+    });
+};
+
+recipientPickerDialog.footerRenderer = (root) => {
+    if (root.firstChild) return;
+    const cancelBtn = document.createElement('vaadin-button');
+    cancelBtn.setAttribute('theme', 'secondary');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => { recipientPickerDialog.opened = false; });
+
+    const addBtn = document.createElement('vaadin-button');
+    addBtn.setAttribute('theme', 'primary');
+    addBtn.textContent = 'Add Selected';
+    addBtn.addEventListener('click', () => {
+        // Reconcile: drop user-name recipients, keep typed emails, add checked users
+        const userNames = new Set(USERS_DATA.map(u => userFullName(u).toLowerCase()));
+        currentRecipients = currentRecipients.filter(r => !userNames.has(r.toLowerCase()));
+        document.querySelectorAll('#recipPickerList .recip-pick-cb:checked').forEach(cb => {
+            const u = USERS_DATA.find(x => x.id === cb.dataset.id);
+            if (u) currentRecipients.push(userFullName(u));
+        });
+        renderRecipientChips();
+        recipientPickerDialog.opened = false;
+    });
+
+    root.appendChild(cancelBtn);
+    root.appendChild(addBtn);
+};
+
+const DOW = [
+    { v: 'Sun', l: 'S' }, { v: 'Mon', l: 'M' }, { v: 'Tue', l: 'T' }, { v: 'Wed', l: 'W' },
+    { v: 'Thu', l: 'T' }, { v: 'Fri', l: 'F' }, { v: 'Sat', l: 'S' },
+];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// ── Formatting helpers ─────────────────────────────────────────────
+function formatTime(t) {
+    const [hStr, mStr] = (t || '08:00').split(':');
+    let h = parseInt(hStr, 10);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12; if (h === 0) h = 12;
+    return `${h}:${mStr} ${ampm}`;
+}
+function formatDateFriendly(iso) {
+    if (!iso) return 'Pending';
+    const [y, m, d] = iso.split('-').map(Number);
+    if (!y || !m || !d) return 'Pending';
+    return `${MONTHS[m - 1]} ${d}, ${y}`;
+}
+function formatSchedule(s) {
+    let base;
+    if (s.freqValue === 'daily')        base = 'Daily';
+    else if (s.freqValue === 'weekly')  base = 'Weekly · ' + (s.days.length ? s.days.join(', ') : '—');
+    else if (s.freqValue === 'monthly') base = 'Monthly · Day ' + s.dayOfMonth;
+    else                                base = 'Quarterly';
+    let out = `${base} at ${formatTime(s.timeValue)}`;
+    if (s.endDate) out += ` · until ${formatDateFriendly(s.endDate)}`;
+    return out;
+}
+
+// ── Read currently-applied filters into a read-only summary ─────────
+function getReportFilterSummary(reportName) {
+    if (reportName === 'Activity Exception Report') {
+        return FILTER_SUMMARY_ROWS; // existing static summary for actEx
+    }
+    // Qualification Report — read live filter state
+    const dateVal = document.querySelector('#filterPanel .date-input')?.value || 'All dates';
+
+    const qualNames = [...pickerState.quals]
+        .map(id => (QUALIFICATIONS_DATA.find(q => q.id === id) || {}).name)
+        .filter(Boolean);
+    const userNames = [...pickerState.qualUsers]
+        .map(id => { const u = USERS_DATA.find(x => x.id === id); return u ? `${u.firstName} ${u.lastName}` : null; })
+        .filter(Boolean);
+
+    const statuses = [];
+    if (document.getElementById('chk-completed')?.checked)   statuses.push('Completed');
+    if (document.getElementById('chk-incomplete')?.checked)  statuses.push('Incomplete');
+    if (document.getElementById('chk-in-progress')?.checked) statuses.push('In Progress');
+    if (document.getElementById('chk-overdue')?.checked)     statuses.push('Overdue');
+
+    const loc = document.getElementById('locTriggerLabel')?.textContent.trim() || 'All';
+
+    return [
+        { icon: 'fa-regular fa-calendar',  label: 'Date Range', value: dateVal },
+        { icon: 'fa-solid fa-certificate', label: `Qualifications (${qualNames.length})`, pills: qualNames.length ? qualNames : ['All qualifications'] },
+        { icon: 'fa-solid fa-user',        label: `Users (${userNames.length})`,          pills: userNames.length ? userNames : ['All users'] },
+        { icon: 'fa-solid fa-tag',         label: 'Status Types', value: statuses.length ? statuses.join(', ') : 'All' },
+        { icon: 'fa-solid fa-location-dot',label: 'Location',     value: loc },
+    ];
+}
+
+// ── Toast helper ───────────────────────────────────────────────────
+function showToast(msg) {
+    let t = document.getElementById('appToast');
+    if (!t) {
+        t = document.createElement('div');
+        t.id = 'appToast';
+        t.className = 'app-toast';
+        document.body.appendChild(t);
+    }
+    t.innerHTML = `<i class="fa-solid fa-circle-check"></i><span>${msg}</span>`;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('show'), 3400);
+}
+
+// ── Email / Schedule dialog ────────────────────────────────────────
+const emailReportDialog = document.getElementById('emailReportDialog');
+let emailDialogConfig = { mode: 'schedule', editId: null, reportName: 'Qualification Report' };
+
+function openEmailDialog(opts = {}) {
+    emailDialogConfig = {
+        mode:       opts.editId ? 'schedule' : (opts.mode || 'schedule'),
+        editId:     opts.editId || null,
+        reportName: opts.reportName || 'Qualification Report',
+    };
+    emailReportDialog.headerTitle = opts.editId ? 'Edit Scheduled Report' : 'Send Report';
+    emailReportDialog.overlayClass = 'send-report-overlay';
+    emailReportDialog.opened = true;
+    // Force fresh content + footer for this open (renderers clear & rebuild)
+    emailReportDialog.requestContentUpdate();
+}
+
+function applyEmailMode(mode) {
+    emailDialogConfig.mode = mode;
+    const sched = document.getElementById('emailScheduleFields');
+    const once  = document.getElementById('emailOnceFields');
+    if (sched) sched.style.display = mode === 'schedule' ? '' : 'none';
+    if (once)  once.style.display  = mode === 'once' ? '' : 'none';
+    // The saved-view requirement only applies to scheduling
+    const note = document.getElementById('emailSavedViewNote');
+    if (note) note.style.display = mode === 'schedule' ? '' : 'none';
+    document.querySelectorAll('#emailModeToggle .email-mode-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === mode);
+    });
+    updateEmailPrimaryLabel();
+}
+
+function applyFreqDetail(value) {
+    ['weekly', 'monthly', 'quarterly'].forEach(f => {
+        const el = document.getElementById('freq-' + f);
+        if (el) el.style.display = (f === value) ? '' : 'none';
+    });
+}
+
+function updateEmailPrimaryLabel() {
+    const btn = document.getElementById('emailPrimaryBtn');
+    if (!btn) return;
+    if (emailDialogConfig.editId)            btn.textContent = 'Save Changes';
+    else if (emailDialogConfig.mode === 'schedule') btn.textContent = 'Schedule Report';
+    else                                     btn.textContent = 'Send Report';
+}
+
+// The saved view a schedule is (or will be) tied to:
+//  - editing: the view stored on the schedule
+//  - creating: the view currently applied to this report (or null = ad-hoc filters)
+function getDialogSavedView(cfg) {
+    if (cfg.editId) {
+        const s = SCHEDULED_REPORTS.find(x => x.id === cfg.editId);
+        if (s && s.savedViewId) {
+            return SAVED_VIEWS.find(v => v.id === s.savedViewId)
+                || { id: s.savedViewId, name: s.savedViewName, report: s.report };
+        }
+    }
+    if (appliedSavedView && appliedSavedView.report === cfg.reportName) return appliedSavedView;
+    return null;
+}
+
+// Build the read-only contents summary from a saved view's stored filters
+function getSavedViewSummary(view) {
+    return [
+        { icon: 'fa-regular fa-calendar',   label: 'Date Range', value: view.dateRange || 'All time' },
+        { icon: 'fa-solid fa-certificate',  label: 'Qualifications', pills: (view.activities && view.activities.length) ? view.activities : ['All'] },
+        { icon: 'fa-solid fa-user',         label: 'Users',          pills: (view.users && view.users.length) ? view.users : ['All'] },
+        { icon: 'fa-solid fa-tag',          label: 'Status Types',   value: view.statusTypes || 'All' },
+        { icon: 'fa-solid fa-table-columns',label: 'Columns Shown',  value: view.columns || '—' },
+    ];
+}
+
+function renderSavedViewNote(cfg) {
+    const el = document.getElementById('emailSavedViewNote');
+    if (!el) return;
+    const view = getDialogSavedView(cfg);
+    if (view) {
+        el.className = 'email-sv-note has-view';
+        el.innerHTML = `<i class="fa-solid fa-bookmark"></i>
+            <span>Scheduled from saved view <strong>${view.name}</strong></span>`;
+    } else {
+        el.className = 'email-sv-note no-view';
+        el.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i>
+            <span>These filters aren't saved yet. Scheduling requires a saved view — you'll be prompted to save them when you click Schedule Report.</span>`;
+    }
+}
+
+emailReportDialog.renderer = (root) => {
+    root.innerHTML = '';
+    // Belt-and-suspenders width: the overlayClass CSS sizes the overlay, and this
+    // fixed content width forces it wide even if that rule doesn't apply.
+    root.style.width = '780px';
+    root.style.maxWidth = '100%';
+
+    const cfg  = emailDialogConfig;
+    const edit = cfg.editId ? SCHEDULED_REPORTS.find(s => s.id === cfg.editId) : null;
+
+    root.innerHTML = `
+        <p class="sv-dialog-subtitle">Send this <strong>${cfg.reportName}</strong> now, or set up a recurring email delivery.</p>
+
+        <div class="email-mode-toggle" id="emailModeToggle" ${edit ? 'style="display:none"' : ''}>
+            <button type="button" class="email-mode-btn" data-mode="once"><i class="fa-regular fa-paper-plane"></i> Send Once</button>
+            <button type="button" class="email-mode-btn" data-mode="schedule"><i class="fa-regular fa-clock"></i> Schedule</button>
+        </div>
+
+        <p class="sv-section-heading">Recipients</p>
+        <div class="recip-box" id="recipBox">
+            <div class="recip-chips" id="recipChips"></div>
+            <input type="text" id="recipInput" class="recip-input"
+                placeholder="Type a name or email, or paste comma-separated…">
+        </div>
+        <div class="recip-tools">
+            <button type="button" class="recip-browse" id="recipBrowseBtn">
+                <i class="fa-solid fa-address-book"></i> Browse all users
+            </button>
+            <span class="recip-error" id="recipError"></span>
+        </div>
+
+        <!-- SCHEDULE-ONLY FIELDS -->
+        <div id="emailScheduleFields">
+            <p class="sv-section-heading">Schedule</p>
+            <vaadin-text-field theme="outlined" id="emailScheduleName" label="Schedule Name"
+                placeholder="e.g. Weekly Compliance Summary" required style="width:100%"></vaadin-text-field>
+
+            <div class="email-2col" style="margin-top:12px">
+                <vaadin-select theme="outlined" id="emailFrequency" label="Frequency" style="width:100%"></vaadin-select>
+                <vaadin-select theme="outlined" id="emailTime" label="Time" style="width:100%"></vaadin-select>
+            </div>
+
+            <div id="freq-weekly" class="freq-detail">
+                <label class="filter-label" style="display:block;margin-bottom:6px">Send on</label>
+                <div class="dow-row" id="dowRow"></div>
+            </div>
+            <div id="freq-monthly" class="freq-detail">
+                <vaadin-select theme="outlined" id="emailDayOfMonth" label="Day of month" style="width:100%"></vaadin-select>
+            </div>
+            <div id="freq-quarterly" class="freq-detail freq-note">
+                <i class="fa-regular fa-circle-info"></i> Sends on the first day of each quarter (Jan, Apr, Jul, Oct).
+            </div>
+
+            <div class="email-2col" style="margin-top:12px">
+                <vaadin-date-picker theme="outlined" id="emailStartDate" label="Start date"
+                    style="width:100%"></vaadin-date-picker>
+                <vaadin-date-picker theme="outlined" id="emailEndDate" label="End date (optional)"
+                    helper-text="Leave blank to run indefinitely" style="width:100%"></vaadin-date-picker>
+            </div>
+        </div>
+
+        <!-- SEND-ONCE-ONLY FIELDS -->
+        <div id="emailOnceFields">
+            <p class="sv-section-heading">Message <span style="font-weight:400;color:var(--vsp-color-neutral-60,#777)">(optional)</span></p>
+            <vaadin-text-field theme="outlined" id="emailSubject" label="Subject"
+                placeholder="${cfg.reportName} export" style="width:100%"></vaadin-text-field>
+            <vaadin-text-area theme="outlined" id="emailMessage" label="Message"
+                placeholder="Add a note for recipients..." style="width:100%;margin-top:12px"></vaadin-text-area>
+        </div>
+
+        <hr class="sv-hr">
+
+        <p class="sv-section-heading">Report contents <span class="email-format-tag"><i class="fa-regular fa-file-excel"></i> Excel (.xlsx)</span></p>
+        <div id="emailSavedViewNote" class="email-sv-note"></div>
+        <div id="emailFilterSummary"></div>
+    `;
+
+    // Recipients — token input (type / paste) + browse
+    currentRecipients = edit ? [...edit.recipients] : [];
+    renderRecipientChips();
+    const recipInput = root.querySelector('#recipInput');
+    recipInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            addRecipients(recipInput.value);
+            recipInput.value = '';
+        } else if (e.key === 'Backspace' && !recipInput.value && currentRecipients.length) {
+            currentRecipients.pop();
+            renderRecipientChips();
+        }
+    });
+    recipInput.addEventListener('input', () => {
+        // Splits on comma as you type or paste
+        if (recipInput.value.includes(',')) {
+            addRecipients(recipInput.value);
+            recipInput.value = '';
+        }
+    });
+    recipInput.addEventListener('blur', () => {
+        if (recipInput.value.trim()) { addRecipients(recipInput.value); recipInput.value = ''; }
+    });
+    root.querySelector('#recipBox').addEventListener('click', () => recipInput.focus());
+    root.querySelector('#recipBrowseBtn').addEventListener('click', openRecipientPicker);
+
+    // Frequency select
+    const freqSel = root.querySelector('#emailFrequency');
+    freqSel.items = [
+        { label: 'Daily', value: 'daily' },
+        { label: 'Weekly', value: 'weekly' },
+        { label: 'Monthly', value: 'monthly' },
+        { label: 'Quarterly', value: 'quarterly' },
+    ];
+    freqSel.value = edit ? edit.freqValue : 'weekly';
+    freqSel.addEventListener('value-changed', () => applyFreqDetail(freqSel.value));
+
+    // Time select (30-minute intervals)
+    const timeSel = root.querySelector('#emailTime');
+    timeSel.items = Array.from({ length: 48 }, (_, i) => {
+        const v = String(Math.floor(i / 2)).padStart(2, '0') + ':' + (i % 2 ? '30' : '00');
+        return { label: formatTime(v), value: v };
+    });
+    timeSel.value = edit ? edit.timeValue : '08:00';
+
+    // Day of month select
+    const domSel = root.querySelector('#emailDayOfMonth');
+    domSel.items = Array.from({ length: 28 }, (_, i) => ({ label: 'Day ' + (i + 1), value: String(i + 1) }));
+    domSel.value = String(edit ? edit.dayOfMonth : 1);
+
+    // Day-of-week buttons
+    const dowRow = root.querySelector('#dowRow');
+    DOW.forEach(d => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'dow-btn';
+        btn.dataset.dow = d.v;
+        btn.textContent = d.l;
+        if (edit && edit.days.includes(d.v)) btn.classList.add('active');
+        if (!edit && d.v === 'Mon') btn.classList.add('active');
+        btn.addEventListener('click', () => btn.classList.toggle('active'));
+        dowRow.appendChild(btn);
+    });
+
+    // Prefill schedule name / dates in edit mode
+    if (edit) {
+        root.querySelector('#emailScheduleName').value = edit.name;
+        root.querySelector('#emailStartDate').value = edit.startDate;
+        root.querySelector('#emailEndDate').value = edit.endDate || '';
+    }
+
+    // Mode toggle buttons
+    root.querySelectorAll('#emailModeToggle .email-mode-btn').forEach(b => {
+        b.addEventListener('click', () => applyEmailMode(b.dataset.mode));
+    });
+
+    // Saved-view note + filter summary
+    renderSavedViewNote(cfg);
+    const dialogView = getDialogSavedView(cfg);
+    const summaryEl = root.querySelector('#emailFilterSummary');
+    const summaryRows = dialogView ? getSavedViewSummary(dialogView) : getReportFilterSummary(cfg.reportName);
+    summaryRows.forEach(row => {
+        const rowEl = document.createElement('div');
+        rowEl.className = 'sv-filter-row';
+        rowEl.innerHTML = `<span class="sv-fr-icon"><i class="${row.icon}"></i></span>
+                           <span class="sv-fr-label">${row.label}</span>`;
+        if (row.value) {
+            const val = document.createElement('span');
+            val.className = 'sv-fr-value';
+            val.textContent = row.value;
+            rowEl.appendChild(val);
+        }
+        if (row.pills) {
+            const pillsEl = document.createElement('div');
+            pillsEl.className = 'sv-fr-pills';
+            row.pills.forEach(p => {
+                const pill = document.createElement('span');
+                pill.className = 'sv-pill';
+                pill.textContent = p;
+                pillsEl.appendChild(pill);
+            });
+            rowEl.appendChild(pillsEl);
+        }
+        summaryEl.appendChild(rowEl);
+    });
+
+    // Apply initial mode + freq detail
+    applyEmailMode(cfg.mode);
+    applyFreqDetail(freqSel.value);
+};
+
+emailReportDialog.footerRenderer = (root) => {
+    root.innerHTML = '';
+
+    const cancelBtn = document.createElement('vaadin-button');
+    cancelBtn.setAttribute('theme', 'secondary');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => { emailReportDialog.opened = false; });
+
+    const primaryBtn = document.createElement('vaadin-button');
+    primaryBtn.setAttribute('theme', 'primary');
+    primaryBtn.id = 'emailPrimaryBtn';
+    primaryBtn.textContent = 'Schedule Report';
+    primaryBtn.addEventListener('click', submitEmailDialog);
+
+    root.appendChild(cancelBtn);
+    root.appendChild(primaryBtn);
+    updateEmailPrimaryLabel();
+};
+
+function submitEmailDialog() {
+    const cfg = emailDialogConfig;
+
+    // Capture anything still sitting in the recipient input
+    const recipInput = document.getElementById('recipInput');
+    if (recipInput && recipInput.value.trim()) { addRecipients(recipInput.value); recipInput.value = ''; }
+    const recipients = [...currentRecipients];
+
+    // Require at least one recipient
+    if (recipients.length === 0) {
+        const box = document.getElementById('recipBox');
+        const err = document.getElementById('recipError');
+        if (box) box.classList.add('invalid');
+        if (err) err.textContent = 'Add at least one recipient';
+        return;
+    }
+
+    // ── Send once ──
+    if (cfg.mode === 'once') {
+        emailReportDialog.opened = false;
+        showToast(`Report sent to ${recipients.length} recipient${recipients.length > 1 ? 's' : ''}`);
+        return;
+    }
+
+    // ── Schedule (create or edit) ──
+    const nameField = document.getElementById('emailScheduleName');
+    const name = nameField?.value.trim();
+    if (!name) {
+        if (nameField) { nameField.invalid = true; nameField.errorMessage = 'Schedule name is required'; }
+        return;
+    }
+
+    const freqValue  = document.getElementById('emailFrequency')?.value || 'weekly';
+    const timeValue  = document.getElementById('emailTime')?.value || '08:00';
+    const startDate  = document.getElementById('emailStartDate')?.value || '';
+    const endDate    = document.getElementById('emailEndDate')?.value || '';
+    const dayOfMonth = parseInt(document.getElementById('emailDayOfMonth')?.value || '1', 10);
+    const days = [...document.querySelectorAll('#dowRow .dow-btn.active')].map(b => b.dataset.dow);
+
+    if (freqValue === 'weekly' && days.length === 0) {
+        showToast('Select at least one day of the week');
+        return;
+    }
+    if (endDate && startDate && endDate < startDate) {
+        const ep = document.getElementById('emailEndDate');
+        if (ep) { ep.invalid = true; ep.errorMessage = 'End date must be after the start date'; }
+        return;
+    }
+
+    const pending = {
+        name, report: cfg.reportName, freqValue, days, dayOfMonth, startDate, endDate, timeValue,
+        recipients: [...recipients],
+        nextSend: formatDateFriendly(startDate),
+    };
+
+    // A schedule must be tied to a saved view. If none exists for this report,
+    // prompt to save the current filters as a saved view before continuing.
+    const view = getDialogSavedView(cfg);
+    if (!view) {
+        pendingScheduleData = pending;
+        openSaveViewForSchedule(name, cfg.reportName);
+        return;
+    }
+
+    finalizeSchedule(pending, view);
+}
+
+// Commit a schedule (create or edit), tied to a saved view
+function finalizeSchedule(pending, view) {
+    const cfg = emailDialogConfig;
+    const record = { ...pending, savedViewId: view.id, savedViewName: view.name };
+
+    if (cfg.editId) {
+        const idx = SCHEDULED_REPORTS.findIndex(s => s.id === cfg.editId);
+        if (idx !== -1) SCHEDULED_REPORTS[idx] = { ...SCHEDULED_REPORTS[idx], ...record };
+        showToast('Schedule updated');
+    } else {
+        record.id = 'sr' + (Date.now ? Date.now() : Math.floor(performance.now()));
+        SCHEDULED_REPORTS.push(record);
+        showToast('Report scheduled');
+    }
+
+    emailReportDialog.opened = false;
+    renderScheduledReports();
+}
+
+// ── Save-view-to-schedule prompt ───────────────────────────────────
+const saveViewForScheduleDialog = document.getElementById('saveViewForScheduleDialog');
+let pendingScheduleData = null;
+
+function openSaveViewForSchedule(suggestedName, reportName) {
+    saveViewForScheduleDialog.overlayClass = 'recip-picker-overlay';
+    saveViewForScheduleDialog.opened = true;
+    saveViewForScheduleDialog.requestContentUpdate();
+    // Defer so the field exists before we set its value
+    setTimeout(() => {
+        const f = document.getElementById('svsNameField');
+        if (f) f.value = suggestedName || '';
+    }, 0);
+}
+
+saveViewForScheduleDialog.renderer = (root) => {
+    root.innerHTML = '';
+    root.style.width = '560px';
+    root.style.maxWidth = '100%';
+    const reportName = emailDialogConfig.reportName;
+    const summaryRows = getReportFilterSummary(reportName);
+
+    root.innerHTML = `
+        <div class="svs-callout">
+            <i class="fa-solid fa-circle-info"></i>
+            <span>Scheduled reports run from a saved view. Save the current filters as a saved view to finish scheduling.</span>
+        </div>
+        <vaadin-text-field theme="outlined" id="svsNameField" label="Saved View Name" required
+            placeholder="e.g. Weekly Compliance Review" style="width:100%;margin-top:14px"></vaadin-text-field>
+        <p class="sv-section-heading">Filters to save</p>
+        <div id="svsSummary"></div>
+    `;
+
+    const summaryEl = root.querySelector('#svsSummary');
+    summaryRows.forEach(row => {
+        const rowEl = document.createElement('div');
+        rowEl.className = 'sv-filter-row';
+        rowEl.innerHTML = `<span class="sv-fr-icon"><i class="${row.icon}"></i></span>
+                           <span class="sv-fr-label">${row.label}</span>`;
+        if (row.value) {
+            const val = document.createElement('span');
+            val.className = 'sv-fr-value';
+            val.textContent = row.value;
+            rowEl.appendChild(val);
+        }
+        if (row.pills) {
+            const pillsEl = document.createElement('div');
+            pillsEl.className = 'sv-fr-pills';
+            row.pills.forEach(p => {
+                const pill = document.createElement('span');
+                pill.className = 'sv-pill';
+                pill.textContent = p;
+                pillsEl.appendChild(pill);
+            });
+            rowEl.appendChild(pillsEl);
+        }
+        summaryEl.appendChild(rowEl);
+    });
+};
+
+saveViewForScheduleDialog.footerRenderer = (root) => {
+    if (root.firstChild) return;
+    const cancelBtn = document.createElement('vaadin-button');
+    cancelBtn.setAttribute('theme', 'secondary');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => { saveViewForScheduleDialog.opened = false; });
+
+    const saveBtn = document.createElement('vaadin-button');
+    saveBtn.setAttribute('theme', 'primary');
+    saveBtn.textContent = 'Save View & Schedule';
+    saveBtn.addEventListener('click', () => {
+        const field = document.getElementById('svsNameField');
+        const viewName = field?.value.trim();
+        if (!viewName) {
+            if (field) { field.invalid = true; field.errorMessage = 'Name is required'; }
+            return;
+        }
+        const reportName = emailDialogConfig.reportName;
+        const summary = getReportFilterSummary(reportName);
+        const dateRow = summary.find(r => /date/i.test(r.label));
+
+        const newView = {
+            id: 'view-' + (Date.now ? Date.now() : Math.floor(performance.now())),
+            name: viewName,
+            report: reportName,
+            desc: 'Created while scheduling a report',
+            dateRange: (dateRow && dateRow.value) || 'Custom range',
+            activities: (summary.find(r => /qualif|activit/i.test(r.label)) || {}).pills || [],
+            users: (summary.find(r => /user/i.test(r.label)) || {}).pills || [],
+            statusTypes: (summary.find(r => /status/i.test(r.label)) || {}).value || 'All',
+            columns: (summary.find(r => /column/i.test(r.label)) || {}).value || '—',
+            activityCount: 0, userCount: 0, favorited: false,
+        };
+        SAVED_VIEWS.push(newView);
+
+        // Reflect the new view as the applied view for this report
+        appliedSavedView = newView;
+        if (reportName === 'Qualification Report') applyView(newView);
+
+        saveViewForScheduleDialog.opened = false;
+        if (pendingScheduleData) {
+            finalizeSchedule(pendingScheduleData, newView);
+            pendingScheduleData = null;
+        }
+        renderManageSavedViews();
+    });
+
+    root.appendChild(cancelBtn);
+    root.appendChild(saveBtn);
+};
+
+// Wire the Email buttons on both reports
+document.getElementById('emailBtn')?.addEventListener('click',
+    () => openEmailDialog({ mode: 'schedule', reportName: 'Qualification Report' }));
+document.getElementById('actExEmailBtn')?.addEventListener('click',
+    () => openEmailDialog({ mode: 'schedule', reportName: 'Activity Exception Report' }));
+
+
+// ── Scheduled Reports page ─────────────────────────────────────────
+function renderScheduledReports() {
+    const tbody = document.getElementById('srTbody');
+    const empty = document.getElementById('srEmpty');
+    const table = document.getElementById('srTable');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (SCHEDULED_REPORTS.length === 0) {
+        if (table) table.style.display = 'none';
+        if (empty) empty.style.display = '';
+        return;
+    }
+    if (table) table.style.display = '';
+    if (empty) empty.style.display = 'none';
+
+    SCHEDULED_REPORTS.forEach(s => {
+        const recipText = s.recipients.length <= 2
+            ? s.recipients.join(', ')
+            : `${s.recipients[0]}, ${s.recipients[1]} +${s.recipients.length - 2}`;
+
+        const tr = document.createElement('tr');
+        tr.className = 'data-row';
+        tr.dataset.id = s.id;
+        tr.innerHTML = `
+            <td class="msv-name-cell"><span class="msv-view-name">${s.name}</span></td>
+            <td><span class="msv-report-badge">${s.report}</span></td>
+            <td><span class="sr-sched"><i class="fa-regular fa-clock"></i> ${formatSchedule(s)}</span></td>
+            <td><span class="sr-recipients" title="${s.recipients.join(', ')}"><i class="fa-regular fa-user"></i> ${recipText}</span></td>
+            <td><span class="sr-format"><i class="fa-regular fa-file-excel"></i> Excel</span></td>
+            <td>${s.nextSend}</td>
+            <td>
+                <div class="msv-actions">
+                    <vaadin-button theme="tertiary small" class="sr-edit-btn" data-id="${s.id}">
+                        <i class="fa-regular fa-pen-to-square" slot="prefix"></i> Edit
+                    </vaadin-button>
+                    <vaadin-button theme="tertiary small msv-delete" class="sr-delete-btn" data-id="${s.id}">
+                        <i class="fa-regular fa-trash-can" slot="prefix"></i> Delete
+                    </vaadin-button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    // Edit → reopen the email dialog in schedule mode, pre-filled
+    tbody.querySelectorAll('.sr-edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const s = SCHEDULED_REPORTS.find(x => x.id === btn.dataset.id);
+            if (!s) return;
+            openEmailDialog({ editId: s.id, reportName: s.report });
+        });
+    });
+
+    // Delete → confirmation dialog
+    tbody.querySelectorAll('.sr-delete-btn').forEach(btn => {
+        btn.addEventListener('click', () => openDeleteScheduleDialog(btn.dataset.id));
+    });
+
+    applySrFilters();
+}
+
+// ── Delete confirmation ────────────────────────────────────────────
+const scheduleDeleteDialog = document.getElementById('scheduleDeleteDialog');
+let pendingDeleteId = null;
+
+function openDeleteScheduleDialog(id) {
+    pendingDeleteId = id;
+    scheduleDeleteDialog.opened = true;
+    scheduleDeleteDialog.requestContentUpdate();
+}
+
+scheduleDeleteDialog.renderer = (root) => {
+    root.innerHTML = '';
+    root.style.maxWidth = '420px';
+    const s = SCHEDULED_REPORTS.find(x => x.id === pendingDeleteId);
+    const p = document.createElement('p');
+    p.className = 'sv-dialog-subtitle';
+    p.innerHTML = `Are you sure you want to delete <strong>${s ? s.name : 'this scheduled report'}</strong>?
+                   This will stop all future deliveries. This action cannot be undone.`;
+    root.appendChild(p);
+};
+
+scheduleDeleteDialog.footerRenderer = (root) => {
+    if (root.firstChild) return;
+    const cancelBtn = document.createElement('vaadin-button');
+    cancelBtn.setAttribute('theme', 'secondary');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => { scheduleDeleteDialog.opened = false; });
+
+    const deleteBtn = document.createElement('vaadin-button');
+    deleteBtn.setAttribute('theme', 'error primary');
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', () => {
+        const idx = SCHEDULED_REPORTS.findIndex(x => x.id === pendingDeleteId);
+        if (idx !== -1) {
+            const name = SCHEDULED_REPORTS[idx].name;
+            SCHEDULED_REPORTS.splice(idx, 1);
+            renderScheduledReports();
+            showToast(`Deleted "${name}"`);
+        }
+        scheduleDeleteDialog.opened = false;
+    });
+
+    root.appendChild(cancelBtn);
+    root.appendChild(deleteBtn);
+};
+
+// ── Scheduled Reports search + report filter ───────────────────────
+function applySrFilters() {
+    const reportFilter = document.getElementById('srReportFilter')?.value ?? '';
+    const q = document.getElementById('srSearch')?.value.trim().toLowerCase() ?? '';
+    document.querySelectorAll('#srTbody .data-row').forEach(row => {
+        const reportCell = row.querySelector('td:nth-child(2)')?.textContent.trim() ?? '';
+        const matchReport = !reportFilter || reportCell === reportFilter;
+        const matchSearch = !q || row.textContent.toLowerCase().includes(q);
+        row.style.display = (matchReport && matchSearch) ? '' : 'none';
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    renderScheduledReports();
+    document.getElementById('srReportFilter')?.addEventListener('change', applySrFilters);
+    document.getElementById('srSearch')?.addEventListener('input', applySrFilters);
+});
