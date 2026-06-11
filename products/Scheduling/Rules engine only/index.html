@@ -732,6 +732,25 @@ const FLOWS = {
   ],
 };
 
+// ── Follow-up sub-questions ───────────────────────────────────────────────────
+// Some answers imply a follow-up the flow shouldn't skip over — e.g. picking a
+// "Custom" / "Custom mix" / "Both, weighted" option only makes sense if we then
+// ask the detail it implies. Keyed by template → the answer that triggers it →
+// the sub-question to insert before resuming the main flow. Scoped (for now) to
+// the two reset-based rules. The main flow order is unchanged; these are
+// inserted in-line and the main sequence resumes right where it left off.
+const REPLY_SUBQS = {
+  'Accumulation — Hours Based': {
+    'Custom mix':   { text: "Which outcomes should count toward the hours total? Pick all that apply.", chips: ['Accepted','Denied','No answer','Contacted — no response'], multi: true },
+    'Custom range': { text: "What shift-length range should the rule cover?", chips: ['Min 2 / Max 6 hours','Min 4 / Max 10 hours','Min 6 / Max 12 hours'] },
+  },
+  'Accumulating Rolodex': {
+    'Both, weighted': { text: "How should hours and callback count be weighted against each other?", chips: ['Weight them equally','Favor hours','Favor callback count'] },
+    'Custom':         { text: "What limit should move someone to the end of the list?", chips: ['12 hours','60 hours','8 callbacks','10 callbacks'] },
+    'Custom range':   { text: "What shift-length range should the rule cover?", chips: ['Min 2 / Max 6 hours','Min 4 / Max 10 hours','Min 6 / Max 12 hours'] },
+  },
+};
+
 // ── RuleBuilderView helpers ───────────────────────────────────────────────────
 const ALL_APPROACHES_LIST = ['Firefighter 2', 'Captains', 'Patrol Deputy', 'Bay Guard', 'Battalion Chief', 'FF3'];
 const ALL_STATUSES_LIST   = ['Dispatched', 'Accepted', 'Pending Acceptance', 'Declined', 'Expired', 'No Response'];
@@ -1925,6 +1944,12 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
   // template's own approaches question (flow[0]) so we don't ask approaches
   // twice — see selectSuggestion + flowOffset.
   const [initialApproachAnswered, setInitialApproachAnswered] = useState(false);
+  // Follow-up sub-questions (see REPLY_SUBQS). `subResumeIdx` is the main-flow
+  // index to resume at after a sub-question is answered (null = not currently in
+  // a sub-question). `subQCount` counts answered sub-questions so the main-flow
+  // index math can discount the extra user messages they add.
+  const [subResumeIdx, setSubResumeIdx] = useState(null);
+  const [subQCount,    setSubQCount]    = useState(0);
 
   const [messages, setMessages] = useState(initMsgs);
   // Tracks the template the user picked via the in-builder suggestion cards (selectSuggestion).
@@ -2208,7 +2233,9 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
                     : (hasSeededGroups && (templateName || initialPrompt)) ? 2
                     : (templateName || initialPrompt) ? 1
                     : 0;
-  const nextFlowIdx = userMsgs.length + flowOffset;
+  // Subtract any answered sub-questions: they add extra user messages that
+  // should not advance the main flow position.
+  const nextFlowIdx = userMsgs.length + flowOffset - subQCount;
 
   const parseAndPatch = (text) => {
     const lower = text.toLowerCase();
@@ -2677,8 +2704,46 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
       return;
     }
 
+    // ── Follow-up sub-question answer ──
+    // We're answering an inserted sub-question (see REPLY_SUBQS). Record it and
+    // resume the main flow at the stored index, then count it so the main-flow
+    // index math discounts this extra message.
+    if (subResumeIdx !== null) {
+      if (!isSkip) parseAndPatch(text);
+      const resume = subResumeIdx;
+      setMessages(m => [...m, { role: 'user', text, skipped: isSkip }]);
+      setSubResumeIdx(null);
+      setSubQCount(c => c + 1);
+      setInput('');
+      setCustomAnswer(false);
+      setTyping(true);
+      setTimeout(() => {
+        const nextAi = flow[resume];
+        if (nextAi) setMessages(m => [...m, { role: 'ai', text: nextAi.text, chips: nextAi.chips, multi: nextAi.multi }]);
+        setTyping(false);
+      }, 800 + Math.random() * 400);
+      return;
+    }
+
     // ── Normal build-from-scratch flow ──
     if (!isSkip) parseAndPatch(text);
+    // If this answer implies a follow-up (e.g. "Custom mix", "Custom range",
+    // "Both, weighted", a "Custom" limit), insert that sub-question before
+    // moving on instead of skipping over it. Resumes the main flow right after.
+    const sub = !isSkip && activeTplName && REPLY_SUBQS[activeTplName] ? REPLY_SUBQS[activeTplName][text] : null;
+    if (sub) {
+      const resume = nextFlowIdx;
+      setMessages(m => [...m.filter(msg => msg.role !== 'suggestions'), { role: 'user', text }]);
+      setSubResumeIdx(resume);
+      setInput('');
+      setCustomAnswer(false);
+      setTyping(true);
+      setTimeout(() => {
+        setMessages(m => [...m, { role: 'ai', text: sub.text, chips: sub.chips, multi: sub.multi }]);
+        setTyping(false);
+      }, 800 + Math.random() * 400);
+      return;
+    }
     setMessages(m => [...m.filter(msg => msg.role !== 'suggestions'), { role: 'user', text, skipped: isSkip }]);
     setInput('');
     setCustomAnswer(false);
@@ -2724,6 +2789,8 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
     setActiveTplName(null);
     setSelectionUsed(false);
     setNewestField(null);
+    setSubResumeIdx(null);
+    setSubQCount(0);
     panelEditCountRef.current = 0;
   };
 
@@ -2751,6 +2818,9 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
         : '';
     setActiveTplName(tplName);
     setSelectionUsed(true);
+    // Fresh template flow — clear any sub-question bookkeeping from a prior run.
+    setSubResumeIdx(null);
+    setSubQCount(0);
     setMessages([
       { role: 'user', text: tplName },
       ...(skipApproaches && originLabel
