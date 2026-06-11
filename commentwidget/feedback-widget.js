@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.13.0';
+  const WIDGET_VERSION = '1.15.1';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -27,10 +27,6 @@
     hoverEl: null,
     openPanelPinId: null,
     activeToast: null,
-    // Admin-only, session-only: when true, the admin sees the page exactly as a
-    // non-admin visitor would (stripped panels, own pins only, no stranded
-    // sidebar). Not persisted, so a reload always returns to the admin view.
-    previewVisitor: false,
   };
 
   // Comments are keyed by a canonical page URL, NOT the raw location.href, so
@@ -209,13 +205,9 @@
 .cw-reply-form textarea { min-height: 50px; resize: vertical; }
 .cw-reply-form .cw-actions { display: flex; justify-content: flex-end; }
 
-/* Stranded sidebar */
-.cw-stranded { position: fixed; top: 20px; right: 20px; width: 260px; max-height: 60vh; overflow-y: auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; box-shadow: 0 10px 28px rgba(0,0,0,.12); padding: 12px; z-index: 2147483620; font-size: 12px; }
-.cw-stranded h5 { margin: 0 0 8px; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: .03em; }
-.cw-stranded-item { padding: 8px; margin-bottom: 4px; border-radius: 8px; cursor: pointer; transition: background .12s; }
-.cw-stranded-item:hover { background: #f9fafb; }
-.cw-stranded-item strong { display: block; font-size: 12px; color: #111827; }
-.cw-stranded-item .cw-stranded-note { font-size: 11px; color: #9ca3af; font-style: italic; }
+/* Pulse a dot when the navigator jumps to it (cosmetic, client-side only). */
+@keyframes cw-pin-pulse { 0% { box-shadow: 0 0 0 0 rgba(245,158,11,.55); } 70% { box-shadow: 0 0 0 16px rgba(245,158,11,0); } 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); } }
+.cw-pin--pulse { animation: cw-pin-pulse 1s var(--cw-ease) 1; }
 
 /* Toast */
 .cw-toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px); background: linear-gradient(140deg, #1f2937, #111827); color: #fff; padding: 12px 16px; border-radius: 999px; box-shadow: 0 10px 28px rgba(0,0,0,.3); display: flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 500; z-index: 2147483646; opacity: 0; border: 1px solid rgba(255,255,255,.08); transition: opacity .25s, transform .25s var(--cw-ease); }
@@ -251,31 +243,38 @@
 .cw-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); z-index: 2147483647; display: flex; align-items: center; justify-content: center; padding: 20px; cursor: zoom-out; animation: cw-pop-in .2s ease; }
 .cw-lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: 0 20px 50px rgba(0,0,0,.5); }
 
-/* "On other screens" launcher + drawer.
-   In single-file mocks every screen shares one URL, so comments left deep in a
-   flow would otherwise land on the first screen. We divert those into this
-   drawer; clicking one reveals its screen and opens the pin. */
-.cw-offscreen-launcher { position: fixed; left: 20px; bottom: 20px; z-index: 2147483630; display: flex; align-items: center; gap: 9px; padding: 9px 14px 9px 12px; border: 0; border-radius: 999px; background: linear-gradient(140deg, #1f2937, #111827); color: #fff; font: 600 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; cursor: pointer; box-shadow: 0 8px 20px rgba(17,24,39,.28); transition: transform .2s var(--cw-ease), box-shadow .2s; }
-.cw-offscreen-launcher:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(17,24,39,.36); }
-.cw-offscreen-launcher .cw-offscreen-glyph { font-size: 14px; line-height: 1; }
-.cw-offscreen-count { background: linear-gradient(140deg, #fbbf24, var(--cw-accent)); color: #fff; border-radius: 999px; min-width: 20px; height: 20px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; box-shadow: inset 0 1px 1px rgba(255,255,255,.4); }
-
-.cw-offscreen-drawer { position: fixed; top: 0; right: 0; height: 100vh; width: 340px; max-width: 86vw; z-index: 2147483635; background: #fff; border-left: 1px solid #e5e7eb; box-shadow: -12px 0 32px rgba(0,0,0,.16); padding: 64px 18px 24px; overflow-y: auto; transform: translateX(104%); transition: transform .28s var(--cw-ease); }
-.cw-offscreen-drawer--open { transform: translateX(0); }
-.cw-offscreen-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
-.cw-offscreen-head strong { font-size: 15px; color: #111827; }
-.cw-offscreen-x { background: transparent; border: 0; cursor: pointer; font-size: 20px; color: #6b7280; line-height: 1; padding: 2px 7px; border-radius: 8px; transition: background .15s, color .15s, transform .15s var(--cw-ease); }
-.cw-offscreen-x:hover { background: #f3f4f6; color: #111827; transform: rotate(90deg); }
-.cw-offscreen-sub { font-size: 12px; color: #6b7280; line-height: 1.5; margin-bottom: 14px; }
-.cw-offscreen-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border: 1px solid #eef0f2; border-radius: 12px; margin-bottom: 8px; cursor: pointer; transition: background .12s, border-color .12s, transform .12s var(--cw-ease); }
-.cw-offscreen-item:hover { background: #f9fafb; border-color: #e5e7eb; transform: translateY(-1px); }
-.cw-offscreen-avatar { width: 28px; height: 28px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,.2), inset 0 1px 1px rgba(255,255,255,.3); }
-.cw-offscreen-item-body { flex: 1; min-width: 0; }
-.cw-offscreen-item-meta { font-size: 11px; color: #6b7280; margin-bottom: 2px; }
-.cw-offscreen-item-meta strong { color: #111827; font-size: 12px; }
-.cw-offscreen-item-text { font-size: 13px; color: #1f2937; line-height: 1.45; word-break: break-word; }
-.cw-offscreen-item-ctx { font-size: 11px; color: #9ca3af; margin-top: 3px; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cw-offscreen-go { font-size: 12px; font-weight: 600; color: var(--cw-accent-deep); flex-shrink: 0; align-self: center; }
+/* Comment navigator hub — ONE bottom-left control that accounts for every
+   comment on the page: a total count, a Prev/Next stepper to walk through each
+   one, and an expandable list grouped by where the comment lives (this screen /
+   other screens / not found). Purely client-side over already-loaded pins — it
+   adds no Cloudflare reads, writes, or lists. */
+.cw-nav { position: fixed; left: 20px; bottom: 20px; z-index: 2147483635; display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: 320px; max-width: 86vw; font: 500 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+.cw-nav-bar { display: flex; align-items: center; gap: 2px; padding: 5px 7px; border-radius: 999px; background: linear-gradient(140deg, #1f2937, #111827); color: #fff; box-shadow: 0 8px 20px rgba(17,24,39,.28); }
+.cw-nav-count { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; background: transparent; border: 0; color: #fff; font: 600 13px/1 inherit; cursor: pointer; padding: 7px 8px; border-radius: 999px; transition: background .15s; }
+.cw-nav-count:hover { background: rgba(255,255,255,.1); }
+.cw-nav-glyph { font-size: 14px; line-height: 1; flex-shrink: 0; }
+.cw-nav-count-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cw-nav-caret { font-size: 10px; opacity: .7; margin-left: auto; padding-left: 4px; }
+.cw-nav-div { width: 1px; align-self: stretch; margin: 5px 3px; background: rgba(255,255,255,.16); flex-shrink: 0; }
+.cw-nav-step { background: rgba(255,255,255,.12); color: #fff; border: 0; cursor: pointer; width: 30px; height: 30px; border-radius: 50%; font-size: 19px; line-height: 1; display: flex; align-items: center; justify-content: center; transition: background .15s, transform .1s; flex-shrink: 0; }
+.cw-nav-step:hover { background: rgba(255,255,255,.26); }
+.cw-nav-step:active { transform: scale(.92); }
+.cw-nav-pos { min-width: 50px; text-align: center; font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 600; color: rgba(255,255,255,.92); }
+/* List popover sits ABOVE the bar (DOM order: list then bar, anchored at bottom). */
+.cw-nav-list { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; box-shadow: 0 12px 32px rgba(0,0,0,.16); padding: 10px; max-height: 56vh; overflow-y: auto; }
+.cw-nav-group + .cw-nav-group { margin-top: 10px; }
+.cw-nav-group-title { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; margin: 2px 4px 6px; }
+.cw-nav-item { display: flex; gap: 10px; align-items: flex-start; padding: 9px; border: 1px solid #eef0f2; border-radius: 11px; margin-bottom: 6px; cursor: pointer; transition: background .12s, border-color .12s, transform .12s var(--cw-ease); }
+.cw-nav-item:last-child { margin-bottom: 0; }
+.cw-nav-item:hover { background: #f9fafb; border-color: #e5e7eb; transform: translateY(-1px); }
+.cw-nav-item--current { border-color: var(--cw-accent); box-shadow: 0 0 0 2px rgba(245,158,11,.18); }
+.cw-nav-avatar { width: 26px; height: 26px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,.2), inset 0 1px 1px rgba(255,255,255,.3); }
+.cw-nav-item-body { flex: 1; min-width: 0; }
+.cw-nav-item-meta { font-size: 11px; color: #6b7280; margin-bottom: 2px; }
+.cw-nav-item-meta strong { color: #111827; font-size: 12px; }
+.cw-nav-item-text { font-size: 13px; color: #1f2937; line-height: 1.4; word-break: break-word; }
+.cw-nav-item-ctx { font-size: 11px; color: #9ca3af; margin-top: 3px; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cw-nav-go { font-size: 12px; font-weight: 600; color: var(--cw-accent-deep); flex-shrink: 0; align-self: center; }
 
 /* Bar shown while peeking at a revealed screen (top-center; toast owns the bottom). */
 .cw-reveal-bar { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 2147483646; display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; border-radius: 999px; background: linear-gradient(140deg, #1f2937, #111827); color: #fff; font: 500 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; box-shadow: 0 10px 28px rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.08); }
@@ -284,7 +283,7 @@
 .cw-reveal-bar button:active { transform: scale(.95); }
 
 @media (prefers-reduced-motion: reduce) {
-  .cw-root *, .cw-bubble, .cw-pin, .cw-toast, .cw-popup, .cw-panel, .cw-admin-panel, .cw-banner, .cw-offscreen-drawer, .cw-offscreen-launcher { animation: none !important; transition: none !important; }
+  .cw-root *, .cw-bubble, .cw-pin, .cw-toast, .cw-popup, .cw-panel, .cw-admin-panel, .cw-banner, .cw-nav, .cw-nav * { animation: none !important; transition: none !important; }
 }
 `;
 
@@ -425,10 +424,21 @@
       if (v) return `${tag}[${attr}="${cssAttrEscape(v)}"]`;
     }
     const classes = goodClasses(el);
-    if (classes.length) return tag + '.' + classes.map(c => CSS.escape(c)).join('.');
-    let sib = el, idx = 1;
-    while ((sib = sib.previousElementSibling)) if (sib.tagName === el.tagName) idx++;
-    return tag + `:nth-of-type(${idx})`;
+    const base = classes.length ? tag + '.' + classes.map(c => CSS.escape(c)).join('.') : tag;
+    // A segment must single this element out among its siblings. If the base
+    // (tag or tag.class) still matches more than one sibling, querySelector
+    // resolves the whole path to the FIRST match — making a dot jump to the
+    // wrong same-class element (e.g. the first of six identical .select filters).
+    // Pin it to its position with :nth-of-type whenever the base is ambiguous.
+    const parent = el.parentElement;
+    const matchesBase = (c) => c.tagName === el.tagName &&
+      (!classes.length || classes.every(cls => c.classList.contains(cls)));
+    if (parent && [...parent.children].filter(matchesBase).length > 1) {
+      let sib = el, idx = 1;
+      while ((sib = sib.previousElementSibling)) if (sib.tagName === el.tagName) idx++;
+      return base + `:nth-of-type(${idx})`;
+    }
+    return base;
   }
 
   function goodClasses(el) {
@@ -767,7 +777,7 @@
   }
 
   // ----- Root container -------------------------------------------------------
-  let root, pinsLayer, bubble, bubbleIcon, banner, stranded;
+  let root, pinsLayer, bubble, bubbleIcon, banner;
 
   function buildRoot() {
     const style = el('style'); style.textContent = css;
@@ -809,11 +819,8 @@
   }
 
   // ----- Admin -----------------------------------------------------------------
-  // The admin's *effective* role for rendering. While previewing as a visitor,
-  // an admin is treated as a non-admin everywhere panels/pins are gated, so the
-  // admin sees the real visitor experience without giving up admin access (the
-  // gear still opens these controls to switch back).
-  function effectiveAdmin() { return state.isAdmin && !state.previewVisitor; }
+  // The admin's effective role for rendering.
+  function effectiveAdmin() { return state.isAdmin; }
 
   function becomeAdmin() {
     if (state.isAdmin) return;
@@ -855,17 +862,6 @@
       () => state.settings.commentsDisabled,
       (next) => saveSetting({ commentsDisabled: next }, next ? 'Comments disabled' : 'Comments enabled'),
     );
-    // Local, session-only preview — no server call. Flips the admin into the
-    // visitor's shoes so they can verify the stripped panel, then back.
-    const previewToggle = makeToggle(
-      () => state.previewVisitor,
-      (next) => {
-        state.previewVisitor = next;
-        closePanel();          // drop any open detail panel so it re-renders in the new role
-        renderPins();
-        showToast(next ? 'Previewing as a visitor — open a pin to see their panel' : 'Back to your admin view', 'neutral');
-      },
-    );
 
     adminPanel = el('div', { class: 'cw-admin-panel' }, [
       el('div', { class: 'cw-admin-head' }, [
@@ -878,13 +874,6 @@
           el('span', {}, ['Visitors only see their own comments, in a minimal panel: just the Done / Edit / Delete (and Save) buttons, the comment text, and replies. The author header, screenshot, Claude Code prompt, and Open-in-VS-Code button are all hidden.']),
         ]),
         visitorToggle.el,
-      ]),
-      el('div', { class: 'cw-admin-row' }, [
-        el('div', { class: 'cw-admin-label' }, [
-          el('strong', {}, ['Preview as visitor']),
-          el('span', {}, ['See the page exactly as a visitor would right now — stripped panels, their own comments only. Just for you, on this browser; reload or toggle off to return to the admin view.']),
-        ]),
-        previewToggle.el,
       ]),
       el('div', { class: 'cw-admin-row' }, [
         el('div', { class: 'cw-admin-label' }, [
@@ -1033,7 +1022,7 @@
 
   function isWidgetEl(node) {
     if (!node || !node.closest) return false;
-    return !!(node.closest('.cw-root') || node.closest('.cw-bubble') || node.closest('.cw-banner') || node.closest('.cw-popup') || node.closest('.cw-panel') || node.closest('.cw-admin-panel') || node.closest('.cw-toast') || node.closest('.cw-stranded') || node.closest('.cw-hover-outline') || node.closest('.cw-lightbox'));
+    return !!(node.closest('.cw-root') || node.closest('.cw-bubble') || node.closest('.cw-banner') || node.closest('.cw-popup') || node.closest('.cw-panel') || node.closest('.cw-admin-panel') || node.closest('.cw-toast') || node.closest('.cw-nav') || node.closest('.cw-hover-outline') || node.closest('.cw-lightbox'));
   }
 
   // ----- Move pin (re-anchor an existing comment via the "Move pin" button) ---
@@ -1304,8 +1293,8 @@
   let renderedPins = [];
 
   function renderPins() {
-    // Pause the DOM observer while WE rebuild the pins layer / stranded box /
-    // offscreen launcher — otherwise our own mutations would re-trigger it.
+    // Pause the DOM observer while WE rebuild the pins layer / navigator hub —
+    // otherwise our own mutations would re-trigger it.
     if (pinObserver) pinObserver.disconnect();
     pinsLayer.innerHTML = '';
     state.stranded = [];
@@ -1315,7 +1304,9 @@
     pinsLayer.style.height = Math.max(document.documentElement.scrollHeight, window.innerHeight) + 'px';
 
     for (const pin of visiblePins()) {
-      const found = pin.selector ? safeQuery(pin.selector) : null;
+      // Exact selector first, then a tag+text re-find for mocks that rebuilt the
+      // region (see findPinEl). Only genuinely-absent elements fall to "stranded".
+      const found = findPinEl(pin);
       if (!found) { state.stranded.push(pin); continue; }
       // Element exists but isn't being shown (it's on a hidden screen/view).
       // Divert to the "On other screens" drawer rather than dropping a dot at
@@ -1332,8 +1323,7 @@
       pinsLayer.appendChild(dot);
       renderedPins.push({ pin, dot });
     }
-    renderStranded();
-    renderOffscreen();
+    renderHub();
     if (pinObserver) reconnectPinObserver();
   }
 
@@ -1395,23 +1385,140 @@
     try { return document.querySelector(sel); } catch (e) { return null; }
   }
 
-  // Is this element actually painted right now? getClientRects() is empty when
-  // the element (or any ancestor) is display:none — the single-file-mock case
-  // we care about — and we also reject visibility:hidden. An element that's
-  // merely scrolled out of view still has client rects, so it stays on the
-  // canvas (it's on the current screen, just not in the viewport).
+  // Parse the tag name from a stored opening tag like '<button class="…">'.
+  function tagFromHtml(html) {
+    const m = (html || '').match(/^<([a-zA-Z][\w-]*)/);
+    return m ? m[1].toLowerCase() : '';
+  }
+
+  // Parse the class list from a stored opening tag, dropping the widget's own
+  // cw-* classes. Used to disambiguate a tag+text re-find.
+  function classesFromHtml(html) {
+    const m = (html || '').match(/\sclass\s*=\s*"([^"]*)"/i) || (html || '').match(/\sclass\s*=\s*'([^']*)'/i);
+    if (!m) return [];
+    return m[1].trim().split(/\s+/).filter(c => c && !c.startsWith('cw-'));
+  }
+
+  // Last-resort re-anchor when a pin's CSS selector matches nothing. The usual
+  // cause is a mock that rebuilds a region with `innerHTML = …` (the Scheduling
+  // dashboard does this on every search / filter / view change): the node the
+  // pin was placed on is destroyed and a fresh one takes its place, so the saved
+  // selector — and any :nth-of-type in it — no longer resolves. We re-find by
+  // the element's captured tag + visible text, but ONLY when exactly one element
+  // matches; an ambiguous match could silently move the pin somewhere wrong, so
+  // we'd rather leave it stranded than guess. We compare textContent (not
+  // innerText) so an element on a hidden screen still matches — it then flows
+  // through isRendered/viewMatches into the navigable "Comments elsewhere"
+  // drawer instead of the dead-end stranded box.
+  function refindByText(pin) {
+    const raw = pin.elementText || '';
+    const text = raw.replace(/\s+/g, ' ').trim();
+    if (!text) return null;
+    const truncated = raw.length >= 200;   // elementText was sliced to 200 at capture
+    const tag = tagFromHtml(pin.elementHtml);
+    // Captured CSS classes (from the stored opening tag) further disambiguate, so
+    // a deep-flow "Save" button isn't re-anchored onto a different "Save" on the
+    // current screen. Required only when the original had classes; the widget's
+    // own cw-* classes are ignored.
+    const wantClasses = classesFromHtml(pin.elementHtml);
+    let nodes;
+    try { nodes = document.querySelectorAll(tag || '*'); } catch (_) { return null; }
+    let hit = null;
+    for (const n of nodes) {
+      if (isWidgetEl(n)) continue;
+      if (wantClasses.length && !wantClasses.every(c => n.classList.contains(c))) continue;
+      const t = (n.textContent || '').replace(/\s+/g, ' ').trim();
+      const match = truncated ? t.startsWith(text) : t === text;
+      if (match) {
+        if (hit) return null;   // ambiguous → bail rather than mis-place the pin
+        hit = n;
+      }
+    }
+    return hit;
+  }
+
+  // The element a pin is anchored to, on the page right now: exact selector
+  // first, then the tag+text re-find for mocks that rebuilt the node. Returns
+  // null only when the element truly isn't present (genuinely stranded). On a
+  // successful re-find we refresh the in-memory selector so every later lookup
+  // (scroll repositioning, navigation) uses the fresh node. Used everywhere the
+  // widget resolves a pin to its element, so re-anchoring stays consistent.
+  function findPinEl(pin) {
+    let n = pin.selector ? safeQuery(pin.selector) : null;
+    // A non-unique stored selector (pins saved before selectors carried a
+    // disambiguating :nth-of-type) resolves to the FIRST match, which may be the
+    // wrong same-class sibling. When the selector matches several elements,
+    // prefer the one whose visible text matches what was captured at placement.
+    if (n && pin.selector && pin.elementText) {
+      let all = [];
+      try { all = [...document.querySelectorAll(pin.selector)]; } catch (_) {}
+      if (all.length > 1) {
+        const want = pin.elementText.replace(/\s+/g, ' ').trim();
+        const truncated = pin.elementText.length >= 200; // elementText sliced to 200 at capture
+        const better = all.find(elt => {
+          const t = (elt.innerText || elt.textContent || '').replace(/\s+/g, ' ').trim();
+          return truncated ? t.startsWith(want) : t === want;
+        });
+        if (better) n = better;
+      }
+    }
+    if (!n) { n = refindByText(pin); if (n) pin.selector = cssPath(n); }
+    return n;
+  }
+
+  // Is this element actually visible to the user on the CURRENT screen right
+  // now — not merely present in the DOM? This is the gate that keeps a comment
+  // left three clicks deep in an in-page flow (a tab, a wizard step, a clickable
+  // sub-screen) from leaking onto the landing screen. A pin whose element fails
+  // this check is diverted to the "Comments elsewhere" drawer instead of being
+  // dropped on whatever screen happens to be showing (see renderPins).
+  //
+  // getClientRects() is empty for display:none / detached nodes. But hand-built
+  // prototypes hide a "deep" screen many other ways that STILL report client
+  // rects, so we also walk the ancestor chain and reject the element when it (or
+  // any ancestor) is hidden by:
+  //   • display:none / visibility:hidden  — visibility:hidden does NOT clear
+  //                                          rects, and it inherits, so an
+  //                                          ancestor with it hides the element
+  //   • opacity:0                         — fade-out screen transitions
+  //   • aria-hidden="true"                — semantically hidden panels/slides
+  //   • being clipped fully outside an overflow:hidden|clip ancestor
+  //                                        — off-canvas translateX/Y "slide" flows
+  // An element merely scrolled out of a SCROLLABLE (auto/scroll) region still
+  // counts as rendered — it's on the current screen, just out of the viewport —
+  // so scroll overflow is never treated as hidden.
   function isRendered(node) {
     if (!(node instanceof Element)) return false;
-    if (node.getClientRects().length === 0) return false;
-    const cs = getComputedStyle(node);
-    return cs.visibility !== 'hidden' && cs.display !== 'none';
+    if (node.getClientRects().length === 0) return false;        // display:none / detached
+    const nodeRect = node.getBoundingClientRect();
+    for (let el = node; el && el.nodeType === 1 && el !== document.body; el = el.parentElement) {
+      if (el.getAttribute && el.getAttribute('aria-hidden') === 'true') return false;
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+      if (parseFloat(cs.opacity) === 0) return false;
+      // Off-canvas slide: a clipping ancestor (overflow hidden/clip) whose box
+      // the element sits entirely outside of. Scrollable ancestors (auto/scroll)
+      // are skipped — scrolled-away content is still "on this screen".
+      if (el !== node) {
+        const clipsX = cs.overflowX === 'hidden' || cs.overflowX === 'clip';
+        const clipsY = cs.overflowY === 'hidden' || cs.overflowY === 'clip';
+        if (clipsX || clipsY) {
+          const r = el.getBoundingClientRect();
+          const outside =
+            (clipsX && (nodeRect.right <= r.left || nodeRect.left >= r.right)) ||
+            (clipsY && (nodeRect.bottom <= r.top || nodeRect.top >= r.bottom));
+          if (outside) return false;
+        }
+      }
+    }
+    return true;
   }
 
   // Place a dot at its pin's anchor: the element's live bounding rect plus the
   // stored relative offset, in page coordinates. Falls back to legacy x/y for
   // pins saved before element anchoring existed.
   function positionDot(dot, pin, target) {
-    const node = target || (pin.selector ? safeQuery(pin.selector) : null);
+    const node = target || findPinEl(pin);
     let left, top;
     if (node && pin.relX != null && pin.relY != null) {
       const r = node.getBoundingClientRect();
@@ -1573,92 +1680,144 @@
     return dot;
   }
 
-  function renderStranded() {
-    if (stranded) { stranded.remove(); stranded = null; }
-    if (!state.stranded.length) return;
-    // Stranded pins are an admin-only concern. To a visitor or designer just
-    // viewing the mockup, a "broken pin" sidebar is noise — they can't do
-    // anything with it. Admins still see it so they can open the pin's panel
-    // and delete it (or re-anchor it by dragging once we surface that flow).
-    if (!effectiveAdmin()) return;
-    stranded = el('div', { class: 'cw-stranded' }, [
-      el('h5', {}, [`Stranded feedback (${state.stranded.length})`]),
-      ...state.stranded.map(pin => el('div', {
-        class: 'cw-stranded-item',
-        onclick: () => openPanel(pin, { stranded: true }),
+  // ----- Comment navigator hub ------------------------------------------------
+  // A single bottom-left control that accounts for EVERY comment on the page so a
+  // reviewer can see the total and step through each one without hunting for
+  // dots. Comments fall into three buckets, all computed in renderPins:
+  //   • on this screen   → a dot on the canvas (renderedPins)
+  //   • on other screens → element exists but on a hidden screen / different
+  //     interaction state (state.offscreen); jumping reveals it (revealPin)
+  //   • not found        → selector no longer matches (state.stranded); admin-only,
+  //     since a broken pin is noise a visitor can't act on
+  // Everything here is CLIENT-SIDE over already-loaded pins — counting, listing,
+  // and jumping add zero Cloudflare KV reads/writes/lists.
+  let navEl = null;        // hub DOM node (rebuilt on each renderPins)
+  let navOpen = false;     // is the list expanded?
+  let navCurrentId = null; // id of the comment the stepper last jumped to
+
+  // Order on-screen pins top-to-bottom (natural reading order), then the
+  // other-screens bucket, then not-found (admins only). `all` is the stepping
+  // order; the named buckets drive the grouped list.
+  function computeNavGroups() {
+    const onScreen = renderedPins.map(rp => rp.pin).sort((a, b) => dotTopOf(a) - dotTopOf(b));
+    const elsewhere = state.offscreen.slice();
+    const notFound = effectiveAdmin() ? state.stranded.slice() : [];
+    return { onScreen, elsewhere, notFound, all: [...onScreen, ...elsewhere, ...notFound] };
+  }
+
+  function dotTopOf(pin) {
+    const rp = renderedPins.find(r => r.pin.id === pin.id);
+    if (rp) { const t = parseFloat(rp.dot.style.top); if (!Number.isNaN(t)) return t; }
+    return 0;
+  }
+
+  function renderHub() {
+    if (navEl) { navEl.remove(); navEl = null; }
+    const groups = computeNavGroups();
+    const total = groups.all.length;
+    if (!total) { navOpen = false; return; }   // nothing to navigate → no hub at all
+
+    const idx = groups.all.findIndex(p => p.id === navCurrentId);
+    const pos = idx >= 0 ? `${idx + 1} / ${total}` : `– / ${total}`;
+
+    const bar = el('div', { class: 'cw-nav-bar' }, [
+      el('button', {
+        type: 'button', class: 'cw-nav-count',
+        title: navOpen ? 'Hide comment list' : 'Show all comments on this page',
+        onclick: toggleNavList,
       }, [
-        el('strong', {}, [`${pin.author} — ${rel(pin.timestamp)}`]),
-        document.createTextNode((pin.comment || '').slice(0, 80) + ((pin.comment || '').length > 80 ? '…' : '')),
-        el('div', { class: 'cw-stranded-note' }, ['Element no longer found on this page']),
-      ]))
+        el('span', { class: 'cw-nav-glyph', 'aria-hidden': 'true' }, ['💬']),
+        el('span', { class: 'cw-nav-count-label' }, [`${total} comment${total === 1 ? '' : 's'}`]),
+        el('span', { class: 'cw-nav-caret', 'aria-hidden': 'true' }, [navOpen ? '▾' : '▴']),
+      ]),
+      el('span', { class: 'cw-nav-div', 'aria-hidden': 'true' }),
+      el('button', { type: 'button', class: 'cw-nav-step', title: 'Previous comment', 'aria-label': 'Previous comment', onclick: () => stepNav(-1) }, ['‹']),
+      el('span', { class: 'cw-nav-pos' }, [pos]),
+      el('button', { type: 'button', class: 'cw-nav-step', title: 'Next comment', 'aria-label': 'Next comment', onclick: () => stepNav(1) }, ['›']),
     ]);
-    document.body.appendChild(stranded);
-  }
 
-  // ----- "On other screens" drawer --------------------------------------------
-  // Single-file mocks switch screens with JS, so all comments share one URL and
-  // load together. The ones anchored to a hidden screen are collected in
-  // state.offscreen (see renderPins) and surfaced here, out of the way of the
-  // screen the user is actually looking at.
-  let offscreenLauncher = null, offscreenDrawer = null;
-
-  function renderOffscreen() {
-    if (offscreenLauncher) { offscreenLauncher.remove(); offscreenLauncher = null; }
-    if (!state.offscreen.length) { closeOffscreenDrawer(); return; }
-    const n = state.offscreen.length;
-    offscreenLauncher = el('button', {
-      type: 'button', class: 'cw-offscreen-launcher',
-      title: 'Comments left on other screens or interaction states of this mock — click to list them',
-      onclick: toggleOffscreenDrawer,
-    }, [
-      el('span', { class: 'cw-offscreen-glyph', 'aria-hidden': 'true' }, ['💬']),
-      'Comments elsewhere',
-      el('span', { class: 'cw-offscreen-count' }, [String(n)]),
+    // List first, bar last: the container is anchored at the bottom, so the list
+    // expands upward above the bar.
+    navEl = el('div', { class: 'cw-nav' }, [
+      navOpen ? buildNavList(groups) : null,
+      bar,
     ]);
-    document.body.appendChild(offscreenLauncher);
-    if (offscreenDrawer) renderOffscreenBody(); // keep an open drawer in sync after re-renders
+    document.body.appendChild(navEl);
   }
 
-  function toggleOffscreenDrawer() { offscreenDrawer ? closeOffscreenDrawer() : openOffscreenDrawer(); }
-
-  function closeOffscreenDrawer() {
-    if (offscreenDrawer) { offscreenDrawer.remove(); offscreenDrawer = null; }
-  }
-
-  function openOffscreenDrawer() {
-    closeOffscreenDrawer();
-    offscreenDrawer = el('div', { class: 'cw-offscreen-drawer' });
-    document.body.appendChild(offscreenDrawer);
-    renderOffscreenBody();
-    requestAnimationFrame(() => offscreenDrawer && offscreenDrawer.classList.add('cw-offscreen-drawer--open'));
-  }
-
-  function renderOffscreenBody() {
-    if (!offscreenDrawer) return;
-    offscreenDrawer.innerHTML = '';
-    offscreenDrawer.appendChild(el('div', { class: 'cw-offscreen-head' }, [
-      el('strong', {}, ['Comments elsewhere']),
-      el('button', { class: 'cw-offscreen-x', onclick: closeOffscreenDrawer, 'aria-label': 'Close' }, ['×']),
-    ]));
-    offscreenDrawer.appendChild(el('div', { class: 'cw-offscreen-sub' }, [
-      'These comments belong to other screens or interaction states of this mock (a different version, tab, or toggle). Click one to switch there and open it.',
-    ]));
-    for (const pin of state.offscreen) {
-      const stateLabel = viewStateLabel(pin);
-      offscreenDrawer.appendChild(el('div', {
-        class: 'cw-offscreen-item', title: 'Switch to this comment’s view and open it',
-        onclick: () => revealPin(pin),
-      }, [
-        el('div', { class: 'cw-offscreen-avatar', style: `background:${authorColor(pin.author)};` }, [initial(pin.author)]),
-        el('div', { class: 'cw-offscreen-item-body' }, [
-          el('div', { class: 'cw-offscreen-item-meta' }, [el('strong', {}, [pin.author]), ' · ' + rel(pin.timestamp)]),
-          el('div', { class: 'cw-offscreen-item-text' }, [(pin.comment || '').slice(0, 120) || '(no text)']),
-          stateLabel ? el('div', { class: 'cw-offscreen-item-ctx' }, ['◫ ' + stateLabel]) : null,
-          pin.elementText ? el('div', { class: 'cw-offscreen-item-ctx' }, ['↳ ' + pin.elementText.slice(0, 60)]) : null,
-        ]),
-        el('span', { class: 'cw-offscreen-go' }, ['Go →']),
+  function buildNavList(groups) {
+    const list = el('div', { class: 'cw-nav-list' });
+    const section = (title, pins, opts = {}) => {
+      if (!pins.length) return;
+      list.appendChild(el('div', { class: 'cw-nav-group' }, [
+        el('div', { class: 'cw-nav-group-title' }, [`${title} (${pins.length})`]),
+        ...pins.map(pin => navItem(pin, opts)),
       ]));
+    };
+    section('On this screen', groups.onScreen);
+    section('On other screens', groups.elsewhere);
+    section('Not found', groups.notFound, { notFound: true });
+    return list;
+  }
+
+  function navItem(pin, opts = {}) {
+    const stateLabel = viewStateLabel(pin);
+    return el('div', {
+      class: 'cw-nav-item' + (pin.id === navCurrentId ? ' cw-nav-item--current' : ''),
+      title: opts.notFound ? 'Open this comment (its element is gone from the page)' : 'Jump to this comment',
+      onclick: () => { navCurrentId = pin.id; jumpToPin(pin); renderHub(); },
+    }, [
+      el('div', { class: 'cw-nav-avatar', style: `background:${authorColor(pin.author)};` }, [initial(pin.author)]),
+      el('div', { class: 'cw-nav-item-body' }, [
+        el('div', { class: 'cw-nav-item-meta' }, [el('strong', {}, [pin.author]), ' · ' + rel(pin.timestamp)]),
+        el('div', { class: 'cw-nav-item-text' }, [(pin.comment || '').slice(0, 120) || '(no text)']),
+        opts.notFound
+          ? el('div', { class: 'cw-nav-item-ctx' }, ['⚠ Element no longer on this page'])
+          : (stateLabel ? el('div', { class: 'cw-nav-item-ctx' }, ['◫ ' + stateLabel]) : null),
+        (!opts.notFound && pin.elementText) ? el('div', { class: 'cw-nav-item-ctx' }, ['↳ ' + pin.elementText.slice(0, 60)]) : null,
+      ]),
+      el('span', { class: 'cw-nav-go' }, ['Go →']),
+    ]);
+  }
+
+  function toggleNavList() { navOpen = !navOpen; renderHub(); }
+  function closeNavList() { if (navOpen) { navOpen = false; renderHub(); } }
+
+  // Step to the next/prev comment in the unified order, wrapping around. The
+  // order is recomputed each step so it stays correct as a reveal moves a
+  // comment from "other screens" onto the canvas.
+  function stepNav(dir) {
+    const all = computeNavGroups().all;
+    if (!all.length) return;
+    let idx = all.findIndex(p => p.id === navCurrentId);
+    idx = idx < 0 ? (dir > 0 ? 0 : all.length - 1) : (idx + dir + all.length) % all.length;
+    const pin = all[idx];
+    navCurrentId = pin.id;
+    jumpToPin(pin);
+    renderHub(); // refresh the "k / N" readout + current-item highlight
+  }
+
+  // Route a jump to the right mechanism based on the comment's bucket. All three
+  // paths are local DOM work — no network calls.
+  function jumpToPin(pin) {
+    const rp = renderedPins.find(r => r.pin.id === pin.id);
+    if (rp) {                                    // on this screen → scroll, open, pulse
+      const target = findPinEl(pin);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      openPanel(pin);
+      pulseDot(rp.dot);
+      return;
     }
+    if (state.offscreen.some(p => p.id === pin.id)) { revealPin(pin); return; } // reveal its screen + open
+    openPanel(pin, { stranded: true });          // not found → off-page panel
+  }
+
+  // Briefly ring the dot so the eye lands on it after a jump. Re-adding the class
+  // after a forced reflow restarts the animation on repeat jumps to the same dot.
+  function pulseDot(dot) {
+    dot.classList.remove('cw-pin--pulse');
+    void dot.offsetWidth;
+    dot.classList.add('cw-pin--pulse');
   }
 
   // ----- Reveal a comment's view and open it ----------------------------------
@@ -1743,7 +1902,7 @@
   }
 
   function revealPin(pin) {
-    closeOffscreenDrawer();
+    closeNavList();
     restoreReveal(); // drop any previous peek before starting a new one
 
     // Step 1: drive the mock back into this comment's interaction state by
@@ -1753,7 +1912,7 @@
     restoreViewState(pin);
 
     requestAnimationFrame(() => {
-      const target = pin.selector ? safeQuery(pin.selector) : null;
+      const target = findPinEl(pin);
       if (!target) {
         renderPins();
         showToast('That element isn’t on this page anymore', 'error');
@@ -1801,7 +1960,7 @@
     closePanel();
     restoreReveal();
     hideRevealBar();
-    renderPins(); // the comment returns to the "On other screens" drawer
+    renderPins(); // the comment returns to the navigator's "On other screens" group
   }
 
   // ----- Pin detail panel -----------------------------------------------------
@@ -1820,7 +1979,7 @@
     state.openPanelPinId = pin.id;
     panel = renderPanel(pin);
     let x, y;
-    if (opts.stranded || !pin.selector || !safeQuery(pin.selector)) {
+    if (opts.stranded || !findPinEl(pin)) {
       x = window.scrollX + window.innerWidth - 400;
       y = window.scrollY + 80;
     } else {
@@ -2037,7 +2196,7 @@
     window.addEventListener('resize', () => renderPins());
     // Pins are anchored to elements — keep them glued as the page scrolls/reflows.
     window.addEventListener('scroll', () => repositionDots(), { passive: true });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePopup(); closePanel(); closeAdminPanel(); closeOffscreenDrawer(); exitReveal(); } });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePopup(); closePanel(); closeAdminPanel(); closeNavList(); exitReveal(); } });
 
     try {
       const [pinsRes, settingsRes] = await Promise.all([

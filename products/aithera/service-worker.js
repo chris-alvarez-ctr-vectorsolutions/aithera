@@ -5,7 +5,7 @@
 //     Every reload fetches fresh — no stale code, no version bumps required
 //     to ship a fix to testers. Cache is only a fallback when offline.
 //   - Cache-first for other GETs (images, fonts, etc.).
-const VERSION = 'aithera-v39';
+const VERSION = 'aithera-v58';
 const CORE = [
   './',
   './index.html',
@@ -19,8 +19,11 @@ const CORE = [
   './js/views/launch.js',
   './js/views/home.js',
   './js/views/course.js',
+  './js/views/course-start.js',
+  './js/views/lesson.js',
   './js/views/chapter.js',
   './js/views/practice.js',
+  './js/views/practice-discussion.js',
   './js/views/summary.js',
   './js/views/hub.js',
   './js/views/coach.js',

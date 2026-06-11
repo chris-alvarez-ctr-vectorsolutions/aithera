@@ -157,9 +157,9 @@ export function readinessCard({
 }) {
   const bandMeta = {
     'behind':   { cls: 'rs-warn', headline: "Let's level up." },
-    'on-track': { cls: 'rs-good', headline: "You're on track." },
-    'ahead':    { cls: 'rs-ahead', headline: "You're ahead of the pack." }
-  }[band] || { cls: 'rs-good', headline: "You're on track." };
+    'on-track': { cls: 'rs-good', headline: "You're right with the pack." },
+    'ahead':    { cls: 'rs-ahead', headline: "You're a step beyond the pack." }
+  }[band] || { cls: 'rs-good', headline: "You're right with the pack." };
 
   const card = el('div', { class: `readiness-card r-${bandMeta.cls}` });
 
@@ -168,18 +168,13 @@ export function readinessCard({
     el('span', { class: 'rd-kicker' }, 'Development level')
   ));
 
-  // Headline row + sparkline
-  const headCol = el('div', { class: 'rd-headcol' },
-    el('h2', { class: 'rd-headline' }, headline || bandMeta.headline)
-  );
-  const sparkCol = el('div', { class: 'rd-sparkcol' },
-    sparkline(trend, band),
-    el('small', { class: 'rd-spark-label' }, 'Last 30 days')
-  );
-  card.appendChild(el('div', { class: 'rd-row' }, headCol, sparkCol));
+  // Headline (full width — the sparkline was removed in favor of the
+  // clearer you-vs-peers slider below).
+  card.appendChild(el('h2', { class: 'rd-headline' }, headline || bandMeta.headline));
 
-  // You-vs-peers scale
+  // You-vs-peers slider
   card.appendChild(readinessScale(level, peerLevel));
+  void trend;
 
   // Coach note
   if (coachNote) {
@@ -248,40 +243,31 @@ function moverRow(m) {
   );
 }
 
+// You-vs-peers slider. A calm gray track with a soft blue band marking
+// "where most peers are working" (a range centered on the cohort average),
+// the learner's own position as a solid blue handle labeled "You", and
+// plain-language end labels. Replaces the older gradient bar + pins.
 function readinessScale(level, peerLevel) {
-  const youPct = Math.max(0, Math.min(100, level));
-  const peerPct = Math.max(0, Math.min(100, peerLevel));
+  const youPct = Math.max(3, Math.min(97, level));
+  const half = 13; // peer band half-width — the cohort's working range
+  const bandStart = Math.max(0, Math.min(100, peerLevel - half));
+  const bandEnd   = Math.max(0, Math.min(100, peerLevel + half));
+
   const wrap = el('div', { class: 'rd-scale' });
-
-  // When the two values land within ~10% of each other, the precise gap
-  // doesn't carry meaning — collapse into a single "you & your peers"
-  // marker at the midpoint so the bar stays calm.
-  if (Math.abs(youPct - peerPct) < 10) {
-    const midPct = (youPct + peerPct) / 2;
-    wrap.innerHTML = `
-      <div class="rd-scale-track">
-        <div class="rd-pin rd-pin-merged" style="left:${midPct}%">
-          <span class="rd-pin-label">You &amp; your peers</span>
-          <span class="rd-pin-stem" aria-hidden="true"></span>
-          <span class="rd-pin-dot rd-pin-dot-merged" aria-hidden="true"></span>
-        </div>
-      </div>
-    `;
-    return wrap;
-  }
-
   wrap.innerHTML = `
     <div class="rd-scale-track">
-      <div class="rd-pin rd-pin-peers" style="left:${peerPct}%">
-        <span class="rd-pin-label">Your peers</span>
-        <span class="rd-pin-stem" aria-hidden="true"></span>
-        <span class="rd-pin-dot" aria-hidden="true"></span>
+      <div class="rd-band" style="left:${bandStart}%; width:${bandEnd - bandStart}%"></div>
+      <div class="rd-you" style="left:${youPct}%">
+        <span class="rd-you-label">You</span>
       </div>
-      <div class="rd-pin rd-pin-you" style="left:${youPct}%">
-        <span class="rd-pin-dot" aria-hidden="true"></span>
-        <span class="rd-pin-stem" aria-hidden="true"></span>
-        <span class="rd-pin-label">You</span>
-      </div>
+    </div>
+    <div class="rd-ends">
+      <span>Getting started</span>
+      <span>Well along</span>
+    </div>
+    <div class="rd-legend">
+      <span class="rd-legend-swatch" aria-hidden="true"></span>
+      <span>Where most of your peers are working</span>
     </div>
   `;
   return wrap;
@@ -446,29 +432,29 @@ export function coachMessage({ title, text, footer = '— Coach Vic' }) {
   return card;
 }
 
-export function coachPrompt({ question, primaryLabel, primaryHref, secondaryLabel = 'Later', secondaryHref = '#/coach' }) {
+export function coachPrompt({ question, primaryLabel, primaryHref, primaryVariant = 'primary', secondaryLabel = 'Later', secondaryHref = '#/coach' }) {
   return el('div', { class: 'coach-prompt' },
     el('div', { class: 'ph' }, el('span', { class: 'ph-mark' }, 'V'), el('span', null, 'Coach Vic')),
     el('p', { class: 'q' }, `"${question}"`),
     el('div', { class: 'actions' },
-      el('a', { class: 'btn primary', href: primaryHref, style: { flex: '1' } }, primaryLabel),
+      el('a', { class: `btn ${primaryVariant}`, href: primaryHref, style: { flex: '1' } }, primaryLabel),
       el('a', { class: 'btn ghost', href: secondaryHref }, secondaryLabel)
     )
   );
 }
 
 export function primaryCta(label, href, { percent } = {}) {
-  const hasPct = typeof percent === 'number';
+  // Progress is only meaningful (and only shows its bottom bar) when the
+  // learner is genuinely mid-course. A fresh 0% or finished 100% button is
+  // a clean, centered label with no underline track.
+  const showProgress = typeof percent === 'number' && percent > 0 && percent < 100;
   const row = el('span', { class: 'cta-row' },
     el('span', { class: 'cta-label' }, label),
-    hasPct && percent > 0 && percent < 100
-      ? el('span', { class: 'cta-meta' }, `${percent}% completed`)
-      : null,
-    icon('chevron')
+    showProgress ? el('span', { class: 'cta-meta' }, `${percent}% completed`) : null
   );
-  const cls = 'btn primary block cta-large' + (hasPct ? ' with-progress' : '');
+  const cls = 'btn primary block cta-large' + (showProgress ? ' with-progress' : '');
   const a = el('a', { class: cls, href }, row);
-  if (hasPct) {
+  if (showProgress) {
     const bar = el('span', { class: 'cta-progress', 'aria-hidden': 'true' });
     bar.innerHTML = `<span style="width:${Math.max(0, Math.min(100, percent))}%"></span>`;
     a.appendChild(bar);
@@ -577,6 +563,24 @@ export function stepIndicator({ steps, current, variant }) {
   return wrap;
 }
 
+// phaseBar — a continuous segmented progress bar for a short, cross-screen
+// flow (e.g. Watch → Share observations). One segment per step: completed
+// steps fill green, the current step fills blue, upcoming steps stay grey.
+// Used by the scene-watch flow and the discussion engine so the learner reads
+// the two as one connected sequence even though they're separate routes.
+export function phaseBar({ steps, current }) {
+  const wrap = el('div', { class: 'phase-bar' });
+  wrap.appendChild(el('div', { class: 'phase-bar-label' },
+    `Step ${current + 1} of ${steps.length} — ${steps[current]}`));
+  const track = el('div', { class: 'phase-bar-track' });
+  for (let i = 0; i < steps.length; i++) {
+    const cls = i < current ? 'done' : i === current ? 'cur' : '';
+    track.appendChild(el('span', { class: `phase-seg ${cls}` }));
+  }
+  wrap.appendChild(track);
+  return wrap;
+}
+
 // stickyFooter — bottom-anchored bar holding the page's primary CTA.
 // Used on full-flow surfaces (lesson, etc.) so the next action is
 // always reachable without scrolling.
@@ -633,16 +637,29 @@ export function blockShell({ children, onModality }) {
 
 // nextUpCard — preview of the upcoming lesson, mirrors the right-rail
 // "Next Up" card from the desktop mockup.
-export function nextUpCard({ kicker = 'Next up', title, subtitle, href, initials }) {
-  return el('a', { class: 'next-up', href },
+export function nextUpCard({ kicker = 'Next up', title, subtitle, href, initials, cta = false, onClick }) {
+  // When the card owns the advance action (onClick = mark-complete + navigate),
+  // it must NOT also be a raw link: a cmd/middle-click would follow the href and
+  // skip the mark-complete step. In that mode drop href and behave as a button.
+  const attrs = { class: `next-up${cta ? ' cta' : ''}` };
+  if (onClick) { attrs.role = 'button'; attrs.tabIndex = 0; }
+  else if (href) { attrs.href = href; }
+  const card = el('a', attrs,
     el('div', { class: 'nu-thumb' }, initials || icon('play')),
     el('div', { class: 'nu-body' },
       el('small', null, kicker),
       el('strong', null, title),
       subtitle ? el('span', { class: 'nu-sub' }, subtitle) : null
     ),
-    el('span', { class: 'nu-chev' }, icon('chevron'))
+    el('span', { class: 'nu-chev' }, icon(cta ? 'arrowRight' : 'chevron'))
   );
+  if (onClick) {
+    card.addEventListener('click', (e) => { e.preventDefault(); onClick(); });
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
+    });
+  }
+  return card;
 }
 
 // progressMini — compact "65% Complete · 7/12 Lessons" summary line.
@@ -1322,6 +1339,101 @@ export function audienceCard({ audience, concept }) {
   );
 }
 
+// createDictation — the single Web Speech API integration shared by every
+// voice input in the app. It is HEADLESS: it owns SR feature-detection,
+// recognizer config (continuous + interim, en-US), the final/interim
+// transcript accumulation, the keep-alive restart that survives natural
+// pauses, and fatal-error classification — but renders NO DOM. Callers draw
+// their own chrome (a full mic panel, or a bare button inside a textarea) and
+// react through the callbacks. Returns null when speech recognition is
+// unavailable, so callers can fall back to typing.
+//
+//   onTranscript(finalText, interimText) — fires on each result. finalText is
+//       the cumulative confirmed transcript; interimText is the in-progress
+//       tail not yet finalized.
+//   onFatalError(message) — mic blocked / no device / service offline, with a
+//       ready-to-show message string.
+//   onStop() — recording has ended (via stop(), a rapid double-end, or a
+//       fatal error). Fires at most once per recording session.
+export function createDictation({ onTranscript, onFatalError, onStop } = {}) {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRec) return null;
+
+  const recognition = new SpeechRec();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  let recording = false;
+  let finalText = '';
+  let interimText = '';
+  let lastRestart = 0;
+
+  recognition.onresult = (event) => {
+    let interim = '', addedFinal = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const r = event.results[i];
+      if (r.isFinal) addedFinal += r[0].transcript + ' ';
+      else interim += r[0].transcript + ' ';
+    }
+    if (addedFinal) finalText = (finalText + ' ' + addedFinal).trim() + ' ';
+    interimText = interim.trim();
+    onTranscript?.(finalText.trim(), interimText);
+  };
+
+  const FATAL = new Set(['not-allowed', 'service-not-allowed', 'audio-capture', 'network']);
+  recognition.onerror = (e) => {
+    if (!FATAL.has(e.error)) return;
+    recording = false;
+    const msg = (e.error === 'not-allowed' || e.error === 'service-not-allowed')
+      ? 'Mic blocked — switch to typing, or enable mic access.'
+      : e.error === 'audio-capture'
+        ? 'No mic detected — switch to typing.'
+        : 'Voice service offline — tap to retry, or type below.';
+    // Reset chrome first, then write the specific message — order matters:
+    // onStop's setListeningChrome(false) rewrites status text, so it must not
+    // run after onFatalError or it would clobber the actionable message.
+    onStop?.();
+    onFatalError?.(msg);
+  };
+
+  // The platform recognizer ends itself after a silent gap. While we still
+  // mean to be recording, restart it to keep one continuous session — but a
+  // sub-400ms re-end means it can't get going (mic gone, etc.), so give up.
+  recognition.onend = () => {
+    if (!recording) return;
+    const now = Date.now();
+    if (now - lastRestart < 400) { recording = false; onStop?.(); return; }
+    lastRestart = now;
+    try { recognition.start(); } catch {}
+  };
+
+  return {
+    get recording() { return recording; },
+    get finalText() { return finalText; },
+    get interimText() { return interimText; },
+    // Fold any pending interim tail into the confirmed transcript. Callers that
+    // freeze the transcript on stop call this before reading finalText.
+    flushInterim() {
+      if (interimText) { finalText = (finalText + ' ' + interimText).trim() + ' '; interimText = ''; }
+      return finalText.trim();
+    },
+    // Zero the transcript so a caller can run several independent capture
+    // sessions on one helper (the discussion composer does this — each tap
+    // should contribute only its own words, not re-append the previous take).
+    reset() { finalText = ''; interimText = ''; },
+    // Set recording only once the engine actually starts; a synchronous throw
+    // (e.g. start() while already running) must not strand the flag at true.
+    start() { try { recognition.start(); recording = true; } catch {} },
+    stop() {
+      if (!recording) return;
+      recording = false;
+      try { recognition.stop(); } catch {}
+      onStop?.();
+    },
+  };
+}
+
 // articulationMic — the prominent "speak now" mic used in articulate
 // practice steps. Has three visible states:
 //   idle      — large pulsing-ring button, "Tap to start"
@@ -1333,13 +1445,14 @@ export function audienceCard({ audience, concept }) {
 // SpeechRecognition, the component opens in typing mode from the start
 // with a small footnote.
 export function articulationMic({ audienceLabel = 'Listening', onChange } = {}) {
-  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const supported = !!SpeechRec;
-
-  let recognition = null;
-  let recording = false;
-  let finalText = '';
-  let interimText = '';
+  // The Web Speech engine is shared with every other voice input via
+  // createDictation; this component only renders chrome and reacts.
+  const dictation = createDictation({
+    onTranscript: () => { paintTranscript(); emit(); },
+    onFatalError: (msg) => { status.textContent = msg; },
+    onStop: () => setListeningChrome(false),
+  });
+  const supported = !!dictation;
   let mode = supported ? 'voice' : 'type';
 
   const ring = el('span', { class: 'am-ring' });
@@ -1377,9 +1490,11 @@ export function articulationMic({ audienceLabel = 'Listening', onChange } = {}) 
   function emit() { onChange?.(getText()); }
   function getText() {
     if (mode === 'type') return typed.value.trim();
-    return (finalText + ' ' + interimText).trim();
+    return dictation ? (dictation.finalText + ' ' + dictation.interimText).trim() : '';
   }
   function paintTranscript() {
+    const finalText = dictation ? dictation.finalText : '';
+    const interimText = dictation ? dictation.interimText : '';
     if (!finalText && !interimText) {
       transcript.classList.remove('on');
       transcript.replaceChildren();
@@ -1397,6 +1512,8 @@ export function articulationMic({ audienceLabel = 'Listening', onChange } = {}) 
     stopIcon.style.display = on ? '' : 'none';
     button.setAttribute('aria-label', on ? 'Stop recording' : 'Start recording');
     status.classList.toggle('is-live', on);
+    const finalText = dictation ? dictation.finalText : '';
+    const interimText = dictation ? dictation.interimText : '';
     status.textContent = on
       ? `${audienceLabel} — speak now`
       : (finalText || interimText
@@ -1404,59 +1521,14 @@ export function articulationMic({ audienceLabel = 'Listening', onChange } = {}) 
           : 'Tap the mic and speak your explanation');
   }
 
-  if (supported) {
-    recognition = new SpeechRec();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-
-    recognition.onresult = (event) => {
-      let interim = '', addedFinal = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const r = event.results[i];
-        if (r.isFinal) addedFinal += r[0].transcript + ' ';
-        else interim += r[0].transcript + ' ';
-      }
-      if (addedFinal) finalText = (finalText + ' ' + addedFinal).trim() + ' ';
-      interimText = interim.trim();
-      paintTranscript();
-      emit();
-    };
-
-    const FATAL = new Set(['not-allowed', 'service-not-allowed', 'audio-capture', 'network']);
-    recognition.onerror = (e) => {
-      if (FATAL.has(e.error)) {
-        recording = false;
-        setListeningChrome(false);
-        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-          status.textContent = 'Mic blocked — switch to typing, or enable mic access.';
-        } else if (e.error === 'audio-capture') {
-          status.textContent = 'No mic detected — switch to typing.';
-        } else {
-          status.textContent = 'Voice service offline — tap to retry, or type below.';
-        }
-      }
-    };
-
-    let lastRestart = 0;
-    recognition.onend = () => {
-      if (!recording) return;
-      const now = Date.now();
-      if (now - lastRestart < 400) { recording = false; setListeningChrome(false); return; }
-      lastRestart = now;
-      try { recognition.start(); } catch {}
-    };
-  }
-
   button.addEventListener('click', () => {
-    if (!recognition) { status.textContent = 'Voice not supported — type below.'; return; }
-    recording = !recording;
-    if (recording) {
-      try { recognition.start(); } catch {}
+    if (!dictation) { status.textContent = 'Voice not supported — type below.'; return; }
+    if (!dictation.recording) {
+      dictation.start();
       setListeningChrome(true);
     } else {
-      try { recognition.stop(); } catch {}
-      if (interimText) { finalText = (finalText + ' ' + interimText).trim() + ' '; interimText = ''; }
+      dictation.stop();
+      dictation.flushInterim();
       paintTranscript();
       setListeningChrome(false);
       emit();
@@ -1467,13 +1539,13 @@ export function articulationMic({ audienceLabel = 'Listening', onChange } = {}) 
 
   toggle.addEventListener('click', () => {
     if (mode === 'voice') {
-      if (recording) {
-        recording = false;
-        try { recognition.stop(); } catch {}
-        if (interimText) { finalText = (finalText + ' ' + interimText).trim() + ' '; interimText = ''; }
+      if (dictation && dictation.recording) {
+        dictation.stop();
+        dictation.flushInterim();
         setListeningChrome(false);
       }
-      if (finalText && !typed.value) typed.value = finalText.trim();
+      const finalText = dictation ? dictation.finalText.trim() : '';
+      if (finalText && !typed.value) typed.value = finalText;
       voicePane.style.display = 'none';
       typePane.style.display = '';
       toggle.querySelector('.am-toggle-label').textContent = 'Use voice instead';
@@ -1498,10 +1570,9 @@ export function articulationMic({ audienceLabel = 'Listening', onChange } = {}) 
   root.value = getText;
   root.mode = () => mode;
   root.stop = () => {
-    if (recording) {
-      recording = false;
-      try { recognition.stop(); } catch {}
-      if (interimText) { finalText = (finalText + ' ' + interimText).trim() + ' '; interimText = ''; }
+    if (dictation && dictation.recording) {
+      dictation.stop();
+      dictation.flushInterim();
       paintTranscript();
       setListeningChrome(false);
     }

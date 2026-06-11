@@ -15,7 +15,7 @@
 // hidden so the lesson surface owns the screen.
 
 import { store } from '../store.js';
-import * as ui from '../ui.js?v=course-flow-1';
+import * as ui from '../ui.js?v=scene-flow-9';
 
 export function render(courseId, lessonId) {
   const course = store.course(courseId);
@@ -54,7 +54,26 @@ export function render(courseId, lessonId) {
   const phaseLabels = { watch: 'Watch', learn: 'Learn', check: 'Check' };
   const stepLabels = learningPhases.map((p) => phaseLabels[p]);
 
+  // Starting modality from the course-start chooser (?via=video|read|chat).
+  //   video → default video hero
+  //   read  → jump straight to the text (Learn) phase
+  //   chat  → open the first content phase in "Ask Coach Vic"
+  // pendingStartMode is consumed by the first content phase that renders,
+  // so it only affects the entry view — switching/advancing is unaffected.
+  const via = new URLSearchParams((location.hash.split('?')[1] || '')).get('via');
   let cursor = 0;
+  let pendingStartMode = null;
+  if (via === 'read') {
+    const li = phases.indexOf('learn');
+    if (li >= 0) cursor = li;
+  } else if (via === 'chat') {
+    pendingStartMode = 'chat';
+  }
+  function consumeStartMode(fallback) {
+    const m = pendingStartMode || fallback;
+    pendingStartMode = null;
+    return m;
+  }
 
   function show() {
     root.replaceChildren(buildPhase(phases[cursor]));
@@ -72,6 +91,26 @@ export function render(courseId, lessonId) {
   function buildPhase(name) {
     const wrap = ui.el('section', { class: 'chap-phase' });
 
+    // Scene-watch micro-flow owns the whole screen — it draws its own header
+    // (kicker + flow title + 2-step phase bar) and its own per-scene CTA
+    // buttons, so the standard lesson header + sticky footer are skipped.
+    const watchVb = videoBlocks[0];
+    if (name === 'watch' && watchVb?.scenes?.length) {
+      wrap.classList.add('chap-scene-watch');
+      consumeStartMode('original');   // swallow any ?via=chat so it doesn't leak into Learn
+      wrap.appendChild(sceneWatchEl(watchVb, {
+        headLabel: headLabel(),
+        onExit: () => { location.hash = `#/course/${course.id}`; },
+        onLaunch: (scenarioId) => {
+          // &from=watch tells the practice view to drop straight into the
+          // discussion as "Step 2 of 2" with a re-watch link, rather than
+          // showing a fresh welcome card.
+          location.hash = `#/practice/${scenarioId}?courseLesson=${course.id}:${lesson.id}&from=watch`;
+        }
+      }));
+      return wrap;
+    }
+
     if (name === 'recap') {
       wrap.classList.add('chap-checkpoint');
       wrap.appendChild(buildRecap());
@@ -82,25 +121,36 @@ export function render(courseId, lessonId) {
       if (name === 'check') wrap.appendChild(buildCheck());
     }
 
-    wrap.appendChild(ui.stickyFooter({ children: footerCta(name) }));
+    // On the recap, the prominent "Up next" tile is the primary CTA, so we
+    // skip the footer button there — unless this is the final lesson, where
+    // the footer carries the "Finish course" action instead.
+    if (name !== 'recap' || !next) {
+      wrap.appendChild(ui.stickyFooter({ children: footerCta(name) }));
+    }
     return wrap;
   }
 
   // Unified header: course-level strip + kicker + title + within-lesson
   // step indicator. The strip answers "which lesson?", the indicator
   // answers "where in this lesson?".
-  function buildHeader(name) {
-    const header = ui.el('header', { class: 'lesson-head' });
+  // "Lesson 01 of 04 · Recognition" — the course-level locator shown atop
+  // every lesson phase. Pulled out so the scene-watch micro-flow can reuse
+  // the exact same label in its own header.
+  function headLabel() {
     const lessonNum = `Lesson ${String(idx + 1).padStart(2, '0')} of ${String(total).padStart(2, '0')}`;
     const rawKicker = lesson.kicker || course.title;
     // Strip the leading "Lesson N · " segment from the authored kicker so we
     // don't repeat "Lesson" twice; keep the section descriptor on the right.
     const section = rawKicker.replace(/^\s*Lesson\s+\d+\s*[·:-]\s*/i, '').trim();
-    const headLabel = section && section.toLowerCase() !== rawKicker.toLowerCase()
+    return section && section.toLowerCase() !== rawKicker.toLowerCase()
       ? `${lessonNum} · ${section}`
       : lessonNum;
+  }
+
+  function buildHeader(name) {
+    const header = ui.el('header', { class: 'lesson-head' });
     const kicker = ui.el('div', { class: 'ch-kicker' });
-    kicker.appendChild(ui.el('div', null, headLabel));
+    kicker.appendChild(ui.el('div', null, headLabel()));
     header.appendChild(kicker);
     header.appendChild(ui.el('h2', { class: 'ch-title' }, lesson.title));
     const learningIdx = learningPhases.indexOf(name);
@@ -128,10 +178,22 @@ export function render(courseId, lessonId) {
     const stack = ui.el('div', { class: 'stack' });
     const vb = videoBlocks[0];
 
-    let mode = 'original';
-    const hint = ui.el('p', { class: 'lesson-instruction' });
+    // Slide-deck video: a paged image+text sequence (stand-in for a real video)
+    // that ends in a question-CTA launching this lesson's knowledge-check
+    // scenario. Falls back to the single video hero + modality swap when no
+    // slides are authored, so every other course is unaffected.
+    if (vb.slides && vb.slides.length) {
+      consumeStartMode('original');   // swallow any ?via=chat so it doesn't leak into Learn
+      stack.append(slideDeckEl(vb, {
+        onLaunch: (scenarioId) => {
+          location.hash = `#/practice/${scenarioId}?courseLesson=${course.id}:${lesson.id}`;
+        }
+      }));
+      return stack;
+    }
+
+    let mode = consumeStartMode('original');
     const stage = ui.el('div', { class: 'modality-stage' });
-    const panelHost = ui.el('div', null);
 
     function renderHero() {
       const node = heroForMode('watch', mode, { videoBlock: vb, lesson, backToOriginal: () => switchMode('original') });
@@ -139,31 +201,21 @@ export function render(courseId, lessonId) {
       stage.replaceChildren(node);
       requestAnimationFrame(() => node.classList.remove('modality-enter'));
     }
-    function renderPanel() {
-      panelHost.replaceChildren(ui.assistantPanel({
-        current: mode,
-        originalLabel: 'Video',
-        onSelect: (nextMode) => switchMode(nextMode)
-      }));
-    }
-    function renderHint() {
-      hint.textContent = mode === 'original'
-        ? `Watch the ${vb ? 'briefing' : 'intro'}, then continue when you're ready. You can swap formats any time.`
-        : 'Tap "Original format · Video" below to return to the briefing, or pick another way.';
-    }
+    // Kept for the "Show original" affordance inside a modality view; the
+    // format chooser up front replaces the old "Try another way" panel.
     function switchMode(nextMode) {
       if (nextMode === mode) return;
       const cur = stage.firstElementChild;
       if (cur) {
         cur.classList.add('modality-exit');
-        setTimeout(() => { mode = nextMode; renderHero(); renderPanel(); renderHint(); }, 180);
+        setTimeout(() => { mode = nextMode; renderHero(); }, 180);
       } else {
-        mode = nextMode; renderHero(); renderPanel(); renderHint();
+        mode = nextMode; renderHero();
       }
     }
 
-    renderHero(); renderPanel(); renderHint();
-    stack.append(hint, stage, panelHost);
+    renderHero();
+    stack.append(stage);
     return stack;
   }
 
@@ -179,16 +231,8 @@ export function render(courseId, lessonId) {
     const aiTarget = proseBlocks.find((b) => b.type === 'prose' || b.type === 'text');
     const targetText = aiTarget ? (aiTarget.body || aiTarget.title || '') : '';
 
-    let mode = 'original';
-    const hint = ui.el('p', { class: 'lesson-instruction' });
+    let mode = consumeStartMode('original');
     const card = ui.el('article', { class: 'lesson-card learn-card' });
-    const panelHost = ui.el('div', null);
-
-    function renderHint() {
-      hint.textContent = mode === 'original'
-        ? 'Read through the key concept, then continue. You can swap formats any time.'
-        : 'Tap "Original format · Text" below to return to the original, or pick another way.';
-    }
 
     function renderCard() {
       card.replaceChildren();
@@ -201,29 +245,23 @@ export function render(courseId, lessonId) {
       stage.appendChild(hero);
       card.appendChild(stage);
       requestAnimationFrame(() => hero.classList.remove('modality-enter'));
-
     }
-    function renderPanel() {
-      panelHost.replaceChildren(ui.assistantPanel({
-        current: mode,
-        originalLabel: 'Text',
-        onSelect: (nextMode) => switchMode(nextMode)
-      }));
-    }
+    // Kept for the "Show original" affordance inside a modality view; the
+    // format chooser up front replaces the old "Try another way" panel.
     function switchMode(nextMode) {
       if (nextMode === mode) return;
       const stage = card.querySelector('.modality-stage');
       const cur = stage?.firstElementChild;
       if (cur) {
         cur.classList.add('modality-exit');
-        setTimeout(() => { mode = nextMode; renderCard(); renderPanel(); renderHint(); }, 180);
+        setTimeout(() => { mode = nextMode; renderCard(); }, 180);
       } else {
-        mode = nextMode; renderCard(); renderPanel(); renderHint();
+        mode = nextMode; renderCard();
       }
     }
 
-    renderCard(); renderPanel(); renderHint();
-    stack.append(hint, card, panelHost);
+    renderCard();
+    stack.append(card);
     return stack;
   }
 
@@ -272,7 +310,6 @@ export function render(courseId, lessonId) {
   function buildRecap() {
     const stack = ui.el('div', { class: 'stack' });
 
-    const pw = store.state.industry?.language?.practiceWord || 'scenario';
     const doneCount = completed + 1;     // this lesson is about to be marked complete
     const pct = Math.round((doneCount / total) * 100);
 
@@ -290,49 +327,40 @@ export function render(courseId, lessonId) {
         : `That's the last lesson. One tap to finish the course.`));
     stack.appendChild(head);
 
-    // Stats grid
+    // Condensed stat line — the three checkpoint stats on a single row.
     const minutes = course.lessons.slice(0, doneCount).reduce((s, l) => s + (l.minutes || 0), 0);
-    stack.appendChild(ui.el('div', { class: 'checkpoint-grid' },
-      ui.el('div', { class: 'cp-cell' },
-        ui.el('div', { class: 'cp-v' }, `${doneCount}`,
-          ui.el('span', { class: 'cp-v-sub' }, `/${total}`)),
-        ui.el('div', { class: 'cp-k' }, 'Lessons')),
-      ui.el('div', { class: 'cp-cell' },
-        ui.el('div', { class: 'cp-v' }, `${minutes}`,
-          ui.el('span', { class: 'cp-v-sub' }, 'min')),
-        ui.el('div', { class: 'cp-k' }, 'Invested')),
-      ui.el('div', { class: 'cp-cell' },
-        ui.el('div', { class: 'cp-v' }, `${pct}%`),
-        ui.el('div', { class: 'cp-k' }, 'Progress'))
-    ));
-
-    stack.appendChild(ui.el('p', { class: 'lesson-instruction', style: { marginTop: '4px' } },
-      `Save this lesson for later, or lock it in with a quick ${pw}.`));
-
-    // Save (bookmark) — Mark complete lives in the footer CTA below.
-    const isSaved = store.state.mastery.saved.includes(course.id);
-    stack.appendChild(ui.el('div', { class: 'recap-actions single' },
-      ui.el('button', {
-        class: `ch-action${isSaved ? ' on' : ''}`,
-        on: { click: (e) => {
-          store.toggleSaved(course.id);
-          const t = e.currentTarget;
-          const nowSaved = store.state.mastery.saved.includes(course.id);
-          t.classList.toggle('on', nowSaved);
-          t.querySelector('span:last-child').textContent = nowSaved ? 'Saved' : 'Save for later';
-        }},
-        'aria-label': 'Save reference'
-      }, ui.icon('star'), ui.el('span', null, isSaved ? 'Saved' : 'Save for later'))
+    stack.appendChild(ui.el('div', { class: 'checkpoint-statline' },
+      ui.el('div', { class: 'cps-item' },
+        ui.el('span', { class: 'cps-v' }, `${doneCount}/${total}`),
+        ui.el('span', { class: 'cps-k' }, 'Lessons')),
+      ui.el('span', { class: 'cps-div', 'aria-hidden': 'true' }),
+      ui.el('div', { class: 'cps-item' },
+        ui.el('span', { class: 'cps-v' }, `${minutes} min`),
+        ui.el('span', { class: 'cps-k' }, 'Invested')),
+      ui.el('span', { class: 'cps-div', 'aria-hidden': 'true' }),
+      ui.el('div', { class: 'cps-item' },
+        ui.el('span', { class: 'cps-v' }, `${pct}%`),
+        ui.el('span', { class: 'cps-k' }, 'Progress'))
     ));
 
     const courseScenarios = store.scenariosForCourse(course.id);
     const sc = courseScenarios.find((s) => s.kind !== 'iv-math');
     const mini = courseScenarios.find((s) => s.kind === 'iv-math');
+    // When this lesson's video deck names a knowledge-check scenario, the recap
+    // surfaces the same check for Reading/AI-chat learners — and carries
+    // ?courseLesson so finishing it credits THIS lesson (not just the scenario).
+    const ctaScenarioId = videoBlocks[0]?.cta?.scenarioId;
     if (sc) {
+      const isCheck = sc.id === ctaScenarioId;
       stack.appendChild(ui.coachPrompt({
-        question: `You retain ~3× more from a ${store.state.industry.language.practiceWord} than from a re-read. Run "${sc.title}"?`,
-        primaryLabel: 'Practice now',
-        primaryHref: `#/practice/${sc.id}`,
+        question: isCheck
+          ? (videoBlocks[0].cta.question || `Ready to put this into practice? Run "${sc.title}".`)
+          : `You retain ~3× more from a ${store.state.industry.language.practiceWord} than from a re-read. Run "${sc.title}"?`,
+        primaryLabel: isCheck ? 'Start the knowledge check' : 'Practice now',
+        primaryHref: isCheck
+          ? `#/practice/${sc.id}?courseLesson=${course.id}:${lesson.id}`
+          : `#/practice/${sc.id}`,
+        primaryVariant: 'secondary',
         secondaryLabel: 'Skip',
         secondaryHref: `#/course/${course.id}/lesson/${lesson.id}`
       }));
@@ -354,12 +382,17 @@ export function render(courseId, lessonId) {
     }
 
     if (next) {
+      // The Up next card is the page's primary CTA (the separate "Continue"
+      // footer button was removed as redundant). It owns the advance action
+      // so the current lesson is still marked complete on the way out.
       stack.appendChild(ui.sectionHeader('Up next'));
       stack.appendChild(ui.nextUpCard({
         title: next.title,
         subtitle: `${next.minutes} min · Lesson ${String(idx + 2).padStart(2, '0')} of ${String(total).padStart(2, '0')}`,
         href: `#/course/${course.id}/lesson/${next.id}`,
-        initials: String(idx + 2)
+        initials: String(idx + 2),
+        cta: true,
+        onClick: advance
       }));
     }
     return stack;
@@ -370,6 +403,333 @@ export function render(courseId, lessonId) {
 }
 
 // ---------- block renderers ----------
+
+// Paged image+text slide deck for a "video" block that carries `slides`.
+// Reuses the discussion engine's keyframe hero (image + caption + fade) and the
+// step-indicator dot CSS. The final slide swaps Next for a question-CTA that
+// calls onLaunch(scenarioId) to start the knowledge-check.
+function slideDeckEl(block, { onLaunch }) {
+  const slides = block.slides || [];
+  const wrap = ui.el('div', { class: 'slide-deck' });
+
+  const heroImg = ui.el('img', { class: 'scn-hero-photo', alt: '', decoding: 'async' });
+  heroImg.addEventListener('error', () => { heroImg.style.display = 'none'; });
+  const heroCaption = ui.el('div', { class: 'scn-kf-caption' });
+  const hero = ui.el('div', { class: 'scn-hero has-photo scn-kf', style: { height: '220px' } },
+    heroImg,
+    ui.el('span', { class: 'scn-hero-scrim', 'aria-hidden': 'true' }),
+    heroCaption
+  );
+
+  const body = ui.el('p', { class: 'slide-text' });
+  const dots = ui.el('div', { class: 'si-dots slide-dots' });
+  const controls = ui.el('div', { class: 'slide-nav' });
+
+  let i = 0;
+
+  function setSlide(slide) {
+    hero.classList.remove('kf-in');
+    heroImg.src = slide.image || '';
+    heroImg.style.display = '';
+    heroCaption.textContent = slide.caption || '';
+    requestAnimationFrame(() => hero.classList.add('kf-in'));
+    body.textContent = slide.text || '';
+  }
+
+  function renderDots() {
+    dots.replaceChildren(...slides.map((_, di) =>
+      ui.el('span', { class: `si-dot ${di < i ? 'done' : di === i ? 'cur' : ''}` })));
+  }
+
+  function renderControls() {
+    const last = i === slides.length - 1;
+    const back = ui.el('button',
+      { class: 'btn ghost slide-back', disabled: i === 0, on: { click: () => goTo(i - 1) } },
+      'Back');
+    let forward;
+    if (!last) {
+      forward = ui.el('button', { class: 'btn primary slide-next', on: { click: () => goTo(i + 1) } },
+        ui.el('span', null, 'Next'), ui.icon('arrowRight'));
+    } else if (block.cta && block.cta.scenarioId) {
+      forward = ui.el('button', { class: 'btn primary slide-cta', on: { click: () => onLaunch(block.cta.scenarioId) } },
+        ui.el('span', null, block.cta.question || 'Continue'), ui.icon('arrowRight'));
+    } else {
+      forward = ui.el('span', { class: 'slide-nav-spacer', 'aria-hidden': 'true' });
+    }
+    controls.replaceChildren(back, forward);
+  }
+
+  function goTo(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    setSlide(slides[i] || {});
+    renderDots();
+    renderControls();
+  }
+
+  wrap.append(hero, body, dots, controls);
+  goTo(0);
+  return wrap;
+}
+
+// Scene-watch flow for a "video" block carrying `scenes`. A focused 2-step
+// micro-flow:
+//   1. Pre-roll — frames the task, shows a poster + scene-count/duration, and
+//      a "Play all scenes" CTA so the learner controls when watching starts.
+//   2. One page per scene — each scene plays its own clip with a description
+//      below. A segmented scrubber fills blue as the current clip plays and
+//      turns green once a scene completes. "Next Scene" stays disabled until
+//      the clip finishes (the video `ended` event); the final scene's button
+//      becomes the cta question and calls onLaunch(scenarioId).
+//
+// Real clips drive playback via the <video> element; when a clip is missing
+// or fails to load, a short simulated timer fills the scrubber and unlocks the
+// gate so the prototype stays clickable with placeholder data.
+function sceneWatchEl(block, { headLabel, onExit, onLaunch }) {
+  const scenes = block.scenes || [];
+  const flow = block.flow || {};
+  const steps = ['Watch', 'Share observations'];
+  const completed = new Set();        // indices of finished scenes
+
+  const wrap = ui.el('section', { class: 'scene-watch' });
+
+  // ---- persistent header: back + kicker + flow title + 2-step phase bar ----
+  const back = ui.el('button', { class: 'scene-back', 'aria-label': 'Back to course', on: { click: onExit } });
+  back.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M11 18l-6-6 6-6"/></svg>';
+  const head = ui.el('header', { class: 'lesson-head scene-watch-head' },
+    ui.el('div', { class: 'scene-head-row' },
+      back,
+      ui.el('div', { class: 'ch-kicker' }, ui.el('div', null, headLabel))
+    ),
+    ui.el('h2', { class: 'ch-title' }, flow.title || block.title || 'Watch'),
+    ui.phaseBar({ steps, current: 0 })
+  );
+
+  const body = ui.el('div', { class: 'scene-watch-body' });
+  wrap.append(head, body);
+
+  // ---- pre-roll ----
+  function renderPreroll() {
+    body.replaceChildren();
+    if (flow.intro) body.appendChild(ui.el('p', { class: 'scene-intro' }, flow.intro));
+
+    const poster = scenes[0]?.poster || block.image || '';
+    const stats = [`${scenes.length} scene${scenes.length === 1 ? '' : 's'}`];
+    if (flow.duration) stats.push(flow.duration);
+
+    const img = ui.el('img', { class: 'scene-poster', src: poster, alt: '', decoding: 'async' });
+    img.addEventListener('error', () => { img.style.display = 'none'; });
+    // Poster only — this is a preview thumbnail, not a player. Playback starts
+    // on the scene pages, so no play button here (the CTA advances instead).
+    const media = ui.el('div', { class: 'scene-preroll-media' },
+      img,
+      ui.el('span', { class: 'scene-poster-scrim', 'aria-hidden': 'true' })
+    );
+
+    body.appendChild(ui.el('div', { class: 'scene-preroll-card' },
+      ui.el('div', { class: 'scene-preroll-meta' },
+        ui.el('span', { class: 'scene-preroll-tag' }, 'Video'),
+        ui.el('span', { class: 'scene-preroll-stats' }, stats.join('   |   '))
+      ),
+      media
+    ));
+
+    body.appendChild(ui.el('button', { class: 'btn primary block cta-large scene-playall', on: { click: () => renderScene(0) } },
+      ui.el('span', null, 'Continue to Scene 1'), ui.icon('arrowRight')));
+  }
+
+  // ---- segmented scrubber (one segment per scene) ----
+  function buildScrubber(activeIdx) {
+    const el = ui.el('div', { class: 'scene-scrub', 'aria-hidden': 'true' });
+    const segs = scenes.map((_, si) => {
+      const fill = ui.el('span', { class: 'scene-seg-fill' });
+      const seg = ui.el('span', { class: 'scene-seg' }, fill);
+      if (completed.has(si)) { seg.classList.add('done'); fill.style.width = '100%'; }
+      else if (si === activeIdx) seg.classList.add('cur');
+      el.appendChild(seg);
+      return { seg, fill };
+    });
+    return {
+      el,
+      // Live playhead for the scene on screen. Updates even on a re-watch
+      // (completed scene) so the learner can see where they are in the clip;
+      // other already-done segments are left untouched.
+      setProgress(i, p) {
+        if (i !== activeIdx && completed.has(i)) return;
+        segs[i].fill.style.width = `${Math.max(0, Math.min(100, Math.round(p * 100)))}%`;
+      },
+      // Flip the active segment into "watching" (blue) and rewind it — called
+      // when a clip starts, including replaying one that was already finished.
+      beginPlay(i) {
+        segs[i].seg.classList.remove('done');
+        segs[i].seg.classList.add('cur');
+        segs[i].fill.style.width = '0%';
+      },
+      markDone(i) {
+        segs[i].seg.classList.remove('cur');
+        segs[i].seg.classList.add('done');
+        segs[i].fill.style.width = '100%';
+      }
+    };
+  }
+
+  // ---- one scene page ----
+  // Holds the previous scene's timer-cleanup so leaving a scene cancels any
+  // in-flight sim/guard timers (they'd otherwise fire against detached nodes).
+  let leaveScene = null;
+  function renderScene(i) {
+    if (leaveScene) { leaveScene(); leaveScene = null; }
+    body.replaceChildren();
+    const scene = scenes[i] || {};
+    const last = i === scenes.length - 1;
+
+    // Muted: the clips' audio is placeholder-only for now, so we play silent.
+    const hasClip = !!scene.video;
+    const video = ui.el('video', { class: 'scene-video', playsinline: '', muted: true, preload: hasClip ? 'auto' : 'metadata' });
+    if (hasClip) {
+      // Show the clip's OWN first frame as the still rather than the authored
+      // poster (which can mismatch the footage). The #t media fragment nudges
+      // the browser to decode and display frame ~0 before playback starts.
+      video.appendChild(ui.el('source', { src: scene.video + '#t=0.001', type: 'video/mp4' }));
+    } else if (scene.poster || block.image) {
+      video.poster = scene.poster || block.image;   // placeholder fallback (no clip)
+    }
+
+    const scrub = buildScrubber(i);
+    // Play/pause affordance. On arrival (and once a clip ends) it shows a play
+    // triangle. Tapping it starts playback, the icon morphs to a pause bar, and
+    // it auto-fades after ~800ms so it doesn't sit over the footage. Hovering or
+    // tapping the frame brings it back so the learner can pause/resume.
+    const playIcon = ui.icon('play');
+    const pauseIcon = ui.icon('pause');
+    const playBtn = ui.el('button', { class: 'scene-play-overlay', 'aria-label': 'Play scene' }, playIcon);
+    playBtn.addEventListener('click', (e) => {
+      e.stopPropagation();                 // don't let the frame-tap handler re-show it
+      if (frame.classList.contains('playing')) pausePlayback();
+      else startPlayback(video.ended);
+    });
+    const frame = ui.el('div', { class: 'scene-video-frame' }, video, ui.el('span', { class: 'scene-video-scrim', 'aria-hidden': 'true' }), playBtn, scrub.el);
+    // Tapping anywhere on the frame while playing reveals the (faded) control;
+    // hover does the same on pointer devices via CSS.
+    frame.addEventListener('click', () => { if (frame.classList.contains('playing')) revealControl(); });
+    body.appendChild(frame);
+
+    // ---- control visibility (auto-fade while playing) ----
+    let fadeTimer = null;
+    function clearFade() { if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null; } }
+    // Show the control, then schedule it to fade back out after a beat.
+    function revealControl() {
+      clearFade();
+      frame.classList.remove('control-faded');
+      fadeTimer = setTimeout(() => {
+        // Only fade while still playing — a paused/ended clip keeps it visible.
+        if (frame.classList.contains('playing')) frame.classList.add('control-faded');
+      }, 800);
+    }
+    // Pin the control on (no fade) — used whenever the clip is paused or ended.
+    function pinControl() { clearFade(); frame.classList.remove('control-faded'); }
+
+    // Title + description read as one block, so they sit tighter to each other
+    // than to the video above / button below.
+    const copy = ui.el('div', { class: 'scene-copy' },
+      ui.el('h3', { class: 'scene-title' }, scene.title || `Scene ${i + 1}`));
+    if (scene.description) copy.appendChild(ui.el('p', { class: 'scene-desc' }, scene.description));
+    body.appendChild(copy);
+
+    const btn = ui.el('button', { class: 'btn primary block cta-large scene-next', disabled: !completed.has(i) },
+      ui.el('span', null, last ? (block.cta?.question || 'Continue') : 'Next Scene'));
+    if (!last) btn.appendChild(ui.icon('arrowRight'));
+    btn.addEventListener('click', () => {
+      if (btn.disabled) return;
+      if (last) onLaunch(block.cta?.scenarioId);
+      else renderScene(i + 1);
+    });
+    body.appendChild(btn);
+
+    // Tells the learner why the button is greyed out — a disabled button alone
+    // is easy to miss. Flips to a "Scene complete!" confirmation once watched.
+    const gateHint = ui.el('p', { class: 'scene-gate-hint' },
+      ui.icon('play'),
+      ui.el('span', null, 'Watch the full scene to continue'));
+    body.appendChild(gateHint);
+    function markGateComplete() {
+      gateHint.classList.add('is-complete');
+      gateHint.replaceChildren(ui.icon('check'), ui.el('span', null, 'Scene complete!'));
+    }
+
+    // ---- playback + gating ----
+    let simTimer = null, guard = null;
+    function clearSim() { if (simTimer) { clearInterval(simTimer); simTimer = null; } if (guard) { clearTimeout(guard); guard = null; } }
+    leaveScene = () => { clearSim(); clearFade(); };
+    function completeScene() {
+      clearSim();
+      completed.add(i);
+      scrub.markDone(i);
+      btn.disabled = false;
+      btn.classList.add('ready');
+      markGateComplete();
+      playBtn.hidden = false;          // becomes a replay affordance
+      playBtn.replaceChildren(playIcon);
+      playBtn.setAttribute('aria-label', 'Replay scene');
+      frame.classList.remove('playing');
+      pinControl();
+    }
+    // Simulated playback for missing/broken clips — fills over ~5s.
+    function startSim() {
+      clearSim();
+      const DUR = 5000, t0 = performance.now();
+      simTimer = setInterval(() => {
+        const p = Math.min(1, (performance.now() - t0) / DUR);
+        scrub.setProgress(i, p);
+        if (p >= 1) completeScene();
+      }, 80);
+    }
+    function startPlayback(isReplay) {
+      frame.classList.add('playing');
+      playBtn.replaceChildren(pauseIcon);   // toggles to a pause control while playing
+      playBtn.setAttribute('aria-label', 'Pause scene');
+      revealControl();                      // briefly show the pause state, then fade
+      // Rewind the scrubber when we're (re)starting from the top — a replay or
+      // re-watch of an already-finished scene. A mid-scene resume keeps its fill.
+      if (isReplay || completed.has(i)) scrub.beginPlay(i);
+      if (!scene.video) { startSim(); return; }
+      if (isReplay) { try { video.currentTime = 0; } catch (e) {} }
+      const pr = video.play?.();
+      if (pr && pr.catch) pr.catch(() => startSim());
+      // If the file never loads (404 / missing), fall back to simulation.
+      guard = setTimeout(() => { if (video.readyState < 2 && !simTimer) startSim(); }, 1200);
+    }
+    function pausePlayback() {
+      if (scene.video) video.pause();       // fires the 'pause' handler below
+      else { clearSim(); onUserPaused(); }  // simulated clips have no media events
+    }
+    // Restore the play affordance and pin it on whenever playback stops short.
+    function onUserPaused() {
+      frame.classList.remove('playing');
+      playBtn.replaceChildren(playIcon);
+      playBtn.setAttribute('aria-label', 'Play scene');
+      pinControl();
+    }
+    video.addEventListener('loadeddata', () => { if (guard) { clearTimeout(guard); guard = null; } });
+    video.addEventListener('timeupdate', () => {
+      if (video.duration && !simTimer) scrub.setProgress(i, video.currentTime / video.duration);
+    });
+    video.addEventListener('ended', () => { scrub.setProgress(i, 1); completeScene(); });
+    video.addEventListener('error', () => { if (!completed.has(i)) startSim(); });
+    // A user pause (not the end-of-clip pause) brings the play button back so
+    // they can resume.
+    video.addEventListener('pause', () => { if (!video.ended) onUserPaused(); });
+
+    // No auto-play: the scene opens on its poster with the play button showing.
+    // Already-watched scenes stay unlocked and show the replay button.
+    if (completed.has(i)) { scrub.markDone(i); markGateComplete(); }
+    playBtn.hidden = false;
+
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
+  renderPreroll();
+  return wrap;
+}
 
 function videoEl(block) {
   const wrap = ui.el('div', { class: 'media', 'aria-label': `Video: ${block.title}` });
@@ -384,6 +744,42 @@ function videoEl(block) {
   return wrap;
 }
 
+// Inline still image for reading mode. Removes itself on load error so a
+// dead URL never leaves a broken-image placeholder in the article.
+function figureEl(b) {
+  const fig = ui.el('figure', { class: 'lesson-figure' });
+  const img = ui.el('img', {
+    class: 'lf-img', src: b.src, alt: b.alt || '',
+    loading: 'lazy', decoding: 'async'
+  });
+  img.addEventListener('error', () => fig.remove());
+  fig.appendChild(img);
+  if (b.caption) fig.appendChild(ui.el('figcaption', { class: 'lf-cap' }, b.caption));
+  return fig;
+}
+
+// Lightweight horizontal bar chart built from CSS — no chart library,
+// no external image. `data` is [{ label, value }]; bars scale to the max.
+function chartEl(b) {
+  const fig = ui.el('figure', { class: 'lesson-chart' });
+  if (b.title) fig.appendChild(ui.el('div', { class: 'lch-title' }, b.title));
+  const max = Math.max(1, ...b.data.map((d) => d.value));
+  const rows = ui.el('div', { class: 'lch-rows' });
+  for (const d of b.data) {
+    const bar = ui.el('span', { class: 'lch-bar', style: { width: `${Math.round((d.value / max) * 100)}%` } });
+    rows.appendChild(ui.el('div', { class: 'lch-row' },
+      ui.el('div', { class: 'lch-rowhead' },
+        ui.el('span', { class: 'lch-label' }, d.label),
+        ui.el('span', { class: 'lch-val' }, `${d.value}${b.unit || ''}`)
+      ),
+      ui.el('span', { class: 'lch-track' }, bar)
+    ));
+  }
+  fig.appendChild(rows);
+  if (b.note) fig.appendChild(ui.el('figcaption', { class: 'lch-note' }, b.note));
+  return fig;
+}
+
 function renderBlock(b, course) {
   if (b.type === 'text' || b.type === 'prose') {
     const wrap = ui.el('div', null);
@@ -391,6 +787,8 @@ function renderBlock(b, course) {
     wrap.appendChild(ui.el('p', { style: { marginTop: b.title ? '6px' : '0' } }, b.body));
     return wrap;
   }
+  if (b.type === 'image') return figureEl(b);
+  if (b.type === 'chart') return chartEl(b);
   if (b.type === 'callout') {
     return ui.callout({ kind: b.kind, title: b.title, body: b.body, items: b.items });
   }

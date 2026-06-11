@@ -9,8 +9,21 @@
 //   GET    /log?limit=&action=&product=&url=   append-only activity history (newest first)
 //
 // KV layout:
-//   pin:<encoded-url>:<pin-id>   JSON Pin
-//   undo:<pin-id>                JSON { prevDone, prevDeleted, key, undoExpiresAt }  TTL 60s
+//   pins:<encoded-url>           JSON Pin[] — ALL pins for a page in one blob, so a
+//                                page load costs 1 read and 0 list operations. KV
+//                                meters list ops against a small daily free-tier
+//                                budget (1,000/day); the old one-key-per-pin layout
+//                                forced a list() on every page load, which was the
+//                                dominant source of metered usage. This blob layout
+//                                eliminates it. Trade-off: writes to a page are
+//                                read-modify-write on the whole array, so two people
+//                                commenting on the SAME page within the same instant
+//                                could clobber each other. Acceptable here — write
+//                                volume is tiny (~tens/month) and KV has no CAS.
+//   pin:<encoded-url>:<pin-id>   LEGACY one-key-per-pin layout. Read once by
+//                                readPins() to lazily migrate a page into the blob
+//                                above, then ignored. New writes never touch these.
+//   undo:<pin-id>                JSON { prevDone, prevDeleted, url, pinId, undoExpiresAt }  TTL 60s
 //                                (10s logical TTL enforced via undoExpiresAt; KV min TTL is 60s)
 //   log:<iso-timestamp>:<rand>   JSON Event  — append-only, never mutated; auto-
 //                                expires after a ~90-day retention window (TTL).
@@ -93,15 +106,60 @@ function json(data, status = 200) {
 
 // --- KV helpers --------------------------------------------------------------
 
-const pinKey = (pageUrl, id) => `pin:${encodeURIComponent(pageUrl)}:${id}`;
+const pinsKey = (pageUrl) => `pins:${encodeURIComponent(pageUrl)}`;
+const legacyPinPrefix = (pageUrl) => `pin:${encodeURIComponent(pageUrl)}:`;
 const undoKey = (id) => `undo:${id}`;
 const settingsKey = (pageUrl) => `settings:${encodeURIComponent(pageUrl)}`;
 const DEFAULT_SETTINGS = { visitorMode: false, commentsDisabled: false };
 
-async function getPin(env, pageUrl, id) {
-  const key = pinKey(pageUrl, id);
-  const pin = await env.PINS_KV.get(key, 'json');
-  return pin ? { key, pin } : null;
+// Read every pin for a page as a single array.
+//
+// Steady state: one KV read of the `pins:<url>` blob, ZERO list operations.
+//
+// First access after deploy (blob absent): fall back to the legacy
+// one-key-per-pin layout, consolidate those keys into the blob, and persist it
+// so every subsequent load is list-free. We write the blob even when a page has
+// no pins (empty array) — that "page with no comments" case was the bulk of the
+// old list volume, and writing an empty blob stops it from listing on each load.
+// Legacy keys are left in place (harmless, tiny) rather than deleted, so the
+// migration is idempotent and self-heals if a blob write ever fails.
+async function readPins(env, pageUrl) {
+  const blob = await env.PINS_KV.get(pinsKey(pageUrl), 'json');
+  if (blob !== null) return Array.isArray(blob) ? blob : [];
+  const migrated = await collectLegacyPins(env, pageUrl);
+  await writePins(env, pageUrl, migrated);
+  return migrated;
+}
+
+// One-time migration helper: gather any legacy `pin:<url>:<id>` keys for a page.
+// This is the only remaining list() in the pin path and runs at most once per
+// page (until its blob exists).
+async function collectLegacyPins(env, pageUrl) {
+  const prefix = legacyPinPrefix(pageUrl);
+  const out = [];
+  let cursor;
+  do {
+    const res = await env.PINS_KV.list({ prefix, cursor });
+    for (const key of res.keys) {
+      const pin = await env.PINS_KV.get(key.name, 'json');
+      if (pin) out.push(pin);
+    }
+    cursor = res.cursor;
+    if (res.list_complete) break;
+  } while (cursor);
+  return out;
+}
+
+async function writePins(env, pageUrl, pins) {
+  await env.PINS_KV.put(pinsKey(pageUrl), JSON.stringify(pins));
+}
+
+// Locate a single pin within a page's blob. Returns { pins, idx } so callers can
+// mutate the entry in place and write the whole array back, or null if not found.
+async function findPin(env, pageUrl, id) {
+  const pins = await readPins(env, pageUrl);
+  const idx = pins.findIndex(p => p && p.id === id);
+  return idx === -1 ? null : { pins, idx };
 }
 
 // --- Activity log (append-only, retained ~90 days) ---------------------------
@@ -170,19 +228,9 @@ async function listLog(url, env) {
 async function listPins(url, env) {
   const pageUrl = url.searchParams.get('url');
   if (!pageUrl) return json({ error: 'Missing url' }, 400);
-  const prefix = `pin:${encodeURIComponent(pageUrl)}:`;
-  const out = [];
-  let cursor;
-  do {
-    const res = await env.PINS_KV.list({ prefix, cursor });
-    for (const key of res.keys) {
-      const pin = await env.PINS_KV.get(key.name, 'json');
-      if (pin && !pin.deleted) out.push(pin);
-    }
-    cursor = res.cursor;
-    if (res.list_complete) break;
-  } while (cursor);
-  out.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  const out = (await readPins(env, pageUrl))
+    .filter(pin => pin && !pin.deleted)
+    .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
   return json({ pins: out });
 }
 
@@ -217,7 +265,9 @@ async function createPin(request, env) {
     deleted: false,
     thread: []
   };
-  await env.PINS_KV.put(pinKey(pin.url, id), JSON.stringify(pin));
+  const pins = await readPins(env, pin.url);
+  pins.push(pin);
+  await writePins(env, pin.url, pins);
   await logEvent(env, { action: 'created', author: pin.author, product: pin.product, url: pin.url, pinId: id, comment: pin.comment });
   return json({ pin }, 201);
 }
@@ -225,9 +275,10 @@ async function createPin(request, env) {
 async function updatePin(id, request, env) {
   const body = await request.json();
   if (!body.url) return json({ error: 'Missing url' }, 400);
-  const found = await getPin(env, body.url, id);
+  const found = await findPin(env, body.url, id);
   if (!found) return json({ error: 'Pin not found' }, 404);
-  const { key, pin } = found;
+  const { pins, idx } = found;
+  const pin = pins[idx];
   const author = body.author || pin.author;
 
   const prevDone = pin.done, prevDeleted = pin.deleted;
@@ -265,11 +316,11 @@ async function updatePin(id, request, env) {
   // A move/re-anchor recaptures the interaction state, so accept a replacement.
   if (body.viewState !== undefined) pin.viewState = cleanViewState(body.viewState);
 
-  await env.PINS_KV.put(key, JSON.stringify(pin));
+  await writePins(env, body.url, pins);
 
   if (stashUndo) {
     const undoVal = {
-      prevDone, prevDeleted, key,
+      prevDone, prevDeleted, url: body.url, pinId: id,
       undoExpiresAt: Date.now() + 10000
     };
     await env.PINS_KV.put(undoKey(id), JSON.stringify(undoVal), { expirationTtl: 60 });
@@ -293,33 +344,34 @@ async function undoPin(id, request, env) {
   if (!undoData || undoData.undoExpiresAt < Date.now()) {
     return json({ error: 'Undo window has expired' }, 409);
   }
-  const pin = await env.PINS_KV.get(undoData.key, 'json');
-  if (!pin) return json({ error: 'Pin not found' }, 404);
-  pin.done = undoData.prevDone;
-  pin.deleted = undoData.prevDeleted;
-  await env.PINS_KV.put(undoData.key, JSON.stringify(pin));
+  const found = await findPin(env, undoData.url, undoData.pinId);
+  if (!found) return json({ error: 'Pin not found' }, 404);
+  const { pins, idx } = found;
+  pins[idx].done = undoData.prevDone;
+  pins[idx].deleted = undoData.prevDeleted;
+  await writePins(env, undoData.url, pins);
   await env.PINS_KV.delete(undoKey(id));
   // Undo is not logged separately (KV write budget).
-  return json({ pin });
+  return json({ pin: pins[idx] });
 }
 
 async function replyToPin(id, request, env) {
   const body = await request.json();
   if (!body.url || !body.author || !body.text) return json({ error: 'Missing url, author, or text' }, 400);
-  const found = await getPin(env, body.url, id);
+  const found = await findPin(env, body.url, id);
   if (!found) return json({ error: 'Pin not found' }, 404);
-  const { key, pin } = found;
+  const { pins, idx } = found;
   const reply = {
     id: `reply_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     author: body.author,
     text: body.text,
     timestamp: new Date().toISOString()
   };
-  pin.thread = pin.thread || [];
-  pin.thread.push(reply);
-  await env.PINS_KV.put(key, JSON.stringify(pin));
+  pins[idx].thread = pins[idx].thread || [];
+  pins[idx].thread.push(reply);
+  await writePins(env, body.url, pins);
   // Replies are not logged separately (KV write budget) — they live on the pin.
-  return json({ pin });
+  return json({ pin: pins[idx] });
 }
 
 // --- Settings (per-URL admin toggles) ----------------------------------------

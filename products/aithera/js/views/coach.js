@@ -9,7 +9,7 @@
 
 import { store } from '../store.js';
 import { coach } from '../coach.js';
-import * as ui from '../ui.js?v=course-flow-1';
+import * as ui from '../ui.js?v=scene-flow-9';
 
 export function render() {
   const root = document.createElement('section');
@@ -51,7 +51,11 @@ export function render() {
     const extras = [];
     if (reply.card) extras.push(renderCard(reply.card, reply));
     extras.push(citeTag(reply));
-    thread.appendChild(ui.chatBubble({ tone: 'coach', text: reply.text, time: reply.time, children: extras }));
+    const bubble = ui.chatBubble({ tone: 'coach', text: reply.text, time: reply.time, children: extras });
+    // Animate only live arrivals — not the backlog replayed on mount (persist=false),
+    // which would re-animate the whole thread on every entry into the view.
+    if (persist) bubble.classList.add('cc-anim-in');
+    thread.appendChild(bubble);
     suggBox.replaceChildren(ui.suggestedChips(reply.suggested ?? [], (s) => onLearnerMessage(s)));
     scrollToEnd();
     if (persist) {
@@ -61,7 +65,9 @@ export function render() {
 
   function appendMe(text, persist = true) {
     const time = nowStamp();
-    thread.appendChild(ui.chatBubble({ tone: 'me', text, time }));
+    const bubble = ui.chatBubble({ tone: 'me', text, time });
+    if (persist) bubble.classList.add('cc-anim-in');   // live message only (see appendCoach)
+    thread.appendChild(bubble);
     suggBox.replaceChildren();
     scrollToEnd();
     if (persist) {

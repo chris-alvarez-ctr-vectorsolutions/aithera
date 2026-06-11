@@ -124,14 +124,17 @@ Browsers may cache the widget aggressively. If teammates aren't seeing the updat
   - **React/SPA-style mockups** (anything that renders the UI from JSX inside `<script type="text/babel">`, e.g. `Scheduling/Rules engine only/`) have only their static shell annotated — the runtime React elements aren't tagged. For those, the VS Code button (when present) points at the shell line and you'll need to navigate to the actual JSX from there.
 - **Done pins** render muted with a checkmark and stay visible until the next page refresh.
 - **Deleted pins** are soft-deleted (`deleted: true` in KV) and never shown.
-- **Stranded pins**: if a pin's CSS selector no longer matches anything on the page (mockup changed), the pin can't be placed on the canvas. **Admins** see a small sidebar listing the stranded pins so they can open and delete (or otherwise clean up) each one. Non-admins don't see the sidebar — a broken pin is noise they can't act on.
+- **Comment navigator**: a single hub in the bottom-left corner shows the **total number of comments** on the page and lets you review every one without hunting. A Prev/Next stepper (`‹ 3 / 12 ›`) jumps to each comment in turn — scrolling to it, switching to its screen/state if needed, and opening its panel — and an expandable list groups every comment by where it lives: **On this screen**, **On other screens** (a different screen, version, tab, or toggle of a single-file mock), and **Not found** (the anchored element no longer exists). The hub is purely client-side over the already-loaded comments, so navigating adds no Cloudflare reads, writes, or lists. The count reflects open comments (resolved/done ones drop off), and respects visitor mode.
+- **Stranded comments** (the "Not found" group): if a pin's CSS selector no longer matches anything on the page (mockup changed), the pin can't be placed on the canvas. It appears in the navigator's **Not found** group for **admins only** so they can open and clean it up — non-admins don't see it, since a broken pin is noise they can't act on.
 - **Undo**: marking a pin done or deleting it shows a toast with an `Undo` button. The undo window is 10 seconds, enforced by the Worker. After that the toast disappears and the Worker returns 409 if undo is attempted.
 - **Activity log**: every create / mark-done / delete / undo / reply / edit appends a timestamped, append-only entry in KV (`log:` keys), viewable at `commentwidget/log.html`. Pin moves and admin mode changes are intentionally not logged.
 
 ## Data model (KV)
 
+All pins for a page are stored together in **one** KV value (`pins:<encoded-page-url>` → an array of pin objects). A page load is therefore a single KV read with **no list operation** — KV meters list ops against a small daily free-tier budget, and the previous one-key-per-pin layout forced a `list()` on every page load. The Worker lazily migrates any legacy `pin:<url>:<id>` keys into the blob the first time a page is read after deploy, so no manual migration step is needed. Trade-off: writes are read-modify-write on the whole array, so two people commenting on the *same page* in the same instant could clobber each other — acceptable given the low write volume and that KV has no compare-and-swap.
+
 ```js
-// Key: pin:<encoded-page-url>:<pin-id>
+// Key: pins:<encoded-page-url>   →   array of pin objects, each shaped like:
 {
   id: "pin_<timestamp>_<rand>",
   url: "https://...",
@@ -157,7 +160,7 @@ Browsers may cache the widget aggressively. If teammates aren't seeing the updat
 }
 
 // Key: undo:<pin-id>  (TTL 60s)
-{ prevDone: false, prevDeleted: false, key: "pin:...", undoExpiresAt: 1234567890 }
+{ prevDone: false, prevDeleted: false, url: "https://...", pinId: "pin_...", undoExpiresAt: 1234567890 }
 ```
 
 > KV's minimum TTL is 60s, so the undo record lives for 60s but the Worker enforces the logical 10s window via `undoExpiresAt`. Undo requests after the 10s window return 409 even though the key still exists.

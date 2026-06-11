@@ -4,7 +4,7 @@
 
 import { store } from '../store.js';
 import * as adaptive from '../adaptive.js';
-import * as ui from '../ui.js?v=course-flow-1';
+import * as ui from '../ui.js?v=scene-flow-9';
 import { currentPhase, triggerPolicyEventIfNeeded, markPolicyModalShown,
          personaScenarioForPhase, personaAdaptiveCourse, personaPhase1Course } from '../phase.js';
 
@@ -21,10 +21,8 @@ export function render() {
   const first = learner.name.split(' ')[0];
   const hour = new Date().getHours();
   const partOfDay = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
-  const subline = learner.unit || `${learner.role} · ${industry.label}`;
   root.appendChild(ui.el('div', { class: 'home-greeting' },
-    ui.el('h1', null, `Good ${partOfDay}, ${first}.`),
-    ui.el('p', { class: 'muted' }, subline)
+    ui.el('h1', null, `Good ${partOfDay}, ${first}.`)
   ));
 
   // Phase 4: trigger and render the policy modal once.

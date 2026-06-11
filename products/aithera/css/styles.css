@@ -187,9 +187,12 @@ a { color: var(--accent); text-decoration: none; }
   box-shadow: var(--shadow);
 }
 .floatbtn-left  { left:  50%; transform: translateX(calc(var(--maxw) / -2 + 12px)); font-size: 28px; }
-.floatbtn-right { right: 50%; transform: translateX(calc(var(--maxw) /  2 - 12px - var(--tap))); font-size: 28px; }
+.floatbtn-right { right: 50%; transform: translateX(calc(var(--maxw) /  2 - 12px)); font-size: 28px; }
 .floatbtn[hidden] { display: none !important; }
 .floatbtn:hover { background: var(--bg-card); }
+/* SVG glyph (e.g. the × close) centers cleanly via place-items, unlike a
+   text glyph whose baseline sits slightly off vertical center. */
+.floatbtn svg { width: 20px; height: 20px; display: block; }
 @media (max-width: 520px) {
   .floatbtn-left  { left: 12px;  transform: none; }
   .floatbtn-right { right: 12px; transform: none; }
@@ -302,6 +305,36 @@ a { color: var(--accent); text-decoration: none; }
 .stat-tile .stat-value { font-size: 22px; font-weight: 700; color: var(--text); }
 .stat-tile .stat-label { font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-dim); }
 
+/* course meta bar — single quiet line of lesson count + duration that
+   doubles as the lessons accordion. The summary is the visible bar; tap
+   it to expand the lesson list inline. Chevron rotates when open. */
+.course-meta-bar {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+  color: var(--text);
+}
+.course-meta-bar > .cmb-summary {
+  list-style: none;
+  display: flex; align-items: center; gap: 14px;
+  padding: 11px 14px;
+  font-size: 14px;
+  cursor: pointer; user-select: none;
+}
+.course-meta-bar > .cmb-summary::-webkit-details-marker { display: none; }
+.cmb-summary .cmb-item { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }
+.cmb-summary .cmb-item .i { color: var(--accent); display: inline-flex; }
+.cmb-summary .cmb-item .i svg { width: 16px; height: 16px; display: block; }
+.cmb-summary .cmb-sep { width: 1px; height: 16px; background: var(--line); }
+.cmb-summary .cmb-chev {
+  margin-left: auto; color: var(--text-dim);
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+.cmb-summary .cmb-chev svg { width: 18px; height: 18px; display: block; }
+.course-meta-bar[open] > .cmb-summary .cmb-chev { transform: rotate(90deg); }
+.cmb-lessons { padding: 10px 12px 12px; border-top: 1px solid var(--line); }
+
 /* status panel — dark, prominent, with right-side play affordance */
 .status-panel {
   display: block;
@@ -338,12 +371,15 @@ a { color: var(--accent); text-decoration: none; }
 .coach-message .cm-body p { margin: 6px 0 8px; font-size: 13.5px; color: var(--text-dim); font-style: italic; }
 .coach-message .cm-body small { font-size: 11px; letter-spacing: 0.6px; color: var(--accent); font-weight: 700; text-transform: uppercase; }
 
-/* primary CTA with chevron — used as the page-level commitment button */
-.btn.cta-large { font-size: 13px; letter-spacing: 1px; text-transform: uppercase; padding: 14px 18px; }
-.btn.cta-large .i { width: 14px; height: 14px; }
-.btn.cta-large.with-progress { position: relative; padding-bottom: 16px; overflow: hidden; }
-.btn.cta-large .cta-row { display: flex; align-items: center; gap: 10px; width: 100%; }
-.btn.cta-large .cta-label { flex: 1; text-align: left; }
+/* primary CTA — the page-level commitment button. Centered label, taller
+   footprint, and a real drop shadow (no chevron, no underline track). */
+.btn.cta-large { font-size: 14px; letter-spacing: 1px; text-transform: uppercase; padding: 18px 18px; }
+.btn.primary.cta-large {
+  box-shadow: 0 8px 20px -4px rgba(15, 23, 42, 0.30);
+}
+.btn.cta-large.with-progress { position: relative; padding-bottom: 20px; overflow: hidden; }
+.btn.cta-large .cta-row { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; }
+.btn.cta-large .cta-label { text-align: center; }
 .btn.cta-large .cta-meta {
   font-size: 11px; letter-spacing: 0.6px; font-weight: 700;
   opacity: 0.65; text-transform: uppercase;
@@ -356,6 +392,92 @@ a { color: var(--accent); text-decoration: none; }
   display: block; height: 100%;
   background: rgba(26,15,6,0.7);
 }
+
+/* ---------- Course-start modality chooser ---------- */
+.start-head { margin: 6px 0 20px; }
+.start-kicker {
+  margin: 0 0 6px; font-size: 12px; font-weight: 700;
+  letter-spacing: 0.6px; text-transform: uppercase; color: var(--accent);
+}
+.start-title { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+.start-sub { margin: 8px 0 0; font-size: 14px; }
+
+.start-tiles { display: flex; flex-direction: column; gap: 14px; }
+.start-tile {
+  display: flex; align-items: center; gap: 16px;
+  padding: 18px 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  text-decoration: none; color: inherit;
+  transition: transform .15s var(--ease-standard, ease-out), border-color .15s ease;
+}
+.start-tile:hover  { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.start-tile:active { transform: scale(0.99); }
+.start-tile-icon {
+  width: 58px; height: 58px; flex: 0 0 58px;
+  border-radius: 16px; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+/* Size the .i container (not the svg) so the glyph fills it via the base
+   `.i > svg { width:100% }` rule. Forcing the svg larger than the 1em .i box
+   makes it overflow and top-left-align inside the centered square. */
+.start-tile-icon .i { width: 27px; height: 27px; }
+.start-tile-body { flex: 1; min-width: 0; }
+.start-tile-body strong { display: block; font-size: 17px; color: var(--text); }
+.start-tile-body small { display: block; margin-top: 3px; font-size: 13px; color: var(--text-dim); line-height: 1.35; }
+.start-tile-arrow { color: var(--text-dim); flex: 0 0 auto; }
+.start-tile-arrow .i svg { width: 20px; height: 20px; display: block; }
+
+/* Per-format accent so the three options read as distinct paths. */
+.start-tile.read .start-tile-icon {
+  background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good);
+}
+.start-tile.chat .start-tile-icon {
+  background: color-mix(in srgb, #7c5cff 16%, transparent); color: #7c5cff;
+}
+
+/* ---------- Reading-mode figures + inline charts ---------- */
+/* Let images and charts span the full width of the reading card so the
+   article reads like an illustrated long-form piece. */
+.learn-card .lc-body > .lesson-figure,
+.learn-card .lc-body > .lesson-chart { margin-left: 0; margin-right: 0; }
+
+.lesson-figure { margin: 18px 0; }
+.lesson-figure .lf-img {
+  display: block; width: 100%; height: auto;
+  aspect-ratio: 16 / 10; object-fit: cover;
+  border-radius: 14px; border: 1px solid var(--line);
+  background: var(--bg-elev);
+}
+.lesson-figure .lf-cap {
+  margin-top: 8px; font-size: 12.5px; line-height: 1.45; color: var(--text-dim);
+}
+
+.lesson-chart {
+  margin: 20px 0; padding: 16px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.lesson-chart .lch-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 14px; }
+.lesson-chart .lch-rows { display: flex; flex-direction: column; gap: 12px; }
+.lesson-chart .lch-row { display: flex; flex-direction: column; gap: 6px; }
+.lesson-chart .lch-rowhead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.lesson-chart .lch-label { font-size: 13px; color: var(--text-dim); }
+.lesson-chart .lch-val { font-size: 13px; font-weight: 700; color: var(--text); flex: 0 0 auto; }
+.lesson-chart .lch-track {
+  position: relative; height: 12px; border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+.lesson-chart .lch-bar {
+  position: absolute; left: 0; top: 0; bottom: 0; min-width: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+}
+.lesson-chart .lch-note { margin-top: 14px; font-size: 11.5px; line-height: 1.45; color: var(--text-dim); }
 
 /* row-card refactor (icons replace unicode glyphs) */
 .row-card .row-glyph {
@@ -567,6 +689,26 @@ a { color: var(--accent); text-decoration: none; }
 .nu-sub { font-size: 12px; color: var(--text-dim); }
 .nu-chev .i { width: 16px; height: 16px; color: var(--text-dim); }
 
+/* Prominent variant — the Up next tile used as the page's primary CTA on
+   the lesson-complete screen. Vibrant accent fill so it reads as THE
+   action, replacing the old "Continue to next lesson" button. */
+.next-up.cta {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border: 0; color: #0e1726;
+  box-shadow: 0 10px 24px -6px rgba(15, 23, 42, 0.34);
+  padding: 16px;
+}
+.next-up.cta:hover { transform: translateY(-1px); }
+.next-up.cta .nu-thumb {
+  background: rgba(255, 255, 255, 0.28);
+  color: #0e1726;
+}
+.next-up.cta .nu-thumb .i { color: #0e1726; }
+.next-up.cta .nu-body small { color: rgba(14, 23, 38, 0.65); }
+.next-up.cta .nu-body strong { font-size: 16px; }
+.next-up.cta .nu-sub { color: rgba(14, 23, 38, 0.72); }
+.next-up.cta .nu-chev .i { color: #0e1726; width: 20px; height: 20px; }
+
 /* ---------- Mini progress block ---------- */
 .progress-mini {
   background: var(--bg-card); border: 1px solid var(--line);
@@ -664,6 +806,357 @@ a { color: var(--accent); text-decoration: none; }
   padding: 4px 8px; border-radius: 6px;
   font-size: 11px; letter-spacing: .6px;
 }
+
+/* Practice step phase — a sticky, edge-to-edge hero pinned at the top with
+   a scrolling thread of step "turns" beneath it. Each answered step stays
+   in place as the next one appends below, so the full decision history is
+   always scrollable instead of being replaced on every Continue. */
+.app.fullscreen .view:has(.scn-flow) { padding: 0; }
+.scn-flow { min-height: 100%; }
+.scn-hero-sticky { position: sticky; top: 0; z-index: 3; }
+.scn-hero-sticky .scn-hero {
+  margin: 0; border-radius: 0;
+  border: 0; border-bottom: 1px solid var(--line);
+}
+.scn-hero-timer {
+  position: absolute; z-index: 4;
+  top: calc(12px + env(safe-area-inset-top)); left: 12px;
+}
+.scn-thread { padding: 18px 14px 40px; }
+.scn-turn { scroll-margin-top: 252px; }          /* clears the sticky hero */
+.scn-turn + .scn-turn {
+  margin-top: 18px; padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.scn-turn-kicker {
+  font-size: 11px; letter-spacing: .8px; text-transform: uppercase;
+  color: var(--text-dim); font-weight: 700; margin-bottom: 10px;
+}
+
+/* ---------- Discussion-mode scenario (branching AI conversation) ---------- */
+/* Keyframe caption sits on the sticky hero, subtitle-style, and cross-fades
+   with the still when the scene advances. */
+.scn-kf .scn-hero-photo,
+.scn-kf .scn-kf-caption { transition: opacity .35s var(--ease-standard, ease); }
+.scn-kf:not(.kf-in) .scn-hero-photo,
+.scn-kf:not(.kf-in) .scn-kf-caption { opacity: 0; }
+.scn-kf-caption {
+  position: absolute; left: 14px; right: 14px; bottom: 12px; z-index: 2;
+  color: #fff; font-size: 13.5px; line-height: 1.35; font-weight: 600;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.6);
+}
+
+/* Lesson "video" slide deck (image+text pages → question-CTA). Reuses the
+   .scn-hero/.scn-kf hero and the .si-dot indicator dots. */
+.slide-deck { display: flex; flex-direction: column; gap: 12px; }
+.slide-deck .slide-text { margin: 0; font-size: 15px; line-height: 1.5; color: var(--text); }
+.slide-deck .slide-dots { justify-content: center; }
+.slide-deck .slide-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.slide-deck .slide-nav .slide-back[disabled] { visibility: hidden; }
+.slide-deck .slide-nav .slide-next,
+.slide-deck .slide-nav .slide-cta { margin-left: auto; }
+.slide-deck .slide-nav-spacer { flex: 0 0 1px; }
+
+/* ============================================================
+   Scene-watch flow (pre-roll → per-scene clips → discuss)
+   ============================================================ */
+
+/* Phase bar — continuous 2-segment progress shared by the watch flow and the
+   discussion chat: done = green, current = blue, upcoming = grey. */
+.phase-bar { display: flex; flex-direction: column; gap: 7px; }
+.phase-bar-label {
+  font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase;
+  color: var(--text-dim); font-weight: 700;
+}
+.phase-bar-track { display: flex; gap: 6px; }
+.phase-seg {
+  flex: 1; height: 5px; border-radius: 3px; background: var(--bg-elev);
+}
+.phase-seg.cur  { background: var(--accent); }
+.phase-seg.done { background: var(--good); }
+
+/* The scene-watch surface owns the whole screen and draws its own CTAs, so it
+   needs no sticky-footer breathing room. */
+.app.fullscreen .view:has(.chap-scene-watch) { padding-bottom: 24px; }
+.chap-scene-watch { gap: 0; }
+.scene-watch { display: flex; flex-direction: column; gap: 20px; }
+/* Consistent vertical rhythm between the elements around the video (intro,
+   card, video frame, copy, CTA). */
+.scene-watch-body { display: flex; flex-direction: column; gap: 18px; }
+/* Title + description are one unit — tighter to each other than to the
+   video above and the button below. */
+.scene-copy { display: flex; flex-direction: column; gap: 6px; }
+.scene-watch-head { gap: 10px; }
+.scene-head-row { display: flex; align-items: center; gap: 10px; }
+.scene-back {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; margin-left: -6px;
+  border: 0; background: transparent; color: var(--text); cursor: pointer; border-radius: 50%;
+}
+.scene-back:hover { background: var(--bg-elev); }
+.scene-back svg { width: 22px; height: 22px; }
+
+/* Instructional copy under the header. */
+.scene-intro { margin: 0; font-size: 15px; line-height: 1.5; color: var(--text); }
+
+/* ---- pre-roll card ---- */
+.scene-preroll-card {
+  background: var(--bg-card); border: 1px solid var(--line); border-radius: 14px;
+  overflow: hidden; box-shadow: 0 1px 0 rgba(0,0,0,0.02), 0 10px 24px -18px rgba(0,0,0,0.35);
+}
+.scene-preroll-meta {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 12px 14px;
+}
+.scene-preroll-tag {
+  font-size: 13px; font-weight: 800; letter-spacing: 0.3px;
+  color: var(--accent-3, #ff7a3d);
+}
+.scene-preroll-stats { font-size: 13px; color: var(--text-dim); font-weight: 600; white-space: pre; }
+.scene-preroll-media { position: relative; aspect-ratio: 16 / 10; background: #0c1116; }
+.scene-poster { width: 100%; height: 100%; object-fit: cover; display: block; }
+.scene-poster-scrim { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.28)); }
+
+/* Centered play overlay (pre-roll + scene replay). */
+.scene-play-overlay {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 72px; height: 72px; border-radius: 50%; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  /* Solid disc with a crisp white ring so it reads cleanly over any frame —
+     no backdrop-blur (it muddied the edges against busy footage). */
+  background: rgba(17, 22, 28, 0.64); color: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 8px 22px -6px rgba(0,0,0,0.55);
+  transition: transform .15s var(--ease-standard, ease), background .15s ease, opacity .3s ease;
+}
+.scene-play-overlay:hover { transform: translate(-50%, -50%) scale(1.06); background: rgba(17, 22, 28, 0.8); }
+/* While playing, the control auto-fades (set by JS ~800ms after a reveal). It
+   comes back on hover/tap so the learner can pause. A paused/ended clip never
+   gets .control-faded, so the play/replay affordance stays put. */
+.scene-video-frame.control-faded .scene-play-overlay { opacity: 0; pointer-events: none; }
+.scene-video-frame.playing:hover .scene-play-overlay { opacity: 1; pointer-events: auto; }
+/* Size the icon WRAPPER (not just the svg) and center it — otherwise the
+   30px svg overflows its 15px grid cell and drifts to the bottom-right. The
+   play triangle's centroid is already centered, so it needs no nudge. */
+.scene-play-overlay .i { display: grid; place-items: center; width: 30px; height: 30px; }
+.scene-play-overlay svg { width: 30px; height: 30px; display: block; }
+
+.scene-playall { margin-top: 2px; }
+
+/* ---- per-scene viewer ---- */
+.scene-video-frame {
+  position: relative; border-radius: 14px; overflow: hidden;
+  background: #0c1116; aspect-ratio: 16 / 10;
+}
+.scene-video { width: 100%; height: 100%; object-fit: cover; display: block; background: #0c1116; }
+.scene-video-scrim { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, transparent 60%, rgba(0,0,0,0.45)); }
+.scene-video-frame.playing .scene-video-scrim { opacity: 0.6; }
+
+/* Segmented scrubber pinned to the bottom of the video frame. */
+.scene-scrub {
+  position: absolute; left: 14px; right: 14px; bottom: 12px; z-index: 2;
+  display: flex; gap: 6px;
+}
+.scene-seg {
+  flex: 1; height: 5px; border-radius: 3px; overflow: hidden;
+  background: rgba(255,255,255,0.32);
+}
+.scene-seg-fill { display: block; height: 100%; width: 0%; border-radius: 3px; background: var(--accent); transition: width .15s linear; }
+.scene-seg.done .scene-seg-fill { background: var(--good); }
+
+.scene-title { margin: 0; font-size: 18px; font-weight: 800; color: var(--text); }
+.scene-desc { margin: 0; font-size: 14.5px; line-height: 1.55; color: var(--text-dim); }
+.scene-next { margin: 0; }
+.scene-next:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Gate hint — sits just under the (disabled) CTA to explain the lock. */
+.scene-gate-hint {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin: -8px 0 0; font-size: 13px; font-weight: 600; color: var(--text-dim);
+}
+.scene-gate-hint .i { display: inline-flex; }
+.scene-gate-hint svg { width: 14px; height: 14px; }
+.scene-gate-hint.is-complete { color: var(--good); }
+
+/* ---- "review again" card atop the discussion chat ---- */
+.scn-flow-chat .dsc-flow-top {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 14px 14px 0;
+}
+/* Timer keeps running for elapsed tracking but isn't shown in the chat step —
+   the mockup has no visible stopwatch here, and it would collide with the
+   back arrow + kicker. */
+.dsc-flow-timer { display: none; }
+.dsc-review-card {
+  display: flex; align-items: center; gap: 14px; text-align: left; width: 100%;
+  padding: 12px; cursor: pointer;
+  background: var(--bg-card); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02), 0 10px 24px -20px rgba(0,0,0,0.35);
+}
+.dsc-review-card:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.dsc-review-thumb {
+  position: relative; flex: 0 0 auto; width: 92px; height: 64px; border-radius: 10px;
+  overflow: hidden; background: #0c1116;
+}
+.dsc-review-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dsc-review-play {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 30px; height: 30px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(20,26,32,0.6); color: #fff;
+}
+.dsc-review-play svg { width: 16px; height: 16px; margin-left: 2px; }
+.dsc-review-text { margin: 0; font-size: 14.5px; line-height: 1.45; color: var(--text); }
+.scn-flow-chat .scn-thread { padding-top: 6px; }
+
+/* Entry loader + conversational reveal — bridges the jump from the
+   scene-watch "What would you do?" CTA into the chat. The page chrome
+   (kicker, title, phase bar, re-watch card) shows instantly; this loader
+   sits in the thread while Coach Vic "gets set up", then the first beat
+   types in and the composer fades up under the question. */
+.dsc-entry-loader {
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: 44px 16px 56px; text-align: center;
+  animation: fade-in .3s ease both;
+}
+.dsc-loader-spinner {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 3px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  border-top-color: var(--accent);
+  animation: ll-spin .8s linear infinite;
+}
+.dsc-loader-text { margin: 0; font-size: 14px; color: var(--text-dim); }
+
+.dsc-fade-in { animation: dscFadeUp .42s cubic-bezier(.22,.61,.36,1) both; }
+@keyframes dscFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* The conversation flows continuously — no rule lines between turns. */
+.scn-discussion .scn-turn + .scn-turn {
+  margin-top: 0; padding-top: 0; border-top: 0;
+}
+.dsc-turn { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
+
+/* Chat bubbles */
+.dsc-msg { display: flex; gap: 8px; align-items: flex-end; max-width: 92%; }
+.dsc-msg.vic { align-self: flex-start; }
+.dsc-msg.me  { align-self: flex-end; flex-direction: row-reverse; }
+.dsc-avatar {
+  flex: 0 0 26px; width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--accent); font-size: 12px; font-weight: 800;
+}
+.dsc-bubble {
+  border-radius: 16px; padding: 11px 14px;
+  background: var(--bg-elev); border: 1px solid var(--line);
+}
+.dsc-bubble p { margin: 0; font-size: 14.5px; line-height: 1.45; }
+.dsc-msg.vic .dsc-bubble { border-bottom-left-radius: 5px; }
+.dsc-msg.me .dsc-bubble {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border: 0; color: #0e1726; border-bottom-right-radius: 5px;
+}
+.dsc-author {
+  font-size: 10.5px; letter-spacing: .6px; text-transform: uppercase;
+  color: var(--accent); font-weight: 800; margin-bottom: 3px;
+}
+
+/* Stacked follow-on messages from Vic — no repeated avatar/label, tucked up
+   close under the previous bubble so a run of texts reads as one voice. */
+.dsc-avatar-spacer { background: none; }
+.dsc-msg.vic.is-grouped { margin-top: -8px; }
+.dsc-msg.vic.is-grouped .dsc-bubble { border-bottom-left-radius: 5px; border-top-left-radius: 5px; }
+
+/* Typing indicator */
+.dsc-typing { display: inline-flex; gap: 5px; align-items: center; }
+.dsc-typing .dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim);
+  opacity: .4; animation: dscDot 1s infinite ease-in-out;
+}
+.dsc-typing .dot:nth-child(2) { animation-delay: .15s; }
+.dsc-typing .dot:nth-child(3) { animation-delay: .3s; }
+@keyframes dscDot { 0%, 60%, 100% { opacity: .35; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+
+/* "Things to consider" — ambiguous framings, not answers. */
+.dsc-input { margin-top: 6px; }
+
+/* "Respond here" header — makes the free-text box the obvious primary path. */
+.dsc-input-head { margin-bottom: 8px; }
+.dsc-input-title { display: block; font-size: 15px; font-weight: 800; letter-spacing: -0.2px; color: var(--text); }
+.dsc-input-sub { display: block; font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
+
+/* Composer — a strong, unmistakable response surface (field + big CTA). */
+.dsc-composer { display: flex; flex-direction: column; gap: 10px; }
+.dsc-composer-field {
+  display: flex; align-items: flex-end; gap: 8px;
+  background: var(--bg-card);
+  border: 2px solid color-mix(in srgb, var(--accent) 38%, var(--line));
+  border-radius: 16px; padding: 12px 12px 12px 14px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.dsc-composer-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.dsc-textarea {
+  flex: 1; border: 0; background: transparent; resize: none;
+  font: inherit; font-size: 15px; color: var(--text);
+  line-height: 1.5; padding: 2px 0; max-height: 160px;
+}
+.dsc-textarea:focus { outline: none; }
+.dsc-mic {
+  flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--bg-elev); border: 1px solid var(--line); color: var(--text);
+}
+.dsc-mic .i { width: 18px; height: 18px; }
+.dsc-mic.listening {
+  background: color-mix(in srgb, var(--bad) 14%, transparent);
+  border-color: var(--bad); color: var(--bad);
+  animation: dscMic 1.2s infinite ease-out;
+}
+@keyframes dscMic { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--bad) 45%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+
+/* Big primary "Respond" call to action. */
+.dsc-send {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; min-height: 50px; border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #0e1726; border: 0;
+  font-size: 15px; font-weight: 800; letter-spacing: .3px;
+  box-shadow: 0 8px 20px -6px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.dsc-send .i { width: 18px; height: 18px; }
+.dsc-send[disabled] { opacity: .45; box-shadow: none; }
+.dsc-send-hint { font-size: 12px; color: var(--text-dim); margin: 6px 2px 0; }
+.dsc-send-hint[hidden] { display: none; }
+
+/* "Need a hint?" — collapsed by default so the options read as help, not
+   a multiple-choice menu. */
+.dsc-hint { margin-top: 12px; }
+.dsc-hint > .dsc-hint-summary {
+  list-style: none; cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 4px; font-size: 13px; font-weight: 700; color: var(--text-dim);
+}
+.dsc-hint > .dsc-hint-summary::-webkit-details-marker { display: none; }
+.dsc-hint-summary > span:not(.i) { flex: 1; }
+.dsc-hint-summary .i { width: 16px; height: 16px; }
+.dsc-hint-summary .i:first-child { color: var(--accent); }
+.dsc-hint-summary .i:last-child { transition: transform var(--motion-fast) var(--ease-standard); }
+.dsc-hint[open] > .dsc-hint-summary .i:last-child { transform: rotate(90deg); }
+
+.dsc-consider { display: flex; flex-direction: column; gap: 8px; padding: 4px 2px 2px; }
+.dsc-chip {
+  display: block; width: 100%; text-align: left;
+  padding: 11px 14px; border-radius: 12px;
+  background: var(--bg-card); border: 1px solid var(--line);
+  color: var(--text); font-size: 13.5px;
+  transition: border-color .15s, background .15s;
+}
+.dsc-chip:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+
+.dsc-input.is-locked .dsc-composer { opacity: .5; }
+.dsc-input.is-locked .dsc-hint { display: none; }
 
 /* Step header (kicker + title + timer) */
 .scn-stepheader {
@@ -1642,9 +2135,12 @@ body.light .readiness-delta.rd-down { background: rgba(232,90,90,0.08); }
   pointer-events: auto;
   width: 56px; height: 56px; border-radius: 50%;
   display: grid; place-items: center;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #1a0f06;
-  box-shadow: 0 10px 28px color-mix(in srgb, var(--accent) 35%, transparent), 0 4px 10px rgba(0,0,0,0.18);
+  /* Outline style — lower prominence than the solid primary CTA so the
+     two don't compete for attention. */
+  background: var(--bg-card);
+  color: var(--accent);
+  border: 2px solid var(--accent);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
   transition: transform .18s var(--ease-standard, ease-out), box-shadow .18s ease;
   position: relative;
 }
@@ -1932,6 +2428,14 @@ a.card h3 { color: var(--text); }
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   color: #1a0f06; border: 0;
 }
+/* Secondary — blue text on a white field with a blue outline. Accent is
+   deepened for legible text/border contrast against white. */
+.btn.secondary {
+  background: var(--bg-card);
+  color: color-mix(in srgb, var(--accent) 60%, #073a55);
+  border: 1.5px solid color-mix(in srgb, var(--accent) 78%, #073a55);
+}
+.btn.secondary:hover { background: color-mix(in srgb, var(--accent) 8%, var(--bg-card)); }
 .btn.ghost { background: transparent; }
 .btn.block { width: 100%; }
 .btn.sm { min-height: 34px; padding: 6px 10px; font-size: 12px; border-radius: 10px; }
@@ -2285,6 +2789,41 @@ a.card h3 { color: var(--text); }
   flex: 1 1 auto; min-height: 0;
   gap: 8px;
 }
+
+/* Marshall-scenario-style entrance: page chrome staggers in on mount, and
+   each chat bubble / date divider lands with the same easing as it's
+   inserted into the thread. */
+@keyframes coachCardIn {
+  0%   { opacity: 0; transform: translateY(8px) scale(0.985); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.coach-view > .vic-header,
+.coach-view > .coach-sugg,
+.coach-view > .chat-composer {
+  animation: coachCardIn 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.coach-view > .vic-header   { animation-delay: 0ms; }
+.coach-view > .coach-thread { animation: coachCardIn 360ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both; }
+.coach-view > .coach-sugg   { animation-delay: 200ms; }
+.coach-view > .chat-composer{ animation-delay: 160ms; }
+/* Per-message entrance: only bubbles tagged .cc-anim-in (live arrivals) animate.
+   The backlog replayed on mount is untagged, so re-entering an existing thread
+   no longer re-animates every message at once. */
+.coach-view .chat-row.cc-anim-in,
+.coach-view .date-divider.cc-anim-in,
+.coach-view .chat-extras.cc-anim-in {
+  animation: coachCardIn 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .coach-view > .vic-header,
+  .coach-view > .coach-thread,
+  .coach-view > .coach-sugg,
+  .coach-view > .chat-composer,
+  .coach-view .chat-row,
+  .coach-view .chat-bubble,
+  .coach-view .date-divider,
+  .coach-view .chat-extras { animation: none !important; }
+}
 .coach-view > .vic-header,
 .coach-view > .coach-sugg,
 .coach-view > .chat-composer { flex: 0 0 auto; }
@@ -2534,80 +3073,63 @@ body.light .date-divider span {
   color: var(--text-dim);
 }
 
-/* You-vs-peers scale. Gradient runs yellow → green → blue across the
-   full range. "Behind" is on the warm/yellow end, "ahead" is on the
-   cool/blue (accent) end — the YOU pin's position carries the meaning,
-   the headline names it. */
-.rd-scale { margin: 14px 0 18px; padding: 22px 0 26px; position: relative; }
+/* You-vs-peers slider. A calm gray track carries a soft blue band ("where
+   most peers are working") and a solid blue "You" handle. Plain-language
+   end labels anchor the scale; a legend names the band. */
+.readiness-card {
+  --chart-blue: #1763d6;
+  --chart-band: color-mix(in srgb, var(--chart-blue) 22%, transparent);
+  --chart-track: color-mix(in srgb, var(--text) 9%, transparent);
+}
+.rd-scale { margin: 8px 0 2px; padding-top: 34px; position: relative; }
 .rd-scale-track {
   position: relative;
-  height: 10px;
+  height: 12px;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--warn) 0%, var(--good) 50%, var(--accent) 100%);
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.12);
+  background: var(--chart-track);
 }
 
-/* Each pin is a column centered on its `left` percentage. Its dot is
-   centered on the track vertically; the stem + label extend either up
-   (peers) or down (you). */
-.rd-pin {
-  position: absolute;
-  display: flex; align-items: center;
+/* Peer band — rounded segment spanning the cohort's working range. */
+.rd-band {
+  position: absolute; top: 0; bottom: 0;
+  border-radius: 999px;
+  background: var(--chart-band);
+}
+
+/* YOU handle — solid blue disc centered on the track at `left`, with a
+   white ring lifting it off the band, and a blue label floating above. */
+.rd-you {
+  position: absolute; top: 50%;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--chart-blue);
+  box-shadow: 0 0 0 4px var(--bg-card), 0 3px 7px rgba(15,23,42,0.28);
+  transform: translate(-50%, -50%);
   pointer-events: none;
+}
+.rd-you-label {
+  position: absolute; bottom: calc(100% + 8px); left: 50%;
   transform: translateX(-50%);
-}
-.rd-pin-dot {
-  width: 14px; height: 14px; border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 0 3px var(--bg-card), 0 2px 6px rgba(0,0,0,0.25);
-  flex: 0 0 14px;
-}
-.rd-pin-stem {
-  width: 2px;
-  background: rgba(0,0,0,0.18);
-  flex: 0 0 2px;
-}
-body:not(.light) .rd-pin-stem { background: rgba(255,255,255,0.28); }
-.rd-pin-label {
-  background: var(--bg-elev);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 3px 10px;
-  font-size: 10.5px; font-weight: 700;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  color: var(--text);
-  white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  font-size: 13px; font-weight: 800; letter-spacing: 0.2px;
+  color: var(--chart-blue); white-space: nowrap;
 }
 
-/* YOU pin: dot on the track, then short stem, then label. Anchored from
-   the top so the dot's center sits on the track midline. */
-.rd-pin-you {
-  flex-direction: column;
-  top: calc(50% - 7px);
+/* End labels under the track. */
+.rd-ends {
+  display: flex; justify-content: space-between;
+  margin-top: 14px;
+  font-size: 13px; color: var(--text-dim);
 }
-.rd-pin-you .rd-pin-stem { height: 6px; }
 
-/* PEERS pin: label, short stem, then dot on the track. Anchored from
-   the bottom so the dot (last child) sits on the track midline. */
-.rd-pin-peers {
-  flex-direction: column;
-  bottom: calc(50% - 7px);
+/* Legend — pale-blue pill swatch + plain description of the band. */
+.rd-legend {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 14px;
+  font-size: 14px; color: var(--text);
 }
-.rd-pin-peers .rd-pin-stem { height: 6px; }
-.rd-pin-peers .rd-pin-dot { background: var(--text); }
-
-/* MERGED pin: a single marker on the bar when YOU and PEERS are within
-   ~10% of each other. The dot is a two-tone split (light = you,
-   dark = peers) so the comparison still reads at a glance. */
-.rd-pin-merged {
-  flex-direction: column;
-  bottom: calc(50% - 7px);
-}
-.rd-pin-merged .rd-pin-stem { height: 6px; }
-.rd-pin-dot-merged {
-  background: linear-gradient(90deg, #fff 0 50%, var(--text) 50% 100%);
+.rd-legend-swatch {
+  width: 34px; height: 16px; border-radius: 999px;
+  background: var(--chart-band);
+  flex: 0 0 auto;
 }
 
 .rd-note {
@@ -3426,6 +3948,25 @@ body.no-tabbar .coach-fab-root { bottom: 80px; }
   font-size: 10px; letter-spacing: 0.8px; text-transform: uppercase;
   color: var(--text-dim); margin-top: 6px; font-weight: 600;
 }
+
+/* Condensed single-row replacement for the 3-tile checkpoint grid. */
+.checkpoint-statline {
+  display: flex; align-items: center;
+  padding: 14px 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  margin-bottom: 16px;
+}
+.checkpoint-statline .cps-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+.checkpoint-statline .cps-v { font-size: 18px; font-weight: 800; color: var(--text); }
+.checkpoint-statline .cps-k {
+  font-size: 10px; letter-spacing: 0.8px; text-transform: uppercase;
+  color: var(--text-dim); font-weight: 600;
+}
+.checkpoint-statline .cps-div { width: 1px; align-self: stretch; background: var(--line); }
 
 /* ---------- Lesson row cards (course detail list) ----------
    Replaces the generic rowCard with explicit done/current/locked
