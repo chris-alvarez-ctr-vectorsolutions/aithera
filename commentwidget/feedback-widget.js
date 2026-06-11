@@ -250,6 +250,10 @@
    adds no Cloudflare reads, writes, or lists. */
 .cw-nav { position: fixed; left: 20px; bottom: 20px; z-index: 2147483635; display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: 320px; max-width: 86vw; font: 500 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 .cw-nav-bar { display: flex; align-items: center; gap: 2px; padding: 5px 7px; border-radius: 999px; background: linear-gradient(140deg, #1f2937, #111827); color: #fff; box-shadow: 0 8px 20px rgba(17,24,39,.28); }
+.cw-nav.cw-nav--dragging { transition: none; user-select: none; }
+.cw-nav-grip { background: transparent; border: 0; color: rgba(255,255,255,.55); cursor: grab; touch-action: none; font-size: 15px; line-height: 1; padding: 7px 4px 7px 6px; flex-shrink: 0; border-radius: 999px; transition: color .15s, background .15s; }
+.cw-nav-grip:hover { color: #fff; background: rgba(255,255,255,.1); }
+.cw-nav-grip:active { cursor: grabbing; }
 .cw-nav-count { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; background: transparent; border: 0; color: #fff; font: 600 13px/1 inherit; cursor: pointer; padding: 7px 8px; border-radius: 999px; transition: background .15s; }
 .cw-nav-count:hover { background: rgba(255,255,255,.1); }
 .cw-nav-glyph { font-size: 14px; line-height: 1; flex-shrink: 0; }
@@ -1694,6 +1698,23 @@
   let navEl = null;        // hub DOM node (rebuilt on each renderPins)
   let navOpen = false;     // is the list expanded?
   let navCurrentId = null; // id of the comment the stepper last jumped to
+  let navPos = null;       // {left, top} once the user drags the hub; null = default bottom-left anchor
+
+  // Apply a dragged position to the hub container (switches it from the default
+  // bottom-left anchor to an explicit top-left one) and keep it within the viewport.
+  function applyNavPos() {
+    if (!navEl) return;
+    if (!navPos) return; // keep the CSS default (left/bottom)
+    const r = navEl.getBoundingClientRect();
+    const maxLeft = Math.max(8, window.innerWidth - r.width - 8);
+    const maxTop = Math.max(8, window.innerHeight - r.height - 8);
+    const left = Math.min(Math.max(8, navPos.left), maxLeft);
+    const top = Math.min(Math.max(8, navPos.top), maxTop);
+    navPos = { left, top };
+    navEl.style.left = left + 'px';
+    navEl.style.top = top + 'px';
+    navEl.style.bottom = 'auto';
+  }
 
   // Order on-screen pins top-to-bottom (natural reading order), then the
   // other-screens bucket, then not-found (admins only). `all` is the stepping
@@ -1720,7 +1741,18 @@
     const idx = groups.all.findIndex(p => p.id === navCurrentId);
     const pos = idx >= 0 ? `${idx + 1} / ${total}` : `– / ${total}`;
 
+    // Grip handle: drag it to move the whole hub aside so you can see/click the
+    // elements underneath. Double-click resets it to the default bottom-left spot.
+    const grip = el('button', {
+      type: 'button', class: 'cw-nav-grip',
+      title: 'Drag to move · double-click to reset',
+      'aria-label': 'Move comment bar',
+      ondblclick: () => { navPos = null; renderHub(); },
+    }, ['⠿']);
+    grip.addEventListener('pointerdown', startNavDrag);
+
     const bar = el('div', { class: 'cw-nav-bar' }, [
+      grip,
       el('button', {
         type: 'button', class: 'cw-nav-count',
         title: navOpen ? 'Hide comment list' : 'Show all comments on this page',
@@ -1743,6 +1775,30 @@
       bar,
     ]);
     document.body.appendChild(navEl);
+    applyNavPos(); // restore a dragged position after the rebuild
+  }
+
+  // Drag the hub by its grip. Tracks the pointer and writes left/top live; the
+  // position persists in navPos so it survives the hub's frequent re-renders.
+  function startNavDrag(e) {
+    if (e.button != null && e.button !== 0) return; // primary button / touch only
+    e.preventDefault();
+    const r = navEl.getBoundingClientRect();
+    const offsetX = e.clientX - r.left;
+    const offsetY = e.clientY - r.top;
+    navEl.classList.add('cw-nav--dragging');
+
+    const onMove = (ev) => {
+      navPos = { left: ev.clientX - offsetX, top: ev.clientY - offsetY };
+      applyNavPos();
+    };
+    const onUp = () => {
+      navEl.classList.remove('cw-nav--dragging');
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
   }
 
   function buildNavList(groups) {
