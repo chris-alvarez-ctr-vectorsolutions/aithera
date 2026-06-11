@@ -27,8 +27,9 @@
 //                                (10s logical TTL enforced via undoExpiresAt; KV min TTL is 60s)
 //   log:<iso-timestamp>:<rand>   JSON Event  — append-only, never mutated; auto-
 //                                expires after a ~90-day retention window (TTL).
-//                                Only lifecycle bookends are logged to conserve KV
-//                                writes: 'created' and 'deleted'.
+//                                Only 'created' events are logged (deletions and
+//                                status churn are intentionally not logged), which
+//                                also keeps KV writes well under the free-tier cap.
 
 const JSON_HEADERS = { 'content-type': 'application/json' };
 const LOG_TTL_SECONDS = 90 * 24 * 60 * 60; // 90-day rolling retention for activity-log entries
@@ -166,8 +167,9 @@ async function findPin(env, pageUrl, id) {
 // Records are never mutated, only appended, and auto-expire after a rolling
 // retention window (LOG_TTL_SECONDS) so the store stays small — listLog reads
 // every entry on each view, so unbounded growth would inflate metered reads.
-// To conserve KV writes, only 'created' and 'deleted' events are written (status
-// churn like done/edit/reply lives on the pin itself, not as separate events).
+// Only 'created' events are written: deletions are intentionally not logged (a
+// deleted comment should leave no trail), and status churn like done/edit/reply
+// lives on the pin itself, not as separate events. This also keeps KV writes low.
 // Keyed by ISO timestamp so KV's lexicographic list() returns them in
 // chronological order; the viewer sorts newest-first.
 
@@ -175,7 +177,7 @@ async function logEvent(env, { action, author, product, url, pinId, comment, par
   const ts = new Date().toISOString();
   const evt = {
     ts,
-    action,                                   // created | deleted
+    action,                                   // created
     author: author || 'anonymous',
     product: product || '',
     url: url || '',
@@ -326,15 +328,12 @@ async function updatePin(id, request, env) {
     await env.PINS_KV.put(undoKey(id), JSON.stringify(undoVal), { expirationTtl: 60 });
   }
 
-  // KV write budget: the free tier allows only 1,000 writes/day, and a separate
-  // log entry on every action doubles that cost. So we log only the lifecycle
-  // bookends — created (in createPin) and deleted (here). Status churn (done,
-  // reopen, edit, restore, move) updates the pin but is NOT written as its own
-  // log event; the pin itself always carries the current state. The undo stash
-  // for done/delete is kept (it's the accidental-delete safety net).
-  if (body.deleted === true && prevDeleted !== true) {
-    await logEvent(env, { action: 'deleted', author, product: pin.product, url: pin.url, pinId: id, comment: pin.comment });
-  }
+  // Deletions are intentionally NOT logged — a deleted comment should just be
+  // gone, with no activity-log trail. (We still keep the undo stash above as the
+  // accidental-delete safety net.) Status churn — done, reopen, edit, restore,
+  // move — isn't logged either; the pin always carries its current state. Only
+  // 'created' is written to the activity log (in createPin), which also keeps us
+  // well under the KV free-tier write budget.
 
   return json({ pin });
 }
