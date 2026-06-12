@@ -1958,11 +1958,11 @@ function viewFacetsHTML(view, keys) {
     ).join('<span class="vf-sep">·</span>') + `</div>`;
 }
 
-// Static text shown on a saved view that has one or more schedules tied to it
-function schedColumnBadge(viewId) {
+// Small clock + count tag shown next to the view name when schedules exist
+function schedNameTag(viewId) {
     const count = SCHEDULED_REPORTS.filter(s => s.savedViewId === viewId).length;
     if (!count) return '';
-    return `<span class="msv-sched-text">${count} scheduled report${count > 1 ? 's' : ''}</span>`;
+    return `<span class="msv-sched-tag" title="${count} scheduled report${count > 1 ? 's' : ''}"><i class="fa-regular fa-clock"></i> ${count}</span>`;
 }
 
 function renderManageSavedViews() {
@@ -1982,20 +1982,22 @@ function renderManageSavedViews() {
             </td>
             <td class="msv-name-cell">
                 <span class="msv-view-name">${view.name}</span>
-                ${schedColumnBadge(view.id)}
+                ${schedNameTag(view.id)}
             </td>
             <td><span class="msv-report-badge">${view.report}</span></td>
             <td class="msv-desc">${view.desc}</td>
-            <td>${viewFacetsHTML(view, ['date', 'acts', 'users', 'status'])}</td>
-            <td>
-                <div class="msv-actions">
-                    <vaadin-button theme="tertiary small" class="msv-edit-btn" data-id="${view.id}">
-                        <i class="fa-regular fa-pen-to-square" slot="prefix"></i> Edit
-                    </vaadin-button>
-                    <vaadin-button theme="tertiary small msv-delete" class="msv-delete-btn" data-id="${view.id}">
-                        <i class="fa-regular fa-trash-can" slot="prefix"></i> Delete
-                    </vaadin-button>
+            <td class="msv-filters-cell">
+                <div class="msv-filters-inner">
+                    ${viewFacetsHTML(view, ['date', 'acts', 'users', 'status'])}
+                    <button class="msv-edit-icon msv-edit-btn" data-id="${view.id}" title="Edit filters" aria-label="Edit filters">
+                        <i class="fa-solid fa-pencil"></i>
+                    </button>
                 </div>
+            </td>
+            <td class="msv-row-actions">
+                <button class="msv-delete-icon msv-delete-btn" data-id="${view.id}" title="Delete saved view" aria-label="Delete saved view">
+                    <i class="fa-regular fa-trash-can"></i>
+                </button>
             </td>
         `;
         tbody.appendChild(tr);
