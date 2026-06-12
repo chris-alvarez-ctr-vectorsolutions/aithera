@@ -1,0 +1,285 @@
+<!-- Prototype: view:training | route:my-training -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Training</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          'lms-blue': '#0070c0',
+          'lms-border': '#e5e7eb',
+        }
+      }
+    }
+  }
+</script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100vh; }
+
+  .progress-bar-bg {
+    width: 100px; height: 12px;
+    background: #d1d5db; border-radius: 999px; overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%; background: #0070c0; border-radius: 999px;
+  }
+  .th {
+    padding: 8px 12px; font-size: 13px; font-weight: 500;
+    color: #4b5563; border-bottom: 1px solid #d1d5db; white-space: nowrap;
+  }
+  .row-hover:hover { background-color: #f3f4f6; }
+  .chevron { transition: transform 0.2s; display: inline-block; }
+  .chevron.collapsed { transform: rotate(-90deg); }
+
+  /* Grid column layout — mirrors Stitch grid-cols-12 */
+  .t-row {
+    display: grid;
+    grid-template-columns: 5fr 2fr 1fr 1fr 1fr 2fr;
+    align-items: center;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .t-head {
+    display: grid;
+    grid-template-columns: 5fr 2fr 1fr 1fr 1fr 2fr;
+    background: #f9fafb;
+    border-bottom: 2px solid #d1d5db;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .t-cell { padding: 8px 12px; }
+  .t-cell-center { padding: 8px 12px; text-align: center; }
+  .t-cell-right  { padding: 8px 12px; text-align: right; }
+</style>
+</head>
+<body class="bg-gray-100 font-sans text-gray-700">
+
+<div id="app" class="p-4"></div>
+
+<script>
+// ── Read plan from localStorage ───────────────────────────────────────────────
+const plan = (() => {
+  try { return JSON.parse(localStorage.getItem('ct_training_plan')); }
+  catch { return null; }
+})();
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function fmtHours(h) {
+  if (!h || h === 0) return '—';
+  if (h < 1) return Math.round(h * 60) + ' mins';
+  return Math.ceil(h) + ' hr' + (Math.ceil(h) !== 1 ? 's' : '');
+}
+
+function typeIcon(type) {
+  if (type === 'Document Review')
+    return `<svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`;
+  if (type === 'Live Session')
+    return `<svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.553A1 1 0 0121 8.382v7.236a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>`;
+  if (type === 'Skill Assessment')
+    return `<svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>`;
+  // Default: Computer Based / video
+  return `<svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z"/></svg>`;
+}
+
+const chevronSvg = `<svg class="w-4 h-4 text-gray-500 chevron flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path clip-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" fill-rule="evenodd"/></svg>`;
+
+const chatBtn = `<button class="text-gray-400 hover:text-gray-600" title="Comment">
+  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+</button>`;
+
+const printInfoBtns = `
+  <button class="text-gray-500 hover:text-gray-700" title="Print certificate">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+  </button>
+  <button class="text-gray-400 hover:text-gray-600" title="Details">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+  </button>`;
+
+// ── Toggle collapse ───────────────────────────────────────────────────────────
+function toggleGroup(groupId, chevronId) {
+  const group   = document.getElementById(groupId);
+  const chevron = document.getElementById(chevronId);
+  if (!group) return;
+  const isHidden = group.style.display === 'none';
+  group.style.display = isHidden ? '' : 'none';
+  if (chevron) chevron.classList.toggle('collapsed', !isHidden);
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+if (!plan) {
+  document.getElementById('app').innerHTML = `
+    <div style="min-height:calc(100vh - 32px);display:flex;align-items:center;justify-content:center;">
+      <div style="text-align:center;">
+        <div style="width:64px;height:64px;border-radius:50%;background:#e5e7eb;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+          <svg style="width:32px;height:32px;color:#9ca3af;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+          </svg>
+        </div>
+        <h2 style="font-size:18px;font-weight:600;color:#374151;margin:0 0 6px;">No training assigned</h2>
+        <p style="font-size:14px;color:#9ca3af;margin:0;">Your administrator hasn't assigned any training yet.</p>
+      </div>
+    </div>`;
+} else {
+  // ── Populated state ─────────────────────────────────────────────────────────
+  const totalReqs = plan.requirements ? plan.requirements.length : 0;
+  const totalHrs  = plan.requirements
+    ? plan.requirements.reduce((s, r) => s + r.activities.reduce((a, act) => a + (act.hours || 0), 0), 0)
+    : 0;
+  const typeLabel = plan.type === 'learning-path' ? 'Learning Path' : 'Qualification';
+
+  // Build requirements + activities rows
+  let reqRows = '';
+  (plan.requirements || []).forEach((req, ri) => {
+    const reqHrs = req.activities.reduce((s, a) => s + (a.hours || 0), 0);
+    const actCount = req.activities.length;
+
+    // Activity rows for this requirement
+    let actRows = '';
+    (req.activities || []).forEach((act) => {
+      actRows += `
+        <div class="t-row row-hover bg-white">
+          <div class="t-cell" style="padding-left:80px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button class="flex-shrink-0" style="background:#0070c0;color:#fff;padding:4px 18px;border-radius:4px;font-weight:700;font-size:13px;border:none;cursor:pointer;" onmouseover="this.style.background='#005a9e'" onmouseout="this.style.background='#0070c0'">Launch</button>
+              <div style="display:flex;align-items:center;gap:6px;margin-left:4px;">
+                ${typeIcon(act.type)}
+                <span style="font-size:13px;color:#1f2937;">${esc(act.name)}</span>
+              </div>
+            </div>
+          </div>
+          <div class="t-cell-center">
+            <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+              <div style="width:10px;height:10px;border-radius:50%;background:#d1d5db;flex-shrink:0;"></div>
+              <span style="font-size:11px;color:#6b7280;">Not Started</span>
+            </div>
+          </div>
+          <div class="t-cell-center" style="font-size:11px;color:#6b7280;">${fmtHours(act.hours)}</div>
+          <div class="t-cell-center" style="font-size:11px;color:#6b7280;">—</div>
+          <div class="t-cell-center" style="font-size:11px;color:#6b7280;">—</div>
+          <div class="t-cell-right">
+            <div style="display:flex;justify-content:flex-end;gap:10px;padding-right:8px;">
+              ${printInfoBtns}
+            </div>
+          </div>
+        </div>`;
+    });
+
+    reqRows += `
+      <!-- Requirement row -->
+      <div class="t-row row-hover bg-gray-50 cursor-pointer" style="background:#fafafa;" onclick="toggleGroup('acts-${ri}','chev-req-${ri}')">
+        <div class="t-cell" style="padding-left:56px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            ${chevronSvg.replace('class="w-4 h-4 text-gray-500 chevron flex-shrink-0"', `id="chev-req-${ri}" class="w-4 h-4 text-gray-500 chevron flex-shrink-0"`)}
+            <svg class="w-4 h-4 flex-shrink-0" style="color:#6b7280;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+            </svg>
+            <span style="font-size:13px;font-weight:500;color:#374151;">${esc(req.name)}</span>
+          </div>
+        </div>
+        <div class="t-cell-center">
+          <div style="display:flex;flex-direction:column;align-items:center;">
+            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:0%;"></div></div>
+            <span style="font-size:10px;color:#6b7280;margin-top:3px;">0 of ${actCount} Activit${actCount === 1 ? 'y' : 'ies'}</span>
+          </div>
+        </div>
+        <div class="t-cell-center" style="font-size:11px;color:#6b7280;">${fmtHours(reqHrs)}</div>
+        <div class="t-cell-center" style="font-size:11px;color:#6b7280;">—</div>
+        <div class="t-cell-center" style="font-size:11px;color:#6b7280;">—</div>
+        <div class="t-cell-right">
+          <div style="display:flex;justify-content:flex-end;padding-right:8px;">
+            ${chatBtn}
+          </div>
+        </div>
+      </div>
+      <!-- Activity rows for req ${ri} -->
+      <div id="acts-${ri}">
+        ${actRows}
+      </div>`;
+  });
+
+  // Full table
+  document.getElementById('app').innerHTML = `
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:2px;box-shadow:0 1px 3px rgba(0,0,0,0.07);overflow:hidden;">
+
+      <!-- Table header -->
+      <div class="t-head">
+        <div class="th" style="border-right:1px solid #e5e7eb;">Name</div>
+        <div class="th" style="border-right:1px solid #e5e7eb;text-align:center;">Completion</div>
+        <div class="th" style="border-right:1px solid #e5e7eb;text-align:center;">Duration</div>
+        <div class="th" style="border-right:1px solid #e5e7eb;text-align:center;">Time Spent</div>
+        <div class="th" style="border-right:1px solid #e5e7eb;text-align:center;">Due</div>
+        <div class="th" style="text-align:right;">Actions</div>
+      </div>
+
+      <!-- Level 1: My Assigned Training -->
+      <div class="t-row row-hover bg-white cursor-pointer" onclick="toggleGroup('lp-group','chev-top')">
+        <div class="t-cell">
+          <div style="display:flex;align-items:center;gap:8px;">
+            ${chevronSvg.replace('class="w-4 h-4 text-gray-500 chevron flex-shrink-0"', 'id="chev-top" class="w-4 h-4 text-gray-500 chevron flex-shrink-0"')}
+            <span style="font-weight:700;color:#374151;">My Assigned Training (Sorted by Qualification)</span>
+          </div>
+        </div>
+        <div class="t-cell-center">
+          <div style="display:flex;flex-direction:column;align-items:center;">
+            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:0%;"></div></div>
+            <span style="font-size:10px;color:#6b7280;margin-top:3px;">0 of 1 Qualification</span>
+          </div>
+        </div>
+        <div class="t-cell-center" style="font-size:11px;color:#6b7280;">—</div>
+        <div class="t-cell-center" style="font-size:11px;color:#6b7280;">—</div>
+        <div class="t-cell-center" style="font-size:11px;color:#6b7280;">—</div>
+        <div class="t-cell-right"></div>
+      </div>
+
+      <!-- LP group (collapsible) -->
+      <div id="lp-group">
+
+        <!-- Level 2: Qualification / Learning Path -->
+        <div class="t-row row-hover bg-white cursor-pointer" style="border-top:1px solid #e5e7eb;" onclick="toggleGroup('reqs-group','chev-lp')">
+          <div class="t-cell" style="padding-left:32px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              ${chevronSvg.replace('class="w-4 h-4 text-gray-500 chevron flex-shrink-0"', 'id="chev-lp" class="w-4 h-4 text-gray-500 chevron flex-shrink-0"')}
+              <svg class="w-5 h-5 flex-shrink-0" style="color:#4b5563;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M12 14l9-5-9-5-9 5 9 5z"/>
+                <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+              </svg>
+              <span style="font-size:13px;font-weight:500;color:#374151;">${esc(plan.title)}</span>
+              <span style="font-size:11px;color:#9ca3af;margin-left:4px;">${esc(typeLabel)}</span>
+            </div>
+          </div>
+          <div class="t-cell-center">
+            <div style="display:flex;flex-direction:column;align-items:center;">
+              <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:0%;"></div></div>
+              <span style="font-size:10px;color:#6b7280;margin-top:3px;">0 of ${totalReqs} Requirement${totalReqs !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+          <div class="t-cell-center" style="font-size:11px;color:#6b7280;">${fmtHours(totalHrs)}</div>
+          <div class="t-cell-center" style="font-size:11px;color:#6b7280;">—</div>
+          <div class="t-cell-center" style="font-size:11px;color:#6b7280;">—</div>
+          <div class="t-cell-right">
+            <div style="display:flex;justify-content:flex-end;padding-right:8px;">
+              ${chatBtn}
+            </div>
+          </div>
+        </div>
+
+        <!-- Requirements group (collapsible) -->
+        <div id="reqs-group">
+          ${reqRows}
+        </div>
+
+      </div><!-- end lp-group -->
+
+    </div>`;
+}
+</script>
+</body>
+</html>

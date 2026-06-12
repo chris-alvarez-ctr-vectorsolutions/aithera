@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Convergence LMS</title>
+  <style>
+/* ============================================================
+ * Convergence LMS — base prototype shell
+ * Calibrated to salesdemo.convergencetraining.com/Orlando/Admin/Main.aspx
+ *
+ * Real measurements (1512px viewport):
+ *   topnav    : 60px (53 + 7 white border-top)
+ *   sidenav   : 250px wide
+ *   search bar: 50px tall
+ *   breadcrumb: 52px tall
+ *   font      : "Segoe UI", Arial, sans-serif @ 13.33px base
+ * ============================================================ */
+
+:root {
+  --vs-blue:            #0271ce;
+  --vs-blue-dark:       #015fae;
+  --vs-blue-text:       #0271ce;
+  --vs-blue-pressed:    #003da7;
+
+  --vs-row-text:        #4a4a4a;
+  --vs-row-icon:        #8a8e93;
+  --vs-row-chevron:     #b2b6bb;
+  --vs-row-hover:       #f4f5f7;
+  --vs-divider:         #e3e5e8;
+
+  --vs-search-bg:       #5a5f65;
+  --vs-search-bg-input: #e9e9e9;
+
+  --vs-breadcrumb-bg:   #6d7371;
+  --vs-breadcrumb-text: #ffffff;
+  --vs-content-bg:      #ffffff;
+  --vs-topnav-text:     #6d7371;
+
+  --vs-sidenav-width:      250px;
+  --vs-sidenav-collapsed:  60px;
+  --vs-topnav-h:           60px;
+  --vs-search-h:           50px;
+  --vs-breadcrumb-h:       52px;
+  --vs-row-h:              54px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 13.3333px;
+  color: #222;
+  background: #fff;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Layout ──────────────────────────────────────────────── */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.app-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* ── Top nav ─────────────────────────────────────────────── */
+.topnav {
+  flex-shrink: 0;
+  height: var(--vs-topnav-h);
+  background: #fff;
+  border-top: 7px solid #fff;
+  display: flex;
+  align-items: stretch;
+  position: relative;
+  z-index: 20;
+  padding-left: 16px;
+}
+
+.topnav .brand {
+  display: flex;
+  align-items: center;
+  padding-right: 24px;
+}
+
+.topnav .brand img {
+  height: 34px;
+  width: auto;
+  display: block;
+}
+
+.topnav .welcome {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 16px;
+  border-left: 1px solid #e3e5e8;
+  color: #6d7371;
+  font-size: 12px;
+  line-height: 1.3;
+}
+.topnav .welcome .who { color: #2c3033; font-weight: 600; font-size: 13px; }
+
+.topnav .spacer { flex: 1; }
+
+.topnav .tabs {
+  display: flex;
+  align-items: stretch;
+}
+
+.topnav .tab {
+  position: relative;
+  padding: 0 22px;
+  display: flex;
+  align-items: center;
+  font-size: 17px;
+  font-weight: 400;
+  color: #2c3033;
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  transition: color 0.12s;
+  white-space: nowrap;
+}
+
+.topnav .tab:hover { color: var(--vs-blue); }
+
+.topnav .tab.active { color: #1a1a1a; }
+
+.topnav .tab.active::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: var(--vs-blue);
+}
+
+.topnav .badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #7a3aa3;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 2px;
+  margin-left: 8px;
+  letter-spacing: 0.5px;
+}
+
+.topnav .icon-tabs {
+  display: flex;
+  align-items: stretch;
+  margin-left: 6px;
+}
+
+.topnav .icon-tab {
+  width: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #6d7371;
+  transition: color 0.12s, background 0.12s;
+}
+.topnav .icon-tab:hover { background: #f4f5f7; color: #1a1a1a; }
+.topnav .icon-tab svg { width: 20px; height: 20px; fill: currentColor; }
+
+/* ── Admin side nav ──────────────────────────────────────── */
+.sidenav {
+  flex: 0 0 var(--vs-sidenav-width);
+  width: var(--vs-sidenav-width);
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid #8d9796;
+  transition: flex-basis 0.22s cubic-bezier(0.4,0,0.2,1),
+              width      0.22s cubic-bezier(0.4,0,0.2,1);
+}
+
+.app.sidenav-collapsed .sidenav {
+  flex-basis: var(--vs-sidenav-collapsed);
+  width: var(--vs-sidenav-collapsed);
+}
+
+/* Search / hamburger row */
+.sn-search-row {
+  height: var(--vs-search-h);
+  background: var(--vs-search-bg);
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+.sn-search-input-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 10px 8px 10px 12px;
+}
+
+.sn-search-input-wrap .sn-search-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6d7371;
+  pointer-events: none;
+}
+.sn-search-input-wrap .sn-search-icon svg { width: 16px; height: 16px; fill: currentColor; }
+
+.sn-search-input {
+  width: 100%;
+  height: 30px;
+  border: none;
+  background: var(--vs-search-bg-input);
+  color: #222;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  line-height: 30px;
+  padding: 0 32px 0 32px;
+  outline: none;
+  border-radius: 0;
+  transition: background 200ms linear;
+}
+.sn-search-input::placeholder { color: #888; }
+.sn-search-input:focus {
+  background: var(--vs-blue-pressed);
+  color: #fff;
+}
+.sn-search-input:focus::placeholder { color: rgba(255,255,255,0.7); }
+
+.sn-burger {
+  width: 50px;
+  border-left: 1px solid rgba(0,0,0,0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #fff;
+  transition: background 0.12s;
+}
+.sn-burger:hover { background: rgba(255,255,255,0.07); }
+.sn-burger svg { width: 22px; height: 22px; fill: currentColor; }
+
+.app.sidenav-collapsed .sn-search-input-wrap { display: none; }
+.app.sidenav-collapsed .sn-burger {
+  border-left: none;
+  width: 100%;
+}
+
+.sidenav-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-top: 1px solid #8d9796;
+}
+.sidenav-list::-webkit-scrollbar { width: 8px; }
+.sidenav-list::-webkit-scrollbar-thumb { background: #c8cbce; border-radius: 4px; }
+.sidenav-list::-webkit-scrollbar-track { background: #eef0f2; }
+
+.sn-row {
+  display: flex;
+  align-items: center;
+  height: var(--vs-row-h);
+  padding: 0 8px 0 10px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--vs-divider);
+  background: #fff;
+  color: var(--vs-row-text);
+  font-size: 13px;
+  font-weight: 400;
+  user-select: none;
+  transition: background 0.12s;
+  white-space: nowrap;
+  overflow: hidden;
+  letter-spacing: -0.1px;
+}
+.sn-row:hover { background: var(--vs-row-hover); }
+
+.sn-row .sn-icon {
+  width: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--vs-row-icon);
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+.sn-row .sn-icon svg { width: 20px; height: 20px; fill: currentColor; }
+
+.sn-row .sn-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sn-row .sn-chevron {
+  color: var(--vs-row-chevron);
+  display: flex;
+  align-items: center;
+  transition: transform 0.2s;
+}
+.sn-row .sn-chevron svg { width: 12px; height: 12px; fill: currentColor; }
+.sn-row.expanded .sn-chevron { transform: rotate(180deg); }
+
+/* Active row */
+.sn-row.active {
+  background: var(--vs-blue);
+  color: #fff;
+  font-weight: 600;
+  border-bottom: 1px solid var(--vs-blue-dark);
+}
+.sn-row.active .sn-icon { color: #fff; }
+
+/* Collapsed */
+.app.sidenav-collapsed .sn-row {
+  padding: 0;
+  justify-content: center;
+}
+.app.sidenav-collapsed .sn-row .sn-icon { margin-right: 0; }
+.app.sidenav-collapsed .sn-row .sn-label,
+.app.sidenav-collapsed .sn-row .sn-chevron { display: none; }
+.app.sidenav-collapsed .sn-sub { display: none; }
+
+/* Submenu */
+.sn-sub {
+  background: #f7f8fa;
+  border-bottom: 1px solid var(--vs-divider);
+}
+
+.sn-sub-row {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 14px 0 46px;
+  cursor: pointer;
+  color: #5a5e63;
+  font-size: 12.5px;
+  font-weight: 400;
+  border-bottom: 1px solid #ebedef;
+  transition: background 0.12s, color 0.12s;
+  position: relative;
+}
+.sn-sub-row:last-child { border-bottom: none; }
+
+.sn-sub-row::before {
+  content: "";
+  position: absolute;
+  left: 30px;
+  top: 50%;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--vs-blue);
+  transform: translateY(-50%);
+  opacity: 0.7;
+}
+.sn-sub-row:hover { background: #eef0f2; color: var(--vs-blue-text); }
+.sn-sub-row.active { background: #e7f1fb; color: var(--vs-blue-text); font-weight: 600; }
+.sn-sub-row.active::before { opacity: 1; }
+
+/* ── Main content ─────────────────────────────────────────── */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.breadcrumb-bar {
+  background: var(--vs-breadcrumb-bg);
+  color: var(--vs-breadcrumb-text);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  height: var(--vs-breadcrumb-h);
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.breadcrumb-bar .ContextPath {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 14.67px;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.SelectButtonWrapper { display: inline-flex; flex-shrink: 0; }
+
+.ButtonSmall {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  background: #ffffff;
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 2px;
+  color: #4a4a4a;
+  text-decoration: none;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  font-style: normal;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.05);
+}
+.ButtonSmall:hover { background: #f1f3f4; border-color: rgba(0,0,0,0.18); }
+.ButtonSmall:active { background: #e9ebec; box-shadow: inset 0 1px 1px rgba(0,0,0,0.08); }
+
+.ButtonSmallBlue .ButtonInner svg {
+  color: var(--vs-blue);
+  fill: currentColor;
+  width: 13px; height: 13px;
+}
+
+.ButtonInner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+}
+
+.breadcrumb-bar .LinkButton {
+  color: #ffffff;
+  text-decoration: none;
+  font: inherit;
+  cursor: pointer;
+  transition: opacity 0.12s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.breadcrumb-bar .LinkButton:hover { text-decoration: underline; opacity: 0.92; }
+
+.breadcrumb-bar .bc-sep {
+  display: inline-flex;
+  align-items: center;
+  color: rgba(255,255,255,0.95);
+  flex-shrink: 0;
+}
+.breadcrumb-bar .bc-sep svg { width: 11px; height: 11px; fill: currentColor; }
+
+.breadcrumb-bar .PageActionTitle {
+  margin: 0;
+  font: inherit;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.help-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  color: var(--vs-blue);
+  font-size: 13px;
+  font-weight: 400;
+  padding: 6px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.12);
+  cursor: pointer;
+  margin-left: 12px;
+  flex-shrink: 0;
+  transition: background 0.12s;
+}
+.help-btn:hover { background: #f1f3f4; }
+.help-btn svg { width: 14px; height: 14px; fill: currentColor; }
+
+.content {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  background: #fff;
+}
+.content.iframe-active {
+  padding: 0;
+  overflow: hidden;
+}
+
+.content-slot {
+  min-height: calc(100% - 0px);
+  border: 2px dashed #d4d7da;
+  border-radius: 4px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #b2b6bb;
+  font-size: 13px;
+  text-align: center;
+  padding: 32px;
+}
+.content-slot .slot-inner { max-width: 460px; }
+.content-slot h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; color: #6a6f76; }
+.content-slot code {
+  background: #f4f5f7;
+  border: 1px solid #e3e5e8;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: #4a4a4a;
+}
+
+/* ── Insights side nav ───────────────────────────────────── */
+.insights-sidenav {
+  flex: 0 0 300px;
+  width: 300px;
+  background: #ffffff;
+  border-right: 1px solid #e3e5e8;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: visible;
+  transition: flex-basis 0.22s cubic-bezier(0.4,0,0.2,1),
+              width      0.22s cubic-bezier(0.4,0,0.2,1);
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+.app.sidenav-collapsed .insights-sidenav {
+  flex-basis: 64px;
+  width: 64px;
+}
+
+.ins-toggle {
+  position: absolute;
+  top: 14px;
+  right: -14px;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 1px solid #d0d3d6;
+  background: var(--vs-blue);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 5;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+  padding: 0;
+  transition: background 0.15s, transform 0.15s;
+}
+.ins-toggle:hover { background: var(--vs-blue-dark); }
+.ins-toggle:active { transform: scale(0.95); }
+.ins-toggle svg { width: 16px; height: 16px; fill: currentColor; }
+
+.ins-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-top: 36px;
+}
+
+.ins-row {
+  display: flex;
+  align-items: center;
+  height: 52px;
+  padding: 0 16px;
+  cursor: pointer;
+  color: #4a4f54;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  user-select: none;
+  border-bottom: 1px solid transparent;
+  transition: background 0.12s, color 0.12s;
+}
+.ins-row:hover { background: #f5f7f9; color: var(--vs-blue); }
+
+.ins-row .ins-icon {
+  width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6d7378;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+.ins-row:hover .ins-icon { color: var(--vs-blue); }
+.ins-row .ins-icon svg { width: 22px; height: 22px; fill: currentColor; }
+
+.ins-row .ins-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.ins-row .ins-chevron {
+  color: #b2b6bb;
+  display: flex;
+  align-items: center;
+  transition: transform 0.2s;
+}
+.ins-row .ins-chevron svg { width: 14px; height: 14px; fill: currentColor; }
+.ins-row.expanded .ins-chevron { transform: rotate(180deg); }
+
+.ins-sub { background: #ffffff; }
+
+.ins-sub-row {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 16px 10px 60px;
+  cursor: pointer;
+  color: #4a4f54;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.1px;
+  transition: background 0.12s, color 0.12s;
+  position: relative;
+}
+.ins-sub-row:hover { background: #f5f7f9; color: var(--vs-blue); }
+.ins-sub-row.active { background: #eef4fb; color: var(--vs-blue); font-weight: 600; }
+.ins-sub-row.active::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--vs-blue);
+}
+
+.app.sidenav-collapsed .insights-sidenav .ins-row {
+  padding: 0;
+  justify-content: center;
+}
+.app.sidenav-collapsed .insights-sidenav .ins-row .ins-icon { margin-right: 0; }
+.app.sidenav-collapsed .insights-sidenav .ins-row .ins-label,
+.app.sidenav-collapsed .insights-sidenav .ins-row .ins-chevron { display: none; }
+.app.sidenav-collapsed .insights-sidenav .ins-sub { display: none; }
+
+/* ── Blue breadcrumb (Insights) ──────────────────────────── */
+.breadcrumb-bar.bc-style-blue { background: var(--vs-blue); }
+.breadcrumb-bar.bc-style-blue .ContextPath { color: #ffffff; }
+.breadcrumb-bar.bc-style-blue .ButtonSmall { background: #fff; border-color: rgba(0,0,0,0.1); }
+  </style>
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- ═══ TOP NAV ═══════════════════════════════════════════ -->
+  <header class="topnav">
+    <div class="brand">
+      <img src="assets/vs-logo.png" alt="Vector Solutions"/>
+    </div>
+    <div class="spacer"></div>
+    <div class="tabs" role="tablist">
+      <a role="tab" class="tab" data-tab="home">Home</a>
+      <a role="tab" class="tab" data-tab="training">Training</a>
+      <a role="tab" class="tab" data-tab="catalog">Catalog</a>
+      <a role="tab" class="tab" data-tab="insights">Insights <span class="badge">BETA</span></a>
+      <a role="tab" class="tab active" data-tab="administration">Administration</a>
+    </div>
+    <div class="icon-tabs">
+      <div class="icon-tab" title="Select language">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm6.93 6h-2.95a15.6 15.6 0 0 0-1.38-3.56A8.03 8.03 0 0 1 18.93 8zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14C4.1 13.36 4 12.69 4 12s.1-1.36.26-2h3.38c-.08.66-.14 1.32-.14 2s.06 1.34.14 2H4.26zm.82 2h2.95c.32 1.25.78 2.45 1.38 3.56A7.99 7.99 0 0 1 5.08 16zm2.95-8H5.08a7.99 7.99 0 0 1 4.33-3.56A15.6 15.6 0 0 0 8.03 8zM12 19.96A13.45 13.45 0 0 1 10.09 16h3.82A13.45 13.45 0 0 1 12 19.96zM14.34 14H9.66c-.09-.66-.16-1.32-.16-2s.07-1.34.16-2h4.68c.09.66.16 1.32.16 2s-.07 1.34-.16 2zm.25 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95a7.99 7.99 0 0 1-4.33 3.56zM16.36 14c.08-.66.14-1.32.14-2s-.06-1.34-.14-2h3.38c.16.64.26 1.31.26 2s-.1 1.36-.26 2h-3.38z"/></svg>
+      </div>
+      <div class="icon-tab" title="User profile">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      </div>
+      <div class="icon-tab" id="demo-logout-btn" title="Demo Controls" onclick="toggleDemoPanel(event)" style="position:relative;">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 17l1.41-1.41L8.83 13H20v-2H8.83l2.58-2.59L10 7l-5 5 5 5zm9-15H5a2 2 0 0 0-2 2v4h2V4h14v16H5v-4H3v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg>
+        <!-- demo-available dot -->
+        <span id="demo-dot" style="display:none;position:absolute;top:11px;right:10px;width:7px;height:7px;background:#f59e0b;border-radius:50%;border:1.5px solid #fff;pointer-events:none;"></span>
+        <!-- dropdown -->
+        <div id="shell-demo-dropdown" onclick="event.stopPropagation()" style="display:none;position:absolute;top:calc(100% + 2px);right:0;width:284px;background:#0f172a;border-radius:0 0 10px 10px;border:1px solid rgba(255,255,255,0.1);border-top:3px solid #f59e0b;box-shadow:0 16px 48px rgba(0,0,0,0.4);z-index:300;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden;">
+          <div style="padding:10px 16px 9px;background:rgba(255,255,255,0.04);border-bottom:1px solid rgba(255,255,255,0.07);">
+            <p style="margin:0;font-size:10px;font-weight:700;color:#f59e0b;letter-spacing:0.08em;text-transform:uppercase;">Demo Controls · Manual Flow</p>
+            <p style="margin:3px 0 0;font-size:12px;font-weight:600;color:#f1f5f9;">CNC Machinist</p>
+            <p style="margin:2px 0 0;font-size:11px;color:#64748b;line-height:1.4;">Manufacturing · 10 Requirements · 23 Courses</p>
+          </div>
+          <!-- Demo layers: manual flow only for now. AI layer buttons get added
+               back here later (sendDemo('demo:ai-...')) to highlight AI changes. -->
+          <div style="padding:10px 12px;display:flex;flex-direction:column;gap:7px;">
+            <button onclick="sendDemo('demo:load-sample')" style="display:flex;align-items:center;gap:11px;padding:10px 11px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);border-radius:8px;cursor:pointer;text-align:left;width:100%;transition:background 0.15s;"
+              onmouseover="this.style.background='rgba(59,130,246,0.18)'" onmouseout="this.style.background='rgba(59,130,246,0.1)'">
+              <span style="width:28px;height:28px;border-radius:7px;background:#3b82f6;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:800;color:#fff;">1</span>
+              <div>
+                <p style="margin:0;font-size:12px;font-weight:700;color:#e2e8f0;line-height:1.3;">Load CNC Machinist Sample</p>
+                <p style="margin:1px 0 0;font-size:11px;color:#64748b;line-height:1.3;">Open the builder pre-filled with the full dataset</p>
+              </div>
+            </button>
+            <div style="height:1px;background:rgba(255,255,255,0.06);margin:2px 0;"></div>
+            <button onclick="sendDemo('demo:reset')" style="display:flex;align-items:center;gap:11px;padding:8px 11px;background:transparent;border:1px solid rgba(255,255,255,0.07);border-radius:8px;cursor:pointer;text-align:left;width:100%;transition:background 0.15s;"
+              onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='transparent'">
+              <span style="width:28px;height:28px;border-radius:7px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;color:#94a3b8;">↩</span>
+              <div>
+                <p style="margin:0;font-size:12px;font-weight:600;color:#94a3b8;line-height:1.3;">Reset</p>
+                <p style="margin:1px 0 0;font-size:11px;color:#475569;line-height:1.3;">Return to qualification list</p>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══ APP BODY ══════════════════════════════════════════ -->
+  <div class="app-body">
+
+    <!-- Admin side nav -->
+    <aside class="sidenav" id="adminSidenav">
+      <div class="sn-search-row">
+        <div class="sn-search-input-wrap">
+          <span class="sn-search-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 3a6.5 6.5 0 0 1 5.249 10.347l4.452 4.452-1.414 1.414-4.452-4.452A6.5 6.5 0 1 1 9.5 3zm0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z"/></svg>
+          </span>
+          <input class="sn-search-input" type="text" placeholder="Search" aria-label="Search navigation" id="adminSearch"/>
+        </div>
+        <div class="sn-burger" id="adminBurger" title="Collapse menu">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/></svg>
+        </div>
+      </div>
+      <div class="sidenav-list" id="adminNavList"></div>
+    </aside>
+
+    <!-- Insights side nav -->
+    <aside class="insights-sidenav" id="insightsSidenav">
+      <button class="ins-toggle" id="insightsToggle" title="Collapse menu" aria-label="Collapse menu">
+        <svg viewBox="0 0 24 24" fill="currentColor" id="insightsToggleIcon"><path d="M9.29 17.29l1.41-1.41-3.17-3.17H20v-2H7.53l3.17-3.17-1.41-1.41L3.71 11.71z"/></svg>
+      </button>
+      <div class="ins-list" id="insightsNavList"></div>
+    </aside>
+
+    <!-- Main content area -->
+    <main class="main">
+      <div class="breadcrumb-bar bc-style-gray" id="breadcrumbBar">
+        <div class="ContextPath">
+          <span class="SelectButtonWrapper">
+            <a class="ButtonSmall ButtonSmallBlue" href="#" onclick="return false" title="Click to change working location">
+              <span class="ButtonInner NoImg">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>
+                <span>Location</span>
+              </span>
+            </a>
+          </span>
+          <a class="LinkButton" id="bcContext" href="#" onclick="return false">Orlando Organization</a>
+          <span class="bc-sep" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 17l5-5-5-5v10z"/></svg>
+          </span>
+          <!-- Parent label — shown when navigating to a child page -->
+          <a class="LinkButton" id="bcParent" href="#" onclick="return false" style="display:none"></a>
+          <span class="bc-sep" id="bcParentSep" aria-hidden="true" style="display:none">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 17l5-5-5-5v10z"/></svg>
+          </span>
+          <h1 class="PageActionTitle" id="bcTitle">Administration Dashboard</h1>
+        </div>
+        <button class="help-btn">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 17h-2v-2h2v2zm2.07-7.75-.9.92A3.4 3.4 0 0 0 13 14.5h-2v-.5a4 4 0 0 1 1.17-2.83l1.24-1.26A1.96 1.96 0 0 0 14 8.5a2 2 0 1 0-4 0H8a4 4 0 1 1 7.07 2.75z"/></svg>
+          <span>Help</span>
+        </button>
+      </div>
+
+      <div class="content">
+        <div class="content-slot">
+          <div class="slot-inner">
+            <h3>Blank content slot</h3>
+            <p>This is your canvas. Replace this area with the screen you want to prototype — the topnav, sidenav, and breadcrumb will stay in place.</p>
+            <p style="margin-top:16px;font-size:11px;color:#9aa0a6">
+              View: <code id="slotView">administration</code>
+              &middot; Route: <code id="slotRoute">dashboard</code>
+            </p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+  </div><!-- /.app-body -->
+</div><!-- /.app -->
+
+<script>
+// ─── Icon paths (Material Design SVG) ───────────────────────────────────────
+const ICONS = {
+  search:       "M9.5 3a6.5 6.5 0 0 1 5.249 10.347l4.452 4.452-1.414 1.414-4.452-4.452A6.5 6.5 0 1 1 9.5 3zm0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z",
+  menu:         "M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z",
+  chevronDown:  "M7 10l5 5 5-5z",
+  chevronRight: "M10 17l5-5-5-5v10z",
+  arrowRight:   "M14.71 6.71 13.3 8.12l3.17 3.17H4v2h12.47l-3.17 3.17 1.41 1.41 5.58-5.58z",
+  arrowLeft:    "M9.29 17.29l1.41-1.41-3.17-3.17H20v-2H7.53l3.17-3.17-1.41-1.41L3.71 11.71z",
+  dashboard:    "M12 3 1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z",
+  organization: "M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z",
+  trainingImport:"M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z",
+  files:        "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z",
+  activities:   "M18 2H6c-1.1 0-2 .9-2 2v16l4-2 4 2 4-2 4 2V4c0-1.1-.9-2-2-2zm0 17-4-2-4 2-4-2V4h12v15z",
+  qualifications:"M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82zM12 3 1 9l11 6 9-4.91V17h2V9L12 3z",
+  assignments:  "M15 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-9-2c1.66 0 3-1.34 3-3S7.66 4 6 4 3 5.34 3 7s1.34 3 3 3zm9 4c-2.33 0-7 1.17-7 3.5V20h14v-2.5c0-2.33-4.67-3.5-7-3.5zm-9 0c-2.33 0-7 1.17-7 3.5V20h7v-2.5c0-.85.33-2.34 2.37-3.47C7.5 13.84 6.71 14 6 14z",
+  electives:    "M12 2 8.5 5.5 9.91 7l1.59-1.59V15h1V5.41L14.09 7 15.5 5.5 12 2zM4 17.5C4 20 8.13 22 12 22s8-2 8-4.5V13c0-2.5-4.13-4.5-8-4.5S4 10.5 4 13v4.5zm14-3.5c0 .89-2.54 2-6 2s-6-1.11-6-2v-.94c1.55.59 3.69.94 6 .94s4.45-.35 6-.94V14zm0 3.5c0 .89-2.54 2-6 2s-6-1.11-6-2v-.94c1.55.59 3.69.94 6 .94s4.45-.35 6-.94v.94z",
+  authorizations:"M18 8h-1V6a5 5 0 0 0-10 0v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zM9 6a3 3 0 0 1 6 0v2H9V6zm9 14H6V10h12v10zm-6-3a2 2 0 1 0 0-4 2 2 0 0 0 0 4z",
+  tracking:     "M20 6h-4V4l-2-2h-4L8 4v2H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2zM10 4h4v2h-4V4zm10 15H4V8h16v11zm-9-7H7v2h4v3h2v-3h4v-2h-4V9h-2v3z",
+  reports:      "M19 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h11v12zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm12 4H9V8h7v2zm0 3H9v-2h7v2zm-3 3H9v-2h4v2z",
+  assets:       "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM12 4l6.5 3.74L12 11.48 5.5 7.74 12 4zM5 16.27V9.34l6 3.46v6.96l-6-3.49zm14 0-6 3.49v-6.96l6-3.46v6.93z",
+  security:     "M12 2c1.66 0 3 1.34 3 3a3 3 0 1 1-6 0c0-1.66 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z",
+  system:       "M19.43 12.98c.04-.32.07-.64.07-.98 0-.34-.03-.66-.07-.98l2.11-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1a7.27 7.27 0 0 0-1.69-.98l-.38-2.65A.49.49 0 0 0 14 2h-4a.49.49 0 0 0-.49.42l-.38 2.65c-.61.25-1.17.58-1.69.98l-2.49-1a.5.5 0 0 0-.61.22l-2 3.46a.5.5 0 0 0 .12.64l2.11 1.65a7.97 7.97 0 0 0 0 1.96l-2.11 1.65a.5.5 0 0 0-.12.64l2 3.46a.5.5 0 0 0 .61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65A.49.49 0 0 0 10 22h4a.49.49 0 0 0 .49-.42l.38-2.65c.61-.25 1.17-.58 1.69-.98l2.49 1a.5.5 0 0 0 .61-.22l2-3.46a.5.5 0 0 0-.12-.64l-2.11-1.65zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z",
+  book:         "M19 2H6.5A2.5 2.5 0 0 0 4 4.5v15A2.5 2.5 0 0 0 6.5 22H19a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1zM7 4h11v13H6.5a.5.5 0 0 1-.5-.5V4.5a.5.5 0 0 1 .5-.5H7zm-.5 16a.5.5 0 0 1-.5-.5V18.5c.16.06.32.1.5.1H18v1.4H6.5z",
+};
+
+// ─── Navigation data ─────────────────────────────────────────────────────────
+const NAV_TREE = [
+  { id:"dashboard",       label:"Dashboard",                    icon:"dashboard",       solo:true },
+  { id:"organization",    label:"Organization",                 icon:"organization",    children:[
+    {id:"org-users",       label:"Users"},
+    {id:"org-teams",       label:"Teams"},
+    {id:"org-departments", label:"Departments"},
+    {id:"org-sites",       label:"Sites"},
+    {id:"org-regions",     label:"Regions"},
+    {id:"org-groups",      label:"Groups"},
+    {id:"org-places",      label:"Places"},
+    {id:"org-contacts",    label:"Contacts"},
+  ]},
+  { id:"training",        label:"Training Import And Creation", icon:"trainingImport",  children:[
+    {id:"ti-content",    label:"Content Wizard"},
+    {id:"ti-quizzes",    label:"Quizzes"},
+    {id:"ti-surveys",    label:"Surveys"},
+    {id:"ti-tasklists",  label:"Tasklists"},
+    {id:"ti-signatures", label:"Signatures"},
+    {id:"ti-classes",    label:"Classes"},
+  ]},
+  { id:"files",           label:"Files",                        icon:"files",           children:[
+    {id:"files-repos",   label:"Repositories"},
+  ]},
+  { id:"activities",      label:"Activities",                   icon:"activities",      children:[
+    {id:"act-activities",label:"Activities"},
+  ]},
+  { id:"qualifications",  label:"Qualifications",               icon:"qualifications",  children:[
+    {id:"qual-requirements",label:"Requirements"},
+    {id:"qual-quals",       label:"Qualifications"},
+    {id:"qual-builder",     label:"Qualification Builder (AI)"},
+    {id:"qual-copy",        label:"Copy Qualifications"},
+  ]},
+  { id:"assignments",     label:"Assignments",                  icon:"assignments",     children:[
+    {id:"asn-wizard",    label:"Assign Training Wizard"},
+    {id:"asn-list",      label:"Assignments"},
+  ]},
+  { id:"electives",       label:"Electives",                    icon:"electives",       children:[
+    {id:"elec-categories",label:"Elective Categories"},
+    {id:"elec-offer",     label:"Offer Electives"},
+    {id:"elec-approve",   label:"Approve Electives"},
+    {id:"elec-list",      label:"Electives"},
+  ]},
+  { id:"authorizations",  label:"Authorizations",               icon:"authorizations",  children:[
+    {id:"auth-authorize",label:"Authorize Training"},
+    {id:"auth-list",     label:"Authorizations"},
+  ]},
+  { id:"tracking",        label:"Tracking And Completions",     icon:"tracking",        children:[
+    {id:"trk-credit",     label:"Credit Wizard"},
+    {id:"trk-import",     label:"Import Completions"},
+    {id:"trk-tasklist",   label:"Track Tasklist Completion"},
+    {id:"trk-attendance", label:"Take Class Attendance"},
+    {id:"trk-signatures", label:"Approve Signatures"},
+    {id:"trk-records",    label:"Completion Records"},
+    {id:"trk-duplicate",  label:"Duplicate Completions"},
+  ]},
+  { id:"reports",         label:"Reports",                      icon:"reports",         children:[
+    {id:"rep-recents",      label:"My Recents"},
+    {id:"rep-frequent",     label:"Frequently Used"},
+    {id:"rep-all",          label:"All Reports"},
+    {id:"rep-activity",     label:"Activity Reports"},
+    {id:"rep-qualification",label:"Qualification Reports"},
+    {id:"rep-user",         label:"User Reports"},
+    {id:"rep-org",          label:"Organizational Reports"},
+    {id:"rep-scheduled",    label:"Scheduled Reports"},
+  ]},
+  { id:"assets",          label:"Assets",                       icon:"assets",          children:[
+    {id:"ast-groups",    label:"Asset Groups"},
+    {id:"ast-list",      label:"Assets"},
+  ]},
+  { id:"security",        label:"Security",                     icon:"security",        children:[
+    {id:"sec-roles",      label:"Roles"},
+    {id:"sec-copy",       label:"Copy Roles"},
+    {id:"sec-assign",     label:"Assign Roles"},
+    {id:"sec-assignments",label:"Role Assignments"},
+  ]},
+  { id:"system",          label:"System",                       icon:"system",          children:[
+    {id:"sys-jobs",         label:"Jobs"},
+    {id:"sys-config",       label:"Configuration"},
+    {id:"sys-notifications",label:"Notifications"},
+    {id:"sys-connections",  label:"User Connections"},
+  ]},
+];
+
+const INSIGHTS_TREE = [
+  { id:"activity-reports",      label:"Activity Reports",      icon:"book",           children:[
+    {id:"activity-exception",  label:"Activity Exception Report"},
+    {id:"activity-completion", label:"Activity Completion Report"},
+    {id:"activity-status",     label:"Activity Status Report"},
+    {id:"activity-tasklist",   label:"Tasklist Report"},
+  ]},
+  { id:"user-reports",          label:"User Reports",          icon:"assignments",    children:[
+    {id:"user-engagement",  label:"User Engagement"},
+    {id:"user-completion",  label:"User Completion"},
+  ]},
+  { id:"qualification-reports", label:"Qualification Reports", icon:"qualifications", children:[
+    {id:"qual-status",   label:"Qualification Status"},
+    {id:"qual-expiring", label:"Expiring Qualifications"},
+  ]},
+];
+
+const VIEWS = {
+  administration: { label:"Administration Dashboard", context:"Orlando Organization",  defaultRoute:"dashboard",          breadcrumbStyle:"gray" },
+  insights:       { label:"Activity Exception Report", context:"ContractorTest",        defaultRoute:"activity-exception", breadcrumbStyle:"blue" },
+  training:       { label:"My Training",               context:"Orlando Organization",  defaultRoute:"my-training",        breadcrumbStyle:"gray" },
+};
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let activeTab       = "administration";
+let collapsed       = false;
+let activeRoute     = "qual-builder";
+let routeLabel      = "Qualification Builder (AI)";
+let routeParent     = "Qualifications";
+let builderActive   = false;
+let adminOpen       = new Set(["qualifications"]);
+let insightsOpen    = new Set(["activity-reports"]);
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const icon = (name) =>
+  `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="${ICONS[name]||''}"/></svg>`;
+
+// ─── Admin nav render ─────────────────────────────────────────────────────────
+function renderAdminNav(filter) {
+  const list = document.getElementById('adminNavList');
+  list.innerHTML = '';
+  const q = (filter || '').toLowerCase();
+
+  NAV_TREE.forEach(node => {
+    const isOpen   = adminOpen.has(node.id);
+    const isActive = node.solo && activeRoute === node.id;
+
+    // Filter: if a query is active, only show rows that have matching children
+    const matchingChildren = q
+      ? (node.children || []).filter(c => c.label.toLowerCase().includes(q))
+      : (node.children || []);
+    const nodeMatches = !q || node.label.toLowerCase().includes(q) || matchingChildren.length > 0;
+    if (!nodeMatches) return;
+
+    const row = document.createElement('div');
+    row.className = 'sn-row' + (isActive ? ' active' : '') + (isOpen ? ' expanded' : '');
+    row.innerHTML = `<span class="sn-icon">${icon(node.icon)}</span>`
+      + `<span class="sn-label">${node.label}</span>`
+      + (!node.solo ? `<span class="sn-chevron">${icon('chevronDown')}</span>` : '');
+
+    row.addEventListener('click', () => {
+      if (node.solo) { navigate(node.id, node.label, null); }
+      else {
+        if (adminOpen.has(node.id)) adminOpen.delete(node.id);
+        else adminOpen.add(node.id);
+        renderAdminNav(document.getElementById('adminSearch').value);
+      }
+    });
+    list.appendChild(row);
+
+    if (!node.solo && (isOpen || q)) {
+      const sub = document.createElement('div');
+      sub.className = 'sn-sub';
+      matchingChildren.forEach(child => {
+        const cr = document.createElement('div');
+        cr.className = 'sn-sub-row' + (activeRoute === child.id ? ' active' : '');
+        cr.textContent = child.label;
+        cr.addEventListener('click', () => navigate(child.id, child.label, node.label));
+        sub.appendChild(cr);
+      });
+      list.appendChild(sub);
+    }
+  });
+}
+
+// ─── Insights nav render ──────────────────────────────────────────────────────
+function renderInsightsNav() {
+  const list = document.getElementById('insightsNavList');
+  list.innerHTML = '';
+
+  INSIGHTS_TREE.forEach(node => {
+    const isOpen = insightsOpen.has(node.id) && !collapsed;
+
+    const row = document.createElement('div');
+    row.className = 'ins-row' + (insightsOpen.has(node.id) ? ' expanded' : '');
+    if (collapsed) row.title = node.label;
+    row.innerHTML = `<span class="ins-icon">${icon(node.icon)}</span>`
+      + `<span class="ins-label">${node.label}</span>`
+      + `<span class="ins-chevron">${icon('chevronDown')}</span>`;
+
+    row.addEventListener('click', () => {
+      if (insightsOpen.has(node.id)) insightsOpen.delete(node.id);
+      else insightsOpen.add(node.id);
+      renderInsightsNav();
+    });
+    list.appendChild(row);
+
+    if (isOpen) {
+      const sub = document.createElement('div');
+      sub.className = 'ins-sub';
+      node.children.forEach(child => {
+        const cr = document.createElement('div');
+        cr.className = 'ins-sub-row' + (activeRoute === child.id ? ' active' : '');
+        cr.textContent = child.label;
+        cr.addEventListener('click', () => navigate(child.id, child.label, node.label));
+        sub.appendChild(cr);
+      });
+      list.appendChild(sub);
+    }
+  });
+}
+
+// ─── Breadcrumb update ────────────────────────────────────────────────────────
+function updateChrome() {
+  const view = VIEWS[activeTab] || {
+    context: "Orlando Organization", breadcrumbStyle: "gray",
+  };
+
+  // Breadcrumb style
+  const bar = document.getElementById('breadcrumbBar');
+  bar.className = 'breadcrumb-bar bc-style-' + view.breadcrumbStyle;
+
+  // Context org
+  document.getElementById('bcContext').textContent = view.context;
+
+  // Parent label
+  const parentEl  = document.getElementById('bcParent');
+  const parentSep = document.getElementById('bcParentSep');
+  if (routeParent) {
+    parentEl.textContent  = routeParent;
+    parentEl.style.display  = '';
+    parentSep.style.display = '';
+  } else {
+    parentEl.style.display  = 'none';
+    parentSep.style.display = 'none';
+  }
+
+  // Page title
+  document.getElementById('bcTitle').textContent = routeLabel;
+
+  // Content slot info (only present when the blank-slot template is rendered)
+  const slotView  = document.getElementById('slotView');
+  const slotRoute = document.getElementById('slotRoute');
+  if (slotView)  slotView.textContent  = activeTab;
+  if (slotRoute) slotRoute.textContent = activeRoute;
+
+  renderContent();
+}
+
+// ─── Content slot ─────────────────────────────────────────────────────────────
+// To mount a prototype: add an `if (activeRoute === 'your-route')` branch below
+// and set slot.innerHTML to an <iframe>. The shell auto-detects iframes and
+// removes all outer padding so the content fills edge-to-edge.
+function renderContent() {
+  const slot    = document.querySelector('.content-slot');
+  const content = document.querySelector('.content');
+  if (!slot) return;
+
+  // ── Route → content mapping ────────────────────────────────────────────────
+  if (activeRoute === 'qual-builder') {
+    slot.innerHTML = `<iframe
+      src="../Qualification-Builder/index.html"
+      style="width:100%;height:100%;border:none;display:block;"
+      title="Qualification Builder"
+    ></iframe>`;
+  } else if (activeRoute === 'qual-quals') {
+    slot.innerHTML = `<iframe
+      src="prototype/manage-qualifications.html"
+      style="width:100%;height:100%;border:none;display:block;"
+      title="Manage Qualifications"
+    ></iframe>`;
+  } else if (activeRoute === 'my-training') {
+    slot.innerHTML = `<iframe
+      src="prototype/training-my-training.html"
+      style="width:100%;height:100%;border:none;display:block;"
+      title="My Training"
+    ></iframe>`;
+  } else {
+    slot.innerHTML = `<div class="slot-inner">
+      <h3>Blank content slot</h3>
+      <p>This is your canvas. Replace this area with the screen you want to prototype.</p>
+      <p style="margin-top:16px;font-size:11px;color:#9aa0a6">
+        View: <code id="slotView">${activeTab}</code>
+        &middot; Route: <code id="slotRoute">${activeRoute}</code>
+      </p>
+    </div>`;
+  }
+
+  // ── Auto-configure layout based on iframe presence ─────────────────────────
+  // If the slot contains an iframe, strip all wrapper padding so the prototype
+  // fills edge-to-edge. No manual class toggling needed per route.
+  const hasIframe = !!slot.querySelector('iframe');
+  slot.style.cssText = hasIframe
+    ? 'padding:0;border:none;background:transparent;display:block;height:100%;width:100%;'
+    : '';
+  content?.classList.toggle('iframe-active', hasIframe);
+
+  // Sync demo panel visibility with route
+  if (typeof updateDemoPanel === 'function') updateDemoPanel();
+}
+
+// ─── Sidenav visibility ───────────────────────────────────────────────────────
+function updateSidenavVisibility() {
+  document.getElementById('adminSidenav').style.display    = activeTab === 'administration' ? '' : 'none';
+  document.getElementById('insightsSidenav').style.display = activeTab === 'insights'       ? '' : 'none';
+}
+
+// ─── Navigate ────────────────────────────────────────────────────────────────
+function navigate(id, label, parent) {
+  if (builderActive) { showShellUnsavedWarning(() => _doNavigate(id, label, parent)); return; }
+  _doNavigate(id, label, parent);
+}
+function _doNavigate(id, label, parent) {
+  activeRoute  = id;
+  routeLabel   = (activeTab === 'administration' && id === 'dashboard') ? 'Administration Dashboard' : label;
+  routeParent  = parent || null;
+  updateChrome();
+  if (activeTab === 'administration') renderAdminNav(document.getElementById('adminSearch').value);
+  else if (activeTab === 'insights')  renderInsightsNav();
+}
+
+// ─── Tab switch ───────────────────────────────────────────────────────────────
+function switchTab(tabId) {
+  if (builderActive) { showShellUnsavedWarning(() => _doSwitchTab(tabId)); return; }
+  _doSwitchTab(tabId);
+}
+function _doSwitchTab(tabId) {
+  document.querySelectorAll('.topnav .tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.tab === tabId)
+  );
+
+  activeTab = tabId;
+  const view = VIEWS[tabId];
+  if (view) {
+    activeRoute  = view.defaultRoute;
+    routeLabel   = view.label;
+    routeParent  = null;
+  } else {
+    activeRoute  = '';
+    routeLabel   = tabId.charAt(0).toUpperCase() + tabId.slice(1);
+    routeParent  = null;
+  }
+
+  // Reset collapse state on tab switch
+  collapsed = false;
+  document.getElementById('app').classList.remove('sidenav-collapsed');
+
+  updateSidenavVisibility();
+  updateChrome();
+  if (activeTab === 'administration') renderAdminNav();
+  else if (activeTab === 'insights')  renderInsightsNav();
+}
+
+// ─── Unsaved changes warning (shown in shell for nav interception) ─────────────
+function showShellUnsavedWarning(onLeave) {
+  document.getElementById('shell-unsaved-scrim')?.remove();
+  const scrim = document.createElement('div');
+  scrim.id = 'shell-unsaved-scrim';
+  scrim.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:24px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;';
+  scrim.innerHTML = `
+    <div style="background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.18);width:100%;max-width:580px;padding:48px 40px 36px;text-align:center;">
+      <div style="font-size:76px;color:#d97706;line-height:1;margin-bottom:28px;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width:88px;height:88px;fill:none;stroke:#d97706;stroke-width:1.6;display:inline-block;">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+      </div>
+      <p style="font-size:21px;font-weight:700;color:#111827;margin:0 0 36px;line-height:1.3;">You have unsaved changes to this qualification.</p>
+      <div style="display:flex;gap:12px;">
+        <button id="suw-cancel" style="flex:1;padding:14px;border:1.5px solid #d1d5db;border-radius:8px;background:#fff;font-size:15px;font-family:inherit;cursor:pointer;color:#374151;font-weight:500;">Cancel</button>
+        <button id="suw-discard" style="flex:1;padding:14px;border:1.5px solid #3b82f6;border-radius:8px;background:#fff;font-size:15px;font-family:inherit;cursor:pointer;color:#3b82f6;font-weight:500;">Discard Changes</button>
+        <button id="suw-save" style="flex:1;padding:14px;border:none;border-radius:8px;background:#3b82f6;font-size:15px;font-family:inherit;cursor:pointer;color:#fff;font-weight:700;">Save and Leave</button>
+      </div>
+    </div>`;
+  document.body.appendChild(scrim);
+  scrim.querySelector('#suw-cancel').addEventListener('click', () => scrim.remove());
+  scrim.querySelector('#suw-discard').addEventListener('click', () => { builderActive = false; scrim.remove(); onLeave(); });
+  scrim.querySelector('#suw-save').addEventListener('click', () => { builderActive = false; scrim.remove(); onLeave(); });
+}
+
+// ─── Sidenav toggle ───────────────────────────────────────────────────────────
+function toggleCollapse() {
+  collapsed = !collapsed;
+  document.getElementById('app').classList.toggle('sidenav-collapsed', collapsed);
+
+  // Flip the Insights toggle arrow direction
+  if (activeTab === 'insights') {
+    document.getElementById('insightsToggleIcon').innerHTML =
+      `<path d="${collapsed ? ICONS.arrowRight : ICONS.arrowLeft}"/>`;
+    renderInsightsNav();
+  }
+}
+
+// ─── Event listeners ──────────────────────────────────────────────────────────
+document.querySelectorAll('.topnav .tab').forEach(t =>
+  t.addEventListener('click', e => { e.preventDefault(); switchTab(t.dataset.tab); })
+);
+
+document.getElementById('adminBurger').addEventListener('click', toggleCollapse);
+document.getElementById('insightsToggle').addEventListener('click', toggleCollapse);
+
+// Live search filter
+document.getElementById('adminSearch').addEventListener('input', e => {
+  const q = e.target.value;
+  // Auto-open all sections when filtering
+  if (q) NAV_TREE.forEach(n => { if (!n.solo) adminOpen.add(n.id); });
+  renderAdminNav(q);
+});
+
+// ─── Prototype iframe messages ────────────────────────────────────────────────
+window.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'shell:builder-active') {
+    builderActive = e.data.active;
+  }
+  if (e.data && e.data.type === 'nav:training') {
+    builderActive = false; // skip unsaved-changes guard for demo
+    _doSwitchTab('training');
+    renderContent();
+  }
+});
+
+// ─── Demo panel ───────────────────────────────────────────────────────────────
+function getDemoIframe() {
+  return document.querySelector('.content-slot iframe');
+}
+function sendDemo(type) {
+  const f = getDemoIframe();
+  if (f && f.contentWindow) f.contentWindow.postMessage({ type }, '*');
+}
+function updateDemoPanel() {
+  const dot      = document.getElementById('demo-dot');
+  const dropdown = document.getElementById('shell-demo-dropdown');
+  const isDemo   = activeRoute === 'qual-quals';
+  if (dot)      dot.style.display      = isDemo ? 'block' : 'none';
+  if (dropdown) dropdown.style.display = 'none'; // always close on route change
+}
+function toggleDemoPanel(e) {
+  e.stopPropagation();
+  if (activeRoute !== 'qual-quals') return;
+  const dropdown = document.getElementById('shell-demo-dropdown');
+  if (!dropdown) return;
+  dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', function() {
+  const dropdown = document.getElementById('shell-demo-dropdown');
+  if (dropdown) dropdown.style.display = 'none';
+});
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+updateSidenavVisibility();
+updateChrome();
+renderAdminNav();
+renderInsightsNav();
+updateDemoPanel();
+</script>
+
+<script>
+  // Wire updateDemoPanel into chrome updates
+  const _origUpdateChrome = updateChrome;
+  updateChrome = function() { _origUpdateChrome(); updateDemoPanel(); };
+  updateDemoPanel();
+</script>
+</body>
+</html>
