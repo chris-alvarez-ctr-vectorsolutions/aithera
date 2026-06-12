@@ -56,11 +56,7 @@ reportsSidenav.footerItems  = [];
 reportsSidenav.expandedGroupIds = NAV_ITEMS.filter(i => i.type === 'group').map(i => i.id);
 reportsSidenav.activeItemId = 'qualification-report';
 
-reportsSidenav.addEventListener('item-click', (e) => {
-    const id = e.detail.id;
-
-    if (id === 'create-report') return;
-
+function navigateToReport(id) {
     const report = REPORTS[id];
     if (!report) return;
 
@@ -81,6 +77,22 @@ reportsSidenav.addEventListener('item-click', (e) => {
 
     // Ensure qual filter toggle is hidden when switching away
     if (!isQual) filterToggleBtn.style.display = 'none';
+}
+
+reportsSidenav.addEventListener('item-click', (e) => {
+    const id = e.detail.id;
+    if (id === 'create-report') return;
+    if (!REPORTS[id]) return;
+
+    // Guard: leaving the report with unsaved edits to an applied saved view
+    if (viewDirty && appliedSavedView && id !== 'qualification-report') {
+        pendingNavId = id;
+        reportsSidenav.activeItemId = 'qualification-report'; // keep highlight until resolved
+        openUnsavedChangesDialog();
+        return;
+    }
+
+    navigateToReport(id);
 });
 
 // Toggle sidenav via hamburger button in top nav — always visible, always works
@@ -493,6 +505,7 @@ saveViewDialog.footerRenderer = (root) => {
             return;
         }
 
+        if (ctx.mode === 'edit') viewDirty = false;   // updates saved → no longer dirty
         saveViewDialog.opened = false;
         showToast(ctx.mode === 'edit' ? 'Saved view updated' : 'Saved view created');
     });
@@ -805,19 +818,107 @@ applySavedViewBtn.addEventListener('click', () => {
 
 // The saved view currently applied to the report (null = ad-hoc filters)
 let appliedSavedView = null;
+let viewDirty = false;      // unsaved edits to the applied saved view
+let pendingNavId = null;    // nav target awaiting the unsaved-changes decision
+
+// When a view is applied, the Save controls become "Update View"
+function setSaveViewLabels(applied) {
+    const btnLabel  = document.getElementById('saveViewBtnLabel');
+    const itemLabel = document.getElementById('saveViewItemLabel');
+    if (btnLabel)  btnLabel.textContent  = applied ? 'Update View' : 'Save View';
+    if (itemLabel) itemLabel.textContent = applied ? 'Update View' : 'Save View';
+}
+
+function markViewDirty() { if (appliedSavedView) viewDirty = true; }
 
 function applyView(view) {
     appliedSavedView = view;
+    viewDirty = false;
     document.getElementById('appliedBanner').style.display = 'flex';
     document.getElementById('appliedBannerName').textContent = view.name;
+    setSaveViewLabels(true);
 }
 
 document.getElementById('clearAppliedViewBtn').addEventListener('click', () => {
     appliedSavedView = null;
+    viewDirty = false;
     document.getElementById('appliedBanner').style.display = 'none';
     document.getElementById('saveViewMenu').style.display = 'none';
     selectedSavedViewId = null;
+    setSaveViewLabels(false);
 });
+
+// Mark the applied view dirty when its filters are changed
+(() => {
+    const qp = document.getElementById('filterPanel');
+    if (!qp) return;
+    qp.addEventListener('change', markViewDirty, true);
+    qp.addEventListener('checked-changed', markViewDirty, true);
+    qp.addEventListener('click', (e) => {
+        if (e.target.closest('.loc-row, .filter-select-btn')) markViewDirty();
+    });
+})();
+
+// ── Unsaved-changes guard dialog ───────────────────────────────────
+const unsavedChangesDialog = document.getElementById('unsavedChangesDialog');
+
+function openUnsavedChangesDialog() {
+    unsavedChangesDialog.overlayClass = 'recip-picker-overlay';
+    unsavedChangesDialog.opened = true;
+    unsavedChangesDialog.requestContentUpdate();
+}
+
+function resolvePendingNav() {
+    const id = pendingNavId;
+    pendingNavId = null;
+    if (id) navigateToReport(id);
+}
+
+unsavedChangesDialog.renderer = (root) => {
+    root.innerHTML = '';
+    root.style.maxWidth = '460px';
+    const name = appliedSavedView ? appliedSavedView.name : 'this saved view';
+    const p = document.createElement('p');
+    p.className = 'sv-dialog-subtitle';
+    p.innerHTML = `You have unsaved changes to <strong>${name}</strong>. Do you want to save them to the saved view, or discard them?`;
+    root.appendChild(p);
+};
+
+unsavedChangesDialog.footerRenderer = (root) => {
+    if (root.firstChild) return;
+
+    const cancelBtn = document.createElement('vaadin-button');
+    cancelBtn.setAttribute('theme', 'secondary');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => {
+        pendingNavId = null;
+        unsavedChangesDialog.opened = false;
+    });
+
+    const discardBtn = document.createElement('vaadin-button');
+    discardBtn.setAttribute('theme', 'secondary');
+    discardBtn.textContent = 'Discard changes';
+    discardBtn.addEventListener('click', () => {
+        viewDirty = false;
+        unsavedChangesDialog.opened = false;
+        showToast('Changes discarded');
+        resolvePendingNav();
+    });
+
+    const saveBtn = document.createElement('vaadin-button');
+    saveBtn.setAttribute('theme', 'primary');
+    saveBtn.textContent = 'Save changes';
+    saveBtn.addEventListener('click', () => {
+        viewDirty = false;
+        unsavedChangesDialog.opened = false;
+        showToast(`Updated “${appliedSavedView ? appliedSavedView.name : 'saved view'}”`);
+        resolvePendingNav();
+    });
+
+    root.appendChild(cancelBtn);
+    root.appendChild(discardBtn);
+    root.appendChild(saveBtn);
+};
 
 // ================================================================
 // PICKER DIALOGS — Select Qualifications / Activities / Users
@@ -1599,48 +1700,7 @@ document.getElementById('actExApplySavedViewBtn')?.addEventListener('click', () 
 // LOCATION DROPDOWN — trigger open/close + tree select
 // ================================================================
 
-const locTrigger = document.getElementById('locTrigger');
-const locPanel   = document.getElementById('locPanel');
-const locLabel   = document.getElementById('locTriggerLabel');
-
-locTrigger?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const open = locPanel.style.display !== 'none';
-    locPanel.style.display = open ? 'none' : '';
-    locTrigger.classList.toggle('open', !open);
-});
-
-// Close when clicking outside
-document.addEventListener('click', (e) => {
-    if (!document.getElementById('locDropdown')?.contains(e.target)) {
-        locPanel.style.display = 'none';
-        locTrigger?.classList.remove('open');
-    }
-});
-
-// Tree interaction: expand/collapse chevrons + select rows
-document.getElementById('locPanel')?.addEventListener('click', (e) => {
-    const chevronBtn = e.target.closest('.loc-chevron');
-    if (chevronBtn) {
-        e.stopPropagation();
-        const children = document.getElementById(chevronBtn.dataset.controls);
-        if (!children) return;
-        const isHidden = children.style.display === 'none';
-        children.style.display = isHidden ? '' : 'none';
-        chevronBtn.querySelector('i').className = isHidden
-            ? 'fa-solid fa-chevron-down'
-            : 'fa-solid fa-chevron-right';
-        return;
-    }
-    const row = e.target.closest('.loc-row');
-    if (!row) return;
-    document.querySelectorAll('#locTree .loc-row').forEach(r => r.classList.remove('loc-selected'));
-    row.classList.add('loc-selected');
-    const name = row.querySelector('.loc-row-name')?.textContent.trim() || 'All';
-    if (locLabel) locLabel.textContent = name;
-    locPanel.style.display = 'none';
-    locTrigger?.classList.remove('open');
-});
+// Location filter removed from this report's filter panel.
 
 // ================================================================
 // MANAGE SAVED VIEWS PAGE
@@ -1989,19 +2049,14 @@ function getReportFilterSummary(reportName) {
         .filter(Boolean);
 
     const statuses = [];
-    if (document.getElementById('chk-completed')?.checked)   statuses.push('Completed');
-    if (document.getElementById('chk-incomplete')?.checked)  statuses.push('Incomplete');
-    if (document.getElementById('chk-in-progress')?.checked) statuses.push('In Progress');
-    if (document.getElementById('chk-overdue')?.checked)     statuses.push('Overdue');
-
-    const loc = document.getElementById('locTriggerLabel')?.textContent.trim() || 'All';
+    if (document.getElementById('chk-qualified')?.checked)  statuses.push('Qualified');
+    if (document.getElementById('chk-incomplete')?.checked) statuses.push('Incomplete');
 
     return [
         { icon: 'fa-regular fa-calendar',  label: 'Date Range', value: dateVal },
         { icon: 'fa-solid fa-certificate', label: `Qualifications (${qualNames.length})`, pills: qualNames.length ? qualNames : ['All qualifications'] },
         { icon: 'fa-solid fa-user',        label: `Users (${userNames.length})`,          pills: userNames.length ? userNames : ['All users'] },
-        { icon: 'fa-solid fa-tag',         label: 'Status Types', value: statuses.length ? statuses.join(', ') : 'All' },
-        { icon: 'fa-solid fa-location-dot',label: 'Location',     value: loc },
+        { icon: 'fa-solid fa-tag',         label: 'Qualification Status', value: statuses.length ? statuses.join(', ') : 'All' },
     ];
 }
 
