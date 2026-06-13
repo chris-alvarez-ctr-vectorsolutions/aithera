@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qualification Reporting</title>
+
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+    <link rel="stylesheet" href="dupe.css"/>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     TOP NAVIGATION
+════════════════════════════════════════════════════════ -->
+<nav class="top-nav">
+    <button class="nav-toggle-btn" id="navToggleBtn" title="Toggle navigation">
+        <i class="fa-solid fa-bars"></i>
+    </button>
+    <div class="top-nav-logo">
+        <span class="logo-vector">Vector</span><span class="logo-solutions">Solutions</span>
+    </div>
+    <div class="top-nav-links">
+        <a class="nav-link" href="#">Home</a>
+        <a class="nav-link" href="#">Training</a>
+        <a class="nav-link" href="#">Catalog</a>
+        <a class="nav-link active" href="#">Insights <span class="beta-badge">beta</span></a>
+        <a class="nav-link" href="#">Administration</a>
+    </div>
+    <div class="top-nav-right">
+        <button class="top-icon-btn"><i class="fa-solid fa-globe"></i></button>
+        <button class="top-icon-btn"><i class="fa-regular fa-user"></i></button>
+        <button class="top-icon-btn"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
+    </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════
+     SUB-HEADER / BREADCRUMB
+════════════════════════════════════════════════════════ -->
+<div class="sub-header">
+    <button class="location-pill"><i class="fa-solid fa-location-dot"></i> Location</button>
+    <nav class="breadcrumb">
+        <a class="bc-link" href="#">Demo Org (lms.convergencetraining.com)</a>
+        <span class="bc-sep"><i class="fa-solid fa-chevron-right"></i></span>
+        <span class="bc-current">Qualification Report</span>
+    </nav>
+    <button class="help-btn"><i class="fa-regular fa-circle-question"></i></button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     CONTENT WRAPPER (sidenav + page layout)
+════════════════════════════════════════════════════════ -->
+<div class="content-wrapper">
+
+<!-- ── REPORTS SIDENAV ──────────────────────────────────── -->
+<vwc-sidenav id="reportsSidenav"></vwc-sidenav>
+
+<!-- ═══════════════════════════════════════════════════════
+     PAGE LAYOUT
+════════════════════════════════════════════════════════ -->
+<div class="page-layout" id="pageLayout">
+
+    <!-- ── MAIN CONTENT ───────────────────────────────────── -->
+    <main class="main-content">
+
+        <!-- Page Title Row — title (timestamp below) left; Send Report + Export right -->
+        <div class="page-title-row report-header-row">
+            <div>
+                <h1 class="page-title">Qualification Reporting</h1>
+                <p class="page-subtitle">Last updated: April 5, 2026 at 11:22 PM EDT</p>
+            </div>
+        </div>
+
+        <!-- Actions Row — Send Report + Export (left); saved-view selector + filter (right) -->
+        <div class="actions-row">
+            <div class="actions-left">
+                <vaadin-button theme="secondary small" id="emailBtn">
+                    <i class="fa-regular fa-paper-plane" slot="prefix"></i> Send Report
+                </vaadin-button>
+                <vaadin-button theme="secondary small" id="exportBtn">
+                    <i class="fa-solid fa-file-export" slot="prefix"></i> Export
+                </vaadin-button>
+            </div>
+            <div class="actions-right">
+                <button type="button" class="sched-badge" id="qualViewSchedBtn" style="display:none" title="View scheduled reports">
+                    <i class="fa-regular fa-clock"></i> <span id="qualViewSchedLabel">0</span>
+                </button>
+                <!-- Apply Saved View — dropdown selector -->
+                <div class="view-selector" id="qualViewSelector">
+                    <span class="vs-chip" id="qualViewChip" style="display:none">
+                        <button type="button" class="vs-star" id="qualViewStar" title="Favorite this view" aria-label="Favorite this view">
+                            <i class="fa-regular fa-star"></i>
+                        </button>
+                        <span class="vs-label" id="qualViewSelectorLabel"></span>
+                        <button type="button" class="vs-clear" id="qualViewClear" title="Clear saved view" aria-label="Clear saved view">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </span>
+                    <button type="button" class="vs-trigger" id="qualViewSelectorTrigger" title="Choose a saved view">
+                        <span class="vs-placeholder" id="qualViewPlaceholder"><i class="fa-regular fa-bookmark vs-ph-icon"></i> Choose a saved view</span>
+                        <i class="fa-solid fa-chevron-down vs-chevron"></i>
+                    </button>
+                </div>
+                <!-- Report Filters toggle — icon only, next to the selector -->
+                <button class="filter-inline-toggle filter-icon-btn" id="filterToggleBtn" title="Report Filters" aria-label="Report Filters">
+                    <i class="fa-solid fa-sliders"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Filters bar — active filter chips (left) + Save/Update View (right) -->
+        <div class="filters-bar" id="qualFiltersBar" style="display:none">
+            <div class="active-filter-chips" id="qualActiveFilters"></div>
+            <div class="save-view-control" id="saveViewControl" style="display:none">
+                <vaadin-button theme="secondary small" id="saveViewBtn">
+                    <i class="fa-solid fa-floppy-disk" slot="prefix"></i> <span class="sv-main-label">Save View</span>
+                    <i class="fa-solid fa-chevron-down sv-caret" slot="suffix" style="font-size:10px"></i>
+                </vaadin-button>
+                <div class="split-btn-menu" id="saveViewMenu" style="display:none">
+                    <button type="button" class="split-btn-item" id="saveViewItem">
+                        <i class="fa-solid fa-floppy-disk"></i> <span class="sv-item-label">Save View</span>
+                    </button>
+                    <button type="button" class="split-btn-item" id="saveNewViewItem">
+                        <i class="fa-regular fa-floppy-disk"></i> Save New View
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modified-view banner — shows only when filters are edited on an applied view -->
+        <div class="edited-banner" id="appliedBanner" style="display:none">
+            <i class="fa-solid fa-pen edited-banner-icon"></i>
+            <span class="edited-banner-text">You've changed the filters for
+                <strong id="appliedBannerName"></strong> — these edits aren't saved to the view.</span>
+            <button class="edited-banner-restore" id="restoreViewBtn">
+                <i class="fa-solid fa-rotate-left"></i> Back to saved view
+            </button>
+        </div>
+
+        <!-- ── Completion Status Overview ──────────────────── -->
+        <div class="report-card" id="completionOverview">
+            <div class="report-card-header">
+                <div class="report-card-title-row">
+                    <h2 class="report-card-title">Completion Status Overview</h2>
+                    <div class="date-badge"><i class="fa-regular fa-calendar"></i> Apr 1, 2026 - Apr 7, 2026</div>
+                </div>
+            </div>
+            <div class="chart-area">
+                <!-- Pie Chart -->
+                <div class="chart-col">
+                    <div class="chart-section-title">Qualification Status Distribution</div>
+                    <div class="pie-chart-wrap">
+                        <div class="pie-chart" id="pieChart"></div>
+                        <div class="pie-labels">
+                            <span class="pie-label completed">Completed: 30.0%</span>
+                            <span class="pie-label in-progress">In Progress: 25.0%</span>
+                            <span class="pie-label overdue">Overdue: 15.0%</span>
+                        </div>
+                    </div>
+                    <div class="pie-legend">
+                        <span class="legend-item"><span class="legend-dot completed"></span> Completed</span>
+                        <span class="legend-item"><span class="legend-dot in-progress"></span> In Progress</span>
+                        <span class="legend-item"><span class="legend-dot incomplete"></span> Incomplete</span>
+                        <span class="legend-item"><span class="legend-dot overdue"></span> Overdue</span>
+                    </div>
+                </div>
+
+                <!-- Bar Chart -->
+                <div class="chart-col chart-col-bar">
+                    <div class="chart-section-title">Top 5 Qualifications by User Count</div>
+                    <div class="bar-chart">
+                        <div class="bar-row">
+                            <span class="bar-label">Confined Space Entry</span>
+                            <div class="bar-track"><div class="bar-fill" style="width:75%"></div></div>
+                            <span class="bar-val">90</span>
+                        </div>
+                        <div class="bar-row">
+                            <span class="bar-label">Crane Operations Tra...</span>
+                            <div class="bar-track"><div class="bar-fill" style="width:100%"></div></div>
+                            <span class="bar-val">120</span>
+                        </div>
+                        <div class="bar-row">
+                            <span class="bar-label">Fall Protection Trai...</span>
+                            <div class="bar-track"><div class="bar-fill" style="width:58%"></div></div>
+                            <span class="bar-val">70</span>
+                        </div>
+                        <div class="bar-row">
+                            <span class="bar-label">First Aid & CPR</span>
+                            <div class="bar-track"><div class="bar-fill" style="width:55%"></div></div>
+                            <span class="bar-val">66</span>
+                        </div>
+                        <div class="bar-row">
+                            <span class="bar-label">Forklift Operator Ce...</span>
+                            <div class="bar-track"><div class="bar-fill" style="width:45%"></div></div>
+                            <span class="bar-val">54</span>
+                        </div>
+                        <div class="bar-axis">
+                            <span>0</span><span>30</span><span>60</span><span>90</span><span>120</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Qualification Completion Report ─────────────── -->
+        <div class="report-card" id="qualReport">
+            <div class="report-toolbar">
+                <div class="toolbar-left">
+                    <span class="report-card-title">Qualification Completion Report</span>
+                    <button class="sort-pill active-sort" data-col="qualification" data-dir="asc">
+                        Qualification <i class="fa-solid fa-arrow-up"></i>
+                    </button>
+                </div>
+                <div class="toolbar-right">
+                    <div class="search-wrap">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <input class="search-input" type="text" placeholder="Search..." id="qualSearch">
+                    </div>
+                    <button class="col-picker-btn" id="qualColPicker" title="Customize columns">
+                        <i class="fa-solid fa-table-columns"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="report-table-wrap">
+                <table class="report-table" id="qualTable">
+                    <thead>
+                        <tr>
+                            <th class="col-expand"></th>
+                            <th class="sortable-th" data-col="employee">Employee <i class="fa-solid fa-arrow-up sort-arrow"></i></th>
+                            <th>External ID</th>
+                            <th>Status</th>
+                            <th>Date Completed</th>
+                            <th>Duration</th>
+                            <th>Time Spent</th>
+                        </tr>
+                    </thead>
+                    <tbody id="qualTbody">
+                        <!-- Group 1 — Expanded -->
+                        <tr class="group-row" data-group="g1" data-expanded="true">
+                            <td class="expand-cell"><i class="fa-solid fa-chevron-down"></i></td>
+                            <td colspan="6" class="group-label">Qualification: Confined Space Entry</td>
+                        </tr>
+                        <tr class="data-row" data-group="g1">
+                            <td></td>
+                            <td>Hernandez, Thomas</td>
+                            <td>thomas.hernandez454</td>
+                            <td><span class="status-badge in-progress">In Progress</span></td>
+                            <td>2026-03-14</td>
+                            <td>3 hrs 12 min</td>
+                            <td>3 hrs</td>
+                        </tr>
+                        <tr class="data-row" data-group="g1">
+                            <td></td>
+                            <td>Nguyen, Emily</td>
+                            <td>emily.nguyen824</td>
+                            <td><span class="status-badge qualified">Qualified</span></td>
+                            <td>2026-02-18</td>
+                            <td>2 hrs 45 min</td>
+                            <td>1 hr 50 min</td>
+                        </tr>
+                        <tr class="data-row" data-group="g1">
+                            <td></td>
+                            <td>Patel, Raj</td>
+                            <td>raj.patel391</td>
+                            <td><span class="status-badge not-qualified">Not Qualified</span></td>
+                            <td>2026-01-30</td>
+                            <td>4 hrs 10 min</td>
+                            <td>4 hrs</td>
+                        </tr>
+                        <tr class="data-row" data-group="g1">
+                            <td></td>
+                            <td>Kim, Sarah</td>
+                            <td>sarah.kim612</td>
+                            <td><span class="status-badge in-progress">In Progress</span></td>
+                            <td>2026-04-05</td>
+                            <td>0 hrs 0 min</td>
+                            <td>0 hrs</td>
+                        </tr>
+
+                        <!-- Group 2 — Expanded -->
+                        <tr class="group-row" data-group="g2" data-expanded="true">
+                            <td class="expand-cell"><i class="fa-solid fa-chevron-down"></i></td>
+                            <td colspan="6" class="group-label">Qualification: Crane Operations Training</td>
+                        </tr>
+                        <tr class="data-row" data-group="g2">
+                            <td></td>
+                            <td>Hernandez, Thomas</td>
+                            <td>thomas.hernandez454</td>
+                            <td><span class="status-badge in-progress">In Progress</span></td>
+                            <td>2026-03-14</td>
+                            <td>3 hrs 12 min</td>
+                            <td>3 hrs</td>
+                        </tr>
+                        <tr class="data-row" data-group="g2">
+                            <td></td>
+                            <td>Nguyen, Emily</td>
+                            <td>emily.nguyen824</td>
+                            <td><span class="status-badge qualified">Qualified</span></td>
+                            <td>2026-02-18</td>
+                            <td>2 hrs 45 min</td>
+                            <td>1 hr 50 min</td>
+                        </tr>
+                        <tr class="data-row" data-group="g2">
+                            <td></td>
+                            <td>Patel, Raj</td>
+                            <td>raj.patel391</td>
+                            <td><span class="status-badge not-qualified">Not Qualified</span></td>
+                            <td>2026-01-30</td>
+                            <td>4 hrs 10 min</td>
+                            <td>4 hrs</td>
+                        </tr>
+                        <tr class="data-row" data-group="g2">
+                            <td></td>
+                            <td>Kim, Sarah</td>
+                            <td>sarah.kim612</td>
+                            <td><span class="status-badge in-progress">In Progress</span></td>
+                            <td>2026-04-05</td>
+                            <td>0 hrs 0 min</td>
+                            <td>0 hrs</td>
+                        </tr>
+
+                        <!-- Group 3 — Collapsed -->
+                        <tr class="group-row" data-group="g3" data-expanded="false">
+                            <td class="expand-cell"><i class="fa-solid fa-chevron-right"></i></td>
+                            <td colspan="6" class="group-label">Qualification: Fall Protection Training</td>
+                        </tr>
+                        <tr class="data-row" data-group="g3" style="display:none">
+                            <td></td>
+                            <td>Garcia, Maria</td>
+                            <td>maria.garcia201</td>
+                            <td><span class="status-badge overdue">Overdue</span></td>
+                            <td>—</td>
+                            <td>1 hr 30 min</td>
+                            <td>1 hr 30 min</td>
+                        </tr>
+
+                        <!-- Group 4 — Collapsed -->
+                        <tr class="group-row" data-group="g4" data-expanded="false">
+                            <td class="expand-cell"><i class="fa-solid fa-chevron-right"></i></td>
+                            <td colspan="6" class="group-label">Qualification: Forklift Operator Certification</td>
+                        </tr>
+                        <tr class="data-row" data-group="g4" style="display:none">
+                            <td></td>
+                            <td>Smith, James</td>
+                            <td>james.smith099</td>
+                            <td><span class="status-badge qualified">Qualified</span></td>
+                            <td>2026-01-10</td>
+                            <td>5 hrs</td>
+                            <td>4 hrs 45 min</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ── Qualification Training Details Report ────────── -->
+        <div class="report-card" id="trainingDetails">
+            <div class="report-toolbar">
+                <div class="toolbar-left">
+                    <span class="report-card-title">Qualification Training Details Report</span>
+                    <button class="sort-pill active-sort" data-col="qualification" data-dir="asc">
+                        Qualification <i class="fa-solid fa-arrow-up"></i>
+                    </button>
+                    <button class="sort-pill" data-col="requirement" data-dir="asc">
+                        Requirement <i class="fa-solid fa-arrow-up"></i>
+                    </button>
+                </div>
+                <div class="toolbar-right">
+                    <div class="search-wrap">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <input class="search-input" type="text" placeholder="Search..." id="trainingSearch">
+                    </div>
+                    <button class="col-picker-btn" id="trainingColPicker" title="Customize columns">
+                        <i class="fa-solid fa-table-columns"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="report-table-wrap">
+                <table class="report-table" id="trainingTable">
+                    <thead>
+                        <tr>
+                            <th class="col-expand"></th>
+                            <th class="sortable-th" data-col="activity">Activity <i class="fa-solid fa-arrow-up sort-arrow"></i></th>
+                            <th>User</th>
+                            <th>Status</th>
+                            <th>Due Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trainingTbody">
+                        <!-- L1: Qualification group — Expanded -->
+                        <tr class="group-row group-l1" data-group="tg1" data-expanded="true">
+                            <td class="expand-cell"><i class="fa-solid fa-chevron-down"></i></td>
+                            <td colspan="4" class="group-label">Qualification: Confined Space Entry</td>
+                        </tr>
+                        <!-- L2: Requirement sub-group — Expanded -->
+                        <tr class="group-row group-l2" data-group="tg1-r1" data-parent="tg1" data-expanded="true">
+                            <td class="expand-cell indent-1"><i class="fa-solid fa-chevron-down"></i></td>
+                            <td colspan="4" class="group-label-l2">Requirement: Managerial Duties</td>
+                        </tr>
+                        <tr class="data-row data-indent-2" data-group="tg1-r1" data-parent="tg1">
+                            <td></td>
+                            <td class="indent-2">Safety Training Certification</td>
+                            <td>Johnson, Emily</td>
+                            <td><span class="status-badge completed">Completed</span></td>
+                            <td>2026-01-22</td>
+                        </tr>
+                        <tr class="data-row data-indent-2" data-group="tg1-r1" data-parent="tg1">
+                            <td></td>
+                            <td class="indent-2">Project Management Basics</td>
+                            <td>Nguyen, David</td>
+                            <td><span class="status-badge incomplete">Incomplete</span></td>
+                            <td>2026-04-05</td>
+                        </tr>
+                        <tr class="data-row data-indent-2" data-group="tg1-r1" data-parent="tg1">
+                            <td></td>
+                            <td class="indent-2">Advanced Machinery Handling</td>
+                            <td>Smith, Olivia</td>
+                            <td><span class="status-badge in-progress">In Progress</span></td>
+                            <td>2026-02-10</td>
+                        </tr>
+                        <tr class="data-row data-indent-2" data-group="tg1-r1" data-parent="tg1">
+                            <td></td>
+                            <td class="indent-2">Team Leadership Workshop</td>
+                            <td>Garcia, Michael</td>
+                            <td><span class="status-badge completed">Completed</span></td>
+                            <td>2025-11-30</td>
+                        </tr>
+                        <tr class="data-row data-indent-2" data-group="tg1-r1" data-parent="tg1">
+                            <td></td>
+                            <td class="indent-2">Effective Communication Skills</td>
+                            <td>Patel, Aisha</td>
+                            <td><span class="status-badge incomplete">Incomplete</span></td>
+                            <td>2026-05-15</td>
+                        </tr>
+
+                        <!-- L1: Second Qualification group — Expanded -->
+                        <tr class="group-row group-l1" data-group="tg2" data-expanded="true">
+                            <td class="expand-cell"><i class="fa-solid fa-chevron-down"></i></td>
+                            <td colspan="4" class="group-label">Qualification: Crane Operations Training</td>
+                        </tr>
+                        <tr class="group-row group-l2" data-group="tg2-r1" data-parent="tg2" data-expanded="true">
+                            <td class="expand-cell indent-1"><i class="fa-solid fa-chevron-down"></i></td>
+                            <td colspan="4" class="group-label-l2">Requirement: Managerial Duties</td>
+                        </tr>
+                        <tr class="data-row data-indent-2" data-group="tg2-r1" data-parent="tg2">
+                            <td></td>
+                            <td class="indent-2">Safety Training Certification</td>
+                            <td>Johnson, Emily</td>
+                            <td><span class="status-badge completed">Completed</span></td>
+                            <td>2026-01-22</td>
+                        </tr>
+                        <tr class="data-row data-indent-2" data-group="tg2-r1" data-parent="tg2">
+                            <td></td>
+                            <td class="indent-2">Project Management Basics</td>
+                            <td>Nguyen, David</td>
+                            <td><span class="status-badge incomplete">Incomplete</span></td>
+                            <td>2026-04-05</td>
+                        </tr>
+                        <tr class="data-row data-indent-2" data-group="tg2-r1" data-parent="tg2">
+                            <td></td>
+                            <td class="indent-2">Advanced Machinery Handling</td>
+                            <td>Smith, Olivia</td>
+                            <td><span class="status-badge in-progress">In Progress</span></td>
+                            <td>2026-02-10</td>
+                        </tr>
+                        <tr class="data-row data-indent-2" data-group="tg2-r1" data-parent="tg2">
+                            <td></td>
+                            <td class="indent-2">Team Leadership Workshop</td>
+                            <td>Garcia, Michael</td>
+                            <td><span class="status-badge completed">Completed</span></td>
+                            <td>2025-11-30</td>
+                        </tr>
+                        <tr class="data-row data-indent-2" data-group="tg2-r1" data-parent="tg2">
+                            <td></td>
+                            <td class="indent-2">Effective Communication Skills</td>
+                            <td>Patel, Aisha</td>
+                            <td><span class="status-badge incomplete">Incomplete</span></td>
+                            <td>2026-05-15</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main><!-- /main-content -->
+
+    <!-- ── FILTER PANEL ───────────────────────────────────── -->
+    <aside class="filter-panel collapsed" id="filterPanel">
+        <div class="filter-panel-header">
+            <h3 class="filter-panel-title">Report Filters</h3>
+            <button class="filter-close-btn" id="closePanelBtn" title="Close filters">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="filter-panel-body">
+
+            <!-- Date Range -->
+            <div class="filter-section">
+                <label class="filter-label">Date Range</label>
+                <div class="date-range-input">
+                    <input type="text" class="date-input" value="04/01/2026 - 04/07/2026" readonly>
+                    <i class="fa-regular fa-calendar date-cal-icon"></i>
+                </div>
+            </div>
+
+            <div class="filter-divider"></div>
+
+            <!-- Qualifications -->
+            <div class="filter-section">
+                <label class="filter-label" id="qualFilterLabel">Qualifications</label>
+                <button class="filter-select-btn" id="selectQualsBtn">Select Qualifications</button>
+                <div class="filter-chips" id="qualChips"></div>
+            </div>
+
+            <div class="filter-divider"></div>
+
+            <!-- Users -->
+            <div class="filter-section">
+                <label class="filter-label" id="qualUsersFilterLabel">Users</label>
+                <button class="filter-select-btn" id="selectUsersBtn">Select Users</button>
+                <div class="filter-chips" id="qualUsersChips"></div>
+            </div>
+
+            <div class="filter-divider"></div>
+
+            <!-- Status Type -->
+            <div class="filter-section">
+                <label class="filter-label">Status Type</label>
+                <div class="filter-checkboxes">
+                    <label class="filter-check-row">
+                        <vaadin-checkbox theme="small" id="chk-completed"></vaadin-checkbox>
+                        <span>Completed</span>
+                    </label>
+                    <label class="filter-check-row">
+                        <vaadin-checkbox theme="small" id="chk-incomplete"></vaadin-checkbox>
+                        <span>Incomplete</span>
+                    </label>
+                    <label class="filter-check-row">
+                        <vaadin-checkbox theme="small" id="chk-in-progress"></vaadin-checkbox>
+                        <span>In Progress</span>
+                    </label>
+                    <label class="filter-check-row">
+                        <vaadin-checkbox theme="small" id="chk-overdue"></vaadin-checkbox>
+                        <span>Overdue</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="filter-divider"></div>
+
+            <!-- Location -->
+            <div class="filter-section">
+                <label class="filter-label">Location</label>
+                <div class="loc-dropdown" id="locDropdown">
+                    <button class="loc-trigger" id="locTrigger">
+                        <span id="locTriggerLabel">All</span>
+                        <i class="fa-solid fa-chevron-down loc-trigger-chevron"></i>
+                    </button>
+                    <div class="loc-panel" id="locPanel" style="display:none">
+                        <div class="loc-tree" id="locTree">
+
+                            <div class="loc-row loc-selected" data-loc="all">
+                                <div class="loc-row-spacer"></div>
+                                <span class="loc-row-name">All</span>
+                                <i class="fa-solid fa-check loc-check"></i>
+                            </div>
+
+                            <div class="loc-row" data-loc="org">
+                                <div class="loc-row-spacer"></div>
+                                <button class="loc-chevron" data-controls="loc-children-org"><i class="fa-solid fa-chevron-right"></i></button>
+                                <div class="loc-label">
+                                    <span class="loc-row-name">Vector Solutions</span>
+                                    <span class="loc-row-type">Organization</span>
+                                </div>
+                            </div>
+                            <div class="loc-children" id="loc-children-org" style="display:none">
+
+                                <div class="loc-row" data-loc="bay-area">
+                                    <div class="loc-row-spacer" style="width:12px"></div>
+                                    <button class="loc-chevron" data-controls="loc-children-bay-area"><i class="fa-solid fa-chevron-right"></i></button>
+                                    <div class="loc-label">
+                                        <span class="loc-row-name">Bay Area</span>
+                                        <span class="loc-row-type">Region</span>
+                                    </div>
+                                </div>
+                                <div class="loc-children" id="loc-children-bay-area" style="display:none">
+
+                                    <div class="loc-row" data-loc="san-francisco">
+                                        <div class="loc-row-spacer" style="width:24px"></div>
+                                        <button class="loc-chevron" data-controls="loc-children-sf"><i class="fa-solid fa-chevron-right"></i></button>
+                                        <div class="loc-label">
+                                            <span class="loc-row-name">San Francisco</span>
+                                            <span class="loc-row-type">Site</span>
+                                        </div>
+                                    </div>
+                                    <div class="loc-children" id="loc-children-sf" style="display:none">
+
+                                        <div class="loc-row" data-loc="basketball-dept">
+                                            <div class="loc-row-spacer" style="width:36px"></div>
+                                            <button class="loc-chevron" data-controls="loc-children-bball"><i class="fa-solid fa-chevron-right"></i></button>
+                                            <div class="loc-label">
+                                                <span class="loc-row-name">Basketball Department</span>
+                                                <span class="loc-row-type">Department</span>
+                                            </div>
+                                        </div>
+                                        <div class="loc-children" id="loc-children-bball" style="display:none">
+                                            <div class="loc-row" data-loc="warriors">
+                                                <div class="loc-row-spacer" style="width:52px"></div>
+                                                <div class="loc-label">
+                                                    <span class="loc-row-name">Warriors</span>
+                                                    <span class="loc-row-type">Team</span>
+                                                </div>
+                                            </div>
+                                            <div class="loc-row" data-loc="warriors-medical">
+                                                <div class="loc-row-spacer" style="width:52px"></div>
+                                                <div class="loc-label">
+                                                    <span class="loc-row-name">Warriors Medical Staff</span>
+                                                    <span class="loc-row-type">Group</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filter-divider"></div>
+
+            <!-- Additional options -->
+            <div class="filter-section filter-extra">
+                <label class="filter-check-row">
+                    <vaadin-checkbox theme="small" id="chk-future"></vaadin-checkbox>
+                    <span>Show Future Activities</span>
+                </label>
+                <label class="filter-check-row">
+                    <vaadin-checkbox theme="small" id="chk-ended"></vaadin-checkbox>
+                    <span>Show Activities that have ended</span>
+                </label>
+            </div>
+
+        </div><!-- /filter-panel-body -->
+
+        <div class="filter-panel-footer">
+            <vaadin-button theme="primary" id="applyFiltersBtn">Apply Filters</vaadin-button>
+        </div>
+    </aside>
+
+</div><!-- /page-layout -->
+
+<!-- ═══════════════════════════════════════════════════════
+     ACTIVITY EXCEPTION REPORT LAYOUT
+════════════════════════════════════════════════════════ -->
+<div class="page-layout" id="actExLayout" style="display:none">
+
+    <main class="main-content">
+
+        <!-- Page Title Row — title (timestamp below) left; Send Report + Export right -->
+        <div class="page-title-row report-header-row">
+            <div>
+                <h1 class="page-title">Activity Exception Report</h1>
+                <p class="page-subtitle">Last updated: November 11, 2025 at 11:22 PM</p>
+            </div>
+        </div>
+
+        <!-- Actions Row — Send Report + Export (left); saved-view selector + filter (right) -->
+        <div class="actions-row">
+            <div class="actions-left">
+                <vaadin-button theme="secondary small" id="actExEmailBtn">
+                    <i class="fa-regular fa-paper-plane" slot="prefix"></i> Send Report
+                </vaadin-button>
+                <vaadin-button theme="secondary small">
+                    <i class="fa-solid fa-file-export" slot="prefix"></i> Export
+                </vaadin-button>
+            </div>
+            <div class="actions-right">
+                <button type="button" class="sched-badge" id="actExViewSchedBtn" style="display:none" title="View scheduled reports">
+                    <i class="fa-regular fa-clock"></i> <span id="actExViewSchedLabel">0</span>
+                </button>
+                <!-- Apply Saved View — dropdown selector -->
+                <div class="view-selector" id="actExViewSelector">
+                    <span class="vs-chip" id="actExViewChip" style="display:none">
+                        <button type="button" class="vs-star" id="actExViewStar" title="Favorite this view" aria-label="Favorite this view">
+                            <i class="fa-regular fa-star"></i>
+                        </button>
+                        <span class="vs-label" id="actExViewSelectorLabel"></span>
+                        <button type="button" class="vs-clear" id="actExViewClear" title="Clear saved view" aria-label="Clear saved view">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </span>
+                    <button type="button" class="vs-trigger" id="actExViewSelectorTrigger" title="Choose a saved view">
+                        <span class="vs-placeholder" id="actExViewPlaceholder"><i class="fa-regular fa-bookmark vs-ph-icon"></i> Choose a saved view</span>
+                        <i class="fa-solid fa-chevron-down vs-chevron"></i>
+                    </button>
+                </div>
+                <!-- Report Filters toggle — icon only, next to the selector -->
+                <button class="filter-inline-toggle filter-icon-btn" id="actExFilterToggle" title="Report Filters" aria-label="Report Filters">
+                    <i class="fa-solid fa-sliders"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Filters bar — active filter chips (left) + Save/Update View (right) -->
+        <div class="filters-bar" id="actExFiltersBar" style="display:none">
+            <div class="active-filter-chips" id="actExActiveFilters"></div>
+            <div class="save-view-control" id="actExSaveViewControl" style="display:none">
+                <vaadin-button theme="secondary small" id="actExSaveViewBtn">
+                    <i class="fa-solid fa-floppy-disk" slot="prefix"></i> <span class="sv-main-label">Save View</span>
+                    <i class="fa-solid fa-chevron-down sv-caret" slot="suffix" style="font-size:10px"></i>
+                </vaadin-button>
+                <div class="split-btn-menu" id="actExSaveViewMenu" style="display:none">
+                    <button type="button" class="split-btn-item" id="actExSaveViewItem">
+                        <i class="fa-solid fa-floppy-disk"></i> <span class="sv-item-label">Save View</span>
+                    </button>
+                    <button type="button" class="split-btn-item" id="actExSaveNewViewItem">
+                        <i class="fa-regular fa-floppy-disk"></i> Save New View
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modified-view banner — shows only when filters are edited on an applied view -->
+        <div class="edited-banner" id="actExAppliedBanner" style="display:none">
+            <i class="fa-solid fa-pen edited-banner-icon"></i>
+            <span class="edited-banner-text">You've changed the filters for
+                <strong id="actExAppliedBannerName"></strong> — these edits aren't saved to the view.</span>
+            <button class="edited-banner-restore" id="actExRestoreViewBtn">
+                <i class="fa-solid fa-rotate-left"></i> Back to saved view
+            </button>
+        </div>
+
+        <!-- ── Completion Data Visualization ─────────────────── -->
+        <div class="report-card">
+            <div class="actex-viz-header">
+                <div class="actex-viz-title-area">
+                    <h2 class="report-card-title" style="padding:16px 0 0; margin:0">Completion Data Visualization</h2>
+                    <span class="date-badge" style="display:inline-flex; margin-top:4px">
+                        <i class="fa-regular fa-calendar"></i>&nbsp; Nov 1, 2025 – Nov 30, 2025
+                    </span>
+                </div>
+                <div class="chart-type-toggle">
+                    <button class="chart-type-btn active" data-chart="pie">Pie Chart</button>
+                    <button class="chart-type-btn" data-chart="bar">Bar Chart</button>
+                    <button class="chart-type-btn" data-chart="line">Line Graph</button>
+                </div>
+            </div>
+
+            <!-- PIE CHART VIEW -->
+            <div class="actex-chart-view" id="actExPieView">
+                <div class="actex-pie-area">
+                    <div class="actex-pie-ring">
+                        <span class="actex-ring-label left">In Progress: 25.0%</span>
+                        <div class="actex-pie-circle"></div>
+                        <div class="actex-ring-right-labels">
+                            <span class="actex-ring-label">Completed: 30.0%</span>
+                            <span class="actex-ring-label" style="color:#f59e0b">Overdue: 15.0%</span>
+                        </div>
+                    </div>
+                    <div class="actex-pie-bottom-label">Incomplete: 30.0%</div>
+                </div>
+                <div class="pie-legend actex-legend">
+                    <span class="legend-item"><span class="legend-dot completed"></span> Completed</span>
+                    <span class="legend-item"><span class="legend-dot in-progress"></span> In Progress</span>
+                    <span class="legend-item"><span class="legend-dot incomplete"></span> Incomplete</span>
+                    <span class="legend-item"><span class="legend-dot overdue"></span> Overdue</span>
+                </div>
+            </div>
+
+            <!-- BAR CHART VIEW -->
+            <div class="actex-chart-view" id="actExBarView" style="display:none">
+                <div class="actex-bar-outer">
+                    <div class="actex-bar-y-label">Number of Activities</div>
+                    <div class="actex-bar-body">
+                        <div class="actex-y-ticks">
+                            <span>1200</span><span>900</span><span>600</span><span>300</span><span>0</span>
+                        </div>
+                        <div class="actex-bars-container">
+                            <div class="actex-bar-col">
+                                <div class="actex-bar" style="height:100%; background:#22c55e"></div>
+                                <span class="actex-bar-x-label">Completed</span>
+                            </div>
+                            <div class="actex-bar-col">
+                                <div class="actex-bar" style="height:25%; background:#3b82f6"></div>
+                                <span class="actex-bar-x-label">In Progress</span>
+                            </div>
+                            <div class="actex-bar-col">
+                                <div class="actex-bar" style="height:4%; background:#9ca3af"></div>
+                                <span class="actex-bar-x-label">Incomplete</span>
+                            </div>
+                            <div class="actex-bar-col">
+                                <div class="actex-bar" style="height:2%; background:#f59e0b"></div>
+                                <span class="actex-bar-x-label">Overdue</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="pie-legend actex-legend">
+                    <span class="legend-item"><span class="legend-dot completed"></span> Completed</span>
+                    <span class="legend-item"><span class="legend-dot in-progress"></span> In Progress</span>
+                    <span class="legend-item"><span class="legend-dot incomplete"></span> Incomplete</span>
+                    <span class="legend-item"><span class="legend-dot overdue"></span> Overdue</span>
+                </div>
+            </div>
+
+            <!-- LINE GRAPH VIEW -->
+            <div class="actex-chart-view" id="actExLineView" style="display:none">
+                <div class="actex-line-outer">
+                    <div class="actex-bar-y-label">Number of Activities</div>
+                    <div class="actex-line-body">
+                        <div class="actex-y-ticks">
+                            <span>1200</span><span>900</span><span>600</span><span>300</span><span>0</span>
+                        </div>
+                        <div class="actex-line-chart-area">
+                            <svg class="actex-line-svg" viewBox="0 0 520 160" preserveAspectRatio="none">
+                                <line x1="0" y1="0"   x2="520" y2="0"   stroke="#f3f4f6" stroke-width="1"/>
+                                <line x1="0" y1="40"  x2="520" y2="40"  stroke="#f3f4f6" stroke-width="1"/>
+                                <line x1="0" y1="80"  x2="520" y2="80"  stroke="#f3f4f6" stroke-width="1"/>
+                                <line x1="0" y1="120" x2="520" y2="120" stroke="#f3f4f6" stroke-width="1"/>
+                                <line x1="0" y1="160" x2="520" y2="160" stroke="#e5e7eb" stroke-width="1"/>
+                                <polyline points="10,130 90,100 170,75 250,55 330,40 410,28 510,18" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linejoin="round"/>
+                                <polyline points="10,148 90,138 170,130 250,125 330,122 410,118 510,115" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linejoin="round"/>
+                                <polyline points="10,154 90,150 170,147 250,144 330,142 410,140 510,138" fill="none" stroke="#9ca3af" stroke-width="2.5" stroke-linejoin="round"/>
+                                <polyline points="10,157 90,155 170,154 250,153 330,152 410,151 510,150" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linejoin="round"/>
+                            </svg>
+                            <div class="actex-line-x-labels">
+                                <span>Nov 1</span><span>Nov 5</span><span>Nov 10</span><span>Nov 15</span><span>Nov 20</span><span>Nov 25</span><span>Nov 30</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="pie-legend actex-legend">
+                    <span class="legend-item"><span class="legend-dot completed"></span> Completed</span>
+                    <span class="legend-item"><span class="legend-dot in-progress"></span> In Progress</span>
+                    <span class="legend-item"><span class="legend-dot incomplete"></span> Incomplete</span>
+                    <span class="legend-item"><span class="legend-dot overdue"></span> Overdue</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Detailed Report ───────────────────────────────── -->
+        <div class="report-card">
+            <div class="report-toolbar">
+                <div class="toolbar-left">
+                    <span class="report-card-title">Detailed Report</span>
+                    <span class="date-badge"><i class="fa-regular fa-calendar"></i>&nbsp; Nov 1, 2025 – Nov 30, 2025</span>
+                </div>
+                <div class="toolbar-right">
+                    <vaadin-button theme="tertiary small" id="actExCustomizeCols">
+                        <i class="fa-solid fa-table-columns" slot="prefix"></i> Customize Columns
+                    </vaadin-button>
+                </div>
+            </div>
+            <div class="report-table-wrap">
+                <table class="report-table" id="actExTable">
+                    <thead>
+                        <tr>
+                            <th class="sortable-th">Activity <i class="fa-solid fa-arrow-up sort-arrow"></i></th>
+                            <th>User</th>
+                            <th>Username</th>
+                            <th>Assigned/Enrolled</th>
+                            <th>Status</th>
+                            <th>Completion Date</th>
+                            <th>Next Due Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="data-row"><td>Advanced Shooting Mechanics</td><td>Curry, Stephen</td><td>StephenCurry</td><td>Assigned</td><td><span class="status-badge in-progress">In Progress</span></td><td></td><td>2025-02-05</td></tr>
+                        <tr class="data-row"><td>Agility and Speed Training</td><td>Post, Quentin</td><td>QuentinPost</td><td>Assigned</td><td><span class="status-badge incomplete">Incomplete</span></td><td></td><td>2025-06-01</td></tr>
+                        <tr class="data-row"><td>Championship Mindset</td><td>VanVleet, Fred</td><td>FredVanVleet</td><td>Assigned</td><td><span class="status-badge incomplete">Incomplete</span></td><td></td><td>2025-01-18</td></tr>
+                        <tr class="data-row"><td>Communication on Court</td><td>Davis, Anthony</td><td>AnthonyDavis</td><td>Assigned</td><td><span class="status-badge completed">Completed</span></td><td>2024-01-02</td><td></td></tr>
+                        <tr class="data-row"><td>Core Strength Development</td><td>Payton II, Gary</td><td>GaryPaytonII</td><td>Assigned</td><td><span class="status-badge completed">Completed</span></td><td>2024-12-08</td><td></td></tr>
+                        <tr class="data-row"><td>Defensive Positioning Fundamentals</td><td>Green, Draymond</td><td>DraymondGreen</td><td>Assigned</td><td><span class="status-badge completed">Completed</span></td><td>2024-11-04</td><td></td></tr>
+                        <tr class="data-row"><td>Endurance and Stamina Building</td><td>Kerr, Steve</td><td>SteveKerr</td><td>Assigned</td><td><span class="status-badge completed">Completed</span></td><td>2024-08-09</td><td></td></tr>
+                        <tr class="data-row"><td>Fast Break Strategies</td><td>Thompson, Klay</td><td>KlayThompson</td><td>Assigned</td><td><span class="status-badge completed">Completed</span></td><td>2024-12-07</td><td></td></tr>
+                        <tr class="data-row"><td>Game Situation Decision Making</td><td>Sengun, Alperen</td><td>AlperenSengun</td><td>Assigned</td><td><span class="status-badge incomplete">Incomplete</span></td><td></td><td>2025-02-24</td></tr>
+                        <tr class="data-row"><td>Help Defense Rotations</td><td>Reaves, Austin</td><td>AustinReaves</td><td>Assigned</td><td><span class="status-badge incomplete">Incomplete</span></td><td></td><td>2025-02-07</td></tr>
+                        <tr class="data-row"><td>Injury Prevention Program</td><td>Iguodala, Andre</td><td>AndreIguodala</td><td>Assigned</td><td><span class="status-badge completed">Completed</span></td><td>2024-09-21</td><td></td></tr>
+                        <tr class="data-row"><td>Mental Toughness Training</td><td>Ham, Darvin</td><td>DarvinHam</td><td>Assigned</td><td><span class="status-badge completed">Completed</span></td><td>2024-07-11</td><td></td></tr>
+                        <tr class="data-row"><td>Motion Offense Principles</td><td>Hachimura, Rui</td><td>RuiHachimura</td><td>Assigned</td><td><span class="status-badge completed">Completed</span></td><td>2024-03-14</td><td></td></tr>
+                        <tr class="data-row"><td>Offensive Play Recognition</td><td>James, LeBron</td><td>LeBronJames</td><td>Assigned</td><td><span class="status-badge incomplete">Incomplete</span></td><td></td><td>2025-01-02</td></tr>
+                        <tr class="data-row"><td>Pick and Roll Execution</td><td>Wiggins, Andrew</td><td>AndrewWiggins</td><td>Assigned</td><td><span class="status-badge completed">Completed</span></td><td>2024-09-17</td><td></td></tr>
+                        <tr class="data-row"><td>Plyometric Exercises</td><td>Brown, Mike</td><td>MikeBrown</td><td>Assigned</td><td><span class="status-badge completed">Completed</span></td><td>2024-03-18</td><td></td></tr>
+                        <tr class="data-row"><td>Pressure Management</td><td>Green, Jalen</td><td>JalenGreen</td><td>Assigned</td><td><span class="status-badge completed">Completed</span></td><td>2024-05-08</td><td></td></tr>
+                        <tr class="data-row"><td>Team Leadership Development</td><td>Vanderbilt, Jarred</td><td>JarredVanderbilt</td><td>Assigned</td><td><span class="status-badge completed">Completed</span></td><td>2024-01-03</td><td></td></tr>
+                        <tr class="data-row"><td>Transition Defense</td><td>Russell, D'Angelo</td><td>DAngeloRussell</td><td>Assigned</td><td><span class="status-badge overdue">Overdue</span></td><td></td><td>2025-06-28</td></tr>
+                        <tr class="data-row"><td>Zone Defense Tactics</td><td>Podziemski, Brandin</td><td>BrandinPodziemski</td><td>Assigned</td><td><span class="status-badge incomplete">Incomplete</span></td><td></td><td>2025-01-28</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main><!-- /main-content -->
+
+    <!-- ── ACTIVITY EXCEPTION FILTER PANEL ──────────────────── -->
+    <aside class="filter-panel collapsed" id="actExFilterPanel">
+        <div class="filter-panel-header">
+            <h3 class="filter-panel-title">Report Filters</h3>
+            <button class="filter-close-btn" id="actExClosePanelBtn" title="Close filters">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="filter-panel-body">
+
+            <div class="filter-section">
+                <label class="filter-label">Date Range</label>
+                <div class="date-range-input">
+                    <input type="text" class="date-input" value="11/01/2025 - 11/30/2025" readonly>
+                    <i class="fa-regular fa-calendar date-cal-icon"></i>
+                </div>
+            </div>
+
+            <div class="filter-divider"></div>
+
+            <div class="filter-section">
+                <label class="filter-label" id="actExActivitiesFilterLabel">Activities</label>
+                <button class="filter-select-btn" id="actExSelectActivitiesBtn">Select Activities</button>
+                <div class="filter-chips" id="actExActivitiesChips"></div>
+            </div>
+
+            <div class="filter-divider"></div>
+
+            <div class="filter-section">
+                <label class="filter-label" id="actExUsersFilterLabel">Users</label>
+                <button class="filter-select-btn" id="actExSelectUsersBtn">Select Users</button>
+                <div class="filter-chips" id="actExUsersChips"></div>
+            </div>
+
+            <div class="filter-divider"></div>
+
+            <div class="filter-section">
+                <label class="filter-label">Status Type</label>
+                <div class="filter-checkboxes">
+                    <label class="filter-check-row"><vaadin-checkbox theme="small"></vaadin-checkbox><span>Completed</span></label>
+                    <label class="filter-check-row"><vaadin-checkbox theme="small"></vaadin-checkbox><span>Incomplete</span></label>
+                    <label class="filter-check-row"><vaadin-checkbox theme="small"></vaadin-checkbox><span>In Progress</span></label>
+                    <label class="filter-check-row"><vaadin-checkbox theme="small"></vaadin-checkbox><span>Overdue</span></label>
+                </div>
+            </div>
+
+            <div class="filter-divider"></div>
+
+            <div class="filter-section">
+                <label class="filter-label">Assigned Status</label>
+                <div class="filter-checkboxes">
+                    <label class="filter-check-row"><vaadin-checkbox theme="small"></vaadin-checkbox><span>Assigned</span></label>
+                    <label class="filter-check-row"><vaadin-checkbox theme="small"></vaadin-checkbox><span>Enrolled</span></label>
+                    <label class="filter-check-row"><vaadin-checkbox theme="small"></vaadin-checkbox><span>Enrolled (License)</span></label>
+                </div>
+            </div>
+
+            <div class="filter-divider"></div>
+
+            <div class="filter-section">
+                <label class="filter-label">Report Type</label>
+                <div class="filter-radios">
+                    <label class="filter-radio-row"><vaadin-radio-button theme="small" name="actex-rtype" checked></vaadin-radio-button><span>Both</span></label>
+                    <label class="filter-radio-row"><vaadin-radio-button theme="small" name="actex-rtype"></vaadin-radio-button><span>Chart Only</span></label>
+                    <label class="filter-radio-row"><vaadin-radio-button theme="small" name="actex-rtype"></vaadin-radio-button><span>Details Only</span></label>
+                </div>
+            </div>
+
+            <div class="filter-divider"></div>
+
+            <div class="filter-section filter-extra">
+                <label class="filter-check-row"><vaadin-checkbox theme="small"></vaadin-checkbox><span>Show Future Activities</span></label>
+                <label class="filter-check-row"><vaadin-checkbox theme="small"></vaadin-checkbox><span>Show Activities that have ended</span></label>
+            </div>
+
+        </div><!-- /filter-panel-body -->
+        <div class="filter-panel-footer">
+            <vaadin-button theme="primary" id="actExApplyFiltersBtn">Apply Filters</vaadin-button>
+        </div>
+    </aside>
+
+</div><!-- /actExLayout -->
+
+<!-- ═══════════════════════════════════════════════════════
+     MANAGE SAVED VIEWS PAGE
+════════════════════════════════════════════════════════ -->
+<div class="msv-layout" id="manageSavedViewsLayout" style="display:none">
+    <div class="main-content">
+
+        <div class="page-title-row">
+            <div>
+                <h1 class="page-title">Manage Saved Views</h1>
+                <p class="page-subtitle">Create, edit, and delete saved views across all reports</p>
+            </div>
+        </div>
+
+        <div class="report-card">
+            <div class="report-toolbar">
+                <div class="toolbar-left">
+                    <span class="report-card-title">All Saved Views</span>
+                </div>
+                <div class="toolbar-right">
+                    <div class="search-wrap">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <input class="search-input" type="text" placeholder="Search saved views..." id="msvSearch">
+                    </div>
+                </div>
+            </div>
+            <div class="msv-filter-bar">
+                <label class="msv-filter-label" for="msvReportFilter">Report:</label>
+                <select class="msv-report-select" id="msvReportFilter">
+                    <option value="">All Reports</option>
+                    <option value="Qualification Report">Qualification Report</option>
+                    <option value="Activity Exception Report">Activity Exception Report</option>
+                </select>
+            </div>
+            <div class="report-table-wrap">
+                <table class="report-table" id="msvTable">
+                    <thead>
+                        <tr>
+                            <th style="width:36px"></th>
+                            <th class="sortable-th">Name <i class="fa-solid fa-arrow-up sort-arrow"></i></th>
+                            <th>Report Type</th>
+                            <th>Description</th>
+                            <th>Filters</th>
+                            <th style="width:80px"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="msvTbody"></tbody>
+                </table>
+                <div class="sr-empty" id="msvEmpty" style="display:none">
+                    <i class="fa-regular fa-folder-open sr-empty-icon"></i>
+                    <p class="sr-empty-title">No saved views found</p>
+                    <p class="sr-empty-sub">No saved views match your search or report filter. Try clearing the filters above.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     EXPERIMENTAL: VIEWS & SCHEDULES — merged page (own sidenav item).
+     Self-contained trial — to remove entirely, delete:
+       1. this whole #viewsSchedulesLayout block
+       2. the 'views-schedules' entries in REPORTS + NAV_ITEMS (dupe.js)
+       3. the isCombined branch in performNavigation() (dupe.js)
+       4. the CSS block marked "EXPERIMENTAL combined view"
+       5. the JS block marked "EXPERIMENTAL combined view"
+════════════════════════════════════════════════════════════════════ -->
+<div class="msv-layout" id="viewsSchedulesLayout" style="display:none">
+    <div class="main-content">
+
+        <div class="page-title-row">
+            <div>
+                <h1 class="page-title">Views &amp; Schedules</h1>
+                <p class="page-subtitle">Every saved view with its filters and its scheduled deliveries — manage both in one place</p>
+            </div>
+            <div class="cmb-header-tools">
+                <select class="msv-report-select" id="cmbReportFilter">
+                    <option value="">All report types</option>
+                    <option value="Qualification Report">Qualification Report</option>
+                    <option value="Activity Exception Report">Activity Exception Report</option>
+                </select>
+                <div class="search-wrap">
+                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                    <input class="search-input" type="text" id="cmbSearch" placeholder="Search...">
+                </div>
+                <div class="cmb-viewmode" id="cmbViewMode">
+                    <button type="button" class="cmb-vm-btn active" data-mode="cards" title="Card view"><i class="fa-solid fa-table-cells-large"></i> Cards</button>
+                    <button type="button" class="cmb-vm-btn" data-mode="list" title="List view"><i class="fa-solid fa-list"></i> List</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating cards / list — no surrounding card box -->
+        <div class="cmb-cards" id="cmbCards"></div>
+        <div class="cmb-list" id="cmbList" style="display:none"></div>
+
+        <div class="sr-empty" id="cmbEmpty" style="display:none">
+            <i class="fa-regular fa-folder-open sr-empty-icon"></i>
+            <p class="sr-empty-title">No saved views yet</p>
+            <p class="sr-empty-sub">Create a saved view from any report, then schedule deliveries for it here.</p>
+        </div>
+
+    </div>
+</div>
+<!-- ════ /EXPERIMENTAL Views & Schedules page ════ -->
+
+<!-- ═══════════════════════════════════════════════════════
+     SCHEDULED REPORTS — manage recurring emailed reports
+════════════════════════════════════════════════════════ -->
+<div class="msv-layout" id="scheduledReportsLayout" style="display:none">
+    <div class="main-content">
+
+        <div class="page-title-row">
+            <div>
+                <h1 class="page-title">Scheduled Reports</h1>
+                <p class="page-subtitle">Manage reports that are automatically emailed on a recurring schedule</p>
+            </div>
+        </div>
+
+        <div class="report-card">
+            <div class="report-toolbar">
+                <div class="toolbar-left">
+                    <label class="msv-filter-label" for="srReportFilter">Report:</label>
+                    <select class="msv-report-select" id="srReportFilter">
+                        <option value="">All Reports</option>
+                        <option value="Qualification Report">Qualification Report</option>
+                        <option value="Activity Exception Report">Activity Exception Report</option>
+                    </select>
+                    <label class="msv-filter-label" for="srSort" style="margin-left:18px">Sort by:</label>
+                    <select class="msv-report-select" id="srSort">
+                        <option value="report">Report type</option>
+                        <option value="name">Saved view name</option>
+                    </select>
+                </div>
+                <div class="toolbar-right">
+                    <div class="search-wrap">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <input class="search-input" type="text" placeholder="Search scheduled reports..." id="srSearch">
+                    </div>
+                </div>
+            </div>
+            <div class="report-table-wrap">
+                <table class="report-table sr-table" id="srTable">
+                    <thead>
+                        <tr>
+                            <th style="width:22%">Name</th>
+                            <th style="width:19%">Schedule</th>
+                            <th style="width:17%">Recipients</th>
+                            <th style="width:16%">Sent As</th>
+                            <th style="width:12%">Next Send</th>
+                            <th style="width:14%"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="srTbody"></tbody>
+                </table>
+                <div class="sr-empty" id="srEmpty" style="display:none">
+                    <i class="fa-regular fa-calendar-xmark sr-empty-icon"></i>
+                    <p class="sr-empty-title">No scheduled reports</p>
+                    <p class="sr-empty-sub">Apply a saved view to a report, then use the <strong>Send Report</strong> button to schedule a recurring delivery.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Placeholder shown when a non-qualification report is selected -->
+<div class="report-placeholder" id="reportPlaceholder" style="display:none">
+    <div class="placeholder-inner">
+        <i class="fa-regular fa-chart-bar placeholder-icon"></i>
+        <p class="placeholder-title" id="placeholderTitle">Report</p>
+        <p class="placeholder-sub">This report would load here. Select a different report from the left panel.</p>
+    </div>
+</div>
+
+</div><!-- /content-wrapper -->
+
+<!-- ═══════════════════════════════════════════════════════
+     SAVE NEW VIEW MODAL
+════════════════════════════════════════════════════════ -->
+<vaadin-dialog id="saveViewDialog" header-title="Create New Saved View"></vaadin-dialog>
+
+<!-- ═══════════════════════════════════════════════════════
+     SELECT QUALIFICATIONS MODAL
+════════════════════════════════════════════════════════ -->
+<vaadin-dialog id="selectQualsDialog" header-title="Select Qualifications"></vaadin-dialog>
+
+<!-- ═══════════════════════════════════════════════════════
+     SELECT ACTIVITIES MODAL (Activity Exception Report)
+════════════════════════════════════════════════════════ -->
+<vaadin-dialog id="selectActivitiesDialog" header-title="Select Activities"></vaadin-dialog>
+
+<!-- ═══════════════════════════════════════════════════════
+     SELECT USERS MODAL (Qualification Report)
+════════════════════════════════════════════════════════ -->
+<vaadin-dialog id="selectUsersDialog" header-title="Select Users"></vaadin-dialog>
+
+<!-- ═══════════════════════════════════════════════════════
+     SELECT USERS MODAL (Activity Exception Report)
+════════════════════════════════════════════════════════ -->
+<vaadin-dialog id="selectActExUsersDialog" header-title="Select Users"></vaadin-dialog>
+
+<!-- ═══════════════════════════════════════════════════════
+     SELECT SAVED VIEW MODAL
+════════════════════════════════════════════════════════ -->
+<vaadin-dialog id="selectSavedViewDialog" header-title="Choose a saved view"></vaadin-dialog>
+
+<!-- ═══════════════════════════════════════════════════════
+     EMAIL / SCHEDULE REPORT MODAL
+════════════════════════════════════════════════════════ -->
+<vaadin-dialog id="emailReportDialog" header-title="Email Report"></vaadin-dialog>
+
+<!-- ═══════════════════════════════════════════════════════
+     SELECT RECIPIENTS MODAL (browse all users)
+════════════════════════════════════════════════════════ -->
+<vaadin-dialog id="recipientPickerDialog" header-title="Select Recipients"></vaadin-dialog>
+
+<!-- ═══════════════════════════════════════════════════════
+     SAVE-VIEW-TO-SCHEDULE MODAL (shown when scheduling without a saved view)
+════════════════════════════════════════════════════════ -->
+<vaadin-dialog id="saveViewForScheduleDialog" header-title="Save as Saved View"></vaadin-dialog>
+
+<!-- ═══════════════════════════════════════════════════════
+     EDIT-SAVED-VIEW WARNING MODAL (live link to schedules)
+════════════════════════════════════════════════════════ -->
+<vaadin-dialog id="viewEditWarningDialog" header-title="Update Saved View?"></vaadin-dialog>
+
+<!-- ═══════════════════════════════════════════════════════
+     SAVED VIEW DETAILS MODAL (view filters from the schedules table)
+════════════════════════════════════════════════════════ -->
+<vaadin-dialog id="savedViewDetailsDialog" header-title="Saved View"></vaadin-dialog>
+
+<!-- ═══════════════════════════════════════════════════════
+     DELETE SCHEDULED REPORT CONFIRMATION MODAL
+════════════════════════════════════════════════════════ -->
+<vaadin-dialog id="scheduleDeleteDialog" header-title="Delete Scheduled Report"></vaadin-dialog>
+
+<!-- ═══════════════════════════════════════════════════════
+     DELETE SAVED VIEW CONFIRMATION MODAL
+════════════════════════════════════════════════════════ -->
+<vaadin-dialog id="savedViewDeleteDialog" header-title="Delete Saved View"></vaadin-dialog>
+
+<!-- ═══════════════════════════════════════════════════════
+     UNSAVED CHANGES MODAL (blocks leaving a report with edited applied view)
+════════════════════════════════════════════════════════ -->
+<vaadin-dialog id="unsavedChangesDialog" header-title="Unsaved Changes"></vaadin-dialog>
+
+<script src="dupe.js"></script>
+</body>
+</html>
