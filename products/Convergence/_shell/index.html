@@ -844,6 +844,7 @@ const NAV_TREE = [
     {id:"qual-requirements",label:"Requirements"},
     {id:"qual-quals",       label:"Qualifications"},
     {id:"qual-builder",     label:"Qualification Builder (AI)"},
+    {id:"qual-builder-manual", label:"Qualification Builder (Manual)"},
     {id:"qual-copy",        label:"Copy Qualifications"},
   ]},
   { id:"assignments",     label:"Assignments",                  icon:"assignments",     children:[
@@ -1068,9 +1069,27 @@ function renderContent() {
   // ── Route → content mapping ────────────────────────────────────────────────
   if (activeRoute === 'qual-builder') {
     slot.innerHTML = `<iframe
-      src="../Qualification-Builder/index.html"
+      src="../Qualification-Builder/ai-qualification-builder.html"
       style="width:100%;height:100%;border:none;display:block;"
-      title="Qualification Builder"
+      title="AI Qualification Builder"
+    ></iframe>`;
+  } else if (activeRoute === 'qual-builder-manual') {
+    slot.innerHTML = `<iframe
+      src="../Qualification-Builder/manual-qualification-builder.html"
+      style="width:100%;height:100%;border:none;display:block;"
+      title="Manual Qualification Builder"
+    ></iframe>`;
+  } else if (activeRoute === 'qual-requirements') {
+    slot.innerHTML = `<iframe
+      src="../Qualification-Builder/manual-requirement-builder.html"
+      style="width:100%;height:100%;border:none;display:block;"
+      title="Manage Requirements / Manual Requirement Builder"
+    ></iframe>`;
+  } else if (activeRoute === 'act-activities') {
+    slot.innerHTML = `<iframe
+      src="../Qualification-Builder/manage-activities.html"
+      style="width:100%;height:100%;border:none;display:block;"
+      title="Manage Activities"
     ></iframe>`;
   } else if (activeRoute === 'qual-quals') {
     slot.innerHTML = `<iframe
@@ -1255,6 +1274,25 @@ document.addEventListener('click', function() {
 });
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
+// Deep link: open the shell at a specific route with ?route=<id>
+// (e.g. _shell/?route=qual-builder-manual). Looks the id up in NAV_TREE so the
+// breadcrumb label / parent group stay correct.
+(function applyRouteParam() {
+  const want = new URLSearchParams(location.search).get('route');
+  if (!want) return;
+  for (const node of NAV_TREE) {
+    if (node.solo && node.id === want) {
+      activeRoute = node.id; routeLabel = node.label; routeParent = null;
+      return;
+    }
+    const child = (node.children || []).find(c => c.id === want);
+    if (child) {
+      activeRoute = child.id; routeLabel = child.label; routeParent = node.label;
+      adminOpen = new Set([node.id]);
+      return;
+    }
+  }
+})();
 updateSidenavVisibility();
 updateChrome();
 renderAdminNav();

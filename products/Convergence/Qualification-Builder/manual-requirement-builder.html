@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manual Requirement Builder | Convergence LMS</title>
+  <!-- Convergence shell integration: open bare → redirect into shell; in iframe → hide own chrome. -->
+  <script>
+    if (window.self === window.top) { location.replace('../_shell/index.html?route=qual-requirements'); }
+    else { document.documentElement.classList.add('embedded'); }
+  </script>
+  <!-- Vector Web Components (core + themes) -->
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <!-- Open Sans + Font Awesome -->
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+  <!-- AG Grid v32 (community) for the Requirements management grid -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/styles/ag-grid.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/styles/ag-theme-quartz.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/dist/ag-grid-community.min.js"></script>
+  <style>
+    /* ════════════════════════════════════════════════
+       BASE  (copied from the Qualification Builder prototype
+       so the two pages are pixel-consistent)
+    ════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: 'Open Sans', sans-serif; font-size: 13px; color: #1a1a2e; overflow: hidden; }
+
+    :root { --vblue: #0271ce; --vblue-hover: #015ba6; --vblue-10: #0271ce1a; --badge-text: #0065ba; }
+
+    /* Content-only layout: one full-height column, no app chrome */
+    .main-col { display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: #f4f6f8; }
+
+    /* ─── Screens (list ⇄ builder) ─── */
+    .screen { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+    .screen.active { display: flex; }
+
+    /* ════════════════════════════════
+       LIST SCREEN (Manage Requirements)
+    ════════════════════════════════ */
+    .list-scroll { flex: 1; overflow-y: auto; }
+
+    .list-page-header { background: #fff; border-bottom: 1px solid #e5e9ef; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .list-page-header h1 { font-size: 18px; font-weight: 700; color: #1a1a2e; }
+    .list-page-header .header-sub { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+
+    .list-toolbar { background: #fff; border-bottom: 1px solid #e5e9ef; padding: 10px 24px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .search-wrap { position: relative; flex: 1; max-width: 320px; }
+    .search-wrap i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 12px; }
+    .search-wrap input { width: 100%; border: 1px solid #d1d5db; border-radius: 6px; padding: 7px 10px 7px 30px; font-family: inherit; font-size: 12.5px; outline: none; transition: border-color 0.15s; }
+    .search-wrap input:focus { border-color: #2563eb; }
+    .filter-select { border: 1px solid #d1d5db; border-radius: 6px; padding: 7px 28px 7px 10px; font-family: inherit; font-size: 12.5px; color: #374151; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239ca3af'/%3E%3C/svg%3E") no-repeat right 10px center; -webkit-appearance: none; outline: none; cursor: pointer; }
+
+    .list-body { padding: 20px 24px; }
+
+    /* Slim bulk-actions bar (shown when ≥1 grid row is selected) */
+    .bulk-bar { display: flex; align-items: center; gap: 12px; background: var(--vblue-10); border: 1px solid #0271ce4d; border-radius: 8px; padding: 7px 14px; margin-bottom: 12px; font-size: 12.5px; color: #1a1a2e; }
+    .bulk-bar.hidden { display: none; }
+    .bulk-bar .bulk-count { font-weight: 700; color: var(--vblue); }
+    .bulk-bar .btn-danger-soft { color: #dc2626; border-color: #fca5a5; }
+    .bulk-bar .btn-danger-soft:hover { background: #fee2e2; }
+
+    /* Rounded white card hosting the grid */
+    .grid-card { background: #fff; border-radius: 8px; }
+
+    /* ─── AG Grid theme overrides → match the Vector design system ─── */
+    .ag-theme-quartz {
+      --ag-font-family: 'Open Sans', sans-serif;
+      --ag-font-size: 12.5px;
+      --ag-foreground-color: #374151;
+      --ag-header-background-color: #f8fafc;
+      --ag-header-foreground-color: #6b7280;
+      --ag-border-color: #e5e9ef;
+      --ag-row-hover-color: #f8fafc;
+      --ag-selected-row-background-color: #0271ce14;
+      --ag-checkbox-checked-color: #0271ce;
+      --ag-active-color: #0271ce;
+      --ag-wrapper-border-radius: 8px;
+    }
+    /* Header text styled like the reference table headers (11px / 700 / uppercase) */
+    .ag-theme-quartz .ag-header-cell-text { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+    /* Vertically center custom cell content (name renderer is two lines) */
+    .ag-theme-quartz .ag-cell { display: flex; align-items: center; line-height: 1.4; }
+    .cell-center { justify-content: flex-start; }
+
+    /* Requirement Name cell: bold clickable name + muted description */
+    .grid-name-wrap { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+    .grid-name { font-weight: 600; color: #1a1a2e; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .grid-name:hover { color: var(--vblue); text-decoration: underline; }
+    .grid-desc { font-size: 11.5px; color: #9ca3af; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Status chip (same pill-with-dot pattern as the reference) */
+    .status-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .status-chip.draft { background: #f3f4f6; color: #6b7280; }
+    .status-chip.active { background: #dcfce7; color: #15803d; }
+    .status-chip.review { background: #fef3c7; color: #b45309; }
+    .status-chip::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+    /* Row hover action icons (pencil / copy / trash) inside the pinned actions column */
+    .grid-row-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.1s; }
+    .ag-row-hover .grid-row-actions { opacity: 1; }
+    .row-action-btn { width: 26px; height: 26px; border: none; background: none; cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 12px; transition: background 0.1s, color 0.1s; }
+    .row-action-btn:hover { background: #f3f4f6; color: #374151; }
+    .row-action-btn.danger:hover { background: #fee2e2; color: #dc2626; }
+
+    /* ════════════════════════════════
+       BUILDER SCREEN (single requirement)
+    ════════════════════════════════ */
+    .builder-layout { flex: 1; display: flex; overflow: hidden; }
+    .lp-form-col { flex: 1; overflow-y: auto; padding-bottom: 64px; }
+
+    /* Sticky compact section header (breadcrumb + title + kebab) */
+    .lp-section-header { background: #fff; border-bottom: 1px solid #e5e9ef; padding: 14px 24px 12px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 5; }
+    .lp-section-header h1 { font-size: 16px; font-weight: 700; color: #1a1a2e; }
+    .builder-title-row { display: flex; align-items: center; gap: 10px; }
+    .lp-section-header .header-actions { display: flex; align-items: center; gap: 8px; }
+    .lp-section-header .header-sub { font-size: 12px; color: #9ca3af; margin-top: 2px; display: block; }
+
+    .builder-breadcrumb { font-size: 11.5px; color: #9ca3af; margin-bottom: 3px; }
+    .bh-back { display: inline-flex; align-items: center; gap: 6px; border: none; background: none; padding: 0; cursor: pointer; font-family: inherit; font-size: 12px; color: var(--vblue); }
+    .bh-back:hover { text-decoration: underline; }
+
+    /* Header control icon buttons (kebab etc.) */
+    .hdr-icon-btn { width: 28px; height: 28px; border: none; background: none; cursor: pointer; border-radius: 5px; display: flex; align-items: center; justify-content: center; color: #6b7280; font-size: 13px; transition: background 0.1s, color 0.1s; }
+    .hdr-icon-btn:hover { background: #f1f3f5; color: #374151; }
+    .hdr-icon-btn:disabled { opacity: 0.35; cursor: default; }
+
+    /* ── Requirement details section (thumbnail, fields, settings) ── */
+    .builder-details { background: #fff; border-bottom: 1px solid #e5e9ef; padding: 16px 24px 20px; }
+    .bh-thumb { width: 64px; height: 64px; border-radius: 10px; flex-shrink: 0; border: 1.5px dashed #cbd5e1; background: #f8fafc; color: #9ca3af; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer; font-size: 10.5px; font-family: inherit; position: relative; transition: border-color 0.12s, color 0.12s; margin-bottom: 16px; }
+    .bh-thumb:hover { border-color: var(--vblue); color: var(--vblue); }
+    .bh-thumb i { font-size: 16px; }
+    .bh-thumb.filled { border: 1px solid var(--vblue); background: linear-gradient(135deg, var(--vblue), #014f91); color: #fff; }
+    .bh-thumb.filled i { font-size: 24px; }
+    .bh-thumb-x { position: absolute; top: -7px; right: -7px; width: 18px; height: 18px; border-radius: 50%; background: #1f2937; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 9px; }
+
+    .builder-details .form-field { max-width: 720px; }
+    .builder-details .sec-settings.bh-accordion { margin: 0 0 12px; }
+    .builder-details .sec-settings.bh-accordion:last-child { margin-bottom: 0; }
+    .form-field { margin-bottom: 18px; }
+    .form-field label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 5px; }
+    .form-field label .req { color: #dc2626; margin-left: 2px; }
+
+    /* Field validation error */
+    .field-error-msg { color: #dc2626; font-size: 11.5px; margin-top: 5px; display: none; }
+    .field-error-msg.show { display: block; }
+    .form-field.invalid vaadin-text-field::part(input-field) { border-color: #dc2626; }
+
+    /* Blue metadata pill badges (activity count, total time) */
+    .meta-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .meta-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 999px; background: var(--vblue-10); color: var(--badge-text); font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .meta-pill i { font-size: 11px; }
+
+    /* Edit-protection banner (requirement is used by qualifications) */
+    .edit-banner { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px; background: #fff7ed; border: 1px solid #fdba74; margin-bottom: 18px; }
+    .edit-banner.hidden { display: none; }
+    .edit-banner i { color: #ea580c; font-size: 16px; flex-shrink: 0; }
+    .edit-banner .eb-text { font-size: 12.5px; color: #9a3412; line-height: 1.45; }
+    .edit-banner .eb-text strong { color: #7c2d12; }
+
+    /* ── Settings accordion (closed by default, nested card) ── */
+    .sec-settings { border-top: 1px solid #f0f2f5; }
+    .sec-settings-head { display: flex; align-items: center; gap: 9px; padding: 11px 16px; cursor: pointer; user-select: none; font-size: 12.5px; font-weight: 600; color: #374151; }
+    .sec-settings-head .gear { color: #6b7280; font-size: 13px; }
+    .sec-settings-head .caret { margin-left: auto; color: #9ca3af; font-size: 11px; transition: transform 0.18s; }
+    .sec-settings.open .sec-settings-head .caret { transform: rotate(90deg); }
+    .sec-settings-body { padding: 0 16px 14px 40px; display: none; }
+    .sec-settings.open .sec-settings-body { display: block; }
+    .sec-settings.settings-card { border: 1px solid #e6e9f0; border-radius: 8px; background: #f8fafc; margin: 14px 16px; overflow: hidden; }
+    .sec-settings.settings-card .sec-settings-head { padding: 12px 16px; }
+    .sec-settings.settings-card .sec-settings-body { padding: 4px 16px 14px 38px; }
+    .setting-group { margin-bottom: 6px; }
+    .setting-group > .setting-label { display: block; font-size: 11.5px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 8px; }
+    .setting-radio { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 7px; cursor: pointer; }
+    .setting-radio input[type=radio] { margin-top: 2px; accent-color: var(--vblue); flex-shrink: 0; }
+    .setting-radio span { font-size: 12.5px; color: #374151; line-height: 1.45; }
+    .count-badge { background: #f3f4f6; color: #6b7280; font-size: 11px; padding: 1px 6px; border-radius: 10px; }
+
+    /* ── Activities section card (same shell as the reference's .req-block) ── */
+    .lp-form-body { padding: 20px 24px; }
+    .req-block { background: #fff; border: 1px solid #e5e9ef; border-radius: 8px; margin-bottom: 16px; position: relative; box-shadow: 0 1px 4px -1px rgba(28,48,74,0.18); }
+    .req-block-header { display: flex; align-items: flex-start; padding: 14px 16px 12px; border-bottom: 1px solid #f0f2f5; gap: 10px; }
+    .sec-overline { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #6b7280; letter-spacing: 0.2px; margin-bottom: 3px; }
+    .sec-overline i { color: var(--vblue); font-size: 11px; }
+    .sec-headtext { flex: 1; min-width: 0; }
+    .sec-title-row { display: flex; align-items: center; gap: 8px; }
+    .sec-title { font-size: 20px; font-weight: 600; color: #1a1a2e; line-height: 24px; }
+    .req-body { padding: 8px 16px 14px; }
+
+    .empty-state { text-align: center; padding: 28px 16px; color: #9ca3af; font-size: 12.5px; line-height: 1.6; }
+
+    /* Activity cards */
+    .activity-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+    .activity-card { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #fafbfc; border: 1px solid #e5e9ef; border-radius: 5px; }
+    .activity-card.flash { outline: 2px solid var(--vblue); outline-offset: 1px; }
+    .activity-icon { width: 28px; height: 28px; border-radius: 5px; background: var(--vblue-10); color: var(--vblue); display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+    .activity-info { flex: 1; }
+    .activity-name { font-size: 12.5px; font-weight: 600; color: #1a1a2e; line-height: 1.3; }
+    .activity-sub { font-size: 11px; color: #9ca3af; margin-top: 1px; }
+    .activity-duration { font-size: 11px; color: #6b7280; background: #f3f4f6; padding: 2px 7px; border-radius: 3px; }
+    .act-ctrls { display: flex; align-items: center; gap: 1px; flex-shrink: 0; }
+    .act-ctrl-btn { width: 24px; height: 24px; border: none; background: none; cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 11px; transition: background 0.1s, color 0.1s; }
+    .act-ctrl-btn:hover { background: #eef0f3; color: #374151; }
+    .act-ctrl-btn:disabled { opacity: 0.3; cursor: default; }
+
+    .add-activity-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border: 1px solid var(--vblue); border-radius: 5px; color: var(--vblue); background: #fff; font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.1s; font-family: inherit; }
+    .add-activity-btn:hover { background: var(--vblue-10); }
+
+    /* Context menus (kebabs) */
+    .ctx-menu-wrap { position: relative; display: inline-block; }
+    .ctx-menu { position: absolute; top: calc(100% + 4px); right: 0; background: #fff; border: 1px solid #e5e9ef; border-radius: 7px; box-shadow: 0 6px 20px rgba(0,0,0,0.12); z-index: 200; min-width: 230px; overflow: hidden; }
+    .ctx-menu.hidden { display: none; }
+    .ctx-menu-item { display: flex; align-items: center; gap: 9px; padding: 9px 14px; font-size: 12.5px; color: #374151; cursor: pointer; transition: background 0.1s; }
+    .ctx-menu-item:hover { background: #f3f4f6; }
+    .ctx-menu-item.danger { color: #dc2626; }
+    .ctx-menu-item.danger:hover { background: #fee2e2; }
+    .ctx-menu-item i { width: 14px; text-align: center; color: #9ca3af; font-size: 11px; }
+    .ctx-menu-item.danger i { color: #f87171; }
+    .ctx-menu-divider { height: 1px; background: #f3f4f6; margin: 2px 0; }
+
+    /* ── Right rail: Activity Structure ── */
+    .req-structure-panel { width: 210px; flex-shrink: 0; background: #fff; border-left: 1px solid #e5e9ef; display: flex; flex-direction: column; overflow: hidden; }
+    .ssp-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid #e5e9ef; font-size: 12px; font-weight: 700; color: #374151; }
+    .ssp-header i { color: #9ca3af; font-size: 11px; }
+    .ssp-body { padding: 12px; overflow-y: auto; flex: 1; }
+    .ssp-chip { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 5px; cursor: pointer; margin-bottom: 4px; transition: background 0.1s; }
+    .ssp-chip:hover { background: #f3f4f6; }
+    .ssp-chip.active { background: var(--vblue-10); }
+    .ssp-dot { width: 20px; height: 20px; border-radius: 50%; background: var(--vblue); color: #fff; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .ssp-label { font-size: 12px; color: #374151; line-height: 1.3; min-width: 0; }
+    .ssp-label strong { display: block; font-weight: 600; }
+    .ssp-label small { color: #9ca3af; font-size: 11px; }
+
+    /* ── Bottom action bar ── */
+    .action-bar { background: #fff; border-top: 1px solid #dde1e7; padding: 10px 24px; display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-shrink: 0; }
+
+    /* ════════════════════════════════
+       OVERLAYS & DIALOGS
+    ════════════════════════════════ */
+    .overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.5); z-index: 700; display: flex; align-items: center; justify-content: center; }
+    .overlay.hidden { display: none; }
+
+    .warning-dialog { background: #fff; border-radius: 10px; width: 420px; padding: 28px; box-shadow: 0 25px 60px rgba(0,0,0,0.18); text-align: center; }
+    .warning-dialog .warn-icon { font-size: 36px; margin-bottom: 14px; color: #f59e0b; }
+    .warning-dialog h3 { font-size: 15px; font-weight: 700; margin-bottom: 8px; color: #1a1a2e; }
+    .warning-dialog p { font-size: 13px; color: #6b7280; margin-bottom: 22px; line-height: 1.6; }
+    .warning-dialog-btns { display: flex; gap: 8px; justify-content: center; }
+
+    /* Generic mini dialog (delete / move) */
+    .mini-dialog { background: #fff; border-radius: 12px; width: 460px; max-width: calc(100vw - 48px); padding: 26px 28px 22px; box-shadow: 0 25px 60px rgba(0,0,0,0.2); }
+    .mini-dialog h3 { font-size: 16px; font-weight: 700; color: #1a1a2e; margin-bottom: 8px; }
+    .mini-dialog p { font-size: 13px; color: #6b7280; line-height: 1.6; margin-bottom: 18px; }
+    .mini-dialog .md-icon { font-size: 30px; margin-bottom: 12px; }
+    .mini-dialog .md-icon.danger { color: #dc2626; }
+    .mini-dialog-btns { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+
+    /* Move dialog fields */
+    .move-field { margin-bottom: 14px; }
+    .move-field > label { display: block; font-size: 11.5px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 9px; }
+    .move-radio { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer; font-size: 13px; color: #374151; }
+    .move-radio input { accent-color: var(--vblue); }
+    .move-select { width: 100%; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px 10px; font-family: inherit; font-size: 13px; color: #374151; background: #fff; outline: none; }
+    .move-select:focus { border-color: var(--vblue); }
+    .move-field.hidden { display: none; }
+
+    /* Audit History modal */
+    .audit-modal { background: #fff; border-radius: 12px; width: 760px; max-width: calc(100vw - 48px); padding: 26px 28px 22px; box-shadow: 0 25px 60px rgba(0,0,0,0.22); }
+    .audit-modal h3 { font-size: 18px; font-weight: 700; color: #1a1a2e; }
+    .audit-modal .audit-sub { font-size: 12.5px; color: #6b7280; margin-top: 3px; }
+    .audit-table-wrap { border: 1px solid #eef0f3; border-radius: 8px; overflow: hidden; margin: 18px 0; }
+    .audit-table { width: 100%; border-collapse: collapse; }
+    .audit-table th { background: #f8fafc; text-align: left; padding: 10px 16px; font-size: 11.5px; font-weight: 700; color: #6b7280; border-bottom: 1px solid #eef0f3; }
+    .audit-table td { padding: 11px 16px; font-size: 12.5px; color: #374151; border-bottom: 1px solid #f3f4f6; }
+    .audit-table tr:last-child td { border-bottom: none; }
+    .audit-user { color: #1a1a2e; }
+    .audit-user small { display: block; color: #9ca3af; font-size: 11px; }
+    .audit-footer { display: flex; justify-content: flex-end; gap: 10px; }
+
+    /* Attributes rows + Add Attribute modal */
+    .attr-input-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
+    .attr-input-row:last-child { border-bottom: none; }
+    .attr-input-label { font-size: 12px; font-weight: 600; color: #374151; min-width: 130px; flex-shrink: 0; }
+    .attr-input-row input[type=text], .attr-input-row select { flex: 1; border: 1px solid #d1d5db; border-radius: 5px; padding: 6px 10px; font-family: inherit; font-size: 12.5px; color: #374151; outline: none; transition: border-color 0.15s; background: #fff; }
+    .attr-input-row input[type=text]:focus, .attr-input-row select:focus { border-color: #2563eb; }
+    .attr-input-row textarea { flex: 1; border: 1px solid #d1d5db; border-radius: 5px; padding: 6px 10px; font-family: inherit; font-size: 12.5px; color: #374151; outline: none; resize: vertical; min-height: 34px; }
+    .attr-input-row input[type=number], .attr-input-row input[type=date] { flex: 1; border: 1px solid #d1d5db; border-radius: 5px; padding: 6px 10px; font-family: inherit; font-size: 12.5px; color: #374151; outline: none; }
+    .attr-remove-btn { width: 24px; height: 24px; border: none; background: none; cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #d1d5db; font-size: 12px; transition: background 0.1s, color 0.1s; flex-shrink: 0; }
+    .attr-remove-btn:hover { background: #fee2e2; color: #dc2626; }
+    .attr-row-check { width: 16px; height: 16px; border: 1.5px solid #cbd5e1; border-radius: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: transparent; font-size: 9px; cursor: pointer; }
+    .attr-input-row.sel .attr-row-check { background: var(--vblue); border-color: var(--vblue); color: #fff; }
+    .attr-bulk-bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 0 12px; }
+    .attr-bulk-bar.hidden { display: none; }
+
+    .attr-modal { background: #fff; border-radius: 12px; width: 520px; max-width: calc(100vw - 48px); max-height: calc(100vh - 120px); display: flex; flex-direction: column; box-shadow: 0 25px 60px rgba(0,0,0,0.2); overflow: hidden; }
+    .attr-modal-head { padding: 22px 24px 12px; }
+    .attr-modal-head h3 { font-size: 17px; font-weight: 700; color: #1a1a2e; }
+    .attr-modal-head p { font-size: 12.5px; color: #6b7280; margin-top: 4px; }
+    .attr-modal-search { padding: 0 24px 12px; }
+    .attr-modal-search input { width: 100%; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px 12px; font-family: inherit; font-size: 13px; outline: none; }
+    .attr-modal-search input:focus { border-color: var(--vblue); }
+    .attr-modal-list { flex: 1; overflow-y: auto; padding: 0 12px; border-top: 1px solid #eef0f3; border-bottom: 1px solid #eef0f3; }
+    .attr-opt { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 6px; cursor: pointer; }
+    .attr-opt:hover { background: #f8fafc; }
+    .attr-opt.disabled { opacity: 0.45; cursor: not-allowed; }
+    .attr-opt .attr-cb { width: 17px; height: 17px; border: 1.5px solid #cbd5e1; border-radius: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: transparent; font-size: 10px; }
+    .attr-opt.checked .attr-cb { background: var(--vblue); border-color: var(--vblue); color: #fff; }
+    .attr-opt .attr-opt-name { font-size: 13px; color: #1a1a2e; flex: 1; }
+    .attr-opt .attr-opt-type { font-size: 11px; color: #9ca3af; }
+    .attr-opt .added-tag { font-size: 10px; font-weight: 700; color: #6b7280; background: #f3f4f6; padding: 2px 7px; border-radius: 10px; }
+    .attr-modal-foot { padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+    .attr-modal-foot .sel-count { font-size: 12.5px; color: #6b7280; }
+
+    /* Select Activities slide-in panel */
+    .select-activity-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 340px; background: #fff; border-left: 1px solid #dde1e7; box-shadow: -4px 0 24px rgba(0,0,0,0.1); z-index: 650; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.25s ease; }
+    .select-activity-panel.open { transform: translateX(0); }
+    .sap-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #e5e9ef; }
+    .sap-header h3 { font-size: 14px; font-weight: 700; color: #1a1a2e; }
+    .sap-close { width: 28px; height: 28px; border: none; background: none; cursor: pointer; color: #9ca3af; border-radius: 5px; display: flex; align-items: center; justify-content: center; transition: background 0.1s, color 0.1s; }
+    .sap-close:hover { background: #f3f4f6; color: #374151; }
+    .sap-search { padding: 10px 14px; border-bottom: 1px solid #e5e9ef; }
+    .sap-search-wrap { position: relative; }
+    .sap-search-wrap i { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); font-size: 11px; color: #9ca3af; }
+    .sap-search input { width: 100%; border: 1px solid #d1d5db; border-radius: 5px; padding: 7px 10px 7px 28px; font-family: inherit; font-size: 12.5px; outline: none; }
+    .sap-search input:focus { border-color: #2563eb; }
+    .sap-filters { display: flex; gap: 6px; padding: 8px 14px; border-bottom: 1px solid #e5e9ef; flex-wrap: wrap; }
+    .filter-chip { padding: 3px 10px; border: 1px solid #e5e9ef; border-radius: 20px; font-size: 11px; color: #6b7280; cursor: pointer; transition: all 0.1s; }
+    .filter-chip.active { border-color: #2563eb; background: #eff6ff; color: #2563eb; font-weight: 600; }
+    .sap-list { flex: 1; overflow-y: auto; }
+    .sap-item { display: flex; align-items: center; padding: 10px 14px; border-bottom: 1px solid #f3f4f6; cursor: pointer; gap: 10px; transition: background 0.1s; }
+    .sap-item:hover { background: #f8fafc; }
+    .sap-item.selected { background: #eff6ff; }
+    .sap-check { width: 16px; height: 16px; border: 1.5px solid #d1d5db; border-radius: 3px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 9px; color: transparent; transition: all 0.1s; }
+    .sap-item.selected .sap-check { background: #2563eb; border-color: #2563eb; color: #fff; }
+    .sap-item-info { flex: 1; }
+    .sap-item-name { font-size: 12.5px; font-weight: 600; color: #1a1a2e; line-height: 1.3; }
+    .sap-item-sub { font-size: 11px; color: #9ca3af; margin-top: 1px; }
+    .sap-item-dur { font-size: 11px; color: #6b7280; background: #f3f4f6; padding: 2px 7px; border-radius: 3px; }
+    .sap-footer { padding: 12px 14px; border-top: 1px solid #e5e9ef; display: flex; justify-content: flex-end; gap: 8px; }
+
+    /* Post-save confirmation screen */
+    .confirm-screen { position: fixed; inset: 0; background: #f4f6f8; z-index: 720; display: flex; align-items: center; justify-content: center; }
+    .confirm-screen.hidden { display: none; }
+    .confirm-card { background: #fff; border: 1px solid #e5e9ef; border-radius: 14px; width: 560px; max-width: calc(100vw - 48px); padding: 40px 40px 32px; text-align: center; box-shadow: 0 18px 50px rgba(0,0,0,0.12); }
+    .confirm-check { width: 72px; height: 72px; border-radius: 50%; background: #dcfce7; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 34px; margin: 0 auto 18px; }
+    .confirm-card h2 { font-size: 22px; font-weight: 700; color: #1a1a2e; margin-bottom: 6px; }
+    .confirm-card .confirm-sub { font-size: 13px; color: #6b7280; margin-bottom: 22px; }
+    .confirm-summary { border: 1px solid #e5e9ef; border-radius: 10px; padding: 18px; text-align: left; margin-bottom: 24px; }
+    .confirm-summary .cs-name { font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .confirm-stats { display: flex; gap: 10px; flex-wrap: wrap; }
+    .confirm-stat { flex: 1; min-width: 120px; background: var(--vblue-10); border-radius: 8px; padding: 12px 14px; }
+    .confirm-stat .cs-val { font-size: 20px; font-weight: 700; color: var(--vblue); line-height: 1.1; }
+    .confirm-stat .cs-lbl { font-size: 11.5px; color: #6b7280; margin-top: 3px; }
+    .confirm-actions { display: flex; gap: 12px; justify-content: center; }
+
+    /* Toast */
+    .toast { position: fixed; bottom: 68px; left: 50%; transform: translateX(-50%) translateY(10px); background: #1f2937; color: #fff; padding: 9px 18px; border-radius: 8px; font-size: 12.5px; font-weight: 600; opacity: 0; transition: opacity 0.2s, transform 0.2s; z-index: 9999; pointer-events: none; white-space: nowrap; display: flex; align-items: center; gap: 10px; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+
+    /* ─── Buttons ─── */
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; transition: background 0.1s; }
+    .btn-primary { background: var(--vblue); color: #fff; }
+    .btn-primary:hover { background: var(--vblue-hover); }
+    .btn-secondary { background: #fff; color: #374151; border: 1px solid #d1d5db; }
+    .btn-secondary:hover { background: #f9fafb; }
+    .btn-ghost { background: transparent; color: #374151; }
+    .btn-ghost:hover { background: #f3f4f6; }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div class="main-col" id="main-col">
+
+  <!-- ════════════════════════════════════════════════
+       SCREEN 1 · REQUIREMENTS MANAGEMENT (AG Grid list)
+  ════════════════════════════════════════════════ -->
+  <div class="screen active" id="screen-list">
+    <div class="list-scroll">
+
+      <!-- Page header: title + create action -->
+      <div class="list-page-header">
+        <div>
+          <h1>Requirements</h1>
+          <div class="header-sub">Manage reusable requirements for your organization. Requirements group activities and are used by qualifications.</div>
+        </div>
+        <button class="btn btn-primary" onclick="startManual()"><i class="fa-solid fa-plus"></i> Create Requirement</button>
+      </div>
+
+      <!-- Toolbar: search (grid quick filter) + status filter + export -->
+      <div class="list-toolbar">
+        <div class="search-wrap">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="list-search" placeholder="Search requirements..." oninput="onSearchInput(this.value)">
+        </div>
+        <select class="filter-select" id="status-filter" onchange="onStatusFilter(this.value)">
+          <option value="all">All Statuses</option>
+          <option value="Active">Active</option>
+          <option value="Draft">Draft</option>
+          <option value="Under Review">Under Review</option>
+        </select>
+        <div style="margin-left:auto">
+          <button class="btn btn-secondary btn-sm" onclick="exportList()"><i class="fa-solid fa-download"></i> Export</button>
+        </div>
+      </div>
+
+      <div class="list-body">
+        <!-- Bulk actions bar (shown when ≥1 row is selected) -->
+        <div class="bulk-bar hidden" id="bulk-bar">
+          <span class="bulk-count" id="bulk-count">0 selected</span>
+          <span style="color:#9ca3af">·</span>
+          <button class="btn btn-secondary btn-sm btn-danger-soft" onclick="bulkDeleteAsk()"><i class="fa-regular fa-trash-can"></i> Delete Selected</button>
+        </div>
+
+        <!-- AG Grid lives inside this rounded white card -->
+        <div class="grid-card">
+          <div id="req-grid" class="ag-theme-quartz"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════
+       SCREEN 2 · MANUAL REQUIREMENT BUILDER
+  ════════════════════════════════════════════════ -->
+  <div class="screen" id="screen-builder">
+    <div class="builder-layout">
+      <div class="lp-form-col" id="lp-form-col">
+
+        <!-- ── Sticky compact section header: breadcrumb + title + kebab ── -->
+        <div class="lp-section-header">
+          <div>
+            <div class="builder-breadcrumb">
+              <button class="bh-back" onclick="cancelBuilder()"><i class="fa-solid fa-arrow-left"></i> Requirements</button>
+            </div>
+            <div class="builder-title-row">
+              <h1 id="builder-page-title">Create New Requirement</h1>
+            </div>
+            <span class="header-sub">Set up the requirement details, then add activities below.</span>
+          </div>
+          <div class="header-actions">
+            <div class="ctx-menu-wrap">
+              <button class="hdr-icon-btn" onclick="toggleBuilderMore(event)" title="More options"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+              <div class="ctx-menu hidden" id="builder-more-menu">
+                <div class="ctx-menu-item" onclick="closeBuilderMore();openAudit()"><i class="fa-solid fa-clock-rotate-left"></i> View audit history</div>
+                <div class="ctx-menu-item danger hidden" id="builder-delete-item" onclick="deleteFromBuilder()"><i class="fa-regular fa-trash-can"></i> Delete requirement</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Requirement details section (thumbnail, pills, fields, settings, attributes) ── -->
+        <div class="builder-details">
+
+          <!-- Edit-protection banner: shown when the requirement is used by qualifications -->
+          <div class="edit-banner hidden" id="edit-banner">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <div class="eb-text" id="edit-banner-text"></div>
+          </div>
+
+          <!-- Thumbnail (click to add a placeholder, × to remove) -->
+          <button class="bh-thumb" id="bh-thumb" onclick="toggleThumb()"></button>
+
+          <!-- Meta pills: activity count + total training time -->
+          <div class="meta-pills" id="overview-pills" style="margin-bottom:16px"></div>
+
+          <div class="form-field">
+            <label>Title <span class="req">*</span></label>
+            <vaadin-text-field theme="outlined" id="req-title" placeholder="e.g., AC Motor Safety Knowledge" style="width:100%"></vaadin-text-field>
+          </div>
+          <div class="form-field">
+            <label>Description</label>
+            <vaadin-text-area theme="outlined" id="req-description" placeholder="Describe this requirement and what the learner must demonstrate..." rows="3" style="width:100%"></vaadin-text-area>
+          </div>
+          <div class="form-field">
+            <label>External ID (UID)</label>
+            <vaadin-text-field theme="outlined" id="req-ext-id" value="1234567890" style="width:360px"></vaadin-text-field>
+          </div>
+
+          <!-- Requirement Settings accordion (closed by default) -->
+          <div class="sec-settings settings-card bh-accordion" id="req-settings">
+            <div class="sec-settings-head" onclick="toggleReqSettings()">
+              <i class="fa-solid fa-gear gear"></i>
+              <span>Requirement Settings</span>
+              <i class="fa-solid fa-chevron-right caret"></i>
+            </div>
+            <div class="sec-settings-body">
+              <div class="setting-group">
+                <span class="setting-label">Activities Required to Complete</span>
+                <label class="setting-radio"><input type="radio" name="b-req-count" value="all" checked onchange="setReqRequired('all')"><span>All activities</span></label>
+                <label class="setting-radio"><input type="radio" name="b-req-count" value="number" onchange="setReqRequired('number')"><span>A specific number:<input type="number" id="req-count-input" min="1" value="1" disabled style="width:62px;margin-left:8px;border:1px solid #d1d5db;border-radius:5px;padding:4px 8px;font-family:inherit;font-size:12.5px" oninput="setReqCount(this.value)"></span></label>
+                <div class="field-error-msg" id="req-count-err"></div>
+              </div>
+              <div class="setting-group" style="margin-top:14px">
+                <span class="setting-label">Activity Completion Order</span>
+                <label class="setting-radio"><input type="radio" name="b-req-order" value="any" checked onchange="setReqOrder('any')"><span>Any order. Activities can be completed in any sequence.</span></label>
+                <label class="setting-radio"><input type="radio" name="b-req-order" value="sequential" onchange="setReqOrder('sequential')"><span>Sequential. Activities must be completed in order.</span></label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Attributes accordion (full attribute system, 23 types) -->
+          <div class="sec-settings settings-card bh-accordion" id="attrs-accordion">
+            <div class="sec-settings-head" onclick="toggleAttrs()">
+              <i class="fa-solid fa-tags gear"></i>
+              <span>Attributes</span>
+              <span class="count-badge" id="attrs-count-badge" style="margin-left:8px">0</span>
+              <i class="fa-solid fa-chevron-right caret"></i>
+            </div>
+            <div class="sec-settings-body">
+              <div class="attr-bulk-bar hidden" id="attr-bulk-bar">
+                <span id="attr-bulk-count">0 selected</span>
+                <button class="btn btn-secondary btn-sm" onclick="removeSelectedAttrs()"><i class="fa-regular fa-trash-can"></i> Remove Selected</button>
+              </div>
+              <div id="attrs-list"></div>
+              <button class="btn btn-secondary btn-sm" style="margin-top:12px" onclick="openAttrModal()"><i class="fa-solid fa-plus"></i> Add Attribute</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Body: the single Activities section card ── -->
+        <div class="lp-form-body">
+          <div class="req-block" id="acts-block">
+            <div class="req-block-header">
+              <div class="sec-headtext">
+                <div class="sec-overline"><i class="fa-regular fa-rectangle-list"></i> Activities</div>
+                <div class="sec-title-row"><span class="sec-title">Activities</span></div>
+                <div class="meta-pills">
+                  <span class="meta-pill" id="acts-count-pill"><i class="fa-regular fa-rectangle-list"></i> 0 Activities</span>
+                </div>
+              </div>
+            </div>
+            <div class="req-body">
+              <div id="b-acts-container"></div>
+              <button class="add-activity-btn" onclick="openPanel()"><i class="fa-solid fa-plus"></i> Add Existing Activity</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── Right rail: Activity Structure ── -->
+      <div class="req-structure-panel">
+        <div class="ssp-header">Activity Structure <i class="fa-regular fa-rectangle-list"></i></div>
+        <div class="ssp-body" id="ssp-body"><div style="font-size:12px;color:#9ca3af;padding:8px 4px">No activities yet.</div></div>
+      </div>
+    </div>
+
+    <!-- ── Bottom action bar ── -->
+    <div class="action-bar">
+      <button class="btn btn-secondary" onclick="cancelBuilder()">Cancel</button>
+      <button class="btn btn-secondary" id="save-draft-btn" onclick="saveDraft()">Save Draft</button>
+      <button class="btn btn-primary" id="save-btn" onclick="saveReq()">Save</button>
+    </div>
+  </div>
+
+</div><!-- /main-col -->
+
+<!-- ══ TOAST ══ -->
+<div class="toast" id="toast"></div>
+
+<!-- ══ AUDIT HISTORY MODAL ══ -->
+<div class="overlay hidden" id="audit-overlay">
+  <div class="audit-modal">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between">
+      <div>
+        <h3>Requirement Audit History</h3>
+        <div class="audit-sub">This is a record of what changes have been made to this requirement.</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="closeAudit()" style="padding:4px 8px"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="audit-table-wrap">
+      <table class="audit-table">
+        <thead><tr><th>Username</th><th>Action</th><th>Date</th><th>Scope</th></tr></thead>
+        <tbody>
+          <tr><td class="audit-user">Andy Xia<small>andy.xia@vectorsolutions.com</small></td><td>Created</td><td>11/17/2025 5:29:43 PM</td><td>CreateRequirement</td></tr>
+          <tr><td class="audit-user">Andy Xia<small>andy.xia@vectorsolutions.com</small></td><td>Updated</td><td>12/17/2025 5:29:43 PM</td><td>UpdateRequirement</td></tr>
+          <tr><td class="audit-user">Andy Xia<small>andy.xia@vectorsolutions.com</small></td><td>Updated</td><td>1/17/2026 4:23:13 PM</td><td>UpdateRequirement</td></tr>
+          <tr><td class="audit-user">Andy Xia<small>andy.xia@vectorsolutions.com</small></td><td>Updated</td><td>2/1/2026 4:23:13 PM</td><td>UpdateRequirement</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="audit-footer">
+      <button class="btn btn-secondary" onclick="refreshAudit()"><i class="fa-solid fa-rotate"></i> Refresh</button>
+      <button class="btn btn-primary" onclick="closeAudit()">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SELECT ACTIVITIES SLIDE-IN PANEL ══ -->
+<div class="select-activity-panel" id="activity-panel">
+  <div class="sap-header">
+    <h3>Select Activities</h3>
+    <button class="sap-close" onclick="closeActivityPanel()"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="sap-search">
+    <div class="sap-search-wrap">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" placeholder="Search activities..." oninput="renderActivityPanel(this.value)">
+    </div>
+  </div>
+  <div class="sap-filters">
+    <div class="filter-chip active" onclick="setFilter('all',this)">All</div>
+    <div class="filter-chip" onclick="setFilter('course',this)">Courses</div>
+    <div class="filter-chip" onclick="setFilter('quiz',this)">Quizzes</div>
+    <div class="filter-chip" onclick="setFilter('video',this)">Videos</div>
+    <div class="filter-chip" onclick="setFilter('doc',this)">Documents</div>
+  </div>
+  <div class="sap-list" id="sap-list"></div>
+  <div class="sap-footer">
+    <button class="btn btn-secondary" onclick="closeActivityPanel()">Cancel</button>
+    <button class="btn btn-primary" id="sap-add-btn" disabled onclick="addSelectedActivities()">Add Selected</button>
+  </div>
+</div>
+
+<!-- ══ UNSAVED CHANGES WARNING ══ -->
+<div class="overlay hidden" id="unsaved-overlay">
+  <div class="warning-dialog">
+    <div class="warn-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+    <h3>You have unsaved changes.</h3>
+    <p>If you leave now, any unsaved changes will be lost. Do you want to save before leaving?</p>
+    <div class="warning-dialog-btns">
+      <button class="btn btn-secondary" onclick="document.getElementById('unsaved-overlay').classList.add('hidden')">Cancel</button>
+      <button class="btn btn-ghost" onclick="doLeave()">Discard Changes</button>
+      <button class="btn btn-primary" onclick="saveDraft();doLeave()">Save and Leave</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DELETE CONFIRMATION DIALOG (single row / bulk / from builder) ══ -->
+<div class="overlay hidden" id="delete-overlay">
+  <div class="mini-dialog">
+    <div class="md-icon danger"><i class="fa-regular fa-trash-can"></i></div>
+    <h3 id="delete-title">Delete this requirement?</h3>
+    <p id="delete-text">This action cannot be undone. The underlying activities will not be removed.</p>
+    <div class="mini-dialog-btns">
+      <button class="btn btn-secondary" onclick="closeDelete()">Cancel</button>
+      <button class="btn btn-primary" id="delete-confirm-btn" style="background:#dc2626" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MOVE-TO-POSITION DIALOG (activities) ══ -->
+<div class="overlay hidden" id="move-overlay">
+  <div class="mini-dialog">
+    <h3>Move Activity</h3>
+    <p>Choose where to move this activity.</p>
+    <div class="move-field">
+      <label>Position</label>
+      <label class="move-radio"><input type="radio" name="move-pos" value="top" checked onchange="onMovePosChange()"> Top</label>
+      <label class="move-radio"><input type="radio" name="move-pos" value="bottom" onchange="onMovePosChange()"> Bottom</label>
+      <label class="move-radio"><input type="radio" name="move-pos" value="before" onchange="onMovePosChange()"> Before a specific activity</label>
+      <label class="move-radio"><input type="radio" name="move-pos" value="after" onchange="onMovePosChange()"> After a specific activity</label>
+    </div>
+    <div class="move-field" id="move-target-field">
+      <label>Target activity</label>
+      <select class="move-select" id="move-target"></select>
+    </div>
+    <div class="mini-dialog-btns">
+      <button class="btn btn-secondary" onclick="closeMove()">Cancel</button>
+      <button class="btn btn-primary" onclick="applyMove()">Move</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADD ATTRIBUTE MODAL (23 types) ══ -->
+<div class="overlay hidden" id="attr-modal-overlay">
+  <div class="attr-modal">
+    <div class="attr-modal-head">
+      <h3>Add Attributes</h3>
+      <p>Select one or more attributes to attach to this requirement. Attributes already added are disabled.</p>
+    </div>
+    <div class="attr-modal-search">
+      <input type="text" id="attr-modal-search" placeholder="Search attributes..." oninput="renderAttrModalList(this.value)">
+    </div>
+    <div class="attr-modal-list" id="attr-modal-list"></div>
+    <div class="attr-modal-foot">
+      <span class="sel-count" id="attr-sel-count">0 selected</span>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary" onclick="closeAttrModal()">Cancel</button>
+        <button class="btn btn-primary" id="attr-modal-add-btn" disabled onclick="addSelectedAttrs()">Add</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ POST-SAVE CONFIRMATION SCREEN ══ -->
+<div class="confirm-screen hidden" id="confirm-screen">
+  <div class="confirm-card">
+    <div class="confirm-check"><i class="fa-solid fa-check"></i></div>
+    <h2 id="confirm-heading">Requirement Created</h2>
+    <div class="confirm-sub" id="confirm-sub">Your requirement has been created successfully.</div>
+    <div class="confirm-summary">
+      <div class="cs-name" id="confirm-name"><i class="fa-solid fa-shield-halved"></i> Untitled</div>
+      <div class="confirm-stats">
+        <div class="confirm-stat"><div class="cs-val" id="confirm-time">0m</div><div class="cs-lbl">Total training time</div></div>
+        <div class="confirm-stat"><div class="cs-val" id="confirm-acts">0</div><div class="cs-lbl">Activities</div></div>
+      </div>
+    </div>
+    <div class="confirm-actions">
+      <button class="btn btn-secondary" onclick="confirmManage()">Manage Requirements</button>
+      <button class="btn btn-primary" onclick="confirmDone()">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   DATA
+═══════════════════════════════════════════════════════════ */
+/* Activity catalog — copied verbatim from the qualification builder prototype */
+const ACTIVITIES = [
+  {id:'a1',  name:'AC Motor Safety Fundamentals',      type:'course', duration:'30 min', category:'Safety'},
+  {id:'a2',  name:'Lockout/Tagout Procedures',          type:'course', duration:'45 min', category:'Safety'},
+  {id:'a3',  name:'Personal Protective Equipment Quiz', type:'quiz',   duration:'15 min', category:'Safety'},
+  {id:'a4',  name:'Forklift Certification Course',      type:'course', duration:'2 hr',   category:'Operations'},
+  {id:'a5',  name:'Production Line Standards',          type:'doc',    duration:'20 min', category:'Operations'},
+  {id:'a6',  name:'AC Motor Controller Operations',     type:'course', duration:'1.5 hr', category:'Technical'},
+  {id:'a7',  name:'Industrial Maintenance Basics',      type:'course', duration:'1 hr',   category:'Technical'},
+  {id:'a8',  name:'Quality Assurance Fundamentals',     type:'course', duration:'45 min', category:'Quality'},
+  {id:'a9',  name:'Supervisory Skills Workshop',        type:'course', duration:'3 hr',   category:'Leadership'},
+  {id:'a10', name:'Conflict Resolution Training',       type:'video',  duration:'1.5 hr', category:'Leadership'},
+  {id:'a11', name:'OSHA Compliance Refresher',          type:'course', duration:'1 hr',   category:'Compliance'},
+  {id:'a12', name:'Incident Reporting Procedures',      type:'course', duration:'30 min', category:'Compliance'},
+  {id:'a13', name:'Power and Utilities Safety',         type:'course', duration:'1 hr',   category:'Safety'},
+  {id:'a14', name:'Performance Management 101',         type:'course', duration:'2 hr',   category:'Leadership'},
+  {id:'a15', name:'Team Communication Skills',          type:'video',  duration:'45 min', category:'Leadership'},
+];
+const byId = Object.fromEntries(ACTIVITIES.map(a => [a.id, a]));
+const ACT_ICONS = {course:'fa-graduation-cap', quiz:'fa-circle-question', video:'fa-play', doc:'fa-file-lines'};
+
+/* Requirements shown in the management grid.
+   acts = activity ids from the catalog · usedIn = number of qualifications using this requirement */
+let ROWS = [
+  {id:'r1',  name:'AC Motor Safety Knowledge',          desc:'Demonstrate understanding of motor safety and electrical hazards.',          status:'Active',       acts:['a1','a13'],      usedIn:4, modified:'May 14, 2026', extId:'REQ-1001'},
+  {id:'r2',  name:'Lockout/Tagout Procedure',           desc:'Correctly apply energy-isolation procedures before any service work.',       status:'Active',       acts:['a2','a3'],       usedIn:6, modified:'May 12, 2026', extId:'REQ-1002'},
+  {id:'r3',  name:'Controller Operation',               desc:'Operate the AC motor controller per the standard operating procedure.',      status:'Active',       acts:['a6'],            usedIn:2, modified:'May 9, 2026',  extId:'REQ-1003'},
+  {id:'r4',  name:'Operational Assessment',             desc:'Pass a supervised hands-on operational competency check.',                   status:'Under Review', acts:['a7','a8'],       usedIn:3, modified:'May 7, 2026',  extId:'REQ-1004'},
+  {id:'r5',  name:'PPE Competency',                     desc:'Select, inspect, and wear the personal protective equipment for the task.',  status:'Active',       acts:['a3','a1'],       usedIn:5, modified:'May 2, 2026',  extId:'REQ-1005'},
+  {id:'r6',  name:'Confined Space Permit Knowledge',    desc:'Understand permit-required confined space entry rules, roles, and rescue.',  status:'Under Review', acts:['a11','a12'],     usedIn:1, modified:'Apr 28, 2026', extId:'REQ-1006'},
+  {id:'r7',  name:'Fall Protection Basics',             desc:'Demonstrate proper use of fall arrest systems and approved anchor points.',  status:'Draft',        acts:['a13','a3'],      usedIn:0, modified:'Apr 24, 2026', extId:'REQ-1007'},
+  {id:'r8',  name:'Hot Work Authorization',             desc:'Knowledge required to authorize and perform hot work safely.',               status:'Active',       acts:['a2','a11'],      usedIn:2, modified:'Apr 20, 2026', extId:'REQ-1008'},
+  {id:'r9',  name:'Forklift Pre-Operation Inspection',  desc:'Complete the daily pre-operation inspection checklist before operating.',    status:'Active',       acts:['a4','a5'],       usedIn:3, modified:'Apr 15, 2026', extId:'REQ-1009'},
+  {id:'r10', name:'Crane Hand Signals',                 desc:'Recognize and give the standard crane and hoist hand signals.',              status:'Draft',        acts:['a5','a3'],       usedIn:0, modified:'Apr 9, 2026',  extId:'REQ-1010'},
+  {id:'r11', name:'Respirator Fit Test',                desc:'Pass a qualitative respirator fit test and demonstrate a user seal check.',  status:'Active',       acts:['a3','a13'],      usedIn:2, modified:'Mar 30, 2026', extId:'REQ-1011'},
+  {id:'r12', name:'Incident Reporting Knowledge',       desc:'Report incidents and near misses per company procedure and timelines.',      status:'Active',       acts:['a12'],           usedIn:4, modified:'Mar 22, 2026', extId:'REQ-1012'},
+];
+
+/* Available attributes catalog — 23 attribute types, copied from the reference */
+const ATTR_CATALOG = [
+  {key:'relatedAsset', name:'Related Asset',          type:'multiselect', options:[]},
+  {key:'difficulty',   name:'Difficulty',             type:'select',  options:['Beginner','Intermediate','Advanced']},
+  {key:'bodyHtml',     name:'Body HTML',              type:'html',    options:[]},
+  {key:'department',   name:'Department',             type:'select',  options:['HR','Operations','Safety','Engineering','Maintenance']},
+  {key:'jobFamily',    name:'Job Family',             type:'text',    options:[]},
+  {key:'certification',name:'Certification Required', type:'select',  options:['Yes','No']},
+  {key:'region',       name:'Region',                 type:'select',  options:['North America','EMEA','APAC','LATAM']},
+  {key:'duration',     name:'Estimated Duration',     type:'text',    options:[]},
+  {key:'compliance',   name:'Compliance Category',    type:'select',  options:['OSHA','ISO','FDA','Custom']},
+  {key:'language',     name:'Language',               type:'select',  options:['English','Spanish','French','German']},
+  {key:'provider',     name:'Provider',               type:'text',    options:[]},
+  {key:'accreditation',name:'Accreditation Body',     type:'text',    options:[]},
+  {key:'ceu',          name:'CEU Credits',            type:'number',  options:[]},
+  {key:'version',      name:'Version',                type:'text',    options:[]},
+  {key:'effectiveDate',name:'Effective Date',         type:'date',    options:[]},
+  {key:'expiryDate',   name:'Expiration Date',        type:'date',    options:[]},
+  {key:'renewal',      name:'Renewal Period (months)',type:'number',  options:[]},
+  {key:'cost',         name:'Cost',                   type:'number',  options:[]},
+  {key:'tags',         name:'Tags / Keywords',        type:'tags',    options:[]},
+  {key:'audience',     name:'Audience',               type:'select',  options:['All Staff','Managers','Field','Office']},
+  {key:'prerequisite', name:'Prerequisite',           type:'text',    options:[]},
+  {key:'delivery',     name:'Delivery Method',        type:'select',  options:['Online','Instructor-Led','Blended']},
+  {key:'externalRef',  name:'External Reference',     type:'text',    options:[]},
+];
+
+/* ═══════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════ */
+let gridApi = null;            // AG Grid API
+let statusFilter = 'all';      // current Status filter ('all' | 'Active' | 'Draft' | 'Under Review')
+let deleteCtx = null;          // {kind:'row'|'bulk'|'builder', ...}
+
+/* Builder state (a single requirement = title/desc + a flat list of activities) */
+let bActs = [];                // [{...activity}] activities in this requirement
+let isEditing = false;         // builder opened on an existing requirement
+let editingRow = null;         // grid row data being edited (null when creating)
+let usedInCount = 0;           // qualifications using the open requirement
+let hasThumb = false;          // a thumbnail has been added
+let requiredMode = 'all';      // 'all' | 'number' (Activities Required to Complete)
+let requiredCount = 1;
+let completionOrder = 'any';   // 'any' | 'sequential' (Activity Completion Order)
+
+/* Attributes state */
+let reqAttributes = [];
+let attrIdCounter = 0;
+let attrSelected = new Set();      // attribute row ids selected for bulk remove
+let attrModalSel = new Set();      // attribute keys checked in the Add Attribute modal
+
+/* Select-activities panel state */
+let panelSelected = new Set(), panelFilter = 'all';
+
+/* ═══════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════ */
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function parseDurMins(s){
+  s=(s||'').toLowerCase();
+  let m=0; const hr=s.match(/([\d.]+)\s*hr/); const min=s.match(/([\d.]+)\s*min/);
+  if(hr) m += parseFloat(hr[1])*60;
+  if(min) m += parseFloat(min[1]);
+  return m;
+}
+function fmtMins(m){ const h=Math.floor(m/60), mm=Math.round(m%60); return h ? (mm ? `${h}h ${mm}m` : `${h}h`) : `${mm}m`; }
+function totalTrainingMins(){ return bActs.reduce((s,a)=>s+parseDurMins(a.duration),0); }
+function titleValue(){ const t=document.getElementById('req-title'); return (t && (t.value||'').trim()) || ''; }
+
+let _toastTimer = null;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.innerHTML = msg;
+  t.className = 'toast show';
+  if(_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(()=>t.classList.remove('show'), 3000);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SCREENS
+═══════════════════════════════════════════════════════════ */
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   REQUIREMENTS GRID (AG Grid v32)
+═══════════════════════════════════════════════════════════ */
+const STATUS_CLS = {'Active':'active', 'Draft':'draft', 'Under Review':'review'};
+
+/* Custom cell renderers return HTML strings (interpreted as HTML by AG Grid) */
+function nameRenderer(p){
+  return `<div class="grid-name-wrap">
+    <span class="grid-name" onclick="openRowById('${p.data.id}')" title="Open this requirement">${esc(p.data.name)}</span>
+    <span class="grid-desc">${esc(p.data.desc)}</span>
+  </div>`;
+}
+function statusRenderer(p){
+  return `<span class="status-chip ${STATUS_CLS[p.value]||'draft'}">${esc(p.value)}</span>`;
+}
+function actionsRenderer(p){
+  return `<div class="grid-row-actions">
+    <button class="row-action-btn" title="Edit" onclick="openRowById('${p.data.id}')"><i class="fa-solid fa-pencil"></i></button>
+    <button class="row-action-btn" title="Duplicate" onclick="dupRowById('${p.data.id}')"><i class="fa-regular fa-copy"></i></button>
+    <button class="row-action-btn danger" title="Delete" onclick="askDeleteRow('${p.data.id}')"><i class="fa-regular fa-trash-can"></i></button>
+  </div>`;
+}
+
+const gridOptions = {
+  rowData: ROWS,
+  getRowId: p => p.data.id,
+  rowHeight: 56,
+  pagination: true,
+  paginationPageSize: 10,
+  paginationPageSizeSelector: [10, 25, 50],
+  suppressCellFocus: true,
+  rowSelection: 'multiple',
+  suppressRowClickSelection: true,
+  domLayout: 'autoHeight',
+  defaultColDef: { sortable: true, resizable: false, suppressMovable: true },
+  columnDefs: [
+    /* Checkbox selection column */
+    { headerName:'', width:46, maxWidth:46, sortable:false, checkboxSelection:true, headerCheckboxSelection:true },
+    /* Requirement name + description; clicking the name opens the builder */
+    { headerName:'Requirement Name', field:'name', flex:2, minWidth:260, cellRenderer:nameRenderer,
+      getQuickFilterText: p => p.data.name + ' ' + p.data.desc },
+    { headerName:'Status', field:'status', width:150, cellRenderer:statusRenderer },
+    { headerName:'Activities', width:110, valueGetter: p => p.data.acts.length },
+    { headerName:'Used In', field:'usedIn', width:100, headerTooltip:'Qualifications using this requirement' },
+    { headerName:'Last Modified', field:'modified', width:150 },
+    /* Hover actions, pinned right with no header */
+    { headerName:'', colId:'actions', width:118, pinned:'right', sortable:false, cellRenderer:actionsRenderer },
+  ],
+  /* Status filter implemented as an AG Grid external filter */
+  isExternalFilterPresent: () => statusFilter !== 'all',
+  doesExternalFilterPass: node => node.data.status === statusFilter,
+  onSelectionChanged: updateBulkBar,
+};
+
+/* Toolbar wiring */
+function onSearchInput(v){ if(gridApi) gridApi.setGridOption('quickFilterText', v); }
+function onStatusFilter(v){ statusFilter = v; if(gridApi) gridApi.onFilterChanged(); }
+function exportList(){ showToast('Export started — your file will download shortly.'); }
+
+/* Bulk selection bar */
+function updateBulkBar(){
+  const n = gridApi ? gridApi.getSelectedRows().length : 0;
+  document.getElementById('bulk-bar').classList.toggle('hidden', n === 0);
+  document.getElementById('bulk-count').textContent = n + ' selected';
+}
+function bulkDeleteAsk(){
+  const rows = gridApi ? gridApi.getSelectedRows() : [];
+  if(!rows.length) return;
+  deleteCtx = {kind:'bulk', rows:rows};
+  document.getElementById('delete-title').textContent = 'Delete ' + rows.length + ' requirement' + (rows.length!==1?'s':'') + '?';
+  document.getElementById('delete-text').innerHTML = 'This action cannot be undone. The underlying activities will not be removed. Requirements used by qualifications will be removed from those qualifications.';
+  document.getElementById('delete-confirm-btn').textContent = 'Delete';
+  document.getElementById('delete-overlay').classList.remove('hidden');
+}
+
+/* Single-row actions */
+function findRow(id){ return ROWS.find(r => r.id === id); }
+function openRowById(id){ const r = findRow(id); if(r) openExisting(r); }
+function dupRowById(id){ showToast('Requirement duplicated'); }
+function askDeleteRow(id){
+  const r = findRow(id); if(!r) return;
+  deleteCtx = {kind:'row', row:r};
+  document.getElementById('delete-title').textContent = 'Delete "' + r.name + '"?';
+  document.getElementById('delete-text').innerHTML = r.usedIn > 0
+    ? '<strong>This requirement is used by ' + r.usedIn + ' qualification' + (r.usedIn!==1?'s':'') + '.</strong> Deleting it will remove it from those qualifications. The underlying activities will not be removed.'
+    : 'This action cannot be undone. The underlying activities will not be removed.';
+  document.getElementById('delete-confirm-btn').textContent = r.usedIn > 0 ? 'Delete Anyway' : 'Delete';
+  document.getElementById('delete-overlay').classList.remove('hidden');
+}
+function closeDelete(){ document.getElementById('delete-overlay').classList.add('hidden'); deleteCtx = null; }
+function confirmDelete(){
+  if(!deleteCtx) return;
+  const ctx = deleteCtx;
+  closeDelete();
+  if(ctx.kind === 'bulk'){
+    const ids = new Set(ctx.rows.map(r => r.id));
+    ROWS = ROWS.filter(r => !ids.has(r.id));
+    if(gridApi){ gridApi.applyTransaction({remove: ctx.rows}); updateBulkBar(); }
+    showToast(ctx.rows.length + ' requirement' + (ctx.rows.length!==1?'s':'') + ' deleted');
+  } else if(ctx.kind === 'row'){
+    ROWS = ROWS.filter(r => r.id !== ctx.row.id);
+    if(gridApi){ gridApi.applyTransaction({remove: [ctx.row]}); updateBulkBar(); }
+    showToast('"' + ctx.row.name + '" deleted');
+  } else if(ctx.kind === 'builder'){
+    if(ctx.row){
+      ROWS = ROWS.filter(r => r.id !== ctx.row.id);
+      if(gridApi){ gridApi.applyTransaction({remove: [ctx.row]}); updateBulkBar(); }
+    }
+    showToast('"' + (ctx.name || 'Requirement') + '" deleted');
+    returnToList();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BUILDER · open / populate / leave
+═══════════════════════════════════════════════════════════ */
+/* "+ Create Requirement" → blank builder */
+function startManual(){
+  isEditing = false; editingRow = null; usedInCount = 0; hasThumb = false;
+  bActs = [];
+  requiredMode = 'all'; requiredCount = 1; completionOrder = 'any';
+  reqAttributes = []; attrIdCounter = 0; attrSelected = new Set();
+  clearTitleError();
+  renderAttrs();
+  document.getElementById('attrs-accordion').classList.remove('open');
+  document.getElementById('req-settings').classList.remove('open');
+  resetSettingsControls();
+  /* Vaadin fields may upgrade after first paint — set values on a short delay (same as the reference) */
+  setTimeout(() => {
+    ['req-title','req-description'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    const ei = document.getElementById('req-ext-id'); if(ei) ei.value='1234567890';
+  }, 80);
+  configureBuilderChrome();
+  renderBuilder();
+  showScreen('screen-builder');
+  document.getElementById('lp-form-col').scrollTop = 0;
+}
+
+/* Grid name / pencil → open an existing requirement in the builder */
+function openExisting(reqData){
+  isEditing = true; editingRow = reqData; usedInCount = reqData.usedIn || 0; hasThumb = true;
+  bActs = reqData.acts.map(id => ({...byId[id]})).filter(a => a.id);
+  requiredMode = 'all'; requiredCount = 1; completionOrder = 'any';
+  reqAttributes = []; attrIdCounter = 0; attrSelected = new Set();
+  clearTitleError();
+  renderAttrs();
+  document.getElementById('attrs-accordion').classList.remove('open');
+  document.getElementById('req-settings').classList.remove('open');
+  resetSettingsControls();
+  setTimeout(() => {
+    const t=document.getElementById('req-title'); if(t) t.value=reqData.name;
+    const d=document.getElementById('req-description'); if(d) d.value=reqData.desc;
+    const ei=document.getElementById('req-ext-id'); if(ei) ei.value=reqData.extId || '1234567890';
+  }, 80);
+  configureBuilderChrome();
+  renderBuilder();
+  showScreen('screen-builder');
+  document.getElementById('lp-form-col').scrollTop = 0;
+}
+
+function configureBuilderChrome(){
+  document.getElementById('builder-page-title').textContent = isEditing ? 'Edit Requirement' : 'Create New Requirement';
+  /* Edit-protection banner: this requirement is used by N qualifications */
+  const banner = document.getElementById('edit-banner');
+  if(isEditing && usedInCount > 0){
+    document.getElementById('edit-banner-text').innerHTML =
+      '<strong>This requirement is used by ' + usedInCount + ' qualification' + (usedInCount!==1?'s':'') + '.</strong> Editing it may affect those qualifications.';
+    banner.classList.remove('hidden');
+  } else {
+    banner.classList.add('hidden');
+  }
+  /* Delete is only offered on an existing requirement */
+  document.getElementById('builder-delete-item').classList.toggle('hidden', !isEditing);
+  renderThumb();
+}
+
+/* Reset the static settings radio/number controls to match state */
+function resetSettingsControls(){
+  const all = document.querySelector('input[name="b-req-count"][value="all"]'); if(all) all.checked = true;
+  const num = document.getElementById('req-count-input'); if(num){ num.value = 1; num.disabled = true; }
+  const any = document.querySelector('input[name="b-req-order"][value="any"]'); if(any) any.checked = true;
+  const err = document.getElementById('req-count-err'); if(err) err.classList.remove('show');
+}
+
+/* Kebab dropdown in the builder header */
+function toggleBuilderMore(e){ e.stopPropagation(); document.getElementById('builder-more-menu').classList.toggle('hidden'); }
+function closeBuilderMore(){ document.getElementById('builder-more-menu').classList.add('hidden'); }
+
+/* Thumbnail (prototype: click to add a placeholder, × to remove) */
+function renderThumb(){
+  const t = document.getElementById('bh-thumb'); if(!t) return;
+  if(hasThumb){
+    t.classList.add('filled');
+    t.innerHTML = '<i class="fa-solid fa-shield-halved"></i><span class="bh-thumb-x" onclick="event.stopPropagation();removeThumb()"><i class="fa-solid fa-xmark"></i></span>';
+    t.title = 'Change thumbnail';
+  } else {
+    t.classList.remove('filled');
+    t.innerHTML = '<i class="fa-solid fa-image"></i><span>Add thumbnail</span>';
+    t.title = 'Add a thumbnail';
+  }
+}
+function toggleThumb(){ if(hasThumb) return; hasThumb = true; renderThumb(); showToast('Thumbnail added'); }
+function removeThumb(){ hasThumb = false; renderThumb(); }
+
+/* Delete the open requirement from the builder kebab (existing only) */
+function deleteFromBuilder(){
+  closeBuilderMore();
+  deleteCtx = {kind:'builder', row:editingRow, name:titleValue() || 'this requirement'};
+  document.getElementById('delete-title').textContent = 'Delete "' + (titleValue() || 'this requirement') + '"?';
+  document.getElementById('delete-text').innerHTML = usedInCount > 0
+    ? '<strong>This requirement is used by ' + usedInCount + ' qualification' + (usedInCount!==1?'s':'') + '.</strong> Deleting it will remove it from those qualifications. The underlying activities will not be removed.'
+    : 'This action cannot be undone. The underlying activities will not be removed.';
+  document.getElementById('delete-confirm-btn').textContent = usedInCount > 0 ? 'Delete Anyway' : 'Delete';
+  document.getElementById('delete-overlay').classList.remove('hidden');
+}
+
+/* ─── Cancel / leave (unsaved-changes guard when there are activities or a title) ─── */
+function cancelBuilder(){
+  (bActs.length > 0 || titleValue())
+    ? document.getElementById('unsaved-overlay').classList.remove('hidden')
+    : returnToList();
+}
+function doLeave(){
+  document.getElementById('unsaved-overlay').classList.add('hidden');
+  returnToList();
+}
+function returnToList(){
+  bActs = [];
+  closeActivityPanel();
+  showScreen('screen-list');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BUILDER · settings (Activities Required / Completion Order)
+═══════════════════════════════════════════════════════════ */
+function toggleReqSettings(){ document.getElementById('req-settings').classList.toggle('open'); }
+function setReqRequired(mode){
+  requiredMode = mode;
+  const num = document.getElementById('req-count-input');
+  if(num) num.disabled = (mode !== 'number');
+  validateReqCount();
+}
+function setReqCount(val){
+  requiredCount = parseInt(val, 10) || 0;
+  validateReqCount();
+}
+function setReqOrder(val){ completionOrder = val; }
+/* Inline validation: the specific number must be between 1 and the number of activities */
+function validateReqCount(){
+  const err = document.getElementById('req-count-err');
+  if(!err) return;
+  const n = bActs.length;
+  const bad = requiredMode === 'number' && (requiredCount < 1 || requiredCount > Math.max(n,1));
+  err.textContent = 'Enter a number between 1 and ' + Math.max(n,1) + ' (the number of activities in this requirement).';
+  err.classList.toggle('show', bad);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BUILDER · render (pills, activity cards, structure rail)
+═══════════════════════════════════════════════════════════ */
+function renderBuilder(){ renderPills(); renderActivities(); renderSSP(); validateReqCount(); }
+
+function renderPills(){
+  const n = bActs.length;
+  const time = fmtMins(totalTrainingMins());
+  document.getElementById('overview-pills').innerHTML =
+    `<span class="meta-pill"><i class="fa-regular fa-rectangle-list"></i> ${n} Activit${n!==1?'ies':'y'}</span>
+     <span class="meta-pill"><i class="fa-regular fa-clock"></i> ${time} Total Time</span>`;
+  document.getElementById('acts-count-pill').innerHTML =
+    `<i class="fa-regular fa-rectangle-list"></i> ${n} Activit${n!==1?'ies':'y'}`;
+}
+
+function renderActivities(){
+  const container = document.getElementById('b-acts-container');
+  if(!bActs.length){
+    container.innerHTML = '<div class="empty-state" style="padding:16px 0 10px">No activities added yet. Add your first activity to get started.</div>';
+    return;
+  }
+  container.innerHTML = `<div class="activity-list">` + bActs.map((a, i) => `
+    <div class="activity-card" id="bact-${a.id}">
+      <div class="activity-icon"><i class="fa-solid ${ACT_ICONS[a.type]||'fa-graduation-cap'}"></i></div>
+      <div class="activity-info"><div class="activity-name">${esc(a.name)}</div><div class="activity-sub">${esc(a.category)} · ${esc(a.type)}</div></div>
+      <span class="activity-duration">${esc(a.duration)}</span>
+      <div class="act-ctrls">
+        <button class="act-ctrl-btn" title="Move up" onclick="moveBAct('${a.id}',-1)" ${i===0?'disabled':''}><i class="fa-solid fa-arrow-up"></i></button>
+        <button class="act-ctrl-btn" title="Move down" onclick="moveBAct('${a.id}',1)" ${i===bActs.length-1?'disabled':''}><i class="fa-solid fa-arrow-down"></i></button>
+        <div class="ctx-menu-wrap">
+          <button class="act-ctrl-btn" title="More options" onclick="toggleActCtx(event,'${a.id}')"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+          <div class="ctx-menu hidden" id="ctx-act-${a.id}">
+            <div class="ctx-menu-item" onclick="openMoveAct('${a.id}')"><i class="fa-solid fa-up-down-left-right"></i> Move to…</div>
+            <div class="ctx-menu-divider"></div>
+            <div class="ctx-menu-item danger" onclick="removeBAct('${a.id}')"><i class="fa-solid fa-xmark"></i> Remove</div>
+          </div>
+        </div>
+      </div>
+    </div>`).join('') + `</div>`;
+}
+
+/* Right rail: numbered chips; clicking one scrolls to / flashes the matching card */
+function renderSSP(){
+  const b = document.getElementById('ssp-body');
+  if(!bActs.length){ b.innerHTML = '<div style="font-size:12px;color:#9ca3af;padding:8px 4px">No activities yet.</div>'; return; }
+  b.innerHTML = bActs.map((a, i) => `
+    <div class="ssp-chip" id="ssp-chip-${a.id}" onclick="sspGo('${a.id}')">
+      <div class="ssp-dot">${i+1}</div>
+      <div class="ssp-label"><strong>${esc(a.name)}</strong><small>${esc(a.duration)}</small></div>
+    </div>`).join('');
+}
+function sspGo(id){
+  document.querySelectorAll('.ssp-chip').forEach(c => c.classList.remove('active'));
+  const chip = document.getElementById('ssp-chip-' + id); if(chip) chip.classList.add('active');
+  const el = document.getElementById('bact-' + id);
+  if(el){
+    el.scrollIntoView({behavior:'smooth', block:'center'});
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 1200);
+  }
+}
+
+/* ─── Activity mutations ─── */
+function moveBAct(id, dir){
+  const i = bActs.findIndex(a => a.id === id), j = i + dir;
+  if(i < 0 || j < 0 || j >= bActs.length) return;
+  [bActs[i], bActs[j]] = [bActs[j], bActs[i]];
+  renderBuilder();
+}
+function removeBAct(id){
+  closeAllCtxMenus();
+  bActs = bActs.filter(a => a.id !== id);
+  renderBuilder();
+}
+
+/* Per-activity kebab menu */
+let _activeCtx = null;
+function closeAllCtxMenus(){
+  document.querySelectorAll('.ctx-menu').forEach(m => m.classList.add('hidden'));
+  _activeCtx = null;
+}
+function toggleActCtx(event, id){
+  event.stopPropagation();
+  const menu = document.getElementById('ctx-act-' + id);
+  if(!menu) return;
+  const isOpen = !menu.classList.contains('hidden');
+  closeAllCtxMenus();
+  if(!isOpen){ menu.classList.remove('hidden'); _activeCtx = id; }
+}
+
+/* ─── Move-to-position dialog (activities) ─── */
+let moveCtx = null;
+function openMoveAct(id){
+  closeAllCtxMenus();
+  moveCtx = {id:id};
+  document.querySelector('input[name="move-pos"][value="top"]').checked = true;
+  const sel = document.getElementById('move-target');
+  sel.innerHTML = bActs.filter(a => a.id !== id).map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
+  onMovePosChange();
+  document.getElementById('move-overlay').classList.remove('hidden');
+}
+function onMovePosChange(){
+  const pos = document.querySelector('input[name="move-pos"]:checked').value;
+  document.getElementById('move-target-field').classList.toggle('hidden', !(pos==='before' || pos==='after'));
+}
+function closeMove(){ document.getElementById('move-overlay').classList.add('hidden'); moveCtx = null; }
+function applyMove(){
+  if(!moveCtx) return;
+  const pos = document.querySelector('input[name="move-pos"]:checked').value;
+  const targetId = document.getElementById('move-target').value;
+  moveItemTo(bActs, moveCtx.id, pos, targetId);
+  closeMove();
+  renderBuilder();
+}
+function moveItemTo(arr, id, pos, targetId){
+  const i = arr.findIndex(x => x.id === id); if(i < 0) return;
+  const [item] = arr.splice(i, 1);
+  if(pos === 'top') arr.unshift(item);
+  else if(pos === 'bottom') arr.push(item);
+  else {
+    let ti = arr.findIndex(x => x.id === targetId);
+    if(ti < 0){ arr.push(item); return; }
+    if(pos === 'after') ti += 1;
+    arr.splice(ti, 0, item);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SELECT ACTIVITIES PANEL (slide-in)
+═══════════════════════════════════════════════════════════ */
+function openPanel(){
+  panelSelected = new Set();
+  document.getElementById('sap-add-btn').disabled = true;
+  const si = document.querySelector('#activity-panel .sap-search input'); if(si) si.value = '';
+  renderActivityPanel('');
+  document.getElementById('activity-panel').classList.add('open');
+}
+function closeActivityPanel(){
+  document.getElementById('activity-panel').classList.remove('open');
+  panelSelected = new Set();
+}
+function renderActivityPanel(search){
+  search = search || '';
+  const items = ACTIVITIES.filter(a =>
+    (panelFilter === 'all' || a.type === panelFilter) &&
+    (!search || a.name.toLowerCase().includes(search.toLowerCase())));
+  document.getElementById('sap-list').innerHTML = items.map(a => `
+    <div class="sap-item ${panelSelected.has(a.id)?'selected':''}" onclick="toggleSel('${a.id}')">
+      <div class="sap-check"><i class="fa-solid fa-check"></i></div>
+      <div style="width:28px;height:28px;border-radius:5px;background:var(--vblue-10);display:flex;align-items:center;justify-content:center;color:var(--vblue);font-size:11px;flex-shrink:0"><i class="fa-solid ${ACT_ICONS[a.type]||'fa-graduation-cap'}"></i></div>
+      <div class="sap-item-info"><div class="sap-item-name">${esc(a.name)}</div><div class="sap-item-sub">${esc(a.category)} · ${esc(a.type)}</div></div>
+      <span class="sap-item-dur">${esc(a.duration)}</span>
+    </div>`).join('') || '<div style="padding:24px;text-align:center;color:#9ca3af;font-size:12.5px">No activities found.</div>';
+}
+function toggleSel(id){
+  panelSelected.has(id) ? panelSelected.delete(id) : panelSelected.add(id);
+  document.getElementById('sap-add-btn').disabled = panelSelected.size === 0;
+  renderActivityPanel(document.querySelector('#activity-panel .sap-search input').value);
+}
+function setFilter(v, el){
+  panelFilter = v;
+  document.querySelectorAll('.sap-filters .filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderActivityPanel(document.querySelector('#activity-panel .sap-search input').value);
+}
+function addSelectedActivities(){
+  panelSelected.forEach(id => { if(!bActs.find(a => a.id === id)) bActs.push({...byId[id]}); });
+  closeActivityPanel();
+  renderBuilder();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ATTRIBUTES (catalog modal + per-type inputs + bulk remove)
+═══════════════════════════════════════════════════════════ */
+function toggleAttrs(){ document.getElementById('attrs-accordion').classList.toggle('open'); }
+function attrInputHtml(attr){
+  switch(attr.type){
+    case 'select':
+      return `<select onchange="updateAttrValue(${attr.id}, this.value)">${attr.options.map(o=>`<option ${attr.value===o?'selected':''}>${esc(o)}</option>`).join('')}</select>`;
+    case 'number':
+      return `<input type="number" value="${esc(attr.value)}" placeholder="0" oninput="updateAttrValue(${attr.id}, this.value)">`;
+    case 'date':
+      return `<input type="date" value="${esc(attr.value)}" oninput="updateAttrValue(${attr.id}, this.value)">`;
+    case 'tags':
+      return `<input type="text" value="${esc(attr.value)}" placeholder="Comma-separated tags…" oninput="updateAttrValue(${attr.id}, this.value)">`;
+    case 'multiselect':
+      return `<input type="text" value="${esc(attr.value)}" placeholder="Search assets by name, parent, or location…" oninput="updateAttrValue(${attr.id}, this.value)">`;
+    case 'html':
+      return `<textarea placeholder="Enter HTML / rich text…" oninput="updateAttrValue(${attr.id}, this.value)">${esc(attr.value)}</textarea>`;
+    default:
+      return `<input type="text" value="${esc(attr.value)}" placeholder="Enter ${esc(attr.name)}…" oninput="updateAttrValue(${attr.id}, this.value)">`;
+  }
+}
+function renderAttrs(){
+  const list = document.getElementById('attrs-list');
+  const badge = document.getElementById('attrs-count-badge');
+  if(badge) badge.textContent = reqAttributes.length;
+  if(!list) return;
+  if(!reqAttributes.length){
+    list.innerHTML = '<div style="text-align:center;padding:16px;color:#9ca3af;font-size:12.5px">No attributes have been added to this requirement.</div>';
+    updateAttrBulkBar();
+    return;
+  }
+  list.innerHTML = reqAttributes.map(attr =>
+    `<div class="attr-input-row ${attrSelected.has(attr.id)?'sel':''}">
+      <div class="attr-row-check" onclick="toggleAttrRowSel(${attr.id})" title="Select for bulk remove"><i class="fa-solid fa-check"></i></div>
+      <span class="attr-input-label">${esc(attr.name)}</span>
+      ${attrInputHtml(attr)}
+      <button class="attr-remove-btn" onclick="removeAttr(${attr.id})" title="Remove attribute"><i class="fa-solid fa-trash-can"></i></button>
+    </div>`
+  ).join('');
+  updateAttrBulkBar();
+}
+function updateAttrValue(id, val){ const attr = reqAttributes.find(a => a.id === id); if(attr) attr.value = val; }
+function removeAttr(id){ reqAttributes = reqAttributes.filter(a => a.id !== id); attrSelected.delete(id); renderAttrs(); showToast('Attribute removed'); }
+
+/* Bulk select / remove */
+function toggleAttrRowSel(id){ attrSelected.has(id) ? attrSelected.delete(id) : attrSelected.add(id); renderAttrs(); }
+function updateAttrBulkBar(){
+  const bar = document.getElementById('attr-bulk-bar');
+  if(!bar) return;
+  const n = attrSelected.size;
+  bar.classList.toggle('hidden', n === 0);
+  const c = document.getElementById('attr-bulk-count'); if(c) c.textContent = n + ' selected';
+}
+function removeSelectedAttrs(){
+  if(!attrSelected.size) return;
+  const n = attrSelected.size;
+  reqAttributes = reqAttributes.filter(a => !attrSelected.has(a.id));
+  attrSelected = new Set();
+  renderAttrs();
+  showToast(n + ' attribute' + (n!==1?'s':'') + ' removed');
+}
+
+/* Add Attribute modal (checkboxes, grayed already-added, disabled Add until ≥1 selected) */
+function openAttrModal(){
+  attrModalSel = new Set();
+  const s = document.getElementById('attr-modal-search'); if(s) s.value = '';
+  renderAttrModalList('');
+  document.getElementById('attr-modal-overlay').classList.remove('hidden');
+}
+function closeAttrModal(){ document.getElementById('attr-modal-overlay').classList.add('hidden'); }
+function renderAttrModalList(search){
+  const addedKeys = new Set(reqAttributes.map(a => a.key));
+  const q = (search||'').toLowerCase();
+  const items = ATTR_CATALOG.filter(c => !q || c.name.toLowerCase().includes(q));
+  document.getElementById('attr-modal-list').innerHTML = items.map(c => {
+    const added = addedKeys.has(c.key);
+    const checked = attrModalSel.has(c.key);
+    return `<div class="attr-opt ${added?'disabled':''} ${checked?'checked':''}" ${added?'':`onclick="toggleAttrSel('${c.key}')"`}>
+      <div class="attr-cb"><i class="fa-solid fa-check"></i></div>
+      <span class="attr-opt-name">${esc(c.name)}</span>
+      ${added ? '<span class="added-tag">Added</span>' : `<span class="attr-opt-type">${esc(c.type)}</span>`}
+    </div>`;
+  }).join('') || '<div style="padding:18px;text-align:center;color:#9ca3af;font-size:12.5px">No matching attributes.</div>';
+  updateAttrModalFoot();
+}
+function toggleAttrSel(key){ attrModalSel.has(key) ? attrModalSel.delete(key) : attrModalSel.add(key); renderAttrModalList(document.getElementById('attr-modal-search').value); }
+function updateAttrModalFoot(){
+  const n = attrModalSel.size;
+  document.getElementById('attr-sel-count').textContent = n + ' selected';
+  document.getElementById('attr-modal-add-btn').disabled = n === 0;
+}
+function addSelectedAttrs(){
+  attrModalSel.forEach(key => {
+    const def = ATTR_CATALOG.find(c => c.key === key);
+    if(def && !reqAttributes.find(a => a.key === key)){
+      const defaultVal = def.type === 'select' ? (def.options[0]||'') : '';
+      reqAttributes.push({id:++attrIdCounter, key:def.key, name:def.name, type:def.type, options:def.options, value:defaultVal});
+    }
+  });
+  const n = attrModalSel.size;
+  closeAttrModal();
+  renderAttrs();
+  const a = document.getElementById('attrs-accordion');
+  if(a && !a.classList.contains('open')) a.classList.add('open');   // open the accordion so new attributes are visible
+  if(n) showToast(n + ' attribute' + (n!==1?'s':'') + ' added');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AUDIT HISTORY
+═══════════════════════════════════════════════════════════ */
+function openAudit(){ document.getElementById('audit-overlay').classList.remove('hidden'); }
+function closeAudit(){ document.getElementById('audit-overlay').classList.add('hidden'); }
+function refreshAudit(){ showToast('Audit history refreshed'); }
+
+/* ═══════════════════════════════════════════════════════════
+   SAVE
+═══════════════════════════════════════════════════════════ */
+function saveDraft(){
+  const b = document.getElementById('save-draft-btn');
+  b.textContent = 'Saved!'; b.style.color = '#16a34a';
+  setTimeout(() => { b.textContent = 'Save Draft'; b.style.color = ''; }, 2000);
+}
+
+/* ─── Title validation (identical pattern to the reference) ─── */
+function showTitleError(){
+  const field = document.getElementById('req-title').closest('.form-field');
+  if(field) field.classList.add('invalid');
+  let msg = document.getElementById('req-title-error');
+  if(!msg){
+    msg = document.createElement('div'); msg.id = 'req-title-error'; msg.className = 'field-error-msg';
+    msg.textContent = 'A title is required before saving.';
+    document.getElementById('req-title').insertAdjacentElement('afterend', msg);
+  }
+  msg.classList.add('show');
+}
+function clearTitleError(){
+  const t = document.getElementById('req-title');
+  const field = t ? t.closest('.form-field') : null;
+  if(field) field.classList.remove('invalid');
+  const msg = document.getElementById('req-title-error'); if(msg) msg.classList.remove('show');
+}
+
+/* Save → validate → confirmation screen (and sync the grid data) */
+function saveReq(){
+  if(!titleValue()){
+    showTitleError();
+    document.getElementById('req-title').focus();
+    showToast('A title is required before saving.');
+    return;
+  }
+  clearTitleError();
+  syncGridFromBuilder();
+  openConfirmation();
+}
+
+/* Prototype nicety: reflect the saved requirement back into the grid data */
+function syncGridFromBuilder(){
+  const today = 'Jun 12, 2026';
+  const desc = (document.getElementById('req-description')||{}).value || '';
+  const extId = (document.getElementById('req-ext-id')||{}).value || '1234567890';
+  if(isEditing && editingRow){
+    editingRow.name = titleValue();
+    editingRow.desc = desc;
+    editingRow.extId = extId;
+    editingRow.acts = bActs.map(a => a.id);
+    editingRow.modified = today;
+    if(gridApi) gridApi.applyTransaction({update:[editingRow]});
+  } else {
+    const newRow = {
+      id: 'r' + Date.now(),
+      name: titleValue(), desc: desc, extId: extId,
+      status: 'Draft', acts: bActs.map(a => a.id),
+      usedIn: 0, modified: today,
+    };
+    ROWS.unshift(newRow);
+    if(gridApi) gridApi.applyTransaction({add:[newRow], addIndex:0});
+  }
+}
+
+/* ─── Post-save confirmation screen ─── */
+function openConfirmation(){
+  const name = titleValue() || 'Untitled Requirement';
+  document.getElementById('confirm-heading').textContent = isEditing ? 'Requirement Updated' : 'Requirement Created';
+  document.getElementById('confirm-sub').textContent = 'Your requirement has been ' + (isEditing ? 'updated' : 'created') + ' successfully.';
+  document.getElementById('confirm-name').innerHTML = '<i class="fa-solid fa-shield-halved"></i> ' + esc(name);
+  document.getElementById('confirm-time').textContent = fmtMins(totalTrainingMins());
+  document.getElementById('confirm-acts').textContent = bActs.length;
+  document.getElementById('confirm-screen').classList.remove('hidden');
+}
+function confirmManage(){ document.getElementById('confirm-screen').classList.add('hidden'); returnToList(); }
+function confirmDone(){ document.getElementById('confirm-screen').classList.add('hidden'); returnToList(); }
+
+/* ═══════════════════════════════════════════════════════════
+   GLOBAL HANDLERS
+═══════════════════════════════════════════════════════════ */
+/* Close menus / overlays on outside click */
+document.addEventListener('click', e => {
+  if(!e.target.closest('.ctx-menu-wrap')) closeAllCtxMenus();
+  if(e.target.id === 'audit-overlay') closeAudit();
+  if(e.target.id === 'delete-overlay') closeDelete();
+  if(e.target.id === 'move-overlay') closeMove();
+  if(e.target.id === 'attr-modal-overlay') closeAttrModal();
+  /* Confirmation screen intentionally has no outside-click close */
+});
+/* Escape closes the topmost open surface (keyboard-friendly) */
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Escape') return;
+  const order = ['attr-modal-overlay','move-overlay','delete-overlay','audit-overlay','unsaved-overlay'];
+  for(const id of order){
+    const el = document.getElementById(id);
+    if(el && !el.classList.contains('hidden')){ el.classList.add('hidden'); return; }
+  }
+  if(document.getElementById('activity-panel').classList.contains('open')){ closeActivityPanel(); return; }
+  closeAllCtxMenus();
+});
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  /* Spin up the AG Grid management list */
+  if(typeof agGrid !== 'undefined'){
+    gridApi = agGrid.createGrid(document.getElementById('req-grid'), gridOptions);
+  }
+  /* Clear the title validation error as soon as the user types */
+  const title = document.getElementById('req-title');
+  if(title){
+    title.addEventListener('input', clearTitleError);
+    title.addEventListener('value-changed', clearTitleError);
+  }
+});
+</script>
+</body>
+</html>

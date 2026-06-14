@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Activities | Convergence LMS</title>
+  <!-- Convergence shell integration: open bare → redirect into shell; in iframe → hide own chrome. -->
+  <script>
+    if (window.self === window.top) { location.replace('../_shell/index.html?route=act-activities'); }
+    else { document.documentElement.classList.add('embedded'); }
+  </script>
+
+  <!-- ══ Required resources ══ -->
+  <!-- Vector Web Components: core bundle + theme styles -->
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <!-- Open Sans (standard font) + Font Awesome 6 (standard icon set) -->
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+  <!-- AG Grid Community v32 (table engine) + Quartz theme -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/styles/ag-grid.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/styles/ag-theme-quartz.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/dist/ag-grid-community.min.js"></script>
+
+  <style>
+    /* ════════════════════════════════════════════════════════
+       BASE — matches the Qualification Builder prototype:
+       Open Sans 13px, ink #1a1a2e, page bg #f4f6f8,
+       Vector blue --vblue for all primary accents.
+    ════════════════════════════════════════════════════════ */
+    :root { --vblue: #0271ce; --vblue-hover: #015ba6; --vblue-10: #0271ce1a; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100%; font-family: 'Open Sans', sans-serif; font-size: 13px; color: #1a1a2e; background: #f4f6f8; }
+    .hidden { display: none !important; }
+
+    /* ─── Page header (white bar, same as .list-page-header in the reference) ─── */
+    .list-page-header { background: #fff; border-bottom: 1px solid #e5e9ef; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .list-page-header h1 { font-size: 18px; font-weight: 700; color: #1a1a2e; }
+    .list-page-header .header-sub { font-size: 12px; color: #9ca3af; margin-top: 2px; max-width: 720px; }
+
+    /* ─── Stat strip: 4 light summary cards under the header ─── */
+    .stat-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 16px 24px 0; }
+    .stat-card { background: #fff; border: 1px solid #e5e9ef; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+    .stat-icon { width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+    .stat-icon.blue   { background: var(--vblue-10); color: var(--vblue); }
+    .stat-icon.green  { background: #dcfce7; color: #15803d; }
+    .stat-icon.gray   { background: #f3f4f6; color: #6b7280; }
+    .stat-icon.violet { background: #ede9fe; color: #6d28d9; }
+    .stat-num { font-size: 20px; font-weight: 700; color: #1a1a2e; line-height: 1.15; }
+    .stat-lbl { font-size: 11.5px; color: #9ca3af; }
+
+    /* ─── Toolbar (search + filters + export) ─── */
+    .list-toolbar { padding: 16px 24px 0; display: flex; align-items: center; gap: 10px; }
+    .search-wrap { position: relative; flex: 1; max-width: 320px; }
+    .search-wrap i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 12px; }
+    .search-wrap input { width: 100%; border: 1px solid #d1d5db; border-radius: 6px; padding: 7px 10px 7px 30px; font-family: inherit; font-size: 12.5px; outline: none; transition: border-color 0.15s; background: #fff; }
+    .search-wrap input:focus { border-color: var(--vblue); }
+    .filter-select { border: 1px solid #d1d5db; border-radius: 6px; padding: 7px 28px 7px 10px; font-family: inherit; font-size: 12.5px; color: #374151; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239ca3af'/%3E%3C/svg%3E") no-repeat right 10px center; -webkit-appearance: none; appearance: none; outline: none; cursor: pointer; }
+
+    /* ─── Bulk action bar: appears when grid rows are checked ─── */
+    .bulk-bar { margin: 12px 24px 0; background: var(--vblue-10); border: 1px solid #0271ce55; border-radius: 8px; padding: 8px 14px; display: flex; align-items: center; gap: 10px; }
+    .bulk-count { font-size: 12.5px; font-weight: 700; color: var(--vblue); }
+    .bulk-spacer { flex: 1; }
+
+    /* ─── Grid card ─── */
+    .grid-card { margin: 16px 24px 32px; }
+
+    /* ─── Buttons (copied from the reference prototype) ─── */
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; transition: background 0.1s; }
+    .btn-primary { background: var(--vblue); color: #fff; }
+    .btn-primary:hover { background: var(--vblue-hover); }
+    .btn-secondary { background: #fff; color: #374151; border: 1px solid #d1d5db; }
+    .btn-secondary:hover { background: #f9fafb; }
+    .btn-danger { background: #fff; color: #dc2626; border: 1px solid #fca5a5; }
+    .btn-danger:hover { background: #fef2f2; }
+    .btn-danger-solid { background: #dc2626; color: #fff; }
+    .btn-danger-solid:hover { background: #b91c1c; }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ════════════════════════════════════════════════════════
+       AG GRID — Quartz theme tuned to the design system
+    ════════════════════════════════════════════════════════ */
+    .ag-theme-quartz {
+      --ag-font-family: 'Open Sans', sans-serif;
+      --ag-font-size: 12.5px;
+      --ag-foreground-color: #374151;
+      --ag-header-background-color: #f8fafc;
+      --ag-header-foreground-color: #6b7280;
+      --ag-border-color: #e5e9ef;
+      --ag-row-hover-color: #f8fafc;
+      --ag-selected-row-background-color: #0271ce14;
+      --ag-checkbox-checked-color: #0271ce;
+      --ag-active-color: #0271ce;
+      --ag-wrapper-border-radius: 8px;
+    }
+    /* Header labels: small caps like the reference table headers */
+    .ag-theme-quartz .ag-header-cell-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+    /* Soft card shadow around the grid wrapper */
+    .ag-theme-quartz .ag-root-wrapper { box-shadow: 0 1px 4px -1px rgba(28,48,74,0.12); background: #fff; }
+
+    /* ── Custom cell content ── */
+    /* Activity name cell: type icon square + name + provider sub-line */
+    .cell-activity { display: flex; align-items: center; gap: 10px; height: 100%; }
+    .type-icon { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+    .cell-activity-text { min-width: 0; line-height: 1.3; }
+    .cell-activity-name { font-size: 12.5px; font-weight: 700; color: #1a1a2e; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cell-activity-name:hover { color: var(--vblue); text-decoration: underline; }
+    .cell-activity-sub { font-size: 11px; color: #9ca3af; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Type pill — colors track the type icon palette */
+    .type-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .type-pill i { font-size: 10px; }
+    .type-pill.course { background: #e8f0fe; color: #2563eb; }
+    .type-pill.quiz   { background: #ede9fe; color: #6d28d9; }
+    .type-pill.video  { background: #ffe4e6; color: #be123c; }
+    .type-pill.doc    { background: #fef3c7; color: #b45309; }
+    .type-icon.course { background: #e8f0fe; color: #2563eb; }
+    .type-icon.quiz   { background: #ede9fe; color: #6d28d9; }
+    .type-icon.video  { background: #ffe4e6; color: #be123c; }
+    .type-icon.doc    { background: #fef3c7; color: #b45309; }
+
+    /* Duration chip — same as the reference's .activity-duration */
+    .activity-duration { font-size: 11px; color: #6b7280; background: #f3f4f6; padding: 2px 7px; border-radius: 3px; }
+
+    /* Status chip — copied from the reference, plus an Archived (slate) variant */
+    .status-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .status-chip::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+    .status-chip.active   { background: #dcfce7; color: #15803d; }
+    .status-chip.draft    { background: #f3f4f6; color: #6b7280; }
+    .status-chip.archived { background: #e2e8f0; color: #475569; }
+
+    /* Row actions: hidden until the row is hovered (AG Grid adds .ag-row-hover) */
+    .row-actions { display: flex; gap: 4px; align-items: center; height: 100%; justify-content: flex-end; opacity: 0; transition: opacity 0.1s; }
+    .ag-row-hover .row-actions { opacity: 1; }
+    .row-action-btn { width: 26px; height: 26px; border: none; background: none; cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 12px; transition: background 0.1s, color 0.1s; }
+    .row-action-btn:hover { background: #f3f4f6; color: #374151; }
+    .row-action-btn.danger:hover { background: #fee2e2; color: #dc2626; }
+
+    /* ════════════════════════════════════════════════════════
+       CREATE / EDIT DRAWER — right slide-over, 380px
+       (same slide pattern as .select-activity-panel in the reference)
+    ════════════════════════════════════════════════════════ */
+    .drawer-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.32); z-index: 640; }
+    .drawer-backdrop.hidden { display: none; }
+    .activity-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 380px; background: #fff; border-left: 1px solid #dde1e7; box-shadow: -4px 0 24px rgba(0,0,0,0.1); z-index: 650; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.25s ease; }
+    .activity-drawer.open { transform: translateX(0); }
+    .drawer-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #e5e9ef; flex-shrink: 0; }
+    .drawer-header h3 { font-size: 14px; font-weight: 700; color: #1a1a2e; }
+    .drawer-close { width: 28px; height: 28px; border: none; background: none; cursor: pointer; color: #9ca3af; border-radius: 5px; display: flex; align-items: center; justify-content: center; transition: background 0.1s, color 0.1s; }
+    .drawer-close:hover { background: #f3f4f6; color: #374151; }
+    .drawer-body { flex: 1; overflow-y: auto; padding: 18px 16px; }
+    .drawer-footer { padding: 12px 16px; border-top: 1px solid #e5e9ef; display: flex; justify-content: flex-end; gap: 8px; flex-shrink: 0; }
+
+    .form-field { margin-bottom: 16px; }
+    .form-field > label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 5px; }
+    .form-field > label .req { color: #dc2626; margin-left: 2px; }
+    .form-field .filter-select { width: 100%; }
+
+    /* Type selector: 4 tile chips with the type icon palette */
+    .type-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .type-tile { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border: 1.5px solid #e5e9ef; border-radius: 8px; background: #fff; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 600; color: #374151; transition: border-color 0.12s, background 0.12s; }
+    .type-tile:hover { border-color: #93c5fd; }
+    .type-tile.selected { border-color: var(--vblue); background: var(--vblue-10); }
+    .type-tile .type-icon { width: 24px; height: 24px; font-size: 10px; }
+
+    /* Status radios */
+    .status-radio-row { display: flex; gap: 18px; }
+    .status-radio { display: flex; align-items: center; gap: 7px; cursor: pointer; font-size: 12.5px; color: #374151; }
+    .status-radio input { accent-color: var(--vblue); }
+
+    /* ════════════════════════════════════════════════════════
+       DELETE CONFIRM DIALOG (.overlay + .mini-dialog from reference)
+    ════════════════════════════════════════════════════════ */
+    .overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.5); z-index: 700; display: flex; align-items: center; justify-content: center; }
+    .overlay.hidden { display: none; }
+    .mini-dialog { background: #fff; border-radius: 12px; width: 460px; max-width: calc(100vw - 48px); padding: 26px 28px 22px; box-shadow: 0 25px 60px rgba(0,0,0,0.2); }
+    .mini-dialog h3 { font-size: 16px; font-weight: 700; color: #1a1a2e; margin-bottom: 8px; }
+    .mini-dialog p { font-size: 13px; color: #6b7280; line-height: 1.6; margin-bottom: 18px; }
+    .mini-dialog .md-icon { font-size: 30px; margin-bottom: 12px; }
+    .mini-dialog .md-icon.warn { color: #f59e0b; }
+    .mini-dialog .md-icon.danger { color: #dc2626; }
+    .mini-dialog-btns { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+
+    /* ─── Toast (copied from the reference) ─── */
+    .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(10px); background: #1f2937; color: #fff; padding: 9px 18px; border-radius: 8px; font-size: 12.5px; font-weight: 600; opacity: 0; transition: opacity 0.2s, transform 0.2s; z-index: 9999; pointer-events: none; white-space: nowrap; display: flex; align-items: center; gap: 10px; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+
+    /* Narrow screens: stack the stat cards two-up */
+    @media (max-width: 900px) {
+      .stat-strip { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ PAGE HEADER ══ -->
+<div class="list-page-header">
+  <div>
+    <h1>Activities</h1>
+    <div class="header-sub">Manage training activities for your organization. Activities are the building blocks used by requirements and qualifications.</div>
+  </div>
+  <button class="btn btn-primary" id="create-activity-btn" onclick="openCreateDrawer()">
+    <i class="fa-solid fa-plus"></i> Create Activity
+  </button>
+</div>
+
+<!-- ══ STAT STRIP — computed from the activity data ══ -->
+<div class="stat-strip">
+  <div class="stat-card">
+    <div class="stat-icon blue"><i class="fa-solid fa-layer-group"></i></div>
+    <div><div class="stat-num" id="stat-total">0</div><div class="stat-lbl">Total Activities</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green"><i class="fa-solid fa-circle-check"></i></div>
+    <div><div class="stat-num" id="stat-active">0</div><div class="stat-lbl">Active</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon gray"><i class="fa-solid fa-pen-ruler"></i></div>
+    <div><div class="stat-num" id="stat-draft">0</div><div class="stat-lbl">Drafts</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon violet"><i class="fa-regular fa-clock"></i></div>
+    <div><div class="stat-num" id="stat-duration">0</div><div class="stat-lbl">Avg. Duration</div></div>
+  </div>
+</div>
+
+<!-- ══ TOOLBAR — quick filter search + type/status filters + export ══ -->
+<div class="list-toolbar">
+  <div class="search-wrap">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <input type="text" id="search-input" placeholder="Search activities..." oninput="onQuickFilter(this.value)">
+  </div>
+  <select class="filter-select" id="type-filter" onchange="onExternalFilterChanged()">
+    <option value="">All Types</option>
+    <option value="course">Course</option>
+    <option value="quiz">Quiz</option>
+    <option value="video">Video</option>
+    <option value="doc">Document</option>
+  </select>
+  <select class="filter-select" id="status-filter" onchange="onExternalFilterChanged()">
+    <option value="">All Statuses</option>
+    <option value="Active">Active</option>
+    <option value="Draft">Draft</option>
+    <option value="Archived">Archived</option>
+  </select>
+  <div style="margin-left:auto">
+    <button class="btn btn-secondary btn-sm" onclick="exportActivities()"><i class="fa-solid fa-download"></i> Export</button>
+  </div>
+</div>
+
+<!-- ══ BULK BAR — visible only while rows are checked ══ -->
+<div class="bulk-bar hidden" id="bulk-bar">
+  <span class="bulk-count" id="bulk-count">0 selected</span>
+  <div class="bulk-spacer"></div>
+  <button class="btn btn-secondary btn-sm" onclick="archiveSelected()"><i class="fa-solid fa-box-archive"></i> Archive Selected</button>
+  <button class="btn btn-danger btn-sm" onclick="confirmDeleteSelected()"><i class="fa-regular fa-trash-can"></i> Delete Selected</button>
+</div>
+
+<!-- ══ AG GRID ══ -->
+<div class="grid-card">
+  <div id="activities-grid" class="ag-theme-quartz"></div>
+</div>
+
+<!-- ══ CREATE / EDIT DRAWER ══ -->
+<div class="drawer-backdrop hidden" id="drawer-backdrop" onclick="closeDrawer()"></div>
+<aside class="activity-drawer" id="activity-drawer" aria-label="Activity editor">
+  <div class="drawer-header">
+    <h3 id="drawer-title">Create Activity</h3>
+    <button class="drawer-close" onclick="closeDrawer()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="drawer-body">
+    <!-- Name (required) -->
+    <div class="form-field">
+      <label>Name <span class="req">*</span></label>
+      <vaadin-text-field theme="outlined" id="fld-name" placeholder="e.g., Lockout/Tagout Procedures" error-message="A name is required." style="width:100%"></vaadin-text-field>
+    </div>
+
+    <!-- Type: 4 selectable tile chips -->
+    <div class="form-field">
+      <label>Type</label>
+      <div class="type-tiles" id="type-tiles">
+        <button type="button" class="type-tile selected" data-type="course" onclick="selectType('course')">
+          <span class="type-icon course"><i class="fa-solid fa-graduation-cap"></i></span> Course
+        </button>
+        <button type="button" class="type-tile" data-type="quiz" onclick="selectType('quiz')">
+          <span class="type-icon quiz"><i class="fa-solid fa-circle-question"></i></span> Quiz
+        </button>
+        <button type="button" class="type-tile" data-type="video" onclick="selectType('video')">
+          <span class="type-icon video"><i class="fa-solid fa-play"></i></span> Video
+        </button>
+        <button type="button" class="type-tile" data-type="doc" onclick="selectType('doc')">
+          <span class="type-icon doc"><i class="fa-solid fa-file-lines"></i></span> Document
+        </button>
+      </div>
+    </div>
+
+    <!-- Category -->
+    <div class="form-field">
+      <label>Category</label>
+      <select class="filter-select" id="fld-category">
+        <option>Safety</option>
+        <option>Operations</option>
+        <option>Technical</option>
+        <option>Quality</option>
+        <option>Leadership</option>
+        <option>Compliance</option>
+      </select>
+    </div>
+
+    <!-- Duration -->
+    <div class="form-field">
+      <label>Duration</label>
+      <vaadin-text-field theme="outlined" id="fld-duration" placeholder="e.g., 45 min" style="width:100%"></vaadin-text-field>
+    </div>
+
+    <!-- Description -->
+    <div class="form-field">
+      <label>Description</label>
+      <vaadin-text-area theme="outlined" id="fld-description" placeholder="Briefly describe this activity..." style="width:100%"></vaadin-text-area>
+    </div>
+
+    <!-- Status -->
+    <div class="form-field">
+      <label>Status</label>
+      <div class="status-radio-row">
+        <label class="status-radio"><input type="radio" name="fld-status" value="Active" checked> Active</label>
+        <label class="status-radio"><input type="radio" name="fld-status" value="Draft"> Draft</label>
+      </div>
+    </div>
+  </div>
+  <div class="drawer-footer">
+    <button class="btn btn-secondary" onclick="closeDrawer()">Cancel</button>
+    <button class="btn btn-primary" id="drawer-save-btn" onclick="saveDrawer()">Save</button>
+  </div>
+</aside>
+
+<!-- ══ DELETE CONFIRM DIALOG ══ -->
+<div class="overlay hidden" id="delete-overlay">
+  <div class="mini-dialog">
+    <div class="md-icon danger" id="delete-icon"><i class="fa-regular fa-trash-can"></i></div>
+    <h3 id="delete-title">Delete activity?</h3>
+    <p id="delete-msg"></p>
+    <div class="mini-dialog-btns">
+      <button class="btn btn-secondary" onclick="closeDeleteDialog()">Cancel</button>
+      <button class="btn btn-danger-solid" id="delete-confirm-btn" onclick="performDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TOAST ══ -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   DATA
+   Extends the 15-item ACTIVITIES catalog from the
+   Qualification Builder prototype with management metadata
+   (status / usedIn / lastModified / provider) plus 3 extras.
+═══════════════════════════════════════════════════════════ */
+const ACTIVITIES = [
+  {id:'a1',  name:'AC Motor Safety Fundamentals',       type:'course', duration:'30 min', category:'Safety',     status:'Active',   usedIn:4, lastModified:'2026-05-14', provider:'Vector Library'},
+  {id:'a2',  name:'Lockout/Tagout Procedures',          type:'course', duration:'45 min', category:'Safety',     status:'Active',   usedIn:6, lastModified:'2026-05-12', provider:'Vector Library'},
+  {id:'a3',  name:'Personal Protective Equipment Quiz', type:'quiz',   duration:'15 min', category:'Safety',     status:'Active',   usedIn:3, lastModified:'2026-05-08', provider:'Custom — Uploaded'},
+  {id:'a4',  name:'Forklift Certification Course',      type:'course', duration:'2 hr',   category:'Operations', status:'Active',   usedIn:2, lastModified:'2026-05-02', provider:'SCORM Import'},
+  {id:'a5',  name:'Production Line Standards',          type:'doc',    duration:'20 min', category:'Operations', status:'Active',   usedIn:1, lastModified:'2026-04-30', provider:'Custom — Uploaded'},
+  {id:'a6',  name:'AC Motor Controller Operations',     type:'course', duration:'1.5 hr', category:'Technical',  status:'Active',   usedIn:2, lastModified:'2026-04-27', provider:'Vector Library'},
+  {id:'a7',  name:'Industrial Maintenance Basics',      type:'course', duration:'1 hr',   category:'Technical',  status:'Active',   usedIn:3, lastModified:'2026-04-24', provider:'Vector Library'},
+  {id:'a8',  name:'Quality Assurance Fundamentals',     type:'course', duration:'45 min', category:'Quality',    status:'Draft',    usedIn:0, lastModified:'2026-04-21', provider:'Custom — Uploaded'},
+  {id:'a9',  name:'Supervisory Skills Workshop',        type:'course', duration:'3 hr',   category:'Leadership', status:'Active',   usedIn:1, lastModified:'2026-04-17', provider:'SCORM Import'},
+  {id:'a10', name:'Conflict Resolution Training',       type:'video',  duration:'1.5 hr', category:'Leadership', status:'Active',   usedIn:1, lastModified:'2026-04-14', provider:'Vector Library'},
+  {id:'a11', name:'OSHA Compliance Refresher',          type:'course', duration:'1 hr',   category:'Compliance', status:'Active',   usedIn:5, lastModified:'2026-04-10', provider:'Vector Library'},
+  {id:'a12', name:'Incident Reporting Procedures',      type:'course', duration:'30 min', category:'Compliance', status:'Draft',    usedIn:0, lastModified:'2026-04-06', provider:'Custom — Uploaded'},
+  {id:'a13', name:'Power and Utilities Safety',         type:'course', duration:'1 hr',   category:'Safety',     status:'Active',   usedIn:2, lastModified:'2026-04-02', provider:'Vector Library'},
+  {id:'a14', name:'Performance Management 101',         type:'course', duration:'2 hr',   category:'Leadership', status:'Archived', usedIn:0, lastModified:'2026-03-26', provider:'SCORM Import'},
+  {id:'a15', name:'Team Communication Skills',          type:'video',  duration:'45 min', category:'Leadership', status:'Active',   usedIn:1, lastModified:'2026-03-20', provider:'Vector Library'},
+  /* New entries (not in the builder prototype) */
+  {id:'a16', name:'Confined Space Entry Awareness',     type:'video',  duration:'25 min', category:'Safety',     status:'Active',   usedIn:2, lastModified:'2026-05-11', provider:'Vector Library'},
+  {id:'a17', name:'Hot Work Permit Form',               type:'doc',    duration:'10 min', category:'Compliance', status:'Active',   usedIn:1, lastModified:'2026-05-05', provider:'Custom — Uploaded'},
+  {id:'a18', name:'Forklift Knowledge Check',           type:'quiz',   duration:'20 min', category:'Operations', status:'Draft',    usedIn:0, lastModified:'2026-04-29', provider:'Custom — Uploaded'},
+];
+
+/* Visual metadata per activity type (icon + pill palette share classes) */
+const TYPE_META = {
+  course: { label:'Course',   icon:'fa-solid fa-graduation-cap' },
+  quiz:   { label:'Quiz',     icon:'fa-solid fa-circle-question' },
+  video:  { label:'Video',    icon:'fa-solid fa-play' },
+  doc:    { label:'Document', icon:'fa-solid fa-file-lines' },
+};
+
+/* ═══════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════ */
+/* Escape any string that gets interpolated into HTML */
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* "2026-05-14" → "May 14, 2026" */
+function fmtDate(iso){
+  if(!iso) return '';
+  const [y,m,d] = iso.split('-').map(Number);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return months[m-1] + ' ' + d + ', ' + y;
+}
+
+/* "45 min" / "1.5 hr" → minutes (for the average-duration stat + sorting) */
+function toMinutes(dur){
+  const n = parseFloat(dur) || 0;
+  return /hr/i.test(dur) ? Math.round(n * 60) : Math.round(n);
+}
+
+/* Toast — copied from the reference prototype */
+let _toastTimer = null;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show';
+  if(_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(()=>t.classList.remove('show'), 3000);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STAT STRIP — recomputed from current grid data
+═══════════════════════════════════════════════════════════ */
+function refreshStats(){
+  const rows = [];
+  gridApi.forEachNode(n => rows.push(n.data));
+  const active = rows.filter(r=>r.status==='Active').length;
+  const draft  = rows.filter(r=>r.status==='Draft').length;
+  const avgMin = rows.length ? Math.round(rows.reduce((s,r)=>s+toMinutes(r.duration),0) / rows.length) : 0;
+  document.getElementById('stat-total').textContent = rows.length;
+  document.getElementById('stat-active').textContent = active;
+  document.getElementById('stat-draft').textContent = draft;
+  document.getElementById('stat-duration').textContent = avgMin >= 60 ? (avgMin/60).toFixed(1) + ' hr' : avgMin + ' min';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CELL RENDERERS (built as real DOM nodes so click handlers work)
+═══════════════════════════════════════════════════════════ */
+/* Activity Name: type icon + clickable bold name + provider sub-line */
+function nameCellRenderer(params){
+  const d = params.data;
+  const meta = TYPE_META[d.type] || TYPE_META.course;
+  const wrap = document.createElement('div');
+  wrap.className = 'cell-activity';
+  wrap.innerHTML =
+    '<span class="type-icon ' + esc(d.type) + '"><i class="' + esc(meta.icon) + '"></i></span>' +
+    '<div class="cell-activity-text">' +
+      '<div class="cell-activity-name">' + esc(d.name) + '</div>' +
+      '<div class="cell-activity-sub">' + esc(d.provider) + '</div>' +
+    '</div>';
+  // Clicking the name opens the edit drawer for this activity
+  wrap.querySelector('.cell-activity-name').addEventListener('click', () => openEditDrawer(d.id));
+  return wrap;
+}
+
+/* Type: badge pill matching the icon palette */
+function typeCellRenderer(params){
+  const meta = TYPE_META[params.value] || TYPE_META.course;
+  return '<span class="type-pill ' + esc(params.value) + '"><i class="' + esc(meta.icon) + '"></i> ' + esc(meta.label) + '</span>';
+}
+
+/* Duration: gray chip like the reference's .activity-duration */
+function durationCellRenderer(params){
+  return '<span class="activity-duration">' + esc(params.value) + '</span>';
+}
+
+/* Status: dot chip (Active green / Draft gray / Archived slate) */
+function statusCellRenderer(params){
+  return '<span class="status-chip ' + esc(String(params.value).toLowerCase()) + '">' + esc(params.value) + '</span>';
+}
+
+/* Actions: hover-revealed edit / duplicate / delete icon buttons */
+function actionsCellRenderer(params){
+  const d = params.data;
+  const wrap = document.createElement('div');
+  wrap.className = 'row-actions';
+  wrap.innerHTML =
+    '<button class="row-action-btn" data-act="edit" title="Edit"><i class="fa-solid fa-pencil"></i></button>' +
+    '<button class="row-action-btn" data-act="copy" title="Duplicate"><i class="fa-regular fa-copy"></i></button>' +
+    '<button class="row-action-btn danger" data-act="delete" title="Delete"><i class="fa-regular fa-trash-can"></i></button>';
+  wrap.querySelector('[data-act=edit]').addEventListener('click', () => openEditDrawer(d.id));
+  wrap.querySelector('[data-act=copy]').addEventListener('click', () => duplicateActivity(d.id));
+  wrap.querySelector('[data-act=delete]').addEventListener('click', () => confirmDeleteOne(d.id));
+  return wrap;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AG GRID SETUP (v32: agGrid.createGrid)
+═══════════════════════════════════════════════════════════ */
+let gridApi = null;
+
+const gridOptions = {
+  rowData: ACTIVITIES.map(a => ({...a})),   // copy so the source array stays pristine
+  getRowId: p => p.data.id,                 // stable ids for applyTransaction
+  rowHeight: 56,
+  domLayout: 'autoHeight',                  // grid grows to fit the page (page itself scrolls)
+  suppressCellFocus: true,
+  pagination: true,
+  paginationPageSize: 10,
+  paginationPageSizeSelector: [10, 25, 50],
+  rowSelection: 'multiple',
+  suppressRowClickSelection: true,          // selection only via checkboxes
+  defaultColDef: { sortable: true, resizable: true, suppressMovable: true },
+  columnDefs: [
+    // Checkbox selection column
+    { colId:'select', headerName:'', width:46, maxWidth:46, checkboxSelection:true, headerCheckboxSelection:true,
+      headerCheckboxSelectionFilteredOnly:true, sortable:false, resizable:false, pinned:'left' },
+    { field:'name', headerName:'Activity Name', flex:2, minWidth:240, cellRenderer:nameCellRenderer,
+      // Let quick-filter also match the provider sub-line
+      getQuickFilterText: p => p.data.name + ' ' + p.data.provider },
+    { field:'type', headerName:'Type', width:120, cellRenderer:typeCellRenderer,
+      getQuickFilterText: p => (TYPE_META[p.value]||{}).label || p.value },
+    { field:'category', headerName:'Category', width:130 },
+    { field:'duration', headerName:'Duration', width:110, cellRenderer:durationCellRenderer,
+      comparator:(a,b)=>toMinutes(a)-toMinutes(b) },
+    { field:'status', headerName:'Status', width:120, cellRenderer:statusCellRenderer },
+    { field:'usedIn', headerName:'Used In', width:100, headerTooltip:'Number of requirements that use this activity' },
+    { field:'lastModified', headerName:'Last Modified', width:140, valueFormatter:p=>fmtDate(p.value) },
+    // Hover-revealed row actions, pinned to the right edge
+    { colId:'actions', headerName:'', width:110, maxWidth:110, pinned:'right', sortable:false, resizable:false,
+      cellRenderer:actionsCellRenderer },
+  ],
+
+  /* External filtering: the Type + Status toolbar selects */
+  isExternalFilterPresent: () =>
+    document.getElementById('type-filter').value !== '' ||
+    document.getElementById('status-filter').value !== '',
+  doesExternalFilterPass: (node) => {
+    const t = document.getElementById('type-filter').value;
+    const s = document.getElementById('status-filter').value;
+    return (!t || node.data.type === t) && (!s || node.data.status === s);
+  },
+
+  onSelectionChanged: refreshBulkBar,
+  // gridReady can fire synchronously inside createGrid, so grab the api
+  // from the event rather than relying on the assignment below.
+  onGridReady: (params) => { gridApi = params.api; refreshStats(); },
+};
+
+gridApi = agGrid.createGrid(document.getElementById('activities-grid'), gridOptions);
+
+/* ─── Toolbar wiring ─── */
+function onQuickFilter(value){ gridApi.setGridOption('quickFilterText', value); }
+function onExternalFilterChanged(){ gridApi.onFilterChanged(); }
+function exportActivities(){ showToast('Export started — your file will download shortly'); }
+
+/* ─── Bulk bar ─── */
+function refreshBulkBar(){
+  const n = gridApi.getSelectedRows().length;
+  document.getElementById('bulk-bar').classList.toggle('hidden', n === 0);
+  document.getElementById('bulk-count').textContent = n + ' selected';
+}
+
+function archiveSelected(){
+  const rows = gridApi.getSelectedRows();
+  if(!rows.length) return;
+  rows.forEach(r => r.status = 'Archived');
+  gridApi.applyTransaction({ update: rows });
+  gridApi.deselectAll();
+  refreshStats();
+  showToast(rows.length + (rows.length === 1 ? ' activity archived' : ' activities archived'));
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CREATE / EDIT DRAWER
+═══════════════════════════════════════════════════════════ */
+let drawerMode = 'create';   // 'create' | 'edit'
+let editingId = null;        // row id being edited (edit mode)
+let selectedType = 'course'; // current type tile
+
+function selectType(type){
+  selectedType = type;
+  document.querySelectorAll('#type-tiles .type-tile').forEach(tile =>
+    tile.classList.toggle('selected', tile.dataset.type === type));
+}
+
+function setStatusRadio(value){
+  document.querySelectorAll('input[name=fld-status]').forEach(r => { r.checked = (r.value === value); });
+}
+function getStatusRadio(){
+  const checked = document.querySelector('input[name=fld-status]:checked');
+  return checked ? checked.value : 'Active';
+}
+
+function openCreateDrawer(){
+  drawerMode = 'create';
+  editingId = null;
+  document.getElementById('drawer-title').textContent = 'Create Activity';
+  // Reset fields to sensible defaults
+  const nameFld = document.getElementById('fld-name');
+  nameFld.value = ''; nameFld.invalid = false;
+  selectType('course');
+  document.getElementById('fld-category').value = 'Safety';
+  document.getElementById('fld-duration').value = '';
+  document.getElementById('fld-description').value = '';
+  setStatusRadio('Active');
+  showDrawer();
+}
+
+function openEditDrawer(id){
+  const node = gridApi.getRowNode(id);
+  if(!node) return;
+  const d = node.data;
+  drawerMode = 'edit';
+  editingId = id;
+  document.getElementById('drawer-title').textContent = 'Edit Activity';
+  const nameFld = document.getElementById('fld-name');
+  nameFld.value = d.name; nameFld.invalid = false;
+  selectType(d.type);
+  document.getElementById('fld-category').value = d.category;
+  document.getElementById('fld-duration').value = d.duration;
+  document.getElementById('fld-description').value = d.description || '';
+  // Archived rows open with Draft selected (only Active/Draft are editable states here)
+  setStatusRadio(d.status === 'Archived' ? 'Draft' : d.status);
+  showDrawer();
+}
+
+function showDrawer(){
+  document.getElementById('drawer-backdrop').classList.remove('hidden');
+  document.getElementById('activity-drawer').classList.add('open');
+}
+function closeDrawer(){
+  document.getElementById('drawer-backdrop').classList.add('hidden');
+  document.getElementById('activity-drawer').classList.remove('open');
+}
+
+let _newIdCounter = 100; // ids for newly created rows (a100, a101, ...)
+function saveDrawer(){
+  const nameFld = document.getElementById('fld-name');
+  const name = (nameFld.value || '').trim();
+  // Validate: name is required
+  if(!name){ nameFld.invalid = true; nameFld.focus(); return; }
+  nameFld.invalid = false;
+
+  const values = {
+    name,
+    type: selectedType,
+    category: document.getElementById('fld-category').value,
+    duration: (document.getElementById('fld-duration').value || '').trim() || '—',
+    description: document.getElementById('fld-description').value || '',
+    status: getStatusRadio(),
+    lastModified: '2026-06-12', // "today" in the prototype timeline
+  };
+
+  if(drawerMode === 'edit'){
+    const node = gridApi.getRowNode(editingId);
+    if(node){
+      gridApi.applyTransaction({ update: [Object.assign({}, node.data, values)] });
+      showToast('Activity saved');
+    }
+  } else {
+    const row = Object.assign({ id: 'a' + (_newIdCounter++), usedIn: 0, provider: 'Custom — Uploaded' }, values);
+    gridApi.applyTransaction({ add: [row], addIndex: 0 });
+    showToast('Activity created');
+  }
+  refreshStats();
+  closeDrawer();
+}
+
+/* ─── Duplicate ─── */
+function duplicateActivity(id){
+  const node = gridApi.getRowNode(id);
+  if(!node) return;
+  const copy = Object.assign({}, node.data, {
+    id: 'a' + (_newIdCounter++),
+    name: node.data.name + ' (Copy)',
+    status: 'Draft',
+    usedIn: 0,
+    lastModified: '2026-06-12',
+  });
+  gridApi.applyTransaction({ add: [copy], addIndex: 0 });
+  refreshStats();
+  showToast('Activity duplicated');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DELETE CONFIRM (single row + bulk)
+═══════════════════════════════════════════════════════════ */
+let deleteIds = []; // row ids pending deletion
+
+function confirmDeleteOne(id){
+  const node = gridApi.getRowNode(id);
+  if(!node) return;
+  deleteIds = [id];
+  openDeleteDialog([node.data]);
+}
+
+function confirmDeleteSelected(){
+  const rows = gridApi.getSelectedRows();
+  if(!rows.length) return;
+  deleteIds = rows.map(r => r.id);
+  openDeleteDialog(rows);
+}
+
+function openDeleteDialog(rows){
+  const usedTotal = rows.reduce((s,r)=>s + (r.usedIn||0), 0);
+  const title = document.getElementById('delete-title');
+  const msg = document.getElementById('delete-msg');
+  const icon = document.getElementById('delete-icon');
+  const btn = document.getElementById('delete-confirm-btn');
+
+  if(rows.length === 1){
+    title.textContent = 'Delete activity?';
+    if(usedTotal > 0){
+      // In-use warning: deleting removes it from the requirements that reference it
+      icon.className = 'md-icon warn';
+      icon.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+      msg.innerHTML = 'This activity is used by <strong>' + usedTotal + ' requirement' + (usedTotal !== 1 ? 's' : '') +
+        '</strong>. Deleting it will remove it from those requirements. ' +
+        '"' + esc(rows[0].name) + '" will be permanently deleted.';
+      btn.textContent = 'Delete Anyway';
+    } else {
+      icon.className = 'md-icon danger';
+      icon.innerHTML = '<i class="fa-regular fa-trash-can"></i>';
+      msg.innerHTML = '"' + esc(rows[0].name) + '" will be permanently deleted. This cannot be undone.';
+      btn.textContent = 'Delete';
+    }
+  } else {
+    title.textContent = 'Delete ' + rows.length + ' activities?';
+    if(usedTotal > 0){
+      icon.className = 'md-icon warn';
+      icon.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+      msg.innerHTML = 'These activities are used by <strong>' + usedTotal + ' requirement' + (usedTotal !== 1 ? 's' : '') +
+        '</strong> in total. Deleting them will remove them from those requirements. This cannot be undone.';
+      btn.textContent = 'Delete Anyway';
+    } else {
+      icon.className = 'md-icon danger';
+      icon.innerHTML = '<i class="fa-regular fa-trash-can"></i>';
+      msg.textContent = 'The selected activities will be permanently deleted. This cannot be undone.';
+      btn.textContent = 'Delete';
+    }
+  }
+  document.getElementById('delete-overlay').classList.remove('hidden');
+}
+
+function closeDeleteDialog(){
+  document.getElementById('delete-overlay').classList.add('hidden');
+  deleteIds = [];
+}
+
+function performDelete(){
+  const rows = deleteIds.map(id => gridApi.getRowNode(id)).filter(Boolean).map(n => n.data);
+  if(rows.length){
+    gridApi.applyTransaction({ remove: rows });
+    showToast(rows.length === 1 ? '"' + rows[0].name + '" deleted' : rows.length + ' activities deleted');
+  }
+  refreshStats();
+  refreshBulkBar();
+  closeDeleteDialog();
+}
+
+/* ─── Escape key closes whichever surface is open ─── */
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Escape') return;
+  if(!document.getElementById('delete-overlay').classList.contains('hidden')) closeDeleteDialog();
+  else if(document.getElementById('activity-drawer').classList.contains('open')) closeDrawer();
+});
+</script>
+
+</body>
+</html>
