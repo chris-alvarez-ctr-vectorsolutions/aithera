@@ -159,14 +159,19 @@ a { color: var(--accent); text-decoration: none; }
    Slides up like a native modal sheet on entry. */
 .app.fullscreen .view {
   padding: 64px 14px 32px 14px;
-  animation: sheet-rise var(--motion-base) var(--ease-standard) both;
+  /* `backwards` (not `both`): a forwards fill would retain the final
+     transform as a computed identity matrix, and ANY retained transform
+     makes .view the containing block for position:fixed children — which
+     silently breaks the floating .sticky-footer (it scrolls with the page).
+     With backwards fill the animation releases the transform when it ends. */
+  animation: sheet-rise var(--motion-base) var(--ease-standard) backwards;
 }
 .app.fullscreen .floatbtn-right {
   animation: fade-in var(--motion-slow) var(--ease-decel) both;
 }
 @keyframes sheet-rise {
   from { transform: translateY(48px); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
+  to   { transform: none;             opacity: 1; }
 }
 @keyframes fade-in {
   from { opacity: 0; }
@@ -298,12 +303,26 @@ a { color: var(--accent); text-decoration: none; }
   background: var(--bg-card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 14px;
-  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 4px;
 }
-.stat-tile .stat-icon { color: var(--accent); width: 18px; height: 18px; }
+.stat-tile .stat-head { display: flex; align-items: center; gap: 7px; }
+.stat-tile .stat-icon { color: var(--accent); width: 16px; height: 16px; flex: 0 0 auto; }
 .stat-tile .stat-value { font-size: 22px; font-weight: 700; color: var(--text); }
 .stat-tile .stat-label { font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-dim); }
+
+/* Course overview header — a "Course" eyebrow names the page type so the
+   overview reads as the top of the Course → Lesson → Practice hierarchy at a
+   glance, rather than relying on the CTA to be the only tell. */
+.course-head { margin-bottom: 14px; }
+.course-eyebrow {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 8px;
+}
+.course-eyebrow .i { display: inline-flex; }
+.course-eyebrow .i svg { width: 15px; height: 15px; display: block; }
+.course-title { margin: 0; font-size: 22px; line-height: 1.2; }
 
 /* course meta bar — single quiet line of lesson count + duration that
    doubles as the lessons accordion. The summary is the visible bar; tap
@@ -366,7 +385,7 @@ a { color: var(--accent); text-decoration: none; }
   color: #1a0f06; font-weight: 800; font-size: 14px;
   display: grid; place-items: center;
 }
-.coach-message .cm-body { flex: 1; min-width: 0; }
+.coach-message .cm-body { flex: 1; min-width: 0; position: relative; }
 .coach-message .cm-body strong { display: block; font-size: 14px; }
 .coach-message .cm-body p { margin: 6px 0 8px; font-size: 13.5px; color: var(--text-dim); font-style: italic; }
 .coach-message .cm-body small { font-size: 11px; letter-spacing: 0.6px; color: var(--accent); font-weight: 700; text-transform: uppercase; }
@@ -478,6 +497,28 @@ a { color: var(--accent); text-decoration: none; }
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
 }
 .lesson-chart .lch-note { margin-top: 14px; font-size: 11.5px; line-height: 1.45; color: var(--text-dim); }
+
+/* Article list — plain ordered/unordered list inside reading mode. */
+.lesson-list { margin: 16px 0; }
+.lesson-list .ll-title { font-weight: 700; color: var(--text); margin-bottom: 8px; }
+.lesson-list .ll-items { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; }
+.lesson-list .ll-items li { font-size: 15px; line-height: 1.5; color: var(--text); }
+.lesson-list .ll-items li::marker { color: var(--accent); font-weight: 700; }
+.lesson-list.is-ordered .ll-items li { padding-left: 4px; }
+
+/* Pull-quote — editorial blockquote that breaks up long reading sections. */
+.lesson-quote {
+  margin: 22px 0; padding: 4px 0 4px 18px;
+  border-left: 3px solid var(--accent);
+}
+.lesson-quote blockquote {
+  margin: 0; font-size: 18px; line-height: 1.45; font-weight: 600;
+  color: var(--text); font-style: italic;
+}
+.lesson-quote figcaption {
+  margin-top: 8px; font-size: 12.5px; font-weight: 700; letter-spacing: 0.4px;
+  text-transform: uppercase; color: var(--text-dim); font-style: normal;
+}
 
 /* row-card refactor (icons replace unicode glyphs) */
 .row-card .row-glyph {
@@ -740,28 +781,55 @@ a { color: var(--accent); text-decoration: none; }
 .kicker-pill .i { width: 12px; height: 12px; color: var(--accent); }
 
 /* Welcome card */
+/* Scenario pre-brief as a centered modal: the card sizes to its content
+   and floats mid-screen (auto top/bottom margins inside the full-height
+   wrapper), keeping the page's normal side insets. The .view's sheet-rise
+   entry animation gives it a gentle slide-up on open. */
 .scn-welcome {
   background: var(--bg-card);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: 18px;
+  box-shadow: 0 16px 40px rgba(11, 18, 32, 0.12);
   padding: 20px 18px;
   text-align: center;
-  margin: 6px 0 16px;
+  margin: auto 0;
   display: flex;
   flex-direction: column;
-  min-height: calc(100dvh - 120px);
 }
 .sw-cta { margin-top: auto; }
-.scn-welcome .kicker-pill { margin: 0 auto 14px; }
-.sw-title {
-  font-size: 22px; line-height: 1.2; margin: 0 0 12px;
-  font-family: Georgia, "Times New Roman", serif; /* serif for the orientation tone */
-  font-weight: 700;
+/* The pre-brief wrapper is the modal's backdrop: a full-height column
+   whose free space splits evenly above and below the centered card. */
+.practice-content:has(.scn-welcome) {
+  padding: 14px;
+  display: flex; flex-direction: column;
+  /* 51px = practice mode bar height; keeps the wrapper at exactly one
+     viewport so the screen doesn't scroll. */
+  min-height: calc(100dvh - 51px - env(safe-area-inset-top));
 }
-.sw-rule { border: 0; height: 1px; background: var(--line); margin: 0 0 14px; }
+.scn-welcome .kicker-pill { margin: 0 auto 14px; }
+/* Scenario name — the intro's headline. */
+.sw-title {
+  margin: 0;
+  font-size: 24px; line-height: 1.25; font-weight: 800;
+  letter-spacing: -0.01em; color: var(--text);
+}
+/* Commitment chips ("~6 min", "3 decisions") under the title. */
+.sw-meta {
+  display: flex; justify-content: center; flex-wrap: wrap;
+  gap: 8px; margin: 12px 0 0;
+}
+.sw-meta-chip {
+  padding: 4px 11px; border-radius: 999px;
+  background: var(--bg-elev); border: 1px solid var(--line);
+  font-size: 12px; font-weight: 700; color: var(--text-dim);
+}
+/* The scenario prose — the modal's centerpiece. Left-aligned for
+   readability, with a capped reading measure and generous air above/below
+   so it breathes between the title and the outcome/CTA pair. */
 .sw-body {
-  font-size: 14.5px; line-height: 1.55; color: var(--text);
-  margin: 0 0 14px;
+  font-size: 15px; line-height: 1.6; color: var(--text);
+  margin: 16px auto 30px;
+  max-width: 46ch;
   text-align: left;
 }
 .sw-body mark {
@@ -769,17 +837,49 @@ a { color: var(--accent); text-decoration: none; }
   color: var(--text);
   padding: 0 4px; border-radius: 4px;
 }
-.sw-info {
-  display: flex; gap: 10px; align-items: flex-start;
+/* Labeled pre-brief block (Expected outcome). */
+.sw-section {
+  text-align: left;
   background: var(--bg-elev); border: 1px solid var(--line);
-  border-radius: 10px; padding: 12px;
-  text-align: left; margin: 4px 0 14px;
+  border-radius: 12px; padding: 14px 16px; margin: 0 0 12px;
 }
-.sw-info .i { width: 18px; height: 18px; color: var(--text-dim); flex: 0 0 18px; margin-top: 1px; }
-.sw-info p { margin: 0; font-size: 13.5px; color: var(--text-dim); }
-.sw-meta { text-align: left; margin: 0 0 14px; }
-.sw-meta small { display: block; font-size: 10.5px; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 2px; }
-.sw-meta strong { font-size: 14px; color: var(--text); }
+/* Expected outcome absorbs the flex spacer the CTA normally claims, so it
+   docks just above "Begin practice" and the two read as one beat:
+   "here's what we expect — ready to begin?". */
+.sw-section.sw-pair-cta { margin-top: auto; }
+.sw-section.sw-pair-cta + .sw-cta { margin-top: 0; }
+.sw-section-label {
+  display: block; font-size: 10.5px; letter-spacing: 0.9px; text-transform: uppercase;
+  color: var(--text-dim); font-weight: 800; margin-bottom: 6px;
+}
+.sw-outcome { margin: 0; font-size: 14.5px; line-height: 1.5; font-weight: 700; color: var(--text); }
+/* Dispatch page — incoming-call lockup: pulsing radio mark + title +
+   channel subtitle as one unit, so the header carries real weight instead
+   of a quiet pill floating above the card. */
+.dispatch-head { display: grid; justify-items: center; gap: 3px; margin: 4px 0 18px; }
+.dh-mark {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #1a0f06;
+  margin-bottom: 8px;
+  animation: dispatchPulse 1.8s ease-out infinite;
+}
+.dh-mark svg { width: 22px; height: 22px; }
+@keyframes dispatchPulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+  70%  { box-shadow: 0 0 0 12px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.dh-title { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.2px; }
+.dh-channel {
+  font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase;
+  color: var(--accent); font-weight: 700;
+}
+@media (prefers-reduced-motion: reduce) { .dh-mark { animation: none; } }
+
+/* Short guidance line — sits between the transmission and the CTA. */
+.sw-dispatch-lead { text-align: left; font-size: 13.5px; line-height: 1.5; color: var(--text-dim); margin: 12px 0 14px; }
 
 /* Scenario hero (gradient stand-in for a photo) */
 .scn-hero {
@@ -808,9 +908,10 @@ a { color: var(--accent); text-decoration: none; }
 }
 
 /* Practice step phase — a sticky, edge-to-edge hero pinned at the top with
-   a scrolling thread of step "turns" beneath it. Each answered step stays
-   in place as the next one appends below, so the full decision history is
-   always scrollable instead of being replaced on every Continue. */
+   the patient's vitals anchored directly beneath it. Each step's question
+   replaces the previous one, so only one set of options is on screen at a
+   time and a vitals change reads as a real shift to a fixed readout rather
+   than a new floating card. */
 .app.fullscreen .view:has(.scn-flow) { padding: 0; }
 .scn-flow { min-height: 100%; }
 .scn-hero-sticky { position: sticky; top: 0; z-index: 3; }
@@ -818,6 +919,15 @@ a { color: var(--accent); text-decoration: none; }
   margin: 0; border-radius: 0;
   border: 0; border-bottom: 1px solid var(--line);
 }
+/* Vitals shelf — pinned with the hero, just below the image. Opaque so the
+   thread scrolls cleanly under it; its own bottom rule separates it from the
+   question below. */
+.scn-vitals-anchor {
+  padding: 12px 14px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.scn-vitals-anchor .vitals-panel { margin: 0; }
 .scn-hero-timer {
   position: absolute; z-index: 4;
   top: calc(12px + env(safe-area-inset-top)); left: 12px;
@@ -1182,6 +1292,173 @@ a { color: var(--accent); text-decoration: none; }
 }
 .scn-timer .i { width: 14px; height: 14px; color: var(--text-dim); }
 
+/* ============================================================
+   Practice mode bar — the persistent "you're in a Practice" chrome.
+   A lesson never renders this bar; that contrast is the primary cue that
+   separates the two flows. The Picton-blue surface (#2b81a3) is a
+   supporting accent — the bar's PRESENCE is what carries the distinction,
+   not its color.
+   ============================================================ */
+:root { --practice-accent: #2b81a3; --lesson-accent: #0271ce; }
+
+.practice-bar {
+  position: sticky; top: 0; z-index: 7;
+  background: var(--practice-accent); color: #fff;
+  padding-top: env(safe-area-inset-top);
+  box-shadow: 0 6px 16px -10px rgba(13, 38, 53, 0.7);
+}
+.practice-bar .pb-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 11px 16px;
+}
+.pb-mode { display: inline-flex; align-items: center; gap: 8px; }
+.pb-bolt { display: inline-flex; }
+.pb-bolt .i, .pb-bolt svg { width: 18px; height: 18px; color: #fff; }
+.pb-label {
+  font-size: 12.5px; font-weight: 800; letter-spacing: 1.6px;
+  text-transform: uppercase;
+}
+.pb-right { display: inline-flex; align-items: center; gap: 12px; }
+
+/* The session timer lives in the bar, not the hero. Restyle the shared
+   .scn-timer pill so it reads as part of the colored bar. */
+.practice-bar .scn-timer {
+  background: rgba(255, 255, 255, 0.16); border: 0; color: #fff;
+  padding: 5px 9px; font-size: 13px;
+}
+.practice-bar .scn-timer .i { color: #fff; }
+.pb-close {
+  display: inline-grid; place-items: center;
+  width: 30px; height: 30px; margin: -4px -6px -4px 0;
+  border: 0; background: transparent; color: #fff; cursor: pointer; border-radius: 8px;
+}
+.pb-close:hover { background: rgba(255, 255, 255, 0.16); }
+.pb-close svg { width: 18px; height: 18px; }
+
+/* On practice routes the bar replaces the shell's floating × and owns the top
+   inset: hide the float button and zero the fullscreen view padding so the bar
+   sits flush at the top. The content area below carries its own insets. */
+body.practice-live .floatbtn-right { display: none !important; }
+body.practice-live .app.fullscreen .view { padding: 0; }
+.practice-content { padding: 14px 14px 32px; }
+.practice-content:has(.scn-flow) { padding: 0; }
+/* Stack the scene hero just beneath the sticky bar (~44px) so the two sticky
+   layers don't overlap. */
+body.practice-live .practice-content .scn-hero-sticky { top: calc(44px + env(safe-area-inset-top)); }
+body.practice-live .scn-turn { scroll-margin-top: 300px; }
+
+/* ============================================================
+   Practice intro sheet — the pre-brief as "the practice bar, expanded".
+   A full-screen surface in the bar's own color sits under the bar; since
+   the two share a color (and the bar's shadow is suppressed while the
+   intro is up) they read as one continuous practice-mode surface. On
+   Begin, the sheet slides up and tucks behind the bar, revealing the run
+   content already rendered beneath — the persistent bar is visibly what
+   remains of this intro.
+   ============================================================ */
+.practice-intro-sheet {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  top: calc(44px + env(safe-area-inset-top));
+  /* Stay within the phone frame on tablet/desktop. left:0/right:0 + a capped
+     max-width + auto inline margins centers the sheet without touching the
+     `transform` the rise animation owns (see .is-rising below). */
+  max-width: var(--maxw);
+  margin-inline: auto;
+  z-index: 6;                    /* below the bar (7): slides up behind it */
+  background: var(--practice-accent);
+  overflow-y: auto;
+  display: flex; flex-direction: column;
+  padding: 10px 18px calc(18px + env(safe-area-inset-bottom));
+  box-shadow: 0 18px 36px rgba(13, 38, 53, 0.45);
+  transition: transform 520ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* One surface: no shadow seam between bar and sheet while the intro is up. */
+body.practice-intro .practice-bar { box-shadow: none; }
+.practice-intro-sheet.is-rising { transform: translateY(-105%); }
+/* The brief's text fades ahead of the slide so it doesn't visibly scroll
+   past the bar. */
+.practice-intro-sheet .scn-welcome { transition: opacity 200ms ease; }
+.practice-intro-sheet.is-rising .scn-welcome { opacity: 0; }
+/* Gentle settle-in on mount (the run's only entrance, so keep it quiet). */
+@keyframes intro-sheet-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* `backwards` (not `both`): once the entrance finishes, the animation must
+   release its hold so the fade-out transition above can take effect. */
+.practice-intro-sheet .scn-welcome { animation: intro-sheet-in 380ms var(--ease-standard, ease) backwards; }
+
+/* While the intro is up the session hasn't started, so the bar shows no
+   timer; it fades in as the sheet lifts — the clock starts existing when
+   the practice does. (Invisible, not removed, so the bar doesn't reflow.) */
+.practice-bar .scn-timer { transition: opacity 360ms ease; }
+body.practice-intro .practice-bar .scn-timer { opacity: 0; pointer-events: none; }
+
+/* The brief content sits directly on the colored surface — no white card.
+   Everything restyles to white-on-teal, and the header chrome is stripped
+   back to typography: the pill becomes a quiet eyebrow, the meta chips
+   become one dim "~6 min · 2 decisions" line. One headline, two whispers.
+   The auto margins on the eyebrow (top) and body (bottom) split the free
+   space evenly around the header cluster, so short briefs center instead
+   of leaving a hole between the body and the bottom-docked outcome/CTA. */
+.practice-intro-sheet .scn-welcome {
+  background: transparent; border: 0; box-shadow: none;
+  padding: 16px 2px 2px;
+  margin: 0; flex: 1 0 auto;
+  color: #fff;
+}
+.practice-intro-sheet .kicker-pill {
+  background: transparent; border: 0; padding: 0;
+  margin: auto auto 12px;
+  color: rgba(255, 255, 255, 0.72);
+  letter-spacing: 1.6px;
+}
+.practice-intro-sheet .kicker-pill .i { display: none; }
+.practice-intro-sheet .sw-title { color: #fff; }
+.practice-intro-sheet .sw-meta {
+  gap: 0; margin: 10px 0 0;
+}
+.practice-intro-sheet .sw-meta-chip {
+  background: transparent; border: 0; padding: 0;
+  font-size: 13px; font-weight: 600;
+  color: rgba(255, 255, 255, 0.78);
+}
+.practice-intro-sheet .sw-meta-chip + .sw-meta-chip::before {
+  content: '·';
+  margin: 0 7px;
+  color: rgba(255, 255, 255, 0.55);
+}
+.practice-intro-sheet .sw-body {
+  color: rgba(255, 255, 255, 0.94); font-size: 15.5px;
+  margin: 22px auto auto;
+}
+/* The outcome docks to the CTA at the bottom; the centering autos above
+   own the free space, so this one releases its flex-spacer claim. */
+.practice-intro-sheet .sw-section.sw-pair-cta { margin-top: 0; }
+.practice-intro-sheet .sw-body mark { background: rgba(255, 255, 255, 0.24); color: #fff; }
+/* On the teal sheet the frosted-card treatment read as a barely-there ghost
+   box. Drop the fill/border and present the outcome as a clean labeled block,
+   set off from the prose by a single hairline and docked above the CTA. */
+.practice-intro-sheet .sw-section {
+  background: transparent;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 0;
+  padding: 16px 0 2px;
+}
+.practice-intro-sheet .sw-section-label { color: rgba(255, 255, 255, 0.78); }
+.practice-intro-sheet .sw-outcome { color: #fff; }
+/* The starting gate: a solid white button reads as THE action on teal. */
+.practice-intro-sheet .btn.primary.sw-cta {
+  background: #fff; color: #14506b;
+}
+.practice-intro-sheet .btn.primary.sw-cta .i { color: #14506b; }
+@media (prefers-reduced-motion: reduce) {
+  .practice-intro-sheet { transition: none; }
+  .practice-intro-sheet .scn-welcome { animation: none; }
+}
+
 /* Tension tag */
 .tension-tag {
   display: inline-flex; align-items: center; gap: 6px;
@@ -1299,26 +1576,25 @@ body.light .scn-prompt {
 .scn-briefing-body .tension-tag {
   margin: 0 0 12px;
 }
-.scn-scene-kicker {
-  font-size: 11px; font-weight: 800; letter-spacing: 1.2px;
-  text-transform: uppercase; color: var(--text-dim);
-  margin-bottom: 6px;
-}
+/* Scene-setting narrative — sits directly under the step kicker on the
+   opening step (no separate "The scene" kicker; two identical kickers
+   stacked read as noise). Dimmed so it frames the question rather than
+   competing with it. */
 .scn-scene-text {
-  margin: 0;
-  color: var(--text);
-  font-size: 14px; line-height: 1.5;
+  margin: 0 0 16px;
+  color: var(--text-dim);
+  font-size: 14px; line-height: 1.55;
 }
 
 /* Dispatch audio — sits inside the welcome card so the learner hears
    the call before they begin the scene. */
 .dispatch-audio {
-  display: flex; flex-direction: column; gap: 8px;
+  display: flex; flex-direction: column; gap: 14px;
   background: rgba(62, 200, 255, 0.06);
   border: 1px solid rgba(62, 200, 255, 0.28);
-  border-radius: 12px;
-  padding: 12px 14px;
-  margin: 14px 0 6px;
+  border-radius: 14px;
+  padding: 20px;
+  margin: 18px 0 6px;
 }
 .dp-channel {
   display: inline-flex; align-items: center; gap: 6px;
@@ -1326,7 +1602,8 @@ body.light .scn-prompt {
   text-transform: uppercase; color: #3ec8ff;
 }
 .dp-channel .i { width: 14px; height: 14px; }
-.dp-row { display: flex; align-items: center; gap: 12px; }
+/* Text on the left, play button on the right (row-reverse keeps DOM order). */
+.dp-row { display: flex; flex-direction: row-reverse; align-items: center; gap: 14px; }
 .dp-play {
   flex: none; width: 40px; height: 40px; border-radius: 50%;
   background: #3ec8ff; color: #00131c; border: none; cursor: pointer;
@@ -1344,8 +1621,9 @@ body.light .scn-prompt {
   50%      { box-shadow: 0 0 0 8px rgba(176, 123, 255, 0); }
 }
 .dp-text {
-  margin: 0;
-  font-size: 13px; line-height: 1.45;
+  flex: 1; margin: 0;
+  font-size: 16px; line-height: 1.6;
+  text-align: left;
   color: var(--text);
   font-style: italic;
 }
@@ -1405,28 +1683,114 @@ body.light .scn-prompt {
 
 /* Option wrappers — each response option lives in a wrapper so we can
    drop a "Your answer" / "Best answer" label above the button after a
-   pick. Unchosen+wrong options fade away to focus the comparison. */
+   pick. After a pick, every option stays in place and in order: the pick
+   and the best answer are highlighted, and the rest dim back so the
+   highlights read as the same list the learner just chose from. */
 .poll .scn-option { display: block; }
 .scn-option-label {
+  align-items: center; gap: 5px;
   font-size: 11px; font-weight: 800; letter-spacing: 1px;
   text-transform: uppercase;
   margin: 0 0 6px 2px;
   color: var(--text-dim);
 }
+.scn-option-label .i { width: 13px; height: 13px; flex: none; }
 .scn-option.t-good > .scn-option-label { color: var(--good); }
 .scn-option.t-bad  > .scn-option-label { color: var(--bad); }
 .scn-option.t-warn > .scn-option-label { color: var(--warn); }
-.scn-option-btn { width: 100%; }
-.scn-option.t-good > .scn-option-btn { border-color: var(--good); }
-.scn-option.t-bad  > .scn-option-btn { border-color: var(--bad); }
-.scn-option.t-warn > .scn-option-btn { border-color: var(--warn); }
-.scn-option.is-hidden {
-  max-height: 0;
+.scn-option-btn { width: 100%; transition: opacity 240ms ease, border-color 240ms ease, box-shadow 240ms ease; }
+/* Pre-submit selection — tapping an option only marks intent. Accent ring
+   (not a verdict tint) so it reads as "chosen, not yet graded". */
+.scn-option.is-selected > .scn-option-btn {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+/* Highlighted (picked / best) options get a 2px tinted border so they
+   visibly lift out of the row rather than just recoloring. */
+.scn-option.t-good > .scn-option-btn { border-color: var(--good); box-shadow: inset 0 0 0 1px var(--good); }
+.scn-option.t-bad  > .scn-option-btn { border-color: var(--bad);  box-shadow: inset 0 0 0 1px var(--bad); }
+.scn-option.t-warn > .scn-option-btn { border-color: var(--warn); box-shadow: inset 0 0 0 1px var(--warn); }
+/* Options that are neither the pick nor the best answer fade out after
+   grading (JS collapses them with display:none once the fade completes) —
+   the graded state is a verdict column, not an annotated list. */
+.scn-option.is-removed {
   opacity: 0;
-  margin: 0; padding: 0;
-  overflow: hidden;
   pointer-events: none;
-  transition: opacity 220ms ease, max-height 220ms ease;
+  transition: opacity 240ms ease;
+}
+
+/* Graded verdict cards: after submit, both surviving options re-render as
+   structurally identical cards — the verdict label sits inside the card as
+   its header, the wrapper takes over the card chrome, and the inner button
+   hands its own back. The winning card (has-why) additionally fuses the
+   coach's rationale below a divider, so answer + why are one object. */
+.scn-option.as-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-elev);
+  padding: 12px 14px 14px;
+}
+.scn-option.as-card.t-good { border-color: var(--good); box-shadow: inset 0 0 0 1px var(--good); }
+.scn-option.as-card.t-warn { border-color: var(--warn); box-shadow: inset 0 0 0 1px var(--warn); }
+.scn-option.as-card.t-bad  { border-color: var(--bad);  box-shadow: inset 0 0 0 1px var(--bad); }
+.scn-option.as-card > .scn-option-btn,
+.scn-option.as-card > .scn-option-btn:disabled {
+  border: 0; box-shadow: none; background: transparent;
+  padding: 0; border-radius: 0;
+}
+.scn-option.as-card > .scn-option-label { margin-left: 0; margin-bottom: 8px; }
+.scn-option-why {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.scn-option-why .scn-explain-text { font-size: 14px; }
+
+/* ---------- Graded-reveal sequence ----------
+   After "Submit answer" the result lands in three beats: the learner's pick
+   is annotated, the best answer (on a miss) surfaces a moment later, then
+   the explanation card slides in. Each element animates from the state the
+   learner was just looking at, so the grading reads as a sequence rather
+   than one instant jump to the final screen. */
+.scn-option.reveal > .scn-option-label {
+  animation: scn-label-in 320ms var(--ease-standard, ease) both;
+}
+.scn-option.reveal-late > .scn-option-label { animation-delay: 320ms; }
+/* The best-answer card's ring fades up from the neutral state a beat after
+   the pick is labeled… */
+.scn-option.reveal-late.has-why {
+  animation: scn-best-in 360ms var(--ease-standard, ease) 320ms backwards;
+}
+/* …and the fused "why" rationale slides in last. */
+.scn-option-why {
+  animation: scn-explain-in 400ms var(--ease-standard, ease) 480ms both;
+}
+.scn-explain.reveal-in {
+  animation: scn-explain-in 400ms var(--ease-standard, ease) 650ms both;
+}
+/* Generic graded-result entrance for non-choice steps (rubric/model-answer
+   block on formulation steps) — same slide-up, shorter lead-in since there's
+   no option-annotation beat before it. */
+.reveal-block {
+  animation: scn-explain-in 400ms var(--ease-standard, ease) 150ms both;
+}
+@keyframes scn-label-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes scn-best-in {
+  from { border-color: var(--line); box-shadow: none; }
+}
+@keyframes scn-explain-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scn-option.reveal > .scn-option-label,
+  .scn-option.reveal-late.has-why,
+  .scn-option-why,
+  .scn-explain.reveal-in,
+  .reveal-block { animation: none; }
 }
 
 /* Explanation card shown after a pick — labeled "Why this works /
@@ -1645,6 +2009,24 @@ body.light .readiness-delta.rd-down { background: rgba(232,90,90,0.08); }
   padding: 10px 12px; font: inherit; resize: vertical;
 }
 .scn-textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* Coach hint folded inside the formulation card, directly under the field —
+   guidance and input read as one unit instead of two sibling cards. */
+.fm-hint {
+  display: flex; gap: 8px; align-items: flex-start;
+  margin-top: 10px;
+}
+.fm-hint-avatar {
+  width: 22px; height: 22px; flex: 0 0 22px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  display: grid; place-items: center;
+}
+.fm-hint-avatar .i { width: 13px; height: 13px; color: #1a0f06; }
+.fm-hint p {
+  margin: 0; align-self: center;
+  font-size: 13px; line-height: 1.45;
+  color: var(--text-dim);
+}
 
 /* Voice button */
 .voice-btn {
@@ -2094,6 +2476,7 @@ body.light .readiness-delta.rd-down { background: rgba(232,90,90,0.08); }
   padding: 14px; margin-bottom: 12px;
 }
 .coach-prompt .ph { display: flex; align-items: center; gap: 8px; color: var(--accent); font-weight: 800; letter-spacing: .6px; text-transform: uppercase; font-size: 12px; }
+.coach-prompt .cp-reveal-body { position: relative; }
 .coach-prompt p.q { margin: 8px 0 12px; font-size: 15px; }
 .coach-prompt .actions { display: flex; gap: 8px; }
 
@@ -3120,21 +3503,15 @@ body.light .date-divider span {
   font-size: 13px; color: var(--text-dim);
 }
 
-/* Legend — pale-blue pill swatch + plain description of the band. */
-.rd-legend {
-  display: flex; align-items: center; gap: 10px;
-  margin-top: 14px;
-  font-size: 14px; color: var(--text);
-}
-.rd-legend-swatch {
-  width: 34px; height: 16px; border-radius: 999px;
-  background: var(--chart-band);
-  flex: 0 0 auto;
-}
-
+/* Vic's "voice region" — a faint accent-tinted bound that frames coach
+   guidance as coming from Coach Vic rather than reading as page copy. */
 .rd-note {
   display: flex; gap: 10px; align-items: flex-start;
-  padding: 10px 0 4px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
 }
 .rd-note-mark {
   width: 28px; height: 28px; flex: 0 0 28px;
@@ -3148,6 +3525,66 @@ body.light .date-divider span {
   margin: 4px 0 0;
   font-size: 13.5px; line-height: 1.45;
   color: var(--text);
+}
+.rd-note-body { position: relative; flex: 1; min-width: 0; }
+
+/* "Vic is thinking" entrance — a shimmer-text indicator (distinct from the
+   chat typing dots: dots = composing a message, shimmer = working something
+   out). Shared by every coach-authored surface (readiness note, coach
+   message card). While thinking, the label is the only content in flow so
+   the block sits at one-line height; on reveal the label leaves the flow
+   and the body grows to the content height (height animated in vicReveal). */
+.vic-think {
+  display: block;
+  margin: 4px 0 0;
+  font-size: 13.5px; line-height: 1.45; font-weight: 600;
+  white-space: nowrap;
+  background: linear-gradient(90deg,
+    var(--text-dim) 0%, var(--text-dim) 38%,
+    var(--accent) 50%,
+    var(--text-dim) 62%, var(--text-dim) 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  animation: rdShimmer 1.8s linear infinite;
+  transition: opacity .25s ease;
+}
+@keyframes rdShimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+
+.rd-note.is-thinking .rd-note-body > :not(.vic-think),
+.coach-message.is-thinking .cm-body > :not(.vic-think),
+.coach-prompt.is-thinking .cp-reveal-body > :not(.vic-think) { display: none; }
+.rd-note.is-thinking .rd-note-mark,
+.coach-message.is-thinking .cm-avatar,
+.coach-prompt.is-thinking .ph-mark { animation: rdNotePulse 1.5s ease-out infinite; }
+@keyframes rdNotePulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent); }
+  70%  { box-shadow: 0 0 0 7px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.rd-note.is-revealed .vic-think,
+.coach-message.is-revealed .vic-think,
+.coach-prompt.is-revealed .vic-think {
+  position: absolute; top: 4px; left: 0;
+  opacity: 0;
+}
+.rd-note.is-revealed .rd-note-body > :not(.vic-think),
+.coach-message.is-revealed .cm-body > :not(.vic-think),
+.coach-prompt.is-revealed .cp-reveal-body > :not(.vic-think) { animation: rdNoteIn .4s ease .1s both; }
+@keyframes rdNoteIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .vic-think,
+  .rd-note.is-thinking .rd-note-mark,
+  .coach-message.is-thinking .cm-avatar,
+  .coach-prompt.is-thinking .ph-mark,
+  .rd-note.is-revealed .rd-note-body > :not(.vic-think),
+  .coach-message.is-revealed .cm-body > :not(.vic-think),
+  .coach-prompt.is-revealed .cp-reveal-body > :not(.vic-think) { animation: none; }
+  .rd-note.is-thinking .rd-note-body > :not(.vic-think),
+  .coach-message.is-thinking .cm-body > :not(.vic-think),
+  .coach-prompt.is-thinking .cp-reveal-body > :not(.vic-think) { display: block; }
 }
 
 .rd-rule {
@@ -3273,6 +3710,11 @@ body.light .date-divider span {
 }
 .si-dot.cur  { background: var(--accent); }
 .si-dot.done { background: var(--good); }
+
+/* Reading gate — the Learn CTA stays visibly locked until the prose has
+   been scrolled to its end (the .read-sentinel flips it back on). */
+.read-sentinel { height: 1px; }
+.btn.cta-gated { opacity: .45; cursor: not-allowed; box-shadow: none; }
 
 /* ---------- Sticky footer (fullscreen chapter CTA) ---------- */
 .sticky-footer {
@@ -3538,6 +3980,28 @@ body.no-tabbar .coach-fab-root { bottom: 80px; }
 }
 .am-toggle .i { width: 14px; height: 14px; }
 .am-toggle:hover { color: var(--text); border-color: var(--text-dim); }
+
+/* Articulate unit — audience framing header + voice capture bonded into one
+   card. The audience header sits flush at the top, a hairline divides it from
+   the mic capture below, so "who you're explaining to" and "how you answer"
+   read as a single object. */
+.articulate-unit {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin: 12px 0;
+  overflow: hidden;
+}
+.articulate-unit .audience-card {
+  border: 0; border-radius: 0; margin: 0;
+  background: transparent;
+  border-bottom: 1px solid var(--line);
+}
+.articulate-unit .articulation-mic {
+  border: 0; border-radius: 0; margin: 0;
+  background: transparent;
+  padding-top: 16px;
+}
 
 /* Audience framing card */
 .audience-card {

@@ -4,7 +4,7 @@
 
 import { store } from '../store.js';
 import * as adaptive from '../adaptive.js';
-import * as ui from '../ui.js?v=scene-flow-9';
+import * as ui from '../ui.js?v=scene-flow-42';
 import { currentPhase, triggerPolicyEventIfNeeded, markPolicyModalShown,
          personaScenarioForPhase, personaAdaptiveCourse, personaPhase1Course } from '../phase.js';
 
@@ -344,7 +344,7 @@ function noteFor(snap, phase) {
   const top = snap.movers?.find?.((m) => m.direction === 'down');
   if (snap.band === 'behind') return `Your peers are slightly ahead. A short ${pw} on ${top?.title ?? 'one weak area'} closes the gap.`;
   if (snap.band === 'ahead')  return 'No practice needed now — you\'re ahead of the cohort. Nice work.';
-  return `You're tracking with your peers. A 5-minute ${pw} keeps it that way.`;
+  return `Looking good! You're on track with your peers.`;
 }
 
 // ---------- policy modal ----------
