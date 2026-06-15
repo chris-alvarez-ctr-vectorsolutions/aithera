@@ -1,27 +1,48 @@
 # Convergence — Prototyping Notes
 
-## Default shell for Convergence prototypes
+## Shared Convergence chrome (topnav + admin sidenav + breadcrumb)
 
-Every Convergence prototype is contained inside the **Convergence LMS shell** at
-`products/Convergence/_shell/` (vendored from the `ct-lms-demo-site` repo). This shell provides
-the production-accurate topnav, admin sidenav, and breadcrumb bar. It is a temporary stand-in
-to show what new prototypes look like in the existing code, and will be replaced with a better
-UI later. **Always wrap new Convergence prototypes in this shell unless the user says otherwise.**
+Convergence prototypes render the production-accurate Convergence chrome (topnav, admin sidenav,
+breadcrumb bar) **in-file** by including the shared chrome from `products/Convergence/_shell/`.
+Each prototype is a standalone file: open it directly and it shows the chrome around its own
+content. There is **no iframe and no redirect** — the chrome is injected into the page itself.
+The chrome is a temporary stand-in (calibrated to the live Convergence admin) and may be replaced
+later. **Give new Convergence prototypes this chrome unless the user says otherwise.**
 
-How it works:
-- The shell (`_shell/index.html`) mounts each prototype as an **iframe** in its `.content-slot`,
-  keyed by route. Prototypes can talk back to the shell via `postMessage`
-  (e.g. `{type:'shell:builder-active', active:true}`).
-- To add a prototype: (1) add a child to the `qualifications` (or relevant) node in `NAV_TREE`,
-  (2) add an `else if (activeRoute === 'your-route')` branch in `renderContent()` pointing an
-  `<iframe>` at your prototype file, and (3) optionally set it as the default `activeRoute`.
-- Build the prototype as **content only** — do NOT give it its own topnav/sidenav/breadcrumb;
-  the shell supplies that chrome. If a prototype already has its own chrome, hide it when embedded:
-  `if (window.self !== window.top) document.documentElement.classList.add('embedded')`, then
-  hide the chrome and zero out header-dependent fixed offsets under `.embedded` (see how
-  `Qualification-Builder/index.html` does it).
-- The root index entry for a Convergence prototype should point at the shell (`_shell/`), not the
-  bare prototype file, so it always renders inside the chrome.
+How it works (the include contract):
+- `_shell/chrome.css` styles the chrome; `_shell/chrome.js` injects the `.app` (topnav + sidenav +
+  breadcrumb) and **relocates your page content into the content area**.
+- A prototype's body is just `<div id="cv-page"> ...your content... </div>`. Before loading
+  chrome.js, set a config object; then load chrome.js; then your page logic:
+  ```html
+  <head> ... <link rel="stylesheet" href="../_shell/chrome.css"/> ... </head>
+  <body>
+    <div id="cv-page"> ...content... </div>
+    <script>window.SHELL_CONFIG = { active:'qual-quals', parent:'Qualifications', title:'Qualifications', fullBleed:false };</script>
+    <script src="../_shell/chrome.js"></script>
+    <script> ...page logic (runs after the chrome is built)... </script>
+  </body>
+  ```
+- `SHELL_CONFIG`: `active` = sidenav route id to highlight; `parent`/`title` = breadcrumb labels;
+  `fullBleed:true` removes content padding (use for full-screen builders; omit for padded list pages).
+- The sidenav is data-driven by `NAV_TREE` in `chrome.js`. **To add a prototype:** give a NAV_TREE
+  child an `href` (relative to the prototype files' folder, e.g. `Manage-Activities.html`) and set
+  that prototype's `SHELL_CONFIG.active` to the child's id. Sidenav items navigate via real `<a href>`
+  to the sibling files, so every page stays openable on its own.
+- Build the prototype as **content only** — do NOT give it its own topnav/sidenav/breadcrumb.
+- Root index (`/index.html`) entries point at the actual prototype files (not at a shell wrapper).
+
+The current Qualification-Builder suite (all in `products/Convergence/Qualification-Builder/`):
+`Manage-Qualifications.html`, `Manage-Requirements.html`, `Manage-Activities.html` (AG Grid lists),
+`AI-Qualification-Builder.html` (builder + conversational AI side panel),
+`Manual-Qualification-Builder.html` (same builder, no AI), and
+`Manual-Requirement-Builder.html` (requirement → activities). The builders accept `?qual=<name>`
+(or `?req=<name>`) to open an existing item for editing; the AG Grid lists are the single entry
+point and link names to the builders. `_shell/index.html` (the old iframe shell) is **legacy/deprecated**.
+
+When a prototype has heavy AG Grid tables, load AG Grid Community from the CDN (this is an explicit
+exception to the "no JS libraries" rule, used because the user asked for AG Grid):
+`https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/...` (see `Manage-Qualifications.html`).
 
 ## AI / Smart Recommendations rule
 

@@ -14,6 +14,7 @@ const REPORTS = {
     'near-miss':            { title: 'Near Miss Report',            breadcrumb: 'Near Miss' },
     'manage-saved-views':   { title: 'Manage Saved Views',          breadcrumb: 'Manage Saved Views' },
     'scheduled-reports':    { title: 'Scheduled Reports',           breadcrumb: 'Scheduled Reports' },
+    'views-schedules':      { title: 'Views & Schedules',           breadcrumb: 'Views & Schedules' },
 };
 
 const NAV_ITEMS = [
@@ -47,6 +48,7 @@ const NAV_ITEMS = [
         ]
     },
     { type: 'divider' },
+    { type: 'button', id: 'views-schedules',    text: 'Views & Schedules' },
     { type: 'button', id: 'scheduled-reports',  text: 'Scheduled Reports' },
     { type: 'button', id: 'manage-saved-views', text: 'Manage Saved Views' },
 ];
@@ -67,13 +69,17 @@ function navigateToReport(id) {
     const isActEx     = id === 'activity-exception';
     const isManage    = id === 'manage-saved-views';
     const isScheduled = id === 'scheduled-reports';
+    const isCombined  = id === 'views-schedules';
 
     document.getElementById('pageLayout').style.display              = isQual      ? '' : 'none';
     document.getElementById('actExLayout').style.display            = isActEx     ? '' : 'none';
     document.getElementById('manageSavedViewsLayout').style.display  = isManage    ? '' : 'none';
     document.getElementById('scheduledReportsLayout').style.display  = isScheduled ? '' : 'none';
-    document.getElementById('reportPlaceholder').style.display       = (!isQual && !isActEx && !isManage && !isScheduled) ? 'flex' : 'none';
-    if (!isManage && !isScheduled) document.getElementById('placeholderTitle').textContent = report.title;
+    document.getElementById('viewsSchedulesLayout').style.display    = isCombined  ? '' : 'none';
+    document.getElementById('reportPlaceholder').style.display       = (!isQual && !isActEx && !isManage && !isScheduled && !isCombined) ? 'flex' : 'none';
+    if (!isManage && !isScheduled && !isCombined) document.getElementById('placeholderTitle').textContent = report.title;
+
+    if (isCombined) renderViewsSchedules();
 
     // Ensure qual filter toggle is hidden when switching away
     if (!isQual) filterToggleBtn.style.display = 'none';
@@ -561,9 +567,11 @@ const SAVED_VIEWS = [
         report: 'Qualification Report',
         desc: 'Quarterly compliance tracking for all departments',
         dateRange: '01/01/26 – 03/31/26',
-        activities: ['Safety Fundamentals', 'Advanced Safety'],
-        users: ['User Name 1', 'User Name 2', 'User Name 3'],
-        statusTypes: 'All', columns: 'Activity, User, Username, Status, Completion Date',
+        qualIds: ['q12', 'q14'],
+        activities: ['Hazardous Materials Handling', 'Lock-Out / Tag-Out (LOTO)'],
+        userIds: ['u1', 'u5', 'u6'],
+        users: ['Anthony Davis', 'Draymond Green', 'Fred VanVleet'],
+        status: 'all', statusTypes: 'All', columns: 'Activity, User, Username, Status, Completion Date',
         activityCount: 2, userCount: 12, favorited: true,
     },
     {
@@ -571,9 +579,11 @@ const SAVED_VIEWS = [
         report: 'Qualification Report',
         desc: 'Tracking for confined space qualification teams',
         dateRange: '04/01/26 – 04/07/26',
+        qualIds: ['q4'],
         activities: ['Confined Space Entry'],
-        users: ['User Name 4', 'User Name 5'],
-        statusTypes: 'All', columns: 'Activity, User, Status, Due Date',
+        userIds: ['u3', 'u4'],
+        users: ["D'Angelo Russell", 'Darvin Ham'],
+        status: 'all', statusTypes: 'All', columns: 'Activity, User, Status, Due Date',
         activityCount: 1, userCount: 8, favorited: true,
     },
     {
@@ -581,9 +591,11 @@ const SAVED_VIEWS = [
         report: 'Qualification Report',
         desc: 'Fall protection certification tracking',
         dateRange: 'All Time',
-        activities: ['Fall Protection Training', 'Safety Basics', 'Advanced Safety'],
-        users: ['User Name 1', 'User Name 6'],
-        statusTypes: 'Completed, In Progress', columns: 'Activity, User, Status',
+        qualIds: ['q8', 'q19'],
+        activities: ['Fall Protection Training', 'Scaffolding Safety'],
+        userIds: ['u1', 'u7'],
+        users: ['Anthony Davis', 'Gary Payton II'],
+        status: 'qualified', statusTypes: 'Qualified', columns: 'Activity, User, Status',
         activityCount: 3, userCount: 20, favorited: false,
     },
     {
@@ -591,9 +603,11 @@ const SAVED_VIEWS = [
         report: 'Qualification Report',
         desc: 'Crane operator certification status',
         dateRange: '04/01/26 – 04/07/26',
+        qualIds: ['q6'],
         activities: ['Crane Operations Training'],
-        users: ['User Name 7', 'User Name 8'],
-        statusTypes: 'All', columns: 'Activity, User, Status, Completion Date',
+        userIds: ['u8', 'u10'],
+        users: ['Jalen Green', 'Klay Thompson'],
+        status: 'all', statusTypes: 'All', columns: 'Activity, User, Status, Completion Date',
         activityCount: 1, userCount: 6, favorited: false,
     },
     {
@@ -829,20 +843,64 @@ function setSaveViewLabels(applied) {
     if (itemLabel) itemLabel.textContent = applied ? 'Update View' : 'Save View';
 }
 
-function markViewDirty() { if (appliedSavedView) viewDirty = true; }
+let suppressDirty = false;  // true while we programmatically populate the panel
+function markViewDirty() { if (appliedSavedView && !suppressDirty) viewDirty = true; }
+
+// Reflect a saved view's filters in the report filter panel
+function populateFilterPanelFromView(view) {
+    suppressDirty = true;
+    // Date range
+    const dateInput = document.querySelector('#filterPanel .date-input');
+    if (dateInput && view.dateRange) dateInput.value = view.dateRange;
+
+    // Qualification + User chips (driven by pickerState + the picker data)
+    if (typeof pickerState !== 'undefined') {
+        pickerState.quals = new Set(view.qualIds || []);
+        pickerState.qualUsers = new Set(view.userIds || []);
+        const qChips = document.getElementById('qualChips');
+        const qLabel = document.getElementById('qualFilterLabel');
+        if (qChips && qLabel) renderChips(qChips, qLabel, QUALIFICATIONS_DATA, pickerState.quals, 'Qualifications');
+        const uChips = document.getElementById('qualUsersChips');
+        const uLabel = document.getElementById('qualUsersFilterLabel');
+        if (uChips && uLabel) renderChips(uChips, uLabel, USERS_DATA, pickerState.qualUsers, 'Users');
+    }
+
+    // Qualification Status checkboxes
+    const cq = document.getElementById('chk-qualified');
+    const ci = document.getElementById('chk-incomplete');
+    const st = view.status || 'all';
+    if (cq) cq.checked = (st === 'qualified');
+    if (ci) ci.checked = (st === 'incomplete');
+    suppressDirty = false;
+}
 
 function applyView(view) {
     appliedSavedView = view;
-    viewDirty = false;
     document.getElementById('appliedBanner').style.display = 'flex';
     document.getElementById('appliedBannerName').textContent = view.name;
+    // Inline schedule-count badge in the banner (no extra line)
+    const schedTag = document.getElementById('appliedBannerSched');
+    if (schedTag) {
+        const n = scheduleCountForView(view.id);
+        if (n > 0) {
+            schedTag.innerHTML = `<i class="fa-regular fa-clock"></i> ${n}`;
+            schedTag.title = `${n} scheduled report${n > 1 ? 's' : ''} use this view`;
+            schedTag.style.display = '';
+        } else {
+            schedTag.style.display = 'none';
+        }
+    }
     setSaveViewLabels(true);
+    if (view.report === 'Qualification Report') populateFilterPanelFromView(view);
+    viewDirty = false;   // freshly applied view is clean
 }
 
 document.getElementById('clearAppliedViewBtn').addEventListener('click', () => {
     appliedSavedView = null;
     viewDirty = false;
     document.getElementById('appliedBanner').style.display = 'none';
+    const schedTag = document.getElementById('appliedBannerSched');
+    if (schedTag) schedTag.style.display = 'none';
     document.getElementById('saveViewMenu').style.display = 'none';
     selectedSavedViewId = null;
     setSaveViewLabels(false);
@@ -1706,12 +1764,11 @@ document.getElementById('actExApplySavedViewBtn')?.addEventListener('click', () 
 // MANAGE SAVED VIEWS PAGE
 // ================================================================
 
-// Badge shown on a saved view that has one or more schedules tied to it
+// Small clock + count tag shown next to the view name when schedules exist
 function schedColumnBadge(viewId) {
     const count = SCHEDULED_REPORTS.filter(s => s.savedViewId === viewId).length;
     if (!count) return '';
-    const label = count > 1 ? `${count} Schedules` : 'Scheduled';
-    return `<span class="msv-sched-badge" title="This saved view is used by ${count} scheduled report${count > 1 ? 's' : ''}"><i class="fa-regular fa-clock"></i> ${label}</span>`;
+    return `<span class="msv-sched-tag" title="${count} scheduled report${count > 1 ? 's' : ''}"><i class="fa-regular fa-clock"></i> ${count}</span>`;
 }
 
 function renderManageSavedViews() {
@@ -2617,14 +2674,21 @@ saveViewForScheduleDialog.footerRenderer = (root) => {
         const summary = getReportFilterSummary(reportName);
         const dateRow = summary.find(r => /date/i.test(r.label));
 
+        const curQualIds = (typeof pickerState !== 'undefined') ? [...pickerState.quals] : [];
+        const curUserIds = (typeof pickerState !== 'undefined') ? [...pickerState.qualUsers] : [];
+        const curStatus = document.getElementById('chk-qualified')?.checked ? 'qualified'
+            : document.getElementById('chk-incomplete')?.checked ? 'incomplete' : 'all';
         const newView = {
             id: 'view-' + (Date.now ? Date.now() : Math.floor(performance.now())),
             name: viewName,
             report: reportName,
             desc: 'Created while scheduling a report',
             dateRange: (dateRow && dateRow.value) || 'Custom range',
+            qualIds: curQualIds,
             activities: (summary.find(r => /qualif|activit/i.test(r.label)) || {}).pills || [],
+            userIds: curUserIds,
             users: (summary.find(r => /user/i.test(r.label)) || {}).pills || [],
+            status: curStatus,
             statusTypes: (summary.find(r => /status/i.test(r.label)) || {}).value || 'All',
             columns: (summary.find(r => /column/i.test(r.label)) || {}).value || '—',
             activityCount: 0, userCount: 0, favorited: false,
@@ -3020,4 +3084,375 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('srSearch')?.addEventListener('input', applySrFilters);
     // Sorting changes DOM order, so re-render
     document.getElementById('srSort')?.addEventListener('change', renderScheduledReports);
+});
+
+
+// ================================================================
+// VIEWS & SCHEDULES — combined management page (DevExtreme-style)
+// ================================================================
+
+// Column model per report type (used by the saved-view editor's column chooser)
+const REPORT_COLUMNS = {
+    'Qualification Report':      ['Qualification', 'User', 'Username', 'Status', 'Completion Date', 'Due Date', 'Assigned Date', 'Location'],
+    'Activity Exception Report': ['Activity', 'User', 'Username', 'Status', 'Completion Date', 'Next Due Date', 'Location'],
+};
+const STATUS_OPTIONS = {
+    'Qualification Report':      ['Qualified', 'Incomplete'],
+    'Activity Exception Report': ['Completed', 'In Progress', 'Overdue', 'Incomplete'],
+};
+
+// The qualifications/activities picker data for a given report type
+function reportItemsData(report) {
+    return report === 'Activity Exception Report' ? ACTIVITIES_DATA : QUALIFICATIONS_DATA;
+}
+
+// Resolve a saved view's visible columns (falls back to its columns string, then a default)
+function viewVisibleColumns(view) {
+    if (Array.isArray(view.visibleColumns) && view.visibleColumns.length) return view.visibleColumns.slice();
+    const all = REPORT_COLUMNS[view.report] || [];
+    if (view.columns) {
+        let set = view.columns.split(',').map(s => s.trim());
+        if (view.report === 'Qualification Report') set = set.map(s => (s === 'Activity' ? 'Qualification' : s));
+        const matched = all.filter(c => set.includes(c));
+        if (matched.length) return matched;
+    }
+    return all.slice(0, 5);
+}
+
+// One-line filter summary for the grid row
+function vsFacetsText(view) {
+    const parts = [];
+    if (view.dateRange) parts.push(view.dateRange);
+    const acts = view.activities || [];
+    if (acts.length) parts.push(acts.length > 2 ? `${acts.length} ${view.report === 'Activity Exception Report' ? 'activities' : 'qualifications'}` : acts.join(', '));
+    const us = view.users || [];
+    if (us.length) parts.push(us.length > 2 ? `${us.length} users` : us.join(', '));
+    if (view.statusTypes && view.statusTypes !== 'All') parts.push(view.statusTypes);
+    return parts.length ? parts.join('  ·  ') : 'No filters applied';
+}
+
+const vsCollapsed = new Set();  // view ids whose detail panel is collapsed
+
+function renderViewsSchedules() {
+    const body  = document.getElementById('vsBody');
+    const empty = document.getElementById('vsEmpty');
+    if (!body) return;
+
+    const reportFilter = document.getElementById('vsReportFilter')?.value || '';
+    const q = (document.getElementById('vsSearch')?.value || '').trim().toLowerCase();
+
+    const views = SAVED_VIEWS.filter(v => {
+        if (reportFilter && v.report !== reportFilter) return false;
+        if (!q) return true;
+        const hay = [v.name, v.desc, vsFacetsText(v),
+            ...SCHEDULED_REPORTS.filter(s => s.savedViewId === v.id).map(s => s.name)].join(' ').toLowerCase();
+        return hay.includes(q);
+    });
+
+    body.innerHTML = '';
+    if (empty) empty.style.display = views.length ? 'none' : '';
+
+    views.forEach(view => {
+        const schedules = SCHEDULED_REPORTS.filter(s => s.savedViewId === view.id);
+        const collapsed = vsCollapsed.has(view.id);
+
+        const row = document.createElement('div');
+        row.className = 'dx-row' + (collapsed ? ' dx-collapsed' : '');
+        row.dataset.id = view.id;
+
+        const schedCell = schedules.length
+            ? `<span class="msv-sched-tag"><i class="fa-regular fa-clock"></i> ${schedules.length}</span>`
+            : `<span class="dx-sched-none">None</span>`;
+
+        const delivRows = schedules.length
+            ? schedules.map(s => `
+                <div class="dx-sub-row" data-sid="${s.id}">
+                    <span class="dx-sub-cell dx-sub-name"><i class="fa-regular fa-paper-plane"></i> ${s.name}</span>
+                    <span class="dx-sub-cell">${formatSchedule(s)}</span>
+                    <span class="dx-sub-cell" title="${s.recipients.join(', ')}">${s.recipients.length <= 2 ? s.recipients.join(', ') : `${s.recipients[0]}, ${s.recipients[1]} +${s.recipients.length - 2}`}</span>
+                    <span class="dx-sub-cell"><i class="fa-regular fa-envelope dx-muted"></i> Email · Excel</span>
+                    <span class="dx-sub-cell">${s.nextSend}</span>
+                    <span class="dx-sub-cell dx-sub-actions">
+                        <button class="dx-icon-btn vs-sched-edit" data-sid="${s.id}" title="Edit scheduled report"><i class="fa-solid fa-pencil"></i></button>
+                        <button class="dx-icon-btn vs-sched-del" data-sid="${s.id}" title="Delete scheduled report"><i class="fa-regular fa-trash-can"></i></button>
+                    </span>
+                </div>`).join('')
+            : `<div class="dx-sub-empty">No scheduled reports yet for this view.</div>`;
+
+        row.innerHTML = `
+            <div class="dx-master">
+                <button class="dx-expand" title="Expand / collapse"><i class="fa-solid fa-chevron-down"></i></button>
+                <span class="dx-cell dx-col-name"><i class="fa-solid fa-bookmark dx-name-icon"></i> ${view.name}</span>
+                <span class="dx-cell dx-col-report"><span class="${reportBadgeClass(view.report)}">${view.report}</span></span>
+                <span class="dx-cell dx-col-filters" title="${vsFacetsText(view)}">${vsFacetsText(view)}</span>
+                <span class="dx-cell dx-col-sched">${schedCell}</span>
+                <span class="dx-cell dx-col-actions">
+                    <button class="dx-icon-btn vs-view-edit" data-id="${view.id}" title="Edit saved view"><i class="fa-solid fa-pencil"></i></button>
+                    <button class="dx-icon-btn vs-view-del" data-id="${view.id}" title="Delete saved view"><i class="fa-regular fa-trash-can"></i></button>
+                </span>
+            </div>
+            <div class="dx-detail">
+                <div class="dx-detail-head">
+                    <span class="dx-detail-title"><i class="fa-regular fa-clock"></i> Scheduled reports</span>
+                </div>
+                <div class="dx-subgrid">
+                    <div class="dx-sub-head">
+                        <span class="dx-sub-cell">Name</span>
+                        <span class="dx-sub-cell">Schedule</span>
+                        <span class="dx-sub-cell">Recipients</span>
+                        <span class="dx-sub-cell">Sent As</span>
+                        <span class="dx-sub-cell">Next Send</span>
+                        <span class="dx-sub-cell"></span>
+                    </div>
+                    ${delivRows}
+                </div>
+                <button class="dx-add-btn vs-sched-add" data-id="${view.id}"><i class="fa-solid fa-plus"></i> Add scheduled report</button>
+            </div>`;
+        body.appendChild(row);
+    });
+
+    wireViewsSchedules();
+}
+
+function wireViewsSchedules() {
+    const body = document.getElementById('vsBody');
+    if (!body) return;
+
+    body.querySelectorAll('.dx-expand').forEach(btn => btn.addEventListener('click', () => {
+        const row = btn.closest('.dx-row');
+        const id = row.dataset.id;
+        if (vsCollapsed.has(id)) vsCollapsed.delete(id); else vsCollapsed.add(id);
+        row.classList.toggle('dx-collapsed');
+    }));
+
+    // Saved view: edit (rich editor) / delete
+    body.querySelectorAll('.vs-view-edit').forEach(btn => btn.addEventListener('click', () => {
+        const v = SAVED_VIEWS.find(x => x.id === btn.dataset.id);
+        if (v) openSavedViewEditor(v);
+    }));
+    body.querySelectorAll('.vs-view-del').forEach(btn => btn.addEventListener('click', () => {
+        openDeleteSavedViewDialog(btn.dataset.id);
+    }));
+
+    // Scheduled report: edit / add / delete
+    body.querySelectorAll('.vs-sched-edit').forEach(btn => btn.addEventListener('click', () => {
+        const s = SCHEDULED_REPORTS.find(x => x.id === btn.dataset.sid);
+        if (s) openEmailDialog({ editId: s.id, reportName: s.report });
+    }));
+    body.querySelectorAll('.vs-sched-add').forEach(btn => btn.addEventListener('click', () => {
+        const v = SAVED_VIEWS.find(x => x.id === btn.dataset.id);
+        if (v) openEmailDialog({ mode: 'schedule', reportName: v.report, presetViewId: v.id });
+    }));
+    body.querySelectorAll('.vs-sched-del').forEach(btn => btn.addEventListener('click', () => {
+        openDeleteScheduleDialog(btn.dataset.sid);
+    }));
+}
+
+// ── Rich saved-view editor (filters + column chooser) ──────────────
+const savedViewEditorDialog = document.getElementById('savedViewEditorDialog');
+let editorView = null;
+
+function openSavedViewEditor(view) {
+    editorView = view;
+    savedViewEditorDialog.headerTitle = 'Edit Saved View';
+    savedViewEditorDialog.overlayClass = 'sv-editor-overlay';
+    savedViewEditorDialog.opened = true;
+    savedViewEditorDialog.requestContentUpdate();
+}
+
+savedViewEditorDialog.renderer = (root) => {
+    root.innerHTML = '';
+    root.style.width = '880px';
+    root.style.maxWidth = '100%';
+    const v = editorView;
+    if (!v) return;
+
+    const itemsData = reportItemsData(v.report);
+    const itemNames = itemsData.map(i => i.name);
+    const userNames = USERS_DATA.map(u => `${u.firstName} ${u.lastName}`);
+    const allCols = REPORT_COLUMNS[v.report] || [];
+    const visibleCols = viewVisibleColumns(v);
+    const statusOpts = STATUS_OPTIONS[v.report] || [];
+    const curStatus = (v.statusTypes && v.statusTypes !== 'All')
+        ? v.statusTypes.split(',').map(s => s.trim()) : [];
+    const nSched = scheduleCountForView(v.id);
+
+    root.innerHTML = `
+        ${nSched > 0 ? `<div class="svs-callout sve-callout"><i class="fa-solid fa-circle-info"></i>
+            <span>Changes apply to <strong>${nSched}</strong> scheduled report${nSched > 1 ? 's' : ''} delivered from this view.</span></div>` : ''}
+        <div class="sve-grid">
+            <div class="sve-col sve-col-main">
+                <p class="sv-section-heading">Basic Information</p>
+                <vaadin-text-field theme="outlined" id="sveName" label="Saved View Name" required style="width:100%"></vaadin-text-field>
+                <vaadin-text-area theme="outlined" id="sveDesc" label="Description" style="width:100%;margin-top:12px"></vaadin-text-area>
+
+                <p class="sv-section-heading">Filters</p>
+                <vaadin-text-field theme="outlined" id="sveDate" label="Date Range" style="width:100%"></vaadin-text-field>
+                <vaadin-multi-select-combo-box theme="outlined" id="sveActs" label="${v.report === 'Activity Exception Report' ? 'Activities' : 'Qualifications'}" style="width:100%;margin-top:12px"></vaadin-multi-select-combo-box>
+                <vaadin-multi-select-combo-box theme="outlined" id="sveUsers" label="Users" style="width:100%;margin-top:12px"></vaadin-multi-select-combo-box>
+                <vaadin-multi-select-combo-box theme="outlined" id="sveStatus" label="Status" style="width:100%;margin-top:12px"></vaadin-multi-select-combo-box>
+            </div>
+            <div class="sve-col sve-col-cols">
+                <p class="sv-section-heading">Column Chooser</p>
+                <p class="sve-hint">Choose which columns appear in this view’s report table.</p>
+                <div class="sve-collist" id="sveColList"></div>
+            </div>
+        </div>`;
+
+    root.querySelector('#sveName').value = v.name || '';
+    root.querySelector('#sveDesc').value = v.desc || '';
+    root.querySelector('#sveDate').value = v.dateRange || '';
+
+    const acts = root.querySelector('#sveActs');
+    acts.items = itemNames;
+    acts.selectedItems = (v.activities || []).filter(n => itemNames.includes(n));
+
+    const users = root.querySelector('#sveUsers');
+    users.items = userNames;
+    users.selectedItems = (v.users || []).filter(n => userNames.includes(n));
+
+    const status = root.querySelector('#sveStatus');
+    status.items = statusOpts;
+    status.selectedItems = curStatus.filter(s => statusOpts.includes(s));
+
+    // Column chooser checkboxes
+    const colList = root.querySelector('#sveColList');
+    allCols.forEach(col => {
+        const row = document.createElement('label');
+        row.className = 'sve-col-row';
+        const checked = visibleCols.includes(col);
+        row.innerHTML = `<input type="checkbox" class="sve-col-cb" value="${col}" ${checked ? 'checked' : ''}>
+            <i class="fa-solid fa-table-columns sve-col-icon"></i>
+            <span>${col}</span>`;
+        colList.appendChild(row);
+    });
+};
+
+savedViewEditorDialog.footerRenderer = (root) => {
+    root.innerHTML = '';
+    const cancelBtn = document.createElement('vaadin-button');
+    cancelBtn.setAttribute('theme', 'secondary');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => { savedViewEditorDialog.opened = false; });
+
+    const saveBtn = document.createElement('vaadin-button');
+    saveBtn.setAttribute('theme', 'primary');
+    saveBtn.textContent = 'Save Changes';
+    saveBtn.addEventListener('click', () => {
+        const v = editorView;
+        if (!v) return;
+        const nameField = document.getElementById('sveName');
+        const name = nameField?.value.trim();
+        if (!name) { if (nameField) { nameField.invalid = true; nameField.errorMessage = 'Name is required'; } return; }
+
+        const itemsData = reportItemsData(v.report);
+        const selActs = document.getElementById('sveActs')?.selectedItems || [];
+        const selUsers = document.getElementById('sveUsers')?.selectedItems || [];
+        const selStatus = document.getElementById('sveStatus')?.selectedItems || [];
+        const selCols = [...document.querySelectorAll('.sve-col-cb:checked')].map(cb => cb.value);
+
+        v.name = name;
+        v.desc = document.getElementById('sveDesc')?.value.trim() || '';
+        v.dateRange = document.getElementById('sveDate')?.value.trim() || 'All Time';
+
+        v.activities = [...selActs];
+        v.qualIds = itemsData.filter(i => selActs.includes(i.name)).map(i => i.id);
+        v.activityCount = selActs.length;
+
+        v.users = [...selUsers];
+        v.userIds = USERS_DATA.filter(u => selUsers.includes(`${u.firstName} ${u.lastName}`)).map(u => u.id);
+        v.userCount = selUsers.length;
+
+        v.statusTypes = selStatus.length ? selStatus.join(', ') : 'All';
+        v.status = selStatus.includes('Qualified') && !selStatus.includes('Incomplete') ? 'qualified'
+            : (selStatus.includes('Incomplete') && !selStatus.includes('Qualified')) ? 'incomplete' : 'all';
+
+        if (selCols.length) {
+            v.visibleColumns = selCols;
+            v.columns = selCols.join(', ');
+        }
+
+        // Keep schedules' cached view name in sync
+        SCHEDULED_REPORTS.forEach(s => { if (s.savedViewId === v.id) s.savedViewName = v.name; });
+
+        savedViewEditorDialog.opened = false;
+        renderViewsSchedules();
+        if (typeof renderManageSavedViews === 'function') renderManageSavedViews();
+        if (typeof renderScheduledReports === 'function') renderScheduledReports();
+        // If this view is currently applied on the report, reflect the edits
+        if (appliedSavedView && appliedSavedView.id === v.id) applyView(v);
+        showToast(`Saved view “${name}” updated`);
+    });
+
+    root.appendChild(cancelBtn);
+    root.appendChild(saveBtn);
+};
+
+// ── Delete saved view (and its scheduled reports) ──────────────────
+const savedViewDeleteDialog = document.getElementById('savedViewDeleteDialog');
+let pendingDeleteViewId = null;
+
+function openDeleteSavedViewDialog(viewId) {
+    pendingDeleteViewId = viewId;
+    savedViewDeleteDialog.overlayClass = 'recip-picker-overlay';
+    savedViewDeleteDialog.opened = true;
+    savedViewDeleteDialog.requestContentUpdate();
+}
+
+savedViewDeleteDialog.renderer = (root) => {
+    root.innerHTML = '';
+    root.style.maxWidth = '460px';
+    const v = SAVED_VIEWS.find(x => x.id === pendingDeleteViewId);
+    const n = v ? scheduleCountForView(v.id) : 0;
+    const p = document.createElement('p');
+    p.className = 'sv-dialog-subtitle';
+    p.innerHTML = `Delete <strong>${v ? v.name : 'this saved view'}</strong>?`
+        + (n > 0 ? ` This will also delete <strong>${n}</strong> scheduled report${n > 1 ? 's' : ''} delivered from it.` : '')
+        + ' This action cannot be undone.';
+    root.appendChild(p);
+};
+
+savedViewDeleteDialog.footerRenderer = (root) => {
+    if (root.firstChild) return;
+    const cancelBtn = document.createElement('vaadin-button');
+    cancelBtn.setAttribute('theme', 'secondary');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => { savedViewDeleteDialog.opened = false; });
+
+    const deleteBtn = document.createElement('vaadin-button');
+    deleteBtn.setAttribute('theme', 'error primary');
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', () => {
+        const idx = SAVED_VIEWS.findIndex(x => x.id === pendingDeleteViewId);
+        if (idx !== -1) {
+            const v = SAVED_VIEWS[idx];
+            // Cascade: remove scheduled reports tied to this view
+            for (let i = SCHEDULED_REPORTS.length - 1; i >= 0; i--) {
+                if (SCHEDULED_REPORTS[i].savedViewId === v.id) SCHEDULED_REPORTS.splice(i, 1);
+            }
+            SAVED_VIEWS.splice(idx, 1);
+            renderViewsSchedules();
+            if (typeof renderManageSavedViews === 'function') renderManageSavedViews();
+            if (typeof renderScheduledReports === 'function') renderScheduledReports();
+            showToast(`Deleted “${v.name}”`);
+        }
+        savedViewDeleteDialog.opened = false;
+    });
+
+    root.appendChild(cancelBtn);
+    root.appendChild(deleteBtn);
+};
+
+// ── Wiring: toolbar + re-render on related dialog close ────────────
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('vsReportFilter')?.addEventListener('change', renderViewsSchedules);
+    document.getElementById('vsSearch')?.addEventListener('input', renderViewsSchedules);
+
+    // When schedules change via the email/delete dialogs, refresh the combined page if visible
+    const refreshIfVisible = () => {
+        const layout = document.getElementById('viewsSchedulesLayout');
+        if (layout && layout.style.display !== 'none') renderViewsSchedules();
+    };
+    document.getElementById('emailReportDialog')?.addEventListener('opened-changed', (e) => { if (!e.detail.value) refreshIfVisible(); });
+    document.getElementById('scheduleDeleteDialog')?.addEventListener('opened-changed', (e) => { if (!e.detail.value) refreshIfVisible(); });
 });
