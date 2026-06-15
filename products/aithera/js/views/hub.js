@@ -2,7 +2,7 @@
 // Dedicated practice surface composed from ui.js primitives. Mirrors
 // the desktop mockup in single-column form:
 //
-//   1. Header: kicker + title + Random Scenario CTA
+//   1. Header: kicker + title
 //   2. Cumulative-practice stat hero (hours)
 //   3. Mastery card (Scenarios / Edge cases / Mastery %)
 //   4. Featured scenario hero (industry-flagged)
@@ -16,7 +16,7 @@
 
 import { store } from '../store.js';
 import * as adaptive from '../adaptive.js';
-import * as ui from '../ui.js?v=scene-flow-9';
+import * as ui from '../ui.js?v=scene-flow-42';
 import { currentPhase } from '../phase.js';
 
 const DIFFICULTY_RANK = { standard: 1, 'high-risk': 2, expert: 3 };
@@ -36,11 +36,7 @@ export function render() {
   // 1. Header
   root.appendChild(ui.hubHeader({
     kicker: `${ind.label} · ${ind.language?.readinessLabel || 'Readiness'}`,
-    title: 'Practice Hub',
-    onRandom: () => {
-      const sc = pickRandom(allForIndustry, learnerLevel);
-      if (sc) location.hash = `#/practice/${sc.id}`;
-    }
+    title: 'Practice Hub'
   }));
 
   // 2. Stat hero — cumulative practice time
@@ -157,13 +153,19 @@ function footer(stats) {
 
 // Compute hub-level stats from learner state. Real data: practice
 // records (recentPractice). Mocked data: percentile, next review.
+//
+// Every cohort starts from a baseline practice history so the hub feels
+// lived-in rather than empty — the "grows over time" story starts here,
+// not at zero. Real practice records add on top of the baseline.
+const BASELINE = { hours: 8.5, scenariosRun: 4, edgeCasesRun: 2 };
+
 function computeStats(industryScenarios) {
   const learner = store.state.learner;
   const recent = store.state.mastery.recentPractice || [];
-  const hours = recent.reduce((s, r) => s + (r.elapsed || 0), 0) / 3600;
-  const scenariosRun = recent.length;
+  const hours = BASELINE.hours + recent.reduce((s, r) => s + (r.elapsed || 0), 0) / 3600;
+  const scenariosRun = BASELINE.scenariosRun + recent.length;
   const edgeIds = new Set(industryScenarios.filter((s) => s.tier === 'edge').map((s) => s.id));
-  const edgeCasesRun = recent.filter((r) => edgeIds.has(r.scenarioId)).length;
+  const edgeCasesRun = BASELINE.edgeCasesRun + recent.filter((r) => edgeIds.has(r.scenarioId)).length;
 
   // Mastery % = average of all concept masteries × 100 (industry-scoped via courses on screen).
   const concepts = store.state.mastery.concepts || {};
@@ -257,23 +259,3 @@ function pickFeatured(scenarios, level) {
       || null;
 }
 
-function pickRandom(scenarios, level) {
-  const playable = scenarios.filter((s) => {
-    const st = scenarioStatus(s, level);
-    return st !== 'locked' && st !== 'coming-soon';
-  });
-  if (!playable.length) return null;
-  // Weight scenarios by how unmastered their tied concepts are — so
-  // "random" still leans the learner toward gaps.
-  const concepts = store.state.mastery.concepts || {};
-  const weights = playable.map((s) => {
-    const masteryAvg = (s.concepts || []).reduce((acc, cid) => acc + (concepts[cid] ?? 0.5), 0) / Math.max(1, (s.concepts || []).length);
-    return Math.max(0.1, 1 - masteryAvg);
-  });
-  const total = weights.reduce((a, b) => a + b, 0);
-  let r = Math.random() * total;
-  for (let i = 0; i < playable.length; i++) {
-    r -= weights[i]; if (r <= 0) return playable[i];
-  }
-  return playable[playable.length - 1];
-}
