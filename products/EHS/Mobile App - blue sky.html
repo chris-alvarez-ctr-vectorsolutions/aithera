@@ -1863,6 +1863,7 @@
         @keyframes offline-spin { to { transform: rotate(360deg); } }
         .sync-hero { display:flex; flex-direction:column; align-items:center; text-align:center; padding:60px 30px 24px; gap:8px; }
         .sync-hero .sync-ring { width:78px; height:78px; border-radius:50%; border:5px solid #e3ebf3; border-top-color:#0271ce; animation:offline-spin 0.9s linear infinite; margin-bottom:14px; }
+        .sync-ring.done { animation:none; border-color:#bfe3cc; border-top-color:#bfe3cc; display:flex; align-items:center; justify-content:center; color:#168846; font-size:32px; }
         .sync-hero h2 { font-size:19px; font-weight:700; color:rgba(0,0,0,0.87); }
         .sync-hero p { font-size:13.5px; color:rgba(0,0,0,0.55); line-height:1.5; max-width:260px; }
         .sync-progress-list { padding:8px 12px; display:flex; flex-direction:column; gap:2px; }
@@ -2382,7 +2383,7 @@
                         </div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
-                            <span class="badge badge-conflict"><i class="fa-solid fa-code-branch" style="font-size:10px;"></i> Conflict</span>
+                            <span class="badge badge-conflict"><i class="fa-solid fa-triangle-exclamation" style="font-size:10px;"></i> Conflict</span>
                             <span class="badge badge-downloaded"><i class="fa-solid fa-download" style="font-size:10px;"></i> Downloaded</span>
                         </div>
                         <div class="record-desc">Fall protection and tie-off requirements for rooftop HVAC work. This record was changed on the server while your offline edit was waiting to sync.</div>
@@ -2391,7 +2392,7 @@
                             <div class="record-meta-row" style="color:#b23a26;"><i class="fa-solid fa-triangle-exclamation"></i> 2 fields need your decision</div>
                         </div>
                         <div class="rec-action-row">
-                            <button class="rec-btn-conflict" data-action="resolve-conflict"><i class="fa-solid fa-code-branch" style="font-size:11px;"></i> Resolve conflict</button>
+                            <button class="rec-btn-conflict" data-action="resolve-conflict"><i class="fa-solid fa-triangle-exclamation" style="font-size:11px;"></i> Resolve conflict</button>
                         </div>
                     </div>
                 </div>
@@ -2810,7 +2811,7 @@
                 </div>
                 <div class="header-bar">
                     <button class="hdr-btn when-edit" onclick="exitEditSession()" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
-                    <span class="header-title"><span class="when-create">JSA</span><span class="when-edit">Edit JSA</span></span>
+                    <span class="header-title"><span class="when-create">JSA</span><span class="when-edit">Edit Record</span></span>
                 </div>
             </div>
 
@@ -2949,7 +2950,7 @@
                 <div class="footer-btn-group">
                     <button class="footer-btn-back when-create" onclick="showScreen('jsa-start')">Back</button>
                     <button class="footer-btn-save when-edit" onclick="saveEditSession()"><i class="fa-regular fa-floppy-disk"></i> Save</button>
-                    <button class="footer-btn-next" onclick="showScreen('jsa-steps-empty')">Next</button>
+                    <button class="footer-btn-next" onclick="afterBasicNext()">Next</button>
                 </div>
             </div>
 
@@ -3131,7 +3132,7 @@
                 </div>
                 <div class="header-bar">
                     <button class="hdr-btn when-edit" onclick="exitEditSession()" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
-                    <span class="header-title"><span class="when-create">JSA</span><span class="when-edit">Edit JSA</span></span>
+                    <span class="header-title"><span class="when-create">JSA</span><span class="when-edit">Edit Record</span></span>
                 </div>
             </div>
 
@@ -3399,7 +3400,7 @@
                 </div>
                 <div class="header-bar">
                     <button class="hdr-btn when-edit" onclick="exitEditSession()" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
-                    <span class="header-title"><span class="when-create">JSA</span><span class="when-edit">Edit JSA</span></span>
+                    <span class="header-title"><span class="when-create">JSA</span><span class="when-edit">Edit Record</span></span>
                 </div>
             </div>
 
@@ -3581,7 +3582,7 @@
                 </div>
                 <div class="header-bar">
                     <button class="hdr-btn when-edit" onclick="exitEditSession()" style="margin-left:-6px;"><i class="fa-solid fa-arrow-left"></i></button>
-                    <span class="header-title"><span class="when-create">JSA</span><span class="when-edit">Edit JSA</span></span>
+                    <span class="header-title"><span class="when-create">JSA</span><span class="when-edit">Edit Record</span></span>
                 </div>
             </div>
 
@@ -4503,12 +4504,12 @@
 
             <div class="screen-body no-nav">
                 <div class="sync-hero">
-                    <div class="sync-ring"></div>
-                    <h2>Syncing your work</h2>
-                    <p>Uploading the changes you made offline and checking for updates from your team.</p>
+                    <div class="sync-ring" id="syncHeroRing"></div>
+                    <h2 id="syncHeroTitle">Syncing your work</h2>
+                    <p id="syncHeroSub">Uploading the changes you made offline and checking for updates from your team.</p>
                 </div>
 
-                <div class="sync-progress-list">
+                <div class="sync-progress-list" id="syncQueueList">
                     <div class="card-wrap" style="margin:0 0 0 0;">
                         <div class="queue-item">
                             <div class="qi-icon" style="background:#e4f4ea;color:#0a7637;"><i class="fa-solid fa-check"></i></div>
@@ -4527,7 +4528,7 @@
                             <div class="qi-status synced"><i class="fa-solid fa-check"></i> Synced</div>
                         </div>
                         <div class="queue-item">
-                            <div class="qi-icon" style="background:#fbe9e4;color:#b23a26;"><i class="fa-solid fa-code-branch"></i></div>
+                            <div class="qi-icon" style="background:#fbe9e4;color:#b23a26;"><i class="fa-solid fa-triangle-exclamation"></i></div>
                             <div class="qi-main">
                                 <div class="qi-title">Roof Access – Maintenance Crew</div>
                                 <div class="qi-meta">Changed by someone else while you were away</div>
@@ -4538,8 +4539,8 @@
                 </div>
             </div>
 
-            <!-- Post-sync notice: changes made online conflict with offline edits -->
-            <div class="sticky-cta" id="conflictAlert">
+            <!-- Post-sync notice: revealed by runSyncSequence() once the sync finishes -->
+            <div class="sticky-cta" id="conflictAlert" style="display:none;">
                 <div class="sync-note">
                     <i class="fa-solid fa-triangle-exclamation"></i>
                     <div>
@@ -4873,7 +4874,7 @@
                             <span class="badge badge-synced"><i class="fa-solid fa-cloud-check"></i> Synced</span>
                         </div>
                         <div class="record-meta">
-                            <div class="record-meta-row"><i class="fa-solid fa-code-merge"></i> Resolved by you · 9:32 PM</div>
+                            <div class="record-meta-row"><i class="fa-solid fa-check"></i> Resolved by you · 9:32 PM</div>
                             <div class="record-meta-row"><i class="fa-regular fa-clock"></i> Up to date with the server</div>
                         </div>
                     </div>
@@ -4909,7 +4910,7 @@
             <div class="screen-body no-nav">
                 <div class="timeline">
                     <div class="tl-item">
-                        <div class="tl-rail"><div class="tl-dot merge"><i class="fa-solid fa-code-merge"></i></div><div class="tl-line"></div></div>
+                        <div class="tl-rail"><div class="tl-dot merge"><i class="fa-solid fa-check"></i></div><div class="tl-line"></div></div>
                         <div class="tl-card" style="border-color:#bcdcfa;">
                             <div class="tl-when">9:32 PM · Today · CURRENT</div>
                             <div class="tl-who">Resolved version</div>
@@ -5074,8 +5075,9 @@ const screenIds = ['home','records','jsa-start','jsa-select','jsa-basic','jsa-st
 
 function showScreen(id) {
     /* Leaving the stepper for Home/Records always ends an edit session */
-    if (id === 'home' || id === 'records') {
+    if (id === 'home' || id === 'records' || id === 'jsa-start') {
         document.getElementById('app').classList.remove('edit-session');
+        editingCard = null;
     }
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const el = document.getElementById('screen-' + id);
@@ -6316,7 +6318,9 @@ document.addEventListener('click', (e) => {
 let toastTimer = null;
 
 function refreshRecordsFab() {
-    const count = document.querySelectorAll('#screen-records .badge-pending').length;
+    /* Count only pending cards that are currently visible (filters can hide them) */
+    const count = [...document.querySelectorAll('#screen-records .rec-card-wrap')]
+        .filter(w => w.style.display !== 'none' && w.querySelector('.badge-pending')).length;
     const fab = document.getElementById('records-submit-all-btn');
     fab.style.display = count > 0 ? '' : 'none';
     document.getElementById('records-pending-count').textContent = count;
@@ -6364,7 +6368,7 @@ function submitRecordCard(cardRow) {
             badge.innerHTML = '<i class="fa-solid fa-check" style="font-size:10px;"></i> Submitted';
         }
         const ar = cardRow.querySelector('.rec-action-row');
-        if (ar) ar.innerHTML = `<button class="rec-btn-outline" data-action="copy-id" data-id="${newId}">Copy ID</button><button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>`;
+        if (ar) ar.innerHTML = `<button class="rec-btn-outline" data-action="copy-id" data-id="${newId}">Copy ID</button>`;
         applyRecordFilters();
         applyEditMode();
         showSubmitToast(newId);
@@ -6580,8 +6584,10 @@ document.getElementById('screen-records').addEventListener('click', (e) => {
 });
 
 document.getElementById('records-submit-all-btn').addEventListener('click', () => {
-    document.querySelectorAll('#screen-records .badge-pending').forEach(badge => {
-        submitRecordCard(badge.closest('.record-card-row'));
+    document.querySelectorAll('#screen-records .rec-card-wrap').forEach(wrap => {
+        if (wrap.style.display === 'none') return;            /* skip cards hidden by a filter */
+        const badge = wrap.querySelector('.badge-pending');
+        if (badge) submitRecordCard(badge.closest('.record-card-row'));
     });
 });
 
@@ -6988,10 +6994,43 @@ function populatePreview() {
     dt.innerHTML = dTag;
 }
 
+/* Edit-session Next from Basic Info jumps to the filled steps (the record already has them). */
+function afterBasicNext() {
+    showScreen(document.getElementById('app').classList.contains('edit-session') ? 'jsa-steps-filled' : 'jsa-steps-empty');
+}
+
+/* Sync screen: show the spinner first, then reveal the post-sync conflict notice. */
+let syncSeqTimer;
+function runSyncSequence() {
+    const ring = document.getElementById('syncHeroRing');
+    const title = document.getElementById('syncHeroTitle');
+    const sub = document.getElementById('syncHeroSub');
+    const banner = document.getElementById('syncBanner');
+    const queue = document.getElementById('syncQueueList');
+    const alertEl = document.getElementById('conflictAlert');
+    /* reset to the in-progress state */
+    if (ring) { ring.classList.remove('done'); ring.innerHTML = ''; }
+    if (title) title.textContent = 'Syncing your work';
+    if (sub) sub.textContent = 'Uploading the changes you made offline and checking for updates from your team.';
+    if (banner) banner.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin"></i><span>Back online — syncing your 3 changes…</span>';
+    if (queue) queue.style.display = 'none';
+    if (alertEl) alertEl.style.display = 'none';
+    clearTimeout(syncSeqTimer);
+    syncSeqTimer = setTimeout(() => {
+        if (ring) { ring.classList.add('done'); ring.innerHTML = '<i class="fa-solid fa-check"></i>'; }
+        if (title) title.textContent = 'Sync complete';
+        if (sub) sub.textContent = 'Most changes synced. 1 record needs your review before it can finish.';
+        if (banner) banner.innerHTML = '<i class="fa-solid fa-circle-check"></i><span>Sync complete — 1 record needs your review</span>';
+        if (queue) queue.style.display = '';
+        if (alertEl) alertEl.style.display = '';
+    }, 1900);
+}
+
 /* Override preview entry to populate first */
 const _origShow = showScreen;
 showScreen = function(id) {
     if (id === 'offline-preview') populatePreview();
+    if (id === 'offline-syncing') runSyncSequence();
     _origShow(id);
 };
 
@@ -7040,11 +7079,11 @@ function applyEditMode() {
         const id = idEl ? idEl.dataset.id : '';
         const downloaded = !!wrap.querySelector('.badge-downloaded');
         if (editModeEnabled && downloaded) {
-            actionRow.innerHTML = `<button class="rec-btn-edit" data-action="edit-record" data-id="${id}"><i class="fa-regular fa-pen-to-square"></i> Edit</button><button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>`;
+            actionRow.innerHTML = `<button class="rec-btn-edit" data-action="edit-record" data-id="${id}"><i class="fa-regular fa-pen-to-square"></i> Edit</button>`;
         } else if (editModeEnabled && !downloaded) {
             actionRow.innerHTML = `<button class="rec-btn-dl" data-action="download-record" data-id="${id}"><i class="fa-solid fa-download"></i> Download to edit</button><button class="rec-btn-outline" data-action="copy-id" data-id="${id}">Copy ID</button>`;
         } else {
-            actionRow.innerHTML = `<button class="rec-btn-outline" data-action="copy-id" data-id="${id}">Copy ID</button><button class="rec-btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>`;
+            actionRow.innerHTML = `<button class="rec-btn-outline" data-action="copy-id" data-id="${id}">Copy ID</button>`;
         }
     });
 }

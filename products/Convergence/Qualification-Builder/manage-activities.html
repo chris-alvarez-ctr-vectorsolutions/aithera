@@ -86,6 +86,13 @@
     .row-action-btn:hover { background:#eef1f5; color:#374151; }
     .row-action-btn.danger:hover { background:#fee2e2; color:#dc2626; }
 
+    .cell-req { font-size:12.5px; color:#475569; }
+    /* Requirement filter banner (from the requirements page activity-count link) */
+    .req-filter-banner { display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--vblue-10,#0271ce1a); border:1px solid #b6dcfa; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:13px; color:#0b3d66; }
+    .req-filter-banner.hidden { display:none; }
+    .req-filter-banner > span > i { color:var(--vblue,#0271ce); margin-right:4px; }
+    .rfb-clear { color:var(--vblue,#0271ce); font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+    .rfb-clear:hover { text-decoration:underline; }
     .grid-footer { display:flex; align-items:center; justify-content:space-between; font-size:12px; color:#6b7280; padding:10px 2px 0; }
   </style>
 </head>
@@ -125,6 +132,11 @@
       </div>
     </div>
 
+    <div id="req-filter-banner" class="req-filter-banner hidden">
+      <span><i class="fa-solid fa-filter"></i> Showing activities in requirement: <strong id="req-filter-name"></strong></span>
+      <a href="Manage-Activities.html" class="rfb-clear">Show all activities <i class="fa-solid fa-xmark"></i></a>
+    </div>
+
     <div id="act-grid" class="ag-theme-quartz" style="height:560px; width:100%;"></div>
     <div class="grid-footer">
       <span id="row-count"></span>
@@ -141,20 +153,36 @@
 <script src="../_shell/chrome.js"></script>
 
 <script>
-/* ─── Sample data (activity library) ─── */
+/* ─── Activity library. Each activity is tagged with the requirement it belongs to; the counts
+   match Manage-Requirements.html so the requirement-filtered view stays consistent. ─── */
 const ACTS = [
-  { name:'Lockout/Tagout Basics',           desc:'Core training on energy isolation and tagout procedures',          type:'Course',    duration:'45 min', status:'Active', modified:'May 14, 2026' },
-  { name:'LOTO Knowledge Check',             desc:'Knowledge assessment for lockout/tagout fundamentals',             type:'Quiz',      duration:'15 min', status:'Active', modified:'May 12, 2026' },
-  { name:'Forklift Daily Inspection',        desc:'Pre-shift inspection checklist for powered industrial trucks',     type:'Tasklist',  duration:'10 min', status:'Active', modified:'May 10, 2026' },
-  { name:'Confined Space Rescue Drill',      desc:'Hands-on instructor-led permit-required rescue practice',          type:'Classroom', duration:'2 hr',   status:'Active', modified:'May 9, 2026' },
-  { name:'Safety Policy Acknowledgement',    desc:'Sign-off confirming review of the site safety policy',             type:'Signature', duration:'N/A',    status:'Active', modified:'May 7, 2026' },
-  { name:'OSHA 1910.147 Reference',          desc:'Reference document covering the control of hazardous energy',       type:'Document',  duration:'N/A',    status:'Active', modified:'May 5, 2026' },
-  { name:'Fall Protection Fundamentals',     desc:'Anchor points, harness fit, and working-at-height safety',         type:'Course',    duration:'50 min', status:'Active', modified:'May 2, 2026' },
-  { name:'Respirator Fit Test Record',       desc:'Capture and acknowledge respirator fit test results',              type:'Signature', duration:'N/A',    status:'Draft',  modified:'Apr 28, 2026' },
-  { name:'Arc Flash Awareness Quiz',         desc:'Assessment on arc flash hazards and PPE selection',                type:'Quiz',      duration:'20 min', status:'Active', modified:'Apr 25, 2026' },
-  { name:'Crane Pre-Operational Checklist',  desc:'Inspection tasks completed before overhead crane operation',       type:'Tasklist',  duration:'12 min', status:'Active', modified:'Apr 22, 2026' },
-  { name:'Hot Work Permit Procedures',       desc:'Instructor-led walkthrough of fire-watch and permit steps',        type:'Classroom', duration:'90 min', status:'Draft',  modified:'Apr 18, 2026' },
-  { name:'Hazard Communication Standard',    desc:'Reference document for SDS handling and chemical labeling',        type:'Document',  duration:'N/A',    status:'Active', modified:'Apr 15, 2026' },
+  // Energy Isolation Fundamentals (3)
+  { name:'Lockout/Tagout Basics',            desc:'Core training on energy isolation and tagout procedures',    type:'Course',    duration:'45 min', status:'Active', requirement:'Energy Isolation Fundamentals' },
+  { name:'LOTO Knowledge Check',             desc:'Knowledge assessment for lockout/tagout fundamentals',       type:'Quiz',      duration:'15 min', status:'Active', requirement:'Energy Isolation Fundamentals' },
+  { name:'Energy Isolation Field Verification', desc:'Verify zero-energy state in the field before service',    type:'Tasklist',  duration:'20 min', status:'Active', requirement:'Energy Isolation Fundamentals' },
+  // Lockout Device Application (3)
+  { name:'Lockout Device Selection',         desc:'Choosing the correct lock and tag for each energy source',   type:'Course',    duration:'30 min', status:'Active', requirement:'Lockout Device Application' },
+  { name:'Device Application Demonstration', desc:'Supervised demonstration of applying lockout devices',        type:'Tasklist',  duration:'25 min', status:'Active', requirement:'Lockout Device Application' },
+  { name:'Lockout Device Quiz',              desc:'Assessment on lockout device selection and use',             type:'Quiz',      duration:'10 min', status:'Active', requirement:'Lockout Device Application' },
+  // Confined Space Atmospheric Testing (2)
+  { name:'Atmospheric Testing Procedure',    desc:'Gas monitoring, sampling order, and entry thresholds',       type:'Course',    duration:'40 min', status:'Active', requirement:'Confined Space Atmospheric Testing' },
+  { name:'Gas Meter Calibration',            desc:'Calibrate and bump-test the multi-gas meter before entry',   type:'Tasklist',  duration:'20 min', status:'Active', requirement:'Confined Space Atmospheric Testing' },
+  // PPE Selection & Inspection (2)
+  { name:'PPE Selection Fundamentals',       desc:'Choosing the right protective equipment for the hazard',     type:'Course',    duration:'30 min', status:'Active', requirement:'PPE Selection & Inspection' },
+  { name:'PPE Inspection Checklist',         desc:'Pre-use inspection of personal protective equipment',        type:'Tasklist',  duration:'15 min', status:'Active', requirement:'PPE Selection & Inspection' },
+  // Forklift Pre-Operation Inspection (3)
+  { name:'Forklift Daily Inspection',        desc:'Pre-shift inspection checklist for powered industrial trucks', type:'Tasklist', duration:'10 min', status:'Active', requirement:'Forklift Pre-Operation Inspection' },
+  { name:'Forklift Safety Course',           desc:'Operating fundamentals and stability for forklifts',         type:'Course',    duration:'50 min', status:'Active', requirement:'Forklift Pre-Operation Inspection' },
+  { name:'Forklift Operation Quiz',          desc:'Assessment on safe forklift operation',                      type:'Quiz',      duration:'15 min', status:'Draft',  requirement:'Forklift Pre-Operation Inspection' },
+  // Fire Watch Procedures (1)
+  { name:'Fire Watch Responsibilities',      desc:'Instructor-led walkthrough of fire-watch and permit steps',  type:'Classroom', duration:'90 min', status:'Draft',  requirement:'Fire Watch Procedures' },
+  // Respirator Fit Test (2)
+  { name:'Respirator Fit Test Record',       desc:'Capture and acknowledge respirator fit test results',        type:'Signature', duration:'N/A',    status:'Active', requirement:'Respirator Fit Test' },
+  { name:'Respirator Selection Guide',       desc:'Reference for selecting the appropriate respirator',         type:'Document',  duration:'N/A',    status:'Active', requirement:'Respirator Fit Test' },
+  // Rigging & Load Charts (3)
+  { name:'Rigging Load Chart Reading',       desc:'Reading load charts and selecting rigging hardware',         type:'Course',    duration:'35 min', status:'Active', requirement:'Rigging & Load Charts' },
+  { name:'Sling & Hardware Inspection',      desc:'Inspect slings, shackles, and hardware before a lift',       type:'Tasklist',  duration:'15 min', status:'Active', requirement:'Rigging & Load Charts' },
+  { name:'Rigging Safety Quiz',              desc:'Assessment on rigging selection and load handling',          type:'Quiz',      duration:'15 min', status:'Active', requirement:'Rigging & Load Charts' },
 ];
 
 function nameRenderer(p){
@@ -167,6 +195,9 @@ function nameRenderer(p){
 function typeRenderer(p){
   // Vector design-system badge (themed span), neutral connotation for activity types.
   return `<span theme="badge">${p.value}</span>`;
+}
+function requirementRenderer(p){
+  return `<span class="cell-req">${p.value || 'Unassigned'}</span>`;
 }
 function statusRenderer(p){
   const conn = p.value === 'Active' ? 'success' : (p.value === 'Draft' ? 'contrast' : 'warning');
@@ -192,23 +223,26 @@ function actionsRenderer(p){
 
 let gridApi = null;
 let typeValue = '';
+let reqValue  = '';   // set from ?requirement=<name> (filter coming from Manage Requirements)
 const gridOptions = {
   rowData: ACTS,
   columnDefs: [
-    { headerName:'Name', field:'name', flex:2, minWidth:320, cellRenderer:nameRenderer, getQuickFilterText:p=>p.data.name+' '+p.data.desc },
-    { headerName:'Type', field:'type', width:150, cellRenderer:typeRenderer },
-    { headerName:'Duration', field:'duration', width:120 },
-    { headerName:'Status', field:'status', width:140, cellRenderer:statusRenderer },
-    { headerName:'Last Modified', field:'modified', width:150 },
-    { headerName:'', colId:'actions', width:130, cellRenderer:actionsRenderer, sortable:false, filter:false, resizable:false },
+    { headerName:'Name', field:'name', flex:2, minWidth:300, cellRenderer:nameRenderer, getQuickFilterText:p=>p.data.name+' '+p.data.desc },
+    { headerName:'Type', field:'type', width:140, cellRenderer:typeRenderer },
+    { headerName:'Requirement', field:'requirement', flex:1, minWidth:210, cellRenderer:requirementRenderer },
+    { headerName:'Duration', field:'duration', width:110 },
+    { headerName:'Status', field:'status', width:130, cellRenderer:statusRenderer },
+    { headerName:'', colId:'actions', width:120, cellRenderer:actionsRenderer, sortable:false, filter:false, resizable:false },
   ],
   defaultColDef: { sortable:true, resizable:true, filter:true },
   rowHeight: 56,
   headerHeight: 44,
   animateRows: true,
   suppressCellFocus: true,
-  isExternalFilterPresent: () => typeValue !== '',
-  doesExternalFilterPass: (node) => !typeValue || node.data.type === typeValue,
+  isExternalFilterPresent: () => typeValue !== '' || reqValue !== '',
+  doesExternalFilterPass: (node) =>
+    (!typeValue || node.data.type === typeValue) &&
+    (!reqValue  || node.data.requirement === reqValue),
   onGridReady: () => updateCount(),
   onModelUpdated: () => updateCount(),
 };
@@ -223,6 +257,15 @@ function updateCount(){
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Filter coming from the requirements page: ?requirement=<name>
+  const rq = new URLSearchParams(location.search).get('requirement');
+  if (rq){
+    reqValue = decodeURIComponent(rq);
+    const banner = document.getElementById('req-filter-banner');
+    const nm = document.getElementById('req-filter-name');
+    if (nm) nm.textContent = reqValue;
+    if (banner) banner.classList.remove('hidden');
+  }
   const el = document.getElementById('act-grid');
   if (window.agGrid && el) gridApi = agGrid.createGrid(el, gridOptions);
 });

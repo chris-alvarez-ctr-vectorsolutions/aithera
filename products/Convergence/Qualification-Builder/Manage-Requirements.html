@@ -84,6 +84,16 @@
     .row-action-btn:hover { background:#eef1f5; color:#374151; }
     .row-action-btn.danger:hover { background:#fee2e2; color:#dc2626; }
 
+    /* Completion criteria / order cells */
+    .cell-meta { display:inline-flex; align-items:center; gap:7px; font-size:12.5px; color:#374151; }
+    .cell-meta i { color:#9ca3af; font-size:12px; }
+    /* Activity-count link (opens the activity library filtered by this requirement) */
+    .act-link { display:inline-flex; align-items:center; gap:6px; color:var(--vblue,#0271ce); font-weight:600; font-size:13px; text-decoration:none; }
+    .act-link:hover { text-decoration:underline; }
+    .act-link i { font-size:10px; }
+    /* Location path cell */
+    .cell-loc { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:#6b7280; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cell-loc i { color:#9ca3af; font-size:11px; flex-shrink:0; }
     .grid-footer { display:flex; align-items:center; justify-content:space-between; font-size:12px; color:#6b7280; padding:10px 2px 0; }
   </style>
 </head>
@@ -133,23 +143,23 @@
 <script src="../_shell/chrome.js"></script>
 
 <script>
-/* ─── Sample data (reusable requirements) ─── */
+/* ─── Requirements. The `activities` count matches the activities tagged to each requirement in
+   Manage-Activities.html, so the activity-count link lands on a correctly filtered list. ─── */
 const REQS = [
-  { name:'Energy Isolation Fundamentals',       desc:'Core lockout/tagout concepts and isolation sequencing', activities:4, usedIn:6, status:'Active', modified:'May 12, 2026' },
-  { name:'Forklift Pre-Operation Inspection',   desc:'Daily inspection checklist and hazard identification',   activities:3, usedIn:5, status:'Active', modified:'May 9, 2026' },
-  { name:'Confined Space Atmospheric Testing',  desc:'Gas monitoring, sampling order, and entry thresholds',   activities:5, usedIn:3, status:'Active', modified:'May 6, 2026' },
-  { name:'PPE Selection & Inspection',          desc:'Choosing, inspecting, and maintaining personal protective equipment', activities:2, usedIn:9, status:'Active', modified:'May 3, 2026' },
-  { name:'Lockout Device Application',          desc:'Applying locks, tags, and verifying zero energy state',  activities:4, usedIn:4, status:'Active', modified:'Apr 30, 2026' },
-  { name:'Fire Watch Procedures',               desc:'Fire-watch duties before, during, and after hot work',   activities:3, usedIn:2, status:'Draft',  modified:'Apr 27, 2026' },
-  { name:'Rigging & Load Charts',               desc:'Reading load charts and selecting rigging hardware',     activities:6, usedIn:3, status:'Active', modified:'Apr 24, 2026' },
-  { name:'Respirator Fit Test',                 desc:'Qualitative and quantitative fit testing procedures',    activities:2, usedIn:4, status:'Active', modified:'Apr 20, 2026' },
-  { name:'Fall Arrest Anchor Selection',        desc:'Identifying rated anchor points and connector limits',   activities:4, usedIn:5, status:'Draft',  modified:'Apr 16, 2026' },
-  { name:'Hot Work Permit Review',              desc:'Completing and approving hot work permits',              activities:3, usedIn:1, status:'Draft',  modified:'Apr 12, 2026' },
+  { name:'Energy Isolation Fundamentals',      desc:'Core lockout/tagout concepts and isolation sequencing',               criteria:'All activities', order:'Sequential', activities:3, status:'Active', location:'Orlando Organization › Manufacturing › Line 3' },
+  { name:'Lockout Device Application',         desc:'Applying locks, tags, and verifying zero energy state',               criteria:'2 of 3',         order:'Any order',  activities:3, status:'Active', location:'Orlando Organization › Manufacturing' },
+  { name:'Confined Space Atmospheric Testing', desc:'Gas monitoring, sampling order, and entry thresholds',                criteria:'All activities', order:'Sequential', activities:2, status:'Active', location:'Orlando Organization › Facilities' },
+  { name:'PPE Selection & Inspection',         desc:'Choosing, inspecting, and maintaining personal protective equipment', criteria:'All activities', order:'Any order',  activities:2, status:'Active', location:'Orlando Organization › Safety' },
+  { name:'Forklift Pre-Operation Inspection',  desc:'Daily inspection checklist and hazard identification',                criteria:'2 of 3',         order:'Any order',  activities:3, status:'Active', location:'Orlando Organization › Warehouse' },
+  { name:'Fire Watch Procedures',              desc:'Fire-watch duties before, during, and after hot work',                criteria:'All activities', order:'Sequential', activities:1, status:'Draft',  location:'Orlando Organization › Facilities › Hot Work' },
+  { name:'Respirator Fit Test',                desc:'Qualitative and quantitative fit testing procedures',                 criteria:'All activities', order:'Sequential', activities:2, status:'Active', location:'Orlando Organization › Safety › Industrial Hygiene' },
+  { name:'Rigging & Load Charts',              desc:'Reading load charts and selecting rigging hardware',                  criteria:'2 of 3',         order:'Any order',  activities:3, status:'Active', location:'Orlando Organization › Maintenance' },
 ];
 
 /* Open an existing requirement in the builder. */
 function editHref(r){ return 'Manual-Requirement-Builder.html?req=' + encodeURIComponent(r.name); }
-function openReq(r){ location.href = editHref(r); }
+/* Activity count links to the activity library filtered by this requirement. */
+function activitiesHref(r){ return 'Manage-Activities.html?requirement=' + encodeURIComponent(r.name); }
 
 function nameRenderer(p){
   const r = p.data;
@@ -158,27 +168,25 @@ function nameRenderer(p){
     <div class="cell-desc">${r.desc}</div>
   </div>`;
 }
+function criteriaRenderer(p){
+  const allItems = /^all/i.test(p.value);
+  return `<span class="cell-meta"><i class="fa-solid ${allItems ? 'fa-list-check' : 'fa-circle-half-stroke'}"></i> ${p.value}</span>`;
+}
+function orderRenderer(p){
+  const seq = p.value === 'Sequential';
+  return `<span class="cell-meta"><i class="fa-solid ${seq ? 'fa-list-ol' : 'fa-shuffle'}"></i> ${p.value}</span>`;
+}
+function activitiesRenderer(p){
+  const n = p.value;
+  return `<a class="act-link" href="${activitiesHref(p.data)}" title="View these activities in the activity library">${n} activit${n!==1?'ies':'y'} <i class="fa-solid fa-arrow-up-right-from-square"></i></a>`;
+}
 function statusRenderer(p){
   // Vector design-system badge (themed span). dot = leading status dot.
   const conn = p.value === 'Active' ? 'success' : (p.value === 'Draft' ? 'contrast' : 'warning');
   return `<span theme="badge dot ${conn}">${p.value}</span>`;
 }
-function actionsRenderer(p){
-  const e = document.createElement('div');
-  e.className = 'row-actions';
-  e.innerHTML =
-    `<button class="row-action-btn" title="Edit"><i class="fa-solid fa-pencil"></i></button>
-     <button class="row-action-btn" title="Copy"><i class="fa-regular fa-copy"></i></button>
-     <button class="row-action-btn danger" title="Delete"><i class="fa-regular fa-trash-can"></i></button>`;
-  const [edit, copy, del] = e.querySelectorAll('button');
-  edit.addEventListener('click', () => openReq(p.data));
-  copy.addEventListener('click', () => alert('Copy "' + p.data.name + '" (prototype).'));
-  del.addEventListener('click', () => {
-    if (confirm('Delete "' + p.data.name + '"? This is a prototype and will only remove the row.')) {
-      gridApi.applyTransaction({ remove: [p.data] }); updateCount();
-    }
-  });
-  return e;
+function locationRenderer(p){
+  return `<span class="cell-loc"><i class="fa-solid fa-location-dot"></i> ${p.value}</span>`;
 }
 
 let gridApi = null;
@@ -186,12 +194,12 @@ let statusValue = '';
 const gridOptions = {
   rowData: REQS,
   columnDefs: [
-    { headerName:'Name', field:'name', flex:2, minWidth:340, cellRenderer:nameRenderer, getQuickFilterText:p=>p.data.name+' '+p.data.desc },
-    { headerName:'Activities', field:'activities', width:140, type:'numericColumn' },
-    { headerName:'Used In', field:'usedIn', width:130, type:'numericColumn' },
-    { headerName:'Status', field:'status', width:150, cellRenderer:statusRenderer },
-    { headerName:'Last Modified', field:'modified', width:150 },
-    { headerName:'', colId:'actions', width:130, cellRenderer:actionsRenderer, sortable:false, filter:false, resizable:false },
+    { headerName:'Requirement',        field:'name',       flex:2, minWidth:260, cellRenderer:nameRenderer, getQuickFilterText:p=>p.data.name+' '+p.data.desc },
+    { headerName:'Completion Criteria',field:'criteria',   width:175, cellRenderer:criteriaRenderer },
+    { headerName:'Completion Order',   field:'order',      width:160, cellRenderer:orderRenderer },
+    { headerName:'Activities',         field:'activities', width:150, cellRenderer:activitiesRenderer },
+    { headerName:'Status',             field:'status',     width:130, cellRenderer:statusRenderer },
+    { headerName:'Location',           field:'location',   flex:2, minWidth:240, cellRenderer:locationRenderer },
   ],
   defaultColDef: { sortable:true, resizable:true, filter:true },
   rowHeight: 56,
