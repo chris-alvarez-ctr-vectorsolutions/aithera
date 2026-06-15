@@ -51,7 +51,8 @@ const SVG = {
   heart:   `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0112 5a5.5 5.5 0 019.5 7C19 16.5 12 21 12 21z"/></svg>`,
   lungs:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10"/><path d="M9 7c-3 1-5 4-5 8 0 3 2 4 4 4s2-2 2-4V8"/><path d="M15 7c3 1 5 4 5 8 0 3-2 4-4 4s-2-2-2-4V8"/></svg>`,
   pause:   `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`,
-  radio:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="14" r="2"/><path d="M7 9a7 7 0 0110 0"/><path d="M5 7a10 10 0 0114 0"/><path d="M9 11a4 4 0 016 0"/></svg>`
+  radio:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="14" r="2"/><path d="M7 9a7 7 0 0110 0"/><path d="M5 7a10 10 0 0114 0"/><path d="M9 11a4 4 0 016 0"/></svg>`,
+  close:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`
 };
 
 // ---------- tiny element factory ----------
@@ -176,14 +177,9 @@ export function readinessCard({
   card.appendChild(readinessScale(level, peerLevel));
   void trend;
 
-  // Coach note
+  // Coach note — animated in as live guidance from Coach Vic.
   if (coachNote) {
-    const noteMark = el('span', { class: 'rd-note-mark' });
-    noteMark.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="3"/><circle cx="9" cy="13" r="1.4" fill="currentColor"/><circle cx="15" cy="13" r="1.4" fill="currentColor"/><path d="M12 4v3"/><circle cx="12" cy="3.5" r="0.8" fill="currentColor"/></svg>`;
-    card.appendChild(el('div', { class: 'rd-note' },
-      noteMark,
-      el('p', null, coachNote)
-    ));
+    card.appendChild(vicNote(coachNote));
   }
 
   // Breakdown header
@@ -220,6 +216,71 @@ export function readinessCard({
   }
 
   return card;
+}
+
+// ---------- Coach Vic staged reveal ----------
+// Shared "Vic is thinking" entrance for coach-authored content. First render
+// of a given key this page load shows a pulsing mark + a shimmer "thinking"
+// label at one-line height, then the container grows to fit the content as
+// it fades in. Thinking is deliberately distinct from the typing dots used
+// in chat surfaces: dots mean "a message is being composed", shimmer means
+// "Vic is working something out". Repeat renders (back-navigation, store
+// re-emits) skip straight to static; prefers-reduced-motion renders static.
+const revealedNotes = new Set();
+const VIC_THINK_MS = 2600;
+const VIC_GROW_MS = 320;
+
+// `root` carries the is-thinking/is-revealed classes (component CSS decides
+// what they hide/animate); `body` is the position:relative element whose
+// height animates and whose children are the revealed content.
+function vicReveal({ root, body, label, key, thinkMs = VIC_THINK_MS }) {
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  if (revealedNotes.has(key) || reduceMotion) return;
+
+  const thinking = el('span', { class: 'vic-think', 'aria-hidden': 'true' }, label);
+  body.appendChild(thinking);
+  root.classList.add('is-thinking');
+  root.setAttribute('aria-busy', 'true');
+
+  setTimeout(() => {
+    // Animate the body from its one-line "thinking" height to the height
+    // of the revealed content (height: auto can't be transitioned, so we
+    // pin start/end pixel heights and clear them when the growth ends).
+    const startH = body.offsetHeight;
+    root.classList.remove('is-thinking');
+    root.classList.add('is-revealed');
+    root.removeAttribute('aria-busy');
+    revealedNotes.add(key);
+
+    // Measure the revealed content's layout boxes directly — scrollHeight
+    // would include the fade-up animation's translateY offset and overshoot.
+    const content = [...body.children].filter((c) => c !== thinking);
+    const endH = Math.max(...content.map((c) => c.offsetTop + c.offsetHeight));
+    body.style.height = `${startH}px`;
+    body.style.overflow = 'hidden';
+    // Force a style flush so the transition starts from the pinned height
+    // (otherwise the browser batches the writes and jumps straight to endH).
+    void body.offsetHeight;
+    body.style.transition = `height ${VIC_GROW_MS}ms ease`;
+    body.style.height = `${endH}px`;
+    setTimeout(() => {
+      body.style.height = '';
+      body.style.overflow = '';
+      body.style.transition = '';
+      thinking.remove();
+    }, VIC_GROW_MS + 80);
+  }, thinkMs);
+}
+
+export function vicNote(text) {
+  const mark = el('span', { class: 'rd-note-mark' });
+  mark.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="3"/><circle cx="9" cy="13" r="1.4" fill="currentColor"/><circle cx="15" cy="13" r="1.4" fill="currentColor"/><path d="M12 4v3"/><circle cx="12" cy="3.5" r="0.8" fill="currentColor"/></svg>`;
+
+  const p = el('p', null, text);
+  const body = el('div', { class: 'rd-note-body' }, p);
+  const note = el('div', { class: 'rd-note' }, mark, body);
+  vicReveal({ root: note, body, label: 'Coach Vic is thinking…', key: text });
+  return note;
 }
 
 function moverRow(m) {
@@ -264,10 +325,6 @@ function readinessScale(level, peerLevel) {
     <div class="rd-ends">
       <span>Getting started</span>
       <span>Well along</span>
-    </div>
-    <div class="rd-legend">
-      <span class="rd-legend-swatch" aria-hidden="true"></span>
-      <span>Where most of your peers are working</span>
     </div>
   `;
   return wrap;
@@ -348,10 +405,13 @@ export function hero({ initials, gradient, badge, height = 200, image }) {
 }
 
 export function statTile({ icon: iconName, value, label }) {
+  // Compact layout: icon + label share a header row, value sits beneath.
   return el('div', { class: 'stat-tile' },
-    icon(iconName, { class: 'stat-icon' }),
-    el('div', { class: 'stat-value' }, value),
-    el('div', { class: 'stat-label' }, label)
+    el('div', { class: 'stat-head' },
+      icon(iconName, { class: 'stat-icon' }),
+      el('span', { class: 'stat-label' }, label)
+    ),
+    el('div', { class: 'stat-value' }, value)
   );
 }
 
@@ -420,27 +480,46 @@ export function rowCard({ glyph = 'flag', title, sub, href, onClick, kebab = tru
 
 // coachMessage — Vic avatar + text bubble. Used on course detail,
 // lesson, summary, etc. Single source for the "Vic says…" pattern.
-export function coachMessage({ title, text, footer = '— Coach Vic' }) {
+// Pass `reveal` to stage the message behind a "Vic is thinking" shimmer:
+// a string is the thinking label; an object form `{ label, key }` also
+// controls the once-per-page-load dedupe key (defaults to title + text).
+export function coachMessage({ title, text, footer = '— Coach Vic', reveal }) {
+  const body = el('div', { class: 'cm-body' },
+    title ? el('strong', null, title) : null,
+    el('p', null, text),
+    el('small', null, footer)
+  );
   const card = el('div', { class: 'coach-message' },
     el('div', { class: 'cm-avatar', 'aria-hidden': 'true' }, 'V'),
-    el('div', { class: 'cm-body' },
-      title ? el('strong', null, title) : null,
-      el('p', null, text),
-      el('small', null, footer)
-    )
+    body
   );
+  if (reveal) {
+    const opts = typeof reveal === 'string' ? { label: reveal } : reveal;
+    vicReveal({ root: card, body, label: opts.label, key: opts.key || `${title ?? ''}|${text}` });
+  }
   return card;
 }
 
-export function coachPrompt({ question, primaryLabel, primaryHref, primaryVariant = 'primary', secondaryLabel = 'Later', secondaryHref = '#/coach' }) {
-  return el('div', { class: 'coach-prompt' },
-    el('div', { class: 'ph' }, el('span', { class: 'ph-mark' }, 'V'), el('span', null, 'Coach Vic')),
+// Pass `reveal` to stage the prompt behind a "Vic is thinking" shimmer —
+// the "Coach Vic" header stays put while the question + actions reveal.
+// String = thinking label; `{ label, key }` also controls the dedupe key.
+export function coachPrompt({ question, primaryLabel, primaryHref, primaryVariant = 'primary', secondaryLabel = 'Later', secondaryHref = '#/coach', reveal }) {
+  const body = el('div', { class: 'cp-reveal-body' },
     el('p', { class: 'q' }, `"${question}"`),
     el('div', { class: 'actions' },
       el('a', { class: `btn ${primaryVariant}`, href: primaryHref, style: { flex: '1' } }, primaryLabel),
       el('a', { class: 'btn ghost', href: secondaryHref }, secondaryLabel)
     )
   );
+  const card = el('div', { class: 'coach-prompt' },
+    el('div', { class: 'ph' }, el('span', { class: 'ph-mark' }, 'V'), el('span', null, 'Coach Vic')),
+    body
+  );
+  if (reveal) {
+    const opts = typeof reveal === 'string' ? { label: reveal } : reveal;
+    vicReveal({ root: card, body, label: opts.label, key: opts.key || question });
+  }
+  return card;
 }
 
 export function primaryCta(label, href, { percent } = {}) {
@@ -726,22 +805,60 @@ export function tensionTag(level = 'medium') {
 }
 
 // scenarioTimer — counts UP from 0 in MM:SS, returns the element so the
-// caller can stop() it when the scenario ends.
+// caller can start()/stop() it. It does NOT auto-start: the scenario
+// overview ("Begin practice" not yet pressed) is a framing screen, so the
+// timer sits at 00:00 until the caller calls start() at the real begin.
 export function scenarioTimer() {
   const txt = el('span', null, '00:00');
   const wrap = el('span', { class: 'scn-timer' }, icon('clock'), txt);
-  let s = 0, h;
+  let s = 0, h = null;
   const fmt = (n) => `${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`;
   const tick = () => { s++; txt.textContent = fmt(s); };
-  h = setInterval(tick, 1000);
+  wrap.start = () => { if (!h) h = setInterval(tick, 1000); };
   wrap.stop = () => { clearInterval(h); h = null; };
   wrap.elapsed = () => s;
   return wrap;
 }
 
-// scenarioWelcome — the orientation card. Frames the practice as
-// rehearsal, not assessment.
-export function scenarioWelcome({ kicker, title, body, highlight, reassurance, expectedOutcome, onBegin, ctaLabel = 'Begin practice' }) {
+// practiceModeBar — the persistent "labeled mode bar" that marks a screen as
+// Practice rather than Lesson. This is the load-bearing structural cue from the
+// design: a lesson never carries this bar, so its mere presence tells the
+// learner they've changed gears. It shows a bolt mark, the "PRACTICE" label,
+// and the live timer (which lives here, not in the hero). The bar's job is
+// singular — "you're in practice mode" — so it carries no course-progress
+// chrome even when the practice runs as a lesson component (an unlabeled
+// strip here read as session progress, which it wasn't).
+//
+//   timer  — the scenarioTimer() element (re-parented into the bar)
+//   onExit — close handler; stands in for the shell's floating × on practice
+export function practiceModeBar({ timer, onExit } = {}) {
+  const left = el('span', { class: 'pb-mode' },
+    el('span', { class: 'pb-bolt' }, icon('bolt')),
+    el('span', { class: 'pb-label' }, 'Practice')
+  );
+  const right = el('span', { class: 'pb-right' });
+  if (timer) right.appendChild(timer);
+  if (onExit) right.appendChild(
+    el('button', { class: 'pb-close', type: 'button', 'aria-label': 'Exit practice', on: { click: onExit } },
+      icon('close'))
+  );
+
+  return el('div', { class: 'practice-bar', role: 'status' },
+    el('div', { class: 'pb-row' }, left, right)
+  );
+}
+
+// scenarioWelcome — the orientation card. Two labeled blocks frame the
+// run: "Background" (the scene as known going in) and "Expected outcome"
+// (what a clean run looks like). The dispatch call and any rehearsal
+// reassurance now live downstream of "Begin practice", not here — this
+// screen is just the pre-brief.
+//
+// Optional extras used by the full-screen practice intro:
+//   scenarioTitle — the scenario's real name, as the headline
+//   meta          — short fact chips ("~6 min", "3 decisions") that set the
+//                   commitment before the learner starts
+export function scenarioWelcome({ kicker, title, scenarioTitle, body, highlight, expectedOutcome, meta, onBegin, ctaLabel = 'Begin practice' }) {
   // Inline-highlight a substring inside body (the mockup highlights "80% of staff").
   const bodyEl = el('p', { class: 'sw-body' });
   if (highlight && body.includes(highlight)) {
@@ -754,17 +871,21 @@ export function scenarioWelcome({ kicker, title, body, highlight, reassurance, e
   }
 
   const card = el('div', { class: 'scn-welcome' },
-    kickerPill({ icon: 'sparkle', label: kicker || 'Module orientation' }),
-    el('h2', { class: 'sw-title' }, title || 'Scenario overview'),
-    el('hr', { class: 'sw-rule' }),
-    bodyEl,
-    expectedOutcome ? el('div', { class: 'sw-meta' },
-      el('small', null, 'Expected outcome'),
-      el('strong', null, expectedOutcome)
+    // Header cluster: pill ("Scenario overview" / retry / KA variant),
+    // then the scenario's actual name, then the commitment chips.
+    kickerPill({ icon: 'sparkle', label: kicker || title || 'Scenario overview' }),
+    scenarioTitle ? el('h1', { class: 'sw-title' }, scenarioTitle) : null,
+    meta?.length ? el('div', { class: 'sw-meta' },
+      ...meta.map((m) => el('span', { class: 'sw-meta-chip' }, m))
     ) : null,
-    reassurance ? el('div', { class: 'sw-info' },
-      icon('info'),
-      el('p', null, reassurance)
+    // The scenario prose stands alone under the header — no "Background"
+    // label and no rule; generous spacing does the framing.
+    bodyEl,
+    // Expected outcome docks just above the CTA so the pair reads as
+    // "here's what we expect — ready to begin?".
+    expectedOutcome ? el('div', { class: 'sw-section sw-pair-cta' },
+      el('small', { class: 'sw-section-label' }, 'Expected outcome'),
+      el('p', { class: 'sw-outcome' }, expectedOutcome)
     ) : null,
     el('button', { class: 'btn primary block cta-large sw-cta', on: { click: onBegin } },
       el('span', null, ctaLabel),
@@ -782,8 +903,10 @@ export function dispatchAudio({ tag = 'MEDCOM Dispatch', text }) {
   const pauseIcon = icon('pause', { class: 'dp-icon' });
   const btn = el('button', { type: 'button', class: 'dp-play', 'aria-label': 'Play dispatch audio' }, playIcon);
   const body = el('p', { class: 'dp-text' }, `“${text}”`);
+  // tag: null skips the in-card channel row (used when the screen's
+  // header already names the channel, e.g. the dispatch lockup).
   const card = el('div', { class: 'dispatch-audio' },
-    el('span', { class: 'dp-channel' }, icon('radio'), el('span', null, tag)),
+    tag ? el('span', { class: 'dp-channel' }, icon('radio'), el('span', null, tag)) : null,
     el('div', { class: 'dp-row' }, btn, body)
   );
 
@@ -944,10 +1067,12 @@ export function situationalAssessment({ tone = 'warn', kicker = 'Situational ass
   );
 }
 
-// formulationField — labeled textarea with optional voice toggle. The
+// formulationField — labeled textarea with optional voice toggle and an
+// optional coach hint rendered inside the card, directly under the field
+// (one cohesive input unit — not a separate hint card floating below). The
 // voice toggle is mocked — clicking it auto-fills a stand-in transcript
 // so the demo can show conversational input without a real microphone.
-export function formulationField({ label = 'Your formulation', placeholder = 'Type your response…', voicePrompt }) {
+export function formulationField({ label = 'Your formulation', placeholder = 'Type your response…', voicePrompt, hint }) {
   const ta = el('textarea', { rows: 4, placeholder, class: 'scn-textarea' });
   const voiceBtn = voicePrompt ? el('button', { type: 'button', class: 'voice-btn',
     'aria-label': 'Use voice input',
@@ -958,6 +1083,9 @@ export function formulationField({ label = 'Your formulation', placeholder = 'Ty
         ta.value = voicePrompt;
         voiceBtn.classList.remove('listening');
         voiceBtn.querySelector('.vb-label').textContent = 'Voice';
+        // Programmatic fill must still notify listeners (e.g. the submit
+        // button's enable-on-input gate).
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
       }, 1100);
     }}}, icon('mic'), el('span', { class: 'vb-label' }, 'Voice')) : null;
 
@@ -966,7 +1094,11 @@ export function formulationField({ label = 'Your formulation', placeholder = 'Ty
       el('small', null, label),
       voiceBtn
     ),
-    ta
+    ta,
+    hint ? el('div', { class: 'fm-hint' },
+      el('span', { class: 'fm-hint-avatar' }, icon('lightbulb')),
+      el('p', null, hint)
+    ) : null
   );
   wrap.value = () => ta.value;
   wrap.input = ta;
@@ -1184,15 +1316,17 @@ function mdLite(s) {
     .replace(/\n/g, '<br>');
 }
 
-// hubHeader — Practice Hub page title + "Random scenario" CTA.
+// hubHeader — Practice Hub page title + optional "Random scenario" CTA.
 export function hubHeader({ kicker, title, onRandom }) {
   return el('div', { class: 'hub-header' },
     el('div', { class: 'hh-text' },
       kicker ? el('small', null, kicker) : null,
       el('h2', null, title)
     ),
-    el('button', { class: 'btn primary hh-random', on: { click: onRandom } },
-      icon('bolt'), el('span', null, 'Random'))
+    onRandom
+      ? el('button', { class: 'btn primary hh-random', on: { click: onRandom } },
+          icon('bolt'), el('span', null, 'Random'))
+      : null
   );
 }
 
@@ -1303,36 +1437,33 @@ function capitalize(s) { return String(s || '').replace(/^./, (c) => c.toUpperCa
 // the learner WHO they're explaining to. Three flavors: expert / beginner
 // / outsider, each with its own avatar icon and short descriptor.
 export function audienceCard({ audience, concept }) {
+  // `concept` is the thing being explained, e.g. "why scene size-up always
+  // comes before patient contact". It slots in as the object of the coach's
+  // direction, so the card is the single place the learner is told both WHO
+  // they're talking to and WHAT to land — no separate scene-setting line
+  // needs to repeat it. Falls back to "this" if a step omits the concept.
+  const c = concept || 'this';
   const meta = {
     expert: {
-      kicker: 'Audience · Expert',
-      title: 'Explain to a seasoned peer',
-      desc: concept
-        ? `A colleague who already knows the basics. Use precise terms. Get to the nuance of ${concept}.`
-        : 'A colleague who already knows the basics. Use precise terms and get to the nuance.',
+      title: 'Another expert',
+      desc: `They already know the fundamentals, so skip the basics. Use precise terms and explain ${c}.`,
       icon: 'shield'
     },
     beginner: {
-      kicker: 'Audience · Beginner',
-      title: 'Explain to a new trainee',
-      desc: concept
-        ? `Someone in the role for two weeks. Avoid jargon. Make ${concept} land.`
-        : 'Someone in the role for two weeks. Avoid jargon. Make it land.',
+      title: 'A new trainee',
+      desc: `It's their first week, so assume nothing. Keep it plain and explain ${c}.`,
       icon: 'lightbulb'
     },
     outsider: {
-      kicker: 'Audience · Outside the industry',
-      title: 'Explain to a smart friend',
-      desc: concept
-        ? `Someone bright but outside your field. No acronyms. Why does ${concept} matter?`
-        : 'Someone bright but outside your field. No acronyms. Tell them why this matters.',
+      title: 'Someone outside the field',
+      desc: `They work in a different field, so skip the shorthand. Lose the acronyms and explain ${c}.`,
       icon: 'users'
     }
-  }[audience] || { kicker: 'Audience', title: 'Explain', desc: '', icon: 'users' };
+  }[audience] || { title: 'Your listener', desc: '', icon: 'users' };
   return el('div', { class: 'audience-card' },
     el('div', { class: 'ac-avatar' }, icon(meta.icon)),
     el('div', { class: 'ac-body' },
-      el('div', { class: 'ac-kicker' }, meta.kicker),
+      el('div', { class: 'ac-kicker' }, 'Your audience'),
       el('h3', { class: 'ac-title' }, meta.title),
       el('p', { class: 'ac-desc' }, meta.desc)
     )
@@ -1444,7 +1575,7 @@ export function createDictation({ onTranscript, onFatalError, onStop } = {}) {
 // any text the learner already captured. If the browser has no
 // SpeechRecognition, the component opens in typing mode from the start
 // with a small footnote.
-export function articulationMic({ audienceLabel = 'Listening', onChange } = {}) {
+export function articulationMic({ audienceLabel = 'Listening', onChange, hint } = {}) {
   // The Web Speech engine is shared with every other voice input via
   // createDictation; this component only renders chrome and reacts.
   const dictation = createDictation({
@@ -1484,6 +1615,12 @@ export function articulationMic({ audienceLabel = 'Listening', onChange } = {}) 
 
   const root = el('div', { class: 'articulation-mic' },
     voicePane, typePane,
+    // Coach hint lives inside the input card, under the capture area —
+    // same in-card treatment as formulationField's hint.
+    hint ? el('div', { class: 'fm-hint' },
+      el('span', { class: 'fm-hint-avatar' }, icon('lightbulb')),
+      el('p', null, hint)
+    ) : null,
     el('div', { class: 'am-foot' }, toggle)
   );
 

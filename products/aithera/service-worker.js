@@ -5,7 +5,7 @@
 //     Every reload fetches fresh — no stale code, no version bumps required
 //     to ship a fix to testers. Cache is only a fallback when offline.
 //   - Cache-first for other GETs (images, fonts, etc.).
-const VERSION = 'aithera-v58';
+const VERSION = 'aithera-v91';
 const CORE = [
   './',
   './index.html',
@@ -82,19 +82,28 @@ self.addEventListener('fetch', (e) => {
   if (isAppCode) {
     e.respondWith(
       fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(VERSION).then((c) => c.put(req, copy));
+        // Only cache good responses — a cached 404/500 would shadow the
+        // real file forever once it comes back.
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(VERSION).then((c) => c.put(req, copy));
+        }
         return res;
       }).catch(() => caches.match(req))
     );
     return;
   }
 
+  // Images/fonts: cache-first, but never cache a failed response and never
+  // fall back to index.html (serving HTML as an image "poisoned" the cache —
+  // the scenario hero photos disappeared permanently until a version bump).
   e.respondWith(
     caches.match(req).then((hit) => hit || fetch(req).then((res) => {
-      const copy = res.clone();
-      caches.open(VERSION).then((c) => c.put(req, copy));
+      if (res.ok) {
+        const copy = res.clone();
+        caches.open(VERSION).then((c) => c.put(req, copy));
+      }
       return res;
-    }).catch(() => caches.match('./index.html')))
+    }))
   );
 });

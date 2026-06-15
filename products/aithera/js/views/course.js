@@ -4,7 +4,7 @@
 // status panel, coach message, primary CTA).
 
 import { store } from '../store.js';
-import * as ui from '../ui.js?v=scene-flow-9';
+import * as ui from '../ui.js?v=scene-flow-42';
 import { isAtLeast } from '../phase.js';
 
 export function render(courseId) {
@@ -37,10 +37,16 @@ export function render(courseId) {
       : { label: 'Recommended', variant: 'recommended' }
   }));
 
-  // 2. Title — the descriptive capability subtitle was removed to keep the
-  // course header clean and focused on the primary action.
-  root.appendChild(ui.el('div', { class: 'stack', style: { marginBottom: '14px' } },
-    ui.el('h2', { style: { margin: '0', fontSize: '20px' } }, course.title)
+  // 2. Header — a "Course" eyebrow names the page type so the overview reads
+  // as the top of the Course → Lesson → Practice hierarchy at a glance, rather
+  // than leaning on the "Start course" CTA to be the only tell. The lesson
+  // count rides in the eyebrow so the container/contents relationship is clear.
+  root.appendChild(ui.el('div', { class: 'course-head' },
+    ui.el('div', { class: 'course-eyebrow' },
+      ui.icon('list'),
+      ui.el('span', null, `Course · ${course.lessons.length} lessons`)
+    ),
+    ui.el('h2', { class: 'course-title' }, course.title)
   ));
 
   // 3. Meta bar doubles as the lessons accordion. The quiet "N lessons ·
@@ -48,8 +54,11 @@ export function render(courseId) {
   // right here (closed by default to keep focus on the CTA). The chevron
   // rotates to point down when open.
   const metaAccordion = ui.el('details', { class: 'course-meta-bar' });
+  // The lesson count lives in the eyebrow above; here the bar reads as the
+  // course's table of contents — "Course content" + duration — so expanding it
+  // clearly reveals what the course is made of.
   metaAccordion.appendChild(ui.el('summary', { class: 'cmb-summary' },
-    ui.el('span', { class: 'cmb-item' }, ui.icon('list'), `${course.lessons.length} lessons`),
+    ui.el('span', { class: 'cmb-item' }, ui.icon('list'), 'Course content'),
     ui.el('span', { class: 'cmb-sep' }),
     ui.el('span', { class: 'cmb-item' }, ui.icon('clock'), `${course.estMinutes}m`),
     ui.icon('chevron', { class: 'cmb-chev' })
@@ -90,10 +99,13 @@ export function render(courseId) {
   metaAccordion.appendChild(lessonsBody);
   root.appendChild(metaAccordion);
 
-  // 5. Coach message — adapts greeting tone
+  // 5. Coach message — adapts greeting tone. Staged behind a "Reviewing
+  // course content" shimmer so the summary reads as Vic's live take on
+  // this course, once per course per page load.
   root.appendChild(ui.coachMessage({
     title: progress ? 'Welcome back.' : `Ready to start, ${store.state.learner.name.split(' ')[0]}?`,
-    text: coachLine(course, progress, store.state.learner.preferences.coachTone)
+    text: coachLine(course, progress, store.state.learner.preferences.coachTone),
+    reveal: { label: 'Reviewing course content…', key: `course:${course.id}` }
   }));
 
   // 6. Mastery breakdown (page-specific)
@@ -134,8 +146,15 @@ export function render(courseId) {
 
   // 8. Primary CTA — pinned to the bottom of the page so the main action
   // is always reachable with a thumb, regardless of scroll position.
+  // The label names the concrete lesson it opens ("Start Lesson 1" / "Resume
+  // Lesson 3") rather than the vague "Start course"; the eyebrow above already
+  // establishes that this is a course, so the CTA can be specific about the
+  // next step.
+  const resumeId = progress?.lesson ?? course.lessons[0].id;
+  const resumeIdx = course.lessons.findIndex((l) => l.id === resumeId);
+  const lessonNum = (resumeIdx < 0 ? 0 : resumeIdx) + 1;
   const ctaChildren = [
-    ui.primaryCta(progress ? 'Resume course' : 'Start course',
+    ui.primaryCta(progress ? `Resume Lesson ${lessonNum}` : 'Start Lesson 1',
       `#/course/${course.id}/start`,
       { percent: pct })
   ];

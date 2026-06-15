@@ -9,8 +9,8 @@
 // Composed entirely from ui.js primitives.
 
 import { store } from '../store.js';
-import * as ui from '../ui.js?v=scene-flow-9';
-import * as discussion from './practice-discussion.js?v=scene-flow-9';
+import * as ui from '../ui.js?v=scene-flow-42';
+import * as discussion from './practice-discussion.js?v=scene-flow-42';
 
 export function render(scenarioId) {
   // Hash may carry a ?retry=N or ?from=ka suffix. The router strips the
@@ -63,9 +63,44 @@ export function render(scenarioId) {
   let dispatchEl = null; // welcome dispatch player — cancel speech on unmount
   let threadEl = null;   // scrolling thread that accumulates each step turn
 
-  function show(node) { root.replaceChildren(node); }
+  // ---------- Persistent practice chrome ----------
+  // The practice mode bar is the primary cue that separates this flow from a
+  // lesson: a lesson never renders one. It sits above a content area that the
+  // phases render into, and it carries the single timer for the whole session
+  // (created here rather than lazily per-phase so it can live in the bar).
+  // The bar is identical whether the practice is standalone or embedded in a
+  // course lesson — course progress belongs to the lesson flow, not here.
+  timer = ui.scenarioTimer();
+  const content = ui.el('div', { class: 'practice-content' });
+  const bar = ui.practiceModeBar({
+    timer,
+    // Reuse the shell's exit logic (routes to the practice hub) — the bar
+    // replaces the floating × visually but defers to the same destination.
+    onExit: () => document.getElementById('exitBtn')?.click()
+  });
+  root.append(bar, content);
+
+  // Practice owns the top chrome, so suppress the shell's floating × and zero
+  // the fullscreen view inset (handled in CSS). Cleared on the next real route
+  // change — the router has no unmount hook.
+  document.body.classList.add('practice-live');
+  const myPath = location.hash.split('?')[0];
+  function onPracticeRouteAway() {
+    if (location.hash.split('?')[0] === myPath) return;
+    document.body.classList.remove('practice-live', 'practice-intro');
+    window.removeEventListener('hashchange', onPracticeRouteAway);
+  }
+  window.addEventListener('hashchange', onPracticeRouteAway);
+
+  function show(node) { content.replaceChildren(node); }
 
   // --------------------- WELCOME PHASE ---------------------
+  // The pre-brief renders as a full-screen sheet in the practice bar's color,
+  // so the whole screen reads as "the practice bar, expanded". On Begin the
+  // sheet slides up and tucks behind the bar — the bar that persists through
+  // the run is visibly the residue of this intro, which is what makes the
+  // device orienting rather than a skippable splash.
+  let introSheet = null;
   function renderWelcome() {
     const w = sc.welcome || {};
     const retrySuffix = retryCount > 0
@@ -75,34 +110,96 @@ export function render(scenarioId) {
       ? "Picking up where you left off in AlcoholEdu. "
       : '';
     const kaKicker = fromKa ? 'Knowledge Assistant · Suggested practice' : null;
+    // Commitment chips: how long, how many calls to make. Set expectations
+    // before the timer starts so beginning feels informed, not ambushed.
+    const decisions = sc.mode === 'discussion' && sc.beats?.length
+      ? `${sc.beats.length} exchanges`
+      : `${sc.steps.length} decision${sc.steps.length === 1 ? '' : 's'}`;
+    const meta = [sc.estMinutes ? `~${sc.estMinutes} min` : null, decisions].filter(Boolean);
     const welcomeCard = ui.scenarioWelcome({
-      kicker: retryCount > 0 ? `Module orientation · take ${retryCount + 1}` : (kaKicker || w.kicker || sc.kicker || 'Module orientation'),
+      // The pill is the only header now — it carries "Scenario overview"
+      // (not the data kickers, which still say "Module orientation").
+      kicker: retryCount > 0 ? `Scenario overview · take ${retryCount + 1}` : (kaKicker || w.title || 'Scenario overview'),
       title: w.title || 'Scenario overview',
+      scenarioTitle: sc.title,
+      meta,
       body: kaPrefix + (w.body || sc.context) + retrySuffix,
       highlight: w.highlight,
-      reassurance: w.reassurance,
       expectedOutcome: w.expectedOutcome || sc.outcomeType,
       ctaLabel: retryCount > 0 ? 'Begin retry' : 'Begin practice',
       onBegin: () => {
-        if (dispatchEl?.stop) dispatchEl.stop();
-        // Discussion-mode scenarios hand off to the branching conversation
-        // engine; everything else runs the multiple-choice step engine.
-        if (sc.mode === 'discussion' && sc.beats?.length) {
-          startDiscussion();
+        // The clock starts once the learner commits — "Begin practice" is the
+        // start of the timed run. The first run screen (dispatch call when the
+        // scenario has one, otherwise the scene) renders *beneath* the sheet,
+        // then the sheet lifts to reveal it.
+        if (timer?.start) timer.start();
+        if (sc.dispatch && typeof ui.dispatchAudio === 'function') {
+          renderDispatch();
         } else {
-          renderStepPhase();
+          beginScenario();
         }
+        dismissIntro();
       }
     });
-    // Dispatch audio sits inside the welcome card, just above the CTA,
-    // so the learner hears the call before committing to the scene.
-    if (sc.dispatch && typeof ui.dispatchAudio === 'function') {
-      dispatchEl = ui.dispatchAudio(sc.dispatch);
-      const cta = welcomeCard.querySelector('.sw-cta');
-      if (cta) welcomeCard.insertBefore(dispatchEl, cta);
-      else welcomeCard.appendChild(dispatchEl);
+    introSheet = ui.el('div', { class: 'practice-intro-sheet' }, welcomeCard);
+    // While the intro is up, the bar drops its shadow so bar + sheet read as
+    // one continuous surface (the shadow returns as the sheet detaches).
+    document.body.classList.add('practice-intro');
+    root.appendChild(introSheet);
+  }
+
+  // Lift the intro sheet up into the practice bar. The run content is already
+  // rendered underneath, so the slide is a reveal, not a swap.
+  function dismissIntro() {
+    const sheet = introSheet;
+    introSheet = null;
+    document.body.classList.remove('practice-intro');
+    if (!sheet) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      sheet.remove();
+      return;
     }
-    show(welcomeCard);
+    sheet.classList.add('is-rising');
+    sheet.addEventListener('transitionend', () => sheet.remove(), { once: true });
+    setTimeout(() => sheet.remove(), 800); // safety net if transitionend is missed
+  }
+
+  // --------------------- DISPATCH PAGE ---------------------
+  // The incoming call, on its own screen between the pre-brief and the scene.
+  // Reuses the welcome card's full-height frame (CTA pinned to the bottom) so
+  // the two screens read as one flow.
+  function renderDispatch() {
+    // Incoming-call lockup: pulsing radio mark + title + channel subtitle
+    // read as one unit (who's calling), followed by the transmission and
+    // the action — instead of a quiet pill, a heading, and a card all
+    // competing for the same job.
+    const card = ui.el('div', { class: 'scn-welcome' },
+      ui.el('div', { class: 'dispatch-head' },
+        ui.el('span', { class: 'dh-mark', 'aria-hidden': 'true' }, ui.icon('radio')),
+        ui.el('h2', { class: 'dh-title' }, 'Incoming dispatch'),
+        sc.dispatch.tag ? ui.el('small', { class: 'dh-channel' }, sc.dispatch.tag) : null
+      )
+    );
+    // The channel is named in the lockup, so the audio card skips its own tag row.
+    dispatchEl = ui.dispatchAudio({ ...sc.dispatch, tag: null });
+    card.appendChild(dispatchEl);
+    card.appendChild(ui.el('p', { class: 'sw-dispatch-lead' }, 'Listen to the call, then continue when you’re ready.'));
+    card.appendChild(ui.el('button', { class: 'btn primary block cta-large sw-cta', on: { click: () => beginScenario() } },
+      ui.el('span', null, 'Continue'),
+      ui.icon('arrowRight')));
+    show(card);
+  }
+
+  // Leave the framing screens and enter the scenario proper.
+  function beginScenario() {
+    if (dispatchEl?.stop) dispatchEl.stop();
+    // Discussion-mode scenarios hand off to the branching conversation
+    // engine; everything else runs the multiple-choice step engine.
+    if (sc.mode === 'discussion' && sc.beats?.length) {
+      startDiscussion();
+    } else {
+      renderStepPhase();
+    }
   }
 
   // --------------------- DISCUSSION PHASE ---------------------
@@ -110,7 +207,6 @@ export function render(scenarioId) {
   // straight from the lesson's scene-watch flow (from=watch), pass the 2-step
   // phase framing and a re-watch link so the chat reads as "Step 2 of 2".
   function startDiscussion() {
-    if (!timer) timer = ui.scenarioTimer();
     let reviewHref = null, reviewPoster = null, flowTitle = null, flowKicker = null;
     if (fromWatch && fromCourseId && fromLessonId) {
       reviewHref = `#/course/${fromCourseId}/lesson/${fromLessonId}`;
@@ -130,7 +226,9 @@ export function render(scenarioId) {
       }
     }
     discussion.run({
-      root, sc, timer,
+      // Render into the content area (below the persistent mode bar), and let
+      // the bar own the timer — so the discussion engine doesn't re-mount it.
+      root: content, sc, timer, showTimer: false,
       flowSteps: fromWatch ? ['Watch', 'Share observations'] : null,
       flowTitle, flowKicker, reviewHref, reviewPoster,
       onFinish: (score, results) => recordAndExit(score, results)
@@ -138,30 +236,41 @@ export function render(scenarioId) {
   }
 
   // --------------------- STEP PHASE ---------------------
-  // The scenario plays out as a scrolling thread: a sticky, edge-to-edge
-  // hero ("the scene") is pinned at the top, and each step is appended
-  // below it as a "turn". Answering a step locks it in place and reveals
-  // the next turn underneath — so the full history stays scrollable rather
-  // than being replaced on every Continue.
+  // The scenario steps through one decision at a time. A sticky, edge-to-edge
+  // hero ("the scene") is pinned at the top with the patient's vitals anchored
+  // directly beneath it, so a heart/breathing-rate change is always visible.
+  // Each step's question fully replaces the previous one — only one set of
+  // options is ever on screen, so the learner always knows the single thing
+  // to do right now. (The full decision history is reconstructed on the
+  // completion screen from stepResults.)
   function renderStepPhase() {
-    if (!timer) timer = ui.scenarioTimer();
+    // The hero is the scene itself — no overlay label. The step kicker below
+    // already locates the learner; a "<Cohort> · scene" pill on the image was
+    // redundant chrome.
     const hero = ui.scenarioMedia({
       id: sc.id,
-      label: sc.industry === 'healthcare' ? 'Emergency Department · triage' : 'I-95 · scene',
       accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff7a3d',
       image: sc.heroImage || `assets/scenarios/${sc.id}.jpg`,
       height: 240
     });
-    const heroSticky = ui.el('div', { class: 'scn-hero-sticky' },
-      hero,
-      ui.el('div', { class: 'scn-hero-timer' }, timer)
-    );
+    // The timer lives in the persistent practice bar above, not on the hero.
+    const heroSticky = ui.el('div', { class: 'scn-hero-sticky' }, hero);
+
+    // Vitals are anchored just below the image as a fixed shelf — created
+    // once and updated in place. Because they never move and the rest of the
+    // page swaps beneath them, an answer that shifts HR/RR reads as a real
+    // change to the same readout rather than a new floating card.
+    if (curVitals) {
+      vitals = ui.vitalsPanel(curVitals);
+      heroSticky.appendChild(ui.el('div', { class: 'scn-vitals-anchor' }, vitals));
+    }
+
     threadEl = ui.el('div', { class: 'scn-thread' });
     show(ui.el('div', { class: 'scn-flow' }, heroSticky, threadEl));
-    appendStep(0);
+    showStep(0);
   }
 
-  function appendStep(i) {
+  function showStep(i) {
     stepIdx = i;
     if (i >= sc.steps.length) return finish();
     const step = sc.steps[i];
@@ -170,32 +279,19 @@ export function render(scenarioId) {
     turn.appendChild(ui.el('div', { class: 'scn-turn-kicker' },
       step.kicker || `${sc.kicker} · Step ${i + 1} of ${sc.steps.length}`));
 
-    // The opening turn carries the scene description. The hero image that
-    // used to live here now sits in the persistent sticky header above.
-    if (i === 0) {
-      turn.appendChild(ui.el('div', { class: 'scn-scene-kicker' }, 'The scene'));
+    // The opening step carries the scene description directly under the step
+    // kicker — no separate "The scene" label (two identical kickers stacked
+    // read as noise). The dimmed narrative styling does the separating.
+    // Articulate steps skip this: the audience card below already states what
+    // to explain, so a scene line here would just repeat the concept.
+    if (i === 0 && step.input !== 'articulate') {
       turn.appendChild(ui.el('p', { class: 'scn-scene-text' }, sc.context));
     }
 
-    // Live vitals — same persistent node re-attached so it tracks the
-    // active turn (healthcare scenarios only).
-    if (curVitals) {
-      if (!vitals) vitals = ui.vitalsPanel(curVitals);
-      else vitals.update(curVitals);
-      turn.appendChild(vitals);
-    }
-
-    // Coach micro-hint for choice steps (text/articulate fold it into the
-    // input field themselves).
-    if (step.coachHint && step.input !== 'text' && step.input !== 'articulate') {
-      turn.appendChild(ui.el('div', { class: 'scn-task-hint scn-standalone-hint' },
-        ui.el('span', { class: 'scn-task-hint-avatar' }, ui.icon('lightbulb')),
-        ui.el('p', null, step.coachHint)));
-    }
-
-    // Input mode.
+    // Input mode. (Choice steps no longer carry a standalone coach hint — the
+    // question title is the single, clear prompt; text/articulate steps fold
+    // their hint into the input field.)
     if (step.input === 'text') {
-      if (step.prompt) turn.appendChild(ui.scenarioPrompt({ text: step.prompt }));
       turn.appendChild(textInput(step, i));
     } else if (step.input === 'articulate') {
       turn.appendChild(articulateInput(step, i));
@@ -203,12 +299,14 @@ export function render(scenarioId) {
       turn.appendChild(choiceInput(step, i));
     }
 
-    threadEl.appendChild(turn);
-    // Bring each new turn up to just beneath the sticky hero. The opening
-    // turn stays put (the hero is already at the top).
-    if (i > 0) {
-      requestAnimationFrame(() => turn.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-    }
+    // Replace the previous step entirely — one question at a time — and reset
+    // the scroll so the new question sits right beneath the anchored hero.
+    threadEl.replaceChildren(turn);
+    requestAnimationFrame(() => {
+      const view = root.closest('.view') || document.scrollingElement;
+      if (view && 'scrollTop' in view) view.scrollTop = 0;
+      window.scrollTo(0, 0);
+    });
   }
 
   // --------------------- INPUT MODES ---------------------
@@ -222,89 +320,112 @@ export function render(scenarioId) {
 
     const poll = ui.el('div', { class: 'poll' });
 
-    // Explanation card — appears after a pick. More prominent than the
-    // old single-line feedback: full-width, larger type, has room to
-    // breathe.
-    const explain = ui.el('div', { class: 'scn-explain', style: { display: 'none' } });
-
+    // Two-stage CTA: tapping an option only *selects* it (the learner can
+    // change their mind); "Submit answer" commits it for grading, then the
+    // same button becomes "Continue". The explicit commit keeps a stray tap
+    // from instantly scoring + revealing — the flow was moving too fast.
+    let graded = false;
+    let selected = null; // { o, wrap }
     const ctaBar = ui.el('div', { class: 'scn-cta-bar' });
     const cta = ui.el('button', { class: 'btn primary block', disabled: true, on: { click: () => {
-      ctaBar.remove();        // drop the Continue bar; the next turn appends below
-      appendStep(i + 1);
-    }}}, 'Continue');
+      if (!graded) { gradePick(); }
+      else { showStep(i + 1); }   // swap in the next step — replaces this one
+    }}}, 'Submit answer');
     ctaBar.appendChild(cta);
 
     // Each option is wrapped so we can drop a "Your answer" / "Best
     // answer" label above the button without disturbing button layout.
     const wrappers = step.options.map((o) => {
       const label = ui.el('div', { class: 'scn-option-label', style: { display: 'none' } });
-      const btn = ui.el('button', { type: 'button', class: 'scn-option-btn' }, o.label);
+      const btn = ui.el('button', { type: 'button', class: 'scn-option-btn', 'aria-pressed': 'false' }, o.label);
       const wrap = ui.el('div', { class: 'scn-option' }, label, btn);
       wrap._opt = o;
       wrap._label = label;
       wrap._btn = btn;
-      btn.addEventListener('click', () => onPick(o, wrap));
+      btn.addEventListener('click', () => onSelect(o, wrap));
       poll.appendChild(wrap);
       return wrap;
     });
 
-    function onPick(o, pickedWrap) {
+    function onSelect(o, wrap) {
+      if (graded) return;
+      selected = { o, wrap };
+      wrappers.forEach((w) => {
+        const on = w === wrap;
+        w.classList.toggle('is-selected', on);
+        w._btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      cta.disabled = false;
+    }
+
+    function gradePick() {
+      graded = true;
+      const { o, wrap: pickedWrap } = selected;
       // Lock everything in.
-      wrappers.forEach((w) => { w._btn.disabled = true; });
+      wrappers.forEach((w) => { w._btn.disabled = true; w.classList.remove('is-selected'); });
 
       const tone = o.outcome === 'good' ? 'good' : o.outcome === 'bad' ? 'bad' : 'warn';
       const best = wrappers.find((w) => w._opt.outcome === 'good');
       const correct = o.outcome === 'good';
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-      // Mark the learner's pick.
-      pickedWrap.classList.add('is-picked', `t-${tone}`);
-      pickedWrap._label.style.display = 'block';
-      pickedWrap._label.textContent = correct ? 'Your answer · correct' : 'Your answer';
-
-      // Reveal the best answer if they didn't pick it.
-      if (!correct && best && best !== pickedWrap) {
-        best.classList.add('is-best', 't-good');
-        best._label.style.display = 'block';
-        best._label.textContent = 'Best answer';
-      }
-
-      // Collapse the others.
+      // The graded state is a verdict column, not an annotated list: options
+      // that are neither the pick nor the best answer fade out and collapse —
+      // once graded they're noise. What remains reads top → bottom as
+      // "what I chose → the right call and why".
       wrappers.forEach((w) => {
-        if (w !== pickedWrap && !(w.classList.contains('is-best'))) {
-          w.classList.add('is-hidden');
+        if (w !== pickedWrap && w !== best) {
+          w.classList.add('is-removed');
+          if (reduceMotion) w.style.display = 'none';
+          else setTimeout(() => { w.style.display = 'none'; }, 280);
         }
       });
 
-      // Move the learner's pick to the top so the comparison reads
-      // "Your answer" → "Best answer" top-to-bottom.
-      if (!correct && best && best !== pickedWrap) {
-        poll.insertBefore(pickedWrap, poll.firstChild);
+      // Mark the learner's pick with an explicit icon verdict — ✓/✗ reads
+      // instantly, before color does. The .reveal class staggers the
+      // entrance (pick label → best answer → why) so the grading lands as
+      // a sequence instead of one jump to the final state.
+      const verdictLabel = correct ? 'Your answer · correct'
+        : o.outcome === 'ok' ? 'Your answer · close' : 'Your answer';
+      pickedWrap.classList.add('is-picked', `t-${tone}`, 'reveal', 'as-card');
+      pickedWrap._label.style.display = 'flex';
+      pickedWrap._label.replaceChildren(
+        ui.icon(correct ? 'check' : 'close'),
+        ui.el('span', null, verdictLabel));
+
+      // The coach's rationale fuses into the winning card — the best
+      // answer's on a miss, the learner's own on a correct pick — so the
+      // answer and its "why" are one object, not a card plus a floating
+      // explanation. (If a step has no authored 'good' option, the pick
+      // hosts the rationale.)
+      const target = (correct || !best) ? pickedWrap : best;
+      if (target !== pickedWrap) {
+        best.classList.add('is-best', 't-good', 'reveal', 'reveal-late', 'as-card');
+        best._label.style.display = 'flex';
+        best._label.replaceChildren(ui.icon('check'), ui.el('span', null, 'Best answer'));
       }
-
-      // Tighten the section header now that we're in review mode — the
-      // question heading shrinks to a compact review kicker.
-      heading.textContent = correct ? 'Nice work' : 'Review';
-      heading.classList.add('is-review');
-
-      // Render the explanation card.
-      explain.className = `scn-explain t-${tone}`;
-      explain.style.display = 'block';
-      explain.replaceChildren(
+      const explainBody = correct ? o.feedback : (best?._opt.feedback || o.feedback);
+      target.classList.add('has-why');
+      target.appendChild(ui.el('div', { class: 'scn-option-why' },
         ui.el('div', { class: 'scn-explain-head' },
           ui.el('span', { class: 'scn-explain-avatar' }, ui.icon('lightbulb')),
           ui.el('span', { class: 'scn-explain-kicker' },
-            correct ? 'Why this works' : 'Why the best answer wins')
+            correct ? 'Why this works' : 'Why this wins')
         ),
-        ui.el('p', { class: 'scn-explain-text', html: escape(o.feedback) })
-      );
-      if (!correct && best && best !== pickedWrap && best._opt.feedback) {
-        explain.appendChild(ui.el('p', { class: 'scn-explain-best' },
-          ui.el('strong', null, 'Best answer: '),
-          ui.el('span', { html: escape(best._opt.feedback) })
-        ));
-      }
+        ui.el('p', { class: 'scn-explain-text', html: escape(explainBody) })
+      ));
 
-      cta.disabled = false;
+      // Swap the CTA to its second role. It stays disabled until the reveal
+      // sequence has landed so the learner reads the result before moving on.
+      cta.textContent = 'Continue';
+      cta.disabled = true;
+      setTimeout(() => { cta.disabled = false; }, reduceMotion ? 0 : 900);
+
+      // Bring the verdict column into view once the removed options have
+      // collapsed and the layout has settled.
+      setTimeout(() => {
+        target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+      }, reduceMotion ? 0 : 320);
 
       const points = o.outcome === 'good' ? 1 : o.outcome === 'ok' ? 0.5 : 0;
       stepResults.push({
@@ -326,36 +447,45 @@ export function render(scenarioId) {
       }
     }
 
-    card.append(poll, explain, ctaBar);
+    card.append(poll, ctaBar);
     return card;
   }
 
   function textInput(step, i) {
     const card = ui.el('div', { class: 'stack' });
+
+    // The step's directive heads the card as the question — same pattern as
+    // choice steps. The old layout stacked three boxed cards (task callout,
+    // input card, hint card) that all competed for attention; now there's
+    // one heading and one input card with the hint folded inside it.
+    if (step.prompt) card.appendChild(ui.el('h2', { class: 'scn-question' }, step.prompt));
+
     const fm = ui.formulationField({
       label: step.inputLabel || 'Your formulation',
       placeholder: 'Type your response…',
-      voicePrompt: step.voicePrompt
+      voicePrompt: step.voicePrompt,
+      hint: step.coachHint
     });
     card.appendChild(fm);
-
-    if (step.coachHint) card.appendChild(ui.coachHint({ text: step.coachHint }));
 
     const rubricBlock = ui.el('div', { style: { display: 'none' } });
     card.appendChild(rubricBlock);
 
     const ctaBar = ui.el('div', { class: 'scn-cta-bar' });
     const continueBtn = ui.el('button', { class: 'btn primary block', style: { display: 'none' }, on: { click: () => {
-      ctaBar.remove(); appendStep(i + 1);
+      showStep(i + 1);
     }}}, 'Continue');
 
-    const submit = ui.el('button', { class: 'btn primary block cta-large', on: { click: () => {
+    // Disabled until the learner has actually written something — an empty
+    // submission grading out at "Rubric (0%)" helps no one.
+    const submit = ui.el('button', { class: 'btn primary block cta-large', disabled: true, on: { click: () => {
       const txt = (fm.value() || '').toLowerCase();
       const hits = step.rubric.map((r) => ({ r, hit: matches(r, txt) }));
       const score = hits.filter((h) => h.hit).length / step.rubric.length;
       const outcome = score >= 0.7 ? 'good' : score >= 0.4 ? 'ok' : 'bad';
 
       rubricBlock.style.display = 'block';
+      rubricBlock.className = 'reveal-block';
       rubricBlock.replaceChildren(
         ui.el('div', { class: 'card' },
           ui.el('p', { class: 'tiny muted' },
@@ -388,7 +518,14 @@ export function render(scenarioId) {
 
       submit.style.display = 'none';
       continueBtn.style.display = 'block';
+      requestAnimationFrame(() => {
+        rubricBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
     }}}, ui.el('span', null, 'Submit formulation'), ui.icon('arrowRight'));
+
+    fm.input.addEventListener('input', () => {
+      submit.disabled = fm.value().trim().length === 0;
+    });
 
     ctaBar.append(submit, continueBtn);
     card.appendChild(ctaBar);
@@ -402,29 +539,29 @@ export function render(scenarioId) {
   function articulateInput(step, i) {
     const card = ui.el('div', { class: 'stack' });
 
-    card.appendChild(ui.audienceCard({ audience: step.audience, concept: step.concept }));
-
     let captured = '';
     const mic = ui.articulationMic({
       audienceLabel: step.audience === 'expert' ? 'Listening — peer mode'
         : step.audience === 'beginner' ? 'Listening — trainee mode'
         : 'Listening — outsider mode',
       onChange: (t) => { captured = t; submit.disabled = (t.split(/\s+/).filter(Boolean).length < 4); }
+      // No coach hint here — the audience header above carries the framing,
+      // so the capture area stays a single clear instruction.
     });
-    card.appendChild(mic);
 
-    if (step.coachHint) {
-      card.appendChild(ui.el('div', { class: 'scn-task-hint scn-standalone-hint' },
-        ui.el('span', { class: 'scn-task-hint-avatar' }, ui.icon('lightbulb')),
-        ui.el('p', null, step.coachHint)));
-    }
+    // Audience framing + voice capture read as one bonded unit: the audience
+    // header sits flush at the top, a hairline divides it from the mic below.
+    card.appendChild(ui.el('div', { class: 'articulate-unit' },
+      ui.audienceCard({ audience: step.audience, concept: step.concept }),
+      mic
+    ));
 
     const feedbackSlot = ui.el('div');
     card.appendChild(feedbackSlot);
 
     const ctaBar = ui.el('div', { class: 'scn-cta-bar' });
     const continueBtn = ui.el('button', { class: 'btn primary block', style: { display: 'none' }, on: { click: () => {
-      ctaBar.remove(); appendStep(i + 1);
+      showStep(i + 1);
     }}}, 'Continue');
 
     const submit = ui.el('button', { class: 'btn primary block cta-large', disabled: true, on: { click: () => {
@@ -488,6 +625,7 @@ export function render(scenarioId) {
   // Coming from the scene-watch flow, the welcome card is redundant — the
   // learner was just framed by the pre-roll — so drop straight into the chat.
   if (fromWatch && sc.mode === 'discussion' && sc.beats?.length) {
+    if (timer?.start) timer.start();
     startDiscussion();
   } else {
     renderWelcome();

@@ -15,7 +15,7 @@
 // hidden so the lesson surface owns the screen.
 
 import { store } from '../store.js';
-import * as ui from '../ui.js?v=scene-flow-9';
+import * as ui from '../ui.js?v=scene-flow-42';
 
 export function render(courseId, lessonId) {
   const course = store.course(courseId);
@@ -125,7 +125,11 @@ export function render(courseId, lessonId) {
     // skip the footer button there — unless this is the final lesson, where
     // the footer carries the "Finish course" action instead.
     if (name !== 'recap' || !next) {
-      wrap.appendChild(ui.stickyFooter({ children: footerCta(name) }));
+      const cta = footerCta(name);
+      wrap.appendChild(ui.stickyFooter({ children: cta }));
+      // Learn is a reading page: hold the CTA until the prose has been
+      // scrolled to its end so "Continue" means "finished reading".
+      if (name === 'learn') gateUntilRead(wrap, cta);
     }
     return wrap;
   }
@@ -171,6 +175,25 @@ export function render(courseId, lessonId) {
       ui.el('span', null, labels[name]),
       ui.icon('arrowRight')
     );
+  }
+
+  // Reading gate: the CTA starts disabled and a 1px sentinel placed at the
+  // end of the prose enables it when scrolled into view. Short pages enable
+  // immediately (the sentinel is visible on first layout). Watching viewport
+  // intersection works whether the window or the .app column is the scroller.
+  function gateUntilRead(wrap, cta) {
+    cta.disabled = true;
+    cta.classList.add('cta-gated');
+    const sentinel = ui.el('div', { class: 'read-sentinel', 'aria-hidden': 'true' });
+    wrap.insertBefore(sentinel, wrap.querySelector('.sticky-footer'));
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) {
+        io.disconnect();
+        cta.disabled = false;
+        cta.classList.remove('cta-gated');
+      }
+    });
+    io.observe(sentinel);
   }
 
   // ---------- WATCH ----------
@@ -321,10 +344,12 @@ export function render(courseId, lessonId) {
     head.appendChild(ui.el('div', { class: 'checkpoint-eyebrow' }, lesson.title));
     head.appendChild(ui.el('h2', { class: 'checkpoint-title' },
       `Lesson ${String(idx + 1).padStart(2, '0')} complete`));
-    head.appendChild(ui.el('p', { class: 'checkpoint-lede' },
-      next
-        ? `Nice work. ${doneCount} of ${total} done — let's keep the momentum.`
-        : `That's the last lesson. One tap to finish the course.`));
+    // No lede on mid-course recaps — the stat line below already tells the
+    // progress story. The final lesson keeps its one-tap-to-finish pointer.
+    if (!next) {
+      head.appendChild(ui.el('p', { class: 'checkpoint-lede' },
+        `That's the last lesson. One tap to finish the course.`));
+    }
     stack.appendChild(head);
 
     // Condensed stat line — the three checkpoint stats on a single row.
@@ -362,7 +387,8 @@ export function render(courseId, lessonId) {
           : `#/practice/${sc.id}`,
         primaryVariant: 'secondary',
         secondaryLabel: 'Skip',
-        secondaryHref: `#/course/${course.id}/lesson/${lesson.id}`
+        secondaryHref: `#/course/${course.id}/lesson/${lesson.id}`,
+        reveal: { label: 'Reviewing your progress…', key: `recap:${course.id}:${lesson.id}` }
       }));
     }
     // Companion mini-game tee-up — sits below the standard practice nudge.
@@ -780,6 +806,35 @@ function chartEl(b) {
   return fig;
 }
 
+// Article list — a plain ordered/unordered list with an optional lead-in
+// title, for "steps in order" or "watch for" content inside reading mode.
+function listEl(b) {
+  const wrap = ui.el('div', { class: `lesson-list${b.ordered ? ' is-ordered' : ''}` });
+  if (b.title) wrap.appendChild(ui.el('div', { class: 'll-title' }, b.title));
+  const list = ui.el(b.ordered ? 'ol' : 'ul', { class: 'll-items' });
+  for (const it of (b.items || [])) {
+    // An item may be a plain string or { lead, body } for a bolded lead-in.
+    if (it && typeof it === 'object') {
+      list.appendChild(ui.el('li', null,
+        ui.el('strong', null, it.lead ? `${it.lead} ` : ''),
+        it.body || ''));
+    } else {
+      list.appendChild(ui.el('li', null, it));
+    }
+  }
+  wrap.appendChild(list);
+  return wrap;
+}
+
+// Pull-quote — an editorial blockquote with optional attribution, used to
+// break up long reading sections.
+function quoteEl(b) {
+  const fig = ui.el('figure', { class: 'lesson-quote' });
+  fig.appendChild(ui.el('blockquote', null, b.text));
+  if (b.attribution) fig.appendChild(ui.el('figcaption', null, b.attribution));
+  return fig;
+}
+
 function renderBlock(b, course) {
   if (b.type === 'text' || b.type === 'prose') {
     const wrap = ui.el('div', null);
@@ -789,6 +844,8 @@ function renderBlock(b, course) {
   }
   if (b.type === 'image') return figureEl(b);
   if (b.type === 'chart') return chartEl(b);
+  if (b.type === 'list')  return listEl(b);
+  if (b.type === 'quote') return quoteEl(b);
   if (b.type === 'callout') {
     return ui.callout({ kind: b.kind, title: b.title, body: b.body, items: b.items });
   }

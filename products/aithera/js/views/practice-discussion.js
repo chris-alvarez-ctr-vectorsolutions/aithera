@@ -16,9 +16,9 @@
 // It reuses the sticky-hero + scrolling-thread shell and CSS from the step
 // engine, and reports back through onFinish(score, results).
 
-import * as ui from '../ui.js?v=scene-flow-9';
+import * as ui from '../ui.js?v=scene-flow-42';
 
-export function run({ root, sc, timer, onFinish, flowSteps = null, flowTitle = null, flowKicker = null, reviewHref = null, reviewPoster = null }) {
+export function run({ root, sc, timer, onFinish, flowSteps = null, flowTitle = null, flowKicker = null, reviewHref = null, reviewPoster = null, showTimer = true }) {
   // When launched as the "Step 2 of 2" tail of the scene-watch flow, the
   // engine drops its big sticky keyframe hero in favour of a compact header
   // (kicker + title + 2-step phase bar) and a re-watch card. Otherwise it runs
@@ -61,7 +61,9 @@ export function run({ root, sc, timer, onFinish, flowSteps = null, flowTitle = n
       headRow,
       ui.el('h2', { class: 'ch-title' }, flowTitle || sc.title || 'Share what you observed'),
       ui.phaseBar({ steps: flowSteps, current: flowSteps.length - 1 }),
-      ui.el('div', { class: 'scn-hero-timer dsc-flow-timer' }, timer)
+      // When the practice mode bar owns the timer (showTimer:false), don't
+      // re-parent it here — that would steal the node out of the bar.
+      showTimer ? ui.el('div', { class: 'scn-hero-timer dsc-flow-timer' }, timer) : null
     );
     top.appendChild(header);
     if (reviewHref) top.appendChild(reviewCard());
@@ -75,7 +77,8 @@ export function run({ root, sc, timer, onFinish, flowSteps = null, flowTitle = n
       ui.el('span', { class: 'scn-hero-scrim', 'aria-hidden': 'true' }),
       heroCaption
     );
-    const heroSticky = ui.el('div', { class: 'scn-hero-sticky' }, hero, ui.el('div', { class: 'scn-hero-timer' }, timer));
+    const heroSticky = ui.el('div', { class: 'scn-hero-sticky' }, hero,
+      showTimer ? ui.el('div', { class: 'scn-hero-timer' }, timer) : null);
     root.replaceChildren(ui.el('div', { class: 'scn-flow' }, heroSticky, threadEl));
   }
 

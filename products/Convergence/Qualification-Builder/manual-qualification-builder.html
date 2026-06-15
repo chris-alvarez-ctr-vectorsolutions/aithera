@@ -57,10 +57,6 @@
        position:relative — so the builder's overlays anchor to it (below the topnav + breadcrumb)
        instead of the viewport. */
     #cv-page { position: relative; height: 100%; display: flex; flex-direction: column; min-height: 0; }
-    /* Requirement builder: this page edits a single requirement (requirement -> activities), so the
-       qualification-level chrome (attributes, requirement-list outline, Add Requirement) is hidden.
-       Completion Settings stays, repurposed in the header accordion. */
-    #attrs-accordion, .req-structure-panel, .add-req-btn { display: none !important; }
     /* Push mode: builder content shifts left so the docked AI panel sits beside it (not over it) */
     .main-col.ai-push { padding-right: 440px; }
 
@@ -424,6 +420,11 @@
     .empty-state { text-align: center; padding: 28px 16px; color: #9ca3af; font-size: 12.5px; line-height: 1.6; }
 
     .req-body { padding: 8px 16px 14px; }
+    /* Activities sub-header inside a requirement card (subordinate to the 20px requirement title) */
+    .acts-subhead { display:flex; align-items:center; gap:9px; margin:2px 0 12px; padding-bottom:10px; border-bottom:1px solid #eef1f5; }
+    .acts-subhead .ach-icon { width:28px; height:28px; border-radius:7px; background:var(--vblue-10,#0271ce1a); color:var(--vblue,#0271ce); display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+    .acts-subhead h3 { font-size:14.5px; font-weight:700; color:#1a1a2e; margin:0; display:flex; align-items:baseline; gap:8px; }
+    .acts-subhead .ach-count { font-size:12.5px; font-weight:600; color:#9ca3af; }
     .activity-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
     .activity-card { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: #fafbfc; border: 1px solid #e5e9ef; border-radius: 5px; }
     .activity-icon { width: 28px; height: 28px; border-radius: 5px; background: #e8f0fe; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
@@ -878,7 +879,7 @@
               <div class="builder-title-row">
                 <h1 id="builder-page-title">Create New Qualification</h1>
               </div>
-              <span class="header-sub">Set up the requirement details, then add activities below.</span>
+              <span class="header-sub">Set up the qualification details, then add requirements below.</span>
             </div>
             <div class="header-actions">
               <button class="enhance-ai-btn hidden" id="enhance-ai-btn" onclick="openChatPanel()"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Assistant</button>
@@ -918,14 +919,20 @@
               <vaadin-text-field theme="outlined" id="lp-ext-id" value="1234567890" style="width:360px"></vaadin-text-field>
             </div>
 
-            <!-- Completion Settings accordion (requirement-level: rendered from requirements[0]) -->
+            <!-- Qualification Settings accordion -->
             <div class="sec-settings settings-card bh-accordion" id="overview-settings">
               <div class="sec-settings-head" onclick="toggleOverviewSettings()">
                 <i class="fa-solid fa-gear gear"></i>
-                <span id="overview-settings-label">Completion Settings</span>
+                <span id="overview-settings-label">Qualification Settings</span>
                 <i class="fa-solid fa-chevron-right caret"></i>
               </div>
-              <div class="sec-settings-body" id="req-settings-body"></div>
+              <div class="sec-settings-body">
+                <div class="setting-group">
+                  <span class="setting-label">Requirement Completion Order</span>
+                  <label class="setting-radio"><input type="radio" name="prog-req-order" value="any" checked onchange="setProgOrder('any')"><span>Any order. Requirements can be completed in any sequence.</span></label>
+                  <label class="setting-radio"><input type="radio" name="prog-req-order" value="sequential" onchange="setProgOrder('sequential')"><span>Sequential. Requirements must be completed in order.</span></label>
+                </div>
+              </div>
             </div>
 
             <!-- Attributes accordion -->
@@ -971,80 +978,6 @@
 <!-- ══ TOAST ══ -->
 <div class="toast" id="toast"></div>
 
-<!-- ══ Targeting hint (AI point-and-click) ══ -->
-<div class="targeting-hint hidden" id="targeting-hint"><i class="fa-solid fa-crosshairs"></i> Click a requirement or activity to target it. Press Esc to cancel.</div>
-
-<!-- ══ AI SIDE PANEL - V1 one-shot (overlay) / V2 conversational (docked) ══ -->
-<div class="sp-backdrop hidden" id="sp-backdrop" onclick="closeSidePanel()"></div>
-<div class="sp-panel" id="sp-panel">
-  <div class="sp-header">
-    <div class="sp-header-text">
-      <div class="sp-eyebrow" id="sp-eyebrow"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Requirement Assistant</div>
-      <h2 id="sp-title">Build with AI</h2>
-    </div>
-    <div class="sp-header-actions">
-      <button class="sp-icon-btn hidden" id="sp-versions-btn" onclick="toggleVersions()" title="Version history"><i class="fa-solid fa-code-branch"></i></button>
-      <button class="sp-close-btn" onclick="closeSidePanel()"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-  </div>
-
-  <!-- Version history (V2) -->
-  <div class="sp-versions hidden" id="sp-versions">
-    <div class="sp-versions-head">
-      <h3><i class="fa-solid fa-code-branch" style="margin-right:6px;color:var(--vblue)"></i> Version history</h3>
-      <button class="sp-close-btn" onclick="toggleVersions()"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="sp-versions-list" id="sp-versions-list"></div>
-    <div style="padding:12px 16px;border-top:1px solid var(--lumo-contrast-10pct,#e5e9ef)">
-      <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center" onclick="saveVersionManual()"><i class="fa-solid fa-bookmark"></i> Save current as a version</button>
-    </div>
-  </div>
-
-  <!-- V1: one-shot prompt -->
-  <div class="sp-body" id="sp-oneshot">
-    <div>
-      <p class="sp-section-title">Qualification summary</p>
-      <vaadin-text-field theme="outlined" label="Summary" placeholder="e.g., Operate the Line 3 AC motor controller safely" id="sp-summary" style="width:100%"></vaadin-text-field>
-    </div>
-    <div>
-      <p class="sp-section-title">Timeline of training <span class="sp-optional">(optional)</span></p>
-      <vaadin-text-field theme="outlined" label="Timeline" placeholder="e.g., 2 days, 6 weeks, ongoing" id="sp-timeline" style="width:100%"></vaadin-text-field>
-      <div class="sp-hint" style="margin-top:6px">Helps shape how broad or technical the qualification is.</div>
-    </div>
-    <div>
-      <p class="sp-section-title">Describe the goals of this qualification <span style="color:var(--lumo-error-color,#dc2626)">*</span></p>
-      <vaadin-text-area theme="outlined" id="sp-prompt" placeholder="Describe the skill or task to certify, the equipment involved, the safety procedures, and how competency should be verified. The more detail you give, the better the draft." style="width:100%"></vaadin-text-area>
-    </div>
-    <div class="sp-suggest-section">
-      <div class="sp-suggest-head">
-        <span class="sp-suggest-title"><i class="fa-solid fa-wand-magic-sparkles"></i> <span id="sp-suggest-heading">AI suggestions</span></span>
-        <button class="sp-refresh hidden" id="sp-refresh-btn" onclick="refreshOneShot()"><i class="fa-solid fa-rotate"></i> Refresh suggestions</button>
-      </div>
-      <div class="sp-suggest-empty" id="sp-suggest-empty"><i class="fa-regular fa-pen-to-square"></i> Add more about the skill or task you're certifying and the assistant will suggest details you can add.</div>
-      <div class="sp-suggest-cards hidden" id="sp-suggest-cards"></div>
-    </div>
-  </div>
-  <div class="sp-footer" id="sp-foot-oneshot">
-    <vaadin-button theme="secondary" onclick="closeSidePanel()">Cancel</vaadin-button>
-    <vaadin-button theme="primary" id="sp-generate-btn" onclick="oneshotGenerate()" disabled>
-      <i class="fa-solid fa-wand-magic-sparkles" slot="prefix"></i> Generate Qualification
-    </vaadin-button>
-  </div>
-
-  <!-- V2: conversational assistant -->
-  <div class="sp-chat-body hidden" id="sp-chat">
-    <div class="sp-thread" id="sp-thread"></div>
-  </div>
-  <div class="sp-chat-foot hidden" id="sp-foot-chat">
-    <div class="sp-target-chip hidden" id="sp-target-chip"></div>
-    <div class="sp-chip-row" id="sp-chat-suggest"></div>
-    <div class="sp-input-row">
-      <button class="sp-tool-btn ptr-spark" id="sp-target-btn" onclick="toggleTargetMode()" title="Point and target a requirement or activity with AI"><i class="fa-solid fa-arrow-pointer"></i><span class="spk">✨</span></button>
-      <textarea id="sp-chat-input" rows="1" placeholder="Reply to the assistant…"></textarea>
-      <button class="sp-send-btn" id="sp-send-btn" onclick="sendChat()" disabled aria-label="Send"><i class="fa-solid fa-arrow-up"></i></button>
-    </div>
-  </div>
-</div>
 
 <!-- ══ AUDIT HISTORY MODAL ══ -->
 <div class="overlay hidden" id="audit-overlay">
@@ -1148,7 +1081,7 @@
       </div>
     </div>
     <div class="confirm-actions">
-      <button class="btn btn-secondary" id="confirm-manage-btn" onclick="confirmManage()">Manage Requirements</button>
+      <button class="btn btn-secondary" id="confirm-manage-btn" onclick="confirmManage()">Manage Qualifications</button>
       <button class="btn btn-primary" id="confirm-assign-btn" onclick="confirmAssign()">Assign this Qualification</button>
     </div>
   </div>
@@ -1326,8 +1259,8 @@ const QUAL_FOLLOWUP_PROMPTS = [
 /* ═══════════════════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════════════════ */
-let VERSION = 3;                       // builder behaviour profile (this file = the AI builder)
-const AI_ENABLED = true;               // AI builder: conversational AI side panel + assistant. (Manual builder sets this false.)
+let VERSION = 3;                       // builder behaviour profile (this file = the Manual builder)
+const AI_ENABLED = false;              // Manual builder: NO AI side panel / assistant. Manual create + edit only.
 let programType = 'qualification';     // qualification-only for now
 let isAI = false;
 let requirements = [];                 // [{id,name,desc,acts:[],editing,completionOrder}]
@@ -1353,7 +1286,7 @@ const VERSION_INFO = {
 };
 
 /* ─── Helpers (qualification-only) ─── */
-function currentTypeLabel(){ return 'Requirement'; }
+function currentTypeLabel(){ return 'Qualification'; }
 function currentChips(){ return QUAL_CHIPS; }
 function currentStarter(){ return QUAL_STARTER_PROMPTS; }
 function currentFollowup(){ return QUAL_FOLLOWUP_PROMPTS; }
@@ -1467,7 +1400,7 @@ function openExisting(name, type, enrolled){
   initVersions('Opened “' + name + '”');
 }
 
-function builderModeLabel(){ return isEditing ? 'Edit Requirement' : 'Create New Requirement'; }
+function builderModeLabel(){ return isEditing ? 'Edit Qualification' : 'Create New Qualification'; }
 
 function configureBuilderChrome(){
   const mode = builderModeLabel();
@@ -1479,21 +1412,21 @@ function configureBuilderChrome(){
   // Delete is only offered on an existing qualification
   document.getElementById('builder-delete-item').classList.toggle('hidden', !isEditing);
   // Title field placeholder
-  document.getElementById('lp-title').placeholder = 'e.g., Energy Isolation Fundamentals';
-  // Header settings accordion holds the requirement completion settings
+  document.getElementById('lp-title').placeholder = 'e.g., AC Motor Controller Operation';
+  // Program settings accordion label
   const sl = document.getElementById('overview-settings-label');
-  if (sl) sl.textContent = 'Completion Settings';
+  if (sl) sl.textContent = 'Qualification Settings';
   renderThumb();
 }
 
 function enterBuilder(){
   document.getElementById('breadcrumb-trail').innerHTML =
-    `<button class="bh-back" onclick="cancelBuilder()"><i class="fa-solid fa-arrow-left"></i> Manage Requirements</button>`;
+    `<button class="bh-back" onclick="cancelBuilder()"><i class="fa-solid fa-arrow-left"></i> Manage Qualifications</button>`;
   showScreen('screen-builder');
 }
 
 /* The qualifications list is its own page now (Manage-Qualifications.html, AG Grid). */
-const MANAGE_LIST_URL = 'Manage-Requirements.html';
+const MANAGE_LIST_URL = 'Manage-Qualifications.html';
 function goToList(){ location.href = MANAGE_LIST_URL; }
 
 /* See-more dropdown in the header */
@@ -1571,13 +1504,12 @@ function runLoadingAnim(done){
 }
 
 function buildRequirementsFromData(data){
-  // AI requirement builder: collapse the generated structure into ONE requirement's activities.
-  const r = requirements[0] || mkReq(data.title || 'Requirement');
-  requirements = [r]; r.acts = [];
-  const seen = new Set();
-  data.requirements.forEach(rd => rd.acts.forEach(id => {
-    if (byId[id] && !seen.has(id)){ seen.add(id); r.acts.push({...byId[id]}); }
-  }));
+  requirements = []; rc = 0;
+  data.requirements.forEach(rd => {
+    const r = mkReq(rd.name, rd.desc);
+    rd.acts.forEach(id => { if (byId[id]) r.acts.push({...byId[id]}); });
+    requirements.push(r);
+  });
 }
 
 /* In-canvas skeleton placeholder (AI Builder epic preferred loading treatment) */
@@ -1720,7 +1652,8 @@ function pushVersion(label){
   }
   const v = { id: ++versionSeq, label: label, time: nowTime(), snap: snapState() };
   versionHistory.push(v); currentVersionId = v.id;
-  if(!document.getElementById('sp-versions').classList.contains('hidden')) renderVersions();
+  const spv = document.getElementById('sp-versions');   // absent in the Manual builder (no AI panel)
+  if(spv && !spv.classList.contains('hidden')) renderVersions();
 }
 function restoreVersion(id){
   const v = versionHistory.find(x=>x.id===id); if(!v) return;
@@ -1744,6 +1677,7 @@ function toggleVersions(){
 }
 function renderVersions(){
   const list=document.getElementById('sp-versions-list');
+  if(!list) return;   // no version-history UI in the Manual builder
   if(!versionHistory.length){ list.innerHTML='<div style="padding:18px;text-align:center;color:#9ca3af;font-size:12.5px">No versions yet.</div>'; return; }
   list.innerHTML = versionHistory.slice().reverse().map(v => {
     const cur = v.id===currentVersionId;
@@ -1798,7 +1732,7 @@ let oneshotNext = 'review';   // 'review' = V1 one-and-done; 'chat' = V3 continu
 function openAIOneShot(next){
   oneshotNext = next || 'review';
   showPanelMode('oneshot');
-  document.getElementById('sp-eyebrow').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> AI Requirement Assistant';
+  document.getElementById('sp-eyebrow').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> AI Qualification Assistant';
   document.getElementById('sp-title').textContent = 'Build with AI';
   ['sp-summary','sp-prompt','sp-timeline'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
   suggestRotate = 0;
@@ -1902,7 +1836,7 @@ const CLARIFY = [
 function openChatPanel(){
   showPanelMode('chat');
   clearTarget(); exitTargeting();
-  document.getElementById('sp-eyebrow').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> AI Requirement Assistant';
+  document.getElementById('sp-eyebrow').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> AI Qualification Assistant';
   document.getElementById('sp-title').textContent = 'Assistant';
   document.getElementById('sp-backdrop').classList.add('hidden');    // docked, push (no backdrop)
   document.getElementById('sp-panel').classList.add('open');
@@ -1972,7 +1906,8 @@ function sendChat(){
     aiDescOverride = text;   // title may already be set from the V3 intake summary
     chatGenerate(() => {
       pushVersion('AI draft');
-      finish(aiReasoningMessage(), prevVersion);
+      const n=requirements.length;
+      finish(`I've drafted a qualification with <strong>${n} requirement${n!==1?'s':''}</strong> and added it to the builder on the left. ${CLARIFY[clarifyIdx++ % CLARIFY.length]}`, prevVersion);
     });
   } else {
     setTimeout(() => { renderAll(); pushVersion('Refinement ' + (++refineCount)); finish(`Got it. I've updated the draft in the builder. ${CLARIFY[clarifyIdx++ % CLARIFY.length]}`, prevVersion); showToast('Draft updated from your reply'); }, 850);
@@ -1990,19 +1925,7 @@ function chatGenerate(cb){
 
 /* ═══════════════════════════════════════════════════════════
    AI REASONING / REFINE
-   Reasoning is explained conversationally in the side panel (like Claude / ChatGPT),
-   not as an accordion on the page.
 ═══════════════════════════════════════════════════════════ */
-function aiReasoningMessage(){
-  const r = requirements[0]; const acts = r ? r.acts : [];
-  const items = acts.map(a =>
-    `<li><strong>${esc(a.name)}</strong> <span style="color:#6b7280">(${esc(a.type)}, ${esc(a.duration)})</span></li>`
-  ).join('');
-  return `I drafted this requirement with <strong>${acts.length} activit${acts.length!==1?'ies':'y'}</strong> and added ${acts.length!==1?'them':'it'} to the builder on the left.
-    <div style="margin-top:8px;font-weight:600">Here's my reasoning</div>
-    <ul style="margin:4px 0 0;padding-left:18px;line-height:1.65">${items}</ul>
-    <div style="margin-top:8px">I chose activities that build the competency from foundational knowledge to hands-on practice and a final check. ${CLARIFY[clarifyIdx++ % CLARIFY.length]}</div>`;
-}
 let aiReasoningOpen = true;
 function toggleAIReasoning(){
   aiReasoningOpen = !aiReasoningOpen;
@@ -2115,62 +2038,21 @@ function openAudit(){
 function closeAudit(){ document.getElementById('audit-overlay').classList.add('hidden'); }
 function refreshAudit(){ showToast('Audit history refreshed'); }
 
-/* AI requirement builder renders ONE requirement's activities as a flat list (no requirement cards).
-   The header above is the requirement's identity; the AI assistant fills in its activities. */
 function renderRequirements(){
   const container = document.getElementById('reqs-container');
-  const r = requirements[0];
-  if(!r){ container.innerHTML = ''; return; }
-  const ICONS={course:'fa-graduation-cap',quiz:'fa-circle-question',video:'fa-play',doc:'fa-file-lines'};
-  const nAct=r.acts.length;
-  const acts = nAct
-    ? `<div class="activity-list">${r.acts.map((a,j)=>`<div class="activity-card" data-act="${a.id}" data-rid="${r.id}">
-        <div class="activity-icon"><i class="fa-solid ${ICONS[a.type]||'fa-graduation-cap'}"></i></div>
-        <div class="activity-info"><div class="activity-name">${esc(a.name)}</div><div class="activity-sub">${esc(a.category)} · ${esc(a.type)}</div></div>
-        <span class="activity-duration">${esc(a.duration)}</span>
-        <div class="act-ctrls">
-          <button class="act-ctrl-btn" title="Move up" onclick="moveAct(${r.id},'${a.id}',-1)" ${j===0?'disabled':''}><i class="fa-solid fa-arrow-up"></i></button>
-          <button class="act-ctrl-btn" title="Move down" onclick="moveAct(${r.id},'${a.id}',1)" ${j===nAct-1?'disabled':''}><i class="fa-solid fa-arrow-down"></i></button>
-          <div class="ctx-menu-wrap">
-            <button class="act-ctrl-btn" title="More options" onclick="toggleActCtx(event,${r.id},'${a.id}')"><i class="fa-solid fa-ellipsis-vertical"></i></button>
-            <div class="ctx-menu hidden" id="ctx-act-${r.id}-${a.id}">
-              <div class="ctx-menu-item danger" onclick="delAct(${r.id},'${a.id}')"><i class="fa-solid fa-xmark"></i> Remove</div>
-            </div>
-          </div>
-        </div>
-      </div>`).join('')}</div>`
-    : `<div class="empty-state" style="padding:16px 0 10px">No activities added yet. Use the AI assistant or add your first activity to get started.</div>`;
-  container.innerHTML = `
-    <div class="req-block" id="req-${r.id}" data-req="${r.id}">
-      <div style="padding:16px 18px 18px">
-        <div class="sec-overline" style="margin-bottom:10px"><i class="fa-regular fa-rectangle-list"></i> Activities <span style="color:#9ca3af;font-weight:600">(${nAct})</span></div>
-        ${acts}
-        <button class="add-activity-btn" onclick="openPanel(${r.id})"><i class="fa-solid fa-plus"></i> Add Existing Activity</button>
-      </div>
-    </div>`;
-  renderReqSettings();   // completion settings live in the header accordion
-}
-
-/* Requirement completion settings are rendered into the header accordion (#req-settings-body). */
-function reqSettingsHTML(r){
-  const nAct=r.acts.length;
-  const countErr = r.requiredMode==='number' && (r.requiredCount<1 || r.requiredCount>nAct);
-  return `
-    <div class="setting-group">
-      <span class="setting-label">Activities Required to Complete</span>
-      <label class="setting-radio"><input type="radio" name="req-count-${r.id}" value="all" ${r.requiredMode==='all'?'checked':''} onchange="setReqRequired(${r.id},'all')"><span>All activities</span></label>
-      <label class="setting-radio"><input type="radio" name="req-count-${r.id}" value="number" ${r.requiredMode==='number'?'checked':''} onchange="setReqRequired(${r.id},'number')"><span>A specific number:<input type="number" min="1" value="${r.requiredCount}" ${r.requiredMode!=='number'?'disabled':''} style="width:62px;margin-left:8px;border:1px solid #d1d5db;border-radius:5px;padding:4px 8px;font-family:inherit;font-size:12.5px" oninput="setReqCount(${r.id},this.value)"></span></label>
-      <div class="field-error-msg ${countErr?'show':''}" id="reqcount-err-${r.id}">Enter a number between 1 and ${nAct} (the number of activities).</div>
-    </div>
-    <div class="setting-group" style="margin-top:14px">
-      <span class="setting-label">Activity Completion Order</span>
-      <label class="setting-radio"><input type="radio" name="req-order-${r.id}" value="any" ${r.completionOrder==='any'?'checked':''} onchange="setReqOrder(${r.id},'any')"><span>Any order. Activities can be completed in any sequence.</span></label>
-      <label class="setting-radio"><input type="radio" name="req-order-${r.id}" value="sequential" ${r.completionOrder==='sequential'?'checked':''} onchange="setReqOrder(${r.id},'sequential')"><span>Sequential. Activities must be completed in order.</span></label>
-    </div>`;
-}
-function renderReqSettings(){
-  const host=document.getElementById('req-settings-body'); if(!host) return;
-  const r=requirements[0]; host.innerHTML = r ? reqSettingsHTML(r) : '';
+  // Preserve description textarea values before re-render
+  const descValues = {};
+  requirements.forEach(r => {
+    const el = document.getElementById('req-'+r.id);
+    if(el){ const ta=el.querySelector('.req-desc-field'); if(ta) descValues[r.id]=ta.value; }
+  });
+  container.innerHTML = (isAI ? renderAIReasoning() : '') + requirements.map((r,i)=>renderRequirement(r,i)).join('');
+  requirements.forEach(r => {
+    if(descValues[r.id] !== undefined){
+      const el = document.getElementById('req-'+r.id);
+      if(el){ const ta=el.querySelector('.req-desc-field'); if(ta) ta.value=descValues[r.id]; }
+    }
+  });
 }
 
 function renderAIReasoning(){
@@ -2283,6 +2165,10 @@ function renderRequirement(r,i){
       <div class="form-field" style="margin-bottom:12px">
         <label>Requirement Description</label>
         <textarea class="req-desc-field" placeholder="Describe this requirement and what the learner must demonstrate." onchange="updateReqDesc(${r.id},this.value)">${esc(r.desc)}</textarea>
+      </div>
+      <div class="acts-subhead">
+        <span class="ach-icon"><i class="fa-regular fa-rectangle-list"></i></span>
+        <h3>Activities <span class="ach-count">${nAct}</span></h3>
       </div>
       ${acts}
       <button class="add-activity-btn" onclick="openPanel(${r.id})"><i class="fa-solid fa-plus"></i> Add Existing Activity</button>
@@ -2639,34 +2525,23 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendChat(); }
     });
   }
-  setLoadingStyle('skeleton');
-  // Entry: open the builder directly. ?req=<name> edits an existing requirement (seeded with a few
-  // sample activities); otherwise start a blank requirement. ?ai=1 also opens the AI assistant panel.
+  setLoadingStyle('skeleton');   // default to the in-canvas skeleton treatment
+  // Entry: open the builder directly. ?qual=<name> (optionally &enrolled=<n>) edits an existing
+  // qualification; otherwise start a blank one. ?ai=1 also opens the AI assistant panel.
   const params = new URLSearchParams(location.search);
-  const ry = params.get('req');
-  startManual();                 // creates one blank requirement and enters the builder
-  if (ry) openExistingRequirement(decodeURIComponent(ry));
-  else if (params.get('ai') === '1') setTimeout(openChatPanel, 150);
+  const qy = params.get('qual');
+  if (qy){
+    openExisting(decodeURIComponent(qy), 'qualification', parseInt(params.get('enrolled') || '0', 10));
+  } else {
+    startManual();
+    if (AI_ENABLED && params.get('ai') === '1') setTimeout(openChatPanel, 150);
+  }
 });
-
-/* Open an existing requirement (prototype): name it and seed a few activities from the library. */
-function openExistingRequirement(name){
-  const r = requirements[0]; if(!r) return;
-  isEditing = true; hasThumb = true;
-  r.name = name;
-  r.acts = (typeof ACTIVITIES !== 'undefined' ? ACTIVITIES.slice(0, 4) : []).map(a => ({...a}));
-  configureBuilderChrome();
-  renderAll();
-  setTimeout(() => {
-    const t=document.getElementById('lp-title'); if(t) t.value=name;
-    const d=document.getElementById('lp-description'); if(d) d.value='Demonstrate competency for: ' + name + '.';
-  }, 100);
-}
 </script>
 
 <!-- Convergence chrome: topnav + admin sidenav + breadcrumb injected around #cv-page -->
 <script>
-  window.SHELL_CONFIG = { active: 'qual-req-builder-ai', parent: 'Qualifications', title: 'Requirement Builder (AI)', fullBleed: true };
+  window.SHELL_CONFIG = { active: 'qual-builder-manual', parent: 'Qualifications', title: 'Qualification Builder (Manual)', fullBleed: true };
 </script>
 <script src="../_shell/chrome.js"></script>
 </body>
