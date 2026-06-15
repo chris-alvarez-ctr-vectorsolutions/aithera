@@ -759,6 +759,31 @@
     .vs-divider { height: 1px; background: rgba(255,255,255,0.12); margin: 10px 0 9px; }
     .vs-sub-label { font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: rgba(255,255,255,0.5); margin-bottom: 7px; }
     .vs-seg.small button { font-size: 11px; padding: 5px 0; }
+
+    /* ─── Location picker ─── */
+    .loc-wrap { position:relative; max-width:480px; }
+    .loc-trigger { display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; padding:8px 12px; border:1px solid #d1d5db; border-radius:6px; background:#fff; font-family:inherit; font-size:13px; color:#374151; cursor:pointer; text-align:left; transition:border-color .15s,box-shadow .15s; }
+    .loc-trigger:hover { border-color:var(--vblue); }
+    .loc-trigger.open { border-color:var(--vblue); box-shadow:0 0 0 3px var(--vblue-10); }
+    .loc-trigger-left { display:flex; align-items:center; gap:8px; min-width:0; overflow:hidden; }
+    .loc-trigger-left i { color:#9ca3af; font-size:12px; flex-shrink:0; }
+    .loc-trigger-text { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#9ca3af; }
+    .loc-trigger.has-value .loc-trigger-text { color:#374151; }
+    .loc-caret { color:#9ca3af; font-size:11px; flex-shrink:0; transition:transform .15s; }
+    .loc-trigger.open .loc-caret { transform:rotate(180deg); }
+    .loc-dropdown { position:absolute; top:calc(100% + 4px); left:0; width:100%; background:#fff; border:1px solid #e5e9ef; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.14); z-index:300; max-height:260px; overflow-y:auto; padding:4px 0; }
+    .loc-dropdown.hidden { display:none; }
+    .loc-node-row { display:flex; align-items:center; gap:4px; padding:2px 8px; cursor:pointer; transition:background .1s; }
+    .loc-node-row:hover { background:#f3f4f6; }
+    .loc-node-row.selected { background:var(--vblue-10); }
+    .loc-node-row.selected .loc-node-label { color:var(--vblue); font-weight:600; }
+    .loc-expand-btn { width:22px; height:28px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border:none; background:none; color:#9ca3af; font-size:10px; cursor:pointer; padding:0; }
+    .loc-expand-btn i { transition:transform .15s; }
+    .loc-expand-btn.expanded i { transform:rotate(90deg); }
+    .loc-expand-spacer { width:22px; flex-shrink:0; display:inline-block; }
+    .loc-node-label { flex:1; padding:5px 2px; font-size:13px; color:#374151; }
+    .loc-node-children { padding-left:12px; }
+    .loc-node-children.hidden { display:none; }
   </style>
 </head>
 <body>
@@ -915,6 +940,16 @@
             <div class="form-field">
               <label>External ID (UID)</label>
               <vaadin-text-field theme="outlined" id="lp-ext-id" value="1234567890" style="width:360px"></vaadin-text-field>
+            </div>
+            <div class="form-field">
+              <label>Location</label>
+              <div class="loc-wrap">
+                <button type="button" class="loc-trigger" id="loc-trigger" onclick="toggleLocDropdown(event)">
+                  <span class="loc-trigger-left"><i class="fa-solid fa-location-dot"></i><span class="loc-trigger-text" id="loc-trigger-text">Select location in the organization hierarchy...</span></span>
+                  <i class="fa-solid fa-chevron-down loc-caret"></i>
+                </button>
+                <div class="loc-dropdown hidden" id="loc-dropdown"></div>
+              </div>
             </div>
 
             <!-- Completion Settings accordion (requirement-level: rendered from requirements[0]) -->
@@ -2535,6 +2570,84 @@ function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 /* ═══════════════════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════════════════ */
+
+/* ─── Location picker ─── */
+const ORG_TREE = [
+  { label:'Orlando Organization', children:[
+    { label:'Manufacturing', children:[{ label:'Line 3' },{ label:'Welding Shop' }]},
+    { label:'Facilities', children:[{ label:'Hot Work' }]},
+    { label:'Safety', children:[{ label:'Industrial Hygiene' }]},
+    { label:'Warehouse' },
+    { label:'Maintenance' },
+    { label:'Construction' },
+  ]},
+];
+let selectedLocation = null;
+let _activeLocRow = null;
+
+function buildLocTree(nodes, parentPath){
+  const frag = document.createDocumentFragment();
+  nodes.forEach(node => {
+    const path = parentPath ? parentPath + ' › ' + node.label : node.label;
+    const hasChildren = node.children && node.children.length;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'loc-node';
+    const row = document.createElement('div');
+    row.className = 'loc-node-row';
+    if (hasChildren){
+      const expBtn = document.createElement('button');
+      expBtn.type = 'button'; expBtn.className = 'loc-expand-btn';
+      expBtn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+      const childrenDiv = document.createElement('div');
+      childrenDiv.className = 'loc-node-children hidden';
+      childrenDiv.appendChild(buildLocTree(node.children, path));
+      expBtn.addEventListener('click', e => { e.stopPropagation(); childrenDiv.classList.toggle('hidden'); expBtn.classList.toggle('expanded'); });
+      const lbl = document.createElement('span'); lbl.className = 'loc-node-label'; lbl.textContent = node.label;
+      row.appendChild(expBtn); row.appendChild(lbl);
+      wrapper.appendChild(row); wrapper.appendChild(childrenDiv);
+    } else {
+      const sp = document.createElement('span'); sp.className = 'loc-expand-spacer';
+      const lbl = document.createElement('span'); lbl.className = 'loc-node-label'; lbl.textContent = node.label;
+      row.appendChild(sp); row.appendChild(lbl);
+      wrapper.appendChild(row);
+    }
+    row.addEventListener('click', () => selectLocation(path, row));
+    frag.appendChild(wrapper);
+  });
+  return frag;
+}
+function initLocPicker(){
+  const dd = document.getElementById('loc-dropdown');
+  if (dd && !dd.hasChildNodes()) dd.appendChild(buildLocTree(ORG_TREE, ''));
+}
+function selectLocation(path, rowEl){
+  selectedLocation = path;
+  const trigger = document.getElementById('loc-trigger');
+  const txt = document.getElementById('loc-trigger-text');
+  if (trigger) trigger.classList.add('has-value');
+  if (txt) txt.textContent = path;
+  if (_activeLocRow) _activeLocRow.classList.remove('selected');
+  if (rowEl){ rowEl.classList.add('selected'); _activeLocRow = rowEl; }
+  closeLocDropdown();
+}
+function toggleLocDropdown(e){
+  if (e) e.stopPropagation();
+  const dd = document.getElementById('loc-dropdown');
+  const trigger = document.getElementById('loc-trigger');
+  if (!dd) return;
+  if (!dd.classList.contains('hidden')){ closeLocDropdown(); return; }
+  initLocPicker();
+  dd.classList.remove('hidden');
+  if (trigger) trigger.classList.add('open');
+  setTimeout(() => document.addEventListener('click', closeLocDropdown, { once:true }), 0);
+}
+function closeLocDropdown(){
+  const dd = document.getElementById('loc-dropdown');
+  const trigger = document.getElementById('loc-trigger');
+  if (dd) dd.classList.add('hidden');
+  if (trigger) trigger.classList.remove('open');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   // V1 one-shot prompt: required + gate suggestions by length
   const spPrompt = document.getElementById('sp-prompt');

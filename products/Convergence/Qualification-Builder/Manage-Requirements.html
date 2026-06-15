@@ -57,21 +57,24 @@
       border:1px solid #e5e9ef; border-radius:10px; overflow:hidden; background:#fff;
       box-shadow:0 1px 3px rgba(16,24,40,.04);
     }
+    /* Vertically center custom renderer content within each row */
+    .ag-theme-quartz .ag-cell { display:flex; align-items:center; }
 
     /* Cell renderers */
     .cell-name-wrap { line-height:1.35; padding:7px 0; }
     .cell-name { font-weight:600; font-size:13.5px; }
     .cell-name a { color:#1a1a2e; text-decoration:none; }
     .cell-name a:hover { color:var(--vblue); text-decoration:underline; }
-    .cell-desc { font-size:11.5px; color:#9ca3af; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:520px; }
+    .cell-desc { font-size:11.5px; color:#9ca3af; margin-top:1px; max-width:520px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:normal; }
 
     .cell-meta { display:inline-flex; align-items:center; gap:7px; font-size:12.5px; color:#374151; }
     .cell-meta i { color:#9ca3af; font-size:12px; }
     .act-link { display:inline-flex; align-items:center; gap:6px; color:var(--vblue); font-weight:600; font-size:13px; text-decoration:none; }
     .act-link:hover { text-decoration:underline; }
     .act-link i { font-size:10px; }
-    .cell-loc { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:#6b7280; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .cell-loc i { color:#9ca3af; font-size:11px; flex-shrink:0; }
+    .cell-loc { display:flex; align-items:flex-start; gap:6px; font-size:12.5px; color:#6b7280; }
+    .cell-loc i { color:#9ca3af; font-size:11px; flex-shrink:0; margin-top:3px; }
+    .cell-loc .loc-text { line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:normal; }
 
     /* Row actions */
     .row-actions { display:flex; gap:4px; align-items:center; }
@@ -132,7 +135,7 @@
       <a href="Manage-Requirements.html" class="qfb-clear">Show all requirements <i class="fa-solid fa-xmark"></i></a>
     </div>
 
-    <div id="req-grid" class="ag-theme-quartz" style="height:560px; width:100%;"></div>
+    <div id="req-grid" class="ag-theme-quartz" style="width:100%;"></div>
     <div class="grid-footer">
       <span id="row-count"></span>
       <span>Vector LMS, Convergence Training Edition</span>
@@ -178,15 +181,14 @@ function orderRenderer(p){
   return `<span class="cell-meta"><i class="fa-solid ${seq ? 'fa-list-ol' : 'fa-shuffle'}"></i> ${p.value}</span>`;
 }
 function activitiesRenderer(p){
-  const n = p.value;
-  return `<a class="act-link" href="${activitiesHref(p.data)}" title="View activities in this requirement">${n} activit${n!==1?'ies':'y'} <i class="fa-solid fa-arrow-up-right-from-square"></i></a>`;
+  return `<a class="act-link" href="${activitiesHref(p.data)}" title="View activities in this requirement">${p.value}</a>`;
 }
 function statusRenderer(p){
   const conn = p.value === 'Active' ? 'success' : (p.value === 'Draft' ? 'contrast' : 'warning');
   return `<span theme="badge dot ${conn}">${p.value}</span>`;
 }
 function locationRenderer(p){
-  return `<span class="cell-loc"><i class="fa-solid fa-location-dot"></i> ${p.value}</span>`;
+  return `<span class="cell-loc"><i class="fa-solid fa-location-dot"></i><span class="loc-text">${p.value}</span></span>`;
 }
 
 /* Shared floating dropdown */
@@ -243,16 +245,20 @@ const gridOptions = {
     { headerName:'Requirement',          field:'name',       flex:2, minWidth:260, cellRenderer:nameRenderer, getQuickFilterText:p=>p.data.name+' '+p.data.desc },
     { headerName:'Completion Criteria',  field:'criteria',   width:175, cellRenderer:criteriaRenderer },
     { headerName:'Completion Order',     field:'order',      width:160, cellRenderer:orderRenderer },
-    { headerName:'Activities',           field:'activities', width:130, cellRenderer:activitiesRenderer },
+    { headerName:'# of Activities',      field:'activities', width:140, cellRenderer:activitiesRenderer },
     { headerName:'Status',               field:'status',     width:120, cellRenderer:statusRenderer },
     { headerName:'Location',             field:'location',   flex:2, minWidth:240, cellRenderer:locationRenderer },
-    { headerName:'', colId:'actions',    width:90,  cellRenderer:actionsRenderer, sortable:false, filter:false, resizable:false },
+    { headerName:'Actions', colId:'actions', width:110, cellRenderer:actionsRenderer, sortable:false, filter:false, resizable:false, pinned:'right' },
   ],
   defaultColDef: { sortable:true, resizable:true, filter:true },
-  rowHeight: 56,
+  rowHeight: 68,
   headerHeight: 44,
   animateRows: true,
   suppressCellFocus: true,
+  pagination: true,
+  paginationPageSize: 10,
+  paginationPageSizeSelector: [10, 25, 50],
+  domLayout: 'autoHeight',
   isExternalFilterPresent: () => statusValue !== '' || qualValue !== '',
   doesExternalFilterPass: (node) =>
     (!statusValue || node.data.status === statusValue) &&
