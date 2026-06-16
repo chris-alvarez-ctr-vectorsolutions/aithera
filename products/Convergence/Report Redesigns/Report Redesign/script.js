@@ -2091,13 +2091,35 @@ function formatSchedule(s) {
     return out;
 }
 
-// "Sent As" label — either a file attachment or a link to the filtered report
+// "Sent As" label — either a file attachment or a link to the filtered report.
+// For link delivery, render a clickable "View report" that jumps to the report
+// tab with the schedule's saved-view filters prepopulated.
 function deliveryLabelHTML(s) {
     if (s.delivery === 'link') {
-        return `<i class="fa-solid fa-link dx-muted"></i> Report link`;
+        return `<button type="button" class="view-report-link" data-sid="${s.id}" title="Open this report with its filters applied"><i class="fa-solid fa-up-right-from-square"></i> View report</button>`;
     }
     return `<i class="fa-regular fa-envelope dx-muted"></i> Email · ${s.format || 'Excel'}`;
 }
+
+// Jump to the report tab for a scheduled report and prepopulate the filters
+// from its saved view, so the user sees exactly what the delivered link shows.
+function viewFilteredReport(scheduleId) {
+    const s = SCHEDULED_REPORTS.find(x => x.id === scheduleId);
+    if (!s) return;
+    const view = SAVED_VIEWS.find(v => v.id === s.savedViewId);
+    const reportTab = s.report === 'Activity Exception Report' ? 'activity-exception' : 'qualification-report';
+    navigateToReport(reportTab);
+    if (view) applyView(view);
+}
+
+// Delegated so it works across every place the label is rendered
+// (Scheduled Reports table, Views & Schedules grid, and the card view).
+document.addEventListener('click', (e) => {
+    const link = e.target.closest('.view-report-link');
+    if (!link) return;
+    e.preventDefault();
+    viewFilteredReport(link.dataset.sid);
+});
 
 // ── Read currently-applied filters into a read-only summary ─────────
 function getReportFilterSummary(reportName) {

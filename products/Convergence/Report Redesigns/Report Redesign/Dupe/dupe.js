@@ -2286,13 +2286,15 @@ let SCHEDULED_REPORTS = [
         format: 'PDF',
     },
     {
-        // Second delivery on the SAME view as sr1 — different audience + cadence
+        // Second delivery on the SAME view as sr1 — different audience + cadence.
+        // Uses the "link to filtered report" delivery instead of an attachment.
         id: 'sr4', name: 'Exec Daily Digest', report: 'Qualification Report',
         savedViewId: 'q1-compliance', savedViewName: 'Q1 Compliance Review',
         freqValue: 'daily', days: [], dayOfMonth: 1, startDate: '2026-04-06', endDate: '', timeValue: '07:00',
         recipients: ['Draymond Green'], nextSend: 'Jun 10, 2026',
         subject: 'Exec Daily Digest — Compliance Snapshot',
         message: 'Daily snapshot of compliance status for leadership.',
+        delivery: 'link',
     },
 ];
 
@@ -2482,13 +2484,37 @@ function formatSchedule(s) {
     return out;
 }
 
-// "Sent as" — delivery is always email, so we surface only the file format
-// (the redundant "Email" label was dropped to cut repeated noise on every row).
+// "Sent as" — either an attached file (surface the file format) or a link to
+// the filtered report (a clickable "View report" that opens the report online
+// with this view's filters applied).
 function sentAsHTML(s) {
+    if (s.delivery === 'link') {
+        return `<button type="button" class="view-report-link" data-sid="${s.id}" title="Open this report with its filters applied"><i class="fa-solid fa-up-right-from-square"></i> View report</button>`;
+    }
     const fmt = s.format || 'Excel';
     const icon = fmt === 'PDF' ? 'fa-file-pdf' : fmt === 'CSV' ? 'fa-file-csv' : 'fa-file-excel';
     return `<span class="sr-fmt" title="Emailed as ${fmt}"><i class="fa-regular ${icon}"></i> ${fmt}</span>`;
 }
+
+// Jump to the report tab for a scheduled report and prepopulate the filters
+// from its saved view, so the user sees exactly what the delivered link shows.
+function viewFilteredReport(scheduleId) {
+    const s = SCHEDULED_REPORTS.find(x => x.id === scheduleId);
+    if (!s) return;
+    const view = SAVED_VIEWS.find(v => v.id === s.savedViewId);
+    const reportTab = s.report === 'Activity Exception Report' ? 'activity-exception' : 'qualification-report';
+    performNavigation(reportTab);
+    if (view) applyView(view);
+}
+
+// Delegated so it works across every place the label is rendered
+// (Scheduled Reports table, Views & Schedules grid, and the card layout).
+document.addEventListener('click', (e) => {
+    const link = e.target.closest('.view-report-link');
+    if (!link) return;
+    e.preventDefault();
+    viewFilteredReport(link.dataset.sid);
+});
 
 // Schedule cell for the Scheduled Reports table: written as a single sentence
 // (e.g. "Monthly on day 1 at 9:00 PM"), with the cadence word bolded as the
@@ -2689,7 +2715,27 @@ emailReportDialog.renderer = (root) => {
         <vaadin-text-area theme="outlined" id="emailMessage" label="Message" helper-text="Optional"
             placeholder="Add a note for recipients..." style="width:100%;margin-top:12px"></vaadin-text-area>
 
-        <!-- Send as — emailed to recipients with the chosen file format attached -->
+        <!-- Delivery method — attach the report as a file, or send a link that
+             opens the report online with these filters already applied -->
+        <p class="sv-section-heading">Delivery</p>
+        <div class="deliv-method" id="delivMethod">
+            <label class="deliv-opt">
+                <input type="radio" name="delivMethod" value="file" checked>
+                <span class="deliv-opt-body">
+                    <span class="deliv-opt-title"><i class="fa-regular fa-file-excel"></i> Attached file</span>
+                    <span class="deliv-opt-desc">A file export of the report is attached to the email.</span>
+                </span>
+            </label>
+            <label class="deliv-opt">
+                <input type="radio" name="delivMethod" value="link">
+                <span class="deliv-opt-body">
+                    <span class="deliv-opt-title"><i class="fa-solid fa-link"></i> Link to filtered report</span>
+                    <span class="deliv-opt-desc">The email includes a link that opens the report online with these filters already applied.</span>
+                </span>
+            </label>
+        </div>
+
+        <!-- Send as — file format, only relevant when delivering an attached file -->
         <vaadin-select theme="outlined" id="emailFormat" label="Send as" helper-text="Emailed to recipients as this file type"
             style="width:100%;margin-top:12px"></vaadin-select>
 
@@ -2762,6 +2808,17 @@ emailReportDialog.renderer = (root) => {
         { label: 'CSV (.csv)',    value: 'CSV' },
     ];
     fmtSel.value = (edit && edit.format) ? edit.format : 'Excel';
+
+    // Delivery method (attached file vs filtered-report link) — preselect on edit.
+    // The "Send as" format only applies to a file delivery, so hide it for a link.
+    const delivRadio = root.querySelector(`input[name="delivMethod"][value="${edit?.delivery || 'file'}"]`);
+    if (delivRadio) delivRadio.checked = true;
+    const syncDelivery = () => {
+        const isLink = root.querySelector('input[name="delivMethod"]:checked')?.value === 'link';
+        fmtSel.style.display = isLink ? 'none' : '';
+    };
+    root.querySelectorAll('input[name="delivMethod"]').forEach(r => r.addEventListener('change', syncDelivery));
+    syncDelivery();
 
     // Repeat select — "Does not repeat" (one-time) is the default
     const freqSel = root.querySelector('#emailFrequency');
@@ -2963,10 +3020,11 @@ function submitEmailDialog() {
     const subject = document.getElementById('emailSubject')?.value.trim() || '';
     const message = document.getElementById('emailMessage')?.value.trim() || '';
     const format  = document.getElementById('emailFormat')?.value || 'Excel';
+    const delivery = document.querySelector('input[name="delivMethod"]:checked')?.value || 'file';
 
     const pending = {
         name, report: cfg.reportName, freqValue, days, dayOfMonth, startDate, endDate, timeValue,
-        recipients: [...recipients], subject, message, format,
+        recipients: [...recipients], subject, message, format, delivery,
         nextSend: formatDateFriendly(startDate),
     };
 
