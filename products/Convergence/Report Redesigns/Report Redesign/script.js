@@ -1896,11 +1896,12 @@ let SCHEDULED_REPORTS = [
         recipients: ['Anthony Davis'], nextSend: 'Jul 1, 2026',
     },
     {
-        // Second delivery on the SAME view as sr1 — different audience + cadence
+        // Second delivery on the SAME view as sr1 — different audience + cadence.
+        // Demonstrates the "link to filtered report" delivery option.
         id: 'sr4', name: 'Exec Daily Digest', report: 'Qualification Report',
         savedViewId: 'q1-compliance', savedViewName: 'Q1 Compliance Review',
         freqValue: 'daily', days: [], dayOfMonth: 1, startDate: '2026-04-06', endDate: '', timeValue: '07:00',
-        recipients: ['Draymond Green'], nextSend: 'Jun 10, 2026',
+        recipients: ['Draymond Green'], nextSend: 'Jun 10, 2026', delivery: 'link',
     },
 ];
 
@@ -2088,6 +2089,14 @@ function formatSchedule(s) {
     let out = `${base} at ${formatTime(s.timeValue)}`;
     if (s.endDate) out += ` · until ${formatDateFriendly(s.endDate)}`;
     return out;
+}
+
+// "Sent As" label — either a file attachment or a link to the filtered report
+function deliveryLabelHTML(s) {
+    if (s.delivery === 'link') {
+        return `<i class="fa-solid fa-link dx-muted"></i> Report link`;
+    }
+    return `<i class="fa-regular fa-envelope dx-muted"></i> Email · ${s.format || 'Excel'}`;
 }
 
 // ── Read currently-applied filters into a read-only summary ─────────
@@ -2303,7 +2312,25 @@ emailReportDialog.renderer = (root) => {
 
         <hr class="sv-hr">
 
-        <p class="sv-section-heading">Report contents <span class="email-format-tag"><i class="fa-regular fa-file-excel"></i> Excel (.xlsx)</span></p>
+        <p class="sv-section-heading">Delivery</p>
+        <div class="deliv-method" id="delivMethod">
+            <label class="deliv-opt">
+                <input type="radio" name="delivMethod" value="file" checked>
+                <span class="deliv-opt-body">
+                    <span class="deliv-opt-title"><i class="fa-regular fa-file-excel"></i> Attached file</span>
+                    <span class="deliv-opt-desc">An Excel (.xlsx) export of the report is attached to the email.</span>
+                </span>
+            </label>
+            <label class="deliv-opt">
+                <input type="radio" name="delivMethod" value="link">
+                <span class="deliv-opt-body">
+                    <span class="deliv-opt-title"><i class="fa-solid fa-link"></i> Link to filtered report</span>
+                    <span class="deliv-opt-desc">The email includes a link that opens the report online with these filters already applied.</span>
+                </span>
+            </label>
+        </div>
+
+        <p class="sv-section-heading">Report contents</p>
         <div id="emailSavedViewNote" class="email-sv-note"></div>
         <div id="emailFilterSummary"></div>
     `;
@@ -2334,6 +2361,10 @@ emailReportDialog.renderer = (root) => {
     });
     root.querySelector('#recipBox').addEventListener('click', () => recipInput.focus());
     root.querySelector('#recipBrowseBtn').addEventListener('click', openRecipientPicker);
+
+    // Delivery method (attached file vs filtered-report link) — preselect on edit
+    const delivRadio = root.querySelector(`input[name="delivMethod"][value="${edit?.delivery || 'file'}"]`);
+    if (delivRadio) delivRadio.checked = true;
 
     // Frequency select
     const freqSel = root.querySelector('#emailFrequency');
@@ -2506,9 +2537,11 @@ function submitEmailDialog() {
         return;
     }
 
+    const delivery = document.querySelector('input[name="delivMethod"]:checked')?.value || 'file';
+
     const pending = {
         name, report: cfg.reportName, freqValue, days, dayOfMonth, startDate, endDate, timeValue,
-        recipients: [...recipients],
+        recipients: [...recipients], delivery, format: 'Excel',
         nextSend: formatDateFriendly(startDate),
     };
 
@@ -2738,7 +2771,7 @@ function renderScheduledReports() {
                 <td class="sr-dname"><i class="fa-regular fa-paper-plane sr-deliv-icon"></i> ${s.name}</td>
                 <td class="sr-dim">${formatSchedule(s)}</td>
                 <td class="sr-dim" title="${s.recipients.join(', ')}">${recipText}</td>
-                <td class="sr-dim"><span class="sr-sentas"><i class="fa-regular fa-envelope"></i> Email</span> <span class="sr-fmt"><i class="fa-regular fa-file-excel"></i> Excel</span></td>
+                <td class="sr-dim">${deliveryLabelHTML(s)}</td>
                 <td class="sr-dim">${s.nextSend}</td>
                 <td>
                     <div class="msv-actions">
@@ -3157,7 +3190,7 @@ function renderViewsSchedules() {
                     <span class="dx-sub-cell dx-sub-name"><i class="fa-regular fa-paper-plane"></i> ${s.name}</span>
                     <span class="dx-sub-cell">${formatSchedule(s)}</span>
                     <span class="dx-sub-cell" title="${s.recipients.join(', ')}">${s.recipients.length <= 2 ? s.recipients.join(', ') : `${s.recipients[0]}, ${s.recipients[1]} +${s.recipients.length - 2}`}</span>
-                    <span class="dx-sub-cell"><i class="fa-regular fa-envelope dx-muted"></i> Email · Excel</span>
+                    <span class="dx-sub-cell">${deliveryLabelHTML(s)}</span>
                     <span class="dx-sub-cell">${s.nextSend}</span>
                     <span class="dx-sub-cell dx-sub-actions">
                         <button class="dx-icon-btn vs-sched-edit" data-sid="${s.id}" title="Edit scheduled report"><i class="fa-solid fa-pencil"></i></button>
@@ -3227,7 +3260,7 @@ function renderVsCards(views) {
                     <span class="vs-cd-name"><i class="fa-regular fa-paper-plane"></i> ${s.name}</span>
                     <span class="vs-cd-field"><span class="vs-cd-label">Schedule</span>${formatSchedule(s)}</span>
                     <span class="vs-cd-field" title="${s.recipients.join(', ')}"><span class="vs-cd-label">Recipients</span>${recip}</span>
-                    <span class="vs-cd-field"><span class="vs-cd-label">Sent As</span><i class="fa-regular fa-envelope dx-muted"></i> Email · Excel</span>
+                    <span class="vs-cd-field"><span class="vs-cd-label">Sent As</span>${deliveryLabelHTML(s)}</span>
                     <span class="vs-cd-field"><span class="vs-cd-label">Next Send</span>${s.nextSend}</span>
                     <span class="vs-cd-actions">
                         <button class="dx-icon-btn vs-sched-edit" data-sid="${s.id}" title="Edit scheduled report"><i class="fa-solid fa-pencil"></i></button>
