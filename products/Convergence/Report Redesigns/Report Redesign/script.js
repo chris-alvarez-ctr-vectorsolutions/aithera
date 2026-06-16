@@ -3132,10 +3132,13 @@ function vsFacetsText(view) {
 }
 
 const vsCollapsed = new Set();  // view ids whose detail panel is collapsed
+let vsViewMode = 'grid';        // 'grid' (Andy's grid) | 'card' (alternate card layout)
 
 function renderViewsSchedules() {
     const body  = document.getElementById('vsBody');
+    const cards = document.getElementById('vsCards');
     const empty = document.getElementById('vsEmpty');
+    const head  = document.querySelector('#vsGrid .dx-grid-head');
     if (!body) return;
 
     const reportFilter = document.getElementById('vsReportFilter')?.value || '';
@@ -3149,8 +3152,16 @@ function renderViewsSchedules() {
         return hay.includes(q);
     });
 
-    body.innerHTML = '';
+    // Toggle which layout is shown
+    const cardMode = vsViewMode === 'card';
+    if (head)  head.style.display  = cardMode ? 'none' : '';
+    body.style.display  = cardMode ? 'none' : '';
+    if (cards) cards.style.display = cardMode ? '' : 'none';
     if (empty) empty.style.display = views.length ? 'none' : '';
+
+    if (cardMode) { renderVsCards(views); wireViewsSchedules(); return; }
+
+    body.innerHTML = '';
 
     views.forEach(view => {
         const schedules = SCHEDULED_REPORTS.filter(s => s.savedViewId === view.id);
@@ -3214,36 +3225,94 @@ function renderViewsSchedules() {
     wireViewsSchedules();
 }
 
-function wireViewsSchedules() {
-    const body = document.getElementById('vsBody');
-    if (!body) return;
+// Card view — alternate layout for the same data: one full-width card per
+// saved view, its filters inline in the header, scheduled reports as rows
+// beneath. Shares all the same actions/handlers as the grid (wired below).
+function renderVsCards(views) {
+    const cards = document.getElementById('vsCards');
+    if (!cards) return;
+    cards.innerHTML = views.map(view => {
+        const schedules = SCHEDULED_REPORTS.filter(s => s.savedViewId === view.id);
+        const collapsed = vsCollapsed.has(view.id);
+        const delivs = schedules.length
+            ? schedules.map(s => {
+                const recip = s.recipients.length <= 2
+                    ? s.recipients.join(', ')
+                    : `${s.recipients[0]}, ${s.recipients[1]} +${s.recipients.length - 2}`;
+                return `
+                <div class="vs-card-deliv" data-sid="${s.id}">
+                    <span class="vs-cd-name"><i class="fa-regular fa-paper-plane"></i> ${s.name}</span>
+                    <span class="vs-cd-field"><span class="vs-cd-label">Schedule</span>${formatSchedule(s)}</span>
+                    <span class="vs-cd-field" title="${s.recipients.join(', ')}"><span class="vs-cd-label">Recipients</span>${recip}</span>
+                    <span class="vs-cd-field"><span class="vs-cd-label">Sent As</span><i class="fa-regular fa-envelope dx-muted"></i> Email · Excel</span>
+                    <span class="vs-cd-field"><span class="vs-cd-label">Next Send</span>${s.nextSend}</span>
+                    <span class="vs-cd-actions">
+                        <button class="dx-icon-btn vs-sched-edit" data-sid="${s.id}" title="Edit scheduled report"><i class="fa-solid fa-pencil"></i></button>
+                        <button class="dx-icon-btn vs-sched-del" data-sid="${s.id}" title="Delete scheduled report"><i class="fa-regular fa-trash-can"></i></button>
+                    </span>
+                </div>`;
+              }).join('')
+            : `<div class="dx-sub-empty">No scheduled reports yet for this view.</div>`;
+        return `
+            <div class="vs-card ${collapsed ? 'vs-collapsed' : ''}" data-id="${view.id}">
+                <div class="vs-card-head">
+                    <button class="dx-expand vs-card-toggle" title="Expand / collapse"><i class="fa-solid fa-chevron-down"></i></button>
+                    <i class="fa-solid fa-bookmark dx-name-icon"></i>
+                    <span class="vs-card-title">${view.name}</span>
+                    <span class="${reportBadgeClass(view.report)}">${view.report}</span>
+                    <span class="vs-card-filters" title="${vsFacetsText(view)}"><i class="fa-solid fa-sliders vs-card-filters-icon"></i> ${vsFacetsText(view)}</span>
+                    <span class="vs-card-actions">
+                        <button class="dx-icon-btn vs-view-edit" data-id="${view.id}" title="Edit saved view"><i class="fa-solid fa-pencil"></i></button>
+                        <button class="dx-icon-btn vs-view-del" data-id="${view.id}" title="Delete saved view"><i class="fa-regular fa-trash-can"></i></button>
+                    </span>
+                </div>
+                <div class="vs-card-body">
+                    ${delivs}
+                    <button class="dx-add-btn vs-sched-add" data-id="${view.id}"><i class="fa-solid fa-plus"></i> Add scheduled report</button>
+                </div>
+            </div>`;
+    }).join('');
+}
 
-    body.querySelectorAll('.dx-expand').forEach(btn => btn.addEventListener('click', () => {
+function wireViewsSchedules() {
+    // Wire across the whole page so both the grid and the cards are covered.
+    const root = document.getElementById('viewsSchedulesLayout');
+    if (!root) return;
+
+    // Grid row collapse
+    root.querySelectorAll('.dx-row .dx-expand').forEach(btn => btn.addEventListener('click', () => {
         const row = btn.closest('.dx-row');
         const id = row.dataset.id;
         if (vsCollapsed.has(id)) vsCollapsed.delete(id); else vsCollapsed.add(id);
         row.classList.toggle('dx-collapsed');
     }));
+    // Card collapse
+    root.querySelectorAll('.vs-card .vs-card-toggle').forEach(btn => btn.addEventListener('click', () => {
+        const card = btn.closest('.vs-card');
+        const id = card.dataset.id;
+        if (vsCollapsed.has(id)) vsCollapsed.delete(id); else vsCollapsed.add(id);
+        card.classList.toggle('vs-collapsed');
+    }));
 
     // Saved view: edit (rich editor) / delete
-    body.querySelectorAll('.vs-view-edit').forEach(btn => btn.addEventListener('click', () => {
+    root.querySelectorAll('.vs-view-edit').forEach(btn => btn.addEventListener('click', () => {
         const v = SAVED_VIEWS.find(x => x.id === btn.dataset.id);
         if (v) openSavedViewEditor(v);
     }));
-    body.querySelectorAll('.vs-view-del').forEach(btn => btn.addEventListener('click', () => {
+    root.querySelectorAll('.vs-view-del').forEach(btn => btn.addEventListener('click', () => {
         openDeleteSavedViewDialog(btn.dataset.id);
     }));
 
     // Scheduled report: edit / add / delete
-    body.querySelectorAll('.vs-sched-edit').forEach(btn => btn.addEventListener('click', () => {
+    root.querySelectorAll('.vs-sched-edit').forEach(btn => btn.addEventListener('click', () => {
         const s = SCHEDULED_REPORTS.find(x => x.id === btn.dataset.sid);
         if (s) openEmailDialog({ editId: s.id, reportName: s.report });
     }));
-    body.querySelectorAll('.vs-sched-add').forEach(btn => btn.addEventListener('click', () => {
+    root.querySelectorAll('.vs-sched-add').forEach(btn => btn.addEventListener('click', () => {
         const v = SAVED_VIEWS.find(x => x.id === btn.dataset.id);
         if (v) openEmailDialog({ mode: 'schedule', reportName: v.report, presetViewId: v.id });
     }));
-    body.querySelectorAll('.vs-sched-del').forEach(btn => btn.addEventListener('click', () => {
+    root.querySelectorAll('.vs-sched-del').forEach(btn => btn.addEventListener('click', () => {
         openDeleteScheduleDialog(btn.dataset.sid);
     }));
 }
@@ -3447,6 +3516,14 @@ savedViewDeleteDialog.footerRenderer = (root) => {
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('vsReportFilter')?.addEventListener('change', renderViewsSchedules);
     document.getElementById('vsSearch')?.addEventListener('input', renderViewsSchedules);
+
+    // Grid / Card view toggle
+    document.querySelectorAll('#vsViewMode .vs-vm-btn').forEach(btn => btn.addEventListener('click', () => {
+        if (btn.dataset.mode === vsViewMode) return;
+        vsViewMode = btn.dataset.mode;
+        document.querySelectorAll('#vsViewMode .vs-vm-btn').forEach(b => b.classList.toggle('active', b === btn));
+        renderViewsSchedules();
+    }));
 
     // When schedules change via the email/delete dialogs, refresh the combined page if visible
     const refreshIfVisible = () => {
