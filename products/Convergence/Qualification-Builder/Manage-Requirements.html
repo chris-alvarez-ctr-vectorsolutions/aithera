@@ -98,6 +98,21 @@
     .qfb-clear:hover { text-decoration:underline; }
 
     .grid-footer { display:flex; align-items:center; justify-content:space-between; font-size:12px; color:#6b7280; padding:10px 2px 0; }
+
+    /* Bulk-actions bar (mail-client pattern) */
+    .bulk-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--vblue-10); border:1px solid #b6dcfa; border-radius:8px; padding:8px 10px 8px 14px; margin-bottom:12px; }
+    .bulk-bar.hidden { display:none; }
+    .bulk-bar-left { display:flex; align-items:center; gap:8px; }
+    .bulk-count { font-size:13px; font-weight:700; color:#0b3d66; }
+    .bulk-clear { width:26px; height:26px; border:none; background:none; border-radius:5px; color:#0b3d66; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:13px; }
+    .bulk-clear:hover { background:rgba(2,113,206,.14); }
+    .bulk-bar-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .btn-secondary.danger { color:#dc2626; border-color:#f0b4b4; }
+    .btn-secondary.danger:hover { background:#fee2e2; }
+
+    /* Toast */
+    .mgmt-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:#1f2937; color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:1100; }
+    .mgmt-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
   </style>
 </head>
 <body>
@@ -123,10 +138,24 @@
       <select class="filter-select" id="status-filter" onchange="onStatusFilter(this.value)">
         <option value="">All Statuses</option>
         <option value="Active">Active</option>
-        <option value="Draft">Draft</option>
+        <option value="Inactive">Inactive</option>
       </select>
       <div style="margin-left:auto">
-        <button class="btn btn-secondary btn-sm"><i class="fa-solid fa-download"></i> Export</button>
+        <button class="btn btn-secondary btn-sm" onclick="bulkExport(true)"><i class="fa-solid fa-download"></i> Export</button>
+      </div>
+    </div>
+
+    <!-- Bulk-actions bar (appears when rows are selected, like a mail client) -->
+    <div class="bulk-bar hidden" id="bulk-bar">
+      <div class="bulk-bar-left">
+        <span class="bulk-count" id="bulk-count">0 selected</span>
+        <button class="bulk-clear" onclick="clearSelection()" title="Clear selection"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="bulk-bar-actions">
+        <button class="btn btn-secondary btn-sm" onclick="bulkExport()"><i class="fa-solid fa-download"></i> Export</button>
+        <button class="btn btn-secondary btn-sm" onclick="bulkActivate()"><i class="fa-solid fa-circle-play"></i> Activate</button>
+        <button class="btn btn-secondary btn-sm" onclick="bulkDeactivate()"><i class="fa-solid fa-circle-pause"></i> Deactivate</button>
+        <button class="btn btn-secondary btn-sm danger" onclick="bulkDelete()"><i class="fa-regular fa-trash-can"></i> Delete</button>
       </div>
     </div>
 
@@ -140,6 +169,9 @@
       <span id="row-count"></span>
       <span>Vector LMS, Convergence Training Edition</span>
     </div>
+
+    <!-- Toast -->
+    <div class="mgmt-toast" id="mgmt-toast"></div>
 
   </div>
 </div>
@@ -157,7 +189,7 @@ const REQS = [
   { name:'Confined Space Atmospheric Testing', desc:'Gas monitoring, sampling order, and entry thresholds',                criteria:'All activities', order:'Sequential', activities:2, status:'Active', location:'Orlando Organization › Facilities',                       qualification:'Confined Space Entry' },
   { name:'PPE Selection & Inspection',         desc:'Choosing, inspecting, and maintaining personal protective equipment', criteria:'All activities', order:'Any order',  activities:2, status:'Active', location:'Orlando Organization › Safety',                           qualification:'OSHA 30-Hour General Industry' },
   { name:'Forklift Pre-Operation Inspection',  desc:'Daily inspection checklist and hazard identification',                criteria:'2 of 3',         order:'Any order',  activities:3, status:'Active', location:'Orlando Organization › Warehouse',                        qualification:'Forklift Operator Certification' },
-  { name:'Fire Watch Procedures',              desc:'Fire-watch duties before, during, and after hot work',                criteria:'All activities', order:'Sequential', activities:1, status:'Draft',  location:'Orlando Organization › Facilities › Hot Work',            qualification:'Hot Work Permit Authorization' },
+  { name:'Fire Watch Procedures',              desc:'Fire-watch duties before, during, and after hot work',                criteria:'All activities', order:'Sequential', activities:1, status:'Inactive', location:'Orlando Organization › Facilities › Hot Work',            qualification:'Hot Work Permit Authorization' },
   { name:'Respirator Fit Test',                desc:'Qualitative and quantitative fit testing procedures',                 criteria:'All activities', order:'Sequential', activities:2, status:'Active', location:'Orlando Organization › Safety › Industrial Hygiene',      qualification:'Respirator Fit & Use' },
   { name:'Rigging & Load Charts',              desc:'Reading load charts and selecting rigging hardware',                  criteria:'2 of 3',         order:'Any order',  activities:3, status:'Active', location:'Orlando Organization › Maintenance',                      qualification:'Crane & Hoist Operation' },
 ];
@@ -184,7 +216,7 @@ function activitiesRenderer(p){
   return `<a class="act-link" href="${activitiesHref(p.data)}" title="View activities in this requirement">${p.value}</a>`;
 }
 function statusRenderer(p){
-  const conn = p.value === 'Active' ? 'success' : (p.value === 'Draft' ? 'contrast' : 'warning');
+  const conn = p.value === 'Active' ? 'success' : 'contrast';
   return `<span theme="badge dot ${conn}">${p.value}</span>`;
 }
 function locationRenderer(p){
@@ -223,7 +255,15 @@ function actionsRenderer(p){
   editBtn.addEventListener('click', () => { location.href = editHref(p.data); });
   moreBtn.addEventListener('click', ev => {
     ev.stopPropagation();
+    const isActive = p.data.status === 'Active';
     showDropdown(moreBtn, [
+      { icon: isActive ? 'fa-solid fa-circle-pause' : 'fa-solid fa-circle-play',
+        label: isActive ? 'Deactivate' : 'Activate',
+        action: () => {
+          p.data.status = isActive ? 'Inactive' : 'Active';
+          gridApi.applyTransaction({ update:[p.data] });
+          gridApi.refreshCells({ rowNodes:[p.node], columns:['status','actions'], force:true });
+        }},
       { icon:'fa-regular fa-copy', label:'Duplicate', action: () => alert('Duplicate "' + p.data.name + '" (prototype).') },
       { icon:'fa-regular fa-trash-can', label:'Delete', danger:true, action: () => {
         if (confirm('Delete "' + p.data.name + '"? This is a prototype and will only remove the row.')) {
@@ -242,6 +282,7 @@ let qualValue  = '';
 const gridOptions = {
   rowData: REQS,
   columnDefs: [
+    { colId:'select', width:46, maxWidth:46, pinned:'left', checkboxSelection:true, headerCheckboxSelection:true, headerCheckboxSelectionFilteredOnly:true, sortable:false, filter:false, resizable:false, suppressMovable:true, suppressHeaderMenuButton:true },
     { headerName:'Requirement',          field:'name',       flex:2, minWidth:260, cellRenderer:nameRenderer, getQuickFilterText:p=>p.data.name+' '+p.data.desc },
     { headerName:'Completion Criteria',  field:'criteria',   width:175, cellRenderer:criteriaRenderer },
     { headerName:'Completion Order',     field:'order',      width:160, cellRenderer:orderRenderer },
@@ -255,6 +296,8 @@ const gridOptions = {
   headerHeight: 44,
   animateRows: true,
   suppressCellFocus: true,
+  rowSelection: 'multiple',
+  suppressRowClickSelection: true,
   pagination: true,
   paginationPageSize: 10,
   paginationPageSizeSelector: [10, 25, 50],
@@ -265,6 +308,7 @@ const gridOptions = {
     (!qualValue   || node.data.qualification === qualValue),
   onGridReady: () => updateCount(),
   onModelUpdated: () => updateCount(),
+  onSelectionChanged: () => updateBulkBar(),
 };
 
 function onSearch(v){ if (gridApi) gridApi.setGridOption('quickFilterText', v); }
@@ -274,6 +318,44 @@ function updateCount(){
   const shown = gridApi.getDisplayedRowCount();
   const el = document.getElementById('row-count');
   if (el) el.textContent = 'Showing ' + shown + ' of ' + REQS.length + ' requirements';
+}
+
+/* ─── Bulk selection + actions ─── */
+function updateBulkBar(){
+  if(!gridApi) return;
+  const n = gridApi.getSelectedNodes().length;
+  const bar = document.getElementById('bulk-bar');
+  if(n>0){ bar.classList.remove('hidden'); document.getElementById('bulk-count').textContent = n + ' selected'; }
+  else { bar.classList.add('hidden'); }
+}
+function clearSelection(){ if(gridApi) gridApi.deselectAll(); }
+function bulkRows(){ return gridApi ? gridApi.getSelectedRows() : []; }
+function bulkExport(all){
+  const n = all ? REQS.length : bulkRows().length;
+  showToast((n||REQS.length) + ' requirement' + ((n||REQS.length)!==1?'s':'') + ' exported (prototype).');
+}
+function bulkSetStatus(status){
+  const rows = bulkRows(); if(!rows.length) return;
+  rows.forEach(r => r.status = status);
+  gridApi.applyTransaction({ update: rows });
+  gridApi.refreshCells({ force:true, columns:['status'] });
+  showToast(rows.length + ' ' + (status==='Active'?'activated':'deactivated'));
+}
+function bulkActivate(){ bulkSetStatus('Active'); }
+function bulkDeactivate(){ bulkSetStatus('Inactive'); }
+function bulkDelete(){
+  const rows = bulkRows(); if(!rows.length) return;
+  if(confirm('Delete ' + rows.length + ' selected requirement' + (rows.length!==1?'s':'') + '? This is a prototype and only removes the rows.')){
+    gridApi.applyTransaction({ remove: rows }); updateCount(); updateBulkBar();
+  }
+}
+
+/* ─── Toast ─── */
+let _toastTimer = null;
+function showToast(msg){
+  const t = document.getElementById('mgmt-toast'); if(!t) return;
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(_toastTimer); _toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
 }
 
 document.addEventListener('click', () => closeDropdown());

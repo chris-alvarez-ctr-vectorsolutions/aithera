@@ -101,6 +101,48 @@
     .row-dropdown-item.danger i { color:#dc2626; }
 
     .grid-footer { display:flex; align-items:center; justify-content:space-between; font-size:12px; color:#6b7280; padding:10px 2px 0; }
+
+    /* Bulk-actions bar (mail-client pattern) */
+    .bulk-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--vblue-10); border:1px solid #b6dcfa; border-radius:8px; padding:8px 10px 8px 14px; margin-bottom:12px; }
+    .bulk-bar.hidden { display:none; }
+    .bulk-bar-left { display:flex; align-items:center; gap:8px; }
+    .bulk-count { font-size:13px; font-weight:700; color:#0b3d66; }
+    .bulk-clear { width:26px; height:26px; border:none; background:none; border-radius:5px; color:#0b3d66; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:13px; }
+    .bulk-clear:hover { background:rgba(2,113,206,.14); }
+    .bulk-bar-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .btn-secondary.danger { color:#dc2626; border-color:#f0b4b4; }
+    .btn-secondary.danger:hover { background:#fee2e2; }
+
+    /* See-more dropdown inside the bulk bar (used on Activities) */
+    .bulk-more-wrap { position:relative; }
+    .bulk-more-menu { position:absolute; top:calc(100% + 6px); right:0; background:#fff; border:1px solid #e5e9ef; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.14); z-index:60; min-width:240px; padding:4px; }
+    .bulk-more-menu.hidden { display:none; }
+    .bulk-more-item { display:flex; align-items:center; gap:9px; width:100%; padding:8px 12px; border:none; background:none; font-family:inherit; font-size:13px; color:#374151; cursor:pointer; border-radius:6px; text-align:left; }
+    .bulk-more-item:hover { background:#f3f4f6; }
+    .bulk-more-item i { width:14px; text-align:center; font-size:12px; color:#9ca3af; }
+
+    /* Assignments modal */
+    .assign-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; display:flex; align-items:center; justify-content:center; }
+    .assign-overlay.hidden { display:none; }
+    .assign-modal { background:#fff; border-radius:12px; width:700px; max-width:92vw; max-height:82vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.22); overflow:hidden; }
+    .assign-head { display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid #e5e9ef; }
+    .assign-head h2 { font-size:17px; font-weight:700; color:#1a1a2e; }
+    .assign-close { width:30px; height:30px; border:none; background:none; cursor:pointer; color:#9ca3af; border-radius:6px; font-size:15px; display:flex; align-items:center; justify-content:center; }
+    .assign-close:hover { background:#f3f4f6; color:#374151; }
+    .assign-body { padding:6px 22px 18px; overflow-y:auto; }
+    .assign-intro { font-size:13px; color:#6b7280; margin:12px 0 14px; line-height:1.5; }
+    .assign-table { width:100%; border-collapse:collapse; }
+    .assign-table th { text-align:left; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#9ca3af; padding:8px 10px; border-bottom:1px solid #e5e9ef; }
+    .assign-table td { font-size:13px; color:#374151; padding:10px; border-bottom:1px solid #f3f4f6; }
+    .assign-id { color:var(--vblue); font-weight:700; text-decoration:none; }
+    .assign-id:hover { text-decoration:underline; }
+    .assign-empty { padding:40px 16px; text-align:center; color:#9ca3af; font-size:14px; }
+    .assign-empty i { font-size:32px; color:#cbd5e1; display:block; margin-bottom:12px; }
+    .assign-foot { padding:14px 22px; border-top:1px solid #e5e9ef; display:flex; justify-content:flex-end; gap:8px; }
+
+    /* Toast */
+    .mgmt-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:#1f2937; color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:1100; }
+    .mgmt-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
   </style>
 </head>
 <body>
@@ -138,11 +180,24 @@
       <select class="filter-select" id="status-filter" onchange="onStatusFilter(this.value)">
         <option value="">All Statuses</option>
         <option value="Active">Active</option>
-        <option value="Under Review">Under Review</option>
-        <option value="Draft">Draft</option>
+        <option value="Inactive">Inactive</option>
       </select>
       <div style="margin-left:auto">
-        <button class="btn btn-secondary btn-sm"><i class="fa-solid fa-download"></i> Export</button>
+        <button class="btn btn-secondary btn-sm" onclick="bulkExport(true)"><i class="fa-solid fa-download"></i> Export</button>
+      </div>
+    </div>
+
+    <!-- Bulk-actions bar (appears when rows are selected, like a mail client) -->
+    <div class="bulk-bar hidden" id="bulk-bar">
+      <div class="bulk-bar-left">
+        <span class="bulk-count" id="bulk-count">0 selected</span>
+        <button class="bulk-clear" onclick="clearSelection()" title="Clear selection"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="bulk-bar-actions">
+        <button class="btn btn-secondary btn-sm" onclick="bulkExport()"><i class="fa-solid fa-download"></i> Export</button>
+        <button class="btn btn-secondary btn-sm" onclick="bulkActivate()"><i class="fa-solid fa-circle-play"></i> Activate</button>
+        <button class="btn btn-secondary btn-sm" onclick="bulkDeactivate()"><i class="fa-solid fa-circle-pause"></i> Deactivate</button>
+        <button class="btn btn-secondary btn-sm danger" onclick="bulkDelete()"><i class="fa-regular fa-trash-can"></i> Delete</button>
       </div>
     </div>
 
@@ -155,6 +210,24 @@
   </div>
 </div>
 
+<!-- ══ ASSIGNMENTS MODAL ══ -->
+<div class="assign-overlay hidden" id="assign-overlay">
+  <div class="assign-modal">
+    <div class="assign-head">
+      <h2 id="assign-title">Assignments</h2>
+      <button class="assign-close" onclick="closeAssignments()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="assign-body" id="assign-body"></div>
+    <div class="assign-foot">
+      <button class="btn btn-secondary" onclick="closeAssignments()">Close</button>
+      <button class="btn btn-primary" onclick="newAssignment()"><i class="fa-solid fa-plus"></i> New Assignment</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="mgmt-toast" id="mgmt-toast"></div>
+
 <!-- Convergence chrome -->
 <script>
   window.SHELL_CONFIG = { active: 'qual-quals', parent: 'Qualifications', title: 'Qualifications' };
@@ -166,13 +239,13 @@ const QUALS = [
   { name:'AC Motor Controller Operation',   desc:'Certify safe operation of Line 3 AC motor controllers',                   ai:true,  status:'Active',       requirements:4,  criteria:'All requirements', order:'Sequential', location:'Orlando Organization › Manufacturing › Line 3' },
   { name:'Lockout/Tagout Authorization',    desc:'Competency check for energy isolation procedures',                         ai:false, status:'Active',       requirements:3,  criteria:'All requirements', order:'Sequential', location:'Orlando Organization › Manufacturing' },
   { name:'Forklift Operator Certification', desc:'Fundamentals through licensed operation and a practical assessment',       ai:true,  status:'Active',       requirements:5,  criteria:'3 of 5',          order:'Any order',  location:'Orlando Organization › Warehouse' },
-  { name:'Confined Space Entry',            desc:'Authorization to enter and work in permit-required confined spaces',       ai:false, status:'Under Review',  requirements:7,  criteria:'All requirements', order:'Sequential', location:'Orlando Organization › Facilities' },
+  { name:'Confined Space Entry',            desc:'Authorization to enter and work in permit-required confined spaces',       ai:false, status:'Inactive',     requirements:7,  criteria:'All requirements', order:'Sequential', location:'Orlando Organization › Facilities' },
   { name:'OSHA 30-Hour General Industry',   desc:'Comprehensive OSHA compliance for general industry workers',               ai:false, status:'Active',       requirements:12, criteria:'All requirements', order:'Any order',  location:'Orlando Organization' },
-  { name:'Crane & Hoist Operation',         desc:'Overhead crane and hoist operation with rigging fundamentals',             ai:true,  status:'Under Review',  requirements:6,  criteria:'4 of 6',          order:'Sequential', location:'Orlando Organization › Maintenance' },
+  { name:'Crane & Hoist Operation',         desc:'Overhead crane and hoist operation with rigging fundamentals',             ai:true,  status:'Inactive',     requirements:6,  criteria:'4 of 6',          order:'Sequential', location:'Orlando Organization › Maintenance' },
   { name:'Arc Welding Certification',       desc:'Certify safe arc welding technique and PPE compliance',                   ai:false, status:'Active',       requirements:5,  criteria:'All requirements', order:'Sequential', location:'Orlando Organization › Manufacturing › Welding Shop' },
-  { name:'Respirator Fit & Use',            desc:'Respirator selection, fit testing, and proper use',                       ai:false, status:'Draft',        requirements:3,  criteria:'All requirements', order:'Any order',  location:'Orlando Organization › Safety › Industrial Hygiene' },
+  { name:'Respirator Fit & Use',            desc:'Respirator selection, fit testing, and proper use',                       ai:false, status:'Inactive',     requirements:3,  criteria:'All requirements', order:'Any order',  location:'Orlando Organization › Safety › Industrial Hygiene' },
   { name:'Fall Protection Competency',      desc:'Working-at-height anchor, harness, and rescue planning',                  ai:false, status:'Active',       requirements:4,  criteria:'3 of 4',          order:'Sequential', location:'Orlando Organization › Construction' },
-  { name:'Hot Work Permit Authorization',   desc:'Fire-watch and permit procedures for welding and cutting',                ai:true,  status:'Draft',        requirements:3,  criteria:'All requirements', order:'Sequential', location:'Orlando Organization › Facilities › Hot Work' },
+  { name:'Hot Work Permit Authorization',   desc:'Fire-watch and permit procedures for welding and cutting',                ai:true,  status:'Inactive',     requirements:3,  criteria:'All requirements', order:'Sequential', location:'Orlando Organization › Facilities › Hot Work' },
 ];
 
 function editHref(q){ return 'AI-Qualification-Builder.html?qual=' + encodeURIComponent(q.name) + '&enrolled=0'; }
@@ -197,7 +270,7 @@ function requirementsRenderer(p){
   return `<a class="req-link" href="${requirementsHref(p.data)}" title="View requirements for this qualification">${p.value}</a>`;
 }
 function statusRenderer(p){
-  const conn = p.value === 'Active' ? 'success' : (p.value === 'Draft' ? 'contrast' : 'warning');
+  const conn = p.value === 'Active' ? 'success' : 'contrast';
   return `<span theme="badge dot ${conn}">${p.value}</span>`;
 }
 function locationRenderer(p){
@@ -236,7 +309,16 @@ function actionsRenderer(p){
   editBtn.addEventListener('click', () => { location.href = editHref(p.data); });
   moreBtn.addEventListener('click', ev => {
     ev.stopPropagation();
+    const isActive = p.data.status === 'Active';
     showDropdown(moreBtn, [
+      { icon: isActive ? 'fa-solid fa-circle-pause' : 'fa-solid fa-circle-play',
+        label: isActive ? 'Deactivate' : 'Activate',
+        action: () => {
+          p.data.status = isActive ? 'Inactive' : 'Active';
+          gridApi.applyTransaction({ update:[p.data] });
+          gridApi.refreshCells({ rowNodes:[p.node], columns:['status','actions'], force:true });
+        }},
+      { icon:'fa-solid fa-users', label:'View Assignments', action: () => openAssignments(p.data) },
       { icon:'fa-regular fa-copy', label:'Duplicate', action: () => alert('Duplicate "' + p.data.name + '" (prototype).') },
       { icon:'fa-regular fa-trash-can', label:'Delete', danger:true, action: () => {
         if (confirm('Delete "' + p.data.name + '"? This is a prototype and will only remove the row.')) {
@@ -253,6 +335,7 @@ let statusValue = '';
 const gridOptions = {
   rowData: QUALS,
   columnDefs: [
+    { colId:'select', width:46, maxWidth:46, pinned:'left', checkboxSelection:true, headerCheckboxSelection:true, headerCheckboxSelectionFilteredOnly:true, sortable:false, filter:false, resizable:false, suppressMovable:true, suppressHeaderMenuButton:true },
     { headerName:'Qualification',         field:'name',         flex:2, minWidth:280, cellRenderer:nameRenderer, getQuickFilterText:p=>p.data.name+' '+p.data.desc },
     { headerName:'Completion Criteria',   field:'criteria',     width:175, cellRenderer:criteriaRenderer },
     { headerName:'Completion Order',      field:'order',        width:160, cellRenderer:orderRenderer },
@@ -266,6 +349,8 @@ const gridOptions = {
   headerHeight: 44,
   animateRows: true,
   suppressCellFocus: true,
+  rowSelection: 'multiple',
+  suppressRowClickSelection: true,
   pagination: true,
   paginationPageSize: 10,
   paginationPageSizeSelector: [10, 25, 50],
@@ -274,6 +359,7 @@ const gridOptions = {
   doesExternalFilterPass: (node) => !statusValue || node.data.status === statusValue,
   onGridReady: () => updateCount(),
   onModelUpdated: () => updateCount(),
+  onSelectionChanged: () => updateBulkBar(),
 };
 
 function onSearch(v){ if (gridApi) gridApi.setGridOption('quickFilterText', v); }
@@ -283,6 +369,74 @@ function updateCount(){
   const shown = gridApi.getDisplayedRowCount();
   const el = document.getElementById('row-count');
   if (el) el.textContent = 'Showing ' + shown + ' of ' + QUALS.length + ' qualifications';
+}
+
+/* ─── Bulk selection + actions ─── */
+function updateBulkBar(){
+  if(!gridApi) return;
+  const n = gridApi.getSelectedNodes().length;
+  const bar = document.getElementById('bulk-bar');
+  if(n>0){ bar.classList.remove('hidden'); document.getElementById('bulk-count').textContent = n + ' selected'; }
+  else { bar.classList.add('hidden'); }
+}
+function clearSelection(){ if(gridApi) gridApi.deselectAll(); }
+function bulkRows(){ return gridApi ? gridApi.getSelectedRows() : []; }
+function bulkExport(all){
+  const n = all ? QUALS.length : bulkRows().length;
+  showToast((n||QUALS.length) + ' qualification' + ((n||QUALS.length)!==1?'s':'') + ' exported (prototype).');
+}
+function bulkSetStatus(status){
+  const rows = bulkRows(); if(!rows.length) return;
+  rows.forEach(r => r.status = status);
+  gridApi.applyTransaction({ update: rows });
+  gridApi.refreshCells({ force:true, columns:['status'] });
+  showToast(rows.length + ' ' + (status==='Active'?'activated':'deactivated'));
+}
+function bulkActivate(){ bulkSetStatus('Active'); }
+function bulkDeactivate(){ bulkSetStatus('Inactive'); }
+function bulkDelete(){
+  const rows = bulkRows(); if(!rows.length) return;
+  if(confirm('Delete ' + rows.length + ' selected qualification' + (rows.length!==1?'s':'') + '? This is a prototype and only removes the rows.')){
+    gridApi.applyTransaction({ remove: rows }); updateCount(); updateBulkBar();
+  }
+}
+
+/* ─── Assignments modal ─── */
+const ASSIGN_SAMPLE = [
+  { id:'3874', on:'04/07/2026', to:'.\\ UAT Region \\ UAT Site \\ UAT Department \\ VectorUAT \\ MisaEscaleraUAT' },
+  { id:'3874', on:'04/07/2026', to:'.\\ UAT Region \\ UAT Site \\ UAT Department \\ VectorUAT \\ BrandonOrlandoUAT' },
+  { id:'3874', on:'04/07/2026', to:'.\\ UAT Region \\ UAT Site \\ UAT Department \\ VectorUAT' },
+  { id:'3782', on:'03/31/2026', to:'.\\ UAT Region \\ UAT Site \\ UAT Department \\ VectorUAT \\ AndyXiaUAT' },
+  { id:'3782', on:'03/31/2026', to:'.\\ UAT Region \\ UAT Site \\ UAT Department \\ VectorUAT' },
+  { id:'3782', on:'03/31/2026', to:'.\\ UAT Region \\ UAT Site \\ UAT Department \\ VectorUAT \\ ClareEpsteinUAT' },
+];
+/* Active qualifications have assignments; inactive ones demonstrate the empty state. */
+function assignmentsFor(q){ return q.status === 'Active' ? ASSIGN_SAMPLE.slice(0, Math.max(2, Math.min(ASSIGN_SAMPLE.length, q.requirements))) : []; }
+let _assignQualName = '';
+function openAssignments(q){
+  _assignQualName = q.name;
+  const list = assignmentsFor(q);
+  const body = document.getElementById('assign-body');
+  if(!list.length){
+    body.innerHTML = '<div class="assign-empty"><i class="fa-regular fa-folder-open"></i>No active assignments found for this qualification.</div>';
+  } else {
+    body.innerHTML =
+      '<p class="assign-intro">All active assignments for <strong>' + q.name + '</strong> are shown below. Click the "ID" column to edit that assignment.</p>' +
+      '<table class="assign-table"><thead><tr><th>ID</th><th>Assigned On</th><th>Assigned To</th></tr></thead><tbody>' +
+      list.map(a => '<tr><td><a class="assign-id" href="#" onclick="return false">' + a.id + '</a></td><td>' + a.on + '</td><td>' + a.to + '</td></tr>').join('') +
+      '</tbody></table>';
+  }
+  document.getElementById('assign-overlay').classList.remove('hidden');
+}
+function closeAssignments(){ document.getElementById('assign-overlay').classList.add('hidden'); }
+function newAssignment(){ closeAssignments(); showToast('Opening Assign Training with "' + _assignQualName + '" preselected (prototype).'); }
+
+/* ─── Toast ─── */
+let _toastTimer = null;
+function showToast(msg){
+  const t = document.getElementById('mgmt-toast'); if(!t) return;
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(_toastTimer); _toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
 }
 
 function toggleCreate(e){ e.stopPropagation(); document.getElementById('create-menu').classList.toggle('hidden'); }
