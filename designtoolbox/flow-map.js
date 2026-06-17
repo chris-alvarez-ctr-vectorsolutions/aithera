@@ -6,7 +6,8 @@
    • Thumbnails are LIVE: each node renders the mock itself at that node's state in
      a scaled <iframe>, so they always reflect the current design (no static PNGs).
    • Click a node to drive the real mock into that state ("open live").
-   • Dev annotations per node, saved in localStorage (notes you leave for devs).
+   • Dev notes per node, loaded read-only from a committed DEV-NOTES.md sitting
+     next to the mock (so every teammate sees the same notes — no localStorage).
    • Per-node comment counts inferred from the comment widget's pins.
 
    The host page must expose a state driver (default: window.applyFlowState(id))
@@ -48,8 +49,11 @@
 
   // ---- styles ---------------------------------------------------------------
   var CSS = '\
-.fm-fab{position:fixed;bottom:22px;right:24px;z-index:999990;display:inline-flex;align-items:center;gap:9px;background:#4a2bd1;color:#fff;border:none;border-radius:24px;padding:11px 18px;font:700 14px/1 "Open Sans",system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(74,43,209,.4);transition:transform .12s,box-shadow .12s,background .12s;}\
-.fm-fab:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(74,43,209,.5);background:#5a3ce0;}\
+.fm-switcher{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:999990;display:inline-flex;align-items:center;gap:6px;background:#18181b;padding:6px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.28);font-family:"Open Sans",system-ui,sans-serif;}\
+.fm-launch{display:inline-flex;align-items:center;gap:8px;background:#4a2bd1;color:#fff;border:none;border-radius:999px;padding:9px 16px;font:700 13px/1 "Open Sans",system-ui,sans-serif;cursor:pointer;transition:background .12s,transform .12s;}\
+.fm-launch:hover{background:#5a3ce0;transform:translateY(-1px);}\
+.fm-launch.fm-in-vs{padding:7px 14px;font-size:12px;}\
+.fm-vs-sep{width:1px;align-self:stretch;margin:2px 0 2px 6px;background:rgba(255,255,255,.16);}\
 .fm-overlay{position:fixed;inset:0;z-index:999991;display:none;flex-direction:column;background:radial-gradient(circle at 30% 10%,#20243a 0%,#14162a 60%,#0e0f1d 100%);font-family:"Open Sans",system-ui,sans-serif;}\
 .fm-overlay.open{display:flex;}\
 .fm-top{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;color:#fff;border-bottom:1px solid rgba(255,255,255,.08);flex:none;}\
@@ -112,25 +116,61 @@
 .fm-ann .ops button:hover{color:#fff;}\
 .fm-empty{color:#7a80a8;font-size:13px;text-align:center;padding:24px 0;}\
 .fm-composer{border-top:1px solid rgba(255,255,255,.08);padding:14px 20px;}\
-.fm-composer textarea{width:100%;box-sizing:border-box;min-height:72px;resize:vertical;background:#0f1120;border:1px solid rgba(255,255,255,.14);border-radius:10px;color:#fff;font:13px/1.5 inherit;padding:10px 12px;}\
-.fm-composer .row{display:flex;justify-content:flex-end;gap:10px;margin-top:10px;}\
+.fm-source{font-size:12px;color:#8e93c4;line-height:1.5;display:flex;gap:7px;align-items:flex-start;}\
+.fm-source code{background:rgba(255,255,255,.08);border-radius:4px;padding:1px 5px;color:#cdd1f0;font-size:11.5px;}\
+.fm-empty code{background:rgba(255,255,255,.08);border-radius:4px;padding:1px 5px;color:#cdd1f0;font-size:11.5px;}\
+.fm-composer .row{display:flex;justify-content:flex-end;gap:10px;margin-top:12px;}\
 .fm-btn{border:none;border-radius:8px;font:700 13px/1 inherit;padding:9px 16px;cursor:pointer;}\
 .fm-btn.primary{background:#6b5bd6;color:#fff;}.fm-btn.primary:hover{background:#7c6ce6;}\
 .fm-btn.ghost{background:rgba(255,255,255,.06);color:#cdd1f0;}.fm-btn.ghost:hover{background:rgba(255,255,255,.14);}\
 ';
 
-  // ---- annotations (localStorage) ------------------------------------------
-  var ANN_KEY = 'toolbox:flowmap:annotations:' + canonicalPageUrl();
-  function loadAnns() { try { return JSON.parse(localStorage.getItem(ANN_KEY) || '{}'); } catch (_) { return {}; } }
-  function saveAnns(o) { try { localStorage.setItem(ANN_KEY, JSON.stringify(o)); } catch (_) {} }
-  var anns = loadAnns();
+  // ---- dev notes (read-only, from committed DEV-NOTES.md) -------------------
+  // Notes are authored in a Markdown file next to the mock — not in the browser —
+  // so they're committed to git and shared with everyone. Format:
+  //
+  //   > author: Design handoff            (optional; default attribution)
+  //
+  //   ## <node-id>  — anything after the id is just a human-readable title
+  //   - One bullet = one dev note.
+  //   - Another note for the same step.
+  //
+  //   ## <another-node-id>
+  //   - …
+  //
+  // The loader fetches DEV-NOTES.md from the mock's own folder; override with
+  // TOOLBOX_CONFIG.flowMap.devNotes if it lives elsewhere.
+  var NOTES_URL = ROOT.devNotes || (pageBase.replace(/[^/]*$/, '') + 'DEV-NOTES.md');
+  var anns = {};            // nodeId -> [{ text, author }]
   function annsFor(id) { return anns[id] || []; }
-  function author() {
-    var a = localStorage.getItem('cw-author');
-    if (!a) { a = (prompt('Your name (for dev notes):', '') || '').trim(); if (a) localStorage.setItem('cw-author', a); }
-    return a || 'Anonymous';
+
+  function parseNotes(md) {
+    var out = {}, cur = null, defaultAuthor = 'Design handoff';
+    md.split(/\r?\n/).forEach(function (raw) {
+      var line = raw.replace(/\s+$/, '');
+      var av = line.match(/^>\s*author:\s*(.+)$/i);
+      if (av) { defaultAuthor = av[1].trim(); return; }
+      var h = line.match(/^##\s+([A-Za-z0-9_-]+)/);
+      if (h) { cur = h[1]; if (!out[cur]) out[cur] = []; return; }
+      if (!cur) return;
+      var b = line.match(/^\s*[-*]\s+(.+)$/);
+      if (b) out[cur].push({ text: b[1].trim(), author: defaultAuthor });
+    });
+    return out;
   }
-  var uid = function () { return 'a' + Math.abs(Date.now() % 1e7) + '-' + Math.floor(performance.now() % 1e6); };
+
+  var fetchedNotes = false;
+  function fetchNotes() {
+    return fetch(NOTES_URL, { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.text() : ''; })
+      .then(function (md) {
+        if (!md) return;
+        anns = parseNotes(md);
+        refreshBadges();
+        if (drawer && drawer.classList.contains('open')) renderDrawer();
+      })
+      .catch(function () { /* no DEV-NOTES.md (or local file:// CORS) — notes stay empty */ });
+  }
 
   // ---- comment counts (from comment-widget pins) ---------------------------
   var commentCounts = {}; // nodeId -> number
@@ -175,12 +215,29 @@
 
   // Mount the launcher button + styles immediately on load (cheap). The heavy
   // overlay/canvas is built lazily on first open() via build().
+  //
+  // The launcher docks into the shared Toolbox dock (window.ToolboxDock, the
+  // bottom-center "version switcher" pill defined in toolbox.js) so it sits
+  // alongside the comment-widget button and any per-mock version buttons. If the
+  // dock isn't present (flow-map.js loaded standalone, without toolbox.js), we
+  // fall back to a standalone bottom-center pill that holds just the Flow Map.
   function init() {
-    if (document.querySelector('.fm-fab')) return;
+    if (document.querySelector('.fm-launch')) return;
     var style = el('style'); style.textContent = CSS; document.head.appendChild(style);
-    var fab = el('button', 'fm-fab'); fab.innerHTML = '<i class="fa-solid fa-map"></i> Flow Map';
-    fab.title = 'Open the flow map'; document.body.appendChild(fab);
-    fab.addEventListener('click', openMap);
+
+    var launch = el('button', 'fm-launch fm-in-vs');
+    launch.innerHTML = '<i class="fa-solid fa-map"></i> Flow Map';
+    launch.title = 'Open the flow map';
+    launch.addEventListener('click', openMap);
+
+    if (window.ToolboxDock) {
+      window.ToolboxDock.add(launch);
+    } else {
+      // No toolbox dock — float a standalone pill with just the Flow Map button.
+      var pill = el('div', 'fm-switcher');
+      pill.appendChild(launch);
+      document.body.appendChild(pill);
+    }
   }
 
   function build() {
@@ -188,7 +245,7 @@
     overlay.innerHTML =
       '<div class="fm-top">' +
         '<div class="fm-title"><span class="dot"></span><h2>' + CFG.title + '</h2><span class="tag">Dev tool</span></div>' +
-        '<div class="fm-hint">Hover to preview the live design · click to open it live · 💬 view comments · 📝 leave dev notes</div>' +
+        '<div class="fm-hint">Hover to preview the live design · click to open it live · 💬 view comments · 📝 view dev notes</div>' +
         '<div class="fm-tools">' +
           '<button class="fm-tbtn" data-z="-1" title="Zoom out"><i class="fa-solid fa-minus"></i></button>' +
           '<button class="fm-tbtn" data-z="0" title="Reset zoom"><i class="fa-solid fa-expand"></i></button>' +
@@ -205,14 +262,14 @@
     canvas.style.width = CFG.canvas.w + 'px';
     canvas.style.height = CFG.canvas.h + 'px';
 
-    // drawer (annotations)
+    // drawer (read-only dev notes from DEV-NOTES.md)
     drawer = el('div', 'fm-drawer');
     drawer.innerHTML =
       '<div class="fm-drawer-head"><button class="x" data-dclose="1"><i class="fa-solid fa-xmark"></i></button>' +
         '<div class="k">Dev notes</div><h3 class="fm-dtitle"></h3></div>' +
       '<div class="fm-drawer-body"></div>' +
-      '<div class="fm-composer"><textarea placeholder="Leave a note for devs about this step — e.g. \'be careful: this list can be hundreds long, virtualize it.\'"></textarea>' +
-        '<div class="row"><button class="fm-btn ghost" data-dclose="1">Close</button><button class="fm-btn primary" data-dsave="1">Add note</button></div></div>';
+      '<div class="fm-composer"><div class="fm-source"><i class="fa-regular fa-file-lines"></i> Notes are maintained in <code>DEV-NOTES.md</code> next to this mock.</div>' +
+        '<div class="row"><button class="fm-btn ghost" data-dclose="1">Close</button></div></div>';
     overlay.appendChild(drawer);
 
     overlay.querySelectorAll('[data-z]').forEach(function (b) {
@@ -220,7 +277,6 @@
     });
     overlay.querySelector('[data-close]').addEventListener('click', closeMap);
     drawer.querySelectorAll('[data-dclose]').forEach(function (b) { b.addEventListener('click', closeDrawer); });
-    drawer.querySelector('[data-dsave]').addEventListener('click', addNoteFromComposer);
 
     buildLanes();
     buildNodes();
@@ -267,7 +323,7 @@
           '<div class="fm-step">' + (n.step || '') + '</div>' +
           '<div class="fm-name">' + n.name + '</div>' +
           '<div class="fm-desc">' + (n.desc || '') + '</div>' +
-          '<div class="fm-actions"><button class="fm-add-note"><i class="fa-solid fa-pen"></i> Dev note</button><span class="fm-open">Open live →</span></div>' +
+          '<div class="fm-actions"><button class="fm-add-note"><i class="fa-regular fa-note-sticky"></i> Dev notes</button><span class="fm-open">Open live →</span></div>' +
         '</div>';
       // open live (ignore clicks on chips / add-note)
       node.addEventListener('click', function (e) {
@@ -335,32 +391,11 @@
   function renderDrawer() {
     var body = drawer.querySelector('.fm-drawer-body');
     var list = annsFor(drawerNode);
-    if (!list.length) { body.innerHTML = '<div class="fm-empty">No dev notes on this step yet.<br>Add one below — it’ll show as a 📝 badge on the map.</div>'; return; }
+    if (!list.length) { body.innerHTML = '<div class="fm-empty">No dev notes for this step yet.<br>Add them to <code>DEV-NOTES.md</code> under <code>## ' + esc(drawerNode) + '</code> and they’ll show here.</div>'; return; }
     body.innerHTML = list.map(function (a) {
-      var d = new Date(a.ts); var when = isNaN(d) ? '' : d.toLocaleDateString();
-      return '<div class="fm-ann" data-id="' + a.id + '"><div class="meta"><span>' + esc(a.author) + '</span><span>' + when + '</span></div>' +
-        '<div class="txt">' + esc(a.text) + '</div>' +
-        '<div class="ops"><button data-edit="' + a.id + '">Edit</button><button data-del="' + a.id + '">Delete</button></div></div>';
+      return '<div class="fm-ann"><div class="meta"><span>' + esc(a.author || 'Design handoff') + '</span><span>📝 dev note</span></div>' +
+        '<div class="txt">' + esc(a.text) + '</div></div>';
     }).join('');
-    body.querySelectorAll('[data-del]').forEach(function (b) { b.addEventListener('click', function () { delNote(b.dataset.del); }); });
-    body.querySelectorAll('[data-edit]').forEach(function (b) { b.addEventListener('click', function () { editNote(b.dataset.edit); }); });
-  }
-  function addNoteFromComposer() {
-    var ta = drawer.querySelector('.fm-composer textarea'); var text = (ta.value || '').trim();
-    if (!text || !drawerNode) return;
-    if (!anns[drawerNode]) anns[drawerNode] = [];
-    anns[drawerNode].push({ id: uid(), text: text, author: author(), ts: Date.now() });
-    saveAnns(anns); ta.value = ''; renderDrawer(); refreshBadges();
-  }
-  function delNote(aid) {
-    anns[drawerNode] = annsFor(drawerNode).filter(function (a) { return a.id !== aid; });
-    if (!anns[drawerNode].length) delete anns[drawerNode];
-    saveAnns(anns); renderDrawer(); refreshBadges();
-  }
-  function editNote(aid) {
-    var a = annsFor(drawerNode).find(function (x) { return x.id === aid; }); if (!a) return;
-    var v = prompt('Edit dev note:', a.text); if (v == null) return;
-    a.text = v.trim(); a.ts = Date.now(); saveAnns(anns); renderDrawer();
   }
   function esc(s) { return (s || '').replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
 
@@ -378,7 +413,7 @@
 
   // ---- overlay open/close + pan/zoom ---------------------------------------
   var zoom = 1;
-  function openMap() { if (!built) build(); overlay.classList.add('open'); document.body.style.overflow = 'hidden'; if (!fetchedCounts) { fetchedCounts = true; fetchCommentCounts(); } }
+  function openMap() { if (!built) build(); overlay.classList.add('open'); document.body.style.overflow = 'hidden'; if (!fetchedCounts) { fetchedCounts = true; fetchCommentCounts(); } if (!fetchedNotes) { fetchedNotes = true; fetchNotes(); } }
   function closeMap() { if (overlay) overlay.classList.remove('open'); document.body.style.overflow = ''; closeDrawer(); }
   var fetchedCounts = false;
 

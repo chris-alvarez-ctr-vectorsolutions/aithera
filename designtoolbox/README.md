@@ -6,7 +6,8 @@ A drop-in bundle of the design team's review tools for any mockup on the
 1. **Comment / feedback widget** — the existing pin-and-comment tool
    (`designtoolbox/feedback-widget.js`).
 2. **Flow Map** — a branching map of the mock's screens with **live thumbnails**,
-   click-to-open-live, **dev annotations**, and **per-step comment counts**.
+   click-to-open-live, **dev notes** (from a committed `DEV-NOTES.md`), and
+   **per-step comment counts**.
 
 > Think of it as "turn on the toolbox for this design file." If a designer says
 > *"add everything in the toolbox to this mock,"* this is the one include.
@@ -34,12 +35,29 @@ simply doesn't appear — the comment widget still does.
 
 `?toolbox=off` in the URL disables everything for that visit.
 
+### Toolbox dock (the bottom-center pill)
+
+`toolbox.js` defines `window.ToolboxDock` — a shared bottom-center pill (the
+"version switcher") that the tools dock their launcher buttons into, so the
+**💬 Comments** button and the **🗺 Flow Map** button sit together in one pill
+instead of each floating in its own corner. Each tool calls
+`window.ToolboxDock.add(buttonEl)` and the dock inserts a divider between
+entries (in load order: comments, then flow map).
+
+If the mock already ships its own `.version-switcher` element (a multi-version
+mock with V1/V2 buttons), the dock **adopts** it, so the design-version buttons
+and the toolbox launchers share that single pill. When `ToolboxDock` isn't
+present (a mock that includes `feedback-widget.js` directly, without
+`toolbox.js`), the comment widget falls back to its original floating bubble and
+the flow map to its own standalone pill — so those mocks are unaffected.
+
 ---
 
 ## Flow Map
 
-The flow map opens from a **"Flow Map"** button (bottom-right). It shows your
-screens as nodes connected by arrows, grouped into labelled lanes (flows).
+The flow map opens from a **"Flow Map"** button in the bottom-center toolbox
+dock (see above). It shows your screens as nodes connected by arrows, grouped
+into labelled lanes (flows).
 
 - **Live thumbnails.** Each node renders the *real mock* at that screen's state
   inside a scaled, non-interactive `<iframe>`. There are **no static images** —
@@ -51,10 +69,41 @@ screens as nodes connected by arrows, grouped into labelled lanes (flows).
   left in that part of the flow. Click the chip to jump there and reveal the
   pins. *(Counts are grouped by flow — the widget's state capture pinpoints the
   flow, not always the exact step.)*
-- **📝 Dev notes.** Click **"Dev note"** on a node (or the 📝 chip) to leave
-  annotations for developers — *"be careful: this list can be hundreds long,
-  virtualize it."* Notes are saved per node in `localStorage` and shown as a
-  badge. Edit/delete from the node's drawer.
+- **📝 Dev notes.** Read-only developer notes — *"be careful: this list can be
+  hundreds long, virtualize it."* Notes live in a committed **`DEV-NOTES.md`**
+  next to the mock (so the whole team sees the same notes — no `localStorage`,
+  no per-browser state). Click **"Dev notes"** on a node (or the 📝 chip) to read
+  them in the drawer; the badge count is the number of notes for that step.
+  Authoring is done in the Markdown file, not in the browser — see *Dev notes
+  file format* below.
+
+### Dev notes file format
+
+Dev notes are loaded read-only from a Markdown file. By default the flow map
+fetches **`DEV-NOTES.md`** from the mock's own folder (next to its
+`index.html`); override the path with `flowMap.devNotes` in `TOOLBOX_CONFIG`.
+
+Each `## <node-id>` heading maps to a node on the map (the id is the first token
+after `##`; anything after it is a human-readable title and ignored by the
+parser). Every `-`/`*` bullet under a heading becomes one dev note and counts
+toward the node's 📝 badge. An optional `> author: <name>` line sets the
+attribution shown on notes (default: *Design handoff*).
+
+```markdown
+> author: Design handoff
+
+## n2 — Details + qualifiers
+- Open slots are generated from qualifiers, not entered manually.
+- Total shared qualifiers can never exceed total primary qualifiers.
+
+## n3 — Select Employee
+- Employees are ranked, not filtered: full match = Recommended.
+```
+
+Notes for a `## <id>` that doesn't match any node are simply ignored, so the
+file can stay ahead of (or behind) the map without breaking. Because the file
+is fetched at runtime, a `file://` open may be blocked by CORS — the notes
+appear on GitHub Pages (or any served origin), and absence degrades silently.
 
 ### How live thumbnails + open-live work
 
