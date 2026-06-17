@@ -75,8 +75,8 @@
 .fm-edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;}\
 .fm-edges path{fill:none;stroke:#5b6092;stroke-width:2.5;}\
 .fm-edges path.branch{stroke:#6b5bd6;stroke-dasharray:6 5;}\
-.fm-node{position:absolute;width:248px;background:#1c1f33;border:1px solid rgba(255,255,255,.10);border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.4);transition:transform .2s cubic-bezier(.2,.8,.3,1.2),box-shadow .2s,border-color .2s;transform-origin:center center;}\
-.fm-node:hover{transform:scale(1.5);z-index:50;border-color:#7c5cff;box-shadow:0 18px 50px rgba(0,0,0,.6),0 0 0 2px rgba(124,92,255,.5);}\
+.fm-node{position:absolute;width:248px;background:#1c1f33;border:1px solid rgba(255,255,255,.10);border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.4);transition:box-shadow .2s,border-color .2s;}\
+.fm-node:hover{z-index:50;border-color:#7c5cff;box-shadow:0 18px 50px rgba(0,0,0,.6),0 0 0 2px rgba(124,92,255,.5);}\
 .fm-node--entry{width:214px;background:#2a2150;border-color:rgba(124,92,255,.4);}\
 .fm-thumb{position:relative;width:100%;height:160px;background:#fff;overflow:hidden;border-bottom:1px solid rgba(0,0,0,.25);}\
 .fm-thumb iframe{position:absolute;top:0;left:0;border:0;transform-origin:top left;pointer-events:none;background:#fff;}\
@@ -84,8 +84,12 @@
 .fm-thumb .fm-live{position:absolute;top:7px;left:7px;font-size:9px;font-weight:700;letter-spacing:.05em;color:#7ee0a8;background:rgba(8,12,20,.7);border-radius:4px;padding:2px 6px;display:flex;align-items:center;gap:4px;text-transform:uppercase;}\
 .fm-thumb .fm-live .ld{width:5px;height:5px;border-radius:50%;background:#4caf7d;box-shadow:0 0 5px #4caf7d;}\
 .fm-meta{padding:10px 13px 12px;}\
+.fm-step-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:18px;}\
 .fm-step{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8e93c4;}\
 .fm-name{font-size:14px;font-weight:700;color:#fff;margin-top:2px;}\
+/* Dev-annotation badge — purple glassmorphism, lives next to the step label (not in the corner). */\
+.fm-note-badge{display:inline-flex;align-items:center;gap:5px;font:700 10px/1 inherit;padding:4px 8px;border-radius:999px;color:#e9e3ff;cursor:pointer;white-space:nowrap;background:rgba(124,92,255,.20);border:1px solid rgba(124,92,255,.45);box-shadow:0 2px 10px rgba(124,92,255,.22);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);transition:background .15s,border-color .15s;}\
+.fm-note-badge:hover{background:rgba(124,92,255,.34);border-color:rgba(124,92,255,.7);}\
 .fm-desc{font-size:12px;color:#aab0d8;line-height:1.45;margin-top:6px;max-height:0;opacity:0;overflow:hidden;transition:max-height .25s,opacity .2s,margin-top .2s;}\
 .fm-node:hover .fm-desc{max-height:90px;opacity:1;margin-top:6px;}\
 .fm-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;max-height:0;opacity:0;overflow:hidden;transition:max-height .25s,opacity .2s,margin-top .2s;}\
@@ -93,13 +97,11 @@
 .fm-add-note{border:1px solid rgba(124,92,255,.5);background:rgba(124,92,255,.12);color:#cdc4ff;border-radius:6px;font:700 10.5px/1 inherit;padding:5px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;}\
 .fm-add-note:hover{background:rgba(124,92,255,.25);}\
 .fm-open{font-size:11px;font-weight:700;color:#b9b2ff;}\
-.fm-corner{position:absolute;top:8px;z-index:2;display:flex;gap:6px;}\
-.fm-corner.left{left:8px;}.fm-corner.right{right:8px;}\
-.fm-chip{display:inline-flex;align-items:center;gap:5px;font:700 11px/1 inherit;padding:4px 8px;border-radius:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35);}\
-.fm-chip.cmt{background:#fff;color:#1f2937;}\
-.fm-chip.cmt:hover{background:#eef2ff;}\
-.fm-chip.note{background:#f4b740;color:#3a2e07;}\
-.fm-chip.note:hover{filter:brightness(1.05);}\
+/* Comment badge — the prominent emoji badge in the node corner (top-right; the LIVE chip owns top-left). Shows when the comment widget has comments on this flow. */\
+.fm-corner{position:absolute;top:8px;z-index:3;display:flex;gap:6px;}\
+.fm-corner.right{right:8px;}\
+.fm-cmt-badge{display:inline-flex;align-items:center;gap:5px;font:700 11px/1 inherit;padding:5px 9px;border-radius:999px;color:#1f2937;cursor:pointer;white-space:nowrap;background:rgba(255,255,255,.92);box-shadow:0 3px 12px rgba(0,0,0,.4);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:background .15s,transform .12s;}\
+.fm-cmt-badge:hover{background:#fff;transform:translateY(-1px);}\
 /* annotation drawer */\
 .fm-drawer{position:absolute;top:0;right:0;bottom:0;width:380px;max-width:90vw;background:#15182a;border-left:1px solid rgba(255,255,255,.1);box-shadow:-12px 0 40px rgba(0,0,0,.5);transform:translateX(105%);transition:transform .22s ease;display:flex;flex-direction:column;z-index:60;}\
 .fm-drawer.open{transform:translateX(0);}\
@@ -316,11 +318,10 @@
       node.style.cssText = 'left:' + n.x + 'px;top:' + n.y + 'px;';
       node.dataset.node = n.id;
       node.innerHTML =
-        '<div class="fm-corner left fm-cmt-corner"></div>' +
-        '<div class="fm-corner right fm-note-corner"></div>' +
+        '<div class="fm-corner right fm-cmt-corner"></div>' +
         '<div class="fm-thumb"><div class="fm-ph">Loading live preview…</div><div class="fm-live"><span class="ld"></span>Live</div></div>' +
         '<div class="fm-meta">' +
-          '<div class="fm-step">' + (n.step || '') + '</div>' +
+          '<div class="fm-step-row"><div class="fm-step">' + (n.step || '') + '</div><span class="fm-note-slot"></span></div>' +
           '<div class="fm-name">' + n.name + '</div>' +
           '<div class="fm-desc">' + (n.desc || '') + '</div>' +
           '<div class="fm-actions"><button class="fm-add-note"><i class="fa-regular fa-note-sticky"></i> Dev notes</button><span class="fm-open">Open live →</span></div>' +
@@ -371,12 +372,12 @@
     if (!canvas) return;
     CFG.nodes.forEach(function (n) {
       var node = canvas.querySelector('.fm-node[data-node="' + n.id + '"]'); if (!node) return;
-      var left = node.querySelector('.fm-cmt-corner'), right = node.querySelector('.fm-note-corner');
+      var cmtCorner = node.querySelector('.fm-cmt-corner'), noteSlot = node.querySelector('.fm-note-slot');
       var c = commentCounts[n.id] || 0, a = annsFor(n.id).length;
-      left.innerHTML = c ? '<span class="fm-chip cmt" title="' + c + ' comment(s) — view">💬 ' + c + '</span>' : '';
-      right.innerHTML = a ? '<span class="fm-chip note" title="' + a + ' dev note(s)">📝 ' + a + '</span>' : '';
-      var cc = left.querySelector('.fm-chip'); if (cc) cc.addEventListener('click', function (e) { e.stopPropagation(); viewComments(n.id); });
-      var nc = right.querySelector('.fm-chip'); if (nc) nc.addEventListener('click', function (e) { e.stopPropagation(); openDrawer(n.id); });
+      cmtCorner.innerHTML = c ? '<span class="fm-cmt-badge" title="' + c + ' comment(s) — view">💬 ' + c + '</span>' : '';
+      noteSlot.innerHTML = a ? '<span class="fm-note-badge" title="' + a + ' dev note(s) — view"><i class="fa-regular fa-note-sticky"></i> ' + a + '</span>' : '';
+      var cc = cmtCorner.querySelector('.fm-cmt-badge'); if (cc) cc.addEventListener('click', function (e) { e.stopPropagation(); viewComments(n.id); });
+      var nc = noteSlot.querySelector('.fm-note-badge'); if (nc) nc.addEventListener('click', function (e) { e.stopPropagation(); openDrawer(n.id); });
     });
   }
 
