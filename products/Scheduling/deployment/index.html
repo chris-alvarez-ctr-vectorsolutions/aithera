@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crew Scheduling — Deployments</title>
+
+    <!-- Vector Web Components -->
+    <script
+    type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+    </script>
+    <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+    </script>
+
+    <!-- Open Sans -->
+    <link
+    rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+    />
+
+    <!-- Font Awesome 6 -->
+    <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    />
+
+    <style>
+        :root {
+            --page-bg: #e2e6ea;
+            --card-bg: #ffffff;
+            --border: #d4d8dd;
+            --border-strong: #c2c7ce;
+            --text: #1a1f27;
+            --text-muted: #5a6675;
+            --text-soft: #8a93a0;
+            --blue: #0271ce;
+            --blue-link: #1565c0;
+            --green: #1f9d57;
+            --teal: #19a8c6;
+            --red: #e23b3b;
+            --nav-dark: #1f2937;
+            --nav-dark-2: #18212e;
+            --slot-bg: #fdf8df;
+            --slot-border: #efe6b8;
+            --req: #d32f2f;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "Open Sans", -apple-system, system-ui, sans-serif;
+            background: var(--page-bg);
+            color: var(--text);
+        }
+
+        .view { display: none; }
+        .view.active { display: block; }
+
+        /* =========================================================
+           LANDING — Edit Assignments (production chrome reproduction)
+           ========================================================= */
+        .app { display: flex; flex-direction: column; height: 100vh; }
+
+        /* Top nav */
+        .topnav {
+            height: 52px; flex: none;
+            background: var(--nav-dark);
+            display: flex; align-items: center;
+            padding: 0 14px;
+            color: #cfd6df;
+            font-size: 13px;
+            gap: 14px;
+        }
+        .topnav .tn-left, .topnav .tn-right { display: flex; align-items: center; gap: 14px; }
+        .topnav .tn-right { margin-left: auto; }
+        .tn-user { display: flex; align-items: center; gap: 8px; color: #fff; font-weight: 600; }
+        .tn-avatar { width: 30px; height: 30px; border-radius: 50%; background: #9aa6b2 url('https://i.pravatar.cc/60?img=47') center/cover; }
+        .tn-quick { background: var(--teal); color: #fff; border: none; border-radius: 4px; padding: 6px 12px; font-weight: 700; font-size: 12.5px; cursor: pointer; }
+        .tn-ico { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; color: #aeb8c4; cursor: pointer; }
+        .tn-ico:hover { background: rgba(255,255,255,.08); color: #fff; }
+        .tn-ico.cal { background: var(--teal); color: #fff; }
+        .tn-ico.gear { background: #e0892e; color: #fff; }
+        .tn-admin { background: var(--red); color: #fff; font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 4px; }
+        .tn-logo-here { border: 1px dashed #5a6b7d; color: #8fa1b3; font-size: 9px; line-height: 1.1; text-align: center; padding: 4px 6px; border-radius: 3px; }
+        .tn-logo-here b { color: #6fa8ff; display: block; }
+        .tn-acct { background: #fff; color: #222; border-radius: 4px; padding: 6px 12px; font-size: 12.5px; font-weight: 600; display: flex; align-items: center; gap: 22px; min-width: 220px; justify-content: space-between; }
+        .tn-wrench { color: var(--teal); }
+        .tn-vs { display: flex; align-items: center; gap: 7px; color: #fff; font-weight: 700; }
+        .tn-vs .chev { width: 22px; height: 22px; background: #fff; color: var(--nav-dark); border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; }
+
+        .app-body { flex: 1; display: flex; min-height: 0; }
+
+        /* Sidebar */
+        .sidenav {
+            width: 232px; flex: none;
+            background: var(--nav-dark);
+            color: #b3bdc9;
+            overflow-y: auto;
+            font-size: 13.5px;
+        }
+        .sidenav::-webkit-scrollbar { width: 8px; }
+        .sidenav::-webkit-scrollbar-thumb { background: #38445320; border-radius: 4px; }
+        .sn-swap { padding: 12px 18px; color: #7d8a99; }
+        .sn-item { display: flex; align-items: center; gap: 12px; padding: 11px 18px; cursor: pointer; white-space: nowrap; }
+        .sn-item:hover { background: rgba(255,255,255,.05); }
+        .sn-item i { width: 18px; text-align: center; font-size: 15px; }
+        .sn-item .chev { margin-left: auto; font-size: 11px; opacity: .6; }
+        .sn-item.brand { color: #fff; font-weight: 700; }
+        .sn-item.brand .pro { color: var(--teal); font-size: 11px; font-weight: 700; margin-left: 4px; }
+        .sn-section { color: #fff; font-weight: 700; }
+        .sn-sub { padding-left: 48px; color: #97a2af; font-size: 13px; }
+        .sn-item.active { background: #2b3a4d; color: #fff; box-shadow: inset 3px 0 0 var(--teal); }
+        .sn-item.muted { color: #7e8a98; }
+        .sn-badge { margin-left: auto; background: #2f7d4f; color: #cdefd9; font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 10px; }
+        .ic-blue { color: #5a9bf0; } .ic-green { color: #4fc07d; } .ic-red { color: #ef6b6b; } .ic-teal { color: var(--teal); } .ic-amber { color: #e0a82e; }
+
+        /* Main */
+        .main { flex: 1; overflow-y: auto; background: #f2f4f6; }
+        .main-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 24px 10px;
+            gap: 16px; flex-wrap: wrap;
+        }
+        .main-head h1 { font-size: 24px; font-weight: 400; color: #5a6675; margin: 0; }
+        .head-actions { display: flex; align-items: center; gap: 10px; }
+        .btn { border: none; border-radius: 4px; padding: 9px 14px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+        .btn-blue { background: var(--blue); color: #fff; }
+        .btn-green { background: var(--green); color: #fff; }
+        .btn-teal { background: var(--teal); color: #fff; }
+        .btn-ghost { background: #fff; color: #444; border: 1px solid #cfd5db; }
+        .btn-iconbox { background: #fff; border: 1px solid #cfd5db; color: #666; padding: 9px 11px; }
+        .btn:hover { filter: brightness(1.05); }
+
+        .breadcrumb { padding: 4px 24px 14px; color: var(--blue-link); font-size: 13px; display: flex; align-items: center; gap: 7px; }
+        .breadcrumb .sep { color: #9aa3ad; }
+        .breadcrumb .cur { color: #5a6675; }
+
+        .panel { margin: 0 24px 24px; background: #fff; border: 1px solid #e2e6ea; border-radius: 4px; overflow: hidden; }
+        .tabs { display: flex; gap: 2px; padding: 14px 14px 0; background: #fff; }
+        .tab { padding: 9px 22px; font-size: 13px; font-weight: 700; color: #6b7682; background: #eef1f4; border: 1px solid #e0e4e8; border-bottom: none; border-radius: 4px 4px 0 0; cursor: pointer; }
+        .tab.active { background: var(--nav-dark); color: #fff; border-color: var(--nav-dark); }
+        .panel-bar { background: #2f3e4e; color: #fff; padding: 11px 18px; font-size: 14px; font-weight: 600; }
+
+        .table-tools { display: flex; justify-content: flex-end; padding: 16px 18px 6px; }
+        .table-tools label { font-size: 13px; color: #555; margin-right: 8px; align-self: center; }
+        .table-tools input { border: 1px solid #cfd5db; border-radius: 3px; padding: 6px 9px; font-size: 13px; width: 220px; font-family: inherit; }
+
+        table.assign { width: 100%; border-collapse: collapse; font-size: 13px; }
+        table.assign thead th { text-align: left; color: #3a4250; font-weight: 700; padding: 12px 14px; border-bottom: 2px solid #e2e6ea; white-space: nowrap; }
+        table.assign tbody td { padding: 13px 14px; border-bottom: 1px solid #eef1f4; color: #2a2f37; vertical-align: middle; }
+        table.assign tbody tr:hover { background: #f7f9fb; }
+        .drag-h { color: #9aa3ad; cursor: grab; }
+        .rec-yes { font-weight: 700; color: #2a2f37; }
+        .rec-no { color: #6b7682; }
+        .ss-change { border: 1px solid #cfd5db; background: #f2f4f6; border-radius: 3px; padding: 2px 8px; font-size: 11px; margin-left: 8px; cursor: pointer; }
+        .row-btn { border: none; border-radius: 4px; padding: 6px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer; color: #fff; display: inline-flex; align-items: center; gap: 6px; }
+        .row-edit { background: var(--teal); }
+        .row-del { background: var(--red); }
+        /* Is-deployable toggle switch */
+        .toggle { position: relative; display: inline-block; width: 40px; height: 22px; }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle .track { position: absolute; inset: 0; background: #c2c7ce; border-radius: 12px; transition: .15s; cursor: pointer; }
+        .toggle .track::before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .15s; }
+        .toggle input:checked + .track { background: var(--green); }
+        .toggle input:checked + .track::before { transform: translateX(18px); }
+
+        /* =========================================================
+           DEPLOYMENT — Create New Deployment (full-page width)
+           ========================================================= */
+        .topbar {
+            background: #fff; border-bottom: 1px solid var(--border);
+            height: 56px; display: flex; align-items: center; padding: 0 32px;
+            position: sticky; top: 0; z-index: 20;
+        }
+        .back-link { display: inline-flex; align-items: center; gap: 10px; color: var(--text); font-size: 15px; text-decoration: none; cursor: pointer; }
+        .back-link:hover { color: var(--blue-link); }
+
+        .deploy-page { background: #fff; min-height: calc(100vh - 56px); padding: 28px 40px 120px; }
+        .deploy-head h1 { font-size: 20px; font-weight: 700; margin: 0 0 18px; }
+        .choose-label { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; }
+        .divider { height: 1px; background: var(--border); margin: 0 -40px; }
+        .form-body { padding: 24px 0 28px; max-width: 1180px; }
+        .section-intro { font-size: 14px; color: var(--text-muted); margin: 0 0 22px; }
+        .field { margin-bottom: 22px; }
+        .field-label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 7px; }
+        .req { color: var(--req); margin-left: 2px; }
+        .help-text { font-size: 12px; color: var(--text-soft); margin-top: 6px; }
+
+        vaadin-text-field, vaadin-text-area, vaadin-select { width: 100%; }
+
+        .color-btn { width: 40px; height: 40px; border-radius: 6px; border: none; background: #7b3ff2; color: #fff; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+        .color-btn:hover { filter: brightness(1.05); }
+
+        .dates-row { display: flex; gap: 16px; flex-wrap: wrap; }
+        .date-group { flex: 1 1 360px; }
+        .date-group .sub-label { font-size: 13px; font-weight: 700; margin-bottom: 7px; display: block; }
+        .date-inline { display: flex; gap: 8px; }
+        .date-inline vaadin-date-picker { flex: 1; }
+        .time-box { width: 56px; border: 1px solid var(--border-strong); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--text-soft); background: #fff; }
+
+        .workshift-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .workshift-row .field-label { margin: 0; }
+
+        /* Qualifiers two-column block (Flow A) */
+        .qual-block { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-top: 8px; max-width: 1024px; }
+        .qual-col { background: #fafbfc; padding: 22px; min-height: 320px; }
+        .qual-col h2 { font-size: 15px; font-weight: 700; margin: 0 0 2px; }
+        .qual-col .sub { font-size: 12px; color: var(--text-soft); margin: 0 0 18px; }
+        .qual-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; }
+        .qual-row .meta .code { font-size: 14px; font-weight: 700; }
+        .qual-row .meta .name { font-size: 12px; color: var(--text-soft); }
+        .stepper { display: inline-flex; align-items: center; border: 1px solid var(--border-strong); border-radius: 20px; background: #fff; height: 34px; padding: 0 4px; }
+        .stepper button { width: 30px; height: 30px; border: none; background: none; cursor: pointer; color: var(--text-muted); font-size: 14px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; }
+        .stepper button:hover { background: #eef1f4; color: var(--text); }
+        .stepper .count { min-width: 26px; text-align: center; font-size: 14px; font-weight: 600; }
+        .qual-subhead { margin-top: 26px; }
+        .qual-subhead h3 { font-size: 14px; font-weight: 700; margin: 0 0 2px; }
+        .qual-subhead .sub { font-size: 12px; color: var(--text-soft); margin: 0 0 14px; line-height: 1.4; }
+        .select-label { font-size: 12px; color: var(--text-muted); margin: 14px 0 6px; }
+        .slots-head { display: flex; justify-content: space-between; align-items: flex-start; }
+        .slots-head .count-pill { font-size: 14px; color: var(--text-muted); font-weight: 600; }
+        .empty-slots { display: flex; align-items: flex-start; color: var(--text-soft); font-size: 14px; }
+        .slot { display: flex; align-items: center; justify-content: space-between; background: var(--slot-bg); border: 1px solid var(--slot-border); border-radius: 6px; padding: 12px 14px; margin-bottom: 10px; cursor: pointer; transition: box-shadow .12s, border-color .12s; }
+        .slot:hover { border-color: #d9cd7e; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+        .slot.filled { background: #fff; border-color: var(--border); cursor: pointer; }
+        .slot .slot-label { font-size: 14px; }
+        .slot.filled .slot-label { font-weight: 600; }
+        .slot .slot-sub { font-size: 12px; color: var(--text-soft); }
+        .slot-badges { display: flex; gap: 6px; align-items: center; }
+        .slot-x { cursor: pointer; color: #8a93a0; font-size: 18px; line-height: 1; margin-left: 4px; }
+        .slot-x:hover { color: #444; }
+
+        .badge { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 4px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+        .badge--ff { background: #fff; border: 1px solid #b7bdc5; color: #3a4250; }
+        .badge--capt { background: #8a2c2c; color: #fff; }
+        .badge--eng { background: #1f6f6f; color: #fff; }
+        .badge--ao { background: #6b4c9a; color: #fff; }
+        .badge--bc { background: #b45309; color: #fff; }
+        .badge--shared { background: #1d4ed8; color: #fff; }
+
+        /* Flow B — assignment cards + slot bars */
+        .flowb-btn { margin-bottom: 26px; }
+        .assign-section-title { font-size: 19px; color: #8a93a0; font-weight: 400; margin: 8px 0 14px; }
+        .assign-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; max-width: 1024px; margin-bottom: 30px; }
+        .acard { background: #fff; border: 2px solid var(--border); border-radius: 10px; padding: 14px 16px 18px; }
+        .acard.sel { border-color: var(--blue-link); }
+        .acard-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+        .acard-head .acard-title { font-size: 17px; font-weight: 700; flex: 1; display: flex; align-items: center; gap: 8px; }
+        .acard-head .acard-x, .acard-head .acard-edit { color: #8a93a0; cursor: pointer; font-size: 15px; }
+        .acard-cb { width: 18px; height: 18px; accent-color: var(--blue-link); }
+
+        .slotbar { position: relative; background: #1f5e7e; color: #fff; border-radius: 7px; padding: 12px 13px; margin-top: 16px; display: flex; align-items: center; justify-content: space-between; font-size: 14px; }
+        .slotbar .slot-tabs { position: absolute; top: -11px; left: 9px; display: flex; gap: 3px; }
+        .qtab { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 5px; line-height: 1.5; }
+        .qtab--ff { background: #fff; color: #333; border: 1px solid #c9ced6; }
+        .qtab--pm { background: #1d4ed8; color: #fff; }
+        .qtab--bc { background: #e0a82e; color: #3a2e07; }
+        .qtab--capt { background: #b3261e; color: #fff; }
+        .qtab--eng { background: #34495e; color: #fff; }
+        .slotbar-x { cursor: pointer; opacity: .85; font-size: 17px; line-height: 1; }
+        .slotbar-x:hover { opacity: 1; }
+        .slotbar--open { background: var(--slot-bg); border: 1px solid var(--slot-border); color: #8a7f3f; cursor: pointer; }
+        .slotbar--open .slot-right { display: flex; gap: 4px; }
+
+        /* Sticky footer */
+        .sticky-footer { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid var(--border); padding: 12px 32px; display: flex; justify-content: flex-end; gap: 12px; z-index: 15; box-shadow: 0 -2px 10px rgba(0,0,0,.05); }
+        #view-deployment .sticky-footer { display: none; }
+        #view-deployment.active .sticky-footer { display: flex; }
+
+        /* =========================================================
+           DIALOGS (Select Employee, Select Assignments, Qualifiers)
+           ========================================================= */
+        .overlay { position: fixed; inset: 0; background: rgba(20,25,33,.55); display: none; align-items: center; justify-content: center; z-index: 50; }
+        .overlay.open { display: flex; }
+        /* Employee + Qualifier pickers open from within the assignment modal — stack above it */
+        #empOverlay, #qualOverlay { z-index: 70; }
+        .dialog { background: #fff; border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 12px 40px rgba(0,0,0,.3); max-height: calc(100vh - 80px); }
+        .dialog.dlg-emp { width: 892px; max-width: calc(100vw - 48px); }
+        .dialog.dlg-assign { width: 1180px; max-width: calc(100vw - 48px); }
+        .dialog.dlg-qual { width: 565px; max-width: calc(100vw - 48px); }
+        .dialog-head { padding: 24px 24px 14px; }
+        .dialog-head .row1 { display: flex; justify-content: space-between; align-items: flex-start; }
+        .dialog-head h2 { font-size: 22px; font-weight: 700; margin: 0; }
+        .dialog-head .dlg-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+        .dialog-close { border: none; background: none; cursor: pointer; font-size: 18px; color: var(--text-muted); padding: 4px; }
+        .req-label { font-size: 13px; color: var(--text-muted); margin: 14px 0 8px; }
+        .req-pills { display: flex; gap: 8px; }
+        .req-pill { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border-strong); border-radius: 16px; padding: 3px 11px; font-size: 13px; font-weight: 600; color: var(--text); background: #fff; }
+        .req-pill.check { border-color: #4caf7d; color: #2e7d52; }
+        .req-pill.check i { color: #4caf7d; }
+        .dialog-search { margin: 8px 24px 0; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; padding: 6px 2px 12px; color: var(--text-soft); }
+        .dialog-search input { border: none; outline: none; font-size: 14px; font-family: inherit; flex: 1; color: var(--text); }
+        .emp-list { overflow-y: auto; padding: 4px 0; flex: 1; }
+        .emp-row { display: flex; align-items: center; gap: 14px; padding: 12px 24px; cursor: pointer; }
+        .emp-row:hover { background: #f4f7fb; }
+        .emp-row.selected { background: #e7f0fb; }
+        .emp-main { flex: 1; }
+        .emp-name { font-size: 15px; margin-bottom: 6px; }
+        .emp-tags { display: flex; align-items: center; gap: 8px; }
+        .emp-role { font-size: 13px; font-style: italic; color: var(--text-soft); }
+        .emp-status { font-size: 13px; }
+        .emp-status.rec { color: var(--blue-link); }
+        .emp-status.ot { color: var(--text-soft); }
+        .emp-status.pto { color: var(--req); }
+        .emp-status.partial { color: #8a7a3f; }
+        .emp-avail { font-style: normal; font-weight: 600; }
+        .emp-avail.ot { color: var(--text-soft); }
+        .emp-avail.pto { color: var(--req); }
+        .dialog-footer { padding: 16px 24px 20px; display: flex; justify-content: flex-end; gap: 12px; align-items: center; }
+        .dialog-footer .footer-left { margin-right: auto; }
+
+        /* Assignment modal body */
+        .assign-modal-meta { padding: 0 24px; font-size: 13.5px; color: var(--text); }
+        .assign-modal-meta b { font-weight: 700; }
+        .assign-modal-body { overflow-y: auto; padding: 14px 24px 4px; flex: 1; }
+        .collapse-head { display: flex; align-items: center; justify-content: space-between; color: #8a93a0; font-size: 17px; margin: 8px 0 12px; }
+        .collapse-head .chev { cursor: pointer; }
+        .tmpl-empty { color: var(--text-soft); font-size: 13.5px; margin: 4px 0 8px; }
+
+        /* Qualifier picker panel inside Create Template dialog */
+        .qual-panel { background: #f6f7f9; border-radius: 8px; padding: 18px; }
+        .qual-panel h3 { font-size: 15px; font-weight: 700; margin: 0 0 2px; }
+        .qual-panel .sub { font-size: 12.5px; color: var(--text-soft); margin: 0 0 12px; line-height: 1.4; }
+        .qual-panel .blk2 { margin-top: 22px; }
+    </style>
+</head>
+<body>
+
+    <!-- ===================== LANDING: Edit Assignments ===================== -->
+    <div class="view active" id="view-landing">
+        <div class="app">
+            <!-- Top nav -->
+            <div class="topnav">
+                <div class="tn-left">
+                    <div class="tn-user"><span class="tn-avatar"></span> Deborah Kim <i class="fa-solid fa-caret-down"></i></div>
+                    <button class="tn-quick">Quick <i class="fa-solid fa-plus"></i></button>
+                    <span class="tn-ico cal"><i class="fa-solid fa-calendar-days"></i></span>
+                    <span class="tn-ico gear"><i class="fa-solid fa-headset"></i></span>
+                    <span class="tn-ico"><i class="fa-regular fa-bell"></i></span>
+                    <span class="tn-ico"><i class="fa-regular fa-circle-question"></i></span>
+                    <span class="tn-admin">admin</span>
+                    <span class="tn-logo-here"><b>YOUR LOGO</b>HERE</span>
+                    <span style="color:#aeb8c4;">Michael_Fulton_Demo</span>
+                </div>
+                <div class="tn-right">
+                    <span class="tn-wrench"><i class="fa-solid fa-wrench"></i></span>
+                    <span class="tn-acct">#5380 Michael_Fulton_Demo <i class="fa-solid fa-caret-down"></i></span>
+                    <span class="tn-vs"><span class="chev"><i class="fa-solid fa-check"></i></span> VectorSolutions</span>
+                </div>
+            </div>
+
+            <div class="app-body">
+                <!-- Sidebar -->
+                <nav class="sidenav">
+                    <div class="sn-swap"><i class="fa-solid fa-right-left"></i></div>
+                    <div class="sn-item brand"><i class="fa-solid fa-house"></i> Vector Scheduling <span class="pro">Pro</span></div>
+                    <div class="sn-item section"><i class="fa-solid fa-calendar ic-blue"></i> Crew Scheduling <i class="fa-solid fa-caret-down chev"></i></div>
+                    <div class="sn-item sn-sub">view <b>Crew Scheduler</b></div>
+                    <div class="sn-item sn-sub">view <b>Timeline</b></div>
+                    <div class="sn-item sn-sub">view <b>ListView</b></div>
+                    <div class="sn-item sn-sub">view <b>Signup Board</b></div>
+                    <div class="sn-item sn-sub">view <b>Roster Map</b></div>
+                    <div class="sn-item muted">Other Calendars <i class="fa-solid fa-chevron-right chev"></i></div>
+                    <div class="sn-item">Assignments <i class="fa-solid fa-chevron-right chev"></i></div>
+                    <div class="sn-item active">Edit Assignments</div>
+                    <div class="sn-item muted">Assignment groupings</div>
+                    <div class="sn-item muted">Daily View Setup</div>
+                    <div class="sn-item"><i class="fa-solid fa-user-secret"></i> Assistant <i class="fa-solid fa-chevron-right chev"></i></div>
+                    <div class="sn-item"><i class="fa-solid fa-phone ic-red"></i> CallBacks</div>
+                    <div class="sn-item"><i class="fa-solid fa-business-time"></i> Shift Bidding</div>
+                    <div class="sn-item"><i class="fa-solid fa-envelope ic-blue"></i> Notify <i class="fa-solid fa-chevron-right chev"></i></div>
+                    <div class="sn-item"><i class="fa-solid fa-briefcase ic-amber"></i> Time Offs <i class="fa-solid fa-chevron-right chev"></i></div>
+                    <div class="sn-item"><i class="fa-solid fa-user-xmark ic-red"></i> Absence</div>
+                    <div class="sn-item"><i class="fa-solid fa-clipboard"></i> Bulletin Board</div>
+                    <div class="sn-item"><i class="fa-solid fa-shuffle ic-blue"></i> Trade Board</div>
+                    <div class="sn-item"><i class="fa-solid fa-user-group ic-green"></i> Employees <span class="sn-badge">49 / 100</span></div>
+                    <div class="sn-item"><i class="fa-solid fa-list-check ic-green"></i> Forms <i class="fa-solid fa-chevron-right chev"></i></div>
+                    <div class="sn-item"><i class="fa-solid fa-folder-open ic-amber"></i> File Manager</div>
+                    <div class="sn-item"><i class="fa-solid fa-chart-simple ic-blue"></i> Reports <i class="fa-solid fa-chevron-right chev"></i></div>
+                    <div class="sn-item"><i class="fa-solid fa-clock-rotate-left"></i> Logs <i class="fa-solid fa-chevron-right chev"></i></div>
+                </nav>
+
+                <!-- Main -->
+                <div class="main">
+                    <div class="main-head">
+                        <h1>Edit Assignments</h1>
+                        <div class="head-actions">
+                            <button class="btn btn-blue" id="addDeploymentBtn"><i class="fa-solid fa-plus"></i> Add New Deployment</button>
+                            <button class="btn btn-green"><i class="fa-solid fa-plus"></i> Add Assignment</button>
+                            <button class="btn btn-iconbox"><i class="fa-regular fa-pen-to-square"></i></button>
+                            <button class="btn btn-ghost">Manage Templates</button>
+                            <button class="btn btn-teal"><i class="fa-solid fa-arrow-down-a-z"></i> Order all alphabetically</button>
+                        </div>
+                    </div>
+                    <div class="breadcrumb"><i class="fa-solid fa-house"></i> ControlPanel <span class="sep">/</span> Crew Scheduler <span class="sep">/</span> <span class="cur">Edit Assignments</span></div>
+
+                    <div class="panel">
+                        <div class="tabs">
+                            <div class="tab active">ACTIVE</div>
+                            <div class="tab">ARCHIVED</div>
+                        </div>
+                        <div class="panel-bar">Active assignments</div>
+                        <div class="table-tools"><label>Search:</label><input type="text"></div>
+                        <table class="assign">
+                            <thead>
+                                <tr>
+                                    <th>Order</th><th>Assignment Name</th><th>Code</th><th>Deployment</th>
+                                    <th>Is Deployable?</th>
+                                    <th>Start Date</th><th>Min. Staffing</th><th>Groups</th><th>Recurring</th>
+                                    <th>Self-scheduling Allowed?</th><th>Edit</th><th>Delete</th>
+                                </tr>
+                            </thead>
+                            <tbody id="assignTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== DEPLOYMENT: Create New Deployment ===================== -->
+    <div class="view" id="view-deployment">
+        <div class="topbar">
+            <a class="back-link" id="backToLanding"><i class="fa-solid fa-arrow-left"></i> Back to Edit Assignments</a>
+        </div>
+
+        <div class="deploy-page">
+            <div class="deploy-head">
+                <h1>Create New Deployment</h1>
+                <div class="choose-label">Choose a deployment type</div>
+                <vaadin-radio-group id="deployType" theme="vertical" value="create">
+                    <vaadin-radio-button value="create" label="Create from scratch"></vaadin-radio-button>
+                    <vaadin-radio-button value="existing" label="Select existing assignments"></vaadin-radio-button>
+                </vaadin-radio-group>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="form-body">
+                <p class="section-intro">Enter deployment details below</p>
+
+                <!-- Name + Code: Flow A only (Flow B omits them per design) -->
+                <div class="field flow-a-only">
+                    <vaadin-text-field theme="outlined" label="Deployment Name" required placeholder="Enter Deployment Name…"></vaadin-text-field>
+                    <div class="help-text">Maximum characters: 255</div>
+                </div>
+                <div class="field flow-a-only">
+                    <vaadin-text-field theme="outlined" label="Code" placeholder="Enter Code…"></vaadin-text-field>
+                    <div class="help-text">Maximum characters: 20</div>
+                </div>
+
+                <div class="field">
+                    <label class="field-label">Deployment Color</label>
+                    <button class="color-btn" title="Choose deployment color"><i class="fa-solid fa-palette"></i></button>
+                </div>
+
+                <div class="field">
+                    <label class="field-label">Effective Dates<span class="req">*</span></label>
+                    <div class="dates-row">
+                        <div class="date-group">
+                            <span class="sub-label">Start date<span class="req">*</span></span>
+                            <div class="date-inline">
+                                <vaadin-date-picker id="startDate" theme="outlined" value="2025-10-29"></vaadin-date-picker>
+                                <div class="time-box"><i class="fa-regular fa-clock"></i></div>
+                            </div>
+                        </div>
+                        <div class="date-group">
+                            <span class="sub-label">End date<span class="req">*</span></span>
+                            <div class="date-inline">
+                                <vaadin-date-picker id="endDate" theme="outlined" value="2025-10-30"></vaadin-date-picker>
+                                <div class="time-box"><i class="fa-regular fa-clock"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="field"><vaadin-select id="locationSelect" theme="outlined" label="Select CrewScheduler Location" placeholder="Select CrewScheduler Location…"></vaadin-select></div>
+                <div class="field"><vaadin-select id="onDutySelect" theme="outlined" label="Select Work Type For On Duty Days" required placeholder="Select work type…"></vaadin-select></div>
+                <div class="field"><vaadin-select id="offDutySelect" theme="outlined" label="Select Work Type For Off-Duty Days" required placeholder="Select work type…"></vaadin-select></div>
+
+                <div class="field">
+                    <div class="workshift-row"><label class="field-label">Is this a work shift?</label><vaadin-checkbox checked></vaadin-checkbox></div>
+                </div>
+
+                <div class="field">
+                    <vaadin-text-area theme="outlined" label="Notes" placeholder="Add notes…"></vaadin-text-area>
+                    <div class="help-text">Maximum characters: 1000</div>
+                </div>
+
+                <!-- FLOW A: qualifiers panel -->
+                <div class="flow-a-only">
+                    <div class="qual-block">
+                        <div class="qual-col">
+                            <h2>Select qualifiers required to fill positions</h2>
+                            <p class="sub" id="primaryHint">You must select at least one primary qualifier</p>
+                            <div id="primaryRows"></div>
+                            <div class="select-label">Qualifier</div>
+                            <vaadin-select id="primaryPicker" theme="outlined" placeholder="Select a qualifier…"></vaadin-select>
+                            <div class="qual-subhead">
+                                <h3>Select shared qualifiers</h3>
+                                <p class="sub">The number of shared qualifiers cannot exceed the number of primary qualifiers.</p>
+                            </div>
+                            <div id="sharedRows"></div>
+                            <div class="select-label">Shared Qualifier</div>
+                            <vaadin-select id="sharedPicker" theme="outlined" placeholder="Select a shared qualifier…"></vaadin-select>
+                        </div>
+                        <div class="qual-col" id="slotsCol">
+                            <div class="empty-slots" id="emptyState">No Qualifiers selected</div>
+                            <div id="slotsContent" style="display:none;">
+                                <div class="slots-head">
+                                    <div><h2>Select employee to fill positions</h2><p class="sub">Selected from qualified employees</p></div>
+                                    <div class="count-pill" id="countPill">0/0</div>
+                                </div>
+                                <div id="slotsList"></div>
+                                <div class="help-text" style="margin-top:12px;"><i class="fa-solid fa-circle-info" style="color:#9aa3ad;"></i> Open slots aren’t required to deploy — they can be filled later via callback.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FLOW B: select existing assignments -->
+                <div class="flow-b-only" style="display:none;">
+                    <button class="btn btn-blue flowb-btn" id="openAssignBtn"><i class="fa-solid fa-plus"></i> Select Assignment(s)</button>
+                    <div class="help-text" id="assignHint" style="margin:-18px 0 24px;"></div>
+                    <div id="assignResult"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sticky-footer">
+            <vaadin-button theme="secondary" id="cancelBtn">Cancel</vaadin-button>
+            <vaadin-button theme="primary" id="deployBtn">Deploy</vaadin-button>
+        </div>
+    </div>
+
+
+    <!-- ===================== Select Employee dialog ===================== -->
+    <div class="overlay" id="empOverlay">
+        <div class="dialog dlg-emp">
+            <div class="dialog-head">
+                <div class="row1"><h2>Select Employee</h2><button class="dialog-close" id="empClose"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="req-label">Qualifiers required</div>
+                <div class="req-pills" id="reqPills"></div>
+            </div>
+            <div class="dialog-search"><i class="fa-solid fa-magnifying-glass"></i><input type="text" placeholder="Search" id="empSearch"></div>
+            <div class="emp-list" id="empList"></div>
+            <div class="dialog-footer">
+                <vaadin-button theme="secondary" id="empCancel">Cancel</vaadin-button>
+                <vaadin-button theme="primary" id="empContinue">Continue</vaadin-button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== Select Assignment(s) modal (Flow B) ===================== -->
+    <div class="overlay" id="assignOverlay">
+        <div class="dialog dlg-assign">
+            <div class="dialog-head">
+                <div class="row1">
+                    <div>
+                        <h2>Select Assignment(s)</h2>
+                        <div class="dlg-sub">Choose one or more assignments to add to your deployment. You can also select employees and edit in the next step.</div>
+                    </div>
+                    <button class="dialog-close" id="assignClose"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="assign-modal-meta">Start date: <b>10/29/2025 7:00:23</b>&nbsp;&nbsp;&nbsp;End date: <b>10/29/2025 22:35:25</b>
+                <div class="help-text" style="margin-top:6px;">Employees are pre-populated based on who’s scheduled on the start date. Only assignments marked <b>deployable</b> in their settings appear below.</div>
+            </div>
+            <div class="assign-modal-body">
+                <div class="collapse-head">Assignment(s) <span class="chev"><i class="fa-solid fa-chevron-up"></i></span></div>
+                <div class="assign-grid" id="assignGrid"></div>
+                <div class="collapse-head" style="margin-top:24px;">Assignment Template(s) <span class="chev"><i class="fa-solid fa-chevron-up"></i></span></div>
+                <div id="templateArea"><div class="tmpl-empty">No assignment template created.</div></div>
+            </div>
+            <div class="dialog-footer">
+                <vaadin-button theme="secondary" class="footer-left" id="createTemplateBtn"><i class="fa-solid fa-plus"></i>&nbsp; Create New Assignment Template</vaadin-button>
+                <vaadin-button theme="secondary" id="assignCancel">Cancel</vaadin-button>
+                <vaadin-button theme="primary" id="saveRosterBtn">Save Roster</vaadin-button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== Select Qualifiers (Create Template) dialog (Flow B) ===================== -->
+    <div class="overlay" id="qualOverlay">
+        <div class="dialog dlg-qual">
+            <div class="dialog-head">
+                <div class="row1">
+                    <div>
+                        <h2>Select Qualifiers</h2>
+                        <div class="dlg-sub">Choose the date range for which assignments should be available.</div>
+                    </div>
+                    <button class="dialog-close" id="qualClose"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div style="padding:8px 24px 4px;">
+                <div class="qual-panel">
+                    <h3>Select qualifiers required to fill positions</h3>
+                    <p class="sub">You must select at least one primary qualifier</p>
+                    <div class="select-label">Qualifier</div>
+                    <vaadin-select id="tmplPrimaryPicker" theme="outlined" placeholder="Select a qualifier…"></vaadin-select>
+                    <div class="blk2">
+                        <h3>Select shared qualifiers</h3>
+                        <p class="sub">The number of shared qualifiers cannot exceed the number of primary qualifiers.</p>
+                        <div class="select-label">Shared Qualifier</div>
+                        <vaadin-select id="tmplSharedPicker" theme="outlined" placeholder="Select a shared qualifier…"></vaadin-select>
+                    </div>
+                </div>
+            </div>
+            <div class="dialog-footer">
+                <vaadin-button theme="secondary" id="qualCancel">Cancel</vaadin-button>
+                <vaadin-button theme="primary" id="qualCreate">Create</vaadin-button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+    /* ============================================================
+       View switching
+       ============================================================ */
+    function showView(name) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById('view-' + name).classList.add('active');
+        window.scrollTo(0, 0);
+    }
+    document.getElementById('addDeploymentBtn').addEventListener('click', () => { setDeployType('create'); showView('deployment'); });
+    document.getElementById('backToLanding').addEventListener('click', () => showView('landing'));
+
+    /* ============================================================
+       Landing — assignments table data
+       ============================================================ */
+    const ASSIGN_ROWS = [
+        ['6am to 6pm','6','No','04/01/2026 6:00am','1','yes','No'],
+        ['8am to 8pm','8','No','04/01/2026 8:00am','1','yes','No'],
+        ['8pm to 8am','8','No','04/01/2026 8:00pm','3','yes','No'],
+        ['Admin','admin','No','01/01/2023 8:00am','1','yes','No'],
+        ['COMP TIME','C','No','01/01/2023 8:00am','1','yes','No'],
+        ['Engine 15','E','No','07/01/2025 8:00am','1','yes','No'],
+        ['Engine 27','E27','No','01/01/2023 8:00am','4','yes','Yes, All users'],
+        ['Engine 49','E','No','12/01/2025 8:00am','1','yes','No'],
+        ['Hourly Staffing Demo','H','No','08/01/2025 8:00am','3','yes','No'],
+        ['John and Megan','J','Yes','05/18/2026 8:00am','2','no','No'],
+        ['Jordy Deployment','J','Yes','06/04/2026 10:00am','1','no','No'],
+        ['Jordy_Deployment_16th','J','Yes','06/16/2026 10:00am','1','no','No'],
+        ['JordyNew','J','Yes','07/01/2026 8:00am','1','no','No'],
+        ['MEvansDep','M','Yes','07/01/2026 8:00am','1','no','No'],
+        ['Mon thru Sat','M','No','09/01/2025 8:00am','1','yes','No'],
+        ['Patrol Days','P','No','02/01/2025 7:00am','1','yes','No'],
+        ['Patrol Nights','P','No','02/01/2025 10:00pm','1','yes','No'],
+        ['Swing','S','No','02/01/2025 3:00pm','1','yes','No'],
+    ];
+    // Per-assignment "is deployable" setting — only deployable assignments appear in the
+    // Select Assignment(s) modal (avoids scroll fatigue for hundreds of assignments).
+    const DEPLOYABLE = new Set(['6am to 6pm','8am to 8pm','8pm to 8am','Engine 15','Engine 27','Engine 49','Patrol Days','Patrol Nights','Swing']);
+    (function renderTable() {
+        document.getElementById('assignTableBody').innerHTML = ASSIGN_ROWS.map(r => {
+            const [name, code, dep, start, staff, rec, ss] = r;
+            const recCls = rec === 'yes' ? 'rec-yes' : 'rec-no';
+            const ssCell = ss === 'Yes, All users'
+                ? `Yes, All users <button class="ss-change">change</button>` : ss;
+            const toggle = `<label class="toggle"><input type="checkbox" data-deployable="${name}" ${DEPLOYABLE.has(name) ? 'checked' : ''}><span class="track"></span></label>`;
+            return `<tr>
+                <td><i class="fa-solid fa-up-down-left-right drag-h"></i></td>
+                <td>${name}</td><td>${code}</td><td>${dep}</td><td>${toggle}</td><td>${start}</td>
+                <td>${staff}</td><td></td><td class="${recCls}">${rec}</td><td>${ssCell}</td>
+                <td><button class="row-btn row-edit">Edit</button></td>
+                <td><button class="row-btn row-del"><i class="fa-solid fa-trash-can"></i> Delete</button></td>
+            </tr>`;
+        }).join('');
+    })();
+    document.getElementById('assignTableBody').addEventListener('change', e => {
+        const t = e.target.closest('[data-deployable]'); if (!t) return;
+        if (t.checked) DEPLOYABLE.add(t.dataset.deployable); else DEPLOYABLE.delete(t.dataset.deployable);
+    });
+
+    /* ============================================================
+       Deployment type (Flow A / Flow B)
+       ============================================================ */
+    function setDeployType(type) {
+        const rg = document.getElementById('deployType');
+        if (rg) rg.value = type;
+        const isA = type === 'create';
+        document.querySelectorAll('.flow-a-only').forEach(el => el.style.display = isA ? '' : 'none');
+        document.querySelectorAll('.flow-b-only').forEach(el => el.style.display = isA ? 'none' : '');
+    }
+    customElements.whenDefined('vaadin-radio-group').then(() => {
+        document.getElementById('deployType').addEventListener('value-changed', e => setDeployType(e.detail.value));
+    });
+
+    // Flow B: start & end dates are required before assignments can be selected,
+    // because employees pre-populate from who is scheduled on the start date.
+    function updateAssignGate() {
+        const s = document.getElementById('startDate'), e = document.getElementById('endDate');
+        const ok = !!(s && e && s.value && e.value);
+        const btn = document.getElementById('openAssignBtn');
+        const hint = document.getElementById('assignHint');
+        if (btn) { btn.disabled = !ok; btn.style.opacity = ok ? '1' : '.55'; btn.style.cursor = ok ? 'pointer' : 'not-allowed'; }
+        if (hint) hint.innerHTML = ok
+            ? 'Employees pre-populate from who’s scheduled on the start date. Open slots aren’t required to deploy — they can be filled later via callback.'
+            : '<i class="fa-solid fa-triangle-exclamation" style="color:#d9822b;"></i> Set the start and end dates first — employees pre-populate based on who’s scheduled on the start date.';
+    }
+    customElements.whenDefined('vaadin-date-picker').then(() => {
+        ['startDate','endDate'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('value-changed', updateAssignGate); });
+        updateAssignGate();
+    });
+
+    /* ============================================================
+       Reference data (qualifiers + employees)
+       ============================================================ */
+    const QUALIFIERS = {
+        FF:   { code: 'FF',   name: 'Firefighter',     cls: 'badge--ff'   },
+        Capt: { code: 'Capt', name: 'Captain',         cls: 'badge--capt' },
+        Eng:  { code: 'Eng',  name: 'Engineer',        cls: 'badge--eng'  },
+        AO:   { code: 'AO',   name: 'Apparatus Op.',   cls: 'badge--ao'   },
+        BC:   { code: 'BC',   name: 'Battalion Chief', cls: 'badge--bc'   },
+    };
+    const SHARED = {
+        PM:  { code: 'PM',  name: 'Paramedic', cls: 'badge--shared' },
+        EMT: { code: 'EMT', name: 'EMT',       cls: 'badge--shared' },
+        HM:  { code: 'HM',  name: 'Hazmat',    cls: 'badge--shared' },
+    };
+    const EMPLOYEES = [
+        { name: 'Carlos Garcia',            quals: ['Capt','PM1'], role: 'Patrol Deputy', status: 'rec'  },
+        { name: 'Mary Garcia',              quals: ['Capt','PM1'], role: 'EMT',           status: 'rec'  },
+        { name: 'Jamal Murray',             quals: ['Capt','FF'],  role: 'Patrol Deputy', status: 'rec'  },
+        { name: 'Kentavious Caldwell-Pope', quals: ['Capt'],       role: 'Engineer',      status: null   },
+        { name: 'DeAndre Jordan',           quals: ['PM1'],        role: 'Patrol Deputy', status: 'ot'   },
+        { name: 'Reggie Jackson',           quals: ['Capt'],       role: 'Patrol Deputy', status: 'pto'  },
+    ];
+
+    const badge = (code, cls) => `<span class="badge ${cls}">${code}</span>`;
+    const sharedBadgesHtml = keys => keys.map((k, i) => badge(`${SHARED[k].code}(${i + 1})`, SHARED[k].cls)).join('');
+
+    /* ============================================================
+       FLOW A — qualifiers + open slots
+       ============================================================ */
+    const primary = {};
+    const shared = {};
+    let slots = [];
+    let activeSlotIndex = null;
+    let dialogSelection = null;
+    let dialogMode = 'flowA';   // 'flowA' (open slot) or 'flowB' (assignment slot)
+    let flowBTarget = null;     // {assignmentId, slotIndex} when filling a Flow B card slot
+    let currentRequired = [];   // qualifier codes the open slot needs (for match ranking)
+
+    function setSelectItems(el, items) { el.items = items; }
+
+    customElements.whenDefined('vaadin-select').then(() => {
+        setSelectItems(document.getElementById('locationSelect'), [
+            { label: 'Station 12 — Downtown', value: 's12' },
+            { label: 'Station 7 — Riverside', value: 's7' },
+            { label: 'Central Dispatch', value: 'central' },
+        ]);
+        const workTypes = [
+            { label: 'Standard Shift', value: 'standard' },
+            { label: 'Overtime', value: 'ot' },
+            { label: 'Training', value: 'training' },
+            { label: 'On-Call', value: 'oncall' },
+        ];
+        setSelectItems(document.getElementById('onDutySelect'), workTypes);
+        setSelectItems(document.getElementById('offDutySelect'), workTypes.map(w => ({ ...w })));
+
+        const qualOpts = [{ label: 'Select a qualifier…', value: '' },
+            ...Object.keys(QUALIFIERS).map(k => ({ label: `${QUALIFIERS[k].code} — ${QUALIFIERS[k].name}`, value: k }))];
+        const sharedOpts = [{ label: 'Select a shared qualifier…', value: '' },
+            ...Object.keys(SHARED).map(k => ({ label: `${SHARED[k].code} — ${SHARED[k].name}`, value: k }))];
+
+        const primaryPicker = document.getElementById('primaryPicker');
+        setSelectItems(primaryPicker, qualOpts);
+        primaryPicker.addEventListener('value-changed', e => { if (e.detail.value) { addPrimary(e.detail.value); primaryPicker.value = ''; } });
+        const sharedPicker = document.getElementById('sharedPicker');
+        setSelectItems(sharedPicker, sharedOpts);
+        sharedPicker.addEventListener('value-changed', e => { if (e.detail.value) { addShared(e.detail.value); sharedPicker.value = ''; } });
+
+        // template dialog pickers (Flow B)
+        setSelectItems(document.getElementById('tmplPrimaryPicker'), qualOpts.map(o => ({ ...o })));
+        setSelectItems(document.getElementById('tmplSharedPicker'), sharedOpts.map(o => ({ ...o })));
+    });
+
+    const totalPrimary = () => Object.values(primary).reduce((a, b) => a + b, 0);
+    const totalShared  = () => Object.values(shared).reduce((a, b) => a + b, 0);
+    function addPrimary(key) { primary[key] = (primary[key] || 0) + 1; render(); }
+    function stepPrimary(key, d) { primary[key] = (primary[key] || 0) + d; if (primary[key] <= 0) delete primary[key]; render(); }
+    function addShared(key) { if (totalShared() >= totalPrimary()) return; shared[key] = (shared[key] || 0) + 1; render(); }
+    function stepShared(key, d) { if (d > 0 && totalShared() >= totalPrimary()) return; shared[key] = (shared[key] || 0) + d; if (shared[key] <= 0) delete shared[key]; render(); }
+
+    function rebuildSlots() {
+        const prev = slots, sharedKeys = Object.keys(shared), next = [];
+        Object.keys(primary).forEach(key => {
+            for (let i = 0; i < primary[key]; i++) {
+                const m = prev.find(s => s.key === key && s.ordinal === i);
+                next.push({ key, ordinal: i, sharedKeys: [...sharedKeys], employee: m ? m.employee : null });
+            }
+        });
+        slots = next;
+    }
+    function render() { rebuildSlots(); renderPrimaryRows(); renderSharedRows(); renderSlots(); }
+
+    function stepperHtml(attr, key, count) {
+        const left = count > 1
+            ? `<button data-${attr}="${key}" data-delta="-1"><i class="fa-solid fa-minus"></i></button>`
+            : `<button data-${attr}="${key}" data-delta="-1"><i class="fa-regular fa-trash-can"></i></button>`;
+        return `<div class="stepper">${left}<span class="count">${count}</span><button data-${attr}="${key}" data-delta="1"><i class="fa-solid fa-plus"></i></button></div>`;
+    }
+    function renderPrimaryRows() {
+        const keys = Object.keys(primary);
+        document.getElementById('primaryHint').textContent = keys.length ? 'You must select at least one qualifier' : 'You must select at least one primary qualifier';
+        document.getElementById('primaryRows').innerHTML = keys.map(k => `<div class="qual-row"><div class="meta"><div class="code">${QUALIFIERS[k].code}</div><div class="name">${QUALIFIERS[k].name}</div></div>${stepperHtml('step-primary', k, primary[k])}</div>`).join('');
+    }
+    function renderSharedRows() {
+        document.getElementById('sharedRows').innerHTML = Object.keys(shared).map(k => `<div class="qual-row"><div class="meta"><div class="code">${SHARED[k].code}</div><div class="name">${SHARED[k].name}</div></div>${stepperHtml('step-shared', k, shared[k])}</div>`).join('');
+    }
+    function renderSlots() {
+        const empty = document.getElementById('emptyState'), content = document.getElementById('slotsContent');
+        if (slots.length === 0) { empty.style.display = 'flex'; content.style.display = 'none'; return; }
+        empty.style.display = 'none'; content.style.display = 'block';
+        document.getElementById('countPill').textContent = `${slots.filter(s => s.employee).length}/${slots.length}`;
+        document.getElementById('slotsList').innerHTML = slots.map((s, idx) => {
+            const q = QUALIFIERS[s.key], badges = badge(q.code, q.cls) + sharedBadgesHtml(s.sharedKeys);
+            if (s.employee) return `<div class="slot filled" data-replace="${idx}"><div><div class="slot-label">${s.employee}</div><div class="slot-sub">${q.name}</div></div><div class="slot-badges">${badges}<span class="slot-x" data-clear="${idx}" title="Remove / replace">&times;</span></div></div>`;
+            return `<div class="slot" data-slot="${idx}"><div class="slot-label">Open slot</div><div class="slot-badges">${badges}</div></div>`;
+        }).join('');
+    }
+
+    /* ============================================================
+       FLOW B — assignments + slot bars
+       ============================================================ */
+    const ASSIGNMENTS = [
+        { id: 'a9', name: 'Assignment 9', selected: true, isDeployable: true, slots: [
+            { quals: ['FF'], emp: 'Hazel Smith' }, { quals: ['FF','PM'], emp: 'Jamie Baker' },
+            { quals: ['BC'], emp: 'River James' }, { quals: ['Capt'], emp: 'Skylar Grey' }, { quals: ['Eng'], emp: 'Rowan Ellis' } ] },
+        { id: 'a1', name: 'Assignment 1', selected: true, isDeployable: true, slots: [
+            { quals: ['FF'], emp: 'Morgan Perry' }, { quals: ['FF'], emp: 'Jordan Diaz' },
+            { quals: ['FF'], emp: null }, { quals: ['FF'], emp: null } ] },
+        { id: 'a0', name: 'Assignment 0', selected: false, isDeployable: false, slots: [
+            { quals: ['FF'], emp: 'Hazel Smith' }, { quals: ['FF','PM'], emp: 'Jamie Baker' },
+            { quals: ['BC'], emp: 'River James' }, { quals: ['Capt'], emp: 'Skylar Grey' }, { quals: ['Eng'], emp: 'Rowan Ellis' } ] },
+        { id: 't10', name: 'Truck 10', selected: true, isDeployable: true, slots: [
+            { quals: ['Eng'], emp: 'Ellis Rivera' }, { quals: ['BC'], emp: 'Blair Morgan' }, { quals: ['FF','PM'], emp: 'Charlie Bell' },
+            { quals: ['Capt'], emp: 'Frankie Ward' }, { quals: ['BC'], emp: 'Lyric Stewart' } ] },
+        { id: 'e4', name: 'Engine 4', selected: false, isDeployable: false, slots: [
+            { quals: ['FF'], emp: 'River Rhodes' }, { quals: ['FF'], emp: 'Dakota Fox' }, { quals: ['FF'], emp: 'Skyler Grey' },
+            { quals: ['FF'], emp: 'Jamie Green' }, { quals: ['Capt'], emp: 'Avery White' }, { quals: ['BC'], emp: 'Riley Black' } ] },
+        { id: 't18', name: 'Truck 18', selected: true, isDeployable: true, slots: [
+            { quals: ['Eng'], emp: 'Taylor Indigo' }, { quals: ['BC'], emp: 'Jordan Violet' }, { quals: ['FF','PM'], emp: 'Parker Teal' },
+            { quals: ['Capt'], emp: 'Jesse Olive' }, { quals: ['BC'], emp: 'Shawn Silver' } ] },
+    ];
+    const TEMPLATE = { id: 'tpl9', name: 'Assignment 9', slots: [
+        { quals: ['Capt'], emp: 'Amari Wood' }, { quals: ['FF','PM'], emp: 'Avery Green' }, { quals: ['Capt'], emp: 'Finley Price' },
+        { quals: ['BC','FF'], emp: 'Remi Cooper' }, { quals: ['FF'], emp: 'Dakota Carr' }, { quals: ['Eng'], emp: 'Phoenix Murphy' } ] };
+    let templateCreated = false;
+
+    const qtab = q => `<span class="qtab qtab--${q.toLowerCase()}">${q}</span>`;
+    function slotBarHtml(slot, opts) {
+        const tabs = slot.quals.map(qtab).join('');
+        if (!slot.emp) {
+            return `<div class="slotbar slotbar--open" ${opts.openClick || ''}><span>Open slot</span><span class="slot-right">${tabs}</span></div>`;
+        }
+        const x = opts.removable ? `<span class="slotbar-x" ${opts.removeAttr || ''} title="Remove / replace">&times;</span>` : '';
+        return `<div class="slotbar"><span class="slot-tabs">${tabs}</span><span>${slot.emp}</span>${x}</div>`;
+    }
+
+    // Modal grid (selectable assignment cards) — only deployable assignments are listed.
+    function renderAssignGrid() {
+        document.getElementById('assignGrid').innerHTML = ASSIGNMENTS.filter(a => a.isDeployable).map(a => {
+            const bars = a.slots.map((s, i) => slotBarHtml(s, { removable: a.selected, openClick: `data-fill="${a.id}:${i}"`, removeAttr: `data-remove="${a.id}:${i}"` })).join('');
+            return `<div class="acard ${a.selected ? 'sel' : ''}" data-aid="${a.id}">
+                <div class="acard-head">
+                    <input type="checkbox" class="acard-cb" data-toggle="${a.id}" ${a.selected ? 'checked' : ''}>
+                    <span class="acard-title">${a.name}</span>
+                </div>${bars}</div>`;
+        }).join('');
+    }
+    function renderTemplateArea() {
+        const area = document.getElementById('templateArea');
+        if (!templateCreated) { area.innerHTML = '<div class="tmpl-empty">No assignment template created.</div>'; return; }
+        const bars = TEMPLATE.slots.map(s => slotBarHtml(s, { removable: true })).join('');
+        area.innerHTML = `<div class="assign-grid"><div class="acard sel">
+            <div class="acard-head"><span class="acard-title">${TEMPLATE.name} <i class="fa-regular fa-pen-to-square acard-edit"></i></span><span class="acard-x">&times;</span></div>${bars}</div></div>`;
+    }
+
+    // Result rendered into the form after Save Roster
+    function renderAssignResult() {
+        const chosen = ASSIGNMENTS.filter(a => a.selected);
+        if (!chosen.length && !templateCreated) { document.getElementById('assignResult').innerHTML = ''; return; }
+        const cardHtml = a => {
+            const bars = a.slots.map((s, i) => slotBarHtml(s, { removable: true, removeAttr: `data-remove="${a.id}:${i}"` })).join('');
+            return `<div class="acard" data-aid="${a.id}"><div class="acard-head"><span class="acard-title">${a.name}</span><span class="acard-x">&times;</span></div>${bars}</div>`;
+        };
+        let html = `<div class="assign-section-title">Assignment(s)</div><div class="assign-grid">${chosen.map(cardHtml).join('')}</div>`;
+        if (templateCreated) {
+            const tbars = TEMPLATE.slots.map(s => slotBarHtml(s, { removable: true })).join('');
+            html += `<div class="assign-section-title">Assignment Template(s)</div><div class="assign-grid"><div class="acard" data-tpl="1">
+                <div class="acard-head"><span class="acard-title">${TEMPLATE.name} <i class="fa-regular fa-pen-to-square acard-edit"></i></span><span class="acard-x">&times;</span></div>${tbars}</div></div>`;
+        }
+        document.getElementById('assignResult').innerHTML = html;
+    }
+    document.getElementById('assignResult').addEventListener('click', e => {
+        const rem = e.target.closest('.slotbar-x[data-remove]');
+        if (rem) { const [aid, idx] = rem.dataset.remove.split(':'); const a = ASSIGNMENTS.find(x => x.id === aid); if (a) { a.slots[Number(idx)].emp = null; renderAssignResult(); } return; }
+        const cardX = e.target.closest('.acard-x');
+        if (cardX) {
+            const card = cardX.closest('[data-aid]');
+            if (card) { const a = ASSIGNMENTS.find(x => x.id === card.dataset.aid); if (a) a.selected = false; }
+            else if (cardX.closest('[data-tpl]')) { templateCreated = false; }
+            renderAssignResult();
+        }
+    });
+
+    // Modal open/close
+    const assignOverlay = document.getElementById('assignOverlay');
+    function openAssignModal() { renderAssignGrid(); renderTemplateArea(); assignOverlay.classList.add('open'); }
+    document.getElementById('openAssignBtn').addEventListener('click', openAssignModal);
+    document.getElementById('assignClose').addEventListener('click', () => assignOverlay.classList.remove('open'));
+    document.getElementById('assignCancel').addEventListener('click', () => assignOverlay.classList.remove('open'));
+    document.getElementById('saveRosterBtn').addEventListener('click', () => { renderAssignResult(); assignOverlay.classList.remove('open'); });
+
+    // Modal interactions: toggle card, fill open slot
+    document.getElementById('assignGrid').addEventListener('click', e => {
+        const cb = e.target.closest('[data-toggle]');
+        if (cb) { const a = ASSIGNMENTS.find(x => x.id === cb.dataset.toggle); a.selected = cb.checked; renderAssignGrid(); return; }
+        const rem = e.target.closest('[data-remove]');
+        if (rem) { const [aid, idx] = rem.dataset.remove.split(':'); const a = ASSIGNMENTS.find(x => x.id === aid); a.slots[Number(idx)].emp = null; renderAssignGrid(); return; }
+        const fill = e.target.closest('[data-fill]');
+        if (fill) {
+            const [aid, idx] = fill.dataset.fill.split(':');
+            dialogMode = 'flowB'; flowBTarget = { aid, idx: Number(idx) };
+            const a = ASSIGNMENTS.find(x => x.id === aid);
+            openEmployeeDialogForQuals(a.slots[Number(idx)].quals);
+        }
+    });
+
+    // Create template dialog
+    const qualOverlay = document.getElementById('qualOverlay');
+    document.getElementById('createTemplateBtn').addEventListener('click', () => qualOverlay.classList.add('open'));
+    document.getElementById('qualClose').addEventListener('click', () => qualOverlay.classList.remove('open'));
+    document.getElementById('qualCancel').addEventListener('click', () => qualOverlay.classList.remove('open'));
+    document.getElementById('qualCreate').addEventListener('click', () => { templateCreated = true; renderTemplateArea(); qualOverlay.classList.remove('open'); });
+
+    /* ============================================================
+       Select Employee dialog (shared by Flow A + Flow B)
+       ============================================================ */
+    const empOverlay = document.getElementById('empOverlay');
+    function openEmployeeDialog(slotIndex) {
+        dialogMode = 'flowA'; activeSlotIndex = slotIndex; dialogSelection = null;
+        const slot = slots[slotIndex], q = QUALIFIERS[slot.key];
+        currentRequired = [slot.key, ...slot.sharedKeys];
+        const pills = [`<span class="req-pill check"><i class="fa-solid fa-check"></i>${q.code}</span>`];
+        slot.sharedKeys.forEach((k, i) => pills.push(`<span class="req-pill">${SHARED[k].code} (${i + 1})</span>`));
+        document.getElementById('reqPills').innerHTML = pills.join('');
+        document.getElementById('empSearch').value = ''; renderEmployeeList(''); empOverlay.classList.add('open');
+    }
+    function openEmployeeDialogForQuals(quals) {
+        dialogSelection = null;
+        currentRequired = quals.slice();
+        const pills = quals.map((qq, i) => {
+            if (qq === 'PM' || qq === 'EMT' || qq === 'HM') return `<span class="req-pill">${qq} (${i + 1})</span>`;
+            return `<span class="req-pill check"><i class="fa-solid fa-check"></i>${qq}</span>`;
+        });
+        document.getElementById('reqPills').innerHTML = pills.join('');
+        document.getElementById('empSearch').value = ''; renderEmployeeList(''); empOverlay.classList.add('open');
+    }
+    function empBadge(qual) {
+        if (qual === 'PM1') return badge('PM(1)', 'badge--shared');
+        const q = QUALIFIERS[qual]; return q ? badge(q.code, q.cls) : badge(qual, 'badge--ff');
+    }
+    // Rank employees: full match (every required primary + shared) = recommended,
+    // some required present = partial, none = bottom.
+    function matchScore(emp) {
+        const reqP = currentRequired.filter(q => QUALIFIERS[q]);
+        const reqS = currentRequired.filter(q => SHARED[q]);
+        const empQ = emp.quals.map(q => (q === 'PM1' ? 'PM' : q));
+        const need = reqP.length + reqS.length;
+        const have = reqP.filter(p => empQ.includes(p)).length + reqS.filter(s => empQ.includes(s)).length;
+        if (need > 0 && have >= need) return 2;
+        if (have > 0) return 1;
+        return 0;
+    }
+    function renderEmployeeList(filter) {
+        const f = filter.trim().toLowerCase();
+        const rows = EMPLOYEES.filter(emp => emp.name.toLowerCase().includes(f))
+            .map(emp => ({ emp, score: matchScore(emp) }))
+            .sort((a, b) => b.score - a.score);
+        document.getElementById('empList').innerHTML = rows.map(({ emp, score }) => {
+            const right = score === 2 ? '<span class="emp-status rec">Recommended</span>'
+                : score === 1 ? '<span class="emp-status partial">Partial match</span>'
+                : (emp.status === 'ot' ? '<span class="emp-status ot">OT</span>' : emp.status === 'pto' ? '<span class="emp-status pto">PTO</span>' : '');
+            const avail = (score > 0 && emp.status === 'ot') ? ' <span class="emp-avail ot">· OT</span>'
+                : (score > 0 && emp.status === 'pto') ? ' <span class="emp-avail pto">· PTO</span>' : '';
+            const sel = dialogSelection === emp.name ? ' selected' : '';
+            return `<div class="emp-row${sel}" data-emp="${emp.name}"><div class="emp-main"><div class="emp-name">${emp.name}</div><div class="emp-tags">${emp.quals.map(empBadge).join('')}<span class="emp-role">${emp.role}${avail}</span></div></div>${right}</div>`;
+        }).join('');
+    }
+    document.getElementById('empList').addEventListener('click', e => { const row = e.target.closest('[data-emp]'); if (!row) return; dialogSelection = row.dataset.emp; renderEmployeeList(document.getElementById('empSearch').value); });
+    document.getElementById('empSearch').addEventListener('input', e => renderEmployeeList(e.target.value));
+    document.getElementById('empClose').addEventListener('click', () => empOverlay.classList.remove('open'));
+    document.getElementById('empCancel').addEventListener('click', () => empOverlay.classList.remove('open'));
+    document.getElementById('empContinue').addEventListener('click', () => {
+        if (dialogSelection !== null) {
+            if (dialogMode === 'flowA' && activeSlotIndex !== null) { slots[activeSlotIndex].employee = dialogSelection; renderSlots(); }
+            else if (dialogMode === 'flowB' && flowBTarget) {
+                const a = ASSIGNMENTS.find(x => x.id === flowBTarget.aid);
+                a.slots[flowBTarget.idx].emp = dialogSelection; renderAssignGrid();
+            }
+        }
+        empOverlay.classList.remove('open');
+    });
+    [empOverlay, assignOverlay, qualOverlay].forEach(ov => ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('open'); }));
+
+    /* ============================================================
+       Footer
+       ============================================================ */
+    document.getElementById('cancelBtn').addEventListener('click', () => showView('landing'));
+    document.getElementById('deployBtn').addEventListener('click', () => {
+        const t = document.getElementById('deployType').value;
+        if (t === 'create') { const f = slots.filter(s => s.employee).length; alert(`Deployment created.\nPositions filled: ${f}/${slots.length}`); }
+        else { const n = ASSIGNMENTS.filter(a => a.selected).length; alert(`Deployment created from ${n} existing assignment(s)${templateCreated ? ' + 1 template' : ''}.`); }
+    });
+
+    /* ============================================================
+       Event delegation: Flow A steppers + open slots
+       ============================================================ */
+    document.addEventListener('click', e => {
+        const p = e.target.closest('[data-step-primary]'); if (p) { stepPrimary(p.dataset.stepPrimary, Number(p.dataset.delta)); return; }
+        const s = e.target.closest('[data-step-shared]'); if (s) { stepShared(s.dataset.stepShared, Number(s.dataset.delta)); return; }
+        const clr = e.target.closest('[data-clear]'); if (clr) { slots[Number(clr.dataset.clear)].employee = null; renderSlots(); return; }
+        const slot = e.target.closest('[data-slot]'); if (slot) { openEmployeeDialog(Number(slot.dataset.slot)); return; }
+        const rep = e.target.closest('[data-replace]'); if (rep) { openEmployeeDialog(Number(rep.dataset.replace)); return; }
+    });
+
+    // seed Flow A default
+    primary.FF = 2; primary.Capt = 1; shared.PM = 1; render();
+
+
+        // ---- Flow-state driver — used by the Toolbox flow map + its live thumbnails.
+        //      Each flow node maps to one call; thumbnails boot via the #fm=<id> hash.
+        function applyFlowState(id, opts) {
+            opts = opts || {};
+            empOverlay.classList.remove('open'); assignOverlay.classList.remove('open'); qualOverlay.classList.remove('open');
+            if (id === 'land') { showView('landing'); return; }
+            if (['n1','n2','n3','n4'].includes(id)) {
+                setDeployType('create'); showView('deployment');
+                Object.keys(primary).forEach(k => delete primary[k]);
+                Object.keys(shared).forEach(k => delete shared[k]);
+                slots = [];
+                if (id !== 'n1') { primary.FF = 2; primary.Capt = 1; shared.PM = 1; }
+                render();
+                if (id === 'n4') { const fill = ['Jamal Murray','Carlos Garcia','Mary Garcia','DeAndre Jordan']; slots.forEach((s, i) => s.employee = fill[i % fill.length]); renderSlots(); }
+                if (id === 'n3') { openEmployeeDialog(0); }
+                else if (!opts.instant) { const tgt = id === 'n1' ? document.querySelector('#view-deployment .deploy-head') : document.querySelector('.qual-block'); if (tgt) tgt.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+                return;
+            }
+            setDeployType('existing'); showView('deployment');
+            ASSIGNMENTS.forEach(a => a.selected = ['a9','a1','t10','t18'].includes(a.id));
+            templateCreated = false;
+            if (id === 'm1') { document.getElementById('assignResult').innerHTML = ''; return; }
+            if (id === 'm2') { openAssignModal(); return; }
+            if (id === 'm3') { openAssignModal(); dialogMode = 'flowB'; flowBTarget = { aid: 'a1', idx: 2 }; openEmployeeDialogForQuals(['FF']); return; }
+            if (id === 'm4') { openAssignModal(); qualOverlay.classList.add('open'); return; }
+            if (id === 'm5') { templateCreated = true; openAssignModal(); return; }
+            if (id === 'm6') { templateCreated = true; renderAssignResult(); }
+        }
+        window.applyFlowState = applyFlowState;
+        function bootFromHash() { const m = (location.hash || '').match(/fm=([\w-]+)/); if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (_) {} } }
+        bootFromHash();
+        window.addEventListener('hashchange', bootFromHash);
+    </script>
+
+    <!-- ===================== Design Toolbox (comment widget + flow map) ===================== -->
+    <script>
+    window.TOOLBOX_CONFIG = {
+      flowMap: {
+        title: 'Deployment — Flow Map',
+        applyState: 'applyFlowState',
+        canvas: { w: 2080, h: 1120 },
+        flows: [
+          { id: 'create', name: 'Create Deployment Flow', pill: 'A', color: '#7ee0a8', lane: { x: 360, y: 70, w: 1330, h: 360 }, labelXY: { x: 376, y: 40 } },
+          { id: 'multi', name: 'Multi-Assignment Deployment Flow', pill: 'B', color: '#8ab6ff', lane: { x: 360, y: 500, w: 1670, h: 520 }, labelXY: { x: 376, y: 470 } }
+        ],
+        nodes: [
+          { id: 'land', flow: 'entry', entry: true, x: 40, y: 470, step: 'Entry', name: 'Edit Assignments', state: 'land', match: [], desc: 'The Crew Scheduling landing. "Add New Deployment" branches into either flow below.' },
+          { id: 'n1', flow: 'create', x: 380, y: 110, step: 'Step 1', name: 'Create form — initial', state: 'n1', match: ['Create from scratch'], desc: 'Empty Create New Deployment form (Create from scratch).' },
+          { id: 'n2', flow: 'create', x: 720, y: 110, step: 'Step 2', name: 'Details + qualifiers', state: 'n2', match: ['Create from scratch'], desc: 'Full form with the qualifiers panel; primary/shared qualifiers generate open slots.' },
+          { id: 'n3', flow: 'create', x: 1060, y: 110, step: 'Branch', name: 'Select Employee', state: 'n3', match: ['Create from scratch'], desc: 'Picker opened from an open slot, ranked by qualifier match.' },
+          { id: 'n4', flow: 'create', x: 1400, y: 110, step: 'Result', name: 'Positions filled', state: 'n4', match: ['Create from scratch'], desc: 'Deployment with every open slot assigned.' },
+          { id: 'm1', flow: 'multi', x: 380, y: 690, step: 'Step 1', name: 'Existing — initial', state: 'm1', match: ['Select existing assignments'], desc: 'Create New Deployment with "Select existing assignments".' },
+          { id: 'm2', flow: 'multi', x: 720, y: 690, step: 'Step 2', name: 'Select Assignment(s)', state: 'm2', match: ['Select existing assignments'], desc: 'Modal of deployable assignment cards with slots to fill.' },
+          { id: 'm3', flow: 'multi', x: 1060, y: 540, step: 'Branch A', name: 'Select Employee', state: 'm3', match: ['Select existing assignments'], desc: 'Clicking an open slot opens the qualified-employee picker.' },
+          { id: 'm4', flow: 'multi', x: 1060, y: 830, step: 'Branch B', name: 'New Assignment Template', state: 'm4', match: ['Select existing assignments'], desc: 'Create a reusable assignment template via required + shared qualifiers.' },
+          { id: 'm5', flow: 'multi', x: 1400, y: 690, step: 'Step 3', name: 'Assignments filled', state: 'm5', match: ['Select existing assignments'], desc: 'Assignment modal with slots assigned and a template created.' },
+          { id: 'm6', flow: 'multi', x: 1740, y: 690, step: 'Result', name: 'Deployment created', state: 'm6', match: ['Select existing assignments'], desc: 'Final deployment from the chosen assignments + template.' }
+        ],
+        edges: [
+          ['land','n1','branch'], ['land','m1','branch'],
+          ['n1','n2'], ['n2','n3'], ['n3','n4'],
+          ['m1','m2'], ['m2','m3','branch'], ['m2','m4','branch'], ['m3','m5','branch'], ['m4','m5','branch'], ['m5','m6']
+        ]
+      }
+    };
+    </script>
+    <script src="../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>

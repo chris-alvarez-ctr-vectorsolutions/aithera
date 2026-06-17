@@ -1,6 +1,6 @@
 # Feedback Widget
 
-A drop-in visual feedback widget for the `ux-mockups` GitHub Pages site. Anyone visiting a mockup can drop pins on the page, leave a comment, reply in a thread, mark items done, or delete them. All pin state lives in Cloudflare KV (so every teammate sees the same pins) and every feedback action is recorded in an append-only activity log (also in KV), viewable at `commentwidget/log.html`.
+A drop-in visual feedback widget for the `ux-mockups` GitHub Pages site. Anyone visiting a mockup can drop pins on the page, leave a comment, reply in a thread, mark items done, or delete them. All pin state lives in Cloudflare KV (so every teammate sees the same pins) and every feedback action is recorded in an append-only activity log (also in KV), viewable at `designtoolbox/log.html`.
 
 There is no login flow — users type their name once and it is remembered in `localStorage`.
 
@@ -9,7 +9,7 @@ There is no login flow — users type their name once and it is remembered in `l
 Add this one line before `</body>` in any mockup HTML file:
 
 ```html
-<script src="/commentwidget/feedback-widget.js"></script>
+<script src="/designtoolbox/feedback-widget.js"></script>
 ```
 
 That's it. A "＋ Add feedback" toolbar appears bottom-right of the page.
@@ -48,7 +48,7 @@ wrangler login
 ### 2. Create the KV namespace
 
 ```bash
-cd commentwidget/worker
+cd designtoolbox/worker
 wrangler kv:namespace create PINS_KV
 ```
 
@@ -97,7 +97,7 @@ https://ux-mockups-feedback.<your-account>.workers.dev
 
 ### 6. Point the widget at the Worker
 
-Open `commentwidget/feedback-widget.js` and replace the `CW_WORKER_URL` constant near the top with the Worker URL from the previous step:
+Open `designtoolbox/feedback-widget.js` and replace the `CW_WORKER_URL` constant near the top with the Worker URL from the previous step:
 
 ```js
 const CW_WORKER_URL = 'https://ux-mockups-feedback.<your-account>.workers.dev';
@@ -107,7 +107,7 @@ Commit and push. GitHub Pages will serve the updated widget on next deploy.
 
 ## Updating the widget
 
-1. Edit `commentwidget/feedback-widget.js`.
+1. Edit `designtoolbox/feedback-widget.js`.
 2. Bump the `WIDGET_VERSION` constant at the top.
 3. Commit and push. Pages will pick up the new file.
 
@@ -127,7 +127,7 @@ Browsers may cache the widget aggressively. If teammates aren't seeing the updat
 - **Comment navigator**: a single hub in the bottom-left corner shows the **total number of comments** on the page and lets you review every one without hunting. A Prev/Next stepper (`‹ 3 / 12 ›`) jumps to each comment in turn — scrolling to it, switching to its screen/state if needed, and opening its panel — and an expandable list groups every comment by where it lives: **On this screen**, **On other screens** (a different screen, version, tab, or toggle of a single-file mock), and **Not found** (the anchored element no longer exists). The hub is purely client-side over the already-loaded comments, so navigating adds no Cloudflare reads, writes, or lists. The count reflects open comments (resolved/done ones drop off), and respects visitor mode.
 - **Stranded comments** (the "Not found" group): if a pin's CSS selector no longer matches anything on the page (mockup changed), the pin can't be placed on the canvas. It appears in the navigator's **Not found** group for **admins only** so they can open and clean it up — non-admins don't see it, since a broken pin is noise they can't act on.
 - **Undo**: marking a pin done or deleting it shows a toast with an `Undo` button. The undo window is 10 seconds, enforced by the Worker. After that the toast disappears and the Worker returns 409 if undo is attempted.
-- **Activity log**: every create / mark-done / delete / undo / reply / edit appends a timestamped, append-only entry in KV (`log:` keys), viewable at `commentwidget/log.html`. Pin moves and admin mode changes are intentionally not logged.
+- **Activity log**: every create / mark-done / delete / undo / reply / edit appends a timestamped, append-only entry in KV (`log:` keys), viewable at `designtoolbox/log.html`. Pin moves and admin mode changes are intentionally not logged.
 
 ## Data model (KV)
 

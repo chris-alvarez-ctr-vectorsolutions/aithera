@@ -1,5 +1,5 @@
 // ux-mockups feedback widget
-// Embed: <script src="/commentwidget/feedback-widget.js"></script>
+// Embed: <script src="/designtoolbox/feedback-widget.js"></script>
 
 (() => {
   // ----- Config ---------------------------------------------------------------
@@ -63,7 +63,7 @@
   // the mock itself is being viewed (staging server, localhost, file://). The
   // viewer only works there anyway — it's the one origin the Worker's CORS
   // allows and the only place log.html is published.
-  const LOG_URL = PAGES_BASE + '/commentwidget/log.html';
+  const LOG_URL = PAGES_BASE + '/designtoolbox/log.html';
   const IS_MAC = /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || '');
   const CMD_KEY = IS_MAC ? '⌘' : 'Ctrl';
 
