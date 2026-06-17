@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.16.0';
+  const WIDGET_VERSION = '1.16.1';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -144,6 +144,8 @@
 .cw-banner button:hover { background: rgba(255,255,255,.26); }
 .cw-banner button:active { transform: scale(.95); }
 .cw-banner .cw-banner-gear { padding: 5px 9px; border-radius: 50%; font-size: 14px; line-height: 1; }
+/* Docked: float just above the bottom-center toolbox dock instead of top-right, so the pick-mode hint reads as part of the flow switcher. */
+.cw-banner--docked { top: auto; right: auto; bottom: 66px; left: 50%; transform: translateX(-50%); }
 
 /* Pick mode */
 .cw-picking, .cw-picking * { cursor: crosshair !important; }
@@ -823,15 +825,20 @@
     else document.body.appendChild(bubble);
     applyAdminBubble();
 
-    banner = el('div', { class: 'cw-banner cw-hidden' }, [
+    // The pick-mode banner. When docked, it sits just above the toolbox dock and
+    // drops its own "Esc to cancel" button — the docked Comments button already
+    // becomes ✕ Cancel in pick mode (and Esc still works), so it's redundant.
+    var docked = !!window.ToolboxDock;
+    var bannerKids = [
       document.createTextNode('Click any element to leave feedback'),
       el('button', {
         type: 'button', class: 'cw-banner-gear', title: 'Settings & admin controls',
         'aria-label': 'Settings',
         onclick: () => { becomeAdmin(); openAdminPanel(); },
       }, ['⚙']),
-      el('button', { type: 'button', onclick: exitPickMode }, ['Esc to cancel']),
-    ]);
+    ];
+    if (!docked) bannerKids.push(el('button', { type: 'button', onclick: exitPickMode }, ['Esc to cancel']));
+    banner = el('div', { class: 'cw-banner cw-hidden' + (docked ? ' cw-banner--docked' : '') }, bannerKids);
     document.body.appendChild(banner);
   }
 
