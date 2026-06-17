@@ -63,6 +63,7 @@
     .cell-name { font-weight:600; font-size:13.5px; color:#1a1a2e; }
     .cell-desc { font-size:11.5px; color:#9ca3af; margin-top:1px; max-width:480px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:normal; }
     .cell-version { font-size:12px; color:#475569; font-family:ui-monospace,"SF Mono",monospace; }
+    .cell-muted { font-size:12.5px; color:#9ca3af; }
     .cell-loc { display:flex; align-items:flex-start; gap:6px; font-size:12.5px; color:#6b7280; }
     .cell-loc i { color:#9ca3af; font-size:11px; flex-shrink:0; margin-top:3px; }
     .cell-loc .loc-text { line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:normal; }
@@ -226,6 +227,17 @@ const ACTS = [
   { name:'Rigging Safety Quiz',                 desc:'Assessment on rigging selection and load handling',            type:'Quiz',      version:'v1.0', status:'Active', location:'Operations > Rigging',              requirement:'Rigging & Load Charts' },
 ];
 
+/* Derive the content-management columns (prototype values, varied across rows) */
+const ACT_SIZES = ['8 KB','512 KB','1.2 MB','3.4 MB','680 KB','12 MB','2.1 MB','46 KB','5.8 MB','920 KB'];
+ACTS.forEach((a, i) => {
+  a.fileType    = (a.type === 'Course' && i % 2 === 0) ? 'SCORM' : 'VSP Content';
+  a.configurable = (i % 3 !== 0);                       // most are configurable, some are not
+  a.updateStatus = (i % 6 === 1) ? 'New' : 'Current';   // a few flagged as newly updated
+  a.size        = ACT_SIZES[i % ACT_SIZES.length];
+  a.licenseType = (a.fileType === 'SCORM') ? 'Commercial' : 'None';
+  a.repository  = (a.fileType === 'SCORM') ? 'Vendor SCORM Library' : 'Vector Content Library';
+});
+
 function nameRenderer(p){
   const a = p.data;
   return `<div class="cell-name-wrap">
@@ -250,6 +262,29 @@ function statusRenderer(p){
 }
 function locationRenderer(p){
   return `<span class="cell-loc"><i class="fa-solid fa-folder"></i><span class="loc-text">${p.value}</span></span>`;
+}
+function configRenderer(p){
+  return p.value
+    ? `<span theme="badge dot success">Configurable</span>`
+    : `<span theme="badge dot contrast">Not configurable</span>`;
+}
+function updateRenderer(p){
+  return p.value === 'New'
+    ? `<span theme="badge dot warning">New</span>`
+    : `<span class="cell-muted">Up to date</span>`;
+}
+function fileTypeRenderer(p){
+  const scorm = p.value === 'SCORM';
+  return `<span class="cell-meta"><i class="fa-solid ${scorm ? 'fa-cubes' : 'fa-box-open'}"></i> ${p.value}</span>`;
+}
+function sizeRenderer(p){ return `<span class="cell-muted">${p.value}</span>`; }
+function licenseRenderer(p){
+  return p.value === 'Commercial'
+    ? `<span theme="badge dot contrast">Commercial</span>`
+    : `<span class="cell-muted">None</span>`;
+}
+function repoRenderer(p){
+  return `<span class="cell-loc"><i class="fa-solid fa-folder-tree"></i><span class="loc-text">${p.value}</span></span>`;
 }
 
 /* Shared floating dropdown */
@@ -320,11 +355,17 @@ const gridOptions = {
   rowData: ACTS,
   columnDefs: [
     { colId:'select', width:46, maxWidth:46, pinned:'left', checkboxSelection:true, headerCheckboxSelection:true, headerCheckboxSelectionFilteredOnly:true, sortable:false, filter:false, resizable:false, suppressMovable:true, suppressHeaderMenuButton:true },
-    { headerName:'Activity',    field:'name',     flex:2, minWidth:280, cellRenderer:nameRenderer, getQuickFilterText:p=>p.data.name+' '+p.data.desc },
-    { headerName:'Type',        field:'type',     width:130, cellRenderer:typeRenderer },
-    { headerName:'Version',     field:'version',  width:100, cellRenderer:versionRenderer },
-    { headerName:'Status',      field:'status',   width:120, cellRenderer:statusRenderer },
-    { headerName:'Location',    field:'location', flex:2, minWidth:220, cellRenderer:locationRenderer },
+    { headerName:'Activity',        field:'name',         width:300, minWidth:260, cellRenderer:nameRenderer, getQuickFilterText:p=>p.data.name+' '+p.data.desc },
+    { headerName:'Type',            field:'type',         width:130, cellRenderer:typeRenderer },
+    { headerName:'Version',         field:'version',      width:100, cellRenderer:versionRenderer },
+    { headerName:'Status',          field:'status',       width:120, cellRenderer:statusRenderer },
+    { headerName:'Configurability', field:'configurable', width:160, cellRenderer:configRenderer },
+    { headerName:'Update Status',   field:'updateStatus', width:130, cellRenderer:updateRenderer },
+    { headerName:'File Type',       field:'fileType',     width:150, cellRenderer:fileTypeRenderer },
+    { headerName:'Size',            field:'size',         width:100, cellRenderer:sizeRenderer },
+    { headerName:'License Type',    field:'licenseType',  width:140, cellRenderer:licenseRenderer },
+    { headerName:'Repository Name', field:'repository',   width:210, cellRenderer:repoRenderer },
+    { headerName:'Location',        field:'location',     width:230, cellRenderer:locationRenderer },
     { headerName:'Actions', colId:'actions', width:110, cellRenderer:actionsRenderer, sortable:false, filter:false, resizable:false, pinned:'right' },
   ],
   defaultColDef: { sortable:true, resizable:true, filter:true },

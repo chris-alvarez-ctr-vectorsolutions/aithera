@@ -177,7 +177,8 @@
     /* Advanced Properties accordion grid */
     .adv-props { display: flex; flex-direction: column; gap: 12px; }
     .adv-prop { display: flex; align-items: center; gap: 12px; }
-    .adv-prop .adv-label { font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: #9ca3af; width: 130px; flex-shrink: 0; }
+    .adv-prop .adv-label { font-size: 12px; font-weight: 600; color: #6b7280; width: 116px; flex-shrink: 0; text-align: right; }
+    #advanced-props .sec-settings-body { padding-left: 16px; }
     .adv-prop .adv-value { font-size: 13px; font-weight: 600; color: #374151; }
     .builder-details .form-field { max-width: 720px; }
     /* Settings + Attributes accordions: identical spacing, full width of the section */
@@ -660,7 +661,9 @@
     .req-tags [theme~="badge"] { display:inline-flex; align-items:center; gap:4px; }
     .req-tags [theme~="badge"] i { font-size:9px; }
     /* In-card "unsaved existing requirement" bar */
-    /* Footer on an edited existing requirement card (no fill — the warning icon carries the meaning) */
+    /* An edited existing requirement is highlighted amber until saved/reverted */
+    .req-block.req-dirty { border-color:#fbbf24; box-shadow:0 0 0 2px rgba(251,191,36,.20); }
+    /* Footer on an edited existing requirement card (no fill — the amber card border carries the cue) */
     .req-footer { display:none; align-items:center; gap:12px; padding:12px 16px; border-top:1px solid #f0f2f5; }
     .req-block.req-dirty .req-footer { display:flex; }
     .req-footer .rf-text { flex:1; font-size:12px; font-weight:600; color:#6b7280; display:flex; align-items:center; gap:7px; }
@@ -672,7 +675,7 @@
     .rf-btn.primary { background:#0271ce; color:#fff; }
     .rf-btn.primary:hover { background:#015ba6; }
     /* Checkbox row inside confirm dialogs */
-    .dialog-check { display:flex; align-items:center; justify-content:center; gap:8px; font-size:12.5px; color:#374151; margin:-4px 0 16px; cursor:pointer; }
+    .dialog-check { display:flex; align-items:center; justify-content:flex-start; gap:8px; font-size:12.5px; color:#374151; margin:-4px 0 16px; cursor:pointer; }
     .dialog-check input { width:15px; height:15px; cursor:pointer; }
     /* Light error border when the qualification is saved with unsaved requirement edits */
     .req-block.req-error { border-color:#fca5a5 !important; box-shadow:0 0 0 3px rgba(248,113,113,.18); }
@@ -709,8 +712,8 @@
     .sec-settings.open .sec-settings-body { display: block; }
     .setting-group { margin-bottom: 6px; }
     .setting-group > .setting-label { display: block; font-size: 11.5px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 8px; }
-    .setting-radio { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 7px; cursor: pointer; }
-    .setting-radio input[type=radio] { margin-top: 2px; accent-color: var(--vblue); flex-shrink: 0; }
+    .setting-radio { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; cursor: pointer; }
+    .setting-radio input[type=radio] { accent-color: var(--vblue); flex-shrink: 0; margin: 0; }
     .setting-radio span { font-size: 12.5px; color: #374151; line-height: 1.45; }
 
     /* Standalone settings accordion shell (used in the overview) */
@@ -1024,21 +1027,11 @@
             <div class="form-field">
               <label>Location</label>
               <div class="loc-wrap">
-                <button type="button" class="loc-trigger" id="loc-trigger" onclick="toggleLocDropdown(event)">
-                  <span class="loc-trigger-left"><i class="fa-solid fa-location-dot"></i><span class="loc-trigger-text" id="loc-trigger-text">Select location in the organization hierarchy...</span></span>
+                <button type="button" class="loc-trigger has-value" id="loc-trigger" onclick="toggleLocDropdown(event)">
+                  <span class="loc-trigger-left"><i class="fa-solid fa-location-dot"></i><span class="loc-trigger-text" id="loc-trigger-text">Orlando Organization</span></span>
                   <i class="fa-solid fa-chevron-down loc-caret"></i>
                 </button>
                 <div class="loc-dropdown hidden" id="loc-dropdown"></div>
-              </div>
-            </div>
-            <div class="form-field-row">
-              <div class="form-field">
-                <label>External ID (UID)</label>
-                <vaadin-text-field theme="outlined" id="lp-ext-id" value="1234567890"></vaadin-text-field>
-              </div>
-              <div class="form-field">
-                <label>SKU</label>
-                <vaadin-text-field theme="outlined" id="lp-sku" placeholder="e.g., QUAL-LOTO-001"></vaadin-text-field>
               </div>
             </div>
 
@@ -1049,13 +1042,7 @@
                 <span id="overview-settings-label">Qualification Settings</span>
                 <i class="fa-solid fa-chevron-right caret"></i>
               </div>
-              <div class="sec-settings-body">
-                <div class="setting-group">
-                  <span class="setting-label">Requirement Completion Order</span>
-                  <label class="setting-radio"><input type="radio" name="prog-req-order" value="any" checked onchange="setProgOrder('any')"><span>Any order. Requirements can be completed in any sequence.</span></label>
-                  <label class="setting-radio"><input type="radio" name="prog-req-order" value="sequential" onchange="setProgOrder('sequential')"><span>Sequential. Requirements must be completed in order.</span></label>
-                </div>
-              </div>
+              <div class="sec-settings-body" id="prog-settings-body"></div>
             </div>
 
             <!-- Attributes accordion -->
@@ -1087,6 +1074,8 @@
                 <div class="adv-props">
                   <div class="adv-prop"><span class="adv-label">Status</span><span class="adv-value"><span theme="badge dot success" id="adv-status">Active</span></span></div>
                   <div class="adv-prop"><span class="adv-label">Qualification ID</span><span class="adv-value" id="adv-id">—</span></div>
+                  <div class="adv-prop"><span class="adv-label">External ID (UID)</span><span class="adv-value" id="adv-extid">—</span></div>
+                  <div class="adv-prop"><span class="adv-label">SKU</span><span class="adv-value" id="adv-sku">—</span></div>
                   <div class="adv-prop"><span class="adv-label">Created on</span><span class="adv-value" id="adv-created">—</span></div>
                   <div class="adv-prop"><span class="adv-label">Updated on</span><span class="adv-value" id="adv-updated">—</span></div>
                 </div>
@@ -1107,7 +1096,7 @@
       </div>
       <div class="action-bar">
         <button class="btn btn-secondary" onclick="cancelBuilder()">Cancel</button>
-        <button class="btn btn-secondary" id="save-draft-btn" onclick="saveDraft()">Save Draft</button>
+        <button class="btn btn-secondary hidden" id="save-as-new-btn" onclick="saveQualAsNew()">Save as New</button>
         <button class="btn btn-primary" id="save-btn" onclick="saveLP(event)">Save</button>
       </div>
     </div>
@@ -1333,10 +1322,24 @@
     <div class="md-icon warn"><i class="fa-solid fa-triangle-exclamation"></i></div>
     <h3>Update this existing requirement?</h3>
     <p>This requirement may be used in other qualifications and assigned to learners. Saving your changes updates it everywhere it's used, which can affect those learners' training records.</p>
-    <label class="dialog-check"><input type="checkbox" id="reqsave-confirm-check"> Don't show this again for this session</label>
+    <label class="dialog-check"><input type="checkbox" id="reqsave-confirm-check"> Don't show again for this session</label>
     <div class="mini-dialog-btns">
       <button class="btn btn-secondary" onclick="closeReqSave()">Cancel</button>
       <button class="btn btn-primary" onclick="confirmReqSave()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CONFIRM SAVE TO AN EXISTING / ASSIGNED QUALIFICATION ══ -->
+<div class="overlay hidden" id="qualsave-overlay">
+  <div class="mini-dialog">
+    <div class="md-icon warn"><i class="fa-solid fa-triangle-exclamation"></i></div>
+    <h3>Save changes to this assigned qualification?</h3>
+    <p>This qualification is assigned to learners. Saving your changes updates it for everyone it's assigned to, which can affect their training records. To keep the original unchanged, use "Save as New" instead.</p>
+    <label class="dialog-check"><input type="checkbox" id="qualsave-confirm-check"> Don't show again for this session</label>
+    <div class="mini-dialog-btns">
+      <button class="btn btn-secondary" onclick="closeQualSave()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmQualSave()">Save</button>
     </div>
   </div>
 </div>
@@ -1550,6 +1553,11 @@ let isEditing = false;                 // builder opened on an existing qualific
 let currentEnrolled = 0;              // learners on the current (existing) qualification
 let isItemActive = true;              // active/inactive status of the item being built
 let editingRecordName = '';           // name of the existing record (drives the sample record ID)
+let isExistingQual = false;           // editing an already-saved qualification
+let assignedQual = false;             // the existing qualification has learner assignments
+let qualDirty = false;                // qualification-level edits made to an existing qualification
+let suppressQualSaveConfirm = false;  // user opted out of the save-confirm dialog this session
+function markQualDirty(){ if(isExistingQual) qualDirty = true; }
 let hasThumb = false;                  // a thumbnail has been added
 let lpAttrSelected = new Set();        // attribute ids selected for bulk remove
 let lpAttrModalSel = new Set();        // attribute keys checked in the Add Attribute modal
@@ -1638,6 +1646,7 @@ function closeCreate(){ const o=document.getElementById('create-overlay'); if(o)
 ═══════════════════════════════════════════════════════════ */
 function startManual(){
   isAI = false; editProtected = false; isEditing = false; currentEnrolled = 0; hasThumb = false;
+  isExistingQual = false; assignedQual = false; qualDirty = false;
   chatStarted = false; chatMsgs = []; aiTarget = null; aiTitleOverride = null; aiDescOverride = null;
   requirements = []; rc = 0; lpAttributes = []; attrIdCounter = 0; lpAttrSelected = new Set();
   document.getElementById('attrs-count-badge').textContent = '0';
@@ -1661,6 +1670,7 @@ function openExisting(name, type, enrolled){
   programType = type; isAI = false;
   chatStarted = false; chatMsgs = []; aiTarget = null;
   isEditing = true; currentEnrolled = enrolled; hasThumb = true; editingRecordName = name;
+  isExistingQual = true; assignedQual = true; qualDirty = false;
   editProtected = enrolled > 0;
   lpAttributes = []; attrIdCounter = 0; lpAttrSelected = new Set();
   clearTitleError();
@@ -1699,6 +1709,8 @@ function configureBuilderChrome(){
   { const eb = document.getElementById('enhance-ai-btn'); if (eb) eb.classList.toggle('hidden', !AI_ENABLED); }
   // Delete is only offered on an existing qualification
   document.getElementById('builder-delete-item').classList.toggle('hidden', !isEditing);
+  // "Save as New" is only offered when editing an existing qualification
+  { const sn = document.getElementById('save-as-new-btn'); if (sn) sn.classList.toggle('hidden', !isExistingQual); }
   // Title field placeholder
   document.getElementById('lp-title').placeholder = 'e.g., AC Motor Controller Operation';
   // Program settings accordion label
@@ -1722,6 +1734,8 @@ function setAdvStatus(){
 function renderAdvancedProps(){
   setAdvStatus();
   const idEl=document.getElementById('adv-id'); if(idEl) idEl.textContent = isEditing ? makeRecordId() : 'Assigned on save';
+  const ext=document.getElementById('adv-extid'); if(ext) ext.textContent = isEditing ? '1234567890' : 'Assigned on save';
+  const sku=document.getElementById('adv-sku'); if(sku) sku.textContent = isEditing ? ('QUAL-' + makeRecordId().replace('QL-','')) : 'Assigned on save';
   const c=document.getElementById('adv-created'); if(c) c.textContent = isEditing ? '12/17/2025, 3:42 PM' : 'Not saved yet';
   const u=document.getElementById('adv-updated'); if(u) u.textContent = isEditing ? '2/01/2026, 9:15 AM' : 'Not saved yet';
 }
@@ -2281,22 +2295,22 @@ function openAIRefine(){ openChatPanel(); }
 ═══════════════════════════════════════════════════════════ */
 function mkReq(name='', desc=''){ return {id:++rc, name:name||`Requirement ${rc}`, desc:desc||'', acts:[], editing:false, completionOrder:'any', requiredMode:'all', requiredCount:1, settingsOpen:false, collapsed:false, isExisting:false, assigned:false, dirty:false}; }
 
-function addReq(scroll){ closeAllCtxMenus(); requirements.push(mkReq()); renderAll(); if(scroll!==false) setTimeout(()=>{ const el=document.getElementById('lp-form-col'); if(el) el.scrollTop=99999; },50); }
-function delReq(id){ closeAllCtxMenus(); requirements=requirements.filter(r=>r.id!==id); renderAll(); }
-function moveReq(id,dir){ closeAllCtxMenus(); const i=requirements.findIndex(r=>r.id===id),j=i+dir; if(j<0||j>=requirements.length)return; [requirements[i],requirements[j]]=[requirements[j],requirements[i]]; renderAll(); }
+function addReq(scroll){ closeAllCtxMenus(); requirements.push(mkReq()); markQualDirty(); renderAll(); if(scroll!==false) setTimeout(()=>{ const el=document.getElementById('lp-form-col'); if(el) el.scrollTop=99999; },50); }
+function delReq(id){ closeAllCtxMenus(); requirements=requirements.filter(r=>r.id!==id); markQualDirty(); renderAll(); }
+function moveReq(id,dir){ closeAllCtxMenus(); const i=requirements.findIndex(r=>r.id===id),j=i+dir; if(j<0||j>=requirements.length)return; [requirements[i],requirements[j]]=[requirements[j],requirements[i]]; markQualDirty(); renderAll(); }
 function dupReq(id){
   closeAllCtxMenus();
   const src=requirements.find(r=>r.id===id); if(!src)return;
   const c=mkReq(src.name+' (Copy)', src.desc);
   c.completionOrder=src.completionOrder;
   c.acts=src.acts.map(a=>({...a}));
-  requirements.splice(requirements.findIndex(r=>r.id===id)+1,0,c); renderAll();
+  requirements.splice(requirements.findIndex(r=>r.id===id)+1,0,c); markQualDirty(); renderAll();
 }
-function addReqAbove(id){ closeAllCtxMenus(); const i=requirements.findIndex(r=>r.id===id); if(i<0)return; requirements.splice(i,0,mkReq()); renderAll(); }
-function addReqBelow(id){ closeAllCtxMenus(); const i=requirements.findIndex(r=>r.id===id); if(i<0)return; requirements.splice(i+1,0,mkReq()); renderAll(); }
+function addReqAbove(id){ closeAllCtxMenus(); const i=requirements.findIndex(r=>r.id===id); if(i<0)return; requirements.splice(i,0,mkReq()); markQualDirty(); renderAll(); }
+function addReqBelow(id){ closeAllCtxMenus(); const i=requirements.findIndex(r=>r.id===id); if(i<0)return; requirements.splice(i+1,0,mkReq()); markQualDirty(); renderAll(); }
 /* Add an EXISTING (already-saved, possibly assigned) requirement from the library */
-function addExistingReqAbove(id){ closeAllCtxMenus(); const i=requirements.findIndex(r=>r.id===id); if(i<0)return; requirements.splice(i,0,mkExistingReq()); renderAll(); showToast('Added an existing requirement'); }
-function addExistingReqBelow(id){ closeAllCtxMenus(); const i=requirements.findIndex(r=>r.id===id); if(i<0)return; requirements.splice(i+1,0,mkExistingReq()); renderAll(); showToast('Added an existing requirement'); }
+function addExistingReqAbove(id){ closeAllCtxMenus(); const i=requirements.findIndex(r=>r.id===id); if(i<0)return; requirements.splice(i,0,mkExistingReq()); markQualDirty(); renderAll(); showToast('Added an existing requirement'); }
+function addExistingReqBelow(id){ closeAllCtxMenus(); const i=requirements.findIndex(r=>r.id===id); if(i<0)return; requirements.splice(i+1,0,mkExistingReq()); markQualDirty(); renderAll(); showToast('Added an existing requirement'); }
 function delAct(rid,aid){ const r=requirements.find(r=>r.id===rid); if(!r)return; r.acts=r.acts.filter(a=>a.id!==aid); markReqDirty(r); renderAll(); }
 function editReqName(id){ const r=requirements.find(r=>r.id===id); if(r){r.editing=true;renderAll();} }
 function commitReqName(id,v){ const r=requirements.find(r=>r.id===id); if(!r)return; if(v.trim() && v.trim()!==r.name) markReqDirty(r); r.name=v.trim()||r.name; r.editing=false; renderAll(); }
@@ -2394,13 +2408,35 @@ function toggleCornerMenu(event, id, pos){
 
 /* ─── Program (qualification / learning path) settings ─── */
 let progReqOrder = 'any';
+let progCompletionMode = 'all';   // all | number | time
+let progRequiredCount = 1;
+let progRequiredMinutes = 30;
 function toggleOverviewSettings(){ document.getElementById('overview-settings').classList.toggle('open'); }
-function setProgOrder(val){ progReqOrder = val; }
+function setProgOrder(val){ progReqOrder = val; markQualDirty(); }
+function setProgCompletion(mode){ progCompletionMode = mode; markQualDirty(); renderProgSettings(); }
+function setProgCount(v){ progRequiredCount = parseInt(v,10)||0; markQualDirty(); }
+function setProgMinutes(v){ progRequiredMinutes = parseInt(v,10)||0; markQualDirty(); }
+function renderProgSettings(){
+  const host = document.getElementById('prog-settings-body'); if(!host) return;
+  const nReq = requirements.length;
+  host.innerHTML = `
+    <div class="setting-group">
+      <span class="setting-label">Requirement Completion Order</span>
+      <label class="setting-radio"><input type="radio" name="prog-req-order" value="any" ${progReqOrder==='any'?'checked':''} onchange="setProgOrder('any')"><span>Any order. Requirements can be completed in any sequence.</span></label>
+      <label class="setting-radio"><input type="radio" name="prog-req-order" value="sequential" ${progReqOrder==='sequential'?'checked':''} onchange="setProgOrder('sequential')"><span>Sequential. Requirements must be completed in order.</span></label>
+    </div>
+    <div class="setting-group" style="margin-top:16px">
+      <span class="setting-label">To complete this Qualification</span>
+      <label class="setting-radio"><input type="radio" name="prog-complete" value="all" ${progCompletionMode==='all'?'checked':''} onchange="setProgCompletion('all')"><span>Users must complete all Requirements above</span></label>
+      <label class="setting-radio"><input type="radio" name="prog-complete" value="number" ${progCompletionMode==='number'?'checked':''} onchange="setProgCompletion('number')"><span>Users must complete a certain number of the Requirements above (<input type="number" min="1" value="${progRequiredCount}" ${progCompletionMode!=='number'?'disabled':''} style="width:54px;margin:0 4px;border:1px solid #d1d5db;border-radius:5px;padding:4px 6px;font-family:inherit;font-size:12.5px" oninput="setProgCount(this.value)"> of ${nReq})</span></label>
+      <label class="setting-radio"><input type="radio" name="prog-complete" value="time" ${progCompletionMode==='time'?'checked':''} onchange="setProgCompletion('time')"><span>Users must accumulate a certain amount of time (<input type="number" min="1" value="${progRequiredMinutes}" ${progCompletionMode!=='time'?'disabled':''} style="width:54px;margin:0 4px;border:1px solid #d1d5db;border-radius:5px;padding:4px 6px;font-family:inherit;font-size:12.5px" oninput="setProgMinutes(this.value)"> minutes)</span></label>
+    </div>`;
+}
 
 /* ═══════════════════════════════════════════════════════════
    RENDER
 ═══════════════════════════════════════════════════════════ */
-function renderAll(){ renderRequirements(); renderSSP(); updateOverviewPills(); }
+function renderAll(){ renderRequirements(); renderSSP(); updateOverviewPills(); renderProgSettings(); }
 
 function updateOverviewPills(){
   const el = document.getElementById('overview-pills');
@@ -2411,7 +2447,9 @@ function updateOverviewPills(){
   el.innerHTML =
     `<span theme="badge"><i class="fa-solid fa-list-check"></i> ${nReq} Requirement${nReq!==1?'s':''}</span>
      <span theme="badge"><i class="fa-regular fa-rectangle-list"></i> ${nAct} Activit${nAct!==1?'ies':'y'}</span>
-     <span theme="badge"><i class="fa-regular fa-clock"></i> ${time} total</span>`;
+     <span theme="badge"><i class="fa-regular fa-clock"></i> ${time} total</span>` +
+     (isExistingQual ? `<span theme="badge contrast"><i class="fa-solid fa-link"></i> Existing ${currentTypeLabel()}</span>` : '') +
+     (assignedQual ? `<span theme="badge warning"><i class="fa-solid fa-users"></i> Assigned</span>` : '');
 }
 
 /* ─── Audit History ─── */
@@ -2763,19 +2801,19 @@ document.addEventListener('keydown', e => { if(e.key==='Escape' && targetingMode
 /* ═══════════════════════════════════════════════════════════
    SAVE
 ═══════════════════════════════════════════════════════════ */
-function saveDraft(){ const b=document.getElementById('save-draft-btn'); b.textContent='Saved!'; b.style.color='#16a34a'; setTimeout(()=>{b.textContent='Save Draft';b.style.color='';},2000); }
+function saveDraft(){ const b=document.getElementById('save-draft-btn'); if(!b) return; b.textContent='Saved!'; b.style.color='#16a34a'; setTimeout(()=>{b.textContent='Save Draft';b.style.color='';},2000); }
 
 /* ─── Title validation ─── */
 function titleValue(){ const t=document.getElementById('lp-title'); return (t && (t.value||'').trim()) || ''; }
-function showTitleError(){
+function showTitleError(text){
   const field = document.getElementById('lp-title').closest('.form-field');
   if(field){ field.classList.add('invalid'); }
   let msg = document.getElementById('lp-title-error');
   if(!msg){
     msg = document.createElement('div'); msg.id='lp-title-error'; msg.className='field-error-msg';
-    msg.textContent = 'A title is required before saving.';
     document.getElementById('lp-title').insertAdjacentElement('afterend', msg);
   }
+  msg.textContent = text || 'A title is required before saving.';
   msg.classList.add('show');
 }
 function clearTitleError(){
@@ -2783,14 +2821,48 @@ function clearTitleError(){
   if(field) field.classList.remove('invalid');
   const msg = document.getElementById('lp-title-error'); if(msg) msg.classList.remove('show');
 }
+/* Names already in use (a qualification name can't collide with an existing one). "123" is seeded so
+   the inline duplicate validation is easy to reproduce. */
+const EXISTING_TITLES = ['123','AC Motor Controller Operation','Lockout/Tagout Authorization','Forklift Operator Certification','OSHA 30-Hour General Industry','Arc Welding Certification','Fall Protection Competency'];
+function isDuplicateTitle(){
+  const v = titleValue().toLowerCase();
+  if(!v) return false;
+  // editing an item keeps its own name available
+  if(editingRecordName && v === editingRecordName.toLowerCase()) return false;
+  return EXISTING_TITLES.some(n => n.toLowerCase() === v);
+}
+function validateTitleUnique(){
+  if(isDuplicateTitle()){ showTitleError('A ' + currentTypeLabel().toLowerCase() + ' named "' + titleValue() + '" already exists. Choose a unique name.'); return false; }
+  clearTitleError(); return true;
+}
 
 /* ─── Save ─── */
 function saveLP(){
-  if(!titleValue()){ showTitleError(); document.getElementById('lp-title').focus(); showToast('A title is required before saving.'); return; }
+  if(!titleValue()){ showTitleError('A title is required before saving.'); document.getElementById('lp-title').focus(); showToast('A title is required before saving.'); return; }
+  if(isDuplicateTitle()){ validateTitleUnique(); document.getElementById('lp-title').focus(); showToast('That name is already in use.'); return; }
   clearTitleError();
   // Unsaved edits to existing/assigned requirements must be resolved before the qualification saves
   if(hasUnsavedExistingReqs()){ openReqValidate(); return; }
+  // Saving changes to an existing/assigned qualification needs confirmation (consequences for learners)
+  if(isExistingQual && qualDirty && !suppressQualSaveConfirm){ openQualSaveConfirm(); return; }
   if(editProtected){ openEditSave(); return; }   // completed learners → choose how to save
+  openConfirmation();
+}
+/* Confirm saving changes to an existing/assigned qualification */
+function openQualSaveConfirm(){ const cb=document.getElementById('qualsave-confirm-check'); if(cb) cb.checked=false; document.getElementById('qualsave-overlay').classList.remove('hidden'); }
+function closeQualSave(){ document.getElementById('qualsave-overlay').classList.add('hidden'); }
+function confirmQualSave(){
+  const cb=document.getElementById('qualsave-confirm-check'); if(cb && cb.checked) suppressQualSaveConfirm=true;
+  document.getElementById('qualsave-overlay').classList.add('hidden');
+  if(editProtected){ openEditSave(); return; }
+  openConfirmation();
+}
+/* Save as a brand-new qualification (the existing one is left untouched) */
+function saveQualAsNew(){
+  if(!titleValue()){ showTitleError('A title is required before saving.'); document.getElementById('lp-title').focus(); return; }
+  if(isDuplicateTitle()){ validateTitleUnique(); document.getElementById('lp-title').focus(); showToast('That name is already in use.'); return; }
+  isExistingQual=false; assignedQual=false; qualDirty=false; editProtected=false;
+  showToast('Saving as a new ' + currentTypeLabel().toLowerCase() + ' (the original is unchanged)');
   openConfirmation();
 }
 
@@ -2943,7 +3015,8 @@ const ORG_TREE = [
     { label:'Construction' },
   ]},
 ];
-let selectedLocation = null;
+/* Defaults to the site's global location (the organization, for the prototype) */
+let selectedLocation = 'Orlando Organization';
 let _activeLocRow = null;
 
 function buildLocTree(nodes, parentPath){
@@ -2982,7 +3055,7 @@ function initLocPicker(){
   if (dd && !dd.hasChildNodes()) dd.appendChild(buildLocTree(ORG_TREE, ''));
 }
 function selectLocation(path, rowEl){
-  selectedLocation = path;
+  selectedLocation = path; markQualDirty();
   const trigger = document.getElementById('loc-trigger');
   const txt = document.getElementById('loc-trigger-text');
   if (trigger) trigger.classList.add('has-value');
@@ -3010,11 +3083,17 @@ function closeLocDropdown(){
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Live-sync the header title with the qualification/requirement name field
+  // Live-sync the header title with the qualification/requirement name field + validate uniqueness
   const titleField = document.getElementById('lp-title');
   if (titleField){
-    titleField.addEventListener('input', syncHeaderTitle);
-    titleField.addEventListener('value-changed', syncHeaderTitle);
+    const onTitle = () => { syncHeaderTitle(); markQualDirty(); validateTitleUnique(); };
+    titleField.addEventListener('input', onTitle);
+    titleField.addEventListener('value-changed', onTitle);
+  }
+  const descField = document.getElementById('lp-description');
+  if (descField){
+    descField.addEventListener('input', markQualDirty);
+    descField.addEventListener('value-changed', markQualDirty);
   }
   // V1 one-shot prompt: required + gate suggestions by length
   const spPrompt = document.getElementById('sp-prompt');
