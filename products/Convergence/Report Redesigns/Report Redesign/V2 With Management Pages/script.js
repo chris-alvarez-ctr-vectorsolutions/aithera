@@ -849,9 +849,13 @@ function markViewDirty() { if (appliedSavedView && !suppressDirty) viewDirty = t
 // Reflect a saved view's filters in the report filter panel
 function populateFilterPanelFromView(view) {
     suppressDirty = true;
-    // Date range
-    const dateInput = document.querySelector('#filterPanel .date-input');
-    if (dateInput && view.dateRange) dateInput.value = view.dateRange;
+    // Date range — reflect the view's range in the dropdown trigger + hidden input
+    if (view.dateRange && typeof syncDateRangeDisplay === 'function') {
+        syncDateRangeDisplay('#filterPanel', view.dateRange);
+    } else {
+        const dateInput = document.querySelector('#filterPanel .date-input');
+        if (dateInput && view.dateRange) dateInput.value = view.dateRange;
+    }
 
     // Qualification + User chips (driven by pickerState + the picker data)
     if (typeof pickerState !== 'undefined') {
@@ -2085,7 +2089,9 @@ function formatSchedule(s) {
     let base;
     if (s.freqValue === 'daily')        base = 'Daily';
     else if (s.freqValue === 'weekly')  base = 'Weekly · ' + (s.days.length ? s.days.join(', ') : '—');
-    else if (s.freqValue === 'monthly') base = 'Monthly · Day ' + s.dayOfMonth;
+    else if (s.freqValue === 'monthly') base = (s.monthMode === 'weekday' && s.monthOrdinal)
+        ? `Monthly · ${s.monthOrdinal} ${s.monthWeekday}`
+        : 'Monthly · Day ' + s.dayOfMonth;
     else                                base = 'Quarterly';
     let out = `${base} at ${formatTime(s.timeValue)}`;
     if (s.endDate) out += ` · until ${formatDateFriendly(s.endDate)}`;
@@ -2100,7 +2106,7 @@ function deliveryLabelHTML(s) {
     const types = s.deliveryTypes || (s.delivery ? [s.delivery] : ['file']);
     const parts = [];
     if (types.includes('file')) {
-        parts.push(`<span class="da-file"><i class="fa-solid fa-file-csv da-file-icon"></i> CSV</span>`);
+        parts.push(`<span class="da-file"><i class="fa-solid fa-file-arrow-down da-file-icon"></i> ${s.format || 'Excel'}</span>`);
     }
     if (types.includes('link')) {
         parts.push(`<button type="button" class="view-report-link" data-sid="${s.id}" title="Open this report with its filters applied"><i class="fa-solid fa-up-right-from-square"></i> Link to Filtered Report</button>`);
@@ -2197,9 +2203,7 @@ function refreshEmailDialog() {
 function applyEmailMode(mode) {
     emailDialogConfig.mode = mode;
     const sched = document.getElementById('emailScheduleFields');
-    const once  = document.getElementById('emailOnceFields');
     if (sched) sched.style.display = mode === 'schedule' ? '' : 'none';
-    if (once)  once.style.display  = mode === 'once' ? '' : 'none';
     // The saved-view requirement only applies to scheduling
     const note = document.getElementById('emailSavedViewNote');
     if (note) note.style.display = mode === 'schedule' ? '' : 'none';
@@ -2302,42 +2306,58 @@ emailReportDialog.renderer = (root) => {
 
         <!-- SCHEDULE-ONLY FIELDS -->
         <div id="emailScheduleFields">
-            <p class="sv-section-heading" id="emailScheduleHeading">Schedule</p>
-            <vaadin-text-field theme="outlined" id="emailScheduleName" label="Delivery Name"
+            <hr class="sv-hr">
+            <p class="sv-section-heading">Scheduled report name</p>
+            <vaadin-text-field theme="outlined" id="emailScheduleName" label="Name"
                 placeholder="e.g. Exec team — weekly" required style="width:100%"></vaadin-text-field>
 
-            <div class="email-2col" style="margin-top:12px">
-                <vaadin-select theme="outlined" id="emailFrequency" label="Frequency" style="width:100%"></vaadin-select>
-                <vaadin-select theme="outlined" id="emailTime" label="Time" style="width:100%"></vaadin-select>
-            </div>
+            <hr class="sv-hr">
+
+            <p class="sv-section-heading">Recurrence</p>
+            <vaadin-select theme="outlined" id="emailFrequency" label="Frequency" style="width:200px"></vaadin-select>
 
             <div id="freq-weekly" class="freq-detail">
                 <label class="filter-label" style="display:block;margin-bottom:6px">Send on</label>
                 <div class="dow-row" id="dowRow"></div>
             </div>
             <div id="freq-monthly" class="freq-detail">
-                <vaadin-select theme="outlined" id="emailDayOfMonth" label="Day of month" style="width:100%"></vaadin-select>
+                <div class="month-mode">
+                    <label class="month-mode-opt">
+                        <input type="radio" name="monthMode" value="weekday" checked>
+                        <span class="month-mode-row">On the
+                            <vaadin-select theme="outlined small" id="emailMonthOrdinal" style="width:120px"></vaadin-select>
+                            <vaadin-select theme="outlined small" id="emailMonthWeekday" style="width:150px"></vaadin-select>
+                            of every month</span>
+                    </label>
+                    <label class="month-mode-opt">
+                        <input type="radio" name="monthMode" value="day">
+                        <span class="month-mode-row">On day
+                            <vaadin-select theme="outlined small" id="emailDayOfMonth" style="width:104px"></vaadin-select>
+                            of every month</span>
+                    </label>
+                    <p class="month-day-note">If a month doesn’t have that day (e.g. day 31 in February), the report sends on the month’s last day.</p>
+                </div>
             </div>
             <div id="freq-quarterly" class="freq-detail freq-note">
                 <i class="fa-regular fa-circle-info"></i> Sends on the first day of each quarter (Jan, Apr, Jul, Oct).
             </div>
 
-            <div class="email-2col" style="margin-top:12px">
-                <vaadin-date-picker theme="outlined" id="emailStartDate" label="Start date"
-                    style="width:100%"></vaadin-date-picker>
+            <div class="email-fieldrow">
+                <vaadin-date-picker theme="outlined" id="emailStartDate" label="Start date" style="width:180px"></vaadin-date-picker>
+                <vaadin-select theme="outlined" id="emailTime" label="Time" style="width:140px"></vaadin-select>
                 <vaadin-date-picker theme="outlined" id="emailEndDate" label="End date (optional)"
-                    helper-text="Leave blank to run indefinitely" style="width:100%"></vaadin-date-picker>
+                    helper-text="Leave blank to run indefinitely" style="width:180px"></vaadin-date-picker>
             </div>
         </div>
 
-        <!-- SEND-ONCE-ONLY FIELDS -->
-        <div id="emailOnceFields">
-            <p class="sv-section-heading">Message <span style="font-weight:400;color:var(--vsp-color-neutral-60,#777)">(optional)</span></p>
-            <vaadin-text-field theme="outlined" id="emailSubject" label="Subject"
-                placeholder="${cfg.reportName} export" style="width:100%"></vaadin-text-field>
-            <vaadin-text-area theme="outlined" id="emailMessage" label="Message"
-                placeholder="Add a note for recipients..." style="width:100%;margin-top:12px"></vaadin-text-area>
-        </div>
+        <hr class="sv-hr">
+
+        <!-- EMAIL CONTENT (both modes) -->
+        <p class="sv-section-heading">Email message</p>
+        <vaadin-text-field theme="outlined" id="emailSubject" label="Subject"
+            placeholder="${cfg.reportName}" style="width:100%"></vaadin-text-field>
+        <vaadin-text-area theme="outlined" id="emailMessage" label="Body Message"
+            placeholder="Add a message for recipients..." style="width:100%;margin-top:10px"></vaadin-text-area>
 
         <hr class="sv-hr">
 
@@ -2346,8 +2366,11 @@ emailReportDialog.renderer = (root) => {
             <label class="deliv-opt">
                 <input type="checkbox" class="deliv-cb" value="file" checked>
                 <span class="deliv-opt-body">
-                    <span class="deliv-opt-title"><i class="fa-solid fa-file-csv"></i> Attached file</span>
-                    <span class="deliv-opt-desc">A CSV export of the report is attached to the email.</span>
+                    <span class="deliv-opt-title"><i class="fa-solid fa-file-arrow-down"></i> Downloadable report file</span>
+                    <span class="deliv-opt-desc">The email includes a Convergence link to download the report.</span>
+                    <span class="deliv-format-row" id="delivFormatRow">
+                        <vaadin-select theme="outlined small" id="emailFormat" label="File format" style="width:210px"></vaadin-select>
+                    </span>
                 </span>
             </label>
             <label class="deliv-opt">
@@ -2358,6 +2381,8 @@ emailReportDialog.renderer = (root) => {
                 </span>
             </label>
         </div>
+
+        <hr class="sv-hr">
 
         <p class="sv-section-heading">Report contents</p>
         <div id="emailSavedViewNote" class="email-sv-note"></div>
@@ -2391,12 +2416,34 @@ emailReportDialog.renderer = (root) => {
     root.querySelector('#recipBox').addEventListener('click', () => recipInput.focus());
     root.querySelector('#recipBrowseBtn').addEventListener('click', openRecipientPicker);
 
-    // Delivery method (attached file and/or filtered-report link) — preselect on edit.
+    // Delivery method (downloadable file and/or filtered-report link) — preselect on edit.
     // Default is both selected; legacy records used a single `delivery` value.
     const delivTypes = edit
         ? (edit.deliveryTypes || (edit.delivery ? [edit.delivery] : ['file', 'link']))
         : ['file', 'link'];
     root.querySelectorAll('.deliv-cb').forEach(cb => { cb.checked = delivTypes.includes(cb.value); });
+
+    // File format for the downloadable file (only relevant when "file" is chosen)
+    const fmtSel = root.querySelector('#emailFormat');
+    fmtSel.items = [
+        { label: 'Adobe PDF', value: 'PDF' },
+        { label: 'Microsoft Excel', value: 'Excel' },
+        { label: 'CSV', value: 'CSV' },
+    ];
+    fmtSel.value = (edit && edit.format) || 'PDF';
+    const fileCb = root.querySelector('.deliv-cb[value="file"]');
+    const fmtRow = root.querySelector('#delivFormatRow');
+    const syncFmtRow = () => { if (fmtRow) fmtRow.style.display = fileCb.checked ? '' : 'none'; };
+    fileCb.addEventListener('change', syncFmtRow);
+    syncFmtRow();
+
+    // Email subject + body (both modes) — prefill on edit
+    if (edit) {
+        const subj = root.querySelector('#emailSubject');
+        const msg = root.querySelector('#emailMessage');
+        if (subj) subj.value = edit.subject || '';
+        if (msg) msg.value = edit.message || '';
+    }
 
     // Frequency select
     const freqSel = root.querySelector('#emailFrequency');
@@ -2409,18 +2456,30 @@ emailReportDialog.renderer = (root) => {
     freqSel.value = edit ? edit.freqValue : 'weekly';
     freqSel.addEventListener('value-changed', () => applyFreqDetail(freqSel.value));
 
-    // Time select (30-minute intervals)
+    // Time select (15-minute intervals; formatTime shows AM/PM)
     const timeSel = root.querySelector('#emailTime');
-    timeSel.items = Array.from({ length: 48 }, (_, i) => {
-        const v = String(Math.floor(i / 2)).padStart(2, '0') + ':' + (i % 2 ? '30' : '00');
+    timeSel.items = Array.from({ length: 96 }, (_, i) => {
+        const v = String(Math.floor(i / 4)).padStart(2, '0') + ':' + String((i % 4) * 15).padStart(2, '0');
         return { label: formatTime(v), value: v };
     });
     timeSel.value = edit ? edit.timeValue : '08:00';
 
-    // Day of month select
+    // Monthly: ordinal + weekday selects, day-of-month (1–31), and mode radios
+    const ordSel = root.querySelector('#emailMonthOrdinal');
+    ordSel.items = ['first', 'second', 'third', 'fourth', 'last'].map(x => ({ label: x, value: x }));
+    ordSel.value = (edit && edit.monthOrdinal) || 'first';
+
+    const wdSel = root.querySelector('#emailMonthWeekday');
+    wdSel.items = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(x => ({ label: x, value: x }));
+    wdSel.value = (edit && edit.monthWeekday) || 'Monday';
+
     const domSel = root.querySelector('#emailDayOfMonth');
-    domSel.items = Array.from({ length: 28 }, (_, i) => ({ label: 'Day ' + (i + 1), value: String(i + 1) }));
+    domSel.items = Array.from({ length: 31 }, (_, i) => ({ label: String(i + 1), value: String(i + 1) }));
     domSel.value = String(edit ? edit.dayOfMonth : 1);
+
+    const mMode = (edit && edit.monthMode) || 'weekday';
+    const mr = root.querySelector(`input[name="monthMode"][value="${mMode}"]`);
+    if (mr) mr.checked = true;
 
     // Day-of-week buttons (single-select)
     const dowRow = root.querySelector('#dowRow');
@@ -2480,11 +2539,6 @@ emailReportDialog.renderer = (root) => {
         }
         summaryEl.appendChild(rowEl);
     });
-
-    // Schedule form heading (the in-dialog list of existing deliveries was
-    // removed — deliveries are managed from the Views & Schedules page instead)
-    const schedHeading = root.querySelector('#emailScheduleHeading');
-    if (schedHeading) schedHeading.textContent = cfg.editId ? 'Edit this delivery' : 'Schedule';
 
     // Apply initial mode + freq detail
     applyEmailMode(cfg.mode);
@@ -2557,6 +2611,9 @@ function submitEmailDialog() {
     const startDate  = document.getElementById('emailStartDate')?.value || '';
     const endDate    = document.getElementById('emailEndDate')?.value || '';
     const dayOfMonth = parseInt(document.getElementById('emailDayOfMonth')?.value || '1', 10);
+    const monthMode = document.querySelector('input[name="monthMode"]:checked')?.value || 'weekday';
+    const monthOrdinal = document.getElementById('emailMonthOrdinal')?.value || 'first';
+    const monthWeekday = document.getElementById('emailMonthWeekday')?.value || 'Monday';
     const days = [...document.querySelectorAll('#dowRow .dow-btn.active')].map(b => b.dataset.dow);
 
     if (freqValue === 'weekly' && days.length === 0) {
@@ -2574,10 +2631,14 @@ function submitEmailDialog() {
         showToast('Select at least one delivery type');
         return;
     }
+    const format  = document.getElementById('emailFormat')?.value || 'PDF';
+    const subject = document.getElementById('emailSubject')?.value || '';
+    const message = document.getElementById('emailMessage')?.value || '';
 
     const pending = {
-        name, report: cfg.reportName, freqValue, days, dayOfMonth, startDate, endDate, timeValue,
-        recipients: [...recipients], deliveryTypes, format: 'CSV',
+        name, report: cfg.reportName, freqValue, days, dayOfMonth,
+        monthMode, monthOrdinal, monthWeekday, startDate, endDate, timeValue,
+        recipients: [...recipients], deliveryTypes, format, subject, message,
         nextSend: formatDateFriendly(startDate),
     };
 
@@ -3593,3 +3654,121 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('emailReportDialog')?.addEventListener('opened-changed', (e) => { if (!e.detail.value) refreshIfVisible(); });
     document.getElementById('scheduleDeleteDialog')?.addEventListener('opened-changed', (e) => { if (!e.detail.value) refreshIfVisible(); });
 });
+
+
+// ================================================================
+// DATE RANGE — preset dropdown + custom calendar range (filter panel)
+// Presets compute a real start/end from today (same calendar logic as v1);
+// "Choose a date range" reveals two design-system date pickers. The hidden
+// .date-input mirrors the displayed selection so getReportFilterSummary /
+// saved views read it exactly as before.
+// ================================================================
+function drangePresetRange(key) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const end = new Date(today);
+    let start = new Date(today);
+    switch (key) {
+        case 'today':                                               break;
+        case 'yesterday': start.setDate(today.getDate() - 1); end.setDate(today.getDate() - 1); break;
+        case 'last7':     start.setDate(today.getDate() - 6);       break;
+        case 'last30':    start.setDate(today.getDate() - 29);      break;
+        case 'last90':    start.setDate(today.getDate() - 89);      break;
+        case 'lastyear':  start.setFullYear(today.getFullYear() - 1); start.setDate(start.getDate() + 1); break;
+        case 'datetonow': start = null;                             break; // open-ended through today
+        default: return null;
+    }
+    return { start, end };
+}
+function drangeFmt(d) { return d ? `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}` : null; }
+function drangeParseIso(v) { if (!v) return null; const [y, m, d] = v.split('-').map(Number); return (y && m && d) ? new Date(y, m - 1, d) : null; }
+// Explicit date-window text for the Completion Status Overview badge
+function drangeBadgeText(s, e) {
+    if (!s && e) return `Through ${drangeFmt(e)}`;
+    if (s && e && drangeFmt(s) === drangeFmt(e)) return drangeFmt(s);
+    if (s && e) return `${drangeFmt(s)} - ${drangeFmt(e)}`;
+    return 'All dates';
+}
+// Update the overview date badge (only the qual report has #completionOverview)
+function setOverviewDateBadge(box, text) {
+    const badge = box.closest('.page-layout')?.querySelector('#completionOverview .date-badge');
+    if (badge) badge.innerHTML = `<i class="fa-regular fa-calendar"></i> ${text}`;
+}
+
+function initDateRangeDD(box) {
+    const trigger = box.querySelector('.drange-trigger');
+    const triggerLabel = box.querySelector('.drange-trigger-label');
+    const menu = box.querySelector('.drange-menu');
+    const presetsWrap = box.querySelector('.drange-presets');
+    const opts = box.querySelectorAll('.drange-opt');
+    const custom = box.querySelector('.drange-custom');
+    const backBtn = box.querySelector('.drange-back');
+    const startP = box.querySelector('.drange-start');
+    const endP = box.querySelector('.drange-end');
+    const applyBtn = box.querySelector('.drange-apply');
+    const hidden = box.querySelector('.date-input');
+
+    // Two views inside the menu: the preset list, or the custom date pickers
+    // (which REPLACE the list so Apply is visible without scrolling).
+    const showPresets = () => { if (presetsWrap) presetsWrap.hidden = false; custom.hidden = true; };
+    const showCustom  = () => { if (presetsWrap) presetsWrap.hidden = true;  custom.hidden = false; };
+    const openMenu  = () => { showPresets(); menu.hidden = false; trigger.classList.add('open'); };
+    const closeMenu = () => { menu.hidden = true; trigger.classList.remove('open'); };
+    const setActive = (opt) => { opts.forEach(o => o.classList.remove('active')); if (opt) opt.classList.add('active'); };
+    const setLabel  = (text) => { triggerLabel.textContent = text; hidden.value = text; };
+
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (menu.hidden) openMenu(); else closeMenu();
+    });
+
+    opts.forEach(opt => opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const key = opt.dataset.range;
+        if (key === 'custom') {
+            setActive(opt);
+            showCustom();     // swap the preset list for the date pickers
+            return;
+        }
+        setActive(opt);
+        setLabel(opt.textContent.trim());   // e.g. "Past 30 days"
+        const r = drangePresetRange(key);
+        if (r) setOverviewDateBadge(box, drangeBadgeText(r.start, r.end));
+        closeMenu();
+    }));
+
+    backBtn?.addEventListener('click', (e) => { e.stopPropagation(); showPresets(); });
+
+    function applyCustom() {
+        const s  = drangeParseIso(startP.value);
+        const en = drangeParseIso(endP.value);
+        if (!s || !en) { endP.invalid = true; endP.errorMessage = 'Pick a start and end date'; return; }
+        if (en < s)    { endP.invalid = true; endP.errorMessage = 'End date must be after the start date'; return; }
+        endP.invalid = false;
+        setLabel(`${drangeFmt(s)} - ${drangeFmt(en)}`);
+        setOverviewDateBadge(box, `${drangeFmt(s)} - ${drangeFmt(en)}`);
+        closeMenu();
+    }
+    applyBtn?.addEventListener('click', (e) => { e.stopPropagation(); applyCustom(); });
+
+    document.addEventListener('click', (e) => { if (!box.contains(e.target)) closeMenu(); });
+
+    // Sync the overview badge to the initially-active preset
+    const initActive = box.querySelector('.drange-opt.active');
+    if (initActive) {
+        const r = drangePresetRange(initActive.dataset.range);
+        if (r) setOverviewDateBadge(box, drangeBadgeText(r.start, r.end));
+    }
+}
+document.querySelectorAll('.date-range-dd').forEach(initDateRangeDD);
+
+// Keep the date-range trigger label (and overview badge) in sync when a saved view is applied
+function syncDateRangeDisplay(scopeSel, text) {
+    const dd = document.querySelector(`${scopeSel} .date-range-dd`);
+    if (!dd) return;
+    const lbl = dd.querySelector('.drange-trigger-label');
+    if (lbl) lbl.textContent = text;
+    dd.querySelectorAll('.drange-opt').forEach(o => o.classList.remove('active'));
+    const hidden = dd.querySelector('.date-input');
+    if (hidden) hidden.value = text;
+    if (typeof setOverviewDateBadge === 'function') setOverviewDateBadge(dd, text);
+}

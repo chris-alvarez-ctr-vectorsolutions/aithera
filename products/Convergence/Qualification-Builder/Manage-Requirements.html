@@ -113,6 +113,15 @@
     /* Toast */
     .mgmt-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:#1f2937; color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:1100; }
     .mgmt-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+    /* Deactivate confirmation dialog */
+    .confirm-overlay { position:fixed; inset:0; background:rgba(15,23,42,.45); z-index:3000; display:flex; align-items:center; justify-content:center; }
+    .confirm-overlay.hidden { display:none; }
+    .confirm-dialog { background:#fff; border-radius:12px; width:460px; max-width:calc(100vw - 48px); padding:26px 28px 22px; box-shadow:0 25px 60px rgba(0,0,0,.2); }
+    .confirm-dialog .cd-icon { font-size:30px; color:#f59e0b; margin-bottom:12px; }
+    .confirm-dialog h3 { font-size:16px; font-weight:700; color:#1a1a2e; margin-bottom:8px; }
+    .confirm-dialog p { font-size:13px; color:#6b7280; line-height:1.6; margin-bottom:18px; }
+    .confirm-dialog .cd-btns { display:flex; gap:8px; justify-content:flex-end; }
   </style>
 </head>
 <body>
@@ -176,6 +185,19 @@
   </div>
 </div>
 
+<!-- Deactivate confirmation -->
+<div class="confirm-overlay hidden" id="deactivate-overlay">
+  <div class="confirm-dialog">
+    <div class="cd-icon"><i class="fa-solid fa-circle-pause"></i></div>
+    <h3 id="deactivate-title">Deactivate this item?</h3>
+    <p>Deactivated items are no longer available in their pickers, but they'll still appear on training plans where they're already assigned. Deactivating does not affect existing training records.</p>
+    <div class="cd-btns">
+      <button class="btn btn-secondary btn-sm" onclick="closeDeactivate()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmDeactivateAction()">Deactivate</button>
+    </div>
+  </div>
+</div>
+
 <!-- Convergence chrome -->
 <script>
   window.SHELL_CONFIG = { active: 'qual-requirements', parent: 'Qualifications', title: 'Requirements' };
@@ -220,7 +242,9 @@ function statusRenderer(p){
   return `<span theme="badge dot ${conn}">${p.value}</span>`;
 }
 function locationRenderer(p){
-  return `<span class="cell-loc"><i class="fa-solid fa-location-dot"></i><span class="loc-text">${p.value}</span></span>`;
+  const full = p.value || '';
+  const last = full.split(/[›>]/).pop().trim() || full;
+  return `<span class="cell-loc" title="${full.replace(/"/g,'&quot;')}"><i class="fa-solid fa-location-dot"></i><span class="loc-text">${last}</span></span>`;
 }
 
 /* Shared floating dropdown */
@@ -260,9 +284,13 @@ function actionsRenderer(p){
       { icon: isActive ? 'fa-solid fa-circle-pause' : 'fa-solid fa-circle-play',
         label: isActive ? 'Deactivate' : 'Activate',
         action: () => {
-          p.data.status = isActive ? 'Inactive' : 'Active';
-          gridApi.applyTransaction({ update:[p.data] });
-          gridApi.refreshCells({ rowNodes:[p.node], columns:['status','actions'], force:true });
+          const apply = () => {
+            p.data.status = isActive ? 'Inactive' : 'Active';
+            gridApi.applyTransaction({ update:[p.data] });
+            gridApi.refreshCells({ rowNodes:[p.node], columns:['status','actions'], force:true });
+          };
+          if (isActive) openDeactivate('Deactivate this requirement?', apply);
+          else apply();
         }},
       { icon:'fa-regular fa-copy', label:'Duplicate', action: () => alert('Duplicate "' + p.data.name + '" (prototype).') },
       { icon:'fa-regular fa-trash-can', label:'Delete', danger:true, action: () => {
@@ -282,7 +310,7 @@ let qualValue  = '';
 const gridOptions = {
   rowData: REQS,
   columnDefs: [
-    { colId:'select', width:46, maxWidth:46, pinned:'left', checkboxSelection:true, headerCheckboxSelection:true, headerCheckboxSelectionFilteredOnly:true, sortable:false, filter:false, resizable:false, suppressMovable:true, suppressHeaderMenuButton:true },
+    { colId:'select', width:46, maxWidth:46, pinned:'left', checkboxSelection:true, sortable:false, filter:false, resizable:false, suppressMovable:true, suppressHeaderMenuButton:true },
     { headerName:'Requirement',          field:'name',       flex:2, minWidth:260, cellRenderer:nameRenderer, getQuickFilterText:p=>p.data.name+' '+p.data.desc },
     { headerName:'Completion Criteria',  field:'criteria',   width:175, cellRenderer:criteriaRenderer },
     { headerName:'Completion Order',     field:'order',      width:160, cellRenderer:orderRenderer },
@@ -342,13 +370,23 @@ function bulkSetStatus(status){
   showToast(rows.length + ' ' + (status==='Active'?'activated':'deactivated'));
 }
 function bulkActivate(){ bulkSetStatus('Active'); }
-function bulkDeactivate(){ bulkSetStatus('Inactive'); }
+function bulkDeactivate(){ openDeactivate('Deactivate the selected requirements?', () => bulkSetStatus('Inactive')); }
 function bulkDelete(){
   const rows = bulkRows(); if(!rows.length) return;
   if(confirm('Delete ' + rows.length + ' selected requirement' + (rows.length!==1?'s':'') + '? This is a prototype and only removes the rows.')){
     gridApi.applyTransaction({ remove: rows }); updateCount(); updateBulkBar();
   }
 }
+
+/* ─── Deactivate confirmation ─── */
+let _deactivateCb = null;
+function openDeactivate(title, onConfirm){
+  document.getElementById('deactivate-title').textContent = title;
+  _deactivateCb = onConfirm;
+  document.getElementById('deactivate-overlay').classList.remove('hidden');
+}
+function closeDeactivate(){ document.getElementById('deactivate-overlay').classList.add('hidden'); _deactivateCb = null; }
+function confirmDeactivateAction(){ const cb = _deactivateCb; closeDeactivate(); if (cb) cb(); }
 
 /* ─── Toast ─── */
 let _toastTimer = null;

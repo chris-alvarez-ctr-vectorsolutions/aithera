@@ -77,17 +77,46 @@
             </button>
         </div>
 
-        <!-- Actions Row — v1 supports scheduled-report creation only, so the
-             saved-view CRUD controls (Save View / Apply Saved View) are gone. -->
+        <!-- Actions Row -->
         <div class="actions-row">
             <div class="actions-left">
                 <vaadin-button theme="primary small" id="emailBtn">
-                    <i class="fa-regular fa-clock" slot="prefix"></i> Schedule a Report
+                    <i class="fa-regular fa-paper-plane" slot="prefix"></i> Send Report
                 </vaadin-button>
                 <vaadin-button theme="secondary small" id="exportBtn">
                     <i class="fa-solid fa-file-export" slot="prefix"></i> Export
                 </vaadin-button>
             </div>
+            <div class="actions-right">
+                <div class="save-view-control" id="saveViewControl">
+                    <vaadin-button theme="secondary small" id="saveViewBtn">
+                        <i class="fa-solid fa-floppy-disk" slot="prefix"></i> <span id="saveViewBtnLabel">Save View</span>
+                        <i class="fa-solid fa-chevron-down" slot="suffix" style="font-size:10px"></i>
+                    </vaadin-button>
+                    <div class="split-btn-menu" id="saveViewMenu" style="display:none">
+                        <button type="button" class="split-btn-item" id="saveViewItem">
+                            <i class="fa-solid fa-floppy-disk"></i> <span id="saveViewItemLabel">Save View</span>
+                        </button>
+                        <button type="button" class="split-btn-item" id="saveNewViewItem">
+                            <i class="fa-regular fa-floppy-disk"></i> Save New View
+                        </button>
+                    </div>
+                </div>
+                <vaadin-button theme="secondary small" id="applySavedViewBtn">
+                    <i class="fa-solid fa-bookmark" slot="prefix"></i> Apply Saved View
+                </vaadin-button>
+            </div>
+        </div>
+
+        <!-- Applied Saved View banner -->
+        <div class="applied-banner" id="appliedBanner" style="display:none">
+            <i class="fa-solid fa-bookmark applied-banner-icon"></i>
+            <span class="applied-banner-label">Saved View Applied:</span>
+            <span class="applied-banner-name" id="appliedBannerName"></span>
+            <span class="msv-sched-tag" id="appliedBannerSched" style="display:none"></span>
+            <button class="applied-banner-clear" id="clearAppliedViewBtn">
+                <i class="fa-solid fa-xmark"></i> Clear View
+            </button>
         </div>
 
         <!-- ── Completion Status Overview ──────────────────── -->
@@ -452,21 +481,32 @@
                  summary string in sync so the schedule dialog can read it. -->
             <div class="filter-section">
                 <label class="filter-label">Date Range</label>
-                <div class="date-range" data-drange="qual">
-                    <div class="drange-presets">
-                        <button type="button" class="drange-preset" data-range="today">Today</button>
-                        <button type="button" class="drange-preset" data-range="last7">Last 7 days</button>
-                        <button type="button" class="drange-preset active" data-range="last30">Last 30 days</button>
-                        <button type="button" class="drange-preset" data-range="thismonth">This month</button>
-                        <button type="button" class="drange-preset" data-range="thisyear">This year</button>
-                        <button type="button" class="drange-preset" data-range="custom">Custom…</button>
+                <div class="date-range-dd" data-drange="qual">
+                    <button type="button" class="drange-trigger">
+                        <span class="drange-trigger-label">Past 30 days</span>
+                        <i class="fa-solid fa-chevron-down drange-trigger-chev"></i>
+                    </button>
+                    <div class="drange-menu" hidden>
+                        <div class="drange-presets">
+                            <button type="button" class="drange-opt" data-range="today">Today</button>
+                            <button type="button" class="drange-opt" data-range="yesterday">Yesterday</button>
+                            <button type="button" class="drange-opt" data-range="last7">Past 7 days</button>
+                            <button type="button" class="drange-opt active" data-range="last30">Past 30 days</button>
+                            <button type="button" class="drange-opt" data-range="last90">Past 90 days</button>
+                            <button type="button" class="drange-opt" data-range="lastyear">Past year</button>
+                            <button type="button" class="drange-opt" data-range="datetonow">Date to now</button>
+                            <button type="button" class="drange-opt drange-opt-custom" data-range="custom">Custom date range</button>
+                        </div>
+                        <div class="drange-custom" hidden>
+                            <button type="button" class="drange-back"><i class="fa-solid fa-chevron-left"></i> Date range options</button>
+                            <vaadin-date-picker theme="outlined small" class="drange-start" label="Start date" style="width:100%"></vaadin-date-picker>
+                            <vaadin-date-picker theme="outlined small" class="drange-end" label="End date" style="width:100%;margin-top:8px"></vaadin-date-picker>
+                            <div class="drange-custom-actions">
+                                <vaadin-button theme="primary small" class="drange-apply">Apply</vaadin-button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="drange-custom" hidden>
-                        <vaadin-date-picker theme="outlined small" class="drange-start" label="From" style="width:100%"></vaadin-date-picker>
-                        <vaadin-date-picker theme="outlined small" class="drange-end" label="To" style="width:100%"></vaadin-date-picker>
-                    </div>
-                    <p class="drange-summary"><i class="fa-regular fa-calendar"></i> <span class="drange-summary-text">Last 30 days</span></p>
-                    <input type="hidden" class="date-input" value="Last 30 days">
+                    <input type="hidden" class="date-input" value="Past 30 days">
                 </div>
             </div>
 
@@ -550,7 +590,7 @@
         <div class="actions-row">
             <div class="actions-left">
                 <vaadin-button theme="primary small" id="actExEmailBtn">
-                    <i class="fa-regular fa-clock" slot="prefix"></i> Schedule a Report
+                    <i class="fa-regular fa-paper-plane" slot="prefix"></i> Send Report
                 </vaadin-button>
                 <vaadin-button theme="secondary small">
                     <i class="fa-solid fa-file-export" slot="prefix"></i> Export
@@ -732,21 +772,32 @@
 
             <div class="filter-section">
                 <label class="filter-label">Date Range</label>
-                <div class="date-range" data-drange="actex">
-                    <div class="drange-presets">
-                        <button type="button" class="drange-preset" data-range="today">Today</button>
-                        <button type="button" class="drange-preset" data-range="last7">Last 7 days</button>
-                        <button type="button" class="drange-preset active" data-range="last30">Last 30 days</button>
-                        <button type="button" class="drange-preset" data-range="thismonth">This month</button>
-                        <button type="button" class="drange-preset" data-range="thisyear">This year</button>
-                        <button type="button" class="drange-preset" data-range="custom">Custom…</button>
+                <div class="date-range-dd" data-drange="actex">
+                    <button type="button" class="drange-trigger">
+                        <span class="drange-trigger-label">Past 30 days</span>
+                        <i class="fa-solid fa-chevron-down drange-trigger-chev"></i>
+                    </button>
+                    <div class="drange-menu" hidden>
+                        <div class="drange-presets">
+                            <button type="button" class="drange-opt" data-range="today">Today</button>
+                            <button type="button" class="drange-opt" data-range="yesterday">Yesterday</button>
+                            <button type="button" class="drange-opt" data-range="last7">Past 7 days</button>
+                            <button type="button" class="drange-opt active" data-range="last30">Past 30 days</button>
+                            <button type="button" class="drange-opt" data-range="last90">Past 90 days</button>
+                            <button type="button" class="drange-opt" data-range="lastyear">Past year</button>
+                            <button type="button" class="drange-opt" data-range="datetonow">Date to now</button>
+                            <button type="button" class="drange-opt drange-opt-custom" data-range="custom">Custom date range</button>
+                        </div>
+                        <div class="drange-custom" hidden>
+                            <button type="button" class="drange-back"><i class="fa-solid fa-chevron-left"></i> Date range options</button>
+                            <vaadin-date-picker theme="outlined small" class="drange-start" label="Start date" style="width:100%"></vaadin-date-picker>
+                            <vaadin-date-picker theme="outlined small" class="drange-end" label="End date" style="width:100%;margin-top:8px"></vaadin-date-picker>
+                            <div class="drange-custom-actions">
+                                <vaadin-button theme="primary small" class="drange-apply">Apply</vaadin-button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="drange-custom" hidden>
-                        <vaadin-date-picker theme="outlined small" class="drange-start" label="From" style="width:100%"></vaadin-date-picker>
-                        <vaadin-date-picker theme="outlined small" class="drange-end" label="To" style="width:100%"></vaadin-date-picker>
-                    </div>
-                    <p class="drange-summary"><i class="fa-regular fa-calendar"></i> <span class="drange-summary-text">Last 30 days</span></p>
-                    <input type="hidden" class="date-input" value="Last 30 days">
+                    <input type="hidden" class="date-input" value="Past 30 days">
                 </div>
             </div>
 
@@ -849,12 +900,18 @@
 <!-- ═══════════════════════════════════════════════════════
      SCHEDULE REPORT MODAL (v1: scheduled-report creation only)
 ════════════════════════════════════════════════════════ -->
-<vaadin-dialog id="emailReportDialog" header-title="Schedule a Report"></vaadin-dialog>
+<vaadin-dialog id="emailReportDialog" header-title="Send Report"></vaadin-dialog>
 
 <!-- ═══════════════════════════════════════════════════════
      SELECT RECIPIENTS MODAL (user picker — the only way to add recipients)
 ════════════════════════════════════════════════════════ -->
 <vaadin-dialog id="recipientPickerDialog" header-title="Select Recipients"></vaadin-dialog>
+
+<!-- ═══════════════════════════════════════════════════════
+     SAVE / APPLY SAVED VIEW MODALS
+════════════════════════════════════════════════════════ -->
+<vaadin-dialog id="saveViewDialog" header-title="Create New Saved View"></vaadin-dialog>
+<vaadin-dialog id="selectSavedViewDialog" header-title="Select Saved View"></vaadin-dialog>
 
 <script src="script.js"></script>
 </body>
