@@ -320,11 +320,13 @@
         .collapse-head .chev { cursor: pointer; }
         .tmpl-empty { color: var(--text-soft); font-size: 13.5px; margin: 4px 0 8px; }
 
-        /* Qualifier picker panel inside Create Template dialog */
+        /* Qualifier picker panel — now inlined under Select Assignments (was a modal) */
         .qual-panel { background: #f6f7f9; border-radius: 8px; padding: 18px; }
         .qual-panel h3 { font-size: 15px; font-weight: 700; margin: 0 0 2px; }
         .qual-panel .sub { font-size: 12.5px; color: var(--text-soft); margin: 0 0 12px; line-height: 1.4; }
         .qual-panel .blk2 { margin-top: 22px; }
+        .tmpl-create { margin: 4px 0 10px; }
+        .tmpl-create-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
     </style>
 </head>
 <body>
@@ -574,44 +576,31 @@
                 <div class="assign-grid" id="assignGrid"></div>
                 <div class="collapse-head" style="margin-top:24px;">Assignment Template(s) <span class="chev"><i class="fa-solid fa-chevron-up"></i></span></div>
                 <div id="templateArea"><div class="tmpl-empty">No assignment template created.</div></div>
+                <!-- Inline Create Template panel — was the separate "Select Qualifiers" modal,
+                     now placed directly under Select Assignments. -->
+                <div id="tmplCreatePanel" class="tmpl-create" style="display:none;">
+                    <div class="qual-panel">
+                        <h3>Select qualifiers required to fill positions</h3>
+                        <p class="sub">You must select at least one primary qualifier</p>
+                        <div class="select-label">Qualifier</div>
+                        <vaadin-select id="tmplPrimaryPicker" theme="outlined" placeholder="Select a qualifier…"></vaadin-select>
+                        <div class="blk2">
+                            <h3>Select shared qualifiers</h3>
+                            <p class="sub">The number of shared qualifiers cannot exceed the number of primary qualifiers.</p>
+                            <div class="select-label">Shared Qualifier</div>
+                            <vaadin-select id="tmplSharedPicker" theme="outlined" placeholder="Select a shared qualifier…"></vaadin-select>
+                        </div>
+                        <div class="tmpl-create-actions">
+                            <vaadin-button theme="secondary" id="qualCancel">Cancel</vaadin-button>
+                            <vaadin-button theme="primary" id="qualCreate">Create</vaadin-button>
+                        </div>
+                    </div>
+                </div>
+                <vaadin-button theme="secondary" id="createTemplateBtn" style="margin-top:4px;"><i class="fa-solid fa-plus"></i>&nbsp; Create New Assignment Template</vaadin-button>
             </div>
             <div class="dialog-footer">
-                <vaadin-button theme="secondary" class="footer-left" id="createTemplateBtn"><i class="fa-solid fa-plus"></i>&nbsp; Create New Assignment Template</vaadin-button>
                 <vaadin-button theme="secondary" id="assignCancel">Cancel</vaadin-button>
                 <vaadin-button theme="primary" id="saveRosterBtn">Save Roster</vaadin-button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===================== Select Qualifiers (Create Template) dialog (Flow B) ===================== -->
-    <div class="overlay" id="qualOverlay">
-        <div class="dialog dlg-qual">
-            <div class="dialog-head">
-                <div class="row1">
-                    <div>
-                        <h2>Select Qualifiers</h2>
-                        <div class="dlg-sub">Choose the date range for which assignments should be available.</div>
-                    </div>
-                    <button class="dialog-close" id="qualClose"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-            </div>
-            <div style="padding:8px 24px 4px;">
-                <div class="qual-panel">
-                    <h3>Select qualifiers required to fill positions</h3>
-                    <p class="sub">You must select at least one primary qualifier</p>
-                    <div class="select-label">Qualifier</div>
-                    <vaadin-select id="tmplPrimaryPicker" theme="outlined" placeholder="Select a qualifier…"></vaadin-select>
-                    <div class="blk2">
-                        <h3>Select shared qualifiers</h3>
-                        <p class="sub">The number of shared qualifiers cannot exceed the number of primary qualifiers.</p>
-                        <div class="select-label">Shared Qualifier</div>
-                        <vaadin-select id="tmplSharedPicker" theme="outlined" placeholder="Select a shared qualifier…"></vaadin-select>
-                    </div>
-                </div>
-            </div>
-            <div class="dialog-footer">
-                <vaadin-button theme="secondary" id="qualCancel">Cancel</vaadin-button>
-                <vaadin-button theme="primary" id="qualCreate">Create</vaadin-button>
             </div>
         </div>
     </div>
@@ -881,12 +870,24 @@
                 </div>${bars}</div>`;
         }).join('');
     }
+    // Inline Create-Template panel state (was a separate "Select Qualifiers" modal).
+    let creatingTemplate = false;
     function renderTemplateArea() {
         const area = document.getElementById('templateArea');
-        if (!templateCreated) { area.innerHTML = '<div class="tmpl-empty">No assignment template created.</div>'; return; }
-        const bars = TEMPLATE.slots.map(s => slotBarHtml(s, { removable: true })).join('');
-        area.innerHTML = `<div class="assign-grid"><div class="acard sel">
-            <div class="acard-head"><span class="acard-title">${TEMPLATE.name} <i class="fa-regular fa-pen-to-square acard-edit"></i></span><span class="acard-x">&times;</span></div>${bars}</div></div>`;
+        const panel = document.getElementById('tmplCreatePanel');
+        const btn = document.getElementById('createTemplateBtn');
+        if (templateCreated) {
+            const bars = TEMPLATE.slots.map(s => slotBarHtml(s, { removable: true })).join('');
+            area.innerHTML = `<div class="assign-grid"><div class="acard sel">
+                <div class="acard-head"><span class="acard-title">${TEMPLATE.name} <i class="fa-regular fa-pen-to-square acard-edit"></i></span><span class="acard-x">&times;</span></div>${bars}</div></div>`;
+        } else if (creatingTemplate) {
+            area.innerHTML = '';
+        } else {
+            area.innerHTML = '<div class="tmpl-empty">No assignment template created.</div>';
+        }
+        if (panel) panel.style.display = creatingTemplate ? 'block' : 'none';
+        // Hide the "+ Create New Assignment Template" trigger while creating or once one exists.
+        if (btn) btn.style.display = (templateCreated || creatingTemplate) ? 'none' : '';
     }
 
     // Result rendered into the form after Save Roster
@@ -894,7 +895,7 @@
         const chosen = ASSIGNMENTS.filter(a => a.selected);
         if (!chosen.length && !templateCreated) { document.getElementById('assignResult').innerHTML = ''; return; }
         const cardHtml = a => {
-            const bars = a.slots.map((s, i) => slotBarHtml(s, { removable: true, removeAttr: `data-remove="${a.id}:${i}"` })).join('');
+            const bars = a.slots.map((s, i) => slotBarHtml(s, { removable: true, openClick: `data-fill="${a.id}:${i}"`, removeAttr: `data-remove="${a.id}:${i}"` })).join('');
             return `<div class="acard" data-aid="${a.id}"><div class="acard-head"><span class="acard-title">${a.name}</span><span class="acard-x">&times;</span></div>${bars}</div>`;
         };
         let html = `<div class="assign-section-title">Assignment(s)</div><div class="assign-grid">${chosen.map(cardHtml).join('')}</div>`;
@@ -908,6 +909,15 @@
     document.getElementById('assignResult').addEventListener('click', e => {
         const rem = e.target.closest('.slotbar-x[data-remove]');
         if (rem) { const [aid, idx] = rem.dataset.remove.split(':'); const a = ASSIGNMENTS.find(x => x.id === aid); if (a) { a.slots[Number(idx)].emp = null; renderAssignResult(); } return; }
+        // Clicking an open slot on the result opens the people picker to fill that position.
+        const fill = e.target.closest('.slotbar--open[data-fill]');
+        if (fill) {
+            const [aid, idx] = fill.dataset.fill.split(':');
+            dialogMode = 'flowB'; flowBTarget = { aid, idx: Number(idx) };
+            const a = ASSIGNMENTS.find(x => x.id === aid);
+            openEmployeeDialogForQuals(a.slots[Number(idx)].quals);
+            return;
+        }
         const cardX = e.target.closest('.acard-x');
         if (cardX) {
             const card = cardX.closest('[data-aid]');
@@ -919,7 +929,7 @@
 
     // Modal open/close
     const assignOverlay = document.getElementById('assignOverlay');
-    function openAssignModal() { renderAssignGrid(); renderTemplateArea(); assignOverlay.classList.add('open'); }
+    function openAssignModal() { renderAssignGrid(); creatingTemplate = false; renderTemplateArea(); assignOverlay.classList.add('open'); }
     document.getElementById('openAssignBtn').addEventListener('click', openAssignModal);
     document.getElementById('assignClose').addEventListener('click', () => assignOverlay.classList.remove('open'));
     document.getElementById('assignCancel').addEventListener('click', () => assignOverlay.classList.remove('open'));
@@ -940,12 +950,14 @@
         }
     });
 
-    // Create template dialog
-    const qualOverlay = document.getElementById('qualOverlay');
-    document.getElementById('createTemplateBtn').addEventListener('click', () => qualOverlay.classList.add('open'));
-    document.getElementById('qualClose').addEventListener('click', () => qualOverlay.classList.remove('open'));
-    document.getElementById('qualCancel').addEventListener('click', () => qualOverlay.classList.remove('open'));
-    document.getElementById('qualCreate').addEventListener('click', () => { templateCreated = true; renderTemplateArea(); qualOverlay.classList.remove('open'); });
+    // Create template — inline panel under Select Assignments (no longer a modal).
+    document.getElementById('createTemplateBtn').addEventListener('click', () => { creatingTemplate = true; renderTemplateArea(); });
+    document.getElementById('qualCancel').addEventListener('click', () => { creatingTemplate = false; renderTemplateArea(); });
+    document.getElementById('qualCreate').addEventListener('click', () => { templateCreated = true; creatingTemplate = false; renderTemplateArea(); });
+    // Remove the created template card (× in the modal's template area).
+    document.getElementById('templateArea').addEventListener('click', e => {
+        if (e.target.closest('.acard-x')) { templateCreated = false; creatingTemplate = false; renderTemplateArea(); }
+    });
 
     /* ============================================================
        Select Employee dialog (shared by Flow A + Flow B)
@@ -1010,12 +1022,12 @@
             if (dialogMode === 'flowA' && activeSlotIndex !== null) { slots[activeSlotIndex].employee = dialogSelection; renderSlots(); }
             else if (dialogMode === 'flowB' && flowBTarget) {
                 const a = ASSIGNMENTS.find(x => x.id === flowBTarget.aid);
-                a.slots[flowBTarget.idx].emp = dialogSelection; renderAssignGrid();
+                a.slots[flowBTarget.idx].emp = dialogSelection; renderAssignGrid(); renderAssignResult();
             }
         }
         empOverlay.classList.remove('open');
     });
-    [empOverlay, assignOverlay, qualOverlay].forEach(ov => ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('open'); }));
+    [empOverlay, assignOverlay].forEach(ov => ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('open'); }));
 
     /* ============================================================
        Footer
@@ -1046,7 +1058,7 @@
         //      Each flow node maps to one call; thumbnails boot via the #fm=<id> hash.
         function applyFlowState(id, opts) {
             opts = opts || {};
-            empOverlay.classList.remove('open'); assignOverlay.classList.remove('open'); qualOverlay.classList.remove('open');
+            empOverlay.classList.remove('open'); assignOverlay.classList.remove('open'); creatingTemplate = false;
             if (id === 'land') { showView('landing'); return; }
             if (['n1','n2','n3','n4'].includes(id)) {
                 setDeployType('create'); showView('deployment');
@@ -1066,7 +1078,7 @@
             if (id === 'm1') { document.getElementById('assignResult').innerHTML = ''; return; }
             if (id === 'm2') { openAssignModal(); return; }
             if (id === 'm3') { openAssignModal(); dialogMode = 'flowB'; flowBTarget = { aid: 'a1', idx: 2 }; openEmployeeDialogForQuals(['FF']); return; }
-            if (id === 'm4') { openAssignModal(); qualOverlay.classList.add('open'); return; }
+            if (id === 'm4') { openAssignModal(); creatingTemplate = true; renderTemplateArea(); document.getElementById('tmplCreatePanel').scrollIntoView({ block: 'nearest' }); return; }
             if (id === 'm5') { templateCreated = true; openAssignModal(); return; }
             if (id === 'm6') { templateCreated = true; renderAssignResult(); }
         }
@@ -1096,7 +1108,7 @@
           { id: 'm1', flow: 'multi', x: 380, y: 690, step: 'Step 1', name: 'Existing — initial', state: 'm1', match: ['Select existing assignments'], desc: 'Create New Deployment with "Select existing assignments".' },
           { id: 'm2', flow: 'multi', x: 720, y: 690, step: 'Step 2', name: 'Select Assignment(s)', state: 'm2', match: ['Select existing assignments'], desc: 'Modal of deployable assignment cards with slots to fill.' },
           { id: 'm3', flow: 'multi', x: 1060, y: 540, step: 'Branch A', name: 'Click an assignment', state: 'm3', match: ['Select existing assignments'], desc: 'Branch A — clicking an open slot on any assignment (not an assignment template) in the Select Assignment(s) modal opens the qualified-employee picker.' },
-          { id: 'm4', flow: 'multi', x: 1060, y: 830, step: 'Branch B', name: '+ Create New Assignment Template', state: 'm4', match: ['Select existing assignments'], desc: 'Branch B — clicking the + Create New Assignment Template button opens the Select Qualifiers dialog to build a reusable template.' },
+          { id: 'm4', flow: 'multi', x: 1060, y: 830, step: 'Branch B', name: '+ Create New Assignment Template', state: 'm4', match: ['Select existing assignments'], desc: 'Branch B — clicking the + Create New Assignment Template button reveals the Select Qualifiers panel inline (under Select Assignments) to build a reusable template.' },
           { id: 'm5', flow: 'multi', x: 1400, y: 690, step: 'Step 3', name: 'Assignments filled', state: 'm5', match: ['Select existing assignments'], desc: 'Assignment modal with slots assigned and a template created.' },
           { id: 'm6', flow: 'multi', x: 1740, y: 690, step: 'Result', name: 'Deployment created', state: 'm6', match: ['Select existing assignments'], desc: 'Final deployment from the chosen assignments + template.' }
         ],

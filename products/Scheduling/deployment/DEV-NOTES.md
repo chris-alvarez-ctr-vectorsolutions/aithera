@@ -42,6 +42,7 @@ These are design-intent and gotcha notes — not a spec.
 
 ## m4 — New Assignment Template
 - Branch B: build a **reusable** assignment template from required + shared qualifiers (same primary/shared ceiling rule as n2 applies). Creating it doesn't fill people — it's a template, surfaced separately from the chosen assignments.
+- The qualifier picker is an **inline panel** under "Assignment Template(s)" inside the Select Assignment(s) modal (not a separate dialog). The "+ Create New Assignment Template" trigger reveals it; Cancel/Create are inline; the trigger hides while creating and once a template exists.
 - Template creation is a single boolean in the prototype; in production this is a saved, named, reusable entity — design the data model for reuse across deployments.
 
 ## m5 — Assignments filled
@@ -49,4 +50,5 @@ These are design-intent and gotcha notes — not a spec.
 
 ## m6 — Deployment created (result)
 - Result renders two sections: "Assignment(s)" (the selected assignments) and "Assignment Template(s)". Each card/template is independently removable from the result.
+- Open slots in the result are clickable — clicking one opens the Select Employee people picker (flowB mode) to fill that position in place, and the result re-renders with the chosen person. Filled bars can be cleared back to open via their ×.
 - Removing the template card just unsets the template; removing an assignment card unselects it. Confirm whether removal here should also detach already-assigned people or just drop the card.
