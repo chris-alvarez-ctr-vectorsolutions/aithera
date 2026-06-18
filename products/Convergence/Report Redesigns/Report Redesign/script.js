@@ -883,8 +883,8 @@ function applyView(view) {
     if (schedTag) {
         const n = scheduleCountForView(view.id);
         if (n > 0) {
-            schedTag.innerHTML = `<i class="fa-regular fa-clock"></i> ${n}`;
-            schedTag.title = `${n} scheduled report${n > 1 ? 's' : ''} use this view`;
+            schedTag.innerHTML = `<i class="fa-regular fa-clock"></i> ${n} scheduled report${n !== 1 ? 's' : ''}`;
+            schedTag.title = `${n} scheduled report${n !== 1 ? 's' : ''} use this view`;
             schedTag.style.display = '';
         } else {
             schedTag.style.display = 'none';
@@ -1882,6 +1882,7 @@ let SCHEDULED_REPORTS = [
         savedViewId: 'q1-compliance', savedViewName: 'Q1 Compliance Review',
         freqValue: 'weekly', days: ['Mon'], dayOfMonth: 1, startDate: '2026-04-06', endDate: '', timeValue: '08:00',
         recipients: ['Anthony Davis', 'Draymond Green', 'Fred VanVleet'], nextSend: 'Jun 8, 2026',
+        deliveryTypes: ['file', 'link'],
     },
     {
         id: 'sr2', name: 'Monthly Overdue Activities', report: 'Activity Exception Report',
@@ -1901,7 +1902,7 @@ let SCHEDULED_REPORTS = [
         id: 'sr4', name: 'Exec Daily Digest', report: 'Qualification Report',
         savedViewId: 'q1-compliance', savedViewName: 'Q1 Compliance Review',
         freqValue: 'daily', days: [], dayOfMonth: 1, startDate: '2026-04-06', endDate: '', timeValue: '07:00',
-        recipients: ['Draymond Green'], nextSend: 'Jun 10, 2026', delivery: 'link',
+        recipients: ['Draymond Green'], nextSend: 'Jun 10, 2026', deliveryTypes: ['link'],
     },
 ];
 
@@ -2095,10 +2096,16 @@ function formatSchedule(s) {
 // For link delivery, render a clickable "View report" that jumps to the report
 // tab with the schedule's saved-view filters prepopulated.
 function deliveryLabelHTML(s) {
-    if (s.delivery === 'link') {
-        return `<button type="button" class="view-report-link" data-sid="${s.id}" title="Open this report with its filters applied"><i class="fa-solid fa-up-right-from-square"></i> View report</button>`;
+    // Normalize to a list of delivery types (supports legacy single `delivery`)
+    const types = s.deliveryTypes || (s.delivery ? [s.delivery] : ['file']);
+    const parts = [];
+    if (types.includes('file')) {
+        parts.push(`<span class="da-file"><i class="fa-solid fa-file-csv da-file-icon"></i> CSV</span>`);
     }
-    return `<i class="fa-regular fa-envelope dx-muted"></i> Email · ${s.format || 'Excel'}`;
+    if (types.includes('link')) {
+        parts.push(`<button type="button" class="view-report-link" data-sid="${s.id}" title="Open this report with its filters applied"><i class="fa-solid fa-up-right-from-square"></i> Link to Filtered Report</button>`);
+    }
+    return parts.join('<span class="da-sep"> · </span>') || '—';
 }
 
 // Jump to the report tab for a scheduled report and prepopulate the filters
@@ -2334,17 +2341,17 @@ emailReportDialog.renderer = (root) => {
 
         <hr class="sv-hr">
 
-        <p class="sv-section-heading">Delivery</p>
+        <p class="sv-section-heading">Delivery <span style="font-weight:400;color:var(--vsp-color-neutral-60,#777)">(choose one or more)</span></p>
         <div class="deliv-method" id="delivMethod">
             <label class="deliv-opt">
-                <input type="radio" name="delivMethod" value="file" checked>
+                <input type="checkbox" class="deliv-cb" value="file" checked>
                 <span class="deliv-opt-body">
-                    <span class="deliv-opt-title"><i class="fa-regular fa-file-excel"></i> Attached file</span>
-                    <span class="deliv-opt-desc">An Excel (.xlsx) export of the report is attached to the email.</span>
+                    <span class="deliv-opt-title"><i class="fa-solid fa-file-csv"></i> Attached file</span>
+                    <span class="deliv-opt-desc">A CSV export of the report is attached to the email.</span>
                 </span>
             </label>
             <label class="deliv-opt">
-                <input type="radio" name="delivMethod" value="link">
+                <input type="checkbox" class="deliv-cb" value="link" checked>
                 <span class="deliv-opt-body">
                     <span class="deliv-opt-title"><i class="fa-solid fa-link"></i> Link to filtered report</span>
                     <span class="deliv-opt-desc">The email includes a link that opens the report online with these filters already applied.</span>
@@ -2384,9 +2391,12 @@ emailReportDialog.renderer = (root) => {
     root.querySelector('#recipBox').addEventListener('click', () => recipInput.focus());
     root.querySelector('#recipBrowseBtn').addEventListener('click', openRecipientPicker);
 
-    // Delivery method (attached file vs filtered-report link) — preselect on edit
-    const delivRadio = root.querySelector(`input[name="delivMethod"][value="${edit?.delivery || 'file'}"]`);
-    if (delivRadio) delivRadio.checked = true;
+    // Delivery method (attached file and/or filtered-report link) — preselect on edit.
+    // Default is both selected; legacy records used a single `delivery` value.
+    const delivTypes = edit
+        ? (edit.deliveryTypes || (edit.delivery ? [edit.delivery] : ['file', 'link']))
+        : ['file', 'link'];
+    root.querySelectorAll('.deliv-cb').forEach(cb => { cb.checked = delivTypes.includes(cb.value); });
 
     // Frequency select
     const freqSel = root.querySelector('#emailFrequency');
@@ -2559,11 +2569,15 @@ function submitEmailDialog() {
         return;
     }
 
-    const delivery = document.querySelector('input[name="delivMethod"]:checked')?.value || 'file';
+    const deliveryTypes = [...document.querySelectorAll('.deliv-cb:checked')].map(cb => cb.value);
+    if (deliveryTypes.length === 0) {
+        showToast('Select at least one delivery type');
+        return;
+    }
 
     const pending = {
         name, report: cfg.reportName, freqValue, days, dayOfMonth, startDate, endDate, timeValue,
-        recipients: [...recipients], delivery, format: 'Excel',
+        recipients: [...recipients], deliveryTypes, format: 'CSV',
         nextSend: formatDateFriendly(startDate),
     };
 
@@ -3282,7 +3296,7 @@ function renderVsCards(views) {
                     <span class="vs-cd-name"><i class="fa-regular fa-paper-plane"></i> ${s.name}</span>
                     <span class="vs-cd-field"><span class="vs-cd-label">Schedule</span>${formatSchedule(s)}</span>
                     <span class="vs-cd-field" title="${s.recipients.join(', ')}"><span class="vs-cd-label">Recipients</span>${recip}</span>
-                    <span class="vs-cd-field"><span class="vs-cd-label">Sent As</span>${deliveryLabelHTML(s)}</span>
+                    <span class="vs-cd-field vs-cd-sentas"><span class="vs-cd-label">Sent As</span><span class="vs-cd-sentas-val">${deliveryLabelHTML(s)}</span></span>
                     <span class="vs-cd-field"><span class="vs-cd-label">Next Send</span>${s.nextSend}</span>
                     <span class="vs-cd-actions">
                         <button class="dx-icon-btn vs-sched-edit" data-sid="${s.id}" title="Edit scheduled report"><i class="fa-solid fa-pencil"></i></button>
