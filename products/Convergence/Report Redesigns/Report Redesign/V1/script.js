@@ -1289,15 +1289,17 @@ const DOW = [
 ];
 const DOW_NAME = Object.fromEntries(DOW.map(d => [d.code, d.name]));
 const FREQ_UNIT = { DAILY: 'day', WEEKLY: 'week', MONTHLY: 'month', YEARLY: 'year' };
+const ORD_LABEL = { '1': 'first', '2': 'second', '3': 'third', '4': 'fourth', '-1': 'last' };
 
 // Build an iCalendar RRULE string from the form state.
 function buildRRule(r) {
     const parts = ['FREQ=' + r.freq];
     if (r.interval && r.interval > 1) parts.push('INTERVAL=' + r.interval);
     if (r.freq === 'WEEKLY'  && r.byday.length) parts.push('BYDAY=' + r.byday.join(','));
-    if (r.freq === 'MONTHLY' && r.bymonthday)   parts.push('BYMONTHDAY=' + r.bymonthday);
-    if (r.until)      parts.push('UNTIL=' + r.until.replace(/-/g, ''));
-    else if (r.count) parts.push('COUNT=' + r.count);
+    if (r.freq === 'MONTHLY') {
+        if (r.monthMode === 'weekday') parts.push('BYDAY=' + r.monthOrdinal + r.monthWeekday);
+        else if (r.bymonthday)         parts.push('BYMONTHDAY=' + r.bymonthday);
+    }
     return 'RRULE:' + parts.join(';');
 }
 
@@ -1325,15 +1327,15 @@ function describeRecur(r) {
         const days = joinList(r.byday.map(c => DOW_NAME[c]));
         base = (r.interval > 1 ? `Every ${r.interval} weeks` : 'Every week') + (days ? ` on ${days}` : '');
     } else if (r.freq === 'MONTHLY') {
-        base = (r.interval > 1 ? `Every ${r.interval} months` : 'Every month') + ` on the ${ordinal(parseInt(r.bymonthday, 10))}`;
+        if (r.monthMode === 'weekday') {
+            base = `Every month on the ${ORD_LABEL[r.monthOrdinal] || 'first'} ${DOW_NAME[r.monthWeekday] || ''}`;
+        } else {
+            base = `Every month on day ${r.bymonthday}`;
+        }
     } else {
         base = r.interval > 1 ? `Every ${r.interval} years` : 'Every year';
     }
-    let out = `${base} at ${formatTime(r.time)}`;
-    if (r.until)      out += `, until ${fmtFriendly(r.until)}`;
-    else if (r.count) out += `, ${r.count} time${r.count > 1 ? 's' : ''} in total`;
-    else              out += `, with no end date`;
-    return out;
+    return `${base} at ${formatTime(r.time)}`;
 }
 
 // ── Read currently-applied filters into a read-only "Report contents" summary ──
@@ -1383,15 +1385,27 @@ function showToast(msg) {
 
 // ── Schedule dialog ────────────────────────────────────────────────
 const emailReportDialog = document.getElementById('emailReportDialog');
-let emailDialogConfig = { reportName: 'Qualification Report' };
+let emailDialogConfig = { reportName: 'Qualification Report', mode: 'once' };
 
 function openEmailDialog(opts = {}) {
-    emailDialogConfig = { reportName: opts.reportName || 'Qualification Report' };
+    emailDialogConfig = { reportName: opts.reportName || 'Qualification Report', mode: opts.mode || 'once' };
     currentRecipients = [];                      // creation always starts empty
-    emailReportDialog.headerTitle = 'Schedule a Report';
+    emailReportDialog.headerTitle = 'Send Report';
     emailReportDialog.overlayClass = 'send-report-overlay';
     emailReportDialog.opened = true;
     emailReportDialog.requestContentUpdate();
+}
+
+// Toggle between "Send once" and "Schedule" modes
+function applyEmailMode(mode) {
+    emailDialogConfig.mode = mode;
+    const sched = document.getElementById('emailScheduleFields');
+    if (sched) sched.style.display = (mode === 'schedule') ? '' : 'none';
+    document.querySelectorAll('#emailModeToggle .email-mode-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === mode);
+    });
+    const primary = document.getElementById('emailPrimaryBtn');
+    if (primary) primary.textContent = (mode === 'schedule') ? 'Schedule Report' : 'Send Report';
 }
 
 // Toggle the frequency-specific detail rows + interval unit label
@@ -1400,17 +1414,12 @@ function applyFreqDetail(freq) {
     const monthly = document.getElementById('freq-monthly');
     if (weekly)  weekly.style.display  = (freq === 'WEEKLY')  ? '' : 'none';
     if (monthly) monthly.style.display = (freq === 'MONTHLY') ? '' : 'none';
+    // Weekly + Monthly imply an "every week / every month" cadence, so the
+    // "Repeat every N" interval is hidden for them.
+    const intervalField = document.getElementById('intervalField');
+    if (intervalField) intervalField.style.display = (freq === 'WEEKLY' || freq === 'MONTHLY') ? 'none' : '';
     const unit = document.getElementById('emailIntervalUnit');
     if (unit) unit.textContent = (FREQ_UNIT[freq] || 'cycle') + '(s)';
-    updateRecurPreview();
-}
-
-// Toggle the "Ends" inputs
-function applyEndMode(mode) {
-    const until = document.getElementById('emailUntil');
-    const count = document.getElementById('emailCount');
-    if (until) until.style.display = (mode === 'on')    ? '' : 'none';
-    if (count) count.style.display = (mode === 'after') ? '' : 'none';
     updateRecurPreview();
 }
 
@@ -1419,12 +1428,12 @@ function readRecurState() {
     const freq     = document.getElementById('emailFrequency')?.value || 'WEEKLY';
     const interval = Math.max(1, parseInt(document.getElementById('emailInterval')?.value || '1', 10));
     const byday    = [...document.querySelectorAll('#dowRow .dow-btn.active')].map(b => b.dataset.code);
-    const bymonthday = document.getElementById('emailDayOfMonth')?.value || '1';
+    const monthMode    = document.querySelector('input[name="monthMode"]:checked')?.value || 'weekday';
+    const monthOrdinal = document.getElementById('emailMonthOrdinal')?.value || '1';
+    const monthWeekday = document.getElementById('emailMonthWeekday')?.value || 'MO';
+    const bymonthday   = document.getElementById('emailDayOfMonth')?.value || '1';
     const time     = document.getElementById('emailTime')?.value || '08:00';
-    const endMode  = document.querySelector('input[name="endMode"]:checked')?.value || 'never';
-    const until    = endMode === 'on'    ? (document.getElementById('emailUntil')?.value || '')   : '';
-    const count    = endMode === 'after' ? Math.max(1, parseInt(document.getElementById('emailCount')?.value || '1', 10)) : 0;
-    return { freq, interval, byday, bymonthday, time, until, count };
+    return { freq, interval, byday, monthMode, monthOrdinal, monthWeekday, bymonthday, time };
 }
 
 function updateRecurPreview() {
@@ -1440,12 +1449,17 @@ emailReportDialog.renderer = (root) => {
 
     const cfg = emailDialogConfig;
     root.innerHTML = `
-        <p class="sv-dialog-subtitle">Set up a recurring emailed delivery of <strong>${cfg.reportName}</strong>.</p>
+        <p class="sv-dialog-subtitle">Send <strong>${cfg.reportName}</strong> now, or schedule a recurring delivery.</p>
+
+        <div class="email-mode-toggle" id="emailModeToggle">
+            <button type="button" class="email-mode-btn" data-mode="once"><i class="fa-regular fa-paper-plane"></i> Send once</button>
+            <button type="button" class="email-mode-btn" data-mode="schedule"><i class="fa-regular fa-clock"></i> Schedule</button>
+        </div>
 
         <p class="sv-section-heading">Recipients</p>
         <div class="recip-box" id="recipBox">
             <div class="recip-chips" id="recipChips"></div>
-            <span class="recip-empty" id="recipEmpty">No recipients yet — use “Select recipients” to add people.</span>
+            <span class="recip-empty" id="recipEmpty">No recipients selected yet.</span>
         </div>
         <div class="recip-tools">
             <vaadin-button theme="secondary small" id="recipPickBtn">
@@ -1454,22 +1468,20 @@ emailReportDialog.renderer = (root) => {
             <span class="recip-error" id="recipError"></span>
         </div>
 
-        <p class="sv-section-heading">Schedule details</p>
-        <vaadin-text-field theme="outlined" id="emailScheduleName" label="Delivery name"
+        <div id="emailScheduleFields">
+        <hr class="sv-hr">
+        <p class="sv-section-heading">Scheduled report name</p>
+        <vaadin-text-field theme="outlined" id="emailScheduleName" label="Name"
             placeholder="e.g. Exec team — weekly compliance" required style="width:100%"></vaadin-text-field>
-        <vaadin-text-field theme="outlined" id="emailSubject" label="Subject"
-            placeholder="${cfg.reportName}" style="width:100%;margin-top:12px"></vaadin-text-field>
-        <vaadin-text-area theme="outlined" id="emailMessage" label="Message"
-            placeholder="Add a note for recipients (optional)…" style="width:100%;margin-top:12px"></vaadin-text-area>
+
+        <hr class="sv-hr">
 
         <p class="sv-section-heading">Recurrence</p>
-        <div class="email-2col">
-            <vaadin-select theme="outlined" id="emailFrequency" label="Frequency" style="width:100%"></vaadin-select>
-            <div class="interval-field">
-                <vaadin-number-field theme="outlined" id="emailInterval" label="Repeat every"
-                    min="1" step="1" value="1" style="width:100%"></vaadin-number-field>
-                <span class="interval-unit" id="emailIntervalUnit">week(s)</span>
-            </div>
+        <vaadin-select theme="outlined" id="emailFrequency" label="Frequency" style="width:200px"></vaadin-select>
+        <div class="interval-field" id="intervalField" style="margin-top:12px">
+            <vaadin-number-field theme="outlined" id="emailInterval" label="Repeat every"
+                min="1" step="1" value="1" style="width:100%"></vaadin-number-field>
+            <span class="interval-unit" id="emailIntervalUnit">day(s)</span>
         </div>
 
         <div id="freq-weekly" class="freq-detail">
@@ -1477,40 +1489,53 @@ emailReportDialog.renderer = (root) => {
             <div class="dow-row" id="dowRow"></div>
         </div>
         <div id="freq-monthly" class="freq-detail">
-            <vaadin-select theme="outlined" id="emailDayOfMonth" label="Day of month" style="width:100%;margin-top:10px"></vaadin-select>
+            <div class="month-mode">
+                <label class="month-mode-opt">
+                    <input type="radio" name="monthMode" value="weekday" checked>
+                    <span class="month-mode-row">On the
+                        <vaadin-select theme="outlined small" id="emailMonthOrdinal" style="width:120px"></vaadin-select>
+                        <vaadin-select theme="outlined small" id="emailMonthWeekday" style="width:150px"></vaadin-select>
+                        of every month</span>
+                </label>
+                <label class="month-mode-opt">
+                    <input type="radio" name="monthMode" value="day">
+                    <span class="month-mode-row">On day
+                        <vaadin-select theme="outlined small" id="emailDayOfMonth" style="width:104px"></vaadin-select>
+                        of every month</span>
+                </label>
+                <p class="month-day-note">If a month doesn’t have that day (e.g. day 31 in February), the report sends on the month’s last day.</p>
+            </div>
         </div>
 
-        <div class="email-2col" style="margin-top:12px">
-            <vaadin-date-picker theme="outlined" id="emailStartDate" label="Start date" style="width:100%"></vaadin-date-picker>
-            <vaadin-select theme="outlined" id="emailTime" label="Time" style="width:100%"></vaadin-select>
-        </div>
-
-        <label class="filter-label" style="display:block;margin:14px 0 6px">Ends</label>
-        <div class="recur-end">
-            <label class="recur-end-opt">
-                <input type="radio" name="endMode" value="never" checked> <span>Never</span>
-            </label>
-            <label class="recur-end-opt">
-                <input type="radio" name="endMode" value="on"> <span>On date</span>
-                <vaadin-date-picker theme="outlined small" id="emailUntil" style="display:none;width:180px"></vaadin-date-picker>
-            </label>
-            <label class="recur-end-opt">
-                <input type="radio" name="endMode" value="after"> <span>After</span>
-                <vaadin-number-field theme="outlined small" id="emailCount" min="1" step="1" value="12"
-                    style="display:none;width:110px"></vaadin-number-field>
-                <span class="recur-end-suffix">occurrences</span>
-            </label>
+        <div class="email-fieldrow" style="margin-top:12px">
+            <vaadin-date-picker theme="outlined" id="emailStartDate" label="Start date" style="width:180px"></vaadin-date-picker>
+            <vaadin-select theme="outlined" id="emailTime" label="Time" style="width:140px"></vaadin-select>
         </div>
 
         <div class="rrule-preview">
             <div class="rrule-human"><i class="fa-regular fa-calendar-check"></i> <span id="recurHuman"></span></div>
         </div>
+        </div><!-- /emailScheduleFields -->
+
+        <hr class="sv-hr">
+
+        <p class="sv-section-heading">Email message</p>
+        <vaadin-text-field theme="outlined" id="emailSubject" label="Subject"
+            placeholder="${cfg.reportName}" style="width:100%"></vaadin-text-field>
+        <vaadin-text-area theme="outlined" id="emailMessage" label="Body Message"
+            placeholder="Add a message for recipients…" style="width:100%;margin-top:10px"></vaadin-text-area>
+
+        <hr class="sv-hr">
+
+        <p class="sv-section-heading">File format</p>
+        <vaadin-select theme="outlined" id="emailFormat" label="File format"
+            helper-text="Recipients get a Convergence link to download the report." style="width:240px"></vaadin-select>
 
         <hr class="sv-hr">
 
         <p class="sv-section-heading">Report contents</p>
         <p class="email-contents-note"><i class="fa-regular fa-circle-question"></i>
-            The scheduled email uses the report's current filters, shown below.</p>
+            The email uses the report's current filters, shown below.</p>
         <div id="emailFilterSummary"></div>
     `;
 
@@ -1532,20 +1557,45 @@ emailReportDialog.renderer = (root) => {
     // Interval
     root.querySelector('#emailInterval').addEventListener('value-changed', updateRecurPreview);
 
-    // Time (30-minute intervals)
+    // Time (15-minute intervals; formatTime shows AM/PM)
     const timeSel = root.querySelector('#emailTime');
-    timeSel.items = Array.from({ length: 48 }, (_, i) => {
-        const v = String(Math.floor(i / 2)).padStart(2, '0') + ':' + (i % 2 ? '30' : '00');
+    timeSel.items = Array.from({ length: 96 }, (_, i) => {
+        const v = String(Math.floor(i / 4)).padStart(2, '0') + ':' + String((i % 4) * 15).padStart(2, '0');
         return { label: formatTime(v), value: v };
     });
     timeSel.value = '08:00';
     timeSel.addEventListener('value-changed', updateRecurPreview);
 
-    // Day of month
+    // File format for the download link
+    const fmtSel = root.querySelector('#emailFormat');
+    fmtSel.items = [
+        { label: 'Adobe PDF', value: 'PDF' },
+        { label: 'Microsoft Excel', value: 'Excel' },
+        { label: 'CSV', value: 'CSV' },
+    ];
+    fmtSel.value = 'PDF';
+
+    // Monthly: ordinal + weekday selects, plus day-of-month (1–31)
+    const ordSel = root.querySelector('#emailMonthOrdinal');
+    ordSel.items = [
+        { label: 'first', value: '1' }, { label: 'second', value: '2' },
+        { label: 'third', value: '3' }, { label: 'fourth', value: '4' }, { label: 'last', value: '-1' },
+    ];
+    ordSel.value = '1';
+    ordSel.addEventListener('value-changed', updateRecurPreview);
+
+    const wdSel = root.querySelector('#emailMonthWeekday');
+    wdSel.items = DOW.map(d => ({ label: d.name, value: d.code }));
+    wdSel.value = 'MO';
+    wdSel.addEventListener('value-changed', updateRecurPreview);
+
     const domSel = root.querySelector('#emailDayOfMonth');
-    domSel.items = Array.from({ length: 28 }, (_, i) => ({ label: 'Day ' + (i + 1), value: String(i + 1) }));
+    domSel.items = Array.from({ length: 31 }, (_, i) => ({ label: String(i + 1), value: String(i + 1) }));
     domSel.value = '1';
     domSel.addEventListener('value-changed', updateRecurPreview);
+
+    root.querySelectorAll('input[name="monthMode"]').forEach(rb =>
+        rb.addEventListener('change', updateRecurPreview));
 
     // Day-of-week buttons (multi-select for BYDAY)
     const dowRow = root.querySelector('#dowRow');
@@ -1560,13 +1610,6 @@ emailReportDialog.renderer = (root) => {
         btn.addEventListener('click', () => { btn.classList.toggle('active'); updateRecurPreview(); });
         dowRow.appendChild(btn);
     });
-
-    // Ends radios
-    root.querySelectorAll('input[name="endMode"]').forEach(rb => {
-        rb.addEventListener('change', () => applyEndMode(rb.value));
-    });
-    root.querySelector('#emailUntil').addEventListener('value-changed', updateRecurPreview);
-    root.querySelector('#emailCount').addEventListener('value-changed', updateRecurPreview);
 
     // Report contents summary (read-only, from the live filters)
     const summaryEl = root.querySelector('#emailFilterSummary');
@@ -1595,9 +1638,13 @@ emailReportDialog.renderer = (root) => {
         summaryEl.appendChild(rowEl);
     });
 
+    // Mode toggle (Send once vs Schedule)
+    root.querySelectorAll('#emailModeToggle .email-mode-btn').forEach(b =>
+        b.addEventListener('click', () => applyEmailMode(b.dataset.mode)));
+
     // Initial state
     applyFreqDetail('WEEKLY');
-    applyEndMode('never');
+    applyEmailMode(cfg.mode);
 };
 
 emailReportDialog.footerRenderer = (root) => {
@@ -1610,7 +1657,8 @@ emailReportDialog.footerRenderer = (root) => {
 
     const primaryBtn = document.createElement('vaadin-button');
     primaryBtn.setAttribute('theme', 'primary');
-    primaryBtn.textContent = 'Schedule Report';
+    primaryBtn.id = 'emailPrimaryBtn';
+    primaryBtn.textContent = (emailDialogConfig.mode === 'schedule') ? 'Schedule Report' : 'Send Report';
     primaryBtn.addEventListener('click', submitEmailDialog);
 
     root.appendChild(cancelBtn);
@@ -1618,7 +1666,7 @@ emailReportDialog.footerRenderer = (root) => {
 };
 
 function submitEmailDialog() {
-    // Recipients — picker-only, must have at least one
+    // Recipients — picker-only, must have at least one (both modes)
     if (currentRecipients.length === 0) {
         document.getElementById('recipBox')?.classList.add('invalid');
         const err = document.getElementById('recipError');
@@ -1626,7 +1674,17 @@ function submitEmailDialog() {
         return;
     }
 
-    // Delivery name required
+    const format = document.getElementById('emailFormat')?.value || 'PDF';
+
+    // ── Send once ── no schedule/recurrence needed
+    if (emailDialogConfig.mode === 'once') {
+        emailReportDialog.opened = false;
+        const n = currentRecipients.length;
+        showToast(`Report sent to ${n} recipient${n !== 1 ? 's' : ''} (${format})`);
+        return;
+    }
+
+    // ── Schedule ── delivery name + recurrence required
     const nameField = document.getElementById('emailScheduleName');
     const name = nameField?.value.trim();
     if (!name) {
@@ -1641,17 +1699,10 @@ function submitEmailDialog() {
         showToast('Select at least one day of the week');
         return;
     }
-    // "Ends on" needs a valid date after the start
-    const startDate = document.getElementById('emailStartDate')?.value || '';
-    if (r.until && startDate && r.until < startDate) {
-        const ep = document.getElementById('emailUntil');
-        if (ep) { ep.invalid = true; ep.errorMessage = 'End date must be after the start date'; }
-        return;
-    }
 
     const rrule = buildRRule(r);
     console.log('[v1] scheduled report', { name, reportName: emailDialogConfig.reportName,
-        recipients: currentRecipients.slice(), rrule });
+        recipients: currentRecipients.slice(), format, rrule });
 
     emailReportDialog.opened = false;
     showToast(`Report scheduled — ${describeRecur(r)}`);
@@ -1662,3 +1713,606 @@ document.getElementById('emailBtn')?.addEventListener('click',
     () => openEmailDialog({ reportName: 'Qualification Report' }));
 document.getElementById('actExEmailBtn')?.addEventListener('click',
     () => openEmailDialog({ reportName: 'Activity Exception Report' }));
+
+
+// ================================================================
+// SAVED VIEWS — Save View + Apply Saved View (ported from v2)
+// ================================================================
+
+// v1 is scheduling-only and doesn't track schedules per view, so this stays
+// empty; scheduleCountForView therefore returns 0 and no schedule badge shows.
+const SCHEDULED_REPORTS = [];
+function scheduleCountForView(viewId) {
+    return SCHEDULED_REPORTS.filter(s => s.savedViewId === viewId).length;
+}
+
+const SAVED_VIEWS = [
+    {
+        id: 'q1-compliance', name: 'Q1 Compliance Review',
+        report: 'Qualification Report',
+        desc: 'Quarterly compliance tracking for all departments',
+        dateRange: '01/01/26 – 03/31/26',
+        qualIds: ['q12', 'q14'],
+        activities: ['Hazardous Materials Handling', 'Lock-Out / Tag-Out (LOTO)'],
+        userIds: ['u1', 'u5', 'u6'],
+        users: ['Anthony Davis', 'Draymond Green', 'Fred VanVleet'],
+        status: 'all', statusTypes: 'All', columns: 'Activity, User, Username, Status, Completion Date',
+        activityCount: 2, userCount: 12, favorited: true,
+    },
+    {
+        id: 'confined-space', name: 'Confined Space Teams',
+        report: 'Qualification Report',
+        desc: 'Tracking for confined space qualification teams',
+        dateRange: '04/01/26 – 04/07/26',
+        qualIds: ['q4'],
+        activities: ['Confined Space Entry'],
+        userIds: ['u3', 'u4'],
+        users: ["D'Angelo Russell", 'Darvin Ham'],
+        status: 'all', statusTypes: 'All', columns: 'Activity, User, Status, Due Date',
+        activityCount: 1, userCount: 8, favorited: true,
+    },
+    {
+        id: 'fall-protection', name: 'Fall Protection Group',
+        report: 'Qualification Report',
+        desc: 'Fall protection certification tracking',
+        dateRange: 'All Time',
+        qualIds: ['q8', 'q19'],
+        activities: ['Fall Protection Training', 'Scaffolding Safety'],
+        userIds: ['u1', 'u7'],
+        users: ['Anthony Davis', 'Gary Payton II'],
+        status: 'qualified', statusTypes: 'Qualified', columns: 'Activity, User, Status',
+        activityCount: 3, userCount: 20, favorited: false,
+    },
+    {
+        id: 'crane-ops', name: 'Crane Operations Report',
+        report: 'Qualification Report',
+        desc: 'Crane operator certification status',
+        dateRange: '04/01/26 – 04/07/26',
+        qualIds: ['q6'],
+        activities: ['Crane Operations Training'],
+        userIds: ['u8', 'u10'],
+        users: ['Jalen Green', 'Klay Thompson'],
+        status: 'all', statusTypes: 'All', columns: 'Activity, User, Status, Completion Date',
+        activityCount: 1, userCount: 6, favorited: false,
+    },
+    {
+        id: 'nov-activity', name: 'November Activity Overview',
+        report: 'Activity Exception Report',
+        desc: 'Activity completion snapshot for November 2025',
+        dateRange: '11/01/25 – 11/30/25',
+        activities: ['All Activities'], users: ['All Users'],
+        statusTypes: 'All', columns: 'Activity, User, Status, Completion Date',
+        activityCount: 0, userCount: 0, favorited: true,
+    },
+    {
+        id: 'overdue-nov', name: 'Overdue Activities Nov',
+        report: 'Activity Exception Report',
+        desc: 'Filter showing only overdue activities in November',
+        dateRange: '11/01/25 – 11/30/25',
+        activities: ['All Activities'], users: ['All Users'],
+        statusTypes: 'Overdue', columns: 'Activity, User, Status, Next Due Date',
+        activityCount: 0, userCount: 0, favorited: false,
+    },
+];
+
+// ── Save View dialog (create / edit metadata) ──────────────────────
+// (reuses the existing FILTER_SUMMARY_ROWS defined earlier in this file)
+const saveViewDialog = document.getElementById('saveViewDialog');
+const saveViewBtn    = document.getElementById('saveViewBtn');
+let saveViewContext  = { mode: 'create', sourceView: null };
+
+function openSaveViewDialog(ctx) {
+    saveViewContext = ctx || { mode: 'create', sourceView: null };
+    saveViewDialog.headerTitle = saveViewContext.mode === 'edit' ? 'Edit Saved View' : 'Create New Saved View';
+    saveViewDialog.overlayClass = 'save-view-overlay';
+    saveViewDialog.opened = true;
+    saveViewDialog.requestContentUpdate();
+}
+
+saveViewDialog.renderer = (root) => {
+    root.innerHTML = '';
+    root.style.minWidth = '600px';
+    root.style.maxWidth = '680px';
+    const ctx = saveViewContext;
+    const src = ctx.sourceView;
+
+    const subtitle = document.createElement('p');
+    subtitle.className = 'sv-dialog-subtitle';
+    subtitle.textContent = ctx.mode === 'edit'
+        ? 'Update this saved view’s settings.'
+        : 'Configure filter settings and meta data for this saved view.';
+    root.appendChild(subtitle);
+
+    const basicHeading = document.createElement('p');
+    basicHeading.className = 'sv-section-heading';
+    basicHeading.textContent = 'Basic Information';
+    root.appendChild(basicHeading);
+
+    const nameField = document.createElement('vaadin-text-field');
+    nameField.setAttribute('theme', 'outlined');
+    nameField.setAttribute('label', 'Saved View Name');
+    nameField.setAttribute('required', '');
+    nameField.setAttribute('placeholder', 'e.g. Q4 Compliance Review');
+    nameField.style.width = '100%';
+    nameField.id = 'saveViewNameField';
+    if (ctx.mode === 'edit' && src) nameField.value = src.name;
+    root.appendChild(nameField);
+
+    const descArea = document.createElement('vaadin-text-area');
+    descArea.setAttribute('theme', 'outlined');
+    descArea.setAttribute('label', 'Saved View Description');
+    descArea.setAttribute('placeholder', 'Describe the saved view...');
+    descArea.style.cssText = 'width:100%; margin-top:12px';
+    if (ctx.mode === 'edit' && src) descArea.value = src.desc || '';
+    root.appendChild(descArea);
+
+    const favRow = document.createElement('label');
+    favRow.className = 'sv-fav-row';
+    const favCb = document.createElement('vaadin-checkbox');
+    favCb.setAttribute('label', 'Favorite this View');
+    favRow.appendChild(favCb);
+    root.appendChild(favRow);
+
+    const hr = document.createElement('hr');
+    hr.className = 'sv-hr';
+    root.appendChild(hr);
+
+    const filterHeading = document.createElement('p');
+    filterHeading.className = 'sv-section-heading';
+    filterHeading.textContent = 'Filter Summary';
+    root.appendChild(filterHeading);
+
+    FILTER_SUMMARY_ROWS.forEach(row => {
+        const rowEl = document.createElement('div');
+        rowEl.className = 'sv-filter-row';
+        rowEl.innerHTML = `<span class="sv-fr-icon"><i class="${row.icon}"></i></span>
+                           <span class="sv-fr-label">${row.label}</span>`;
+        if (row.value) {
+            const val = document.createElement('span');
+            val.className = 'sv-fr-value';
+            val.textContent = row.value;
+            rowEl.appendChild(val);
+        }
+        if (row.pills) {
+            const pillsEl = document.createElement('div');
+            pillsEl.className = 'sv-fr-pills';
+            row.pills.forEach(p => {
+                const pill = document.createElement('span');
+                pill.className = 'sv-pill';
+                pill.textContent = p;
+                pillsEl.appendChild(pill);
+            });
+            rowEl.appendChild(pillsEl);
+        }
+        root.appendChild(rowEl);
+    });
+};
+
+saveViewDialog.footerRenderer = (root) => {
+    root.innerHTML = '';
+    const ctx = saveViewContext;
+
+    const cancelBtn = document.createElement('vaadin-button');
+    cancelBtn.setAttribute('theme', 'secondary');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => { saveViewDialog.opened = false; });
+
+    const primaryBtn = document.createElement('vaadin-button');
+    primaryBtn.setAttribute('theme', 'primary');
+    primaryBtn.textContent = ctx.mode === 'edit' ? 'Save Changes' : 'Create Saved View';
+    primaryBtn.addEventListener('click', () => {
+        const field = document.getElementById('saveViewNameField');
+        const name = field?.value.trim();
+        if (!name) {
+            if (field) { field.invalid = true; field.errorMessage = 'Name is required'; }
+            return;
+        }
+        if (ctx.mode === 'edit') viewDirty = false;
+        saveViewDialog.opened = false;
+        showToast(ctx.mode === 'edit' ? 'Saved view updated' : 'Saved view created');
+    });
+
+    root.appendChild(cancelBtn);
+    root.appendChild(primaryBtn);
+};
+
+// ── Save View split-button dropdown ────────────────────────────────
+const saveViewMenu    = document.getElementById('saveViewMenu');
+const saveViewItem    = document.getElementById('saveViewItem');
+const saveNewViewItem = document.getElementById('saveNewViewItem');
+
+saveViewBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    saveViewMenu.style.display = saveViewMenu.style.display === 'none' ? 'block' : 'none';
+});
+saveViewItem.addEventListener('click', () => {
+    saveViewMenu.style.display = 'none';
+    if (appliedSavedView) attemptEditView(appliedSavedView);
+    else openSaveViewDialog({ mode: 'create', sourceView: null });
+});
+saveNewViewItem.addEventListener('click', () => {
+    saveViewMenu.style.display = 'none';
+    openSaveViewDialog({ mode: 'create', sourceView: null });
+});
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('#saveViewControl')) saveViewMenu.style.display = 'none';
+});
+
+function openViewEditor(view) { openSaveViewDialog({ mode: 'edit', sourceView: view }); }
+function attemptEditView(view) { openViewEditor(view); }
+
+// ── Apply Saved View dialog (list + preview) ───────────────────────
+const selectSavedViewDialog = document.getElementById('selectSavedViewDialog');
+const applySavedViewBtn     = document.getElementById('applySavedViewBtn');
+let selectedSavedViewId = null;
+
+selectSavedViewDialog.renderer = (root) => {
+    if (root.firstChild) return;
+    root.style.width = '800px';
+    root.style.maxWidth = '100%';
+    root.style.boxSizing = 'border-box';
+
+    const subtitle = document.createElement('p');
+    subtitle.className = 'sv-dialog-subtitle';
+    subtitle.textContent = 'Select a saved view to apply its filters to the current report.';
+    root.appendChild(subtitle);
+
+    const searchRow = document.createElement('div');
+    searchRow.className = 'sv-search-row';
+    searchRow.innerHTML = `
+        <div class="sv-search-wrap">
+            <i class="fa-solid fa-magnifying-glass sv-search-icon"></i>
+            <input class="sv-search-input" id="svSearchInput" type="text" placeholder="Search saved views...">
+        </div>
+        <select class="sv-sort-select">
+            <option>Recently Updated</option>
+            <option>Alphabetical</option>
+        </select>`;
+    root.appendChild(searchRow);
+
+    const body = document.createElement('div');
+    body.className = 'sv-two-panel';
+    const listPanel = document.createElement('div');
+    listPanel.className = 'sv-list-panel';
+    listPanel.id = 'svListPanel';
+    const previewPanel = document.createElement('div');
+    previewPanel.className = 'sv-preview-panel';
+    previewPanel.id = 'svPreviewPanel';
+    previewPanel.innerHTML = `<div class="sv-preview-empty">
+        <i class="fa-regular fa-bookmark sv-preview-empty-icon"></i>
+        <p>Select a saved view to preview its filters</p>
+    </div>`;
+    body.appendChild(listPanel);
+    body.appendChild(previewPanel);
+    root.appendChild(body);
+
+    buildSavedViewList('');
+    searchRow.querySelector('#svSearchInput').addEventListener('input', (e) => buildSavedViewList(e.target.value));
+};
+
+function buildSavedViewList(query) {
+    const listPanel = document.getElementById('svListPanel');
+    if (!listPanel) return;
+    listPanel.innerHTML = '';
+    const q = query.toLowerCase();
+    const filtered = SAVED_VIEWS.filter(v => v.name.toLowerCase().includes(q) || v.desc.toLowerCase().includes(q));
+    const favorites = filtered.filter(v => v.favorited);
+    const rest      = filtered.filter(v => !v.favorited);
+
+    if (favorites.length) {
+        listPanel.appendChild(makeSectionLabel('Favorites'));
+        favorites.forEach(v => listPanel.appendChild(buildViewCard(v)));
+    }
+    listPanel.appendChild(makeSectionLabel('All Saved Views'));
+    if (rest.length) {
+        rest.forEach(v => listPanel.appendChild(buildViewCard(v)));
+    } else if (!favorites.length) {
+        const empty = document.createElement('p');
+        empty.className = 'sv-list-empty';
+        empty.textContent = 'No saved views found';
+        listPanel.appendChild(empty);
+    }
+}
+
+function makeSectionLabel(text) {
+    const el = document.createElement('div');
+    el.className = 'sv-list-section-label';
+    el.textContent = text;
+    return el;
+}
+
+function buildViewCard(view) {
+    const card = document.createElement('div');
+    card.className = 'sv-card' + (view.id === selectedSavedViewId ? ' selected' : '');
+    card.dataset.id = view.id;
+    card.innerHTML = `
+        <div class="sv-card-header">
+            <span class="sv-card-name">${view.name}</span>
+            <button class="sv-star-btn ${view.favorited ? 'active' : ''}" data-id="${view.id}">
+                <i class="${view.favorited ? 'fa-solid' : 'fa-regular'} fa-star"></i>
+            </button>
+        </div>
+        <p class="sv-card-desc">${view.desc}</p>
+        <div class="sv-card-meta">
+            <span><i class="fa-regular fa-calendar"></i> ${view.dateRange}</span>
+            <span>${view.activityCount} Activities</span>
+            <span>${view.userCount} Users</span>
+        </div>`;
+
+    card.addEventListener('click', (e) => {
+        if (e.target.closest('.sv-star-btn')) return;
+        selectedSavedViewId = view.id;
+        document.querySelectorAll('.sv-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        showViewPreview(view);
+        const btn = document.getElementById('selectSavedViewBtn');
+        if (btn) btn.disabled = false;
+    });
+    card.querySelector('.sv-star-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        view.favorited = !view.favorited;
+        buildSavedViewList(document.getElementById('svSearchInput')?.value || '');
+    });
+    return card;
+}
+
+function showViewPreview(view) {
+    const panel = document.getElementById('svPreviewPanel');
+    if (!panel) return;
+    panel.innerHTML = '';
+    const header = document.createElement('div');
+    header.className = 'sv-preview-header';
+    header.innerHTML = `<span class="sv-preview-name">${view.name}</span>
+        <button class="sv-kebab-btn"><i class="fa-solid fa-ellipsis-vertical"></i></button>`;
+    panel.appendChild(header);
+
+    const rows = [
+        { icon: 'fa-regular fa-calendar',    label: 'Date Range',                         value: view.dateRange },
+        { icon: 'fa-solid fa-list',           label: `Activities (${view.activityCount})`, pills: view.activities },
+        { icon: 'fa-solid fa-user',           label: `Users (${view.userCount})`,          pills: view.users },
+        { icon: 'fa-solid fa-tag',            label: 'Status Types',                       value: view.statusTypes },
+        { icon: 'fa-solid fa-table-columns',  label: 'Columns Shown',                      value: view.columns },
+    ];
+    rows.forEach(row => {
+        const rowEl = document.createElement('div');
+        rowEl.className = 'sv-pf-row';
+        rowEl.innerHTML = `<span class="sv-pf-label"><i class="${row.icon}"></i> ${row.label}</span>`;
+        if (row.value) {
+            const val = document.createElement('span');
+            val.className = 'sv-pf-value';
+            val.textContent = row.value;
+            rowEl.appendChild(val);
+        }
+        if (row.pills) {
+            const pillsEl = document.createElement('div');
+            pillsEl.className = 'sv-pf-pills';
+            row.pills.forEach(p => {
+                const pill = document.createElement('span');
+                pill.className = 'sv-pill';
+                pill.textContent = p;
+                pillsEl.appendChild(pill);
+            });
+            rowEl.appendChild(pillsEl);
+        }
+        panel.appendChild(rowEl);
+    });
+}
+
+selectSavedViewDialog.footerRenderer = (root) => {
+    if (root.firstChild) return;
+    const cancelBtn = document.createElement('vaadin-button');
+    cancelBtn.setAttribute('theme', 'secondary');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => { selectSavedViewDialog.opened = false; });
+
+    const selectBtn = document.createElement('vaadin-button');
+    selectBtn.setAttribute('theme', 'primary');
+    selectBtn.id = 'selectSavedViewBtn';
+    selectBtn.disabled = true;
+    selectBtn.textContent = 'Select Saved View';
+    selectBtn.addEventListener('click', () => {
+        if (!selectedSavedViewId) return;
+        const view = SAVED_VIEWS.find(v => v.id === selectedSavedViewId);
+        if (view) applyView(view);
+        selectSavedViewDialog.opened = false;
+    });
+    root.appendChild(cancelBtn);
+    root.appendChild(selectBtn);
+};
+
+applySavedViewBtn.addEventListener('click', () => {
+    selectedSavedViewId = null;
+    selectSavedViewDialog.opened = true;
+});
+
+// ── Applied view state + reflecting filters into the panel ─────────
+let appliedSavedView = null;
+let viewDirty = false;
+let suppressDirty = false;
+
+function setSaveViewLabels(applied) {
+    const btnLabel  = document.getElementById('saveViewBtnLabel');
+    const itemLabel = document.getElementById('saveViewItemLabel');
+    if (btnLabel)  btnLabel.textContent  = applied ? 'Update View' : 'Save View';
+    if (itemLabel) itemLabel.textContent = applied ? 'Update View' : 'Save View';
+}
+
+function markViewDirty() { if (appliedSavedView && !suppressDirty) viewDirty = true; }
+
+function populateFilterPanelFromView(view) {
+    suppressDirty = true;
+    if (view.dateRange && typeof syncDateRangeDisplay === 'function') {
+        syncDateRangeDisplay('#filterPanel', view.dateRange);
+    } else {
+        const dateInput = document.querySelector('#filterPanel .date-input');
+        if (dateInput && view.dateRange) dateInput.value = view.dateRange;
+    }
+
+    if (typeof pickerState !== 'undefined') {
+        pickerState.quals = new Set(view.qualIds || []);
+        pickerState.qualUsers = new Set(view.userIds || []);
+        const qChips = document.getElementById('qualChips');
+        const qLabel = document.getElementById('qualFilterLabel');
+        if (qChips && qLabel) renderChips(qChips, qLabel, QUALIFICATIONS_DATA, pickerState.quals, 'Qualifications');
+        const uChips = document.getElementById('qualUsersChips');
+        const uLabel = document.getElementById('qualUsersFilterLabel');
+        if (uChips && uLabel) renderChips(uChips, uLabel, USERS_DATA, pickerState.qualUsers, 'Users');
+    }
+
+    const cq = document.getElementById('chk-qualified');
+    const ci = document.getElementById('chk-incomplete');
+    const st = view.status || 'all';
+    if (cq) cq.checked = (st === 'qualified');
+    if (ci) ci.checked = (st === 'incomplete');
+    suppressDirty = false;
+}
+
+function applyView(view) {
+    appliedSavedView = view;
+    document.getElementById('appliedBanner').style.display = 'flex';
+    document.getElementById('appliedBannerName').textContent = view.name;
+    const schedTag = document.getElementById('appliedBannerSched');
+    if (schedTag) {
+        const n = scheduleCountForView(view.id);
+        if (n > 0) {
+            schedTag.innerHTML = `<i class="fa-regular fa-clock"></i> ${n} scheduled report${n !== 1 ? 's' : ''}`;
+            schedTag.style.display = '';
+        } else {
+            schedTag.style.display = 'none';
+        }
+    }
+    setSaveViewLabels(true);
+    if (view.report === 'Qualification Report') populateFilterPanelFromView(view);
+    viewDirty = false;
+}
+
+document.getElementById('clearAppliedViewBtn').addEventListener('click', () => {
+    appliedSavedView = null;
+    viewDirty = false;
+    document.getElementById('appliedBanner').style.display = 'none';
+    const schedTag = document.getElementById('appliedBannerSched');
+    if (schedTag) schedTag.style.display = 'none';
+    document.getElementById('saveViewMenu').style.display = 'none';
+    selectedSavedViewId = null;
+    setSaveViewLabels(false);
+});
+
+// Mark the applied view dirty when its filters are changed
+(() => {
+    const qp = document.getElementById('filterPanel');
+    if (!qp) return;
+    qp.addEventListener('change', markViewDirty, true);
+    qp.addEventListener('checked-changed', markViewDirty, true);
+    qp.addEventListener('click', (e) => {
+        if (e.target.closest('.loc-row, .filter-select-btn')) markViewDirty();
+    });
+})();
+
+
+// ================================================================
+// DATE RANGE — preset dropdown + custom calendar range (filter panel)
+// Replaces v1's inline chip control. Presets compute a real start/end from
+// today; "Custom date range" swaps the preset list for two design-system date
+// pickers so Apply stays visible. Hidden .date-input mirrors the selection.
+// (Reuses the MONTHS constant already defined above.)
+// ================================================================
+function drangePresetRange(key) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const end = new Date(today);
+    let start = new Date(today);
+    switch (key) {
+        case 'today':                                               break;
+        case 'yesterday': start.setDate(today.getDate() - 1); end.setDate(today.getDate() - 1); break;
+        case 'last7':     start.setDate(today.getDate() - 6);       break;
+        case 'last30':    start.setDate(today.getDate() - 29);      break;
+        case 'last90':    start.setDate(today.getDate() - 89);      break;
+        case 'lastyear':  start.setFullYear(today.getFullYear() - 1); start.setDate(start.getDate() + 1); break;
+        case 'datetonow': start = null;                             break;
+        default: return null;
+    }
+    return { start, end };
+}
+function drangeFmt(d) { return d ? `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}` : null; }
+function drangeParseIso(v) { if (!v) return null; const [y, m, d] = v.split('-').map(Number); return (y && m && d) ? new Date(y, m - 1, d) : null; }
+function drangeBadgeText(s, e) {
+    if (!s && e) return `Through ${drangeFmt(e)}`;
+    if (s && e && drangeFmt(s) === drangeFmt(e)) return drangeFmt(s);
+    if (s && e) return `${drangeFmt(s)} - ${drangeFmt(e)}`;
+    return 'All dates';
+}
+function setOverviewDateBadge(box, text) {
+    const badge = box.closest('.page-layout')?.querySelector('#completionOverview .date-badge');
+    if (badge) badge.innerHTML = `<i class="fa-regular fa-calendar"></i> ${text}`;
+}
+
+function initDateRangeDD(box) {
+    const trigger = box.querySelector('.drange-trigger');
+    const triggerLabel = box.querySelector('.drange-trigger-label');
+    const menu = box.querySelector('.drange-menu');
+    const presetsWrap = box.querySelector('.drange-presets');
+    const opts = box.querySelectorAll('.drange-opt');
+    const custom = box.querySelector('.drange-custom');
+    const backBtn = box.querySelector('.drange-back');
+    const startP = box.querySelector('.drange-start');
+    const endP = box.querySelector('.drange-end');
+    const applyBtn = box.querySelector('.drange-apply');
+    const hidden = box.querySelector('.date-input');
+
+    const showPresets = () => { if (presetsWrap) presetsWrap.hidden = false; custom.hidden = true; };
+    const showCustom  = () => { if (presetsWrap) presetsWrap.hidden = true;  custom.hidden = false; };
+    const openMenu  = () => { showPresets(); menu.hidden = false; trigger.classList.add('open'); };
+    const closeMenu = () => { menu.hidden = true; trigger.classList.remove('open'); };
+    const setActive = (opt) => { opts.forEach(o => o.classList.remove('active')); if (opt) opt.classList.add('active'); };
+    const setLabel  = (text) => { triggerLabel.textContent = text; hidden.value = text; };
+
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (menu.hidden) openMenu(); else closeMenu();
+    });
+
+    opts.forEach(opt => opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const key = opt.dataset.range;
+        if (key === 'custom') { setActive(opt); showCustom(); return; }
+        setActive(opt);
+        setLabel(opt.textContent.trim());
+        const r = drangePresetRange(key);
+        if (r) setOverviewDateBadge(box, drangeBadgeText(r.start, r.end));
+        closeMenu();
+    }));
+
+    backBtn?.addEventListener('click', (e) => { e.stopPropagation(); showPresets(); });
+
+    function applyCustom() {
+        const s  = drangeParseIso(startP.value);
+        const en = drangeParseIso(endP.value);
+        if (!s || !en) { endP.invalid = true; endP.errorMessage = 'Pick a start and end date'; return; }
+        if (en < s)    { endP.invalid = true; endP.errorMessage = 'End date must be after the start date'; return; }
+        endP.invalid = false;
+        setLabel(`${drangeFmt(s)} - ${drangeFmt(en)}`);
+        setOverviewDateBadge(box, `${drangeFmt(s)} - ${drangeFmt(en)}`);
+        closeMenu();
+    }
+    applyBtn?.addEventListener('click', (e) => { e.stopPropagation(); applyCustom(); });
+
+    document.addEventListener('click', (e) => { if (!box.contains(e.target)) closeMenu(); });
+
+    // Sync the overview badge to the initially-active preset
+    const initActive = box.querySelector('.drange-opt.active');
+    if (initActive) {
+        const r = drangePresetRange(initActive.dataset.range);
+        if (r) setOverviewDateBadge(box, drangeBadgeText(r.start, r.end));
+    }
+}
+document.querySelectorAll('.date-range-dd').forEach(initDateRangeDD);
+
+function syncDateRangeDisplay(scopeSel, text) {
+    const dd = document.querySelector(`${scopeSel} .date-range-dd`);
+    if (!dd) return;
+    const lbl = dd.querySelector('.drange-trigger-label');
+    if (lbl) lbl.textContent = text;
+    dd.querySelectorAll('.drange-opt').forEach(o => o.classList.remove('active'));
+    const hidden = dd.querySelector('.date-input');
+    if (hidden) hidden.value = text;
+    if (typeof setOverviewDateBadge === 'function') setOverviewDateBadge(dd, text);
+}
