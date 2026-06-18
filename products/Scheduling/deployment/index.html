@@ -336,6 +336,11 @@
         .tmpl-qual-chip .x { cursor: pointer; color: #8a93a0; }
         .tmpl-qual-chip .x:hover { color: var(--req); }
         .tmpl-empty-positions { color: var(--text-soft); font-size: 12.5px; margin-bottom: 10px; }
+        .tmpl-add-pos { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+        .tmpl-add-pos > div { flex: 1; min-width: 150px; }
+        .tmpl-add-pos vaadin-button { flex: none; }
+        .dialog.dlg-tpl { width: 600px; max-width: calc(100vw - 48px); }
+        .dlg-tpl .qual-panel { background: #fff; padding: 8px 24px 4px; }
 
         /* Manage Templates page */
         .mt-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 4px 0 22px; flex-wrap: wrap; }
@@ -348,6 +353,33 @@
         .mt-type { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 2px 9px; border-radius: 10px; margin-bottom: 8px; }
         .mt-type.assignment { background: #e7f0fb; color: #2563a6; }
         .mt-type.template { background: #eee7fb; color: #6b3ca6; }
+        .mt-summary { font-size: 12px; color: var(--text-soft); margin: 0 0 12px; }
+        .acard-head .row-btn { flex: none; }
+
+        /* Row ⋯ actions menu (popover) */
+        .row-menu-btn { border: none; background: none; cursor: pointer; color: #5a6675; font-size: 16px; padding: 4px 8px; border-radius: 4px; }
+        .row-menu-btn:hover { background: #eef2f6; }
+        .row-menu { position: fixed; z-index: 200; min-width: 170px; background: #fff; border: 1px solid #d7dde3; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.18); padding: 6px; display: none; }
+        .row-menu.open { display: block; }
+        .row-menu button { display: flex; align-items: center; gap: 9px; width: 100%; border: none; background: none; text-align: left; padding: 9px 12px; border-radius: 6px; font: 500 13.5px inherit; color: var(--text); cursor: pointer; }
+        .row-menu button:hover { background: #f1f5f9; }
+        .row-menu button.danger { color: var(--req); }
+        .row-menu button i { width: 16px; text-align: center; color: #6b7682; }
+        .row-menu button.danger i { color: var(--req); }
+        /* Multi-select deploy */
+        tr.selectable td:nth-child(2) { font-weight: 600; }
+        .row-sel { width: 18px; height: 18px; accent-color: var(--blue-link); cursor: pointer; }
+        .select-bar { position: sticky; bottom: 0; display: none; align-items: center; justify-content: space-between; gap: 16px; margin: 0 24px 24px; padding: 12px 18px; background: #18233a; color: #fff; border-radius: 10px; box-shadow: 0 -4px 16px rgba(0,0,0,.18); }
+        .select-bar.open { display: flex; }
+        .select-bar #selectBarCount { font-weight: 700; font-size: 14px; }
+        .select-bar-actions { display: flex; gap: 10px; }
+        .select-bar vaadin-button { --lumo-primary-text-color: #fff; }
+        /* Deployable tooltip (AC-1.3) */
+        .dep-info { position: relative; color: #8a93a0; cursor: help; margin-left: 4px; }
+        .dep-info[data-tip]:hover::after, .dep-info[data-tip]:focus::after {
+            content: attr(data-tip); position: absolute; left: 50%; top: 140%; transform: translateX(-50%);
+            width: 280px; background: #18233a; color: #fff; font-size: 12px; font-weight: 400; line-height: 1.45;
+            padding: 9px 11px; border-radius: 8px; box-shadow: 0 8px 22px rgba(0,0,0,.3); z-index: 300; white-space: normal; text-transform: none; }
 
         /* Quick Deploy date dialog */
         .dialog.dlg-qd { width: 520px; max-width: calc(100vw - 48px); }
@@ -419,6 +451,7 @@
                         <h1>Edit Assignments</h1>
                         <div class="head-actions">
                             <button class="btn btn-blue" id="addDeploymentBtn"><i class="fa-solid fa-plus"></i> Add New Deployment</button>
+                            <button class="btn btn-ghost" id="selectDeployBtn"><i class="fa-regular fa-square-check"></i> Select to deploy</button>
                             <button class="btn btn-green"><i class="fa-solid fa-plus"></i> Add Assignment</button>
                             <button class="btn btn-iconbox"><i class="fa-regular fa-pen-to-square"></i></button>
                             <button class="btn btn-ghost" id="manageTemplatesBtn">Manage Templates</button>
@@ -438,13 +471,21 @@
                             <thead>
                                 <tr>
                                     <th>Order</th><th>Assignment Name</th><th>Code</th><th>Deployment</th>
-                                    <th>Is Deployable?</th>
+                                    <th>Is Deployable? <span class="dep-info" tabindex="0" aria-label="What does Deployable mean?" data-tip="When on, this assignment appears in the deployment workflow — admins can select it under “Select Existing Assignment(s)” to deploy it. Changing this doesn’t affect active or past deployments."><i class="fa-regular fa-circle-question"></i></span></th>
                                     <th>Start Date</th><th>Min. Staffing</th><th>Groups</th><th>Recurring</th>
-                                    <th>Self-scheduling Allowed?</th><th>Edit</th><th>Delete</th>
+                                    <th>Self-scheduling Allowed?</th><th>Edit</th><th></th>
                                 </tr>
                             </thead>
                             <tbody id="assignTableBody"></tbody>
                         </table>
+                    </div>
+                </div>
+                <!-- Sticky multi-select deploy bar (AC-7.8) -->
+                <div class="select-bar" id="selectBar">
+                    <span id="selectBarCount">0 selected</span>
+                    <div class="select-bar-actions">
+                        <vaadin-button theme="tertiary" id="selectCancelBtn">Cancel</vaadin-button>
+                        <vaadin-button theme="primary" id="selectDeployGoBtn" disabled>Deploy selected →</vaadin-button>
                     </div>
                 </div>
             </div>
@@ -583,7 +624,10 @@
                         <button class="mt-tab" data-mtf="assignments">Deployable assignments</button>
                         <button class="mt-tab" data-mtf="templates">Templates</button>
                     </div>
-                    <div class="mt-search"><i class="fa-solid fa-magnifying-glass"></i><input type="text" id="mtSearch" placeholder="Search…"></div>
+                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <div class="mt-search"><i class="fa-solid fa-magnifying-glass"></i><input type="text" id="mtSearch" placeholder="Search…"></div>
+                        <vaadin-button theme="primary" id="mtCreateBtn"><i class="fa-solid fa-plus"></i>&nbsp; Create New Template</vaadin-button>
+                    </div>
                 </div>
                 <div id="mtList"></div>
             </div>
@@ -643,6 +687,48 @@
         </div>
     </div>
 
+    <!-- ===================== Template Editor dialog (Manage Templates create/edit) ===================== -->
+    <div class="overlay" id="tplEditOverlay">
+        <div class="dialog dlg-tpl">
+            <div class="dialog-head">
+                <div class="row1">
+                    <div>
+                        <h2 id="tplEditTitle">Create Template</h2>
+                        <div class="dlg-sub">Name the template and define its positions. Add qualified positions, plus any open positions to fill later.</div>
+                    </div>
+                    <button class="dialog-close" id="tplEditClose"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="qual-panel">
+                <div class="select-label">Template name</div>
+                <vaadin-text-field id="mtTplName" theme="outlined" placeholder="e.g. Engine Company"></vaadin-text-field>
+                <div class="blk2" style="margin-top:18px;">
+                    <h3 style="font-size:15px;font-weight:700;margin:0 0 2px;">Qualified positions</h3>
+                    <p class="sub" style="font-size:12.5px;color:var(--text-soft);margin:0 0 10px;">Add a position with a required primary qualifier; optionally pair a shared qualifier.</p>
+                    <div class="tmpl-qual-rows" id="mtQualRows"></div>
+                    <div class="tmpl-add-pos">
+                        <div><div class="select-label">Primary qualifier</div><vaadin-select id="mtPrimaryPicker" theme="outlined" placeholder="Select…"></vaadin-select></div>
+                        <div><div class="select-label">Shared qualifier (optional)</div><vaadin-select id="mtSharedPicker" theme="outlined" placeholder="None"></vaadin-select></div>
+                        <vaadin-button theme="secondary" id="mtAddPos"><i class="fa-solid fa-plus"></i> Add position</vaadin-button>
+                    </div>
+                </div>
+                <div class="blk2" style="margin-top:18px;">
+                    <h3 style="font-size:15px;font-weight:700;margin:0 0 2px;">Open positions</h3>
+                    <p class="sub" style="font-size:12.5px;color:var(--text-soft);margin:0 0 10px;">Positions with no qualifier required (minimum staffing).</p>
+                    <div class="select-label">Number of open positions</div>
+                    <vaadin-number-field id="mtTplOpen" theme="outlined" value="0" min="0" step="1" style="width:140px;"></vaadin-number-field>
+                </div>
+            </div>
+            <div class="dialog-footer">
+                <vaadin-button theme="secondary" id="mtTplCancel">Cancel</vaadin-button>
+                <vaadin-button theme="primary" id="mtTplSave">Save template</vaadin-button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row actions popover (⋯ menu on assignment rows) -->
+    <div class="row-menu" id="rowMenu"></div>
+
     <!-- ===================== Select Assignment(s) modal (Flow B) ===================== -->
     <div class="overlay" id="assignOverlay">
         <div class="dialog dlg-assign">
@@ -674,10 +760,13 @@
                         <vaadin-text-field id="tmplName" theme="outlined" placeholder="e.g. Engine Company"></vaadin-text-field>
                         <div class="blk2">
                             <h3>Qualified positions</h3>
-                            <p class="sub">Each qualifier you add creates one position that requires it.</p>
+                            <p class="sub">Add a position with a required primary qualifier; optionally pair a shared qualifier with it.</p>
                             <div class="tmpl-qual-rows" id="tmplQualRows"></div>
-                            <div class="select-label">Add a qualifier</div>
-                            <vaadin-select id="tmplPrimaryPicker" theme="outlined" placeholder="Select a qualifier…"></vaadin-select>
+                            <div class="tmpl-add-pos">
+                                <div><div class="select-label">Primary qualifier</div><vaadin-select id="tmplPrimaryPicker" theme="outlined" placeholder="Select…"></vaadin-select></div>
+                                <div><div class="select-label">Shared qualifier (optional)</div><vaadin-select id="tmplSharedPicker" theme="outlined" placeholder="None"></vaadin-select></div>
+                                <vaadin-button theme="secondary" id="tmplAddPos"><i class="fa-solid fa-plus"></i> Add position</vaadin-button>
+                            </div>
                         </div>
                         <div class="blk2">
                             <h3>Open positions</h3>
@@ -746,6 +835,8 @@
     // Per-assignment "is deployable" setting — only deployable assignments appear in the
     // Select Assignment(s) modal (avoids scroll fatigue for hundreds of assignments).
     const DEPLOYABLE = new Set(['6am to 6pm','8am to 8pm','8pm to 8am','Engine 15','Engine 27','Engine 49','Patrol Days','Patrol Nights','Swing']);
+    let selectMode = false;                 // multi-select-to-deploy mode (AC-7.8)
+    const selectedToDeploy = new Set();
     function renderTable() {
         document.getElementById('assignTableBody').innerHTML = ASSIGN_ROWS.map(r => {
             const [name, code, dep, start, staff, rec, ss] = r;
@@ -753,25 +844,38 @@
             const ssCell = ss === 'Yes, All users'
                 ? `Yes, All users <button class="ss-change">change</button>` : ss;
             const toggle = `<label class="toggle"><input type="checkbox" data-deployable="${name}" ${DEPLOYABLE.has(name) ? 'checked' : ''}><span class="track"></span></label>`;
-            // Deployable assignments get a quick-deploy action (jump straight into the flow pre-selected).
-            const deployBtn = DEPLOYABLE.has(name) ? `<button class="row-btn row-deploy" data-deploy="${name}"><i class="fa-solid fa-bolt"></i> Deploy</button> ` : '';
-            return `<tr>
-                <td><i class="fa-solid fa-up-down-left-right drag-h"></i></td>
+            const deployable = DEPLOYABLE.has(name);
+            // First cell: a selection checkbox while in select mode (deployable rows only), else the drag handle.
+            const firstCell = (selectMode && deployable)
+                ? `<input type="checkbox" class="row-sel" data-sel="${name}" ${selectedToDeploy.has(name) ? 'checked' : ''}>`
+                : (selectMode ? '' : '<i class="fa-solid fa-up-down-left-right drag-h"></i>');
+            // Actions: a ⋯ menu (Deploy for deployable, Edit, Delete) replacing the old ⚡ button.
+            const menuBtn = `<button class="row-menu-btn" data-menu="${name}" aria-label="Actions"><i class="fa-solid fa-ellipsis"></i></button>`;
+            return `<tr${selectMode && deployable ? ' class="selectable"' : ''}>
+                <td>${firstCell}</td>
                 <td>${name}</td><td>${code}</td><td>${dep}</td><td>${toggle}</td><td>${start}</td>
                 <td>${staff}</td><td></td><td class="${recCls}">${rec}</td><td>${ssCell}</td>
-                <td>${deployBtn}<button class="row-btn row-edit">Edit</button></td>
-                <td><button class="row-btn row-del"><i class="fa-solid fa-trash-can"></i> Delete</button></td>
+                <td><button class="row-btn row-edit">Edit</button></td>
+                <td>${menuBtn}</td>
             </tr>`;
         }).join('');
     }
     renderTable();
     document.getElementById('assignTableBody').addEventListener('change', e => {
-        const t = e.target.closest('[data-deployable]'); if (!t) return;
-        if (t.checked) DEPLOYABLE.add(t.dataset.deployable); else DEPLOYABLE.delete(t.dataset.deployable);
-        renderTable(); // keep the per-row Deploy quick-action in sync with deployability
+        const dep = e.target.closest('[data-deployable]');
+        if (dep) {
+            if (dep.checked) DEPLOYABLE.add(dep.dataset.deployable); else { DEPLOYABLE.delete(dep.dataset.deployable); selectedToDeploy.delete(dep.dataset.deployable); }
+            renderTable(); updateSelectBar();
+            return;
+        }
+        const sel = e.target.closest('[data-sel]');
+        if (sel) {
+            if (sel.checked) selectedToDeploy.add(sel.dataset.sel); else selectedToDeploy.delete(sel.dataset.sel);
+            updateSelectBar();
+        }
     });
     document.getElementById('assignTableBody').addEventListener('click', e => {
-        const d = e.target.closest('[data-deploy]'); if (d) openQuickDeploy(d.dataset.deploy);
+        const m = e.target.closest('[data-menu]'); if (m) { openRowMenu(m, m.dataset.menu); }
     });
 
     /* ============================================================
@@ -873,10 +977,11 @@
         setSelectItems(sharedPicker, sharedOpts);
         sharedPicker.addEventListener('value-changed', e => { if (e.detail.value) { addShared(e.detail.value); sharedPicker.value = ''; } });
 
-        // template builder qualifier picker (Flow B) — each pick adds one qualified position
-        const tmplPicker = document.getElementById('tmplPrimaryPicker');
-        setSelectItems(tmplPicker, qualOpts.map(o => ({ ...o })));
-        tmplPicker.addEventListener('value-changed', e => { if (e.detail.value) { tmplQuals.push(e.detail.value); tmplPicker.value = ''; renderTmplQualRows(); } });
+        // template builders (inline flow panel + Manage Templates editor): primary + optional shared
+        const sharedNone = [{ label: 'None', value: '' },
+            ...Object.keys(SHARED).map(k => ({ label: `${SHARED[k].code} — ${SHARED[k].name}`, value: k }))];
+        ['tmplPrimaryPicker', 'mtPrimaryPicker'].forEach(id => setSelectItems(document.getElementById(id), qualOpts.map(o => ({ ...o }))));
+        ['tmplSharedPicker', 'mtSharedPicker'].forEach(id => setSelectItems(document.getElementById(id), sharedNone.map(o => ({ ...o }))));
     });
 
     const totalPrimary = () => Object.values(primary).reduce((a, b) => a + b, 0);
@@ -947,13 +1052,16 @@
             { quals: ['Eng'], emp: 'Taylor Indigo' }, { quals: ['BC'], emp: 'Jordan Violet' }, { quals: ['FF','PM'], emp: 'Parker Teal' },
             { quals: ['Capt'], emp: 'Jesse Olive' }, { quals: ['BC'], emp: 'Shawn Silver' } ] },
     ];
-    const TEMPLATE = { id: 'tpl9', name: 'Assignment 9', slots: [
-        { quals: ['Capt'], emp: 'Amari Wood' }, { quals: ['FF','PM'], emp: 'Avery Green' }, { quals: ['Capt'], emp: 'Finley Price' },
-        { quals: ['BC','FF'], emp: 'Remi Cooper' }, { quals: ['FF'], emp: 'Dakota Carr' }, { quals: ['Eng'], emp: 'Phoenix Murphy' } ] };
+    // Saved assignment templates (seeded with one legacy/demo template). The Manage
+    // Templates page lists/edits/deletes these; the inline builder appends to them.
+    let tmplSeq = 10;
+    let TEMPLATES = [{ id: 'tpl9', name: 'Assignment 9', slots: [
+        { quals: ['Capt'], emp: null }, { quals: ['FF','PM'], emp: null }, { quals: ['Capt'], emp: null },
+        { quals: ['BC','FF'], emp: null }, { quals: ['FF'], emp: null }, { quals: [], emp: null } ] }];
     let templateCreated = false;
-    let createdTemplate = null;      // the template built in the inline panel (name + open positions)
-    // Effective template shown in the modal/result: the one the user built, else the demo TEMPLATE.
-    const activeTemplate = () => createdTemplate || TEMPLATE;
+    let createdTemplate = null;      // the template attached to the in-progress deployment
+    // Effective template shown in the deployment result: the one being deployed, else the first saved one.
+    const activeTemplate = () => createdTemplate || TEMPLATES[0];
 
     const qtab = q => `<span class="qtab qtab--${q.toLowerCase()}">${q}</span>`;
     function slotBarHtml(slot, opts) {
@@ -970,7 +1078,8 @@
     function renderAssignGrid() {
         const f = assignFilter.trim().toLowerCase();
         const list = ASSIGNMENTS.filter(a => a.isDeployable)
-            .filter(a => !f || a.name.toLowerCase().includes(f) || a.slots.some(s => (s.emp || '').toLowerCase().includes(f)));
+            .filter(a => !f || a.name.toLowerCase().includes(f) || a.slots.some(s => (s.emp || '').toLowerCase().includes(f)))
+            .slice().sort((a, b) => a.name.localeCompare(b.name)); // AC-3.1: alphabetical
         const grid = document.getElementById('assignGrid');
         if (!list.length) { grid.innerHTML = '<div class="tmpl-empty">No deployable assignments match your search.</div>'; return; }
         grid.innerHTML = list.map(a => {
@@ -982,16 +1091,27 @@
                 </div>${bars}</div>`;
         }).join('');
     }
+    // ---- Template position helpers (shared by inline builder + Manage Templates editor) ----
+    // A "position" = { primary: qualCode, shared: sharedCode|'' }. Each becomes one open slot.
+    function posLabel(p) {
+        const pri = QUALIFIERS[p.primary] ? QUALIFIERS[p.primary].code : p.primary;
+        return p.shared ? `${pri} + ${SHARED[p.shared] ? SHARED[p.shared].code : p.shared}` : pri;
+    }
+    function renderPosChips(el, positions) {
+        if (!el) return;
+        el.innerHTML = positions.length
+            ? positions.map((p, i) => `<span class="tmpl-qual-chip" data-tqi="${i}">${posLabel(p)} <span class="x" title="Remove">&times;</span></span>`).join('')
+            : '<div class="tmpl-empty-positions">No qualified positions yet — add one above, or just use open positions below.</div>';
+    }
+    function positionsToSlots(positions, openN) {
+        return positions.map(p => ({ quals: [p.primary, p.shared].filter(Boolean), emp: null }))
+            .concat(Array.from({ length: Math.max(0, openN | 0) }, () => ({ quals: [], emp: null })));
+    }
+
     // Inline Create-Template panel state (was a separate "Select Qualifiers" modal).
     let creatingTemplate = false;
-    let tmplQuals = [];   // qualifier codes; each = one qualified open position in the template
-    function renderTmplQualRows() {
-        const wrap = document.getElementById('tmplQualRows');
-        if (!wrap) return;
-        wrap.innerHTML = tmplQuals.length
-            ? tmplQuals.map((q, i) => `<span class="tmpl-qual-chip" data-tqi="${i}">${QUALIFIERS[q] ? QUALIFIERS[q].code : q} <span class="x" title="Remove">&times;</span></span>`).join('')
-            : '<div class="tmpl-empty-positions">No qualified positions yet — add a qualifier above, or just use open positions below.</div>';
-    }
+    let tmplPositions = [];   // qualified positions for the inline flow builder
+    function renderTmplQualRows() { renderPosChips(document.getElementById('tmplQualRows'), tmplPositions); }
     function renderTemplateArea() {
         const area = document.getElementById('templateArea');
         const panel = document.getElementById('tmplCreatePanel');
@@ -1078,26 +1198,36 @@
 
     // Create template — inline panel under Select Assignments (no longer a modal).
     function resetTemplateForm() {
-        tmplQuals = [];
+        tmplPositions = [];
         const nm = document.getElementById('tmplName'); if (nm) nm.value = '';
         const op = document.getElementById('tmplOpen'); if (op) op.value = '0';
+        const pp = document.getElementById('tmplPrimaryPicker'); if (pp) pp.value = '';
+        const sp = document.getElementById('tmplSharedPicker'); if (sp) sp.value = '';
         renderTmplQualRows();
     }
     document.getElementById('createTemplateBtn').addEventListener('click', () => { resetTemplateForm(); creatingTemplate = true; renderTemplateArea(); });
     document.getElementById('qualCancel').addEventListener('click', () => { creatingTemplate = false; renderTemplateArea(); });
-    // Add / remove qualified positions
+    // Add a qualified position (primary + optional shared)
+    document.getElementById('tmplAddPos').addEventListener('click', () => {
+        const pp = document.getElementById('tmplPrimaryPicker'), sp = document.getElementById('tmplSharedPicker');
+        if (!pp.value) { alert('Pick a primary qualifier for the position.'); return; }
+        tmplPositions.push({ primary: pp.value, shared: sp.value || '' });
+        pp.value = ''; sp.value = ''; renderTmplQualRows();
+    });
+    // Remove a qualified position
     document.getElementById('tmplQualRows').addEventListener('click', e => {
         const chip = e.target.closest('.tmpl-qual-chip'); if (!chip || !e.target.closest('.x')) return;
-        tmplQuals.splice(Number(chip.dataset.tqi), 1); renderTmplQualRows();
+        tmplPositions.splice(Number(chip.dataset.tqi), 1); renderTmplQualRows();
     });
     // Build the template from name + qualified positions + open positions
     document.getElementById('qualCreate').addEventListener('click', () => {
         const name = (document.getElementById('tmplName').value || '').trim() || 'New Template';
-        const openN = Math.max(0, parseInt(document.getElementById('tmplOpen').value || '0', 10) || 0);
-        const slots = tmplQuals.map(q => ({ quals: [q], emp: null }))          // qualified open positions
-            .concat(Array.from({ length: openN }, () => ({ quals: [], emp: null }))); // open positions (no qualifier)
+        const openN = parseInt(document.getElementById('tmplOpen').value || '0', 10) || 0;
+        const slots = positionsToSlots(tmplPositions, openN);
         if (!slots.length) { alert('Add at least one qualified or open position.'); return; }
-        createdTemplate = { id: 'tpl-new', name, slots };
+        const tpl = { id: 'tpl-' + (++tmplSeq), name, slots };
+        TEMPLATES.push(tpl);          // save it so it shows on Manage Templates too
+        createdTemplate = tpl;        // and attach it to this deployment
         templateCreated = true; creatingTemplate = false;
         renderTemplateArea();
     });
@@ -1182,22 +1312,46 @@
        deployable assignments + saved templates with a filter + search.
        ============================================================ */
     let mtFilter = 'all', mtSearch = '';
+    // Summary line: "5 positions · Capt ×2, FF, PM · 1 open"
+    function tplSummary(slots) {
+        const total = slots.length, open = slots.filter(s => !s.quals.length).length, qmap = {};
+        slots.forEach(s => s.quals.forEach(q => { qmap[q] = (qmap[q] || 0) + 1; }));
+        const quals = Object.keys(qmap).map(q => {
+            const code = QUALIFIERS[q] ? QUALIFIERS[q].code : (SHARED[q] ? SHARED[q].code : q);
+            return code + (qmap[q] > 1 ? ` ×${qmap[q]}` : '');
+        }).join(', ');
+        return `${total} position${total !== 1 ? 's' : ''}${quals ? ' · ' + quals : ''}${open ? ` · ${open} open` : ''}`;
+    }
     function renderManageTemplates() {
         const q = mtSearch.trim().toLowerCase();
-        const items = [];
-        if (mtFilter !== 'templates') ASSIGNMENTS.filter(a => a.isDeployable).forEach(a => items.push({ type: 'assignment', name: a.name, slots: a.slots }));
-        if (mtFilter !== 'assignments') {
-            if (createdTemplate) items.push({ type: 'template', name: createdTemplate.name, slots: createdTemplate.slots });
-            items.push({ type: 'template', name: TEMPLATE.name, slots: TEMPLATE.slots });
+        const cards = [];
+        if (mtFilter !== 'templates') {
+            ASSIGNMENTS.filter(a => a.isDeployable && (!q || a.name.toLowerCase().includes(q)))
+                .slice().sort((a, b) => a.name.localeCompare(b.name))
+                .forEach(a => {
+                    const bars = a.slots.map(s => slotBarHtml(s, { removable: false })).join('');
+                    cards.push(`<div class="acard"><span class="mt-type assignment">Deployable assignment</span>
+                        <div class="acard-head"><span class="acard-title">${a.name}</span></div>
+                        <div class="mt-summary">${tplSummary(a.slots)}</div>${bars}</div>`);
+                });
         }
-        const filtered = items.filter(it => !q || it.name.toLowerCase().includes(q));
+        if (mtFilter !== 'assignments') {
+            TEMPLATES.filter(t => !q || t.name.toLowerCase().includes(q))
+                .slice().sort((a, b) => a.name.localeCompare(b.name))
+                .forEach(t => {
+                    const bars = t.slots.map(s => slotBarHtml(s, { removable: false })).join('');
+                    cards.push(`<div class="acard" data-tplid="${t.id}"><span class="mt-type template">Template</span>
+                        <div class="acard-head"><span class="acard-title">${t.name}</span>
+                            <button class="row-btn" data-tpl-edit="${t.id}"><i class="fa-regular fa-pen-to-square"></i> Edit</button>
+                            <button class="row-btn row-del" data-tpl-del="${t.id}"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                        <div class="mt-summary">${tplSummary(t.slots)}</div>${bars}</div>`);
+                });
+        }
         const list = document.getElementById('mtList');
-        if (!filtered.length) { list.innerHTML = '<div class="tmpl-empty">Nothing matches your filter.</div>'; return; }
-        list.innerHTML = `<div class="assign-grid" style="max-width:none;">${filtered.map(it => {
-            const bars = it.slots.map(s => slotBarHtml(s, { removable: false })).join('');
-            const badge = `<span class="mt-type ${it.type}">${it.type === 'assignment' ? 'Deployable assignment' : 'Template'}</span>`;
-            return `<div class="acard">${badge}<div class="acard-head"><span class="acard-title">${it.name}</span></div>${bars}</div>`;
-        }).join('')}</div>`;
+        list.innerHTML = cards.length
+            ? `<div class="assign-grid" style="max-width:none;">${cards.join('')}</div>`
+            : '<div class="tmpl-empty">Nothing matches your filter.</div>';
     }
     document.getElementById('manageTemplatesBtn').addEventListener('click', () => { showView('templates'); renderManageTemplates(); });
     document.getElementById('backFromTemplates').addEventListener('click', () => showView('landing'));
@@ -1208,21 +1362,80 @@
         renderManageTemplates();
     });
     document.getElementById('mtSearch').addEventListener('input', e => { mtSearch = e.target.value; renderManageTemplates(); });
+    document.getElementById('mtCreateBtn').addEventListener('click', () => openTemplateEditor(null));
+    document.getElementById('mtList').addEventListener('click', e => {
+        const ed = e.target.closest('[data-tpl-edit]');
+        if (ed) { openTemplateEditor(TEMPLATES.find(t => t.id === ed.dataset.tplEdit)); return; }
+        const del = e.target.closest('[data-tpl-del]');
+        if (del) {
+            const t = TEMPLATES.find(x => x.id === del.dataset.tplDel);
+            if (t && confirm(`Delete template "${t.name}"? Historical deployments that used it are preserved.`)) {
+                TEMPLATES = TEMPLATES.filter(x => x.id !== t.id);
+                renderManageTemplates();
+            }
+        }
+    });
+
+    /* ============================================================
+       Template Editor dialog — Create / Edit a saved template from Manage Templates.
+       ============================================================ */
+    const tplEditOverlay = document.getElementById('tplEditOverlay');
+    let mtEditPositions = [], mtEditId = null;
+    function renderMtQualRows() { renderPosChips(document.getElementById('mtQualRows'), mtEditPositions); }
+    function openTemplateEditor(tpl) {
+        mtEditId = tpl ? tpl.id : null;
+        mtEditPositions = tpl ? tpl.slots.filter(s => s.quals.length).map(s => ({ primary: s.quals[0], shared: s.quals[1] || '' })) : [];
+        const openN = tpl ? tpl.slots.filter(s => !s.quals.length).length : 0;
+        document.getElementById('tplEditTitle').textContent = tpl ? 'Edit Template' : 'Create Template';
+        document.getElementById('mtTplName').value = tpl ? tpl.name : '';
+        document.getElementById('mtTplOpen').value = String(openN);
+        document.getElementById('mtPrimaryPicker').value = '';
+        document.getElementById('mtSharedPicker').value = '';
+        renderMtQualRows();
+        tplEditOverlay.classList.add('open');
+    }
+    document.getElementById('mtAddPos').addEventListener('click', () => {
+        const pp = document.getElementById('mtPrimaryPicker'), sp = document.getElementById('mtSharedPicker');
+        if (!pp.value) { alert('Pick a primary qualifier for the position.'); return; }
+        mtEditPositions.push({ primary: pp.value, shared: sp.value || '' });
+        pp.value = ''; sp.value = ''; renderMtQualRows();
+    });
+    document.getElementById('mtQualRows').addEventListener('click', e => {
+        const chip = e.target.closest('.tmpl-qual-chip'); if (!chip || !e.target.closest('.x')) return;
+        mtEditPositions.splice(Number(chip.dataset.tqi), 1); renderMtQualRows();
+    });
+    document.getElementById('tplEditClose').addEventListener('click', () => tplEditOverlay.classList.remove('open'));
+    document.getElementById('mtTplCancel').addEventListener('click', () => tplEditOverlay.classList.remove('open'));
+    document.getElementById('mtTplSave').addEventListener('click', () => {
+        const name = (document.getElementById('mtTplName').value || '').trim();
+        if (!name) { alert('Give the template a name.'); return; }
+        const openN = parseInt(document.getElementById('mtTplOpen').value || '0', 10) || 0;
+        const slots = positionsToSlots(mtEditPositions, openN);
+        if (!slots.length) { alert('Add at least one qualified or open position.'); return; }
+        if (mtEditId) {
+            const t = TEMPLATES.find(x => x.id === mtEditId); if (t) { t.name = name; t.slots = slots; }
+        } else {
+            TEMPLATES.push({ id: 'tpl-' + (++tmplSeq), name, slots });
+        }
+        tplEditOverlay.classList.remove('open');
+        renderManageTemplates();
+    });
+    tplEditOverlay.addEventListener('click', e => { if (e.target === tplEditOverlay) tplEditOverlay.classList.remove('open'); });
 
     /* ============================================================
        Quick Deploy from the Crew Scheduler: clicking an assignment jumps into the
        Select-existing flow with that assignment pre-selected (+ multi-select to add
        others). A quick date-pick step satisfies the start/end date prerequisite.
        ============================================================ */
-    function openQuickDeploy(name) {
-        qdOverlay.dataset.name = name;
-        document.getElementById('qdName').textContent = name;
+    // Open the quick-deploy date dialog for one assignment, or several (multi-select).
+    function openQuickDeploy(names) {
+        const list = Array.isArray(names) ? names : [names];
+        qdOverlay.dataset.names = JSON.stringify(list);
+        document.getElementById('qdName').textContent = list.length === 1 ? list[0] : `${list.length} assignments`;
         qdOverlay.classList.add('open');
     }
     function copyVal(fromId, toId) { const f = document.getElementById(fromId), t = document.getElementById(toId); if (f && t) t.value = f.value; }
-    function quickDeploy(name) {
-        // Pre-select only this assignment; others remain available to add.
-        ASSIGNMENTS.forEach(a => a.selected = false);
+    function ensureSelectedAssignment(name) {
         let a = ASSIGNMENTS.find(x => x.name === name);
         if (!a) {
             // Not in the demo set — synthesize a deployable card with a few open positions.
@@ -1230,7 +1443,13 @@
                   slots: [{ quals: ['Capt'], emp: null }, { quals: ['FF'], emp: null }, { quals: [], emp: null }] };
             ASSIGNMENTS.unshift(a);
         } else { a.isDeployable = true; a.selected = true; }
+    }
+    function quickDeploy(names) {
+        // Pre-select the chosen assignment(s); others remain available to add.
+        ASSIGNMENTS.forEach(a => a.selected = false);
+        (Array.isArray(names) ? names : [names]).forEach(ensureSelectedAssignment);
         createdTemplate = null; templateCreated = false;
+        exitSelectMode();
         setDeployType('existing'); showView('deployment');
         openAssignModal();
     }
@@ -1240,10 +1459,66 @@
         // Carry the quick-picked dates onto the deployment form (satisfies the gate).
         copyVal('qdStart', 'startDate'); copyVal('qdStartTime', 'startTime');
         copyVal('qdEnd', 'endDate'); copyVal('qdEndTime', 'endTime');
-        const name = qdOverlay.dataset.name || '';
+        let names = []; try { names = JSON.parse(qdOverlay.dataset.names || '[]'); } catch (_) {}
         qdOverlay.classList.remove('open');
-        quickDeploy(name);
+        quickDeploy(names);
         updateAssignGate();
+    });
+
+    /* ============================================================
+       Row ⋯ actions menu (AC-7.6: single Deploy from the scheduler via the menu).
+       ============================================================ */
+    const rowMenu = document.getElementById('rowMenu');
+    function openRowMenu(btn, name) {
+        const deployable = DEPLOYABLE.has(name);
+        rowMenu.innerHTML =
+            (deployable ? `<button data-rm="deploy"><i class="fa-solid fa-bolt"></i> Deploy</button>` : '') +
+            `<button data-rm="edit"><i class="fa-regular fa-pen-to-square"></i> Edit</button>` +
+            `<button class="danger" data-rm="delete"><i class="fa-solid fa-trash-can"></i> Delete</button>`;
+        rowMenu.dataset.name = name;
+        const r = btn.getBoundingClientRect();
+        rowMenu.style.top = (r.bottom + 4) + 'px';
+        rowMenu.style.left = Math.min(r.left, window.innerWidth - 190) + 'px';
+        rowMenu.classList.add('open');
+    }
+    function closeRowMenu() { rowMenu.classList.remove('open'); }
+    rowMenu.addEventListener('click', e => {
+        const b = e.target.closest('[data-rm]'); if (!b) return;
+        const name = rowMenu.dataset.name; closeRowMenu();
+        if (b.dataset.rm === 'deploy') openQuickDeploy(name);
+        else if (b.dataset.rm === 'edit') alert(`Edit "${name}" — assignment settings (out of scope for this mock).`);
+        else if (b.dataset.rm === 'delete') alert(`Delete "${name}" (out of scope for this mock).`);
+    });
+    document.addEventListener('click', e => {
+        if (rowMenu.classList.contains('open') && !e.target.closest('#rowMenu') && !e.target.closest('[data-menu]')) closeRowMenu();
+    });
+    window.addEventListener('resize', closeRowMenu);
+
+    /* ============================================================
+       Multi-select to deploy (AC-7.8/7.9): checkbox select mode + sticky bar.
+       ============================================================ */
+    const selectBar = document.getElementById('selectBar');
+    function updateSelectBar() {
+        const n = selectedToDeploy.size;
+        document.getElementById('selectBarCount').textContent = `${n} selected`;
+        document.getElementById('selectDeployGoBtn').disabled = n === 0;
+    }
+    function enterSelectMode() {
+        selectMode = true; selectedToDeploy.clear();
+        document.getElementById('selectDeployBtn').classList.add('on');
+        selectBar.classList.add('open'); renderTable(); updateSelectBar();
+    }
+    function exitSelectMode() {
+        if (!selectMode) return;
+        selectMode = false; selectedToDeploy.clear();
+        document.getElementById('selectDeployBtn').classList.remove('on');
+        selectBar.classList.remove('open'); renderTable();
+    }
+    document.getElementById('selectDeployBtn').addEventListener('click', () => { selectMode ? exitSelectMode() : enterSelectMode(); });
+    document.getElementById('selectCancelBtn').addEventListener('click', exitSelectMode);
+    document.getElementById('selectDeployGoBtn').addEventListener('click', () => {
+        if (!selectedToDeploy.size) return;
+        openQuickDeploy([...selectedToDeploy]);  // multi → date-pick → Select-existing flow with all pre-selected
     });
 
     /* ============================================================
