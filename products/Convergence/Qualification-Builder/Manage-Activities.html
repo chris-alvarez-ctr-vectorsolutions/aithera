@@ -63,6 +63,7 @@
     .cell-name { font-weight:600; font-size:13.5px; color:#1a1a2e; }
     .cell-desc { font-size:11.5px; color:#9ca3af; margin-top:1px; max-width:480px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:normal; }
     .cell-version { font-size:12px; color:#475569; font-family:ui-monospace,"SF Mono",monospace; }
+    .cell-muted { font-size:12.5px; color:#9ca3af; }
     .cell-loc { display:flex; align-items:flex-start; gap:6px; font-size:12.5px; color:#6b7280; }
     .cell-loc i { color:#9ca3af; font-size:11px; flex-shrink:0; margin-top:3px; }
     .cell-loc .loc-text { line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:normal; }
@@ -81,6 +82,29 @@
     .row-dropdown-item i { width:14px; text-align:center; font-size:12px; color:#9ca3af; }
     .row-dropdown-item.danger i { color:#dc2626; }
     .row-dropdown-divider { height:1px; background:#e5e9ef; margin:4px 0; }
+
+    /* Bulk-actions bar (mail-client pattern) */
+    .bulk-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--vblue-10); border:1px solid #b6dcfa; border-radius:8px; padding:8px 10px 8px 14px; margin-bottom:12px; }
+    .bulk-bar.hidden { display:none; }
+    .bulk-bar-left { display:flex; align-items:center; gap:8px; }
+    .bulk-count { font-size:13px; font-weight:700; color:#0b3d66; }
+    .bulk-clear { width:26px; height:26px; border:none; background:none; border-radius:5px; color:#0b3d66; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:13px; }
+    .bulk-clear:hover { background:rgba(2,113,206,.14); }
+    .bulk-bar-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .btn-secondary.danger { color:#dc2626; border-color:#f0b4b4; }
+    .btn-secondary.danger:hover { background:#fee2e2; }
+
+    /* See-more dropdown inside the bulk bar (used on Activities) */
+    .bulk-more-wrap { position:relative; }
+    .bulk-more-menu { position:absolute; top:calc(100% + 6px); right:0; background:#fff; border:1px solid #e5e9ef; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.14); z-index:60; min-width:240px; padding:4px; }
+    .bulk-more-menu.hidden { display:none; }
+    .bulk-more-item { display:flex; align-items:center; gap:9px; width:100%; padding:8px 12px; border:none; background:none; font-family:inherit; font-size:13px; color:#374151; cursor:pointer; border-radius:6px; text-align:left; }
+    .bulk-more-item:hover { background:#f3f4f6; }
+    .bulk-more-item i { width:14px; text-align:center; font-size:12px; color:#9ca3af; }
+
+    /* Toast */
+    .mgmt-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:#1f2937; color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:1100; }
+    .mgmt-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
     /* Requirement filter banner */
     .req-filter-banner { display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--vblue-10); border:1px solid #b6dcfa; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:13px; color:#0b3d66; }
@@ -103,8 +127,8 @@
         <div class="sub">Manage the activity library. Activities are the building blocks of requirements.</div>
       </div>
       <div>
-        <button class="btn btn-primary" onclick="alert('Activity creation is out of scope for this prototype.')">
-          <i class="fa-solid fa-plus"></i> Create Activity
+        <button class="btn btn-primary" onclick="showToast('Opening the Content Wizard to create a new activity (prototype).')">
+          <i class="fa-solid fa-plus"></i> Content Wizard
         </button>
       </div>
     </div>
@@ -124,7 +148,28 @@
         <option value="Document">Document</option>
       </select>
       <div style="margin-left:auto">
-        <button class="btn btn-secondary btn-sm"><i class="fa-solid fa-download"></i> Export</button>
+        <button class="btn btn-secondary btn-sm" onclick="bulkExport(true)"><i class="fa-solid fa-download"></i> Export</button>
+      </div>
+    </div>
+
+    <!-- Bulk-actions bar (appears when rows are selected, like a mail client) -->
+    <div class="bulk-bar hidden" id="bulk-bar">
+      <div class="bulk-bar-left">
+        <span class="bulk-count" id="bulk-count">0 selected</span>
+        <button class="bulk-clear" onclick="clearSelection()" title="Clear selection"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="bulk-bar-actions">
+        <button class="btn btn-secondary btn-sm" onclick="bulkExport()"><i class="fa-solid fa-download"></i> Export</button>
+        <button class="btn btn-secondary btn-sm" onclick="bulkActivate()"><i class="fa-solid fa-circle-play"></i> Activate</button>
+        <button class="btn btn-secondary btn-sm" onclick="bulkDeactivate()"><i class="fa-solid fa-circle-pause"></i> Deactivate</button>
+        <button class="btn btn-secondary btn-sm danger" onclick="bulkDelete()"><i class="fa-regular fa-trash-can"></i> Delete</button>
+        <div class="bulk-more-wrap">
+          <button class="btn btn-secondary btn-sm" onclick="toggleBulkMore(event)">More <i class="fa-solid fa-chevron-down" style="font-size:10px"></i></button>
+          <div class="bulk-more-menu hidden" id="bulk-more-menu">
+            <button class="bulk-more-item" onclick="bulkForceSequential(true)"><i class="fa-solid fa-list-ol"></i> Force sequential completion</button>
+            <button class="bulk-more-item" onclick="bulkForceSequential(false)"><i class="fa-solid fa-shuffle"></i> Remove force sequential completion</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -140,6 +185,9 @@
     </div>
 
   </div>
+
+  <!-- Toast -->
+  <div class="mgmt-toast" id="mgmt-toast"></div>
 </div>
 
 <!-- Convergence chrome -->
@@ -167,9 +215,9 @@ const ACTS = [
   // Forklift Pre-Operation Inspection (3)
   { name:'Forklift Daily Inspection',           desc:'Pre-shift inspection checklist for powered industrial trucks',  type:'Tasklist',  version:'v2.2', status:'Active', location:'Operations > Forklift',             requirement:'Forklift Pre-Operation Inspection' },
   { name:'Forklift Safety Course',              desc:'Operating fundamentals and stability for forklifts',           type:'Course',    version:'v4.1', status:'Active', location:'Operations > Forklift',             requirement:'Forklift Pre-Operation Inspection' },
-  { name:'Forklift Operation Quiz',             desc:'Assessment on safe forklift operation',                        type:'Quiz',      version:'v1.0', status:'Draft',  location:'Operations > Forklift',             requirement:'Forklift Pre-Operation Inspection' },
+  { name:'Forklift Operation Quiz',             desc:'Assessment on safe forklift operation',                        type:'Quiz',      version:'v1.0', status:'Inactive', location:'Operations > Forklift',             requirement:'Forklift Pre-Operation Inspection' },
   // Fire Watch Procedures (1)
-  { name:'Fire Watch Responsibilities',         desc:'Instructor-led walkthrough of fire-watch and permit steps',   type:'Classroom', version:'v1.1', status:'Draft',  location:'Safety > Hot Work',                 requirement:'Fire Watch Procedures' },
+  { name:'Fire Watch Responsibilities',         desc:'Instructor-led walkthrough of fire-watch and permit steps',   type:'Classroom', version:'v1.1', status:'Inactive', location:'Safety > Hot Work',                 requirement:'Fire Watch Procedures' },
   // Respirator Fit Test (2)
   { name:'Respirator Fit Test Record',          desc:'Capture and acknowledge respirator fit test results',          type:'Signature', version:'v2.0', status:'Active', location:'Safety > Respiratory Protection',   requirement:'Respirator Fit Test' },
   { name:'Respirator Selection Guide',          desc:'Reference for selecting the appropriate respirator',           type:'Document',  version:'v1.3', status:'Active', location:'Safety > Respiratory Protection',   requirement:'Respirator Fit Test' },
@@ -179,6 +227,17 @@ const ACTS = [
   { name:'Rigging Safety Quiz',                 desc:'Assessment on rigging selection and load handling',            type:'Quiz',      version:'v1.0', status:'Active', location:'Operations > Rigging',              requirement:'Rigging & Load Charts' },
 ];
 
+/* Derive the content-management columns (prototype values, varied across rows) */
+const ACT_SIZES = ['8 KB','512 KB','1.2 MB','3.4 MB','680 KB','12 MB','2.1 MB','46 KB','5.8 MB','920 KB'];
+ACTS.forEach((a, i) => {
+  a.fileType    = (a.type === 'Course' && i % 2 === 0) ? 'SCORM' : 'VSP Content';
+  a.configurable = (i % 3 !== 0);                       // most are configurable, some are not
+  a.updateStatus = (i % 6 === 1) ? 'New' : 'Current';   // a few flagged as newly updated
+  a.size        = ACT_SIZES[i % ACT_SIZES.length];
+  a.licenseType = (a.fileType === 'SCORM') ? 'Commercial' : 'None';
+  a.repository  = (a.fileType === 'SCORM') ? 'Vendor SCORM Library' : 'Vector Content Library';
+});
+
 function nameRenderer(p){
   const a = p.data;
   return `<div class="cell-name-wrap">
@@ -186,18 +245,46 @@ function nameRenderer(p){
     <div class="cell-desc">${a.desc}</div>
   </div>`;
 }
+const TYPE_ICONS = {
+  Course:'fa-graduation-cap', Quiz:'fa-circle-question', Tasklist:'fa-list-check',
+  Classroom:'fa-chalkboard-user', Signature:'fa-signature', Document:'fa-file-lines'
+};
 function typeRenderer(p){
-  return `<span theme="badge">${p.value}</span>`;
+  const icon = TYPE_ICONS[p.value] || 'fa-cube';
+  return `<span theme="badge" style="display:inline-flex;align-items:center;gap:5px"><i class="fa-solid ${icon}" style="font-size:10px"></i> ${p.value}</span>`;
 }
 function versionRenderer(p){
   return `<span class="cell-version">${p.value}</span>`;
 }
 function statusRenderer(p){
-  const conn = p.value === 'Active' ? 'success' : (p.value === 'Draft' ? 'contrast' : 'warning');
+  const conn = p.value === 'Active' ? 'success' : 'contrast';
   return `<span theme="badge dot ${conn}">${p.value}</span>`;
 }
 function locationRenderer(p){
   return `<span class="cell-loc"><i class="fa-solid fa-folder"></i><span class="loc-text">${p.value}</span></span>`;
+}
+function configRenderer(p){
+  return p.value
+    ? `<span theme="badge dot success">Configurable</span>`
+    : `<span theme="badge dot contrast">Not configurable</span>`;
+}
+function updateRenderer(p){
+  return p.value === 'New'
+    ? `<span theme="badge dot warning">New</span>`
+    : `<span class="cell-muted">Up to date</span>`;
+}
+function fileTypeRenderer(p){
+  const scorm = p.value === 'SCORM';
+  return `<span class="cell-meta"><i class="fa-solid ${scorm ? 'fa-cubes' : 'fa-box-open'}"></i> ${p.value}</span>`;
+}
+function sizeRenderer(p){ return `<span class="cell-muted">${p.value}</span>`; }
+function licenseRenderer(p){
+  return p.value === 'Commercial'
+    ? `<span theme="badge dot contrast">Commercial</span>`
+    : `<span class="cell-muted">None</span>`;
+}
+function repoRenderer(p){
+  return `<span class="cell-loc"><i class="fa-solid fa-folder-tree"></i><span class="loc-text">${p.value}</span></span>`;
 }
 
 /* Shared floating dropdown */
@@ -238,7 +325,15 @@ function actionsRenderer(p){
   editBtn.addEventListener('click', () => alert('Activity editor is out of scope for this prototype.'));
   moreBtn.addEventListener('click', ev => {
     ev.stopPropagation();
+    const isActive = p.data.status === 'Active';
     showDropdown(moreBtn, [
+      { icon: isActive ? 'fa-solid fa-circle-pause' : 'fa-solid fa-circle-play',
+        label: isActive ? 'Deactivate' : 'Activate',
+        action: () => {
+          p.data.status = isActive ? 'Inactive' : 'Active';
+          gridApi.applyTransaction({ update:[p.data] });
+          gridApi.refreshCells({ rowNodes:[p.node], columns:['status','actions'], force:true });
+        }},
       { icon:'fa-regular fa-eye', label:'Preview', action: () => alert('Preview "' + p.data.name + '" (prototype).') },
       { icon:'fa-regular fa-copy', label:'Duplicate', action: () => alert('Duplicate "' + p.data.name + '" (prototype).') },
       { divider: true },
@@ -259,11 +354,18 @@ let reqValue  = '';
 const gridOptions = {
   rowData: ACTS,
   columnDefs: [
-    { headerName:'Activity',    field:'name',     flex:2, minWidth:280, cellRenderer:nameRenderer, getQuickFilterText:p=>p.data.name+' '+p.data.desc },
-    { headerName:'Type',        field:'type',     width:130, cellRenderer:typeRenderer },
-    { headerName:'Version',     field:'version',  width:100, cellRenderer:versionRenderer },
-    { headerName:'Status',      field:'status',   width:120, cellRenderer:statusRenderer },
-    { headerName:'Location',    field:'location', flex:2, minWidth:220, cellRenderer:locationRenderer },
+    { colId:'select', width:46, maxWidth:46, pinned:'left', checkboxSelection:true, headerCheckboxSelection:true, headerCheckboxSelectionFilteredOnly:true, sortable:false, filter:false, resizable:false, suppressMovable:true, suppressHeaderMenuButton:true },
+    { headerName:'Activity',        field:'name',         width:300, minWidth:260, cellRenderer:nameRenderer, getQuickFilterText:p=>p.data.name+' '+p.data.desc },
+    { headerName:'Type',            field:'type',         width:130, cellRenderer:typeRenderer },
+    { headerName:'Version',         field:'version',      width:100, cellRenderer:versionRenderer },
+    { headerName:'Status',          field:'status',       width:120, cellRenderer:statusRenderer },
+    { headerName:'Configurability', field:'configurable', width:160, cellRenderer:configRenderer },
+    { headerName:'Update Status',   field:'updateStatus', width:130, cellRenderer:updateRenderer },
+    { headerName:'File Type',       field:'fileType',     width:150, cellRenderer:fileTypeRenderer },
+    { headerName:'Size',            field:'size',         width:100, cellRenderer:sizeRenderer },
+    { headerName:'License Type',    field:'licenseType',  width:140, cellRenderer:licenseRenderer },
+    { headerName:'Repository Name', field:'repository',   width:210, cellRenderer:repoRenderer },
+    { headerName:'Location',        field:'location',     width:230, cellRenderer:locationRenderer },
     { headerName:'Actions', colId:'actions', width:110, cellRenderer:actionsRenderer, sortable:false, filter:false, resizable:false, pinned:'right' },
   ],
   defaultColDef: { sortable:true, resizable:true, filter:true },
@@ -271,6 +373,8 @@ const gridOptions = {
   headerHeight: 44,
   animateRows: true,
   suppressCellFocus: true,
+  rowSelection: 'multiple',
+  suppressRowClickSelection: true,
   pagination: true,
   paginationPageSize: 10,
   paginationPageSizeSelector: [10, 25, 50],
@@ -281,6 +385,7 @@ const gridOptions = {
     (!reqValue  || node.data.requirement === reqValue),
   onGridReady: () => updateCount(),
   onModelUpdated: () => updateCount(),
+  onSelectionChanged: () => updateBulkBar(),
 };
 
 function onSearch(v){ if (gridApi) gridApi.setGridOption('quickFilterText', v); }
@@ -292,7 +397,48 @@ function updateCount(){
   if (el) el.textContent = 'Showing ' + shown + ' of ' + ACTS.length + ' activities';
 }
 
-document.addEventListener('click', () => closeDropdown());
+/* ─── Bulk selection + actions ─── */
+function updateBulkBar(){
+  if(!gridApi) return;
+  const n = gridApi.getSelectedNodes().length;
+  const bar = document.getElementById('bulk-bar');
+  if(n>0){ bar.classList.remove('hidden'); document.getElementById('bulk-count').textContent = n + ' selected'; }
+  else { bar.classList.add('hidden'); }
+}
+function clearSelection(){ if(gridApi) gridApi.deselectAll(); }
+function bulkRows(){ return gridApi ? gridApi.getSelectedRows() : []; }
+function bulkExport(all){
+  const n = all ? ACTS.length : bulkRows().length;
+  const c = n || ACTS.length;
+  showToast(c + ' activit' + (c!==1?'ies':'y') + ' exported (prototype).');
+}
+function bulkSetStatus(status){
+  const rows = bulkRows(); if(!rows.length) return;
+  rows.forEach(r => r.status = status);
+  gridApi.applyTransaction({ update: rows });
+  gridApi.refreshCells({ force:true, columns:['status'] });
+  showToast(rows.length + ' activit' + (rows.length!==1?'ies':'y') + ' ' + (status==='Active'?'activated':'deactivated'));
+}
+function bulkActivate(){ bulkSetStatus('Active'); }
+function bulkDeactivate(){ bulkSetStatus('Inactive'); }
+function bulkDelete(){
+  const rows = bulkRows(); if(!rows.length) return;
+  if(confirm('Delete ' + rows.length + ' selected activit' + (rows.length!==1?'ies':'y') + '? This is a prototype and only removes the rows.')){
+    gridApi.applyTransaction({ remove: rows }); updateCount(); updateBulkBar();
+  }
+}
+function toggleBulkMore(e){ e.stopPropagation(); document.getElementById('bulk-more-menu').classList.toggle('hidden'); }
+function bulkForceSequential(on){ const rows=bulkRows(); document.getElementById('bulk-more-menu').classList.add('hidden'); if(!rows.length) return; showToast((on?'Forced':'Removed forced')+' sequential completion '+(on?'on ':'from ')+rows.length+' activit'+(rows.length!==1?'ies':'y')); }
+
+/* ─── Toast ─── */
+let _toastTimer = null;
+function showToast(msg){
+  const t = document.getElementById('mgmt-toast'); if(!t) return;
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(_toastTimer); _toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+document.addEventListener('click', () => { closeDropdown(); document.getElementById('bulk-more-menu')?.classList.add('hidden'); });
 
 document.addEventListener('DOMContentLoaded', () => {
   const rq = new URLSearchParams(location.search).get('requirement');

@@ -883,8 +883,8 @@ function applyView(view) {
     if (schedTag) {
         const n = scheduleCountForView(view.id);
         if (n > 0) {
-            schedTag.innerHTML = `<i class="fa-regular fa-clock"></i> ${n}`;
-            schedTag.title = `${n} scheduled report${n > 1 ? 's' : ''} use this view`;
+            schedTag.innerHTML = `<i class="fa-regular fa-clock"></i> ${n} scheduled report${n !== 1 ? 's' : ''}`;
+            schedTag.title = `${n} scheduled report${n !== 1 ? 's' : ''} use this view`;
             schedTag.style.display = '';
         } else {
             schedTag.style.display = 'none';
@@ -1882,6 +1882,7 @@ let SCHEDULED_REPORTS = [
         savedViewId: 'q1-compliance', savedViewName: 'Q1 Compliance Review',
         freqValue: 'weekly', days: ['Mon'], dayOfMonth: 1, startDate: '2026-04-06', endDate: '', timeValue: '08:00',
         recipients: ['Anthony Davis', 'Draymond Green', 'Fred VanVleet'], nextSend: 'Jun 8, 2026',
+        deliveryTypes: ['file', 'link'],
     },
     {
         id: 'sr2', name: 'Monthly Overdue Activities', report: 'Activity Exception Report',
@@ -1896,11 +1897,12 @@ let SCHEDULED_REPORTS = [
         recipients: ['Anthony Davis'], nextSend: 'Jul 1, 2026',
     },
     {
-        // Second delivery on the SAME view as sr1 — different audience + cadence
+        // Second delivery on the SAME view as sr1 — different audience + cadence.
+        // Demonstrates the "link to filtered report" delivery option.
         id: 'sr4', name: 'Exec Daily Digest', report: 'Qualification Report',
         savedViewId: 'q1-compliance', savedViewName: 'Q1 Compliance Review',
         freqValue: 'daily', days: [], dayOfMonth: 1, startDate: '2026-04-06', endDate: '', timeValue: '07:00',
-        recipients: ['Draymond Green'], nextSend: 'Jun 10, 2026',
+        recipients: ['Draymond Green'], nextSend: 'Jun 10, 2026', deliveryTypes: ['link'],
     },
 ];
 
@@ -2090,6 +2092,42 @@ function formatSchedule(s) {
     return out;
 }
 
+// "Sent As" label — either a file attachment or a link to the filtered report.
+// For link delivery, render a clickable "View report" that jumps to the report
+// tab with the schedule's saved-view filters prepopulated.
+function deliveryLabelHTML(s) {
+    // Normalize to a list of delivery types (supports legacy single `delivery`)
+    const types = s.deliveryTypes || (s.delivery ? [s.delivery] : ['file']);
+    const parts = [];
+    if (types.includes('file')) {
+        parts.push(`<span class="da-file"><i class="fa-solid fa-file-csv da-file-icon"></i> CSV</span>`);
+    }
+    if (types.includes('link')) {
+        parts.push(`<button type="button" class="view-report-link" data-sid="${s.id}" title="Open this report with its filters applied"><i class="fa-solid fa-up-right-from-square"></i> Link to Filtered Report</button>`);
+    }
+    return parts.join('<span class="da-sep"> · </span>') || '—';
+}
+
+// Jump to the report tab for a scheduled report and prepopulate the filters
+// from its saved view, so the user sees exactly what the delivered link shows.
+function viewFilteredReport(scheduleId) {
+    const s = SCHEDULED_REPORTS.find(x => x.id === scheduleId);
+    if (!s) return;
+    const view = SAVED_VIEWS.find(v => v.id === s.savedViewId);
+    const reportTab = s.report === 'Activity Exception Report' ? 'activity-exception' : 'qualification-report';
+    navigateToReport(reportTab);
+    if (view) applyView(view);
+}
+
+// Delegated so it works across every place the label is rendered
+// (Scheduled Reports table, Views & Schedules grid, and the card view).
+document.addEventListener('click', (e) => {
+    const link = e.target.closest('.view-report-link');
+    if (!link) return;
+    e.preventDefault();
+    viewFilteredReport(link.dataset.sid);
+});
+
 // ── Read currently-applied filters into a read-only summary ─────────
 function getReportFilterSummary(reportName) {
     if (reportName === 'Activity Exception Report') {
@@ -2264,7 +2302,6 @@ emailReportDialog.renderer = (root) => {
 
         <!-- SCHEDULE-ONLY FIELDS -->
         <div id="emailScheduleFields">
-            <div id="emailExistingDeliveries"></div>
             <p class="sv-section-heading" id="emailScheduleHeading">Schedule</p>
             <vaadin-text-field theme="outlined" id="emailScheduleName" label="Delivery Name"
                 placeholder="e.g. Exec team — weekly" required style="width:100%"></vaadin-text-field>
@@ -2304,7 +2341,25 @@ emailReportDialog.renderer = (root) => {
 
         <hr class="sv-hr">
 
-        <p class="sv-section-heading">Report contents <span class="email-format-tag"><i class="fa-regular fa-file-excel"></i> Excel (.xlsx)</span></p>
+        <p class="sv-section-heading">Delivery <span style="font-weight:400;color:var(--vsp-color-neutral-60,#777)">(choose one or more)</span></p>
+        <div class="deliv-method" id="delivMethod">
+            <label class="deliv-opt">
+                <input type="checkbox" class="deliv-cb" value="file" checked>
+                <span class="deliv-opt-body">
+                    <span class="deliv-opt-title"><i class="fa-solid fa-file-csv"></i> Attached file</span>
+                    <span class="deliv-opt-desc">A CSV export of the report is attached to the email.</span>
+                </span>
+            </label>
+            <label class="deliv-opt">
+                <input type="checkbox" class="deliv-cb" value="link" checked>
+                <span class="deliv-opt-body">
+                    <span class="deliv-opt-title"><i class="fa-solid fa-link"></i> Link to filtered report</span>
+                    <span class="deliv-opt-desc">The email includes a link that opens the report online with these filters already applied.</span>
+                </span>
+            </label>
+        </div>
+
+        <p class="sv-section-heading">Report contents</p>
         <div id="emailSavedViewNote" class="email-sv-note"></div>
         <div id="emailFilterSummary"></div>
     `;
@@ -2335,6 +2390,13 @@ emailReportDialog.renderer = (root) => {
     });
     root.querySelector('#recipBox').addEventListener('click', () => recipInput.focus());
     root.querySelector('#recipBrowseBtn').addEventListener('click', openRecipientPicker);
+
+    // Delivery method (attached file and/or filtered-report link) — preselect on edit.
+    // Default is both selected; legacy records used a single `delivery` value.
+    const delivTypes = edit
+        ? (edit.deliveryTypes || (edit.delivery ? [edit.delivery] : ['file', 'link']))
+        : ['file', 'link'];
+    root.querySelectorAll('.deliv-cb').forEach(cb => { cb.checked = delivTypes.includes(cb.value); });
 
     // Frequency select
     const freqSel = root.querySelector('#emailFrequency');
@@ -2419,64 +2481,15 @@ emailReportDialog.renderer = (root) => {
         summaryEl.appendChild(rowEl);
     });
 
-    // Existing deliveries for this view (in-report management) + dynamic heading
-    renderExistingDeliveries(cfg);
+    // Schedule form heading (the in-dialog list of existing deliveries was
+    // removed — deliveries are managed from the Views & Schedules page instead)
     const schedHeading = root.querySelector('#emailScheduleHeading');
-    if (schedHeading) {
-        const v = getDialogSavedView(cfg);
-        const cnt = v ? SCHEDULED_REPORTS.filter(s => s.savedViewId === v.id).length : 0;
-        schedHeading.textContent = cfg.editId ? 'Edit this delivery' : (cnt > 0 ? 'Add a new delivery' : 'Schedule');
-    }
+    if (schedHeading) schedHeading.textContent = cfg.editId ? 'Edit this delivery' : 'Schedule';
 
     // Apply initial mode + freq detail
     applyEmailMode(cfg.mode);
     applyFreqDetail(freqSel.value);
 };
-
-// In-dialog list of deliveries already attached to this view
-function renderExistingDeliveries(cfg) {
-    const wrap = document.getElementById('emailExistingDeliveries');
-    if (!wrap) return;
-    const view = getDialogSavedView(cfg);
-    const list = view ? SCHEDULED_REPORTS.filter(s => s.savedViewId === view.id) : [];
-    if (!view || list.length === 0) { wrap.innerHTML = ''; wrap.style.display = 'none'; return; }
-
-    wrap.style.display = '';
-    wrap.innerHTML = `<p class="ed-heading"><i class="fa-regular fa-clock"></i> This view has ${list.length} scheduled ${list.length > 1 ? 'deliveries' : 'delivery'}</p>`;
-    const listEl = document.createElement('div');
-    listEl.className = 'ed-list';
-    list.forEach(s => {
-        const row = document.createElement('div');
-        row.className = 'ed-row' + (s.id === cfg.editId ? ' editing' : '');
-        const main = document.createElement('div');
-        main.className = 'ed-main';
-        main.innerHTML = `<span class="ed-name">${s.name}</span>
-                          <span class="ed-sub">${formatSchedule(s)} · ${s.recipients.length} recipient${s.recipients.length > 1 ? 's' : ''}</span>`;
-        const actions = document.createElement('div');
-        actions.className = 'ed-actions';
-        const editBtn = document.createElement('button');
-        editBtn.type = 'button'; editBtn.className = 'ed-btn'; editBtn.title = 'Edit this delivery';
-        editBtn.innerHTML = '<i class="fa-regular fa-pen-to-square"></i>';
-        editBtn.addEventListener('click', () => { emailDialogConfig.editId = s.id; refreshEmailDialog(); });
-        const delBtn = document.createElement('button');
-        delBtn.type = 'button'; delBtn.className = 'ed-btn ed-del'; delBtn.title = 'Delete this delivery';
-        delBtn.innerHTML = '<i class="fa-regular fa-trash-can"></i>';
-        delBtn.addEventListener('click', () => openDeleteScheduleDialog(s.id));
-        actions.appendChild(editBtn); actions.appendChild(delBtn);
-        row.appendChild(main); row.appendChild(actions);
-        listEl.appendChild(row);
-    });
-    wrap.appendChild(listEl);
-
-    if (cfg.editId) {
-        const back = document.createElement('button');
-        back.type = 'button';
-        back.className = 'ed-new-link';
-        back.innerHTML = '<i class="fa-solid fa-plus"></i> Add a new delivery instead';
-        back.addEventListener('click', () => { emailDialogConfig.editId = null; refreshEmailDialog(); });
-        wrap.appendChild(back);
-    }
-}
 
 emailReportDialog.footerRenderer = (root) => {
     root.innerHTML = '';
@@ -2556,9 +2569,15 @@ function submitEmailDialog() {
         return;
     }
 
+    const deliveryTypes = [...document.querySelectorAll('.deliv-cb:checked')].map(cb => cb.value);
+    if (deliveryTypes.length === 0) {
+        showToast('Select at least one delivery type');
+        return;
+    }
+
     const pending = {
         name, report: cfg.reportName, freqValue, days, dayOfMonth, startDate, endDate, timeValue,
-        recipients: [...recipients],
+        recipients: [...recipients], deliveryTypes, format: 'CSV',
         nextSend: formatDateFriendly(startDate),
     };
 
@@ -2788,7 +2807,7 @@ function renderScheduledReports() {
                 <td class="sr-dname"><i class="fa-regular fa-paper-plane sr-deliv-icon"></i> ${s.name}</td>
                 <td class="sr-dim">${formatSchedule(s)}</td>
                 <td class="sr-dim" title="${s.recipients.join(', ')}">${recipText}</td>
-                <td class="sr-dim"><span class="sr-sentas"><i class="fa-regular fa-envelope"></i> Email</span> <span class="sr-fmt"><i class="fa-regular fa-file-excel"></i> Excel</span></td>
+                <td class="sr-dim">${deliveryLabelHTML(s)}</td>
                 <td class="sr-dim">${s.nextSend}</td>
                 <td>
                     <div class="msv-actions">
@@ -3120,7 +3139,7 @@ function viewVisibleColumns(view) {
 }
 
 // One-line filter summary for the grid row
-function vsFacetsText(view) {
+function vsFacetParts(view) {
     const parts = [];
     if (view.dateRange) parts.push(view.dateRange);
     const acts = view.activities || [];
@@ -3128,14 +3147,43 @@ function vsFacetsText(view) {
     const us = view.users || [];
     if (us.length) parts.push(us.length > 2 ? `${us.length} users` : us.join(', '));
     if (view.statusTypes && view.statusTypes !== 'All') parts.push(view.statusTypes);
+    return parts;
+}
+function vsFacetsText(view) {
+    const parts = vsFacetParts(view);
     return parts.length ? parts.join('  ·  ') : 'No filters applied';
 }
 
-const vsCollapsed = new Set();  // view ids whose detail panel is collapsed
+// Compact filter summary shown under the view name; collapses to the first few
+// facets with a "more" toggle that reveals the rest in place.
+const VS_FILTER_PREVIEW = 2;
+function vsNameFiltersHTML(view) {
+    const parts = vsFacetParts(view);
+    if (!parts.length) {
+        return `<span class="dx-name-filters dx-nf-empty"><i class="fa-solid fa-sliders dx-nf-icon"></i> No filters applied</span>`;
+    }
+    const expanded = vsFiltersExpanded.has(view.id);
+    const hasMore = parts.length > VS_FILTER_PREVIEW;
+    const shown = (expanded || !hasMore) ? parts : parts.slice(0, VS_FILTER_PREVIEW);
+    const moreBtn = hasMore
+        ? `<button type="button" class="dx-nf-more" data-id="${view.id}">${expanded ? 'less' : `+${parts.length - VS_FILTER_PREVIEW} more`}</button>`
+        : '';
+    return `<span class="dx-name-filters">
+                <i class="fa-solid fa-sliders dx-nf-icon"></i>
+                <span class="dx-nf-text">${shown.join('  ·  ')}</span>
+                ${moreBtn}
+            </span>`;
+}
+
+const vsCollapsed = new Set();        // view ids whose detail panel is collapsed
+const vsFiltersExpanded = new Set();  // view ids whose name-row filters are expanded
+let vsViewMode = 'grid';        // 'grid' (Andy's grid) | 'card' (alternate card layout)
 
 function renderViewsSchedules() {
     const body  = document.getElementById('vsBody');
+    const cards = document.getElementById('vsCards');
     const empty = document.getElementById('vsEmpty');
+    const head  = document.querySelector('#vsGrid .dx-grid-head');
     if (!body) return;
 
     const reportFilter = document.getElementById('vsReportFilter')?.value || '';
@@ -3149,8 +3197,17 @@ function renderViewsSchedules() {
         return hay.includes(q);
     });
 
-    body.innerHTML = '';
+    // Toggle which layout is shown
+    const cardMode = vsViewMode === 'card';
+    // Empty state shows on its own — no column-header row behind it
+    if (head)  head.style.display  = (cardMode || !views.length) ? 'none' : '';
+    body.style.display  = cardMode ? 'none' : '';
+    if (cards) cards.style.display = cardMode ? '' : 'none';
     if (empty) empty.style.display = views.length ? 'none' : '';
+
+    if (cardMode) { renderVsCards(views); wireViewsSchedules(); return; }
+
+    body.innerHTML = '';
 
     views.forEach(view => {
         const schedules = SCHEDULED_REPORTS.filter(s => s.savedViewId === view.id);
@@ -3164,27 +3221,43 @@ function renderViewsSchedules() {
             ? `<span class="msv-sched-tag"><i class="fa-regular fa-clock"></i> ${schedules.length}</span>`
             : `<span class="dx-sched-none">None</span>`;
 
-        const delivRows = schedules.length
-            ? schedules.map(s => `
+        const delivRows = schedules.map(s => `
                 <div class="dx-sub-row" data-sid="${s.id}">
                     <span class="dx-sub-cell dx-sub-name"><i class="fa-regular fa-paper-plane"></i> ${s.name}</span>
                     <span class="dx-sub-cell">${formatSchedule(s)}</span>
                     <span class="dx-sub-cell" title="${s.recipients.join(', ')}">${s.recipients.length <= 2 ? s.recipients.join(', ') : `${s.recipients[0]}, ${s.recipients[1]} +${s.recipients.length - 2}`}</span>
-                    <span class="dx-sub-cell"><i class="fa-regular fa-envelope dx-muted"></i> Email · Excel</span>
+                    <span class="dx-sub-cell">${deliveryLabelHTML(s)}</span>
                     <span class="dx-sub-cell">${s.nextSend}</span>
                     <span class="dx-sub-cell dx-sub-actions">
                         <button class="dx-icon-btn vs-sched-edit" data-sid="${s.id}" title="Edit scheduled report"><i class="fa-solid fa-pencil"></i></button>
                         <button class="dx-icon-btn vs-sched-del" data-sid="${s.id}" title="Delete scheduled report"><i class="fa-regular fa-trash-can"></i></button>
                     </span>
-                </div>`).join('')
+                </div>`).join('');
+
+        // When a view has no scheduled reports, show just a message — not an
+        // empty sub-grid with column headers.
+        const schedBlock = schedules.length
+            ? `<div class="dx-subgrid">
+                    <div class="dx-sub-head">
+                        <span class="dx-sub-cell">Name</span>
+                        <span class="dx-sub-cell">Schedule</span>
+                        <span class="dx-sub-cell">Recipients</span>
+                        <span class="dx-sub-cell">Sent As</span>
+                        <span class="dx-sub-cell">Next Send</span>
+                        <span class="dx-sub-cell"></span>
+                    </div>
+                    ${delivRows}
+                </div>`
             : `<div class="dx-sub-empty">No scheduled reports yet for this view.</div>`;
 
         row.innerHTML = `
             <div class="dx-master">
                 <button class="dx-expand" title="Expand / collapse"><i class="fa-solid fa-chevron-down"></i></button>
-                <span class="dx-cell dx-col-name"><i class="fa-solid fa-bookmark dx-name-icon"></i> ${view.name}</span>
+                <span class="dx-cell dx-col-name">
+                    <span class="dx-name-main"><i class="fa-solid fa-bookmark dx-name-icon"></i> ${view.name}</span>
+                    ${vsNameFiltersHTML(view)}
+                </span>
                 <span class="dx-cell dx-col-report"><span class="${reportBadgeClass(view.report)}">${view.report}</span></span>
-                <span class="dx-cell dx-col-filters" title="${vsFacetsText(view)}">${vsFacetsText(view)}</span>
                 <span class="dx-cell dx-col-sched">${schedCell}</span>
                 <span class="dx-cell dx-col-actions">
                     <button class="dx-icon-btn vs-view-edit" data-id="${view.id}" title="Edit saved view"><i class="fa-solid fa-pencil"></i></button>
@@ -3195,17 +3268,7 @@ function renderViewsSchedules() {
                 <div class="dx-detail-head">
                     <span class="dx-detail-title"><i class="fa-regular fa-clock"></i> Scheduled reports</span>
                 </div>
-                <div class="dx-subgrid">
-                    <div class="dx-sub-head">
-                        <span class="dx-sub-cell">Name</span>
-                        <span class="dx-sub-cell">Schedule</span>
-                        <span class="dx-sub-cell">Recipients</span>
-                        <span class="dx-sub-cell">Sent As</span>
-                        <span class="dx-sub-cell">Next Send</span>
-                        <span class="dx-sub-cell"></span>
-                    </div>
-                    ${delivRows}
-                </div>
+                ${schedBlock}
                 <button class="dx-add-btn vs-sched-add" data-id="${view.id}"><i class="fa-solid fa-plus"></i> Add scheduled report</button>
             </div>`;
         body.appendChild(row);
@@ -3214,36 +3277,102 @@ function renderViewsSchedules() {
     wireViewsSchedules();
 }
 
-function wireViewsSchedules() {
-    const body = document.getElementById('vsBody');
-    if (!body) return;
+// Card view — alternate layout for the same data: one full-width card per
+// saved view, its filters inline in the header, scheduled reports as rows
+// beneath. Shares all the same actions/handlers as the grid (wired below).
+function renderVsCards(views) {
+    const cards = document.getElementById('vsCards');
+    if (!cards) return;
+    cards.innerHTML = views.map(view => {
+        const schedules = SCHEDULED_REPORTS.filter(s => s.savedViewId === view.id);
+        const collapsed = vsCollapsed.has(view.id);
+        const delivs = schedules.length
+            ? schedules.map(s => {
+                const recip = s.recipients.length <= 2
+                    ? s.recipients.join(', ')
+                    : `${s.recipients[0]}, ${s.recipients[1]} +${s.recipients.length - 2}`;
+                return `
+                <div class="vs-card-deliv" data-sid="${s.id}">
+                    <span class="vs-cd-name"><i class="fa-regular fa-paper-plane"></i> ${s.name}</span>
+                    <span class="vs-cd-field"><span class="vs-cd-label">Schedule</span>${formatSchedule(s)}</span>
+                    <span class="vs-cd-field" title="${s.recipients.join(', ')}"><span class="vs-cd-label">Recipients</span>${recip}</span>
+                    <span class="vs-cd-field vs-cd-sentas"><span class="vs-cd-label">Sent As</span><span class="vs-cd-sentas-val">${deliveryLabelHTML(s)}</span></span>
+                    <span class="vs-cd-field"><span class="vs-cd-label">Next Send</span>${s.nextSend}</span>
+                    <span class="vs-cd-actions">
+                        <button class="dx-icon-btn vs-sched-edit" data-sid="${s.id}" title="Edit scheduled report"><i class="fa-solid fa-pencil"></i></button>
+                        <button class="dx-icon-btn vs-sched-del" data-sid="${s.id}" title="Delete scheduled report"><i class="fa-regular fa-trash-can"></i></button>
+                    </span>
+                </div>`;
+              }).join('')
+            : `<div class="dx-sub-empty">No scheduled reports yet for this view.</div>`;
+        return `
+            <div class="vs-card ${collapsed ? 'vs-collapsed' : ''}" data-id="${view.id}">
+                <div class="vs-card-head">
+                    <button class="dx-expand vs-card-toggle" title="Expand / collapse"><i class="fa-solid fa-chevron-down"></i></button>
+                    <i class="fa-solid fa-bookmark dx-name-icon"></i>
+                    <span class="vs-card-title">${view.name}</span>
+                    <span class="${reportBadgeClass(view.report)}">${view.report}</span>
+                    <span class="vs-card-filters" title="${vsFacetsText(view)}"><i class="fa-solid fa-sliders vs-card-filters-icon"></i> ${vsFacetsText(view)}</span>
+                    <span class="vs-card-actions">
+                        <button class="dx-icon-btn vs-view-edit" data-id="${view.id}" title="Edit saved view"><i class="fa-solid fa-pencil"></i></button>
+                        <button class="dx-icon-btn vs-view-del" data-id="${view.id}" title="Delete saved view"><i class="fa-regular fa-trash-can"></i></button>
+                    </span>
+                </div>
+                <div class="vs-card-body">
+                    ${delivs}
+                    <button class="dx-add-btn vs-sched-add" data-id="${view.id}"><i class="fa-solid fa-plus"></i> Add scheduled report</button>
+                </div>
+            </div>`;
+    }).join('');
+}
 
-    body.querySelectorAll('.dx-expand').forEach(btn => btn.addEventListener('click', () => {
+function wireViewsSchedules() {
+    // Wire across the whole page so both the grid and the cards are covered.
+    const root = document.getElementById('viewsSchedulesLayout');
+    if (!root) return;
+
+    // Grid row collapse
+    root.querySelectorAll('.dx-row .dx-expand').forEach(btn => btn.addEventListener('click', () => {
         const row = btn.closest('.dx-row');
         const id = row.dataset.id;
         if (vsCollapsed.has(id)) vsCollapsed.delete(id); else vsCollapsed.add(id);
         row.classList.toggle('dx-collapsed');
     }));
+    // Card collapse
+    root.querySelectorAll('.vs-card .vs-card-toggle').forEach(btn => btn.addEventListener('click', () => {
+        const card = btn.closest('.vs-card');
+        const id = card.dataset.id;
+        if (vsCollapsed.has(id)) vsCollapsed.delete(id); else vsCollapsed.add(id);
+        card.classList.toggle('vs-collapsed');
+    }));
+
+    // "more / less" toggle on the name-row filter preview
+    root.querySelectorAll('.dx-nf-more').forEach(btn => btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        if (vsFiltersExpanded.has(id)) vsFiltersExpanded.delete(id); else vsFiltersExpanded.add(id);
+        renderViewsSchedules();
+    }));
 
     // Saved view: edit (rich editor) / delete
-    body.querySelectorAll('.vs-view-edit').forEach(btn => btn.addEventListener('click', () => {
+    root.querySelectorAll('.vs-view-edit').forEach(btn => btn.addEventListener('click', () => {
         const v = SAVED_VIEWS.find(x => x.id === btn.dataset.id);
         if (v) openSavedViewEditor(v);
     }));
-    body.querySelectorAll('.vs-view-del').forEach(btn => btn.addEventListener('click', () => {
+    root.querySelectorAll('.vs-view-del').forEach(btn => btn.addEventListener('click', () => {
         openDeleteSavedViewDialog(btn.dataset.id);
     }));
 
     // Scheduled report: edit / add / delete
-    body.querySelectorAll('.vs-sched-edit').forEach(btn => btn.addEventListener('click', () => {
+    root.querySelectorAll('.vs-sched-edit').forEach(btn => btn.addEventListener('click', () => {
         const s = SCHEDULED_REPORTS.find(x => x.id === btn.dataset.sid);
         if (s) openEmailDialog({ editId: s.id, reportName: s.report });
     }));
-    body.querySelectorAll('.vs-sched-add').forEach(btn => btn.addEventListener('click', () => {
+    root.querySelectorAll('.vs-sched-add').forEach(btn => btn.addEventListener('click', () => {
         const v = SAVED_VIEWS.find(x => x.id === btn.dataset.id);
         if (v) openEmailDialog({ mode: 'schedule', reportName: v.report, presetViewId: v.id });
     }));
-    body.querySelectorAll('.vs-sched-del').forEach(btn => btn.addEventListener('click', () => {
+    root.querySelectorAll('.vs-sched-del').forEach(btn => btn.addEventListener('click', () => {
         openDeleteScheduleDialog(btn.dataset.sid);
     }));
 }
@@ -3447,6 +3576,14 @@ savedViewDeleteDialog.footerRenderer = (root) => {
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('vsReportFilter')?.addEventListener('change', renderViewsSchedules);
     document.getElementById('vsSearch')?.addEventListener('input', renderViewsSchedules);
+
+    // Grid / Card view toggle
+    document.querySelectorAll('#vsViewMode .vs-vm-btn').forEach(btn => btn.addEventListener('click', () => {
+        if (btn.dataset.mode === vsViewMode) return;
+        vsViewMode = btn.dataset.mode;
+        document.querySelectorAll('#vsViewMode .vs-vm-btn').forEach(b => b.classList.toggle('active', b === btn));
+        renderViewsSchedules();
+    }));
 
     // When schedules change via the email/delete dialogs, refresh the combined page if visible
     const refreshIfVisible = () => {

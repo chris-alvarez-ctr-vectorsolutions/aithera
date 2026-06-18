@@ -1,10 +1,10 @@
 // ux-mockups feedback widget
-// Embed: <script src="/commentwidget/feedback-widget.js"></script>
+// Embed: <script src="/designtoolbox/feedback-widget.js"></script>
 
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.15.1';
+  const WIDGET_VERSION = '1.16.1';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -63,7 +63,7 @@
   // the mock itself is being viewed (staging server, localhost, file://). The
   // viewer only works there anyway — it's the one origin the Worker's CORS
   // allows and the only place log.html is published.
-  const LOG_URL = PAGES_BASE + '/commentwidget/log.html';
+  const LOG_URL = PAGES_BASE + '/designtoolbox/log.html';
   const IS_MAC = /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || '');
   const CMD_KEY = IS_MAC ? '⌘' : 'Ctrl';
 
@@ -126,11 +126,26 @@
 .cw-bubble--ghost.cw-bubble--active { opacity: 1; }
 .cw-bubble-tip { position: absolute; top: 58px; right: 0; background: #111827; color: #fff; padding: 7px 11px; border-radius: 8px; font-size: 12px; font-weight: 500; white-space: nowrap; opacity: 0; transform: translateY(-4px); pointer-events: none; transition: opacity .18s, transform .18s; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
 .cw-bubble:hover .cw-bubble-tip { opacity: 1; transform: translateY(0); }
+/* Label is only shown in the docked (pill) layout, hidden for the floating circular bubble. */
+.cw-bubble-label { display: none; font: 700 13px/1 "Open Sans", system-ui, sans-serif; }
+/* Docked: the bubble lives inside the shared Toolbox dock pill (bottom-center) as an inline pill button next to the Flow Map button, instead of a floating circle. */
+.cw-bubble--docked { position: static; top: auto; right: auto; width: auto; height: auto; border-radius: 999px; padding: 7px 14px; gap: 8px; font-size: 13px; background: #4a2bd1; box-shadow: none; animation: none; transition: background .12s, transform .12s; }
+.cw-bubble--docked:hover { transform: translateY(-1px); background: #5a3ce0; box-shadow: none; }
+.cw-bubble--docked .cw-bubble-icon { font-size: 15px; }
+.cw-bubble--docked .cw-bubble-label { display: inline; }
+.cw-bubble--docked .cw-bubble-tip { display: none; }
+.cw-bubble--docked.cw-bubble--active { background: linear-gradient(140deg, #ef4444, #dc2626); animation: none; }
+.cw-bubble--docked.cw-bubble--active:hover { transform: translateY(-1px); }
+/* Ghost (comments-off) while docked: dim in place rather than fade out, so the pill keeps its shape. */
+.cw-bubble--docked.cw-bubble--ghost { opacity: .55; }
+.cw-bubble--docked.cw-bubble--ghost.cw-bubble--active { opacity: 1; }
 .cw-banner { position: fixed; top: 28px; right: 80px; z-index: 2147483640; background: linear-gradient(140deg, #1f2937, #111827); color: #fff; padding: 8px 8px 8px 16px; border-radius: 999px; display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; box-shadow: 0 8px 22px rgba(17,24,39,.3); border: 1px solid rgba(255,255,255,.08); }
 .cw-banner button { background: rgba(255,255,255,.14); color: #fff; border: 0; cursor: pointer; font: inherit; padding: 5px 12px; border-radius: 999px; transition: background .15s, transform .1s; }
 .cw-banner button:hover { background: rgba(255,255,255,.26); }
 .cw-banner button:active { transform: scale(.95); }
 .cw-banner .cw-banner-gear { padding: 5px 9px; border-radius: 50%; font-size: 14px; line-height: 1; }
+/* Docked: float just above the bottom-center toolbox dock instead of top-right, so the pick-mode hint reads as part of the flow switcher. */
+.cw-banner--docked { top: auto; right: auto; bottom: 66px; left: 50%; transform: translateX(-50%); }
 
 /* Pick mode */
 .cw-picking, .cw-picking * { cursor: crosshair !important; }
@@ -781,7 +796,7 @@
   }
 
   // ----- Root container -------------------------------------------------------
-  let root, pinsLayer, bubble, bubbleIcon, banner;
+  let root, pinsLayer, bubble, bubbleIcon, bubbleLabel, banner;
 
   function buildRoot() {
     const style = el('style'); style.textContent = css;
@@ -793,6 +808,7 @@
     document.body.appendChild(root);
 
     bubbleIcon = el('span', { class: 'cw-bubble-icon' }, ['💬']);
+    bubbleLabel = el('span', { class: 'cw-bubble-label' }, ['Comments']);
     bubble = el('button', {
       class: 'cw-bubble',
       type: 'button',
@@ -800,20 +816,29 @@
       onclick: togglePickMode,
     }, [
       bubbleIcon,
+      bubbleLabel,
       el('div', { class: 'cw-bubble-tip' }, ['Add feedback']),
     ]);
-    document.body.appendChild(bubble);
+    // Dock into the shared Toolbox pill (bottom-center, alongside the Flow Map
+    // button) when it's available; otherwise float as the standalone bubble.
+    if (window.ToolboxDock) { bubble.classList.add('cw-bubble--docked'); window.ToolboxDock.add(bubble); }
+    else document.body.appendChild(bubble);
     applyAdminBubble();
 
-    banner = el('div', { class: 'cw-banner cw-hidden' }, [
+    // The pick-mode banner. When docked, it sits just above the toolbox dock and
+    // drops its own "Esc to cancel" button — the docked Comments button already
+    // becomes ✕ Cancel in pick mode (and Esc still works), so it's redundant.
+    var docked = !!window.ToolboxDock;
+    var bannerKids = [
       document.createTextNode('Click any element to leave feedback'),
       el('button', {
         type: 'button', class: 'cw-banner-gear', title: 'Settings & admin controls',
         'aria-label': 'Settings',
         onclick: () => { becomeAdmin(); openAdminPanel(); },
       }, ['⚙']),
-      el('button', { type: 'button', onclick: exitPickMode }, ['Esc to cancel']),
-    ]);
+    ];
+    if (!docked) bannerKids.push(el('button', { type: 'button', onclick: exitPickMode }, ['Esc to cancel']));
+    banner = el('div', { class: 'cw-banner cw-hidden' + (docked ? ' cw-banner--docked' : '') }, bannerKids);
     document.body.appendChild(banner);
   }
 
@@ -997,6 +1022,7 @@
       bubble.classList.add('cw-bubble--active');
       bubble.setAttribute('aria-label', 'Exit comment mode');
       if (bubbleIcon) bubbleIcon.textContent = '✕';
+      if (bubbleLabel) bubbleLabel.textContent = 'Cancel';
     }
     if (banner) banner.classList.remove('cw-hidden');
     hoverOutline = el('div', { class: 'cw-hover-outline cw-hidden' });
@@ -1015,6 +1041,7 @@
       bubble.classList.remove('cw-bubble--active');
       bubble.setAttribute('aria-label', 'Add feedback');
       if (bubbleIcon) bubbleIcon.textContent = '💬';
+      if (bubbleLabel) bubbleLabel.textContent = 'Comments';
     }
     if (banner) banner.classList.add('cw-hidden');
     if (hoverOutline) { hoverOutline.remove(); hoverOutline = null; }

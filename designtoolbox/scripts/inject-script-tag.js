@@ -1,17 +1,17 @@
 #!/usr/bin/env node
-// Inject <script src="/commentwidget/feedback-widget.js"></script> before </body>
+// Inject <script src="/designtoolbox/feedback-widget.js"></script> before </body>
 // in every relevant HTML file in this repo.
 //
 // Usage (run from repo root):
-//   node commentwidget/scripts/inject-script-tag.js            # apply
-//   node commentwidget/scripts/inject-script-tag.js --dry-run  # report only
+//   node designtoolbox/scripts/inject-script-tag.js            # apply
+//   node designtoolbox/scripts/inject-script-tag.js --dry-run  # report only
 //
 // Scope:
 //   - /products/**/*.html
 //   - /base-template/index.html
 //   - /index.html (repo root)
 // Skipped directories:
-//   - .claude/  .sixth/  scripts/  commentwidget/  node_modules/  .git/
+//   - .claude/  .sixth/  scripts/  designtoolbox/  node_modules/  .git/
 // Skipped files:
 //   - any file that already contains the widget script tag
 //   - any file with no </body> tag (reported)
@@ -20,11 +20,11 @@ const fs = require('fs');
 const path = require('path');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const WIDGET_PATH = 'commentwidget/feedback-widget.js';
+const WIDGET_PATH = 'designtoolbox/feedback-widget.js';
 const DRY_RUN = process.argv.includes('--dry-run');
 
 // Build a relative <script> tag from the HTML file's location to the widget.
-// Absolute "/commentwidget/..." doesn't work on GitHub Pages because the
+// Absolute "/designtoolbox/..." doesn't work on GitHub Pages because the
 // site is served from /<repo>/, not from the domain root.
 function buildTag(file) {
   const fromDir = path.dirname(file);
@@ -32,7 +32,7 @@ function buildTag(file) {
   return `<script src="${rel}"></script>`;
 }
 
-const SKIP_DIRS = new Set(['.claude', '.sixth', 'scripts', 'commentwidget', 'node_modules', '.git']);
+const SKIP_DIRS = new Set(['.claude', '.sixth', 'scripts', 'designtoolbox', 'node_modules', '.git']);
 
 const updated = [];
 const alreadyHadTag = [];
@@ -59,7 +59,7 @@ if (fs.existsSync(rootIndex)) candidates.push(rootIndex);
 
 for (const file of candidates) {
   const original = fs.readFileSync(file, 'utf8');
-  if (original.includes('commentwidget/feedback-widget.js')) {
+  if (original.includes('designtoolbox/feedback-widget.js')) {
     alreadyHadTag.push(file);
     continue;
   }

@@ -2286,13 +2286,15 @@ let SCHEDULED_REPORTS = [
         format: 'PDF',
     },
     {
-        // Second delivery on the SAME view as sr1 — different audience + cadence
+        // Second delivery on the SAME view as sr1 — different audience + cadence.
+        // Uses the "link to filtered report" delivery instead of an attachment.
         id: 'sr4', name: 'Exec Daily Digest', report: 'Qualification Report',
         savedViewId: 'q1-compliance', savedViewName: 'Q1 Compliance Review',
         freqValue: 'daily', days: [], dayOfMonth: 1, startDate: '2026-04-06', endDate: '', timeValue: '07:00',
         recipients: ['Draymond Green'], nextSend: 'Jun 10, 2026',
         subject: 'Exec Daily Digest — Compliance Snapshot',
         message: 'Daily snapshot of compliance status for leadership.',
+        delivery: 'link',
     },
 ];
 
@@ -2482,13 +2484,37 @@ function formatSchedule(s) {
     return out;
 }
 
-// "Sent as" — delivery is always email, so we surface only the file format
-// (the redundant "Email" label was dropped to cut repeated noise on every row).
+// "Sent as" — either an attached file (surface the file format) or a link to
+// the filtered report (a clickable "View report" that opens the report online
+// with this view's filters applied).
 function sentAsHTML(s) {
+    if (s.delivery === 'link') {
+        return `<button type="button" class="view-report-link" data-sid="${s.id}" title="Open this report with its filters applied"><i class="fa-solid fa-up-right-from-square"></i> View report</button>`;
+    }
     const fmt = s.format || 'Excel';
     const icon = fmt === 'PDF' ? 'fa-file-pdf' : fmt === 'CSV' ? 'fa-file-csv' : 'fa-file-excel';
     return `<span class="sr-fmt" title="Emailed as ${fmt}"><i class="fa-regular ${icon}"></i> ${fmt}</span>`;
 }
+
+// Jump to the report tab for a scheduled report and prepopulate the filters
+// from its saved view, so the user sees exactly what the delivered link shows.
+function viewFilteredReport(scheduleId) {
+    const s = SCHEDULED_REPORTS.find(x => x.id === scheduleId);
+    if (!s) return;
+    const view = SAVED_VIEWS.find(v => v.id === s.savedViewId);
+    const reportTab = s.report === 'Activity Exception Report' ? 'activity-exception' : 'qualification-report';
+    performNavigation(reportTab);
+    if (view) applyView(view);
+}
+
+// Delegated so it works across every place the label is rendered
+// (Scheduled Reports table, Views & Schedules grid, and the card layout).
+document.addEventListener('click', (e) => {
+    const link = e.target.closest('.view-report-link');
+    if (!link) return;
+    e.preventDefault();
+    viewFilteredReport(link.dataset.sid);
+});
 
 // Schedule cell for the Scheduled Reports table: written as a single sentence
 // (e.g. "Monthly on day 1 at 9:00 PM"), with the cadence word bolded as the
@@ -2689,7 +2715,27 @@ emailReportDialog.renderer = (root) => {
         <vaadin-text-area theme="outlined" id="emailMessage" label="Message" helper-text="Optional"
             placeholder="Add a note for recipients..." style="width:100%;margin-top:12px"></vaadin-text-area>
 
-        <!-- Send as — emailed to recipients with the chosen file format attached -->
+        <!-- Delivery method — attach the report as a file, or send a link that
+             opens the report online with these filters already applied -->
+        <p class="sv-section-heading">Delivery</p>
+        <div class="deliv-method" id="delivMethod">
+            <label class="deliv-opt">
+                <input type="radio" name="delivMethod" value="file" checked>
+                <span class="deliv-opt-body">
+                    <span class="deliv-opt-title"><i class="fa-regular fa-file-excel"></i> Attached file</span>
+                    <span class="deliv-opt-desc">A file export of the report is attached to the email.</span>
+                </span>
+            </label>
+            <label class="deliv-opt">
+                <input type="radio" name="delivMethod" value="link">
+                <span class="deliv-opt-body">
+                    <span class="deliv-opt-title"><i class="fa-solid fa-link"></i> Link to filtered report</span>
+                    <span class="deliv-opt-desc">The email includes a link that opens the report online with these filters already applied.</span>
+                </span>
+            </label>
+        </div>
+
+        <!-- Send as — file format, only relevant when delivering an attached file -->
         <vaadin-select theme="outlined" id="emailFormat" label="Send as" helper-text="Emailed to recipients as this file type"
             style="width:100%;margin-top:12px"></vaadin-select>
 
@@ -2762,6 +2808,17 @@ emailReportDialog.renderer = (root) => {
         { label: 'CSV (.csv)',    value: 'CSV' },
     ];
     fmtSel.value = (edit && edit.format) ? edit.format : 'Excel';
+
+    // Delivery method (attached file vs filtered-report link) — preselect on edit.
+    // The "Send as" format only applies to a file delivery, so hide it for a link.
+    const delivRadio = root.querySelector(`input[name="delivMethod"][value="${edit?.delivery || 'file'}"]`);
+    if (delivRadio) delivRadio.checked = true;
+    const syncDelivery = () => {
+        const isLink = root.querySelector('input[name="delivMethod"]:checked')?.value === 'link';
+        fmtSel.style.display = isLink ? 'none' : '';
+    };
+    root.querySelectorAll('input[name="delivMethod"]').forEach(r => r.addEventListener('change', syncDelivery));
+    syncDelivery();
 
     // Repeat select — "Does not repeat" (one-time) is the default
     const freqSel = root.querySelector('#emailFrequency');
@@ -2963,10 +3020,11 @@ function submitEmailDialog() {
     const subject = document.getElementById('emailSubject')?.value.trim() || '';
     const message = document.getElementById('emailMessage')?.value.trim() || '';
     const format  = document.getElementById('emailFormat')?.value || 'Excel';
+    const delivery = document.querySelector('input[name="delivMethod"]:checked')?.value || 'file';
 
     const pending = {
         name, report: cfg.reportName, freqValue, days, dayOfMonth, startDate, endDate, timeValue,
-        recipients: [...recipients], subject, message, format,
+        recipients: [...recipients], subject, message, format, delivery,
         nextSend: formatDateFriendly(startDate),
     };
 
@@ -3700,98 +3758,104 @@ if (unsavedChangesDialog) {
 
     function combinedVisible() { return layout.style.display !== 'none'; }
 
-    const cards  = document.getElementById('cmbCards');
-    const listEl = document.getElementById('cmbList');
-    let viewMode = 'cards';   // 'cards' | 'list'
+    const tableEl = document.getElementById('cmbTable');
+    const listEl  = document.getElementById('cmbList');
+    let viewMode = 'table';   // 'table' | 'card'
     let cmbQuery = '';
     let cmbReport = '';       // report-type filter ('' = all)
 
     // Collapse state, persisted across re-renders by view id.
-    // collapsedCards  — the whole card body (filters + deliveries) is hidden.
-    // collapsedDelivs — only the deliveries list is hidden (filters stay visible).
-    const collapsedCards = new Set();
+    // collapsedDelivs — the deliveries under a view are hidden (filters stay visible).
     const collapsedDelivs = new Set();
-
-    // One scheduled delivery as a bordered block (used by both views)
-    function delivBlock(s) {
-        return `
-            <div class="cmb-deliv" data-sid="${s.id}">
-                <div class="cmb-deliv-info">
-                    <div class="cmb-deliv-name"><i class="fa-regular fa-paper-plane cmb-deliv-icon"></i> ${s.name}</div>
-                    <div class="cmb-deliv-meta">${formatSchedule(s)} · ${s.recipients.length} recipient${s.recipients.length === 1 ? '' : 's'} · Next: ${s.nextSend}</div>
-                </div>
-                <div class="cmb-deliv-actions">
-                    <button class="cmb-deliv-edit" data-sid="${s.id}" title="Edit delivery" aria-label="Edit delivery"><i class="fa-solid fa-pencil"></i></button>
-                    <button class="cmb-deliv-del" data-sid="${s.id}" title="Delete delivery" aria-label="Delete delivery"><i class="fa-regular fa-trash-can"></i></button>
-                </div>
-            </div>`;
-    }
 
     function starBtn(view) {
         const fav = !!view.favorited;
         return `<button type="button" class="msv-star ${fav ? 'active' : ''}" data-id="${view.id}" title="Toggle favorite"><i class="${fav ? 'fa-solid' : 'fa-regular'} fa-star"></i></button>`;
     }
 
-    // A delivery shown in full — schedule, recipients, sent-as, next send
-    // spelled out as labeled fields (used by the list view).
-    function delivBlockDetailed(s) {
-        return `
-            <div class="cmb-deliv cmb-deliv-detailed" data-sid="${s.id}">
-                <div class="cmb-deliv-top">
-                    <div class="cmb-deliv-name"><i class="fa-regular fa-paper-plane cmb-deliv-icon"></i> ${s.name}</div>
-                    <div class="cmb-deliv-actions">
-                        <button class="cmb-deliv-edit" data-sid="${s.id}" title="Edit delivery" aria-label="Edit delivery"><i class="fa-solid fa-pencil"></i></button>
-                        <button class="cmb-deliv-del" data-sid="${s.id}" title="Delete delivery" aria-label="Delete delivery"><i class="fa-regular fa-trash-can"></i></button>
-                    </div>
-                </div>
-                <div class="cmb-deliv-fields">
-                    <span class="cmb-df-label">Schedule</span><span class="cmb-df-value">${formatSchedule(s)}</span>
-                    <span class="cmb-df-label">Recipients</span><span class="cmb-df-value">${s.recipients.join(', ')}</span>
-                    <span class="cmb-df-label">Sent as</span><span class="cmb-df-value">${sentAsHTML(s)}</span>
-                    <span class="cmb-df-label">Next send</span><span class="cmb-df-value">${s.nextSend}</span>
-                </div>
-            </div>`;
-    }
-
-    // ── Card view: a responsive grid, one card per saved view ──
-    function renderCards(views) {
-        cards.innerHTML = views.map(view => {
+    // ── Table view ──
+    // One shared table. Each saved view gets a full-width band (name, report
+    // badge, and its filters pulled out into the band — not a column) followed
+    // by its scheduled deliveries as clean rows. A view with no deliveries shows
+    // an inline message instead of an empty grid. Reuses the Scheduled Reports
+    // table styling (.sr-table / .sr-band) so the columns read cleanly.
+    function renderTable(views) {
+        const body = views.map(view => {
             const schedules = SCHEDULED_REPORTS.filter(s => s.savedViewId === view.id);
-            const blocks = schedules.length
-                ? schedules.map(delivBlockDetailed).join('')
-                : `<div class="cmb-no-deliv">No deliveries scheduled yet.</div>`;
-            const cardCollapsed = collapsedCards.has(view.id);
-            const delivCollapsed = collapsedDelivs.has(view.id);
-            return `
-                <div class="cmb-card ${cardCollapsed ? 'cmb-collapsed' : ''}">
-                    <div class="cmb-card-head">
-                        <button type="button" class="cmb-collapse-btn cmb-card-toggle" data-id="${view.id}" title="Collapse / expand" aria-label="Collapse or expand card"><i class="fa-solid fa-chevron-down"></i></button>
-                        ${starBtn(view)}
-                        <span class="cmb-card-title">${view.name}</span>
-                        <span class="${reportBadgeClass(view.report)}">${view.report}</span>
-                        <div class="cmb-band-actions">
-                            <button type="button" class="cmb-view-edit" data-id="${view.id}" title="Edit saved view" aria-label="Edit saved view"><i class="fa-solid fa-pencil"></i></button>
-                            <button type="button" class="cmb-view-del" data-id="${view.id}" title="Delete saved view" aria-label="Delete saved view"><i class="fa-regular fa-trash-can"></i></button>
-                        </div>
-                    </div>
-                    <div class="cmb-card-body">
-                        <div class="cmb-card-section">
-                            <div class="cmb-card-label"><i class="fa-solid fa-sliders"></i> Filters</div>
-                            ${viewFacetsHTML(view, ['date', 'acts', 'users', 'status'])}
-                        </div>
-                        <div class="cmb-card-section ${delivCollapsed ? 'cmb-delivs-collapsed' : ''}">
-                            <button type="button" class="cmb-card-label cmb-delivs-toggle" data-id="${view.id}" title="Collapse / expand deliveries">
-                                <i class="fa-solid fa-chevron-down cmb-delivs-chev"></i>
-                                <i class="fa-regular fa-clock"></i> ${schedules.length} scheduled ${schedules.length === 1 ? 'delivery' : 'deliveries'}
-                            </button>
-                            <div class="cmb-delivs">
-                                ${blocks}
-                                <button type="button" class="cmb-add-deliv" data-id="${view.id}"><i class="fa-solid fa-plus"></i> Schedule a report</button>
+            const collapsed = collapsedDelivs.has(view.id);
+            const rowAttr = `data-gid="${view.id}"${collapsed ? ' style="display:none"' : ''}`;
+
+            // Saved-view band — the original slim band (chevron + bookmark + name
+            // + report badge), with the view's filters added as a muted sub-line.
+            const band = `
+                <tr class="sr-group-row cmb-band-row ${collapsed ? 'collapsed' : ''}" data-gid="${view.id}">
+                    <td colspan="6">
+                        <div class="sr-band cmb-tbl-band">
+                            <button type="button" class="sr-expand cmb-tbl-toggle" data-id="${view.id}" aria-label="Expand or collapse deliveries"><i class="fa-solid fa-chevron-down"></i></button>
+                            <i class="fa-solid fa-bookmark sr-band-icon"></i>
+                            <div class="cmb-tbl-band-main">
+                                <div class="cmb-tbl-band-titlerow">
+                                    <button type="button" class="sr-band-name sr-details-btn cmb-view-details" data-id="${view.id}" title="View saved-view details">${view.name}</button>
+                                    <span class="${reportBadgeClass(view.report)}">${view.report}</span>
+                                </div>
+                                <div class="cmb-tbl-band-filters">${listFiltersHTML(view)}</div>
+                            </div>
+                            <div class="cmb-band-actions">
+                                <button type="button" class="cmb-view-edit" data-id="${view.id}" title="Edit saved view" aria-label="Edit saved view"><i class="fa-solid fa-pencil"></i></button>
+                                <button type="button" class="cmb-view-del" data-id="${view.id}" title="Delete saved view" aria-label="Delete saved view"><i class="fa-regular fa-trash-can"></i></button>
                             </div>
                         </div>
-                    </div>
-                </div>`;
+                    </td>
+                </tr>`;
+
+            const delivRows = schedules.length
+                ? schedules.map(s => {
+                    const recipText = s.recipients.length <= 2
+                        ? s.recipients.join(', ')
+                        : `${s.recipients[0]}, ${s.recipients[1]} +${s.recipients.length - 2}`;
+                    return `
+                        <tr class="sr-delivery cmb-tbl-row" ${rowAttr}>
+                            <td class="sr-dname"><i class="fa-regular fa-paper-plane sr-deliv-icon"></i> ${s.name}</td>
+                            <td class="sr-dim">${formatSchedule(s)}</td>
+                            <td class="sr-dim" title="${s.recipients.join(', ')}">${recipText}</td>
+                            <td class="sr-dim"><span class="sr-sentas"><i class="fa-regular fa-envelope"></i> Email</span> <span class="sr-fmt"><i class="fa-regular fa-file-excel"></i> Excel</span></td>
+                            <td class="sr-dim">${s.nextSend}</td>
+                            <td>
+                                <div class="msv-actions">
+                                    <vaadin-button theme="tertiary small" class="cmb-deliv-edit" data-sid="${s.id}">
+                                        <i class="fa-regular fa-pen-to-square" slot="prefix"></i> Edit
+                                    </vaadin-button>
+                                    <vaadin-button theme="tertiary small msv-delete" class="cmb-deliv-del" data-sid="${s.id}">
+                                        <i class="fa-regular fa-trash-can" slot="prefix"></i> Delete
+                                    </vaadin-button>
+                                </div>
+                            </td>
+                        </tr>`;
+                  }).join('')
+                : `<tr class="cmb-tbl-row cmb-tbl-noschedule" ${rowAttr}><td colspan="6"><span class="cmb-tbl-empty">No deliveries scheduled for this view yet.</span></td></tr>`;
+
+            const addRow = `
+                <tr class="cmb-tbl-row cmb-tbl-addrow" ${rowAttr}>
+                    <td colspan="6"><button type="button" class="cmb-add-deliv" data-id="${view.id}"><i class="fa-solid fa-plus"></i> Schedule a report</button></td>
+                </tr>`;
+
+            return band + delivRows + addRow;
         }).join('');
+
+        tableEl.innerHTML = `
+            <table class="report-table sr-table cmb-sched-table">
+                <thead>
+                    <tr>
+                        <th style="width:22%">Name</th>
+                        <th style="width:19%">Schedule</th>
+                        <th style="width:17%">Recipients</th>
+                        <th style="width:16%">Sent As</th>
+                        <th style="width:12%">Next Send</th>
+                        <th style="width:14%"></th>
+                    </tr>
+                </thead>
+                <tbody>${body}</tbody>
+            </table>`;
     }
 
     // Inline filter summary for the list header — a filter icon then the
@@ -3824,9 +3888,9 @@ if (unsavedChangesDialog) {
             </div>`;
     }
 
-    // ── List view: full-width stacked rows (not a table). The view's filters
+    // ── Card view: full-width stacked cards (not a table). The view's filters
     // sit inline in the header next to the report type; the deliveries show
-    // below as short, horizontal rows. ──
+    // below as short, horizontal rows. (Same UI the old List view used.) ──
     function renderList(views) {
         listEl.innerHTML = views.map(view => {
             const schedules = SCHEDULED_REPORTS.filter(s => s.savedViewId === view.id);
@@ -3873,12 +3937,14 @@ if (unsavedChangesDialog) {
         const q = cmbQuery.trim().toLowerCase();
         const views = SAVED_VIEWS.filter(v =>
             (!cmbReport || v.report === cmbReport) && matchesQuery(v, q));
-        const listMode = viewMode === 'list';
+        const cardMode = viewMode === 'card';
 
-        cards.innerHTML = '';
+        tableEl.innerHTML = '';
         listEl.innerHTML = '';
-        cards.style.display  = (!listMode && views.length) ? '' : 'none';
-        listEl.style.display = (listMode && views.length) ? '' : 'none';
+        // When there's nothing to show we hide the table/list entirely (no empty
+        // table chrome) and surface the empty state instead.
+        tableEl.style.display = (!cardMode && views.length) ? '' : 'none';
+        listEl.style.display  = (cardMode && views.length) ? '' : 'none';
 
         if (empty) {
             empty.style.display = views.length ? 'none' : '';
@@ -3893,7 +3959,7 @@ if (unsavedChangesDialog) {
             }
         }
 
-        if (views.length) { if (listMode) renderList(views); else renderCards(views); }
+        if (views.length) { if (cardMode) renderList(views); else renderTable(views); }
         wire();
     }
 
@@ -3913,9 +3979,11 @@ if (unsavedChangesDialog) {
         layout.querySelectorAll('.cmb-view-del').forEach(btn => btn.addEventListener('click', () => {
             openDeleteSavedViewDialog(btn.dataset.id);
         }));
+        // Edit / delete / add a delivery — same modal + behavior as the index
+        // Scheduled Reports table (openEmailDialog with editId, no focus mode).
         layout.querySelectorAll('.cmb-deliv-edit').forEach(btn => btn.addEventListener('click', () => {
             const s = SCHEDULED_REPORTS.find(x => x.id === btn.dataset.sid);
-            if (s) openEmailDialog({ editId: s.id, reportName: s.report, focusEdit: true });
+            if (s) openEmailDialog({ editId: s.id, reportName: s.report });
         }));
         layout.querySelectorAll('.cmb-deliv-del').forEach(btn => btn.addEventListener('click', () => {
             openDeleteScheduleDialog(btn.dataset.sid);
@@ -3924,19 +3992,21 @@ if (unsavedChangesDialog) {
             const v = SAVED_VIEWS.find(x => x.id === btn.dataset.id);
             if (v) openEmailDialog({ presetViewId: v.id, reportName: v.report });
         }));
-        // Collapse the whole card (card view) — hides filters + deliveries
-        layout.querySelectorAll('.cmb-card-toggle').forEach(btn => btn.addEventListener('click', () => {
-            const card = btn.closest('.cmb-card');
-            const collapsed = card.classList.toggle('cmb-collapsed');
-            if (collapsed) collapsedCards.add(btn.dataset.id); else collapsedCards.delete(btn.dataset.id);
+        // View the saved view's details (click the view name in the table band)
+        layout.querySelectorAll('.cmb-view-details').forEach(btn => btn.addEventListener('click', () => {
+            openSavedViewDetails(btn.dataset.id);
         }));
-        // Collapse just the deliveries list (card view) — filters stay visible
-        layout.querySelectorAll('.cmb-delivs-toggle').forEach(btn => btn.addEventListener('click', () => {
-            const section = btn.closest('.cmb-card-section');
-            const collapsed = section.classList.toggle('cmb-delivs-collapsed');
-            if (collapsed) collapsedDelivs.add(btn.dataset.id); else collapsedDelivs.delete(btn.dataset.id);
+        // Collapse the deliveries under a table band — hide all rows in the group
+        layout.querySelectorAll('.cmb-tbl-toggle').forEach(btn => btn.addEventListener('click', () => {
+            const id = btn.dataset.id;
+            const collapsed = !collapsedDelivs.has(id);
+            if (collapsed) collapsedDelivs.add(id); else collapsedDelivs.delete(id);
+            btn.closest('.cmb-band-row')?.classList.toggle('collapsed', collapsed);
+            tableEl.querySelectorAll(`.cmb-tbl-row[data-gid="${id}"]`).forEach(r => {
+                r.style.display = collapsed ? 'none' : '';
+            });
         }));
-        // Collapse the deliveries (list view)
+        // Collapse the deliveries (card view)
         layout.querySelectorAll('.cmb-listrow-toggle').forEach(btn => btn.addEventListener('click', () => {
             const row = btn.closest('.cmb-listrow');
             const collapsed = row.classList.toggle('cmb-delivs-collapsed');
@@ -3944,7 +4014,7 @@ if (unsavedChangesDialog) {
         }));
     }
 
-    // Search box — filters the cards/list as you type
+    // Search box — filters the table/cards as you type
     document.getElementById('cmbSearch')?.addEventListener('input', (e) => {
         cmbQuery = e.target.value;
         renderCombined();
@@ -3956,7 +4026,7 @@ if (unsavedChangesDialog) {
         renderCombined();
     });
 
-    // Cards / List toggle
+    // Table / Card toggle
     const vmCtrl = document.getElementById('cmbViewMode');
     vmCtrl?.querySelectorAll('.cmb-vm-btn').forEach(btn => btn.addEventListener('click', () => {
         if (btn.dataset.mode === viewMode) return;

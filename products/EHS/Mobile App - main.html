@@ -32,6 +32,14 @@
         }
         .screen-nav button:hover { border-color: #0271ce; color: #0271ce; }
         .screen-nav button.active { background: #0271ce; border-color: #0271ce; color: white; }
+        .screen-nav-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #475569; font-weight: 600; }
+        .screen-nav-select {
+            font-family: inherit; font-size: 13px; color: #334155;
+            background: white; border: 1.5px solid #cbd5e1; border-radius: 6px;
+            padding: 7px 12px; cursor: pointer; min-width: 230px; max-width: 90vw;
+        }
+        .screen-nav-select:hover { border-color: #0271ce; }
+        .screen-nav-select:focus { outline: none; border-color: #0271ce; }
 
         /* Phone frame */
         .phone-frame {
@@ -1968,28 +1976,36 @@
         <i class="fa-solid fa-pen-to-square"></i> Edit mode <span class="em-dot"></span><span class="em-state">Off</span>
     </button>
     <span style="flex-basis:100%;height:0;margin:2px 0;"></span>
-    <button onclick="showScreen('home')" class="active">Home</button>
-    <button onclick="showScreen('records')">Records</button>
-    <button onclick="showScreen('jsa-start')">JSA: Start</button>
-    <button onclick="showScreen('jsa-select')">JSA: Select Existing</button>
-    <button onclick="showScreen('jsa-basic')">JSA: Basic Info</button>
-    <button onclick="showScreen('jsa-steps-empty')">JSA: Steps (empty)</button>
-    <button onclick="showScreen('jsa-add-step')">JSA: Add Step</button>
-    <button onclick="showScreen('jsa-steps-filled')">JSA: Steps (filled)</button>
-    <button onclick="showScreen('jsa-additional')">JSA: Additional Features</button>
-    <button onclick="showCaScreen()">JSA: Corrective Action</button>
-    <button onclick="showScreen('jsa-signature')">JSA: Signature</button>
-    <span style="flex-basis:100%;height:0;margin:2px 0;"></span>
-    <button onclick="showScreen('offline-home')">Offline: Home</button>
-    <button onclick="showScreen('offline-editor')">Offline: Editing JSA</button>
-    <button onclick="showScreen('offline-queue')">Offline: Sync Queue</button>
-    <button onclick="showScreen('offline-syncing')">Offline: Reconnecting</button>
-    <button onclick="showScreen('offline-overview')">Conflict: Resolve</button>
-    <button onclick="showScreen('offline-compare-status')">Conflict: Compare Status</button>
-    <button onclick="showScreen('offline-compare-desc')">Conflict: Compare Description</button>
-    <button onclick="showScreen('offline-preview')">Conflict: Merged Preview</button>
-    <button onclick="showScreen('offline-done')">Conflict: Complete</button>
-    <button onclick="showScreen('offline-history')">Conflict: Version History</button>
+    <label class="screen-nav-label" for="screenNavSelect"><i class="fa-solid fa-display"></i> Screen</label>
+    <select class="screen-nav-select" id="screenNavSelect" onchange="navTo(this.value)" aria-label="Jump to screen">
+        <optgroup label="App">
+            <option value="home">Home</option>
+            <option value="records">Records</option>
+        </optgroup>
+        <optgroup label="JSA flow">
+            <option value="jsa-start">JSA: Start</option>
+            <option value="jsa-select">JSA: Select Existing</option>
+            <option value="jsa-basic">JSA: Basic Info</option>
+            <option value="jsa-steps-empty">JSA: Steps (empty)</option>
+            <option value="jsa-add-step">JSA: Add Step</option>
+            <option value="jsa-steps-filled">JSA: Steps (filled)</option>
+            <option value="jsa-additional">JSA: Additional Features</option>
+            <option value="jsa-ca">JSA: Corrective Action</option>
+            <option value="jsa-signature">JSA: Signature</option>
+        </optgroup>
+        <optgroup label="Offline &amp; conflict">
+            <option value="offline-home">Offline: Home</option>
+            <option value="offline-editor">Offline: Editing JSA</option>
+            <option value="offline-queue">Offline: Sync Queue</option>
+            <option value="offline-syncing">Offline: Reconnecting</option>
+            <option value="offline-overview">Conflict: Resolve</option>
+            <option value="offline-compare-status">Conflict: Compare Status</option>
+            <option value="offline-compare-desc">Conflict: Compare Description</option>
+            <option value="offline-preview">Conflict: Merged Preview</option>
+            <option value="offline-done">Conflict: Complete</option>
+            <option value="offline-history">Conflict: Version History</option>
+        </optgroup>
+    </select>
 </div>
 
 <div class="phone-frame">
@@ -4834,13 +4850,9 @@ function showScreen(id) {
         const st = document.getElementById('records-toolbar-sticky');
         if (st) st.classList.remove('visible');
     }
-    // Update nav pills
-    document.querySelectorAll('#screenNav button').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('#screenNav button').forEach(btn => {
-        if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes("'" + id + "'")) {
-            btn.classList.add('active');
-        }
-    });
+    // Sync the screen-nav dropdown to the current screen
+    const navSel = document.getElementById('screenNavSelect');
+    if (navSel && navSel.value !== id) navSel.value = id;
 }
 
 /* ── Risk / Residual Risk section helpers ── */
@@ -5680,6 +5692,12 @@ let currentCaStep = 0;
 
 let caTargetListId = 'ca-list';
 let caReturnScreen = 'jsa-additional';
+
+/* Prototype screen-nav dropdown → navigate (handles non-showScreen entries) */
+function navTo(v) {
+    if (v === 'jsa-ca') showCaScreen();
+    else showScreen(v);
+}
 
 function showCaScreen() {
     caTargetListId = 'ca-list';
