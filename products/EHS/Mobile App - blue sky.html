@@ -352,6 +352,157 @@
         }
         .rec-btn-dl:active { background: #f3f4f6; }
 
+        /* ════════════ Records: multi-select + download management ════════════ */
+        /* Header swaps between the normal bar and a contextual bulk-select header.
+           The sel header is a two-row block (action row + Select All row) inside the dark
+           .mobile-header, matching the Figma bulk-select spec. */
+        .mobile-header .records-sel-bar { display: none; }
+        #screen-records.selecting .records-normal-bar { display: none; }
+        #screen-records.selecting .records-sel-bar { display: block; }
+        #screen-records.selecting #records-toolbar-sticky { display: none; }
+
+        /* Row 1: back arrow + count + bulk action icons */
+        .records-sel-actionrow {
+            display: flex; align-items: center; gap: 12px; height: 50px; padding: 0 16px;
+            position: relative;
+        }
+        /* Overflow (⋮) dropdown — a small popover anchored under the icon, NOT a drawer */
+        .sel-overflow-menu {
+            position: absolute; top: calc(100% - 2px); right: 10px;
+            background: #fff; border-radius: 10px; min-width: 196px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.22); padding: 6px;
+            display: none; z-index: 60;
+        }
+        .sel-overflow-menu.open { display: block; }
+        .sel-overflow-item {
+            display: flex; align-items: center; gap: 10px; width: 100%;
+            padding: 11px 12px; border: none; background: none; cursor: pointer;
+            font-family: inherit; font-size: 14px; color: rgba(0,0,0,0.87);
+            text-align: left; border-radius: 7px; white-space: nowrap;
+        }
+        .sel-overflow-item:active { background: #f1f5f9; }
+        .sel-overflow-item i { color: #0271ce; width: 18px; text-align: center; }
+        .sel-back {
+            background: none; border: none; color: white; cursor: pointer;
+            width: 30px; height: 30px; margin-left: -6px; padding: 0; font-size: 18px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .sel-back:active { opacity: 0.6; }
+        .sel-count { color: white; font-size: 16px; font-weight: 600; line-height: 20px; }
+        .sel-actions { margin-left: auto; display: flex; align-items: center; gap: 18px; }
+        .sel-action-icon {
+            background: none; border: none; color: white; cursor: pointer;
+            width: 24px; height: 24px; padding: 0; font-size: 17px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .sel-action-icon:active { opacity: 0.6; }
+        .sel-action-icon.disabled { opacity: 0.38; pointer-events: none; }
+        /* Row 2: Select All */
+        .records-sel-allrow { padding: 0 16px 12px; }
+        .sel-all-check {
+            display: inline-flex; align-items: center; gap: 12px; cursor: pointer;
+            background: none; border: none; padding: 0; font-family: inherit;
+        }
+        .sel-all-label { color: white; font-size: 16px; }
+
+        /* Square checkboxes (Figma: 4px radius, #1c304a85 border, #0271ce when checked) —
+           shared appearance between the per-card checkbox and the Select All checkbox. */
+        .rec-check, .sel-check-box {
+            width: 20px; height: 20px; border-radius: 4px;
+            border: 1.5px solid #1c304a85; background: #fff;
+            align-items: center; justify-content: center;
+            color: #fff; font-size: 11px; flex-shrink: 0;
+            transition: background 0.12s, border-color 0.12s;
+        }
+        .rec-check > i, .sel-check-box > i { opacity: 0; transition: opacity 0.12s; }
+        .sel-check-box { display: flex; }
+        /* Per-card checkbox: hidden until selecting, vertically centered on the left */
+        .rec-check {
+            display: none; position: absolute; left: 16px; top: 50%; transform: translateY(-50%); z-index: 3;
+        }
+        #screen-records.selecting .rec-check { display: flex; }
+        #screen-records.selecting .rec-card-wrap { position: relative; cursor: pointer; }
+        #screen-records.selecting .record-card-row { padding-left: 52px; }
+        /* In bulk mode the per-card action button is hidden; the ⋮ menu stays (per Figma) */
+        #screen-records.selecting .rec-action-row { display: none !important; }
+        .rec-card-wrap.selected .rec-check { background: #0271ce; border-color: #0271ce; }
+        .rec-card-wrap.selected .rec-check > i { opacity: 1; }
+        .sel-all-check.checked .sel-check-box { background: #0271ce; border-color: #0271ce; }
+        .sel-all-check.checked .sel-check-box > i { opacity: 1; }
+        #screen-records.selecting .rec-card-wrap.selected {
+            background: #f5f9ff !important; border-color: #0271ce !important;
+            box-shadow: 0 0 0 1px #0271ce;
+        }
+        /* Selection mode hides the Submit-All FAB; the bottom nav stays (per Figma) */
+        #screen-records.selecting .records-fab { display: none !important; }
+
+        /* Bottom-sheet action rows (per-record ellipsis menu + confirmations) */
+        .sheet-action {
+            display: flex; align-items: center; gap: 14px; width: 100%;
+            padding: 15px 20px; border: none; background: none;
+            font-family: inherit; text-align: left; cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .sheet-action:active { background: #f5f9fd; }
+        .sheet-action:last-child { border-bottom: none; }
+        .sheet-action > i { width: 22px; text-align: center; font-size: 17px; color: #0271ce; flex-shrink: 0; }
+        .sheet-action > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+        .sheet-action .sa-label { font-size: 14.5px; color: rgba(0,0,0,0.87); font-weight: 500; }
+        .sheet-action .sa-sub { font-size: 12px; color: rgba(0,0,0,0.5); line-height: 1.35; }
+        /* Destructive (delete) treatment — distinct from the neutral "remove download" */
+        .sheet-action.sheet-action-danger > i { color: #d92d20; }
+        .sheet-action.sheet-action-danger .sa-label { color: #b42318; }
+        .filter-sheet-apply.danger { background: #d92d20; }
+        .filter-sheet-apply.danger:active { background: #b42318; }
+        .delete-warning-note {
+            display: flex; gap: 10px; align-items: flex-start;
+            background: #fef3f2; border-radius: 8px; padding: 10px 12px; margin-top: 12px;
+        }
+        .delete-warning-note i { color: #d92d20; font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+        .delete-warning-note span { font-size: 12.5px; color: #b42318; line-height: 1.4; }
+
+        /* ── Records Settings (full-screen panel) ── */
+        .records-settings-panel {
+            position: absolute; inset: 0; background: #fff; z-index: 70;
+            display: none; flex-direction: column;
+        }
+        .records-settings-panel.open { display: flex; }
+        .rs-header {
+            position: relative; height: 56px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            border-bottom: 1px solid #eef0f2;
+        }
+        .rs-close {
+            position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; cursor: pointer;
+            color: rgba(26,41,61,0.83); font-size: 20px;
+            width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+        }
+        .rs-close:active { opacity: 0.6; }
+        .rs-title { font-size: 20px; font-weight: 600; color: rgba(0,0,0,0.87); }
+        .rs-body { flex: 1; overflow-y: auto; padding: 16px 24px 32px; }
+        .rs-section-title { font-size: 16px; font-weight: 600; color: #000; margin-bottom: 2px; }
+        .rs-row {
+            display: flex; align-items: center; justify-content: space-between; gap: 16px;
+            padding: 16px 0; border-bottom: 1px solid rgba(28,55,90,0.16);
+        }
+        .rs-row-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .rs-row-label { font-size: 14px; font-weight: 600; color: #000; line-height: 18px; }
+        .rs-row-desc { font-size: 12px; color: rgba(0,0,0,0.6); line-height: 1.3; }
+        /* Toggle switch (matches the Figma vwc-switch: grey off, #0271ce on, white knob) */
+        .rs-switch {
+            width: 44px; height: 24px; border-radius: 12px; background: #c4ccd6;
+            border: none; cursor: pointer; position: relative; flex-shrink: 0; padding: 0;
+            transition: background 0.15s;
+        }
+        .rs-switch::after {
+            content: ''; position: absolute; top: 2px; left: 2px;
+            width: 20px; height: 20px; border-radius: 50%; background: #fff;
+            transition: left 0.15s; box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+        }
+        .rs-switch.on { background: #0271ce; }
+        .rs-switch.on::after { left: 22px; }
+
         /* Edit-mode facilitator toggle (lives in the prototype nav bar, outside the phone) */
         .editmode-toggle {
             display: inline-flex; align-items: center; gap: 7px;
@@ -1574,6 +1725,20 @@
         .attach-option-item:active { background: #f5f9fd; }
         .attach-option-item:last-child { border-bottom: none; }
         .attach-option-item i { width: 24px; text-align: center; font-size: 18px; color: #0271ce; }
+        /* Attachment picker as an inline dropdown (anchored under the Add Attachment button) */
+        .attach-add-wrap { position: relative; }
+        .attach-dropdown {
+            position: absolute; left: 0; right: 0; top: calc(100% + 4px);
+            background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.16); padding: 6px; z-index: 50;
+            display: none;
+        }
+        .attach-dropdown.open { display: block; }
+        .attach-dropdown .attach-option-item {
+            border-bottom: none; padding: 11px 12px; border-radius: 7px; font-size: 14.5px;
+        }
+        .attach-dropdown .attach-option-item:active { background: #f1f5f9; }
+        .attach-dropdown .attach-option-item i { font-size: 16px; }
         .ca-item {
             background: white; border: 1px solid #e5e7eb; border-radius: 8px;
             padding: 12px 14px; margin-bottom: 8px;
@@ -1905,6 +2070,12 @@
         .badge-offline  { background: rgba(99,114,130,0.16); color:#44505d; font-weight:600; }
         .badge-conflict { background: rgba(224,83,61,0.12); color:#b23a26; font-weight:600; }
         .badge-synced   { background: rgba(22,136,70,0.12); color:#0a7637; font-weight:600; }
+        .badge-waitingsync { background: rgba(245,158,11,0.18); color:#92400e; font-weight:600; }
+        /* Offline records page: "waiting to sync" summary strip */
+        .offline-sync-summary { margin:14px 12px 0; background:white; border:1px solid #f0e6cf; border-radius:12px; padding:14px; display:flex; align-items:center; gap:13px; box-shadow:0 1px 4px rgba(0,0,0,0.05); }
+        .offline-sync-summary .oss-icon { width:42px; height:42px; border-radius:11px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:18px; background:#f1ede0; color:#8a7029; }
+        .offline-sync-summary .oss-title { font-size:14px; font-weight:700; color:rgba(0,0,0,0.85); }
+        .offline-sync-summary .oss-sub { font-size:12px; color:rgba(0,0,0,0.55); line-height:1.4; margin-top:2px; }
 
         /* Offline banners */
         .offline-banner { display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:12.5px; font-weight:600; line-height:1.35; flex-shrink:0; }
@@ -1961,6 +2132,31 @@
         .merge-intro h3 { font-size:16px; font-weight:700; color:rgba(0,0,0,0.87); line-height:1.35; }
         .merge-intro p { font-size:13px; color:rgba(0,0,0,0.6); line-height:1.5; margin-top:6px; }
         .merge-intro p b { color:rgba(0,0,0,0.8); }
+        /* Lightweight all-or-nothing conflict resolution */
+        .cr-compare { margin:8px 16px 0; display:flex; flex-direction:column; gap:10px; }
+        .cr-version { border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
+        .cr-version-head { display:flex; align-items:center; gap:8px; padding:10px 12px; font-size:13px; font-weight:700; }
+        .cr-version-head i { font-size:13px; }
+        .cr-version.theirs .cr-version-head { background:rgba(79,70,229,0.08); color:#4338ca; }
+        .cr-version.mine .cr-version-head { background:rgba(22,136,70,0.08); color:#0a7637; }
+        .cr-version-head .cr-meta { margin-left:auto; font-weight:500; font-size:11.5px; color:rgba(0,0,0,0.5); }
+        .cr-changes { list-style:none; margin:0; padding:2px 0; }
+        .cr-changes li { display:flex; gap:10px; padding:9px 12px; font-size:13px; border-top:1px solid #f1f3f5; }
+        .cr-changes li:first-child { border-top:none; }
+        .cr-field { flex-shrink:0; width:92px; color:rgba(0,0,0,0.5); font-weight:600; }
+        .cr-val { color:rgba(0,0,0,0.85); flex:1; line-height:1.4; }
+        .cr-actions-note { margin:6px 16px 0; font-size:12px; color:rgba(0,0,0,0.5); line-height:1.4; }
+        .cr-actions { margin:8px 16px 16px; display:flex; flex-direction:column; gap:10px; }
+        .cr-action { display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:white; border:1.5px solid #e5e7eb; border-radius:12px; padding:14px; cursor:pointer; font-family:inherit; }
+        .cr-action:active { background:#f8fafc; }
+        .cr-action-icon { width:38px; height:38px; border-radius:9px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:16px; }
+        .cr-action-icon.theirs { background:rgba(79,70,229,0.1); color:#4338ca; }
+        .cr-action-icon.mine { background:rgba(22,136,70,0.1); color:#0a7637; }
+        .cr-action-icon.new { background:rgba(2,113,206,0.1); color:#0271ce; }
+        .cr-action-text { flex:1; min-width:0; }
+        .cr-action-title { font-size:14.5px; font-weight:700; color:rgba(0,0,0,0.87); }
+        .cr-action-sub { font-size:12px; color:rgba(0,0,0,0.55); line-height:1.4; margin-top:2px; }
+        .cr-action > .fa-chevron-right { color:rgba(0,0,0,0.3); font-size:13px; flex-shrink:0; }
         .version-meta { margin:14px 16px 0; background:white; border:1px solid #e5e7eb; border-radius:8px; overflow:hidden; }
         .vm-row { display:flex; align-items:center; gap:9px; padding:11px 14px; }
         .vm-row + .vm-row { border-top:1px solid #eef0f2; }
@@ -2126,12 +2322,9 @@
         <optgroup label="Offline &amp; conflict">
             <option value="offline-home">Offline: Home</option>
             <option value="offline-editor">Offline: Editing JSA</option>
-            <option value="offline-queue">Offline: Sync Queue</option>
+            <option value="offline-records">Offline: Records</option>
             <option value="offline-syncing">Offline: Reconnecting</option>
             <option value="offline-overview">Conflict: Resolve</option>
-            <option value="offline-compare-status">Conflict: Compare Status</option>
-            <option value="offline-compare-desc">Conflict: Compare Description</option>
-            <option value="offline-preview">Conflict: Merged Preview</option>
             <option value="offline-done">Conflict: Complete</option>
             <option value="offline-history">Conflict: Version History</option>
         </optgroup>
@@ -2259,11 +2452,35 @@
                         <i class="fa-solid fa-battery-three-quarters"></i>
                     </div>
                 </div>
-                <div class="header-bar">
+                <!-- Normal header -->
+                <div class="header-bar records-normal-bar">
                     <span class="header-title">Records</span>
                     <div class="header-action-right">
-                        <button class="hdr-btn-outline">Select</button>
-                        <button class="hdr-btn"><i class="fa-solid fa-gear"></i></button>
+                        <button class="hdr-btn-outline" id="records-select-btn" onclick="enterSelectMode()">Select</button>
+                        <button class="hdr-btn" id="records-settings-btn" onclick="openRecordsSettings()" title="Records settings" aria-label="Records settings"><i class="fa-solid fa-gear"></i></button>
+                    </div>
+                </div>
+                <!-- Contextual bulk-select header (shown while selecting) -->
+                <div class="records-sel-bar">
+                    <div class="records-sel-actionrow">
+                        <button class="sel-back" id="records-sel-cancel" onclick="exitSelectMode()" aria-label="Exit selection"><i class="fa-solid fa-arrow-left"></i></button>
+                        <span class="sel-count" id="records-sel-count">0</span>
+                        <div class="sel-actions">
+                            <button class="sel-action-icon" id="sel-share" onclick="bulkShare()" aria-label="Share" title="Share"><i class="fa-solid fa-arrow-up-from-bracket"></i></button>
+                            <button class="sel-action-icon" id="sel-download" onclick="bulkDownload()" aria-label="Download" title="Download"><i class="fa-solid fa-download"></i></button>
+                            <button class="sel-action-icon" id="sel-delete" onclick="bulkDelete()" aria-label="Delete" title="Delete"><i class="fa-solid fa-trash-can"></i></button>
+                            <button class="sel-action-icon" id="sel-overflow" onclick="toggleSelOverflow(event)" aria-label="More actions" title="More actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                        </div>
+                        <!-- Overflow dropdown (popover, not a drawer) -->
+                        <div class="sel-overflow-menu" id="sel-overflow-menu">
+                            <button class="sel-overflow-item" id="sel-overflow-remove" onclick="overflowRemoveDownload()"><i class="fa-solid fa-circle-minus"></i> <span id="sel-overflow-remove-label">Remove downloads</span></button>
+                        </div>
+                    </div>
+                    <div class="records-sel-allrow">
+                        <button class="sel-all-check" id="records-sel-all" onclick="toggleSelectAll()">
+                            <span class="sel-check-box"><i class="fa-solid fa-check"></i></span>
+                            <span class="sel-all-label">Select All</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -2616,6 +2833,15 @@
                             <button class="filter-status-pill" data-draft-status="error">Error</button>
                         </div>
                     </div>
+                    <div style="height:1px;background:#e5e7eb;margin:0 16px;"></div>
+                    <div class="filter-field-section" style="padding-bottom:16px;">
+                        <span class="filter-field-label">Offline availability</span>
+                        <div class="filter-status-pills">
+                            <button class="filter-status-pill active" data-draft-avail="all">All</button>
+                            <button class="filter-status-pill" data-draft-avail="downloaded">Downloaded</button>
+                            <button class="filter-status-pill" data-draft-avail="not-downloaded">Not downloaded</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="filter-sheet-footer">
                     <button class="filter-sheet-reset" id="records-filter-reset">Reset</button>
@@ -2632,6 +2858,92 @@
                     <h3>This incident has already been submitted</h3>
                     <p>You will only be able to access it on the web version of EHS.</p>
                     <button id="records-already-submitted-ok">Okay</button>
+                </div>
+            </div>
+
+            <!-- Remove-download confirmation (record is kept, only the offline copy is cleared) -->
+            <div class="overlay-bg" id="remove-dl-overlay"></div>
+            <div class="bottom-drawer" id="remove-dl-drawer">
+                <div class="drawer-handle"></div>
+                <div style="padding:18px 20px 6px;">
+                    <h3 id="remove-dl-title" style="font-size:17px;font-weight:700;color:rgba(0,0,0,0.87);margin-bottom:8px;line-height:1.35;">Remove download?</h3>
+                    <p style="font-size:13.5px;color:rgba(0,0,0,0.6);line-height:1.5;">This clears the offline copy from this device. The record itself is not deleted, it stays in EHS and you can download it again anytime.</p>
+                    <div style="display:flex;gap:10px;align-items:center;background:#f1f5f9;border-radius:8px;padding:10px 12px;margin-top:12px;">
+                        <i class="fa-solid fa-circle-info" style="color:#0271ce;font-size:15px;flex-shrink:0;"></i>
+                        <span style="font-size:12.5px;color:rgba(0,0,0,0.65);line-height:1.4;">Only the download is removed. Nothing is deleted.</span>
+                    </div>
+                </div>
+                <div class="filter-sheet-footer">
+                    <button class="filter-sheet-reset" onclick="closeRemoveDownloadSheet()">Cancel</button>
+                    <button class="filter-sheet-apply" id="remove-dl-confirm" onclick="confirmRemoveDownload()"><span id="remove-dl-confirm-label">Remove download</span></button>
+                </div>
+            </div>
+
+            <!-- Delete confirmation (destructive, requires warning) -->
+            <div class="overlay-bg" id="delete-rec-overlay"></div>
+            <div class="bottom-drawer" id="delete-rec-drawer">
+                <div class="drawer-handle"></div>
+                <div style="padding:18px 20px 6px;">
+                    <h3 id="delete-rec-title" style="font-size:17px;font-weight:700;color:rgba(0,0,0,0.87);margin-bottom:8px;line-height:1.35;">Delete this record?</h3>
+                    <p style="font-size:13.5px;color:rgba(0,0,0,0.6);line-height:1.5;">This permanently removes the record from EHS, including any offline copy. This action cannot be undone.</p>
+                    <div class="delete-warning-note">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>Deleting removes the record for everyone, not just from this device.</span>
+                    </div>
+                </div>
+                <div class="filter-sheet-footer">
+                    <button class="filter-sheet-reset" onclick="closeDeleteSheet()">Cancel</button>
+                    <button class="filter-sheet-apply danger" id="delete-rec-confirm" onclick="confirmDelete()"><span id="delete-rec-confirm-label">Delete record</span></button>
+                </div>
+            </div>
+
+            <!-- Per-record action sheet (ellipsis menu) -->
+            <div class="overlay-bg" id="rec-action-overlay"></div>
+            <div class="bottom-drawer" id="rec-action-drawer">
+                <div class="drawer-handle"></div>
+                <div class="drawer-header">
+                    <span class="drawer-title" id="rec-action-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Record</span>
+                    <button class="drawer-close" onclick="closeRecActionSheet()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div id="rec-action-list"></div>
+            </div>
+
+            <!-- Records Settings (full-screen panel, opened from the header gear) -->
+            <div class="records-settings-panel" id="records-settings">
+                <div class="rs-header">
+                    <button class="rs-close" onclick="closeRecordsSettings()" aria-label="Close settings"><i class="fa-solid fa-xmark"></i></button>
+                    <span class="rs-title">Records Settings</span>
+                </div>
+                <div class="rs-body">
+                    <div class="rs-section-title">Downloads</div>
+                    <div class="rs-row">
+                        <div class="rs-row-text">
+                            <span class="rs-row-label">Automatic Downloads</span>
+                            <span class="rs-row-desc">Submitted records automatically stored on this device</span>
+                        </div>
+                        <button class="rs-switch" role="switch" aria-checked="false" aria-label="Automatic Downloads" onclick="toggleSwitch(this)"></button>
+                    </div>
+                    <div class="rs-row">
+                        <div class="rs-row-text">
+                            <span class="rs-row-label">Automatically Download Updates</span>
+                            <span class="rs-row-desc">Automatically download updates to forms stored on your device</span>
+                        </div>
+                        <button class="rs-switch" role="switch" aria-checked="false" aria-label="Automatically Download Updates" onclick="toggleSwitch(this)"></button>
+                    </div>
+                    <div class="rs-row">
+                        <div class="rs-row-text">
+                            <span class="rs-row-label">Wi-Fi Only</span>
+                        </div>
+                        <button class="rs-switch" role="switch" aria-checked="false" aria-label="Wi-Fi Only" onclick="toggleSwitch(this)"></button>
+                    </div>
+                    <div class="rs-section-title" style="margin-top:28px;">Notifications</div>
+                    <div class="rs-row">
+                        <div class="rs-row-text">
+                            <span class="rs-row-label">Recommend Downloads</span>
+                            <span class="rs-row-desc">Notify me when new records are available to download</span>
+                        </div>
+                        <button class="rs-switch" role="switch" aria-checked="false" aria-label="Recommend Downloads" onclick="toggleSwitch(this)"></button>
+                    </div>
                 </div>
             </div>
 
@@ -3380,9 +3692,16 @@
                         <span class="feat-section-badge" id="step-attach-count">0</span>
                     </div>
                     <div id="step-attach-list"></div>
-                    <button class="feat-add-btn" onclick="openStepAttachPicker()">
-                        <i class="fa-solid fa-plus"></i> Add Attachment
-                    </button>
+                    <div class="attach-add-wrap">
+                        <button class="feat-add-btn" onclick="openStepAttachPicker()">
+                            <i class="fa-solid fa-plus"></i> Add Attachment
+                        </button>
+                        <div class="attach-dropdown" id="stepAttachDropdown">
+                            <button class="attach-option-item" onclick="addStepAttachment('camera')"><i class="fa-solid fa-camera"></i> Take Photo</button>
+                            <button class="attach-option-item" onclick="addStepAttachment('library')"><i class="fa-regular fa-images"></i> Photo Library</button>
+                            <button class="attach-option-item" onclick="addStepAttachment('files')"><i class="fa-regular fa-folder-open"></i> Files</button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="feat-divider"></div>
@@ -3407,25 +3726,7 @@
                 </div>
             </div>
 
-            <!-- Step Attachment picker drawer -->
-            <div class="overlay-bg" id="stepAttachPickerOverlay" onclick="closeStepAttachPicker()"></div>
-            <div class="bottom-drawer" id="stepAttachPickerDrawer">
-                <div class="drawer-handle"></div>
-                <div class="drawer-header">
-                    <span class="drawer-title">Add Attachment</span>
-                    <button class="drawer-close" onclick="closeStepAttachPicker()"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <button class="attach-option-item" onclick="addStepAttachment('camera')">
-                    <i class="fa-solid fa-camera"></i> Take Photo
-                </button>
-                <button class="attach-option-item" onclick="addStepAttachment('library')">
-                    <i class="fa-regular fa-images"></i> Photo Library
-                </button>
-                <button class="attach-option-item" onclick="addStepAttachment('files')">
-                    <i class="fa-regular fa-folder-open"></i> Files
-                </button>
-                <div style="height:16px;"></div>
-            </div>
+            <!-- Step attachment options now render as a dropdown under the Add Attachment button -->
 
             <!-- Hazard Category drawer -->
             <div class="overlay-bg" id="hazardCatOverlay" onclick="closeDrawer('hazardCatDrawer')"></div>
@@ -3715,9 +4016,16 @@
                         </button>
                     </div>
 
-                    <button class="feat-add-btn" onclick="openAttachPicker()">
-                        <i class="fa-solid fa-plus"></i> Add Attachment
-                    </button>
+                    <div class="attach-add-wrap">
+                        <button class="feat-add-btn" onclick="openAttachPicker()">
+                            <i class="fa-solid fa-plus"></i> Add Attachment
+                        </button>
+                        <div class="attach-dropdown" id="attachDropdown">
+                            <button class="attach-option-item" onclick="addAttachment('camera')"><i class="fa-solid fa-camera"></i> Take Photo</button>
+                            <button class="attach-option-item" onclick="addAttachment('library')"><i class="fa-regular fa-images"></i> Photo Library</button>
+                            <button class="attach-option-item" onclick="addAttachment('files')"><i class="fa-regular fa-folder-open"></i> Files</button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="feat-divider"></div>
@@ -3746,25 +4054,7 @@
                 </div>
             </div>
 
-            <!-- Attachment picker drawer -->
-            <div class="overlay-bg" id="attachPickerOverlay" onclick="closeAttachPicker()"></div>
-            <div class="bottom-drawer" id="attachPickerDrawer">
-                <div class="drawer-handle"></div>
-                <div class="drawer-header">
-                    <span class="drawer-title">Add Attachment</span>
-                    <button class="drawer-close" onclick="closeAttachPicker()"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <button class="attach-option-item" onclick="addAttachment('camera')">
-                    <i class="fa-solid fa-camera"></i> Take Photo
-                </button>
-                <button class="attach-option-item" onclick="addAttachment('library')">
-                    <i class="fa-regular fa-images"></i> Photo Library
-                </button>
-                <button class="attach-option-item" onclick="addAttachment('files')">
-                    <i class="fa-regular fa-folder-open"></i> Files
-                </button>
-                <div style="height:16px;"></div>
-            </div>
+            <!-- Attachment options now render as a dropdown under the Add Attachment button -->
 
             <!-- Corrective action simple drawer (legacy fallback, not normally used) -->
             <div class="overlay-bg" id="caAddOverlay" onclick="closeSimpleCaDrawer()"></div>
@@ -4009,9 +4299,16 @@
                             <span class="feat-section-badge" id="ca-attach-count">0</span>
                         </div>
                         <div id="ca-attach-list"></div>
-                        <button class="feat-add-btn" onclick="openCaAttachPicker()">
-                            <i class="fa-solid fa-plus"></i> Add Attachment
-                        </button>
+                        <div class="attach-add-wrap">
+                            <button class="feat-add-btn" onclick="openCaAttachPicker()">
+                                <i class="fa-solid fa-plus"></i> Add Attachment
+                            </button>
+                            <div class="attach-dropdown" id="caAttachDropdown">
+                                <button class="attach-option-item" onclick="addCaAttachment('camera')"><i class="fa-solid fa-camera"></i> Take Photo</button>
+                                <button class="attach-option-item" onclick="addCaAttachment('library')"><i class="fa-regular fa-images"></i> Photo Library</button>
+                                <button class="attach-option-item" onclick="addCaAttachment('files')"><i class="fa-regular fa-folder-open"></i> Files</button>
+                            </div>
+                        </div>
                     </div>
                     <button class="ca-send-email-btn" onclick="sendCaEmail()">
                         <i class="fa-regular fa-envelope"></i>
@@ -4161,25 +4458,7 @@
                 <div style="height:16px;"></div>
             </div>
 
-            <!-- CA Attachment picker drawer -->
-            <div class="overlay-bg" id="caAttachPickerOverlay" onclick="closeCaAttachPicker()"></div>
-            <div class="bottom-drawer" id="caAttachPickerDrawer">
-                <div class="drawer-handle"></div>
-                <div class="drawer-header">
-                    <span class="drawer-title">Add Attachment</span>
-                    <button class="drawer-close" onclick="closeCaAttachPicker()"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <button class="attach-option-item" onclick="addCaAttachment('camera')">
-                    <i class="fa-solid fa-camera"></i> Take Photo
-                </button>
-                <button class="attach-option-item" onclick="addCaAttachment('library')">
-                    <i class="fa-regular fa-images"></i> Photo Library
-                </button>
-                <button class="attach-option-item" onclick="addCaAttachment('files')">
-                    <i class="fa-regular fa-folder-open"></i> Files
-                </button>
-                <div style="height:16px;"></div>
-            </div>
+            <!-- CA attachment options now render as a dropdown under the Add Attachment button -->
 
             <!-- CA Toast notification -->
             <div class="ca-toast" id="ca-toast">
@@ -4372,7 +4651,7 @@
 
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px;margin-top:16px;">
                     <span class="section-label" style="padding:0;margin:0;">Jump Back In</span>
-                    <span class="badge badge-offline" onclick="showScreen('offline-queue')" style="cursor:pointer;"><i class="fa-solid fa-arrows-rotate"></i> 3 waiting to sync</span>
+                    <span class="badge badge-waitingsync" onclick="showScreen('offline-records')" style="cursor:pointer;"><i class="fa-solid fa-cloud-arrow-up"></i> 2 waiting to sync</span>
                 </div>
 
                 <div class="card-wrap" style="margin-top:8px;">
@@ -4380,7 +4659,7 @@
                         <div class="record-title">Roof Access – Maintenance Crew</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
-                            <span class="badge badge-offline"><i class="fa-solid fa-mobile-screen"></i> Edited offline</span>
+                            <span class="badge badge-waitingsync"><i class="fa-solid fa-cloud-arrow-up" style="font-size:10px;"></i> Waiting to sync</span>
                         </div>
                         <div class="record-desc">Scheduled rooftop HVAC maintenance requiring fall protection and a two-person team. Safety briefing and equipment sign-off needed before work begins.</div>
                         <div class="record-meta">
@@ -4392,7 +4671,7 @@
                         <div class="record-title">Forklift Pre-Operation Inspection – Dock C</div>
                         <div class="record-badges">
                             <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
-                            <span class="badge badge-offline"><i class="fa-solid fa-mobile-screen"></i> Edited offline</span>
+                            <span class="badge badge-waitingsync"><i class="fa-solid fa-cloud-arrow-up" style="font-size:10px;"></i> Waiting to sync</span>
                         </div>
                         <div class="record-desc">Daily inspection checklist for forklift unit #4. Hydraulic fluid and brake checks flagged for follow-up.</div>
                         <div class="record-meta">
@@ -4404,9 +4683,9 @@
 
             <div class="bottom-nav">
                 <button class="nav-tab active"><span class="nav-icon"><i class="fa-solid fa-house"></i></span><span class="nav-label">Home</span></button>
-                <button class="nav-tab" onclick="showScreen('offline-queue')">
-                    <span class="nav-icon-wrap"><i class="fa-solid fa-arrows-rotate nav-icon"></i><span class="nav-badge">3</span></span>
-                    <span class="nav-label">Sync</span>
+                <button class="nav-tab" onclick="showScreen('offline-records')">
+                    <span class="nav-icon-wrap"><i class="fa-regular fa-copy nav-icon"></i><span class="nav-badge">2</span></span>
+                    <span class="nav-label">Records</span>
                 </button>
                 <button class="nav-tab"><span class="nav-icon"><i class="fa-solid fa-bars"></i></span><span class="nav-label">More</span></button>
             </div>
@@ -4498,15 +4777,15 @@
             </div>
 
             <div class="sticky-cta">
-                <button class="btn-primary" onclick="showScreen('offline-queue')"><i class="fa-solid fa-cloud-slash"></i> Saved offline · View sync queue</button>
+                <button class="btn-primary" onclick="showScreen('offline-records')"><i class="fa-solid fa-cloud-slash"></i> Saved offline · Done</button>
                 <div class="cta-hint">Nothing is lost — this JSA uploads automatically once you're back online.</div>
             </div>
         </div>
 
         <!-- ══════════════════════════════════════════════════ -->
-        <!-- 3 · SYNC QUEUE                                       -->
+        <!-- 3 · RECORDS (offline)                                       -->
         <!-- ══════════════════════════════════════════════════ -->
-        <div class="screen" id="screen-offline-queue">
+        <div class="screen" id="screen-offline-records">
             <div class="mobile-header offline">
                 <div class="status-bar-area">
                     <span>9:30 PM</span>
@@ -4517,57 +4796,101 @@
                     </div>
                 </div>
                 <div class="header-bar">
-                    <button class="hdr-btn" onclick="showScreen('offline-home')"><i class="fa-solid fa-arrow-left"></i></button>
-                    <span class="header-title">Sync</span>
+                    <span class="header-title" style="left:16px;transform:none;">Records</span>
+                    <div class="header-action-right">
+                        <span class="conn-pill offline"><i class="fa-solid fa-cloud-slash"></i> Offline</span>
+                    </div>
                 </div>
             </div>
 
+            <!-- Offline: only records saved to this device are available -->
             <div class="offline-banner is-offline">
                 <i class="fa-solid fa-cloud-slash"></i>
-                <span>Offline — 3 changes are queued on this device.</span>
+                <span>You're offline. Showing the records saved to this device.</span>
+                <span class="banner-link" onclick="showScreen('offline-syncing')">Reconnect</span>
             </div>
 
-            <div class="screen-body no-nav">
-                <div class="queue-summary">
-                    <div class="qs-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+            <div class="screen-body">
+                <div class="offline-sync-summary">
+                    <div class="oss-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
                     <div>
-                        <div class="qs-title">3 changes waiting to sync</div>
-                        <div class="qs-sub">Everything is saved safely on this device. We'll upload it automatically the moment you reconnect.</div>
+                        <div class="oss-title">2 changes waiting to sync</div>
+                        <div class="oss-sub">Saved on this device. They upload automatically the moment you reconnect.</div>
                     </div>
                 </div>
 
-                <span class="section-label">Queued changes</span>
-                <div class="card-wrap" style="margin-top:0;">
-                    <div class="queue-item">
-                        <div class="qi-icon"><i class="fa-solid fa-traffic-cone"></i></div>
-                        <div class="qi-main">
-                            <div class="qi-title">Roof Access – Maintenance Crew</div>
-                            <div class="qi-meta">JSA · 4 fields edited · 2:14 PM</div>
+                <span class="section-label">On this device (5)</span>
+                <div class="card-wrap" style="margin-top:8px;">
+                    <!-- Downloaded + local edits → waiting to sync (tap to keep editing) -->
+                    <div class="record-card-row" onclick="showScreen('offline-editor')" style="border-bottom:1px solid rgba(0,0,0,0.08);">
+                        <div class="record-title">Roof Access – Maintenance Crew</div>
+                        <div class="record-badges">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-downloaded"><i class="fa-solid fa-download" style="font-size:10px;"></i> Downloaded</span>
+                            <span class="badge badge-waitingsync"><i class="fa-solid fa-cloud-arrow-up" style="font-size:10px;"></i> Waiting to sync</span>
                         </div>
-                        <div class="qi-status waiting"><i class="fa-regular fa-clock"></i> Waiting</div>
+                        <div class="record-desc">Scheduled rooftop HVAC maintenance requiring fall protection and a two-person team. Safety briefing and equipment sign-off needed before work begins.</div>
+                        <div class="record-meta">
+                            <div class="record-meta-row"><i class="fa-solid fa-cloud-slash"></i> 4 fields edited on this device · 2:14 PM</div>
+                        </div>
                     </div>
-                    <div class="queue-item">
-                        <div class="qi-icon"><i class="fa-solid fa-traffic-cone"></i></div>
-                        <div class="qi-main">
-                            <div class="qi-title">Forklift Pre-Operation Inspection</div>
-                            <div class="qi-meta">JSA · 2 fields edited · 1:51 PM</div>
+                    <div class="record-card-row" onclick="showScreen('offline-editor')" style="border-bottom:1px solid rgba(0,0,0,0.08);">
+                        <div class="record-title">Forklift Pre-Operation Inspection – Dock C</div>
+                        <div class="record-badges">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-downloaded"><i class="fa-solid fa-download" style="font-size:10px;"></i> Downloaded</span>
+                            <span class="badge badge-waitingsync"><i class="fa-solid fa-cloud-arrow-up" style="font-size:10px;"></i> Waiting to sync</span>
                         </div>
-                        <div class="qi-status waiting"><i class="fa-regular fa-clock"></i> Waiting</div>
+                        <div class="record-desc">Daily inspection checklist for forklift unit #4. Hydraulic fluid and brake checks flagged for follow-up.</div>
+                        <div class="record-meta">
+                            <div class="record-meta-row"><i class="fa-solid fa-cloud-slash"></i> 2 fields edited on this device · 1:51 PM</div>
+                        </div>
                     </div>
-                    <div class="queue-item">
-                        <div class="qi-icon"><i class="fa-solid fa-camera"></i></div>
-                        <div class="qi-main">
-                            <div class="qi-title">Hazard photo — loading bay</div>
-                            <div class="qi-meta">Attachment · 1.2 MB · 1:48 PM</div>
+                    <!-- Downloaded, no local changes → fully in sync -->
+                    <div class="record-card-row" style="border-bottom:1px solid rgba(0,0,0,0.08);cursor:default;">
+                        <div class="record-title">Site Safety Assessment – Building A, Floor 3</div>
+                        <div class="record-badges">
+                            <span class="badge badge-jsa"><i class="fa-solid fa-traffic-cone" style="font-size:11px;"></i> JSA</span>
+                            <span class="badge badge-downloaded"><i class="fa-solid fa-download" style="font-size:10px;"></i> Downloaded</span>
                         </div>
-                        <div class="qi-status waiting"><i class="fa-regular fa-clock"></i> Waiting</div>
+                        <div class="record-desc">Quarterly walk-through of Building A, Floor 3 covering egress routes, fire suppression, and equipment condition.</div>
+                        <div class="record-meta">
+                            <div class="record-meta-row"><i class="fa-solid fa-check"></i> Up to date on this device</div>
+                        </div>
+                    </div>
+                    <div class="record-card-row" style="border-bottom:1px solid rgba(0,0,0,0.08);cursor:default;">
+                        <div class="record-title">Slip and Fall – Loading Bay Entrance</div>
+                        <div class="record-badges">
+                            <span class="badge badge-rt-incident"><i class="fa-solid fa-circle-exclamation" style="font-size:11px;"></i> Incident</span>
+                            <span class="badge badge-downloaded"><i class="fa-solid fa-download" style="font-size:10px;"></i> Downloaded</span>
+                        </div>
+                        <div class="record-desc">Worker reported a slip near the loading bay entrance during the morning shift. Initial first-aid given; corrective actions being tracked.</div>
+                        <div class="record-meta">
+                            <div class="record-meta-row"><i class="fa-solid fa-check"></i> Up to date on this device</div>
+                        </div>
+                    </div>
+                    <div class="record-card-row" style="cursor:default;">
+                        <div class="record-title">Monthly Fire Extinguisher Inspection – Floor 2</div>
+                        <div class="record-badges">
+                            <span class="badge badge-rt-inspection"><i class="fa-solid fa-clipboard-list" style="font-size:11px;"></i> Inspection</span>
+                            <span class="badge badge-downloaded"><i class="fa-solid fa-download" style="font-size:10px;"></i> Downloaded</span>
+                        </div>
+                        <div class="record-desc">Routine monthly check of all extinguishers on Floor 2. Gauge pressure, tamper seals, and inspection tags verified.</div>
+                        <div class="record-meta">
+                            <div class="record-meta-row"><i class="fa-solid fa-check"></i> Up to date on this device</div>
+                        </div>
                     </div>
                 </div>
+                <div style="height:8px;"></div>
+            </div>
 
-                <div style="padding:18px 16px 0;">
-                    <button class="btn-ghost" onclick="showScreen('offline-syncing')"><i class="fa-solid fa-wifi"></i> Simulate reconnect</button>
-                    <div class="cta-hint">In the real app this happens automatically when the connection returns.</div>
-                </div>
+            <div class="bottom-nav">
+                <button class="nav-tab" onclick="showScreen('offline-home')"><span class="nav-icon"><i class="fa-solid fa-house"></i></span><span class="nav-label">Home</span></button>
+                <button class="nav-tab active">
+                    <span class="nav-icon-wrap"><i class="fa-regular fa-copy nav-icon" style="font-size:18px;color:#0271ce;"></i><span class="nav-badge">2</span></span>
+                    <span class="nav-label">Records</span>
+                </button>
+                <button class="nav-tab"><span class="nav-icon"><i class="fa-solid fa-bars"></i></span><span class="nav-label">More</span></button>
             </div>
         </div>
 
@@ -4664,282 +4987,83 @@
             <div class="screen-body no-nav">
                 <div class="merge-intro">
                     <h3>Roof Access – Maintenance Crew</h3>
-                    <p>This record was updated on the server while you were editing it offline. Review the list of changes below and choose which value to keep for each one.</p>
+                    <p>Another user updated this record on the server while you were editing it offline. Review both sets of changes, then choose how to resolve it.</p>
                 </div>
 
-                <!-- Two-version summary -->
-                <div class="version-meta">
-                    <div class="vm-row">
-                        <i class="fa-solid fa-mobile-screen"></i>
-                        <span class="vm-label">Your version</span>
-                        <span class="vm-tag mine">4 fields changed</span>
-                        <span class="vm-meta">Edited offline · 2:14 PM</span>
+                <span class="section-label" style="margin-top:14px;">What changed</span>
+
+                <div class="cr-compare">
+                    <div class="cr-version theirs">
+                        <div class="cr-version-head"><i class="fa-solid fa-cloud"></i><span>Their changes</span><span class="cr-meta">J. Okafor · 2:08 PM</span></div>
+                        <ul class="cr-changes">
+                            <li><span class="cr-field">Status</span><span class="cr-val">Approved</span></li>
+                            <li><span class="cr-field">Description</span><span class="cr-val">Added: "Confirm roof load rating with facilities before staging equipment."</span></li>
+                            <li><span class="cr-field">Review Cycle</span><span class="cr-val">Quarterly</span></li>
+                            <li><span class="cr-field">Supervisor</span><span class="cr-val">J. Okafor</span></li>
+                        </ul>
                     </div>
-                    <div class="vm-row">
-                        <i class="fa-solid fa-cloud"></i>
-                        <span class="vm-label">Server version</span>
-                        <span class="vm-tag theirs">3 fields changed</span>
-                        <span class="vm-meta">Another user · 2:08 PM</span>
+                    <div class="cr-version mine">
+                        <div class="cr-version-head"><i class="fa-solid fa-mobile-screen"></i><span>Your changes</span><span class="cr-meta">Edited offline · 2:14 PM</span></div>
+                        <ul class="cr-changes">
+                            <li><span class="cr-field">Status</span><span class="cr-val">In Review</span></li>
+                            <li><span class="cr-field">Description</span><span class="cr-val">Added: "Wind speed must be checked before access; halt work above 25 mph."</span></li>
+                            <li><span class="cr-field">Start Date</span><span class="cr-val">May 13, 2026</span></li>
+                            <li><span class="cr-field">Detailed Location</span><span class="cr-val">Updated</span></li>
+                            <li><span class="cr-field">Step 2 hazard</span><span class="cr-val">Note added</span></li>
+                        </ul>
                     </div>
                 </div>
 
-                <!-- Progress -->
-                <div class="conflict-progress">
-                    <div class="cp-top">
-                        <span class="cp-label">Changes resolved</span>
-                        <span class="cp-count" id="cpCount">0 of 2</span>
-                    </div>
-                    <div class="cp-track"><div class="cp-fill" id="cpFill"></div></div>
-                </div>
+                <span class="section-label" style="margin-top:18px;">Choose how to resolve</span>
+                <p class="cr-actions-note">This applies to all of the conflicting changes at once. You can't pick field by field.</p>
 
-                <span class="section-label" style="margin-top:18px;">Changes to review (2)</span>
-
-                <!-- Change 1: Status -->
-                <div class="conflict-field-card" id="card-status" onclick="showScreen('offline-compare-status')">
-                    <div class="cfc-head">
-                        <div class="cfc-num">1</div>
-                        <div class="cfc-main">
-                            <div class="cfc-field-name">Status</div>
-                            <div class="cfc-field-sub">Only one value can be kept</div>
+                <div class="cr-actions">
+                    <button class="cr-action" onclick="resolveConflict('theirs')">
+                        <div class="cr-action-icon theirs"><i class="fa-solid fa-cloud"></i></div>
+                        <div class="cr-action-text">
+                            <div class="cr-action-title">Use their version</div>
+                            <div class="cr-action-sub">Ignore my changes and keep the other user's edits as the source of truth.</div>
                         </div>
-                        <span class="cfc-status review" id="status-badge">Needs review</span>
-                        <i class="fa-solid fa-chevron-right cfc-chevron"></i>
-                    </div>
-                    <div class="cfc-mini" id="status-mini">
-                        <div class="cfc-mini-col yours"><span class="mc-tag">Yours</span><div class="cfc-mini-val">In Review</div></div>
-                        <div class="cfc-mini-col theirs"><span class="mc-tag">Server</span><div class="cfc-mini-val">Approved</div></div>
-                    </div>
-                </div>
-
-                <!-- Change 2: Description -->
-                <div class="conflict-field-card" id="card-desc" onclick="showScreen('offline-compare-desc')">
-                    <div class="cfc-head">
-                        <div class="cfc-num">2</div>
-                        <div class="cfc-main">
-                            <div class="cfc-field-name">Description</div>
-                            <div class="cfc-field-sub">Different text was added in each version</div>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                    <button class="cr-action" onclick="resolveConflict('mine')">
+                        <div class="cr-action-icon mine"><i class="fa-solid fa-mobile-screen"></i></div>
+                        <div class="cr-action-text">
+                            <div class="cr-action-title">Keep my version</div>
+                            <div class="cr-action-sub">My changes overwrite the latest updates on the server.</div>
                         </div>
-                        <span class="cfc-status review" id="desc-badge">Needs review</span>
-                        <i class="fa-solid fa-chevron-right cfc-chevron"></i>
-                    </div>
-                    <div class="cfc-mini" id="desc-mini">
-                        <div class="cfc-mini-col yours"><span class="mc-tag">Yours</span><div class="cfc-mini-val">…halt work above 25 mph.</div></div>
-                        <div class="cfc-mini-col theirs"><span class="mc-tag">Server</span><div class="cfc-mini-val">…confirm roof load rating…</div></div>
-                    </div>
-                </div>
-
-                <!-- Auto-merged disclosure -->
-                <div class="auto-merged" id="autoMerged">
-                    <div class="auto-merged-head" onclick="document.getElementById('autoMerged').classList.toggle('open')">
-                        <i class="fa-solid fa-circle-check am-icon"></i>
-                        <span class="am-title">5 changes applied automatically — no overlap</span>
-                        <i class="fa-solid fa-chevron-down am-chevron"></i>
-                    </div>
-                    <div class="auto-merged-body">
-                        <div class="am-row"><i class="fa-solid fa-check"></i><div><span class="am-field">Start Date</span> set to 5/13/2026 <span class="am-src mine">· your change</span></div></div>
-                        <div class="am-row"><i class="fa-solid fa-check"></i><div><span class="am-field">Detailed Location</span> updated <span class="am-src mine">· your change</span></div></div>
-                        <div class="am-row"><i class="fa-solid fa-check"></i><div><span class="am-field">Review Cycle</span> set to Quarterly <span class="am-src">· server change</span></div></div>
-                        <div class="am-row"><i class="fa-solid fa-check"></i><div><span class="am-field">Supervisor's Name</span> set to J. Okafor <span class="am-src">· server change</span></div></div>
-                        <div class="am-row"><i class="fa-solid fa-check"></i><div><span class="am-field">Step 2 hazard</span> note added <span class="am-src mine">· your change</span></div></div>
-                    </div>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                    <button class="cr-action" onclick="resolveConflict('new')">
+                        <div class="cr-action-icon new"><i class="fa-solid fa-file-circle-plus"></i></div>
+                        <div class="cr-action-text">
+                            <div class="cr-action-title">Save as a new record</div>
+                            <div class="cr-action-sub">Keep both: save the JSA I was working on as a separate new record.</div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
                 </div>
 
                 <div style="height:8px;"></div>
             </div>
 
-            <div class="sticky-cta">
-                <button class="btn-primary" id="applyBtn" disabled onclick="showScreen('offline-preview')">
-                    <span id="applyBtnText"><i class="fa-solid fa-lock"></i> Resolve 2 conflicts to continue</span>
-                </button>
+            <!-- Resolution confirmation (lightweight sheet) -->
+            <div class="overlay-bg" id="cr-confirm-overlay" onclick="closeConflictConfirm()"></div>
+            <div class="bottom-drawer" id="cr-confirm-drawer">
+                <div class="drawer-handle"></div>
+                <div style="padding:18px 20px 6px;">
+                    <h3 id="cr-confirm-title" style="font-size:17px;font-weight:700;color:rgba(0,0,0,0.87);margin-bottom:8px;line-height:1.35;">Use their version?</h3>
+                    <p id="cr-confirm-body" style="font-size:13.5px;color:rgba(0,0,0,0.6);line-height:1.5;"></p>
+                </div>
+                <div class="filter-sheet-footer">
+                    <button class="filter-sheet-reset" onclick="closeConflictConfirm()">Cancel</button>
+                    <button class="filter-sheet-apply" id="cr-confirm-btn" onclick="confirmConflictResolution()"><span>Confirm</span></button>
+                </div>
             </div>
         </div>
 
-        <!-- ══════════════════════════════════════════════════ -->
-        <!-- 6 · COMPARE: STATUS (single-select conflict)         -->
-        <!-- ══════════════════════════════════════════════════ -->
-        <div class="screen" id="screen-offline-compare-status">
-            <div class="mobile-header">
-                <div class="status-bar-area">
-                    <span>9:31 PM</span>
-                    <div class="status-icons"><i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i></div>
-                </div>
-                <div class="header-bar">
-                    <button class="hdr-btn" onclick="showScreen('offline-overview')"><i class="fa-solid fa-arrow-left"></i></button>
-                    <span class="header-title" style="font-size:17px;">Change 1 of 2</span>
-                </div>
-            </div>
+        <!-- Conflict resolution complete -->
 
-            <div class="compare-body">
-                <div class="compare-q">Which <b>Status</b> should this JSA keep?</div>
-                <div class="compare-sub">This field was changed in both versions and can only keep one value. The version you don't keep stays in the record's history.</div>
-
-                <div class="base-value">
-                    <div class="bv-tag"><i class="fa-solid fa-clock-rotate-left"></i> Previous value (before either change)</div>
-                    <div class="bv-text">Draft</div>
-                </div>
-
-                <div class="vs-divider"><span>CHOOSE ONE VERSION</span></div>
-
-                <div class="version-card yours" id="status-card-yours" onclick="selectStatus('yours')">
-                    <div class="vc-head">
-                        <div>
-                            <div class="vc-who">Your version <span class="vc-src-tag">This device</span></div>
-                            <div class="vc-meta"><i class="fa-solid fa-mobile-screen"></i> Edited offline · 2:14 PM</div>
-                        </div>
-                        <div class="vc-radio"><i class="fa-solid fa-check"></i></div>
-                    </div>
-                    <div class="vc-value single">In Review</div>
-                </div>
-
-                <div class="version-card theirs" id="status-card-theirs" onclick="selectStatus('theirs')">
-                    <div class="vc-head">
-                        <div>
-                            <div class="vc-who">Server version <span class="vc-src-tag">Another user</span></div>
-                            <div class="vc-meta"><i class="fa-solid fa-cloud"></i> Updated online · 2:08 PM</div>
-                        </div>
-                        <div class="vc-radio"><i class="fa-solid fa-check"></i></div>
-                    </div>
-                    <div class="vc-value single">Approved</div>
-                </div>
-
-                <div style="height:90px;"></div>
-            </div>
-
-            <div class="sticky-cta">
-                <button class="btn-primary" id="status-use-btn" disabled onclick="confirmField('status')">
-                    Select a version to keep
-                </button>
-            </div>
-        </div>
-
-        <!-- ══════════════════════════════════════════════════ -->
-        <!-- 7 · COMPARE: DESCRIPTION (text conflict + merge)     -->
-        <!-- ══════════════════════════════════════════════════ -->
-        <div class="screen" id="screen-offline-compare-desc">
-            <div class="mobile-header">
-                <div class="status-bar-area">
-                    <span>9:31 PM</span>
-                    <div class="status-icons"><i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i></div>
-                </div>
-                <div class="header-bar">
-                    <button class="hdr-btn" onclick="showScreen('offline-overview')"><i class="fa-solid fa-arrow-left"></i></button>
-                    <span class="header-title" style="font-size:17px;">Change 2 of 2</span>
-                </div>
-            </div>
-
-            <div class="compare-body">
-                <div class="compare-q">How should the <b>Description</b> read?</div>
-                <div class="compare-sub">A different sentence was added in each version. Only one version can be kept — they can't be combined.</div>
-
-                <div class="base-value">
-                    <div class="bv-tag"><i class="fa-solid fa-clock-rotate-left"></i> Previous value (before either change)</div>
-                    <div class="bv-text">Scheduled rooftop HVAC maintenance requiring fall protection and a two-person team. Safety briefing and equipment sign-off needed before work begins.</div>
-                </div>
-
-                <div class="vs-divider"><span>CHOOSE ONE VERSION</span></div>
-
-                <div class="version-card yours" id="desc-card-yours" onclick="selectDesc('yours')">
-                    <div class="vc-head">
-                        <div>
-                            <div class="vc-who">Your version <span class="vc-src-tag">This device</span></div>
-                            <div class="vc-meta"><i class="fa-solid fa-mobile-screen"></i> Edited offline · 2:14 PM</div>
-                        </div>
-                        <div class="vc-radio"><i class="fa-solid fa-check"></i></div>
-                    </div>
-                    <div class="vc-value">Scheduled rooftop HVAC maintenance requiring fall protection and a two-person team. Safety briefing and equipment sign-off needed before work begins. <span class="diff-add">Wind speed must be checked before access; halt work above 25 mph.</span></div>
-                </div>
-
-                <div class="version-card theirs" id="desc-card-theirs" onclick="selectDesc('theirs')">
-                    <div class="vc-head">
-                        <div>
-                            <div class="vc-who">Server version <span class="vc-src-tag">Another user</span></div>
-                            <div class="vc-meta"><i class="fa-solid fa-cloud"></i> Updated online · 2:08 PM</div>
-                        </div>
-                        <div class="vc-radio"><i class="fa-solid fa-check"></i></div>
-                    </div>
-                    <div class="vc-value">Scheduled rooftop HVAC maintenance requiring fall protection and a two-person team. Safety briefing and equipment sign-off needed before work begins. <span class="diff-add-i">Confirm roof load rating with facilities before staging equipment.</span></div>
-                </div>
-
-                <div style="height:90px;"></div>
-            </div>
-
-            <div class="sticky-cta">
-                <button class="btn-primary" id="desc-use-btn" disabled onclick="confirmField('desc')">
-                    Select a version to keep
-                </button>
-            </div>
-        </div>
-
-        <!-- ══════════════════════════════════════════════════ -->
-        <!-- 8 · MERGED PREVIEW                                   -->
-        <!-- ══════════════════════════════════════════════════ -->
-        <div class="screen" id="screen-offline-preview">
-            <div class="mobile-header">
-                <div class="status-bar-area">
-                    <span>9:32 PM</span>
-                    <div class="status-icons"><i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i></div>
-                </div>
-                <div class="header-bar">
-                    <button class="hdr-btn" onclick="showScreen('offline-overview')"><i class="fa-solid fa-arrow-left"></i></button>
-                    <span class="header-title" style="font-size:18px;">Review Changes</span>
-                </div>
-            </div>
-
-            <div class="offline-banner is-online">
-                <i class="fa-solid fa-circle-check"></i>
-                <span>All changes resolved. Review the result before it syncs to the server.</span>
-            </div>
-
-            <div class="screen-body no-nav">
-                <span class="section-label">Updated record — Roof Access – Maintenance Crew</span>
-
-                <div class="preview-field changed">
-                    <div class="pf-label"><span class="pf-name">Status</span><span class="resolved-tag" id="pf-status-tag">—</span></div>
-                    <div class="pf-value" id="pf-status-val">—</div>
-                </div>
-
-                <div class="preview-field changed">
-                    <div class="pf-label"><span class="pf-name">Description</span><span class="resolved-tag" id="pf-desc-tag">—</span></div>
-                    <div class="pf-value normal" id="pf-desc-val">—</div>
-                </div>
-
-                <div class="preview-field changed">
-                    <div class="pf-label"><span class="pf-name">Start Date</span><span class="resolved-tag mine"><i class="fa-solid fa-mobile-screen"></i> Yours</span></div>
-                    <div class="pf-value">May 13, 2026</div>
-                </div>
-
-                <div class="preview-field changed">
-                    <div class="pf-label"><span class="pf-name">Detailed Location</span><span class="resolved-tag mine"><i class="fa-solid fa-mobile-screen"></i> Yours</span></div>
-                    <div class="pf-value normal">Building C rooftop — northwest HVAC unit, access via stairwell C-3.</div>
-                </div>
-
-                <div class="preview-field changed">
-                    <div class="pf-label"><span class="pf-name">Review Cycle</span><span class="resolved-tag theirs"><i class="fa-solid fa-cloud"></i> Server</span></div>
-                    <div class="pf-value">Quarterly</div>
-                </div>
-
-                <div class="preview-field changed">
-                    <div class="pf-label"><span class="pf-name">Supervisor's Name</span><span class="resolved-tag theirs"><i class="fa-solid fa-cloud"></i> Server</span></div>
-                    <div class="pf-value normal">J. Okafor</div>
-                </div>
-
-                <div class="preview-field">
-                    <div class="pf-label"><span class="pf-name">Facility</span><span class="resolved-tag auto">Unchanged</span></div>
-                    <div class="pf-value normal">Warehouse 12 — Atlanta, GA</div>
-                </div>
-
-                <div style="height:8px;"></div>
-            </div>
-
-            <div class="sticky-cta">
-                <button class="btn-primary" style="background:#168846;" onclick="finishMerge()"><i class="fa-solid fa-check"></i> Apply changes &amp; sync</button>
-                <div class="cta-hint">Both versions are kept in the record's history.</div>
-            </div>
-        </div>
-
-        <!-- ══════════════════════════════════════════════════ -->
-        <!-- 9 · MERGE COMPLETE                                   -->
-        <!-- ══════════════════════════════════════════════════ -->
         <div class="screen" id="screen-offline-done">
             <div class="mobile-header">
                 <div class="status-bar-area">
@@ -5007,10 +5131,9 @@
                         <div class="tl-card" style="border-color:#bcdcfa;">
                             <div class="tl-when">9:32 PM · Today · CURRENT</div>
                             <div class="tl-who">Resolved version</div>
-                            <div class="tl-what">You resolved 2 conflicting changes. This is the current version.</div>
-                            <div class="tl-chips">
-                                <span class="tl-chip" style="background:#dcf3e4;color:#0a7637;">Status: Approved (server)</span>
-                                <span class="tl-chip" style="background:#eaf3fc;color:#0271ce;">Description: Yours</span>
+                            <div class="tl-what" id="cr-hist-what">You resolved this sync conflict. This version is current.</div>
+                            <div class="tl-chips" id="cr-hist-chips">
+                                <span class="tl-chip" style="background:#eaf3fc;color:#0271ce;">Conflict resolved</span>
                             </div>
                         </div>
                     </div>
@@ -5824,12 +5947,10 @@ let caToastTimer = null;
 const caStepVisited = new Set();
 
 function openAttachPicker() {
-    document.getElementById('attachPickerOverlay').classList.add('active');
-    document.getElementById('attachPickerDrawer').classList.add('open');
+    document.getElementById('attachDropdown').classList.toggle('open');
 }
 function closeAttachPicker() {
-    document.getElementById('attachPickerOverlay').classList.remove('active');
-    document.getElementById('attachPickerDrawer').classList.remove('open');
+    document.getElementById('attachDropdown').classList.remove('open');
 }
 
 const attachMeta = {
@@ -5884,12 +6005,10 @@ function updateAttachCount() {
 let stepAttachCounter = 0;
 
 function openStepAttachPicker() {
-    document.getElementById('stepAttachPickerOverlay').classList.add('active');
-    document.getElementById('stepAttachPickerDrawer').classList.add('open');
+    document.getElementById('stepAttachDropdown').classList.toggle('open');
 }
 function closeStepAttachPicker() {
-    document.getElementById('stepAttachPickerOverlay').classList.remove('active');
-    document.getElementById('stepAttachPickerDrawer').classList.remove('open');
+    document.getElementById('stepAttachDropdown').classList.remove('open');
 }
 function addStepAttachment(source) {
     closeStepAttachPicker();
@@ -5969,12 +6088,10 @@ function updateCaCount() {
 }
 
 function openCaAttachPicker() {
-    document.getElementById('caAttachPickerOverlay').classList.add('active');
-    document.getElementById('caAttachPickerDrawer').classList.add('open');
+    document.getElementById('caAttachDropdown').classList.toggle('open');
 }
 function closeCaAttachPicker() {
-    document.getElementById('caAttachPickerOverlay').classList.remove('active');
-    document.getElementById('caAttachPickerDrawer').classList.remove('open');
+    document.getElementById('caAttachDropdown').classList.remove('open');
 }
 function addCaAttachment(source) {
     closeCaAttachPicker();
@@ -6557,9 +6674,9 @@ function cancelSubmitCard(cardRow) {
 }
 
 /* ── Records filters ── */
-const recFilters = { statuses: new Set(), types: new Set() };
-const recDraft   = { statuses: new Set(), types: new Set() };
-const filterLabels = { pending: 'Pending', submitted: 'Submitted', conflict: 'Conflict', missing: 'Missing Fields', error: 'Error', incident: 'Incident', inspection: 'Inspection', hazard: 'Hazard', observation: 'Observation', jsa: 'JSA' };
+const recFilters = { statuses: new Set(), types: new Set(), availability: 'all' };
+const recDraft   = { statuses: new Set(), types: new Set(), availability: 'all' };
+const filterLabels = { pending: 'Pending', submitted: 'Submitted', conflict: 'Conflict', missing: 'Missing Fields', error: 'Error', incident: 'Incident', inspection: 'Inspection', hazard: 'Hazard', observation: 'Observation', jsa: 'JSA', downloaded: 'Downloaded', 'not-downloaded': 'Not downloaded' };
 
 let recSearchQuery = '';
 
@@ -6569,20 +6686,25 @@ function searchRecords(query) {
 }
 
 function applyRecordFilters() {
+    const avail = recFilters.availability || 'all';
     document.querySelectorAll('#screen-records .rec-card-wrap').forEach(wrap => {
         const stateOk  = recFilters.statuses.size === 0 || recFilters.statuses.has(wrap.dataset.cardState);
         const typeOk   = recFilters.types.size === 0    || recFilters.types.has(wrap.dataset.cardType);
+        const downloaded = !!wrap.querySelector('.badge-downloaded');
+        const availOk  = avail === 'all' || (avail === 'downloaded' ? downloaded : !downloaded);
         const titleEl  = wrap.querySelector('.record-title');
         const searchOk = !recSearchQuery || (titleEl && titleEl.textContent.toLowerCase().includes(recSearchQuery));
-        wrap.style.display = (stateOk && typeOk && searchOk) ? '' : 'none';
+        wrap.style.display = (stateOk && typeOk && availOk && searchOk) ? '' : 'none';
     });
     refreshRecordsFab();
+    if (selectMode) updateSelectionUI();
 }
 
 function renderAppliedChips() {
     const row = document.getElementById('records-filter-applied');
     row.innerHTML = '';
-    const hasAny = recFilters.statuses.size > 0 || recFilters.types.size > 0;
+    const hasAvail = recFilters.availability && recFilters.availability !== 'all';
+    const hasAny = recFilters.statuses.size > 0 || recFilters.types.size > 0 || hasAvail;
     recFilters.statuses.forEach(s => {
         const el = document.createElement('span');
         el.className = 'applied-chip';
@@ -6595,6 +6717,12 @@ function renderAppliedChips() {
         el.innerHTML = `${filterLabels[t]}<button class="applied-chip-x" data-remove-type="${t}"><i class="fa-solid fa-xmark"></i></button>`;
         row.appendChild(el);
     });
+    if (hasAvail) {
+        const el = document.createElement('span');
+        el.className = 'applied-chip';
+        el.innerHTML = `${filterLabels[recFilters.availability]}<button class="applied-chip-x" data-remove-avail="1"><i class="fa-solid fa-xmark"></i></button>`;
+        row.appendChild(el);
+    }
     if (hasAny) {
         const clr = document.createElement('button');
         clr.className = 'filter-clear-all';
@@ -6615,10 +6743,12 @@ function renderAppliedChips() {
 function handleChipClick(e) {
     const rs = e.target.closest('[data-remove-status]')?.dataset.removeStatus;
     const rt = e.target.closest('[data-remove-type]')?.dataset.removeType;
+    const ra = e.target.closest('[data-remove-avail]');
     const isClearAll = e.target.closest('.filter-clear-all');
     if (rs) { recFilters.statuses.delete(rs); applyRecordFilters(); renderAppliedChips(); }
     if (rt) { recFilters.types.delete(rt);    applyRecordFilters(); renderAppliedChips(); }
-    if (isClearAll) { recFilters.statuses.clear(); recFilters.types.clear(); applyRecordFilters(); renderAppliedChips(); }
+    if (ra) { recFilters.availability = 'all'; applyRecordFilters(); renderAppliedChips(); }
+    if (isClearAll) { recFilters.statuses.clear(); recFilters.types.clear(); recFilters.availability = 'all'; applyRecordFilters(); renderAppliedChips(); }
 }
 document.getElementById('records-filter-applied').addEventListener('click', handleChipClick);
 document.getElementById('records-filter-applied-sticky').addEventListener('click', handleChipClick);
@@ -6630,11 +6760,14 @@ function syncDrawerToDraft() {
     });
     document.querySelectorAll('#records-filter-drawer [data-draft-type]').forEach(p =>
         p.classList.toggle('active', recDraft.types.has(p.dataset.draftType)));
+    document.querySelectorAll('#records-filter-drawer [data-draft-avail]').forEach(p =>
+        p.classList.toggle('active', (recDraft.availability || 'all') === p.dataset.draftAvail));
 }
 
 function openRecordsFilter() {
     recDraft.statuses = new Set(recFilters.statuses);
     recDraft.types    = new Set(recFilters.types);
+    recDraft.availability = recFilters.availability || 'all';
     syncDrawerToDraft();
     document.getElementById('records-filter-overlay').classList.add('active');
     document.getElementById('records-filter-drawer').classList.add('open');
@@ -6665,14 +6798,20 @@ document.getElementById('records-filter-drawer').addEventListener('click', e => 
         if (recDraft.types.has(v)) recDraft.types.delete(v); else recDraft.types.add(v);
         syncDrawerToDraft();
     }
+    const ap = e.target.closest('[data-draft-avail]');
+    if (ap) {
+        recDraft.availability = ap.dataset.draftAvail;
+        syncDrawerToDraft();
+    }
 });
 
 document.getElementById('records-filter-reset').addEventListener('click', () => {
-    recDraft.statuses.clear(); recDraft.types.clear(); syncDrawerToDraft();
+    recDraft.statuses.clear(); recDraft.types.clear(); recDraft.availability = 'all'; syncDrawerToDraft();
 });
 document.getElementById('records-filter-apply').addEventListener('click', () => {
     recFilters.statuses = new Set(recDraft.statuses);
     recFilters.types    = new Set(recDraft.types);
+    recFilters.availability = recDraft.availability || 'all';
     applyRecordFilters(); renderAppliedChips(); closeRecordsFilter();
 });
 
@@ -6680,7 +6819,20 @@ renderAppliedChips();
 
 /* Main click delegation */
 document.getElementById('screen-records').addEventListener('click', (e) => {
-    if (e.target.closest('#records-already-submitted') || e.target.closest('.records-fab') || e.target.closest('#records-toast')) return;
+    if (e.target.closest('#records-already-submitted') || e.target.closest('.records-fab') || e.target.closest('#records-toast')
+        || e.target.closest('.records-sel-bar')
+        || e.target.closest('#remove-dl-drawer') || e.target.closest('#remove-dl-overlay')
+        || e.target.closest('#delete-rec-drawer') || e.target.closest('#delete-rec-overlay')
+        || e.target.closest('#rec-action-drawer') || e.target.closest('#rec-action-overlay')) return;
+
+    /* Selection mode: the ⋮ menu still opens a single-record sheet; tapping anywhere
+       else on a card toggles its selection. */
+    if (selectMode) {
+        if (e.target.closest('.rec-btn-icon')) { e.stopPropagation(); openRecActionSheet(e.target.closest('.rec-card-wrap')); return; }
+        const w = e.target.closest('.rec-card-wrap');
+        if (w) { e.stopPropagation(); toggleCardSelection(w); }
+        return;
+    }
 
     /* Tapping the ID itself copies it — it never opens the record */
     const idRow = e.target.closest('.record-id-row');
@@ -6734,8 +6886,9 @@ document.getElementById('screen-records').addEventListener('click', (e) => {
         return;
     }
 
-    /* Ellipsis menu is not a card-open target */
-    if (e.target.closest('.rec-btn-icon')) return;
+    /* Ellipsis menu opens the per-record action sheet */
+    const ell = e.target.closest('.rec-btn-icon');
+    if (ell) { e.stopPropagation(); openRecActionSheet(ell.closest('.rec-card-wrap')); return; }
 
     /* Submitted card tap: in edit mode, anywhere on the card (except the ID)
        opens the edit; otherwise the already-submitted notice. */
@@ -7048,116 +7201,76 @@ function toggleReorderMode() {
     }, { passive: true });
 }());
 
-/* ── Conflict resolution state ── */
-const conflicts = {
-    status: { resolved: false, choice: null },
-    desc:   { resolved: false, choice: null }
+/* ── Conflict resolution (lightweight, all-or-nothing) ──
+   The user reviews both sets of changes (read-only), then picks ONE outcome:
+   use theirs, overwrite with mine, or save mine as a new record. No per-field merge. */
+const conflictActionMeta = {
+    theirs: {
+        confirmTitle: 'Use their version?',
+        confirmBody: `Your offline edits to this record are discarded and the other user's version becomes the source of truth. Your version stays in the record's history.`,
+        confirmLabel: 'Use their version',
+        danger: true,
+        doneTitle: 'Their version kept',
+        doneBody: `<b>Roof Access – Maintenance Crew</b> now matches the other user's edits. Your offline version is saved in the record's history.`,
+        toast: 'Using their version'
+    },
+    mine: {
+        confirmTitle: 'Overwrite with your version?',
+        confirmBody: `Your changes overwrite the latest updates on the server. The other user's version is kept in the record's history.`,
+        confirmLabel: 'Overwrite with mine',
+        danger: true,
+        doneTitle: 'Your version kept',
+        doneBody: `<b>Roof Access – Maintenance Crew</b> now reflects your changes. The other user's version is saved in the record's history.`,
+        toast: 'Your changes were kept'
+    },
+    new: {
+        confirmTitle: 'Save as a new record?',
+        confirmBody: `The JSA you were working on is saved as a separate new record. The original keeps the other user's version, unchanged.`,
+        confirmLabel: 'Save as new record',
+        danger: false,
+        doneTitle: 'Saved as a new record',
+        doneBody: `Your work was saved as a new JSA. The original <b>Roof Access – Maintenance Crew</b> keeps the other user's version.`,
+        toast: 'Saved as a new record'
+    }
 };
+let pendingConflictChoice = null;
 
-/* Status field: single-select */
-function selectStatus(side) {
-    conflicts.status.choice = side;
-    document.getElementById('status-card-yours').classList.toggle('selected', side === 'yours');
-    document.getElementById('status-card-theirs').classList.toggle('selected', side === 'theirs');
-    const btn = document.getElementById('status-use-btn');
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fa-solid fa-check"></i> Keep ' + (side === 'yours' ? 'your version (In Review)' : 'server version (Approved)');
+function resolveConflict(choice) {
+    pendingConflictChoice = choice;
+    const m = conflictActionMeta[choice];
+    document.getElementById('cr-confirm-title').textContent = m.confirmTitle;
+    document.getElementById('cr-confirm-body').textContent = m.confirmBody;
+    const btn = document.getElementById('cr-confirm-btn');
+    btn.querySelector('span').textContent = m.confirmLabel;
+    btn.classList.toggle('danger', !!m.danger);
+    document.getElementById('cr-confirm-overlay').classList.add('active');
+    document.getElementById('cr-confirm-drawer').classList.add('open');
 }
-
-/* Description field: yours / theirs — combining both versions is not supported */
-function selectDesc(choice) {
-    conflicts.desc.choice = choice;
-    ['yours','theirs'].forEach(c => {
-        document.getElementById('desc-card-' + c).classList.toggle('selected', c === choice);
-    });
-    const btn = document.getElementById('desc-use-btn');
-    btn.disabled = false;
-    const labels = { yours: 'Keep your version', theirs: 'Keep server version' };
-    btn.innerHTML = '<i class="fa-solid fa-check"></i> ' + labels[choice];
+function closeConflictConfirm() {
+    document.getElementById('cr-confirm-overlay').classList.remove('active');
+    document.getElementById('cr-confirm-drawer').classList.remove('open');
 }
-
-/* Confirm a field resolution → mark resolved, update overview, return */
-function confirmField(field) {
-    conflicts[field].resolved = true;
-    updateOverview();
-    showScreen('offline-overview');
-    const c = conflicts[field].choice;
-    const who = c === 'yours' ? 'your version' : 'the server version';
-    showToast(capitalize(field === 'status' ? 'Status' : 'Description') + ' set to ' + who);
-}
-
-/* Reflect resolution state on the overview screen */
-function updateOverview() {
-    let done = 0;
-    ['status','desc'].forEach(f => { if (conflicts[f].resolved) done++; });
-
-    // progress
-    const fill = document.getElementById('cpFill');
-    const count = document.getElementById('cpCount');
-    fill.style.width = (done / 2 * 100) + '%';
-    count.textContent = done + ' of 2';
-    if (done === 2) { fill.classList.add('done'); count.classList.add('done'); }
-    else { fill.classList.remove('done'); count.classList.remove('done'); }
-
-    // per-field cards
-    updateFieldCard('status', 'In Review', 'Approved', 'Status');
-    updateFieldCard('desc', null, null, 'Description');
-
-    // apply button
-    const applyBtn = document.getElementById('applyBtn');
-    const applyTxt = document.getElementById('applyBtnText');
-    if (done === 2) {
-        applyBtn.disabled = false;
-        applyTxt.innerHTML = '<i class="fa-solid fa-eye"></i> Review merged version';
-    } else {
-        applyBtn.disabled = true;
-        applyTxt.innerHTML = '<i class="fa-solid fa-lock"></i> Resolve ' + (2 - done) + ' conflict' + (2 - done === 1 ? '' : 's') + ' to continue';
+function confirmConflictResolution() {
+    const m = conflictActionMeta[pendingConflictChoice];
+    closeConflictConfirm();
+    const hero = document.querySelector('#screen-offline-done .done-hero');
+    if (hero) {
+        const h = hero.querySelector('h2'); if (h) h.textContent = m.doneTitle;
+        const p = hero.querySelector('p');  if (p) p.innerHTML = m.doneBody;
     }
-}
-
-function updateFieldCard(field, yoursVal, theirsVal, label) {
-    const card = document.getElementById('card-' + (field === 'desc' ? 'desc' : 'status'));
-    const badge = document.getElementById((field === 'desc' ? 'desc' : 'status') + '-badge');
-    const mini = document.getElementById((field === 'desc' ? 'desc' : 'status') + '-mini');
-    const st = conflicts[field];
-    if (st.resolved) {
-        card.classList.add('resolved');
-        badge.className = 'cfc-status resolved';
-        let chosen = st.choice === 'yours' ? 'Kept yours' : 'Kept server';
-        badge.innerHTML = '<i class="fa-solid fa-check"></i> ' + chosen;
-        // dim/highlight mini rows
-        const cols = mini.querySelectorAll('.cfc-mini-col');
-        cols.forEach(col => { col.classList.remove('chosen','dimmed'); });
-        if (st.choice === 'yours')  { cols[0].classList.add('chosen'); cols[1].classList.add('dimmed'); }
-        if (st.choice === 'theirs') { cols[1].classList.add('chosen'); cols[0].classList.add('dimmed'); }
-    } else {
-        card.classList.remove('resolved');
-        badge.className = 'cfc-status review';
-        badge.textContent = 'Needs review';
-    }
-}
-
-/* Build the merged preview from chosen values */
-function populatePreview() {
-    const s = conflicts.status.choice;
-    document.getElementById('pf-status-val').textContent = s === 'theirs' ? 'Approved' : 'In Review';
-    const sTag = document.getElementById('pf-status-tag');
-    sTag.className = 'resolved-tag ' + (s === 'theirs' ? 'theirs' : 'mine');
-    sTag.innerHTML = s === 'theirs'
-        ? '<i class="fa-solid fa-cloud"></i> Server'
-        : '<i class="fa-solid fa-mobile-screen"></i> Yours';
-
-    const d = conflicts.desc.choice;
-    const base = 'Scheduled rooftop HVAC maintenance requiring fall protection and a two-person team. Safety briefing and equipment sign-off needed before work begins. ';
-    const yoursAdd = 'Wind speed must be checked before access; halt work above 25 mph.';
-    const theirsAdd = 'Confirm roof load rating with facilities before staging equipment.';
-    let dVal = base, dTag = '', dCls = '';
-    if (d === 'yours')  { dVal += yoursAdd; dCls = 'mine'; dTag = '<i class="fa-solid fa-mobile-screen"></i> Yours'; }
-    if (d === 'theirs') { dVal += theirsAdd; dCls = 'theirs'; dTag = '<i class="fa-solid fa-cloud"></i> Server'; }
-    document.getElementById('pf-desc-val').textContent = dVal;
-    const dt = document.getElementById('pf-desc-tag');
-    dt.className = 'resolved-tag ' + dCls;
-    dt.innerHTML = dTag;
+    /* Keep the version-history top entry consistent with the chosen outcome */
+    const histWhat = {
+        theirs: `You kept the other user's version as the source of truth.`,
+        mine:   `You overwrote the server with your version.`,
+        new:    `You saved your work as a new record; the original keeps the other user's version.`
+    };
+    const histChip = { theirs: 'Using their version', mine: 'Your version kept', new: 'Saved as new record' };
+    const hw = document.getElementById('cr-hist-what');
+    if (hw) hw.textContent = histWhat[pendingConflictChoice];
+    const hc = document.getElementById('cr-hist-chips');
+    if (hc) hc.innerHTML = '<span class="tl-chip" style="background:#eaf3fc;color:#0271ce;">' + histChip[pendingConflictChoice] + '</span>';
+    showScreen('offline-done');
+    showToast(m.toast);
 }
 
 /* Edit-session Next from Basic Info jumps to the filled steps (the record already has them). */
@@ -7195,14 +7308,9 @@ function runSyncSequence() {
 /* Override preview entry to populate first */
 const _origShow = showScreen;
 showScreen = function(id) {
-    if (id === 'offline-preview') populatePreview();
     if (id === 'offline-syncing') runSyncSequence();
     _origShow(id);
 };
-
-function finishMerge() {
-    showScreen('offline-done');
-}
 
 /* ── Helpers ── */
 function capitalize(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
@@ -7254,19 +7362,286 @@ function applyEditMode() {
     });
 }
 
-/* Mark a record available offline (the prerequisite for editing). */
-function downloadRecord(row) {
-    const wrap = row.closest('.rec-card-wrap');
-    const badges = row.querySelector('.record-badges');
-    if (badges && wrap && !wrap.querySelector('.badge-downloaded')) {
+/* Add the "Downloaded" badge to a card (the offline copy). Safe to call twice. */
+function markDownloaded(wrap) {
+    if (!wrap) return;
+    const badges = wrap.querySelector('.record-badges');
+    if (badges && !wrap.querySelector('.badge-downloaded')) {
         const b = document.createElement('span');
         b.className = 'badge badge-downloaded';
         b.innerHTML = '<i class="fa-solid fa-download" style="font-size:10px;"></i> Downloaded';
         badges.appendChild(b);
     }
-    applyEditMode();
-    showToast('Downloaded — available offline to edit');
 }
+
+/* Mark a record available offline (the prerequisite for editing). */
+function downloadRecord(row) {
+    markDownloaded(row.closest('.rec-card-wrap'));
+    applyEditMode();
+    showToast('Downloaded, available offline to edit');
+}
+
+/* Remove the offline download from a record WITHOUT deleting the record itself. */
+function removeDownload(wrap) {
+    if (!wrap) return;
+    const badge = wrap.querySelector('.badge-downloaded');
+    if (badge) badge.remove();
+    applyEditMode();
+}
+
+/* ════════════ Records: multi-select + bulk actions ════════════ */
+let selectMode = false;
+
+function recordWraps()  { return [...document.querySelectorAll('#screen-records .rec-card-wrap')]; }
+function visibleWraps() { return recordWraps().filter(w => w.style.display !== 'none'); }
+function selectedWraps(){ return recordWraps().filter(w => w.classList.contains('selected')); }
+
+/* Lazily inject a selection checkbox into each card. */
+function ensureCheckboxes() {
+    recordWraps().forEach(wrap => {
+        if (!wrap.querySelector('.rec-check')) {
+            const c = document.createElement('div');
+            c.className = 'rec-check';
+            c.innerHTML = '<i class="fa-solid fa-check"></i>';
+            wrap.insertBefore(c, wrap.firstChild);
+        }
+    });
+}
+
+function enterSelectMode(preselectWrap) {
+    selectMode = true;
+    ensureCheckboxes();
+    document.getElementById('screen-records').classList.add('selecting');
+    recordWraps().forEach(w => w.classList.remove('selected'));
+    if (preselectWrap) preselectWrap.classList.add('selected');
+    updateSelectionUI();
+}
+
+function exitSelectMode() {
+    selectMode = false;
+    closeSelOverflow();
+    document.getElementById('screen-records').classList.remove('selecting');
+    recordWraps().forEach(w => w.classList.remove('selected'));
+    updateSelectionUI();
+    refreshRecordsFab();
+}
+
+function toggleCardSelection(wrap) {
+    wrap.classList.toggle('selected');
+    updateSelectionUI();
+}
+
+function toggleSelectAll() {
+    const vis = visibleWraps();
+    const allSel = vis.length > 0 && vis.every(w => w.classList.contains('selected'));
+    vis.forEach(w => w.classList.toggle('selected', !allSel));
+    updateSelectionUI();
+}
+
+function updateSelectionUI() {
+    const sel = selectedWraps();
+    const countEl = document.getElementById('records-sel-count');
+    if (countEl) countEl.textContent = sel.length;   /* Figma shows the raw count next to the back arrow */
+
+    /* Select All checkbox reflects whether every visible card is selected */
+    const vis = visibleWraps();
+    const allSel = vis.length > 0 && vis.every(w => w.classList.contains('selected'));
+    const allBtn = document.getElementById('records-sel-all');
+    if (allBtn) allBtn.classList.toggle('checked', allSel);
+
+    /* Enable/disable the header action icons based on what the current selection supports */
+    const n        = sel.length;
+    const anyNotDl = sel.some(w => !w.querySelector('.badge-downloaded'));
+    const dlCount  = sel.filter(w => w.querySelector('.badge-downloaded')).length;
+    setSelAction('sel-share',    n > 0);
+    setSelAction('sel-download', anyNotDl);
+    setSelAction('sel-delete',   n > 0);
+    /* "Remove download" now lives in the overflow (⋮) menu, labelled with the count */
+    setSelAction('sel-overflow', dlCount > 0);
+    const rmLabel = document.getElementById('sel-overflow-remove-label');
+    if (rmLabel) rmLabel.textContent = 'Remove ' + dlCount + (dlCount === 1 ? ' download' : ' downloads');
+    if (dlCount === 0) closeSelOverflow();
+}
+
+function setSelAction(id, enabled) {
+    const btn = document.getElementById(id);
+    if (btn) btn.classList.toggle('disabled', !enabled);
+}
+
+/* ── Bulk actions (icons in the selection header) ── */
+const SHARE_URL = 'https://ehs.vectorsolutions.com/records';
+
+function bulkShare() {
+    const n = selectedWraps().length;
+    if (!n) return;
+    if (navigator.clipboard) navigator.clipboard.writeText(SHARE_URL).catch(() => {});
+    showToast(n === 1 ? 'Link copied' : n + ' links copied');
+}
+
+function bulkDownload() {
+    const targets = selectedWraps().filter(w => !w.querySelector('.badge-downloaded'));
+    if (!targets.length) return;
+    targets.forEach(markDownloaded);
+    applyEditMode();
+    showToast(targets.length === 1 ? 'Downloaded, available offline' : targets.length + ' records downloaded');
+    exitSelectMode();
+}
+
+function bulkRemoveDownload() {
+    openRemoveDownloadSheet(selectedWraps());
+}
+
+/* Overflow (⋮) menu in the selection header — a popover, not a drawer */
+function toggleSelOverflow(e) {
+    if (e) e.stopPropagation();
+    if (document.getElementById('sel-overflow').classList.contains('disabled')) return;
+    document.getElementById('sel-overflow-menu').classList.toggle('open');
+}
+function closeSelOverflow() {
+    const m = document.getElementById('sel-overflow-menu');
+    if (m) m.classList.remove('open');
+}
+function overflowRemoveDownload() {
+    closeSelOverflow();
+    bulkRemoveDownload();
+}
+
+function bulkDelete() {
+    openDeleteSheet(selectedWraps());
+}
+
+/* ── Remove-download confirmation (bulk or single) — record is KEPT ── */
+let pendingRemoveWraps = [];
+function openRemoveDownloadSheet(wraps) {
+    pendingRemoveWraps = wraps.filter(w => w.querySelector('.badge-downloaded'));
+    if (!pendingRemoveWraps.length) return;
+    const n = pendingRemoveWraps.length;
+    document.getElementById('remove-dl-title').textContent = n === 1 ? 'Remove download?' : 'Remove ' + n + ' downloads?';
+    document.getElementById('remove-dl-confirm-label').textContent = n === 1 ? 'Remove download' : 'Remove ' + n + ' downloads';
+    document.getElementById('remove-dl-overlay').classList.add('active');
+    document.getElementById('remove-dl-drawer').classList.add('open');
+}
+function closeRemoveDownloadSheet() {
+    document.getElementById('remove-dl-overlay').classList.remove('active');
+    document.getElementById('remove-dl-drawer').classList.remove('open');
+}
+function confirmRemoveDownload() {
+    const n = pendingRemoveWraps.length;
+    pendingRemoveWraps.forEach(removeDownload);
+    pendingRemoveWraps = [];
+    closeRemoveDownloadSheet();
+    showToast(n === 1 ? 'Download removed, record kept' : n + ' downloads removed, records kept');
+    if (selectMode) exitSelectMode();
+}
+
+/* ── Delete confirmation (destructive — removes the record entirely; requires warning) ── */
+let pendingDeleteWraps = [];
+function openDeleteSheet(wraps) {
+    pendingDeleteWraps = wraps.slice();
+    if (!pendingDeleteWraps.length) return;
+    const n = pendingDeleteWraps.length;
+    document.getElementById('delete-rec-title').textContent = n === 1 ? 'Delete this record?' : 'Delete ' + n + ' records?';
+    document.getElementById('delete-rec-confirm-label').textContent = n === 1 ? 'Delete record' : 'Delete ' + n + ' records';
+    document.getElementById('delete-rec-overlay').classList.add('active');
+    document.getElementById('delete-rec-drawer').classList.add('open');
+}
+function closeDeleteSheet() {
+    document.getElementById('delete-rec-overlay').classList.remove('active');
+    document.getElementById('delete-rec-drawer').classList.remove('open');
+}
+function confirmDelete() {
+    const n = pendingDeleteWraps.length;
+    pendingDeleteWraps.forEach(w => w.remove());
+    pendingDeleteWraps = [];
+    closeDeleteSheet();
+    refreshRecordsFab();
+    showToast(n === 1 ? 'Record deleted' : n + ' records deleted');
+    if (selectMode) exitSelectMode();
+}
+
+/* ── Per-record action sheet (ellipsis): Share / Download or Remove download / Delete ── */
+let actionSheetWrap = null;
+function openRecActionSheet(wrap) {
+    if (!wrap) return;
+    actionSheetWrap = wrap;
+    const downloaded = !!wrap.querySelector('.badge-downloaded');
+    const title = wrap.querySelector('.record-title');
+    document.getElementById('rec-action-title').textContent = title ? title.textContent.trim() : 'Record';
+    let html = '';
+    html += '<button class="sheet-action" onclick="actionSheetShare()"><i class="fa-solid fa-arrow-up-from-bracket"></i><span><span class="sa-label">Share</span><span class="sa-sub">Copy a link to this record</span></span></button>';
+    if (downloaded) {
+        html += '<button class="sheet-action" onclick="actionSheetRemoveDownload()"><i class="fa-solid fa-circle-minus"></i><span><span class="sa-label">Remove download</span><span class="sa-sub">Keeps the record, clears the offline copy</span></span></button>';
+    } else {
+        html += '<button class="sheet-action" onclick="actionSheetDownload()"><i class="fa-solid fa-download"></i><span><span class="sa-label">Download</span><span class="sa-sub">Make available offline</span></span></button>';
+    }
+    html += '<button class="sheet-action sheet-action-danger" onclick="actionSheetDelete()"><i class="fa-solid fa-trash-can"></i><span><span class="sa-label">Delete</span><span class="sa-sub">Permanently remove from EHS</span></span></button>';
+    document.getElementById('rec-action-list').innerHTML = html;
+    document.getElementById('rec-action-overlay').classList.add('active');
+    document.getElementById('rec-action-drawer').classList.add('open');
+}
+function closeRecActionSheet() {
+    document.getElementById('rec-action-overlay').classList.remove('active');
+    document.getElementById('rec-action-drawer').classList.remove('open');
+}
+function actionSheetShare() {
+    const w = actionSheetWrap; closeRecActionSheet();
+    if (!w) return;
+    if (navigator.clipboard) navigator.clipboard.writeText(SHARE_URL).catch(() => {});
+    showToast('Link copied');
+}
+function actionSheetDownload() {
+    const w = actionSheetWrap; closeRecActionSheet();
+    if (!w) return;
+    markDownloaded(w);
+    applyEditMode();
+    showToast('Downloaded, available offline');
+}
+function actionSheetRemoveDownload() {
+    const w = actionSheetWrap; closeRecActionSheet();
+    if (w) openRemoveDownloadSheet([w]);
+}
+function actionSheetDelete() {
+    const w = actionSheetWrap; closeRecActionSheet();
+    if (w) openDeleteSheet([w]);
+}
+
+/* Quick "manage downloads": scope the list to downloaded records.
+   (Still reachable via the filter drawer's "Offline availability" section.) */
+function showDownloadedRecords() {
+    recFilters.availability = 'downloaded';
+    recDraft.availability = 'downloaded';
+    applyRecordFilters();
+    renderAppliedChips();
+    showToast('Showing downloaded records');
+}
+
+/* ── Records Settings panel ── */
+function openRecordsSettings()  { document.getElementById('records-settings').classList.add('open'); }
+function closeRecordsSettings() { document.getElementById('records-settings').classList.remove('open'); }
+function toggleSwitch(btn) {
+    const on = btn.classList.toggle('on');
+    btn.setAttribute('aria-checked', on ? 'true' : 'false');
+}
+
+/* Close the new sheets when their backdrops are tapped */
+document.getElementById('remove-dl-overlay').addEventListener('click', closeRemoveDownloadSheet);
+document.getElementById('delete-rec-overlay').addEventListener('click', closeDeleteSheet);
+document.getElementById('rec-action-overlay').addEventListener('click', closeRecActionSheet);
+
+/* Close the overflow (⋮) popover when tapping anywhere outside it */
+document.addEventListener('click', (e) => {
+    const menu = document.getElementById('sel-overflow-menu');
+    if (menu && menu.classList.contains('open')
+        && !e.target.closest('#sel-overflow-menu') && !e.target.closest('#sel-overflow')) {
+        menu.classList.remove('open');
+    }
+});
+
+/* Close any open attachment dropdown when tapping outside its button/menu */
+document.addEventListener('click', (e) => {
+    if (e.target.closest('.attach-add-wrap')) return;
+    document.querySelectorAll('.attach-dropdown.open').forEach(d => d.classList.remove('open'));
+});
 
 /* Editing reopens the record in the stepper flow, starting at Basic Info. */
 function openEditRecord(row) {
@@ -7290,10 +7665,10 @@ function exitEditSession() {
 function saveEditSession() {
     if (editingCard) {
         const badges = editingCard.querySelector('.record-badges');
-        if (badges && !editingCard.querySelector('.badge-pendingsync')) {
+        if (badges && !editingCard.querySelector('.badge-waitingsync')) {
             const b = document.createElement('span');
-            b.className = 'badge badge-pendingsync';
-            b.innerHTML = '<i class="fa-solid fa-arrows-rotate" style="font-size:10px;"></i> Pending sync';
+            b.className = 'badge badge-waitingsync';
+            b.innerHTML = '<i class="fa-solid fa-cloud-arrow-up" style="font-size:10px;"></i> Waiting to sync';
             badges.appendChild(b);
         }
     }
@@ -7327,8 +7702,6 @@ function openCreateStub(module) {
 /* seed blue-sky edit state (default ON) */
 setEditMode(true);
 
-/* init */
-updateOverview();
 
 /* ════════════ Compliance Calendar (mobile) ════════════ */
 const CC_TODAY = '2026-06-16';

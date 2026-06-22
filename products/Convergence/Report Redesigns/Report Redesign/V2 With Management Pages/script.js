@@ -49,8 +49,6 @@ const NAV_ITEMS = [
     },
     { type: 'divider' },
     { type: 'button', id: 'views-schedules',    text: 'Views & Schedules' },
-    { type: 'button', id: 'scheduled-reports',  text: 'Scheduled Reports' },
-    { type: 'button', id: 'manage-saved-views', text: 'Manage Saved Views' },
 ];
 
 reportsSidenav.items        = NAV_ITEMS;
