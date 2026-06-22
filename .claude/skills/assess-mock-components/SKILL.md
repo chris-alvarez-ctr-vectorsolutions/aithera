@@ -37,29 +37,42 @@ dropdown menu, or a CSS pill badge is "working" but is reinventing
 point — so you must walk the **full component index** against the mock's custom
 markup, not just check the tags that happen to be present.
 
-## Step 1 — Resolve the context versions (do not hardcode)
+## Step 1 — Detect versions and fetch context from the CDN
 
-The repo's component and theme references live under versioned directories that
-change as the library is bumped. CLAUDE.md's version numbers drift behind the
-actual folders, so **discover them at runtime** rather than trusting any
-hardcoded path:
+Read the mock's `index.html` and extract the exact versions it loads from the
+CDN `<script>` tags in `<head>`. They will look like:
 
-```bash
-ls -d context/core/v*/   context/themes/v*/
+```html
+<script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/<ver>/core.iife.js"></script>
+<script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/<ver>/styles.js"></script>
 ```
 
-Use the highest version directory found for each. The two reference files are:
+Pull `<ver>` from each URL (e.g. `v1.22.3`, `v1.9.3`). Then fetch the two
+reference files from the CDN using those exact versions:
 
-- `context/core/<ver>/CONTEXT.md` — the component index; each row links to that
-  component's own CONTEXT.md under `internal/components/.../CONTEXT.md` with full
-  props, themes, and slots.
-- `context/themes/<ver>/CONTEXT.md` — every design token with its exact value.
+- `https://cdn.vsp-prod.com/web-components/@vector-web-components/core/<ver>/CONTEXT.md`
+  — the component index; each row links to that component's own CONTEXT.md with
+  full props, themes, and slots.
+- `https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/<ver>/CONTEXT.md`
+  — every design token with its exact value.
 
-Also read the versions the **mock itself** loads from the CDN (the `core.iife.js`
-and `themes/.../styles.js` `<script>` URLs in its `<head>`). If the mock's CDN
-version differs from the context-file version, note the gap in the report header
-— a component or token may exist in the context files but not in the older
-bundle the mock actually loads (or vice-versa). That's real signal, not an error.
+**Minimum version fallback:** CONTEXT.md files were first published at specific
+library versions. If the version extracted from the mock is older than the
+minimum, fall back to the minimum and note the substitution in the report's
+"Assessed against" line.
+
+| Package | Minimum version with CONTEXT.md |
+|---|---|
+| `@vector-web-components/core` | `v1.22.1` |
+| `@vector-web-components/themes` | `v1.9.3` |
+
+Example: a mock that loads `core v1.21.0` → fetch `core v1.22.1` CONTEXT.md and
+note "core v1.21.0 (CONTEXT.md unavailable; assessed against v1.22.1)" in the
+report header.
+
+This guarantees the context files you assess against are the same version the
+mock actually runs (or the nearest available baseline). Use these fetched files
+for all subsequent steps.
 
 ## Step 2 — Extract what the mock actually uses
 
@@ -86,12 +99,12 @@ even though no `vwc-` tag appears; the grep won't flag it but your reading must.
 
 Build one row per distinct design element. Two passes:
 
-1. **Validate what's used.** For each VWC/Vaadin tag found, open its linked
-   CONTEXT.md and confirm the tag name, `theme=` value, and props are real and
-   correct. Per this repo's CLAUDE.md, **never invent or assume tag/prop names** —
-   if it's not in the context file, verify against Storybook MCP
-   (`mcp__storybook__get-documentation`) or flag it. Remember every Vaadin form
-   control in this repo should carry `theme="outlined"`.
+1. **Validate what's used.** For each VWC/Vaadin tag found, follow its linked
+   CONTEXT.md URL from the CDN-fetched component index and confirm the tag name,
+   `theme=` value, and props are real and correct. Per this repo's CLAUDE.md,
+   **never invent or assume tag/prop names** — if a tag or prop can't be confirmed
+   from the fetched CONTEXT.md, flag it as unverified in the report. Remember every
+   Vaadin form control in this repo should carry `theme="outlined"`.
 
 2. **Hunt for missed components.** Walk the full component index in
    `context/core/<ver>/CONTEXT.md` and ask, for each custom HTML/CSS block in the
@@ -113,12 +126,12 @@ rather than forcing it to ❌.
 
 ## Step 4 — Theme token audit (quote values, never recall)
 
-For each distinct hardcoded color, find the nearest semantic token in
-`context/themes/<ver>/CONTEXT.md` and report the match.
+For each distinct hardcoded color, find the nearest semantic token in the
+CDN-fetched themes CONTEXT.md (fetched in Step 1) and report the match.
 
 **Read every token value out of the themes CONTEXT.md at assessment time. Do not
 recall token values from memory — a confidently wrong `--lumo-contrast = #1a1a1a`
-destroys the report's value.** Quote the value exactly as the file states it.
+destroys the report's value.** Quote the value exactly as the fetched file states it.
 
 Classify each:
 
@@ -159,9 +172,8 @@ Write to `component-assessment.md` **in the mock's own folder** (next to its
 
 **Source**: Local file
 **Date**: <today, YYYY-MM-DD>
-**Mock loads (CDN)**: core <ver>, themes <ver>
-**Assessed against (repo context)**: core <ver>, themes <ver>
-<!-- If those two differ, add a one-line ⚠️ note about the gap. -->
+**Assessed against**: core <ver>, themes <ver> (fetched from CDN)
+<!-- If a fallback was used, append e.g.: core v1.21.0 loaded (CONTEXT.md unavailable; assessed against v1.22.1) -->
 
 ---
 
@@ -206,7 +218,7 @@ library version, so its specific gaps may now be covered — that's expected.)
 |---|---|
 | Only checking the tags that are present | Walk the full index for hand-rolled custom HTML/CSS too (Step 3 pass 2) |
 | Recalling token values from memory | Quote every value from themes CONTEXT.md at assessment time |
-| Hardcoding `v1.22.x` / `v1.9.x` paths | Resolve the latest `context/core/v*` and `context/themes/v*` dirs at runtime |
+| Hardcoding `v1.22.x` / `v1.9.x` paths | Always extract the versions from the mock's own CDN `<script>` URLs — don't assume a version |
 | Calling a deliberate visual departure a ❌ Gap | If a VWC component exists but was intentionally not used, that's ⚠️ Partial — say why |
 | Editing the mock to "fix" findings | This skill reports only; the team decides what to change |
 | Writing gap specs before asking the user | Ask the targeted questions first (Step 5) |
