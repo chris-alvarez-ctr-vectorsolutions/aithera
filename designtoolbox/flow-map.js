@@ -50,9 +50,9 @@
   // ---- styles ---------------------------------------------------------------
   var CSS = '\
 .fm-switcher{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:999990;display:inline-flex;align-items:center;gap:6px;background:#18181b;padding:6px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.28);font-family:"Open Sans",system-ui,sans-serif;}\
-.fm-launch{display:inline-flex;align-items:center;gap:8px;background:#4a2bd1;color:#fff;border:none;border-radius:999px;padding:9px 16px;font:700 13px/1 "Open Sans",system-ui,sans-serif;cursor:pointer;transition:background .12s,transform .12s;}\
+.fm-launch{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:#4a2bd1;color:#fff;border:none;border-radius:999px;padding:9px 11px;font:700 14px/1 "Open Sans",system-ui,sans-serif;cursor:pointer;transition:background .12s,transform .12s;}\
 .fm-launch:hover{background:#5a3ce0;transform:translateY(-1px);}\
-.fm-launch.fm-in-vs{padding:7px 14px;font-size:12px;}\
+.fm-launch.fm-in-vs{padding:8px 10px;font-size:13px;}\
 .fm-vs-sep{width:1px;align-self:stretch;margin:2px 0 2px 6px;background:rgba(255,255,255,.16);}\
 .fm-overlay{position:fixed;inset:0;z-index:999991;display:none;flex-direction:column;background:radial-gradient(circle at 30% 10%,#20243a 0%,#14162a 60%,#0e0f1d 100%);font-family:"Open Sans",system-ui,sans-serif;}\
 .fm-overlay.open{display:flex;}\
@@ -228,8 +228,10 @@
     var style = el('style'); style.textContent = CSS; document.head.appendChild(style);
 
     var launch = el('button', 'fm-launch fm-in-vs');
-    launch.innerHTML = '<i class="fa-solid fa-map"></i> Flow Map';
+    // Icon-only launcher — the glyph alone identifies it; the label is dropped.
+    launch.innerHTML = '<i class="fa-solid fa-map"></i>';
     launch.title = 'Open the flow map';
+    launch.setAttribute('aria-label', 'Open the flow map');
     launch.addEventListener('click', openMap);
 
     if (window.ToolboxDock) {
