@@ -4,12 +4,21 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard · OSHA Reports · VectorSolutions</title>
+<title>OSHA Reporting · SafeLMS · VectorSolutions</title>
 <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
 <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
 <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
 <style>
+  /* ============================================================
+     This OSHA dashboard is built on the Convergence "Report
+     Redesign V1" report patterns (per the OSHA reporting plan to
+     leverage VRF / Convergence), wearing the SafeLMS wrapper:
+       • SafeLMS chrome  → left sidebar + blue topbar
+       • Ported from V1  → Completion Status Overview (pie + bar),
+                           the Completion Report grouped table style,
+                           and the right-side report filter panel.
+     ============================================================ */
   :root {
     --blue-primary: #155DFC;
     --blue-accent:  #0271CE;
@@ -20,34 +29,28 @@
     --muted-2: #99A1AF;
     --hair:   #E5E7EB;
     --hair-2: #F3F4F6;
-    --canvas: #f2f5f8;
-
-    /* Action-needed bucket palette */
-    --intervene:    #E7000B; --intervene-bg: #FEE2E2;
-    --nudge:        #E17100; --nudge-bg:     #FEF3C7;
-    --ontrack:      #155DFC; --ontrack-bg:   #DBEAFE;
-    --pass:         #008236; --pass-bg:      #DCFCE7;
-    --fail:         #9F0712; --fail-bg:      #FFE2E2;
+    --canvas: #f3f4f6;
   }
   *, *::before, *::after { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0;
     background: var(--canvas);
     font-family: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    font-size: 14px;
     color: var(--ink);
     -webkit-font-smoothing: antialiased;
   }
 
-  /* ── App grid ── */
+  /* ── App grid (SafeLMS chrome) ── */
   .app {
     display: grid;
     grid-template-columns: 224px minmax(0,1fr);
     min-height: 100vh;
-    min-width: 980px;
+    min-width: 1080px;
     position: relative;
   }
 
-  /* ── Sidebar ── */
+  /* ── Sidebar (SafeLMS) ── */
   .sidebar {
     background: #fff;
     border-right: 1px solid var(--hair-2);
@@ -96,16 +99,10 @@
     text-align: center; font-size: 6px; font-weight: 700; color: #2F6FB0; letter-spacing: .3px; line-height: 1.35;
   }
 
-  /* ── Main ── */
+  /* ── Main column ── */
   .main { display: flex; flex-direction: column; background: var(--canvas); min-height: 100vh; }
 
-  /* ── Top-level views (switched from the sidebar — no page navigation) ── */
-  .view { display: none; }
-  .view.active { display: block; }
-  /* Reports view embeds the full reports design in an iframe, so let it fill height. */
-  #view-reports.active { display: flex; flex-direction: column; flex: 1 1 auto; }
-
-  /* Blue topbar */
+  /* Blue topbar (SafeLMS) */
   .topbar {
     min-height: 92px;
     background: linear-gradient(90deg, #05347a 0%, #095ad2 100%);
@@ -113,393 +110,280 @@
     padding: 18px 32px; color: #fff; gap: 22px; flex-shrink: 0;
   }
   .topbar .t-title { font-weight: 700; font-size: 30px; letter-spacing: .2px; flex-shrink: 0; }
-  .topbar .t-sub { font-size: 14px; color: #cdd9f0; opacity: .95; line-height: 1.45; max-width: 760px; }
+  .topbar .t-sub { font-size: 14px; color: #cdd9f0; opacity: .95; line-height: 1.45; max-width: 720px; }
 
-  /* Dashboard tabs */
-  .tabs {
-    display: flex; gap: 36px;
-    padding: 0 32px;
-    border-bottom: 1px solid var(--hair);
-    background: #fff; flex-shrink: 0;
-  }
-  .tab {
-    padding: 16px 2px 14px; text-align: center;
-    font-size: 15px; color: #4A5565; cursor: pointer;
-    border-bottom: 3px solid transparent; margin-bottom: -1px;
-    transition: color .12s;
-  }
-  .tab:hover { color: var(--ink); }
-  .tab.active { color: var(--blue-accent); border-bottom-color: var(--blue-accent); font-weight: 700; }
+  /* ============================================================
+     PAGE LAYOUT — report content + right filter panel (V1)
+     ============================================================ */
+  .page-layout { display: flex; align-items: stretch; gap: 0; flex: 1 1 auto; min-height: 0; }
 
-  /* ── Tab panels (inner tabs within the Dashboard view) ── */
-  .panel { display: none; padding: 24px 32px 12px; }
-  .panel.active { display: block; }
-  /* Plain content blocks inside a view (no inner-tab system). */
-  .view-body { padding: 24px 32px 12px; }
-
-  .placeholder {
-    background: #fff; border-radius: 12px; padding: 60px 24px; text-align: center;
-    color: var(--muted); font-size: 14px;
-    box-shadow: 0 1px 3px rgba(16,24,40,.10), 0 1px 2px rgba(16,24,40,.06);
+  .main-content {
+    flex: 1; min-width: 0;
+    padding: 24px;
+    display: flex; flex-direction: column; gap: 20px;
   }
 
-  /* Course context row */
-  .context-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
-  .course-select {
-    display: inline-flex; align-items: center; gap: 12px;
-    background: #fff; border: 1px solid var(--hair); border-radius: 10px;
-    padding: 10px 16px; cursor: pointer; box-shadow: 0 1px 2px rgba(16,24,40,.05);
-  }
-  .course-select .badge {
-    width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
-    background: #E1EBF9; color: var(--blue-primary); display: grid; place-items: center; font-size: 16px;
-  }
-  .course-select .cs-lines .cs-k { font-size: 11px; color: var(--muted); letter-spacing: .3px; }
-  .course-select .cs-lines .cs-v { font-size: 14px; font-weight: 700; color: var(--ink); }
-  .course-select .src { font-size: 11px; color: var(--muted); font-weight: 600; }
-  .course-select .caret { color: var(--muted-2); }
-  .context-row .right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-  .pill-btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 8px 14px; border: 1px solid var(--hair); border-radius: 8px;
-    font-size: 13px; color: #364153; background: #fff; cursor: pointer; font-family: inherit;
-  }
-  .pill-btn:hover { background: var(--hair-2); }
-  .pill-btn.primary { background: var(--blue-primary); color: #fff; border-color: var(--blue-primary); }
-  .pill-btn.primary:hover { background: #1447E6; }
+  /* Report meta row (last-updated + actions) — replaces V1 page-title row,
+     since the SafeLMS blue topbar already carries the page title. */
+  .report-meta-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .data-note { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .data-note i { color: var(--blue-primary); }
+  .data-note b { color: var(--ink-2); font-weight: 700; }
+  .actions-right { display: flex; align-items: center; gap: 8px; }
+  vaadin-button i[slot="prefix"] { margin-inline-end: 7px; }
 
-  /* ── Bucket cards ── */
-  .section-title { font-size: 13px; font-weight: 700; letter-spacing: .6px; color: #475467; margin: 4px 2px 12px; }
-  .buckets { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 22px; }
-  .bucket {
-    background: #fff; border-radius: 14px; padding: 18px 18px 16px;
-    box-shadow: 0 1px 3px rgba(16,24,40,.10), 0 1px 2px rgba(16,24,40,.06);
-    cursor: pointer; position: relative; overflow: hidden;
-    border: 2px solid transparent; transition: transform .12s, box-shadow .12s, border-color .12s;
-  }
-  .bucket:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(16,24,40,.12); }
-  .bucket.selected { border-color: var(--c); }
-  .bucket .b-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-  .bucket .b-ico {
-    width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
-    background: var(--cbg); color: var(--c); font-size: 15px; flex-shrink: 0;
-  }
-  .bucket .b-name { font-size: 13px; font-weight: 700; color: var(--ink); line-height: 1.25; }
-  .bucket .b-count { font-size: 34px; font-weight: 800; color: var(--ink); line-height: 1; }
-  .bucket .b-desc { font-size: 11.5px; color: var(--muted); margin-top: 8px; line-height: 1.4; min-height: 46px; }
-  .bucket .b-foot {
-    margin-top: 10px; font-size: 11px; font-weight: 700; color: var(--c);
-    display: inline-flex; align-items: center; gap: 5px;
-  }
-
-  /* ── Viz cards ── */
-  .viz-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; margin-bottom: 22px; }
-  .card {
-    background: #fff; border-radius: 14px; padding: 20px 22px;
-    box-shadow: 0 1px 3px rgba(16,24,40,.10), 0 1px 2px rgba(16,24,40,.06);
-  }
-  .card .card-title { font-size: 14px; font-weight: 700; color: var(--ink); }
-  .card .card-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
-
-  /* Distribution segmented bar */
-  .dist-bar { display: flex; height: 26px; border-radius: 7px; overflow: hidden; margin: 22px 0 16px; }
-  .dist-seg { height: 100%; }
-  .dist-legend { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 28px; }
-  .legend-item { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: #364153; }
-  .legend-item .dot { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
-  .legend-item .lg-name { flex: 1; }
-  .legend-item .lg-val { font-weight: 700; color: var(--ink); }
-  .legend-item .lg-pct { color: var(--muted); font-size: 11px; width: 38px; text-align: right; }
-
-  /* Expirations horizontal bars */
-  .exp-list { margin-top: 18px; display: flex; flex-direction: column; gap: 16px; }
-  .exp-item .exp-top { display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 6px; }
-  .exp-item .exp-top .e-lbl { color: #364153; font-weight: 600; }
-  .exp-item .exp-top .e-val { color: var(--ink); font-weight: 700; }
-  .exp-track { height: 9px; border-radius: 999px; background: var(--hair-2); overflow: hidden; }
-  .exp-fill { height: 100%; border-radius: 999px; }
-  .exp-note { margin-top: 18px; font-size: 11.5px; color: var(--muted); display: flex; gap: 8px; align-items: flex-start; }
-  .exp-note i { color: var(--nudge); margin-top: 1px; }
-
-  /* ── Learner table ── */
-  .table-card {
-    background: #fff; border-radius: 14px; overflow: hidden; margin-bottom: 28px;
-    box-shadow: 0 1px 3px rgba(16,24,40,.10), 0 1px 2px rgba(16,24,40,.06);
-  }
-  .table-head { display: flex; align-items: center; gap: 14px; padding: 18px 22px; border-bottom: 1px solid var(--hair); }
-  .table-head .th-title { font-size: 15px; font-weight: 700; color: var(--ink); }
-  .table-head .th-count { font-size: 12px; color: var(--muted); }
-  .table-head .search {
-    margin-left: auto; display: inline-flex; align-items: center; gap: 8px;
-    border: 1px solid var(--hair); border-radius: 8px; padding: 7px 12px;
-    font-size: 13px; color: var(--muted); min-width: 220px;
-  }
-  .filter-chip {
-    display: none; align-items: center; gap: 8px;
-    border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 700;
-  }
-  .filter-chip.show { display: inline-flex; }
-  .filter-chip button { background: 0; border: 0; color: inherit; cursor: pointer; font-size: 13px; padding: 0; line-height: 1; }
-
-  /* Right-side controls in the table header */
-  .table-head .th-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
-  .table-head .th-right .search { margin-left: 0; }
-
-  /* Status filter dropdown */
-  .status-filter { position: relative; }
-  .sf-btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    border: 1px solid var(--hair); border-radius: 8px; padding: 8px 12px;
-    background: #fff; font-family: inherit; font-size: 13px; color: #364153; cursor: pointer;
-  }
-  .sf-btn:hover { border-color: #C4C9D4; }
-  .sf-btn .sf-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-  .sf-btn .sf-pre { color: var(--muted); }
-  .sf-btn .sf-label { font-weight: 700; color: var(--ink); }
-  .sf-btn .sf-caret { font-size: 10px; color: var(--muted-2); margin-left: 2px; transition: transform .15s; }
-  .status-filter.open .sf-caret { transform: rotate(180deg); }
-  .sf-menu {
-    display: none; position: absolute; right: 0; top: calc(100% + 6px); z-index: 40;
-    min-width: 230px; background: #fff; border: 1px solid var(--hair); border-radius: 10px;
-    box-shadow: 0 10px 28px rgba(16,24,40,.16); padding: 6px;
-  }
-  .status-filter.open .sf-menu { display: block; }
-  .sf-option {
-    display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 7px;
-    font-size: 13px; color: #364153; cursor: pointer;
-  }
-  .sf-option:hover { background: var(--hair-2); }
-  .sf-option .sf-o-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-  .sf-option .sf-o-name { flex: 1; }
-  .sf-option .sf-o-count { font-size: 12px; font-weight: 700; color: var(--muted); }
-  .sf-option .sf-o-check { color: var(--blue-primary); font-size: 12px; width: 14px; visibility: hidden; }
-  .sf-option.selected { background: #EEF4FF; }
-  .sf-option.selected .sf-o-name { font-weight: 700; color: var(--ink); }
-  .sf-option.selected .sf-o-check { visibility: visible; }
-  .sf-divider { height: 1px; background: var(--hair-2); margin: 6px 4px; }
-
-  .table-wrap { overflow-x: auto; }
-  table.learners { width: 100%; min-width: 920px; border-collapse: collapse; font-size: 13px; }
-  table.learners thead th {
-    text-align: left; padding: 11px 14px; background: #f7f9fc;
-    border-bottom: 1px solid var(--hair);
-    font-size: 11px; font-weight: 700; letter-spacing: .5px; color: #475467; white-space: nowrap;
-  }
-  table.learners tbody td { padding: 14px; border-bottom: 1px solid var(--hair-2); vertical-align: middle; color: #364153; }
-  table.learners tbody tr:hover { background: #fafbfd; }
-  .learner-cell { display: flex; align-items: center; gap: 11px; }
-  .learner-cell .l-avatar {
-    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
-    display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff;
-  }
-  .learner-cell .l-name { font-weight: 700; color: var(--ink); }
-  .learner-cell .l-mail { font-size: 11px; color: var(--muted); }
-
-  .status-pill {
+  /* ── Report card (V1) ── */
+  .report-card { background: #fff; border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; }
+  .report-card-header { padding: 16px 20px 12px; border-bottom: 1px solid var(--hair-2); }
+  .report-card-title-row { display: flex; align-items: center; justify-content: space-between; }
+  .report-card-title { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink); }
+  .date-badge {
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 4px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap;
-  }
-  .status-pill .dot { width: 7px; height: 7px; border-radius: 50%; }
-
-  .prog { display: flex; align-items: center; gap: 9px; min-width: 130px; }
-  .prog-track { flex: 1; height: 7px; border-radius: 999px; background: var(--hair-2); overflow: hidden; }
-  .prog-fill { height: 100%; border-radius: 999px; }
-  .prog-val { font-size: 12px; font-weight: 700; color: var(--ink); width: 34px; text-align: right; }
-
-  td .muted { color: var(--muted); font-size: 11px; }
-  td .danger { color: var(--intervene); font-weight: 700; }
-  td .warn { color: var(--nudge); font-weight: 700; }
-
-  .row-action {
-    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
-    padding: 6px 12px; border-radius: 7px; font-size: 12px; font-weight: 700;
-    cursor: pointer; border: 1px solid transparent; font-family: inherit;
-  }
-  .row-action.solid { background: var(--blue-primary); color: #fff; }
-  .row-action.solid:hover { background: #1447E6; }
-  .row-action.ghost { background: #fff; color: #364153; border-color: var(--hair); }
-  .row-action.ghost:hover { background: var(--hair-2); }
-
-  /* ── Dashboard view: completions chart + stat cards + feedback ── */
-  .card-label { font-size: 12px; font-weight: 700; letter-spacing: .8px; color: var(--blue-dark); }
-  .comp-row { display: grid; grid-template-columns: minmax(0,1fr) 150px; gap: 18px; margin-bottom: 18px; }
-  .chart-card { padding: 22px 26px 10px; }
-  .chart-wrap { width: 100%; }
-  .chart-wrap svg { display: block; width: 100%; height: auto; }
-  .chart-wrap .axis-label { fill: var(--muted-2); font-size: 13px; }
-  .chart-wrap .today-label { fill: var(--ink); font-size: 14px; font-weight: 400; }
-
-  .stat-col { display: flex; flex-direction: column; gap: 18px; }
-  .stat-card { padding: 22px 24px; text-align: left; }
-  .stat-card .s-label { font-size: 12px; font-weight: 700; letter-spacing: .8px; color: var(--blue-dark); }
-  .stat-card .s-value { font-size: 52px; font-weight: 800; color: var(--ink); line-height: 1.05; margin-top: 14px; }
-
-  .feedback-card { padding: 22px 26px 8px; }
-  .feedback-card .fc-head { font-size: 12px; font-weight: 700; letter-spacing: .8px; color: var(--blue-dark); margin-bottom: 6px; }
-  .feedback-list { max-height: 320px; overflow-y: auto; }
-  .feedback-item { display: flex; align-items: flex-start; gap: 16px; padding: 18px 6px; border-top: 1px solid var(--hair-2); }
-  .feedback-item:first-child { border-top: 0; }
-  .feedback-item .fi-avatar {
-    width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0;
-    display: grid; place-items: center; font-size: 13px; font-weight: 700;
-    color: var(--blue-primary); border: 2px solid var(--blue-primary); background: #fff;
-  }
-  .feedback-item .fi-body { flex: 1; min-width: 0; }
-  .feedback-item .fi-line { font-size: 14px; color: var(--ink-2); line-height: 1.45; }
-  .feedback-item .fi-line b { color: var(--ink); font-weight: 700; }
-  .feedback-item .fi-line .course { font-weight: 700; color: var(--ink); }
-  .feedback-item .fi-sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
-  .feedback-item .fi-time { font-size: 13px; color: var(--blue-accent); white-space: nowrap; flex-shrink: 0; }
-
-  /* ── Reports view: comparison note + embedded reports design ── */
-  .compare-note {
-    display: flex; align-items: flex-start; gap: 14px;
-    margin: 18px 32px 0; padding: 14px 18px;
-    background: #E1EBF9; border-left: 6px solid var(--blue-primary); border-radius: 8px;
-    font-size: 13.5px; line-height: 1.5; color: #1D2939;
-  }
-  .compare-note .cn-ico {
-    flex-shrink: 0; width: 34px; height: 34px; border-radius: 9px;
-    background: #fff; color: var(--blue-primary); display: grid; place-items: center;
-  }
-  .compare-note b { color: var(--ink); }
-  .reports-frame {
-    flex: 1 1 auto; width: 100%; min-height: 560px;
-    border: 0; display: block; background: #fff; margin-top: 14px;
+    background: #f9fafb; border: 1px solid var(--hair); border-radius: 6px;
+    padding: 4px 10px; font-size: 12px; color: var(--ink-2);
   }
 
-  /* Footer */
-  .footer {
-    text-align: center; padding: 22px 24px 30px; font-size: 13px; color: var(--muted);
-    display: flex; flex-direction: column; gap: 8px; align-items: center;
+  /* ── Charts (V1) ── */
+  .chart-area { display: flex; gap: 32px; padding: 20px 20px 16px; flex-wrap: wrap; }
+  .chart-col { flex: 0 0 auto; }
+  .chart-col-bar { flex: 1; min-width: 280px; }
+  .chart-section-title {
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px;
+    color: var(--muted); margin-bottom: 12px;
   }
-  .footer .links { display: flex; gap: 18px; align-items: center; }
-  .footer .links a { color: var(--blue-accent); text-decoration: none; }
-  .footer .links a:hover { text-decoration: underline; }
-  .footer .links .sep { color: var(--muted-2); }
-  .footer .copy { display: flex; align-items: center; gap: 6px; color: var(--ink-2); }
+  .pie-chart-wrap { display: flex; align-items: center; gap: 16px; }
+  .pie-chart {
+    width: 132px; height: 132px; border-radius: 50%; flex-shrink: 0;
+    /* Passed 25.8% · In Progress 62.5% · Not Started 7.3% · Failed 4.4% */
+    background: conic-gradient(
+      #22c55e 0deg 92.9deg,
+      #3b82f6 92.9deg 317.9deg,
+      #d1d5db 317.9deg 344.2deg,
+      #dc2626 344.2deg 360deg
+    );
+  }
+  .pie-labels { display: flex; flex-direction: column; gap: 5px; }
+  .pie-label { font-size: 12px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
+  .pie-label .pd { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .pie-legend { display: flex; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .legend-dot.passed     { background: #22c55e; }
+  .legend-dot.inprogress { background: #3b82f6; }
+  .legend-dot.notstarted { background: #d1d5db; }
+  .legend-dot.failed     { background: #dc2626; }
 
-  /* ── Row selection + bulk actions ── */
-  .col-check { width: 40px; }
-  table.learners input[type="checkbox"] {
-    width: 16px; height: 16px; accent-color: var(--blue-primary); cursor: pointer; margin: 0;
-  }
-  .no-select { color: var(--muted-2); font-size: 14px; display: inline-grid; place-items: center; width: 16px; }
-  table.learners tbody tr.selected { background: #EEF4FF; }
-  table.learners tbody tr.selected:hover { background: #E5EEFF; }
+  .bar-chart { display: flex; flex-direction: column; gap: 9px; }
+  .bar-row { display: flex; align-items: center; gap: 8px; }
+  .bar-label { width: 190px; flex-shrink: 0; font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-track { flex: 1; height: 10px; background: var(--hair-2); border-radius: 5px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--blue-primary); border-radius: 5px; }
+  .bar-val { width: 30px; text-align: right; font-size: 12px; color: var(--ink-2); font-weight: 600; flex-shrink: 0; }
+  .bar-axis { display: flex; justify-content: space-between; padding-left: 198px; padding-right: 38px; font-size: 10px; color: var(--muted-2); margin-top: 2px; }
 
-  .bulk-bar {
-    display: none; align-items: center; gap: 16px;
-    padding: 12px 22px; background: #EEF4FF; border-bottom: 1px solid var(--hair);
+  /* ── Report toolbar (V1) ── */
+  .report-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--hair-2); gap: 12px; flex-wrap: wrap; }
+  .toolbar-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .toolbar-right { display: flex; align-items: center; gap: 8px; }
+  .sort-pill {
+    display: flex; align-items: center; gap: 4px; border: 1px solid #d1d5db; background: #fff; color: var(--ink-2);
+    border-radius: 20px; padding: 3px 10px; font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit;
   }
+  .sort-pill:hover { background: #f9fafb; border-color: var(--muted-2); }
+  .sort-pill.active-sort { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+  .sort-pill i { font-size: 10px; }
+  .search-wrap { position: relative; display: flex; align-items: center; }
+  .search-icon { position: absolute; left: 9px; color: var(--muted-2); font-size: 12px; pointer-events: none; }
+  .search-input {
+    border: 1px solid #d1d5db; border-radius: 6px; padding: 5px 10px 5px 28px; font-size: 13px;
+    outline: none; width: 200px; font-family: inherit; color: var(--ink-2); background: #fff;
+  }
+  .search-input:focus { border-color: var(--blue-primary); box-shadow: 0 0 0 2px rgba(21,93,252,.15); }
+  .col-picker-btn {
+    background: none; border: 1px solid #d1d5db; border-radius: 6px; width: 32px; height: 32px;
+    display: grid; place-items: center; cursor: pointer; color: var(--muted); font-size: 13px;
+  }
+  .col-picker-btn:hover { background: #f9fafb; color: var(--ink-2); border-color: var(--muted-2); }
+  /* Show/hide columns menu */
+  .col-picker { position: relative; }
+  .col-menu {
+    position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 200px;
+    background: #fff; border: 1px solid var(--hair); border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(16,24,40,.16); padding: 8px;
+  }
+  .col-menu[hidden] { display: none; }
+  .col-menu-title { font-size: 11px; font-weight: 700; letter-spacing: .5px; color: var(--muted); padding: 4px 8px 8px; }
+  .col-menu-row { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 7px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+  .col-menu-row:hover { background: var(--hair-2); }
+  /* Column hide toggles (data cells + headers only; group rows recompute colspan in JS) */
+  .report-table.hide-c3 thead th:nth-child(3),  .report-table.hide-c3 .data-row td:nth-child(3),
+  .report-table.hide-c6 thead th:nth-child(6),  .report-table.hide-c6 .data-row td:nth-child(6),
+  .report-table.hide-c7 thead th:nth-child(7),  .report-table.hide-c7 .data-row td:nth-child(7),
+  .report-table.hide-c8 thead th:nth-child(8),  .report-table.hide-c8 .data-row td:nth-child(8),
+  .report-table.hide-c9 thead th:nth-child(9),  .report-table.hide-c9 .data-row td:nth-child(9),
+  .report-table.hide-c10 thead th:nth-child(10), .report-table.hide-c10 .data-row td:nth-child(10) { display: none; }
+
+  /* Failure / Retry cell */
+  .fr-fail { color: #b91c1c; font-weight: 600; }
+  .fr-sub { display: block; font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+
+  /* ── Report table (V1) ── */
+  .report-table-wrap { overflow-x: auto; }
+  .report-table { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
+  .report-table thead { background: #f9fafb; }
+  .report-table thead th {
+    padding: 9px 14px; text-align: left; font-size: 12px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .3px; border-bottom: 1px solid var(--hair); white-space: nowrap;
+  }
+  .report-table th.col-expand { width: 36px; padding: 0; }
+  .sortable-th { cursor: pointer; }
+  .sortable-th:hover { background: var(--hair-2); }
+  .sort-arrow { font-size: 10px; color: var(--muted-2); }
+  .group-row { background: var(--hair-2); cursor: pointer; user-select: none; }
+  .group-row:hover { background: #e9eaec; }
+  .expand-cell { padding: 8px 0 8px 14px; color: var(--muted); font-size: 11px; width: 36px; }
+  .group-label { padding: 8px 14px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+  .group-count { color: var(--muted); font-weight: 500; }
+  .data-row td { padding: 9px 14px; border-bottom: 1px solid var(--hair-2); color: var(--ink-2); vertical-align: middle; white-space: nowrap; }
+  .data-row:last-child td { border-bottom: none; }
+  .data-row:hover td { background: #fafafa; }
+  .data-row .l-name { font-weight: 600; color: var(--ink); }
+  .pct-cell { display: inline-flex; align-items: center; gap: 8px; }
+  .pct-track { width: 70px; height: 7px; border-radius: 999px; background: var(--hair-2); overflow: hidden; }
+  .pct-fill { height: 100%; border-radius: 999px; }
+  .pct-num { font-size: 12px; font-weight: 600; color: var(--ink); width: 34px; }
+  .never { color: #dc2626; font-weight: 600; }
+  .exp-soon { color: #b45309; font-weight: 600; }
+
+  /* Status badges (V1) */
+  .status-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .status-badge.passed       { background: #dcfce7; color: #15803d; }
+  .status-badge.in-progress  { background: #dbeafe; color: #1d4ed8; }
+  .status-badge.not-started  { background: #f3f4f6; color: #4b5563; }
+  .status-badge.failed       { background: #fee2e2; color: #b91c1c; }
+  .status-badge.overdue      { background: #fef3c7; color: #92400e; }
+
+  /* ============================================================
+     FILTER PANEL (right column, V1)
+     ============================================================ */
+  .filter-panel {
+    width: 320px; flex-shrink: 0; background: #fff; border-left: 1px solid var(--hair);
+    display: flex; flex-direction: column;
+    align-self: stretch; overflow: hidden;
+    transition: width .25s ease, opacity .2s ease;
+  }
+  .filter-panel.collapsed { width: 0; opacity: 0; border-left: none; overflow: hidden; pointer-events: none; }
+  .filter-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; border-bottom: 1px solid var(--hair); flex-shrink: 0; }
+  .filter-panel-title { margin: 0; font-size: 14px; font-weight: 700; color: var(--ink); }
+  .filter-close-btn { background: none; border: none; cursor: pointer; color: var(--muted); width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center; font-size: 14px; }
+  .filter-close-btn:hover { background: var(--hair-2); color: var(--ink-2); }
+  .filter-panel-body { flex: 1; overflow-y: auto; padding: 4px 0; }
+  .filter-section { padding: 12px 16px; }
+  .filter-extra { display: flex; flex-direction: column; gap: 10px; padding-top: 8px; }
+  .filter-label { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); margin-bottom: 8px; }
+  .filter-divider { height: 1px; background: var(--hair-2); margin: 0; }
+  .filter-select-btn {
+    width: 100%; border: 1px dashed #d1d5db; background: #f9fafb; border-radius: 6px;
+    padding: 7px 12px; font-size: 13px; color: var(--ink-2); cursor: pointer; text-align: left; font-family: inherit;
+  }
+  .filter-select-btn:hover { background: var(--hair-2); border-color: var(--muted-2); }
+  .filter-checkboxes { display: flex; flex-direction: column; gap: 6px; }
+  .filter-check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+  .filter-panel-footer { padding: 12px 16px; border-top: 1px solid var(--hair); flex-shrink: 0; }
+  .filter-panel-footer vaadin-button { width: 100%; }
+
+  /* Filter chips */
+  .filter-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+  .filter-chip {
+    display: inline-flex; align-items: center; gap: 5px; background: #eff6ff; color: #1d4ed8;
+    border: 1px solid #bfdbfe; border-radius: 20px; padding: 2px 8px; font-size: 12px; font-weight: 500; white-space: nowrap; max-width: 200px;
+  }
+  .filter-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .filter-chip-remove { background: none; border: none; cursor: pointer; padding: 0; color: #93c5fd; font-size: 10px; line-height: 1; display: flex; flex-shrink: 0; }
+  .filter-chip-remove:hover { color: #1d4ed8; }
+
+  /* Date-range dropdown (V1) */
+  .date-range-dd { position: relative; }
+  .drange-trigger {
+    display: flex; align-items: center; justify-content: space-between; width: 100%;
+    background: #fff; border: 1px solid #d1d5db; border-radius: 6px; padding: 7px 10px;
+    font-size: 13px; color: var(--ink-2); cursor: pointer; font-family: inherit; gap: 8px;
+  }
+  .drange-trigger:hover { border-color: var(--muted-2); }
+  .drange-trigger-chev { font-size: 10px; color: var(--muted); transition: transform .15s; }
+  .drange-trigger.open .drange-trigger-chev { transform: rotate(180deg); }
+  .drange-menu {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #fff;
+    border: 1px solid var(--hair); border-radius: 8px; box-shadow: 0 8px 24px rgba(16,24,40,.14);
+    z-index: 60; padding: 6px;
+  }
+  .drange-menu[hidden] { display: none; }
+  .drange-opt { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 8px 10px; font-size: 13px; color: var(--ink-2); cursor: pointer; font-family: inherit; }
+  .drange-opt:hover { background: var(--hair-2); }
+  .drange-opt.active { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+  .drange-opt-custom { border-top: 1px solid var(--hair-2); margin-top: 4px; }
+  .drange-custom { padding: 6px 4px 4px; }
+  .drange-custom[hidden] { display: none; }
+  .drange-back { background: none; border: 0; color: var(--blue-primary); font-size: 12px; cursor: pointer; padding: 4px; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .drange-custom-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
+
+  /* Row actions */
+  .cell-actions { text-align: right; white-space: nowrap; }
+  .cell-actions vaadin-button { margin-left: 4px; }
+  .muted-cell { color: var(--muted-2); }
+
+  /* Certificate column link */
+  .cert-link {
+    background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit;
+    color: var(--blue-accent); font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .cert-link:hover { text-decoration: underline; }
+  .cert-link i { color: #15803d; }
+
+  /* Selection + bulk bar */
+  .sel-cell { width: 36px; }
+  th.col-expand vaadin-checkbox { margin-left: 14px; }
+  .report-table .data-row.row-selected td { background: #eff6ff; }
+  .report-table .data-row.row-selected:hover td { background: #e0ebff; }
+  .bulk-bar { display: none; align-items: center; gap: 14px; padding: 10px 16px; background: #eff6ff; border-bottom: 1px solid var(--hair); }
   .bulk-bar.show { display: flex; }
-  .bulk-bar .bulk-count { font-size: 13px; font-weight: 700; color: var(--blue-dark); }
-  .bulk-bar .bulk-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-  .bulk-bar .bulk-clear {
-    background: 0; border: 0; color: var(--muted); font-family: inherit; font-size: 12px;
-    cursor: pointer; text-decoration: underline; padding: 4px;
-  }
-  .row-action.act-intervene { background: var(--intervene); color: #fff; }
-  .row-action.act-intervene:hover { background: #C10009; }
-  .row-action.act-nudge { background: var(--nudge); color: #fff; }
-  .row-action.act-nudge:hover { background: #C25E00; }
+  .bulk-count { font-size: 13px; font-weight: 700; color: var(--blue-dark); }
+  .bulk-breakdown { font-size: 12px; color: var(--muted); }
+  .bulk-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 
-  /* ── Modal ── */
-  .modal-overlay {
-    display: none; position: fixed; inset: 0; z-index: 100;
-    background: rgba(16,24,40,.5); align-items: center; justify-content: center; padding: 24px;
-  }
-  .modal-overlay.show { display: flex; }
-  .modal {
-    background: #fff; border-radius: 16px; width: 100%; max-width: 540px;
-    max-height: calc(100vh - 48px); overflow-y: auto;
-    box-shadow: 0 24px 60px rgba(16,24,40,.32); animation: modalPop .14s ease-out;
-  }
-  @keyframes modalPop { from { transform: translateY(8px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
-  .modal-head { display: flex; align-items: flex-start; gap: 14px; padding: 22px 24px 16px; }
-  .modal-head .m-ico {
-    width: 44px; height: 44px; border-radius: 11px; flex-shrink: 0;
-    display: grid; place-items: center; font-size: 19px;
-  }
-  .modal-head .m-titles { flex: 1; min-width: 0; }
-  .modal-head .m-title { font-size: 18px; font-weight: 800; color: var(--ink); line-height: 1.25; }
-  .modal-head .m-sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
-  .modal-head .m-close {
-    background: 0; border: 0; color: var(--muted-2); cursor: pointer; padding: 6px;
-    border-radius: 6px; display: grid; place-items: center; font-size: 16px; line-height: 1;
-  }
-  .modal-head .m-close:hover { background: var(--hair-2); color: var(--ink-2); }
-  .modal-body { padding: 0 24px 8px; }
-  .modal-body p { font-size: 13.5px; line-height: 1.55; color: var(--ink-2); margin: 0 0 16px; }
-  .modal-foot {
-    display: flex; align-items: center; justify-content: flex-end; gap: 10px;
-    padding: 16px 24px 22px; border-top: 1px solid var(--hair-2); margin-top: 18px;
-  }
-  .m-btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 700;
-    cursor: pointer; border: 1px solid transparent; font-family: inherit;
-  }
-  .m-btn.secondary { background: #fff; color: #364153; border-color: var(--hair); }
-  .m-btn.secondary:hover { background: var(--hair-2); }
-  .m-btn.primary { background: var(--blue-primary); color: #fff; }
-  .m-btn.primary:hover { background: #1447E6; }
-  .m-btn.danger { background: var(--intervene); color: #fff; }
-  .m-btn.danger:hover { background: #C10009; }
-  .m-btn.amber { background: var(--nudge); color: #fff; }
-  .m-btn.amber:hover { background: #C25E00; }
+  /* Bulk-step recipient list */
+  .recip-list { border: 1px solid var(--hair); border-radius: 10px; max-height: 210px; overflow: auto; margin-bottom: 16px; }
+  .recip-list .recip { margin: 0; border: 0; border-bottom: 1px solid var(--hair-2); border-radius: 0; }
+  .recip-list .recip:last-child { border-bottom: 0; }
 
-  /* Recipient list inside modal */
-  .recip-label { font-size: 11px; font-weight: 700; letter-spacing: .5px; color: var(--muted); margin-bottom: 8px; }
-  .recip-list { display: flex; flex-direction: column; gap: 2px; max-height: 168px; overflow-y: auto; margin-bottom: 18px;
-    border: 1px solid var(--hair); border-radius: 10px; padding: 6px; }
-  .recip { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 7px; }
-  .recip:hover { background: var(--hair-2); }
-  .recip .r-avatar { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center;
-    font-size: 10px; font-weight: 700; color: #fff; }
-  .recip .r-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+  /* ── Action dialog content (vaadin-dialog renderer body) ── */
+  .dlg-body { width: min(540px, 92vw); }
+  .dlg-head { display: flex; align-items: flex-start; gap: 14px; padding: 2px 0 14px; }
+  .dlg-head .m-ico { width: 44px; height: 44px; border-radius: 11px; flex-shrink: 0; display: grid; place-items: center; font-size: 19px; }
+  .dlg-head .m-title { font-size: 18px; font-weight: 800; color: var(--ink); line-height: 1.25; }
+  .dlg-head .m-sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+  .dlg-body p { font-size: 13.5px; line-height: 1.55; color: var(--ink-2); margin: 0 0 16px; }
+  .recip { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--hair); border-radius: 10px; margin-bottom: 16px; }
+  .recip .r-avatar { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; }
+  .recip .r-name { font-size: 13px; font-weight: 700; color: var(--ink); }
   .recip .r-mail { font-size: 11px; color: var(--muted); }
   .recip .r-meta { margin-left: auto; font-size: 11px; color: var(--muted); }
-
-  /* Option toggles inside modal */
-  .opt { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; font-size: 13.5px; color: var(--ink-2); cursor: pointer; }
-  .opt input { width: 16px; height: 16px; margin-top: 1px; accent-color: var(--blue-primary); cursor: pointer; }
+  .opt { display: flex; align-items: flex-start; gap: 11px; padding: 7px 0; font-size: 13.5px; color: var(--ink-2); }
   .opt .o-text b { color: var(--ink); font-weight: 700; }
   .opt .o-hint { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
   .field-label { font-size: 11px; font-weight: 700; letter-spacing: .5px; color: var(--muted); margin: 14px 0 6px; }
-  .msg-box {
-    width: 100%; border: 1px solid var(--hair); border-radius: 10px; padding: 11px 13px;
-    font-family: inherit; font-size: 13px; color: var(--ink-2); line-height: 1.5; resize: vertical; min-height: 84px;
-  }
-  .msg-box:focus { outline: none; border-color: var(--blue-primary); }
-  .date-pill-input {
-    display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px;
-    border: 1px solid var(--hair); border-radius: 8px; font-size: 13px; color: var(--ink); cursor: pointer;
-  }
-
-  /* Retry info grid */
   .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 4px 0 16px; }
   .info-cell { background: var(--hair-2); border-radius: 10px; padding: 12px 14px; }
   .info-cell .ic-k { font-size: 11px; color: var(--muted); }
   .info-cell .ic-v { font-size: 14px; font-weight: 700; color: var(--ink); margin-top: 3px; }
-  .info-cell.accent { background: #FFF1F1; }
-  .info-cell.accent .ic-v { color: var(--intervene); }
-
-  /* Learner detail (View) */
+  .info-cell.accent { background: #fee2e2; }
+  .info-cell.accent .ic-v { color: #b91c1c; }
   .detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 4px; }
   .detail-cell { background: var(--hair-2); border-radius: 10px; padding: 13px 15px; }
   .detail-cell .d-k { font-size: 11px; color: var(--muted); }
   .detail-cell .d-v { font-size: 15px; font-weight: 700; color: var(--ink); margin-top: 3px; }
-  .detail-bar { height: 8px; border-radius: 999px; background: #fff; overflow: hidden; margin-top: 8px; }
-  .detail-bar > div { height: 100%; border-radius: 999px; background: var(--ontrack); }
-
-  /* Certificate preview */
-  .cert {
-    border: 2px solid #E4C97A; border-radius: 12px; padding: 26px 24px; text-align: center;
-    background: linear-gradient(180deg, #FFFDF6 0%, #FFF9EC 100%); margin-bottom: 6px;
-  }
-  .cert .c-seal { width: 46px; height: 46px; border-radius: 50%; background: #fff; border: 2px solid #008236;
-    color: #008236; display: grid; place-items: center; font-size: 20px; margin: 0 auto 12px; }
+  .cert { border: 2px solid #E4C97A; border-radius: 12px; padding: 26px 24px; text-align: center; background: linear-gradient(180deg, #FFFDF6 0%, #FFF9EC 100%); }
+  .cert .c-seal { width: 46px; height: 46px; border-radius: 50%; background: #fff; border: 2px solid #15803d; color: #15803d; display: grid; place-items: center; font-size: 20px; margin: 0 auto 12px; }
   .cert .c-kicker { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; color: #B7791F; }
   .cert .c-name { font-size: 22px; font-weight: 800; color: var(--ink); margin: 8px 0 2px; }
   .cert .c-for { font-size: 12.5px; color: var(--muted); }
@@ -507,31 +391,20 @@
   .cert .c-meta { display: flex; justify-content: center; gap: 28px; font-size: 12px; color: var(--ink-2); }
   .cert .c-meta b { display: block; color: var(--ink); font-size: 13px; margin-top: 2px; }
 
-  /* Toast */
-  .toast {
-    position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(20px);
-    background: #0F2A1A; color: #fff; padding: 13px 20px; border-radius: 10px;
-    font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 10px;
-    box-shadow: 0 12px 32px rgba(16,24,40,.32); opacity: 0; pointer-events: none;
-    transition: opacity .2s, transform .2s; z-index: 120;
-  }
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-  .toast i { color: #4ADE80; }
-
-  /* Chat bubble */
-  .chat {
-    position: fixed; right: 22px; bottom: 22px;
-    width: 48px; height: 48px; border-radius: 50%; background: var(--blue-primary);
-    display: grid; place-items: center; color: #fff;
-    box-shadow: 0 6px 18px rgba(21,93,252,.4); cursor: pointer; z-index: 50;
-  }
+  /* Footer */
+  .footer { text-align: center; padding: 28px 24px 8px; font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 8px; align-items: center; margin-top: auto; }
+  .footer .links { display: flex; gap: 18px; align-items: center; }
+  .footer .links a { color: var(--blue-accent); text-decoration: none; }
+  .footer .links a:hover { text-decoration: underline; }
+  .footer .links .sep { color: var(--muted-2); }
+  .footer .copy { display: flex; align-items: center; gap: 6px; color: var(--ink-2); }
 </style>
 </head>
 <body>
 
 <div class="app">
 
-  <!-- ═══ Sidebar (shared across all views; never navigates away) ═══ -->
+  <!-- ═══ Sidebar (SafeLMS chrome) ═══ -->
   <aside class="sidebar">
     <div class="logo">
       <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true">
@@ -568,9 +441,7 @@
 
     <div class="nav-group">
       <div class="label">ADMIN</div>
-      <!-- Dashboard, Reports, and OSHA Reports now switch in-page views (data-view)
-           instead of navigating to separate files/products. -->
-      <a class="nav-item" href="#dashboard" data-view="dashboard">
+      <a class="nav-item" href="#">
         <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="9" rx="1"/><rect x="13" y="4" width="7" height="5" rx="1"/><rect x="13" y="11" width="7" height="9" rx="1"/><rect x="4" y="15" width="7" height="5" rx="1"/></svg></span>
         <span class="lbl">Dashboard</span>
       </a>
@@ -586,33 +457,17 @@
         <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 9l5 3-5 3z" fill="currentColor" stroke="none"/></svg></span>
         <span class="lbl">Courses</span>
       </a>
-      <a class="nav-item" href="#reports" data-view="reports">
+      <a class="nav-item" href="#">
         <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 9h18M3 14h18M9 4v16M15 4v16"/></svg></span>
         <span class="lbl">Reports</span>
       </a>
-      <a class="nav-item active" href="#osha" data-view="osha">
+      <a class="nav-item active" href="#">
         <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6l7-3z"/><path d="M9.2 12l2 2 3.6-3.8"/></svg></span>
         <span class="lbl">OSHA Reports</span>
       </a>
       <a class="nav-item" href="#">
         <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span>
         <span class="lbl">Settings</span>
-      </a>
-      <a class="nav-item" href="#">
-        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5M12 17h.01"/></svg></span>
-        <span class="lbl">Help</span>
-      </a>
-    </div>
-
-    <div class="nav-group" style="margin-top:18px;">
-      <a class="nav-item" href="#">
-        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span>
-        <span class="lbl">Language</span>
-        <span class="chev"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
-      </a>
-      <a class="nav-item" href="#">
-        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
-        <span class="lbl">Log Out</span>
       </a>
     </div>
 
@@ -624,736 +479,859 @@
   <!-- ═══ Main ═══ -->
   <section class="main">
 
-    <!-- ════════════════ DASHBOARD VIEW (merged from dashboard.html) ════════════════ -->
-    <div class="view" id="view-dashboard">
-      <div class="topbar">
-        <div class="t-title">Dashboard</div>
-        <div class="t-sub">The administrative dashboard offers a quick overview of recent activity and insights, including course completions and feedback from your users.</div>
-      </div>
-
-      <!-- Dashboard inner tabs -->
-      <div class="tabs">
-        <div class="tab active" data-tab="completions">Completions</div>
-        <div class="tab" data-tab="impact">Impact Insights</div>
-      </div>
-
-      <!-- Completions -->
-      <div class="panel active" data-panel="completions">
-        <!-- Chart + stat cards -->
-        <div class="comp-row">
-          <div class="card chart-card">
-            <div class="card-label">COMPLETIONS OVER TIME</div>
-            <div class="chart-wrap" id="chart"></div>
-          </div>
-          <div class="stat-col">
-            <div class="card stat-card">
-              <div class="s-label">TOTAL</div>
-              <div class="s-value">22</div>
-            </div>
-            <div class="card stat-card">
-              <div class="s-label">TODAY</div>
-              <div class="s-value">0</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Employee feedback -->
-        <div class="card feedback-card">
-          <div class="fc-head">EMPLOYEE FEEDBACK</div>
-          <div class="feedback-list" id="feedback"></div>
-        </div>
-      </div>
-
-      <!-- Impact Insights placeholder -->
-      <div class="panel" data-panel="impact">
-        <div class="placeholder">The <b>Impact Insights</b> view lives here — not part of this mock.</div>
-      </div>
+    <!-- Blue topbar (SafeLMS) -->
+    <div class="topbar">
+      <div class="t-title">OSHA Reporting</div>
+      <div class="t-sub">ClickSafety OSHA course completion — completion-status overview, per-learner completion report, and report filters. Built on the Vector Reporting Framework.</div>
     </div>
 
-    <!-- ════════════════ REPORTS VIEW (standard reports design embedded for comparison) ════════════════ -->
-    <div class="view" id="view-reports">
-      <div class="topbar">
-        <div class="t-title">Reports</div>
-        <div class="t-sub">The standard SafeLMS Reports design, shown here for side-by-side comparison with OSHA Reports — opened in place, without leaving this screen.</div>
-      </div>
-      <div class="compare-note">
-        <span class="cn-ico">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        </span>
-        <span>You're viewing the <b>standard Reports design</b> embedded here for comparison — you have <b>not</b> left OSHA Reports. Use <b>OSHA Reports</b> in the sidebar to switch back anytime.</span>
-      </div>
-      <!-- Lazy-loaded on first visit (src is set by JS) so the page opens fast. -->
-      <iframe class="reports-frame" id="reportsFrame" title="Standard SafeLMS Reports design" loading="lazy"></iframe>
-    </div>
+    <!-- Report content + right filter panel -->
+    <div class="page-layout">
+      <main class="main-content">
 
-    <!-- ════════════════ OSHA REPORTS VIEW (default) ════════════════ -->
-    <div class="view active" id="view-osha">
-      <div class="topbar">
-        <div class="t-title">OSHA Reports</div>
-        <div class="t-sub">Turn ClickSafety OSHA course data into action — group learners by risk level, spot expiring certifications, and track per-learner progress.</div>
-      </div>
-
-      <div class="view-body">
-        <!-- Course context -->
-        <div class="context-row">
-          <div class="course-select" title="Switch OSHA course">
-            <div class="badge"><i class="fa-solid fa-helmet-safety"></i></div>
-            <div class="cs-lines">
-              <div class="cs-k">OSHA COURSE</div>
-              <div class="cs-v">OSHA 10-Hour General Industry</div>
-            </div>
-            <div class="src">via ClickSafety</div>
-            <span class="caret"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+        <!-- Meta + actions -->
+        <div class="report-meta-row">
+          <div class="data-note">
+            <i class="fa-solid fa-rotate"></i>
+            <span>Data refreshed nightly from ClickSafety · Last updated <b>Jun 22, 2026 at 6:00 AM EDT</b></span>
           </div>
-          <div class="right">
-            <button class="pill-btn"><i class="fa-regular fa-bell"></i> Notify flagged learners</button>
-            <button class="pill-btn primary"><i class="fa-solid fa-file-export"></i> Export</button>
+          <div class="actions-right">
+            <vaadin-button theme="secondary small" id="filterInlineToggle"><i class="fa-solid fa-sliders" slot="prefix"></i> Filters</vaadin-button>
+            <vaadin-button theme="secondary small" id="sendBtn"><i class="fa-regular fa-paper-plane" slot="prefix"></i> Send Report</vaadin-button>
+            <vaadin-button theme="primary small" id="exportBtn"><i class="fa-solid fa-file-export" slot="prefix"></i> Export</vaadin-button>
           </div>
         </div>
 
-        <!-- Action-needed buckets -->
-        <div class="section-title">ACTION NEEDED &nbsp;·&nbsp; 248 LEARNERS ASSIGNED</div>
-        <div class="buckets" id="buckets"><!-- rendered by JS --></div>
-
-        <!-- Learner table — sits directly under the buckets so they work together
-             (click a bucket to filter; select rows to send Intervene/Nudge in bulk) -->
-        <div class="table-card">
-          <div class="table-head">
-            <span class="th-title">Learner Progress</span>
-            <span class="th-count" id="rowCount">14 learners</span>
-            <div class="th-right">
-              <div class="status-filter" id="statusFilter">
-                <button class="sf-btn" id="sfBtn" type="button" aria-haspopup="listbox" aria-expanded="false">
-                  <span class="sf-dot" id="sfDot" style="background:#94A3B8;"></span>
-                  <span class="sf-pre">Status:</span>
-                  <span class="sf-label" id="sfLabel">All</span>
-                  <i class="fa-solid fa-chevron-down sf-caret"></i>
-                </button>
-                <div class="sf-menu" id="sfMenu" role="listbox" aria-label="Filter by status"></div>
+        <!-- ── Completion Status Overview ── -->
+        <div class="report-card" id="completionOverview">
+          <div class="report-card-header">
+            <div class="report-card-title-row">
+              <h2 class="report-card-title">Completion Status Overview</h2>
+              <div class="date-badge"><i class="fa-regular fa-calendar"></i> Past 30 days</div>
+            </div>
+          </div>
+          <div class="chart-area">
+            <!-- Pie -->
+            <div class="chart-col">
+              <div class="chart-section-title">OSHA Completion Distribution</div>
+              <div class="pie-chart-wrap">
+                <div class="pie-chart"></div>
+                <div class="pie-labels">
+                  <span class="pie-label"><span class="pd" style="background:#22c55e"></span> Passed: 25.8%</span>
+                  <span class="pie-label"><span class="pd" style="background:#3b82f6"></span> In Progress: 62.5%</span>
+                  <span class="pie-label"><span class="pd" style="background:#d1d5db"></span> Not Started: 7.3%</span>
+                  <span class="pie-label"><span class="pd" style="background:#dc2626"></span> Failed: 4.4%</span>
+                </div>
               </div>
-              <span class="search"><i class="fa-solid fa-magnifying-glass"></i> Search learners…</span>
+              <div class="pie-legend">
+                <span class="legend-item"><span class="legend-dot passed"></span> Passed</span>
+                <span class="legend-item"><span class="legend-dot inprogress"></span> In Progress</span>
+                <span class="legend-item"><span class="legend-dot notstarted"></span> Not Started</span>
+                <span class="legend-item"><span class="legend-dot failed"></span> Failed</span>
+              </div>
+            </div>
+
+            <!-- Bar -->
+            <div class="chart-col chart-col-bar">
+              <div class="chart-section-title">Top 5 OSHA Courses by Learner Count</div>
+              <div class="bar-chart">
+                <div class="bar-row"><span class="bar-label">OSHA 10-Hour General Industry</span><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><span class="bar-val">120</span></div>
+                <div class="bar-row"><span class="bar-label">OSHA 30-Hour General Industry</span><div class="bar-track"><div class="bar-fill" style="width:75%"></div></div><span class="bar-val">90</span></div>
+                <div class="bar-row"><span class="bar-label">Bloodborne Pathogens</span><div class="bar-track"><div class="bar-fill" style="width:58%"></div></div><span class="bar-val">70</span></div>
+                <div class="bar-row"><span class="bar-label">Hazard Communication</span><div class="bar-track"><div class="bar-fill" style="width:45%"></div></div><span class="bar-val">54</span></div>
+                <div class="bar-row"><span class="bar-label">Fall Protection</span><div class="bar-track"><div class="bar-fill" style="width:33%"></div></div><span class="bar-val">40</span></div>
+                <div class="bar-axis"><span>0</span><span>30</span><span>60</span><span>90</span><span>120</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── OSHA Completion Report ── -->
+        <div class="report-card" id="qualReport">
+          <div class="report-toolbar">
+            <div class="toolbar-left">
+              <span class="report-card-title">OSHA Completion Report</span>
+              <button class="sort-pill active-sort" data-col="course" data-dir="asc">Course <i class="fa-solid fa-arrow-up"></i></button>
+            </div>
+            <div class="toolbar-right">
+              <div class="search-wrap">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input class="search-input" type="text" placeholder="Search learners…" id="qualSearch">
+              </div>
+              <div class="col-picker" id="colPicker">
+                <button class="col-picker-btn" id="qualColPicker" title="Show or hide columns" aria-haspopup="true" aria-expanded="false"><i class="fa-solid fa-table-columns"></i></button>
+                <div class="col-menu" id="colMenu" hidden>
+                  <div class="col-menu-title">Show columns</div>
+                  <label class="col-menu-row"><vaadin-checkbox checked data-col="3"></vaadin-checkbox><span>External ID</span></label>
+                  <label class="col-menu-row"><vaadin-checkbox checked data-col="6"></vaadin-checkbox><span>Time Spent</span></label>
+                  <label class="col-menu-row"><vaadin-checkbox checked data-col="7"></vaadin-checkbox><span>Last Accessed</span></label>
+                  <label class="col-menu-row"><vaadin-checkbox checked data-col="8"></vaadin-checkbox><span>Expiration</span></label>
+                  <label class="col-menu-row"><vaadin-checkbox checked data-col="9"></vaadin-checkbox><span>Failure / Retry</span></label>
+                  <label class="col-menu-row"><vaadin-checkbox checked data-col="10"></vaadin-checkbox><span>Certificate</span></label>
+                </div>
+              </div>
             </div>
           </div>
 
-          <!-- Bulk action bar — appears when one or more learners are selected -->
+          <!-- Bulk action bar — appears when learners are selected -->
           <div class="bulk-bar" id="bulkBar">
             <span class="bulk-count" id="bulkCount">0 selected</span>
+            <span class="bulk-breakdown" id="bulkBreakdown"></span>
             <div class="bulk-actions">
-              <button class="row-action act-intervene" data-bulk="intervene"><i class="fa-solid fa-paper-plane"></i> Send Intervene</button>
-              <button class="row-action act-nudge" data-bulk="nudge"><i class="fa-solid fa-bell"></i> Send Nudge</button>
-              <button class="bulk-clear" id="bulkClear">Clear selection</button>
+              <vaadin-button theme="primary small" id="bulkActionBtn"><i class="fa-solid fa-layer-group" slot="prefix"></i> Take grouped action</vaadin-button>
+              <vaadin-button theme="tertiary small" id="bulkClearBtn">Clear</vaadin-button>
             </div>
           </div>
 
-          <div class="table-wrap">
-            <table class="learners">
+          <div class="report-table-wrap">
+            <table class="report-table" id="qualTable">
               <thead>
                 <tr>
-                  <th class="col-check"><input type="checkbox" id="selectAll" aria-label="Select all actionable learners"></th>
-                  <th>Learner</th>
+                  <th class="col-expand"><vaadin-checkbox id="selectAll" aria-label="Select all visible learners"></vaadin-checkbox></th>
+                  <th class="sortable-th" data-col="learner">Learner <i class="fa-solid fa-arrow-up sort-arrow"></i></th>
+                  <th>External ID</th>
                   <th>Status</th>
                   <th>% Complete</th>
+                  <th>Time Spent</th>
                   <th>Last Accessed</th>
                   <th>Expiration</th>
                   <th>Failure / Retry</th>
-                  <th style="text-align:right;">Action</th>
+                  <th>Certificate</th>
+                  <th style="text-align:right">Action</th>
                 </tr>
               </thead>
-              <tbody id="learnerBody"><!-- rendered by JS --></tbody>
+              <tbody id="qualTbody"><!-- rendered by JS --></tbody>
             </table>
           </div>
         </div>
 
-        <!-- Visualizations (supporting context, below the interactive pair) -->
-        <div class="viz-row">
-          <!-- Risk distribution -->
-          <div class="card">
-            <div class="card-title">Learner Risk Distribution</div>
-            <div class="card-sub">Where every assigned learner sits today</div>
-            <div class="dist-bar" id="distBar"></div>
-            <div class="dist-legend" id="distLegend"></div>
+        <!-- Footer (sits at the bottom of the content column, beside the panel) -->
+        <div class="footer">
+          <div class="links">
+            <a href="#">Terms Of Use</a><span class="sep">·</span>
+            <a href="#">Privacy Policy</a><span class="sep">·</span>
+            <a href="#">Contact</a><span class="sep">·</span>
+            <a href="#">UI Version 4 ⌄</a>
           </div>
-
-          <!-- Expirations -->
-          <div class="card">
-            <div class="card-title">Certifications Expiring</div>
-            <div class="card-sub">Learners whose OSHA completion lapses soon</div>
-            <div class="exp-list">
-              <div class="exp-item">
-                <div class="exp-top"><span class="e-lbl">Within 30 days</span><span class="e-val">12 learners</span></div>
-                <div class="exp-track"><div class="exp-fill" style="width:28%; background:var(--intervene);"></div></div>
-              </div>
-              <div class="exp-item">
-                <div class="exp-top"><span class="e-lbl">31 – 60 days</span><span class="e-val">21 learners</span></div>
-                <div class="exp-track"><div class="exp-fill" style="width:50%; background:var(--nudge);"></div></div>
-              </div>
-              <div class="exp-item">
-                <div class="exp-top"><span class="e-lbl">61 – 90 days</span><span class="e-val">30 learners</span></div>
-                <div class="exp-track"><div class="exp-fill" style="width:71%; background:#CA8A04;"></div></div>
-              </div>
-            </div>
-            <div class="exp-note"><i class="fa-solid fa-triangle-exclamation"></i><span>Learners expiring within 30 days who haven't re-started are auto-added to the <b>Intervene</b> bucket.</span></div>
+          <div class="copy">© 2026 Vector Solutions
+            <svg width="16" height="16" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M4 6 L16 26 L28 6 L22 6 L16 16 L10 6 Z" fill="#155DFC"/></svg>
+            VectorSolutions
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Global footer (shared across views) -->
-    <div class="footer">
-      <div class="links">
-        <a href="#">Terms Of Use</a><span class="sep">·</span>
-        <a href="#">Privacy Policy</a><span class="sep">·</span>
-        <a href="#">Contact</a><span class="sep">·</span>
-        <a href="#">UI Version 4 ⌄</a>
-      </div>
-      <div class="copy">© 2026 Vector Solutions
-        <svg width="16" height="16" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M4 6 L16 26 L28 6 L22 6 L16 16 L10 6 Z" fill="#155DFC"/></svg>
-        VectorSolutions
-      </div>
-    </div>
+      </main><!-- /main-content -->
+
+      <!-- ── FILTER PANEL (V1) ── -->
+      <aside class="filter-panel" id="filterPanel">
+        <div class="filter-panel-header">
+          <h3 class="filter-panel-title">Report Filters</h3>
+          <button class="filter-close-btn" id="closePanelBtn" title="Close filters"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="filter-panel-body">
+          <!-- Date Range -->
+          <div class="filter-section">
+            <label class="filter-label">Date Range</label>
+            <div class="date-range-dd" data-drange="qual">
+              <button type="button" class="drange-trigger">
+                <span class="drange-trigger-label">Past 30 days</span>
+                <i class="fa-solid fa-chevron-down drange-trigger-chev"></i>
+              </button>
+              <div class="drange-menu" hidden>
+                <div class="drange-presets">
+                  <button type="button" class="drange-opt" data-range="today">Today</button>
+                  <button type="button" class="drange-opt" data-range="yesterday">Yesterday</button>
+                  <button type="button" class="drange-opt" data-range="last7">Past 7 days</button>
+                  <button type="button" class="drange-opt active" data-range="last30">Past 30 days</button>
+                  <button type="button" class="drange-opt" data-range="last90">Past 90 days</button>
+                  <button type="button" class="drange-opt" data-range="lastyear">Past year</button>
+                  <button type="button" class="drange-opt drange-opt-custom" data-range="custom">Custom date range</button>
+                </div>
+                <div class="drange-custom" hidden>
+                  <button type="button" class="drange-back"><i class="fa-solid fa-chevron-left"></i> Date range options</button>
+                  <vaadin-date-picker theme="outlined small" class="drange-start" label="Start date" style="width:100%"></vaadin-date-picker>
+                  <vaadin-date-picker theme="outlined small" class="drange-end" label="End date" style="width:100%;margin-top:8px"></vaadin-date-picker>
+                  <div class="drange-custom-actions">
+                    <vaadin-button theme="primary small" class="drange-apply">Apply</vaadin-button>
+                  </div>
+                </div>
+              </div>
+              <input type="hidden" class="date-input" value="Past 30 days">
+            </div>
+          </div>
+
+          <div class="filter-divider"></div>
+
+          <!-- OSHA Courses -->
+          <div class="filter-section">
+            <label class="filter-label">OSHA Courses</label>
+            <button class="filter-select-btn" id="selectCoursesBtn">Select OSHA Courses</button>
+            <div class="filter-chips" id="courseChips"></div>
+          </div>
+
+          <div class="filter-divider"></div>
+
+          <!-- Users -->
+          <div class="filter-section">
+            <label class="filter-label">Users</label>
+            <button class="filter-select-btn" id="selectUsersBtn">Select Users</button>
+            <div class="filter-chips" id="userChips"></div>
+          </div>
+
+          <div class="filter-divider"></div>
+
+          <!-- Completion Status -->
+          <div class="filter-section">
+            <label class="filter-label">Completion Status</label>
+            <div class="filter-checkboxes" id="statusChecks">
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="passed" checked></vaadin-checkbox><span>Passed</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="in-progress" checked></vaadin-checkbox><span>In Progress</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="not-started" checked></vaadin-checkbox><span>Not Started</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="failed" checked></vaadin-checkbox><span>Failed</span></label>
+            </div>
+          </div>
+
+          <div class="filter-divider"></div>
+
+          <!-- Extra options -->
+          <div class="filter-section filter-extra">
+            <label class="filter-check-row"><vaadin-checkbox theme="small" id="chk-expiring"></vaadin-checkbox><span>Only certifications expiring ≤ 30 days</span></label>
+            <label class="filter-check-row"><vaadin-checkbox theme="small" id="chk-failed-limit"></vaadin-checkbox><span>Only learners near the 3-failure limit</span></label>
+          </div>
+        </div>
+
+        <div class="filter-panel-footer">
+          <vaadin-button theme="primary" id="applyFiltersBtn">Apply Filters</vaadin-button>
+        </div>
+      </aside>
+    </div><!-- /page-layout -->
 
   </section>
 </div>
 
-<!-- Action modal (populated by JS) -->
-<div class="modal-overlay" id="modalOverlay">
-  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"></div>
-</div>
+<!-- Select Courses / Users pickers -->
+<vaadin-dialog id="selectCoursesDialog" header-title="Select OSHA Courses"></vaadin-dialog>
+<vaadin-dialog id="selectUsersDialog" header-title="Select Users"></vaadin-dialog>
 
-<!-- Confirmation toast -->
-<div class="toast" id="toast"><i class="fa-solid fa-circle-check"></i><span id="toastMsg"></span></div>
-
-<div class="chat" title="Help & support"><i class="fa-regular fa-comment-dots"></i></div>
+<!-- Per-row action modal (Intervene / Nudge / Schedule Retry / View / Certificate) + toast -->
+<vaadin-dialog id="actionDialog" no-close-on-outside-click></vaadin-dialog>
+<vaadin-notification id="toast" position="bottom-center" duration="3200"></vaadin-notification>
 
 <script>
-  /* ═══════════════ Top-level view switching (sidebar-driven, in-page) ═══════════════ */
-  const VIEWS = {
-    dashboard: { el: 'view-dashboard', title: 'Dashboard' },
-    reports:   { el: 'view-reports',   title: 'Reports' },
-    osha:      { el: 'view-osha',      title: 'OSHA Reports' },
-  };
-  // The reports design is embedded — set its src on first open so the page boots fast.
-  const REPORTS_SRC = '../reports/';
-
-  function switchView(view) {
-    if (!VIEWS[view]) view = 'osha';
-    // Toggle the visible view container.
-    Object.keys(VIEWS).forEach(k =>
-      document.getElementById(VIEWS[k].el).classList.toggle('active', k === view));
-    // Reflect the active state on the matching sidebar nav item.
-    document.querySelectorAll('.nav-item[data-view]').forEach(a =>
-      a.classList.toggle('active', a.dataset.view === view));
-    // Lazy-load the embedded reports design the first time Reports is opened.
-    if (view === 'reports') {
-      const frame = document.getElementById('reportsFrame');
-      if (!frame.getAttribute('src')) frame.setAttribute('src', REPORTS_SRC);
-    }
-    // Keep the URL hash in sync so the view is shareable / survives refresh.
-    if (location.hash.slice(1) !== view) history.replaceState(null, '', '#' + view);
-    window.scrollTo(0, 0);
-  }
-
-  document.querySelectorAll('.nav-item[data-view]').forEach(a => {
-    a.addEventListener('click', e => { e.preventDefault(); switchView(a.dataset.view); });
-  });
-  window.addEventListener('hashchange', () => switchView(location.hash.slice(1)));
-
-  /* ═══════════════ OSHA Reports: action-needed buckets + learner table ═══════════════ */
-  const BUCKETS = [
-    { key: 'intervene', name: 'Intervene', count: 18, icon: 'fa-circle-exclamation', cssVar: 'intervene',
-      desc: "Not started past the assignment threshold, or expiring within 30 days." },
-    { key: 'nudge', name: 'Nudge', count: 34, icon: 'fa-bell', cssVar: 'nudge',
-      desc: "Past the lag threshold or no recent Last Accessed activity." },
-    { key: 'ontrack', name: 'On Track', count: 121, icon: 'fa-circle-check', cssVar: 'ontrack',
-      desc: "Progressing on schedule — no action needed." },
-    { key: 'pass', name: 'Done / Pass', count: 64, icon: 'fa-award', cssVar: 'pass',
-      desc: "Completed and passed the OSHA assessment." },
-    { key: 'fail', name: 'Done / Fail', count: 11, icon: 'fa-circle-xmark', cssVar: 'fail',
-      desc: "Completed but failed — eligible to retry after cooldown." },
+  /* ═══════════════ Data — OSHA completion report, grouped by course ═══════════════ */
+  const GROUPS = [
+    { id:'g1', course:'OSHA 10-Hour General Industry', expanded:true, rows:[
+      { name:'Hale, Marcus',    ext:'mhale454',    status:'not-started', pct:0,   time:'0h',     last:'Never',       exp:'05/02/2026', expSoon:true },
+      { name:'Nair, Priya',     ext:'pnair391',    status:'in-progress', pct:5,   time:'0h 20m', last:'41 days ago', exp:'05/14/2026', expSoon:true },
+      { name:'Carter, Liam',    ext:'lcarter612',  status:'in-progress', pct:64,  time:'3h 05m', last:'2 days ago',  exp:'10/15/2026' },
+      { name:'Lin, Grace',      ext:'glin201',     status:'passed',      pct:100, time:'4h 30m', last:'04/18/2026',  exp:'04/18/2027' },
+      { name:'Sullivan, Brett', ext:'bsull099',    status:'failed',      pct:100, time:'4h 10m', last:'04/29/2026',  exp:'—', failDate:'04/29/2026', attempts:2 },
+    ]},
+    { id:'g2', course:'OSHA 30-Hour General Industry', expanded:true, rows:[
+      { name:'Reyes, Tomás',    ext:'treyes824',   status:'in-progress', pct:15,  time:'1h 10m', last:'24 days ago', exp:'07/30/2026' },
+      { name:'Osei, Janet',     ext:'josei330',    status:'in-progress', pct:38,  time:'2h 40m', last:'16 days ago', exp:'09/02/2026' },
+      { name:'Zhang, Emily',    ext:'ezhang118',   status:'in-progress', pct:48,  time:'3h 20m', last:'Yesterday',   exp:'11/01/2026' },
+      { name:'Mendez, Carlos',  ext:'cmendez507',  status:'passed',      pct:100, time:'6h 15m', last:'03/30/2026',  exp:'03/30/2027' },
+    ]},
+    { id:'g3', course:'Bloodborne Pathogens', expanded:false, rows:[
+      { name:'Brooks, Devon',   ext:'dbrooks662',  status:'not-started', pct:0,   time:'0h',     last:'Never',       exp:'05/20/2026', expSoon:true },
+      { name:'Patel, Noah',     ext:'npatel743',   status:'in-progress', pct:81,  time:'2h 05m', last:'Today',       exp:'10/22/2026' },
+      { name:'Foster, Hannah',  ext:'hfoster915',  status:'failed',      pct:100, time:'1h 50m', last:'05/03/2026',  exp:'—', failDate:'05/03/2026', attempts:1 },
+      { name:'Rahman, Aisha',   ext:'arahman288',  status:'passed',      pct:100, time:'1h 40m', last:'05/06/2026',  exp:'05/06/2027' },
+    ]},
   ];
-  const FOOT = {
-    intervene: 'Take action now', nudge: 'Send a reminder',
-    ontrack: 'Monitoring', pass: 'View certificates', fail: 'Schedule retries'
+  const STATUS_LABEL = { 'passed':'Passed', 'in-progress':'In Progress', 'not-started':'Not Started', 'failed':'Failed', 'overdue':'Overdue' };
+  const PCT_COLOR = { 'passed':'#22c55e', 'in-progress':'#3b82f6', 'not-started':'#d1d5db', 'failed':'#dc2626' };
+
+  /* Status-driven primary row action (the action modals we built earlier, now on
+     the completion-report rows). Every row also gets a "View" learner-detail action. */
+  const ACTIONS = {
+    'not-started': { type:'intervene', theme:'error secondary',   icon:'fa-paper-plane',  label:'Intervene' },
+    'in-progress': { type:'nudge',     theme:'warning secondary', icon:'fa-bell',         label:'Nudge' },
+    'failed':      { type:'retry',     theme:'secondary',         icon:'fa-rotate-right', label:'Schedule retry' },
   };
+  /* The action a bulk-step targets, in the order steps are presented. */
+  const BULK_ORDER = ['intervene','nudge','retry'];
+  const BULK_WORD = { intervene:'intervention', nudge:'nudge', retry:'retry' };
 
-  const LEARNERS = [
-    { name:'Marcus Hale',    mail:'mhale@sampleisd.org',   bucket:'intervene', pct:0,   last:'Never',       exp:'05/02/2026', expFlag:'danger', fail:'—' },
-    { name:'Priya Nair',     mail:'pnair@sampleisd.org',   bucket:'intervene', pct:5,   last:'41 days ago', exp:'05/14/2026', expFlag:'danger', fail:'—' },
-    { name:'Devon Brooks',   mail:'dbrooks@sampleisd.org', bucket:'intervene', pct:0,   last:'Never',       exp:'05/20/2026', expFlag:'danger', fail:'—' },
-    { name:'Sara Whitfield', mail:'swhit@sampleisd.org',   bucket:'nudge',     pct:22,  last:'19 days ago', exp:'08/11/2026', expFlag:'',       fail:'—' },
-    { name:'Tomás Reyes',    mail:'treyes@sampleisd.org',  bucket:'nudge',     pct:15,  last:'24 days ago', exp:'07/30/2026', expFlag:'warn',   fail:'—' },
-    { name:'Janet Osei',     mail:'josei@sampleisd.org',   bucket:'nudge',     pct:38,  last:'16 days ago', exp:'09/02/2026', expFlag:'',       fail:'—' },
-    { name:'Liam Carter',    mail:'lcarter@sampleisd.org', bucket:'ontrack',   pct:64,  last:'2 days ago',  exp:'10/15/2026', expFlag:'',       fail:'—' },
-    { name:'Emily Zhang',    mail:'ezhang@sampleisd.org',  bucket:'ontrack',   pct:48,  last:'Yesterday',   exp:'11/01/2026', expFlag:'',       fail:'—' },
-    { name:'Noah Patel',     mail:'npatel@sampleisd.org',  bucket:'ontrack',   pct:81,  last:'Today',       exp:'10/22/2026', expFlag:'',       fail:'—' },
-    { name:'Grace Lin',      mail:'glin@sampleisd.org',    bucket:'pass',      pct:100, last:'04/18/2026',  exp:'04/18/2027', expFlag:'',       fail:'—' },
-    { name:'Carlos Mendez',  mail:'cmendez@sampleisd.org', bucket:'pass',      pct:100, last:'03/30/2026',  exp:'03/30/2027', expFlag:'',       fail:'—' },
-    { name:'Aisha Rahman',   mail:'arahman@sampleisd.org', bucket:'pass',      pct:100, last:'05/06/2026',  exp:'05/06/2027', expFlag:'',       fail:'—' },
-    { name:'Brett Sullivan', mail:'bsull@sampleisd.org',   bucket:'fail',      pct:100, last:'04/29/2026',  exp:'—',          expFlag:'',       fail:'Failed 04/29 · Retry 05/13' },
-    { name:'Hannah Foster',  mail:'hfoster@sampleisd.org', bucket:'fail',      pct:100, last:'05/03/2026',  exp:'—',          expFlag:'',       fail:'Failed 05/03 · Retry 05/17' },
-  ];
+  const selectedRows = new Set();                  // keys: "groupId::ext"
+  const rowKey = (gid, ext) => gid + '::' + ext;
 
-  const STYLE = {
-    intervene: { c:'#E7000B', bg:'#FEE2E2', label:'Intervene' },
-    nudge:     { c:'#E17100', bg:'#FEF3C7', label:'Nudge' },
-    ontrack:   { c:'#155DFC', bg:'#DBEAFE', label:'On Track' },
-    pass:      { c:'#008236', bg:'#DCFCE7', label:'Passed' },
-    fail:      { c:'#9F0712', bg:'#FFE2E2', label:'Failed' },
-  };
-  const ROW_ACTION = {
-    intervene: { cls:'act-intervene', icon:'fa-paper-plane',  label:'Intervene',      action:'intervene' },
-    nudge:     { cls:'act-nudge',     icon:'fa-bell',         label:'Nudge',          action:'nudge' },
-    ontrack:   { cls:'ghost',         icon:'fa-eye',          label:'View',           action:'view' },
-    pass:      { cls:'ghost',         icon:'fa-award',        label:'Certificate',    action:'cert' },
-    fail:      { cls:'ghost',         icon:'fa-rotate-right', label:'Schedule retry', action:'retry' },
-  };
-  /* Only Intervene / Nudge learners can be bulk-selected. */
-  const SELECTABLE = new Set(['intervene', 'nudge']);
-  const byId = m => LEARNERS.find(l => l.mail === m);
-
-  let activeFilter = null;
-  const selected = new Set();   // learner emails currently checked
-
-  function renderBuckets() {
-    document.getElementById('buckets').innerHTML = BUCKETS.map(b => `
-      <div class="bucket" data-bucket="${b.key}" style="--c:var(--${b.cssVar}); --cbg:var(--${b.cssVar}-bg);">
-        <div class="b-head">
-          <div class="b-ico"><i class="fa-solid ${b.icon}"></i></div>
-          <div class="b-name">${b.name}</div>
-        </div>
-        <div class="b-count">${b.count}</div>
-        <div class="b-desc">${b.desc}</div>
-        <div class="b-foot">${FOOT[b.key]} <i class="fa-solid fa-arrow-right"></i></div>
-      </div>`).join('');
-  }
-
-  function renderDistribution() {
-    const total = BUCKETS.reduce((s,b)=>s+b.count,0);
-    document.getElementById('distBar').innerHTML = BUCKETS.map(b =>
-      `<div class="dist-seg" title="${b.name}: ${b.count}" style="width:${(b.count/total*100).toFixed(1)}%; background:var(--${b.cssVar});"></div>`
-    ).join('');
-    document.getElementById('distLegend').innerHTML = BUCKETS.map(b => `
-      <div class="legend-item">
-        <span class="dot" style="background:var(--${b.cssVar});"></span>
-        <span class="lg-name">${b.name}</span>
-        <span class="lg-val">${b.count}</span>
-        <span class="lg-pct">${Math.round(b.count/total*100)}%</span>
-      </div>`).join('');
-  }
+  const tbody = document.getElementById('qualTbody');
 
   function renderTable() {
-    const rows = LEARNERS.filter(l => !activeFilter || l.bucket === activeFilter);
-    document.getElementById('learnerBody').innerHTML = rows.map(l => {
-      const s = STYLE[l.bucket], a = ROW_ACTION[l.bucket];
-      const initials = l.name.split(' ').map(w=>w[0]).join('').slice(0,2);
-      const expCell  = l.exp === '—'  ? '<span class="muted">—</span>' : `<span class="${l.expFlag}">${l.exp}</span>`;
-      const failCell = l.fail === '—' ? '<span class="muted">—</span>' : `<span class="danger">${l.fail}</span>`;
-      const lastCell = l.last === 'Never' ? '<span class="danger">Never</span>' : l.last;
-      const checkable = SELECTABLE.has(l.bucket);
-      const isSel = selected.has(l.mail);
-      const checkCell = checkable
-        ? `<input type="checkbox" class="row-check" data-id="${l.mail}" ${isSel ? 'checked' : ''} aria-label="Select ${l.name}">`
-        : `<span class="no-select" title="No bulk action for this status">·</span>`;
-      return `
-        <tr class="${isSel ? 'selected' : ''}">
-          <td class="col-check">${checkCell}</td>
-          <td>
-            <div class="learner-cell">
-              <div class="l-avatar" style="background:${s.c};">${initials}</div>
-              <div><div class="l-name">${l.name}</div><div class="l-mail">${l.mail}</div></div>
-            </div>
-          </td>
-          <td><span class="status-pill" style="background:${s.bg}; color:${s.c};"><span class="dot" style="background:${s.c};"></span>${s.label}</span></td>
-          <td>
-            <div class="prog">
-              <div class="prog-track"><div class="prog-fill" style="width:${l.pct}%; background:${s.c};"></div></div>
-              <span class="prog-val">${l.pct}%</span>
-            </div>
-          </td>
-          <td>${lastCell}</td>
-          <td>${expCell}</td>
-          <td>${failCell}</td>
-          <td style="text-align:right;"><button class="row-action ${a.cls}" data-action="${a.action}" data-id="${l.mail}"><i class="fa-solid ${a.icon}"></i> ${a.label}</button></td>
+    tbody.innerHTML = GROUPS.map(g => {
+      const head = `
+        <tr class="group-row" data-group="${g.id}" data-expanded="${g.expanded}">
+          <td class="expand-cell"><i class="fa-solid ${g.expanded ? 'fa-chevron-down' : 'fa-chevron-right'}"></i></td>
+          <td colspan="10" class="group-label">Course: ${g.course} <span class="group-count">· ${g.rows.length} learners</span></td>
         </tr>`;
+      const rows = g.rows.map(r => {
+        const lastCell = r.last === 'Never' ? '<span class="never">Never</span>' : r.last;
+        const expCell = r.exp === '—' ? '—' : `<span class="${r.expSoon ? 'exp-soon' : ''}">${r.exp}</span>`;
+        const a = ACTIONS[r.status];
+        const primary = a
+          ? `<vaadin-button theme="${a.theme} small" class="row-act" data-type="${a.type}" data-group="${g.id}" data-ext="${r.ext}"><i class="fa-solid ${a.icon}" slot="prefix"></i>${a.label}</vaadin-button>`
+          : '';
+        // Certificate is now its own column — a link for passed learners, otherwise blank.
+        const certCell = r.status === 'passed'
+          ? `<button class="cert-link row-act" data-type="cert" data-group="${g.id}" data-ext="${r.ext}"><i class="fa-solid fa-award"></i> View</button>`
+          : '<span class="muted-cell">—</span>';
+        // Failure / Retry: failure date + eligible-to-retry (failure + 14-day cooldown).
+        const frCell = (r.status === 'failed' && r.failDate)
+          ? `<span class="fr-fail">Failed ${r.failDate.slice(0,5)}</span><span class="fr-sub">Retry ${addDays(r.failDate,14).slice(0,5)} · Attempt ${r.attempts||1}/3</span>`
+          : '<span class="muted-cell">—</span>';
+        const sel = selectedRows.has(rowKey(g.id, r.ext));
+        return `
+          <tr class="data-row${sel ? ' row-selected' : ''}" data-group="${g.id}" data-ext="${r.ext}" data-status="${r.status}" ${g.expanded ? '' : 'style="display:none"'}>
+            <td class="sel-cell"><vaadin-checkbox class="row-sel" data-group="${g.id}" data-ext="${r.ext}"${sel ? ' checked' : ''} aria-label="Select ${r.name}"></vaadin-checkbox></td>
+            <td class="l-name">${r.name}</td>
+            <td>${r.ext}</td>
+            <td><span class="status-badge ${r.status}">${STATUS_LABEL[r.status]}</span></td>
+            <td>
+              <span class="pct-cell">
+                <span class="pct-track"><span class="pct-fill" style="width:${r.pct}%; background:${PCT_COLOR[r.status]};"></span></span>
+                <span class="pct-num">${r.pct}%</span>
+              </span>
+            </td>
+            <td>${r.time}</td>
+            <td>${lastCell}</td>
+            <td>${expCell}</td>
+            <td>${frCell}</td>
+            <td>${certCell}</td>
+            <td class="cell-actions">${primary}</td>
+          </tr>`;
+      }).join('');
+      return head + rows;
     }).join('');
-    const n = rows.length;
-    document.getElementById('rowCount').textContent = `${n} learner${n===1?'':'s'}`;
-    syncSelectAll();
+    applyColVisibility();
   }
 
-  /* Apply a status filter from EITHER the bucket cards or the dropdown.
-     key = bucket key, or null for "All". The two controls stay in sync. */
-  function applyFilter(key) {
-    activeFilter = key;
-    // Sync buckets
-    document.querySelectorAll('.bucket').forEach(el =>
-      el.classList.toggle('selected', el.dataset.bucket === activeFilter));
-    // Sync dropdown button + options
-    const b = activeFilter && BUCKETS.find(x => x.key === activeFilter);
-    document.getElementById('sfLabel').textContent = b ? b.name : 'All';
-    document.getElementById('sfDot').style.background = b ? `var(--${b.cssVar})` : '#94A3B8';
-    document.querySelectorAll('.sf-option').forEach(o =>
-      o.classList.toggle('selected', (o.dataset.key || null) === activeFilter));
-    clearSelection();   // selection resets when the visible set changes
-    renderTable();
+  /* Show/hide columns — toggles data cells/headers and keeps the group-row
+     label colspan in sync so the grouped rows stay aligned. */
+  const colPicker = document.getElementById('colPicker');
+  const colMenu = document.getElementById('colMenu');
+  const qualTable = document.getElementById('qualTable');
+  // Track hidden columns explicitly — all columns show by default. (Reading the
+  // checkbox .checked at load is unreliable: the Vaadin components haven't
+  // upgraded yet when the first render runs, which would hide every column.)
+  const hiddenCols = new Set();
+  function applyColVisibility() {
+    let visibleDataCols = 10; // data columns after the select column (2…11)
+    colMenu.querySelectorAll('vaadin-checkbox[data-col]').forEach(cb => {
+      const idx = cb.dataset.col;
+      const hide = hiddenCols.has(idx);
+      qualTable.classList.toggle('hide-c' + idx, hide);
+      if (hide) visibleDataCols--;
+    });
+    qualTable.querySelectorAll('.group-label').forEach(td => { td.colSpan = visibleDataCols; });
   }
-  /* Bucket cards toggle (click the active one again to clear). */
-  function setFilter(key) { applyFilter(activeFilter === key ? null : key); }
-
-  /* Build the status dropdown options. */
-  function renderStatusMenu() {
-    const total = BUCKETS.reduce((s,b)=>s+b.count,0);
-    const opt = (key, name, dot, count) => `
-      <div class="sf-option" role="option" data-key="${key||''}">
-        <span class="sf-o-dot" style="background:${dot};"></span>
-        <span class="sf-o-name">${name}</span>
-        <span class="sf-o-count">${count}</span>
-        <span class="sf-o-check"><i class="fa-solid fa-check"></i></span>
-      </div>`;
-    document.getElementById('sfMenu').innerHTML =
-      opt('', 'All statuses', '#94A3B8', total) +
-      `<div class="sf-divider"></div>` +
-      BUCKETS.map(b => opt(b.key, b.name, `var(--${b.cssVar})`, b.count)).join('');
-  }
-
-  /* ── Selection + bulk action bar ── */
-  function selectableVisible() {
-    return LEARNERS.filter(l => (!activeFilter || l.bucket === activeFilter) && SELECTABLE.has(l.bucket));
-  }
-  function updateBulkBar() {
-    const bar = document.getElementById('bulkBar');
-    const n = selected.size;
-    bar.classList.toggle('show', n > 0);
-    if (n > 0) document.getElementById('bulkCount').textContent =
-      `${n} learner${n===1?'':'s'} selected`;
-  }
-  function syncSelectAll() {
-    const vis = selectableVisible();
-    const all = document.getElementById('selectAll');
-    const checkedVis = vis.filter(l => selected.has(l.mail)).length;
-    all.checked = vis.length > 0 && checkedVis === vis.length;
-    all.indeterminate = checkedVis > 0 && checkedVis < vis.length;
-    all.disabled = vis.length === 0;
-  }
-  function clearSelection() {
-    selected.clear();
-    updateBulkBar();
-  }
-
-  renderBuckets();
-  renderDistribution();
-  renderStatusMenu();
-  renderTable();
-  updateBulkBar();
-
-  document.getElementById('buckets').addEventListener('click', e => {
-    const card = e.target.closest('.bucket');
-    if (card) setFilter(card.dataset.bucket);
-  });
-
-  /* Status dropdown: open/close + pick an option */
-  const statusFilter = document.getElementById('statusFilter');
-  document.getElementById('sfBtn').addEventListener('click', e => {
+  document.getElementById('qualColPicker').addEventListener('click', e => {
     e.stopPropagation();
-    const open = statusFilter.classList.toggle('open');
-    document.getElementById('sfBtn').setAttribute('aria-expanded', open);
+    const willOpen = colMenu.hidden;
+    colMenu.hidden = !willOpen;
+    e.currentTarget.setAttribute('aria-expanded', String(willOpen));
   });
-  document.getElementById('sfMenu').addEventListener('click', e => {
-    const o = e.target.closest('.sf-option');
-    if (!o) return;
-    applyFilter(o.dataset.key || null);
-    statusFilter.classList.remove('open');
-  });
-  document.addEventListener('click', e => {
-    if (!statusFilter.contains(e.target)) statusFilter.classList.remove('open');
-  });
+  colMenu.querySelectorAll('vaadin-checkbox[data-col]').forEach(cb => cb.addEventListener('change', () => {
+    cb.checked ? hiddenCols.delete(cb.dataset.col) : hiddenCols.add(cb.dataset.col);
+    applyColVisibility();
+  }));
+  document.addEventListener('click', e => { if (!colPicker.contains(e.target)) colMenu.hidden = true; });
 
-  /* Row checkbox toggles */
-  document.getElementById('learnerBody').addEventListener('change', e => {
-    const cb = e.target.closest('.row-check');
-    if (!cb) return;
-    if (cb.checked) selected.add(cb.dataset.id); else selected.delete(cb.dataset.id);
-    cb.closest('tr').classList.toggle('selected', cb.checked);
-    updateBulkBar();
-    syncSelectAll();
-  });
+  renderTable();
 
-  /* Select-all (selectable + visible rows) */
-  document.getElementById('selectAll').addEventListener('change', e => {
-    const on = e.target.checked;
-    selectableVisible().forEach(l => on ? selected.add(l.mail) : selected.delete(l.mail));
-    updateBulkBar();
-    renderTable();
-  });
-
-  document.getElementById('bulkClear').addEventListener('click', () => { clearSelection(); renderTable(); });
-
-  /* Bulk action buttons → open the matching modal for all selected learners */
-  document.querySelectorAll('.bulk-actions [data-bulk]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const learners = [...selected].map(byId).filter(Boolean);
-      if (learners.length) openModal(btn.dataset.bulk, learners);
+  /* ═══════════════ Accordion — expand/collapse group rows (ported from V1) ═══════════════ */
+  tbody.addEventListener('click', e => {
+    const row = e.target.closest('.group-row');
+    if (!row) return;
+    const groupId = row.dataset.group;
+    const expanded = row.dataset.expanded === 'true';
+    const icon = row.querySelector('.expand-cell i');
+    const grp = GROUPS.find(x => x.id === groupId);
+    if (grp) grp.expanded = !expanded;   // keep model in sync so re-renders preserve it
+    row.dataset.expanded = String(!expanded);
+    if (icon) icon.className = expanded ? 'fa-solid fa-chevron-right' : 'fa-solid fa-chevron-down';
+    tbody.querySelectorAll(`.data-row[data-group="${groupId}"]`).forEach(r => {
+      // respect the status filter when re-showing
+      r.style.display = (!expanded && statusVisible(r.dataset.status)) ? '' : 'none';
     });
   });
 
-  /* Row action buttons → open the matching modal for that one learner */
-  document.getElementById('learnerBody').addEventListener('click', e => {
-    const btn = e.target.closest('.row-action[data-action]');
-    if (!btn) return;
-    const l = byId(btn.dataset.id);
-    if (l) openModal(btn.dataset.action, [l]);
+  /* ═══════════════ Sort pills (ported from V1) ═══════════════ */
+  function sortGroups(dir) {
+    const mult = dir === 'asc' ? 1 : -1;
+    GROUPS.sort((a, b) => mult * a.course.localeCompare(b.course));
+    renderTable();
+    applyStatusFilter();
+    syncSearch();
+  }
+  document.querySelectorAll('.sort-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      const wasActive = pill.classList.contains('active-sort');
+      const dir = wasActive ? (pill.dataset.dir === 'asc' ? 'desc' : 'asc') : 'asc';
+      pill.classList.add('active-sort');
+      pill.dataset.dir = dir;
+      const icon = pill.querySelector('i');
+      if (icon) icon.className = dir === 'asc' ? 'fa-solid fa-arrow-up' : 'fa-solid fa-arrow-down';
+      sortGroups(dir);
+    });
   });
 
-  /* ════════════ Action modals ════════════ */
-  const overlay = document.getElementById('modalOverlay');
-  const modal = document.getElementById('modal');
-  const COURSE = 'OSHA 10-Hour General Industry';
-
-  function avatarHTML(l, size) {
-    const s = STYLE[l.bucket];
-    const initials = l.name.split(' ').map(w=>w[0]).join('').slice(0,2);
-    return `<div class="r-avatar" style="background:${s.c}; width:${size}px; height:${size}px;">${initials}</div>`;
+  /* ═══════════════ Completion-status filter (functional, drives the table) ═══════════════ */
+  const enabledStatuses = new Set(['passed','in-progress','not-started','failed']);
+  function statusVisible(s) { return enabledStatuses.has(s); }
+  function applyStatusFilter() {
+    GROUPS.forEach(g => {
+      const groupRow = tbody.querySelector(`.group-row[data-group="${g.id}"]`);
+      const expanded = groupRow?.dataset.expanded === 'true';
+      let anyVisible = false;
+      tbody.querySelectorAll(`.data-row[data-group="${g.id}"]`).forEach(r => {
+        const ok = statusVisible(r.dataset.status);
+        if (ok) anyVisible = true;
+        r.style.display = (expanded && ok) ? '' : 'none';
+      });
+      if (groupRow) groupRow.style.display = anyVisible ? '' : 'none';
+    });
+    if (typeof updateBulkBar === 'function') updateBulkBar();
   }
-  function recipientList(learners, label) {
-    return `
-      <div class="recip-label">${label} (${learners.length})</div>
-      <div class="recip-list">
-        ${learners.map(l => `
-          <div class="recip">
-            ${avatarHTML(l, 28)}
-            <div><div class="r-name">${l.name}</div><div class="r-mail">${l.mail}</div></div>
-            <span class="r-meta">${STYLE[l.bucket].label}${l.last==='Never'?' · never started':''}</span>
-          </div>`).join('')}
-      </div>`;
+  document.querySelectorAll('#statusChecks vaadin-checkbox').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const s = cb.dataset.status;
+      cb.checked ? enabledStatuses.add(s) : enabledStatuses.delete(s);
+      applyStatusFilter();
+    });
+  });
+
+  /* ═══════════════ Search — client-side row filter (ported from V1) ═══════════════ */
+  const searchInput = document.getElementById('qualSearch');
+  function syncSearch() {
+    const q = searchInput.value.trim().toLowerCase();
+    tbody.querySelectorAll('.group-row').forEach(groupRow => {
+      const groupId = groupRow.dataset.group;
+      const expanded = groupRow.dataset.expanded === 'true';
+      let anyMatch = false;
+      tbody.querySelectorAll(`.data-row[data-group="${groupId}"]`).forEach(row => {
+        const text = row.textContent.toLowerCase();
+        const match = (!q || text.includes(q)) && statusVisible(row.dataset.status);
+        if (expanded) row.style.display = match ? '' : 'none';
+        if (match) anyMatch = true;
+      });
+      if (groupRow.textContent.toLowerCase().includes(q)) anyMatch = true;
+      groupRow.style.display = (!q || anyMatch) ? '' : 'none';
+    });
+    if (typeof updateBulkBar === 'function') updateBulkBar();
+  }
+  searchInput.addEventListener('input', syncSearch);
+
+  /* ═══════════════ Row actions → action modals (Intervene / Nudge / Retry / View / Certificate) ═══════════════ */
+  tbody.addEventListener('click', e => {
+    const btn = e.target.closest('.row-act');
+    if (!btn) return;
+    const g = GROUPS.find(x => x.id === btn.dataset.group);
+    const r = g && g.rows.find(x => x.ext === btn.dataset.ext);
+    if (r) openModal(btn.dataset.type, r, g.course);
+  });
+
+  const dialog = document.getElementById('actionDialog');
+  const toast = document.getElementById('toast');
+  const MODAL_STYLE = {
+    intervene: { bg:'#fee2e2', col:'#dc2626', icon:'fa-circle-exclamation' },
+    nudge:     { bg:'#fef3c7', col:'#d97706', icon:'fa-bell' },
+    retry:     { bg:'#fee2e2', col:'#b91c1c', icon:'fa-rotate-right' },
+    cert:      { bg:'#dcfce7', col:'#15803d', icon:'fa-award' },
+  };
+  const displayName = n => { const p = n.split(', '); return p.length === 2 ? `${p[1]} ${p[0]}` : n; };
+  const initials = n => n.replace(/[^A-Za-z, ]/g,'').split(/[,\s]+/).filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  const emailOf = r => `${r.ext}@sampleisd.org`;
+  function addDays(mmddyyyy, n) {
+    const [m,d,y] = mmddyyyy.split('/').map(Number);
+    const dt = new Date(y, m-1, d); dt.setDate(dt.getDate()+n);
+    return `${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}/${dt.getFullYear()}`;
+  }
+  function recipBlock(r) {
+    return `<div class="recip">
+      <div class="r-avatar" style="background:${PCT_COLOR[r.status] || '#155DFC'}">${initials(r.name)}</div>
+      <div><div class="r-name">${displayName(r.name)}</div><div class="r-mail">${emailOf(r)}</div></div>
+      <span class="r-meta">${STATUS_LABEL[r.status]}</span>
+    </div>`;
   }
 
-  function modalTemplate(type, learners) {
-    const n = learners.length;
-    const who = n === 1 ? `<b>${learners[0].name}</b>` : `<b>${n} learners</b>`;
-
+  function modalTemplate(type, r, course) {
+    const name = displayName(r.name);
     if (type === 'intervene') return {
-      icoBg:'#FEE2E2', icoColor:'#E7000B', icon:'fa-circle-exclamation',
-      title:'Send Intervention', sub:'Escalate learners who are overdue or expiring soon',
-      body: `
-        <p>This sends a high-priority escalation about ${who} on <b>${COURSE}</b> who haven't started in time or whose certification is about to lapse.</p>
-        ${recipientList(learners, 'Recipients')}
-        <label class="opt"><input type="checkbox" checked><span class="o-text"><b>Email the learner</b><div class="o-hint">High-priority template with the course deadline</div></span></label>
-        <label class="opt"><input type="checkbox" checked><span class="o-text"><b>Copy their supervisor</b><div class="o-hint">Loops in the learner's manager for follow-up</div></span></label>
-        <label class="opt"><input type="checkbox"><span class="o-text"><b>Set a hard deadline</b> <span class="date-pill-input"><i class="fa-regular fa-calendar"></i> 06/30/2026</span></span></label>
+      title:'Send Intervention', sub:'Escalate a learner who hasn’t started in time',
+      body:`<p>Send a high-priority escalation to <b>${name}</b>, who hasn’t started <b>${course}</b>${r.expSoon ? ' and whose certification expires soon' : ''}.</p>
+        ${recipBlock(r)}
+        <div class="opt"><vaadin-checkbox checked></vaadin-checkbox><span class="o-text"><b>Email the learner</b><div class="o-hint">High-priority template with the course deadline</div></span></div>
+        <div class="opt"><vaadin-checkbox checked></vaadin-checkbox><span class="o-text"><b>Copy their supervisor</b><div class="o-hint">Loops in the learner’s manager for follow-up</div></span></div>
+        <div class="field-label">DEADLINE</div>
+        <vaadin-date-picker theme="outlined" value="2026-06-30" style="width:200px"></vaadin-date-picker>
         <div class="field-label">MESSAGE</div>
-        <textarea class="msg-box">Our records show you haven't completed ${COURSE}, which is required and approaching its deadline. Please log in and finish this course as soon as possible. Reach out to your supervisor with any questions.</textarea>`,
-      confirm:{ cls:'danger', icon:'fa-paper-plane', label:`Send Intervention${n>1?` (${n})`:''}` },
-      toast:`Intervention sent to ${n} learner${n>1?'s':''}`
+        <vaadin-text-area theme="outlined" style="width:100%" value="Our records show you haven’t started ${course}, which is required and approaching its deadline. Please log in and begin this course as soon as possible."></vaadin-text-area>`,
+      confirm:{ theme:'error primary', icon:'fa-paper-plane', label:'Send Intervention' },
+      toast:`Intervention sent to ${name}`
     };
-
     if (type === 'nudge') return {
-      icoBg:'#FEF3C7', icoColor:'#E17100', icon:'fa-bell',
       title:'Send Nudge', sub:'A friendly reminder to re-engage',
-      body: `
-        <p>Send a light-touch reminder to ${who} with low recent activity on <b>${COURSE}</b>.</p>
-        ${recipientList(learners, 'Recipients')}
-        <label class="opt"><input type="checkbox" checked><span class="o-text"><b>Email the learner</b><div class="o-hint">Encouraging reminder with a resume-course link</div></span></label>
-        <label class="opt"><input type="checkbox"><span class="o-text"><b>Send an in-app notification</b><div class="o-hint">Shows on their next LMS login</div></span></label>
+      body:`<p>Send a light-touch reminder to <b>${name}</b>, who is ${r.pct}% through <b>${course}</b>.</p>
+        ${recipBlock(r)}
+        <div class="opt"><vaadin-checkbox checked></vaadin-checkbox><span class="o-text"><b>Email the learner</b><div class="o-hint">Encouraging reminder with a resume-course link</div></span></div>
+        <div class="opt"><vaadin-checkbox></vaadin-checkbox><span class="o-text"><b>Send an in-app notification</b><div class="o-hint">Shows on their next LMS login</div></span></div>
         <div class="field-label">MESSAGE</div>
-        <textarea class="msg-box">Just a friendly reminder to pick back up where you left off in ${COURSE}. You're closer than you think — log in when you have a few minutes to keep making progress!</textarea>`,
-      confirm:{ cls:'amber', icon:'fa-bell', label:`Send Nudge${n>1?` (${n})`:''}` },
-      toast:`Nudge sent to ${n} learner${n>1?'s':''}`
+        <vaadin-text-area theme="outlined" style="width:100%" value="Just a friendly reminder to pick back up where you left off in ${course}. You’re closer than you think — log in when you have a few minutes to keep making progress!"></vaadin-text-area>`,
+      confirm:{ theme:'warning primary', icon:'fa-bell', label:'Send Nudge' },
+      toast:`Nudge sent to ${name}`
     };
-
     if (type === 'retry') {
-      const l = learners[0];
-      const parts = (l.fail || '').match(/Failed (\S+) · Retry (\S+)/) || [];
-      const failedOn = parts[1] || '—', retryOn = parts[2] || '—';
+      const failedOn = r.failDate || r.last, retryOn = addDays(r.failDate || r.last, 14), attempts = r.attempts || 1;
       return {
-        icoBg:'#FFE2E2', icoColor:'#9F0712', icon:'fa-rotate-right',
         title:'Schedule Retry', sub:'Re-assign the assessment after the cooldown',
-        body: `
-          ${recipientList([l], 'Learner')}
+        body:`${recipBlock(r)}
           <div class="info-grid">
             <div class="info-cell accent"><div class="ic-k">Failed on</div><div class="ic-v">${failedOn}</div></div>
             <div class="info-cell"><div class="ic-k">Cooldown</div><div class="ic-v">14 days</div></div>
             <div class="info-cell"><div class="ic-k">Eligible to retry</div><div class="ic-v">${retryOn}</div></div>
           </div>
+          <p style="margin:0 0 6px"><i class="fa-solid fa-circle-info" style="color:#b91c1c"></i> Attempt <b>${attempts} of 3</b> used. A 14-day cooldown prevents immediate re-takes.</p>
           <div class="field-label">NEW DUE DATE</div>
-          <span class="date-pill-input"><i class="fa-regular fa-calendar"></i> 06/15/2026</span>
-          <label class="opt" style="margin-top:14px;"><input type="checkbox" checked><span class="o-text"><b>Notify the learner when eligible</b><div class="o-hint">Emails them on ${retryOn} with a link to retake</div></span></label>`,
-        confirm:{ cls:'primary', icon:'fa-rotate-right', label:'Schedule Retry' },
-        toast:`Retry scheduled for ${l.name}`
+          <vaadin-date-picker theme="outlined" value="2026-06-15" style="width:200px"></vaadin-date-picker>
+          <div class="opt" style="margin-top:14px"><vaadin-checkbox checked></vaadin-checkbox><span class="o-text"><b>Notify the learner when eligible</b><div class="o-hint">Emails them on ${retryOn} with a link to retake</div></span></div>`,
+        confirm:{ theme:'primary', icon:'fa-rotate-right', label:'Schedule Retry' },
+        toast:`Retry scheduled for ${name}`
       };
     }
-
-    if (type === 'view') {
-      const l = learners[0];
-      return {
-        icoBg:'#DBEAFE', icoColor:'#155DFC', icon:'fa-user',
-        title:l.name, sub:`On Track · ${COURSE}`,
-        body: `
-          <div class="detail-grid">
-            <div class="detail-cell"><div class="d-k">Progress</div><div class="d-v">${l.pct}%</div>
-              <div class="detail-bar"><div style="width:${l.pct}%;"></div></div></div>
-            <div class="detail-cell"><div class="d-k">Last accessed</div><div class="d-v">${l.last}</div></div>
-            <div class="detail-cell"><div class="d-k">Time spent</div><div class="d-v">3h 42m</div></div>
-            <div class="detail-cell"><div class="d-k">Expiration</div><div class="d-v">${l.exp}</div></div>
+    if (type === 'cert') return {
+      title:'Certificate of Completion', sub:course,
+      body:`<div class="cert">
+          <div class="c-seal"><i class="fa-solid fa-award"></i></div>
+          <div class="c-kicker">CERTIFICATE OF COMPLETION</div>
+          <div class="c-name">${name}</div>
+          <div class="c-for">has successfully completed</div>
+          <div class="c-course">${course}</div>
+          <div class="c-meta">
+            <div>Completed<b>${r.last}</b></div>
+            <div>Score<b>92%</b></div>
+            <div>Certificate ID<b>OSHA-${r.ext.toUpperCase()}</b></div>
           </div>
-          <p style="margin-top:16px;"><i class="fa-solid fa-circle-check" style="color:#008236;"></i> Projected to finish <b>on time</b> based on current pace — no action needed.</p>`,
-        confirm:null, toast:null, closeLabel:'Close'
-      };
-    }
-
-    if (type === 'cert') {
-      const l = learners[0];
-      return {
-        icoBg:'#DCFCE7', icoColor:'#008236', icon:'fa-award',
-        title:'Certificate of Completion', sub:COURSE,
-        body: `
-          <div class="cert">
-            <div class="c-seal"><i class="fa-solid fa-award"></i></div>
-            <div class="c-kicker">CERTIFICATE OF COMPLETION</div>
-            <div class="c-name">${l.name}</div>
-            <div class="c-for">has successfully completed</div>
-            <div class="c-course">${COURSE}</div>
-            <div class="c-meta">
-              <div>Completed<b>${l.last}</b></div>
-              <div>Score<b>92%</b></div>
-              <div>Certificate ID<b>OSHA-10-${l.mail.split('@')[0].toUpperCase()}</b></div>
-            </div>
-          </div>`,
-        confirm:{ cls:'primary', icon:'fa-download', label:'Download PDF' },
-        toast:`Certificate downloaded for ${l.name}`, closeLabel:'Close'
-      };
-    }
+        </div>`,
+      confirm:{ theme:'primary', icon:'fa-download', label:'Download PDF' },
+      toast:`Certificate downloaded for ${name}`, closeLabel:'Close'
+    };
   }
 
-  function openModal(type, learners) {
-    const t = modalTemplate(type, learners);
+  function openModal(type, r, course) {
+    const t = modalTemplate(type, r, course);
     if (!t) return;
-    modal.innerHTML = `
-      <div class="modal-head">
-        <div class="m-ico" style="background:${t.icoBg}; color:${t.icoColor};"><i class="fa-solid ${t.icon}"></i></div>
-        <div class="m-titles">
-          <div class="m-title" id="modalTitle">${t.title}</div>
-          <div class="m-sub">${t.sub}</div>
-        </div>
-        <button class="m-close" data-close aria-label="Close">✕</button>
-      </div>
-      <div class="modal-body">${t.body}</div>
-      <div class="modal-foot">
-        <button class="m-btn secondary" data-close>${t.confirm ? 'Cancel' : (t.closeLabel || 'Close')}</button>
-        ${t.confirm ? `<button class="m-btn ${t.confirm.cls}" data-confirm><i class="fa-solid ${t.confirm.icon}"></i> ${t.confirm.label}</button>` : ''}
+    const s = MODAL_STYLE[type];
+    dialog.headerRenderer = (root) => {
+      root.innerHTML = `<div class="dlg-head" style="width:min(540px,92vw)">
+        <div class="m-ico" style="background:${s.bg}; color:${s.col}"><i class="fa-solid ${s.icon}"></i></div>
+        <div><div class="m-title">${t.title}</div><div class="m-sub">${t.sub}</div></div>
+        <vaadin-button theme="icon tertiary" aria-label="Close" id="dlgClose" style="margin-left:auto"><i class="fa-solid fa-xmark"></i></vaadin-button>
       </div>`;
-    overlay.classList.add('show');
-
-    const confirmBtn = modal.querySelector('[data-confirm]');
-    if (confirmBtn) confirmBtn.addEventListener('click', () => {
-      closeModal();
-      if (t.toast) showToast(t.toast);
-      // Sending an Intervene/Nudge clears the worked-through selection.
-      if (type === 'intervene' || type === 'nudge') { clearSelection(); renderTable(); }
-    });
+      root.querySelector('#dlgClose').addEventListener('click', closeModal);
+    };
+    dialog.renderer = (root) => { root.innerHTML = `<div class="dlg-body">${t.body}</div>`; };
+    dialog.footerRenderer = (root) => {
+      root.innerHTML = '';
+      const cancel = document.createElement('vaadin-button');
+      cancel.setAttribute('theme','tertiary');
+      cancel.textContent = t.confirm ? 'Cancel' : (t.closeLabel || 'Close');
+      cancel.addEventListener('click', closeModal);
+      root.appendChild(cancel);
+      if (t.confirm) {
+        const ok = document.createElement('vaadin-button');
+        ok.setAttribute('theme', t.confirm.theme);
+        ok.innerHTML = `<i class="fa-solid ${t.confirm.icon}" slot="prefix"></i>${t.confirm.label}`;
+        ok.addEventListener('click', () => { closeModal(); if (t.toast) showToast(t.toast); });
+        root.appendChild(ok);
+      }
+    };
+    dialog.opened = true;
   }
-  function closeModal() { overlay.classList.remove('show'); modal.innerHTML = ''; }
-  overlay.addEventListener('click', e => {
-    if (e.target === overlay || e.target.closest('[data-close]')) closeModal();
-  });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-
-  /* ── Toast ── */
-  let toastTimer;
+  function closeModal() { dialog.opened = false; }
   function showToast(msg) {
-    const toast = document.getElementById('toast');
-    document.getElementById('toastMsg').textContent = msg;
-    toast.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove('show'), 3200);
+    toast.renderer = (root) => {
+      root.innerHTML = `<span style="display:inline-flex; align-items:center; gap:10px; font-weight:600">
+        <i class="fa-solid fa-circle-check" style="color:#4ADE80"></i>${msg}</span>`;
+    };
+    toast.opened = true;
   }
 
-  /* ═══════════════ Dashboard view: completions chart + feedback + inner tabs ═══════════════ */
-  function renderChart() {
-    const data = [1,0,0,1,1,0,0,2,1,0,0,12,0,0,0,3,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0];
-    const todayIdx = 25;
-    const todayVal = 12;
-    const W = 1000, H = 340;
-    const padL = 46, padR = 90, padT = 18, padB = 28;
-    const plotW = W - padL - padR, plotH = H - padT - padB;
-    const maxY = 12;
-    const x = i => padL + (i/(data.length-1)) * plotW;
-    const y = v => padT + plotH - (v/maxY) * plotH;
+  /* ═══════════════ Selection + grouped, stepped bulk flow ═══════════════ */
+  const selectAll = document.getElementById('selectAll');
+  const bulkBar = document.getElementById('bulkBar');
+  const bulkCount = document.getElementById('bulkCount');
+  const bulkBreakdown = document.getElementById('bulkBreakdown');
 
-    const pts = data.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`);
-    const line = `M ${pts.join(' L ')}`;
-    const area = `M ${x(0)},${y(0)} L ${pts.join(' L ')} L ${x(data.length-1)},${y(0)} Z`;
-
-    const gridVals = [0,3,6,9,12];
-    const grid = gridVals.map(g =>
-      `<line x1="${padL}" y1="${y(g)}" x2="${padL+plotW}" y2="${y(g)}" stroke="#EEF1F5" stroke-width="1"/>
-       <text class="axis-label" x="${padL-12}" y="${y(g)+4}" text-anchor="end">${g}</text>`
-    ).join('');
-
-    const dots = data.map((v,i)=>
-      `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="4" fill="#fff" stroke="#3B82F6" stroke-width="2"/>`
-    ).join('');
-
-    const tx = x(todayIdx);
-    const todayMarker = `
-      <line x1="${tx.toFixed(1)}" y1="${y(0)}" x2="${tx.toFixed(1)}" y2="${y(todayVal)}" stroke="#3B82F6" stroke-width="2"/>
-      <text class="today-label" x="${(tx+12).toFixed(1)}" y="${y(8)}">TODAY</text>`;
-
-    document.getElementById('chart').innerHTML = `
-      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Completions over time">
-        <defs>
-          <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.28"/>
-            <stop offset="100%" stop-color="#3B82F6" stop-opacity="0"/>
-          </linearGradient>
-        </defs>
-        ${grid}
-        <path d="${area}" fill="url(#areaFill)"/>
-        <path d="${line}" fill="none" stroke="#3B82F6" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-        ${todayMarker}
-        ${dots}
-      </svg>`;
+  function getRow(key) {
+    const [gid, ext] = key.split('::');
+    const g = GROUPS.find(x => x.id === gid);
+    const r = g && g.rows.find(x => x.ext === ext);
+    return r ? { r, g } : null;
+  }
+  function visibleDataRows() {
+    return Array.from(tbody.querySelectorAll('.data-row')).filter(tr => tr.style.display !== 'none');
+  }
+  function updateBulkBar() {
+    const n = selectedRows.size;
+    bulkBar.classList.toggle('show', n > 0);
+    if (n > 0) {
+      bulkCount.textContent = `${n} learner${n > 1 ? 's' : ''} selected`;
+      const resolved = [...selectedRows].map(getRow).filter(Boolean);
+      const counts = {};
+      resolved.forEach(({ r }) => { const t = ACTIONS[r.status] && ACTIONS[r.status].type; if (t) counts[t] = (counts[t] || 0) + 1; });
+      const parts = BULK_ORDER.filter(t => counts[t]).map(t => `${counts[t]} to ${t}`);
+      const passed = resolved.filter(({ r }) => r.status === 'passed').length;
+      if (passed) parts.push(`${passed} already passed`);
+      bulkBreakdown.textContent = parts.join('  ·  ');
+    }
+    const vis = visibleDataRows();
+    const selVis = vis.filter(tr => selectedRows.has(rowKey(tr.dataset.group, tr.dataset.ext))).length;
+    if (selectAll) {
+      selectAll.checked = vis.length > 0 && selVis === vis.length;
+      selectAll.indeterminate = selVis > 0 && selVis < vis.length;
+    }
   }
 
-  const FEEDBACK = [
-    { who:'Automation2024-08-24 03:29:12 User2024-08-24 03:29:12', course:'AUTOMATION EDIT POSITION - DO NOT DELETE', sub:'Automation_Feedback_2024-08-24 03:29:12', time:'2 years ago' },
-    { who:'Drew Smith', course:'AUTOMATION EDIT POSITION - DO NOT DELETE', sub:'Automation_Feedback_2024-08-24 03:29:12', time:'2 years ago' },
-    { who:'Automation2024-08-22 13:53:22 User2024-08-22 13:53:22', course:'AUTOMATION EDIT POSITION - DO NOT DELETE', sub:'Automation_Feedback_2024-08-22 13:53:22', time:'2 years ago' },
-    { who:'Maria Gonzalez', course:'BLOODBORNE PATHOGENS', sub:'Great refresher — the scenarios were very clear.', time:'2 years ago' },
-    { who:'James Whitaker', course:'SLIPS, TRIPS & FALLS', sub:'Helpful examples for our building staff.', time:'2 years ago' },
-  ];
-  function renderFeedback() {
-    document.getElementById('feedback').innerHTML = FEEDBACK.map(f => {
-      const initials = f.who.replace(/[^A-Za-z0-9 ]/g,' ').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
-      return `
-        <div class="feedback-item">
-          <div class="fi-avatar">${initials}</div>
-          <div class="fi-body">
-            <div class="fi-line"><b>${f.who}</b> says this about <span class="course">${f.course}</span></div>
-            <div class="fi-sub">${f.sub}</div>
-          </div>
-          <div class="fi-time">${f.time}</div>
-        </div>`;
-    }).join('');
-  }
-
-  renderChart();
-  renderFeedback();
-
-  /* Dashboard inner tabs — scoped to the Dashboard view so they don't touch
-     the OSHA content (which no longer uses the .panel system). */
-  const dashView = document.getElementById('view-dashboard');
-  dashView.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      dashView.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      dashView.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-      tab.classList.add('active');
-      dashView.querySelector(`.panel[data-panel="${tab.dataset.tab}"]`).classList.add('active');
+  /* Row checkbox (delegated) + select-all */
+  tbody.addEventListener('change', e => {
+    const cb = e.target.closest('.row-sel');
+    if (!cb) return;
+    const tr = cb.closest('tr');
+    cb.checked ? selectedRows.add(rowKey(cb.dataset.group, cb.dataset.ext)) : selectedRows.delete(rowKey(cb.dataset.group, cb.dataset.ext));
+    tr.classList.toggle('row-selected', cb.checked);
+    updateBulkBar();
+  });
+  selectAll.addEventListener('change', () => {
+    const want = selectAll.checked;
+    visibleDataRows().forEach(tr => {
+      const key = rowKey(tr.dataset.group, tr.dataset.ext);
+      want ? selectedRows.add(key) : selectedRows.delete(key);
+      tr.classList.toggle('row-selected', want);
+      const cb = tr.querySelector('.row-sel');
+      if (cb) cb.checked = want;
     });
+    updateBulkBar();
+  });
+  document.getElementById('bulkClearBtn').addEventListener('click', () => {
+    selectedRows.clear(); renderTable(); applyStatusFilter(); syncSearch(); updateBulkBar();
+  });
+  document.getElementById('bulkActionBtn').addEventListener('click', openBulkFlow);
+
+  /* The stepped flow groups the selection by the action each learner needs and
+     walks one group at a time (Intervene → Nudge → Retry), confirm or skip each.
+     Selected learners who already passed have no action — they're just noted. */
+  let bulkState = null;
+  function recipListHTML(items) {
+    return `<div class="recip-list">${items.map(({ r, course }) => `
+      <div class="recip">
+        <div class="r-avatar" style="background:${PCT_COLOR[r.status] || '#155DFC'}">${initials(r.name)}</div>
+        <div><div class="r-name">${displayName(r.name)}</div><div class="r-mail">${course}</div></div>
+        <span class="r-meta">${STATUS_LABEL[r.status]}</span>
+      </div>`).join('')}</div>`;
+  }
+  function bulkMeta(type, items) {
+    const n = items.length, s = MODAL_STYLE[type];
+    if (type === 'intervene') return { ...s, title:'Send Intervention', confirm:'Send Intervention', cTheme:'error primary', cIcon:'fa-paper-plane',
+      body:`<p>Send a high-priority intervention to these <b>${n}</b> learner${n>1?'s':''} who haven’t started in time.</p>
+        ${recipListHTML(items)}
+        <div class="opt"><vaadin-checkbox checked></vaadin-checkbox><span class="o-text"><b>Email each learner</b><div class="o-hint">High-priority template with the course deadline</div></span></div>
+        <div class="opt"><vaadin-checkbox checked></vaadin-checkbox><span class="o-text"><b>Copy their supervisors</b></span></div>
+        <div class="field-label">MESSAGE</div>
+        <vaadin-text-area theme="outlined" style="width:100%" value="Our records show you haven’t started this required OSHA course, which is approaching its deadline. Please log in and begin as soon as possible."></vaadin-text-area>` };
+    if (type === 'nudge') return { ...s, title:'Send Nudge', confirm:'Send Nudge', cTheme:'warning primary', cIcon:'fa-bell',
+      body:`<p>Send a friendly nudge to these <b>${n}</b> learner${n>1?'s':''} with low recent activity.</p>
+        ${recipListHTML(items)}
+        <div class="opt"><vaadin-checkbox checked></vaadin-checkbox><span class="o-text"><b>Email each learner</b><div class="o-hint">Encouraging reminder with a resume-course link</div></span></div>
+        <div class="opt"><vaadin-checkbox></vaadin-checkbox><span class="o-text"><b>Send an in-app notification</b></span></div>
+        <div class="field-label">MESSAGE</div>
+        <vaadin-text-area theme="outlined" style="width:100%" value="Just a friendly reminder to pick back up where you left off — you’re closer than you think!"></vaadin-text-area>` };
+    return { ...s, title:'Schedule Retry', confirm:'Schedule Retry', cTheme:'primary', cIcon:'fa-rotate-right',
+      body:`<p>Schedule a retry for these <b>${n}</b> learner${n>1?'s':''}. Each retry begins after that learner’s 14-day cooldown.</p>
+        ${recipListHTML(items)}
+        <div class="opt"><vaadin-checkbox checked></vaadin-checkbox><span class="o-text"><b>Notify each learner when eligible</b></span></div>` };
+  }
+  function openBulkFlow() {
+    const rows = [...selectedRows].map(getRow).filter(Boolean);
+    const byType = {};
+    rows.forEach(({ r, g }) => {
+      const t = ACTIONS[r.status] && ACTIONS[r.status].type;
+      if (!t) return;
+      (byType[t] = byType[t] || []).push({ r, course: g.course });
+    });
+    const steps = BULK_ORDER.filter(t => byType[t] && byType[t].length).map(t => ({ type: t, items: byType[t] }));
+    if (!steps.length) { showToast('No actions needed for the selected learners'); return; }
+    bulkState = { steps, i: 0, done: [] };
+    renderBulkStep();
+    dialog.opened = true;
+  }
+  function renderBulkStep() {
+    const step = bulkState.steps[bulkState.i];
+    const total = bulkState.steps.length;
+    const n = step.items.length;
+    const meta = bulkMeta(step.type, step.items);
+    dialog.headerRenderer = (root) => {
+      root.innerHTML = `<div class="dlg-head" style="width:min(560px,92vw)">
+        <div class="m-ico" style="background:${meta.bg};color:${meta.col}"><i class="fa-solid ${meta.icon}"></i></div>
+        <div><div class="m-title">${meta.title}</div><div class="m-sub">Step ${bulkState.i + 1} of ${total} · ${n} learner${n > 1 ? 's' : ''}</div></div>
+        <vaadin-button theme="icon tertiary" id="dlgClose" aria-label="Close" style="margin-left:auto"><i class="fa-solid fa-xmark"></i></vaadin-button>
+      </div>`;
+      root.querySelector('#dlgClose').addEventListener('click', () => { closeModal(); finishBulk(); });
+    };
+    dialog.renderer = (root) => { root.innerHTML = `<div class="dlg-body">${meta.body}</div>`; };
+    dialog.footerRenderer = (root) => {
+      root.innerHTML = '';
+      const skip = document.createElement('vaadin-button');
+      skip.setAttribute('theme', 'tertiary');
+      skip.textContent = total > 1 ? 'Skip this group' : 'Cancel';
+      skip.addEventListener('click', () => advanceBulk(false));
+      const ok = document.createElement('vaadin-button');
+      ok.setAttribute('theme', meta.cTheme);
+      ok.innerHTML = `<i class="fa-solid ${meta.cIcon}" slot="prefix"></i>${meta.confirm} (${n})`;
+      ok.addEventListener('click', () => advanceBulk(true));
+      root.append(skip, ok);
+    };
+  }
+  function advanceBulk(confirmed) {
+    const step = bulkState.steps[bulkState.i];
+    if (confirmed) bulkState.done.push({ type: step.type, n: step.items.length });
+    bulkState.i++;
+    if (bulkState.i < bulkState.steps.length) renderBulkStep();
+    else { closeModal(); finishBulk(); }
+  }
+  function finishBulk() {
+    if (bulkState && bulkState.done.length) {
+      const parts = bulkState.done.map(d => `${d.n} ${BULK_WORD[d.type]}${d.n > 1 ? 's' : ''}`);
+      showToast('Done — sent ' + parts.join(', '));
+      selectedRows.clear(); renderTable(); applyStatusFilter(); syncSearch(); updateBulkBar();
+    }
+    bulkState = null;
+  }
+
+  updateBulkBar();
+
+  /* ═══════════════ Filter panel open/close (ported from V1) ═══════════════ */
+  const filterPanel = document.getElementById('filterPanel');
+  const filterInlineToggle = document.getElementById('filterInlineToggle');
+  function closePanel() {
+    filterPanel.classList.add('collapsed');
+    filterInlineToggle.style.display = '';
+  }
+  function openPanel() {
+    filterPanel.classList.remove('collapsed');
+    filterInlineToggle.style.display = 'none';
+  }
+  document.getElementById('closePanelBtn').addEventListener('click', closePanel);
+  filterInlineToggle.addEventListener('click', openPanel);
+  /* Filters start closed on the report. */
+  closePanel();
+
+  /* Apply Filters — apply the status filter, then just close the panel. */
+  document.getElementById('applyFiltersBtn').addEventListener('click', () => {
+    applyStatusFilter(); syncSearch();
+    closePanel();
   });
 
-  /* Boot into the view named by the URL hash (#dashboard / #reports / #osha),
-     defaulting to OSHA Reports. */
-  switchView(location.hash.slice(1) || 'osha');
+  /* ═══════════════ Filter chips — Select Courses / Users (demo pickers) ═══════════════ */
+  const ALL_COURSES = ['OSHA 10-Hour General Industry','OSHA 30-Hour General Industry','Bloodborne Pathogens','Hazard Communication','Fall Protection'];
+  const ALL_USERS   = ['Hale, Marcus','Nair, Priya','Carter, Liam','Lin, Grace','Reyes, Tomás','Osei, Janet','Zhang, Emily'];
+
+  function makeChip(label, onRemove) {
+    const chip = document.createElement('span');
+    chip.className = 'filter-chip';
+    chip.innerHTML = `<span>${label}</span><button class="filter-chip-remove" aria-label="Remove ${label}"><i class="fa-solid fa-xmark"></i></button>`;
+    chip.querySelector('.filter-chip-remove').addEventListener('click', () => { chip.remove(); onRemove?.(label); });
+    return chip;
+  }
+
+  /* Vaadin dialog picker: a searchable checklist that writes chips back to the panel. */
+  function wirePicker(dialogId, buttonId, chipsId, title, items, selected) {
+    const dialog = document.getElementById(dialogId);
+    const chipsWrap = document.getElementById(chipsId);
+    function refreshChips() {
+      chipsWrap.innerHTML = '';
+      [...selected].forEach(label => chipsWrap.appendChild(makeChip(label, l => selected.delete(l))));
+    }
+    document.getElementById(buttonId).addEventListener('click', () => {
+      dialog.headerRenderer = (root) => { root.innerHTML = `<strong style="font-size:15px">${title}</strong>`; };
+      dialog.renderer = (root) => {
+        root.innerHTML = `<div style="width:min(420px,90vw); max-height:340px; overflow:auto;">
+          ${items.map(it => `<label style="display:flex; align-items:center; gap:10px; padding:8px 2px; border-bottom:1px solid #f3f4f6; font-size:13px; cursor:pointer;">
+            <vaadin-checkbox data-pick="${it.replace(/"/g,'&quot;')}" ${selected.has(it) ? 'checked' : ''}></vaadin-checkbox><span>${it}</span></label>`).join('')}
+        </div>`;
+        root.querySelectorAll('vaadin-checkbox[data-pick]').forEach(cb => {
+          cb.addEventListener('change', () => { cb.checked ? selected.add(cb.dataset.pick) : selected.delete(cb.dataset.pick); });
+        });
+      };
+      dialog.footerRenderer = (root) => {
+        root.innerHTML = '';
+        const cancel = document.createElement('vaadin-button');
+        cancel.setAttribute('theme','tertiary'); cancel.textContent = 'Cancel';
+        cancel.addEventListener('click', () => { dialog.opened = false; });
+        const apply = document.createElement('vaadin-button');
+        apply.setAttribute('theme','primary'); apply.textContent = 'Apply';
+        apply.addEventListener('click', () => { refreshChips(); dialog.opened = false; });
+        root.append(cancel, apply);
+      };
+      dialog.opened = true;
+    });
+  }
+  wirePicker('selectCoursesDialog', 'selectCoursesBtn', 'courseChips', 'Select OSHA Courses', ALL_COURSES, new Set());
+  wirePicker('selectUsersDialog',   'selectUsersBtn',   'userChips',   'Select Users',        ALL_USERS,   new Set());
+
+  /* ═══════════════ Date-range dropdown (ported from V1) ═══════════════ */
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function drangeFmt(d) { return d ? `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}` : null; }
+  function drangeParseIso(v) { if (!v) return null; const [y,m,d] = v.split('-').map(Number); return (y && m && d) ? new Date(y, m-1, d) : null; }
+  function setOverviewDateBadge(text) {
+    const badge = document.querySelector('#completionOverview .date-badge');
+    if (badge) badge.innerHTML = `<i class="fa-regular fa-calendar"></i> ${text}`;
+  }
+  function initDateRangeDD(box) {
+    const trigger = box.querySelector('.drange-trigger');
+    const triggerLabel = box.querySelector('.drange-trigger-label');
+    const menu = box.querySelector('.drange-menu');
+    const presetsWrap = box.querySelector('.drange-presets');
+    const opts = box.querySelectorAll('.drange-opt');
+    const custom = box.querySelector('.drange-custom');
+    const backBtn = box.querySelector('.drange-back');
+    const startP = box.querySelector('.drange-start');
+    const endP = box.querySelector('.drange-end');
+    const applyBtn = box.querySelector('.drange-apply');
+    const hidden = box.querySelector('.date-input');
+
+    const showPresets = () => { presetsWrap.hidden = false; custom.hidden = true; };
+    const showCustom  = () => { presetsWrap.hidden = true;  custom.hidden = false; };
+    const openMenu  = () => { showPresets(); menu.hidden = false; trigger.classList.add('open'); };
+    const closeMenu = () => { menu.hidden = true; trigger.classList.remove('open'); };
+    const setActive = (opt) => { opts.forEach(o => o.classList.remove('active')); opt?.classList.add('active'); };
+    const setLabel  = (text) => { triggerLabel.textContent = text; hidden.value = text; setOverviewDateBadge(text); };
+
+    trigger.addEventListener('click', e => { e.stopPropagation(); menu.hidden ? openMenu() : closeMenu(); });
+    opts.forEach(opt => opt.addEventListener('click', e => {
+      e.stopPropagation();
+      if (opt.dataset.range === 'custom') { setActive(opt); showCustom(); return; }
+      setActive(opt); setLabel(opt.textContent.trim()); closeMenu();
+    }));
+    backBtn?.addEventListener('click', e => { e.stopPropagation(); showPresets(); });
+    applyBtn?.addEventListener('click', e => {
+      e.stopPropagation();
+      const s = drangeParseIso(startP.value), en = drangeParseIso(endP.value);
+      if (!s || !en) { endP.invalid = true; endP.errorMessage = 'Pick a start and end date'; return; }
+      if (en < s)    { endP.invalid = true; endP.errorMessage = 'End date must be after the start date'; return; }
+      endP.invalid = false;
+      setLabel(`${drangeFmt(s)} – ${drangeFmt(en)}`); closeMenu();
+    });
+    document.addEventListener('click', e => { if (!box.contains(e.target)) closeMenu(); });
+  }
+  document.querySelectorAll('.date-range-dd').forEach(initDateRangeDD);
+
+  /* Top-of-report actions (prototype) */
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    const b = document.getElementById('exportBtn');
+    b.setAttribute('disabled',''); setTimeout(() => b.removeAttribute('disabled'), 1200);
+  });
 </script>
 
 </body>
