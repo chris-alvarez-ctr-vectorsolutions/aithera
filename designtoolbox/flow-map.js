@@ -24,6 +24,13 @@
   var CFG = {
     title: ROOT.title || 'Flow Map',
     applyState: ROOT.applyState || 'applyFlowState',
+    // When a mock ships multiple design versions (a V1/V2/… switcher), nodes can
+    // carry a `version` and the flow map shows them all: each versioned node gets a
+    // badge, its LIVE thumbnail boots into that version (via the `fmv` hash token),
+    // and "Open live" drives the host into that version first. `versionDriver` is the
+    // global fn the host exposes to switch versions (default: window.showVersion).
+    versions: ROOT.versions || [],
+    versionDriver: ROOT.versionDriver || 'showVersion',
     flows: ROOT.flows || [],
     nodes: ROOT.nodes,
     edges: ROOT.edges || [],
@@ -38,7 +45,14 @@
   var nodeById = function (id) { return CFG.nodes.find(function (n) { return n.id === id; }); };
   var flowById = function (id) { return CFG.flows.find(function (f) { return f.id === id; }); };
   var pageBase = location.href.split('#')[0].split('?')[0];
-  function thumbSrc(node) { return pageBase + '?fmthumb=1#fm=' + encodeURIComponent(node.state || node.id); }
+  function thumbSrc(node) {
+    var hash = '#fm=' + encodeURIComponent(node.state || node.id);
+    // Boot the live thumbnail into this node's design version, if any.
+    if (node.version != null && node.version !== '') hash += '&fmv=' + encodeURIComponent(node.version);
+    return pageBase + '?fmthumb=1' + hash;
+  }
+  // Badge text for a node: explicit override, else "V<version>".
+  function verLabel(node) { return node.versionBadge || (node.version != null && node.version !== '' ? ('V' + node.version) : ''); }
 
   // Canonical page URL — must match the comment widget's keying so counts line up.
   function canonicalPageUrl() {
@@ -54,6 +68,7 @@
 .fm-launch:hover{background:#5a3ce0;transform:translateY(-1px);}\
 .fm-launch.fm-in-vs{padding:8px 10px;font-size:13px;}\
 .fm-vs-sep{width:1px;align-self:stretch;margin:2px 0 2px 6px;background:rgba(255,255,255,.16);}\
+.fm-ver-badge{position:absolute;top:8px;left:8px;z-index:3;background:#4a2bd1;color:#fff;font:700 11px/1 "Open Sans",system-ui,sans-serif;letter-spacing:.3px;padding:4px 9px;border-radius:999px;box-shadow:0 1px 5px rgba(0,0,0,.32);}\
 .fm-overlay{position:fixed;inset:0;z-index:999991;display:none;flex-direction:column;background:radial-gradient(circle at 30% 10%,#20243a 0%,#14162a 60%,#0e0f1d 100%);font-family:"Open Sans",system-ui,sans-serif;}\
 .fm-overlay.open{display:flex;}\
 .fm-top{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;color:#fff;border-bottom:1px solid rgba(255,255,255,.08);flex:none;}\
@@ -319,8 +334,10 @@
       var node = el('div', 'fm-node' + (n.entry ? ' fm-node--entry' : ''));
       node.style.cssText = 'left:' + n.x + 'px;top:' + n.y + 'px;';
       node.dataset.node = n.id;
+      var vl = verLabel(n);
       node.innerHTML =
         '<div class="fm-corner right fm-cmt-corner"></div>' +
+        (vl ? '<div class="fm-ver-badge">' + vl + '</div>' : '') +
         '<div class="fm-thumb"><div class="fm-ph">Loading live preview…</div><div class="fm-live"><span class="ld"></span>Live</div></div>' +
         '<div class="fm-meta">' +
           '<div class="fm-step-row"><div class="fm-step">' + (n.step || '') + '</div><span class="fm-note-slot"></span></div>' +
@@ -406,6 +423,12 @@
   function openLive(id) {
     var n = nodeById(id); var apply = window[CFG.applyState];
     closeMap();
+    // Switch the host into this node's design version first (if it has one), so the
+    // live screen matches the version shown in the flow map.
+    if (n && n.version != null && n.version !== '') {
+      var setVer = window[CFG.versionDriver];
+      if (typeof setVer === 'function') { try { setVer(n.version); } catch (e) {} }
+    }
     if (typeof apply === 'function') apply(n.state || n.id);
   }
   function viewComments(id) {
