@@ -285,7 +285,6 @@
   .status-badge.in-progress  { background: #dbeafe; color: #1d4ed8; }
   .status-badge.not-started  { background: #f3f4f6; color: #4b5563; }
   .status-badge.failed       { background: #fee2e2; color: #b91c1c; }
-  .status-badge.blocked      { background: #ffedd5; color: #9a3412; }
   .status-badge.overdue      { background: #fef3c7; color: #92400e; }
 
   /* ============================================================
@@ -559,7 +558,6 @@
   .action-card .ac-ico.intervene { background: #f3f4f6; color: #4b5563; }
   .action-card .ac-ico.nudge     { background: #fef3c7; color: #d97706; }
   .action-card .ac-ico.retry     { background: #fee2e2; color: #b91c1c; }
-  .action-card .ac-ico.blocked   { background: #ffedd5; color: #9a3412; }
 
   /* ── Modules Complete cell (replaces % Complete) ── */
   .mod-cell { display: flex; align-items: center; gap: 8px; }
@@ -1002,8 +1000,7 @@
               <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="passed" checked></vaadin-checkbox><span>Passed</span></label>
               <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="in-progress" checked></vaadin-checkbox><span>In Progress</span></label>
               <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="not-started" checked></vaadin-checkbox><span>Not Started</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="failed" checked></vaadin-checkbox><span>Failed (Course)</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="blocked" checked></vaadin-checkbox><span>Quiz Failed (Blocked)</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="failed" checked></vaadin-checkbox><span>Failed — Needs Retry</span></label>
             </div>
           </div>
 
@@ -1073,7 +1070,7 @@
       { name:'Carter, Liam',    ext:'lcarter612',  status:'in-progress', mods:6,  pct:64,  time:'3h 05m', last:'2 days ago',  exp:'10/15/2026' },
       { name:'Lin, Grace',      ext:'glin201',     status:'passed',      mods:10, pct:100, time:'4h 30m', last:'04/18/2026',  exp:'04/18/2027' },
       { name:'Sullivan, Brett', ext:'bsull099',    status:'failed',      mods:10, pct:100, time:'4h 10m', last:'04/29/2026',  exp:'—', failDate:'04/29/2026', attempts:2 },
-      { name:'Okafor, Sam',     ext:'sokafor777',  status:'blocked',     mods:4,  pct:35,  time:'1h 30m', last:'5 days ago',  exp:'08/15/2026', failDate:'06/12/2026', attempts:1 },
+      { name:'Okafor, Sam',     ext:'sokafor777',  status:'failed', quizFail:true, mods:4,  pct:35,  time:'1h 30m', last:'5 days ago',  exp:'08/15/2026', failDate:'06/12/2026', attempts:1 },
     ]},
     { id:'g2', course:'OSHA 30-Hour General Industry', expanded:true, rows:[
       { name:'Reyes, Tomás',    ext:'treyes824',   status:'in-progress', mods:2,  pct:15,  time:'1h 10m', last:'24 days ago', exp:'07/30/2026', behind:true },
@@ -1088,9 +1085,10 @@
       { name:'Rahman, Aisha',   ext:'arahman288',  status:'passed',      mods:10, pct:100, time:'1h 40m', last:'05/06/2026',  exp:'05/06/2027' },
     ]},
   ];
-  // 'failed' = failed the course (final assessment); 'blocked' = failed a module quiz and is blocked from proceeding.
-  const STATUS_LABEL = { 'passed':'Passed', 'in-progress':'In Progress', 'not-started':'Not Started', 'failed':'Failed (Course)', 'blocked':'Quiz Failed', 'overdue':'Overdue' };
-  const PCT_COLOR = { 'passed':'#22c55e', 'in-progress':'#3b82f6', 'not-started':'#d1d5db', 'failed':'#dc2626', 'blocked':'#f97316' };
+  // 'failed' = needs to retry, whether they failed the course (final assessment) or a module quiz
+  // (the quizFail flag distinguishes the two in the Failure/Retry field — both just need a retry).
+  const STATUS_LABEL = { 'passed':'Passed', 'in-progress':'In Progress', 'not-started':'Not Started', 'failed':'Failed', 'overdue':'Overdue' };
+  const PCT_COLOR = { 'passed':'#22c55e', 'in-progress':'#3b82f6', 'not-started':'#d1d5db', 'failed':'#dc2626' };
 
   /* ── Module model: each course has 10 modules; the last is the Final Assessment ── */
   const MOD_TOTAL = 10;
@@ -1111,8 +1109,7 @@
     return names.map((name, i) => {
       if (i < done) {
         let score = scoreFor(r.ext, i);
-        if (r.status === 'failed' && i === done - 1) score = 61;  // failed the Final Assessment
-        if (r.status === 'blocked' && i === done - 1) score = 58; // failed this module quiz → blocked here
+        if (r.status === 'failed' && i === done - 1) score = r.quizFail ? 58 : 61;  // failed this module quiz / the Final Assessment
         return { name, status: 'complete', score };
       }
       if (i === done && r.status === 'in-progress') return { name, status: 'in-progress', score: null };
@@ -1126,7 +1123,6 @@
     'not-started': { type:'intervene', theme:'error secondary',   icon:'fa-paper-plane',  label:'Intervene' },
     'in-progress': { type:'nudge',     theme:'warning secondary', icon:'fa-bell',         label:'Nudge' },
     'failed':      { type:'retry',     theme:'secondary',         icon:'fa-rotate-right', label:'Retry' },
-    'blocked':     { type:'retry',     theme:'warning secondary', icon:'fa-lock-open',    label:'Unblock' },
   };
   /* The action a bulk-step targets, in the order steps are presented. */
   const BULK_ORDER = ['intervene','nudge','retry'];
@@ -1187,8 +1183,8 @@
       : '';
     // Details (former Certificate column) — opens the side panel; passed learners also get the certificate there.
     const detailsCell = `<button class="mod-link" data-key="${key}"><i class="fa-solid fa-circle-info"></i> Details${r.status === 'passed' ? ' <i class="fa-solid fa-award" style="color:#15803d" title="Certificate available"></i>' : ''}</button>`;
-    const frCell = ((r.status === 'failed' || r.status === 'blocked') && r.failDate)
-      ? `<span class="fr-fail">${r.status === 'blocked' ? 'Quiz failed' : 'Failed'} ${r.failDate.slice(0,5)}</span><span class="fr-sub">Retry ${addDays(r.failDate,14).slice(0,5)} · Attempt ${r.attempts||1}/3</span>`
+    const frCell = (r.status === 'failed' && r.failDate)
+      ? `<span class="fr-fail">${r.quizFail ? 'Quiz failed' : 'Course failed'} ${r.failDate.slice(0,5)}</span><span class="fr-sub">Retry ${addDays(r.failDate,14).slice(0,5)} · Attempt ${r.attempts||1}/3</span>`
       : '<span class="muted-cell">—</span>';
     const sel = selectedRows.has(key);
     const open = expandedRows.has(key);
@@ -1286,7 +1282,7 @@
   });
 
   /* ═══════════════ Filters (status + search + active action-card filter) ═══════════════ */
-  const enabledStatuses = new Set(['passed','in-progress','not-started','failed','blocked']);
+  const enabledStatuses = new Set(['passed','in-progress','not-started','failed']);
   function statusVisible(s) { return enabledStatuses.has(s); }
   const searchInput = document.getElementById('qualSearch');
   let activeActionFilter = null;   // set by an Action Needed card click in V1 ('intervene'|'nudge'|'retry')
@@ -1321,7 +1317,7 @@
   function syncSearch() { applyFilters(); }
 
   /* Applied-filters summary at the top — makes clear the Filters button is page-wide. */
-  const ALL_STATUSES = ['passed','in-progress','not-started','failed','blocked'];
+  const ALL_STATUSES = ['passed','in-progress','not-started','failed'];
   function renderAppliedFilters() {
     const el = document.getElementById('appliedFilters');
     if (!el) return;
@@ -1879,14 +1875,12 @@
     intervene: r => r.status === 'not-started',
     nudge:     r => r.status === 'in-progress' && r.behind,
     retry:     r => r.status === 'failed',
-    blocked:   r => r.status === 'blocked',
   };
   // Per-card metadata: header (glanceable category) + description + primary action button.
   const CARD_META = [
     { type: 'intervene', cls: 'intervene', icon: 'fa-circle-exclamation', header: 'Not Started',    desc: 'needs intervention',       btn: 'Intervene', btnTheme: 'error secondary',   denom: 'total' },
     { type: 'nudge',     cls: 'nudge',     icon: 'fa-bell',               header: 'Behind Schedule', desc: 'needs a nudge',            btn: 'Nudge',     btnTheme: 'warning secondary', denom: 'inprogress' },
-    { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       header: 'Failed Course',   desc: 'needs a retry',            btn: 'Retry',     btnTheme: 'secondary',         denom: 'total' },
-    { type: 'blocked',   cls: 'blocked',   icon: 'fa-lock',               header: 'Quiz Failed',     desc: 'blocked — needs unblock',  btn: 'Unblock',   btnTheme: 'warning secondary', denom: 'total' },
+    { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       header: 'Failed',          desc: 'course / quiz — needs a retry', btn: 'Retry',  btnTheme: 'secondary',         denom: 'total' },
   ];
   const allRows = () => GROUPS.flatMap(g => g.rows);
   // Charts + cards reflect the course filter (the Filters-panel dropdown).
@@ -1975,8 +1969,8 @@
       { label: 'Not started',      count: rows.filter(r => r.status === 'not-started').length,             color: '#9ca3af' },
       { label: 'On track',         count: rows.filter(r => r.status === 'in-progress' && !r.behind).length, color: '#3b82f6' },
       { label: 'Behind / delayed', count: rows.filter(r => r.status === 'in-progress' && r.behind).length,  color: '#f59e0b' },
-      { label: 'Quiz blocked',     count: rows.filter(r => r.status === 'blocked').length,                  color: '#f97316' },
-      { label: 'Completed',        count: rows.filter(r => r.status === 'passed' || r.status === 'failed').length, color: '#22c55e' },
+      { label: 'Failed / retry',   count: rows.filter(r => r.status === 'failed').length,                   color: '#dc2626' },
+      { label: 'Completed',        count: rows.filter(r => r.status === 'passed').length, color: '#22c55e' },
     ];
     const max = Math.max(1, ...cats.map(c => c.count));
     document.getElementById('progressChart').innerHTML = cats.map(c => `
@@ -1994,8 +1988,7 @@
       { label: 'Not started',      color: '#9ca3af', action: 'intervene', n: rows.filter(r => r.status === 'not-started').length },
       { label: 'Behind / delayed', color: '#f59e0b', action: 'nudge',     n: rows.filter(r => r.status === 'in-progress' && r.behind).length },
       { label: 'On track',         color: '#3b82f6',                      n: rows.filter(r => r.status === 'in-progress' && !r.behind).length },
-      { label: 'Quiz blocked',     color: '#f97316', action: 'blocked',   n: rows.filter(r => r.status === 'blocked').length },
-      { label: 'Failed course',    color: '#dc2626', action: 'retry',     n: rows.filter(r => r.status === 'failed').length },
+      { label: 'Failed / retry',   color: '#dc2626', action: 'retry',     n: rows.filter(r => r.status === 'failed').length },
       { label: 'Passed',           color: '#22c55e',                      n: rows.filter(r => r.status === 'passed').length },
     ];
     document.getElementById('stackBar').innerHTML = segs.filter(s => s.n > 0).map(s =>
@@ -2055,7 +2048,7 @@
     const chip = document.getElementById('actionFilterChip');
     if (!chip) return;
     if (!activeActionFilter) { chip.hidden = true; chip.innerHTML = ''; return; }
-    const labels = { intervene: 'Not started', nudge: 'Behind schedule', retry: 'Failed (course)', blocked: 'Quiz failed (blocked)' };
+    const labels = { intervene: 'Not started', nudge: 'Behind schedule', retry: 'Failed — needs retry' };
     chip.hidden = false;
     chip.innerHTML = `<i class="fa-solid fa-filter"></i><span>${labels[activeActionFilter]}</span><button class="aff-x" aria-label="Clear filter"><i class="fa-solid fa-xmark"></i></button>`;
     chip.querySelector('.aff-x').addEventListener('click', () => { activeActionFilter = null; renderActionFilterChip(); applyFilters(); });

@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.16.1';
+  const WIDGET_VERSION = '1.17.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -2280,7 +2280,12 @@
     // Pins are anchored to elements — keep them glued as the page scrolls/reflows.
     window.addEventListener('scroll', () => repositionDots(), { passive: true });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePopup(); closePanel(); closeAdminPanel(); closeNavList(); exitReveal(); } });
+    loadComments();
+  }
 
+  // Load pins + settings from the Worker and do the first render. Split out from
+  // init() so a failed load can offer a Retry that re-runs only this step.
+  async function loadComments() {
     try {
       const [pinsRes, settingsRes] = await Promise.all([
         api('GET', '/pins?url=' + encodeURIComponent(pageUrl)),
@@ -2293,9 +2298,21 @@
       // Watch for SPA/React screen swaps so pins re-attach when their screen
       // (re)mounts. Started after the first render so the initial paint isn't
       // double-rendered. renderPins() pauses/resumes it around its own work.
+      // startPinObserver() guards against double-starting, so a Retry is safe.
       startPinObserver();
     } catch (e) {
       console.warn('[cw] failed to load pins', e);
+      // Surface the failure ONLY on the published Pages site, where the backend
+      // is expected to answer and an empty page would otherwise be mistaken for
+      // "no comments." Off-Pages (localhost / file:// / preview) the Worker's
+      // CORS blocks the request by design and the widget is dormant — staying
+      // silent there avoids crying wolf on every local load.
+      if (IS_GITHUB_PAGES) {
+        showToast('Couldn’t load comments — the feedback server didn’t respond', 'error', {
+          undoLabel: 'Retry',
+          onUndo: loadComments,
+        });
+      }
     }
   }
 

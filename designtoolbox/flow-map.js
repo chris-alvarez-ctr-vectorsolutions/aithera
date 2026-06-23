@@ -140,6 +140,13 @@
 .fm-btn{border:none;border-radius:8px;font:700 13px/1 inherit;padding:9px 16px;cursor:pointer;}\
 .fm-btn.primary{background:#6b5bd6;color:#fff;}.fm-btn.primary:hover{background:#7c6ce6;}\
 .fm-btn.ghost{background:rgba(255,255,255,.06);color:#cdd1f0;}.fm-btn.ghost:hover{background:rgba(255,255,255,.14);}\
+/* While the flow map is open, hide the comment widget\'s floating surfaces. They\
+   use a near-max z-index (far above this overlay\'s 999991), so without this a\
+   freshly-pinned comment, its pin dot, and the comment navigator would keep\
+   floating on top of the map. Keyed on <html>.fm-open so it toggles purely in\
+   CSS — the widget\'s MutationObserver watches <body>, so this triggers no\
+   re-render and the surfaces reappear the instant the map closes. */\
+html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .cw-popup,html.fm-open .cw-toast,html.fm-open .cw-banner,html.fm-open .cw-admin-panel,html.fm-open .cw-reveal-bar,html.fm-open .cw-lightbox,html.fm-open .cw-bubble{display:none !important;}\
 ';
 
   // ---- dev notes (read-only, from committed DEV-NOTES.md) -------------------
@@ -439,8 +446,8 @@
 
   // ---- overlay open/close + pan/zoom ---------------------------------------
   var zoom = 1;
-  function openMap() { if (!built) build(); overlay.classList.add('open'); document.body.style.overflow = 'hidden'; if (!fetchedCounts) { fetchedCounts = true; fetchCommentCounts(); } if (!fetchedNotes) { fetchedNotes = true; fetchNotes(); } }
-  function closeMap() { if (overlay) overlay.classList.remove('open'); document.body.style.overflow = ''; closeDrawer(); }
+  function openMap() { if (!built) build(); overlay.classList.add('open'); document.documentElement.classList.add('fm-open'); document.body.style.overflow = 'hidden'; if (!fetchedCounts) { fetchedCounts = true; fetchCommentCounts(); } if (!fetchedNotes) { fetchedNotes = true; fetchNotes(); } }
+  function closeMap() { if (overlay) overlay.classList.remove('open'); document.documentElement.classList.remove('fm-open'); document.body.style.overflow = ''; closeDrawer(); }
   var fetchedCounts = false;
 
   function setupPan() {
