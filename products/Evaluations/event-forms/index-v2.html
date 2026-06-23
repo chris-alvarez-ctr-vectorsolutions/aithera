@@ -1,0 +1,2886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Request Form</title>
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: var(--lumo-font-family, 'Open Sans', sans-serif);
+            font-size: 14px;
+            background: var(--lumo-contrast-5pct, #f4f6f8);
+            color: var(--lumo-body-text-color, #1a1a1a);
+            min-height: 100vh;
+        }
+
+        /* ── Topnav ── */
+        vwc-topnav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        /* ── Page Layout ── */
+        .page-wrapper {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 24px 40px 160px;
+        }
+
+        /* ── Page Header Row (back link + title + badge inline) ── */
+        .page-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .back-link {
+            color: var(--lumo-primary-color, #0271ce);
+            text-decoration: none;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .back-link:hover { text-decoration: underline; }
+        .page-title {
+            font-size: 22px;
+            font-weight: 600;
+            margin: 0;
+        }
+        .badge {
+            background: var(--lumo-primary-color, #0271ce);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 12px;
+            letter-spacing: 0.3px;
+            flex-shrink: 0;
+        }
+
+        /* ── Section Cards ── */
+        .section-card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 16px 20px 20px;
+            margin-bottom: 12px;
+            box-shadow: var(--lumo-box-shadow-xs, 0 1px 2px rgba(0,0,0,.08), 0 2px 8px rgba(0,0,0,.06));
+        }
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0;
+            color: var(--lumo-body-text-color, #1a1a1a);
+        }
+        .session-table-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        /* ── Recurring series in the editable session table ── */
+        .sessions-table .expand-cell {
+            width: 32px;
+            text-align: center;
+            padding: 0;
+        }
+        /* The accordion toggle is its own focusable button so it doesn't overlap
+           the row's other targets (title link, action buttons). */
+        .sessions-table .expand-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border: none;
+            background: none;
+            cursor: pointer;
+            border-radius: var(--lumo-border-radius-m, 4px);
+            color: var(--lumo-primary-color, #0271ce);
+        }
+        .sessions-table .expand-btn:hover {
+            background: var(--lumo-primary-color-10pct, #e8f2fb);
+        }
+        .sessions-table .expand-btn:focus-visible {
+            outline: 2px solid var(--lumo-primary-color, #0271ce);
+            outline-offset: -2px;
+        }
+        .sessions-table .expand-icon {
+            font-size: 11px;
+            transition: transform 0.15s ease;
+        }
+
+        /* Parent (series) row — primary tint = recognizable group header */
+        .sessions-table .series-parent-row > td {
+            background: var(--lumo-primary-color-10pct, #e8f2fb);
+            border-bottom-color: var(--lumo-primary-color-50pct, #80b8e6) !important;
+        }
+        /* Bold the series title so the parent reads as a header */
+        .sessions-table .series-parent-row .session-title {
+            font-weight: 700;
+        }
+        /* Keep the tint (slightly deeper) on hover instead of the default gray */
+        .vwc-table--hover-indication.sessions-table .series-parent-row:hover > td {
+            background: #d4e7f8; /* slightly deeper than the resting primary-10pct tint */
+            background: color-mix(in srgb, var(--lumo-primary-color, #0271ce) 18%, #fff);
+        }
+        .sessions-table .series-parent-row.expanded .expand-icon {
+            transform: rotate(90deg);
+        }
+
+        /* Occurrence rows — light neutral gray = nested/sub state. Hidden until expanded. */
+        .sessions-table .occurrence-row {
+            display: none;
+        }
+        .sessions-table .occurrence-row > td {
+            background: #f4f6f8; /* solid ~contrast-5pct, opaque so nesting reads cleanly */
+        }
+        /* Accent stripe lives only on the children, colored to match the parent's
+           rendered fill (#e8f2fb = primary-10pct over white) so the group reads
+           as visually connected. Solid hex, since the token is translucent. */
+        .sessions-table .occurrence-row > td:first-child {
+            box-shadow: inset 3px 0 0 0 #e8f2fb;
+        }
+        .sessions-table .occurrence-row.expanded {
+            display: table-row;
+        }
+        .vwc-table--hover-indication.sessions-table .occurrence-row:hover > td {
+            background: #ebedf0;
+        }
+        .sessions-table .occurrence-title {
+            padding-left: 28px;
+            position: relative;
+        }
+        /* Small connector glyph hinting the child belongs to the series above */
+        .sessions-table .occurrence-title::before {
+            content: "\21B3"; /* ↳ */
+            position: absolute;
+            left: 12px;
+            color: var(--lumo-secondary-text-color, #888);
+            font-size: 12px;
+        }
+
+        /* ── Form Layout ── */
+        .field-row { margin-bottom: 12px; }
+        .field-row-spaced { margin-bottom: 20px; }
+        .form-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 12px;
+            align-items: flex-start;
+        }
+        .form-row > * { flex: 1; min-width: 0; }
+        .form-row .grow-3 { flex: 3; }
+        .form-row .grow-1 { flex: 1; }
+
+        vaadin-text-field,
+        vaadin-text-area,
+        vaadin-number-field,
+        vaadin-date-picker {
+            width: 100%;
+        }
+
+
+        /* ── Subsection label ── */
+        .subsection-label {
+            font-size: 13px;
+            font-weight: 600;
+            margin: 16px 0 0;
+        }
+        .subsection-label:first-child { margin-top: 0; }
+
+        /* ── Radio groups ── */
+        vaadin-radio-group {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 0 4px;
+            align-items: center;
+        }
+        vaadin-radio-group::part(group-field) {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0 4px;
+            padding: 0;
+            margin: 0;
+        }
+        vaadin-radio-group::part(label) {
+            display: none;
+        }
+        vaadin-radio-button {
+            margin: 0;
+            padding: 0;
+        }
+        vaadin-radio-button::part(radio) {
+            margin: 0;
+        }
+        vaadin-radio-group.vertical {
+            flex-direction: column;
+            gap: 2px;
+        }
+        /* inline number beside a radio label */
+        .radio-with-number {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .radio-with-number vaadin-number-field {
+            width: 80px;
+        }
+
+        /* ── Checkbox groups ── */
+        .checkbox-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0 4px;
+        }
+
+        /* ── Credits fields row ── */
+        .credits-row {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-top: 4px;
+        }
+        .credits-row vaadin-number-field {
+            width: 140px;
+        }
+
+        /* ── Credit option rows (multi-row) ── */
+        .credit-options-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 4px;
+        }
+        .credit-option-row {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            flex-wrap: wrap;
+            border: 1px solid var(--lumo-contrast-20pct, #e0e0e0);
+            border-radius: 4px;
+            padding: 4px 8px 4px 4px;
+            width: fit-content;
+        }
+        .credit-option-row vaadin-number-field {
+            width: 76px;
+        }
+        .credit-field-wrap {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 12px;
+        }
+        .credit-field-wrap + .credit-field-wrap {
+            border-left: 1px solid var(--lumo-contrast-20pct, #e0e0e0);
+        }
+        .credit-abbr-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--lumo-secondary-text-color, #666);
+            white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .credit-option-row .row-delete-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--lumo-secondary-text-color, #bbb);
+            font-size: 12px;
+            padding: 0 0 0 8px;
+            display: flex;
+            align-items: center;
+            line-height: 1;
+        }
+        .credit-option-row .row-delete-btn:hover { color: var(--lumo-error-color, #e53935); }
+
+        /* ── Credits approval row ── */
+        .credits-approval-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0 4px;
+            margin-bottom: 16px;
+        }
+        .credits-approval-label {
+            font-size: 13px;
+            font-weight: 600;
+            margin-right: 8px;
+            white-space: nowrap;
+        }
+
+        /* ── Presenters row ── */
+        .presenters-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 16px;
+        }
+
+        /* ── Feedback select ── */
+        .styled-select {
+            height: 36px;
+            border: 1px solid var(--lumo-contrast-30pct, #ccc);
+            border-radius: var(--lumo-border-radius-m, 4px);
+            padding: 0 28px 0 10px;
+            font-size: 13px;
+            font-family: inherit;
+            background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23666'/%3E%3C/svg%3E") no-repeat right 10px center;
+            appearance: none;
+            color: var(--lumo-body-text-color, #1a1a1a);
+            cursor: pointer;
+            min-width: 180px;
+        }
+        .field-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--lumo-secondary-text-color, #666);
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        /* ── Link action ── */
+        .link-action {
+            color: var(--lumo-primary-color, #0271ce);
+            text-decoration: none;
+            font-size: 13px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .link-action:hover { text-decoration: underline; }
+
+        /* ── Add Event Details / RTE ── */
+        .event-details-section { margin-bottom: 16px; }
+        .event-details-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .event-details-header span {
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .rte-container {
+            border: 1px solid var(--lumo-contrast-30pct, #ccc);
+            border-radius: var(--lumo-border-radius-m, 4px);
+            overflow: hidden;
+        }
+        .rte-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--lumo-contrast-20pct, #e0e0e0);
+            background: var(--lumo-contrast-5pct, #fafafa);
+            flex-wrap: wrap;
+        }
+        .rte-btn {
+            width: 28px; height: 28px;
+            border: none; background: transparent;
+            border-radius: 3px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 600;
+            color: var(--lumo-secondary-text-color, #444);
+        }
+        .rte-btn:hover { background: var(--lumo-contrast-10pct, #ebebeb); }
+        .rte-separator {
+            width: 1px; height: 20px;
+            background: var(--lumo-contrast-20pct, #d5d5d5);
+            margin: 0 4px;
+        }
+        .rte-body {
+            min-height: 120px;
+            padding: 12px;
+            font-size: 13px;
+            outline: none;
+            color: var(--lumo-body-text-color, #1a1a1a);
+        }
+        .rte-body[contenteditable="true"]:empty::before {
+            content: attr(data-placeholder);
+            color: var(--lumo-tertiary-text-color, #aaa);
+        }
+
+        /* ── Scheduling multiple ── */
+        #scheduling-multiple { display: none; }
+
+        /* ── Tooltip info button ── */
+        .info-icon-btn {
+            background: none;
+            border: none;
+            cursor: help;
+            padding: 0 0 0 4px;
+            color: var(--lumo-primary-color, #0271ce);
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+        }
+        .subsection-label-row {
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            font-weight: 600;
+            margin: 16px 0 8px;
+        }
+
+        /* ── Sessions table — vwc-table system ── */
+        .vwc-table-wrapper {
+            border: 1px solid var(--lumo-contrast-20pct, #e0e0e0);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 16px;
+        }
+        .vwc-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            color: var(--vwc-table-font-color, var(--lumo-body-text-color, #1a1a1a));
+        }
+        .vwc-table thead tr th {
+            background: #f4f6f8;
+        }
+        .vwc-table th {
+            text-align: left;
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--vwc-table-border-color, var(--lumo-contrast-50pct, #8a9ab0));
+            font-weight: 600;
+            color: var(--lumo-secondary-text-color, #444);
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        .vwc-table td {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--vwc-table-border-color, var(--lumo-contrast-50pct, #8a9ab0));
+            vertical-align: middle;
+        }
+        .vwc-table--hover-indication tbody tr:hover td {
+            background: var(--vwc-table-row-hover-color, var(--lumo-contrast-10pct, #ebebeb));
+        }
+        .vwc-table .session-link {
+            color: var(--lumo-primary-color, #0271ce);
+            text-decoration: underline;
+            font-weight: 600;
+        }
+        .vwc-table .delete-link {
+            color: var(--lumo-error-color, #e53935);
+            text-decoration: none;
+            font-size: 12px;
+        }
+        .vwc-table .delete-link:hover { text-decoration: underline; }
+
+        /* ── Row action icon buttons ── */
+        .action-btns {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+        }
+        .action-btns vaadin-button {
+            min-width: 32px;
+            width: 32px;
+            height: 32px;
+            margin: 0;
+            color: var(--lumo-secondary-text-color, #5a6b80);
+        }
+        .action-btns vaadin-button:hover {
+            color: var(--lumo-primary-color, #0271ce);
+        }
+        .action-btns vaadin-button.action-delete:hover {
+            color: var(--lumo-error-color, #d83e38);
+        }
+
+        /* ── Custom questions ── */
+        .cq-group { margin-bottom: 16px; }
+        .cq-group:last-child { margin-bottom: 0; }
+        .cq-group-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin: 0 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--lumo-contrast-10pct, #ebebeb);
+        }
+        .cq-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .cq-fields .full-width { grid-column: 1 / -1; }
+
+        /* ── Attachments ── */
+        .upload-zone {
+            border: 1px solid var(--lumo-contrast-20pct, #e0e0e0);
+            border-radius: 6px;
+            padding: 16px;
+        }
+        .upload-zone-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .upload-drop-hint {
+            font-size: 13px;
+            color: var(--lumo-secondary-text-color, #666);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .upload-file-item { margin-top: 4px; }
+        .upload-file-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 2px;
+            font-size: 13px;
+        }
+        .upload-file-meta {
+            font-size: 11px;
+            color: var(--lumo-secondary-text-color, #666);
+            margin-bottom: 6px;
+        }
+
+        /* ── Role switcher (prototype only) ── */
+        .role-switcher {
+            position: fixed;
+            top: 60px;
+            right: 16px;
+            z-index: 200;
+            background: #fffbe6;
+            border: 1px solid #f0c040;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.12);
+            min-width: 160px;
+        }
+        .role-switcher .rs-label {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 6px;
+            color: #8a6500;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: grab;
+            user-select: none;
+        }
+        .role-switcher.dragging .rs-label { cursor: grabbing; }
+        .role-switcher.dragging { box-shadow: 0 6px 18px rgba(0,0,0,.22); }
+        .role-switcher .rs-drag-handle {
+            color: #b48810;
+            font-size: 11px;
+        }
+        .role-switcher select {
+            font-size: 12px;
+            padding: 4px 6px;
+            border: 1px solid #f0c040;
+            border-radius: 4px;
+            font-family: inherit;
+            width: 100%;
+            background: #fff;
+            cursor: pointer;
+        }
+
+        /* ── Read-only mode ── */
+        body.ro-mode .section-card {
+            background: #fff;
+        }
+
+        /* Hide all interactive input chrome */
+        body.ro-mode vaadin-text-field,
+        body.ro-mode vaadin-text-area,
+        body.ro-mode vaadin-number-field,
+        body.ro-mode vaadin-date-picker,
+        body.ro-mode vaadin-date-time-picker,
+        body.ro-mode vaadin-checkbox,
+        body.ro-mode vaadin-radio-button,
+        body.ro-mode vaadin-radio-group,
+        body.ro-mode .rte-container,
+        body.ro-mode .rte-toolbar,
+        body.ro-mode select.styled-select {
+            display: none !important;
+        }
+
+        /* Show read-only plain text value blocks instead */
+        .ro-value { display: none; }
+        body.ro-mode .ro-value { display: block; }
+
+        .ro-field {
+            margin-bottom: 12px;
+        }
+        .ro-field-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--lumo-secondary-text-color, #888);
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            margin-bottom: 3px;
+        }
+        .ro-field-value {
+            font-size: 14px;
+            color: var(--lumo-body-text-color, #1a1a1a);
+            line-height: 1.5;
+        }
+        .ro-field-value.empty {
+            color: var(--lumo-tertiary-text-color, #aaa);
+            font-style: italic;
+        }
+
+        /* Read-only rows mirror the edit form-row flex layout */
+        .ro-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 12px;
+            align-items: flex-start;
+        }
+        .ro-row > * { flex: 1; min-width: 0; }
+        .ro-row .grow-3 { flex: 3; }
+        .ro-row .grow-1 { flex: 1; }
+
+        /* Read-only field grid — consistent 4-col layout */
+        .ro-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 4px 16px;
+            margin-bottom: 4px;
+        }
+        .ro-grid .ro-field { margin-bottom: 8px; }
+        .ro-grid .span-2 { grid-column: span 2; }
+        .ro-grid .span-3 { grid-column: span 3; }
+        .ro-grid .span-4 { grid-column: span 4; }
+
+        /* Hide edit-only affordances in read-only mode */
+        body.ro-mode .edit-only { display: none !important; }
+        /* Show read-only-only affordances */
+        .ro-only { display: none; }
+        body.ro-mode .ro-only { display: block; }
+
+        /* ── Print styles ── */
+        @media print {
+            /* Hide chrome */
+            vwc-topnav,
+            .page-footer,
+            .role-switcher,
+            vwc-drawer,
+            #add-details-btn-wrapper,
+            #add-session-btn,
+            .rte-toolbar,
+            .upload-zone,
+            .link-action,
+            .delete-link,
+            .sessions-table .session-link,
+            vaadin-button { display: none !important; }
+
+            body {
+                background: #fff;
+                font-size: 12px;
+                color: #000;
+            }
+
+            .page-wrapper {
+                max-width: 100%;
+                padding: 16px;
+            }
+
+            /* Show read-only values, hide inputs */
+            .edit-only { display: none !important; }
+            .ro-value { display: block !important; }
+
+            /* Section cards — flat, no shadow, avoid page breaks inside */
+            .section-card {
+                box-shadow: none;
+                border: 1px solid #ccc;
+                border-radius: 0;
+                margin-bottom: 16px;
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+
+            /* Session table — avoid breaking rows */
+            .sessions-table tr {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+
+            /* Render session links as plain text */
+            .sessions-table td a {
+                color: #000;
+                text-decoration: none;
+                pointer-events: none;
+            }
+
+            /* RTE body — keep visible as static content */
+            .rte-body {
+                border: none;
+                padding: 0;
+                min-height: 0;
+            }
+
+            /* Read-only value typography */
+            .ro-field-value {
+                color: #000;
+            }
+            .ro-field-value.empty {
+                color: #888;
+            }
+        }
+
+        /* ── Sessions expandable table (read-only) ── */
+        table.vwc-table.ro-sessions-table {
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        .ro-sessions-table td,
+        .ro-sessions-table th {
+            --vwc-table-border-color: var(--lumo-contrast-20pct, #e0e0e0);
+        }
+        .ro-sessions-table .ro-session-row {
+            cursor: pointer;
+        }
+        .ro-sessions-table .ro-session-row.expanded td {
+            border-bottom-color: transparent !important;
+            box-shadow: 0 4px 4px -2px rgba(0,0,0,.15);
+            clip-path: inset(0 0 -8px 0);
+            position: relative;
+            z-index: 1;
+        }
+        .ro-expand-cell {
+            width: 24px;
+            text-align: center;
+            padding-right: 0;
+        }
+        .ro-expand-icon {
+            font-size: 10px;
+            color: var(--lumo-secondary-text-color, #888);
+            transition: transform 0.15s ease;
+        }
+        .ro-session-row.expanded .ro-expand-icon {
+            transform: rotate(90deg);
+        }
+        .ro-detail-row {
+            display: none;
+        }
+        .ro-detail-row.expanded {
+            display: table-row;
+        }
+        .ro-detail-row td {
+            background: var(--lumo-primary-color-10pct, #e8f2fb);
+            padding: 12px 16px 14px;
+            border-top: none !important;
+            border-bottom-color: var(--lumo-contrast-10pct, #ebebeb);
+        }
+        .ro-detail-grid {
+            display: flex;
+            gap: 32px;
+            flex-wrap: wrap;
+        }
+        .ro-detail-grid .ro-field {
+            margin: 0;
+        }
+        .ro-detail-grid .ro-field-label {
+            text-transform: none;
+            letter-spacing: 0;
+            font-size: 11px;
+        }
+        .ro-occurrence-list-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--lumo-secondary-text-color, #666);
+            margin-bottom: 6px;
+        }
+        .ro-occurrence-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            padding: 3px 0;
+            color: var(--lumo-body-text-color, #1a1a1a);
+        }
+        .ro-occurrence-item i {
+            font-size: 11px;
+            color: var(--lumo-secondary-text-color, #888);
+        }
+
+        /* ── Sticky footer ── */
+        .page-footer {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: #fff;
+            border-top: 1px solid var(--lumo-contrast-20pct, #e0e0e0);
+            padding: 12px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 99;
+        }
+        .footer-right { display: flex; gap: 8px; }
+
+        /* ── Drawer ── */
+        #session-drawer,
+        #permission-drawer {
+            position: fixed;
+            top: 0;
+            right: -480px;
+            width: 480px;
+            height: 100vh;
+            background: #fff;
+            box-shadow: -4px 0 24px rgba(0,0,0,.18);
+            z-index: 150;
+            display: flex;
+            flex-direction: column;
+            transition: right 0.25s ease;
+            overflow: hidden;
+        }
+        #session-drawer.open,
+        #permission-drawer.open {
+            right: 0;
+        }
+        .session-drawer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px 16px;
+            border-bottom: 1px solid var(--lumo-contrast-20pct, #e0e0e0);
+            flex-shrink: 0;
+        }
+        #drawer-scrim {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 149;
+        }
+        #drawer-scrim.visible { display: block; }
+        .drawer-form-body {
+            padding: 20px 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .drawer-footer-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 16px 24px;
+            border-top: 1px solid var(--lumo-contrast-20pct, #e0e0e0);
+            flex-shrink: 0;
+            background: #fff;
+        }
+
+        /* Native radio/checkbox label helper */
+        .radio-label-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .radio-label-wrap input[type="radio"] {
+            width: 15px; height: 15px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        /* Repeat accent */
+        .repeat-section {
+            border-left: 3px solid var(--lumo-primary-color, #0271ce);
+            padding-left: 12px;
+            margin-bottom: 16px;
+        }
+        .repeat-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .repeat-row span {
+            font-size: 13px;
+            font-weight: 500;
+        }
+        /* Inline fields in the repeat rows have no label — remove the reserved
+           label/padding space so all the Vaadin fields share one baseline. */
+        .repeat-row vaadin-select,
+        .repeat-row vaadin-number-field,
+        .repeat-row vaadin-date-picker {
+            padding-top: 0;
+        }
+        .repeat-row vaadin-number-field { width: 80px; }
+        .repeat-row vaadin-date-picker {
+            width: 150px;
+            margin: 0;
+            align-self: center;
+        }
+        /* The inline ends-after group also needs to center with its siblings */
+        .repeat-row .ends-after {
+            align-items: center;
+        }
+        .repeat-count {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--lumo-secondary-text-color, #555);
+        }
+        .repeat-count strong {
+            color: var(--lumo-body-text-color, #1a1a1a);
+        }
+        .occurrence-callout {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            background: var(--lumo-primary-color-10pct, #e8f2fb);
+            border-left: 3px solid var(--lumo-primary-color, #0271ce);
+            border-radius: 4px;
+            padding: 10px 12px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            line-height: 1.4;
+            color: var(--lumo-body-text-color, #1a1a1a);
+        }
+        .occurrence-callout i {
+            color: var(--lumo-primary-color, #0271ce);
+            margin-top: 2px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── Top Nav ── -->
+<vwc-topnav id="main-topnav">
+    <div slot="leftSide" style="display:flex; align-items:center; margin-left:-8px;">
+        <svg viewBox="0 0 36 36" width="32" height="32" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 3 C18 3 26 11 26 20 C26 26 22 31 18 33 C14 31 10 26 10 20 C10 11 18 3 18 3Z" fill="white" opacity="0.9"/>
+            <circle cx="18" cy="20" r="4" fill="#0057b8"/>
+            <path d="M12 28 L8 34 L14 31Z" fill="white" opacity="0.7"/>
+            <path d="M24 28 L28 34 L22 31Z" fill="white" opacity="0.7"/>
+        </svg>
+    </div>
+    <vwc-notifications-menu slot="notifications-menu"></vwc-notifications-menu>
+    <vwc-user-menu slot="user-menu"></vwc-user-menu>
+</vwc-topnav>
+
+<!-- ── Page Wrapper ── -->
+<div class="page-wrapper">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1 class="page-title">Central Office Restricted Event</h1>
+        <span class="badge">Draft</span>
+    </div>
+
+    <!-- ── Event Information ── -->
+    <div class="section-card">
+        <div class="section-header">
+            <h2 class="section-title">Event Information</h2>
+        </div>
+
+        <!-- Edit mode -->
+        <div class="edit-only">
+            <div class="form-row">
+                <div class="grow-3">
+                    <vaadin-text-field theme="outlined" label="Title *" id="field-title" style="width:100%;"></vaadin-text-field>
+                </div>
+                <div class="grow-1">
+                    <vaadin-text-field theme="outlined" label="Course #" id="field-course" placeholder="Optional" style="width:100%;"></vaadin-text-field>
+                </div>
+            </div>
+            <div class="field-row">
+                <vaadin-text-area theme="outlined" label="Description" id="field-description" style="width:100%; --vaadin-text-area-height:72px;"></vaadin-text-area>
+            </div>
+            <div class="form-row field-row">
+                <vaadin-multi-select-combo-box
+                    theme="outlined"
+                    label="Subject Area *"
+                    style="flex:1;">
+                </vaadin-multi-select-combo-box>
+                <vaadin-multi-select-combo-box
+                    theme="outlined"
+                    label="Content"
+                    style="flex:1;">
+                </vaadin-multi-select-combo-box>
+            </div>
+            <div class="field-row">
+                <div id="add-details-btn-wrapper">
+                    <vaadin-button theme="secondary" id="add-details-btn">Add Event Details</vaadin-button>
+                </div>
+                <div id="event-details-expanded" style="display:none;">
+                    <div class="event-details-header">
+                        <span>Event Details</span>
+                        <a class="link-action" id="remove-details-btn" style="font-weight:400; font-size:12px;">
+                            <i class="fa-solid fa-xmark" style="margin-right:4px;"></i>Remove
+                        </a>
+                    </div>
+                    <div class="rte-container">
+                        <div class="rte-toolbar">
+                            <button class="rte-btn" title="Undo"><i class="fa-solid fa-rotate-left" style="font-size:11px;"></i></button>
+                            <button class="rte-btn" title="Redo"><i class="fa-solid fa-rotate-right" style="font-size:11px;"></i></button>
+                            <div class="rte-separator"></div>
+                            <button class="rte-btn" title="Bold"><strong>B</strong></button>
+                            <button class="rte-btn" title="Italic"><em>I</em></button>
+                            <button class="rte-btn" title="Underline"><u>U</u></button>
+                            <button class="rte-btn" title="Strikethrough"><s>S</s></button>
+                            <div class="rte-separator"></div>
+                            <button class="rte-btn" title="H1" style="font-family:serif;font-size:11px;">H1</button>
+                            <button class="rte-btn" title="H2" style="font-family:serif;font-size:11px;">H2</button>
+                            <button class="rte-btn" title="H3" style="font-family:serif;font-size:11px;">H3</button>
+                            <div class="rte-separator"></div>
+                            <button class="rte-btn" title="Subscript">X<sub style="font-size:8px;">2</sub></button>
+                            <button class="rte-btn" title="Superscript">X<sup style="font-size:8px;">2</sup></button>
+                            <div class="rte-separator"></div>
+                            <button class="rte-btn" title="Ordered list"><i class="fa-solid fa-list-ol" style="font-size:11px;"></i></button>
+                            <button class="rte-btn" title="Unordered list"><i class="fa-solid fa-list-ul" style="font-size:11px;"></i></button>
+                            <div class="rte-separator"></div>
+                            <button class="rte-btn" title="Align left"><i class="fa-solid fa-align-left" style="font-size:11px;"></i></button>
+                            <button class="rte-btn" title="Align center"><i class="fa-solid fa-align-center" style="font-size:11px;"></i></button>
+                            <button class="rte-btn" title="Align right"><i class="fa-solid fa-align-right" style="font-size:11px;"></i></button>
+                            <div class="rte-separator"></div>
+                            <button class="rte-btn" title="Image"><i class="fa-regular fa-image" style="font-size:11px;"></i></button>
+                            <button class="rte-btn" title="Link"><i class="fa-solid fa-link" style="font-size:11px;"></i></button>
+                            <div class="rte-separator"></div>
+                            <button class="rte-btn" title="Code"><i class="fa-solid fa-code" style="font-size:11px;"></i></button>
+                            <button class="rte-btn" title="Clear formatting"><i class="fa-solid fa-text-slash" style="font-size:11px;"></i></button>
+                        </div>
+                        <div class="rte-body" contenteditable="true" data-placeholder="Enter event details..."></div>
+                    </div>
+                </div>
+            </div>
+            <!-- Publish To -->
+            <div class="field-row field-row-spaced" id="publish-to-section">
+                <div class="subsection-label" style="margin:0 0 8px;">Publish To</div>
+                <div id="publish-rules-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;"></div>
+                <a class="link-action" id="add-permission-rule-btn" href="#" style="font-size:13px; display:inline-flex; align-items:center; gap:4px;">
+                    <i class="fa-solid fa-plus" style="font-size:11px;"></i> Add permission rule
+                </a>
+            </div>
+
+            <!-- Budget -->
+            <div class="field-row field-row-spaced" id="budget-section">
+                <div class="subsection-label" style="margin:0;">Budget</div>
+                <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end;">
+                    <vaadin-number-field theme="outlined" label="Allocated" value="500" min="0" step="0.01" style="width:140px;">
+                        <span slot="prefix">$</span>
+                    </vaadin-number-field>
+                    <vaadin-number-field theme="outlined" label="Actual Cost" value="550" min="0" step="0.01" style="width:140px;">
+                        <span slot="prefix">$</span>
+                    </vaadin-number-field>
+                    <div style="display:flex; flex-direction:column; gap:2px; padding-bottom:6px;">
+                        <span style="font-size:12px; font-weight:600; color:var(--lumo-secondary-text-color,#666);">Remaining</span>
+                        <span id="budget-remaining" style="font-size:14px; font-weight:600; color:var(--lumo-error-color,#e53935);">-$50.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="field-row">
+                <label class="field-label">Feedback</label>
+                <select class="styled-select" id="field-feedback">
+                    <option>Required</option>
+                    <option>Optional</option>
+                    <option>Disabled</option>
+                </select>
+            </div>
+            <div class="field-row" style="display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap;">
+                <vaadin-checkbox id="field-reimbursement" label="Enable Reimbursement" style="padding-bottom:8px;"></vaadin-checkbox>
+                <vaadin-text-field theme="outlined" id="field-reimb-code" label="Code" disabled style="width:160px;"></vaadin-text-field>
+                <vaadin-text-field theme="outlined" id="field-reimb-subcode" label="Subcode" disabled style="width:160px;"></vaadin-text-field>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; margin-top:8px;">
+                <span class="subsection-label" style="margin:0; white-space:nowrap;">Schedule Type</span>
+                <label class="radio-label-wrap">
+                    <input type="radio" name="schedule-type" value="single" id="sched-single" style="accent-color:var(--lumo-primary-color);"> Single
+                </label>
+                <label class="radio-label-wrap">
+                    <input type="radio" name="schedule-type" value="multiple" id="sched-multiple" checked style="accent-color:var(--lumo-primary-color);"> Multiple
+                </label>
+            </div>
+        </div>
+
+        <!-- Read-only mode -->
+        <div class="ro-value">
+            <div class="ro-grid">
+                <div class="ro-field span-3">
+                    <div class="ro-field-label">Title</div>
+                    <div class="ro-field-value">Central Office Restricted Event</div>
+                </div>
+                <div class="ro-field">
+                    <div class="ro-field-label">Course #</div>
+                    <div class="ro-field-value empty">—</div>
+                </div>
+                <div class="ro-field span-4">
+                    <div class="ro-field-label">Description</div>
+                    <div class="ro-field-value empty">No description provided</div>
+                </div>
+                <div class="ro-field span-2">
+                    <div class="ro-field-label">Subject Area</div>
+                    <div class="ro-field-value empty">None selected</div>
+                </div>
+                <div class="ro-field span-2">
+                    <div class="ro-field-label">Content</div>
+                    <div class="ro-field-value empty">None selected</div>
+                </div>
+                <div class="ro-field span-4">
+                    <div class="ro-field-label">Event Details</div>
+                    <div class="ro-field-value empty">—</div>
+                </div>
+                <div class="ro-field">
+                    <div class="ro-field-label">Feedback</div>
+                    <div class="ro-field-value">Required</div>
+                </div>
+                <div class="ro-field">
+                    <div class="ro-field-label">Reimbursement</div>
+                    <div class="ro-field-value">Not enabled</div>
+                </div>
+                <div class="ro-field">
+                    <div class="ro-field-label">Schedule Type</div>
+                    <div class="ro-field-value" id="ro-schedule-type">Single</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Scheduling Details ── -->
+    <div class="section-card">
+        <div class="section-header">
+            <h2 class="section-title">Scheduling Details</h2>
+        </div>
+
+        <!-- Read-only scheduling summary -->
+        <div class="ro-value">
+
+            <!-- Single event read-only -->
+            <div id="ro-single">
+                <div class="ro-grid">
+                    <div class="ro-field span-2">
+                        <div class="ro-field-label">Start</div>
+                        <div class="ro-field-value">10/10/2025 9:00 AM</div>
+                    </div>
+                    <div class="ro-field span-2">
+                        <div class="ro-field-label">End</div>
+                        <div class="ro-field-value">10/10/2025 10:00 AM</div>
+                    </div>
+                    <div class="ro-field span-4">
+                        <div class="ro-field-label">Location</div>
+                        <div class="ro-field-value">Classroom 102</div>
+                    </div>
+                    <div class="ro-field span-2">
+                        <div class="ro-field-label">Max Attendees</div>
+                        <div class="ro-field-value">10</div>
+                    </div>
+                    <div class="ro-field span-2">
+                        <div class="ro-field-label">Waitlist</div>
+                        <div class="ro-field-value">Limit to 10</div>
+                    </div>
+                    <div class="ro-field span-4">
+                        <div class="ro-field-label">Event Credits</div>
+                        <div class="ro-field-value">1 Professional Hour &nbsp;·&nbsp; 1 In Service Hour &nbsp;·&nbsp; 1 Graduate Credit</div>
+                    </div>
+                    <div class="ro-field span-2">
+                        <div class="ro-field-label">Credits Approval</div>
+                        <div class="ro-field-value">By Administrators</div>
+                    </div>
+                    <div class="ro-field span-2">
+                        <div class="ro-field-label">Presenters</div>
+                        <div class="ro-field-value empty">None added</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Multiple event read-only: same table + expandable detail rows -->
+            <div id="ro-multiple" style="display:none;">
+                <div class="ro-grid" style="margin-bottom:16px;">
+                    <div class="ro-field span-2">
+                        <div class="ro-field-label">Credits Assigned</div>
+                        <div class="ro-field-value">Each session attended</div>
+                    </div>
+                    <div class="ro-field span-2">
+                        <div class="ro-field-label">User Sign-up</div>
+                        <div class="ro-field-value">Any session</div>
+                    </div>
+                </div>
+
+                <div class="vwc-table-wrapper">
+                <table class="vwc-table vwc-table--hover-indication ro-sessions-table">
+                    <thead>
+                        <tr>
+                            <th style="width:24px;"></th>
+                            <th>Session Title</th>
+                            <th>Start / End</th>
+                            <th>Location</th>
+                            <th>Presenter</th>
+                            <th>Credits</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="ro-session-row" data-target="ro-detail-1">
+                            <td class="ro-expand-cell"><i class="fa-solid fa-chevron-right ro-expand-icon"></i></td>
+                            <td>
+                                Morning Workshop
+                                <span theme="badge contrast" style="margin-left:8px; vertical-align:middle;"><i class="fa-solid fa-rotate" style="margin-right:4px; font-size:10px;"></i>Recurring</span>
+                            </td>
+                            <td>Weekly ×6 · Oct 10 – Nov 14, 2025</td>
+                            <td>Classroom 102</td>
+                            <td>Jane Smith</td>
+                            <td>2 ISH</td>
+                        </tr>
+                        <tr class="ro-detail-row" id="ro-detail-1">
+                            <td></td>
+                            <td colspan="5">
+                                <div class="ro-detail-grid" style="margin-bottom:12px;">
+                                    <div class="ro-field"><div class="ro-field-label">Max Attendees</div><div class="ro-field-value">Limit to 10</div></div>
+                                    <div class="ro-field"><div class="ro-field-label">Waitlist</div><div class="ro-field-value">Limit to 10</div></div>
+                                    <div class="ro-field"><div class="ro-field-label">Repeat</div><div class="ro-field-value">Weekly, every 1 week · 6 occurrences</div></div>
+                                </div>
+                                <div class="ro-occurrence-list">
+                                    <div class="ro-occurrence-list-label">Occurrences</div>
+                                    <div class="ro-occurrence-item"><i class="fa-regular fa-calendar"></i>10/10/2025 9:00 am – 10:00 am</div>
+                                    <div class="ro-occurrence-item"><i class="fa-regular fa-calendar"></i>10/17/2025 9:00 am – 10:00 am</div>
+                                    <div class="ro-occurrence-item"><i class="fa-regular fa-calendar"></i>10/24/2025 9:00 am – 10:00 am</div>
+                                    <div class="ro-occurrence-item"><i class="fa-regular fa-calendar"></i>10/31/2025 9:00 am – 10:00 am</div>
+                                    <div class="ro-occurrence-item"><i class="fa-regular fa-calendar"></i>11/07/2025 9:00 am – 10:00 am</div>
+                                    <div class="ro-occurrence-item"><i class="fa-regular fa-calendar"></i>11/14/2025 9:00 am – 10:00 am</div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr class="ro-session-row" data-target="ro-detail-2">
+                            <td class="ro-expand-cell"><i class="fa-solid fa-chevron-right ro-expand-icon"></i></td>
+                            <td>Afternoon Breakout</td>
+                            <td>10/10/2025 1:00 pm – 3:00 pm</td>
+                            <td>Classroom 104</td>
+                            <td>James Stanton</td>
+                            <td>2 ISH</td>
+                        </tr>
+                        <tr class="ro-detail-row" id="ro-detail-2">
+                            <td></td>
+                            <td colspan="5">
+                                <div class="ro-detail-grid">
+                                    <div class="ro-field"><div class="ro-field-label">Max Attendees</div><div class="ro-field-value">Unlimited</div></div>
+                                    <div class="ro-field"><div class="ro-field-label">Waitlist</div><div class="ro-field-value">None</div></div>
+                                    <div class="ro-field"><div class="ro-field-label">Repeat</div><div class="ro-field-value">Never</div></div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr class="ro-session-row" data-target="ro-detail-3">
+                            <td class="ro-expand-cell"><i class="fa-solid fa-chevron-right ro-expand-icon"></i></td>
+                            <td>Lab Practicum</td>
+                            <td>10/11/2025 9:00 am – 12:00 pm</td>
+                            <td>Science Lab B</td>
+                            <td>Jane Smith</td>
+                            <td>3 ISH</td>
+                        </tr>
+                        <tr class="ro-detail-row" id="ro-detail-3">
+                            <td></td>
+                            <td colspan="5">
+                                <div class="ro-detail-grid">
+                                    <div class="ro-field"><div class="ro-field-label">Max Attendees</div><div class="ro-field-value">Limit to 20</div></div>
+                                    <div class="ro-field"><div class="ro-field-label">Waitlist</div><div class="ro-field-value">Unlimited</div></div>
+                                    <div class="ro-field"><div class="ro-field-label">Repeat</div><div class="ro-field-value">Never</div></div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr class="ro-session-row" data-target="ro-detail-4">
+                            <td class="ro-expand-cell"><i class="fa-solid fa-chevron-right ro-expand-icon"></i></td>
+                            <td>Closing Reflection</td>
+                            <td>10/11/2025 2:00 pm – 3:30 pm</td>
+                            <td>Main Auditorium</td>
+                            <td>—</td>
+                            <td>1.5 ISH</td>
+                        </tr>
+                        <tr class="ro-detail-row" id="ro-detail-4">
+                            <td></td>
+                            <td colspan="5">
+                                <div class="ro-detail-grid">
+                                    <div class="ro-field"><div class="ro-field-label">Max Attendees</div><div class="ro-field-value">Unlimited</div></div>
+                                    <div class="ro-field"><div class="ro-field-label">Waitlist</div><div class="ro-field-value">None</div></div>
+                                    <div class="ro-field"><div class="ro-field-label">Repeat</div><div class="ro-field-value">Never</div></div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- SINGLE (edit) -->
+        <div id="scheduling-single" class="edit-only">
+            <div class="form-row">
+                <vaadin-date-time-picker theme="outlined" label="Start" style="flex:1;"></vaadin-date-time-picker>
+                <vaadin-date-time-picker theme="outlined" label="End" style="flex:1;"></vaadin-date-time-picker>
+            </div>
+
+            <div class="field-row">
+                <vaadin-text-field theme="outlined" label="Location *" style="width:100%;"></vaadin-text-field>
+            </div>
+
+            <!-- Max Attendees + Waitlist inline -->
+            <div class="field-row field-row-spaced" style="display:flex; align-items:center; gap:12px;">
+                <span class="subsection-label" style="margin:0; white-space:nowrap;">Max Attendees</span>
+                <label class="radio-label-wrap">
+                    <input type="radio" name="max-attendees" value="unlimited" style="accent-color:var(--lumo-primary-color);"> Unlimited
+                </label>
+                <label class="radio-label-wrap">
+                    <input type="radio" name="max-attendees" value="limit" checked style="accent-color:var(--lumo-primary-color);"> Limit to
+                    <vaadin-number-field theme="outlined" value="10" min="1" style="width:72px; margin-left:4px;"></vaadin-number-field>
+                </label>
+            </div>
+            <div class="field-row field-row-spaced" style="display:flex; align-items:center; gap:12px;">
+                <span class="subsection-label" style="margin:0; white-space:nowrap;">Waitlist</span>
+                <label class="radio-label-wrap">
+                    <input type="radio" name="waitlist" value="none" style="accent-color:var(--lumo-primary-color);"> None
+                </label>
+                <label class="radio-label-wrap">
+                    <input type="radio" name="waitlist" value="unlimited" style="accent-color:var(--lumo-primary-color);"> Unlimited
+                </label>
+                <label class="radio-label-wrap">
+                    <input type="radio" name="waitlist" value="limit" checked style="accent-color:var(--lumo-primary-color);"> Limit to
+                    <vaadin-number-field theme="outlined" value="10" min="1" style="width:72px; margin-left:4px;"></vaadin-number-field>
+                </label>
+            </div>
+
+            <!-- Event Credits full width row -->
+            <div class="field-row field-row-spaced">
+                <div class="subsection-label" style="margin-top:0; margin-bottom:8px;">Event Credits</div>
+                <div id="single-credit-options" class="credit-options-list"></div>
+                <a class="link-action" id="single-add-credit-btn" href="#" style="font-size:12px; margin-top:6px; display:inline-flex; align-items:center; gap:4px;">
+                    <i class="fa-solid fa-plus" style="font-size:10px;"></i> Add credit option
+                </a>
+                <div style="display:flex; align-items:center; gap:4px; margin-top:8px; flex-wrap:wrap;">
+                    <span class="credits-approval-label">Credits Approval:</span>
+                    <vaadin-checkbox label="By Administrators" checked></vaadin-checkbox>
+                    <vaadin-checkbox label="By Author"></vaadin-checkbox>
+                    <div style="display:flex; align-items:center; gap:4px;">
+                        <vaadin-checkbox id="by-presenter-chk" label="By Presenter" disabled style="--vaadin-checkbox-label-color:#555; --vaadin-checkbox-border-color:#888;"></vaadin-checkbox>
+                        <button id="by-presenter-info-btn" class="info-icon-btn" aria-label="By Presenter approval info" style="color:#666;">
+                            <i class="fa-solid fa-circle-info"></i>
+                        </button>
+                        <vaadin-tooltip for="by-presenter-info-btn" text="Add a presenter to enable approval by presenter." position="end"></vaadin-tooltip>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Presenters -->
+            <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+                <span class="subsection-label" style="margin:0;">Presenters:</span>
+                <a class="link-action add-presenter-link" href="#">Add Presenter</a>
+            </div>
+        </div>
+
+        <!-- MULTIPLE (edit) -->
+        <div id="scheduling-multiple" class="edit-only">
+
+            <!-- Credits Assigned -->
+            <div class="field-row field-row-spaced" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <div style="display:flex; align-items:center; gap:4px; white-space:nowrap;">
+                    <span class="subsection-label" style="margin:0;">Credits Assigned</span>
+                    <button class="info-icon-btn" id="credits-info-btn" aria-label="Credits assigned info">
+                        <i class="fa-solid fa-circle-info"></i>
+                    </button>
+                    <vaadin-tooltip for="credits-info-btn" position="end"
+                        text="If credits are assigned by session, default values will be applied to all new sessions. These can be edited in the session table.">
+                    </vaadin-tooltip>
+                </div>
+                <label class="radio-label-wrap">
+                    <input type="radio" name="credits-assigned" value="whole" style="accent-color:var(--lumo-primary-color);"> Whole event
+                </label>
+                <label class="radio-label-wrap">
+                    <input type="radio" name="credits-assigned" value="session" checked id="credits-assigned-session" style="accent-color:var(--lumo-primary-color);"> Each session attended
+                </label>
+            </div>
+
+            <!-- Event Credits / Default Session Credit -->
+            <div class="field-row" id="default-session-credit-row">
+                <div class="subsection-label" id="multi-credits-label" style="margin-top:0; margin-bottom:8px;">Event Credits</div>
+                <div id="multi-credit-options" class="credit-options-list"></div>
+                <a class="link-action" id="multi-add-credit-btn" href="#" style="font-size:12px; margin-top:6px; display:inline-flex; align-items:center; gap:4px;">
+                    <i class="fa-solid fa-plus" style="font-size:10px;"></i> Add credit option
+                </a>
+            </div>
+
+            <!-- Default Session Presenter -->
+            <div class="field-row field-row-spaced">
+                <span class="subsection-label" style="margin:0; display:inline;">Default Session Presenter:</span>
+                <a class="link-action add-presenter-link" href="#" style="margin-left:8px;">Add Presenter</a>
+            </div>
+
+            <!-- Default Session Location / Max Attendees / Waitlist -->
+            <div class="field-row field-row-spaced">
+                <vaadin-text-field theme="outlined" label="Default Session Location" style="width:100%;"></vaadin-text-field>
+            </div>
+            <div class="field-row field-row-spaced" style="display:flex; align-items:center; gap:12px;">
+                <span class="subsection-label" style="margin:0; white-space:nowrap;">Default Max Attendees</span>
+                <label class="radio-label-wrap">
+                    <input type="radio" name="multi-default-max-attendees" value="unlimited" style="accent-color:var(--lumo-primary-color);"> Unlimited
+                </label>
+                <label class="radio-label-wrap">
+                    <input type="radio" name="multi-default-max-attendees" value="limit" checked style="accent-color:var(--lumo-primary-color);"> Limit to
+                    <vaadin-number-field theme="outlined" value="10" min="1" style="width:72px; margin-left:4px;"></vaadin-number-field>
+                </label>
+            </div>
+            <div class="field-row field-row-spaced" style="display:flex; align-items:center; gap:12px;">
+                <span class="subsection-label" style="margin:0; white-space:nowrap;">Default Waitlist</span>
+                <label class="radio-label-wrap">
+                    <input type="radio" name="multi-default-waitlist" value="none" style="accent-color:var(--lumo-primary-color);"> None
+                </label>
+                <label class="radio-label-wrap">
+                    <input type="radio" name="multi-default-waitlist" value="unlimited" style="accent-color:var(--lumo-primary-color);"> Unlimited
+                </label>
+                <label class="radio-label-wrap">
+                    <input type="radio" name="multi-default-waitlist" value="limit" checked style="accent-color:var(--lumo-primary-color);"> Limit to
+                    <vaadin-number-field theme="outlined" value="10" min="1" style="width:72px; margin-left:4px;"></vaadin-number-field>
+                </label>
+            </div>
+
+            <!-- User Sign-up — just above the session table -->
+            <div class="field-row field-row-spaced" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <span class="subsection-label" style="margin:0; white-space:nowrap;">User Sign-up</span>
+                <label class="radio-label-wrap">
+                    <input type="radio" name="user-signup" value="whole" style="accent-color:var(--lumo-primary-color);"> Whole event
+                </label>
+                <label class="radio-label-wrap">
+                    <input type="radio" name="user-signup" value="any" checked style="accent-color:var(--lumo-primary-color);"> Any session
+                </label>
+                <label class="radio-label-wrap">
+                    <input type="radio" name="user-signup" value="one" style="accent-color:var(--lumo-primary-color);"> Only one session
+                </label>
+            </div>
+
+            <!-- Session table -->
+            <div class="session-table-title">
+                <span class="subsection-label" style="margin:0;">Session Schedule</span>
+                <vaadin-button theme="secondary" id="add-session-btn">Add Session</vaadin-button>
+            </div>
+            <div class="vwc-table-wrapper">
+            <table class="vwc-table vwc-table--hover-indication sessions-table">
+                <thead>
+                    <tr>
+                        <th style="width:24px;"></th>
+                        <th>Session Title</th>
+                        <th>Start / End</th>
+                        <th>Location</th>
+                        <th>Presenter</th>
+                        <th class="col-credits">Credits</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="sessions-tbody">
+
+                    <!-- Recurring series: parent row + nested occurrences -->
+                    <tr class="series-parent-row expanded" data-series="series-1">
+                        <td class="expand-cell">
+                            <button type="button" class="expand-btn" aria-expanded="true" aria-label="Collapse Morning Workshop occurrences">
+                                <i class="fa-solid fa-chevron-right expand-icon"></i>
+                            </button>
+                        </td>
+                        <td>
+                            <span class="session-title">Morning Workshop</span>
+                            <span theme="badge contrast" style="margin-left:8px; vertical-align:middle;"><i class="fa-solid fa-rotate" style="margin-right:4px; font-size:10px;"></i>Recurring</span>
+                        </td>
+                        <td>Weekly ×6 · Oct 10 – Nov 14, 2025</td>
+                        <td>Classroom 102</td>
+                        <td>Jane Smith</td>
+                        <td class="col-credits">2 ISH</td>
+                        <td>
+                            <span class="action-btns">
+                                <vaadin-button theme="icon tertiary" id="act-edit-s1" aria-label="Edit series" onclick="openEditSeries(event)"><i class="fa-solid fa-pen"></i></vaadin-button>
+                                <vaadin-tooltip for="act-edit-s1" text="Edit series" position="top"></vaadin-tooltip>
+                                <vaadin-button theme="icon tertiary" class="action-delete" id="act-del-s1" aria-label="Delete series" onclick="deleteSeries(event)"><i class="fa-solid fa-trash"></i></vaadin-button>
+                                <vaadin-tooltip for="act-del-s1" text="Delete series" position="top"></vaadin-tooltip>
+                            </span>
+                        </td>
+                    </tr>
+                    <!-- Occurrences (locked start/end, no repeat) -->
+                    <tr class="occurrence-row expanded" data-series="series-1">
+                        <td></td>
+                        <td class="occurrence-title"><span class="session-title">Morning Workshop</span></td>
+                        <td>10/10/2025 9:00 am – 10:00 am</td>
+                        <td>Classroom 102</td>
+                        <td>Jane Smith</td>
+                        <td class="col-credits">2 ISH</td>
+                        <td>
+                            <span class="action-btns">
+                                <vaadin-button theme="icon tertiary" id="act-edit-o1" aria-label="Edit occurrence" onclick="openEditOccurrence(event)"><i class="fa-solid fa-pen"></i></vaadin-button>
+                                <vaadin-tooltip for="act-edit-o1" text="Edit occurrence" position="top"></vaadin-tooltip>
+                                <vaadin-button theme="icon tertiary" class="action-delete" id="act-del-o1" aria-label="Delete occurrence" onclick="deleteSession(event)"><i class="fa-solid fa-trash"></i></vaadin-button>
+                                <vaadin-tooltip for="act-del-o1" text="Delete occurrence" position="top"></vaadin-tooltip>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="occurrence-row expanded" data-series="series-1">
+                        <td></td>
+                        <td class="occurrence-title"><span class="session-title">Morning Workshop</span></td>
+                        <td>10/17/2025 9:00 am – 10:00 am</td>
+                        <td>Classroom 102</td>
+                        <td>Jane Smith</td>
+                        <td class="col-credits">2 ISH</td>
+                        <td>
+                            <span class="action-btns">
+                                <vaadin-button theme="icon tertiary" id="act-edit-o2" aria-label="Edit occurrence" onclick="openEditOccurrence(event)"><i class="fa-solid fa-pen"></i></vaadin-button>
+                                <vaadin-tooltip for="act-edit-o2" text="Edit occurrence" position="top"></vaadin-tooltip>
+                                <vaadin-button theme="icon tertiary" class="action-delete" id="act-del-o2" aria-label="Delete occurrence" onclick="deleteSession(event)"><i class="fa-solid fa-trash"></i></vaadin-button>
+                                <vaadin-tooltip for="act-del-o2" text="Delete occurrence" position="top"></vaadin-tooltip>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="occurrence-row expanded" data-series="series-1">
+                        <td></td>
+                        <td class="occurrence-title"><span class="session-title">Morning Workshop</span></td>
+                        <td>10/24/2025 9:00 am – 10:00 am</td>
+                        <td>Classroom 102</td>
+                        <td>Jane Smith</td>
+                        <td class="col-credits">2 ISH</td>
+                        <td>
+                            <span class="action-btns">
+                                <vaadin-button theme="icon tertiary" id="act-edit-o3" aria-label="Edit occurrence" onclick="openEditOccurrence(event)"><i class="fa-solid fa-pen"></i></vaadin-button>
+                                <vaadin-tooltip for="act-edit-o3" text="Edit occurrence" position="top"></vaadin-tooltip>
+                                <vaadin-button theme="icon tertiary" class="action-delete" id="act-del-o3" aria-label="Delete occurrence" onclick="deleteSession(event)"><i class="fa-solid fa-trash"></i></vaadin-button>
+                                <vaadin-tooltip for="act-del-o3" text="Delete occurrence" position="top"></vaadin-tooltip>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="occurrence-row expanded" data-series="series-1">
+                        <td></td>
+                        <td class="occurrence-title"><span class="session-title">Morning Workshop</span></td>
+                        <td>10/31/2025 9:00 am – 10:00 am</td>
+                        <td>Classroom 102</td>
+                        <td>Jane Smith</td>
+                        <td class="col-credits">2 ISH</td>
+                        <td>
+                            <span class="action-btns">
+                                <vaadin-button theme="icon tertiary" id="act-edit-o4" aria-label="Edit occurrence" onclick="openEditOccurrence(event)"><i class="fa-solid fa-pen"></i></vaadin-button>
+                                <vaadin-tooltip for="act-edit-o4" text="Edit occurrence" position="top"></vaadin-tooltip>
+                                <vaadin-button theme="icon tertiary" class="action-delete" id="act-del-o4" aria-label="Delete occurrence" onclick="deleteSession(event)"><i class="fa-solid fa-trash"></i></vaadin-button>
+                                <vaadin-tooltip for="act-del-o4" text="Delete occurrence" position="top"></vaadin-tooltip>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="occurrence-row expanded" data-series="series-1">
+                        <td></td>
+                        <td class="occurrence-title"><span class="session-title">Morning Workshop</span></td>
+                        <td>11/07/2025 9:00 am – 10:00 am</td>
+                        <td>Classroom 102</td>
+                        <td>Jane Smith</td>
+                        <td class="col-credits">2 ISH</td>
+                        <td>
+                            <span class="action-btns">
+                                <vaadin-button theme="icon tertiary" id="act-edit-o5" aria-label="Edit occurrence" onclick="openEditOccurrence(event)"><i class="fa-solid fa-pen"></i></vaadin-button>
+                                <vaadin-tooltip for="act-edit-o5" text="Edit occurrence" position="top"></vaadin-tooltip>
+                                <vaadin-button theme="icon tertiary" class="action-delete" id="act-del-o5" aria-label="Delete occurrence" onclick="deleteSession(event)"><i class="fa-solid fa-trash"></i></vaadin-button>
+                                <vaadin-tooltip for="act-del-o5" text="Delete occurrence" position="top"></vaadin-tooltip>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="occurrence-row expanded" data-series="series-1">
+                        <td></td>
+                        <td class="occurrence-title"><span class="session-title">Morning Workshop</span></td>
+                        <td>11/14/2025 9:00 am – 10:00 am</td>
+                        <td>Classroom 102</td>
+                        <td>Jane Smith</td>
+                        <td class="col-credits">2 ISH</td>
+                        <td>
+                            <span class="action-btns">
+                                <vaadin-button theme="icon tertiary" id="act-edit-o6" aria-label="Edit occurrence" onclick="openEditOccurrence(event)"><i class="fa-solid fa-pen"></i></vaadin-button>
+                                <vaadin-tooltip for="act-edit-o6" text="Edit occurrence" position="top"></vaadin-tooltip>
+                                <vaadin-button theme="icon tertiary" class="action-delete" id="act-del-o6" aria-label="Delete occurrence" onclick="deleteSession(event)"><i class="fa-solid fa-trash"></i></vaadin-button>
+                                <vaadin-tooltip for="act-del-o6" text="Delete occurrence" position="top"></vaadin-tooltip>
+                            </span>
+                        </td>
+                    </tr>
+
+                    <!-- Standalone single sessions -->
+                    <tr>
+                        <td></td>
+                        <td><span class="session-title">Afternoon Breakout</span></td>
+                        <td>10/10/2025 1:00 pm – 3:00 pm</td>
+                        <td>Classroom 104</td>
+                        <td>James Stanton</td>
+                        <td class="col-credits">2 ISH</td>
+                        <td>
+                            <span class="action-btns">
+                                <vaadin-button theme="icon tertiary" id="act-edit-ss1" aria-label="Edit session" onclick="openEditSession(event)"><i class="fa-solid fa-pen"></i></vaadin-button>
+                                <vaadin-tooltip for="act-edit-ss1" text="Edit session" position="top"></vaadin-tooltip>
+                                <vaadin-button theme="icon tertiary" class="action-delete" id="act-del-ss1" aria-label="Delete session" onclick="deleteSession(event)"><i class="fa-solid fa-trash"></i></vaadin-button>
+                                <vaadin-tooltip for="act-del-ss1" text="Delete session" position="top"></vaadin-tooltip>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td><span class="session-title">Lab Practicum</span></td>
+                        <td>10/11/2025 9:00 am – 12:00 pm</td>
+                        <td>Science Lab B</td>
+                        <td>Jane Smith</td>
+                        <td class="col-credits">3 ISH</td>
+                        <td>
+                            <span class="action-btns">
+                                <vaadin-button theme="icon tertiary" id="act-edit-ss2" aria-label="Edit session" onclick="openEditSession(event)"><i class="fa-solid fa-pen"></i></vaadin-button>
+                                <vaadin-tooltip for="act-edit-ss2" text="Edit session" position="top"></vaadin-tooltip>
+                                <vaadin-button theme="icon tertiary" class="action-delete" id="act-del-ss2" aria-label="Delete session" onclick="deleteSession(event)"><i class="fa-solid fa-trash"></i></vaadin-button>
+                                <vaadin-tooltip for="act-del-ss2" text="Delete session" position="top"></vaadin-tooltip>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td><span class="session-title">Closing Reflection</span></td>
+                        <td>10/11/2025 2:00 pm – 3:30 pm</td>
+                        <td>Main Auditorium</td>
+                        <td>—</td>
+                        <td class="col-credits">1.5 ISH</td>
+                        <td>
+                            <span class="action-btns">
+                                <vaadin-button theme="icon tertiary" id="act-edit-ss3" aria-label="Edit session" onclick="openEditSession(event)"><i class="fa-solid fa-pen"></i></vaadin-button>
+                                <vaadin-tooltip for="act-edit-ss3" text="Edit session" position="top"></vaadin-tooltip>
+                                <vaadin-button theme="icon tertiary" class="action-delete" id="act-del-ss3" aria-label="Delete session" onclick="deleteSession(event)"><i class="fa-solid fa-trash"></i></vaadin-button>
+                                <vaadin-tooltip for="act-del-ss3" text="Delete session" position="top"></vaadin-tooltip>
+                            </span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ── Custom Questions ── -->
+    <div class="section-card">
+        <div class="section-header">
+            <h2 class="section-title">[Custom Questions]</h2>
+        </div>
+
+        <!-- Edit mode -->
+        <div class="edit-only">
+            <div class="cq-group">
+                <div class="cq-group-title">Group 1</div>
+                <div class="cq-fields">
+                    <div>
+                        <vaadin-text-field theme="outlined" label="Question 1" placeholder="Short answer" style="width:100%;"></vaadin-text-field>
+                    </div>
+                    <div>
+                        <label class="field-label">Question 2</label>
+                        <select class="styled-select" style="width:100%;">
+                            <option value="">Select an option</option>
+                            <option>Option A</option>
+                            <option>Option B</option>
+                            <option>Option C</option>
+                        </select>
+                    </div>
+                    <div class="full-width">
+                        <vaadin-text-area theme="outlined" label="Question 3" placeholder="Long answer" style="width:100%; --vaadin-text-area-height:72px;"></vaadin-text-area>
+                    </div>
+                </div>
+            </div>
+            <div class="cq-group">
+                <div class="cq-group-title">Group 2</div>
+                <div class="cq-fields">
+                    <div>
+                        <div class="field-label" style="margin-bottom:6px;">Question 4</div>
+                        <div style="display:flex; flex-direction:column; gap:4px;">
+                            <vaadin-checkbox label="Choice A"></vaadin-checkbox>
+                            <vaadin-checkbox label="Choice B"></vaadin-checkbox>
+                            <vaadin-checkbox label="Choice C"></vaadin-checkbox>
+                        </div>
+                    </div>
+                    <div>
+                        <vaadin-text-field theme="outlined" label="Question 5" placeholder="Short answer" style="width:100%;"></vaadin-text-field>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Read-only mode -->
+        <div class="ro-value">
+            <div class="cq-group">
+                <div class="cq-group-title">Group 1</div>
+                <div class="cq-fields">
+                    <div class="ro-field">
+                        <div class="ro-field-label">Question 1</div>
+                        <div class="ro-field-value empty">No response</div>
+                    </div>
+                    <div class="ro-field">
+                        <div class="ro-field-label">Question 2</div>
+                        <div class="ro-field-value empty">No selection</div>
+                    </div>
+                    <div class="ro-field full-width">
+                        <div class="ro-field-label">Question 3</div>
+                        <div class="ro-field-value empty">No response</div>
+                    </div>
+                </div>
+            </div>
+            <div class="cq-group">
+                <div class="cq-group-title">Group 2</div>
+                <div class="cq-fields">
+                    <div class="ro-field">
+                        <div class="ro-field-label">Question 4</div>
+                        <div class="ro-field-value empty">None selected</div>
+                    </div>
+                    <div class="ro-field">
+                        <div class="ro-field-label">Question 5</div>
+                        <div class="ro-field-value empty">No response</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Attachments ── -->
+    <div class="section-card">
+        <div class="section-header">
+            <h2 class="section-title">Attachments</h2>
+        </div>
+
+        <!-- Edit mode -->
+        <div class="edit-only">
+            <p style="font-size:13px; color:var(--lumo-secondary-text-color,#666); margin:0 0 2px;">Upload attachments for this event</p>
+            <p style="font-size:12px; color:var(--lumo-tertiary-text-color,#888); margin:0 0 12px;">Attachments will be available to all enrolled users</p>
+            <div class="upload-zone">
+                <div class="upload-zone-header">
+                    <vaadin-button theme="secondary">
+                        <i class="fa-solid fa-upload" slot="prefix"></i>
+                        Upload files...
+                    </vaadin-button>
+                    <span class="upload-drop-hint">
+                        <i class="fa-solid fa-upload" style="font-size:12px;"></i>
+                        Drop files here
+                    </span>
+                </div>
+                <div class="upload-file-item">
+                    <div class="upload-file-header">
+                        <span>Filename.pdf</span>
+                        <vaadin-button theme="icon tertiary" aria-label="Cancel" style="margin:-4px -8px;">
+                            <i class="fa-solid fa-xmark"></i>
+                        </vaadin-button>
+                    </div>
+                    <div class="upload-file-meta">19.7 MB: 30% (remaining time: 00:12:34)</div>
+                    <vaadin-progress-bar value="0.3"></vaadin-progress-bar>
+                </div>
+            </div>
+        </div>
+
+        <!-- Read-only mode -->
+        <div class="ro-value">
+            <div class="ro-field">
+                <div class="ro-field-label">Attachments</div>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+                    <i class="fa-solid fa-file-pdf" style="color:var(--lumo-error-color,#e53935);"></i>
+                    <span style="font-size:14px;">Filename.pdf</span>
+                    <span style="font-size:12px; color:var(--lumo-secondary-text-color,#888);">19.7 MB</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- end page-wrapper -->
+
+<!-- ── Prototype Role Switcher ── -->
+<div class="role-switcher">
+    <span class="rs-label"><i class="fa-solid fa-grip-vertical rs-drag-handle"></i>&#9881; Prototype: viewing as</span>
+    <select id="role-switcher-select">
+        <option value="author">Author</option>
+        <option value="approver-edit">Approver (with edit)</option>
+        <option value="approver-ro">Approver (read-only)</option>
+    </select>
+</div>
+
+<!-- ── Sticky Footer ── -->
+<footer class="page-footer">
+    <vaadin-button theme="tertiary">Cancel</vaadin-button>
+
+    <!-- Author actions -->
+    <div class="footer-right" id="footer-author">
+        <vaadin-button theme="secondary">Save Draft</vaadin-button>
+        <vaadin-button theme="secondary">Save</vaadin-button>
+        <vaadin-button theme="primary">Submit</vaadin-button>
+    </div>
+
+    <!-- Approver/Reviewer actions (edit) — includes Save -->
+    <div class="footer-right" id="footer-approver-edit" style="display:none;">
+        <vaadin-button theme="error secondary" id="decline-btn-edit">Decline</vaadin-button>
+        <vaadin-button theme="secondary" id="return-to-author-btn-edit">Return to Author</vaadin-button>
+        <vaadin-button theme="secondary">Mark as Reviewed</vaadin-button>
+        <vaadin-button theme="secondary">Save</vaadin-button>
+        <vaadin-button theme="primary">Approve</vaadin-button>
+    </div>
+
+    <!-- Approver/Reviewer actions (read-only) — no Save -->
+    <div class="footer-right" id="footer-approver-ro" style="display:none;">
+        <vaadin-button theme="error secondary" id="decline-btn-ro">Decline</vaadin-button>
+        <vaadin-button theme="secondary" id="return-to-author-btn-ro">Return to Author</vaadin-button>
+        <vaadin-button theme="secondary">Mark as Reviewed</vaadin-button>
+        <vaadin-button theme="primary">Approve</vaadin-button>
+    </div>
+</footer>
+
+<!-- ── Approve Dialog ── -->
+<vaadin-dialog id="approve-dialog" header-title="Approve Event"></vaadin-dialog>
+
+<!-- ── Return to Author Dialog ── -->
+<vaadin-dialog id="return-to-author-dialog" header-title="Return to Author"></vaadin-dialog>
+
+<!-- ── Add Presenter Dialog ── -->
+<vaadin-dialog id="add-presenter-dialog" header-title="Add Presenter"></vaadin-dialog>
+
+<!-- ── Session Drawer Scrim ── -->
+<div id="drawer-scrim"></div>
+
+<!-- ── Session Drawer ── -->
+<div id="session-drawer">
+    <div class="session-drawer-header">
+        <h2 id="drawer-title" style="margin:0; font-size:18px; font-weight:600;">Create New Session</h2>
+        <button id="drawer-close-btn" aria-label="Close" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--lumo-secondary-text-color,#666);padding:4px;display:flex;align-items:center;">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+    <div class="drawer-form-body">
+
+        <!-- Callout shown only when editing a single occurrence of a recurring series -->
+        <div id="occurrence-callout" class="occurrence-callout" style="display:none;">
+            <i class="fa-solid fa-circle-info"></i>
+            <span>This is one event in a recurring set. Changes apply to this occurrence only and won't affect the rest of the series.</span>
+        </div>
+
+        <div style="margin-bottom:16px;">
+            <vaadin-text-field theme="outlined" label="Title *" style="width:100%;"></vaadin-text-field>
+        </div>
+
+        <div style="margin-bottom:16px;">
+            <vaadin-text-field theme="outlined" label="Location *" style="width:100%;"></vaadin-text-field>
+        </div>
+
+        <div style="margin-bottom:16px;">
+            <vaadin-date-time-picker theme="outlined" id="drawer-start" label="Start" style="width:100%;"></vaadin-date-time-picker>
+        </div>
+        <div style="margin-bottom:16px;">
+            <vaadin-date-time-picker theme="outlined" id="drawer-end" label="End" style="width:100%;"></vaadin-date-time-picker>
+        </div>
+
+        <!-- Repeat -->
+        <div class="repeat-section" id="drawer-repeat-section" style="margin-bottom:16px;">
+            <div class="repeat-row">
+                <span>Repeat</span>
+                <vaadin-select theme="outlined" id="drawer-repeat-freq" value="weekly" style="width:130px;"></vaadin-select>
+                <span class="repeat-when">Every</span>
+                <vaadin-number-field theme="outlined" id="drawer-repeat-interval" class="repeat-when" value="1" min="1" style="width:80px;"></vaadin-number-field>
+                <span class="repeat-when" id="drawer-repeat-unit">Weeks</span>
+            </div>
+
+            <!-- Ends (only shown when repeating) -->
+            <div class="repeat-row repeat-when" id="drawer-repeat-ends" style="margin-top:10px;">
+                <span>Ends</span>
+                <vaadin-select theme="outlined" id="drawer-ends-mode" value="after" style="width:130px;"></vaadin-select>
+                <!-- After N occurrences -->
+                <span class="ends-after" style="display:inline-flex; align-items:center; gap:8px;">
+                    <vaadin-number-field theme="outlined" id="drawer-ends-count" value="6" min="1" style="width:80px;"></vaadin-number-field>
+                    <span>occurrences</span>
+                </span>
+                <!-- On date -->
+                <vaadin-date-picker theme="outlined" id="drawer-ends-date" class="ends-on" value="2025-11-14" style="width:150px; display:none;"></vaadin-date-picker>
+            </div>
+
+            <!-- Count summary -->
+            <div class="repeat-count repeat-when" id="drawer-repeat-summary" style="margin-top:10px;">
+                <i class="fa-solid fa-circle-info" style="color:var(--lumo-primary-color,#0271ce);"></i>
+                <span><strong id="drawer-repeat-count">6</strong> sessions will be created. Each can be edited individually in the schedule below.</span>
+            </div>
+        </div>
+
+
+        <!-- Max Attendees -->
+        <div class="subsection-label">Max Attendees</div>
+        <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:16px;">
+            <label class="radio-label-wrap">
+                <input type="radio" name="drawer-max-attendees" value="unlimited" style="accent-color:var(--lumo-primary-color);"> Unlimited
+            </label>
+            <label class="radio-label-wrap">
+                <input type="radio" name="drawer-max-attendees" value="limit" checked style="accent-color:var(--lumo-primary-color);"> Limit to
+                <vaadin-number-field theme="outlined" value="10" min="1" style="width:80px; margin-left:6px;"></vaadin-number-field>
+            </label>
+        </div>
+
+        <!-- Waitlist -->
+        <div style="margin-bottom:16px;">
+            <div style="font-size:13px; font-weight:600; margin-bottom:6px;">Waitlist:</div>
+            <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+                <label class="radio-label-wrap">
+                    <input type="radio" name="drawer-waitlist" value="none" style="accent-color:var(--lumo-primary-color);"> None
+                </label>
+                <label class="radio-label-wrap">
+                    <input type="radio" name="drawer-waitlist" value="unlimited" style="accent-color:var(--lumo-primary-color);"> Unlimited
+                </label>
+                <label class="radio-label-wrap">
+                    <input type="radio" name="drawer-waitlist" value="limit" checked style="accent-color:var(--lumo-primary-color);"> Limit to
+                    <vaadin-number-field theme="outlined" value="10" min="1" style="width:80px; margin-left:6px;"></vaadin-number-field>
+                </label>
+            </div>
+        </div>
+
+        <!-- Credits -->
+        <div class="subsection-label" style="margin-bottom:8px;">Credits</div>
+        <div id="drawer-credit-options" class="credit-options-list"></div>
+        <a class="link-action" id="drawer-add-credit-btn" href="#" style="font-size:12px; margin-top:6px; margin-bottom:16px; display:inline-flex; align-items:center; gap:4px;">
+            <i class="fa-solid fa-plus" style="font-size:10px;"></i> Add credit option
+        </a>
+
+        <!-- Presenters -->
+        <div class="presenters-row">
+            Presenters: <a class="link-action add-presenter-link" href="#">Add Presenter</a>
+        </div>
+
+    </div>
+    <div class="drawer-footer-actions">
+        <vaadin-button theme="secondary" id="drawer-cancel-btn">Cancel</vaadin-button>
+        <vaadin-button theme="primary" id="drawer-submit-btn">Add Session</vaadin-button>
+    </div>
+</div>
+
+<!-- ── Permission Rule Drawer Scrim ── -->
+<div id="permission-drawer-scrim" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:149;"></div>
+
+<!-- ── Permission Rule Drawer ── -->
+<div id="permission-drawer">
+    <div class="session-drawer-header">
+        <h2 id="permission-drawer-title" style="margin:0; font-size:18px; font-weight:600;">Add Permission Rule</h2>
+        <button id="permission-drawer-close-btn" aria-label="Close" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--lumo-secondary-text-color,#666);padding:4px;display:flex;align-items:center;">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+    <div class="drawer-form-body">
+        <p style="font-size:13px; color:var(--lumo-secondary-text-color,#666); margin:0 0 16px;">
+            Select one or more parameters to restrict who can see this event, then choose the values for each parameter.
+        </p>
+        <div style="margin-bottom:16px;">
+            <vaadin-multi-select-combo-box
+                theme="outlined"
+                label="Parameters *"
+                id="permission-parameters-combo"
+                style="width:100%;">
+            </vaadin-multi-select-combo-box>
+        </div>
+        <div id="permission-parameter-fields" style="display:flex; flex-direction:column; gap:12px;"></div>
+    </div>
+    <div class="drawer-footer-actions">
+        <vaadin-button theme="secondary" id="permission-drawer-cancel-btn">Cancel</vaadin-button>
+        <vaadin-button theme="primary" id="permission-drawer-submit-btn">Add Rule</vaadin-button>
+    </div>
+</div>
+
+<script>
+    // ── Schedule Type Toggle ──
+    function applyScheduleType(isMultiple) {
+        document.getElementById('scheduling-single').style.display = isMultiple ? 'none' : 'block';
+        document.getElementById('scheduling-multiple').style.display = isMultiple ? 'block' : 'none';
+        document.getElementById('ro-single').style.display = isMultiple ? 'none' : 'block';
+        document.getElementById('ro-multiple').style.display = isMultiple ? 'block' : 'none';
+        document.getElementById('ro-schedule-type').textContent = isMultiple ? 'Multiple' : 'Single';
+    }
+
+    document.querySelectorAll('input[name="schedule-type"]').forEach(radio => {
+        radio.addEventListener('change', (e) => applyScheduleType(e.target.value === 'multiple'));
+    });
+
+    // Init from checked radio
+    const checkedScheduleType = document.querySelector('input[name="schedule-type"]:checked');
+    applyScheduleType(checkedScheduleType?.value === 'multiple');
+
+    // ── Add / Remove Event Details ──
+    document.getElementById('add-details-btn').addEventListener('click', () => {
+        document.getElementById('add-details-btn-wrapper').style.display = 'none';
+        document.getElementById('event-details-expanded').style.display = 'block';
+    });
+    document.getElementById('remove-details-btn').addEventListener('click', () => {
+        document.getElementById('event-details-expanded').style.display = 'none';
+        document.getElementById('add-details-btn-wrapper').style.display = 'block';
+    });
+
+    // ── Session Drawer ──
+    const sessionDrawer = document.getElementById('session-drawer');
+    const drawerTitle = document.getElementById('drawer-title');
+    const drawerSubmitBtn = document.getElementById('drawer-submit-btn');
+    const drawerScrim = document.getElementById('drawer-scrim');
+
+    let drawerMode = 'create';
+
+    const occurrenceCallout = document.getElementById('occurrence-callout');
+    const repeatSection = document.getElementById('drawer-repeat-section');
+
+    // mode: 'create' | 'edit' | 'occurrence'
+    function openDrawer(mode) {
+        drawerMode = mode;
+        const isOccurrence = mode === 'occurrence';
+
+        // Occurrence of a recurring series: no repeat control, and a callout
+        // marking it as part of a recurring set. Start/End stay editable —
+        // legacy behavior allows shifting an individual occurrence's date/time.
+        occurrenceCallout.style.display = isOccurrence ? 'flex' : 'none';
+        repeatSection.style.display = isOccurrence ? 'none' : '';
+
+        sessionDrawer.classList.add('open');
+        drawerScrim.classList.add('visible');
+        updateRepeatUI();
+    }
+
+    // ── Repeat / batch-create controls ──
+    const repeatFreq = document.getElementById('drawer-repeat-freq');
+    const repeatUnit = document.getElementById('drawer-repeat-unit');
+    const repeatInterval = document.getElementById('drawer-repeat-interval');
+    const endsMode = document.getElementById('drawer-ends-mode');
+    const endsCount = document.getElementById('drawer-ends-count');
+    const repeatCountEl = document.getElementById('drawer-repeat-count');
+
+    // vaadin-select takes its options via an items array, not <option> children
+    repeatFreq.items = [
+        { label: 'Never', value: 'never' },
+        { label: 'Daily', value: 'daily' },
+        { label: 'Weekly', value: 'weekly' },
+        { label: 'Monthly', value: 'monthly' },
+    ];
+    endsMode.items = [
+        { label: 'After', value: 'after' },
+        { label: 'On Date', value: 'on' },
+    ];
+
+    const UNIT_LABEL = { daily: 'Days', weekly: 'Weeks', monthly: 'Months' };
+
+    function updateRepeatUI() {
+        const freq = repeatFreq.value;
+        const isRepeating = freq !== 'never';
+
+        // Show/hide everything that only applies when repeating
+        document.querySelectorAll('.repeat-when').forEach(el => {
+            el.style.display = isRepeating ? '' : 'none';
+        });
+
+        if (isRepeating) repeatUnit.textContent = UNIT_LABEL[freq] || 'Weeks';
+
+        // Swap After / On Date inputs. Reset to '' (default flex-item display) when
+        // shown so they center like their siblings — an explicit inline-block would
+        // sit on the text baseline and ride lower than the Ends select.
+        const onDate = endsMode.value === 'on';
+        document.querySelectorAll('.ends-after').forEach(el => el.style.display = onDate ? 'none' : 'inline-flex');
+        document.querySelectorAll('.ends-on').forEach(el => el.style.display = onDate ? '' : 'none');
+
+        // Derive the session count. "After N" uses N directly; for "On Date"
+        // a real implementation would compute occurrences from start→end date,
+        // but in this mock we show the same occurrences value as a stand-in.
+        const count = isRepeating ? (parseInt(endsCount.value, 10) || 1) : 1;
+        repeatCountEl.textContent = count;
+
+        // Adaptive header + button text
+        if (drawerMode === 'occurrence') {
+            drawerTitle.textContent = 'Edit Occurrence';
+            drawerSubmitBtn.textContent = 'Save Occurrence';
+        } else if (drawerMode === 'edit') {
+            drawerTitle.textContent = 'Edit Session';
+            drawerSubmitBtn.textContent = 'Save Session';
+        } else if (count > 1) {
+            drawerTitle.textContent = 'Create Sessions';
+            drawerSubmitBtn.textContent = `Add ${count} Sessions`;
+        } else {
+            drawerTitle.textContent = 'Create New Session';
+            drawerSubmitBtn.textContent = 'Add Session';
+        }
+    }
+
+    repeatFreq.addEventListener('value-changed', updateRepeatUI);
+    endsMode.addEventListener('value-changed', updateRepeatUI);
+    endsCount.addEventListener('value-changed', updateRepeatUI);
+
+    function closeDrawer() {
+        sessionDrawer.classList.remove('open');
+        drawerScrim.classList.remove('visible');
+    }
+
+    document.getElementById('add-session-btn').addEventListener('click', () => openDrawer('create'));
+    document.getElementById('drawer-cancel-btn').addEventListener('click', closeDrawer);
+    document.getElementById('drawer-close-btn').addEventListener('click', closeDrawer);
+    drawerSubmitBtn.addEventListener('click', closeDrawer);
+    drawerScrim.addEventListener('click', closeDrawer);
+
+    function openEditSession(e) {
+        e.preventDefault();
+        openDrawer('edit');
+    }
+
+    // Editing the series itself (parent row) — full edit incl. the repeat schedule.
+    function openEditSeries(e) {
+        e.preventDefault();
+        e.stopPropagation(); // don't toggle the accordion when clicking the title link
+        openDrawer('edit');
+    }
+
+    // Editing a single occurrence — locked date/time, no repeat, callout shown.
+    function openEditOccurrence(e) {
+        e.preventDefault();
+        openDrawer('occurrence');
+    }
+
+    function deleteSession(e) {
+        e.preventDefault();
+        if (confirm('Delete this session?')) {
+            e.target.closest('tr').remove();
+        }
+    }
+
+    // Deleting the parent series removes the series row and all its occurrences.
+    function deleteSeries(e) {
+        e.preventDefault();
+        e.stopPropagation(); // don't toggle the accordion
+        const parentRow = e.target.closest('tr');
+        const seriesId = parentRow.dataset.series;
+        if (confirm('Delete this recurring series? All ' +
+            document.querySelectorAll(`.occurrence-row[data-series="${seriesId}"]`).length +
+            ' occurrences will be removed.')) {
+            document.querySelectorAll(`.occurrence-row[data-series="${seriesId}"]`).forEach(r => r.remove());
+            parentRow.remove();
+        }
+    }
+
+    // ── Series accordion (editable table) ──
+    // The toggle is a dedicated <button> in the expand cell — not the whole row —
+    // so its touch/click target doesn't overlap the title link or action buttons.
+    document.querySelectorAll('.sessions-table .expand-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const parentRow = btn.closest('.series-parent-row');
+            const seriesId = parentRow.dataset.series;
+            const expanded = parentRow.classList.toggle('expanded');
+            btn.setAttribute('aria-expanded', String(expanded));
+            const title = parentRow.querySelector('.session-title')?.textContent.trim() || 'series';
+            btn.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} ${title} occurrences`);
+            document.querySelectorAll(`.occurrence-row[data-series="${seriesId}"]`)
+                .forEach(r => r.classList.toggle('expanded', expanded));
+        });
+    });
+
+    // ── Tags multiselect items ──
+    const [subjectCombo, contentCombo] = document.querySelectorAll('vaadin-multi-select-combo-box');
+    subjectCombo.items = ['Arts', 'English Language Arts', 'Mathematics', 'Physical Education', 'Science', 'Social Studies', 'Special Education', 'Technology', 'World Languages'];
+    contentCombo.items = ['Elementary', 'Middle School', 'High School', 'All Grades', 'Administration', 'Curriculum', 'Instruction', 'Assessment'];
+
+    // ── Budget remaining balance ──
+    const budgetFields = document.querySelectorAll('#budget-section vaadin-number-field[label="Allocated"], #budget-section vaadin-number-field[label="Actual Cost"]');
+    function updateBudget() {
+        const allocated = parseFloat(document.querySelector('#budget-section vaadin-number-field[label="Allocated"]').value) || 0;
+        const actual    = parseFloat(document.querySelector('#budget-section vaadin-number-field[label="Actual Cost"]').value) || 0;
+        const remaining = allocated - actual;
+        const el = document.getElementById('budget-remaining');
+        if (remaining < 0) {
+            el.textContent = `-$${Math.abs(remaining).toFixed(2)}`;
+            el.style.color = 'var(--lumo-error-color,#e53935)';
+        } else {
+            el.textContent = `$${remaining.toFixed(2)}`;
+            el.style.color = 'var(--lumo-success-color,#1b7e3e)';
+        }
+    }
+    budgetFields.forEach(f => f.addEventListener('value-changed', updateBudget));
+
+    // ── Credits Assigned toggle ──
+    function updateCreditsAssigned(isSession) {
+        document.getElementById('multi-credits-label').textContent = isSession ? 'Default Session Credit' : 'Event Credits';
+        document.querySelectorAll('.col-credits').forEach(el => {
+            el.style.display = isSession ? '' : 'none';
+        });
+    }
+
+    // Init: "Each session attended" is the default
+    updateCreditsAssigned(true);
+
+    document.querySelectorAll('input[name="credits-assigned"]').forEach(radio => {
+        radio.addEventListener('change', (e) => updateCreditsAssigned(e.target.value === 'session'));
+    });
+
+    // ── Role Switcher ──
+    function applyRole(role) {
+        const isAuthor       = role === 'author';
+        const isApproverEdit = role === 'approver-edit';
+        const isApproverRo   = role === 'approver-ro';
+        const isApprover     = isApproverEdit || isApproverRo;
+
+        // Footer
+        document.getElementById('footer-author').style.display        = isAuthor       ? 'flex' : 'none';
+        document.getElementById('footer-approver-edit').style.display = isApproverEdit ? 'flex' : 'none';
+        document.getElementById('footer-approver-ro').style.display   = isApproverRo   ? 'flex' : 'none';
+
+        // Read-only body class
+        document.body.classList.toggle('ro-mode', isApproverRo);
+    }
+
+    document.getElementById('role-switcher-select').addEventListener('change', (e) => applyRole(e.target.value));
+
+    // ── Make the prototype role switcher draggable ──
+    (() => {
+        const panel = document.querySelector('.role-switcher');
+        const handle = panel.querySelector('.rs-label');
+        let dragging = false;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        function onPointerDown(e) {
+            if (e.button !== undefined && e.button !== 0) return;
+            dragging = true;
+            panel.classList.add('dragging');
+            const rect = panel.getBoundingClientRect();
+            // Switch from right-anchored to left-anchored so dragging math is straightforward.
+            panel.style.left = rect.left + 'px';
+            panel.style.top = rect.top + 'px';
+            panel.style.right = 'auto';
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+            handle.setPointerCapture(e.pointerId);
+            e.preventDefault();
+        }
+
+        function onPointerMove(e) {
+            if (!dragging) return;
+            const w = panel.offsetWidth;
+            const h = panel.offsetHeight;
+            let x = e.clientX - offsetX;
+            let y = e.clientY - offsetY;
+            // Keep within viewport
+            x = Math.max(0, Math.min(window.innerWidth - w, x));
+            y = Math.max(0, Math.min(window.innerHeight - h, y));
+            panel.style.left = x + 'px';
+            panel.style.top = y + 'px';
+        }
+
+        function onPointerUp(e) {
+            if (!dragging) return;
+            dragging = false;
+            panel.classList.remove('dragging');
+            try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+        }
+
+        handle.addEventListener('pointerdown', onPointerDown);
+        handle.addEventListener('pointermove', onPointerMove);
+        handle.addEventListener('pointerup', onPointerUp);
+        handle.addEventListener('pointercancel', onPointerUp);
+    })();
+
+    // ── Return to Author Dialog ──
+    const returnDialog = document.getElementById('return-to-author-dialog');
+
+    returnDialog.renderer = (root) => {
+        if (root.firstChild) return;
+
+        root.innerHTML = `
+            <div style="width:420px; display:flex; flex-direction:column; gap:16px;">
+                <p style="margin:0; font-size:14px; color:var(--lumo-secondary-text-color,#555);">
+                    The event will be returned to the author for corrections.
+                </p>
+                <vaadin-checkbox id="rta-add-message-chk" label="Add a message to the author"></vaadin-checkbox>
+                <div id="rta-message-block" style="display:none; flex-direction:column; gap:4px;">
+                    <label style="font-size:12px; font-weight:600; color:var(--lumo-secondary-text-color,#666);">Message</label>
+                    <vaadin-text-area
+                        theme="outlined"
+                        placeholder="Describe what needs to be corrected or resubmitted..."
+                        style="width:100%; --vaadin-text-area-height:100px;">
+                    </vaadin-text-area>
+                </div>
+                <vaadin-checkbox id="rta-notify-chk" label="Notify author by email" checked></vaadin-checkbox>
+            </div>
+        `;
+
+        root.querySelector('#rta-add-message-chk').addEventListener('checked-changed', (e) => {
+            root.querySelector('#rta-message-block').style.display = e.detail.value ? 'flex' : 'none';
+        });
+    };
+
+    returnDialog.footerRenderer = (root) => {
+        if (root.firstChild) return;
+
+        const cancelBtn = document.createElement('vaadin-button');
+        cancelBtn.setAttribute('theme', 'secondary');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.addEventListener('click', () => { returnDialog.opened = false; });
+
+        const confirmBtn = document.createElement('vaadin-button');
+        confirmBtn.setAttribute('theme', 'primary');
+        confirmBtn.textContent = 'Return to Author';
+        confirmBtn.addEventListener('click', () => { returnDialog.opened = false; });
+
+        root.appendChild(cancelBtn);
+        root.appendChild(confirmBtn);
+    };
+
+    ['return-to-author-btn-edit', 'return-to-author-btn-ro'].forEach(id => {
+        document.getElementById(id).addEventListener('click', () => { returnDialog.opened = true; });
+    });
+
+    // ── Add Presenter Dialog ──
+    const presenterDialog = document.getElementById('add-presenter-dialog');
+
+    presenterDialog.renderer = (root) => {
+        if (root.firstChild) return;
+
+        root.innerHTML = `
+            <div style="width:460px; display:flex; flex-direction:column; gap:16px;">
+
+                <!-- Presenter Type toggle -->
+                <div style="display:flex; gap:0; border-radius:4px; overflow:hidden; width:fit-content; border:1px solid var(--lumo-primary-color,#0271ce);">
+                    <label id="ptype-label-vector" style="padding:6px 16px; font-size:13px; font-weight:600; cursor:pointer; background:var(--lumo-primary-color,#0271ce); color:#fff; display:flex; align-items:center; gap:6px;">
+                        <input type="radio" name="presenter-type" value="vector" checked style="display:none;"> Vector User
+                    </label>
+                    <label id="ptype-label-other" style="padding:6px 16px; font-size:13px; font-weight:600; cursor:pointer; background:#fff; color:var(--lumo-primary-color,#0271ce); display:flex; align-items:center; gap:6px; border-left:1px solid var(--lumo-primary-color,#0271ce);">
+                        <input type="radio" name="presenter-type" value="other" style="display:none;"> Other
+                    </label>
+                </div>
+
+                <!-- Vector User path -->
+                <div id="presenter-vector-panel">
+                    <vaadin-text-field
+                        id="presenter-search"
+                        theme="outlined"
+                        label="Search by name"
+                        placeholder="Type at least 3 characters..."
+                        style="width:100%;"
+                        helper-text="Search across name, school, department, or email">
+                    </vaadin-text-field>
+                    <!-- Mock search result -->
+                    <div id="presenter-search-results" style="margin-top:8px; border:1px solid var(--lumo-contrast-20pct,#e0e0e0); border-radius:4px; overflow:hidden; display:none;">
+                        <div class="presenter-result-row" style="padding:10px 12px; cursor:pointer; display:flex; flex-direction:column; gap:2px; border-bottom:1px solid var(--lumo-contrast-10pct,#f0f0f0);">
+                            <span style="font-size:13px; font-weight:600;">Jane Smith</span>
+                            <span style="font-size:12px; color:var(--lumo-secondary-text-color,#666);">Lincoln Elementary &nbsp;·&nbsp; 3rd Grade &nbsp;·&nbsp; jane.smith@district.edu</span>
+                        </div>
+                        <div class="presenter-result-row" style="padding:10px 12px; cursor:pointer; display:flex; flex-direction:column; gap:2px;">
+                            <span style="font-size:13px; font-weight:600;">James Stanton</span>
+                            <span style="font-size:12px; color:var(--lumo-secondary-text-color,#666);">Central Office &nbsp;·&nbsp; Curriculum &nbsp;·&nbsp; j.stanton@district.edu</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Other path -->
+                <div id="presenter-other-panel" style="display:none; flex-direction:column; gap:12px;">
+                    <vaadin-text-field theme="outlined" label="Name *" style="width:100%;"></vaadin-text-field>
+                    <vaadin-text-field theme="outlined" label="Email" style="width:100%;"></vaadin-text-field>
+                    <vaadin-text-field theme="outlined" label="Phone" style="width:100%;"></vaadin-text-field>
+                </div>
+
+                <!-- Added presenters list -->
+                <div id="added-presenters-list" style="display:none; flex-direction:column; gap:4px;">
+                    <div style="font-size:12px; font-weight:600; color:var(--lumo-secondary-text-color,#666); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px;">Added</div>
+                    <div id="added-presenters-items"></div>
+                </div>
+
+            </div>
+        `;
+
+        // Type toggle
+        root.querySelectorAll('input[name="presenter-type"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const isOther = e.target.value === 'other';
+                root.querySelector('#presenter-vector-panel').style.display = isOther ? 'none' : 'block';
+                root.querySelector('#presenter-other-panel').style.display = isOther ? 'flex' : 'none';
+                root.querySelector('#ptype-label-vector').style.background = isOther ? '#fff' : 'var(--lumo-primary-color,#0271ce)';
+                root.querySelector('#ptype-label-vector').style.color = isOther ? 'var(--lumo-primary-color,#0271ce)' : '#fff';
+                root.querySelector('#ptype-label-other').style.background = isOther ? 'var(--lumo-primary-color,#0271ce)' : '#fff';
+                root.querySelector('#ptype-label-other').style.color = isOther ? '#fff' : 'var(--lumo-primary-color,#0271ce)';
+            });
+        });
+
+        // Show mock results after 3 chars
+        root.querySelector('#presenter-search').addEventListener('value-changed', (e) => {
+            root.querySelector('#presenter-search-results').style.display =
+                (e.detail.value || '').length >= 3 ? 'block' : 'none';
+        });
+
+        // Select a result row — add to list
+        root.querySelectorAll('.presenter-result-row').forEach(row => {
+            row.addEventListener('mouseenter', () => row.style.background = 'var(--lumo-contrast-5pct,#f4f6f8)');
+            row.addEventListener('mouseleave', () => row.style.background = '');
+            row.addEventListener('click', () => {
+                const name = row.querySelector('span').textContent;
+                addPresenterToList(root, name);
+                root.querySelector('#presenter-search').value = '';
+                root.querySelector('#presenter-search-results').style.display = 'none';
+            });
+        });
+    };
+
+    function updateByPresenterGuard() {
+        const chk = document.getElementById('by-presenter-chk');
+        const infoBtn = document.getElementById('by-presenter-info-btn');
+        if (!chk) return;
+        const hasPresenters = presenterCount > 0;
+        chk.disabled = !hasPresenters;
+        chk.style.setProperty('--vaadin-checkbox-label-color', hasPresenters ? '' : '#555');
+        chk.style.setProperty('--vaadin-checkbox-border-color', hasPresenters ? '' : '#888');
+        if (infoBtn) infoBtn.style.display = hasPresenters ? 'none' : 'inline-flex';
+    }
+
+    let presenterCount = 0;
+
+    function addPresenterToList(root, name) {
+        const list = root.querySelector('#added-presenters-list');
+        const items = root.querySelector('#added-presenters-items');
+        list.style.display = 'flex';
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:var(--lumo-contrast-5pct,#f4f6f8); border-radius:4px; font-size:13px;';
+        item.innerHTML = `<span>${name}</span><button style="background:none;border:none;cursor:pointer;color:var(--lumo-secondary-text-color,#666);font-size:13px;" title="Remove"><i class="fa-solid fa-xmark"></i></button>`;
+        item.querySelector('button').addEventListener('click', () => {
+            item.remove();
+            presenterCount--;
+            if (!items.children.length) list.style.display = 'none';
+            updateByPresenterGuard();
+        });
+        items.appendChild(item);
+        presenterCount++;
+        updateByPresenterGuard();
+    }
+
+    presenterDialog.footerRenderer = (root) => {
+        if (root.firstChild) return;
+
+        const cancelBtn = document.createElement('vaadin-button');
+        cancelBtn.setAttribute('theme', 'secondary');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.addEventListener('click', () => { presenterDialog.opened = false; });
+
+        const addBtn = document.createElement('vaadin-button');
+        addBtn.setAttribute('theme', 'primary');
+        addBtn.textContent = 'Done';
+        addBtn.addEventListener('click', () => { presenterDialog.opened = false; });
+
+        root.appendChild(cancelBtn);
+        root.appendChild(addBtn);
+    };
+
+    document.querySelectorAll('.add-presenter-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            presenterDialog.opened = true;
+        });
+    });
+
+    // ── Approve Dialog ──
+    const approveDialog = document.getElementById('approve-dialog');
+
+    const mockReviewers = [
+        { name: 'Sarah Johnson',   role: 'Assistant Superintendent',  email: 's.johnson@district.edu' },
+        { name: 'Michael Torres',  role: 'Curriculum Director',       email: 'm.torres@district.edu' },
+        { name: 'Linda Park',      role: 'HR Director',               email: 'l.park@district.edu' },
+        { name: 'David Chen',      role: 'Finance Coordinator',       email: 'd.chen@district.edu' },
+        { name: 'Rachel Williams', role: 'Professional Dev Manager',  email: 'r.williams@district.edu' },
+    ];
+
+    approveDialog.renderer = (root) => {
+        if (root.firstChild) return;
+
+        root.innerHTML = `
+            <div style="width:480px; display:flex; flex-direction:column; gap:16px;">
+                <p style="margin:0; font-size:14px; color:var(--lumo-secondary-text-color,#555);">
+                    You are approving this event. Optionally, assign the next reviewer who must also review and approve before the event is published.
+                </p>
+
+                <vaadin-checkbox id="approve-next-reviewer-chk" label="Assign next reviewer"></vaadin-checkbox>
+
+                <div id="approve-next-reviewer-block" style="display:none; flex-direction:column; gap:12px;">
+
+                    <vaadin-text-field
+                        id="approve-reviewer-search"
+                        theme="outlined"
+                        label="Search by name or email"
+                        placeholder="Type at least 3 characters..."
+                        style="width:100%;"
+                        helper-text="Search across name, role, or email">
+                    </vaadin-text-field>
+
+                    <!-- Search results -->
+                    <div id="approve-reviewer-results" style="border:1px solid var(--lumo-contrast-20pct,#e0e0e0); border-radius:4px; overflow:hidden; display:none;">
+                    </div>
+
+                    <!-- Selected reviewer chip -->
+                    <div id="approve-reviewer-selected" style="display:none; align-items:center; justify-content:space-between; padding:10px 12px; background:var(--lumo-primary-color-10pct,#e8f2fb); border:1px solid var(--lumo-primary-color,#0271ce); border-radius:4px;">
+                        <div style="display:flex; flex-direction:column; gap:2px;">
+                            <span id="approve-reviewer-name" style="font-size:13px; font-weight:600;"></span>
+                            <span id="approve-reviewer-meta" style="font-size:12px; color:var(--lumo-secondary-text-color,#666);"></span>
+                        </div>
+                        <button id="approve-reviewer-remove" style="background:none; border:none; cursor:pointer; color:var(--lumo-secondary-text-color,#666); font-size:14px; padding:4px;" title="Remove selection">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <!-- Optional note to reviewer -->
+                    <div id="approve-note-block" style="display:none; flex-direction:column; gap:4px;">
+                        <vaadin-checkbox id="approve-add-note-chk" label="Add a note to the reviewer"></vaadin-checkbox>
+                        <div id="approve-note-area" style="display:none; margin-top:4px;">
+                            <vaadin-text-area
+                                theme="outlined"
+                                placeholder="Add context or instructions for the next reviewer..."
+                                style="width:100%; --vaadin-text-area-height:88px;">
+                            </vaadin-text-area>
+                        </div>
+                    </div>
+
+                </div>
+
+                <vaadin-checkbox id="approve-notify-chk" label="Notify next reviewer by email" style="display:none;"></vaadin-checkbox>
+            </div>
+        `;
+
+        const nextReviewerChk   = root.querySelector('#approve-next-reviewer-chk');
+        const nextReviewerBlock = root.querySelector('#approve-next-reviewer-block');
+        const searchField       = root.querySelector('#approve-reviewer-search');
+        const resultsEl         = root.querySelector('#approve-reviewer-results');
+        const selectedEl        = root.querySelector('#approve-reviewer-selected');
+        const nameEl            = root.querySelector('#approve-reviewer-name');
+        const metaEl            = root.querySelector('#approve-reviewer-meta');
+        const removeBtn         = root.querySelector('#approve-reviewer-remove');
+        const noteBlock         = root.querySelector('#approve-note-block');
+        const addNoteChk        = root.querySelector('#approve-add-note-chk');
+        const noteArea          = root.querySelector('#approve-note-area');
+        const notifyChk         = root.querySelector('#approve-notify-chk');
+
+        let selectedReviewer = null;
+
+        function selectReviewer(reviewer) {
+            selectedReviewer = reviewer;
+            nameEl.textContent = reviewer.name;
+            metaEl.textContent = reviewer.role + ' · ' + reviewer.email;
+            selectedEl.style.display = 'flex';
+            resultsEl.style.display  = 'none';
+            searchField.style.display = 'none';
+            noteBlock.style.display  = 'flex';
+            notifyChk.style.display  = '';
+        }
+
+        function clearReviewer() {
+            selectedReviewer = null;
+            selectedEl.style.display  = 'none';
+            searchField.style.display = '';
+            resultsEl.style.display   = 'none';
+            searchField.value         = '';
+            noteBlock.style.display   = 'none';
+            notifyChk.style.display   = 'none';
+        }
+
+        removeBtn.addEventListener('click', clearReviewer);
+
+        nextReviewerChk.addEventListener('checked-changed', (e) => {
+            const show = e.detail.value;
+            nextReviewerBlock.style.display = show ? 'flex' : 'none';
+            if (!show) {
+                clearReviewer();
+                notifyChk.style.display = 'none';
+            }
+        });
+
+        searchField.addEventListener('value-changed', (e) => {
+            const query = (e.detail.value || '').toLowerCase();
+            if (query.length < 3) {
+                resultsEl.style.display = 'none';
+                return;
+            }
+            const matches = mockReviewers.filter(r =>
+                r.name.toLowerCase().includes(query) ||
+                r.role.toLowerCase().includes(query) ||
+                r.email.toLowerCase().includes(query)
+            );
+            resultsEl.innerHTML = '';
+            if (!matches.length) {
+                resultsEl.innerHTML = '<div style="padding:10px 12px; font-size:13px; color:var(--lumo-secondary-text-color,#666);">No results found</div>';
+            } else {
+                matches.forEach((r, i) => {
+                    const row = document.createElement('div');
+                    row.style.cssText = 'padding:10px 12px; cursor:pointer; display:flex; flex-direction:column; gap:2px;' +
+                        (i < matches.length - 1 ? 'border-bottom:1px solid var(--lumo-contrast-10pct,#f0f0f0);' : '');
+                    row.innerHTML = `<span style="font-size:13px; font-weight:600;">${r.name}</span><span style="font-size:12px; color:var(--lumo-secondary-text-color,#666);">${r.role} &nbsp;·&nbsp; ${r.email}</span>`;
+                    row.addEventListener('mouseenter', () => row.style.background = 'var(--lumo-contrast-5pct,#f4f6f8)');
+                    row.addEventListener('mouseleave', () => row.style.background = '');
+                    row.addEventListener('click', () => selectReviewer(r));
+                    resultsEl.appendChild(row);
+                });
+            }
+            resultsEl.style.display = 'block';
+        });
+
+        addNoteChk.addEventListener('checked-changed', (e) => {
+            noteArea.style.display = e.detail.value ? 'block' : 'none';
+        });
+    };
+
+    approveDialog.footerRenderer = (root) => {
+        if (root.firstChild) return;
+
+        const cancelBtn = document.createElement('vaadin-button');
+        cancelBtn.setAttribute('theme', 'secondary');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.addEventListener('click', () => { approveDialog.opened = false; });
+
+        const confirmBtn = document.createElement('vaadin-button');
+        confirmBtn.setAttribute('theme', 'success primary');
+        confirmBtn.textContent = 'Confirm Approval';
+        confirmBtn.addEventListener('click', () => { approveDialog.opened = false; });
+
+        root.appendChild(cancelBtn);
+        root.appendChild(confirmBtn);
+    };
+
+    // Wire both Approve buttons (edit + read-only footers)
+    document.querySelectorAll('#footer-approver-edit vaadin-button[theme="primary"], #footer-approver-ro vaadin-button[theme="primary"]').forEach(btn => {
+        if (btn.textContent.trim() === 'Approve') {
+            btn.addEventListener('click', () => { approveDialog.opened = true; });
+        }
+    });
+
+    // ── Event Credits multi-row ──
+    function createCreditOptionRow(listEl) {
+        const row = document.createElement('div');
+        row.className = 'credit-option-row';
+        row.innerHTML = `
+            <div class="credit-field-wrap">
+                <vaadin-number-field theme="outlined" min="0" step="0.5"></vaadin-number-field>
+                <span class="credit-abbr-label">PH</span>
+            </div>
+            <div class="credit-field-wrap">
+                <vaadin-number-field theme="outlined" min="0" step="0.5"></vaadin-number-field>
+                <span class="credit-abbr-label">ISH</span>
+            </div>
+            <div class="credit-field-wrap">
+                <vaadin-number-field theme="outlined" min="0" step="0.5"></vaadin-number-field>
+                <span class="credit-abbr-label">GC</span>
+            </div>
+            <button class="row-delete-btn" title="Remove this credit option" aria-label="Remove credit option">
+                <i class="fa-solid fa-trash-can"></i>
+            </button>
+        `;
+
+        row.querySelector('.row-delete-btn').addEventListener('click', () => {
+            row.remove();
+            updateDeleteButtons(listEl);
+        });
+
+        return row;
+    }
+
+    function updateDeleteButtons(listEl) {
+        const rows = listEl.querySelectorAll('.credit-option-row');
+        rows.forEach(r => {
+            r.querySelector('.row-delete-btn').style.display = rows.length <= 1 ? 'none' : '';
+        });
+    }
+
+    function initCreditList(listId, addBtnId) {
+        const listEl = document.getElementById(listId);
+        const addBtn = document.getElementById(addBtnId);
+
+        // Seed with one row
+        listEl.appendChild(createCreditOptionRow(listEl));
+        updateDeleteButtons(listEl);
+
+        addBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            listEl.appendChild(createCreditOptionRow(listEl));
+            updateDeleteButtons(listEl);
+        });
+    }
+
+    initCreditList('single-credit-options', 'single-add-credit-btn');
+    initCreditList('multi-credit-options', 'multi-add-credit-btn');
+    initCreditList('drawer-credit-options', 'drawer-add-credit-btn');
+
+    // ── Reimbursement toggle: enable/disable Code & Subcode ──
+    const reimbChk = document.getElementById('field-reimbursement');
+    const reimbCode = document.getElementById('field-reimb-code');
+    const reimbSubcode = document.getElementById('field-reimb-subcode');
+    if (reimbChk && reimbCode && reimbSubcode) {
+        reimbChk.addEventListener('checked-changed', (e) => {
+            const on = e.detail.value;
+            reimbCode.disabled = !on;
+            reimbSubcode.disabled = !on;
+        });
+    }
+
+    // ── Publish To: permission rule drawer ──
+    const PERMISSION_PARAMETERS = {
+        School: ['Lincoln Elementary', 'Roosevelt Middle School', 'Washington High School', 'Jefferson Academy', 'Central Office'],
+        Grade: ['Pre-K', 'Kindergarten', '1st Grade', '2nd Grade', '3rd Grade', '4th Grade', '5th Grade', '6th Grade', '7th Grade', '8th Grade', '9th Grade', '10th Grade', '11th Grade', '12th Grade'],
+        Job: ['Teacher', 'Principal', 'Assistant Principal', 'Counselor', 'Nurse', 'Custodian', 'Administrator', 'Paraprofessional'],
+        Department: ['Mathematics', 'English Language Arts', 'Science', 'Social Studies', 'Physical Education', 'Fine Arts', 'Special Education', 'Technology'],
+        Role: ['Full-time', 'Part-time', 'Substitute', 'Contractor', 'Volunteer']
+    };
+
+    const permissionDrawer = document.getElementById('permission-drawer');
+    const permissionScrim = document.getElementById('permission-drawer-scrim');
+    const permissionParamsCombo = document.getElementById('permission-parameters-combo');
+    const permissionFieldsContainer = document.getElementById('permission-parameter-fields');
+    const permissionRulesList = document.getElementById('publish-rules-list');
+    const addPermRuleBtn = document.getElementById('add-permission-rule-btn');
+    const permDrawerCancelBtn = document.getElementById('permission-drawer-cancel-btn');
+    const permDrawerCloseBtn = document.getElementById('permission-drawer-close-btn');
+    const permDrawerSubmitBtn = document.getElementById('permission-drawer-submit-btn');
+
+    // Populate parameters combo
+    permissionParamsCombo.items = Object.keys(PERMISSION_PARAMETERS);
+
+    // State for the value combos currently displayed in the drawer
+    let paramValueCombos = {}; // { paramName: { wrapper, combo } }
+    let editingRuleRow = null; // the row being edited, or null when creating
+
+    function openPermissionDrawer(rule = null, ruleRow = null) {
+        editingRuleRow = ruleRow;
+        document.getElementById('permission-drawer-title').textContent = rule ? 'Edit Permission Rule' : 'Add Permission Rule';
+        permDrawerSubmitBtn.textContent = rule ? 'Save Rule' : 'Add Rule';
+        // Reset drawer state
+        permissionParamsCombo.selectedItems = [];
+        permissionFieldsContainer.innerHTML = '';
+        paramValueCombos = {};
+
+        if (rule) {
+            const paramNames = rule.params.map(p => p.name);
+            permissionParamsCombo.selectedItems = paramNames;
+            syncParamFields(paramNames);
+            rule.params.forEach(p => {
+                if (paramValueCombos[p.name]) {
+                    paramValueCombos[p.name].combo.selectedItems = p.values;
+                }
+            });
+        }
+
+        permissionDrawer.classList.add('open');
+        permissionScrim.style.display = 'block';
+    }
+
+    function closePermissionDrawer() {
+        permissionDrawer.classList.remove('open');
+        permissionScrim.style.display = 'none';
+    }
+
+    function renderParamField(paramName) {
+        const wrapper = document.createElement('div');
+        wrapper.dataset.param = paramName;
+
+        const combo = document.createElement('vaadin-multi-select-combo-box');
+        combo.setAttribute('theme', 'outlined');
+        combo.setAttribute('label', paramName);
+        combo.style.width = '100%';
+        combo.items = PERMISSION_PARAMETERS[paramName];
+
+        wrapper.appendChild(combo);
+        permissionFieldsContainer.appendChild(wrapper);
+        paramValueCombos[paramName] = { wrapper, combo };
+    }
+
+    function syncParamFields(selected) {
+        // Add missing
+        selected.forEach(p => {
+            if (!paramValueCombos[p]) renderParamField(p);
+        });
+        // Remove unselected
+        Object.keys(paramValueCombos).forEach(p => {
+            if (!selected.includes(p)) {
+                paramValueCombos[p].wrapper.remove();
+                delete paramValueCombos[p];
+            }
+        });
+    }
+
+    permissionParamsCombo.addEventListener('selected-items-changed', (e) => {
+        syncParamFields(e.detail.value || []);
+    });
+
+    function formatRuleSummary(rule) {
+        const AND = ` <span style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:var(--lumo-primary-color,#1676f3); margin:0 6px;">AND</span> `;
+        return rule.params.map(p => {
+            const valueText = p.values.length ? p.values.join(', ') : '(any)';
+            return `<span style="font-weight:600;">${p.name}</span> <span style="color:var(--lumo-secondary-text-color,#666);">is</span> ${valueText}`;
+        }).join(AND);
+    }
+
+    function applyRuleToRow(row, rule) {
+        row._rule = rule;
+        row.querySelector('.rule-summary').innerHTML = formatRuleSummary(rule);
+    }
+
+    function renderRuleRow(rule) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 12px; border:1px solid var(--lumo-contrast-20pct,#e0e0e0); border-radius:6px; background:var(--lumo-contrast-5pct,#f7f8fa); font-size:13px;';
+
+        const summary = document.createElement('div');
+        summary.className = 'rule-summary';
+        summary.style.cssText = 'flex:1; min-width:0; line-height:1.6;';
+
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display:flex; gap:4px; flex-shrink:0;';
+
+        const editBtn = document.createElement('button');
+        editBtn.setAttribute('aria-label', 'Edit rule');
+        editBtn.title = 'Edit';
+        editBtn.style.cssText = 'background:none; border:none; cursor:pointer; color:var(--lumo-secondary-text-color,#666); padding:4px 6px; font-size:13px;';
+        editBtn.innerHTML = '<i class="fa-solid fa-pencil"></i>';
+        editBtn.addEventListener('click', () => openPermissionDrawer(row._rule, row));
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.setAttribute('aria-label', 'Delete rule');
+        deleteBtn.title = 'Delete';
+        deleteBtn.style.cssText = 'background:none; border:none; cursor:pointer; color:var(--lumo-secondary-text-color,#666); padding:4px 6px; font-size:13px;';
+        deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+        deleteBtn.addEventListener('click', () => row.remove());
+
+        actions.appendChild(editBtn);
+        actions.appendChild(deleteBtn);
+        row.appendChild(summary);
+        row.appendChild(actions);
+        applyRuleToRow(row, rule);
+        permissionRulesList.appendChild(row);
+    }
+
+    function saveRule() {
+        const selectedParams = permissionParamsCombo.selectedItems || [];
+        if (!selectedParams.length) {
+            closePermissionDrawer();
+            return;
+        }
+        const rule = {
+            params: selectedParams.map(name => ({
+                name,
+                values: (paramValueCombos[name]?.combo.selectedItems) || []
+            }))
+        };
+        if (editingRuleRow) {
+            applyRuleToRow(editingRuleRow, rule);
+        } else {
+            renderRuleRow(rule);
+        }
+        closePermissionDrawer();
+    }
+
+    addPermRuleBtn.addEventListener('click', (e) => { e.preventDefault(); openPermissionDrawer(null, null); });
+    permDrawerCancelBtn.addEventListener('click', closePermissionDrawer);
+    permDrawerCloseBtn.addEventListener('click', closePermissionDrawer);
+    permissionScrim.addEventListener('click', closePermissionDrawer);
+    permDrawerSubmitBtn.addEventListener('click', saveRule);
+
+    // ── Read-only session row expand/collapse ──
+    document.querySelectorAll('.ro-session-row').forEach(row => {
+        row.addEventListener('click', () => {
+            const detailRow = document.getElementById(row.dataset.target);
+            const isExpanded = row.classList.toggle('expanded');
+            detailRow.classList.toggle('expanded', isExpanded);
+        });
+    });
+</script>
+</body>
+</html>
