@@ -207,4 +207,82 @@
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && panel && panel.classList.contains('open')) chat.close();
   });
+
+  /* ======================================================================
+     Modal — a simple, temporary popover for clarifiers / "more info".
+
+       Lesson.modal.open({ title, body, icon, cta })
+         - title : heading text
+         - body  : string (paragraphs split on blank lines) or a DOM node
+         - icon  : optional Font Awesome class (default: circle-question)
+         - cta   : optional dismiss-button label (default: "Got it")
+
+     One backdrop element is reused across calls. Closes on the close button,
+     the CTA, a backdrop click, or Escape.
+     ====================================================================== */
+  const modal = (Lesson.modal = {});
+
+  let backdrop, modalTitleEl, modalBodyEl, modalIconEl, modalCtaEl, lastFocused;
+
+  function buildModal() {
+    modalIconEl = el('i', { class: 'fa-solid fa-circle-question' });
+    modalTitleEl = el('h2', { class: 'lesson-modal-title', id: 'lessonModalTitle' });
+    modalBodyEl = el('div', { class: 'lesson-modal-body' });
+    modalCtaEl = el('vaadin-button', { theme: 'primary', onclick: modal.close }, 'Got it');
+
+    const dialog = el('div', {
+      class: 'lesson-modal',
+      role: 'dialog',
+      'aria-modal': 'true',
+      'aria-labelledby': 'lessonModalTitle',
+    }, [
+      el('header', { class: 'lesson-modal-head' }, [
+        el('span', { class: 'lesson-modal-icon' }, modalIconEl),
+        modalTitleEl,
+        el('button', { class: 'lesson-modal-close', 'aria-label': 'Close', onclick: modal.close },
+          el('i', { class: 'fa-solid fa-xmark' })),
+      ]),
+      modalBodyEl,
+      el('footer', { class: 'lesson-modal-foot' }, modalCtaEl),
+    ]);
+
+    backdrop = el('div', {
+      class: 'lesson-modal-backdrop',
+      onclick: (e) => { if (e.target === backdrop) modal.close(); },
+    }, dialog);
+
+    document.body.appendChild(backdrop);
+  }
+
+  modal.open = function (opts) {
+    const o = opts || {};
+    if (!backdrop) buildModal();
+
+    modalIconEl.className = 'fa-solid ' + (o.icon || 'fa-circle-question');
+    modalTitleEl.textContent = o.title || '';
+    modalCtaEl.textContent = o.cta || 'Got it';
+
+    modalBodyEl.replaceChildren();
+    if (o.body && o.body.nodeType) {
+      modalBodyEl.appendChild(o.body);
+    } else {
+      String(o.body || '')
+        .split(/\n{2,}/)
+        .forEach((para) => modalBodyEl.appendChild(el('p', { text: para })));
+    }
+
+    lastFocused = document.activeElement;
+    backdrop.classList.add('open');
+    window.setTimeout(() => modalCtaEl && modalCtaEl.focus(), 60);
+  };
+
+  modal.close = function () {
+    if (!backdrop) return;
+    backdrop.classList.remove('open');
+    if (lastFocused && lastFocused.focus) lastFocused.focus();
+  };
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && backdrop && backdrop.classList.contains('open')) modal.close();
+  });
 })();
