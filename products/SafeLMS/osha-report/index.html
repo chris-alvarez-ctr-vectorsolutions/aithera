@@ -530,6 +530,32 @@
   .ag-filter { display: flex; align-items: center; gap: 10px; margin: 2px 0 14px; }
   .ag-filter .agf-label { font-size: 12px; font-weight: 700; color: var(--muted); white-space: nowrap; }
   .ag-empty { padding: 22px; text-align: center; color: var(--muted); font-size: 13px; }
+
+  /* ── Delivery channels (Send via Email / Push) with preview + edit ── */
+  .delivery { display: flex; flex-direction: column; gap: 12px; margin: 4px 0 6px; }
+  .dlv-channel { border: 1px solid var(--hair); border-radius: 12px; padding: 12px 14px; }
+  .dlv-channel.dlv-off { opacity: .5; }
+  .dlv-head { display: flex; align-items: center; gap: 10px; }
+  .dlv-head .dlv-name { font-size: 13.5px; font-weight: 700; color: var(--ink); display: inline-flex; align-items: center; gap: 8px; }
+  .dlv-head .dlv-name i { color: var(--muted); }
+  .dlv-edit-btn { margin-left: auto; background: none; border: 1px solid var(--hair); border-radius: 6px; padding: 3px 11px; font-family: inherit; font-size: 12px; font-weight: 600; color: var(--blue-accent); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+  .dlv-edit-btn:hover { background: var(--hair-2); }
+  .dlv-preview { margin-top: 10px; }
+  /* Email preview */
+  .ep { border: 1px solid var(--hair); border-radius: 9px; overflow: hidden; }
+  .ep-line { display: flex; gap: 8px; padding: 8px 12px; background: #f9fafb; border-bottom: 1px solid var(--hair); font-size: 12px; }
+  .ep-k { color: var(--muted); font-weight: 700; min-width: 54px; }
+  .ep-v { color: var(--ink); font-weight: 600; }
+  .ep-body { padding: 11px 12px; font-size: 12.5px; line-height: 1.5; color: var(--ink-2); white-space: pre-wrap; }
+  /* Push preview — phone-style toast */
+  .pp { background: #1f2937; color: #fff; border-radius: 12px; padding: 11px 13px; max-width: 340px; }
+  .pp-top { font-size: 10.5px; color: #cbd5e1; display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
+  .pp-ico { width: 16px; height: 16px; border-radius: 4px; background: var(--blue-primary); color: #fff; font-size: 10px; font-weight: 800; display: grid; place-items: center; }
+  .pp-title { font-size: 13px; font-weight: 700; }
+  .pp-body { font-size: 12px; color: #e5e7eb; margin-top: 2px; line-height: 1.4; white-space: pre-wrap; }
+  .dlv-editor { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .dlv-editor[hidden] { display: none; }   /* author display:flex would otherwise override [hidden] */
+  .dlv-editor-actions { display: flex; justify-content: flex-end; }
 </style>
 </head>
 <body>
@@ -1346,18 +1372,111 @@
     </div>`;
   }
 
+  /* ═══════════════ Delivery channels — choose Email and/or Push, preview + edit ═══════════════ */
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  // Default channel content per action type. Returns a mutable state object (so edits + channel
+  // toggles persist across modal re-renders, e.g. the action-group course filter).
+  function deliveryContent(type, course, o = {}) {
+    const c = course || 'this required OSHA course';
+    const you = o.plural ? '' : '';
+    let content;
+    if (type === 'intervene') content = {
+      email: { subject: `Action required: start ${c}`, body: `Our records show this required course hasn’t been started, and its deadline is approaching. Please log in and begin ${c} as soon as possible.` },
+      push:  { title: 'Required training overdue', body: `Start ${c} now — it’s required and due soon.` },
+    };
+    else if (type === 'nudge') content = {
+      email: { subject: `A quick nudge on ${c}`, body: `Just a friendly reminder to pick back up where you left off in ${c}.${o.pct != null ? ` You’re ${o.pct}% there — ` : ' '}log in when you have a few minutes to keep making progress!` },
+      push:  { title: 'Keep your training going', body: `Resume ${c}${o.pct != null ? ` — you’re ${o.pct}% done` : ''}.` },
+    };
+    else content = {
+      email: { subject: `You can retake ${c}`, body: `You’re scheduled to retake the ${c} assessment after the cooldown${o.retryOn ? ` on ${o.retryOn}` : ''}. We’ll send a link as soon as it’s available.` },
+      push:  { title: 'Retake available soon', body: `Your ${c} retake unlocks${o.retryOn ? ` on ${o.retryOn}` : ' soon'}.` },
+    };
+    content.emailOn = true; content.pushOn = true;
+    return content;
+  }
+  function deliveryHTML(content) {
+    const chOff = on => on ? '' : ' dlv-off';
+    return `<div class="field-label">SEND VIA</div>
+      <div class="delivery">
+        <div class="dlv-channel${chOff(content.emailOn)}" data-ch="email">
+          <div class="dlv-head">
+            <vaadin-checkbox class="dlv-toggle" ${content.emailOn ? 'checked' : ''}></vaadin-checkbox>
+            <span class="dlv-name"><i class="fa-regular fa-envelope"></i> Email</span>
+            <button type="button" class="dlv-edit-btn"><i class="fa-solid fa-pen"></i> Edit</button>
+          </div>
+          <div class="dlv-preview">
+            <div class="ep">
+              <div class="ep-line"><span class="ep-k">Subject</span><span class="ep-v" data-fld="subject">${content.email.subject}</span></div>
+              <div class="ep-body" data-fld="body">${content.email.body}</div>
+            </div>
+          </div>
+          <div class="dlv-editor" hidden>
+            <vaadin-text-field theme="outlined" label="Subject" value="${esc(content.email.subject)}" data-edit="subject" style="width:100%"></vaadin-text-field>
+            <vaadin-text-area theme="outlined" label="Message" value="${esc(content.email.body)}" data-edit="body" style="width:100%"></vaadin-text-area>
+            <div class="dlv-editor-actions"><vaadin-button theme="tertiary small" class="dlv-done">Done</vaadin-button></div>
+          </div>
+        </div>
+        <div class="dlv-channel${chOff(content.pushOn)}" data-ch="push">
+          <div class="dlv-head">
+            <vaadin-checkbox class="dlv-toggle" ${content.pushOn ? 'checked' : ''}></vaadin-checkbox>
+            <span class="dlv-name"><i class="fa-solid fa-bell"></i> Push notification</span>
+            <button type="button" class="dlv-edit-btn"><i class="fa-solid fa-pen"></i> Edit</button>
+          </div>
+          <div class="dlv-preview">
+            <div class="pp">
+              <div class="pp-top"><span class="pp-ico">V</span> SafeLMS · now</div>
+              <div class="pp-title" data-fld="title">${content.push.title}</div>
+              <div class="pp-body" data-fld="body">${content.push.body}</div>
+            </div>
+          </div>
+          <div class="dlv-editor" hidden>
+            <vaadin-text-field theme="outlined" label="Title" value="${esc(content.push.title)}" data-edit="title" style="width:100%"></vaadin-text-field>
+            <vaadin-text-area theme="outlined" label="Message" value="${esc(content.push.body)}" data-edit="body" style="width:100%"></vaadin-text-area>
+            <div class="dlv-editor-actions"><vaadin-button theme="tertiary small" class="dlv-done">Done</vaadin-button></div>
+          </div>
+        </div>
+      </div>`;
+  }
+  // Wire toggles/edit/preview. `content` (optional) persists committed edits + channel state.
+  function wireDelivery(root, content) {
+    root.querySelectorAll('.dlv-channel').forEach(ch => {
+      const key = ch.dataset.ch;
+      const toggle = ch.querySelector('.dlv-toggle');
+      const editBtn = ch.querySelector('.dlv-edit-btn');
+      const preview = ch.querySelector('.dlv-preview');
+      const editor = ch.querySelector('.dlv-editor');
+      const showPreview = () => { editor.hidden = true; preview.style.display = ''; editBtn.style.display = ''; };
+      toggle.addEventListener('change', () => {
+        const on = toggle.checked;
+        if (content) content[key + 'On'] = on;
+        ch.classList.toggle('dlv-off', !on);
+        preview.style.display = on ? '' : 'none';
+        editBtn.style.display = on ? '' : 'none';
+        if (!on) editor.hidden = true;
+      });
+      editBtn.addEventListener('click', () => { preview.style.display = 'none'; editBtn.style.display = 'none'; editor.hidden = false; });
+      editor.querySelector('.dlv-done').addEventListener('click', () => {
+        editor.querySelectorAll('[data-edit]').forEach(inp => {
+          const fld = ch.querySelector(`.dlv-preview [data-fld="${inp.dataset.edit}"]`);
+          if (fld) fld.textContent = inp.value;
+          if (content && content[key]) content[key][inp.dataset.edit] = inp.value;
+        });
+        showPreview();
+      });
+    });
+  }
+
   function modalTemplate(type, r, course) {
     const name = displayName(r.name);
     if (type === 'intervene') return {
       title:'Send Intervention', sub:'Escalate a learner who hasn’t started in time',
       body:`<p>Send a high-priority escalation to <b>${name}</b>, who hasn’t started <b>${course}</b>${r.expSoon ? ' and whose certification expires soon' : ''}.</p>
         ${recipBlock(r)}
-        <div class="opt"><vaadin-checkbox checked></vaadin-checkbox><span class="o-text"><b>Email the learner</b><div class="o-hint">High-priority template with the course deadline</div></span></div>
         <div class="opt"><vaadin-checkbox checked></vaadin-checkbox><span class="o-text"><b>Copy their supervisor</b><div class="o-hint">Loops in the learner’s manager for follow-up</div></span></div>
         <div class="field-label">DEADLINE</div>
         <vaadin-date-picker theme="outlined" value="2026-06-30" style="width:200px"></vaadin-date-picker>
-        <div class="field-label">MESSAGE</div>
-        <vaadin-text-area theme="outlined" style="width:100%" value="Our records show you haven’t started ${course}, which is required and approaching its deadline. Please log in and begin this course as soon as possible."></vaadin-text-area>`,
+        ${deliveryHTML(deliveryContent('intervene', course))}`,
       confirm:{ theme:'error primary', icon:'fa-paper-plane', label:'Send Intervention' },
       toast:`Intervention sent to ${name}`
     };
@@ -1365,10 +1484,7 @@
       title:'Send Nudge', sub:'A friendly reminder to re-engage',
       body:`<p>Send a light-touch reminder to <b>${name}</b>, who is ${r.pct}% through <b>${course}</b>.</p>
         ${recipBlock(r)}
-        <div class="opt"><vaadin-checkbox checked></vaadin-checkbox><span class="o-text"><b>Email the learner</b><div class="o-hint">Encouraging reminder with a resume-course link</div></span></div>
-        <div class="opt"><vaadin-checkbox></vaadin-checkbox><span class="o-text"><b>Send an in-app notification</b><div class="o-hint">Shows on their next LMS login</div></span></div>
-        <div class="field-label">MESSAGE</div>
-        <vaadin-text-area theme="outlined" style="width:100%" value="Just a friendly reminder to pick back up where you left off in ${course}. You’re closer than you think — log in when you have a few minutes to keep making progress!"></vaadin-text-area>`,
+        ${deliveryHTML(deliveryContent('nudge', course, { pct: r.pct }))}`,
       confirm:{ theme:'warning primary', icon:'fa-bell', label:'Send Nudge' },
       toast:`Nudge sent to ${name}`
     };
@@ -1385,7 +1501,7 @@
           <p style="margin:0 0 6px"><i class="fa-solid fa-circle-info" style="color:#b91c1c"></i> Attempt <b>${attempts} of 3</b> used. A 14-day cooldown prevents immediate re-takes.</p>
           <div class="field-label">NEW DUE DATE</div>
           <vaadin-date-picker theme="outlined" value="2026-06-15" style="width:200px"></vaadin-date-picker>
-          <div class="opt" style="margin-top:14px"><vaadin-checkbox checked></vaadin-checkbox><span class="o-text"><b>Notify the learner when eligible</b><div class="o-hint">Emails them on ${retryOn} with a link to retake</div></span></div>`,
+          ${deliveryHTML(deliveryContent('retry', course, { retryOn }))}`,
         confirm:{ theme:'primary', icon:'fa-rotate-right', label:'Schedule Retry' },
         toast:`Retry scheduled for ${name}`
       };
@@ -1421,7 +1537,7 @@
       </div>`;
       root.querySelector('#dlgClose').addEventListener('click', closeModal);
     };
-    dialog.renderer = (root) => { root.innerHTML = `<div class="dlg-body">${t.body}</div>`; };
+    dialog.renderer = (root) => { root.innerHTML = `<div class="dlg-body">${t.body}</div>`; wireDelivery(root); };
     dialog.footerRenderer = (root) => {
       root.innerHTML = '';
       const cancel = document.createElement('vaadin-button');
@@ -1526,21 +1642,16 @@
     if (type === 'intervene') return { ...s, title:'Send Intervention', confirm:'Send Intervention', cTheme:'error primary', cIcon:'fa-paper-plane',
       body:`<p>Send a high-priority intervention to these <b>${n}</b> learner${n>1?'s':''} who haven’t started in time.</p>
         ${recipListHTML(items)}
-        <div class="opt"><vaadin-checkbox checked></vaadin-checkbox><span class="o-text"><b>Email each learner</b><div class="o-hint">High-priority template with the course deadline</div></span></div>
         <div class="opt"><vaadin-checkbox checked></vaadin-checkbox><span class="o-text"><b>Copy their supervisors</b></span></div>
-        <div class="field-label">MESSAGE</div>
-        <vaadin-text-area theme="outlined" style="width:100%" value="Our records show you haven’t started this required OSHA course, which is approaching its deadline. Please log in and begin as soon as possible."></vaadin-text-area>` };
+        ${deliveryHTML(deliveryContent('intervene', null, { plural:true }))}` };
     if (type === 'nudge') return { ...s, title:'Send Nudge', confirm:'Send Nudge', cTheme:'warning primary', cIcon:'fa-bell',
       body:`<p>Send a friendly nudge to these <b>${n}</b> learner${n>1?'s':''} with low recent activity.</p>
         ${recipListHTML(items)}
-        <div class="opt"><vaadin-checkbox checked></vaadin-checkbox><span class="o-text"><b>Email each learner</b><div class="o-hint">Encouraging reminder with a resume-course link</div></span></div>
-        <div class="opt"><vaadin-checkbox></vaadin-checkbox><span class="o-text"><b>Send an in-app notification</b></span></div>
-        <div class="field-label">MESSAGE</div>
-        <vaadin-text-area theme="outlined" style="width:100%" value="Just a friendly reminder to pick back up where you left off — you’re closer than you think!"></vaadin-text-area>` };
+        ${deliveryHTML(deliveryContent('nudge', null, { plural:true }))}` };
     return { ...s, title:'Schedule Retry', confirm:'Schedule Retry', cTheme:'primary', cIcon:'fa-rotate-right',
       body:`<p>Schedule a retry for these <b>${n}</b> learner${n>1?'s':''}. Each retry begins after that learner’s 14-day cooldown.</p>
         ${recipListHTML(items)}
-        <div class="opt"><vaadin-checkbox checked></vaadin-checkbox><span class="o-text"><b>Notify each learner when eligible</b></span></div>` };
+        ${deliveryHTML(deliveryContent('retry', null, { plural:true }))}` };
   }
   function openBulkFlow() {
     const rows = [...selectedRows].map(getRow).filter(Boolean);
@@ -1569,7 +1680,7 @@
       </div>`;
       root.querySelector('#dlgClose').addEventListener('click', () => { closeModal(); finishBulk(); });
     };
-    dialog.renderer = (root) => { root.innerHTML = `<div class="dlg-body">${meta.body}</div>`; };
+    dialog.renderer = (root) => { root.innerHTML = `<div class="dlg-body">${meta.body}</div>`; wireDelivery(root); };
     dialog.footerRenderer = (root) => {
       root.innerHTML = '';
       const skip = document.createElement('vaadin-button');
@@ -1940,7 +2051,7 @@
   function openActionGroup(type) {
     const items = [];
     GROUPS.forEach(g => g.rows.forEach(r => { if (GROUP_MATCH[type](r)) items.push({ r, course: g.course, key: rowKey(g.id, r.ext) }); }));
-    agState = { type, items, courseFilter: 'all', sel: new Set(items.map(x => x.key)) };
+    agState = { type, items, courseFilter: 'all', sel: new Set(items.map(x => x.key)), delivery: deliveryContent(type, null, { plural: true }) };
     const s = MODAL_STYLE[type], meta = AG_META[type];
     agDialog.headerRenderer = (root) => {
       root.innerHTML = `<div class="dlg-head" style="width:min(560px,92vw)">
@@ -1965,6 +2076,7 @@
             <div><div class="r-name">${displayName(x.r.name)}</div><div class="r-mail">${x.course}</div></div>
             <span class="r-meta">${STATUS_LABEL[x.r.status]}</span>
           </label>`).join('')}</div>` : '<div class="ag-empty">No learners match this course.</div>'}
+        ${deliveryHTML(agState.delivery)}
       </div>`;
       const sel = root.querySelector('#agCourse');
       sel.items = [{ label: 'All courses', value: 'all' }, ...courses.map(c => ({ label: c, value: c }))];
@@ -1976,6 +2088,8 @@
         cb.checked ? agState.sel.add(cb.dataset.key) : agState.sel.delete(cb.dataset.key);
         agDialog.requestContentUpdate(); // refresh the footer count
       }));
+      // Delivery edits/toggles persist via agState.delivery across content updates.
+      wireDelivery(root, agState.delivery);
     };
     agDialog.footerRenderer = (root) => {
       root.innerHTML = '';
