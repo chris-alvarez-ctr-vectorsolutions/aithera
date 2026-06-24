@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Peak BAC — Lesson Presentation</title>
+
+    <!-- Vector Web Components: Core -->
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+
+    <!-- Vector Web Components: Themes (import as plain script) -->
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+
+    <!-- Open Sans -->
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+    <link rel="stylesheet" href="css/lesson.css?v=11" />
+</head>
+<body>
+
+    <!-- ===== Fixed header: course > lesson + progress ===================== -->
+    <header class="lesson-header">
+        <nav class="lesson-crumb" aria-label="Breadcrumb">
+            <span class="crumb-course">Rethinking Your Drinking</span>
+            <span class="crumb-sep">›</span>
+            <span class="crumb-lesson">Your Peak BAC</span>
+        </nav>
+        <div class="lesson-progress">
+            <span class="progress-label">Step 3 of 8</span>
+            <vaadin-progress-bar value="0.375" aria-label="Lesson progress"></vaadin-progress-bar>
+        </div>
+    </header>
+
+    <!-- ===== Lesson shell (Screen 1: the slider) ========================= -->
+    <div class="lesson-shell">
+        <main class="lesson-body" id="main">
+
+            <!-- Content type: Estimate Peak BAC -->
+            <section class="bac" aria-labelledby="bacTitle">
+                <h1 class="bac-title" id="bacTitle">Estimate your peak BAC</h1>
+                <p class="bac-intro">
+                    Blood Alcohol Concentration (BAC) is the amount of alcohol in a person&rsquo;s blood.
+                    Different BAC levels tend to bring on different effects.
+                </p>
+                <p class="bac-prompt">
+                    Drag the marker to the strongest effects you&rsquo;ve felt after drinking in the past
+                    two weeks. We&rsquo;ll use it to estimate your peak BAC.
+                </p>
+
+                <!-- Vertical scale: rail + fill + thumb are positioned in JS;
+                     the four level rows below carry the dots and content. -->
+                <div class="bac-scale" id="bacScale">
+                    <div class="bac-rail" id="bacRail" aria-hidden="true">
+                        <div class="bac-fill" id="bacFill"></div>
+                    </div>
+
+                    <div class="bac-thumb" id="bacThumb" role="slider" tabindex="0"
+                        aria-label="Strongest effects you've felt"
+                        aria-orientation="vertical"
+                        aria-valuemin="1" aria-valuemax="4" aria-valuenow="1"
+                        aria-valuetext="Not yet set">
+                        <i class="fa-solid fa-grip-lines"></i>
+                    </div>
+
+                    <!-- Ordered most → least severe so the scale rises bottom-to-top.
+                         data-rank carries severity (0 = fewest effects … 3 = most). -->
+                    <div class="bac-levels" id="bacLevels">
+                        <button class="bac-level" type="button" data-rank="3"
+                                data-name="Severe effects" data-bac="0.22">
+                            <span class="bac-dot"></span>
+                            <span class="bac-level-text">
+                                <span class="bac-level-title">Severe effects <span class="bac-range">.21 – .35</span></span>
+                                <span class="bac-level-desc">Total mental confusion; needs assistance walking; loss of consciousness can occur.</span>
+                            </span>
+                        </button>
+
+                        <button class="bac-level" type="button" data-rank="2"
+                                data-name="Advanced effects" data-bac="0.16">
+                            <span class="bac-dot"></span>
+                            <span class="bac-level-text">
+                                <span class="bac-level-title">Advanced effects <span class="bac-range">.11 – .20</span></span>
+                                <span class="bac-level-desc">Confusion, dizziness, slurred speech, slower reaction time and lack of balance. Vomiting, sleepiness, and blackouts may occur.</span>
+                            </span>
+                        </button>
+
+                        <button class="bac-level" type="button" data-rank="1"
+                                data-name="Moderate effects" data-bac="0.08">
+                            <span class="bac-dot"></span>
+                            <span class="bac-level-text">
+                                <span class="bac-level-title">Moderate effects <span class="bac-range">.05 – .10</span></span>
+                                <span class="bac-level-desc">Lack of muscle coordination (balance, speech, vision, reaction time); impaired judgment and memory.</span>
+                            </span>
+                        </button>
+
+                        <button class="bac-level" type="button" data-rank="0"
+                                data-name="Some effects" data-bac="0.03">
+                            <span class="bac-dot"></span>
+                            <span class="bac-level-text">
+                                <span class="bac-level-title">Some effects <span class="bac-range">BAC under .04</span></span>
+                                <span class="bac-level-desc">Warm feelings and lowered inhibitions; coordination and judgment may start to be affected.</span>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Content type: Calculate exact BAC (Screen 3) -->
+            <section class="calc" id="calcScreen" aria-labelledby="calcTitle" hidden>
+                <h1 class="calc-title" id="calcTitle">Now, the real number</h1>
+                <p class="calc-sub">Adjust the details &mdash; your BAC updates as you go.</p>
+
+                <div class="calc-grid">
+                    <!-- Inputs -->
+                    <div class="calc-inputs">
+                        <div class="calc-field">
+                            <span class="calc-label">Biological sex</span>
+                            <div class="calc-toggle" role="radiogroup" aria-label="Biological sex" id="sexToggle">
+                                <button type="button" role="radio" data-sex="male" class="is-on" aria-checked="true">Male</button>
+                                <button type="button" role="radio" data-sex="female" aria-checked="false">Female</button>
+                            </div>
+                        </div>
+
+                        <div class="calc-field">
+                            <div class="calc-field-row">
+                                <label class="calc-label" for="weight">Body weight</label>
+                                <output class="calc-output" id="weightOut">160 lb</output>
+                            </div>
+                            <input class="calc-range" type="range" id="weight" min="90" max="300" step="5" value="160">
+                        </div>
+
+                        <div class="calc-field">
+                            <span class="calc-label">Drinks</span>
+                            <div class="calc-stepper">
+                                <button type="button" class="calc-step-btn" id="drinkMinus" aria-label="One fewer drink">
+                                    <i class="fa-solid fa-minus"></i>
+                                </button>
+                                <span class="calc-step-value" id="drinkValue" aria-live="polite">4</span>
+                                <button type="button" class="calc-step-btn" id="drinkPlus" aria-label="One more drink">
+                                    <i class="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                            <span class="calc-hint">One drink = 12 oz beer &middot; 5 oz wine &middot; 1.5 oz spirits</span>
+                        </div>
+
+                        <div class="calc-field">
+                            <div class="calc-field-row">
+                                <label class="calc-label" for="hours">Over how long</label>
+                                <output class="calc-output" id="hoursOut">2 hrs</output>
+                            </div>
+                            <input class="calc-range" type="range" id="hours" min="0" max="12" step="0.5" value="2">
+                        </div>
+                    </div>
+
+                    <!-- Result (the hero) -->
+                    <div class="calc-result" id="calcResult">
+                        <p class="calc-result-cap">Your estimated BAC</p>
+                        <div class="calc-bac" id="calcBac">0.00</div>
+                        <span class="calc-zone" id="calcZone">&nbsp;</span>
+
+                        <div class="calc-meter">
+                            <div class="calc-meter-track">
+                                <div class="calc-estimate" id="calcEstimate"></div>
+                                <div class="calc-marker" id="calcMarker"></div>
+                            </div>
+                            <div class="calc-meter-scale">
+                                <span>0</span><span>.10</span><span>.20</span><span>.35+</span>
+                            </div>
+                        </div>
+
+                        <p class="calc-compare" id="calcCompare"></p>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- ===== Fixed footer: instructions + navigation ===================== -->
+    <footer class="lesson-footer">
+        <p class="lesson-instructions" id="instructions">
+            Drag the marker up to the strongest effects you&rsquo;ve felt.
+        </p>
+        <div class="lesson-nav">
+            <vaadin-button theme="secondary" id="backBtn">Back</vaadin-button>
+            <vaadin-button theme="primary" id="nextBtn" disabled>Next</vaadin-button>
+        </div>
+    </footer>
+
+    <!-- ===== Screen 2: full-screen interstitial (no nav) ================= -->
+    <section class="interstitial" id="interstitial" aria-hidden="true" aria-live="polite">
+        <div class="interstitial-inner">
+            <p class="interstitial-eyebrow">Let&rsquo;s take this further</p>
+            <p class="interstitial-lead">You estimated your BAC to be</p>
+            <p class="interstitial-level" id="interLevel">Severe effects</p>
+            <div class="interstitial-value" id="interValue">0.00</div>
+            <p class="interstitial-note">Now, let&rsquo;s calculate it exactly.</p>
+            <vaadin-button theme="primary" class="interstitial-cta" id="continueBtn">Continue</vaadin-button>
+        </div>
+    </section>
+
+    <script>
+        // =====================================================================
+        // Screen 1 — vertical BAC slider
+        //
+        // The rail / fill / thumb are absolutely positioned; their Y geometry is
+        // derived from the measured center of each level's dot, so rows of
+        // different heights stay perfectly aligned to the rail.
+        // =====================================================================
+        const scale   = document.getElementById('bacScale');
+        const rail     = document.getElementById('bacRail');
+        const fill     = document.getElementById('bacFill');
+        const thumb    = document.getElementById('bacThumb');
+        const levels   = Array.from(document.querySelectorAll('.bac-level'));
+        const nextBtn  = document.getElementById('nextBtn');
+        const backBtn  = document.getElementById('backBtn');
+        const instructions = document.getElementById('instructions');
+
+        const MAX_RANK = 3;       // 0 = fewest effects (bottom) … 3 = most (top)
+        const rankOf = (lvl) => Number(lvl.dataset.rank);
+        const levelByRank = (rank) => levels.find((l) => rankOf(l) === rank);
+
+        let centers = {};         // severity rank → dot center-Y, relative to .bac-scale
+        let railTop = 0, railBottom = 0;
+        let selectedRank = null;  // committed selection (null until first pick)
+
+        // Measure dot centers and lay out the rail. Runs on load + resize.
+        // Rows are ordered most→least severe, so the lowest rank sits at the
+        // bottom and the scale fills upward.
+        function measure() {
+            const sBox = scale.getBoundingClientRect();
+            centers = {};
+            railTop = Infinity; railBottom = -Infinity;
+            levels.forEach((lvl) => {
+                const d = lvl.querySelector('.bac-dot').getBoundingClientRect();
+                const y = d.top - sBox.top + d.height / 2;
+                centers[rankOf(lvl)] = y;
+                railTop = Math.min(railTop, y);
+                railBottom = Math.max(railBottom, y);
+            });
+            rail.style.top    = railTop + 'px';
+            rail.style.height = (railBottom - railTop) + 'px';
+
+            // Re-pin thumb/fill. Unselected rests at the bottom (fewest effects).
+            positionTo(selectedRank == null ? centers[0] : centers[selectedRank]);
+        }
+
+        // Place thumb + fill for an absolute Y. Fill rises from the bottom up.
+        function positionTo(y) {
+            thumb.style.top  = y + 'px';
+            fill.style.top    = (y - railTop) + 'px';
+            fill.style.height = (railBottom - y) + 'px';
+        }
+
+        // Severity rank whose dot is nearest a given Y.
+        function nearestRank(y) {
+            let best = 0, bestD = Infinity;
+            for (const r in centers) {
+                const d = Math.abs(centers[r] - y);
+                if (d < bestD) { bestD = d; best = Number(r); }
+            }
+            return best;
+        }
+
+        // Highlight rows up to a rank (filled = this severity and everything below).
+        function highlight(rank) {
+            levels.forEach((lvl) => {
+                const r = rankOf(lvl);
+                lvl.classList.toggle('is-active', r === rank);
+                lvl.classList.toggle('is-reached', r <= rank);
+            });
+        }
+
+        // Commit a selection: snap everything to that stop and update chrome.
+        function select(rank) {
+            selectedRank = rank;
+            thumb.classList.add('is-visible');
+            positionTo(centers[rank]);
+            highlight(rank);
+
+            const name = levelByRank(rank).dataset.name;
+            thumb.setAttribute('aria-valuenow', rank + 1);
+            thumb.setAttribute('aria-valuetext', name);
+
+            nextBtn.disabled = false;
+            instructions.textContent =
+                'You selected “' + name + '.” Adjust the marker any time, or continue.';
+        }
+
+        // ---- Pointer dragging --------------------------------------------
+        let dragging = false;
+
+        function pointerY(e) {
+            const sBox = scale.getBoundingClientRect();
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return Math.max(railTop, Math.min(railBottom, clientY - sBox.top));
+        }
+
+        function startDrag(e) {
+            dragging = true;
+            scale.classList.add('is-dragging');
+            thumb.classList.add('is-visible');
+            thumb.setPointerCapture && e.pointerId != null && thumb.setPointerCapture(e.pointerId);
+            onDrag(e);
+            e.preventDefault();
+        }
+
+        function onDrag(e) {
+            if (!dragging) return;
+            const y = pointerY(e);
+            positionTo(y);                       // thumb follows the finger
+            highlight(nearestRank(y));           // preview nearest stop
+            e.preventDefault();
+        }
+
+        function endDrag(e) {
+            if (!dragging) return;
+            dragging = false;
+            scale.classList.remove('is-dragging');
+            select(nearestRank(pointerY(e)));    // snap to nearest stop
+        }
+
+        thumb.addEventListener('pointerdown', startDrag);
+        document.addEventListener('pointermove', onDrag);
+        document.addEventListener('pointerup', endDrag);
+
+        // Allow grabbing the rail anywhere to start dragging, too.
+        rail.addEventListener('pointerdown', startDrag);
+
+        // ---- Click a level row to pick it directly -----------------------
+        levels.forEach((lvl) => {
+            lvl.addEventListener('click', () => select(rankOf(lvl)));
+        });
+
+        // ---- Keyboard on the thumb (up = more severe) --------------------
+        thumb.addEventListener('keydown', (e) => {
+            const keys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
+            if (!keys.includes(e.key)) return;
+            e.preventDefault();
+            if (selectedRank == null) { select(0); return; }   // first press lands at the bottom
+            let r = selectedRank;
+            switch (e.key) {
+                case 'ArrowUp':   case 'ArrowRight': r = Math.min(MAX_RANK, r + 1); break;
+                case 'ArrowDown': case 'ArrowLeft':  r = Math.max(0, r - 1);        break;
+                case 'Home': r = 0; break;
+                case 'End':  r = MAX_RANK; break;
+            }
+            select(r);
+        });
+
+        window.addEventListener('resize', measure);
+        // Components/fonts settle async — measure now and again shortly after.
+        measure();
+        window.setTimeout(measure, 200);
+
+        // =====================================================================
+        // Screen controller — slider · interstitial · calculator
+        //
+        // All three live in one document so the calculator can read the value
+        // the learner set on the slider directly (no storage round-trip).
+        // =====================================================================
+        const interstitial = document.getElementById('interstitial');
+        const interValue   = document.getElementById('interValue');
+        const interLevel   = document.getElementById('interLevel');
+        const bacSection   = document.querySelector('.bac');
+        const calcScreen   = document.getElementById('calcScreen');
+        const progressLabel = document.querySelector('.progress-label');
+        const progressBar   = document.querySelector('vaadin-progress-bar');
+
+        let screen = 'slider';
+
+        function countUp(target) {
+            const start = performance.now();
+            const dur = 900;
+            function frame(now) {
+                const t = Math.min(1, (now - start) / dur);
+                const eased = 1 - Math.pow(1 - t, 3);   // easeOutCubic
+                interValue.textContent = (target * eased).toFixed(2);
+                if (t < 1) requestAnimationFrame(frame);
+                else interValue.textContent = target.toFixed(2);
+            }
+            requestAnimationFrame(frame);
+        }
+
+        function setScreen(name) {
+            screen = name;
+
+            const onInter = name === 'interstitial';
+            interstitial.classList.toggle('is-active', onInter);
+            interstitial.setAttribute('aria-hidden', onInter ? 'false' : 'true');
+            document.body.classList.toggle('interstitial-open', onInter);
+
+            bacSection.hidden  = name !== 'slider';
+            calcScreen.hidden  = name !== 'calc';
+
+            if (onInter) {
+                const lvl = levelByRank(selectedRank);
+                interLevel.textContent = lvl.dataset.name;
+                interValue.textContent = '0.00';
+                countUp(Number(lvl.dataset.bac));
+            }
+
+            if (name === 'slider') {
+                progressLabel.textContent = 'Step 3 of 8';
+                progressBar.value = 0.375;
+                nextBtn.disabled = selectedRank == null;
+                instructions.textContent = selectedRank == null
+                    ? 'Drag the marker up to the strongest effects you’ve felt.'
+                    : 'You selected “' + levelByRank(selectedRank).dataset.name + '.” Adjust the marker any time, or continue.';
+            } else if (name === 'calc') {
+                progressLabel.textContent = 'Step 4 of 8';
+                progressBar.value = 0.5;
+                nextBtn.disabled = false;
+                instructions.textContent = 'An estimate only — alcohol affects everyone differently.';
+                placeEstimate();
+                renderCalc();
+            }
+        }
+
+        // Shared footer nav, routed by current screen.
+        backBtn.addEventListener('click', () => {
+            if (screen === 'calc') setScreen('slider');
+            else console.log('Back → previous step (not built)');
+        });
+        nextBtn.addEventListener('click', () => {
+            if (nextBtn.disabled) return;
+            if (screen === 'slider' && selectedRank != null) setScreen('interstitial');
+            else if (screen === 'calc') console.log('Next → step 5 (not built)');
+        });
+        document.getElementById('continueBtn').addEventListener('click', () => setScreen('calc'));
+
+        // =====================================================================
+        // Screen 3 — live BAC calculator (Widmark formula)
+        //
+        //   BAC = (oz of alcohol × 5.14 / (weight_lb × r)) − 0.015 × hours
+        //   oz of alcohol = drinks × 0.6   ·   r = 0.73 (male) / 0.66 (female)
+        // =====================================================================
+        const MAX_BAC = 0.35;            // meter ceiling
+        const sexToggle  = document.getElementById('sexToggle');
+        const weightInput = document.getElementById('weight');
+        const hoursInput  = document.getElementById('hours');
+        const weightOut  = document.getElementById('weightOut');
+        const hoursOut   = document.getElementById('hoursOut');
+        const drinkValueEl = document.getElementById('drinkValue');
+        const drinkMinus = document.getElementById('drinkMinus');
+        const drinkPlus  = document.getElementById('drinkPlus');
+
+        const calcBac    = document.getElementById('calcBac');
+        const calcZoneEl = document.getElementById('calcZone');
+        const calcResult = document.getElementById('calcResult');
+        const calcMarker = document.getElementById('calcMarker');
+        const calcEstimate = document.getElementById('calcEstimate');
+        const calcCompare  = document.getElementById('calcCompare');
+
+        let sex = 'male';
+        let drinks = 4;
+
+        // Zones mirror the four effect levels from step 1.
+        const ZONES = [
+            { max: 0.04,     name: 'Some effects',     color: 'var(--z-some)' },
+            { max: 0.10,     name: 'Moderate effects', color: 'var(--z-mod)' },
+            { max: 0.20,     name: 'Advanced effects', color: 'var(--z-adv)' },
+            { max: Infinity, name: 'Severe effects',   color: 'var(--z-sev)' },
+        ];
+        const zoneFor = (bac) => ZONES.find((z) => bac <= z.max);
+
+        function computeBac() {
+            const weight = Number(weightInput.value);
+            const hours  = Number(hoursInput.value);
+            const r = sex === 'male' ? 0.73 : 0.66;
+            const ozAlcohol = drinks * 0.6;
+            return Math.max(0, (ozAlcohol * 5.14 / (weight * r)) - 0.015 * hours);
+        }
+
+        function renderCalc() {
+            const bac = computeBac();
+            const shown = bac.toFixed(2);
+            if (calcBac.textContent !== shown) {
+                calcBac.textContent = shown;
+                calcBac.classList.remove('pop');
+                void calcBac.offsetWidth;          // restart the pop animation
+                calcBac.classList.add('pop');
+            }
+
+            const zone = zoneFor(bac);
+            calcResult.style.setProperty('--zone-color', zone.color);
+            calcZoneEl.textContent = zone.name;
+
+            calcMarker.style.left = (Math.min(1, bac / MAX_BAC) * 100) + '%';
+        }
+
+        // Place the step-1 estimate as a ghost tick on the same meter.
+        function placeEstimate() {
+            if (selectedRank == null) {
+                calcEstimate.style.display = 'none';
+                calcCompare.textContent = '';
+                return;
+            }
+            const est  = Number(levelByRank(selectedRank).dataset.bac);
+            const name = levelByRank(selectedRank).dataset.name;
+            calcEstimate.style.display = '';
+            calcEstimate.style.left = (Math.min(1, est / MAX_BAC) * 100) + '%';
+            calcCompare.innerHTML = 'You estimated <b>' + est.toFixed(2) + '</b> &mdash; ' + name + '.';
+        }
+
+        function formatHours(v) {
+            const n = Number(v);
+            if (n === 0) return 'just now';
+            const label = n % 1 === 0 ? n : n.toFixed(1);
+            return label + (n === 1 ? ' hr' : ' hrs');
+        }
+
+        function setDrinks(n) {
+            drinks = Math.max(0, Math.min(20, n));
+            drinkValueEl.textContent = drinks;
+            drinkMinus.disabled = drinks <= 0;
+            drinkPlus.disabled  = drinks >= 20;
+            renderCalc();
+        }
+
+        sexToggle.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-sex]');
+            if (!btn) return;
+            sex = btn.dataset.sex;
+            sexToggle.querySelectorAll('button').forEach((b) => {
+                const on = b === btn;
+                b.classList.toggle('is-on', on);
+                b.setAttribute('aria-checked', on);
+            });
+            renderCalc();
+        });
+        weightInput.addEventListener('input', () => {
+            weightOut.textContent = weightInput.value + ' lb';
+            renderCalc();
+        });
+        hoursInput.addEventListener('input', () => {
+            hoursOut.textContent = formatHours(hoursInput.value);
+            renderCalc();
+        });
+        drinkMinus.addEventListener('click', () => setDrinks(drinks - 1));
+        drinkPlus.addEventListener('click', () => setDrinks(drinks + 1));
+    </script>
+</body>
+</html>

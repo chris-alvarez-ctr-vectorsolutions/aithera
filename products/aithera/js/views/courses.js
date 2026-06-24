@@ -4,7 +4,7 @@
 // the look matches anywhere else a course is listed.
 
 import { store } from '../store.js';
-import * as ui from '../ui.js?v=scene-flow-42';
+import * as ui from '../ui.js?v=scene-flow-43';
 import { currentPhase, belongsToCurrentPersona } from '../phase.js';
 
 let mode = 'mine';

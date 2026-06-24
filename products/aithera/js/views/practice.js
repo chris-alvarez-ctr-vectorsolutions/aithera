@@ -9,8 +9,8 @@
 // Composed entirely from ui.js primitives.
 
 import { store } from '../store.js';
-import * as ui from '../ui.js?v=scene-flow-42';
-import * as discussion from './practice-discussion.js?v=scene-flow-42';
+import * as ui from '../ui.js?v=scene-flow-43';
+import * as discussion from './practice-discussion.js?v=scene-flow-43';
 
 export function render(scenarioId) {
   // Hash may carry a ?retry=N or ?from=ka suffix. The router strips the
