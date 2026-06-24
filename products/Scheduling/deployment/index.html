@@ -661,11 +661,20 @@
         .v-card.collapsed .v-card-title { margin-bottom: 0; }
         .v-card.collapsed .v-card-title .vc-chev { transform: rotate(-90deg); }
         .v-card.collapsed > :not(.v-card-title) { display: none !important; }
-        /* Collapsed-step nav hint (V2 only): earlier steps read as "Back", later as "Continue". */
         .vc-navhint { display: none; }
-        #view-deploy[data-ver="2"] .v-card.collapsed { cursor: pointer; }
-        #view-deploy[data-ver="2"] .v-card.collapsed .vc-navhint { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; color: var(--blue-link); font-weight: 700; font-size: 13px; }
-        #view-deploy[data-ver="2"] .v-card.collapsed .vc-chev { margin-left: 10px; }
+        /* V2 stepper: show one step at a time (the others are fully hidden) + a progress header. */
+        #view-deploy[data-ver="2"] .v-card.collapsed { display: none; }
+        #view-deploy[data-ver="2"] .v-card-title .vc-chev { display: none; }   /* not click-to-collapse in stepper mode */
+        .v-stepper { display: none; }
+        #view-deploy[data-ver="2"] .v-stepper { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; }
+        .vstep { display: inline-flex; align-items: center; gap: 9px; background: #fff; border: 1px solid var(--border); border-radius: 999px; padding: 7px 16px 7px 8px; font: 700 13px inherit; color: var(--text-muted); cursor: pointer; white-space: nowrap; }
+        .vstep:hover { border-color: var(--border-strong); }
+        .vstep .vstep-num { width: 22px; height: 22px; border-radius: 50%; background: #e7eaee; color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+        .vstep.active { border-color: var(--blue-link); color: var(--text); box-shadow: inset 0 0 0 1px var(--blue-link); }
+        .vstep.active .vstep-num { background: var(--blue-link); color: #fff; }
+        .vstep.done .vstep-num { background: var(--green); color: #fff; }
+        .vstep-bar { flex: 1; min-width: 14px; height: 2px; background: var(--border); }
+        @media (max-width: 680px) { .vstep-label { display: none; } .vstep { padding: 7px; } .vstep-bar { min-width: 8px; } }
         /* Step nav (Back / Continue) — sits at the foot of each step card. */
         .v-step-nav { display: flex; justify-content: flex-end; gap: 12px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
         .v-step-nav .nav-left { margin-right: auto; }
@@ -890,7 +899,16 @@
           <div class="v-wrap">
             <div class="v-head">
                 <h1>Create New Deployment</h1>
-                <div class="head-sub">Both steps are laid out on one page. Fill in the deployment details and effective dates, pull the matching assignments, then pick which to deploy.</div>
+                <div class="head-sub">Fill in the deployment details and effective dates, pick or build the assignments, then review and deploy.</div>
+            </div>
+
+            <!-- V2 stepper progress header (one page at a time). Hidden in V1. -->
+            <div class="v-stepper" id="depStepper">
+                <button class="vstep" type="button" data-go="depStep1"><span class="vstep-num">1</span><span class="vstep-label">Deployment details</span></button>
+                <span class="vstep-bar"></span>
+                <button class="vstep" type="button" data-go="depStep3"><span class="vstep-num">2</span><span class="vstep-label">Pick or build</span></button>
+                <span class="vstep-bar"></span>
+                <button class="vstep" type="button" data-go="depStep2"><span class="vstep-num">3</span><span class="vstep-label">Review &amp; deploy</span></button>
             </div>
 
             <!-- STEP 1 — Deployment details (name + effective dates + schedule, all in one) -->
@@ -1080,7 +1098,7 @@
                 <span class="v-foot-count" id="depCount">0 selected</span>
                 <span class="dep-missing" id="depMissing"></span>
                 <vaadin-button theme="secondary" id="depCancel">Cancel</vaadin-button>
-                <vaadin-button theme="primary" id="depDeploy" disabled>Deploy</vaadin-button>
+                <vaadin-button theme="primary" id="depDeploy">Deploy</vaadin-button>
             </div>
         </div>
         <!-- Success toast (green, bottom-left, auto-dismiss) -->
@@ -1796,6 +1814,7 @@
         let seq = 1;                          // one-off built-assignment counter
         let filter = '';
         let tplFilter = '';
+        let triedDeploy = false;   // becomes true after the first Deploy attempt — gates the "what's missing" warning
         const selTpl = new Set();             // template ids checked to include in this deployment
 
         // ---- Builder state (the two-column qualifier builder) ----
@@ -1960,21 +1979,21 @@
             const nameOk = !!(val('depName') || '').trim();
             const dOk = datesOk();
             const ready = dOk && count > 0 && nameOk;
-            const dep = $('depDeploy'); if (dep) dep.disabled = !ready;
-
-            // Tell the user what's blocking Deploy, and highlight those fields.
+            // Deploy stays enabled — clicking it while incomplete is what reveals the warning.
+            // Only surface the "what's missing" hint + field highlights once they've tried.
+            const warn = triedDeploy && !ready;
             const miss = [];
             if (!nameOk) miss.push('a deployment name');
             if (!dOk) miss.push('start &amp; end dates');
             if (count === 0) miss.push('at least one assignment');
             const mEl = $('depMissing');
             if (mEl) {
-                mEl.style.display = ready ? 'none' : '';
-                mEl.innerHTML = ready ? '' : `<i class="fa-solid fa-circle-info"></i> To deploy, add ${miss.join(', ')}.`;
+                mEl.style.display = warn ? '' : 'none';
+                mEl.innerHTML = warn ? `<i class="fa-solid fa-triangle-exclamation"></i> Can’t deploy yet — add ${miss.join(', ')}.` : '';
             }
-            const nm = $('depName'); if (nm) nm.classList.toggle('needs-attn', !nameOk);
-            const ab = $('depAsgBox'); if (ab) ab.classList.toggle('needs-attn', count === 0);
-            ['depStart', 'depEnd', 'depRecStart', 'depRecEnd'].forEach(id => { const el = $(id); if (el) el.classList.toggle('needs-attn', !dOk); });
+            const nm = $('depName'); if (nm) nm.classList.toggle('needs-attn', warn && !nameOk);
+            const ab = $('depAsgBox'); if (ab) ab.classList.toggle('needs-attn', warn && count === 0);
+            ['depStart', 'depEnd', 'depRecStart', 'depRecEnd'].forEach(id => { const el = $(id); if (el) el.classList.toggle('needs-attn', warn && !dOk); });
             renderSummary();
         }
         customElements.whenDefined('vaadin-text-field').then(() => { const n = $('depName'); if (n) n.addEventListener('value-changed', updateAll); });
@@ -2084,16 +2103,15 @@
         const STEP_IDS = ['depStep1', 'depStep3', 'depStep2'];   // DOM order = Step 1, 2, 3
         function gotoStep(id) {
             const ai = STEP_IDS.indexOf(id);
-            STEP_IDS.forEach((s, i) => {
-                const c = $(s); if (!c) return;
-                c.classList.toggle('collapsed', s !== id);
-                // Label collapsed steps relative to the active one: above = Back, below = Continue.
-                const hint = c.querySelector('.v-card-title .vc-navhint');
-                if (hint) hint.innerHTML = i < ai ? '<i class="fa-solid fa-arrow-up"></i> Back'
-                    : i > ai ? 'Continue <i class="fa-solid fa-arrow-down"></i>' : '';
+            STEP_IDS.forEach((s) => { const c = $(s); if (c) c.classList.toggle('collapsed', s !== id); });
+            // Update the V2 progress stepper: current = active, earlier = done.
+            document.querySelectorAll('#depStepper .vstep').forEach(b => {
+                b.classList.toggle('active', b.dataset.go === id);
+                b.classList.toggle('done', STEP_IDS.indexOf(b.dataset.go) < ai);
             });
             const t = $(id); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
+        document.querySelectorAll('#depStepper .vstep').forEach(b => b.addEventListener('click', () => gotoStep(b.dataset.go)));
         window.__gotoStep = gotoStep;
         document.querySelectorAll('#view-deploy [data-step-next], #view-deploy [data-step-prev]').forEach(b => {
             b.addEventListener('click', () => gotoStep(b.dataset.stepNext || b.dataset.stepPrev));
@@ -2343,7 +2361,21 @@
             t._timer = setTimeout(() => t.classList.remove('show'), 3000);
         }
         $('depDeploy').addEventListener('click', () => {
-            const count = selCount(); if (!count) return;
+            // Validate on click and reveal what's missing (rather than a silently-disabled button).
+            triedDeploy = true;
+            const count = selCount();
+            const nameOk = !!(val('depName') || '').trim();
+            if (!nameOk || !datesOk() || count === 0) {
+                updateAll();   // surface the warning hint + field highlights
+                // In the V2 stepper, jump to the step that has the problem so it's visible.
+                if (document.getElementById('view-deploy').dataset.ver === '2') {
+                    gotoStep((!nameOk || !datesOk()) ? 'depStep1' : 'depStep3');
+                }
+                const firstMiss = document.querySelector('#view-deploy .needs-attn');
+                if (firstMiss) firstMiss.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                showToast('Can’t deploy yet — check the highlighted fields.');
+                return;
+            }
             const nm = (val('depName') || '').trim() || 'Deployment';
             // Gather everything in the deployment, then drop a row on the landing table for each.
             const items = [
@@ -2379,7 +2411,7 @@
             for (let i = ASSIGNMENTS.length - 1; i >= 0; i--) if (ASSIGNMENTS[i].built) ASSIGNMENTS.splice(i, 1);
             ASSIGNMENTS.forEach(a => { a.selected = false; });
             selTpl.clear();
-            filter = ''; seq = 1; schedType = '24';
+            filter = ''; seq = 1; schedType = '24'; triedDeploy = false;
             const rg = $('depSchedType'); if (rg) rg.value = '24';
             showEl('depMode24', true); showEl('depModeRecur', false);
             updateRecurSummary();
