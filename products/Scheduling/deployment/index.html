@@ -984,7 +984,8 @@
                         <span class="dep-box-count" id="depTplCount">0</span>
                     </button>
                     <div class="dep-box-body" id="depTplBody" style="display:none;">
-                        <div class="assign-grid" id="depTplGrid"></div>
+                        <div class="dialog-search"><i class="fa-solid fa-magnifying-glass"></i><input type="text" placeholder="Search templates…" id="depTplSearch"></div>
+                        <div class="assign-grid" id="depTplGrid" style="margin-top:14px;"></div>
                     </div>
                 </div>
 
@@ -1794,6 +1795,7 @@
         let selColor = DEFAULT_COLOR;         // deployment color
         let seq = 1;                          // one-off built-assignment counter
         let filter = '';
+        let tplFilter = '';
         const selTpl = new Set();             // template ids checked to include in this deployment
 
         // ---- Builder state (the two-column qualifier builder) ----
@@ -1879,9 +1881,9 @@
                 .filter(a => !f || a.name.toLowerCase().includes(f))
                 .slice().sort((a, b) => a.name.localeCompare(b.name));
             grid.innerHTML = list.length ? list.map(assignCard).join('') : '<div class="dep-box-empty">No assignments match your search.</div>';
-            // Counter = how many assignments are available for these dates (not how many are
-            // selected — the footer already tracks the selected count).
-            $('depAsgCount').textContent = ASSIGNMENTS.filter(a => a.isDeployable).length;
+            // Counter = how many are in this grouping (the cards shown), not how many are
+            // selected — the footer already tracks the selected count.
+            $('depAsgCount').textContent = list.length;
         }
 
         // ---- Step 3 cards: editable name, fillable slots. Built-from-scratch ones can be
@@ -1921,9 +1923,15 @@
                 </div>${bars}</div>`;
         }
         function renderTemplates() {
-            const list = TEMPLATES.slice().sort((a, b) => a.name.localeCompare(b.name));
-            $('depTplCount').textContent = TEMPLATES.length;   // available templates, not selected
-            $('depTplGrid').innerHTML = list.length ? list.map(tplCard).join('') : '<div class="dep-box-empty">No templates yet — build one and check “Save as a reusable template”.</div>';
+            const f = tplFilter.trim().toLowerCase();
+            const list = TEMPLATES.filter(t => !f || t.name.toLowerCase().includes(f))
+                .slice().sort((a, b) => a.name.localeCompare(b.name));
+            // Counter = how many are in this grouping (the cards shown), not how many are selected.
+            $('depTplCount').textContent = list.length;
+            $('depTplGrid').innerHTML = list.length
+                ? list.map(tplCard).join('')
+                : (TEMPLATES.length ? '<div class="dep-box-empty">No templates match your search.</div>'
+                                    : '<div class="dep-box-empty">No templates yet — build one and check “Save as a reusable template”.</div>');
         }
 
         // ---- Step 3 review (view only): every selection, read-only ----
@@ -2155,6 +2163,7 @@
             }
         });
         $('depSearch').addEventListener('input', e => { filter = e.target.value; renderAsg(); });
+        $('depTplSearch').addEventListener('input', e => { tplFilter = e.target.value; renderTemplates(); });
 
         /* ============================================================
            Step 2 — two-column qualifier builder.
@@ -2379,6 +2388,7 @@
             renderColors();
             const cp = $('depColorPop'); if (cp) cp.classList.remove('open');
             const s = $('depSearch'); if (s) s.value = '';
+            tplFilter = ''; const ts = $('depTplSearch'); if (ts) ts.value = '';
             resetBuilder();   // clear the Step 2 qualifier builder
             // No Pull step — the existing-assignments list keys off the start date automatically.
             setBox('depAsgHead', 'depAsgBody', true);
