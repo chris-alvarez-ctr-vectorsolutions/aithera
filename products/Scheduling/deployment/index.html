@@ -312,6 +312,7 @@
         .stepper { display: inline-flex; align-items: center; border: 1px solid var(--border-strong); border-radius: 20px; background: #fff; height: 34px; padding: 0 4px; }
         .stepper button { width: 30px; height: 30px; border: none; background: none; cursor: pointer; color: var(--text-muted); font-size: 14px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; }
         .stepper button:hover { background: #eef1f4; color: var(--text); }
+        .stepper button:disabled { opacity: .35; cursor: default; background: none; }
         .stepper .count { min-width: 26px; text-align: center; font-size: 14px; font-weight: 600; }
         .qual-subhead { margin-top: 26px; }
         .qual-subhead h3 { font-size: 14px; font-weight: 700; margin: 0 0 2px; }
@@ -962,16 +963,8 @@
                         <div class="select-label">Shared Qualifier</div>
                         <vaadin-select id="bSharedPicker" theme="outlined" placeholder="Select a shared qualifier…"></vaadin-select>
 
-                        <!-- Additional (open) positions — no qualifier required; after the minimum staffing -->
-                        <div class="qual-subhead">
-                            <h3>Additional positions</h3>
-                            <p class="sub">No qualifier required — anyone can sign up.</p>
-                        </div>
-                        <div id="bOpenRows"></div>
-                        <div class="add-additional" style="margin-top:10px;">
-                            <vaadin-button theme="tertiary" id="bAddOpen"><i class="fa-solid fa-plus"></i>&nbsp; Add additional position</vaadin-button>
-                            <span class="dep-info" tabindex="0" data-tip="No qualifier required — anyone can sign up. It becomes an open slot you can fill later."><i class="fa-regular fa-circle-question"></i></span>
-                        </div>
+                        <!-- Additional (open) positions — no qualifier required; a single always-on counter -->
+                        <div id="bOpenRows" style="margin-top:22px;"></div>
                     </div>
 
                     <!-- Right: the open slots these qualifiers produce (click to fill now, or later) -->
@@ -1922,11 +1915,16 @@
                 : '<div class="empty-slots" style="min-height:0;padding:2px 0 6px;">No qualifiers yet — add one below.</div>';
             const sk = Object.keys(bShared);
             $('bSharedRows').innerHTML = sk.map(k => qualRowHtml(k, bShared[k], 'bs')).join('');
-            // Additional (open) positions — no qualifier required; sits after minimum staffing.
+            // Additional (open) positions — no qualifier required; one always-on counter
+            // (starts at 0, just minus/plus — no trash-can).
             const orows = $('bOpenRows');
-            if (orows) orows.innerHTML = bOpen > 0
-                ? `<div class="qual-row"><div class="meta"><div class="code">Additional positions</div><div class="name">No qualifier required — anyone can sign up</div></div>${stepperHtml('bo', 'open', bOpen)}</div>`
-                : '';
+            if (orows) orows.innerHTML =
+                `<div class="qual-row"><div class="meta"><div class="code">Additional positions</div><div class="name">No qualifier required — anyone can sign up</div></div>
+                    <div class="stepper">
+                        <button data-bo="open" data-delta="-1" ${bOpen ? '' : 'disabled'}><i class="fa-solid fa-minus"></i></button>
+                        <span class="count">${bOpen}</span>
+                        <button data-bo="open" data-delta="1"><i class="fa-solid fa-plus"></i></button>
+                    </div></div>`;
             // Right column — slots preview
             const total = bSlots.length, filled = bSlots.filter(s => s.emp).length;
             $('bSlotCount').textContent = `${filled}/${total}`;
@@ -1959,13 +1957,12 @@
             if (bShared[k] <= 0) delete bShared[k];
             rebuildSlots();
         });
-        // Additional (open) positions stepper + add button.
+        // Additional (open) positions counter (minus/plus, min 0).
         $('bOpenRows').addEventListener('click', e => {
             const b = e.target.closest('[data-bo]'); if (!b) return;
             bOpen = Math.max(0, bOpen + (+b.dataset.delta));
             rebuildSlots();
         });
-        $('bAddOpen').addEventListener('click', () => { bOpen += 1; rebuildSlots(); });
         // Add-qualifier selects
         customElements.whenDefined('vaadin-select').then(() => {
             const pp = $('bPrimaryPicker');

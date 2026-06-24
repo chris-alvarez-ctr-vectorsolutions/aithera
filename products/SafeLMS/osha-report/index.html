@@ -131,6 +131,7 @@
   /* Report meta row (last-updated + actions) — replaces V1 page-title row,
      since the SafeLMS blue topbar already carries the page title. */
   .report-meta-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .meta-left { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; }
   .data-note { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
   .data-note i { color: var(--blue-primary); }
   .data-note b { color: var(--ink-2); font-weight: 700; }
@@ -627,9 +628,19 @@
 
         <!-- Meta + actions -->
         <div class="report-meta-row">
-          <div class="data-note">
-            <i class="fa-solid fa-rotate"></i>
-            <span>Data refreshed nightly from ClickSafety · Last updated <b>Jun 22, 2026 at 6:00 AM EDT</b></span>
+          <div class="meta-left">
+            <!-- Page-level filter scope — applies to the charts AND the table. Shows "All courses"
+                 by default (styled as an active filter) so it's clear the whole page is filterable. -->
+            <span class="filters-active" id="filtersActive">
+              <button class="filters-scope-btn" id="filtersScopeBtn" type="button" title="Change filters">
+                <i class="fa-solid fa-filter"></i> <span id="filtersScope">All courses</span>
+              </button>
+              <button class="filters-clear" id="filtersClearBtn" type="button" hidden><i class="fa-solid fa-xmark"></i> Clear</button>
+            </span>
+            <div class="data-note">
+              <i class="fa-solid fa-rotate"></i>
+              <span>Data refreshed nightly from ClickSafety · Last updated <b>Jun 22, 2026 at 6:00 AM EDT</b></span>
+            </div>
           </div>
           <div class="actions-right">
             <vaadin-button theme="secondary small" id="filterInlineToggle"><i class="fa-solid fa-sliders" slot="prefix"></i> Filters</vaadin-button>
@@ -711,14 +722,6 @@
           <div class="report-toolbar">
             <div class="toolbar-left">
               <span class="report-card-title">OSHA Completion Report</span>
-              <!-- Always-visible scope badge: shows "All courses" by default so the filter is discoverable;
-                   Clear appears once any filter is active. -->
-              <span class="filters-active" id="filtersActive">
-                <button class="filters-scope-btn" id="filtersScopeBtn" type="button" title="Change filters">
-                  <i class="fa-solid fa-filter"></i> <span id="filtersScope">All courses</span>
-                </button>
-                <button class="filters-clear" id="filtersClearBtn" type="button" hidden><i class="fa-solid fa-xmark"></i> Clear</button>
-              </span>
             </div>
             <div class="toolbar-right">
               <div class="search-wrap">
@@ -1242,8 +1245,14 @@
       if (tr) tr.style.display = rowVisible(x) ? '' : 'none';
     });
     updateFilterBadge();
+    // Course (and the other panel filters) scope the WHOLE page — refresh the charts too.
+    if (typeof renderActionCards === 'function') renderActionCards();
+    if (typeof renderOverviewCharts === 'function') renderOverviewCharts();
     if (typeof updateBulkBar === 'function') updateBulkBar();
   }
+  // Learners (and their wrappers) passing the current filters — the data source for the charts.
+  function scopedWrappers() { return rows.filter(rowVisible); }
+  function scopedLearners() { return scopedWrappers().map(x => x.r); }
   // Back-compat aliases — bulk-flow call sites still reference these names.
   function applyStatusFilter() { applyFilters(); }
   function syncSearch() { applyFilters(); }
@@ -1795,15 +1804,14 @@
     nudge:     r => r.status === 'in-progress' && r.behind,
     retry:     r => r.status === 'failed',
   };
-  const allRows = () => GROUPS.flatMap(g => g.rows);
   function renderActionCards() {
-    const rows = allRows();
-    const total = rows.length;
-    const inProgress = rows.filter(r => r.status === 'in-progress').length;
+    const data = scopedLearners();
+    const total = data.length;
+    const inProgress = data.filter(r => r.status === 'in-progress').length;
     const cards = [
-      { type: 'intervene', cls: 'intervene', icon: 'fa-circle-exclamation', count: rows.filter(GROUP_MATCH.intervene).length, of: total,      label: 'Not started — needs intervention' },
-      { type: 'nudge',     cls: 'nudge',     icon: 'fa-bell',               count: rows.filter(GROUP_MATCH.nudge).length,     of: inProgress, label: 'Behind the expected pace — needs a nudge' },
-      { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: rows.filter(GROUP_MATCH.retry).length,     of: total,      label: 'Failed the assessment — needs a retry' },
+      { type: 'intervene', cls: 'intervene', icon: 'fa-circle-exclamation', count: data.filter(GROUP_MATCH.intervene).length, of: total,      label: 'Not started — needs intervention' },
+      { type: 'nudge',     cls: 'nudge',     icon: 'fa-bell',               count: data.filter(GROUP_MATCH.nudge).length,     of: inProgress, label: 'Behind the expected pace — needs a nudge' },
+      { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: total,      label: 'Failed the assessment — needs a retry' },
     ];
     const wrap = document.getElementById('actionCards');
     wrap.innerHTML = cards.map(c => `
@@ -1822,13 +1830,13 @@
   /* ═══════════════ Overview charts — Completion Distribution (pie) ⇄ Where Learners Are ═══════════════ */
   // Pie: share of learners by completion status (live from the data, not hard-coded).
   function renderDistribution() {
-    const rows = allRows();
-    const total = rows.length || 1;
+    const data = scopedLearners();
+    const total = data.length || 1;
     const segs = [
-      { key: 'passed',      label: 'Passed',      color: '#22c55e', n: rows.filter(r => r.status === 'passed').length },
-      { key: 'in-progress', label: 'In Progress', color: '#3b82f6', n: rows.filter(r => r.status === 'in-progress').length },
-      { key: 'not-started', label: 'Not Started', color: '#d1d5db', n: rows.filter(r => r.status === 'not-started').length },
-      { key: 'failed',      label: 'Failed',      color: '#dc2626', n: rows.filter(r => r.status === 'failed').length },
+      { key: 'passed',      label: 'Passed',      color: '#22c55e', n: data.filter(r => r.status === 'passed').length },
+      { key: 'in-progress', label: 'In Progress', color: '#3b82f6', n: data.filter(r => r.status === 'in-progress').length },
+      { key: 'not-started', label: 'Not Started', color: '#d1d5db', n: data.filter(r => r.status === 'not-started').length },
+      { key: 'failed',      label: 'Failed',      color: '#dc2626', n: data.filter(r => r.status === 'failed').length },
     ];
     let acc = 0;
     const stops = segs.map(s => { const a = acc / total * 360; acc += s.n; return `${s.color} ${a}deg ${acc / total * 360}deg`; }).join(', ');
@@ -1838,13 +1846,13 @@
   }
   // Where Learners Are: how far along learners are right now (counts per progress category).
   function renderProgress() {
-    const rows = allRows();
+    const data = scopedLearners();
     const cats = [
-      { label: 'Not started',      color: '#9ca3af', n: rows.filter(r => r.status === 'not-started').length },
-      { label: 'On track',         color: '#3b82f6', n: rows.filter(r => r.status === 'in-progress' && !r.behind).length },
-      { label: 'Behind / delayed', color: '#f59e0b', n: rows.filter(r => r.status === 'in-progress' && r.behind).length },
-      { label: 'Failed / retry',   color: '#dc2626', n: rows.filter(r => r.status === 'failed').length },
-      { label: 'Completed',        color: '#22c55e', n: rows.filter(r => r.status === 'passed').length },
+      { label: 'Not started',      color: '#9ca3af', n: data.filter(r => r.status === 'not-started').length },
+      { label: 'On track',         color: '#3b82f6', n: data.filter(r => r.status === 'in-progress' && !r.behind).length },
+      { label: 'Behind / delayed', color: '#f59e0b', n: data.filter(r => r.status === 'in-progress' && r.behind).length },
+      { label: 'Failed / retry',   color: '#dc2626', n: data.filter(r => r.status === 'failed').length },
+      { label: 'Completed',        color: '#22c55e', n: data.filter(r => r.status === 'passed').length },
     ];
     const max = Math.max(1, ...cats.map(c => c.n));
     document.getElementById('progressChart').innerHTML = cats.map(c => `
@@ -1856,11 +1864,11 @@
   }
   // Course Pass / Fail: a pass-rate donut (passed vs. failed vs. not-yet-assessed).
   function renderPassFail() {
-    const rows = allRows();
-    const passed = rows.filter(r => r.status === 'passed').length;
-    const failed = rows.filter(r => r.status === 'failed').length;
-    const pending = rows.length - passed - failed;
-    const total = rows.length || 1;
+    const data = scopedLearners();
+    const passed = data.filter(r => r.status === 'passed').length;
+    const failed = data.filter(r => r.status === 'failed').length;
+    const pending = data.length - passed - failed;
+    const total = data.length || 1;
     const segs = [
       { label: 'Passed', count: passed, color: '#22c55e' },
       { label: 'Failed', count: failed, color: '#ef4444' },
@@ -1885,9 +1893,9 @@
     const acc = Array.from({ length: MOD_TOTAL }, () => ({ pass: 0, fail: 0 }));
     const labels = Array.from({ length: MOD_TOTAL }, (_, i) => `Module ${i + 1}`);
     labels[MOD_TOTAL - 1] = 'Final Assessment';
-    GROUPS.forEach(g => g.rows.forEach(r => learnerModules(r, g.course).forEach((m, i) => {
+    scopedWrappers().forEach(x => learnerModules(x.r, x.course).forEach((m, i) => {
       if (m.status === 'complete') (m.score >= 70 ? acc[i].pass++ : acc[i].fail++);
-    })));
+    }));
     document.getElementById('moduleBreakdown').innerHTML = acc.map((a, i) => {
       const tot = (a.pass + a.fail) || 1;
       return `<div class="mb-row">
@@ -2003,9 +2011,7 @@
   /* ═══════════════ Init ═══════════════ */
   renderColumnManager(); // build the show/hide + reorder list
   applySort();           // default sort: learner name A→Z
-  renderTable();         // first paint (renderHead + body + applyFilters)
-  renderActionCards();
-  renderOverviewCharts();
+  renderTable();         // first paint (renderHead + body + applyFilters → charts + badge)
 </script>
 
 </body>
