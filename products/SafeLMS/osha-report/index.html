@@ -154,13 +154,7 @@
   .pie-chart-wrap { display: flex; align-items: center; gap: 16px; }
   .pie-chart {
     width: 132px; height: 132px; border-radius: 50%; flex-shrink: 0;
-    /* Passed 25.8% · In Progress 62.5% · Not Started 7.3% · Failed 4.4% */
-    background: conic-gradient(
-      #22c55e 0deg 92.9deg,
-      #3b82f6 92.9deg 317.9deg,
-      #d1d5db 317.9deg 344.2deg,
-      #dc2626 344.2deg 360deg
-    );
+    background: var(--hair-2); /* live conic-gradient set by renderDistribution() */
   }
   .pie-labels { display: flex; flex-direction: column; gap: 5px; }
   .pie-label { font-size: 12px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
@@ -172,6 +166,21 @@
   .legend-dot.inprogress { background: #3b82f6; }
   .legend-dot.notstarted { background: #d1d5db; }
   .legend-dot.failed     { background: #dc2626; }
+
+  /* Overview chart toggle: Completion Distribution (pie) ⇄ Where Learners Are (bars) */
+  .chart-flip { display: inline-flex; background: var(--hair-2); border-radius: 8px; padding: 3px; gap: 3px; margin-bottom: 14px; }
+  .chart-flip .cf-btn { background: none; border: 0; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--muted); padding: 6px 14px; border-radius: 6px; }
+  .chart-flip .cf-btn.active { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(16,24,40,.12); }
+  .chart-view[hidden] { display: none; }
+
+  /* "Where Learners Are" — horizontal progress-status breakdown */
+  .prog-chart { display: flex; flex-direction: column; gap: 11px; min-width: 320px; }
+  .prog-row { display: flex; align-items: center; gap: 10px; }
+  .prog-label { width: 132px; flex-shrink: 0; font-size: 12px; color: var(--ink-2); display: flex; align-items: center; gap: 7px; }
+  .prog-label .pdot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .prog-track { flex: 1; height: 12px; border-radius: 999px; background: var(--hair-2); overflow: hidden; min-width: 40px; }
+  .prog-fill { display: block; height: 100%; border-radius: 999px; }
+  .prog-val { width: 26px; text-align: right; font-size: 13px; font-weight: 700; color: var(--ink); flex-shrink: 0; }
 
   .bar-chart { display: flex; flex-direction: column; gap: 9px; }
   .bar-row { display: flex; align-items: center; gap: 8px; }
@@ -605,28 +614,29 @@
             </div>
           </div>
           <div class="chart-area">
-            <!-- Pie -->
+            <!-- Overview chart: toggle between the completion-distribution pie and the
+                 "Where Learners Are" progress breakdown (both rendered live from the data). -->
             <div class="chart-col">
-              <div class="chart-section-title">OSHA Completion Distribution</div>
-              <div class="pie-chart-wrap">
-                <div class="pie-chart"></div>
-                <div class="pie-labels">
-                  <span class="pie-label"><span class="pd" style="background:#22c55e"></span> Passed: 25.8%</span>
-                  <span class="pie-label"><span class="pd" style="background:#3b82f6"></span> In Progress: 62.5%</span>
-                  <span class="pie-label"><span class="pd" style="background:#d1d5db"></span> Not Started: 7.3%</span>
-                  <span class="pie-label"><span class="pd" style="background:#dc2626"></span> Failed: 4.4%</span>
+              <div class="chart-flip" id="chartFlip">
+                <button class="cf-btn active" data-chart="dist" type="button">Completion Distribution</button>
+                <button class="cf-btn" data-chart="progress" type="button">Where Learners Are</button>
+              </div>
+
+              <!-- Pie: share of learners by completion status -->
+              <div class="chart-view" id="view-dist">
+                <div class="pie-chart-wrap">
+                  <div class="pie-chart" id="pieChart"></div>
+                  <div class="pie-labels" id="pieLabels"><!-- rendered by JS --></div>
                 </div>
               </div>
-              <div class="pie-legend">
-                <span class="legend-item"><span class="legend-dot passed"></span> Passed</span>
-                <span class="legend-item"><span class="legend-dot inprogress"></span> In Progress</span>
-                <span class="legend-item"><span class="legend-dot notstarted"></span> Not Started</span>
-                <span class="legend-item"><span class="legend-dot failed"></span> Failed</span>
+
+              <!-- Where Learners Are: how far along learners are right now -->
+              <div class="chart-view" id="view-progress" hidden>
+                <div class="prog-chart" id="progressChart"><!-- rendered by JS --></div>
               </div>
             </div>
 
-            <!-- Action-needed counts (replaces the Top-5 bar chart), beside the pie.
-                 Layout is version-driven: V1 = stacked rows · V2 = side-by-side columns. -->
+            <!-- Action-needed counts, beside the chart -->
             <div class="chart-col chart-col-bar">
               <div class="chart-section-title">Action Needed</div>
               <div class="action-cards" id="actionCards"><!-- rendered by JS --></div>
@@ -1658,6 +1668,51 @@
       btn.addEventListener('click', () => openActionGroup(btn.dataset.action)));
   }
 
+  /* ═══════════════ Overview charts — Completion Distribution (pie) ⇄ Where Learners Are ═══════════════ */
+  // Pie: share of learners by completion status (live from the data, not hard-coded).
+  function renderDistribution() {
+    const rows = allRows();
+    const total = rows.length || 1;
+    const segs = [
+      { key: 'passed',      label: 'Passed',      color: '#22c55e', n: rows.filter(r => r.status === 'passed').length },
+      { key: 'in-progress', label: 'In Progress', color: '#3b82f6', n: rows.filter(r => r.status === 'in-progress').length },
+      { key: 'not-started', label: 'Not Started', color: '#d1d5db', n: rows.filter(r => r.status === 'not-started').length },
+      { key: 'failed',      label: 'Failed',      color: '#dc2626', n: rows.filter(r => r.status === 'failed').length },
+    ];
+    let acc = 0;
+    const stops = segs.map(s => { const a = acc / total * 360; acc += s.n; return `${s.color} ${a}deg ${acc / total * 360}deg`; }).join(', ');
+    document.getElementById('pieChart').style.background = `conic-gradient(${stops})`;
+    document.getElementById('pieLabels').innerHTML = segs.map(s =>
+      `<span class="pie-label"><span class="pd" style="background:${s.color}"></span> ${s.label}: ${Math.round(s.n / total * 100)}%</span>`).join('');
+  }
+  // Where Learners Are: how far along learners are right now (counts per progress category).
+  function renderProgress() {
+    const rows = allRows();
+    const cats = [
+      { label: 'Not started',      color: '#9ca3af', n: rows.filter(r => r.status === 'not-started').length },
+      { label: 'On track',         color: '#3b82f6', n: rows.filter(r => r.status === 'in-progress' && !r.behind).length },
+      { label: 'Behind / delayed', color: '#f59e0b', n: rows.filter(r => r.status === 'in-progress' && r.behind).length },
+      { label: 'Failed / retry',   color: '#dc2626', n: rows.filter(r => r.status === 'failed').length },
+      { label: 'Completed',        color: '#22c55e', n: rows.filter(r => r.status === 'passed').length },
+    ];
+    const max = Math.max(1, ...cats.map(c => c.n));
+    document.getElementById('progressChart').innerHTML = cats.map(c => `
+      <div class="prog-row">
+        <span class="prog-label"><span class="pdot" style="background:${c.color}"></span>${c.label}</span>
+        <span class="prog-track"><span class="prog-fill" style="width:${c.n / max * 100}%; background:${c.color};"></span></span>
+        <span class="prog-val">${c.n}</span>
+      </div>`).join('');
+  }
+  function renderOverviewCharts() { renderDistribution(); renderProgress(); }
+  // Flip between the two overview views.
+  document.getElementById('chartFlip').addEventListener('click', (e) => {
+    const btn = e.target.closest('.cf-btn');
+    if (!btn) return;
+    document.querySelectorAll('#chartFlip .cf-btn').forEach(b => b.classList.toggle('active', b === btn));
+    document.getElementById('view-dist').hidden = btn.dataset.chart !== 'dist';
+    document.getElementById('view-progress').hidden = btn.dataset.chart !== 'progress';
+  });
+
   /* ═══════════════ Action-group modal — filter by course, then take a bulk action ═══════════════ */
   const agDialog = document.getElementById('agDialog');
   const AG_META = {
@@ -1752,6 +1807,7 @@
   renderTable();        // first paint (also runs applyFilters)
   updateSortIndicators();
   renderActionCards();
+  renderOverviewCharts();
 </script>
 
 </body>
