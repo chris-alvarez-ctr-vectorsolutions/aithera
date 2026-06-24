@@ -275,14 +275,16 @@
             font-size: 9px;
         }
 
+        /* Sticky footer: sibling of the scrollable .aa-drawer-content (which has
+           flex:1), so it stays pinned to the bottom of the panel. */
         .aa-drawer-footer {
+            flex-shrink: 0;
             display: flex;
             justify-content: flex-end;
             gap: 8px;
-            padding-top: 10px;
-            margin-top: 4px;
+            padding: 16px 24px;
             border-top: 1px solid rgba(28,55,90,0.08);
-            padding-top: 18px;
+            background: var(--lumo-base-color);
         }
 
         /* Highlight newly-created row (applied via vaadin-grid part-name) */
@@ -310,6 +312,23 @@
             padding-left: 14px;
             padding-right: 14px;
         }
+        /* Extra breathing room on the right edge so the Status badge isn't flush
+           against the table boundary. */
+        vaadin-grid#authors-grid::part(last-column-cell) {
+            padding-right: 20px;
+        }
+        /* Whole row is clickable → navigates to the author detail view.
+           Cells are forced transparent so the row-part hover background shows
+           through (cell parts paint an opaque --lumo-base-color by default,
+           which would otherwise hide a background set on ::part(row)). */
+        vaadin-grid#authors-grid::part(cell),
+        vaadin-grid#authors-grid::part(body-cell) {
+            cursor: pointer;
+            background-color: transparent;
+        }
+        vaadin-grid#authors-grid::part(row):hover {
+            background-color: rgba(14,165,233,0.10);
+        }
         .empty-state {
             text-align: center;
             color: var(--lumo-secondary-text-color);
@@ -317,7 +336,7 @@
             font-size: 13px;
         }
 
-        /* Name cell — avatar + name/credentials */
+        /* Name cell — avatar + author name / display name */
         .name-cell {
             display: flex;
             align-items: center;
@@ -345,7 +364,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .author-credentials {
+        .author-display-name {
             font-size: 11.5px;
             color: var(--lumo-secondary-text-color);
             white-space: nowrap;
@@ -403,57 +422,28 @@
             white-space: nowrap;
         }
 
-        /* Actions column */
-        .author-actions {
-            white-space: nowrap;
-        }
-        .author-actions .icon-btn + .icon-btn,
-        .author-actions .btn-edit-p1 + .icon-btn,
-        .author-actions .icon-btn + .btn-edit-p1 {
-            margin-left: 3px;
-        }
-        .icon-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 30px; height: 30px;
-            border: none;
-            background: transparent;
-            border-radius: 5px;
-            cursor: pointer;
-            color: var(--lumo-secondary-text-color);
-            font-size: 13px;
-            transition: background 0.12s, color 0.12s;
-        }
-        .icon-btn:hover {
-            background: #f3f4f6;
-            color: #0f2e3d;
-        }
-        .btn-edit-p1 {
+        /* Status badge */
+        .status-badge {
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            padding: 4px 10px;
-            border-radius: 5px;
-            font-size: 12px;
+            padding: 2px 10px;
+            border-radius: 11px;
+            font-size: 11.5px;
             font-weight: 600;
-            border: 1px solid var(--lumo-contrast-20pct);
-            background: var(--lumo-base-color);
-            color: #0f2e3d;
-            cursor: pointer;
             white-space: nowrap;
-            font-family: inherit;
-            transition: background 0.12s;
         }
-        .btn-edit-p1:hover { background: #f3f4f6; }
-        .p1-label {
-            font-size: 10px;
-            font-weight: 700;
-            background: #fff3e0;
-            color: #e65100;
-            border-radius: 3px;
-            padding: 1px 4px;
+        .status-badge .status-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
         }
+        .status-active { background: #e6f4ea; color: #2e7d32; }
+        .status-active .status-dot { background: #2e7d32; }
+        /* Archived: design-system semi-transparent red (error) badge style */
+        .status-archived { background: rgba(198,40,40,0.12); color: #c62828; }
+        .status-archived .status-dot { background: #c62828; }
+
     </style>
 </head>
 <body>
@@ -469,7 +459,6 @@
             <div class="page-header">
                 <div class="page-title">Authors</div>
                 <vaadin-button id="open-add-author" theme="primary">
-                    <i class="fa-solid fa-user-plus" slot="prefix"></i>
                     Add Author
                 </vaadin-button>
             </div>
@@ -477,13 +466,26 @@
             <div class="search-filter-bar">
                 <vaadin-text-field
                     theme="outlined"
-                    placeholder="Search by name or credentials…"
+                    label="Search"
+                    placeholder="Search by author name…"
                     clear-button-visible>
-                    <i class="fa-solid fa-magnifying-glass" slot="prefix" style="color:var(--lumo-disabled-text-color); font-size:11px;"></i>
+                    <vwc-icon class="indicator" slot="suffix" path="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"></vwc-icon>
                 </vaadin-text-field>
 
                 <div class="filter-row">
                     <span class="filter-label">Filters:</span>
+                    <select id="filter-status" aria-label="Status">
+                        <option value="">All Statuses</option>
+                        <option value="active">Active</option>
+                        <option value="archived">Archived</option>
+                    </select>
+                    <select id="filter-content" aria-label="Content">
+                        <option value="">All Authors</option>
+                        <option value="has">Has Content</option>
+                        <option value="none">No Content</option>
+                    </select>
+
+                    <!-- POSSIBLE FUTURE ITERATION: filters for the hidden Subjects / Indicators columns
                     <select id="filter-subject" aria-label="Subject Area">
                         <option value="">All Subjects</option>
                         <option value="Industrial Safety">Industrial Safety</option>
@@ -506,17 +508,23 @@
                         <option value="linked">Linked</option>
                         <option value="unlinked">Unlinked</option>
                     </select>
+                    -->
                 </div>
             </div>
 
             <div class="results-summary">Showing 6 authors</div>
 
-            <vaadin-grid id="authors-grid" theme="no-border row-stripes" all-rows-visible aria-label="Authors">
-                <vaadin-grid-sort-column id="col-name" path="name" header="Name" flex-grow="2"></vaadin-grid-sort-column>
+            <vaadin-grid id="authors-grid" theme="no-border" all-rows-visible aria-label="Authors">
+                <vaadin-grid-sort-column id="col-name" path="name" header="Name" flex-grow="1"></vaadin-grid-sort-column>
+                <!-- POSSIBLE FUTURE ITERATION: Subjects column — hidden for now
                 <vaadin-grid-column id="col-subjects" header="Subjects" flex-grow="2"></vaadin-grid-column>
+                -->
+                <!-- POSSIBLE FUTURE ITERATION: Indicators column (Complete/Incomplete, Linked/Unlinked) — hidden for now
                 <vaadin-grid-column id="col-indicators" header="Indicators" width="200px" flex-grow="0"></vaadin-grid-column>
-                <vaadin-grid-sort-column id="col-content" path="contentCount" header="Content" width="120px" flex-grow="0" text-align="end"></vaadin-grid-sort-column>
-                <vaadin-grid-column id="col-actions" header="Actions" width="140px" flex-grow="0" frozen-to-end></vaadin-grid-column>
+                -->
+                <vaadin-grid-sort-column id="col-content" path="contentCount" header="Content" flex-grow="1"></vaadin-grid-sort-column>
+                <!-- Status pinned to the right edge -->
+                <vaadin-grid-sort-column id="col-status" path="status" header="Status" width="160px" flex-grow="0" text-align="end"></vaadin-grid-sort-column>
             </vaadin-grid>
 
             <div class="pagination-row">
@@ -534,7 +542,7 @@
             <div class="aa-drawer-header-body">
                 <div class="aa-drawer-title" id="aa-title">Add Author</div>
                 <div class="aa-drawer-subtitle">
-                    Create an author shell so content can be attributed. You can add additional profile details after creation.
+                    Create a new author profile.
                 </div>
             </div>
             <button class="aa-close-btn" id="aa-close" aria-label="Close">
@@ -563,9 +571,9 @@
                 <vaadin-text-field
                     id="aa-name"
                     theme="outlined"
-                    label="Display Name"
+                    label="Author Name"
                     required
-                    error-message="Display name is required"
+                    error-message="Author name is required"
                     placeholder="e.g., Dr. Sarah Mitchell"
                     style="width:100%">
                 </vaadin-text-field>
@@ -573,14 +581,16 @@
 
             <div class="aa-field">
                 <vaadin-text-field
-                    id="aa-credentials"
+                    id="aa-display-name"
                     theme="outlined"
-                    label="Credentials"
-                    helper-text="Degrees, certifications, and role (e.g., 'Ph.D. Occupational Safety · Industrial Safety Specialist')"
+                    label="Display Name"
+                    helper-text="Optional. The name shown to learners wherever this author appears. Defaults to the author name if left blank."
+                    placeholder="e.g., Sarah Mitchell"
                     style="width:100%">
                 </vaadin-text-field>
             </div>
 
+            <!-- FUTURE ADDITION: Subject Areas — hidden from UI for now
             <div class="aa-field">
                 <label class="aa-label" for="aa-subjects">Subject Areas</label>
                 <div class="aa-subject-picker" id="aa-subject-picker">
@@ -596,7 +606,9 @@
                 </div>
                 <div class="aa-helper">Tap to add or remove. Used for filtering and content recommendations.</div>
             </div>
+            -->
 
+            <!-- FUTURE ADDITION: Linked User Account — hidden from UI for now
             <div class="aa-field">
                 <vaadin-text-field
                     id="aa-email"
@@ -607,26 +619,26 @@
                     style="width:100%">
                 </vaadin-text-field>
             </div>
+            -->
 
             <div class="aa-field">
                 <vaadin-text-area
                     id="aa-bio"
                     theme="outlined"
                     label="Bio"
-                    helper-text="Short biography surfaced in author profile views and (where supported) in published content."
                     rows="4"
                     style="width:100%">
                 </vaadin-text-area>
             </div>
 
-            <div class="aa-drawer-footer">
-                <vaadin-button id="aa-cancel" theme="secondary">Cancel</vaadin-button>
-                <vaadin-button id="aa-submit" theme="primary">
-                    <i class="fa-solid fa-user-plus" slot="prefix"></i>
-                    Create Author
-                </vaadin-button>
-            </div>
+        </div><!-- /.aa-drawer-content -->
 
+        <!-- Sticky footer pinned to the bottom of the side panel -->
+        <div class="aa-drawer-footer">
+            <vaadin-button id="aa-cancel" theme="secondary">Cancel</vaadin-button>
+            <vaadin-button id="aa-submit" theme="primary">
+                Create Author
+            </vaadin-button>
         </div>
     </aside>
 
@@ -638,7 +650,7 @@ customElements.whenDefined('vwc-sidenav').then(() => {
     const sidenav = document.getElementById('sidenav');
     sidenav.items = [
         { type: 'link', id: 'library',  text: 'Content Library', href: 'content-library.html', icon: { type: 'svg', path: 'M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z' } },
-        { type: 'link', id: 'authors',  text: 'Authors', href: 'authors.html', icon: { type: 'svg', path: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z' } },
+        { type: 'link', id: 'authors',  text: 'Authors', href: 'authors.html', icon: { type: 'svg', path: 'M19.39,10.74L11,19.13V22H13.87L22.26,13.61L19.39,10.74M23.85,9.62L22.37,11.1L19.45,8.18L20.93,6.7C21.13,6.5 21.46,6.5 21.66,6.7L23.85,8.89C24.05,9.09 24.05,9.42 23.85,9.62M9,22H4A2,2 0 0,1 2,20V4A2,2 0 0,1 4,2H9C9.5,2 10.07,2.2 10.42,2.59L12,4.17L13.59,2.59C13.93,2.2 14.5,2 15,2H20A2,2 0 0,1 22,4V8.17L20,10.17V4H13L12,5L11,4H4V20H9V22Z' } },
         { type: 'divider' },
         { type: 'link', id: 'assets',   text: 'Assets', href: 'global-assets.html', icon: { type: 'svg', path: 'M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z' } },
         { type: 'link', id: 'settings', text: 'Settings', href: 'settings.html', icon: { type: 'svg', path: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.11-.22.06-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z' } }
@@ -648,13 +660,14 @@ customElements.whenDefined('vwc-sidenav').then(() => {
         document.querySelector('.main-content').classList.toggle('sidenav-collapsed', sidenav.collapsed);
     });
 
-    const ALL_SUBJECTS = ['Industrial Safety', 'Fire Safety', 'Emergency Response', 'Industrial Hygiene', 'Construction Safety', 'Occupational Health', 'Hazardous Materials', 'Electrical Safety', 'Ergonomics'];
+    // FUTURE ADDITION: subject taxonomy — used by the (currently hidden) Subject Areas picker/filter
+    // const ALL_SUBJECTS = ['Industrial Safety', 'Fire Safety', 'Emergency Response', 'Industrial Hygiene', 'Construction Safety', 'Occupational Health', 'Hazardous Materials', 'Electrical Safety', 'Ergonomics'];
     const AVATAR_COLORS = ['#1976d2', '#388e3c', '#e64a19', '#6a1b9a', '#00838f', '#c62828', '#f9a825', '#5e35b1', '#00695c', '#283593', '#bf360c', '#4527a0'];
 
     const authors = [
         { initials: 'SM', color: '#1976d2', name: 'Dr. Sarah Mitchell', credentials: 'Ph.D. Occupational Safety · Industrial Safety Specialist', subjects: ['Industrial Safety', 'Electrical Safety', 'Hazardous Materials'], complete: true, linked: true, linkedEmail: 'sarah.mitchell@acme.com', contentCount: 5, href: 'author-profile.html' },
         { initials: 'JK', color: '#388e3c', name: 'James Kowalski', credentials: 'EMT-P · EMS Training Officer', subjects: ['Emergency Response', 'Occupational Health'], complete: true, linked: true, linkedEmail: 'j.kowalski@acme.com', contentCount: 3, href: 'author-profile.html' },
-        { initials: 'TR', color: '#e64a19', name: 'Teresa Ramos', credentials: 'CHMM · EHS Coordinator, Acme Corp', subjects: ['Fire Safety', 'Hazardous Materials', 'Emergency Response'], complete: false, linked: false, linkedEmail: null, contentCount: 2, href: 'author-profile.html' },
+        { initials: 'TR', color: '#e64a19', name: 'Teresa Ramos', credentials: 'CHMM · EHS Coordinator, Acme Corp', subjects: ['Fire Safety', 'Hazardous Materials', 'Emergency Response'], complete: false, linked: false, linkedEmail: null, contentCount: 2, status: 'archived', href: 'author-profile.html' },
         { initials: 'LN', color: '#6a1b9a', name: 'Dr. Linda Nguyen', credentials: 'CIH, CSP · Industrial Hygienist', subjects: ['Industrial Hygiene', 'Hazardous Materials', 'Occupational Health'], complete: true, linked: false, linkedEmail: null, contentCount: 4, href: 'author-profile.html' },
         { initials: 'MO', color: '#00838f', name: 'Marcus Okafor', credentials: 'CHST · Construction Safety Supervisor', subjects: ['Construction Safety', 'Ergonomics'], complete: false, linked: true, linkedEmail: 'm.okafor@acme.com', contentCount: 1, href: 'author-profile.html' },
         { initials: 'AC', color: '#c62828', name: 'Amanda Chen', credentials: 'RN, COHN-S · Occupational Health Nurse', subjects: ['Occupational Health', 'Ergonomics', 'Industrial Hygiene'], complete: true, linked: true, linkedEmail: 'a.chen@acme.com', contentCount: 6, href: 'author-profile.html' },
@@ -663,14 +676,14 @@ customElements.whenDefined('vwc-sidenav').then(() => {
         { initials: 'BM', color: '#00695c', name: 'Brian Murphy', credentials: 'NREMT-P · Emergency Response Coordinator', subjects: ['Emergency Response', 'Fire Safety'], complete: false, linked: true, linkedEmail: 'b.murphy@acme.com', contentCount: 3, href: 'author-profile.html' },
         { initials: 'EJ', color: '#283593', name: 'Dr. Emily Johnson', credentials: 'Ph.D. Toxicology · Hazmat Specialist', subjects: ['Hazardous Materials', 'Industrial Hygiene'], complete: true, linked: true, linkedEmail: 'e.johnson@acme.com', contentCount: 7, href: 'author-profile.html' },
         { initials: 'CW', color: '#bf360c', name: 'Carlos Williams', credentials: 'CFPS · Fire Prevention Officer', subjects: ['Fire Safety', 'Emergency Response'], complete: true, linked: true, linkedEmail: 'c.williams@acme.com', contentCount: 5, href: 'author-profile.html' },
-        { initials: 'KT', color: '#4527a0', name: 'Kim Tanaka', credentials: 'CIE · Ergonomics Consultant', subjects: ['Ergonomics', 'Occupational Health'], complete: false, linked: false, linkedEmail: null, contentCount: 1, href: 'author-profile.html' },
+        { initials: 'KT', color: '#4527a0', name: 'Kim Tanaka', credentials: 'CIE · Ergonomics Consultant', subjects: ['Ergonomics', 'Occupational Health'], complete: false, linked: false, linkedEmail: null, contentCount: 1, status: 'archived', href: 'author-profile.html' },
         { initials: 'AR', color: '#1976d2', name: 'Aisha Robinson', credentials: 'CSP, ASP · Safety Manager', subjects: ['Industrial Safety', 'Construction Safety'], complete: true, linked: true, linkedEmail: 'a.robinson@acme.com', contentCount: 4, href: 'author-profile.html' },
         { initials: 'NG', color: '#388e3c', name: 'Dr. Nathan Garcia', credentials: 'M.D. Occupational Medicine', subjects: ['Occupational Health', 'Industrial Hygiene'], complete: true, linked: true, linkedEmail: 'n.garcia@acme.com', contentCount: 8, href: 'author-profile.html' },
         { initials: 'PL', color: '#e64a19', name: 'Priya Lakshmi', credentials: 'CIH · Industrial Hygienist II', subjects: ['Industrial Hygiene', 'Hazardous Materials'], complete: true, linked: false, linkedEmail: null, contentCount: 2, href: 'author-profile.html' },
         { initials: 'SC', color: '#6a1b9a', name: 'Steven Choi', credentials: 'OSHA 500 Trainer', subjects: ['Industrial Safety', 'Construction Safety', 'Electrical Safety'], complete: false, linked: true, linkedEmail: 's.choi@acme.com', contentCount: 3, href: 'author-profile.html' },
         { initials: 'JM', color: '#00838f', name: 'Jordan Morrison', credentials: 'CSHO · Safety & Health Officer', subjects: ['Industrial Safety', 'Emergency Response'], complete: true, linked: true, linkedEmail: 'j.morrison@acme.com', contentCount: 6, href: 'author-profile.html' },
         { initials: 'VK', color: '#c62828', name: 'Dr. Victoria Klein', credentials: 'Ph.D. Public Health · OHN Lead', subjects: ['Occupational Health'], complete: true, linked: true, linkedEmail: 'v.klein@acme.com', contentCount: 3, href: 'author-profile.html' },
-        { initials: 'OB', color: '#f9a825', name: 'Omar Bashir', credentials: 'CFEI · Fire Investigator', subjects: ['Fire Safety'], complete: false, linked: false, linkedEmail: null, contentCount: 1, href: 'author-profile.html' },
+        { initials: 'OB', color: '#f9a825', name: 'Omar Bashir', credentials: 'CFEI · Fire Investigator', subjects: ['Fire Safety'], complete: false, linked: false, linkedEmail: null, contentCount: 1, status: 'archived', href: 'author-profile.html' },
         { initials: 'HS', color: '#5e35b1', name: 'Hannah Schultz', credentials: 'CSP · Workplace Safety Consultant', subjects: ['Industrial Safety', 'Ergonomics'], complete: true, linked: true, linkedEmail: 'h.schultz@acme.com', contentCount: 4, href: 'author-profile.html' },
         { initials: 'TM', color: '#00695c', name: 'Trevor Martinez', credentials: 'NFPA 70E Trainer · Electrical Specialist', subjects: ['Electrical Safety', 'Industrial Safety'], complete: true, linked: true, linkedEmail: 't.martinez@acme.com', contentCount: 5, href: 'author-profile.html' },
         { initials: 'LP', color: '#283593', name: 'Lauren Patel', credentials: 'RN · Health & Safety Educator', subjects: ['Occupational Health', 'Emergency Response'], complete: false, linked: true, linkedEmail: 'l.patel@acme.com', contentCount: 2, href: 'author-profile.html' },
@@ -686,9 +699,8 @@ customElements.whenDefined('vwc-sidenav').then(() => {
 
     const grid = document.getElementById('authors-grid');
     const resultsSummary = document.querySelector('.results-summary');
-    const subjectFilter = document.getElementById('filter-subject');
-    const completenessFilter = document.getElementById('filter-completeness');
-    const linkedFilter = document.getElementById('filter-linked');
+    const statusFilter = document.getElementById('filter-status');
+    const contentFilter = document.getElementById('filter-content');
     const paginator = document.getElementById('paginator');
     paginator.pageSizeOptions = [10, 25, 50];
 
@@ -699,22 +711,34 @@ customElements.whenDefined('vwc-sidenav').then(() => {
         return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
     }
 
+    // Derive a Display Name (the learner-facing name) from the Author Name by
+    // dropping any honorific prefix — mirrors the author-profile behavior.
+    function displayNameFor(name) {
+        const parts = String(name).trim().split(/\s+/);
+        const stripped = parts.filter(p => !/^(dr\.?|mr\.?|mrs\.?|ms\.?|prof\.?)$/i.test(p));
+        return (stripped.length ? stripped : parts).join(' ');
+    }
+
     // ── Grid column renderers ──
     document.getElementById('col-name').renderer = (root, _col, model) => {
         root.innerHTML = '';
         const a = model.item;
+        const displayName = a.displayName || displayNameFor(a.name);
         const wrap = document.createElement('div');
         wrap.className = 'name-cell';
         wrap.innerHTML = `
             <div class="author-avatar" style="background:${a.color}">${escapeHtml(a.initials)}</div>
             <div class="name-cell-body">
                 <div class="author-name">${escapeHtml(a.name)}</div>
-                <div class="author-credentials">${escapeHtml(a.credentials || '—')}</div>
+                <div class="author-display-name">${escapeHtml(displayName)}</div>
             </div>
         `;
         root.appendChild(wrap);
     };
 
+    // POSSIBLE FUTURE ITERATION: Subjects + Indicators column renderers — hidden for now.
+    // Re-enable alongside the column markup above when these columns return.
+    /*
     document.getElementById('col-subjects').renderer = (root, _col, model) => {
         root.innerHTML = '';
         const subjectValue = subjectFilter.value;
@@ -743,6 +767,7 @@ customElements.whenDefined('vwc-sidenav').then(() => {
         `;
         root.appendChild(wrap);
     };
+    */
 
     document.getElementById('col-content').renderer = (root, _col, model) => {
         root.innerHTML = '';
@@ -753,28 +778,21 @@ customElements.whenDefined('vwc-sidenav').then(() => {
         root.appendChild(span);
     };
 
-    document.getElementById('col-actions').renderer = (root, _col, model) => {
+    // Status: authors default to 'active' unless explicitly archived.
+    document.getElementById('col-status').renderer = (root, _col, model) => {
         root.innerHTML = '';
-        const a = model.item;
-        const wrap = document.createElement('div');
-        wrap.className = 'author-actions';
-        wrap.innerHTML = `
-            <button class="icon-btn" title="View Profile" data-action="view">
-                <i class="fa-solid fa-eye"></i>
-            </button>
-            <button class="btn-edit-p1" data-action="edit">
-                <i class="fa-solid fa-pencil"></i> Edit
-                <span class="p1-label">P1</span>
-            </button>
-        `;
-        wrap.querySelectorAll('button').forEach(b => {
-            b.addEventListener('click', (e) => {
-                e.stopPropagation();
-                window.location = a.href;
-            });
-        });
-        root.appendChild(wrap);
+        const archived = model.item.status === 'archived';
+        const span = document.createElement('span');
+        span.className = 'status-badge ' + (archived ? 'status-archived' : 'status-active');
+        span.innerHTML = `<span class="status-dot"></span> ${archived ? 'Archived' : 'Active'}`;
+        root.appendChild(span);
     };
+
+    // The entire row is clickable — navigate to the author's detail view.
+    grid.addEventListener('active-item-changed', (e) => {
+        const item = e.detail.value;
+        if (item && item.href) window.location = item.href;
+    });
 
     // Apply "just-added" highlight via cellPartNameGenerator
     grid.cellPartNameGenerator = (_col, model) => {
@@ -783,16 +801,14 @@ customElements.whenDefined('vwc-sidenav').then(() => {
     };
 
     function getFiltered() {
-        const subjectValue = subjectFilter.value;
-        const completenessValue = completenessFilter.value;
-        const linkedValue = linkedFilter.value;
+        const statusValue = statusFilter.value;
+        const contentValue = contentFilter.value;
 
         return authors.filter(a => {
-            if (subjectValue && !a.subjects.includes(subjectValue)) return false;
-            if (completenessValue === 'complete' && !a.complete) return false;
-            if (completenessValue === 'incomplete' && a.complete) return false;
-            if (linkedValue === 'linked' && !a.linked) return false;
-            if (linkedValue === 'unlinked' && a.linked) return false;
+            const status = a.status === 'archived' ? 'archived' : 'active';
+            if (statusValue && status !== statusValue) return false;
+            if (contentValue === 'has' && a.contentCount <= 0) return false;
+            if (contentValue === 'none' && a.contentCount > 0) return false;
             return true;
         });
     }
@@ -813,8 +829,6 @@ customElements.whenDefined('vwc-sidenav').then(() => {
         const pageItems = filtered.slice(start, start + paginationState.pageSize);
 
         grid.items = pageItems;
-        // Force renderers to re-run so subject-chip "match" highlight updates
-        // when subject filter changes (renderer closure captures subjectFilter.value)
         grid.requestContentUpdate();
 
         const showingFrom = filtered.length === 0 ? 0 : start + 1;
@@ -824,7 +838,7 @@ customElements.whenDefined('vwc-sidenav').then(() => {
             : `Showing ${showingFrom}–${showingTo} of ${filtered.length} ${filtered.length === authors.length ? 'authors' : `(${authors.length} total)`}`;
     }
 
-    [subjectFilter, completenessFilter, linkedFilter].forEach(el => {
+    [statusFilter, contentFilter].forEach(el => {
         el.addEventListener('change', () => {
             paginationState.page = 0;
             renderAuthors();
@@ -846,10 +860,8 @@ customElements.whenDefined('vwc-sidenav').then(() => {
     const closeBtn = document.getElementById('aa-close');
     const cancelBtn = document.getElementById('aa-cancel');
     const submitBtn = document.getElementById('aa-submit');
-    const subjectPicker = document.getElementById('aa-subject-picker');
     const aaName = document.getElementById('aa-name');
-    const aaCredentials = document.getElementById('aa-credentials');
-    const aaEmail = document.getElementById('aa-email');
+    const aaDisplayName = document.getElementById('aa-display-name');
     const aaBio = document.getElementById('aa-bio');
 
     function openOverlay() {
@@ -872,10 +884,8 @@ customElements.whenDefined('vwc-sidenav').then(() => {
     function resetDrawer() {
         aaName.value = '';
         aaName.invalid = false;
-        aaCredentials.value = '';
-        aaEmail.value = '';
+        aaDisplayName.value = '';
         aaBio.value = '';
-        subjectPicker.querySelectorAll('.aa-subject-option.selected').forEach(b => b.classList.remove('selected'));
     }
 
     openBtn.addEventListener('click', openOverlay);
@@ -884,12 +894,6 @@ customElements.whenDefined('vwc-sidenav').then(() => {
     scrim.addEventListener('click', closeOverlay);
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && panel.classList.contains('open')) closeOverlay();
-    });
-
-    subjectPicker.addEventListener('click', (e) => {
-        const btn = e.target.closest('.aa-subject-option');
-        if (!btn) return;
-        btn.classList.toggle('selected');
     });
 
     function initialsFor(name) {
@@ -907,10 +911,7 @@ customElements.whenDefined('vwc-sidenav').then(() => {
             return;
         }
 
-        const selectedSubjects = Array.from(subjectPicker.querySelectorAll('.aa-subject-option.selected'))
-            .map(b => b.getAttribute('data-value'));
-        const email = aaEmail.value.trim();
-        const credentials = aaCredentials.value.trim();
+        const displayName = aaDisplayName.value.trim() || displayNameFor(name);
         const color = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
 
         const id = 'author-' + Date.now();
@@ -919,12 +920,14 @@ customElements.whenDefined('vwc-sidenav').then(() => {
             initials: initialsFor(name),
             color,
             name,
-            credentials: credentials || '—',
-            subjects: selectedSubjects,
-            complete: !!(credentials && selectedSubjects.length && aaBio.value.trim()),
-            linked: !!email,
-            linkedEmail: email || null,
+            displayName,
+            // FUTURE ADDITION fields — kept on the model but not collected in the form for now
+            subjects: [],
+            complete: !!aaBio.value.trim(),
+            linked: false,
+            linkedEmail: null,
             contentCount: 0,
+            status: 'active',
             href: 'author-profile.html'
         };
 
@@ -933,14 +936,13 @@ customElements.whenDefined('vwc-sidenav').then(() => {
         justAddedId = id;
 
         // Reset filters and page so the new author is guaranteed visible
-        subjectFilter.value = '';
-        completenessFilter.value = '';
-        linkedFilter.value = '';
+        statusFilter.value = '';
+        contentFilter.value = '';
         paginationState.page = 0;
 
         closeOverlay();
         renderAuthors();
-        showToast(`<strong>${escapeHtml(name)}</strong> created — complete remaining profile fields to publish.`);
+        showToast(`<strong>${escapeHtml(name)}</strong> created — add optional profile details anytime.`);
 
         // Clear the highlight ID after the animation finishes
         setTimeout(() => { justAddedId = null; }, 2500);

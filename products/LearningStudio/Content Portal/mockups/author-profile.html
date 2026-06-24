@@ -116,6 +116,25 @@
 
         .profile-header-info { flex: 1; }
 
+        /* Status badge (Active / Archived) below the names */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 8px;
+            padding: 2px 10px;
+            border-radius: 11px;
+            font-size: 11.5px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .status-badge .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .status-active { background: #e6f4ea; color: #2e7d32; }
+        .status-active .status-dot { background: #2e7d32; }
+        /* Archived: design-system semi-transparent red (error) badge style */
+        .status-archived { background: rgba(198,40,40,0.12); color: #c62828; }
+        .status-archived .status-dot { background: #c62828; }
+
         .profile-name {
             font-size: 20px;
             font-weight: 700;
@@ -129,17 +148,6 @@
             margin-bottom: 8px;
         }
 
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 2px 9px;
-            border-radius: 10px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-        .badge-complete { background: #e6f4ea; color: #2e7d32; }
-        .badge-incomplete { background: #fff3e0; color: #e65100; }
 
         /* Form sections */
         .form-section {
@@ -198,10 +206,8 @@
         .view-field { margin-bottom: 14px; }
         .view-field:last-child { margin-bottom: 0; }
         .view-field-label {
-            font-size: 10.5px;
+            font-size: 11.5px;
             font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
             color: var(--lumo-secondary-text-color);
             margin-bottom: 4px;
         }
@@ -271,13 +277,13 @@
             align-items: center;
             gap: 6px;
         }
-        .upload-photo-link {
-            font-size: 11.5px;
-            color: var(--lumo-primary-color);
-            cursor: pointer;
-            font-weight: 600;
+        .change-photo-btn { font-size: 11.5px; }
+        /* In edit mode the avatar stack sits beside the edit form — add breathing
+           room between the photo controls and the input fields. */
+        .profile-header.is-editing .big-avatar-stack {
+            margin-right: 16px;
+            align-self: flex-start;
         }
-        .upload-photo-link:hover { text-decoration: underline; }
 
         .photo-upload-row {
             display: flex;
@@ -379,6 +385,32 @@
             border-bottom: 1px solid rgba(28,55,90,0.07);
         }
 
+        /* Enhance-this-profile card title — normal case, larger, primary text color */
+        .enhance-title {
+            font-size: 14px;
+            letter-spacing: normal;
+            text-transform: none;
+            color: #0f2e3d;
+        }
+
+        /* Dismissable card */
+        #enhance-card { position: relative; }
+        .dismiss-card-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: var(--lumo-secondary-text-color);
+            font-size: 13px;
+            width: 24px; height: 24px;
+            border-radius: 5px;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.12s, color 0.12s;
+        }
+        .dismiss-card-btn:hover { background: #f3f4f6; color: #0f2e3d; }
+
         /* Progress card */
         .completeness-pct {
             font-size: 26px;
@@ -408,6 +440,28 @@
         .checklist li .check-icon { width: 16px; flex-shrink: 0; }
         .check-done { color: #2e7d32; }
         .check-missing { color: #e65100; }
+        /* Optional, not-yet-filled item: neutral grey, not a warning/error */
+        .check-optional { color: var(--lumo-disabled-text-color); }
+
+        .profile-detail-intro {
+            font-size: 12px;
+            color: var(--lumo-secondary-text-color);
+            line-height: 1.5;
+            margin-bottom: 14px;
+        }
+        .checklist-tag-required {
+            display: inline-flex;
+            align-items: center;
+            padding: 1px 7px;
+            margin-left: 4px;
+            border-radius: 9px;
+            font-size: 9.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            background: rgba(14,165,233,0.1);
+            color: #0271ce;
+        }
 
         /* Linked account */
         .linked-user-row {
@@ -462,6 +516,124 @@
             flex-direction: column;
             gap: 8px;
         }
+
+        /* Avatar can render either initials (text) or an uploaded photo.
+           When a photo is set, JS adds .has-photo and sets a background-image. */
+        .big-avatar.has-photo {
+            background-size: cover;
+            background-position: center;
+            color: transparent; /* hide initials text behind the image */
+        }
+
+        /* ── Change-photo dialog ── */
+        .cp-dialog { width: 420px; max-width: 92vw; }
+        .cp-body {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Empty state — drop zone */
+        .cp-dropzone {
+            border: 2px dashed rgba(28,55,90,0.22);
+            border-radius: 10px;
+            padding: 32px 20px;
+            text-align: center;
+            color: var(--lumo-secondary-text-color);
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .cp-dropzone:hover,
+        .cp-dropzone.dragover {
+            border-color: var(--lumo-primary-color);
+            background: rgba(14,165,233,0.05);
+        }
+        .cp-dropzone .cp-drop-icon {
+            font-size: 30px;
+            color: var(--lumo-primary-color);
+            margin-bottom: 10px;
+        }
+        .cp-dropzone .cp-drop-title { font-size: 14px; font-weight: 600; color: #0f2e3d; margin-bottom: 4px; }
+        .cp-dropzone .cp-drop-sub { font-size: 11.5px; }
+        .cp-browse-link { color: var(--lumo-primary-color); font-weight: 600; text-decoration: underline; }
+
+        /* Crop / reposition stage */
+        .cp-crop-stage {
+            position: relative;
+            width: 260px;
+            height: 260px;
+            margin: 0 auto;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #1b2733;
+            touch-action: none;
+            cursor: grab;
+            user-select: none;
+        }
+        .cp-crop-stage.dragging { cursor: grabbing; }
+        .cp-crop-img {
+            position: absolute;
+            top: 0; left: 0;
+            transform-origin: 0 0;
+            pointer-events: none;
+            -webkit-user-drag: none;
+        }
+        /* Circular mask overlay showing the final crop area */
+        .cp-crop-mask {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            box-shadow: 0 0 0 9999px rgba(15,46,61,0.55) inset;
+            border-radius: 50%;
+        }
+        .cp-crop-ring {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            border-radius: 50%;
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.85) inset;
+        }
+        .cp-zoom-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            color: var(--lumo-secondary-text-color);
+        }
+        .cp-zoom-row input[type="range"] { flex: 1; accent-color: var(--lumo-primary-color); }
+        .cp-zoom-row .fa-magnifying-glass-minus,
+        .cp-zoom-row .fa-magnifying-glass-plus { font-size: 12px; }
+        .cp-crop-hint {
+            font-size: 11.5px;
+            color: var(--lumo-secondary-text-color);
+            text-align: center;
+        }
+
+        .cp-footer {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 4px;
+        }
+        .cp-footer .cp-footer-spacer { flex: 1; }
+
+        .cp-error {
+            font-size: 12px;
+            color: #c62828;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        /* The HTML `hidden` attribute is overridden by an explicit `display`,
+           so flex containers that toggle visibility need this guard. */
+        [hidden] { display: none !important; }
+
+        /* Narrow the archive-confirmation dialog. The overlay renders at the
+           document root, so this selector is intentionally global (unscoped). */
+        vaadin-dialog-overlay[theme~="archive-confirm"]::part(overlay) {
+            width: 360px;
+            max-width: 92vw;
+        }
     </style>
 </head>
 <body>
@@ -485,22 +657,24 @@
 
                     <!-- Profile header (view / edit) -->
                     <div class="profile-header" id="profile-header" data-mode="view">
-                        <div class="big-avatar" id="header-avatar">SM</div>
-                        <div class="big-avatar-stack" data-show-on="edit">
-                            <span class="upload-photo-link"><i class="fa-solid fa-arrow-up-from-bracket"></i> Change photo</span>
+                        <div class="big-avatar-stack">
+                            <div class="big-avatar" id="header-avatar">SM</div>
+                            <vaadin-button class="change-photo-btn" theme="secondary" data-show-on="edit">
+                                <i class="fa-solid fa-arrow-up-from-bracket" slot="prefix"></i> Change photo
+                            </vaadin-button>
                         </div>
 
                         <div class="profile-header-info" data-show-on="view">
                             <div class="profile-name" id="display-name">Dr. Sarah Mitchell</div>
-                            <div class="profile-credentials" id="display-headline">Ph.D. Occupational Safety &middot; Industrial Safety Specialist</div>
-                            <span class="badge badge-complete">
-                                <i class="fa-solid fa-circle-check"></i> Profile Complete
+                            <div class="profile-credentials" id="display-headline">Sarah Mitchell</div>
+                            <span class="status-badge status-active" id="author-status-badge">
+                                <span class="status-dot"></span> Active
                             </span>
                         </div>
 
                         <div class="header-edit-form" id="header-edit-form" data-show-on="edit">
                             <vaadin-text-field id="edit-name" theme="outlined" label="Author Name" value="Dr. Sarah Mitchell" required></vaadin-text-field>
-                            <vaadin-text-field id="edit-headline" theme="outlined" label="Headline" value="Ph.D. Occupational Safety · Industrial Safety Specialist" helper-text="One-line summary shown wherever the author is listed."></vaadin-text-field>
+                            <vaadin-text-field id="edit-headline" theme="outlined" label="Display Name" value="Sarah Mitchell" helper-text="Optional. The name shown to learners wherever this author appears."></vaadin-text-field>
                             <div class="section-edit-footer">
                                 <vaadin-button id="cancel-header" theme="secondary">Cancel</vaadin-button>
                                 <vaadin-button id="save-header" theme="primary"><i class="fa-solid fa-floppy-disk" slot="prefix"></i> Save</vaadin-button>
@@ -516,7 +690,7 @@
                     <div class="form-section" id="identity-section" data-mode="view">
                         <div class="form-section-title">
                             <i class="fa-solid fa-id-card" style="color:var(--lumo-primary-color)"></i>
-                            <span class="title-text">Public-Facing Identity</span>
+                            <span class="title-text">Public Profile</span>
                             <button class="edit-section-btn" data-edit="identity" data-show-on="view">
                                 <i class="fa-solid fa-pencil"></i> Edit
                             </button>
@@ -528,10 +702,13 @@
                                 <div class="view-field-label">Bio</div>
                                 <div class="view-field-value" id="display-bio">Dr. Sarah Mitchell is an OSHA-certified Industrial Safety Specialist with over 14 years of experience in manufacturing and construction safety programs. She holds a Ph.D. in Occupational Safety from Ohio State University and has developed safety training curricula for companies across the Midwest.</div>
                             </div>
+                            <!-- FUTURE ADDITION: Credentials / Certifications — hidden from UI for now
                             <div class="view-field">
                                 <div class="view-field-label">Credentials / Certifications</div>
                                 <div class="view-field-value" id="display-credentials">Ph.D. Occupational Safety, CSP, OSHA-30</div>
                             </div>
+                            -->
+                            <!-- FUTURE ADDITION: Areas of Expertise — hidden from UI for now
                             <div class="view-field">
                                 <div class="view-field-label">Areas of Expertise</div>
                                 <div class="expertise-chips" id="display-expertise">
@@ -541,6 +718,7 @@
                                     <span class="expertise-chip">Chemical Handling</span>
                                 </div>
                             </div>
+                            -->
                         </div>
 
                         <!-- EDIT -->
@@ -551,11 +729,11 @@
                                     theme="outlined"
                                     label="Bio"
                                     rows="4"
-                                    helper-text="Surfaces on the author profile and (where supported) in published content. Aim for 2-3 sentences."
                                     value="Dr. Sarah Mitchell is an OSHA-certified Industrial Safety Specialist with over 14 years of experience in manufacturing and construction safety programs. She holds a Ph.D. in Occupational Safety from Ohio State University and has developed safety training curricula for companies across the Midwest.">
                                 </vaadin-text-area>
                             </div>
 
+                            <!-- FUTURE ADDITION: Credentials / Certifications — hidden from UI for now
                             <div class="form-row">
                                 <vaadin-text-field
                                     id="edit-credentials"
@@ -564,7 +742,9 @@
                                     value="Ph.D. Occupational Safety, CSP, OSHA-30">
                                 </vaadin-text-field>
                             </div>
+                            -->
 
+                            <!-- FUTURE ADDITION: Areas of Expertise — hidden from UI for now
                             <div class="form-row">
                                 <vaadin-text-field
                                     id="edit-expertise"
@@ -574,10 +754,11 @@
                                     value="Industrial Safety, OSHA Compliance, LOTO Procedures, Chemical Handling">
                                 </vaadin-text-field>
                             </div>
+                            -->
 
                             <div class="section-edit-footer">
                                 <vaadin-button id="cancel-identity" theme="secondary">Cancel</vaadin-button>
-                                <vaadin-button id="save-identity" theme="primary"><i class="fa-solid fa-floppy-disk" slot="prefix"></i> Save Identity</vaadin-button>
+                                <vaadin-button id="save-identity" theme="primary"><i class="fa-solid fa-floppy-disk" slot="prefix"></i> Save Bio</vaadin-button>
                             </div>
                         </div>
                     </div>
@@ -627,35 +808,31 @@
                 <!-- RIGHT: Sidebar -->
                 <div class="profile-sidebar">
 
-                    <!-- Profile Completeness -->
-                    <div class="sidebar-card">
-                        <div class="sidebar-card-title">Profile Completeness</div>
-                        <div class="completeness-pct">70%</div>
-                        <vaadin-progress-bar id="completeness-bar" value="0.7" min="0" max="1"></vaadin-progress-bar>
+                    <!-- Profile Detail — optional checklist to improve the author's profile (dismissable) -->
+                    <div class="sidebar-card" id="enhance-card">
+                        <button class="dismiss-card-btn" id="dismiss-enhance" aria-label="Dismiss" title="Dismiss">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                        <div class="sidebar-card-title enhance-title">Enhance this profile</div>
+                        <div class="profile-detail-intro">
+                            A few things left to add
+                        </div>
                         <ul class="checklist">
                             <li>
                                 <i class="fa-solid fa-circle-check check-icon check-done"></i>
-                                Author Name
+                                Author Name <span class="checklist-tag-required">Required</span>
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-circle-check check-icon check-done"></i>
+                                Display Name
                             </li>
                             <li>
                                 <i class="fa-solid fa-circle-check check-icon check-done"></i>
                                 Bio
                             </li>
                             <li>
-                                <i class="fa-solid fa-circle-check check-icon check-done"></i>
-                                Credentials
-                            </li>
-                            <li>
-                                <i class="fa-regular fa-circle check-icon check-missing" style="color:#e65100"></i>
+                                <i class="fa-regular fa-circle check-icon check-optional"></i>
                                 Profile Photo
-                            </li>
-                            <li>
-                                <i class="fa-regular fa-circle check-icon check-missing" style="color:#e65100"></i>
-                                Areas of Expertise
-                            </li>
-                            <li>
-                                <i class="fa-solid fa-circle-check check-icon check-done"></i>
-                                Linked User Account
                             </li>
                             <li>
                                 <i class="fa-solid fa-circle-check check-icon check-done"></i>
@@ -664,7 +841,7 @@
                         </ul>
                     </div>
 
-                    <!-- Linked User Account (view / edit) -->
+                    <!-- FUTURE ADDITION: Linked User Account (view / edit) — hidden from UI for now
                     <div class="sidebar-card linked-account-card" id="linked-card" data-mode="view">
                         <div class="sidebar-card-title" style="display:flex; align-items:center; gap:8px;">
                             <span style="flex:1">Linked User Account</span>
@@ -673,7 +850,7 @@
                             </button>
                         </div>
 
-                        <!-- VIEW -->
+                        [VIEW]
                         <div class="linked-view" data-show-on="view">
                             <div class="linked-user-row">
                                 <div class="linked-user-avatar">SM</div>
@@ -685,7 +862,7 @@
                             </div>
                         </div>
 
-                        <!-- EDIT -->
+                        [EDIT]
                         <div class="linked-edit" data-show-on="edit">
                             <vaadin-text-field
                                 id="edit-email"
@@ -705,12 +882,13 @@
                             </div>
                         </div>
                     </div>
+                    -->
 
                     <!-- Danger zone -->
                     <div class="sidebar-card">
                         <div class="sidebar-card-title">Actions</div>
                         <div class="sidebar-actions">
-                            <vaadin-button theme="secondary" style="width:100%">
+                            <vaadin-button id="archive-author-btn" theme="error secondary" style="width:100%">
                                 <i class="fa-solid fa-box-archive" slot="prefix"></i>
                                 Archive Author
                             </vaadin-button>
@@ -724,6 +902,59 @@
         </main>
     </div>
 
+    <!-- Change-photo dialog (vaadin-dialog renders via renderer; content lives in
+         this hidden template and is moved into the dialog root on open). -->
+    <vaadin-dialog id="cp-dialog" header-title="Update profile photo"></vaadin-dialog>
+
+    <!-- Archive-author confirmation dialog (narrow theme) -->
+    <vaadin-dialog id="archive-dialog" theme="archive-confirm" header-title="Archive this author?"></vaadin-dialog>
+
+    <div id="cp-template" hidden>
+        <div class="cp-body">
+            <!-- Hidden native file input, triggered by the drop zone / buttons -->
+            <input type="file" id="cp-file" accept="image/png, image/jpeg" hidden>
+
+            <!-- STEP 1: empty / drop zone -->
+            <div class="cp-dropzone" id="cp-dropzone">
+                <div class="cp-drop-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                <div class="cp-drop-title">Drag a photo here</div>
+                <div class="cp-drop-sub">or <span class="cp-browse-link">browse your files</span> &middot; JPG or PNG, up to 5&nbsp;MB</div>
+            </div>
+
+            <!-- STEP 2: crop / reposition (hidden until a file is chosen) -->
+            <div id="cp-crop-wrap" hidden>
+                <div class="cp-crop-stage" id="cp-crop-stage">
+                    <img class="cp-crop-img" id="cp-crop-img" alt="">
+                    <div class="cp-crop-mask"></div>
+                    <div class="cp-crop-ring"></div>
+                </div>
+                <div class="cp-zoom-row">
+                    <i class="fa-solid fa-magnifying-glass-minus"></i>
+                    <input type="range" id="cp-zoom" min="1" max="3" step="0.01" value="1" aria-label="Zoom">
+                    <i class="fa-solid fa-magnifying-glass-plus"></i>
+                </div>
+                <div class="cp-crop-hint">Drag to reposition &middot; use the slider to zoom</div>
+            </div>
+
+            <div class="cp-error" id="cp-error" hidden>
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <span id="cp-error-text"></span>
+            </div>
+
+            <div class="cp-footer">
+                <!-- Remove only shown when the author currently has a photo -->
+                <vaadin-button id="cp-remove" theme="error tertiary" hidden>
+                    <i class="fa-solid fa-trash-can" slot="prefix"></i> Remove photo
+                </vaadin-button>
+                <span class="cp-footer-spacer"></span>
+                <vaadin-button id="cp-cancel" theme="secondary">Cancel</vaadin-button>
+                <vaadin-button id="cp-save" theme="primary" disabled>
+                    <i class="fa-solid fa-floppy-disk" slot="prefix"></i> Save photo
+                </vaadin-button>
+            </div>
+        </div>
+    </div>
+
 <script>
 customElements.whenDefined('vwc-sidenav').then(() => {
     const topnav = document.getElementById('topnav');
@@ -732,7 +963,7 @@ customElements.whenDefined('vwc-sidenav').then(() => {
     const sidenav = document.getElementById('sidenav');
     sidenav.items = [
         { type: 'link', id: 'library',  text: 'Content Library', href: 'content-library.html', icon: { type: 'svg', path: 'M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z' } },
-        { type: 'link', id: 'authors',  text: 'Authors', href: 'authors.html', icon: { type: 'svg', path: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z' } },
+        { type: 'link', id: 'authors',  text: 'Authors', href: 'authors.html', icon: { type: 'svg', path: 'M19.39,10.74L11,19.13V22H13.87L22.26,13.61L19.39,10.74M23.85,9.62L22.37,11.1L19.45,8.18L20.93,6.7C21.13,6.5 21.46,6.5 21.66,6.7L23.85,8.89C24.05,9.09 24.05,9.42 23.85,9.62M9,22H4A2,2 0 0,1 2,20V4A2,2 0 0,1 4,2H9C9.5,2 10.07,2.2 10.42,2.59L12,4.17L13.59,2.59C13.93,2.2 14.5,2 15,2H20A2,2 0 0,1 22,4V8.17L20,10.17V4H13L12,5L11,4H4V20H9V22Z' } },
         { type: 'divider' },
         { type: 'link', id: 'assets',   text: 'Assets', href: 'global-assets.html', icon: { type: 'svg', path: 'M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z' } },
         { type: 'link', id: 'settings', text: 'Settings', href: 'settings.html', icon: { type: 'svg', path: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.11-.22.06-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z' } }
@@ -747,12 +978,16 @@ customElements.whenDefined('vwc-sidenav').then(() => {
         return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
     }
 
-    function showToast(html) {
+    // Simple success / fail snackbar, centered at the bottom of the page.
+    function showToast(message, type = 'success') {
         const note = document.createElement('vaadin-notification');
-        note.position = 'bottom-end';
-        note.duration = 3500;
+        note.position = 'bottom-center';
+        note.duration = 3000;
+        const ok = type !== 'error';
+        const icon = ok ? 'fa-circle-check' : 'fa-circle-exclamation';
+        const color = ok ? '#2e7d32' : '#c62828';
         note.renderer = (root) => {
-            root.innerHTML = `<span style="display:inline-flex; align-items:center; gap:8px;"><i class="fa-solid fa-circle-check" style="color:#2e7d32"></i> ${html}</span>`;
+            root.innerHTML = `<span style="display:inline-flex; align-items:center; gap:8px;"><i class="fa-solid ${icon}" style="color:${color}"></i> ${message}</span>`;
         };
         document.body.appendChild(note);
         note.opened = true;
@@ -789,8 +1024,8 @@ customElements.whenDefined('vwc-sidenav').then(() => {
             const key = btn.getAttribute('data-edit');
             const sectionId = {
                 header: 'profile-header',
-                identity: 'identity-section',
-                linked: 'linked-card'
+                identity: 'identity-section'
+                // linked: 'linked-card'  // FUTURE ADDITION — Linked User Account hidden for now
             }[key];
             if (sectionId) setMode(document.getElementById(sectionId), 'edit');
         });
@@ -816,13 +1051,14 @@ customElements.whenDefined('vwc-sidenav').then(() => {
         // Update view
         displayName.textContent = newName;
         displayHeadline.textContent = editHeadline.value || '—';
-        // Recompute initials
+        // Recompute initials (kept current even when a photo is showing, so the
+        // fallback is correct if the photo is later removed).
         const parts = newName.split(/\s+/).filter(p => !/^(dr\.?|mr\.?|mrs\.?|ms\.?|prof\.?)$/i.test(p));
         const initials = parts.length === 1 ? parts[0].slice(0, 2).toUpperCase() : (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
         headerAvatar.textContent = initials;
         originalHeader = { name: editName.value, headline: editHeadline.value };
         setMode(headerSection, 'view');
-        showToast('Profile identity updated.');
+        showToast('Changes saved');
     });
 
     document.getElementById('cancel-header').addEventListener('click', () => {
@@ -833,52 +1069,36 @@ customElements.whenDefined('vwc-sidenav').then(() => {
     });
 
     // ── Identity section save/cancel ──
+    // NOTE: Credentials and Areas of Expertise are FUTURE ADDITIONS, hidden from
+    // the UI for now, so their fields are not wired up here.
     const identitySection = document.getElementById('identity-section');
     const editBio = document.getElementById('edit-bio');
-    const editCredentials = document.getElementById('edit-credentials');
-    const editExpertise = document.getElementById('edit-expertise');
     const displayBio = document.getElementById('display-bio');
-    const displayCredentials = document.getElementById('display-credentials');
-    const displayExpertise = document.getElementById('display-expertise');
 
     let originalIdentity = {
-        bio: editBio.value,
-        credentials: editCredentials.value,
-        expertise: editExpertise.value
+        bio: editBio.value
     };
-
-    function renderExpertise(csv) {
-        const tags = csv.split(',').map(s => s.trim()).filter(Boolean);
-        if (tags.length === 0) {
-            displayExpertise.innerHTML = '<span class="view-field-value empty">No expertise tags yet</span>';
-            return;
-        }
-        displayExpertise.innerHTML = tags.map(t => `<span class="expertise-chip">${escapeHtml(t)}</span>`).join('');
-    }
 
     document.getElementById('save-identity').addEventListener('click', () => {
         const bio = editBio.value.trim();
-        const cred = editCredentials.value.trim();
-        const exp = editExpertise.value.trim();
         displayBio.textContent = bio || '';
         displayBio.classList.toggle('empty', !bio);
         if (!bio) displayBio.textContent = 'No bio yet';
-        displayCredentials.textContent = cred || 'No credentials listed';
-        displayCredentials.classList.toggle('empty', !cred);
-        renderExpertise(exp);
-        originalIdentity = { bio: editBio.value, credentials: editCredentials.value, expertise: editExpertise.value };
+        originalIdentity = { bio: editBio.value };
         setMode(identitySection, 'view');
-        showToast('Public-facing identity updated.');
+        showToast('Changes saved');
     });
 
     document.getElementById('cancel-identity').addEventListener('click', () => {
         editBio.value = originalIdentity.bio;
-        editCredentials.value = originalIdentity.credentials;
-        editExpertise.value = originalIdentity.expertise;
         setMode(identitySection, 'view');
     });
 
     // ── Linked account save/cancel ──
+    // FUTURE ADDITION: the Linked User Account card is hidden from the UI for now,
+    // so this wiring is disabled. Re-enable alongside the markup above when the
+    // feature ships.
+    /*
     const linkedCard = document.getElementById('linked-card');
     const editEmail = document.getElementById('edit-email');
     const displayEmail = document.getElementById('display-email');
@@ -918,6 +1138,321 @@ customElements.whenDefined('vwc-sidenav').then(() => {
         editEmail.value = originalEmail;
         setMode(linkedCard, 'view');
     });
+    */
+
+    // ── Dismiss the "Enhance this profile" card ──
+    const enhanceCard = document.getElementById('enhance-card');
+    const dismissEnhance = document.getElementById('dismiss-enhance');
+    if (dismissEnhance && enhanceCard) {
+        dismissEnhance.addEventListener('click', () => {
+            enhanceCard.remove();
+        });
+    }
+
+    // ── Change-photo workflow ─────────────────────────────────────────────
+    // A vaadin-dialog hosting a 3-state flow:
+    //   1. drop zone  →  2. crop/reposition (drag + zoom)  →  save
+    // "Save photo" rasterizes the cropped circle to a data URL and applies it to
+    // the avatar; "Remove photo" clears it back to the colored initials.
+    const MAX_FILE_BYTES = 5 * 1024 * 1024;
+    const dialog = document.getElementById('cp-dialog');
+    const tpl = document.getElementById('cp-template');
+    const changePhotoBtn = document.querySelector('.change-photo-btn');
+
+    // Persisted photo state for the avatar (data URL or null).
+    let currentPhoto = null;
+
+    // Per-session crop interaction state, reset each time a file is loaded.
+    let crop = null; // { img, natW, natH, baseScale, zoom, x, y, stageSize }
+
+    dialog.renderer = (root) => {
+        if (root.firstChild) return;          // mount once
+        root.appendChild(tpl);                // move the template into the dialog
+        tpl.hidden = false;
+        wireDialog(root);
+    };
+
+    function openDialog() {
+        dialog.opened = true;
+        // Renderer runs synchronously on open; reset to the right starting state.
+        requestAnimationFrame(() => resetDialogState());
+    }
+
+    if (changePhotoBtn) changePhotoBtn.addEventListener('click', openDialog);
+
+    // Wire the dialog's controls (runs once, when the renderer first mounts).
+    function wireDialog(root) {
+        const fileInput = root.querySelector('#cp-file');
+        const dropzone  = root.querySelector('#cp-dropzone');
+        const stage     = root.querySelector('#cp-crop-stage');
+        const zoom      = root.querySelector('#cp-zoom');
+        const saveBtn   = root.querySelector('#cp-save');
+        const cancelBtn = root.querySelector('#cp-cancel');
+        const removeBtn = root.querySelector('#cp-remove');
+
+        // ── File selection ──
+        dropzone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files && fileInput.files[0]) loadFile(fileInput.files[0]);
+        });
+
+        // ── Drag & drop ──
+        ['dragenter', 'dragover'].forEach(evt =>
+            dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('dragover'); }));
+        ['dragleave', 'drop'].forEach(evt =>
+            dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('dragover'); }));
+        dropzone.addEventListener('drop', (e) => {
+            const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+            if (file) loadFile(file);
+        });
+
+        // ── Zoom ──
+        zoom.addEventListener('input', () => {
+            if (!crop) return;
+            crop.zoom = parseFloat(zoom.value);
+            clampPan();
+            applyCropTransform();
+        });
+
+        // ── Drag to reposition ──
+        let dragging = false, lastX = 0, lastY = 0;
+        stage.addEventListener('pointerdown', (e) => {
+            if (!crop) return;
+            dragging = true;
+            lastX = e.clientX; lastY = e.clientY;
+            stage.classList.add('dragging');
+            stage.setPointerCapture(e.pointerId);
+        });
+        stage.addEventListener('pointermove', (e) => {
+            if (!dragging || !crop) return;
+            crop.x += e.clientX - lastX;
+            crop.y += e.clientY - lastY;
+            lastX = e.clientX; lastY = e.clientY;
+            clampPan();
+            applyCropTransform();
+        });
+        const endDrag = (e) => {
+            dragging = false;
+            stage.classList.remove('dragging');
+            if (e.pointerId != null && stage.hasPointerCapture && stage.hasPointerCapture(e.pointerId)) {
+                stage.releasePointerCapture(e.pointerId);
+            }
+        };
+        stage.addEventListener('pointerup', endDrag);
+        stage.addEventListener('pointercancel', endDrag);
+
+        // ── Footer actions ──
+        cancelBtn.addEventListener('click', () => { dialog.opened = false; });
+        removeBtn.addEventListener('click', () => {
+            applyPhoto(null);
+            dialog.opened = false;
+            showToast('Photo removed');
+        });
+        saveBtn.addEventListener('click', () => {
+            const dataUrl = renderCrop();
+            if (!dataUrl) return;
+            applyPhoto(dataUrl);
+            dialog.opened = false;
+            showToast('Photo updated');
+        });
+    }
+
+    // Reset the dialog to its opening state based on whether a photo exists.
+    function resetDialogState() {
+        const r = (sel) => tpl.querySelector(sel);
+        crop = null;
+        r('#cp-file').value = '';
+        r('#cp-dropzone').hidden = false;
+        r('#cp-crop-wrap').hidden = true;
+        r('#cp-zoom').value = 1;
+        r('#cp-save').disabled = true;
+        r('#cp-remove').hidden = !currentPhoto;   // only offer Remove if a photo is set
+        hideError();
+    }
+
+    function showError(msg) {
+        tpl.querySelector('#cp-error-text').textContent = msg;
+        tpl.querySelector('#cp-error').hidden = false;
+    }
+    function hideError() { tpl.querySelector('#cp-error').hidden = true; }
+
+    // Load a chosen file → validate → show the crop stage.
+    function loadFile(file) {
+        hideError();
+        if (!/^image\/(png|jpe?g)$/.test(file.type)) {
+            showError('Please choose a JPG or PNG image.');
+            return;
+        }
+        if (file.size > MAX_FILE_BYTES) {
+            showError('That image is larger than 5 MB. Please choose a smaller file.');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => startCrop(reader.result);
+        reader.onerror = () => showError('Could not read that file. Please try another.');
+        reader.readAsDataURL(file);
+    }
+
+    // Initialize the crop stage with a loaded image source.
+    function startCrop(src) {
+        const img = tpl.querySelector('#cp-crop-img');
+        const stage = tpl.querySelector('#cp-crop-stage');
+        const probe = new Image();
+        probe.onload = () => {
+            const stageSize = stage.clientWidth || 260;
+            // Base scale = cover the square stage at zoom 1.
+            const baseScale = Math.max(stageSize / probe.naturalWidth, stageSize / probe.naturalHeight);
+            crop = {
+                natW: probe.naturalWidth,
+                natH: probe.naturalHeight,
+                baseScale,
+                zoom: 1,
+                x: 0, y: 0,
+                stageSize
+            };
+            img.src = src;
+            // Center the image once.
+            centerPan();
+            clampPan();
+            applyCropTransform();
+
+            tpl.querySelector('#cp-dropzone').hidden = true;
+            tpl.querySelector('#cp-crop-wrap').hidden = false;
+            tpl.querySelector('#cp-zoom').value = 1;
+            tpl.querySelector('#cp-save').disabled = false;
+        };
+        probe.onerror = () => showError('That image could not be loaded.');
+        probe.src = src;
+    }
+
+    function scaledSize() {
+        const s = crop.baseScale * crop.zoom;
+        return { w: crop.natW * s, h: crop.natH * s };
+    }
+    function centerPan() {
+        const { w, h } = scaledSize();
+        crop.x = (crop.stageSize - w) / 2;
+        crop.y = (crop.stageSize - h) / 2;
+    }
+    // Keep the image covering the whole stage (no empty gaps inside the circle).
+    function clampPan() {
+        const { w, h } = scaledSize();
+        crop.x = Math.min(0, Math.max(crop.stageSize - w, crop.x));
+        crop.y = Math.min(0, Math.max(crop.stageSize - h, crop.y));
+    }
+    function applyCropTransform() {
+        const img = tpl.querySelector('#cp-crop-img');
+        const s = crop.baseScale * crop.zoom;
+        img.style.width = crop.natW + 'px';
+        img.style.height = crop.natH + 'px';
+        img.style.transform = `translate(${crop.x}px, ${crop.y}px) scale(${s})`;
+    }
+
+    // Rasterize the visible circular crop to a square data URL.
+    function renderCrop() {
+        if (!crop) return null;
+        const out = 256; // output resolution
+        const canvas = document.createElement('canvas');
+        canvas.width = out; canvas.height = out;
+        const ctx = canvas.getContext('2d');
+
+        // Map stage coordinates → source image pixels.
+        const s = crop.baseScale * crop.zoom;
+        const sx = -crop.x / s;
+        const sy = -crop.y / s;
+        const sSize = crop.stageSize / s;
+
+        const img = tpl.querySelector('#cp-crop-img');
+        // Clip to a circle so the saved image matches the round avatar.
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(out / 2, out / 2, out / 2, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(img, sx, sy, sSize, sSize, 0, 0, out, out);
+        ctx.restore();
+        return canvas.toDataURL('image/png');
+    }
+
+    // Apply (or clear) the photo on the header avatar.
+    function applyPhoto(dataUrl) {
+        currentPhoto = dataUrl;
+        if (dataUrl) {
+            headerAvatar.style.backgroundImage = `url("${dataUrl}")`;
+            headerAvatar.classList.add('has-photo');
+        } else {
+            headerAvatar.style.backgroundImage = '';
+            headerAvatar.classList.remove('has-photo');
+        }
+    }
+
+    // ── Archive-author confirmation ───────────────────────────────────────
+    const archiveDialog = document.getElementById('archive-dialog');
+    const archiveBtn = document.getElementById('archive-author-btn');
+
+    archiveDialog.renderer = (root) => {
+        if (root.firstChild) return;
+        const p = document.createElement('p');
+        p.style.cssText = 'margin:0; font-size:13.5px; line-height:1.55; color:#0f2e3d;';
+        p.innerHTML = `Archiving an author keeps their existing content intact, but they
+            <strong>can no longer be tagged to new content</strong>. You can restore them
+            from the Authors list at any time.`;
+        root.appendChild(p);
+    };
+
+    archiveDialog.footerRenderer = (root) => {
+        if (root.firstChild) return;
+
+        const cancel = document.createElement('vaadin-button');
+        cancel.setAttribute('theme', 'secondary');
+        cancel.textContent = 'Cancel';
+        cancel.addEventListener('click', () => { archiveDialog.opened = false; });
+
+        const confirm = document.createElement('vaadin-button');
+        confirm.setAttribute('theme', 'error primary');
+        confirm.innerHTML = `<i class="fa-solid fa-box-archive" slot="prefix"></i> Archive Author`;
+        confirm.addEventListener('click', () => {
+            archiveDialog.opened = false;
+            setAuthorStatus('archived');
+            showToast('Author archived');
+        });
+
+        root.appendChild(cancel);
+        root.appendChild(confirm);
+    };
+
+    const statusBadge = document.getElementById('author-status-badge');
+    let authorStatus = 'active';
+
+    // Reflect the author's status in the header badge and the Actions button.
+    function setAuthorStatus(status) {
+        authorStatus = status;
+        const archived = status === 'archived';
+
+        statusBadge.classList.toggle('status-archived', archived);
+        statusBadge.classList.toggle('status-active', !archived);
+        statusBadge.innerHTML = `<span class="status-dot"></span> ${archived ? 'Archived' : 'Active'}`;
+
+        if (archived) {
+            archiveBtn.setAttribute('theme', 'secondary');
+            archiveBtn.innerHTML = `<i class="fa-solid fa-box-open" slot="prefix"></i> Restore Author`;
+        } else {
+            archiveBtn.setAttribute('theme', 'error secondary');
+            archiveBtn.innerHTML = `<i class="fa-solid fa-box-archive" slot="prefix"></i> Archive Author`;
+        }
+    }
+
+    if (archiveBtn) {
+        archiveBtn.addEventListener('click', () => {
+            if (authorStatus === 'archived') {
+                // Restore is low-risk — no confirmation needed.
+                setAuthorStatus('active');
+                showToast('Author restored');
+            } else {
+                archiveDialog.opened = true;
+            }
+        });
+    }
 
 }); // end whenDefined
 </script>
