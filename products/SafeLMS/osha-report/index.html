@@ -213,8 +213,7 @@
   .report-table.hide-c6 thead th:nth-child(6),  .report-table.hide-c6 .data-row td:nth-child(6),
   .report-table.hide-c7 thead th:nth-child(7),  .report-table.hide-c7 .data-row td:nth-child(7),
   .report-table.hide-c8 thead th:nth-child(8),  .report-table.hide-c8 .data-row td:nth-child(8),
-  .report-table.hide-c9 thead th:nth-child(9),  .report-table.hide-c9 .data-row td:nth-child(9),
-  .report-table.hide-c10 thead th:nth-child(10), .report-table.hide-c10 .data-row td:nth-child(10) { display: none; }
+  .report-table.hide-c9 thead th:nth-child(9),  .report-table.hide-c9 .data-row td:nth-child(9) { display: none; }
 
   /* Failed / Attempts cells */
   .fr-fail { color: #b91c1c; font-weight: 600; }
@@ -230,10 +229,9 @@
   .report-table thead th:nth-child(5)  { width: 7%;  }  /* Time Spent */
   .report-table thead th:nth-child(6)  { width: 10%; }  /* Last Accessed */
   .report-table thead th:nth-child(7)  { width: 10%; }  /* Expiration */
-  .report-table thead th:nth-child(8)  { width: 9%;  }  /* Failed */
-  .report-table thead th:nth-child(9)  { width: 7%;  }  /* Attempts */
-  .report-table thead th:nth-child(10) { width: 7%;  }  /* Certificate */
-  .report-table thead th:nth-child(11) { width: 11%; }  /* Action */
+  .report-table thead th:nth-child(8)  { width: 10%; }  /* Failed */
+  .report-table thead th:nth-child(9)  { width: 8%;  }  /* Attempts */
+  .report-table thead th:nth-child(10) { width: 13%; }  /* Action / Certificate */
   .report-table thead { background: #f9fafb; }
   .report-table thead th {
     padding: 8px 9px; text-align: left; font-size: 11px; font-weight: 600; color: var(--muted);
@@ -675,7 +673,6 @@
                   <label class="col-menu-row"><vaadin-checkbox checked data-col="7"></vaadin-checkbox><span>Expiration</span></label>
                   <label class="col-menu-row"><vaadin-checkbox checked data-col="8"></vaadin-checkbox><span>Failed</span></label>
                   <label class="col-menu-row"><vaadin-checkbox checked data-col="9"></vaadin-checkbox><span>Attempts</span></label>
-                  <label class="col-menu-row"><vaadin-checkbox checked data-col="10"></vaadin-checkbox><span>Certificate</span></label>
                 </div>
               </div>
             </div>
@@ -704,8 +701,7 @@
                   <th class="sortable-th" data-sort="exp">Expiration <i class="fa-solid fa-sort sort-arrow"></i></th>
                   <th class="sortable-th" data-sort="failed">Failed <i class="fa-solid fa-sort sort-arrow"></i></th>
                   <th class="sortable-th" data-sort="attempts">Attempts <i class="fa-solid fa-sort sort-arrow"></i></th>
-                  <th>Certificate</th>
-                  <th style="text-align:right">Action</th>
+                  <th style="text-align:right" aria-label="Action / Certificate"></th>
                 </tr>
               </thead>
               <tbody id="qualTbody"><!-- rendered by JS --></tbody>
@@ -955,9 +951,13 @@
     const primary = a
       ? `<vaadin-button theme="${a.theme} small" class="row-act" data-type="${a.type}" data-group="${gid}" data-ext="${r.ext}"><i class="fa-solid ${a.icon}" slot="prefix"></i>${a.label}</vaadin-button>`
       : '';
-    const certCell = r.status === 'passed'
-      ? `<button class="cert-link row-act" data-type="cert" data-group="${gid}" data-ext="${r.ext}"><i class="fa-solid fa-award"></i> View</button>`
-      : '<span class="muted-cell">—</span>';
+    // Passed learners have no follow-up action — show their certificate link in the same
+    // (now header-less) column where everyone else gets their action button.
+    const actionContent = a
+      ? primary
+      : (r.status === 'passed'
+          ? `<button class="cert-link row-act" data-type="cert" data-group="${gid}" data-ext="${r.ext}"><i class="fa-solid fa-award"></i> View certificate</button>`
+          : '<span class="muted-cell">—</span>');
     // Failed date and Attempts are their own columns now (split out of the old "Failure / Retry").
     const failed = (r.status === 'failed' && r.failDate);
     const failedCell   = failed ? `<span class="fr-fail">${r.failDate}</span>` : '<span class="muted-cell">—</span>';
@@ -981,8 +981,7 @@
         <td>${expCell}</td>
         <td>${failedCell}</td>
         <td>${attemptsCell}</td>
-        <td>${certCell}</td>
-        <td class="cell-actions">${primary}</td>
+        <td class="cell-actions">${actionContent}</td>
       </tr>`;
   }
 
@@ -992,7 +991,7 @@
       const head = currentCourse === 'all' ? `
         <tr class="group-row" data-group="${g.id}" data-expanded="${g.expanded}">
           <td class="expand-cell"><i class="fa-solid ${g.expanded ? 'fa-chevron-down' : 'fa-chevron-right'}"></i></td>
-          <td colspan="10" class="group-label">Course: ${g.course} <span class="group-count">· ${g.rows.length} learners</span></td>
+          <td colspan="9" class="group-label">Course: ${g.course} <span class="group-count">· ${g.rows.length} learners</span></td>
         </tr>` : '';
       return head + g.rows.map(r => dataRowHTML(r, g.course, g.id)).join('');
     }).join('');
@@ -1010,7 +1009,7 @@
   // upgraded yet when the first render runs, which would hide every column.)
   const hiddenCols = new Set();
   function applyColVisibility() {
-    let visibleDataCols = 10; // data columns after the select column (2…11)
+    let visibleDataCols = 9; // data columns after the select column (2…10)
     colMenu.querySelectorAll('vaadin-checkbox[data-col]').forEach(cb => {
       const idx = cb.dataset.col;
       const hide = hiddenCols.has(idx);
