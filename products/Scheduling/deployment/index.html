@@ -653,6 +653,11 @@
         .v-card.collapsed .v-card-title { margin-bottom: 0; }
         .v-card.collapsed .v-card-title .vc-chev { transform: rotate(-90deg); }
         .v-card.collapsed > :not(.v-card-title) { display: none !important; }
+        /* Collapsed-step nav hint (V2 only): earlier steps read as "Back", later as "Continue". */
+        .vc-navhint { display: none; }
+        #view-deploy[data-ver="2"] .v-card.collapsed { cursor: pointer; }
+        #view-deploy[data-ver="2"] .v-card.collapsed .vc-navhint { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; color: var(--blue-link); font-weight: 700; font-size: 13px; }
+        #view-deploy[data-ver="2"] .v-card.collapsed .vc-chev { margin-left: 10px; }
         /* Step nav (Back / Continue) — sits at the foot of each step card. */
         .v-step-nav { display: flex; justify-content: flex-end; gap: 12px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
         .v-step-nav .nav-left { margin-right: auto; }
@@ -882,7 +887,7 @@
 
             <!-- STEP 1 — Deployment details (name + effective dates + schedule, all in one) -->
             <div class="v-card v-section" id="depStep1">
-                <div class="v-card-title"><span class="v-step-num">1</span> Deployment details <span class="vc-chev"><i class="fa-solid fa-chevron-down"></i></span></div>
+                <div class="v-card-title"><span class="v-step-num">1</span> Deployment details <span class="vc-navhint"></span><span class="vc-chev"><i class="fa-solid fa-chevron-down"></i></span></div>
 
                 <!-- Name + deployment color first -->
                 <div class="name-color-row">
@@ -947,7 +952,7 @@
 
             <!-- STEP 2 — Pick existing assignments + templates, or build a new one. -->
             <div class="v-card v-section build-area" id="depStep3">
-                <div class="v-card-title"><span class="v-step-num">2</span> Pick or build assignments <span class="ot-sub" style="font-weight:400;">— select existing, choose templates, or build new</span> <span class="vc-chev"><i class="fa-solid fa-chevron-down"></i></span></div>
+                <div class="v-card-title"><span class="v-step-num">2</span> Pick or build assignments <span class="ot-sub" style="font-weight:400;">— select existing, choose templates, or build new</span> <span class="vc-navhint"></span><span class="vc-chev"><i class="fa-solid fa-chevron-down"></i></span></div>
 
                 <!-- Existing assignments — same collapsible drawer style as Templates.
                      Empty (count 0) with a short hint until the start date is set. -->
@@ -1051,7 +1056,7 @@
 
             <!-- STEP 3 — Review (view only): everything selected for the deployment. -->
             <div class="v-card v-section" id="depStep2">
-                <div class="v-card-title"><span class="v-step-num">3</span> Review deployment <span class="ot-sub" style="font-weight:400;">— view only</span> <span class="vc-chev"><i class="fa-solid fa-chevron-down"></i></span></div>
+                <div class="v-card-title"><span class="v-step-num">3</span> Review deployment <span class="ot-sub" style="font-weight:400;">— view only</span> <span class="vc-navhint"></span><span class="vc-chev"><i class="fa-solid fa-chevron-down"></i></span></div>
                 <div class="dep-box-empty" id="depReviewEmpty" style="padding:6px 2px;">Nothing selected yet — pick or build assignments in Step 2.</div>
                 <div class="assign-grid" id="depReviewGrid" style="margin-top:4px;"></div>
                 <div class="v-step-nav">
@@ -2029,14 +2034,27 @@
         $('depTplHead').addEventListener('click', () => toggleBox('depTplHead', 'depTplBody'));
 
         // ---- Step cards collapse/expand from their header ----
+        // In V2 (stepper) clicking any step jumps to it; in V1 it just toggles that card.
         document.querySelectorAll('#view-deploy > .deploy-page .v-card > .v-card-title').forEach(t => {
-            t.addEventListener('click', () => t.closest('.v-card').classList.toggle('collapsed'));
+            t.addEventListener('click', () => {
+                const card = t.closest('.v-card');
+                if (document.getElementById('view-deploy').dataset.ver === '2') gotoStep(card.id);
+                else card.classList.toggle('collapsed');
+            });
         });
 
         // ---- Stepper: Continue / Back move one step at a time (collapse the others) ----
         const STEP_IDS = ['depStep1', 'depStep3', 'depStep2'];   // DOM order = Step 1, 2, 3
         function gotoStep(id) {
-            STEP_IDS.forEach(s => { const c = $(s); if (c) c.classList.toggle('collapsed', s !== id); });
+            const ai = STEP_IDS.indexOf(id);
+            STEP_IDS.forEach((s, i) => {
+                const c = $(s); if (!c) return;
+                c.classList.toggle('collapsed', s !== id);
+                // Label collapsed steps relative to the active one: above = Back, below = Continue.
+                const hint = c.querySelector('.v-card-title .vc-navhint');
+                if (hint) hint.innerHTML = i < ai ? '<i class="fa-solid fa-arrow-up"></i> Back'
+                    : i > ai ? 'Continue <i class="fa-solid fa-arrow-down"></i>' : '';
+            });
             const t = $(id); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
         window.__gotoStep = gotoStep;
