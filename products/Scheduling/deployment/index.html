@@ -381,7 +381,12 @@
         .sum-when { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; border-top: 1px solid var(--border); padding-top: 12px; }
 
         /* Sticky footer */
-        .sticky-footer { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid var(--border); padding: 12px 32px; display: flex; justify-content: flex-end; gap: 12px; z-index: 15; box-shadow: 0 -2px 10px rgba(0,0,0,.05); }
+        .sticky-footer { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid var(--border); padding: 12px 32px; z-index: 15; box-shadow: 0 -2px 10px rgba(0,0,0,.05); }
+        /* Footer + topbar content align to the same centered max-width as the page body,
+           so the count sits at the content's left edge and Deploy at its right edge. */
+        .sticky-footer-inner { width: 100%; max-width: 1500px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+        #view-deploy .topbar { padding: 0 32px; }
+        #view-deploy .topbar-inner { width: 100%; max-width: 1500px; margin: 0 auto; display: flex; align-items: center; }
         #view-deploy .sticky-footer { display: none; }
         #view-deploy.active .sticky-footer { display: flex; }
 
@@ -864,7 +869,9 @@
          Deploy lives in the sticky footer; success shows a green toast bottom-left. -->
     <div class="view" id="view-deploy" data-ver="1">
         <div class="topbar">
-            <a class="back-link" id="depBack"><i class="fa-solid fa-arrow-left"></i> Back to Edit Assignments</a>
+            <div class="topbar-inner">
+                <a class="back-link" id="depBack"><i class="fa-solid fa-arrow-left"></i> Back to Edit Assignments</a>
+            </div>
         </div>
         <div class="deploy-page">
           <div class="v-wrap">
@@ -1055,9 +1062,11 @@
           </div>
         </div>
         <div class="sticky-footer">
-            <span class="v-foot-count" id="depCount">0 selected</span>
-            <vaadin-button theme="secondary" id="depCancel">Cancel</vaadin-button>
-            <vaadin-button theme="primary" id="depDeploy" disabled>Deploy</vaadin-button>
+            <div class="sticky-footer-inner">
+                <span class="v-foot-count" id="depCount">0 selected</span>
+                <vaadin-button theme="secondary" id="depCancel">Cancel</vaadin-button>
+                <vaadin-button theme="primary" id="depDeploy" disabled>Deploy</vaadin-button>
+            </div>
         </div>
         <!-- Success toast (green, bottom-left, auto-dismiss) -->
         <div class="toast" id="depToast" role="status" aria-live="polite"></div>
@@ -1852,7 +1861,9 @@
                 .filter(a => !f || a.name.toLowerCase().includes(f))
                 .slice().sort((a, b) => a.name.localeCompare(b.name));
             grid.innerHTML = list.length ? list.map(assignCard).join('') : '<div class="dep-box-empty">No assignments match your search.</div>';
-            $('depAsgCount').textContent = ASSIGNMENTS.filter(a => a.isDeployable && a.selected).length;
+            // Counter = how many assignments are available for these dates (not how many are
+            // selected — the footer already tracks the selected count).
+            $('depAsgCount').textContent = ASSIGNMENTS.filter(a => a.isDeployable).length;
         }
 
         // ---- Step 3 cards: editable name, fillable slots. Built-from-scratch ones can be
@@ -1893,7 +1904,7 @@
         }
         function renderTemplates() {
             const list = TEMPLATES.slice().sort((a, b) => a.name.localeCompare(b.name));
-            $('depTplCount').textContent = selTpl.size;
+            $('depTplCount').textContent = TEMPLATES.length;   // available templates, not selected
             $('depTplGrid').innerHTML = list.length ? list.map(tplCard).join('') : '<div class="dep-box-empty">No templates yet — build one and check “Save as a reusable template”.</div>';
         }
 
