@@ -285,4 +285,77 @@
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && backdrop && backdrop.classList.contains('open')) modal.close();
   });
+
+  /* ======================================================================
+     Scroll cue — a shell-level affordance for content that outgrows the
+     slide. The lesson body scrolls between the fixed header/footer; when
+     there's more below the fold, a "Scroll" pill fades in (and nudges the
+     body down on click). It hides once you reach the bottom or the content
+     fits. Self-initializes for any page that loads this script, so every
+     content type gets it without extra wiring.
+
+       Lesson.scrollCue.refresh()  — re-evaluate after you change content
+     ====================================================================== */
+  const scrollCue = (Lesson.scrollCue = {});
+  let cueEl, body, rafPending = false;
+
+  // This shell overflows at the page level: .lesson-body only has a
+  // min-height, so it grows with content and the document scrolls (the fixed
+  // header/footer just overlay it). So we measure the document scroller, not
+  // .lesson-body — but still watch .lesson-body for content changes.
+  function metrics() {
+    const doc = document.scrollingElement || document.documentElement;
+    return { remaining: doc.scrollHeight - doc.scrollTop - doc.clientHeight };
+  }
+
+  function buildCue() {
+    cueEl = el('button', {
+      class: 'lesson-scroll-cue',
+      type: 'button',
+      'aria-label': 'Scroll down for more',
+      onclick: nudge,
+    }, ['Scroll', el('i', { class: 'fa-solid fa-chevron-down' })]);
+    document.body.appendChild(cueEl);
+  }
+
+  function nudge() {
+    window.scrollBy({ top: Math.round(window.innerHeight * 0.55), behavior: 'smooth' });
+  }
+
+  function updateCue() {
+    if (!cueEl) return;
+    cueEl.classList.toggle('show', metrics().remaining > 8);
+  }
+
+  function scheduleUpdate() {
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(() => { rafPending = false; updateCue(); });
+  }
+
+  scrollCue.refresh = scheduleUpdate;
+
+  scrollCue.init = function () {
+    body = document.querySelector('.lesson-body');
+    if (!body) return;
+    if (!cueEl) buildCue();
+
+    window.addEventListener('scroll', scheduleUpdate, { passive: true });
+    window.addEventListener('resize', scheduleUpdate);
+
+    // Content changes (screen switches, async-loaded components/fonts) shift
+    // the height — re-check whenever the body subtree mutates.
+    new MutationObserver(scheduleUpdate)
+      .observe(body, { childList: true, subtree: true, attributes: true, characterData: true });
+
+    updateCue();
+    window.setTimeout(updateCue, 200);   // after components/fonts settle
+    window.setTimeout(updateCue, 600);
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', scrollCue.init);
+  } else {
+    scrollCue.init();
+  }
 })();
