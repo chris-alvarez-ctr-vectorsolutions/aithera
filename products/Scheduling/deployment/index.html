@@ -552,6 +552,11 @@
         .recur-opts vaadin-select { width: 100%; }
         .type-fields vaadin-select { width: 100%; }
         .type-fields .date-inline vaadin-time-picker { width: 140px; flex: 0 0 140px; }
+        /* Repeating-pattern chips — a single selectable row instead of a dropdown. */
+        .pattern-row { display: flex; flex-wrap: wrap; gap: 8px; }
+        .pattern-chip { border: 1.5px solid var(--border-strong); background: #fff; border-radius: 18px; padding: 7px 14px; font: 600 13px inherit; color: var(--text-muted); cursor: pointer; }
+        .pattern-chip:hover { border-color: var(--blue-link); color: var(--blue-link); }
+        .pattern-chip.active { background: var(--blue-link); border-color: var(--blue-link); color: #fff; }
         /* Recurring plain-language summary (blue callout at the bottom). */
         .recur-summary { display: flex; align-items: flex-start; gap: 8px; margin-top: 16px; max-width: 560px; background: #eaf2fb; border: 1px solid #cfe0f5; color: #1d4ed8; border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.5; }
         .recur-summary i { margin-top: 2px; }
@@ -953,7 +958,7 @@
                     <div class="type-fields" id="depModeRecur" style="margin-top:18px;display:none;">
                         <div class="field" style="max-width:420px;margin-bottom:14px;"><span class="sub-label">Start date<span class="req">*</span></span><div class="date-inline"><vaadin-date-picker id="depRecStart" theme="outlined" value="2026-06-23"></vaadin-date-picker></div></div>
                         <div class="field" style="margin-bottom:14px;"><span class="sub-label">Daily time window</span><div class="date-inline" style="align-items:center;gap:10px;"><vaadin-time-picker id="depDailyStart" theme="outlined" value="08:00"></vaadin-time-picker><span style="color:var(--text-soft);">→</span><vaadin-time-picker id="depDailyEnd" theme="outlined" value="17:00"></vaadin-time-picker></div></div>
-                        <div class="field" style="max-width:420px;margin-bottom:14px;"><span class="sub-label">Repeating pattern</span><vaadin-select id="depPattern" theme="outlined" placeholder="Select a pattern…"></vaadin-select></div>
+                        <div class="field" style="margin-bottom:14px;"><span class="sub-label">Repeating pattern</span><div class="pattern-row" id="depPattern"></div></div>
                         <div class="field" style="max-width:420px;"><span class="sub-label">End date<span class="req">*</span></span><div class="date-inline"><vaadin-date-picker id="depRecEnd" theme="outlined" value="2026-06-25"></vaadin-date-picker></div></div>
                         <div class="recur-summary" id="depRecSummary" style="display:none;"><i class="fa-solid fa-circle-info"></i> <span></span></div>
                     </div>
@@ -1831,20 +1836,31 @@
         const sumCounts = o => Object.values(o).reduce((a, b) => a + b, 0);
 
         // Recurring patterns (drives the "Repeat pattern" select).
+        // Repeating-pattern options rendered as a selectable chip row (not a dropdown).
         const PATTERN_ITEMS = [
             { label: 'Every day', value: 'daily' },
-            { label: 'Weekdays only (Mon–Fri)', value: 'weekdays' },
-            { label: 'Weekends only (Sat–Sun)', value: 'weekends' },
-            { label: 'Weekly (same day each week)', value: 'weekly' },
+            { label: 'Weekdays', value: 'weekdays' },
+            { label: 'Weekends', value: 'weekends' },
+            { label: 'Weekly', value: 'weekly' },
             { label: 'Every 2 weeks', value: 'biweekly' },
-            { label: 'Monthly (same date)', value: 'monthly' },
+            { label: 'Monthly', value: 'monthly' },
         ];
+        let recurPattern = 'daily';
+        function renderPatternRow() {
+            const row = $('depPattern'); if (!row) return;
+            row.innerHTML = PATTERN_ITEMS.map(p =>
+                `<button type="button" class="pattern-chip ${p.value === recurPattern ? 'active' : ''}" data-pat="${p.value}">${p.label}</button>`).join('');
+        }
+        renderPatternRow();
+        $('depPattern').addEventListener('click', e => {
+            const b = e.target.closest('[data-pat]'); if (!b) return;
+            recurPattern = b.dataset.pat; renderPatternRow(); updateRecurSummary();
+        });
 
         // ---- Select option lists ----
         customElements.whenDefined('vaadin-select').then(() => {
             const loc = $('depLocation'); if (loc) loc.items = LOCATION_ITEMS.map(o => ({ ...o }));
             [$('depOnDuty'), $('depOffDuty')].forEach(e => { if (e) e.items = WORK_TYPE_ITEMS.map(o => ({ ...o })); });
-            const pat = $('depPattern'); if (pat) pat.items = PATTERN_ITEMS.map(o => ({ ...o }));
         });
 
         // ---- Date / schedule helpers ----
@@ -1874,7 +1890,7 @@
             const ready = val('depRecStart') && val('depRecEnd') && val('depDailyStart') && val('depDailyEnd');
             showEl('depRecSummary', !!ready);
             if (!ready) return;
-            const phrase = RECUR_PHRASE[val('depPattern')] || 'every day';
+            const phrase = RECUR_PHRASE[recurPattern] || 'every day';
             box.querySelector('span').textContent = `Repeats ${phrase} from ${fmtTime12(val('depDailyStart'))} to ${fmtTime12(val('depDailyEnd'))}, starting ${fmtDateLong(val('depRecStart'))} through ${fmtDateLong(val('depRecEnd'))}.`;
         }
 
@@ -2016,7 +2032,7 @@
                 ...[...selTpl].map(id => TEMPLATES.find(t => t.id === id)).filter(Boolean)
             ].reduce((n, x) => n + x.slots.length, 0);
             const when = schedType === 'recurring'
-                ? `Recurring · ${RECUR_PHRASE[val('depPattern')] || 'every day'}<br>${fmtTime12(val('depDailyStart'))}–${fmtTime12(val('depDailyEnd'))}<br>${fmtDateLong(val('depRecStart'))} → ${fmtDateLong(val('depRecEnd'))}`
+                ? `Recurring · ${RECUR_PHRASE[recurPattern] || 'every day'}<br>${fmtTime12(val('depDailyStart'))}–${fmtTime12(val('depDailyEnd'))}<br>${fmtDateLong(val('depRecStart'))} → ${fmtDateLong(val('depRecEnd'))}`
                 : `24-hour<br>${fmtDateLong(val('depStart'))} → ${fmtDateLong(val('depEnd'))}`;
             body.innerHTML = `
                 <div class="sum-identity"><span class="sum-swatch" style="background:${selColor}"></span><div><div class="sum-name">${name}</div><div class="sum-type">${schedType === 'recurring' ? 'Recurring deployment' : '24-hour deployment'}</div></div></div>
@@ -2054,9 +2070,6 @@
         });
         customElements.whenDefined('vaadin-time-picker').then(() => {
             ['depDailyStart', 'depDailyEnd'].forEach(id => { const el = $(id); if (el) el.addEventListener('value-changed', updateRecurSummary); });
-        });
-        customElements.whenDefined('vaadin-select').then(() => {
-            const pat = $('depPattern'); if (pat) pat.addEventListener('value-changed', updateRecurSummary);
         });
         // ---- Deployment color picker: a swatch button that opens a popover grid ----
         const COLOR_SWATCHES = [
@@ -2418,6 +2431,7 @@
             ASSIGNMENTS.forEach(a => { a.selected = false; });
             selTpl.clear();
             filter = ''; seq = 1; schedType = '24'; triedDeploy = false;
+            recurPattern = 'daily'; renderPatternRow();
             const rg = $('depSchedType'); if (rg) rg.value = '24';
             showEl('depMode24', true); showEl('depModeRecur', false);
             updateRecurSummary();
