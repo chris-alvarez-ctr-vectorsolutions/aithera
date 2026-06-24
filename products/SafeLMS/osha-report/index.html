@@ -182,6 +182,31 @@
   .prog-fill { display: block; height: 100%; border-radius: 999px; }
   .prog-val { width: 26px; text-align: right; font-size: 13px; font-weight: 700; color: var(--ink); flex-shrink: 0; }
 
+  /* "Course Pass / Fail" — pass-rate donut + per-module pass/fail drill */
+  .donut-wrap { display: flex; align-items: center; gap: 18px; }
+  .donut { width: 132px; height: 132px; border-radius: 50%; flex-shrink: 0; position: relative; background: var(--hair-2); }
+  .donut::after { content: ''; position: absolute; inset: 27px; background: #fff; border-radius: 50%; z-index: 1; }
+  .donut-center { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; z-index: 2; }
+  .donut-center .dc-num { font-size: 22px; font-weight: 800; color: var(--ink); line-height: 1; }
+  .donut-center .dc-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+  .donut-legend { display: flex; flex-direction: column; gap: 7px; }
+  .donut-legend .dl { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-2); }
+  .donut-legend .dl .dd { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+  .donut-legend .dl b { color: var(--ink); }
+  .drill-toggle { margin-top: 14px; background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; color: var(--blue-accent); font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 7px; }
+  .drill-toggle:hover { text-decoration: underline; }
+  .drill-toggle i { font-size: 11px; }
+  .module-breakdown { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; max-width: 460px; }
+  .module-breakdown[hidden] { display: none; }
+  .mb-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+  .mb-name { width: 170px; flex-shrink: 0; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mb-bar { flex: 1; height: 14px; border-radius: 4px; overflow: hidden; display: flex; background: var(--hair-2); }
+  .mb-bar .mb-pass { background: #22c55e; height: 100%; }
+  .mb-bar .mb-fail { background: #ef4444; height: 100%; }
+  .mb-counts { width: 70px; flex-shrink: 0; text-align: right; color: var(--muted-2); font-size: 11px; }
+  .mb-counts .mc-p { color: #15803d; font-weight: 700; }
+  .mb-counts .mc-f { color: #b91c1c; font-weight: 700; }
+
   .bar-chart { display: flex; flex-direction: column; gap: 9px; }
   .bar-row { display: flex; align-items: center; gap: 8px; }
   .bar-label { width: 190px; flex-shrink: 0; font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -486,13 +511,18 @@
   .mod-item.done .mi-num { background: #dcfce7; color: #15803d; }
   .mod-item.failed-mod .mi-num { background: #fee2e2; color: #b91c1c; }
   .mod-item .mi-name { flex: 1; color: var(--ink-2); }
-  .mod-item .mi-status { font-size: 11px; font-weight: 600; }
+  .mod-item .mi-status { width: 84px; flex-shrink: 0; font-size: 11px; font-weight: 600; }
   .mod-item .mi-status.s-complete { color: #15803d; }
   .mod-item .mi-status.s-in-progress { color: #1d4ed8; }
   .mod-item .mi-status.s-not-started { color: var(--muted-2); }
+  .mod-item .mi-time { width: 60px; flex-shrink: 0; text-align: right; font-size: 12px; color: var(--muted); }
   .mod-item .mi-score { width: 52px; text-align: right; font-weight: 700; color: var(--ink); }
   .mod-item.failed-mod .mi-score { color: #b91c1c; }
   .mod-item .mi-score.dash { color: var(--muted-2); font-weight: 500; }
+  /* Column header row inside the module list */
+  .mod-item.mod-head { background: #f9fafb; font-size: 10.5px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; color: var(--muted); padding-top: 8px; padding-bottom: 8px; }
+  .mod-item.mod-head .mi-num { background: none; }
+  .mod-item.mod-head .mi-time, .mod-item.mod-head .mi-score { font-weight: 700; color: var(--muted); }
 
   /* ── Action-group modal: course filter row ── */
   .ag-filter { display: flex; align-items: center; gap: 10px; margin: 2px 0 14px; }
@@ -620,6 +650,7 @@
               <div class="chart-flip" id="chartFlip">
                 <button class="cf-btn active" data-chart="dist" type="button">Completion Distribution</button>
                 <button class="cf-btn" data-chart="progress" type="button">Where Learners Are</button>
+                <button class="cf-btn" data-chart="passfail" type="button">Course Pass / Fail</button>
               </div>
 
               <!-- Pie: share of learners by completion status -->
@@ -633,6 +664,15 @@
               <!-- Where Learners Are: how far along learners are right now -->
               <div class="chart-view" id="view-progress" hidden>
                 <div class="prog-chart" id="progressChart"><!-- rendered by JS --></div>
+              </div>
+
+              <!-- Course Pass / Fail: pass-rate donut with a per-module pass/fail drill-through -->
+              <div class="chart-view" id="view-passfail" hidden>
+                <div id="passFailChart"><!-- donut + legend rendered by JS --></div>
+                <button class="drill-toggle" id="drillToggle" aria-expanded="false">
+                  <i class="fa-solid fa-chevron-right"></i> Show module pass / fail
+                </button>
+                <div class="module-breakdown" id="moduleBreakdown" hidden><!-- rendered by JS --></div>
               </div>
             </div>
 
@@ -919,6 +959,17 @@
     const h = (ext.charCodeAt(0) * 7 + ext.charCodeAt(ext.length - 1) * 13 + i * 17) % 18;
     return 80 + h; // 80–97
   }
+  // Deterministic per-module quiz time spent, in minutes.
+  function timeFor(ext, i) {
+    const h = (ext.charCodeAt(0) * 5 + ext.charCodeAt(ext.length - 1) * 11 + i * 23) % 16;
+    return 9 + h; // 9–24 min
+  }
+  // "14m" / "1h 05m"
+  function fmtMin(min) {
+    if (min == null) return '—';
+    const h = Math.floor(min / 60), m = min % 60;
+    return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`;
+  }
   // Build a learner's per-module detail (status + quiz score) from their `mods` count.
   function learnerModules(r, course) {
     const names = COURSE_MODULES[course] || COURSE_MODULES['OSHA 10-Hour General Industry'];
@@ -927,10 +978,11 @@
       if (i < done) {
         let score = scoreFor(r.ext, i);
         if (r.status === 'failed' && i === done - 1) score = 61; // failed the Final Assessment
-        return { name, status: 'complete', score };
+        return { name, status: 'complete', score, time: timeFor(r.ext, i) };
       }
-      if (i === done && r.status === 'in-progress') return { name, status: 'in-progress', score: null };
-      return { name, status: 'not-started', score: null };
+      // In-progress on the current module: some time logged, no score yet.
+      if (i === done && r.status === 'in-progress') return { name, status: 'in-progress', score: null, time: Math.round(timeFor(r.ext, i) / 2) };
+      return { name, status: 'not-started', score: null, time: null };
     });
   }
 
@@ -1587,6 +1639,7 @@
     const done = mods.filter(m => m.status === 'complete').length;
     const scored = mods.filter(m => m.score != null);
     const avg = scored.length ? Math.round(scored.reduce((a, m) => a + m.score, 0) / scored.length) : null;
+    const totalTime = mods.reduce((a, m) => a + (m.time || 0), 0);
     const name = displayName(r.name);
     moduleDialog.headerRenderer = (root) => {
       root.innerHTML = `<div class="dlg-head" style="width:min(560px,92vw)">
@@ -1602,8 +1655,16 @@
           <div class="ms-cell"><div class="ms-k">Status</div><div class="ms-v"><span class="status-badge ${r.status}">${STATUS_LABEL[r.status]}</span></div></div>
           <div class="ms-cell"><div class="ms-k">Modules complete</div><div class="ms-v">${done}/${MOD_TOTAL}</div></div>
           <div class="ms-cell"><div class="ms-k">Avg quiz score</div><div class="ms-v">${avg != null ? avg + '%' : '—'}</div></div>
+          <div class="ms-cell"><div class="ms-k">Time spent</div><div class="ms-v">${fmtMin(totalTime)}</div></div>
         </div>
         <div class="mods-list">
+          <div class="mod-item mod-head">
+            <div class="mi-num"></div>
+            <div class="mi-name">Module</div>
+            <div class="mi-status">Status</div>
+            <div class="mi-time">Time</div>
+            <div class="mi-score">Quiz</div>
+          </div>
           ${mods.map((m, i) => {
             const fail = m.status === 'complete' && m.score < 70;
             const cls = m.status === 'complete' ? (fail ? 'failed-mod' : 'done') : '';
@@ -1614,6 +1675,7 @@
               <div class="mi-num">${numInner}</div>
               <div class="mi-name">${m.name}</div>
               <div class="mi-status s-${m.status}">${sLabel}</div>
+              <div class="mi-time">${fmtMin(m.time)}</div>
               <div class="mi-score ${m.score != null ? '' : 'dash'}">${score}</div>
             </div>`;
           }).join('')}
@@ -1703,14 +1765,64 @@
         <span class="prog-val">${c.n}</span>
       </div>`).join('');
   }
-  function renderOverviewCharts() { renderDistribution(); renderProgress(); }
-  // Flip between the two overview views.
+  // Course Pass / Fail: a pass-rate donut (passed vs. failed vs. not-yet-assessed).
+  function renderPassFail() {
+    const rows = allRows();
+    const passed = rows.filter(r => r.status === 'passed').length;
+    const failed = rows.filter(r => r.status === 'failed').length;
+    const pending = rows.length - passed - failed;
+    const total = rows.length || 1;
+    const segs = [
+      { label: 'Passed', count: passed, color: '#22c55e' },
+      { label: 'Failed', count: failed, color: '#ef4444' },
+      { label: 'Not yet assessed', count: pending, color: '#d1d5db' },
+    ];
+    let acc = 0;
+    const stops = segs.map(s => { const a = acc / total * 360; acc += s.count; return `${s.color} ${a}deg ${acc / total * 360}deg`; }).join(', ');
+    const assessed = passed + failed;
+    const passRate = assessed ? Math.round(passed / assessed * 100) : 0;
+    document.getElementById('passFailChart').innerHTML = `
+      <div class="donut-wrap">
+        <div class="donut" style="background: conic-gradient(${stops});">
+          <div class="donut-center"><div><div class="dc-num">${passRate}%</div><div class="dc-lbl">Pass rate</div></div></div>
+        </div>
+        <div class="donut-legend">
+          ${segs.map(s => `<span class="dl"><span class="dd" style="background:${s.color}"></span><b>${s.count}</b> ${s.label}</span>`).join('')}
+        </div>
+      </div>`;
+  }
+  // Drill-through: per-module pass/fail counts (completed modules scoring ≥70 pass, else fail), across all courses.
+  function renderModuleBreakdown() {
+    const acc = Array.from({ length: MOD_TOTAL }, () => ({ pass: 0, fail: 0 }));
+    const labels = Array.from({ length: MOD_TOTAL }, (_, i) => `Module ${i + 1}`);
+    labels[MOD_TOTAL - 1] = 'Final Assessment';
+    GROUPS.forEach(g => g.rows.forEach(r => learnerModules(r, g.course).forEach((m, i) => {
+      if (m.status === 'complete') (m.score >= 70 ? acc[i].pass++ : acc[i].fail++);
+    })));
+    document.getElementById('moduleBreakdown').innerHTML = acc.map((a, i) => {
+      const tot = (a.pass + a.fail) || 1;
+      return `<div class="mb-row">
+        <span class="mb-name" title="${labels[i]}">${labels[i]}</span>
+        <span class="mb-bar"><span class="mb-pass" style="width:${a.pass / tot * 100}%"></span><span class="mb-fail" style="width:${a.fail / tot * 100}%"></span></span>
+        <span class="mb-counts"><span class="mc-p">${a.pass}</span> / <span class="mc-f">${a.fail}</span></span>
+      </div>`;
+    }).join('');
+  }
+  function renderOverviewCharts() { renderDistribution(); renderProgress(); renderPassFail(); renderModuleBreakdown(); }
+  // Drill-through toggle under the donut.
+  document.getElementById('drillToggle').addEventListener('click', (e) => {
+    const mb = document.getElementById('moduleBreakdown');
+    const open = mb.hidden;
+    mb.hidden = !open;
+    e.currentTarget.setAttribute('aria-expanded', String(open));
+    e.currentTarget.innerHTML = `<i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i> ${open ? 'Hide' : 'Show'} module pass / fail`;
+  });
+  // Flip between the overview views (each view's id is `view-<data-chart>`).
   document.getElementById('chartFlip').addEventListener('click', (e) => {
     const btn = e.target.closest('.cf-btn');
     if (!btn) return;
     document.querySelectorAll('#chartFlip .cf-btn').forEach(b => b.classList.toggle('active', b === btn));
-    document.getElementById('view-dist').hidden = btn.dataset.chart !== 'dist';
-    document.getElementById('view-progress').hidden = btn.dataset.chart !== 'progress';
+    document.querySelectorAll('.chart-area .chart-view').forEach(v => { v.hidden = v.id !== `view-${btn.dataset.chart}`; });
   });
 
   /* ═══════════════ Action-group modal — filter by course, then take a bulk action ═══════════════ */
