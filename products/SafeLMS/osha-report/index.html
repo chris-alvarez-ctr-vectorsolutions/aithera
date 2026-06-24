@@ -100,7 +100,9 @@
   }
 
   /* ── Main column ── */
-  .main { display: flex; flex-direction: column; background: var(--canvas); min-height: 100vh; }
+  /* Fixed viewport height so the report area scrolls internally and the filter
+     panel (with its pinned Apply button) is always fully visible. */
+  .main { display: flex; flex-direction: column; background: var(--canvas); height: 100vh; overflow: hidden; }
 
   /* Blue topbar (SafeLMS) */
   .topbar {
@@ -118,7 +120,7 @@
   .page-layout { display: flex; align-items: stretch; gap: 0; flex: 1 1 auto; min-height: 0; }
 
   .main-content {
-    flex: 1; min-width: 0;
+    flex: 1; min-width: 0; min-height: 0; overflow-y: auto;
     padding: 24px;
     display: flex; flex-direction: column; gap: 20px;
   }
@@ -217,7 +219,17 @@
 
   /* ── Report toolbar (V1) ── */
   .report-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--hair-2); gap: 12px; flex-wrap: wrap; }
-  .toolbar-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .toolbar-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  /* Filters scope badge (always visible) + Clear (shown only when filters are active) */
+  .filters-active { display: inline-flex; align-items: center; gap: 0; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 20px; overflow: hidden; }
+  .filters-scope-btn { background: none; border: 0; cursor: pointer; font-family: inherit; color: #1d4ed8; font-size: 12px; font-weight: 600; padding: 4px 11px; display: inline-flex; align-items: center; gap: 6px; }
+  .filters-scope-btn:hover { background: #e0ebff; }
+  .filters-scope-btn i { font-size: 10px; }
+  .filters-clear { background: none; border: 0; border-left: 1px solid #bfdbfe; cursor: pointer; font-family: inherit; color: #1d4ed8; font-size: 11.5px; font-weight: 700; padding: 4px 10px; display: inline-flex; align-items: center; gap: 5px; }
+  .filters-clear:hover { background: #dbe7ff; }
+  .filters-clear i { font-size: 10px; }
+  /* Course cell */
+  .course-cell { color: var(--ink-2); }
   .toolbar-right { display: flex; align-items: center; gap: 8px; }
   .search-wrap { position: relative; display: flex; align-items: center; }
   .search-icon { position: absolute; left: 9px; color: var(--muted-2); font-size: 12px; pointer-events: none; }
@@ -707,6 +719,14 @@
           <div class="report-toolbar">
             <div class="toolbar-left">
               <span class="report-card-title">OSHA Completion Report</span>
+              <!-- Always-visible scope badge: shows "All courses" by default so the filter is discoverable;
+                   Clear appears once any filter is active. -->
+              <span class="filters-active" id="filtersActive">
+                <button class="filters-scope-btn" id="filtersScopeBtn" type="button" title="Change filters">
+                  <i class="fa-solid fa-filter"></i> <span id="filtersScope">All courses</span>
+                </button>
+                <button class="filters-clear" id="filtersClearBtn" type="button" hidden><i class="fa-solid fa-xmark"></i> Clear</button>
+              </span>
             </div>
             <div class="toolbar-right">
               <div class="search-wrap">
@@ -987,8 +1007,8 @@
   const selectedRows = new Set();                  // keys: "groupId::ext"
   const rowKey = (gid, ext) => gid + '::' + ext;
 
-  // The report shows every OSHA course, grouped by course with collapsible headers.
-  let currentCourse = 'all';
+  // Flat row list — every learner across all courses. Course is a column (not a grouping drawer).
+  const rows = GROUPS.flatMap(g => g.rows.map(r => ({ r, course: g.course, gid: g.id })));
 
   const tbody = document.getElementById('qualTbody');
   const qualTable = document.getElementById('qualTable');
@@ -996,23 +1016,25 @@
   /* ═══════════════ Column model — drives the header, cells, order & visibility ═══════════════ */
   // render(r, course, gid) → cell HTML. `required` columns can't be hidden (but can still be reordered).
   const COLUMNS = [
-    { key:'learner',  label:'Learner',          width:'15%', sortable:true, required:true, cellClass:'l-name',
+    { key:'learner',  label:'Learner',          width:'14%', sortable:true, required:true, cellClass:'l-name',
       render:(r) => `${r.name}<span class="l-id">${r.ext}</span>` },
-    { key:'status',   label:'Status',           width:'9%',  sortable:true,
+    { key:'course',   label:'Course',           width:'14%', sortable:true,
+      render:(r, course) => `<span class="course-cell">${course}</span>` },
+    { key:'status',   label:'Status',           width:'8%',  sortable:true,
       render:(r) => `<span class="status-badge ${r.status}">${STATUS_LABEL[r.status]}</span>` },
-    { key:'mods',     label:'Modules Complete', width:'12%', sortable:true,
+    { key:'mods',     label:'Modules Complete', width:'11%', sortable:true,
       render:(r, course, gid) => modCellHTML(r, gid) },
-    { key:'time',     label:'Time Spent',       width:'10%', sortable:true, cellClass:'nowrap', headClass:'nowrap',
+    { key:'time',     label:'Time Spent',       width:'8%',  sortable:true, cellClass:'nowrap', headClass:'nowrap',
       render:(r) => r.time },
-    { key:'last',     label:'Last Accessed',    width:'10%', sortable:true,
+    { key:'last',     label:'Last Accessed',    width:'9%',  sortable:true,
       render:(r) => r.last === 'Never' ? '<span class="never">Never</span>' : r.last },
-    { key:'exp',      label:'Expiration',       width:'10%', sortable:true,
+    { key:'exp',      label:'Expiration',       width:'9%',  sortable:true,
       render:(r) => r.exp === '—' ? '—' : `<span class="${r.expSoon ? 'exp-soon' : ''}">${r.exp}</span>` },
-    { key:'failed',   label:'Failed',           width:'10%', sortable:true,
+    { key:'failed',   label:'Failed',           width:'8%',  sortable:true,
       render:(r) => (r.status === 'failed' && r.failDate) ? `<span class="fr-fail">${r.failDate}</span>` : '<span class="muted-cell">—</span>' },
-    { key:'attempts', label:'Attempts',         width:'8%',  sortable:true,
+    { key:'attempts', label:'Attempts',         width:'7%',  sortable:true,
       render:(r) => (r.status === 'failed' && r.failDate) ? `<span class="fr-attempt">${r.attempts || 1}/3</span>` : '<span class="muted-cell">—</span>' },
-    { key:'action',   label:'', menuLabel:'Action / Certificate', width:'13%', required:true, align:'right', cellClass:'cell-actions',
+    { key:'action',   label:'', menuLabel:'Action / Certificate', width:'12%', required:true, align:'right', cellClass:'cell-actions',
       render:(r, course, gid) => actionCellHTML(r, gid) },
   ];
   const colByKey = Object.fromEntries(COLUMNS.map(c => [c.key, c]));
@@ -1069,16 +1091,7 @@
 
   function renderTable() {
     renderHead();
-    const cols = visibleColumns().length;   // data columns (after the select column)
-    const groups = currentCourse === 'all' ? GROUPS : GROUPS.filter(g => g.id === currentCourse);
-    tbody.innerHTML = groups.map(g => {
-      const head = currentCourse === 'all' ? `
-        <tr class="group-row" data-group="${g.id}" data-expanded="${g.expanded}">
-          <td class="expand-cell"><i class="fa-solid ${g.expanded ? 'fa-chevron-down' : 'fa-chevron-right'}"></i></td>
-          <td colspan="${cols}" class="group-label">Course: ${g.course} <span class="group-count">· ${g.rows.length} learners</span></td>
-        </tr>` : '';
-      return head + g.rows.map(r => dataRowHTML(r, g.course, g.id)).join('');
-    }).join('');
+    tbody.innerHTML = rows.map(x => dataRowHTML(x.r, x.course, x.gid)).join('');
     applyFilters();
   }
 
@@ -1149,19 +1162,7 @@
   });
   document.addEventListener('click', e => { if (!colPicker.contains(e.target)) colMenu.hidden = true; });
 
-  /* ═══════════════ Accordion — expand/collapse course group rows ═══════════════ */
-  tbody.addEventListener('click', e => {
-    const row = e.target.closest('.group-row');
-    if (!row) return;
-    const grp = GROUPS.find(x => x.id === row.dataset.group);
-    if (grp) grp.expanded = row.dataset.expanded !== 'true';
-    row.dataset.expanded = String(grp ? grp.expanded : false);
-    const icon = row.querySelector('.expand-cell i');
-    if (icon) icon.className = grp && grp.expanded ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-right';
-    applyFilters();
-  });
-
-  /* ═══════════════ Column sorting — every data column header sorts within each course ═══════════════ */
+  /* ═══════════════ Column sorting — every data column header sorts the table ═══════════════ */
   // Reference "today" for relative Last-Accessed values (matches the report's last-updated date).
   const SORT_REF = new Date(2026, 5, 22);
   const STATUS_ORDER = { 'passed':0, 'in-progress':1, 'not-started':2, 'failed':3, 'overdue':4 };
@@ -1186,22 +1187,24 @@
     return dt ? Math.round((SORT_REF - dt) / 86400000) : Infinity;
   }
   // Each extractor returns a comparable value, or null when the row has no value for that column.
+  // Extractors take a row wrapper { r, course, gid }; return a comparable value or null.
   const SORT_KEYS = {
-    learner:  r => r.name.toLowerCase(),
-    status:   r => STATUS_ORDER[r.status] ?? 99,
-    mods:     r => r.mods,
-    time:     r => timeToMin(r.time),
-    last:     r => lastAgo(r.last),
-    exp:      r => { const d = mdyToDate(r.exp); return d ? d.getTime() : null; },
-    failed:   r => { const d = mdyToDate(r.failDate); return d ? d.getTime() : null; },
-    attempts: r => (r.status === 'failed' && r.failDate) ? (r.attempts || 1) : null,
+    learner:  x => x.r.name.toLowerCase(),
+    course:   x => x.course.toLowerCase(),
+    status:   x => STATUS_ORDER[x.r.status] ?? 99,
+    mods:     x => x.r.mods,
+    time:     x => timeToMin(x.r.time),
+    last:     x => lastAgo(x.r.last),
+    exp:      x => { const d = mdyToDate(x.r.exp); return d ? d.getTime() : null; },
+    failed:   x => { const d = mdyToDate(x.r.failDate); return d ? d.getTime() : null; },
+    attempts: x => (x.r.status === 'failed' && x.r.failDate) ? (x.r.attempts || 1) : null,
   };
   let sortState = { key: 'learner', dir: 'asc' };
   function applySort() {
     const get = SORT_KEYS[sortState.key];
     if (!get) return;
     const mult = sortState.dir === 'asc' ? 1 : -1;
-    GROUPS.forEach(g => g.rows.sort((a, b) => {
+    rows.sort((a, b) => {
       const va = get(a), vb = get(b);
       const na = va == null, nb = vb == null;
       if (na && nb) return 0;
@@ -1209,7 +1212,7 @@
       if (nb) return -1;
       if (typeof va === 'string') return mult * va.localeCompare(vb);
       return mult * (va - vb);
-    }));
+    });
   }
   function updateSortIndicators() {
     document.querySelectorAll('#qualTable thead th.sortable-th').forEach(th => {
@@ -1230,45 +1233,83 @@
     renderTable();   // renderTable → renderHead → updateSortIndicators
   });
 
-  /* ═══════════════ Filters (status + search) — unified for grouped + single-course modes ═══════════════ */
-  const enabledStatuses = new Set(['passed','in-progress','not-started','failed']);
-  function statusVisible(s) { return enabledStatuses.has(s); }
+  /* ═══════════════ Filters — status · course · learner · expiring · near-limit · search ═══════════════ */
   const searchInput = document.getElementById('qualSearch');
-
-  function rowMatches(tr, q) {
-    return statusVisible(tr.dataset.status) && (!q || tr.textContent.toLowerCase().includes(q));
+  const filters = {
+    statuses: new Set(['passed','in-progress','not-started','failed']),
+    courses:  new Set(),   // empty = all courses
+    learners: new Set(),   // empty = all learners
+    expiringOnly: false,
+    nearLimitOnly: false,
+  };
+  function rowVisible(x) {
+    const r = x.r;
+    if (!filters.statuses.has(r.status)) return false;
+    if (filters.courses.size && !filters.courses.has(x.course)) return false;
+    if (filters.learners.size && !filters.learners.has(r.name)) return false;
+    if (filters.expiringOnly && !r.expSoon) return false;
+    if (filters.nearLimitOnly && !(r.status === 'failed' && (r.attempts || 1) >= 2)) return false;
+    const q = searchInput.value.trim().toLowerCase();
+    if (q && !`${r.name} ${r.ext} ${x.course}`.toLowerCase().includes(q)) return false;
+    return true;
   }
   function applyFilters() {
-    const q = searchInput.value.trim().toLowerCase();
-    if (currentCourse === 'all') {
-      GROUPS.forEach(g => {
-        const groupRow = tbody.querySelector(`.group-row[data-group="${g.id}"]`);
-        const expanded = groupRow ? groupRow.dataset.expanded === 'true' : true;
-        let anyVisible = false;
-        tbody.querySelectorAll(`.data-row[data-group="${g.id}"]`).forEach(tr => {
-          const m = rowMatches(tr, q);
-          if (m) anyVisible = true;
-          tr.style.display = (expanded && m) ? '' : 'none';
-        });
-        if (groupRow) groupRow.style.display = anyVisible ? '' : 'none';
-      });
-    } else {
-      tbody.querySelectorAll('.data-row').forEach(tr => { tr.style.display = rowMatches(tr, q) ? '' : 'none'; });
-    }
+    rows.forEach(x => {
+      const tr = tbody.querySelector(`.data-row[data-key="${rowKey(x.gid, x.r.ext)}"]`);
+      if (tr) tr.style.display = rowVisible(x) ? '' : 'none';
+    });
+    updateFilterBadge();
     if (typeof updateBulkBar === 'function') updateBulkBar();
   }
-  // Back-compat aliases — earlier call sites still reference these names.
+  // Back-compat aliases — bulk-flow call sites still reference these names.
   function applyStatusFilter() { applyFilters(); }
   function syncSearch() { applyFilters(); }
 
   document.querySelectorAll('#statusChecks vaadin-checkbox').forEach(cb => {
     cb.addEventListener('change', () => {
       const s = cb.dataset.status;
-      cb.checked ? enabledStatuses.add(s) : enabledStatuses.delete(s);
+      cb.checked ? filters.statuses.add(s) : filters.statuses.delete(s);
       applyFilters();
     });
   });
+  document.getElementById('chk-expiring').addEventListener('change', e => { filters.expiringOnly = e.target.checked; applyFilters(); });
+  document.getElementById('chk-failed-limit').addEventListener('change', e => { filters.nearLimitOnly = e.target.checked; applyFilters(); });
   searchInput.addEventListener('input', applyFilters);
+
+  /* ═══════════════ Filters badge (report toolbar) — always shows the course scope ═══════════════ */
+  const filtersScope = document.getElementById('filtersScope');
+  const filtersClearBtn = document.getElementById('filtersClearBtn');
+  function extraFilterCount() {
+    let n = 0;
+    if (filters.statuses.size < 4) n++;
+    if (filters.learners.size) n++;
+    if (filters.expiringOnly) n++;
+    if (filters.nearLimitOnly) n++;
+    if (searchInput.value.trim()) n++;
+    return n;
+  }
+  function updateFilterBadge() {
+    const cs = filters.courses;
+    const scope = cs.size === 0 ? 'All courses' : (cs.size === 1 ? [...cs][0] : `${cs.size} courses`);
+    const extra = extraFilterCount();
+    filtersScope.textContent = extra ? `${scope} · +${extra} filter${extra !== 1 ? 's' : ''}` : scope;
+    filtersClearBtn.hidden = cs.size === 0 && extra === 0;
+  }
+  function clearAllFilters() {
+    filters.statuses.clear(); ['passed','in-progress','not-started','failed'].forEach(s => filters.statuses.add(s));
+    filters.courses.clear(); filters.learners.clear();
+    filters.expiringOnly = false; filters.nearLimitOnly = false;
+    searchInput.value = '';
+    document.querySelectorAll('#statusChecks vaadin-checkbox').forEach(cb => { cb.checked = true; });
+    const ce = document.getElementById('chk-expiring'); if (ce) ce.checked = false;
+    const cf = document.getElementById('chk-failed-limit'); if (cf) cf.checked = false;
+    renderChips(document.getElementById('courseChips'), filters.courses, applyFilters);
+    renderChips(document.getElementById('userChips'),   filters.learners, applyFilters);
+    applyFilters();
+  }
+  filtersClearBtn.addEventListener('click', clearAllFilters);
+  // Clicking the scope chip opens the filter panel (so the badge is discoverable).
+  document.getElementById('filtersScopeBtn').addEventListener('click', () => openPanel());
 
   /* ═══════════════ Module controls — per-student "Details" modal ═══════════════ */
   tbody.addEventListener('click', e => {
@@ -1589,35 +1630,38 @@
     closePanel();
   });
 
-  /* ═══════════════ Filter chips — Select Courses / Users (demo pickers) ═══════════════ */
-  const ALL_COURSES = ['OSHA 10-Hour General Industry','OSHA 30-Hour General Industry','Bloodborne Pathogens','Hazard Communication','Fall Protection'];
-  const ALL_USERS   = ['Hale, Marcus','Nair, Priya','Carter, Liam','Lin, Grace','Reyes, Tomás','Osei, Janet','Zhang, Emily'];
+  /* ═══════════════ Filter chips + pickers — Courses / Learners (drive the real filters) ═══════════════ */
+  const ALL_COURSES = GROUPS.map(g => g.course);
+  const ALL_USERS = [...new Set(rows.map(x => x.r.name))].sort((a, b) => a.localeCompare(b));
 
   function makeChip(label, onRemove) {
     const chip = document.createElement('span');
     chip.className = 'filter-chip';
     chip.innerHTML = `<span>${label}</span><button class="filter-chip-remove" aria-label="Remove ${label}"><i class="fa-solid fa-xmark"></i></button>`;
-    chip.querySelector('.filter-chip-remove').addEventListener('click', () => { chip.remove(); onRemove?.(label); });
+    chip.querySelector('.filter-chip-remove').addEventListener('click', () => onRemove(label));
     return chip;
   }
+  function renderChips(chipsWrap, selected, onChange) {
+    chipsWrap.innerHTML = '';
+    [...selected].forEach(label => chipsWrap.appendChild(makeChip(label, l => {
+      selected.delete(l); renderChips(chipsWrap, selected, onChange); onChange();
+    })));
+  }
 
-  /* Vaadin dialog picker: a searchable checklist that writes chips back to the panel. */
-  function wirePicker(dialogId, buttonId, chipsId, title, items, selected) {
+  /* Vaadin dialog picker: a checklist that commits to `selected` on Apply, then re-filters. */
+  function wirePicker(dialogId, buttonId, chipsId, title, items, selected, onApply) {
     const dialog = document.getElementById(dialogId);
     const chipsWrap = document.getElementById(chipsId);
-    function refreshChips() {
-      chipsWrap.innerHTML = '';
-      [...selected].forEach(label => chipsWrap.appendChild(makeChip(label, l => selected.delete(l))));
-    }
     document.getElementById(buttonId).addEventListener('click', () => {
+      const working = new Set(selected);   // edits are discarded unless Apply is clicked
       dialog.headerRenderer = (root) => { root.innerHTML = `<strong style="font-size:15px">${title}</strong>`; };
       dialog.renderer = (root) => {
         root.innerHTML = `<div style="width:min(420px,90vw); max-height:340px; overflow:auto;">
           ${items.map(it => `<label style="display:flex; align-items:center; gap:10px; padding:8px 2px; border-bottom:1px solid #f3f4f6; font-size:13px; cursor:pointer;">
-            <vaadin-checkbox data-pick="${it.replace(/"/g,'&quot;')}" ${selected.has(it) ? 'checked' : ''}></vaadin-checkbox><span>${it}</span></label>`).join('')}
+            <vaadin-checkbox data-pick="${it.replace(/"/g,'&quot;')}" ${working.has(it) ? 'checked' : ''}></vaadin-checkbox><span>${it}</span></label>`).join('')}
         </div>`;
         root.querySelectorAll('vaadin-checkbox[data-pick]').forEach(cb => {
-          cb.addEventListener('change', () => { cb.checked ? selected.add(cb.dataset.pick) : selected.delete(cb.dataset.pick); });
+          cb.addEventListener('change', () => { cb.checked ? working.add(cb.dataset.pick) : working.delete(cb.dataset.pick); });
         });
       };
       dialog.footerRenderer = (root) => {
@@ -1627,14 +1671,19 @@
         cancel.addEventListener('click', () => { dialog.opened = false; });
         const apply = document.createElement('vaadin-button');
         apply.setAttribute('theme','primary'); apply.textContent = 'Apply';
-        apply.addEventListener('click', () => { refreshChips(); dialog.opened = false; });
+        apply.addEventListener('click', () => {
+          selected.clear(); working.forEach(v => selected.add(v));
+          renderChips(chipsWrap, selected, onApply);
+          onApply();
+          dialog.opened = false;
+        });
         root.append(cancel, apply);
       };
       dialog.opened = true;
     });
   }
-  wirePicker('selectCoursesDialog', 'selectCoursesBtn', 'courseChips', 'Select OSHA Courses', ALL_COURSES, new Set());
-  wirePicker('selectUsersDialog',   'selectUsersBtn',   'userChips',   'Select Learners',     ALL_USERS,   new Set());
+  wirePicker('selectCoursesDialog', 'selectCoursesBtn', 'courseChips', 'Select OSHA Courses', ALL_COURSES, filters.courses,  applyFilters);
+  wirePicker('selectUsersDialog',   'selectUsersBtn',   'userChips',   'Select Learners',     ALL_USERS,   filters.learners, applyFilters);
 
   /* ═══════════════ Date-range dropdown (ported from V1) ═══════════════ */
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
