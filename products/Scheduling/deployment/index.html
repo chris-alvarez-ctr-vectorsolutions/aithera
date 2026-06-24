@@ -385,6 +385,14 @@
         /* Footer + topbar content align to the same centered max-width as the page body,
            so the count sits at the content's left edge and Deploy at its right edge. */
         .sticky-footer-inner { width: 100%; max-width: 1500px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+        /* "What's missing" hint shown next to a disabled Deploy button. */
+        .dep-missing { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: #8a6d1f; background: #fdf6e3; border: 1px solid #efe1b0; border-radius: 8px; padding: 6px 11px; }
+        .dep-missing i { color: #c9971b; }
+        /* Amber ring on a field/section that's blocking Deploy. */
+        .needs-attn { outline: 2px solid #e0a82e; outline-offset: 2px; border-radius: 8px; }
+        /* Just-deployed rows on the landing table — green highlight + pill. */
+        tr.row-new td { background: #eaf7ef; }
+        .row-new-badge { display: inline-flex; align-items: center; margin-left: 8px; background: #1f9d57; color: #fff; font-size: 10.5px; font-weight: 700; padding: 1px 8px; border-radius: 10px; vertical-align: middle; }
         #view-deploy .topbar { padding: 0 32px; }
         #view-deploy .topbar-inner { width: 100%; max-width: 1500px; margin: 0 auto; display: flex; align-items: center; }
         #view-deploy .sticky-footer { display: none; }
@@ -1069,6 +1077,7 @@
         <div class="sticky-footer">
             <div class="sticky-footer-inner">
                 <span class="v-foot-count" id="depCount">0 selected</span>
+                <span class="dep-missing" id="depMissing"></span>
                 <vaadin-button theme="secondary" id="depCancel">Cancel</vaadin-button>
                 <vaadin-button theme="primary" id="depDeploy" disabled>Deploy</vaadin-button>
             </div>
@@ -1229,6 +1238,7 @@
     const DEPLOYABLE = new Set(['6am to 6pm','8am to 8pm','8pm to 8am','Engine 15','Engine 27','Engine 49','Patrol Days','Patrol Nights','Swing']);
     let selectMode = false;                 // multi-select-to-deploy mode (AC-7.8)
     const selectedToDeploy = new Set();
+    const newlyDeployed = new Set();        // rows just created by the deployment builder (highlighted)
     function renderTable() {
         document.getElementById('assignTableBody').innerHTML = ASSIGN_ROWS.map(r => {
             const [name, code, dep, start, staff, rec, ss] = r;
@@ -1243,9 +1253,12 @@
                 : (selectMode ? '' : '<i class="fa-solid fa-up-down-left-right drag-h"></i>');
             // Actions: a ⋯ menu (Deploy for deployable, Edit, Delete) replacing the old ⚡ button.
             const menuBtn = `<button class="row-menu-btn" data-menu="${name}" aria-label="Actions"><i class="fa-solid fa-ellipsis"></i></button>`;
-            return `<tr${selectMode && deployable ? ' class="selectable"' : ''}>
+            const isNew = newlyDeployed.has(name);
+            const newBadge = isNew ? ' <span class="row-new-badge">Just deployed</span>' : '';
+            const trCls = [selectMode && deployable ? 'selectable' : '', isNew ? 'row-new' : ''].filter(Boolean).join(' ');
+            return `<tr${trCls ? ` class="${trCls}"` : ''}>
                 <td>${firstCell}</td>
-                <td>${name}</td><td>${code}</td><td>${dep}</td><td>${toggle}</td><td>${start}</td>
+                <td>${name}${newBadge}</td><td>${code}</td><td>${dep}</td><td>${toggle}</td><td>${start}</td>
                 <td>${staff}</td><td></td><td class="${recCls}">${rec}</td><td>${ssCell}</td>
                 <td><button class="row-btn row-edit">Edit</button></td>
                 <td>${menuBtn}</td>
@@ -1937,7 +1950,23 @@
             const count = selCount();
             const c = $('depCount'); if (c) c.textContent = `${count} selected`;
             const nameOk = !!(val('depName') || '').trim();
-            const dep = $('depDeploy'); if (dep) dep.disabled = !(datesOk() && count > 0 && nameOk);
+            const dOk = datesOk();
+            const ready = dOk && count > 0 && nameOk;
+            const dep = $('depDeploy'); if (dep) dep.disabled = !ready;
+
+            // Tell the user what's blocking Deploy, and highlight those fields.
+            const miss = [];
+            if (!nameOk) miss.push('a deployment name');
+            if (!dOk) miss.push('start &amp; end dates');
+            if (count === 0) miss.push('at least one assignment');
+            const mEl = $('depMissing');
+            if (mEl) {
+                mEl.style.display = ready ? 'none' : '';
+                mEl.innerHTML = ready ? '' : `<i class="fa-solid fa-circle-info"></i> To deploy, add ${miss.join(', ')}.`;
+            }
+            const nm = $('depName'); if (nm) nm.classList.toggle('needs-attn', !nameOk);
+            const ab = $('depAsgBox'); if (ab) ab.classList.toggle('needs-attn', count === 0);
+            ['depStart', 'depEnd', 'depRecStart', 'depRecEnd'].forEach(id => { const el = $(id); if (el) el.classList.toggle('needs-attn', !dOk); });
             renderSummary();
         }
         customElements.whenDefined('vaadin-text-field').then(() => { const n = $('depName'); if (n) n.addEventListener('value-changed', updateAll); });
@@ -2307,7 +2336,30 @@
         $('depDeploy').addEventListener('click', () => {
             const count = selCount(); if (!count) return;
             const nm = (val('depName') || '').trim() || 'Deployment';
-            showToast(`“${nm}” created — ${count} assignment${count === 1 ? '' : 's'} deployed.`);
+            // Gather everything in the deployment, then drop a row on the landing table for each.
+            const items = [
+                ...ASSIGNMENTS.filter(a => a.isDeployable && a.selected),
+                ...[...selTpl].map(id => TEMPLATES.find(t => t.id === id)).filter(Boolean),
+                ...ASSIGNMENTS.filter(a => a.built),
+            ];
+            const multi = items.length > 1;
+            const recurring = schedType === 'recurring';
+            const startCell = recurring
+                ? `${fmtDate(val('depRecStart'))} ${fmtTime12(val('depDailyStart'))}`
+                : `${fmtDate(val('depStart'))} ${fmtTime12(val('depStartTime'))}`;
+            newlyDeployed.clear();
+            const rows = items.map(it => {
+                const rowName = multi ? `${nm} – ${it.name}` : nm;
+                newlyDeployed.add(rowName);
+                return [rowName, (it.name[0] || 'D').toUpperCase(), 'Yes', startCell.trim(), String(it.slots.length), recurring ? 'yes' : 'no', 'No'];
+            });
+            ASSIGN_ROWS.unshift(...rows);     // newest at the top so it's immediately visible
+            renderTable();
+            showView('landing');
+            // Scroll the new rows into view and let the highlight fade after a moment.
+            const firstNew = document.querySelector('#assignTableBody tr.row-new');
+            if (firstNew) firstNew.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            showToast(`“${nm}” deployed — ${items.length} assignment${items.length === 1 ? '' : 's'} added to the list.`);
         });
         const back = $('depBack'); if (back) back.addEventListener('click', () => showView('landing'));
         const cancel = $('depCancel'); if (cancel) cancel.addEventListener('click', () => showView('landing'));
