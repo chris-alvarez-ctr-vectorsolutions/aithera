@@ -15,7 +15,7 @@
 // hidden so the lesson surface owns the screen.
 
 import { store } from '../store.js';
-import * as ui from '../ui.js?v=scene-flow-42';
+import * as ui from '../ui.js?v=scene-flow-43';
 
 export function render(courseId, lessonId) {
   const course = store.course(courseId);

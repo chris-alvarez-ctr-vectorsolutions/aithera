@@ -1152,6 +1152,30 @@ export function insightCard({ tone = 'strength', quote, indicator }) {
   );
 }
 
+// observationList — a single card consolidating every strength/growth
+// observation as compact rows. Replaces stacking one insightCard per
+// observation (which made the results page sprawl). Each row carries a
+// tone marker, the paraphrased observation, and a muted indicator tag.
+//
+// items: [{ tone: 'strength' | 'growth', quote, indicator }]
+export function observationList(items) {
+  return el('div', { class: 'card obs-card' },
+    el('p', { class: 'obs-title' }, 'What we observed'),
+    el('ul', { class: 'obs-list' },
+      ...items.map((it) => {
+        const strong = it.tone === 'strength';
+        return el('li', { class: `obs-item ${strong ? 'is-strength' : 'is-growth'}` },
+          el('span', { class: 'obs-mark' }, icon(strong ? 'check' : 'trending')),
+          el('div', { class: 'obs-body' },
+            el('p', { class: 'obs-text' }, it.quote),
+            it.indicator ? el('span', { class: 'obs-tag' }, it.indicator) : null
+          )
+        );
+      })
+    )
+  );
+}
+
 // readinessDelta — compact indicator showing how a practice run moved
 // the learner's clinical readiness score. Tone is derived from the
 // signed delta (up / down / neutral).

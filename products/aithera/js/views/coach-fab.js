@@ -9,7 +9,7 @@
 
 import { store } from '../store.js';
 import { coach } from '../coach.js';
-import * as ui from '../ui.js?v=scene-flow-42';
+import * as ui from '../ui.js?v=scene-flow-43';
 import { currentPhase, personaScenarioForPhase } from '../phase.js';
 
 const HANDOFF_THRESHOLD = 6;

@@ -5,18 +5,18 @@
 // and tagged with the underlying competency indicator
 // (Situational Awareness, Communication Style, etc.).
 //
-// Composition: header → strengths → growth → modules credited →
-// recommended next (action protocol) → Retry / Continue actions.
+// Composition (deliberately lean — scores aren't the headline):
+// header → readiness delta → run meta → observations → concepts credited
+// → Retry / Continue actions.
 
 import { store } from '../store.js';
 import * as adaptive from '../adaptive.js';
-import * as ui from '../ui.js?v=scene-flow-42';
-import { isAtLeast } from '../phase.js';
+import * as ui from '../ui.js?v=scene-flow-43';
 
 export function render() {
   const result = store.state.session.lastSummary;
   const root = document.createElement('section');
-  root.className = 'stack';
+  root.className = 'stack summary-results';
   if (!result) {
     root.appendChild(ui.el('p', { class: 'muted' },
       'No recent practice. Try one from the home feed.'));
@@ -27,11 +27,12 @@ export function render() {
   const course = store.course(result.courseId);
   const elapsed = result.elapsed ?? 0;
 
-  // 1. Header — the qualitative-review framing
+  // 1. Header — the qualitative-review framing (one line; scores are
+  // deliberately not the headline here).
   root.appendChild(ui.insightHeader({
     icon: 'brain',
     title: 'Performance Insights',
-    body: `A qualitative review of your decision-making approach during the previous ${store.state.industry.language.scenarioWord}. Focus on the observed patterns rather than scores.`
+    body: `A qualitative look at how you made decisions during the previous ${store.state.industry.language.scenarioWord}.`
   }));
 
   // Phase-advance banner — when this run unlocked the next phase, name it.
@@ -39,7 +40,8 @@ export function render() {
     root.appendChild(phaseAdvanceBanner(result.phaseAdvancedTo));
   }
 
-  // Readiness movement (only when we captured before/after on this run)
+  // Readiness movement (only when we captured before/after on this run) —
+  // the one sanctioned headline number for this page.
   if (typeof result.readinessBefore === 'number' && typeof result.readinessAfter === 'number') {
     root.appendChild(ui.readinessDelta({
       before: result.readinessBefore,
@@ -47,38 +49,27 @@ export function render() {
     }));
   }
 
-  // Small completion summary line (kept compact — scores aren't the headline)
-  root.appendChild(ui.el('div', { class: 'progress-mini' },
-    ui.el('div', { class: 'pm-row' },
-      ui.el('small', null, sc.title),
-      ui.el('span', null, formatElapsed(elapsed))
-    ),
-    ui.progressBar(Math.round(result.score * 100)),
-    ui.el('div', { class: 'pm-row pm-foot' },
-      ui.el('span', null, `${result.stepResults.length} decisions logged`),
-      ui.el('span', { class: 'muted' }, `${Math.round(result.score * 100)}% bundle adherence`)
-    )
+  // Compact run meta — scenario · time · decisions. No score bar / "bundle
+  // adherence": that re-introduced a number the framing above plays down.
+  root.appendChild(ui.el('p', { class: 'run-meta' },
+    [sc.title, formatElapsed(elapsed), `${result.stepResults.length} decisions`]
+      .filter(Boolean).join('  ·  ')
   ));
 
-  // 2. Insights (strength + growth) — generated from stepResults
+  // 2. Observations — strengths + growth, consolidated into one card
+  // instead of a separate stripe-card per observation.
   const insights = generateInsights(result, sc);
-
-  const strengths = insights.filter((i) => i.tone === 'strength');
-  const growth    = insights.filter((i) => i.tone === 'growth');
-
-  if (strengths.length) {
-    for (const i of strengths) root.appendChild(ui.insightCard(i));
+  if (insights.length) {
+    root.appendChild(ui.observationList(insights));
   } else {
-    root.appendChild(ui.el('p', { class: 'muted tiny center', style: { padding: '4px 0 8px' } },
-      'No clear strengths surfaced this round — the rhythm matters more than any single decision.'));
+    root.appendChild(ui.el('div', { class: 'card' },
+      ui.el('p', { class: 'tiny muted', style: { margin: '0' } },
+        'No standout patterns surfaced this round — the rhythm matters more than any single decision.')));
   }
 
-  if (growth.length) {
-    for (const i of growth) root.appendChild(ui.insightCard(i));
-  }
-
-  // 3. Modules auto-credited — concept labels may come from any course in
-  // the catalog, since Phase 2 practice scenarios aren't tied to a course.
+  // 3. Concepts this run counted toward — names only (a single muted line,
+  // not a card of mastery bars). Labels may come from any course in the
+  // catalog, since standalone practice isn't tied to a course.
   const conceptLabel = (cid) => {
     for (const c of store.state.courses) {
       const m = c.concepts?.find((x) => x.id === cid);
@@ -86,41 +77,19 @@ export function render() {
     }
     return cid;
   };
-  const credited = (sc.concepts || []).map((cid) => ({
-    cid,
-    label: conceptLabel(cid),
-    mastery: store.state.mastery.concepts[cid] ?? 0.5
-  }));
-  root.appendChild(ui.sectionHeader('Lessons credited by practice'));
-  root.appendChild(ui.el('div', { class: 'card' },
-    ui.el('p', { class: 'tiny muted', style: { marginTop: '0' } },
-      `Completing this ${store.state.industry.language.practiceWord} advanced these concepts:`),
-    ...credited.flatMap((c) => [
-      ui.el('div', { class: 'kv' },
-        ui.el('span', null, c.label),
-        ui.el('span', null, `${(c.mastery*100|0)}%`)
-      ),
-      ui.progressBar(c.mastery * 100)
-    ])
-  ));
-
-  // 4. Recommended next ("action protocol")
-  // Show: next lesson in course (if any), then up to two other
-  // required courses that share weak indicators.
-  const recommended = recommendedNext(course, growth);
-  if (recommended.length) {
-    root.appendChild(ui.sectionHeader('Recommended next'));
-    for (const r of recommended) {
-      root.appendChild(ui.rowCard({
-        glyph: r.glyph,
-        title: r.title,
-        sub: r.sub,
-        href: r.href
-      }));
-    }
+  const credited = (sc.concepts || []).map(conceptLabel);
+  if (credited.length) {
+    root.appendChild(ui.el('p', { class: 'run-meta credited-line' },
+      ui.el('span', { class: 'muted' }, 'Counted toward: '),
+      credited.join(', ')
+    ));
   }
 
-  // 5. Actions — Retry + Continue, pinned to the bottom of the page in
+  // Continue target — next lesson in course if there's progress to resume,
+  // else back to the course / practice hub.
+  const next = nextLesson(course);
+
+  // 4. Actions — Retry + Continue, pinned to the bottom of the page in
   // place of the tab bar so the next action is always reachable.
   const retryHref = `#/practice/${sc.id}?retry=${(result.retryCount ?? 0) + 1}`;
   root.appendChild(ui.stickyFooter({ children: [
@@ -128,9 +97,9 @@ export function render() {
       ui.icon('retry'),
       ui.el('span', null, 'Retry scenario')
     ),
-    ui.el('a', { class: 'btn primary block cta-large', href: recommended[0]?.href ?? (course ? `#/course/${course.id}` : '#/home'),
+    ui.el('a', { class: 'btn primary block cta-large', href: next?.href ?? (course ? `#/course/${course.id}` : '#/home'),
       style: { marginTop: '8px' } },
-      ui.el('span', null, recommended[0] ? 'Continue to next lesson' : (course ? 'Back to course' : 'Back home')),
+      ui.el('span', null, next ? 'Continue to next lesson' : (course ? 'Back to course' : 'Back home')),
       ui.icon('arrowRight')
     )
   ] }));
@@ -214,49 +183,23 @@ function phaseAdvanceBanner(phase) {
   );
 }
 
-function recommendedNext(course, growth) {
-  const items = [];
-  if (!course) {
-    // Standalone practice — recommend the practice hub.
-    items.push({
-      glyph: 'flag',
-      title: 'More practice',
-      sub: 'Open the practice catalog',
-      href: '#/practice'
-    });
-    return items;
-  }
-  // Next lesson, if any progress to be made
+// nextLesson — resolves the footer "Continue" target: the next lesson to
+// resume in this course, if there's saved progress. Returns null for
+// standalone practice (no course) or when the course is finished, letting
+// the caller fall back to the course / home.
+function nextLesson(course) {
+  if (!course) return null;
   const progress = store.state.mastery.courseProgress[course.id];
-  if (progress) {
-    const idx = course.lessons.findIndex((c) => c.id === progress.lesson);
-    const next = course.lessons[idx];
-    if (next) items.push({
-      glyph: 'flag',
-      title: `${course.title} — ${next.title}`,
-      sub: `Resume · ${next.minutes} min`,
-      href: `#/course/${course.id}/lesson/${next.id}`
-    });
-  }
-  // Other required courses in this industry (Phase 4+ only — pre-P4
-  // we don't surface urgency signals).
-  if (isAtLeast(4)) {
-    const required = store.state.courses.filter((c) =>
-      c.industry === course.industry && c.id !== course.id && c.mandated
-    ).slice(0, 2);
-    for (const r of required) items.push({
-      glyph: 'shield',
-      title: r.title,
-      sub: `Required · ${r.estMinutes} min`,
-      href: `#/course/${r.id}`
-    });
-  }
-  return items.slice(0, 3);
+  if (!progress) return null;
+  const idx = course.lessons.findIndex((c) => c.id === progress.lesson);
+  const next = course.lessons[idx];
+  if (!next) return null;
+  return { href: `#/course/${course.id}/lesson/${next.id}` };
 }
 
 function formatElapsed(seconds) {
-  if (!seconds) return '—';
+  if (!seconds) return null;
   const m = String(Math.floor(seconds / 60)).padStart(2, '0');
   const s = String(seconds % 60).padStart(2, '0');
-  return `${m}:${s} elapsed`;
+  return `${m}:${s}`;
 }
