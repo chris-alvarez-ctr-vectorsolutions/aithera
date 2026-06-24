@@ -918,9 +918,6 @@
                         <div class="field" style="max-width:420px;"><span class="sub-label">End date<span class="req">*</span></span><div class="date-inline"><vaadin-date-picker id="depRecEnd" theme="outlined" value="2026-06-25"></vaadin-date-picker></div></div>
                         <div class="recur-summary" id="depRecSummary" style="display:none;"><i class="fa-solid fa-circle-info"></i> <span></span></div>
                     </div>
-
-                    <!-- 24-hour plain-language summary — shows once all dates + times are set. -->
-                    <div class="recur-summary" id="dep24Summary" style="display:none;"><i class="fa-solid fa-circle-info"></i> <span></span></div>
                 </div>
 
                 <!-- Remaining details -->
@@ -1801,14 +1798,6 @@
             const phrase = RECUR_PHRASE[val('depPattern')] || 'every day';
             box.querySelector('span').textContent = `Repeats ${phrase} from ${fmtTime12(val('depDailyStart'))} to ${fmtTime12(val('depDailyEnd'))}, starting ${fmtDateLong(val('depRecStart'))} through ${fmtDateLong(val('depRecEnd'))}.`;
         }
-        // 24-hour plain-language summary — same blue callout, shown once all dates + times are set.
-        function update24Summary() {
-            const box = $('dep24Summary'); if (!box) return;
-            const ready = val('depStart') && val('depEnd') && val('depStartTime') && val('depEndTime');
-            showEl('dep24Summary', !!ready);
-            if (!ready) return;
-            box.querySelector('span').textContent = `Runs continuously from ${fmtDateLong(val('depStart'))} at ${fmtTime12(val('depStartTime'))} through ${fmtDateLong(val('depEnd'))} at ${fmtTime12(val('depEndTime'))}.`;
-        }
 
         // ---- Selection counts (existing/built assignments + selected templates) ----
         const isAsg = a => a.isDeployable || a.built;
@@ -1947,7 +1936,7 @@
                 schedType = e.detail.value;
                 showEl('depMode24', schedType !== 'recurring');
                 showEl('depModeRecur', schedType === 'recurring');
-                if (schedType === 'recurring') updateRecurSummary(); else update24Summary();
+                if (schedType === 'recurring') updateRecurSummary();
                 renderAsg();   // the list keys off whichever mode's dates are active
                 updateAll();
             });
@@ -1955,14 +1944,13 @@
         // Dates drive the assignment list (no Pull step) and the plain-language summary.
         customElements.whenDefined('vaadin-date-picker').then(() => {
             ['depRecStart', 'depRecEnd'].forEach(id => { const el = $(id); if (el) el.addEventListener('value-changed', () => { updateRecurSummary(); renderAsg(); updateAll(); }); });
-            ['depStart', 'depEnd'].forEach(id => { const el = $(id); if (el) el.addEventListener('value-changed', () => { update24Summary(); renderAsg(); updateAll(); }); });
+            ['depStart', 'depEnd'].forEach(id => { const el = $(id); if (el) el.addEventListener('value-changed', () => { renderAsg(); updateAll(); }); });
             // The date pickers ship with preset values; the initial value-changed may fire
-            // before these listeners attach, so sync the list + summaries once they're ready.
-            renderAsg(); update24Summary(); updateRecurSummary(); updateAll();
+            // before these listeners attach, so sync the list + summary once they're ready.
+            renderAsg(); updateRecurSummary(); updateAll();
         });
         customElements.whenDefined('vaadin-time-picker').then(() => {
             ['depDailyStart', 'depDailyEnd'].forEach(id => { const el = $(id); if (el) el.addEventListener('value-changed', updateRecurSummary); });
-            ['depStartTime', 'depEndTime'].forEach(id => { const el = $(id); if (el) el.addEventListener('value-changed', update24Summary); });
         });
         customElements.whenDefined('vaadin-select').then(() => {
             const pat = $('depPattern'); if (pat) pat.addEventListener('value-changed', updateRecurSummary);
@@ -2279,7 +2267,7 @@
             filter = ''; seq = 1; schedType = '24';
             const rg = $('depSchedType'); if (rg) rg.value = '24';
             showEl('depMode24', true); showEl('depModeRecur', false);
-            updateRecurSummary(); update24Summary();
+            updateRecurSummary();
             // Reset color to the default and close the popover.
             selColor = DEFAULT_COLOR;
             renderColors();
