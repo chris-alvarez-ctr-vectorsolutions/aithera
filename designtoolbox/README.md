@@ -183,3 +183,112 @@ site (localhost / `file://`) the fetch is skipped and counts stay empty.
 `products/Scheduling/deployment/index.html` is the first consumer — see its
 `window.TOOLBOX_CONFIG`, `applyFlowState`, and `bootFromHash` for a worked
 example across two branching flows.
+
+---
+
+## Linking a product to its dashboard on the index
+
+**What I want:** A few products (SafeLMS and Scheduling today) have a *product
+dashboard* — a live status board of every prototype in that product, with each
+mock's status, its recent changes, and Jira links in one place
+(`products/SafeLMS/dashboard/`, `products/Scheduling/dashboard/`). That
+dashboard, not the plain prototype table, is the product's real home. So on the
+top-level ux-mockups index (`/index.html`, "Prototypes by Product"), the product
+**card itself should open the dashboard** — one click, straight to the board —
+and the card should carry a **one-sentence description** of what that dashboard
+is. The flat prototype table stays reachable, but as a secondary "View all
+prototypes" link, not the primary action.
+
+**How it's wired (the SafeLMS / Scheduling pattern):** in the `PRODUCTS` array in
+`/index.html`, give the product two extra fields:
+
+```js
+{
+  label: 'SafeLMS', slug: 'safelms', icon: 'fa-graduation-cap', color: '#0ea5e9',
+  dashboardHref: 'products/SafeLMS/dashboard/',                 // card opens this in a new tab
+  description: 'A live status board of every SafeLMS prototype — statuses, recent changes, and Jira links in one place.',
+  items: [ /* … prototypes, as usual … */ ],
+}
+```
+
+With `dashboardHref` set, the index renders that product's card differently:
+
+- **Clicking the card** opens `dashboardHref` in a new tab (the primary action),
+  and the label gets an outbound-link ↗ icon to signal it leaves the index.
+- **`description`** shows as the card's body — keep it to **one sentence**.
+- A small **"View all N prototypes →"** link in the card footer still routes to
+  the in-index table (`#<slug>`) for that product, so the full Jira + last-modified
+  list remains one click away.
+- In the product's table view, the header title also links to `dashboardHref`, so
+  the dashboard is reachable whichever way you arrive.
+
+**To give another product the same treatment**, build its dashboard under
+`products/<Product>/dashboard/` (see the next section), then add `dashboardHref`
++ a one-sentence `description` to that product's entry in `PRODUCTS`. No other
+code changes — the card rendering keys off `dashboardHref`.
+
+---
+
+## Product dashboard (shared + auto-updating)
+
+`dashboard.js` is the **single shared implementation** of the per-product
+"Design Lab" — the status board a product links its index card to (above). It
+renders cards for every prototype in a product, each with its **GitHub Pages
+URL, GitHub source link, dev-handoff build, status, and Jira ticket**, plus a
+recent-activity log. SafeLMS and Scheduling are the first two consumers.
+
+### How a product enrolls (two files, no rebuild)
+
+A product's dashboard is a **thin shell** that loads the shared script — the
+shell is byte-identical for every product (the product name is read from the
+`/products/<Product>/dashboard/` path):
+
+```html
+<!DOCTYPE html><html lang="en"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prototype Index</title>
+</head><body>
+  <script src="../../../designtoolbox/dashboard.js"></script>
+  <script src="../../../designtoolbox/feedback-widget.js"></script>
+</body></html>
+```
+
+The only product-specific data is `dashboard/meta.json` next to the shell — and
+**you don't write that by hand** (see below). To enroll a new product:
+
+1. Drop the shell above at `products/<Product>/dashboard/index.html`.
+2. Add the product to `ENROLLED` in [`scripts/build-dashboards.js`](../scripts/build-dashboards.js).
+3. (Optional) add a colour/emoji theme entry to `PRODUCT_THEMES` in `dashboard.js`.
+4. Run `node scripts/build-dashboards.js` (or just push — CI does it).
+
+Improve `dashboard.js` once and **every** product's dashboard updates — no more
+copy-paste drift between product dashboards.
+
+### Auto-updating meta.json (nobody maintains it)
+
+`meta.json` is regenerated on every push by `scripts/build-dashboards.js`
+(wired up in [`.github/workflows/dashboards.yml`](../.github/workflows/dashboards.yml)),
+because the private repo can't be directory-listed from the browser. The build
+step does the listing instead and rebuilds:
+
+- **the mock list** — every folder with an `index.html` under the product
+  (added on create, removed on delete/rename);
+- **`devHandoff`** — set when a `dev_handoff.html` sits next to a mock's
+  `index.html` (flips the card to *Ready for Dev*);
+- **`recentChanges`** — from `git log` (date + path + commit subject), newest 20.
+
+It is **non-destructive**: any human-curated `title` / `description` / `status` /
+`ticket` / `ticketUrl` / `extraLinks` already in `meta.json` is preserved across
+regenerations. So designers never have to touch it, but *may* enrich a card and
+the build won't clobber it. The CI commit carries `[skip ci]` so it doesn't
+re-trigger itself.
+
+> **Descriptions: one short sentence.** A card's `description` is a quick
+> "what this design is" — ONE short sentence, never a feature list or a
+> paragraph. Long descriptions make cards uneven and bury the link/status, so
+> `.card-description` clamps to 3 lines as a backstop — but write them short.
+> This holds for every product.
+
+The generator output is exact: regenerate locally with
+`node scripts/build-dashboards.js` and commit the result, or let the push do it.

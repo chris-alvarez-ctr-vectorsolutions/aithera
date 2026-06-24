@@ -17,9 +17,9 @@
   <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/dist/ag-grid-community.min.js"></script>
 
   <style>
-    :root { --vblue:#0271ce; --vblue-hover:#015ba6; --vblue-10:#0271ce1a; }
-    #cv-page { font-family:"Open Sans","Segoe UI",Arial,sans-serif; color:#1a1a2e; background:#f4f6f8; }
-    .mgmt-page { padding:24px 28px 40px; max-width:1400px; }
+    :root { --vblue:#0271ce; --vblue-hover:#015ba6; --vblue-10:#0271ce1a; --background-color:#f5f9fd; /* background color: page canvas behind cards and content */ }
+    #cv-page { font-family:"Open Sans","Segoe UI",Arial,sans-serif; color:#1a1a2e; background:var(--background-color); }
+    .mgmt-page { padding:24px 28px 40px; }
 
     .mgmt-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:18px; }
     .mgmt-header h1 { font-size:22px; font-weight:700; color:#1a1a2e; }
@@ -31,6 +31,14 @@
     .btn-secondary { background:#fff; color:#374151; border-color:#d4d9e0; }
     .btn-secondary:hover { background:#f3f4f6; }
     .btn-sm { padding:7px 12px; font-size:12.5px; }
+    /* Export split button: main action + caret menu (current page vs all filtered) */
+    .export-split { position:relative; display:inline-flex; }
+    .export-menu-item .exp-count { margin-left:auto; color:#9ca3af; font-size:12px; }
+    .export-menu { position:absolute; top:calc(100% + 5px); right:0; background:#fff; border:1px solid #e5e9ef; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.14); z-index:50; min-width:240px; overflow:hidden; padding:5px; }
+    .export-menu.hidden { display:none; }
+    .export-menu-item { display:flex; align-items:center; gap:10px; width:100%; text-align:left; padding:9px 10px; border:none; background:transparent; border-radius:6px; font-family:inherit; font-size:13px; color:#1a1a2e; cursor:pointer; }
+    .export-menu-item:hover { background:var(--vblue-10); }
+    .export-menu-item i { color:var(--vblue); font-size:13px; width:16px; text-align:center; flex-shrink:0; }
 
     .mgmt-toolbar { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
     .search-wrap { position:relative; }
@@ -162,7 +170,13 @@
         <option value="Document">Document</option>
       </select>
       <div style="margin-left:auto">
-        <button class="btn btn-secondary btn-sm" onclick="bulkExport(true)"><i class="fa-solid fa-download"></i> Export</button>
+        <div class="export-split">
+          <button class="btn btn-secondary btn-sm" onclick="toggleExportMenu(event)" aria-haspopup="true" aria-label="Export options"><i class="fa-solid fa-download"></i> Export <i class="fa-solid fa-chevron-down" style="font-size:10px"></i></button>
+          <div class="export-menu hidden" id="export-menu">
+            <button class="export-menu-item" onclick="exportCurrentPage()"><i class="fa-solid fa-file-arrow-down"></i> Export page <span class="exp-count" id="exp-page-n"></span></button>
+            <button class="export-menu-item" onclick="exportFiltered()"><i class="fa-solid fa-download"></i> Export all <span class="exp-count" id="exp-all-n"></span></button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -390,7 +404,7 @@ const gridOptions = {
   rowData: ACTS,
   columnDefs: [
     { colId:'select', width:46, maxWidth:46, pinned:'left', checkboxSelection:true, sortable:false, filter:false, resizable:false, suppressMovable:true, suppressHeaderMenuButton:true },
-    { headerName:'Activity',        field:'name',         width:300, minWidth:260, cellRenderer:nameRenderer, getQuickFilterText:p=>p.data.name+' '+p.data.desc },
+    { headerName:'Activity',        field:'name',         flex:2, minWidth:260, cellRenderer:nameRenderer, getQuickFilterText:p=>p.data.name+' '+p.data.desc },
     { headerName:'Type',            field:'type',         width:130, cellRenderer:typeRenderer },
     { headerName:'Version',         field:'version',      width:100, cellRenderer:versionRenderer },
     { headerName:'Status',          field:'status',       width:120, cellRenderer:statusRenderer },
@@ -400,7 +414,7 @@ const gridOptions = {
     { headerName:'Size',            field:'size',         width:100, cellRenderer:sizeRenderer },
     { headerName:'License Type',    field:'licenseType',  width:140, cellRenderer:licenseRenderer },
     { headerName:'Repository Name', field:'repository',   width:210, cellRenderer:repoRenderer },
-    { headerName:'Location',        field:'location',     width:230, cellRenderer:locationRenderer },
+    { headerName:'Location',        field:'location',     flex:2, minWidth:200, cellRenderer:locationRenderer },
     { headerName:'Actions', colId:'actions', width:140, cellRenderer:actionsRenderer, sortable:false, filter:false, resizable:false, pinned:'right' },
   ],
   defaultColDef: { sortable:true, resizable:true, filter:true },
@@ -447,6 +461,37 @@ function bulkExport(all){
   const c = n || ACTS.length;
   showToast(c + ' activit' + (c!==1?'ies':'y') + ' exported (prototype).');
 }
+/* Toolbar Export split button: scope = 'page' (current pagination page) or 'all' (every item matching the current filters) */
+function exportScope(scope){
+  const total = gridApi ? gridApi.getDisplayedRowCount() : ACTS.length;
+  let n = total;
+  if(scope==='page' && gridApi){
+    const size = gridApi.paginationGetPageSize();
+    const page = gridApi.paginationGetCurrentPage();
+    n = Math.max(0, Math.min(size, total - page*size));
+  }
+  showToast(n + ' activit' + (n!==1?'ies':'y') + ' exported (' + (scope==='page'?'current page':'all, current filters') + ').');
+}
+function exportCurrentPage(){ closeExportMenu(); exportScope('page'); }
+function exportFiltered(){ closeExportMenu(); exportScope('all'); }
+function toggleExportMenu(ev){
+  ev.stopPropagation();
+  if(typeof closeDropdown==='function') closeDropdown();
+  const m=document.getElementById('export-menu'); if(!m) return;
+  const willShow=m.classList.contains('hidden');
+  if(willShow && gridApi){
+    // Live counts: rows on the current page vs every row matching the active filters
+    const total = gridApi.getDisplayedRowCount();
+    const size  = gridApi.paginationGetPageSize();
+    const page  = gridApi.paginationGetCurrentPage();
+    const pageN = Math.max(0, Math.min(size, total - page*size));
+    const pe=document.getElementById('exp-page-n'); if(pe) pe.textContent='('+pageN+')';
+    const ae=document.getElementById('exp-all-n');  if(ae) ae.textContent='('+total+')';
+  }
+  m.classList.toggle('hidden');
+  if(willShow) setTimeout(()=>document.addEventListener('click', closeExportMenu, {once:true}), 0);
+}
+function closeExportMenu(){ const m=document.getElementById('export-menu'); if(m) m.classList.add('hidden'); }
 function bulkSetStatus(status){
   const rows = bulkRows(); if(!rows.length) return;
   rows.forEach(r => r.status = status);

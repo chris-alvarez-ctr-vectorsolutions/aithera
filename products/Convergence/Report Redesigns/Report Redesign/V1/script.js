@@ -5,7 +5,26 @@
 // ================================================================
 
 const reportsSidenav = document.getElementById('reportsSidenav');
-const navToggleBtn   = document.getElementById('navToggleBtn');
+
+// ── Top nav (vwc-topnav, matches Tasklist Report): set logo + keep the sticky
+// offsets in sync with the component's rendered height via the --nav-h variable.
+(function initTopnav() {
+    const topnav = document.getElementById('topnav');
+    if (!topnav) return;
+    if (typeof topnav.logo !== 'undefined') {
+        topnav.logo = { src: '../../../_shell/assets/vs-logo.png', alt: 'Vector Solutions' };
+    }
+    const syncNavHeight = () => {
+        if (topnav.offsetHeight) {
+            document.documentElement.style.setProperty('--nav-h', topnav.offsetHeight + 'px');
+        }
+    };
+    syncNavHeight();
+    window.addEventListener('load', syncNavHeight);
+    window.addEventListener('resize', syncNavHeight);
+    if (window.ResizeObserver) new ResizeObserver(syncNavHeight).observe(topnav);
+    customElements.whenDefined('vwc-topnav').then(() => requestAnimationFrame(syncNavHeight));
+})();
 
 const REPORTS = {
     'activity-exception':   { title: 'Activity Exception Report',   breadcrumb: 'Activity Exception' },
@@ -76,11 +95,6 @@ reportsSidenav.addEventListener('item-click', (e) => {
     const id = e.detail.id;
     if (!REPORTS[id]) return;
     navigateToReport(id);
-});
-
-// Toggle sidenav via hamburger button in top nav — always visible, always works
-navToggleBtn.addEventListener('click', () => {
-    reportsSidenav.classList.toggle('nav-hidden');
 });
 
 

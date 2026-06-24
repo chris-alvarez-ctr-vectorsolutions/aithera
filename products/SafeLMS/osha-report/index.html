@@ -100,7 +100,9 @@
   }
 
   /* ── Main column ── */
-  .main { display: flex; flex-direction: column; background: var(--canvas); min-height: 100vh; }
+  /* Fixed viewport height so the report area scrolls internally and the filter
+     panel (with its pinned Apply button) is always fully visible. */
+  .main { display: flex; flex-direction: column; background: var(--canvas); height: 100vh; overflow: hidden; }
 
   /* Blue topbar (SafeLMS) */
   .topbar {
@@ -118,31 +120,23 @@
   .page-layout { display: flex; align-items: stretch; gap: 0; flex: 1 1 auto; min-height: 0; }
 
   .main-content {
-    flex: 1; min-width: 0;
+    flex: 1; min-width: 0; min-height: 0; overflow-y: auto;
     padding: 24px;
     display: flex; flex-direction: column; gap: 20px;
   }
+  /* main-content scrolls as a whole — its cards keep their natural height and must NOT
+     shrink to fit (the cards use overflow:hidden, which would otherwise let them collapse). */
+  .main-content > * { flex-shrink: 0; }
 
   /* Report meta row (last-updated + actions) — replaces V1 page-title row,
      since the SafeLMS blue topbar already carries the page title. */
   .report-meta-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .meta-left { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; }
   .data-note { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
   .data-note i { color: var(--blue-primary); }
   .data-note b { color: var(--ink-2); font-weight: 700; }
   .actions-right { display: flex; align-items: center; gap: 8px; }
   vaadin-button i[slot="prefix"] { margin-inline-end: 7px; }
-
-  /* Applied-filters summary (page-wide filter visibility) */
-  .applied-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 12.5px; color: var(--ink-2); }
-  .applied-filters .af-lead { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--muted); }
-  .applied-filters .af-lead i { color: var(--blue-primary); }
-  .applied-filters .af-chip { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 20px; padding: 3px 10px; }
-  .applied-filters .af-chip b { font-weight: 700; }
-  .applied-filters .af-clear { background: none; border: 0; cursor: pointer; font-family: inherit; color: var(--blue-accent); font-size: 12px; font-weight: 700; text-decoration: underline; }
-  .applied-filters .af-none { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
-  .applied-filters .af-none i { color: var(--muted-2); }
-  .applied-filters .af-open { background: none; border: 0; cursor: pointer; font-family: inherit; color: var(--blue-accent); font-weight: 700; text-decoration: underline; padding: 0; }
-  .applied-filters .af-hint { color: var(--muted); }
 
   /* ── Report card (V1) ── */
   .report-card { background: #fff; border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; }
@@ -166,13 +160,7 @@
   .pie-chart-wrap { display: flex; align-items: center; gap: 16px; }
   .pie-chart {
     width: 132px; height: 132px; border-radius: 50%; flex-shrink: 0;
-    /* Passed 23% · In Progress 46% · Not Started 15% · Failed 15% (13 learners) */
-    background: conic-gradient(
-      #22c55e 0deg 83.1deg,
-      #3b82f6 83.1deg 249.3deg,
-      #d1d5db 249.3deg 304.7deg,
-      #dc2626 304.7deg 360deg
-    );
+    background: var(--hair-2); /* live conic-gradient set by renderDistribution() */
   }
   .pie-labels { display: flex; flex-direction: column; gap: 5px; }
   .pie-label { font-size: 12px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
@@ -185,6 +173,46 @@
   .legend-dot.notstarted { background: #d1d5db; }
   .legend-dot.failed     { background: #dc2626; }
 
+  /* Overview chart toggle: Completion Distribution (pie) ⇄ Where Learners Are (bars) */
+  .chart-flip { display: inline-flex; background: var(--hair-2); border-radius: 8px; padding: 3px; gap: 3px; margin-bottom: 14px; }
+  .chart-flip .cf-btn { background: none; border: 0; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--muted); padding: 6px 14px; border-radius: 6px; }
+  .chart-flip .cf-btn.active { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(16,24,40,.12); }
+  .chart-view[hidden] { display: none; }
+
+  /* "Where Learners Are" — horizontal progress-status breakdown */
+  .prog-chart { display: flex; flex-direction: column; gap: 11px; min-width: 320px; }
+  .prog-row { display: flex; align-items: center; gap: 10px; }
+  .prog-label { width: 132px; flex-shrink: 0; font-size: 12px; color: var(--ink-2); display: flex; align-items: center; gap: 7px; }
+  .prog-label .pdot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .prog-track { flex: 1; height: 12px; border-radius: 999px; background: var(--hair-2); overflow: hidden; min-width: 40px; }
+  .prog-fill { display: block; height: 100%; border-radius: 999px; }
+  .prog-val { width: 26px; text-align: right; font-size: 13px; font-weight: 700; color: var(--ink); flex-shrink: 0; }
+
+  /* "Course Pass / Fail" — pass-rate donut + per-module pass/fail drill */
+  .donut-wrap { display: flex; align-items: center; gap: 18px; }
+  .donut { width: 132px; height: 132px; border-radius: 50%; flex-shrink: 0; position: relative; background: var(--hair-2); }
+  .donut::after { content: ''; position: absolute; inset: 27px; background: #fff; border-radius: 50%; z-index: 1; }
+  .donut-center { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; z-index: 2; }
+  .donut-center .dc-num { font-size: 22px; font-weight: 800; color: var(--ink); line-height: 1; }
+  .donut-center .dc-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+  .donut-legend { display: flex; flex-direction: column; gap: 7px; }
+  .donut-legend .dl { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-2); }
+  .donut-legend .dl .dd { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+  .donut-legend .dl b { color: var(--ink); }
+  .drill-toggle { margin-top: 14px; background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; color: var(--blue-accent); font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 7px; }
+  .drill-toggle:hover { text-decoration: underline; }
+  .drill-toggle i { font-size: 11px; }
+  .module-breakdown { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; max-width: 460px; }
+  .module-breakdown[hidden] { display: none; }
+  .mb-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+  .mb-name { width: 170px; flex-shrink: 0; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mb-bar { flex: 1; height: 14px; border-radius: 4px; overflow: hidden; display: flex; background: var(--hair-2); }
+  .mb-bar .mb-pass { background: #22c55e; height: 100%; }
+  .mb-bar .mb-fail { background: #ef4444; height: 100%; }
+  .mb-counts { width: 70px; flex-shrink: 0; text-align: right; color: var(--muted-2); font-size: 11px; }
+  .mb-counts .mc-p { color: #15803d; font-weight: 700; }
+  .mb-counts .mc-f { color: #b91c1c; font-weight: 700; }
+
   .bar-chart { display: flex; flex-direction: column; gap: 9px; }
   .bar-row { display: flex; align-items: center; gap: 8px; }
   .bar-label { width: 190px; flex-shrink: 0; font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -195,15 +223,18 @@
 
   /* ── Report toolbar (V1) ── */
   .report-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--hair-2); gap: 12px; flex-wrap: wrap; }
-  .toolbar-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .toolbar-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  /* Filters scope badge (always visible) + Clear (shown only when filters are active) */
+  .filters-active { display: inline-flex; align-items: center; gap: 0; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 20px; overflow: hidden; }
+  .filters-scope-btn { background: none; border: 0; cursor: pointer; font-family: inherit; color: #1d4ed8; font-size: 12px; font-weight: 600; padding: 4px 11px; display: inline-flex; align-items: center; gap: 6px; }
+  .filters-scope-btn:hover { background: #e0ebff; }
+  .filters-scope-btn i { font-size: 10px; }
+  .filters-clear { background: none; border: 0; border-left: 1px solid #bfdbfe; cursor: pointer; font-family: inherit; color: #1d4ed8; font-size: 11.5px; font-weight: 700; padding: 4px 10px; display: inline-flex; align-items: center; gap: 5px; }
+  .filters-clear:hover { background: #dbe7ff; }
+  .filters-clear i { font-size: 10px; }
+  /* Course cell */
+  .course-cell { color: var(--ink-2); }
   .toolbar-right { display: flex; align-items: center; gap: 8px; }
-  .sort-pill {
-    display: flex; align-items: center; gap: 4px; border: 1px solid #d1d5db; background: #fff; color: var(--ink-2);
-    border-radius: 20px; padding: 3px 10px; font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit;
-  }
-  .sort-pill:hover { background: #f9fafb; border-color: var(--muted-2); }
-  .sort-pill.active-sort { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
-  .sort-pill i { font-size: 10px; }
   .search-wrap { position: relative; display: flex; align-items: center; }
   .search-icon { position: absolute; left: 9px; color: var(--muted-2); font-size: 12px; pointer-events: none; }
   .search-input {
@@ -216,42 +247,40 @@
     display: grid; place-items: center; cursor: pointer; color: var(--muted); font-size: 13px;
   }
   .col-picker-btn:hover { background: #f9fafb; color: var(--ink-2); border-color: var(--muted-2); }
-  /* Show/hide columns menu */
+  /* Column manager — show/hide + drag-to-reorder */
   .col-picker { position: relative; }
   .col-menu {
-    position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 200px;
+    position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 244px;
     background: #fff; border: 1px solid var(--hair); border-radius: 10px;
     box-shadow: 0 10px 28px rgba(16,24,40,.16); padding: 8px;
   }
   .col-menu[hidden] { display: none; }
-  .col-menu-title { font-size: 11px; font-weight: 700; letter-spacing: .5px; color: var(--muted); padding: 4px 8px 8px; }
-  .col-menu-row { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 7px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
-  .col-menu-row:hover { background: var(--hair-2); }
-  /* Column hide toggles (data cells + headers only; group rows recompute colspan in JS) */
-  .report-table.hide-c6 thead th:nth-child(6),   .report-table.hide-c6 .data-row td:nth-child(6),
-  .report-table.hide-c7 thead th:nth-child(7),   .report-table.hide-c7 .data-row td:nth-child(7),
-  .report-table.hide-c8 thead th:nth-child(8),   .report-table.hide-c8 .data-row td:nth-child(8),
-  .report-table.hide-c9 thead th:nth-child(9),   .report-table.hide-c9 .data-row td:nth-child(9),
-  .report-table.hide-c10 thead th:nth-child(10), .report-table.hide-c10 .data-row td:nth-child(10) { display: none; }
+  .col-menu-title { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: 700; letter-spacing: .5px; color: var(--muted); text-transform: uppercase; padding: 4px 8px 8px; }
+  .col-reset { background: none; border: 0; cursor: pointer; font-family: inherit; color: var(--blue-accent); font-size: 11px; font-weight: 700; letter-spacing: 0; text-transform: none; }
+  .col-reset:hover { text-decoration: underline; }
+  .col-list { display: flex; flex-direction: column; gap: 1px; }
+  .col-row { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 7px; }
+  .col-row:hover { background: var(--hair-2); }
+  .col-row.dragging { opacity: .45; }
+  .col-row.drop-before { box-shadow: inset 0 2px 0 var(--blue-primary); }
+  .col-row.drop-after  { box-shadow: inset 0 -2px 0 var(--blue-primary); }
+  .col-grip { color: var(--muted-2); font-size: 12px; cursor: grab; flex-shrink: 0; }
+  .col-row input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--blue-primary); flex-shrink: 0; }
+  .col-row input[type="checkbox"]:disabled { cursor: not-allowed; }
+  .col-row-label { flex: 1; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+  .col-row input:disabled + .col-row-label { color: var(--muted-2); }
+  .col-row .col-lock { color: var(--muted-2); font-size: 10px; }
 
-  /* Failure / Retry cell */
+  /* Failed / Attempts cells */
   .fr-fail { color: #b91c1c; font-weight: 600; }
-  .fr-sub { display: block; font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+  .fr-attempt { font-weight: 600; color: var(--ink-2); }
 
   /* ── Report table (V1) ── */
   .report-table-wrap { overflow-x: auto; }
-  /* Fixed layout so all columns fit the card width — no horizontal scroll; cells wrap instead. */
+  /* Fixed layout so all columns fit the card width — no horizontal scroll; cells wrap instead.
+     Column widths + visibility + order are driven by the JS column model (inline th widths). */
   .report-table { table-layout: fixed; width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  .report-table thead th:nth-child(2)  { width: 14%; }  /* Learner (name + ID) */
-  .report-table thead th:nth-child(3)  { width: 13%; }  /* Course */
-  .report-table thead th:nth-child(4)  { width: 9%;  }  /* Status */
-  .report-table thead th:nth-child(5)  { width: 15%; }  /* Modules Complete */
-  .report-table thead th:nth-child(6)  { width: 7%;  }  /* Time Spent */
-  .report-table thead th:nth-child(7)  { width: 10%; }  /* Last Accessed */
-  .report-table thead th:nth-child(8)  { width: 10%; }  /* Expiration */
-  .report-table thead th:nth-child(9)  { width: 12%; }  /* Failure / Retry */
-  .report-table thead th:nth-child(10) { width: 7%;  }  /* Certificate */
-  .report-table thead th:nth-child(11) { width: 11%; }  /* Action */
+  .report-table td.nowrap, .report-table th.nowrap { white-space: nowrap; }
   .report-table thead { background: #f9fafb; }
   .report-table thead th {
     padding: 8px 9px; text-align: left; font-size: 11px; font-weight: 600; color: var(--muted);
@@ -259,9 +288,11 @@
     white-space: normal; vertical-align: bottom; line-height: 1.25;
   }
   .report-table th.col-expand { width: 36px; padding: 0; }
-  .sortable-th { cursor: pointer; }
+  .sortable-th { cursor: pointer; user-select: none; }
   .sortable-th:hover { background: var(--hair-2); }
-  .sort-arrow { font-size: 10px; color: var(--muted-2); }
+  .sortable-th.active-sort { color: var(--blue-accent); }
+  .sort-arrow { font-size: 10px; color: var(--muted-2); margin-left: 2px; }
+  .sortable-th.active-sort .sort-arrow { color: var(--blue-accent); }
   .group-row { background: var(--hair-2); cursor: pointer; user-select: none; }
   .group-row:hover { background: #e9eaec; }
   .expand-cell { padding: 8px 0 8px 14px; color: var(--muted); font-size: 11px; width: 36px; }
@@ -293,8 +324,7 @@
   .filter-panel {
     width: 320px; flex-shrink: 0; background: #fff; border-left: 1px solid var(--hair);
     display: flex; flex-direction: column;
-    /* Sticky + full viewport height so the footer (Apply / action) is always visible — never scrolls away. */
-    align-self: flex-start; position: sticky; top: 0; height: 100vh; max-height: 100vh; overflow: hidden;
+    align-self: stretch; overflow: hidden;
     transition: width .25s ease, opacity .2s ease;
   }
   .filter-panel.collapsed { width: 0; opacity: 0; border-left: none; overflow: hidden; pointer-events: none; }
@@ -442,196 +472,39 @@
   .dash-tab:hover { color: var(--ink); }
   .dash-tab.active { color: var(--blue-accent); border-bottom-color: var(--blue-accent); font-weight: 700; }
 
-  /* Placeholder shown for the non-OSHA dashboard tabs (out of prototype scope) */
-  .other-panel { flex: 1 1 auto; display: grid; place-items: center; padding: 80px 24px; }
-  .other-panel .op-card {
-    background: #fff; border: 1px solid var(--hair); border-radius: 12px; padding: 44px 52px;
-    text-align: center; max-width: 460px;
-    box-shadow: 0 1px 3px rgba(16,24,40,.10), 0 1px 2px rgba(16,24,40,.06);
-  }
-  .other-panel .op-ico { font-size: 30px; color: var(--muted-2); margin-bottom: 12px; }
-  .other-panel h3 { margin: 0 0 6px; font-size: 17px; color: var(--ink); }
-  .other-panel p { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
-
-  /* ── Course selector (separate each course — VRF: tabs vs. dropdown TBD w/ Andy) ── */
-  .course-select-wrap { display: flex; align-items: center; gap: 10px; }
-  .course-select-wrap .cs-label { font-size: 12px; font-weight: 700; letter-spacing: .3px; color: var(--muted); text-transform: uppercase; }
-  #courseSelect { --vaadin-field-default-width: 0; }
-
   /* ============================================================
      ACTION-NEEDED CARDS — replace the "Top 5 courses" bar chart.
      Each card = a count of learners in an actionable group; click
      opens a course-filterable bulk-action modal.
      ============================================================ */
-  /* ── Version-gated overview chart: V1 = pass/fail+progress flip · V2 = pie · V3 = status stacked bar ── */
-  .version-1 .ov-v2, .version-1 .ov-v3 { display: none; }
-  .version-2 .ov-v1, .version-2 .ov-v3 { display: none; }
-  .version-3 .ov-v1, .version-3 .ov-v2 { display: none; }
-
-  /* Overview: chart card + Action Needed card side by side, sharing one row (all versions).
-     The chart card hugs a compact width so the Action Needed cards get the rest, and both
-     cards stretch to the same height. */
-  .overview-row { display: flex; gap: 20px; align-items: stretch; }
-  .overview-row .chart-card { flex: 0 0 auto; width: 360px; min-width: 0; }
-  .overview-row .action-needed-card { width: auto; flex: 1 1 auto; }
-  /* Stack the action button below the card text (icon + text on top, full-width button beneath) */
-  .action-card { flex-wrap: wrap; }
-  .action-card .ac-action { flex: 0 0 100%; width: 100%; margin-top: 4px; }
-  /* V1: drop the card headers (chart title + "Past 30 days" badge, and the "Action Needed" title) */
-  .version-1 .overview-row .chart-card .report-card-header,
-  .version-1 .overview-row .action-needed-card .report-card-header { display: none; }
-  .ov-v2, .ov-v3 { padding: 16px 20px 18px; }
-
-  /* V3 status-breakdown stacked bar */
-  .stack-bar { display: flex; height: 26px; border-radius: 7px; overflow: hidden; background: var(--hair-2); margin: 8px 0 14px; }
-  .stack-bar .sb-seg { height: 100%; transition: opacity .12s; }
-  .stack-bar .sb-seg.actionable { cursor: pointer; }
-  .stack-bar .sb-seg.actionable:hover { opacity: .82; }
-  .stack-legend { display: flex; flex-wrap: wrap; gap: 9px 16px; }
-  .stack-legend .sl { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-2); background: none; border: 0; font-family: inherit; padding: 0; }
-  .stack-legend .sl .sd { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
-  .stack-legend .sl b { color: var(--ink); }
-  .stack-legend .sl.actionable { cursor: pointer; }
-  .stack-legend .sl.actionable:hover { text-decoration: underline; }
-  .stack-hint { font-size: 11.5px; color: var(--muted); margin-top: 14px; }
-
-  /* Pass / Fail donut (V1) */
-  .donut-wrap { display: flex; align-items: center; gap: 18px; }
-  .donut { width: 132px; height: 132px; border-radius: 50%; flex-shrink: 0; position: relative; }
-  .donut::after { content: ''; position: absolute; inset: 27px; background: #fff; border-radius: 50%; z-index: 1; }
-  .donut-center { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; z-index: 2; }
-  .donut-center .dc-num { font-size: 22px; font-weight: 800; color: var(--ink); line-height: 1; }
-  .donut-center .dc-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
-  .donut-legend { display: flex; flex-direction: column; gap: 7px; }
-  .donut-legend .dl { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-2); }
-  .donut-legend .dl .dd { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
-  .donut-legend .dl b { color: var(--ink); }
-
-  /* Module pass/fail drill-through (V1) */
-  .drill-toggle { margin-top: 14px; background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; color: var(--blue-accent); font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 7px; }
-  .drill-toggle:hover { text-decoration: underline; }
-  .drill-toggle i { font-size: 11px; }
-  .module-breakdown { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; max-width: 460px; }
-  .module-breakdown[hidden] { display: none; }
-  .mb-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
-  .mb-name { width: 170px; flex-shrink: 0; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .mb-bar { flex: 1; height: 14px; border-radius: 4px; overflow: hidden; display: flex; background: var(--hair-2); }
-  .mb-bar .mb-pass { background: #22c55e; height: 100%; }
-  .mb-bar .mb-fail { background: #ef4444; height: 100%; }
-  .mb-counts { width: 70px; flex-shrink: 0; text-align: right; color: var(--muted-2); font-size: 11px; }
-  .mb-counts .mc-p { color: #15803d; font-weight: 700; }
-  .mb-counts .mc-f { color: #b91c1c; font-weight: 700; }
-
-  /* "Where learners are" progress-status chart (V1) */
-  .prog-chart { display: flex; flex-direction: column; gap: 12px; }
-  .prog-row { display: flex; align-items: center; gap: 10px; }
-  .prog-label { width: 158px; flex-shrink: 0; font-size: 12.5px; color: var(--ink-2); display: flex; align-items: center; gap: 8px; }
-  .prog-label .pdot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-  .prog-track { flex: 1; height: 12px; background: var(--hair-2); border-radius: 6px; overflow: hidden; }
-  .prog-fill { height: 100%; border-radius: 6px; transition: width .25s; }
-  .prog-val { width: 26px; text-align: right; font-size: 12.5px; font-weight: 700; color: var(--ink); flex-shrink: 0; }
-
-  /* Action Needed: full-width section below the overview chart(s) */
-  /* Action Needed: responsive grid — 1 column in the narrow V2/V3 card, multiple when V1 gives it room */
-  .action-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; padding: 16px 20px 18px; }
+  /* Cards stacked as rows beside the pie (icon · count/label · CTA) */
+  .action-cards { display: flex; flex-direction: column; gap: 10px; }
   .action-card {
-    display: flex; align-items: center; gap: 12px; text-align: left; width: 100%;
-    background: #fff; border: 1px solid var(--hair); border-radius: 10px; padding: 11px 13px;
+    display: flex; align-items: center; gap: 13px; text-align: left; width: 100%; flex: 0 0 auto;
+    background: #fff; border: 1px solid var(--hair); border-radius: 10px; padding: 12px 14px;
     cursor: pointer; font-family: inherit; transition: border-color .12s, box-shadow .12s, transform .05s;
   }
-  /* Active action-card filter indicator (V1) shown beside the report title */
-  .action-filter-chip { display: inline-flex; align-items: center; gap: 7px; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 20px; padding: 3px 6px 3px 11px; font-size: 12px; font-weight: 600; }
-  .action-filter-chip[hidden] { display: none; }
-  .action-filter-chip > i { font-size: 10px; }
-  .action-filter-chip .aff-x { background: none; border: 0; cursor: pointer; color: #7aa7f0; display: flex; padding: 2px; border-radius: 50%; }
-  .action-filter-chip .aff-x:hover { color: #1d4ed8; }
   .action-card:hover { border-color: var(--blue-primary); box-shadow: 0 2px 10px rgba(16,24,40,.10); }
   .action-card:active { transform: translateY(1px); }
-  .action-card .ac-ico { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; font-size: 15px; flex-shrink: 0; }
+  .action-card .ac-ico { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; font-size: 17px; flex-shrink: 0; }
   .action-card .ac-body { flex: 1; min-width: 0; }
-  .action-card .ac-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-  .action-card .ac-header { font-size: 13px; font-weight: 700; color: var(--ink); }
-  .action-card .ac-count { font-size: 16px; font-weight: 800; color: var(--ink); }
-  .action-card .ac-count .ac-of { font-size: 11px; font-weight: 600; color: var(--muted); margin-left: 2px; }
-  .action-card .ac-label { display: block; font-size: 11.5px; color: var(--muted); margin-top: 1px; }
-  .action-card .ac-action { flex-shrink: 0; }
+  .action-card .ac-count { font-size: 22px; font-weight: 800; color: var(--ink); line-height: 1.05; }
+  .action-card .ac-count .ac-of { font-size: 12px; font-weight: 600; color: var(--muted); margin-left: 3px; }
+  .action-card .ac-label { display: block; font-size: 12.5px; color: var(--ink-2); margin-top: 2px; }
+  .action-card .ac-cta { margin-left: auto; flex-shrink: 0; font-size: 11.5px; font-weight: 700; color: var(--blue-accent); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
   .action-card .ac-ico.intervene { background: #f3f4f6; color: #4b5563; }
   .action-card .ac-ico.nudge     { background: #fef3c7; color: #d97706; }
   .action-card .ac-ico.retry     { background: #fee2e2; color: #b91c1c; }
 
   /* ── Modules Complete cell (replaces % Complete) ── */
   .mod-cell { display: flex; align-items: center; gap: 8px; }
-  .mod-expand-btn { background: none; border: 0; cursor: pointer; color: var(--muted); width: 20px; height: 20px; border-radius: 5px; display: grid; place-items: center; flex-shrink: 0; padding: 0; }
-  .mod-expand-btn:hover { background: var(--hair-2); color: var(--ink-2); }
-  .mod-expand-btn i { font-size: 11px; transition: transform .15s; }
   .mod-frac { font-weight: 700; color: var(--ink); font-size: 12.5px; white-space: nowrap; }
-  .mod-bar { flex: 1; min-width: 26px; height: 6px; border-radius: 999px; background: var(--hair-2); overflow: hidden; }
+  .mod-bar { flex: 0 0 50px; width: 50px; height: 6px; border-radius: 999px; background: var(--hair-2); overflow: hidden; }
   .mod-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--blue-primary); }
   .mod-link { background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; color: var(--blue-accent); font-size: 11.5px; font-weight: 600; white-space: nowrap; }
   .mod-link:hover { text-decoration: underline; }
-  .cell-actions .mod-link { margin-left: 8px; }
-  /* V1 per-student detail side panel (shares .filter-panel styling) */
-  .detail-panel .detail-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
-  .detail-panel .mods-summary { gap: 16px; flex-wrap: wrap; padding: 14px 16px 0; margin: 0; }
-  .detail-panel .mods-list { margin: 14px 16px; }
-  .detail-panel.active-detail { box-shadow: -8px 0 24px rgba(16,24,40,.08); }
-  .detail-cert-title { font-size: 11px; font-weight: 700; letter-spacing: .5px; color: var(--muted); text-transform: uppercase; margin: 4px 16px 8px; }
-  .detail-panel .cert { margin: 0 16px 16px; padding: 20px 16px; }
-  .detail-panel .cert .c-name { font-size: 18px; }
-  .detail-panel .cert .c-meta { gap: 14px; flex-wrap: wrap; }
 
-  /* V1 overview: flip between the two charts */
-  .ov-v1 { padding: 16px 20px 6px; }
-  .chart-flip { display: inline-flex; background: var(--hair-2); border-radius: 8px; padding: 3px; gap: 3px; margin-bottom: 16px; }
-  .chart-flip .cf-btn { background: none; border: 0; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--muted); padding: 6px 14px; border-radius: 6px; }
-  .chart-flip .cf-btn.active { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(16,24,40,.12); }
-  .chart-view[hidden] { display: none; }
-  /* Details link (opens the side panel + certificate) shows in every version.
-     The expand chevron is V2-only; module columns are V3-only. */
-  .version-1 .mod-expand-btn, .version-3 .mod-expand-btn { display: none; }
-  /* V3 — module quiz-score columns + horizontal scroll */
-  .version-3 .report-table { table-layout: auto; width: max-content; min-width: 100%; }
-  .report-table th.mod-col { text-align: center; font-size: 10px; white-space: normal; width: 74px; vertical-align: bottom; line-height: 1.2; }
-  .report-table td.mod-col { text-align: center; font-weight: 700; white-space: nowrap; }
-  td.mod-col.mc-pass { color: #15803d; }
-  td.mod-col.mc-fail { color: #b91c1c; }
-  td.mod-col.mc-dash { color: var(--muted-2); font-weight: 500; }
-  /* V3 — collapse/expand toggle for the module columns (sits in the Modules Complete header) */
-  .modcol-toggle { display: none; background: none; border: 0; cursor: pointer; color: var(--muted); padding: 2px 4px; border-radius: 4px; vertical-align: middle; }
-  .modcol-toggle:hover { background: var(--hair); color: var(--ink-2); }
-  .version-3 .modcol-toggle { display: inline-grid; place-items: center; }
-  .version-3 #colPicker { display: none; }  /* column hide menu disabled in V3 (modules inserted mid-table) */
-  /* V3 — freeze the Action column to the right while the table scrolls horizontally */
-  .version-3 .report-table th.col-action,
-  .version-3 .report-table td.cell-actions {
-    position: sticky; right: 0; z-index: 3; background: #fff;
-    box-shadow: -8px 0 10px -8px rgba(16,24,40,.28);
-  }
-  .version-3 .report-table thead th.col-action { background: #f9fafb; }
-  .version-3 .report-table .data-row:hover td.cell-actions { background: #fafafa; }
-
-  /* ── V2 inline module-quiz-score expansion row ── */
-  .module-detail-row > td { padding: 0; border-bottom: 1px solid var(--hair-2); background: #fbfcfe; }
-  .module-detail { padding: 12px 16px 16px 48px; }
-  .module-detail .md-title { font-size: 11px; font-weight: 700; letter-spacing: .5px; color: var(--muted); text-transform: uppercase; margin-bottom: 9px; }
-  /* Module quiz scores rendered as a table inside the V2 drawer */
-  .module-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--hair); border-radius: 8px; overflow: hidden; font-size: 12.5px; }
-  .module-table .mt-name { white-space: nowrap; }
-  .module-table thead th { text-align: left; padding: 7px 12px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; color: var(--muted); background: #f9fafb; border-bottom: 1px solid var(--hair); }
-  .module-table thead th:last-child, .module-table td.mt-score { text-align: right; }
-  .module-table tbody td { padding: 7px 12px; border-bottom: 1px solid var(--hair-2); color: var(--ink-2); vertical-align: middle; }
-  .module-table tbody tr:last-child td { border-bottom: 0; }
-  .module-table .mt-idx { width: 30px; color: var(--muted); }
-  .module-table .mt-name { color: var(--ink); font-weight: 600; }
-  .module-table .mt-status { font-weight: 600; }
-  .module-table .mt-status.st-complete    { color: #15803d; }
-  .module-table .mt-status.st-in-progress { color: #1d4ed8; }
-  .module-table .mt-status.st-not-started { color: var(--muted-2); }
-  .module-table .mt-score { width: 80px; font-weight: 700; color: #15803d; }
-  .module-table .mt-score.mt-fail { color: #b91c1c; }
-  .module-table .mt-score.mt-dash { color: var(--muted-2); font-weight: 500; }
-
-  /* ── V1 per-student module detail modal ── */
+  /* ── Per-student module detail modal ── */
   .mods-summary { display: flex; gap: 26px; margin: 2px 0 16px; }
   .mods-summary .ms-cell .ms-k { font-size: 11px; color: var(--muted); }
   .mods-summary .ms-cell .ms-v { font-size: 17px; font-weight: 800; color: var(--ink); margin-top: 2px; }
@@ -642,30 +515,23 @@
   .mod-item.done .mi-num { background: #dcfce7; color: #15803d; }
   .mod-item.failed-mod .mi-num { background: #fee2e2; color: #b91c1c; }
   .mod-item .mi-name { flex: 1; color: var(--ink-2); }
-  .mod-item .mi-status { font-size: 11px; font-weight: 600; }
+  .mod-item .mi-status { width: 84px; flex-shrink: 0; font-size: 11px; font-weight: 600; }
   .mod-item .mi-status.s-complete { color: #15803d; }
   .mod-item .mi-status.s-in-progress { color: #1d4ed8; }
   .mod-item .mi-status.s-not-started { color: var(--muted-2); }
+  .mod-item .mi-time { width: 60px; flex-shrink: 0; text-align: right; font-size: 12px; color: var(--muted); }
   .mod-item .mi-score { width: 52px; text-align: right; font-weight: 700; color: var(--ink); }
   .mod-item.failed-mod .mi-score { color: #b91c1c; }
   .mod-item .mi-score.dash { color: var(--muted-2); font-weight: 500; }
+  /* Column header row inside the module list */
+  .mod-item.mod-head { background: #f9fafb; font-size: 10.5px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; color: var(--muted); padding-top: 8px; padding-bottom: 8px; }
+  .mod-item.mod-head .mi-num { background: none; }
+  .mod-item.mod-head .mi-time, .mod-item.mod-head .mi-score { font-weight: 700; color: var(--muted); }
 
   /* ── Action-group modal: course filter row ── */
   .ag-filter { display: flex; align-items: center; gap: 10px; margin: 2px 0 14px; }
   .ag-filter .agf-label { font-size: 12px; font-weight: 700; color: var(--muted); white-space: nowrap; }
   .ag-empty { padding: 22px; text-align: center; color: var(--muted); font-size: 13px; }
-
-  /* ===== Version switcher controller (bottom-center pill) ===== */
-  .version-switcher {
-    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
-    z-index: 2147483000; display: inline-flex; align-items: center; gap: 4px;
-    background: #18181b; padding: 6px 8px 6px 14px; border-radius: 999px;
-    box-shadow: 0 6px 20px rgba(0,0,0,.22); font-family: 'SF Mono', Menlo, Consolas, monospace;
-  }
-  .version-switcher .vs-controller-label { color: #a1a1aa; font-size: 11px; font-weight: 700; letter-spacing: .4px; margin-right: 4px; }
-  .version-switcher .vs-btn { background: transparent; border: 0; color: #d4d4d8; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 999px; cursor: pointer; font-family: inherit; transition: background .15s ease, color .15s ease; }
-  .version-switcher .vs-btn:hover { color: #fff; }
-  .version-switcher .vs-btn.active { background: #1f4596; color: #fff; }
 </style>
 </head>
 <body>
@@ -762,9 +628,19 @@
 
         <!-- Meta + actions -->
         <div class="report-meta-row">
-          <div class="data-note">
-            <i class="fa-solid fa-rotate"></i>
-            <span>Data refreshed nightly from ClickSafety · Last updated <b>Jun 22, 2026 at 6:00 AM EDT</b></span>
+          <div class="meta-left">
+            <!-- Page-level filter scope — applies to the charts AND the table. Shows "All courses"
+                 by default (styled as an active filter) so it's clear the whole page is filterable. -->
+            <span class="filters-active" id="filtersActive">
+              <button class="filters-scope-btn" id="filtersScopeBtn" type="button" title="Change filters">
+                <i class="fa-solid fa-filter"></i> <span id="filtersScope">All courses</span>
+              </button>
+              <button class="filters-clear" id="filtersClearBtn" type="button" hidden><i class="fa-solid fa-xmark"></i> Clear</button>
+            </span>
+            <div class="data-note">
+              <i class="fa-solid fa-rotate"></i>
+              <span>Data refreshed nightly from ClickSafety · Last updated <b>Jun 22, 2026 at 6:00 AM EDT</b></span>
+            </div>
           </div>
           <div class="actions-right">
             <vaadin-button theme="secondary small" id="filterInlineToggle"><i class="fa-solid fa-sliders" slot="prefix"></i> Filters</vaadin-button>
@@ -773,72 +649,52 @@
           </div>
         </div>
 
-        <!-- Applied-filters summary — signals the Filters button is page-wide -->
-        <div class="applied-filters" id="appliedFilters"></div>
-
-        <!-- ── Overview: chart card + Action Needed card, side by side ── -->
-        <div class="overview-row">
-          <div class="report-card chart-card" id="completionOverview">
-            <div class="report-card-header">
-              <div class="report-card-title-row">
-                <h2 class="report-card-title">Completion Status Overview</h2>
-                <div class="date-badge"><i class="fa-regular fa-calendar"></i> Past 30 days</div>
-              </div>
+        <!-- ── Completion Status Overview ── -->
+        <div class="report-card" id="completionOverview">
+          <div class="report-card-header">
+            <div class="report-card-title-row">
+              <h2 class="report-card-title">Completion Status Overview</h2>
+              <div class="date-badge"><i class="fa-regular fa-calendar"></i> Past 30 days</div>
             </div>
-
-            <!-- V1: flip between Course Pass/Fail (drill → module pass/fail) and progress status -->
-            <div class="ov-v1">
+          </div>
+          <div class="chart-area">
+            <!-- Overview chart: toggle between the completion-distribution pie and the
+                 "Where Learners Are" progress breakdown (both rendered live from the data). -->
+            <div class="chart-col">
               <div class="chart-flip" id="chartFlip">
-                <button class="cf-btn active" data-chart="passfail" type="button">Course Pass / Fail</button>
+                <button class="cf-btn active" data-chart="dist" type="button">Completion Distribution</button>
                 <button class="cf-btn" data-chart="progress" type="button">Where Learners Are</button>
+                <button class="cf-btn" data-chart="passfail" type="button">Course Pass / Fail</button>
               </div>
-              <div class="chart-view" id="view-passfail">
+
+              <!-- Pie: share of learners by completion status -->
+              <div class="chart-view" id="view-dist">
+                <div class="pie-chart-wrap">
+                  <div class="pie-chart" id="pieChart"></div>
+                  <div class="pie-labels" id="pieLabels"><!-- rendered by JS --></div>
+                </div>
+              </div>
+
+              <!-- Where Learners Are: how far along learners are right now -->
+              <div class="chart-view" id="view-progress" hidden>
+                <div class="prog-chart" id="progressChart"><!-- rendered by JS --></div>
+              </div>
+
+              <!-- Course Pass / Fail: pass-rate donut with a per-module pass/fail drill-through -->
+              <div class="chart-view" id="view-passfail" hidden>
                 <div id="passFailChart"><!-- donut + legend rendered by JS --></div>
                 <button class="drill-toggle" id="drillToggle" aria-expanded="false">
                   <i class="fa-solid fa-chevron-right"></i> Show module pass / fail
                 </button>
                 <div class="module-breakdown" id="moduleBreakdown" hidden><!-- rendered by JS --></div>
               </div>
-              <div class="chart-view" id="view-progress" hidden>
-                <div class="prog-chart" id="progressChart"><!-- rendered by JS --></div>
-              </div>
             </div>
 
-            <!-- V2: completion-distribution pie -->
-            <div class="ov-v2">
-              <div class="chart-section-title">OSHA Completion Distribution</div>
-              <div class="pie-chart-wrap">
-                <div class="pie-chart"></div>
-                <div class="pie-labels">
-                  <span class="pie-label"><span class="pd" style="background:#22c55e"></span> Passed: 23%</span>
-                  <span class="pie-label"><span class="pd" style="background:#3b82f6"></span> In Progress: 46%</span>
-                  <span class="pie-label"><span class="pd" style="background:#d1d5db"></span> Not Started: 15%</span>
-                  <span class="pie-label"><span class="pd" style="background:#dc2626"></span> Failed: 15%</span>
-                </div>
-              </div>
-              <div class="pie-legend">
-                <span class="legend-item"><span class="legend-dot passed"></span> Passed</span>
-                <span class="legend-item"><span class="legend-dot inprogress"></span> In Progress</span>
-                <span class="legend-item"><span class="legend-dot notstarted"></span> Not Started</span>
-                <span class="legend-item"><span class="legend-dot failed"></span> Failed</span>
-              </div>
+            <!-- Action-needed counts, beside the chart -->
+            <div class="chart-col chart-col-bar">
+              <div class="chart-section-title">Action Needed</div>
+              <div class="action-cards" id="actionCards"><!-- rendered by JS --></div>
             </div>
-
-            <!-- V3: status-breakdown stacked bar (ties the action groups together; segments are clickable) -->
-            <div class="ov-v3">
-              <div class="chart-section-title">Learner Status Breakdown</div>
-              <div class="stack-bar" id="stackBar"><!-- rendered by JS --></div>
-              <div class="stack-legend" id="stackLegend"><!-- rendered by JS --></div>
-              <div class="stack-hint">Click an actionable segment (or legend item) to select those learners below.</div>
-            </div>
-          </div>
-
-          <!-- Action Needed card (each stat carries its own action button) -->
-          <div class="report-card action-needed-card">
-            <div class="report-card-header">
-              <div class="report-card-title-row"><h2 class="report-card-title">Action Needed</h2></div>
-            </div>
-            <div class="action-cards" id="actionCards"><!-- rendered by JS --></div>
           </div>
         </div>
 
@@ -866,7 +722,6 @@
           <div class="report-toolbar">
             <div class="toolbar-left">
               <span class="report-card-title">OSHA Completion Report</span>
-              <span class="action-filter-chip" id="actionFilterChip" hidden></span>
             </div>
             <div class="toolbar-right">
               <div class="search-wrap">
@@ -874,14 +729,10 @@
                 <input class="search-input" type="text" placeholder="Search learners…" id="qualSearch">
               </div>
               <div class="col-picker" id="colPicker">
-                <button class="col-picker-btn" id="qualColPicker" title="Show or hide columns" aria-haspopup="true" aria-expanded="false"><i class="fa-solid fa-table-columns"></i></button>
+                <button class="col-picker-btn" id="qualColPicker" title="Manage columns" aria-haspopup="true" aria-expanded="false"><i class="fa-solid fa-table-columns"></i></button>
                 <div class="col-menu" id="colMenu" hidden>
-                  <div class="col-menu-title">Show columns</div>
-                  <label class="col-menu-row"><vaadin-checkbox checked data-col="6"></vaadin-checkbox><span>Time Spent</span></label>
-                  <label class="col-menu-row"><vaadin-checkbox checked data-col="7"></vaadin-checkbox><span>Last Accessed</span></label>
-                  <label class="col-menu-row"><vaadin-checkbox checked data-col="8"></vaadin-checkbox><span>Expiration</span></label>
-                  <label class="col-menu-row"><vaadin-checkbox checked data-col="9"></vaadin-checkbox><span>Failure / Retry</span></label>
-                  <label class="col-menu-row"><vaadin-checkbox checked data-col="10"></vaadin-checkbox><span>Details</span></label>
+                  <div class="col-menu-title">Manage columns <button class="col-reset" id="colReset" type="button">Reset</button></div>
+                  <div class="col-list" id="colList"><!-- rendered by JS: drag to reorder, check to show/hide --></div>
                 </div>
               </div>
             </div>
@@ -900,18 +751,9 @@
           <div class="report-table-wrap">
             <table class="report-table" id="qualTable">
               <thead>
-                <tr id="reportHead">
+                <tr id="headRow">
                   <th class="col-expand"><vaadin-checkbox id="selectAll" aria-label="Select all visible learners"></vaadin-checkbox></th>
-                  <th>Learner</th>
-                  <th>Course</th>
-                  <th>Status</th>
-                  <th id="modCompleteHead">Modules Complete <button class="modcol-toggle" id="modColToggle" title="Show/hide module columns" aria-label="Toggle module columns"><i class="fa-solid fa-chevron-right"></i></button></th>
-                  <th>Time Spent</th>
-                  <th>Last Accessed</th>
-                  <th>Expiration</th>
-                  <th>Failure / Retry</th>
-                  <th>Details</th>
-                  <th class="col-action" style="text-align:right">Action</th>
+                  <!-- data-column headers rendered by JS from the column model (order + visibility) -->
                 </tr>
               </thead>
               <tbody id="qualTbody"><!-- rendered by JS --></tbody>
@@ -976,18 +818,19 @@
 
           <div class="filter-divider"></div>
 
-          <!-- OSHA Course — drives which course the report table shows (defaults to all) -->
+          <!-- OSHA Courses -->
           <div class="filter-section">
-            <label class="filter-label">OSHA Course</label>
-            <vaadin-select theme="outlined" id="courseSelect" style="width:100%"></vaadin-select>
+            <label class="filter-label">OSHA Courses</label>
+            <button class="filter-select-btn" id="selectCoursesBtn">Select OSHA Courses</button>
+            <div class="filter-chips" id="courseChips"></div>
           </div>
 
           <div class="filter-divider"></div>
 
-          <!-- Users -->
+          <!-- Learners -->
           <div class="filter-section">
-            <label class="filter-label">Users</label>
-            <button class="filter-select-btn" id="selectUsersBtn">Select Users</button>
+            <label class="filter-label">Learners</label>
+            <button class="filter-select-btn" id="selectUsersBtn">Select Learners</button>
             <div class="filter-chips" id="userChips"></div>
           </div>
 
@@ -1000,7 +843,7 @@
               <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="passed" checked></vaadin-checkbox><span>Passed</span></label>
               <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="in-progress" checked></vaadin-checkbox><span>In Progress</span></label>
               <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="not-started" checked></vaadin-checkbox><span>Not Started</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="failed" checked></vaadin-checkbox><span>Failed — Needs Retry</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="failed" checked></vaadin-checkbox><span>Failed</span></label>
             </div>
           </div>
 
@@ -1017,47 +860,22 @@
           <vaadin-button theme="primary" id="applyFiltersBtn">Apply Filters</vaadin-button>
         </div>
       </aside>
-
-      <!-- V1 per-student module detail — right-side push panel (table stays interactive; open another learner's anytime) -->
-      <aside class="filter-panel detail-panel collapsed" id="detailPanel">
-        <div class="filter-panel-header">
-          <div>
-            <h3 class="filter-panel-title" id="detailPanelName">Learner</h3>
-            <div class="detail-sub" id="detailPanelCourse"></div>
-          </div>
-          <button class="filter-close-btn" id="closeDetailBtn" title="Close details"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <div class="filter-panel-body" id="detailPanelBody"></div>
-        <div class="filter-panel-footer" id="detailPanelFooter"></div>
-      </aside>
     </div><!-- /page-layout -->
-
-    <!-- Placeholder for the Completions / Impact Insights tabs (out of scope here) -->
-    <div class="other-panel" id="otherPanel" hidden>
-      <div class="op-card">
-        <div class="op-ico"><i class="fa-solid fa-chart-line"></i></div>
-        <h3 id="otherPanelTitle">Completions</h3>
-        <p>This is the existing Dashboard tab. It's shown here for context — the OSHA Report tab is the focus of this prototype.</p>
-      </div>
-    </div>
 
   </section>
 </div>
 
-<!-- Select Users picker -->
-<vaadin-dialog id="selectUsersDialog" header-title="Select Users"></vaadin-dialog>
+<!-- Select Courses / Learners pickers -->
+<vaadin-dialog id="selectCoursesDialog" header-title="Select OSHA Courses"></vaadin-dialog>
+<vaadin-dialog id="selectUsersDialog" header-title="Select Learners"></vaadin-dialog>
 
 <!-- Per-row action modal (Intervene / Nudge / Schedule Retry / View / Certificate) + toast -->
 <vaadin-dialog id="actionDialog" no-close-on-outside-click></vaadin-dialog>
+<!-- Per-student module progress + quiz scores -->
+<vaadin-dialog id="moduleDialog"></vaadin-dialog>
+<!-- Action-group bulk modal (opened from the Action Needed cards) -->
+<vaadin-dialog id="agDialog" no-close-on-outside-click></vaadin-dialog>
 <vaadin-notification id="toast" position="bottom-center" duration="3200"></vaadin-notification>
-
-<!-- Version switcher: V1 = per-student modal · V2 = expand/collapse module quiz-score columns -->
-<div class="version-switcher" role="group" aria-label="Switch module-detail version">
-  <span class="vs-controller-label">MODULE&nbsp;DETAIL</span>
-  <button class="vs-btn active" data-version="1" type="button" title="Per-student side panel">V1</button>
-  <button class="vs-btn" data-version="2" type="button" title="Expand/collapse inline module table">V2</button>
-  <button class="vs-btn" data-version="3" type="button" title="Module quiz scores as table columns">V3</button>
-</div>
 
 <script>
   /* ═══════════════ Data — OSHA completion report, grouped by course ═══════════════ */
@@ -1070,23 +888,55 @@
       { name:'Carter, Liam',    ext:'lcarter612',  status:'in-progress', mods:6,  pct:64,  time:'3h 05m', last:'2 days ago',  exp:'10/15/2026' },
       { name:'Lin, Grace',      ext:'glin201',     status:'passed',      mods:10, pct:100, time:'4h 30m', last:'04/18/2026',  exp:'04/18/2027' },
       { name:'Sullivan, Brett', ext:'bsull099',    status:'failed',      mods:10, pct:100, time:'4h 10m', last:'04/29/2026',  exp:'—', failDate:'04/29/2026', attempts:2 },
-      { name:'Okafor, Sam',     ext:'sokafor777',  status:'failed', quizFail:true, mods:4,  pct:35,  time:'1h 30m', last:'5 days ago',  exp:'08/15/2026', failDate:'06/12/2026', attempts:1 },
+      { name:'Adams, Olivia',   ext:'oadams118',   status:'passed',      mods:10, pct:100, time:'4h 05m', last:'04/10/2026',  exp:'04/10/2027' },
+      { name:'Bauer, Eli',      ext:'ebauer773',   status:'in-progress', mods:3,  pct:28,  time:'1h 35m', last:'9 days ago',  exp:'08/20/2026' },
+      { name:'Coleman, Tara',   ext:'tcoleman240', status:'in-progress', mods:2,  pct:18,  time:'0h 55m', last:'30 days ago', exp:'06/28/2026', expSoon:true, behind:true },
+      { name:'Diaz, Hugo',      ext:'hdiaz556',    status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'07/05/2026' },
+      { name:'Ellison, Mara',   ext:'mellison803', status:'passed',      mods:10, pct:100, time:'3h 50m', last:'03/22/2026',  exp:'03/22/2027' },
+      { name:'Farris, Quinn',   ext:'qfarris417',  status:'failed',      mods:10, pct:100, time:'4h 20m', last:'05/12/2026',  exp:'—', failDate:'05/12/2026', attempts:1 },
+      { name:'Gibson, Noel',    ext:'ngibson629',  status:'in-progress', mods:7,  pct:70,  time:'3h 15m', last:'Yesterday',   exp:'11/20/2026' },
+      { name:'Hoffman, Dana',   ext:'dhoffman361', status:'in-progress', mods:1,  pct:8,   time:'0h 25m', last:'22 days ago', exp:'09/10/2026', behind:true },
+      { name:'Iqbal, Sana',     ext:'siqbal905',   status:'passed',      mods:10, pct:100, time:'4h 00m', last:'04/28/2026',  exp:'04/28/2027' },
+      { name:'Jensen, Cole',    ext:'cjensen472',  status:'in-progress', mods:5,  pct:50,  time:'2h 30m', last:'4 days ago',  exp:'10/05/2026' },
+      { name:'Keller, Ruth',    ext:'rkeller138',  status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'05/30/2026', expSoon:true },
     ]},
     { id:'g2', course:'OSHA 30-Hour General Industry', expanded:true, rows:[
       { name:'Reyes, Tomás',    ext:'treyes824',   status:'in-progress', mods:2,  pct:15,  time:'1h 10m', last:'24 days ago', exp:'07/30/2026', behind:true },
       { name:'Osei, Janet',     ext:'josei330',    status:'in-progress', mods:4,  pct:38,  time:'2h 40m', last:'16 days ago', exp:'09/02/2026', behind:true },
       { name:'Zhang, Emily',    ext:'ezhang118',   status:'in-progress', mods:5,  pct:48,  time:'3h 20m', last:'Yesterday',   exp:'11/01/2026' },
       { name:'Mendez, Carlos',  ext:'cmendez507',  status:'passed',      mods:10, pct:100, time:'6h 15m', last:'03/30/2026',  exp:'03/30/2027' },
+      { name:'Allen, Brooke',   ext:'ballen294',   status:'passed',      mods:10, pct:100, time:'6h 00m', last:'03/15/2026',  exp:'03/15/2027' },
+      { name:'Bishop, Dane',    ext:'dbishop681',  status:'in-progress', mods:6,  pct:58,  time:'4h 10m', last:'3 days ago',  exp:'10/12/2026' },
+      { name:'Choi, Min',       ext:'mchoi735',    status:'failed',      mods:10, pct:100, time:'5h 50m', last:'05/01/2026',  exp:'—', failDate:'05/01/2026', attempts:2 },
+      { name:'Duarte, Lena',    ext:'lduarte162',  status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'06/26/2026', expSoon:true },
+      { name:'Eaton, Russ',     ext:'reaton408',   status:'in-progress', mods:2,  pct:16,  time:'1h 20m', last:'27 days ago', exp:'09/18/2026', behind:true },
+      { name:'Fenn, Gail',      ext:'gfenn557',    status:'passed',      mods:10, pct:100, time:'6h 30m', last:'04/02/2026',  exp:'04/02/2027' },
+      { name:'Greer, Paul',     ext:'pgreer820',   status:'in-progress', mods:8,  pct:78,  time:'5h 05m', last:'Today',       exp:'11/15/2026' },
+      { name:'Hsu, Wendy',      ext:'whsu346',     status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'08/01/2026' },
+      { name:'Irwin, Blake',    ext:'birwin914',   status:'in-progress', mods:3,  pct:26,  time:'2h 00m', last:'19 days ago', exp:'09/05/2026', behind:true },
+      { name:'Jacobs, Nina',    ext:'njacobs503',  status:'failed',      mods:10, pct:100, time:'5h 40m', last:'05/09/2026',  exp:'—', failDate:'05/09/2026', attempts:1 },
+      { name:'Kim, Sora',       ext:'skim671',     status:'passed',      mods:10, pct:100, time:'6h 10m', last:'04/20/2026',  exp:'04/20/2027' },
+      { name:'Lowe, Trent',     ext:'tlowe238',    status:'in-progress', mods:5,  pct:46,  time:'3h 30m', last:'6 days ago',  exp:'10/22/2026' },
     ]},
     { id:'g3', course:'Bloodborne Pathogens', expanded:false, rows:[
       { name:'Brooks, Devon',   ext:'dbrooks662',  status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'05/20/2026', expSoon:true },
       { name:'Patel, Noah',     ext:'npatel743',   status:'in-progress', mods:8,  pct:81,  time:'2h 05m', last:'Today',       exp:'10/22/2026' },
       { name:'Foster, Hannah',  ext:'hfoster915',  status:'failed',      mods:10, pct:100, time:'1h 50m', last:'05/03/2026',  exp:'—', failDate:'05/03/2026', attempts:1 },
       { name:'Rahman, Aisha',   ext:'arahman288',  status:'passed',      mods:10, pct:100, time:'1h 40m', last:'05/06/2026',  exp:'05/06/2027' },
+      { name:'Abbott, Cleo',    ext:'cabbott190',  status:'passed',      mods:10, pct:100, time:'1h 45m', last:'04/12/2026',  exp:'04/12/2027' },
+      { name:'Burke, Mia',      ext:'mburke427',   status:'in-progress', mods:6,  pct:61,  time:'1h 20m', last:'2 days ago',  exp:'10/30/2026' },
+      { name:'Cho, Ravi',       ext:'rcho815',     status:'in-progress', mods:1,  pct:9,   time:'0h 15m', last:'25 days ago', exp:'06/29/2026', expSoon:true, behind:true },
+      { name:'Doyle, Faye',     ext:'fdoyle362',   status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'07/10/2026' },
+      { name:'Engel, Mark',     ext:'mengel578',   status:'passed',      mods:10, pct:100, time:'1h 35m', last:'03/28/2026',  exp:'03/28/2027' },
+      { name:'Frost, Lena',     ext:'lfrost931',   status:'failed',      mods:10, pct:100, time:'1h 55m', last:'05/05/2026',  exp:'—', failDate:'05/05/2026', attempts:2 },
+      { name:'Glass, Omar',     ext:'oglass246',   status:'in-progress', mods:7,  pct:72,  time:'1h 30m', last:'Yesterday',   exp:'11/08/2026' },
+      { name:'Hahn, Iris',      ext:'ihahn703',    status:'in-progress', mods:2,  pct:19,  time:'0h 40m', last:'21 days ago', exp:'09/14/2026', behind:true },
+      { name:'Ito, Ken',        ext:'kito459',     status:'passed',      mods:10, pct:100, time:'1h 40m', last:'04/25/2026',  exp:'04/25/2027' },
+      { name:'Jain, Asha',      ext:'ajain612',    status:'in-progress', mods:4,  pct:40,  time:'1h 10m', last:'5 days ago',  exp:'10/18/2026' },
+      { name:'Knox, Bea',       ext:'bknox827',    status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'05/28/2026', expSoon:true },
+      { name:'Lopez, Raul',     ext:'rlopez394',   status:'in-progress', mods:8,  pct:83,  time:'1h 50m', last:'Today',       exp:'11/22/2026' },
     ]},
   ];
-  // 'failed' = needs to retry, whether they failed the course (final assessment) or a module quiz
-  // (the quizFail flag distinguishes the two in the Failure/Retry field — both just need a retry).
   const STATUS_LABEL = { 'passed':'Passed', 'in-progress':'In Progress', 'not-started':'Not Started', 'failed':'Failed', 'overdue':'Overdue' };
   const PCT_COLOR = { 'passed':'#22c55e', 'in-progress':'#3b82f6', 'not-started':'#d1d5db', 'failed':'#dc2626' };
 
@@ -1102,6 +952,17 @@
     const h = (ext.charCodeAt(0) * 7 + ext.charCodeAt(ext.length - 1) * 13 + i * 17) % 18;
     return 80 + h; // 80–97
   }
+  // Deterministic per-module quiz time spent, in minutes.
+  function timeFor(ext, i) {
+    const h = (ext.charCodeAt(0) * 5 + ext.charCodeAt(ext.length - 1) * 11 + i * 23) % 16;
+    return 9 + h; // 9–24 min
+  }
+  // "14m" / "1h 05m"
+  function fmtMin(min) {
+    if (min == null) return '—';
+    const h = Math.floor(min / 60), m = min % 60;
+    return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`;
+  }
   // Build a learner's per-module detail (status + quiz score) from their `mods` count.
   function learnerModules(r, course) {
     const names = COURSE_MODULES[course] || COURSE_MODULES['OSHA 10-Hour General Industry'];
@@ -1109,11 +970,12 @@
     return names.map((name, i) => {
       if (i < done) {
         let score = scoreFor(r.ext, i);
-        if (r.status === 'failed' && i === done - 1) score = r.quizFail ? 58 : 61;  // failed this module quiz / the Final Assessment
-        return { name, status: 'complete', score };
+        if (r.status === 'failed' && i === done - 1) score = 61; // failed the Final Assessment
+        return { name, status: 'complete', score, time: timeFor(r.ext, i) };
       }
-      if (i === done && r.status === 'in-progress') return { name, status: 'in-progress', score: null };
-      return { name, status: 'not-started', score: null };
+      // In-progress on the current module: some time logged, no score yet.
+      if (i === done && r.status === 'in-progress') return { name, status: 'in-progress', score: null, time: Math.round(timeFor(r.ext, i) / 2) };
+      return { name, status: 'not-started', score: null, time: null };
     });
   }
 
@@ -1130,129 +992,147 @@
 
   const selectedRows = new Set();                  // keys: "groupId::ext"
   const rowKey = (gid, ext) => gid + '::' + ext;
-  const expandedRows = new Set();                  // V2: keys of rows whose module scores are expanded
 
-  // Course filter lives in the Filters panel; defaults to 'all'.
-  let currentCourse = 'all';
-  let modColsOpen = true;   // V3: whether the module quiz-score columns are expanded
+  // Flat row list — every learner across all courses. Course is a column (not a grouping drawer).
+  const rows = GROUPS.flatMap(g => g.rows.map(r => ({ r, course: g.course, gid: g.id })));
 
   const tbody = document.getElementById('qualTbody');
+  const qualTable = document.getElementById('qualTable');
 
-  // V3: module quiz scores as extra table columns (one per module).
-  function moduleColLabels() {
-    return currentCourse === 'all'
-      ? Array.from({ length: MOD_TOTAL }, (_, i) => `Module ${i + 1}`)
-      : COURSE_MODULES[GROUPS.find(g => g.id === currentCourse).course];
-  }
-  function moduleColHeads() {
-    return moduleColLabels().map(l => `<th class="mod-col" title="${l}">${l}</th>`).join('');
-  }
-  function moduleColCells(r, course) {
-    return learnerModules(r, course).map(m => {
-      if (m.status === 'complete') { const f = m.score < 70; return `<td class="mod-col mod-score ${f ? 'mc-fail' : 'mc-pass'}">${m.score}%</td>`; }
-      return `<td class="mod-col mod-score mc-dash">—</td>`;
-    }).join('');
-  }
+  /* ═══════════════ Column model — drives the header, cells, order & visibility ═══════════════ */
+  // render(r, course, gid) → cell HTML. `required` columns can't be hidden (but can still be reordered).
+  const COLUMNS = [
+    { key:'learner',  label:'Learner',          width:'14%', sortable:true, required:true, cellClass:'l-name',
+      render:(r) => `${r.name}<span class="l-id">${r.ext}</span>` },
+    { key:'course',   label:'Course',           width:'14%', sortable:true,
+      render:(r, course) => `<span class="course-cell">${course}</span>` },
+    { key:'status',   label:'Status',           width:'8%',  sortable:true,
+      render:(r) => `<span class="status-badge ${r.status}">${STATUS_LABEL[r.status]}</span>` },
+    { key:'mods',     label:'Modules Complete', width:'11%', sortable:true,
+      render:(r, course, gid) => modCellHTML(r, gid) },
+    { key:'time',     label:'Time Spent',       width:'8%',  sortable:true, cellClass:'nowrap', headClass:'nowrap',
+      render:(r) => r.time },
+    { key:'last',     label:'Last Accessed',    width:'9%',  sortable:true,
+      render:(r) => r.last === 'Never' ? '<span class="never">Never</span>' : r.last },
+    { key:'exp',      label:'Expiration',       width:'9%',  sortable:true,
+      render:(r) => r.exp === '—' ? '—' : `<span class="${r.expSoon ? 'exp-soon' : ''}">${r.exp}</span>` },
+    { key:'failed',   label:'Failed',           width:'8%',  sortable:true,
+      render:(r) => (r.status === 'failed' && r.failDate) ? `<span class="fr-fail">${r.failDate}</span>` : '<span class="muted-cell">—</span>' },
+    { key:'attempts', label:'Attempts',         width:'7%',  sortable:true,
+      render:(r) => (r.status === 'failed' && r.failDate) ? `<span class="fr-attempt">${r.attempts || 1}/3</span>` : '<span class="muted-cell">—</span>' },
+    { key:'action',   label:'', menuLabel:'Action / Certificate', width:'12%', required:true, align:'right', cellClass:'cell-actions',
+      render:(r, course, gid) => actionCellHTML(r, gid) },
+  ];
+  const colByKey = Object.fromEntries(COLUMNS.map(c => [c.key, c]));
+  let columnOrder = COLUMNS.map(c => c.key);   // current left-to-right order
+  const hiddenCols = new Set();                // keys of hidden columns
+  const visibleColumns = () => columnOrder.map(k => colByKey[k]).filter(c => !hiddenCols.has(c.key));
 
-  function moduleTableHTML(r, course) {
-    const rows = learnerModules(r, course).map((m, i) => {
-      const fail = m.status === 'complete' && m.score < 70;
-      const sLabel = m.status === 'complete' ? 'Complete' : (m.status === 'in-progress' ? 'In Progress' : 'Not Started');
-      const score = m.score != null ? `${m.score}%` : '—';
-      const scoreCls = m.score != null ? (fail ? 'mt-fail' : '') : 'mt-dash';
-      return `<tr>
-        <td class="mt-idx">${i + 1}</td>
-        <td class="mt-name">${m.name}</td>
-        <td class="mt-status st-${m.status}">${sLabel}</td>
-        <td class="mt-score ${scoreCls}">${score}</td>
-      </tr>`;
-    }).join('');
-    return `<table class="module-table">
-      <thead><tr><th>#</th><th>Module</th><th>Status</th><th>Quiz Score</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
+  // Passed learners have no follow-up action — their certificate link shares the action column.
+  function actionCellHTML(r, gid) {
+    const a = ACTIONS[r.status];
+    if (a) return `<vaadin-button theme="${a.theme} small" class="row-act" data-type="${a.type}" data-group="${gid}" data-ext="${r.ext}"><i class="fa-solid ${a.icon}" slot="prefix"></i>${a.label}</vaadin-button>`;
+    if (r.status === 'passed') return `<button class="cert-link row-act" data-type="cert" data-group="${gid}" data-ext="${r.ext}"><i class="fa-solid fa-award"></i> View certificate</button>`;
+    return '<span class="muted-cell">—</span>';
+  }
+  function modCellHTML(r, gid) {
+    const key = rowKey(gid, r.ext);
+    const modPct = Math.round((r.mods / MOD_TOTAL) * 100);
+    return `<span class="mod-cell">
+      <span class="mod-frac">${r.mods}/${MOD_TOTAL}</span>
+      <span class="mod-bar"><span style="width:${modPct}%; background:${PCT_COLOR[r.status]};"></span></span>
+      <button class="mod-link" data-key="${key}">Details</button>
+    </span>`;
   }
 
   function dataRowHTML(r, course, gid) {
     const key = rowKey(gid, r.ext);
-    const lastCell = r.last === 'Never' ? '<span class="never">Never</span>' : r.last;
-    const expCell = r.exp === '—' ? '—' : `<span class="${r.expSoon ? 'exp-soon' : ''}">${r.exp}</span>`;
-    const a = ACTIONS[r.status];
-    const primary = a
-      ? `<vaadin-button theme="${a.theme} small" class="row-act" data-type="${a.type}" data-group="${gid}" data-ext="${r.ext}"><i class="fa-solid ${a.icon}" slot="prefix"></i>${a.label}</vaadin-button>`
-      : '';
-    // Details (former Certificate column) — opens the side panel; passed learners also get the certificate there.
-    const detailsCell = `<button class="mod-link" data-key="${key}"><i class="fa-solid fa-circle-info"></i> Details${r.status === 'passed' ? ' <i class="fa-solid fa-award" style="color:#15803d" title="Certificate available"></i>' : ''}</button>`;
-    const frCell = (r.status === 'failed' && r.failDate)
-      ? `<span class="fr-fail">${r.quizFail ? 'Quiz failed' : 'Course failed'} ${r.failDate.slice(0,5)}</span><span class="fr-sub">Retry ${addDays(r.failDate,14).slice(0,5)} · Attempt ${r.attempts||1}/3</span>`
-      : '<span class="muted-cell">—</span>';
     const sel = selectedRows.has(key);
-    const open = expandedRows.has(key);
-    // Modules Complete cell — V2 shows the expand chevron; V1's "Details" link now lives in the Action cell.
-    const modPct = Math.round((r.mods / MOD_TOTAL) * 100);
-    const modCell = `
-      <span class="mod-cell">
-        <button class="mod-expand-btn" data-key="${key}" aria-label="Show module quiz scores"><i class="fa-solid ${open ? 'fa-chevron-down' : 'fa-chevron-right'}"></i></button>
-        <span class="mod-frac">${r.mods}/${MOD_TOTAL}</span>
-        <span class="mod-bar"><span style="width:${modPct}%; background:${PCT_COLOR[r.status]};"></span></span>
-      </span>`;
-    // V3: per-module quiz-score columns, inserted right after Modules Complete (collapsible).
-    const modCols = (versionRoot.classList.contains('version-3') && modColsOpen) ? moduleColCells(r, course) : '';
-    const detailRow = `
-      <tr class="module-detail-row" data-key="${key}" style="display:none">
-        <td colspan="11">
-          <div class="module-detail">
-            <div class="md-title">Module quiz scores · ${r.name}</div>
-            ${moduleTableHTML(r, course)}
-          </div>
-        </td>
-      </tr>`;
+    const cells = visibleColumns().map(c => {
+      const cls = c.cellClass ? ` class="${c.cellClass}"` : '';
+      return `<td${cls}>${c.render(r, course, gid)}</td>`;
+    }).join('');
     return `
       <tr class="data-row${sel ? ' row-selected' : ''}" data-group="${gid}" data-ext="${r.ext}" data-key="${key}" data-status="${r.status}">
         <td class="sel-cell"><vaadin-checkbox class="row-sel" data-group="${gid}" data-ext="${r.ext}"${sel ? ' checked' : ''} aria-label="Select ${r.name}"></vaadin-checkbox></td>
-        <td class="l-name">${r.name}<span class="l-id">${r.ext}</span></td>
-        <td class="l-course">${course}</td>
-        <td><span class="status-badge ${r.status}">${STATUS_LABEL[r.status]}</span></td>
-        <td>${modCell}</td>
-        ${modCols}
-        <td>${r.time}</td>
-        <td>${lastCell}</td>
-        <td>${expCell}</td>
-        <td>${frCell}</td>
-        <td>${detailsCell}</td>
-        <td class="cell-actions">${primary}</td>
-      </tr>${detailRow}`;
+        ${cells}
+      </tr>`;
+  }
+
+  // Rebuild the data-column headers from the model (the select-checkbox th stays in place).
+  function renderHead() {
+    const row = document.getElementById('headRow');
+    while (row.children.length > 1) row.removeChild(row.lastChild);
+    visibleColumns().forEach(c => {
+      const th = document.createElement('th');
+      if (c.sortable) { th.classList.add('sortable-th'); th.dataset.sort = c.key; }
+      if (c.headClass) th.classList.add(c.headClass);
+      if (c.width) th.style.width = c.width;
+      if (c.align === 'right') th.style.textAlign = 'right';
+      th.innerHTML = `${c.label}${c.sortable ? ' <i class="fa-solid fa-sort sort-arrow"></i>' : ''}`;
+      row.appendChild(th);
+    });
+    updateSortIndicators();
   }
 
   function renderTable() {
-    // Flat list with a Course column (course filter narrows it; group headers retired).
-    const groups = currentCourse === 'all' ? GROUPS : GROUPS.filter(g => g.id === currentCourse);
-    // V3: sync the module-column headers (one per module) right after the Modules Complete header.
-    const head = document.getElementById('reportHead');
-    head.querySelectorAll('.mod-col').forEach(th => th.remove());
-    const v3 = versionRoot.classList.contains('version-3');
-    if (v3 && modColsOpen) document.getElementById('modCompleteHead').insertAdjacentHTML('afterend', moduleColHeads());
-    const tgl = document.querySelector('#modColToggle i');
-    if (tgl) tgl.className = modColsOpen ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-right';
-    tbody.innerHTML = groups.map(g => g.rows.map(r => dataRowHTML(r, g.course, g.id)).join('')).join('');
-    applyColVisibility();
+    renderHead();
+    tbody.innerHTML = rows.map(x => dataRowHTML(x.r, x.course, x.gid)).join('');
     applyFilters();
   }
 
-  /* Show/hide columns — toggles the optional data cells + headers. */
+  /* ═══════════════ Column manager — show/hide + drag-to-reorder ═══════════════ */
   const colPicker = document.getElementById('colPicker');
   const colMenu = document.getElementById('colMenu');
-  const qualTable = document.getElementById('qualTable');
-  // Track hidden columns explicitly — all columns show by default. (Reading the
-  // checkbox .checked at load is unreliable: the Vaadin components haven't
-  // upgraded yet when the first render runs, which would hide every column.)
-  const hiddenCols = new Set();
-  function applyColVisibility() {
-    // In V3 the module columns shift the core column indices, so don't apply nth-child hide rules there.
-    const v3 = versionRoot.classList.contains('version-3');
-    colMenu.querySelectorAll('vaadin-checkbox[data-col]').forEach(cb => {
-      qualTable.classList.toggle('hide-c' + cb.dataset.col, !v3 && hiddenCols.has(cb.dataset.col));
+  const colList = document.getElementById('colList');
+  let dragKey = null;
+  function renderColumnManager() {
+    colList.innerHTML = columnOrder.map(key => {
+      const c = colByKey[key];
+      const checked = !hiddenCols.has(key);
+      return `<div class="col-row" draggable="true" data-key="${key}">
+        <span class="col-grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
+        <input type="checkbox" class="col-vis" id="cv-${key}" ${checked ? 'checked' : ''} ${c.required ? 'disabled' : ''}>
+        <label class="col-row-label" for="cv-${key}">${c.menuLabel || c.label || key}</label>
+        ${c.required ? '<i class="fa-solid fa-lock col-lock" title="Always shown"></i>' : ''}
+      </div>`;
+    }).join('');
+    // Show/hide
+    colList.querySelectorAll('.col-vis').forEach(cb => cb.addEventListener('change', () => {
+      const key = cb.closest('.col-row').dataset.key;
+      cb.checked ? hiddenCols.delete(key) : hiddenCols.add(key);
+      renderTable();
+    }));
+    // Drag-to-reorder
+    colList.querySelectorAll('.col-row').forEach(rowEl => {
+      rowEl.addEventListener('dragstart', e => { dragKey = rowEl.dataset.key; rowEl.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+      rowEl.addEventListener('dragend',   () => { dragKey = null; colList.querySelectorAll('.col-row').forEach(r => r.classList.remove('dragging', 'drop-before', 'drop-after')); });
+      rowEl.addEventListener('dragover',  e => {
+        e.preventDefault();
+        if (!dragKey || rowEl.dataset.key === dragKey) return;
+        const rect = rowEl.getBoundingClientRect();
+        const after = e.clientY > rect.top + rect.height / 2;
+        rowEl.classList.toggle('drop-after', after);
+        rowEl.classList.toggle('drop-before', !after);
+      });
+      rowEl.addEventListener('dragleave', () => rowEl.classList.remove('drop-before', 'drop-after'));
+      rowEl.addEventListener('drop', e => {
+        e.preventDefault();
+        const toKey = rowEl.dataset.key;
+        if (!dragKey || toKey === dragKey) return;
+        const rect = rowEl.getBoundingClientRect();
+        const after = e.clientY > rect.top + rect.height / 2;
+        moveColumn(dragKey, toKey, after);
+      });
     });
+  }
+  function moveColumn(fromKey, toKey, after) {
+    columnOrder = columnOrder.filter(k => k !== fromKey);
+    let idx = columnOrder.indexOf(toKey);
+    if (after) idx += 1;
+    columnOrder.splice(idx, 0, fromKey);
+    renderColumnManager();
+    renderTable();
   }
   document.getElementById('qualColPicker').addEventListener('click', e => {
     e.stopPropagation();
@@ -1260,126 +1140,175 @@
     colMenu.hidden = !willOpen;
     e.currentTarget.setAttribute('aria-expanded', String(willOpen));
   });
-  colMenu.querySelectorAll('vaadin-checkbox[data-col]').forEach(cb => cb.addEventListener('change', () => {
-    cb.checked ? hiddenCols.delete(cb.dataset.col) : hiddenCols.add(cb.dataset.col);
-    applyColVisibility();
-  }));
+  document.getElementById('colReset').addEventListener('click', () => {
+    columnOrder = COLUMNS.map(c => c.key);
+    hiddenCols.clear();
+    renderColumnManager();
+    renderTable();
+  });
   document.addEventListener('click', e => { if (!colPicker.contains(e.target)) colMenu.hidden = true; });
 
-  /* ═══════════════ Course selector — separate each course (default: first course) ═══════════════ */
-  const courseSelect = document.getElementById('courseSelect');
-  courseSelect.items = [
-    { label: 'All OSHA courses', value: 'all' },
-    ...GROUPS.map(g => ({ label: g.course, value: g.id })),
-  ];
-  courseSelect.value = currentCourse;
-  courseSelect.addEventListener('value-changed', () => {
-    if (!courseSelect.value || courseSelect.value === currentCourse) return;
-    currentCourse = courseSelect.value;
-    renderTable();
-    renderActionCards();   // counts reflect the selected course
-    renderV1Charts();      // pass/fail + progress charts reflect the selected course
-  });
-
-  /* ═══════════════ Filters (status + search + active action-card filter) ═══════════════ */
-  const enabledStatuses = new Set(['passed','in-progress','not-started','failed']);
-  function statusVisible(s) { return enabledStatuses.has(s); }
-  const searchInput = document.getElementById('qualSearch');
-  let activeActionFilter = null;   // set by an Action Needed card click in V1 ('intervene'|'nudge'|'retry')
-
-  // Hide the V2 module-detail rows whose parent learner row is hidden / not expanded.
-  function syncModuleRows() {
-    tbody.querySelectorAll('.module-detail-row').forEach(mr => {
-      const parent = tbody.querySelector(`.data-row[data-key="${mr.dataset.key}"]`);
-      const open = expandedRows.has(mr.dataset.key) && parent && parent.style.display !== 'none';
-      mr.style.display = open ? '' : 'none';
+  /* ═══════════════ Column sorting — every data column header sorts the table ═══════════════ */
+  // Reference "today" for relative Last-Accessed values (matches the report's last-updated date).
+  const SORT_REF = new Date(2026, 5, 22);
+  const STATUS_ORDER = { 'passed':0, 'in-progress':1, 'not-started':2, 'failed':3, 'overdue':4 };
+  function timeToMin(t) {                       // "4h 30m" / "0h 20m" / "0h" → minutes
+    if (!t) return 0;
+    const h = (t.match(/(\d+)\s*h/) || [])[1] || 0;
+    const m = (t.match(/(\d+)\s*m/) || [])[1] || 0;
+    return Number(h) * 60 + Number(m);
+  }
+  function mdyToDate(s) {                        // "MM/DD/YYYY" → Date (null if blank/—)
+    if (!s || s === '—') return null;
+    const [m, d, y] = s.split('/').map(Number);
+    return (m && d && y) ? new Date(y, m - 1, d) : null;
+  }
+  function lastAgo(last) {                       // smaller = more recent
+    if (last === 'Never') return Infinity;
+    if (last === 'Today') return 0;
+    if (last === 'Yesterday') return 1;
+    const days = (last.match(/(\d+)\s*days?\s*ago/) || [])[1];
+    if (days != null) return Number(days);
+    const dt = mdyToDate(last);
+    return dt ? Math.round((SORT_REF - dt) / 86400000) : Infinity;
+  }
+  // Each extractor returns a comparable value, or null when the row has no value for that column.
+  // Extractors take a row wrapper { r, course, gid }; return a comparable value or null.
+  const SORT_KEYS = {
+    learner:  x => x.r.name.toLowerCase(),
+    course:   x => x.course.toLowerCase(),
+    status:   x => STATUS_ORDER[x.r.status] ?? 99,
+    mods:     x => x.r.mods,
+    time:     x => timeToMin(x.r.time),
+    last:     x => lastAgo(x.r.last),
+    exp:      x => { const d = mdyToDate(x.r.exp); return d ? d.getTime() : null; },
+    failed:   x => { const d = mdyToDate(x.r.failDate); return d ? d.getTime() : null; },
+    attempts: x => (x.r.status === 'failed' && x.r.failDate) ? (x.r.attempts || 1) : null,
+  };
+  let sortState = { key: 'learner', dir: 'asc' };
+  function applySort() {
+    const get = SORT_KEYS[sortState.key];
+    if (!get) return;
+    const mult = sortState.dir === 'asc' ? 1 : -1;
+    rows.sort((a, b) => {
+      const va = get(a), vb = get(b);
+      const na = va == null, nb = vb == null;
+      if (na && nb) return 0;
+      if (na) return 1;                          // blanks always sort to the bottom
+      if (nb) return -1;
+      if (typeof va === 'string') return mult * va.localeCompare(vb);
+      return mult * (va - vb);
     });
   }
+  function updateSortIndicators() {
+    document.querySelectorAll('#qualTable thead th.sortable-th').forEach(th => {
+      const active = th.dataset.sort === sortState.key;
+      th.classList.toggle('active-sort', active);
+      const ic = th.querySelector('.sort-arrow');
+      if (ic) ic.className = 'sort-arrow fa-solid ' + (active ? (sortState.dir === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down') : 'fa-sort');
+    });
+  }
+  // Delegated so it survives the header being re-rendered on column show/hide/reorder.
+  qualTable.querySelector('thead').addEventListener('click', (e) => {
+    const th = e.target.closest('th.sortable-th');
+    if (!th) return;
+    const key = th.dataset.sort;
+    if (sortState.key === key) sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+    else sortState = { key, dir: 'asc' };
+    applySort();
+    renderTable();   // renderTable → renderHead → updateSortIndicators
+  });
 
-  function rowMatches(tr, q) {
-    if (!statusVisible(tr.dataset.status)) return false;
-    if (q && !tr.textContent.toLowerCase().includes(q)) return false;
-    if (activeActionFilter) {
-      const got = getRow(tr.dataset.key);
-      if (!got || !GROUP_MATCH[activeActionFilter](got.r)) return false;
-    }
+  /* ═══════════════ Filters — status · course · learner · expiring · near-limit · search ═══════════════ */
+  const searchInput = document.getElementById('qualSearch');
+  const filters = {
+    statuses: new Set(['passed','in-progress','not-started','failed']),
+    courses:  new Set(),   // empty = all courses
+    learners: new Set(),   // empty = all learners
+    expiringOnly: false,
+    nearLimitOnly: false,
+  };
+  function rowVisible(x) {
+    const r = x.r;
+    if (!filters.statuses.has(r.status)) return false;
+    if (filters.courses.size && !filters.courses.has(x.course)) return false;
+    if (filters.learners.size && !filters.learners.has(r.name)) return false;
+    if (filters.expiringOnly && !r.expSoon) return false;
+    if (filters.nearLimitOnly && !(r.status === 'failed' && (r.attempts || 1) >= 2)) return false;
+    const q = searchInput.value.trim().toLowerCase();
+    if (q && !`${r.name} ${r.ext} ${x.course}`.toLowerCase().includes(q)) return false;
     return true;
   }
   function applyFilters() {
-    const q = searchInput.value.trim().toLowerCase();
-    tbody.querySelectorAll('.data-row').forEach(tr => { tr.style.display = rowMatches(tr, q) ? '' : 'none'; });
-    syncModuleRows();
+    rows.forEach(x => {
+      const tr = tbody.querySelector(`.data-row[data-key="${rowKey(x.gid, x.r.ext)}"]`);
+      if (tr) tr.style.display = rowVisible(x) ? '' : 'none';
+    });
+    updateFilterBadge();
+    // Course (and the other panel filters) scope the WHOLE page — refresh the charts too.
+    if (typeof renderActionCards === 'function') renderActionCards();
+    if (typeof renderOverviewCharts === 'function') renderOverviewCharts();
     if (typeof updateBulkBar === 'function') updateBulkBar();
-    renderAppliedFilters();
   }
-  // Back-compat aliases — earlier call sites still reference these names.
+  // Learners (and their wrappers) passing the current filters — the data source for the charts.
+  function scopedWrappers() { return rows.filter(rowVisible); }
+  function scopedLearners() { return scopedWrappers().map(x => x.r); }
+  // Back-compat aliases — bulk-flow call sites still reference these names.
   function applyStatusFilter() { applyFilters(); }
   function syncSearch() { applyFilters(); }
-
-  /* Applied-filters summary at the top — makes clear the Filters button is page-wide. */
-  const ALL_STATUSES = ['passed','in-progress','not-started','failed'];
-  function renderAppliedFilters() {
-    const el = document.getElementById('appliedFilters');
-    if (!el) return;
-    // Always show the current course scope (defaults to "All OSHA courses") so the page-wide filter is obvious.
-    const courseLabel = currentCourse === 'all' ? 'All OSHA courses' : (GROUPS.find(x => x.id === currentCourse) || {}).course || '';
-    const chips = [];
-    if (enabledStatuses.size < ALL_STATUSES.length) {
-      chips.push({ k: 'Status', v: ALL_STATUSES.filter(s => enabledStatuses.has(s)).map(s => STATUS_LABEL[s]).join(', ') || 'none' });
-    }
-    const q = searchInput.value.trim();
-    if (q) chips.push({ k: 'Search', v: `“${q}”` });
-    if (document.getElementById('chk-expiring') && document.getElementById('chk-expiring').checked) chips.push({ k: 'Expiring ≤ 30 days', v: '' });
-    if (document.getElementById('chk-failed-limit') && document.getElementById('chk-failed-limit').checked) chips.push({ k: 'Near 3-failure limit', v: '' });
-
-    let html = `<span class="af-lead"><i class="fa-solid fa-filter"></i> Showing:</span>`
-      + `<span class="af-chip af-course">${currentCourse === 'all' ? '' : 'Course: '}<b>${courseLabel}</b></span>`
-      + chips.map(c => `<span class="af-chip">${c.k}${c.v ? ': <b>' + c.v + '</b>' : ''}</span>`).join('');
-    if (chips.length || currentCourse !== 'all') {
-      html += `<button class="af-clear" id="afClear">Clear all</button>`;
-    }
-    el.innerHTML = html;
-    const clear = el.querySelector('#afClear'); if (clear) clear.addEventListener('click', clearAllFilters);
-  }
-  function clearAllFilters() {
-    ALL_STATUSES.forEach(s => enabledStatuses.add(s));
-    document.querySelectorAll('#statusChecks vaadin-checkbox').forEach(cb => { cb.checked = true; });
-    ['chk-expiring','chk-failed-limit'].forEach(id => { const c = document.getElementById(id); if (c) c.checked = false; });
-    searchInput.value = '';
-    if (courseSelect.value !== 'all') courseSelect.value = 'all';   // fires value-changed → re-renders table/cards/charts
-    currentCourse = 'all';
-    activeActionFilter = null; renderActionFilterChip();
-    renderTable(); renderActionCards(); renderV1Charts();
-  }
 
   document.querySelectorAll('#statusChecks vaadin-checkbox').forEach(cb => {
     cb.addEventListener('change', () => {
       const s = cb.dataset.status;
-      cb.checked ? enabledStatuses.add(s) : enabledStatuses.delete(s);
+      cb.checked ? filters.statuses.add(s) : filters.statuses.delete(s);
       applyFilters();
     });
   });
+  document.getElementById('chk-expiring').addEventListener('change', e => { filters.expiringOnly = e.target.checked; applyFilters(); });
+  document.getElementById('chk-failed-limit').addEventListener('change', e => { filters.nearLimitOnly = e.target.checked; applyFilters(); });
   searchInput.addEventListener('input', applyFilters);
-  ['chk-expiring','chk-failed-limit'].forEach(id => {
-    const c = document.getElementById(id);
-    if (c) c.addEventListener('change', renderAppliedFilters);
-  });
 
-  /* ═══════════════ Module controls — V1 "Details" panel · V2 inline expand ═══════════════ */
+  /* ═══════════════ Filters badge (report toolbar) — always shows the course scope ═══════════════ */
+  const filtersScope = document.getElementById('filtersScope');
+  const filtersClearBtn = document.getElementById('filtersClearBtn');
+  function extraFilterCount() {
+    let n = 0;
+    if (filters.statuses.size < 4) n++;
+    if (filters.learners.size) n++;
+    if (filters.expiringOnly) n++;
+    if (filters.nearLimitOnly) n++;
+    if (searchInput.value.trim()) n++;
+    return n;
+  }
+  function updateFilterBadge() {
+    const cs = filters.courses;
+    const scope = cs.size === 0 ? 'All courses' : (cs.size === 1 ? [...cs][0] : `${cs.size} courses`);
+    const extra = extraFilterCount();
+    filtersScope.textContent = extra ? `${scope} · +${extra} filter${extra !== 1 ? 's' : ''}` : scope;
+    filtersClearBtn.hidden = cs.size === 0 && extra === 0;
+  }
+  function clearAllFilters() {
+    filters.statuses.clear(); ['passed','in-progress','not-started','failed'].forEach(s => filters.statuses.add(s));
+    filters.courses.clear(); filters.learners.clear();
+    filters.expiringOnly = false; filters.nearLimitOnly = false;
+    searchInput.value = '';
+    document.querySelectorAll('#statusChecks vaadin-checkbox').forEach(cb => { cb.checked = true; });
+    const ce = document.getElementById('chk-expiring'); if (ce) ce.checked = false;
+    const cf = document.getElementById('chk-failed-limit'); if (cf) cf.checked = false;
+    renderChips(document.getElementById('courseChips'), filters.courses, applyFilters);
+    renderChips(document.getElementById('userChips'),   filters.learners, applyFilters);
+    applyFilters();
+  }
+  filtersClearBtn.addEventListener('click', clearAllFilters);
+  // Clicking the scope chip opens the filter panel (so the badge is discoverable).
+  document.getElementById('filtersScopeBtn').addEventListener('click', () => openPanel());
+
+  /* ═══════════════ Module controls — per-student "Details" modal ═══════════════ */
   tbody.addEventListener('click', e => {
     const link = e.target.closest('.mod-link');
     if (link) {
       const { r, g } = getRow(link.dataset.key) || {};
-      if (r) openDetailPanel(r, g.course);
-      return;
-    }
-    const exp = e.target.closest('.mod-expand-btn');
-    if (exp) {
-      const key = exp.dataset.key;
-      expandedRows.has(key) ? expandedRows.delete(key) : expandedRows.add(key);
-      const icon = exp.querySelector('i');
-      if (icon) icon.className = expandedRows.has(key) ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-right';
-      syncModuleRows();
+      if (r) openStudentModules(r, g.course);
     }
   });
 
@@ -1612,22 +1541,19 @@
         ${recipListHTML(items)}
         <div class="opt"><vaadin-checkbox checked></vaadin-checkbox><span class="o-text"><b>Notify each learner when eligible</b></span></div>` };
   }
-  // Run the grouped, stepped flow over an explicit list of {r, course} items.
-  function runBulkFor(items) {
+  function openBulkFlow() {
+    const rows = [...selectedRows].map(getRow).filter(Boolean);
     const byType = {};
-    items.forEach(({ r, course }) => {
+    rows.forEach(({ r, g }) => {
       const t = ACTIONS[r.status] && ACTIONS[r.status].type;
       if (!t) return;
-      (byType[t] = byType[t] || []).push({ r, course });
+      (byType[t] = byType[t] || []).push({ r, course: g.course });
     });
     const steps = BULK_ORDER.filter(t => byType[t] && byType[t].length).map(t => ({ type: t, items: byType[t] }));
-    if (!steps.length) { showToast('No actions needed for these learners'); return; }
+    if (!steps.length) { showToast('No actions needed for the selected learners'); return; }
     bulkState = { steps, i: 0, done: [] };
     renderBulkStep();
     dialog.opened = true;
-  }
-  function openBulkFlow() {
-    runBulkFor([...selectedRows].map(getRow).filter(Boolean).map(({ r, g }) => ({ r, course: g.course })));
   }
   function renderBulkStep() {
     const step = bulkState.steps[bulkState.i];
@@ -1682,7 +1608,6 @@
     filterInlineToggle.style.display = '';
   }
   function openPanel() {
-    if (typeof closeDetailPanel === 'function') closeDetailPanel();  // only one right panel at a time
     filterPanel.classList.remove('collapsed');
     filterInlineToggle.style.display = 'none';
   }
@@ -1697,35 +1622,38 @@
     closePanel();
   });
 
-  /* ═══════════════ Filter chips — Select Courses / Users (demo pickers) ═══════════════ */
-  const ALL_COURSES = ['OSHA 10-Hour General Industry','OSHA 30-Hour General Industry','Bloodborne Pathogens','Hazard Communication','Fall Protection'];
-  const ALL_USERS   = ['Hale, Marcus','Nair, Priya','Carter, Liam','Lin, Grace','Reyes, Tomás','Osei, Janet','Zhang, Emily'];
+  /* ═══════════════ Filter chips + pickers — Courses / Learners (drive the real filters) ═══════════════ */
+  const ALL_COURSES = GROUPS.map(g => g.course);
+  const ALL_USERS = [...new Set(rows.map(x => x.r.name))].sort((a, b) => a.localeCompare(b));
 
   function makeChip(label, onRemove) {
     const chip = document.createElement('span');
     chip.className = 'filter-chip';
     chip.innerHTML = `<span>${label}</span><button class="filter-chip-remove" aria-label="Remove ${label}"><i class="fa-solid fa-xmark"></i></button>`;
-    chip.querySelector('.filter-chip-remove').addEventListener('click', () => { chip.remove(); onRemove?.(label); });
+    chip.querySelector('.filter-chip-remove').addEventListener('click', () => onRemove(label));
     return chip;
   }
+  function renderChips(chipsWrap, selected, onChange) {
+    chipsWrap.innerHTML = '';
+    [...selected].forEach(label => chipsWrap.appendChild(makeChip(label, l => {
+      selected.delete(l); renderChips(chipsWrap, selected, onChange); onChange();
+    })));
+  }
 
-  /* Vaadin dialog picker: a searchable checklist that writes chips back to the panel. */
-  function wirePicker(dialogId, buttonId, chipsId, title, items, selected) {
+  /* Vaadin dialog picker: a checklist that commits to `selected` on Apply, then re-filters. */
+  function wirePicker(dialogId, buttonId, chipsId, title, items, selected, onApply) {
     const dialog = document.getElementById(dialogId);
     const chipsWrap = document.getElementById(chipsId);
-    function refreshChips() {
-      chipsWrap.innerHTML = '';
-      [...selected].forEach(label => chipsWrap.appendChild(makeChip(label, l => selected.delete(l))));
-    }
     document.getElementById(buttonId).addEventListener('click', () => {
+      const working = new Set(selected);   // edits are discarded unless Apply is clicked
       dialog.headerRenderer = (root) => { root.innerHTML = `<strong style="font-size:15px">${title}</strong>`; };
       dialog.renderer = (root) => {
         root.innerHTML = `<div style="width:min(420px,90vw); max-height:340px; overflow:auto;">
           ${items.map(it => `<label style="display:flex; align-items:center; gap:10px; padding:8px 2px; border-bottom:1px solid #f3f4f6; font-size:13px; cursor:pointer;">
-            <vaadin-checkbox data-pick="${it.replace(/"/g,'&quot;')}" ${selected.has(it) ? 'checked' : ''}></vaadin-checkbox><span>${it}</span></label>`).join('')}
+            <vaadin-checkbox data-pick="${it.replace(/"/g,'&quot;')}" ${working.has(it) ? 'checked' : ''}></vaadin-checkbox><span>${it}</span></label>`).join('')}
         </div>`;
         root.querySelectorAll('vaadin-checkbox[data-pick]').forEach(cb => {
-          cb.addEventListener('change', () => { cb.checked ? selected.add(cb.dataset.pick) : selected.delete(cb.dataset.pick); });
+          cb.addEventListener('change', () => { cb.checked ? working.add(cb.dataset.pick) : working.delete(cb.dataset.pick); });
         });
       };
       dialog.footerRenderer = (root) => {
@@ -1735,13 +1663,19 @@
         cancel.addEventListener('click', () => { dialog.opened = false; });
         const apply = document.createElement('vaadin-button');
         apply.setAttribute('theme','primary'); apply.textContent = 'Apply';
-        apply.addEventListener('click', () => { refreshChips(); dialog.opened = false; });
+        apply.addEventListener('click', () => {
+          selected.clear(); working.forEach(v => selected.add(v));
+          renderChips(chipsWrap, selected, onApply);
+          onApply();
+          dialog.opened = false;
+        });
         root.append(cancel, apply);
       };
       dialog.opened = true;
     });
   }
-  wirePicker('selectUsersDialog',   'selectUsersBtn',   'userChips',   'Select Users',        ALL_USERS,   new Set());
+  wirePicker('selectCoursesDialog', 'selectCoursesBtn', 'courseChips', 'Select OSHA Courses', ALL_COURSES, filters.courses,  applyFilters);
+  wirePicker('selectUsersDialog',   'selectUsersBtn',   'userChips',   'Select Learners',     ALL_USERS,   filters.learners, applyFilters);
 
   /* ═══════════════ Date-range dropdown (ported from V1) ═══════════════ */
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1796,79 +1730,73 @@
     b.setAttribute('disabled',''); setTimeout(() => b.removeAttribute('disabled'), 1200);
   });
 
-  /* ═══════════════ V1 — per-student module detail as a right-side push panel ═══════════════ */
-  const detailPanel = document.getElementById('detailPanel');
-  function closeDetailPanel() {
-    detailPanel.classList.add('collapsed');
-    detailPanel.classList.remove('active-detail');
-  }
-  function openDetailPanel(r, course) {
-    closePanel();                                   // close the Filters panel so only one right panel shows
+  /* ═══════════════ V1 — per-student module progress + quiz scores modal ═══════════════ */
+  const moduleDialog = document.getElementById('moduleDialog');
+  function openStudentModules(r, course) {
     const mods = learnerModules(r, course);
     const done = mods.filter(m => m.status === 'complete').length;
     const scored = mods.filter(m => m.score != null);
     const avg = scored.length ? Math.round(scored.reduce((a, m) => a + m.score, 0) / scored.length) : null;
-    document.getElementById('detailPanelName').textContent = displayName(r.name);
-    document.getElementById('detailPanelCourse').textContent = course;
-    document.getElementById('detailPanelBody').innerHTML = `
-      <div class="mods-summary">
-        <div class="ms-cell"><div class="ms-k">Status</div><div class="ms-v"><span class="status-badge ${r.status}">${STATUS_LABEL[r.status]}</span></div></div>
-        <div class="ms-cell"><div class="ms-k">Modules</div><div class="ms-v">${done}/${MOD_TOTAL}</div></div>
-        <div class="ms-cell"><div class="ms-k">Avg quiz</div><div class="ms-v">${avg != null ? avg + '%' : '—'}</div></div>
-      </div>
-      <div class="mods-list">
-        ${mods.map((m, i) => {
-          const fail = m.status === 'complete' && m.score < 70;
-          const cls = m.status === 'complete' ? (fail ? 'failed-mod' : 'done') : '';
-          const sLabel = m.status === 'complete' ? 'Complete' : (m.status === 'in-progress' ? 'In Progress' : 'Not Started');
-          const numInner = m.status === 'complete' ? (fail ? '<i class="fa-solid fa-xmark"></i>' : '<i class="fa-solid fa-check"></i>') : (i + 1);
-          const score = m.score != null ? `${m.score}%` : '—';
-          return `<div class="mod-item ${cls}">
-            <div class="mi-num">${numInner}</div>
-            <div class="mi-name">${m.name}</div>
-            <div class="mi-status s-${m.status}">${sLabel}</div>
-            <div class="mi-score ${m.score != null ? '' : 'dash'}">${score}</div>
-          </div>`;
-        }).join('')}
-      </div>
-      ${r.status === 'passed' ? `
-        <div class="detail-cert-title">Certificate</div>
-        <div class="cert">
-          <div class="c-seal"><i class="fa-solid fa-award"></i></div>
-          <div class="c-kicker">CERTIFICATE OF COMPLETION</div>
-          <div class="c-name">${displayName(r.name)}</div>
-          <div class="c-for">has successfully completed</div>
-          <div class="c-course">${course}</div>
-          <div class="c-meta">
-            <div>Completed<b>${r.last}</b></div>
-            <div>Score<b>${avg != null ? avg + '%' : '—'}</b></div>
-            <div>Cert ID<b>OSHA-${r.ext.toUpperCase()}</b></div>
+    const totalTime = mods.reduce((a, m) => a + (m.time || 0), 0);
+    const name = displayName(r.name);
+    moduleDialog.headerRenderer = (root) => {
+      root.innerHTML = `<div class="dlg-head" style="width:min(560px,92vw)">
+        <div class="m-ico" style="background:#dbeafe;color:#1d4ed8"><i class="fa-solid fa-list-check"></i></div>
+        <div><div class="m-title">${name}</div><div class="m-sub">${course}</div></div>
+        <vaadin-button theme="icon tertiary" id="mdClose" aria-label="Close" style="margin-left:auto"><i class="fa-solid fa-xmark"></i></vaadin-button>
+      </div>`;
+      root.querySelector('#mdClose').addEventListener('click', () => { moduleDialog.opened = false; });
+    };
+    moduleDialog.renderer = (root) => {
+      root.innerHTML = `<div class="dlg-body" style="width:min(560px,92vw)">
+        <div class="mods-summary">
+          <div class="ms-cell"><div class="ms-k">Status</div><div class="ms-v"><span class="status-badge ${r.status}">${STATUS_LABEL[r.status]}</span></div></div>
+          <div class="ms-cell"><div class="ms-k">Modules complete</div><div class="ms-v">${done}/${MOD_TOTAL}</div></div>
+          <div class="ms-cell"><div class="ms-k">Avg quiz score</div><div class="ms-v">${avg != null ? avg + '%' : '—'}</div></div>
+          <div class="ms-cell"><div class="ms-k">Time spent</div><div class="ms-v">${fmtMin(totalTime)}</div></div>
+        </div>
+        <div class="mods-list">
+          <div class="mod-item mod-head">
+            <div class="mi-num"></div>
+            <div class="mi-name">Module</div>
+            <div class="mi-status">Status</div>
+            <div class="mi-time">Time</div>
+            <div class="mi-score">Quiz</div>
           </div>
-        </div>` : ''}`;
-    const foot = document.getElementById('detailPanelFooter');
-    foot.innerHTML = '';
-    const a = ACTIONS[r.status];
-    if (r.status === 'passed') {
-      const dl = document.createElement('vaadin-button');
-      dl.setAttribute('theme', 'primary');
-      dl.style.width = '100%';
-      dl.innerHTML = `<i class="fa-solid fa-download" slot="prefix"></i>Download Certificate`;
-      dl.addEventListener('click', () => showToast(`Certificate downloaded for ${displayName(r.name)}`));
-      foot.appendChild(dl);
-    } else if (a) {
-      const act = document.createElement('vaadin-button');
-      act.setAttribute('theme', a.theme.replace('secondary', 'primary'));
-      act.style.width = '100%';
-      act.innerHTML = `<i class="fa-solid ${a.icon}" slot="prefix"></i>${a.label}`;
-      act.addEventListener('click', () => openModal(a.type, r, course));
-      foot.appendChild(act);
-    } else {
-      foot.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;">No action needed.</div>';
-    }
-    detailPanel.classList.remove('collapsed');
-    detailPanel.classList.add('active-detail');
+          ${mods.map((m, i) => {
+            const fail = m.status === 'complete' && m.score < 70;
+            const cls = m.status === 'complete' ? (fail ? 'failed-mod' : 'done') : '';
+            const sLabel = m.status === 'complete' ? 'Complete' : (m.status === 'in-progress' ? 'In Progress' : 'Not Started');
+            const numInner = m.status === 'complete' ? (fail ? '<i class="fa-solid fa-xmark"></i>' : '<i class="fa-solid fa-check"></i>') : (i + 1);
+            const score = m.score != null ? `${m.score}%` : '—';
+            return `<div class="mod-item ${cls}">
+              <div class="mi-num">${numInner}</div>
+              <div class="mi-name">${m.name}</div>
+              <div class="mi-status s-${m.status}">${sLabel}</div>
+              <div class="mi-time">${fmtMin(m.time)}</div>
+              <div class="mi-score ${m.score != null ? '' : 'dash'}">${score}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    };
+    moduleDialog.footerRenderer = (root) => {
+      root.innerHTML = '';
+      const close = document.createElement('vaadin-button');
+      close.setAttribute('theme', 'tertiary'); close.textContent = 'Close';
+      close.addEventListener('click', () => { moduleDialog.opened = false; });
+      root.appendChild(close);
+      const a = ACTIONS[r.status];
+      if (a) {
+        const act = document.createElement('vaadin-button');
+        act.setAttribute('theme', a.theme.replace('secondary', 'primary')); // emphasize the action
+        act.innerHTML = `<i class="fa-solid ${a.icon}" slot="prefix"></i>${a.label}`;
+        act.addEventListener('click', () => { moduleDialog.opened = false; openModal(a.type, r, course); });
+        root.appendChild(act);
+      }
+    };
+    moduleDialog.opened = true;
   }
-  document.getElementById('closeDetailBtn').addEventListener('click', closeDetailPanel);
 
   /* ═══════════════ Action-needed cards (replace the Top-5 bar chart) ═══════════════ */
   const GROUP_MATCH = {
@@ -1876,54 +1804,71 @@
     nudge:     r => r.status === 'in-progress' && r.behind,
     retry:     r => r.status === 'failed',
   };
-  // Per-card metadata: header (glanceable category) + description + primary action button.
-  const CARD_META = [
-    { type: 'intervene', cls: 'intervene', icon: 'fa-circle-exclamation', header: 'Not Started',    desc: 'needs intervention',       btn: 'Intervene', btnTheme: 'error secondary',   denom: 'total' },
-    { type: 'nudge',     cls: 'nudge',     icon: 'fa-bell',               header: 'Behind Schedule', desc: 'needs a nudge',            btn: 'Nudge',     btnTheme: 'warning secondary', denom: 'inprogress' },
-    { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       header: 'Failed',          desc: 'course / quiz — needs a retry', btn: 'Retry',  btnTheme: 'secondary',         denom: 'total' },
-  ];
-  const allRows = () => GROUPS.flatMap(g => g.rows);
-  // Charts + cards reflect the course filter (the Filters-panel dropdown).
-  function scopedGroups() { return currentCourse === 'all' ? GROUPS : GROUPS.filter(g => g.id === currentCourse); }
-  function scopedRows() { return scopedGroups().flatMap(g => g.rows); }
-  // Learners (scoped) matching an action group, as {r, course} items for the bulk flow.
-  function actionItemsFor(type) {
-    const items = [];
-    scopedGroups().forEach(g => g.rows.forEach(r => { if (GROUP_MATCH[type](r)) items.push({ r, course: g.course }); }));
-    return items;
-  }
   function renderActionCards() {
-    const rows = scopedRows();
-    const total = rows.length;
-    const inProgress = rows.filter(r => r.status === 'in-progress').length;
+    const data = scopedLearners();
+    const total = data.length;
+    const inProgress = data.filter(r => r.status === 'in-progress').length;
+    const cards = [
+      { type: 'intervene', cls: 'intervene', icon: 'fa-circle-exclamation', count: data.filter(GROUP_MATCH.intervene).length, of: total,      label: 'Not started — needs intervention' },
+      { type: 'nudge',     cls: 'nudge',     icon: 'fa-bell',               count: data.filter(GROUP_MATCH.nudge).length,     of: inProgress, label: 'Behind the expected pace — needs a nudge' },
+      { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: total,      label: 'Failed the assessment — needs a retry' },
+    ];
     const wrap = document.getElementById('actionCards');
-    wrap.innerHTML = CARD_META.map(c => {
-      const count = rows.filter(GROUP_MATCH[c.type]).length;
-      const of = c.denom === 'inprogress' ? inProgress : total;
-      return `
-      <div class="action-card" data-action="${c.type}" role="button" tabindex="0">
+    wrap.innerHTML = cards.map(c => `
+      <button class="action-card" data-action="${c.type}">
         <span class="ac-ico ${c.cls}"><i class="fa-solid ${c.icon}"></i></span>
         <span class="ac-body">
-          <span class="ac-top"><span class="ac-header">${c.header}</span><span class="ac-count">${count} <span class="ac-of">of ${of}</span></span></span>
-          <span class="ac-label">${c.desc}</span>
+          <span class="ac-count">${c.count} <span class="ac-of">of ${c.of}</span></span>
+          <span class="ac-label">${c.label}</span>
         </span>
-        <vaadin-button theme="${c.btnTheme} small" class="ac-action" data-action="${c.type}">${c.btn}</vaadin-button>
-      </div>`;
-    }).join('');
-    // Card body click → filter (V1) / select (V2/V3); the action button runs the bulk flow for that group.
-    wrap.querySelectorAll('.action-card').forEach(card =>
-      card.addEventListener('click', () => onActionCard(card.dataset.action)));
-    wrap.querySelectorAll('.ac-action').forEach(btn =>
-      btn.addEventListener('click', (e) => { e.stopPropagation(); runBulkFor(actionItemsFor(btn.dataset.action)); }));
+        <span class="ac-cta">Take action <i class="fa-solid fa-arrow-right"></i></span>
+      </button>`).join('');
+    wrap.querySelectorAll('.action-card').forEach(btn =>
+      btn.addEventListener('click', () => openActionGroup(btn.dataset.action)));
   }
 
-  /* ═══════════════ V1 overview charts (Pass/Fail + module drill + progress status) ═══════════════ */
+  /* ═══════════════ Overview charts — Completion Distribution (pie) ⇄ Where Learners Are ═══════════════ */
+  // Pie: share of learners by completion status (live from the data, not hard-coded).
+  function renderDistribution() {
+    const data = scopedLearners();
+    const total = data.length || 1;
+    const segs = [
+      { key: 'passed',      label: 'Passed',      color: '#22c55e', n: data.filter(r => r.status === 'passed').length },
+      { key: 'in-progress', label: 'In Progress', color: '#3b82f6', n: data.filter(r => r.status === 'in-progress').length },
+      { key: 'not-started', label: 'Not Started', color: '#d1d5db', n: data.filter(r => r.status === 'not-started').length },
+      { key: 'failed',      label: 'Failed',      color: '#dc2626', n: data.filter(r => r.status === 'failed').length },
+    ];
+    let acc = 0;
+    const stops = segs.map(s => { const a = acc / total * 360; acc += s.n; return `${s.color} ${a}deg ${acc / total * 360}deg`; }).join(', ');
+    document.getElementById('pieChart').style.background = `conic-gradient(${stops})`;
+    document.getElementById('pieLabels').innerHTML = segs.map(s =>
+      `<span class="pie-label"><span class="pd" style="background:${s.color}"></span> ${s.label}: ${Math.round(s.n / total * 100)}%</span>`).join('');
+  }
+  // Where Learners Are: how far along learners are right now (counts per progress category).
+  function renderProgress() {
+    const data = scopedLearners();
+    const cats = [
+      { label: 'Not started',      color: '#9ca3af', n: data.filter(r => r.status === 'not-started').length },
+      { label: 'On track',         color: '#3b82f6', n: data.filter(r => r.status === 'in-progress' && !r.behind).length },
+      { label: 'Behind / delayed', color: '#f59e0b', n: data.filter(r => r.status === 'in-progress' && r.behind).length },
+      { label: 'Failed / retry',   color: '#dc2626', n: data.filter(r => r.status === 'failed').length },
+      { label: 'Completed',        color: '#22c55e', n: data.filter(r => r.status === 'passed').length },
+    ];
+    const max = Math.max(1, ...cats.map(c => c.n));
+    document.getElementById('progressChart').innerHTML = cats.map(c => `
+      <div class="prog-row">
+        <span class="prog-label"><span class="pdot" style="background:${c.color}"></span>${c.label}</span>
+        <span class="prog-track"><span class="prog-fill" style="width:${c.n / max * 100}%; background:${c.color};"></span></span>
+        <span class="prog-val">${c.n}</span>
+      </div>`).join('');
+  }
+  // Course Pass / Fail: a pass-rate donut (passed vs. failed vs. not-yet-assessed).
   function renderPassFail() {
-    const rows = scopedRows();
-    const passed = rows.filter(r => r.status === 'passed').length;
-    const failed = rows.filter(r => r.status === 'failed').length;
-    const pending = rows.length - passed - failed;
-    const total = rows.length || 1;
+    const data = scopedLearners();
+    const passed = data.filter(r => r.status === 'passed').length;
+    const failed = data.filter(r => r.status === 'failed').length;
+    const pending = data.length - passed - failed;
+    const total = data.length || 1;
     const segs = [
       { label: 'Passed', count: passed, color: '#22c55e' },
       { label: 'Failed', count: failed, color: '#ef4444' },
@@ -1943,17 +1888,14 @@
         </div>
       </div>`;
   }
+  // Drill-through: per-module pass/fail counts (completed modules scoring ≥70 pass, else fail), across all courses.
   function renderModuleBreakdown() {
     const acc = Array.from({ length: MOD_TOTAL }, () => ({ pass: 0, fail: 0 }));
-    let labels;
-    if (currentCourse === 'all') {
-      labels = Array.from({ length: MOD_TOTAL }, (_, i) => `Module ${i + 1}`);
-      GROUPS.forEach(g => g.rows.forEach(r => learnerModules(r, g.course).forEach((m, i) => { if (m.status === 'complete') (m.score >= 70 ? acc[i].pass++ : acc[i].fail++); })));
-    } else {
-      const g = GROUPS.find(x => x.id === currentCourse);
-      labels = COURSE_MODULES[g.course];
-      g.rows.forEach(r => learnerModules(r, g.course).forEach((m, i) => { if (m.status === 'complete') (m.score >= 70 ? acc[i].pass++ : acc[i].fail++); }));
-    }
+    const labels = Array.from({ length: MOD_TOTAL }, (_, i) => `Module ${i + 1}`);
+    labels[MOD_TOTAL - 1] = 'Final Assessment';
+    scopedWrappers().forEach(x => learnerModules(x.r, x.course).forEach((m, i) => {
+      if (m.status === 'complete') (m.score >= 70 ? acc[i].pass++ : acc[i].fail++);
+    }));
     document.getElementById('moduleBreakdown').innerHTML = acc.map((a, i) => {
       const tot = (a.pass + a.fail) || 1;
       return `<div class="mb-row">
@@ -1963,45 +1905,8 @@
       </div>`;
     }).join('');
   }
-  function renderProgress() {
-    const rows = scopedRows();
-    const cats = [
-      { label: 'Not started',      count: rows.filter(r => r.status === 'not-started').length,             color: '#9ca3af' },
-      { label: 'On track',         count: rows.filter(r => r.status === 'in-progress' && !r.behind).length, color: '#3b82f6' },
-      { label: 'Behind / delayed', count: rows.filter(r => r.status === 'in-progress' && r.behind).length,  color: '#f59e0b' },
-      { label: 'Failed / retry',   count: rows.filter(r => r.status === 'failed').length,                   color: '#dc2626' },
-      { label: 'Completed',        count: rows.filter(r => r.status === 'passed').length, color: '#22c55e' },
-    ];
-    const max = Math.max(1, ...cats.map(c => c.count));
-    document.getElementById('progressChart').innerHTML = cats.map(c => `
-      <div class="prog-row">
-        <span class="prog-label"><span class="pdot" style="background:${c.color}"></span>${c.label}</span>
-        <span class="prog-track"><span class="prog-fill" style="width:${c.count / max * 100}%; background:${c.color};"></span></span>
-        <span class="prog-val">${c.count}</span>
-      </div>`).join('');
-  }
-  // V3 overview: a single stacked status bar that ties the action groups together (segments clickable).
-  function renderV3Chart() {
-    const rows = scopedRows();
-    const total = rows.length || 1;
-    const segs = [
-      { label: 'Not started',      color: '#9ca3af', action: 'intervene', n: rows.filter(r => r.status === 'not-started').length },
-      { label: 'Behind / delayed', color: '#f59e0b', action: 'nudge',     n: rows.filter(r => r.status === 'in-progress' && r.behind).length },
-      { label: 'On track',         color: '#3b82f6',                      n: rows.filter(r => r.status === 'in-progress' && !r.behind).length },
-      { label: 'Failed / retry',   color: '#dc2626', action: 'retry',     n: rows.filter(r => r.status === 'failed').length },
-      { label: 'Passed',           color: '#22c55e',                      n: rows.filter(r => r.status === 'passed').length },
-    ];
-    document.getElementById('stackBar').innerHTML = segs.filter(s => s.n > 0).map(s =>
-      `<span class="sb-seg ${s.action ? 'actionable' : ''}" ${s.action ? `data-action="${s.action}"` : ''} style="width:${s.n / total * 100}%; background:${s.color}" title="${s.label}: ${s.n}"></span>`).join('');
-    document.getElementById('stackLegend').innerHTML = segs.map(s => {
-      const tag = s.action ? 'button' : 'span';
-      return `<${tag} class="sl ${s.action ? 'actionable' : ''}" ${s.action ? `data-action="${s.action}"` : ''}><span class="sd" style="background:${s.color}"></span><b>${s.n}</b> ${s.label}</${tag}>`;
-    }).join('');
-    document.querySelectorAll('#stackBar .sb-seg.actionable, #stackLegend .sl.actionable').forEach(el =>
-      el.addEventListener('click', () => onActionCard(el.dataset.action)));
-  }
-  function renderV1Charts() { renderPassFail(); renderModuleBreakdown(); renderProgress(); renderV3Chart(); }
-  // Drill-through: show/hide the per-module pass/fail breakdown under the donut.
+  function renderOverviewCharts() { renderDistribution(); renderProgress(); renderPassFail(); renderModuleBreakdown(); }
+  // Drill-through toggle under the donut.
   document.getElementById('drillToggle').addEventListener('click', (e) => {
     const mb = document.getElementById('moduleBreakdown');
     const open = mb.hidden;
@@ -2009,73 +1914,88 @@
     e.currentTarget.setAttribute('aria-expanded', String(open));
     e.currentTarget.innerHTML = `<i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i> ${open ? 'Hide' : 'Show'} module pass / fail`;
   });
-  // Flip between the two V1 overview charts.
+  // Flip between the overview views (each view's id is `view-<data-chart>`).
   document.getElementById('chartFlip').addEventListener('click', (e) => {
     const btn = e.target.closest('.cf-btn');
     if (!btn) return;
     document.querySelectorAll('#chartFlip .cf-btn').forEach(b => b.classList.toggle('active', b === btn));
-    document.getElementById('view-passfail').hidden = btn.dataset.chart !== 'passfail';
-    document.getElementById('view-progress').hidden = btn.dataset.chart !== 'progress';
-  });
-  // V3: collapse/expand the module quiz-score columns.
-  document.getElementById('modColToggle').addEventListener('click', () => {
-    modColsOpen = !modColsOpen;
-    renderTable();
+    document.querySelectorAll('.chart-area .chart-view').forEach(v => { v.hidden = v.id !== `view-${btn.dataset.chart}`; });
   });
 
-  /* ═══════════════ Action-card interactions (version-specific) ═══════════════
-       V1 → filter the report table down to just that status group.
-       V2 → select those learners in the table (then use the bulk action bar).
-     activeActionFilter is declared up in the Filters section and read by rowMatches(). */
-  const reportCardEl = document.getElementById('qualReport');
-  function onActionCard(type) {
-    if (versionRoot.classList.contains('version-2') || versionRoot.classList.contains('version-3')) {
-      // V2 / V3 — select every matching learner in the current course view
-      selectedRows.clear();
-      scopedGroups().forEach(g => g.rows.forEach(r => { if (GROUP_MATCH[type](r)) selectedRows.add(rowKey(g.id, r.ext)); }));
-      activeActionFilter = null; renderActionFilterChip();
-      renderTable();                                  // reflects checked + row-selected state
-      updateBulkBar();
-    } else {
-      // V1 — filter the table to that status group (click again to clear)
-      activeActionFilter = (activeActionFilter === type) ? null : type;
-      renderActionFilterChip();
-      applyFilters();
-    }
-    reportCardEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  /* ═══════════════ Action-group modal — filter by course, then take a bulk action ═══════════════ */
+  const agDialog = document.getElementById('agDialog');
+  const AG_META = {
+    intervene: { title: 'Intervene — Not Started',      cta: 'Send Intervention', cTheme: 'error primary',   cIcon: 'fa-paper-plane',  verb: n => `Intervention sent to ${n} learner${n > 1 ? 's' : ''}` },
+    nudge:     { title: 'Nudge — Behind Schedule',      cta: 'Send Nudge',        cTheme: 'warning primary', cIcon: 'fa-bell',         verb: n => `Nudge sent to ${n} learner${n > 1 ? 's' : ''}` },
+    retry:     { title: 'Schedule Retry — Failed',      cta: 'Schedule Retry',    cTheme: 'primary',         cIcon: 'fa-rotate-right', verb: n => `Retry scheduled for ${n} learner${n > 1 ? 's' : ''}` },
+  };
+  let agState = null;
+  function agVisibleItems() {
+    return agState.items.filter(x => agState.courseFilter === 'all' || x.course === agState.courseFilter);
   }
-  function renderActionFilterChip() {
-    const chip = document.getElementById('actionFilterChip');
-    if (!chip) return;
-    if (!activeActionFilter) { chip.hidden = true; chip.innerHTML = ''; return; }
-    const labels = { intervene: 'Not started', nudge: 'Behind schedule', retry: 'Failed — needs retry' };
-    chip.hidden = false;
-    chip.innerHTML = `<i class="fa-solid fa-filter"></i><span>${labels[activeActionFilter]}</span><button class="aff-x" aria-label="Clear filter"><i class="fa-solid fa-xmark"></i></button>`;
-    chip.querySelector('.aff-x').addEventListener('click', () => { activeActionFilter = null; renderActionFilterChip(); applyFilters(); });
+  function agSelectedCount() {
+    return agVisibleItems().filter(x => agState.sel.has(x.key)).length;
   }
-
-  /* ═══════════════ Version switcher — V1 (per-student modal) ⇄ V2 (inline module-score columns) ═══════════════ */
-  // Version class lives on the shared layout ancestor so BOTH the Action Needed cards
-  // (in the overview) and the report table's module controls respond to it.
-  const versionRoot = document.getElementById('oshaLayout');
-  function showVersion(v) {
-    document.querySelectorAll('.version-switcher .vs-btn').forEach(b => b.classList.toggle('active', b.dataset.version === v));
-    versionRoot.classList.toggle('version-1', v === '1');
-    versionRoot.classList.toggle('version-2', v === '2');
-    versionRoot.classList.toggle('version-3', v === '3');
-    if (v !== '2') expandedRows.clear();                       // inline expand is a V2-only affordance
-    if (activeActionFilter) { activeActionFilter = null; renderActionFilterChip(); }
-    closeDetailPanel();                                        // close the V1 detail panel on version change
-    renderTable();                                             // re-render: add/remove V3 module columns + re-apply filters
+  function openActionGroup(type) {
+    const items = [];
+    GROUPS.forEach(g => g.rows.forEach(r => { if (GROUP_MATCH[type](r)) items.push({ r, course: g.course, key: rowKey(g.id, r.ext) }); }));
+    agState = { type, items, courseFilter: 'all', sel: new Set(items.map(x => x.key)) };
+    const s = MODAL_STYLE[type], meta = AG_META[type];
+    agDialog.headerRenderer = (root) => {
+      root.innerHTML = `<div class="dlg-head" style="width:min(560px,92vw)">
+        <div class="m-ico" style="background:${s.bg};color:${s.col}"><i class="fa-solid ${s.icon}"></i></div>
+        <div><div class="m-title">${meta.title}</div><div class="m-sub">${items.length} learner${items.length !== 1 ? 's' : ''} across all courses</div></div>
+        <vaadin-button theme="icon tertiary" id="agClose" aria-label="Close" style="margin-left:auto"><i class="fa-solid fa-xmark"></i></vaadin-button>
+      </div>`;
+      root.querySelector('#agClose').addEventListener('click', () => { agDialog.opened = false; });
+    };
+    agDialog.renderer = (root) => {
+      const vis = agVisibleItems();
+      const courses = [...new Set(items.map(x => x.course))];
+      root.innerHTML = `<div class="dlg-body" style="width:min(560px,92vw)">
+        <div class="ag-filter">
+          <span class="agf-label">Filter by course</span>
+          <vaadin-select theme="outlined small" id="agCourse" style="flex:1"></vaadin-select>
+        </div>
+        ${vis.length ? `<div class="recip-list">${vis.map(x => `
+          <label class="recip" style="cursor:pointer">
+            <vaadin-checkbox class="ag-pick" data-key="${x.key}" ${agState.sel.has(x.key) ? 'checked' : ''}></vaadin-checkbox>
+            <div class="r-avatar" style="background:${PCT_COLOR[x.r.status] || '#155DFC'}">${initials(x.r.name)}</div>
+            <div><div class="r-name">${displayName(x.r.name)}</div><div class="r-mail">${x.course}</div></div>
+            <span class="r-meta">${STATUS_LABEL[x.r.status]}</span>
+          </label>`).join('')}</div>` : '<div class="ag-empty">No learners match this course.</div>'}
+      </div>`;
+      const sel = root.querySelector('#agCourse');
+      sel.items = [{ label: 'All courses', value: 'all' }, ...courses.map(c => ({ label: c, value: c }))];
+      sel.value = agState.courseFilter;
+      sel.addEventListener('value-changed', () => {
+        if (sel.value && sel.value !== agState.courseFilter) { agState.courseFilter = sel.value; agDialog.requestContentUpdate(); }
+      });
+      root.querySelectorAll('.ag-pick').forEach(cb => cb.addEventListener('change', () => {
+        cb.checked ? agState.sel.add(cb.dataset.key) : agState.sel.delete(cb.dataset.key);
+        agDialog.requestContentUpdate(); // refresh the footer count
+      }));
+    };
+    agDialog.footerRenderer = (root) => {
+      root.innerHTML = '';
+      const meta2 = AG_META[agState.type];
+      const n = agSelectedCount();
+      const cancel = document.createElement('vaadin-button');
+      cancel.setAttribute('theme', 'tertiary'); cancel.textContent = 'Cancel';
+      cancel.addEventListener('click', () => { agDialog.opened = false; });
+      const ok = document.createElement('vaadin-button');
+      ok.setAttribute('theme', meta2.cTheme);
+      if (!n) ok.setAttribute('disabled', '');
+      ok.innerHTML = `<i class="fa-solid ${meta2.cIcon}" slot="prefix"></i>${meta2.cta} (${n})`;
+      ok.addEventListener('click', () => { agDialog.opened = false; showToast(meta2.verb(n)); });
+      root.append(cancel, ok);
+    };
+    agDialog.opened = true;
   }
-  document.querySelectorAll('.version-switcher .vs-btn').forEach(btn =>
-    btn.addEventListener('click', () => showVersion(btn.dataset.version)));
 
   /* ═══════════════ Dashboard tabs — OSHA Report vs. the other (out-of-scope) tabs ═══════════════ */
   const dashTabs = document.getElementById('dashTabs');
   const oshaLayout = document.getElementById('oshaLayout');
-  const otherPanel = document.getElementById('otherPanel');
-  const versionSwitcher = document.querySelector('.version-switcher');
   dashTabs.addEventListener('click', e => {
     const tab = e.target.closest('.dash-tab');
     if (!tab) return;
@@ -2086,16 +2006,12 @@
     });
     const isOsha = tab.dataset.tab === 'osha';
     oshaLayout.style.display = isOsha ? '' : 'none';
-    otherPanel.hidden = isOsha;
-    versionSwitcher.style.display = isOsha ? '' : 'none';
-    if (!isOsha) document.getElementById('otherPanelTitle').textContent = tab.textContent.trim();
   });
 
   /* ═══════════════ Init ═══════════════ */
-  renderTable();        // first paint (also runs applyFilters)
-  renderActionCards();
-  renderV1Charts();     // pass/fail + progress charts (V1 overview)
-  showVersion('1');     // default to the per-student modal version
+  renderColumnManager(); // build the show/hide + reorder list
+  applySort();           // default sort: learner name A→Z
+  renderTable();         // first paint (renderHead + body + applyFilters → charts + badge)
 </script>
 
 </body>
