@@ -230,6 +230,23 @@
   .filters-scope-btn { background: none; border: 0; cursor: pointer; font-family: inherit; color: #1d4ed8; font-size: 12px; font-weight: 600; padding: 4px 12px; display: inline-flex; align-items: center; gap: 6px; }
   .filters-scope-btn:hover { background: #e0ebff; }
   .filters-scope-btn i { font-size: 10px; }
+  /* V2 — active filters as individual removable chips, stacking next to the scope chip */
+  .applied-filters { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .applied-filters:empty { display: none; }
+  .applied-filters .filter-chip { max-width: 280px; }
+  .applied-filters .filter-chip .fc-k { color: #3b6fd4; font-weight: 700; flex-shrink: 0; overflow: visible; }
+
+  /* ===== Version switcher controller (bottom-center pill) ===== */
+  .version-switcher {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    z-index: 2147483000; display: inline-flex; align-items: center; gap: 4px;
+    background: #18181b; padding: 6px 8px 6px 14px; border-radius: 999px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.22); font-family: 'SF Mono', Menlo, Consolas, monospace;
+  }
+  .version-switcher .vs-controller-label { color: #a1a1aa; font-size: 11px; font-weight: 700; letter-spacing: .4px; margin-right: 4px; }
+  .version-switcher .vs-btn { background: transparent; border: 0; color: #d4d4d8; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 999px; cursor: pointer; font-family: inherit; transition: background .15s ease, color .15s ease; }
+  .version-switcher .vs-btn:hover { color: #fff; }
+  .version-switcher .vs-btn.active { background: #1f4596; color: #fff; }
   /* Course cell */
   .course-cell { color: var(--ink-2); }
   .toolbar-right { display: flex; align-items: center; gap: 8px; }
@@ -662,6 +679,8 @@
                   <i class="fa-solid fa-filter"></i> <span id="filtersScope">All courses</span>
                 </button>
               </span>
+              <!-- V2: each active filter renders as its own removable chip here, stacking next to the chip above -->
+              <span class="applied-filters" id="appliedFilters"></span>
               <vaadin-button theme="tertiary small" id="filtersClearBtn" hidden><i class="fa-solid fa-xmark" slot="prefix"></i> Clear filters</vaadin-button>
             </div>
             <div class="data-note">
@@ -903,6 +922,13 @@
 <!-- Action-group bulk modal (opened from the Action Needed cards) -->
 <vaadin-dialog id="agDialog" no-close-on-outside-click></vaadin-dialog>
 <vaadin-notification id="toast" position="bottom-center" duration="3200"></vaadin-notification>
+
+<!-- Version switcher: V1 = single scope chip (filters live in the panel) · V2 = each active filter as a chip next to "All courses" -->
+<div class="version-switcher" role="group" aria-label="Filter display version">
+  <span class="vs-controller-label">FILTERS</span>
+  <button class="vs-btn active" data-version="1" type="button" title="Scope chip + filter panel">V1</button>
+  <button class="vs-btn" data-version="2" type="button" title="Active filters as chips next to the scope chip">V2</button>
+</div>
 
 <script>
   /* ═══════════════ Data — OSHA completion report, grouped by course ═══════════════ */
@@ -1295,9 +1321,11 @@
   document.getElementById('chk-failed-limit').addEventListener('change', e => { filters.nearLimitOnly = e.target.checked; applyFilters(); });
   searchInput.addEventListener('input', applyFilters);
 
-  /* ═══════════════ Filters badge (report toolbar) — always shows the course scope ═══════════════ */
+  /* ═══════════════ Filters badge + applied-chips (V1 scope summary · V2 chips next to the scope) ═══════════════ */
+  let filterVersion = '1';
   const filtersScope = document.getElementById('filtersScope');
   const filtersClearBtn = document.getElementById('filtersClearBtn');
+  const appliedFilters = document.getElementById('appliedFilters');
   function extraFilterCount() {
     let n = 0;
     if (filters.statuses.size < 4) n++;
@@ -1307,28 +1335,74 @@
     if (searchInput.value.trim()) n++;
     return n;
   }
+  function syncStatusChecks() {
+    document.querySelectorAll('#statusChecks vaadin-checkbox').forEach(cb => { cb.checked = filters.statuses.has(cb.dataset.status); });
+  }
+  function syncPanelChips() {
+    renderChips(document.getElementById('courseChips'), filters.courses, applyFilters);
+    renderChips(document.getElementById('userChips'),   filters.learners, applyFilters);
+  }
+  const ALL_STATUSES = ['passed','in-progress','not-started','failed'];
+  // V2: one removable chip per active filter, stacking next to the "All courses" chip.
+  function renderAppliedChips() {
+    if (!appliedFilters) return;
+    if (filterVersion !== '2') { appliedFilters.innerHTML = ''; return; }
+    const chips = [];
+    filters.courses.forEach(c => chips.push({ k: 'Course', label: c, remove: () => { filters.courses.delete(c); syncPanelChips(); } }));
+    filters.learners.forEach(l => chips.push({ k: 'Learner', label: l, remove: () => { filters.learners.delete(l); syncPanelChips(); } }));
+    if (filters.statuses.size < 4) {
+      const names = [...filters.statuses].map(s => STATUS_LABEL[s]).join(', ') || 'None';
+      chips.push({ k: 'Status', label: names, remove: () => { filters.statuses.clear(); ALL_STATUSES.forEach(s => filters.statuses.add(s)); syncStatusChecks(); } });
+    }
+    if (filters.expiringOnly) chips.push({ k: '', label: 'Expiring ≤ 30 days', remove: () => { filters.expiringOnly = false; const e = document.getElementById('chk-expiring'); if (e) e.checked = false; } });
+    if (filters.nearLimitOnly) chips.push({ k: '', label: 'Near 3-failure limit', remove: () => { filters.nearLimitOnly = false; const e = document.getElementById('chk-failed-limit'); if (e) e.checked = false; } });
+    const q = searchInput.value.trim();
+    if (q) chips.push({ k: 'Search', label: q, remove: () => { searchInput.value = ''; } });
+    appliedFilters.innerHTML = '';
+    chips.forEach(c => {
+      const chip = document.createElement('span');
+      chip.className = 'filter-chip';
+      chip.innerHTML = `${c.k ? `<span class="fc-k">${c.k}:</span>` : ''}<span>${c.label}</span><button class="filter-chip-remove" aria-label="Remove ${c.label}"><i class="fa-solid fa-xmark"></i></button>`;
+      chip.querySelector('.filter-chip-remove').addEventListener('click', () => { c.remove(); applyFilters(); });
+      appliedFilters.appendChild(chip);
+    });
+  }
   function updateFilterBadge() {
     const cs = filters.courses;
-    const scope = cs.size === 0 ? 'All courses' : (cs.size === 1 ? [...cs][0] : `${cs.size} courses`);
     const extra = extraFilterCount();
-    filtersScope.textContent = extra ? `${scope} · +${extra} filter${extra !== 1 ? 's' : ''}` : scope;
+    if (filterVersion === '2') {
+      filtersScope.textContent = 'All courses';   // anchor chip; active filters render as chips beside it
+      renderAppliedChips();
+    } else {
+      const scope = cs.size === 0 ? 'All courses' : (cs.size === 1 ? [...cs][0] : `${cs.size} courses`);
+      filtersScope.textContent = extra ? `${scope} · +${extra} filter${extra !== 1 ? 's' : ''}` : scope;
+      if (appliedFilters) appliedFilters.innerHTML = '';
+    }
     filtersClearBtn.hidden = cs.size === 0 && extra === 0;
   }
   function clearAllFilters() {
-    filters.statuses.clear(); ['passed','in-progress','not-started','failed'].forEach(s => filters.statuses.add(s));
+    filters.statuses.clear(); ALL_STATUSES.forEach(s => filters.statuses.add(s));
     filters.courses.clear(); filters.learners.clear();
     filters.expiringOnly = false; filters.nearLimitOnly = false;
     searchInput.value = '';
-    document.querySelectorAll('#statusChecks vaadin-checkbox').forEach(cb => { cb.checked = true; });
+    syncStatusChecks();
     const ce = document.getElementById('chk-expiring'); if (ce) ce.checked = false;
     const cf = document.getElementById('chk-failed-limit'); if (cf) cf.checked = false;
-    renderChips(document.getElementById('courseChips'), filters.courses, applyFilters);
-    renderChips(document.getElementById('userChips'),   filters.learners, applyFilters);
+    syncPanelChips();
     applyFilters();
   }
   filtersClearBtn.addEventListener('click', clearAllFilters);
   // Clicking the scope chip opens the filter panel (so the badge is discoverable).
   document.getElementById('filtersScopeBtn').addEventListener('click', () => openPanel());
+
+  /* Version switcher — V1 (scope summary) ⇄ V2 (active filters as chips beside the scope) */
+  function showFilterVersion(v) {
+    filterVersion = v;
+    document.querySelectorAll('.version-switcher .vs-btn').forEach(b => b.classList.toggle('active', b.dataset.version === v));
+    updateFilterBadge();
+  }
+  document.querySelectorAll('.version-switcher .vs-btn').forEach(btn =>
+    btn.addEventListener('click', () => showFilterVersion(btn.dataset.version)));
 
   /* ═══════════════ Module controls — per-student "Details" modal ═══════════════ */
   tbody.addEventListener('click', e => {
@@ -2121,6 +2195,8 @@
     });
     const isOsha = tab.dataset.tab === 'osha';
     oshaLayout.style.display = isOsha ? '' : 'none';
+    const vs = document.querySelector('.version-switcher');
+    if (vs) vs.style.display = isOsha ? '' : 'none';
   });
 
   /* ═══════════════ Init ═══════════════ */
