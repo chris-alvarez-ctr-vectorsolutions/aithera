@@ -657,8 +657,10 @@
         .version-switcher .vs-btn { background: transparent; border: 0; color: #d4d4d8; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 999px; cursor: pointer; font-family: inherit; transition: background .15s ease, color .15s ease; }
         .version-switcher .vs-btn:hover { color: #fff; }
         .version-switcher .vs-btn.active { background: #1f4596; color: #fff; }
-        /* V1 = inline builder (hide the reveal button); V2 = builder hidden until the button is clicked. */
+        /* V1 = flat one-page layout: inline builder, no Continue/Back stepper nav. */
         #view-deploy[data-ver="1"] #depBuildNewBtn { display: none; }
+        #view-deploy[data-ver="1"] .v-step-nav { display: none; }
+        /* V2 = stepper: builder hidden until "Build a new assignment" is clicked. */
         #view-deploy[data-ver="2"] #depBuilder { display: none; }
         #view-deploy[data-ver="2"] #depBuilder.open { display: block; }
         .v-step-num { width: 24px; height: 24px; border-radius: 50%; background: var(--blue-link); color: #fff; font: 700 12px inherit; display: inline-flex; align-items: center; justify-content: center; flex: none; }
@@ -2019,7 +2021,13 @@
         function setVersion(v) {
             document.getElementById('view-deploy').dataset.ver = v;
             document.querySelectorAll('.version-switcher .vs-btn').forEach(b => b.classList.toggle('active', b.dataset.version === v));
-            if (v === '2') { const b = $('depBuilder'); if (b) b.classList.remove('open'); }   // start collapsed in V2
+            if (v === '2') {
+                const b = $('depBuilder'); if (b) b.classList.remove('open');   // builder behind its button
+                gotoStep('depStep1');                                           // start the stepper on Step 1
+            } else {
+                // V1 — flat one-page layout: every step expanded, no stepper.
+                STEP_IDS.forEach(s => { const c = $(s); if (c) c.classList.remove('collapsed'); });
+            }
         }
         document.querySelectorAll('.version-switcher .vs-btn').forEach(b =>
             b.addEventListener('click', () => setVersion(b.dataset.version)));
@@ -2279,10 +2287,8 @@
             setBox('depAsgHead', 'depAsgBody', true);
             setBox('depTplHead', 'depTplBody', false);   // templates collapsed by default
             setBox('depBuiltHead', 'depBuiltBody', true);
-            // Start the stepper on Step 1 (Continue/Back move between steps).
-            gotoStep('depStep1');
-            // Builder in V2 starts collapsed behind its button.
-            if (document.getElementById('view-deploy').dataset.ver === '2') { const b = $('depBuilder'); if (b) b.classList.remove('open'); }
+            // Apply the current version's layout: V1 flat (all steps open), V2 stepper.
+            setVersion(document.getElementById('view-deploy').dataset.ver || '1');
             renderGrids();
         }
 
