@@ -1,0 +1,53 @@
+name: Build product dashboards
+
+# Regenerates each enrolled product's dashboard/meta.json (folder list, dev-handoff
+# flags, recent-activity log) whenever mocks change, and commits the result back.
+# This is what makes the product dashboards "auto-update on push" — nobody edits
+# meta.json by hand. See scripts/build-dashboards.js and designtoolbox/dashboard.js.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'products/**'
+      - 'scripts/build-dashboards.js'
+      - 'designtoolbox/dashboard.js'
+      - '.github/workflows/dashboards.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dashboards-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history for the changelog)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Regenerate dashboard meta.json
+        run: node scripts/build-dashboards.js
+
+      - name: Commit if anything changed
+        run: |
+          git add products/*/dashboard/meta.json
+          if git diff --cached --quiet; then
+            echo "No dashboard changes to commit."
+          else
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            # [skip ci] prevents this commit from re-triggering the workflow.
+            git commit -m "chore(dashboards): regenerate meta.json [skip ci]"
+            git push
+          fi
