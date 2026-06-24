@@ -648,6 +648,19 @@
         .v-card.collapsed .v-card-title { margin-bottom: 0; }
         .v-card.collapsed .v-card-title .vc-chev { transform: rotate(-90deg); }
         .v-card.collapsed > :not(.v-card-title) { display: none !important; }
+        /* Step nav (Back / Continue) — sits at the foot of each step card. */
+        .v-step-nav { display: flex; justify-content: flex-end; gap: 12px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
+        .v-step-nav .nav-left { margin-right: auto; }
+        /* Version switcher controller (bottom-center pill; the toolbox dock adopts it) */
+        .version-switcher { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 2147483000; display: inline-flex; align-items: center; gap: 4px; background: #18181b; padding: 6px 8px 6px 14px; border-radius: 999px; box-shadow: 0 6px 20px rgba(0,0,0,.22); font-family: 'SF Mono', Menlo, Consolas, monospace; }
+        .version-switcher .vs-controller-label { color: #a1a1aa; font-size: 11px; font-weight: 700; letter-spacing: .4px; margin-right: 4px; }
+        .version-switcher .vs-btn { background: transparent; border: 0; color: #d4d4d8; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 999px; cursor: pointer; font-family: inherit; transition: background .15s ease, color .15s ease; }
+        .version-switcher .vs-btn:hover { color: #fff; }
+        .version-switcher .vs-btn.active { background: #1f4596; color: #fff; }
+        /* V1 = inline builder (hide the reveal button); V2 = builder hidden until the button is clicked. */
+        #view-deploy[data-ver="1"] #depBuildNewBtn { display: none; }
+        #view-deploy[data-ver="2"] #depBuilder { display: none; }
+        #view-deploy[data-ver="2"] #depBuilder.open { display: block; }
         .v-step-num { width: 24px; height: 24px; border-radius: 50%; background: var(--blue-link); color: #fff; font: 700 12px inherit; display: inline-flex; align-items: center; justify-content: center; flex: none; }
         .v-card-actions { margin-top: 16px; display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
         .v-card-actions .setup-warn { margin-right: auto; }
@@ -847,7 +860,7 @@
            2) Deployment details          (name first; work shift locked on)
            3) Assignments & templates     (select existing or build new)
          Deploy lives in the sticky footer; success shows a green toast bottom-left. -->
-    <div class="view" id="view-deploy">
+    <div class="view" id="view-deploy" data-ver="1">
         <div class="topbar">
             <a class="back-link" id="depBack"><i class="fa-solid fa-arrow-left"></i> Back to Edit Assignments</a>
         </div>
@@ -920,6 +933,10 @@
                     </div>
                     <div class="field span2"><vaadin-text-area id="depNotes" theme="outlined" label="Notes" placeholder="Add notes…"></vaadin-text-area></div>
                 </div>
+
+                <div class="v-step-nav">
+                    <vaadin-button theme="primary" data-step-next="depStep3">Continue&nbsp;<i class="fa-solid fa-arrow-right"></i></vaadin-button>
+                </div>
             </div>
 
             <!-- STEP 2 — Pick existing assignments + templates, or build a new one. -->
@@ -952,7 +969,12 @@
                     </div>
                 </div>
 
+                <!-- V2 only: a button that reveals the from-scratch builder on demand
+                     (in V1 the builder is shown inline; the version pill swaps this). -->
+                <button class="add-open-btn" id="depBuildNewBtn" type="button" style="margin-top:22px;"><i class="fa-solid fa-plus"></i> Build a new assignment</button>
+
                 <!-- Build a new one from scratch -->
+                <div id="depBuilder">
                 <div class="sf-label" style="margin:22px 0 10px;font-weight:700;color:var(--text);">Or build a new assignment from scratch</div>
                 <div class="qual-block">
                     <!-- Left: required + shared qualifiers, each with a stepper -->
@@ -1001,6 +1023,7 @@
                     <vaadin-button theme="secondary" id="bReset">Clear</vaadin-button>
                     <vaadin-button theme="primary" id="bAdd"><i class="fa-solid fa-plus"></i>&nbsp; Add to deployment</vaadin-button>
                 </div>
+                </div><!-- /#depBuilder -->
 
                 <!-- New assignments you built here (editable: rename, fill people, remove). -->
                 <div class="dep-box" id="depBuiltBox" style="display:none;margin-top:20px;">
@@ -1013,6 +1036,11 @@
                         <div class="assign-grid" id="depBuiltGrid"></div>
                     </div>
                 </div>
+
+                <div class="v-step-nav">
+                    <vaadin-button theme="tertiary" class="nav-left" data-step-prev="depStep1"><i class="fa-solid fa-arrow-left"></i>&nbsp;Back</vaadin-button>
+                    <vaadin-button theme="primary" data-step-next="depStep2">Continue&nbsp;<i class="fa-solid fa-arrow-right"></i></vaadin-button>
+                </div>
             </div>
 
             <!-- STEP 3 — Review (view only): everything selected for the deployment. -->
@@ -1020,6 +1048,10 @@
                 <div class="v-card-title"><span class="v-step-num">3</span> Review deployment <span class="ot-sub" style="font-weight:400;">— view only</span> <span class="vc-chev"><i class="fa-solid fa-chevron-down"></i></span></div>
                 <div class="dep-box-empty" id="depReviewEmpty" style="padding:6px 2px;">Nothing selected yet — pick or build assignments in Step 2.</div>
                 <div class="assign-grid" id="depReviewGrid" style="margin-top:4px;"></div>
+                <div class="v-step-nav">
+                    <vaadin-button theme="tertiary" class="nav-left" data-step-prev="depStep3"><i class="fa-solid fa-arrow-left"></i>&nbsp;Back</vaadin-button>
+                    <span style="align-self:center;font-size:12.5px;color:var(--text-soft);">Deploy is in the bar below once a name, dates, and at least one assignment are set.</span>
+                </div>
             </div>
           </div>
         </div>
@@ -1133,6 +1165,14 @@
 
     <!-- Row actions popover (⋯ menu on assignment rows) -->
     <div class="row-menu" id="rowMenu"></div>
+
+    <!-- Version switcher — V1 (inline builder) vs V2 ("Build new" button). The Design
+         Toolbox dock adopts this pill, so the comment + flow-map launchers tuck into it. -->
+    <div class="version-switcher" role="group" aria-label="Switch build-area version">
+        <span class="vs-controller-label">BUILD</span>
+        <button class="vs-btn active" data-version="1" type="button" title="From-scratch builder shown inline">V1</button>
+        <button class="vs-btn" data-version="2" type="button" title="Build new assignment behind a button">V2</button>
+    </div>
 
     <script>
     /* ============================================================
@@ -1964,6 +2004,29 @@
             t.addEventListener('click', () => t.closest('.v-card').classList.toggle('collapsed'));
         });
 
+        // ---- Stepper: Continue / Back move one step at a time (collapse the others) ----
+        const STEP_IDS = ['depStep1', 'depStep3', 'depStep2'];   // DOM order = Step 1, 2, 3
+        function gotoStep(id) {
+            STEP_IDS.forEach(s => { const c = $(s); if (c) c.classList.toggle('collapsed', s !== id); });
+            const t = $(id); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        window.__gotoStep = gotoStep;
+        document.querySelectorAll('#view-deploy [data-step-next], #view-deploy [data-step-prev]').forEach(b => {
+            b.addEventListener('click', () => gotoStep(b.dataset.stepNext || b.dataset.stepPrev));
+        });
+
+        // ---- Version switcher (V1 inline builder vs V2 build-new button) ----
+        function setVersion(v) {
+            document.getElementById('view-deploy').dataset.ver = v;
+            document.querySelectorAll('.version-switcher .vs-btn').forEach(b => b.classList.toggle('active', b.dataset.version === v));
+            if (v === '2') { const b = $('depBuilder'); if (b) b.classList.remove('open'); }   // start collapsed in V2
+        }
+        document.querySelectorAll('.version-switcher .vs-btn').forEach(b =>
+            b.addEventListener('click', () => setVersion(b.dataset.version)));
+        $('depBuildNewBtn').addEventListener('click', () => {
+            const b = $('depBuilder'); if (b) { b.classList.add('open'); b.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+        });
+
         // ---- Templates multi-select: check to include in the deployment ----
         $('depTplGrid').addEventListener('click', e => {
             const cb = e.target.closest('[data-ttoggle]'); if (!cb) return;
@@ -2216,11 +2279,18 @@
             setBox('depAsgHead', 'depAsgBody', true);
             setBox('depTplHead', 'depTplBody', false);   // templates collapsed by default
             setBox('depBuiltHead', 'depBuiltBody', true);
+            // Start the stepper on Step 1 (Continue/Back move between steps).
+            gotoStep('depStep1');
+            // Builder in V2 starts collapsed behind its button.
+            if (document.getElementById('view-deploy').dataset.ver === '2') { const b = $('depBuilder'); if (b) b.classList.remove('open'); }
             renderGrids();
         }
 
         // Demo states for the Toolbox flow-map nodes.
         function applyDemo(flow) {
+            // Reveal the step that matches the flow-map node.
+            const STEP_FOR = { d1: 'depStep1', d2: 'depStep3', d3: 'depStep3', d4: 'depStep2' };
+            gotoStep(STEP_FOR[flow] || 'depStep1');
             if (flow === 'd1') return;                 // Step 1 only
             // d2 / d3 / d4 — details filled; the assignment list shows off the start date
             const n = $('depName'); if (n) n.value = 'Wildfire San Diego';
@@ -2267,7 +2337,7 @@
           { id: 'land', flow: 'entry', entry: true, x: 40, y: 190, step: 'Entry', name: 'Edit Assignments', state: 'land', match: [], desc: 'The Crew Scheduling landing. "Add New Deployment" (or Deploy from a row / multi-select) opens the single-page deployment builder.' },
           { id: 'd1', flow: 'deploy', x: 380, y: 130, step: 'Step 1', name: 'Deployment details', state: 'd1', match: [], desc: 'All on one page. Step 1 leads with the deployment type — 24-hour (default) or a recurring daily time frame — with the effective dates living inside the chosen type, plus a plain-language summary once the dates and times are set. Then the details: deployment name (used in the crew scheduler), code, location, work types, and the locked-on “work shift” flag.' },
           { id: 'd2', flow: 'deploy', x: 720, y: 130, step: 'Step 2', name: 'Pick or build assignments', state: 'd2', match: [], desc: 'Existing deployable assignments appear automatically off the start date (no Pull step) as selectable cards showing name + a position summary. Below them, templates (multi-select) and a from-scratch builder. Build adds editable cards to “New assignments”, where you fill people and optionally save as a reusable template.' },
-          { id: 'd3', flow: 'deploy', x: 1060, y: 130, step: 'Step 3', name: 'Build assignment(s)', state: 'd3', match: [], desc: 'A two-column qualifier builder below the assignments. Left picks required primary + shared qualifiers (steppers; shared can’t exceed primary); right shows the open slots, fillable now or later. Add to deployment drops each built card into a collapsible “New assignments” list, where you can rename it, change people, remove it, or save it as a reusable template later.' },
+          { id: 'd3', flow: 'deploy', x: 1060, y: 130, step: 'Step 2 (build)', name: 'Build assignment(s)', state: 'd3', match: [], desc: 'A two-column qualifier builder inside Step 2. Left picks required primary + shared qualifiers (steppers; shared can’t exceed primary); right shows the open slots, fillable now or later. Add to deployment drops each built card into a collapsible “New assignments” list, where you can rename it, change people, remove it, or save it as a reusable template later. The bottom-center version pill swaps V1 (builder inline) vs V2 (builder behind a “Build a new assignment” button).' },
           { id: 'd4', flow: 'deploy', x: 1400, y: 130, step: 'Result', name: 'Ready to deploy', state: 'd4', match: [], desc: 'With dates, a name, and at least one assignment selected, Deploy is enabled; deploying shows a green toast bottom-left and returns to the crew scheduler.' }
         ],
         edges: [
