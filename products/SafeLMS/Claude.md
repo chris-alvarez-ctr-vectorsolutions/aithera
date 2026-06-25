@@ -2,65 +2,40 @@ SafeLMS is a product of vector solutions.
 
 ## Dashboard Maintenance
 
-There is a prototype index at [`./dashboard/index.html`](./dashboard/index.html) that the UX team shares with PMs and developers as a single link to every in-progress SafeLMS mock. **The entire list of mocks plus their metadata and the recent-activity log come from [`./dashboard/meta.json`](./dashboard/meta.json)** — that JSON file is the *single source of truth* for what the dashboard shows. (The repo is private, so the dashboard cannot discover folders via the GitHub API; it relies on Claude to keep meta.json accurate.)
+There is a prototype index at [`./dashboard/index.html`](./dashboard/index.html) that the UX team shares with PMs and developers as a single link to every in-progress SafeLMS mock. It lists each mock with its GitHub Pages URL, GitHub source link, any dev-handoff build, and a recent-activity log.
 
-**Whenever you create, modify, rename, or delete any file under `products/SafeLMS/` (other than under `dashboard/` itself), you MUST also update `dashboard/meta.json` in the same turn.** Do not split this across turns and do not skip it.
+**This dashboard now maintains itself — you normally do not touch it.**
 
-### What to update on every edit
+- **The UI is shared.** `dashboard/index.html` is a thin shell that loads [`/designtoolbox/dashboard.js`](../../designtoolbox/dashboard.js) (the same file every product's dashboard uses). Don't edit the shell or rebuild the dashboard here — to change how the dashboard *looks or behaves for all products*, edit `designtoolbox/dashboard.js`.
+- **The data is auto-generated.** `dashboard/meta.json` is regenerated on every push by [`scripts/build-dashboards.js`](../../scripts/build-dashboards.js) (via `.github/workflows/dashboards.yml`). It scans `products/SafeLMS/` and rebuilds:
+  - the **mock list** — every folder with an `index.html` appears automatically; deleted/renamed folders drop off automatically (the private-repo "can't list folders in the browser" problem is solved at build time, not by hand);
+  - **`devHandoff`** — set automatically when a `dev_handoff.html` exists next to a mock's `index.html` (which also moves the card to **Ready for Dev** and leads with the dev build links); cleared when the file is removed;
+  - **`recentChanges`** — rebuilt from `git log` (commit date + path + commit subject), newest 20.
 
-1. **Append a `recentChanges` entry** to the top of the array with:
-   - `date` — today's date as `YYYY-MM-DD`
-   - `path` — file path relative to `products/SafeLMS/` (e.g. `"reports/index.html"`)
-   - `summary` — one short past-tense sentence ("Added export filter for course completion data.")
-2. **Update `mocks[<folder-key>]` for the mock you touched**, if the change is user-visible:
-   - Refresh `description` if the mock's purpose evolved
-   - Change `status` if the mock graduated to a new stage: `concept` → `in-progress` → `review` → `ready` (or `archived` for retired work)
-   - Add `ticket` if a Jira/Linear ticket is newly associated
-3. **Create a new `mocks[<folder-key>]` entry whenever you create a new mock folder.** The key is the folder path relative to `products/SafeLMS/` (e.g. `"onboarding-flow"`, or `"Modals/timeout-warning"` for a sub-section), with no trailing `/index.html`. **A new folder without a matching `mocks` entry will not appear on the dashboard at all** — this step is not optional.
-4. **Delete the `mocks[<folder-key>]` entry whenever you delete or rename a mock folder.** Log the rename/deletion in `recentChanges`.
-5. **Trim `recentChanges` to the 20 most recent entries** — drop older entries beyond that. Newer entries go at the top.
+  So: create a mock folder and push → it appears. Add a `dev_handoff.html` and push → it flips to Ready for Dev. Write good commit messages → they become the changelog. **No meta.json edits required.**
 
-### Dev handoff files
+### Optional polish (preserved across regenerations)
 
-When you create a `dev_handoff.html` inside a mock folder (a clean, comment-widget-free copy a developer can build from), update that mock's `mocks[<folder-key>]` entry **in the same turn — automatically, without being asked**:
-
-- Set `"devHandoff": true`. The dashboard card then leads with the dev build links — the **GitHub Pages** URL (Dev Page) and the **GitHub** raw-HTML URL (Dev HTML) — and a primary **View Dev Build** button. The original design links (Pages + GitHub for the commented prototype) collapse into a closed "Design version" drawer on the card, available when needed.
-- Set `"status": "ready-for-dev"`. This moves the card into the **Ready for Dev** group.
-
-`devHandoff` defaults to the filename `dev_handoff.html`; pass a filename string instead of `true` only if the handoff file is named differently. If you later delete the dev_handoff file, remove `devHandoff` and reset the status.
-
-### Why this matters
-
-This page is the single shareable link the team gives stakeholders. Because the repo is private, the dashboard can't fall back to filesystem discovery — meta.json is the entire source of truth. If you forget to update it, mocks vanish or show stale statuses, and the dashboard loses the team's trust. Updating meta.json takes 10 seconds; recovering from a "the dashboard is wrong" complaint costs much more.
-
-### meta.json schema
+The generator is non-destructive: any of these fields you set on a mock in `meta.json` are kept when it regenerates. Set them only if you want to override the auto-derived defaults (the dashboard humanizes the folder name into a title and infers a description otherwise):
 
 ```json
-{
-  "version": 1,
-  "jiraBaseUrl": "https://<workspace>.atlassian.net/browse/",
-  "recentChanges": [
-    { "date": "YYYY-MM-DD", "path": "<folder>/<file>", "summary": "Short past-tense sentence." }
-  ],
-  "mocks": {
-    "<folder-key>": {
-      "title": "Optional title override (default: humanized folder name)",
-      "description": "Optional one-line description shown on the card",
-      "status": "concept | in-progress | review | ready | ready-for-dev | archived",
-      "ticket": "Optional ticket ID, e.g. SAFELMS-30656",
-      "ticketUrl": "Optional full ticket URL (only needed if it lives outside jiraBaseUrl)",
-      "devHandoff": "Optional. Set to true (or a filename) when a dev_handoff.html exists — the dashboard then shows the dev build links and the Ready for Dev status"
-    }
+"mocks": {
+  "<folder-key>": {
+    "title": "Optional — overrides the humanized folder name",
+    "description": "Optional — ONE short sentence shown on the card (keep it a quick what-it-is, not a feature list; cards clamp to 3 lines)",
+    "status": "concept | in-progress | review | ready | ready-for-dev | archived",
+    "ticket": "Optional ticket ID (also auto-detected from a trailing ALPHA-#### in the folder name)",
+    "ticketUrl": "Optional full ticket URL (only if it lives outside jiraBaseUrl)",
+    "extraLinks": [ { "label": "Current UI", "file": "current-ui.html" } ]
   }
 }
 ```
 
-**About `jiraBaseUrl`:** when set (e.g. `"https://vectorsolutions.atlassian.net/browse/"`), every mock's `ticket` value is auto-appended to form a clickable link on the dashboard. You only need to fill the per-mock `ticketUrl` when a particular ticket lives in a different Jira instance and the base URL doesn't apply. Leave `jiraBaseUrl` as `""` to render tickets as plain (non-linked) badges.
+Top-level `jiraBaseUrl` is also preserved; when set, each mock's `ticket` is appended to form a clickable Jira link. `status` is the main thing worth curating by hand — it can't be inferred (except `ready-for-dev`, which the dev-handoff file drives).
 
-### Exceptions
+### Running it locally
 
-- Edits **inside `dashboard/`** (the dashboard's own files) do not require a meta.json update — the dashboard is not a tracked mock.
-- Pure documentation tweaks to this CLAUDE.md or the project README do not need a `recentChanges` entry.
+`node scripts/build-dashboards.js` from the repo root regenerates the meta.json files immediately, so you can preview before pushing. CI does the same on push and commits the result with `[skip ci]`.
 
 ## Reports UI patterns
 
