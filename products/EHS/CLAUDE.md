@@ -16,6 +16,14 @@ Give section / sub-section titles a clear, modern hierarchy. Do NOT default to A
 - Reference treatment: title ~13px, weight 600, color `#1a1a2e`; body content ~12.5px, weight 400, color `#374151`.
 - Keep it subtle, not obtrusive: the title should be distinguishable from the body without shouting.
 
+## Labels & casing
+
+All label-like text uses **sentence case** — never all caps. This covers form field labels, section / sub-section labels, step indicators, and the small inline tag/status chips.
+
+- Do **not** apply `text-transform: uppercase` (or `letter-spacing`-driven caps) to any label, field title, step indicator, or tag chip. This styling has been removed across the EHS mobile prototypes (`Mobile App - main.html`, `Mobile App - blue sky.html`).
+- Author the text the way it should read: "Search users", "Report type", "Step 1" — not "SEARCH USERS" / "STEP 1". Don't reintroduce caps in the markup either.
+- Genuine acronyms (JSA, EHS, PPE, ID) stay uppercase because that is their correct spelling, not a styling choice.
+
 ## AI / Smart Recommendations rule
 
 When building any AI-powered or "smart" recommendation surface in EHS prototypes:
