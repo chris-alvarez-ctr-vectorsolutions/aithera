@@ -88,6 +88,11 @@
           <span class="dot-sep">·</span>
           <span id="lastUpdated"></span>
         </div>
+        <div class="share-bar" id="shareBar">
+          <span class="share-label"><i class="fa-solid fa-share-nodes"></i> Share this dashboard</span>
+          <a class="share-url" id="shareUrl" href="#" target="_blank" rel="noopener" title="Published GitHub Pages link for this dashboard"></a>
+          <button class="copy-btn share-copy" id="shareCopy" type="button" data-copy=""><i class="fa-regular fa-copy"></i> Copy link</button>
+        </div>
       </div>
     </header>
 
@@ -617,6 +622,15 @@
     byId('productName').textContent = PRODUCT;
     byId('productEmoji').textContent = theme.emoji;
 
+    // The published GitHub Pages link for THIS dashboard — the one to hand the
+    // team. Derived the same way the per-mock Pages links are, so it stays correct
+    // for any product enrolled later (the shared dashboard.js needs no per-product edit).
+    const dashUrl = `${PAGES_BASE}/${encodeURIComponent(PRODUCT)}/dashboard/`;
+    const shareUrl = byId('shareUrl');
+    shareUrl.textContent = dashUrl;
+    shareUrl.href = dashUrl;
+    byId('shareCopy').dataset.copy = dashUrl;
+
     // Retry button
     byId('retryBtn').addEventListener('click', loadMocks);
 
@@ -765,6 +779,27 @@
         box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); animation: live-pulse 2s ease-in-out infinite;
       }
       @keyframes live-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); } 50% { box-shadow: 0 0 0 5px rgba(16, 185, 129, 0); } }
+
+      /* "Share this dashboard" — the published Pages link for the whole dashboard,
+         shown once in the header so it's the obvious thing to copy and send the team. */
+      .share-bar {
+        margin-top: 18px; display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.9); border-radius: 12px; padding: 10px 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04); max-width: 100%;
+      }
+      .share-label {
+        display: inline-flex; align-items: center; gap: 6px; font-family: var(--display);
+        font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px;
+        color: var(--accent-deep); white-space: nowrap;
+      }
+      .share-url {
+        flex: 1 1 220px; min-width: 0; font-family: var(--mono); font-size: 12px; color: var(--text);
+        background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: none;
+        transition: border-color 0.15s ease, color 0.15s ease;
+      }
+      .share-url:hover { border-color: var(--accent); color: var(--accent); }
 
       .content { max-width: 1400px; margin: 0 auto; padding: 0 32px 64px; }
 
