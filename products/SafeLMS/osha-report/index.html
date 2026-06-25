@@ -282,6 +282,23 @@
   /* Fixed layout so all columns fit the card width — no horizontal scroll; cells wrap instead.
      Column widths + visibility + order are driven by the JS column model (inline th widths). */
   .report-table { table-layout: fixed; width: 100%; border-collapse: collapse; font-size: 12.5px; }
+
+  /* When the filter panel is open the content area narrows. Rather than squishing the
+     columns, hold the table at its natural width so .report-table-wrap scrolls horizontally,
+     and freeze the Action column as a fixed pane pinned to the right edge. */
+  .page-layout.panel-open .report-table { min-width: 1080px; }
+  .page-layout.panel-open .report-table th.col-action,
+  .page-layout.panel-open .report-table td.cell-actions {
+    position: sticky; right: 0; z-index: 2;
+    box-shadow: -8px 0 12px -8px rgba(16,24,40,.18);   /* soft edge marks the frozen pane */
+  }
+  .page-layout.panel-open .report-table th.col-action { background: #f9fafb; z-index: 3; }
+  /* Frozen body cells need an opaque background so scrolled content doesn't show through —
+     mirror each row state (default / hover / selected). */
+  .page-layout.panel-open .report-table td.cell-actions { background: #fff; }
+  .page-layout.panel-open .report-table .data-row:hover td.cell-actions { background: #fafafa; }
+  .page-layout.panel-open .report-table .data-row.row-selected td.cell-actions { background: #eff6ff; }
+  .page-layout.panel-open .report-table .data-row.row-selected:hover td.cell-actions { background: #e0ebff; }
   .report-table td.nowrap, .report-table th.nowrap { white-space: nowrap; }
   .report-table thead { background: #f9fafb; }
   .report-table thead th {
@@ -1097,6 +1114,7 @@
       const th = document.createElement('th');
       if (c.sortable) { th.classList.add('sortable-th'); th.dataset.sort = c.key; }
       if (c.headClass) th.classList.add(c.headClass);
+      if (c.key === 'action') th.classList.add('col-action');  // matches the frozen pane when the filter panel is open
       if (c.width) th.style.width = c.width;
       if (c.align === 'right') th.style.textAlign = 'right';
       th.innerHTML = `${c.label}${c.sortable ? ' <i class="fa-solid fa-sort sort-arrow"></i>' : ''}`;
@@ -1745,11 +1763,16 @@
   /* ═══════════════ Filter panel open/close (ported from V1) ═══════════════ */
   const filterPanel = document.getElementById('filterPanel');
   const filterInlineToggle = document.getElementById('filterInlineToggle');
+  const oshaLayout = document.getElementById('oshaLayout');
   function closePanel() {
     filterPanel.classList.add('collapsed');
+    // Back to full width: table fits the card again (no horizontal scroll / frozen pane).
+    oshaLayout.classList.remove('panel-open');
   }
   function openPanel() {
     filterPanel.classList.remove('collapsed');
+    // Don't squish the table — hold its width, scroll horizontally, freeze the Action column.
+    oshaLayout.classList.add('panel-open');
   }
   document.getElementById('closePanelBtn').addEventListener('click', closePanel);
   filterInlineToggle.addEventListener('click', openPanel);
@@ -2138,7 +2161,7 @@
 
   /* ═══════════════ Dashboard tabs — OSHA Report vs. the other (out-of-scope) tabs ═══════════════ */
   const dashTabs = document.getElementById('dashTabs');
-  const oshaLayout = document.getElementById('oshaLayout');
+  // oshaLayout is declared earlier (filter panel open/close section)
   dashTabs.addEventListener('click', e => {
     const tab = e.target.closest('.dash-tab');
     if (!tab) return;
