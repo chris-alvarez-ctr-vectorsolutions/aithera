@@ -583,6 +583,75 @@
   }
 
   // Snapshot every active toggle-group member on the page right now.
+  // ----- Modal / dialog open-state ---------------------------------------------
+  // A mock's "scene" isn't only its toggle controls — whether a modal/dialog is
+  // open also changes what the comment is about (e.g. a note on the page behind
+  // a launcher modal belongs to the *modal-closed* view, not the modal). The
+  // open/close of a modal is NOT a toggle-group member, so we track it
+  // separately and fold the result into the same `viewState` array via two
+  // sentinel entries (sel starts with `@`, so they never collide with a real
+  // CSS selector and survive the worker's cleanViewState):
+  //   { sel: '@modal-aware' }              → this pin recorded modal state
+  //   { sel: '@modal', text: <modalKey> }  → one per modal open at capture time
+  // Legacy pins (no `@modal-aware` marker) skip modal matching entirely, so
+  // existing comments keep behaving exactly as before.
+  const MODAL_AWARE_SEL = '@modal-aware';
+  const MODAL_OPEN_SEL = '@modal';
+  const MODAL_SELECTOR = '[role="dialog"], [aria-modal="true"], dialog[open], .modal-backdrop';
+
+  function isElVisible(el) {
+    if (!(el instanceof Element)) return false;
+    let cs;
+    try { cs = getComputedStyle(el); } catch (_) { return false; }
+    if (cs.display === 'none' || cs.visibility === 'hidden' || cs.visibility === 'collapse') return false;
+    if (parseFloat(cs.opacity) === 0) return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }
+
+  // Every currently-visible modal/dialog, reduced to the outermost element of
+  // each (a backdrop wrapping its own `[role="dialog"]` counts once).
+  function openModalEls() {
+    let nodes;
+    try { nodes = document.querySelectorAll(MODAL_SELECTOR); } catch (_) { return []; }
+    const vis = [];
+    for (const n of nodes) { if (!isWidgetEl(n) && isElVisible(n)) vis.push(n); }
+    return vis.filter(n => !vis.some(o => o !== n && o.contains(n)));
+  }
+
+  // A stable key identifying a modal across capture and later matching. Prefers
+  // a safe id; falls back to a non-state class or its title text.
+  function modalKey(el) {
+    if (el.id && isSafeId(el.id)) return '#' + el.id;
+    const cls = nonStateClasses(el).filter(c => c !== 'modal-backdrop' && c !== 'modal');
+    const label = modalLabel(el);
+    return (cls[0] ? '.' + cls[0] : el.tagName.toLowerCase()) + (label ? '|' + label : '');
+  }
+
+  // Human-readable modal title for the scene label, when one can be found.
+  function modalLabel(el) {
+    const lid = el.getAttribute && el.getAttribute('aria-labelledby');
+    if (lid) { const t = document.getElementById(lid); if (t) return controlText(t); }
+    const al = el.getAttribute && el.getAttribute('aria-label');
+    if (al) return al.slice(0, 80);
+    const h = el.querySelector('.modal-title, h1, h2, h3, [class*="title" i]');
+    if (h) return controlText(h);
+    return '';
+  }
+
+  // Close one open modal as non-destructively as possible: drive a real close
+  // affordance (so the mock's own handler runs) before falling back to hiding.
+  function closeModalEl(el) {
+    if ('opened' in el) { try { el.opened = false; return; } catch (_) {} }
+    if (el.tagName === 'DIALOG' && el.open && typeof el.close === 'function') { try { el.close(); return; } catch (_) {} }
+    const btn = el.querySelector('.modal-close, [data-dismiss], [data-close], button[aria-label="Close" i], [aria-label="Close" i]');
+    if (btn) { try { btn.click(); return; } catch (_) {} }
+    try { el.style.display = 'none'; } catch (_) {}
+  }
+
+  // Strip the leading `#`/`.` from a modalKey for display.
+  function prettyModalKey(k) { return (k || '').replace(/^[#.]/, '').split('|')[0]; }
+
   function captureViewState() {
     const out = [];
     const seen = new Set();
@@ -595,6 +664,12 @@
       if (seen.has(k)) continue;
       seen.add(k);
       out.push(anchor);
+      if (out.length >= 14) break; // leave room for the modal sentinels below
+    }
+    // Fold in modal open-state (see notes above).
+    out.push({ sel: MODAL_AWARE_SEL, text: '' });
+    for (const m of openModalEls()) {
+      out.push({ sel: MODAL_OPEN_SEL, text: modalKey(m) });
       if (out.length >= 16) break;
     }
     return out;
@@ -620,10 +695,22 @@
   function viewMatches(pin) {
     const vs = pin.viewState;
     if (!Array.isArray(vs) || !vs.length) return true;
-    return vs.every(desc => {
+    // Toggle controls (non-sentinel entries) must all be active.
+    const controls = vs.filter(d => d.sel && d.sel[0] !== '@');
+    const controlsOk = controls.every(desc => {
       const node = findStateControl(desc);
       return node && isActiveControl(node);
     });
+    if (!controlsOk) return false;
+    // If this pin recorded modal state, the open-modal set must match exactly
+    // (an empty captured set means "only when no modal is open").
+    if (vs.some(d => d.sel === MODAL_AWARE_SEL)) {
+      const want = vs.filter(d => d.sel === MODAL_OPEN_SEL).map(d => d.text).sort();
+      const have = openModalEls().map(modalKey).sort();
+      if (want.length !== have.length) return false;
+      for (let i = 0; i < want.length; i++) if (want[i] !== have[i]) return false;
+    }
+    return true;
   }
 
   // Drive the mock back into a comment's state by clicking each captured
@@ -634,9 +721,10 @@
   function restoreViewState(pin) {
     const vs = pin.viewState;
     if (!Array.isArray(vs) || !vs.length) return;
+    const controls = vs.filter(d => d.sel && d.sel[0] !== '@');
     for (let pass = 0; pass < 3; pass++) {
       let changed = false;
-      for (const desc of vs) {
+      for (const desc of controls) {
         const node = findStateControl(desc);
         if (!node || isActiveControl(node)) continue;
         if (node.tagName === 'A') {
@@ -647,13 +735,27 @@
       }
       if (!changed) break;
     }
+    // Bring the modal layer into the captured state. We can reliably *close*
+    // modals that shouldn't be open (e.g. restore a "modal closed" scene);
+    // re-opening a modal needs the mock's own trigger, so that's best-effort.
+    if (vs.some(d => d.sel === MODAL_AWARE_SEL)) {
+      const want = new Set(vs.filter(d => d.sel === MODAL_OPEN_SEL).map(d => d.text));
+      for (const m of openModalEls()) {
+        if (!want.has(modalKey(m))) closeModalEl(m);
+      }
+    }
   }
 
   // Short human label for a comment's bound state, e.g. "Version 2 · Compliance".
   function viewStateLabel(pin) {
     const vs = pin.viewState;
     if (!Array.isArray(vs) || !vs.length) return '';
-    return vs.map(d => d.text).filter(Boolean).join(' · ');
+    const parts = vs.filter(d => d.sel && d.sel[0] !== '@').map(d => d.text).filter(Boolean);
+    if (vs.some(d => d.sel === MODAL_AWARE_SEL)) {
+      const modals = vs.filter(d => d.sel === MODAL_OPEN_SEL).map(d => prettyModalKey(d.text));
+      parts.push(modals.length ? ('Modal: ' + modals.join(', ')) : 'No modal');
+    }
+    return parts.join(' · ');
   }
 
   // The mock's repo-relative file path. Prefer the pin's own annotation
