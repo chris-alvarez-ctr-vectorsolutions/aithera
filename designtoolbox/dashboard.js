@@ -480,7 +480,7 @@
     const urlListInner = devHandoff
       ? `${devRows}
         <details class="design-links-drawer">
-          <summary><i class="fa-solid fa-chevron-right drawer-chevron"></i> Design version <span class="drawer-note">— prototype with review comments</span></summary>
+          <summary><i class="fa-solid fa-chevron-right drawer-chevron"></i> Designer file <span class="drawer-note">— prototype with review comments</span></summary>
           <div class="drawer-rows">${designRows}
           </div>
         </details>`

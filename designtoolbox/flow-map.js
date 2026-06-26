@@ -446,7 +446,11 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
 
   // ---- overlay open/close + pan/zoom ---------------------------------------
   var zoom = 1;
-  function openMap() { if (!built) build(); overlay.classList.add('open'); document.documentElement.classList.add('fm-open'); document.body.style.overflow = 'hidden'; if (!fetchedCounts) { fetchedCounts = true; fetchCommentCounts(); } if (!fetchedNotes) { fetchedNotes = true; fetchNotes(); } }
+  // When the comment widget is turned off (e.g. a dev-handoff build sets
+  // window.TOOLBOX = { comments:false }), the flow map suppresses 💬 comment
+  // counts too — a build with comments hidden should surface only dev notes.
+  var COMMENTS_ON = !(window.TOOLBOX && window.TOOLBOX.comments === false);
+  function openMap() { if (!built) build(); overlay.classList.add('open'); document.documentElement.classList.add('fm-open'); document.body.style.overflow = 'hidden'; if (COMMENTS_ON && !fetchedCounts) { fetchedCounts = true; fetchCommentCounts(); } if (!fetchedNotes) { fetchedNotes = true; fetchNotes(); } }
   function closeMap() { if (overlay) overlay.classList.remove('open'); document.documentElement.classList.remove('fm-open'); document.body.style.overflow = ''; closeDrawer(); }
   var fetchedCounts = false;
 
