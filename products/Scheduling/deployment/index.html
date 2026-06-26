@@ -2115,19 +2115,24 @@
         }
 
         // ---- Step 3 review (view only): every selection, read-only ----
-        // Pick black or white text for legibility on a given background color (relative luminance).
+        // Pick black or white text for legibility on a given background color, using the WCAG
+        // contrast-ratio method: compute the background's relative luminance, then return whichever
+        // of near-black / white yields the higher contrast ratio against it.
         function readableText(hex) {
             const h = hex.replace('#', '');
-            const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
-            const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-            return lum > 0.62 ? '#1a2330' : '#ffffff';
+            const toLin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+            const r = toLin(parseInt(h.slice(0, 2), 16)), g = toLin(parseInt(h.slice(2, 4), 16)), b = toLin(parseInt(h.slice(4, 6), 16));
+            const L = 0.2126 * r + 0.7152 * g + 0.0722 * b;     // background relative luminance
+            const contrastWhite = 1.05 / (L + 0.05);            // contrast of white (#fff) vs background
+            const contrastBlack = (L + 0.05) / 0.05;            // contrast of black vs background
+            return contrastWhite >= contrastBlack ? '#ffffff' : '#1a2330';
         }
         function reviewCard(item, label) {
             const bars = item.slots.map(s => slotBarHtml(s, { removable: false })).join('');
             // The card itself carries the deployment color (the color is expressed through the cards,
             // not a separate swatch). Title/tag text flips to stay legible on light vs. dark colors.
             const txt = readableText(selColor);
-            const tag = label ? ` <span style="font-weight:400;color:${txt};opacity:.65;font-size:12px;">· ${label}</span>` : '';
+            const tag = label ? ` <span style="font-weight:400;color:${txt};opacity:.82;font-size:12px;">· ${label}</span>` : '';
             return `<div class="acard acard--ro" style="background:${selColor};border-color:${selColor};"><div class="acard-head"><span class="acard-title" style="color:${txt};">${item.name}${tag}</span></div>${bars}</div>`;
         }
         // The deployment-level details (name, color, schedule, dates, tallies) — rendered both
