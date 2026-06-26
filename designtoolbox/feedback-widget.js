@@ -583,21 +583,33 @@
   }
 
   // Snapshot every active toggle-group member on the page right now.
-  // ----- Modal / dialog open-state ---------------------------------------------
-  // A mock's "scene" isn't only its toggle controls — whether a modal/dialog is
-  // open also changes what the comment is about (e.g. a note on the page behind
-  // a launcher modal belongs to the *modal-closed* view, not the modal). The
-  // open/close of a modal is NOT a toggle-group member, so we track it
+  // ----- Modal / dialog / drawer open-state ------------------------------------
+  // A mock's "scene" isn't only its toggle controls (tabs, version switchers,
+  // nav items — those are handled by captureViewState's toggle-group scan).
+  // Whether an *overlay surface* — a modal, dialog, or drawer — is open also
+  // changes what a comment is about:
+  //   • A comment ON something inside an open modal belongs to that modal — it
+  //     should reappear only when that modal is open, and stay out of the way
+  //     when it's closed.
+  //   • A comment on the page BEHIND a modal belongs to the modal-closed view —
+  //     it should not sit under the modal.
+  // Opening/closing one of these is NOT a toggle-group member, so we detect it
   // separately and fold the result into the same `viewState` array via two
   // sentinel entries (sel starts with `@`, so they never collide with a real
   // CSS selector and survive the worker's cleanViewState):
-  //   { sel: '@modal-aware' }              → this pin recorded modal state
-  //   { sel: '@modal', text: <modalKey> }  → one per modal open at capture time
-  // Legacy pins (no `@modal-aware` marker) skip modal matching entirely, so
-  // existing comments keep behaving exactly as before.
+  //   { sel: '@modal-aware' }              → this pin recorded overlay state
+  //   { sel: '@modal', text: <modalKey> }  → one per overlay open at capture time
+  // Because this runs in captureViewState for EVERY new comment, any comment on
+  // (or behind) an openable surface is automatically pinned to that open/closed
+  // state — no per-mock setup needed. Legacy pins (no `@modal-aware` marker)
+  // skip overlay matching, so existing comments keep behaving exactly as before.
   const MODAL_AWARE_SEL = '@modal-aware';
   const MODAL_OPEN_SEL = '@modal';
-  const MODAL_SELECTOR = '[role="dialog"], [aria-modal="true"], dialog[open], .modal-backdrop';
+  // Overlay surfaces that have an open/closed state. Vaadin dialogs/drawers and
+  // native <dialog> expose role="dialog" on their open surface; .modal-backdrop
+  // is the common hand-rolled-modal pattern in these mocks; vwc-drawer in
+  // overlay mode floats over content the same way a modal does.
+  const MODAL_SELECTOR = '[role="dialog"], [aria-modal="true"], dialog[open], .modal-backdrop, vwc-drawer[overlay][open]';
 
   function isElVisible(el) {
     if (!(el instanceof Element)) return false;
