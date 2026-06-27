@@ -1996,8 +1996,135 @@ Results</div>
   }
   document.addEventListener('opened-changed', e => { if (e.detail?.value) setTimeout(dpFix, 30); }, true);
   new MutationObserver(() => setTimeout(dpFix, 30)).observe(document.body, { childList: true });
+
+  /* ──────────────────────────────────────────────────────────────────────────
+     Flow Map state driver — REVIEW / HANDOFF TOOLING ONLY (not part of the product).
+     Drives the page into a named screen so the Design Toolbox flow map can render
+     live thumbnails and click-to-open each node. Shares scope with the view
+     functions above (activeTab, reportTimer, renderTable, showEmptyState, …).
+     See TOOLBOX_CONFIG.flowMap below for the node ids (n1–n7).
+     ────────────────────────────────────────────────────────────────────────── */
+  function fmSelectTab(tabKey) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabKey));
+    document.getElementById('report-log-btn').classList.remove('active');
+    activeTab = tabKey;
+    hideReportLog();
+    applyFilterVisibility(activeTab);
+  }
+  function fmShowTable(withGenrow) {
+    document.getElementById('empty-state').style.display   = 'none';
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('genrow').style.display        = withGenrow ? '' : 'none';
+    document.getElementById('table-wrap').style.display    = '';
+  }
+  function fmShowLoading() {
+    // The "completions" async flow: spinner + "email me when ready" message/button.
+    document.getElementById('empty-state').style.display            = 'none';
+    document.getElementById('loading-state').style.display          = 'flex';
+    document.getElementById('genrow').style.display                 = 'none';
+    document.getElementById('table-wrap').style.display             = 'none';
+    document.getElementById('loading-text-default').style.display   = 'none';
+    document.getElementById('loading-msg-completions').style.display = '';
+    document.getElementById('email-me-btn').style.display           = '';
+  }
+  function applyFlowState(id, opts) {
+    opts = opts || {};
+    // Clean transient overlays/timers so each state renders deterministically.
+    if (reportTimer) { clearTimeout(reportTimer); reportTimer = null; }
+    closeScheduler();
+    hideEmailConfirm();
+
+    switch (id) {
+      case 'n1': // Report landing — filters configured, empty results
+        fmSelectTab('compliance-emp');
+        showEmptyState();
+        break;
+      case 'n2': // Generating (async) — "email me when ready"
+        fmSelectTab('completions-emp');
+        renderTable('completions-emp');
+        resetLoadingContent();
+        fmShowLoading();
+        break;
+      case 'n3': { // Email requested — button pressed + confirmation toast
+        fmSelectTab('completions-emp');
+        renderTable('completions-emp');
+        resetLoadingContent();
+        fmShowLoading();
+        const b = document.getElementById('email-me-btn');
+        b.classList.add('is-pressed');
+        b.setAttribute('aria-disabled', 'true');
+        b.querySelector('.btn-label').textContent = 'Email request sent';
+        showEmailConfirm();
+        break;
+      }
+      case 'n4': // Report ready — results table
+        fmSelectTab('compliance-emp');
+        renderTable('compliance-emp');
+        fmShowTable(true);
+        break;
+      case 'n5': // Report Log — saved/generating reports + pencil banner
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('report-log-btn').classList.add('active');
+        showReportLog();
+        break;
+      case 'n6': // Quick Reports — scheduled-reports table (Run Now / Schedule)
+        fmSelectTab('quick');
+        renderTable('quick');
+        fmShowTable(false);
+        break;
+      case 'n7': // Schedule a report — scheduler modal open
+        fmSelectTab('quick');
+        renderTable('quick');
+        fmShowTable(false);
+        openScheduler();
+        break;
+      default:
+        fmSelectTab('compliance-emp');
+        showEmptyState();
+    }
+    if (!opts.instant) window.scrollTo(0, 0);
+  }
+  window.applyFlowState = applyFlowState;
+
+  // Hash boot: honor a flow-map deep link (#fm=<state>) on load and on change.
+  function bootFromHash() {
+    const m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (_) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
 </script>
 
+<!-- ===================== Design Toolbox (comment widget + flow map) ===================== -->
+<script>
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Async Reports — Flow Map',
+      applyState: 'applyFlowState',
+      canvas: { w: 1560, h: 900 },
+      flows: [
+        { id: 'run',   name: 'Run a report (async)',      pill: 'A', color: '#9ec9ff', lane: { x: 380, y: 60,  w: 1120, h: 280 }, labelXY: { x: 396, y: 36  } },
+        { id: 'log',   name: 'Report Log',                pill: 'B', color: '#9ee7d6', lane: { x: 380, y: 380, w: 360,  h: 220 }, labelXY: { x: 396, y: 356 } },
+        { id: 'quick', name: 'Quick Reports & scheduling', pill: 'C', color: '#f5c97e', lane: { x: 380, y: 640, w: 760,  h: 220 }, labelXY: { x: 396, y: 616 } }
+      ],
+      nodes: [
+        { id: 'n1', flow: 'entry', entry: true, x: 40,   y: 360, step: 'Entry',  name: 'Report landing',  state: 'n1', match: ['Compliance by Employee'], desc: 'A report tab (Compliance by Employee) with the filter card and an empty results area — "Please configure the filters to generate report." Run Report starts an async generation. Report Log (header button) and the Quick tab branch off here.' },
+        { id: 'n2', flow: 'run',   x: 420,  y: 130, step: 'Step 1', name: 'Generating (async)', state: 'n2', match: ['Completions by Employee'], desc: 'After Run Report, the report generates asynchronously (1-min simulated). The Completions-by-Employee flow shows the spinner plus a message and an "Email Me the Report When Ready" opt-in button.' },
+        { id: 'n3', flow: 'run',   x: 780,  y: 130, step: 'Branch', name: 'Email requested', state: 'n3', match: ['Completions by Employee'], desc: 'Opt-in branch: the email button enters its pressed/disabled "Email request sent" state and a confirmation toast floats in (auto-dismiss ~7s). The report keeps generating in the background.' },
+        { id: 'n4', flow: 'run',   x: 1140, y: 130, step: 'Result', name: 'Report ready', state: 'n4', match: ['Compliance by Employee'], desc: 'Generation finishes: the results table renders with the generated-at row, Refresh, result count, and pager.' },
+        { id: 'n5', flow: 'log',   x: 420,  y: 440, step: 'View',   name: 'Report Log', state: 'n5', match: ['Report Log'], desc: 'Opened from the Report Log button in the blue header. Pencil banner at top ("only Compliance & Completion reports are saved here while they generate"), then the log table with per-row Export (CSV / Excel) menus.' },
+        { id: 'n6', flow: 'quick', x: 420,  y: 700, step: 'Step 1', name: 'Quick Reports', state: 'n6', match: ['Quick'], desc: 'The Quick tab: a table of saved/scheduled reports with a schedule badge and Run Now / Schedule / Edit Schedule actions per row.' },
+        { id: 'n7', flow: 'quick', x: 780,  y: 700, step: 'Step 2', name: 'Schedule a report', state: 'n7', match: ['Quick'], desc: 'Schedule / Edit Schedule opens the scheduler modal: time, repeat (with the expanding repeat panel + runs-on / end / date-range options) and a plain-language summary line.' }
+      ],
+      edges: [
+        ['n1','n2','branch'],
+        ['n2','n3','branch'], ['n2','n4'], ['n3','n4'],
+        ['n1','n5','branch'],
+        ['n1','n6','branch'], ['n6','n7']
+      ]
+    }
+  };
+</script>
 <script src="../../../designtoolbox/toolbox.js"></script>
 </body>
 </html>
