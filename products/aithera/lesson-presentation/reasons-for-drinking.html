@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reasons for Drinking — Lesson Presentation</title>
+
+    <!-- Vector Web Components: Core -->
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+
+    <!-- Vector Web Components: Themes (import as plain script) -->
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+
+    <!-- Open Sans -->
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+    <link rel="stylesheet" href="css/lesson.css?v=17" />
+
+    <!-- ====================================================================
+         Card-sort content type (scoped to this experiment).
+         Concept: instead of an N×M matrix of radio buttons, each "reason"
+         is a physical card the learner drags from a center deck into one of
+         three importance buckets below. A "Classic" toggle shows the matrix
+         it replaces, so reviewers can compare the before/after directly.
+         ==================================================================== */ -->
+    <style>
+        /* --- Section frame ------------------------------------------------ */
+        .cardsort {
+            width: 100%;
+            max-width: 880px;
+            display: flex;
+            flex-direction: column;
+            /* Fill the body so the buckets sit near the footer like the sketch */
+            min-height: calc(100vh - var(--header-h) - var(--footer-h) - 2 * clamp(20px, 5vh, 48px));
+        }
+
+        .cardsort-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 20px;
+        }
+        .cardsort-intro { min-width: 0; }
+
+        .cardsort-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0 0 10px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: var(--accent-strong);
+        }
+        .cardsort-title {
+            margin: 0 0 8px;
+            font-size: clamp(24px, 4vw, 32px);
+            line-height: 1.15;
+            font-weight: 800;
+            color: var(--ink);
+        }
+        .cardsort-prompt {
+            margin: 0;
+            max-width: 56ch;
+            font-size: 15px;
+            line-height: 1.55;
+            color: var(--ink-soft);
+        }
+
+        /* --- View toggle (Card sort / Classic) ---------------------------- */
+        .view-toggle {
+            flex: 0 0 auto;
+            display: inline-flex;
+            padding: 4px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            background: var(--surface);
+            box-shadow: var(--shadow-sm);
+        }
+        .view-toggle button {
+            appearance: none;
+            border: 0;
+            background: transparent;
+            font: inherit;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--ink-soft);
+            padding: 7px 16px;
+            border-radius: 999px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            transition: background .18s ease, color .18s ease;
+        }
+        .view-toggle button[aria-pressed="true"] {
+            background: var(--accent);
+            color: #fff;
+        }
+        .view-toggle button:not([aria-pressed="true"]):hover { color: var(--ink); }
+
+        /* ==================================================================
+           CARD SORT view
+           ================================================================== */
+        .deck-stage {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            padding: 24px 0 8px;
+        }
+
+        /* Progress + undo row above the deck */
+        .deck-meta {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 18px;
+            font-size: 13px;
+            color: var(--ink-soft);
+        }
+        .deck-meta b { color: var(--ink); font-weight: 700; }
+        .deck-dots { display: inline-flex; gap: 5px; }
+        .deck-dots span {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: var(--line);
+            transition: background .2s ease;
+        }
+        .deck-dots span.done { background: var(--accent); }
+        .deck-undo {
+            appearance: none; border: 0; background: transparent;
+            font: inherit; font-size: 13px; font-weight: 600;
+            color: var(--ink-soft); cursor: pointer;
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 8px; border-radius: 8px;
+        }
+        .deck-undo:hover { color: var(--accent-strong); background: var(--accent-soft); }
+        .deck-undo[hidden] { display: none; }
+
+        /* The deck: cards absolutely stacked; the top one is interactive. */
+        .deck {
+            position: relative;
+            width: 300px;
+            height: 200px;
+        }
+        .reason-card {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            text-align: center;
+            padding: 24px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            box-shadow: var(--shadow-md);
+            user-select: none;
+            -webkit-user-select: none;
+            transform-origin: center bottom;
+            transition: transform .28s cubic-bezier(.34,1.2,.64,1), box-shadow .2s ease, opacity .28s ease;
+            will-change: transform;
+        }
+        .reason-card .card-icon {
+            font-size: 30px;
+            color: var(--accent);
+        }
+        .reason-card .card-text {
+            font-size: 20px;
+            font-weight: 700;
+            line-height: 1.25;
+            color: var(--ink);
+        }
+        /* The live (top) card invites interaction. */
+        .reason-card.is-top {
+            cursor: grab;
+            box-shadow: var(--shadow-lg);
+        }
+        .reason-card.is-top:focus-visible {
+            outline: 3px solid var(--accent);
+            outline-offset: 3px;
+        }
+        .reason-card.dragging {
+            cursor: grabbing;
+            transition: box-shadow .2s ease;   /* follow the pointer with no lag */
+            box-shadow: var(--shadow-lg);
+        }
+        .reason-card.placing {
+            /* flying into a bucket */
+            transition: transform .34s cubic-bezier(.4,0,.2,1), opacity .34s ease;
+            pointer-events: none;
+        }
+
+        .deck-hint {
+            margin-top: 22px;
+            font-size: 13px;
+            color: var(--ink-faint);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .deck-hint i { color: var(--accent); }
+
+        /* --- Buckets ------------------------------------------------------ */
+        .buckets {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin-top: 22px;
+        }
+        .bucket {
+            position: relative;
+            min-height: 104px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 14px 12px;
+            border: 2px dashed var(--line);
+            border-radius: 14px;
+            background: #fafbfc;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color .18s ease, background .18s ease, transform .12s ease;
+        }
+        .bucket:hover { border-color: var(--accent); }
+        .bucket.over {
+            border-color: var(--accent);
+            border-style: solid;
+            background: var(--accent-soft);
+            transform: translateY(-2px);
+        }
+        .bucket-label {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--ink);
+        }
+        .bucket-sub {
+            font-size: 11px;
+            color: var(--ink-faint);
+        }
+        .bucket-count {
+            position: absolute;
+            top: 10px; right: 12px;
+            min-width: 22px; height: 22px;
+            padding: 0 6px;
+            display: inline-flex; align-items: center; justify-content: center;
+            border-radius: 999px;
+            background: var(--accent);
+            color: #fff;
+            font-size: 12px; font-weight: 700;
+            opacity: 0; transform: scale(.6);
+            transition: opacity .2s ease, transform .2s ease;
+        }
+        .bucket-count.show { opacity: 1; transform: scale(1); }
+        /* Chips for placed reasons, stacked inside the bucket */
+        .bucket-chips {
+            display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+            margin-top: 2px;
+        }
+        .bucket-chip {
+            font-size: 11px; font-weight: 600;
+            color: var(--accent-strong);
+            background: var(--accent-soft);
+            border-radius: 999px;
+            padding: 3px 9px;
+            animation: chip-pop .26s cubic-bezier(.34,1.4,.64,1) both;
+        }
+        @keyframes chip-pop {
+            from { opacity: 0; transform: scale(.5); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+
+        /* --- Completion panel --------------------------------------------- */
+        .cardsort-done {
+            flex: 1 1 auto;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: 8px;
+            padding: 24px;
+        }
+        .cardsort.done .deck-stage,
+        .cardsort.done .buckets { display: none; }
+        .cardsort.done .cardsort-done { display: flex; }
+        .done-badge {
+            width: 64px; height: 64px; border-radius: 50%;
+            display: grid; place-items: center;
+            background: var(--accent-soft); color: var(--accent-strong);
+            font-size: 28px; margin-bottom: 6px;
+            animation: chip-pop .4s cubic-bezier(.34,1.4,.64,1) both;
+        }
+        .done-title { margin: 0; font-size: 22px; font-weight: 800; }
+        .done-text  { margin: 0; max-width: 46ch; font-size: 14px; color: var(--ink-soft); line-height: 1.55; }
+        .done-recap {
+            display: grid; grid-template-columns: repeat(3, minmax(0,1fr));
+            gap: 12px; margin: 14px 0 4px; width: 100%; max-width: 560px;
+        }
+        .done-recap .recap-col {
+            border: 1px solid var(--line); border-radius: 12px;
+            padding: 12px; background: var(--surface); text-align: left;
+        }
+        .done-recap .recap-head {
+            font-size: 12px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .03em; color: var(--ink-soft); margin-bottom: 8px;
+        }
+        .done-recap ul { margin: 0; padding-left: 18px; }
+        .done-recap li { font-size: 13px; color: var(--ink); margin-bottom: 4px; }
+        .done-recap .recap-empty { font-size: 13px; color: var(--ink-faint); font-style: italic; }
+        .done-restart {
+            appearance: none; border: 0; background: transparent;
+            font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-soft);
+            cursor: pointer; margin-top: 6px; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .done-restart:hover { color: var(--accent-strong); }
+
+        /* ==================================================================
+           CLASSIC (matrix) view — the pattern this experiment replaces
+           ================================================================== */
+        .classic { display: none; margin-top: 24px; }
+        .cardsort.view-classic .deck-stage,
+        .cardsort.view-classic .buckets,
+        .cardsort.view-classic .cardsort-done { display: none !important; }
+        .cardsort.view-classic .classic { display: block; }
+
+        .classic-table { width: 100%; border-collapse: collapse; }
+        .classic-table thead th {
+            font-size: 12px; font-weight: 700; color: var(--ink-soft);
+            text-transform: uppercase; letter-spacing: .03em;
+            padding: 10px 8px; text-align: center;
+            border-bottom: 1px solid var(--line);
+        }
+        .classic-table thead th:first-child { text-align: left; }
+        .classic-table tbody td {
+            padding: 12px 8px; border-bottom: 1px solid var(--line);
+            text-align: center;
+        }
+        .classic-table tbody td:first-child {
+            text-align: left; font-size: 15px; color: var(--ink); font-weight: 600;
+        }
+        .classic-table tbody tr:hover { background: #fafbfc; }
+        .classic-note {
+            margin: 0 0 14px; font-size: 13px; color: var(--ink-faint);
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        .classic-note i { color: var(--ink-faint); }
+
+        /* --- Footer "Need help?" trigger ---------------------------------- */
+        .help-link {
+            appearance: none; border: 0; background: transparent;
+            font: inherit; font-size: 13px; font-weight: 600; color: var(--accent-strong);
+            cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+            padding: 0;
+        }
+        .help-link:hover { text-decoration: underline; }
+
+        /* --- Responsive --------------------------------------------------- */
+        @media (max-width: 600px) {
+            .cardsort-top { flex-direction: column; }
+            .deck { width: 260px; height: 180px; }
+            .reason-card .card-text { font-size: 18px; }
+            .buckets { gap: 8px; }
+            .bucket { min-height: 92px; padding: 10px 8px; }
+            .bucket-label { font-size: 12px; }
+            .done-recap { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== Fixed header: course > lesson + progress ===================== -->
+    <header class="lesson-header">
+        <nav class="lesson-crumb" aria-label="Breadcrumb">
+            <span class="crumb-course">Alcohol EDU for College</span>
+            <span class="crumb-sep">›</span>
+            <span class="crumb-lesson">Pre-Course Survey</span>
+        </nav>
+        <div class="lesson-progress">
+            <span class="progress-label">Step 2 of 8</span>
+            <vaadin-progress-bar value="0.25" aria-label="Lesson progress"></vaadin-progress-bar>
+        </div>
+    </header>
+
+    <!-- ===== Lesson shell ================================================= -->
+    <div class="lesson-shell">
+        <main class="lesson-body" id="main">
+
+            <section class="cardsort" id="cardsort" aria-labelledby="csTitle">
+
+                <!-- Intro + view toggle -->
+                <div class="cardsort-top">
+                    <div class="cardsort-intro">
+                        <p class="cardsort-eyebrow">
+                            <i class="fa-solid fa-clipboard-question"></i> Pre-course survey
+                        </p>
+                        <h1 class="cardsort-title" id="csTitle">Reasons for drinking</h1>
+                        <p class="cardsort-prompt">
+                            How important is each of these as a reason people your age drink?
+                            Sort every card into a bucket. There are no right or wrong answers —
+                            your responses are private and just help tailor the course.
+                        </p>
+                    </div>
+
+                    <!-- Lets reviewers compare the new card sort against the matrix it replaces -->
+                    <div class="view-toggle" role="group" aria-label="Choose a layout">
+                        <button id="viewSort" type="button" aria-pressed="true">
+                            <i class="fa-solid fa-layer-group"></i> Card sort
+                        </button>
+                        <button id="viewClassic" type="button" aria-pressed="false">
+                            <i class="fa-solid fa-table-list"></i> Classic
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ----- CARD SORT view ----- -->
+                <div class="deck-stage">
+                    <div class="deck-meta">
+                        <span><b id="deckLeft">8</b> cards left</span>
+                        <span class="deck-dots" id="deckDots" aria-hidden="true"></span>
+                        <button class="deck-undo" id="undoBtn" type="button" hidden>
+                            <i class="fa-solid fa-rotate-left"></i> Undo
+                        </button>
+                    </div>
+
+                    <div class="deck" id="deck" aria-label="Reason cards to sort"></div>
+
+                    <p class="deck-hint">
+                        <i class="fa-solid fa-hand-pointer"></i>
+                        Drag the card into a bucket — or just tap a bucket. (Keys 1·2·3 work too.)
+                    </p>
+                </div>
+
+                <!-- ----- Buckets (drop targets) ----- -->
+                <div class="buckets" id="buckets"></div>
+
+                <!-- ----- Completion ----- -->
+                <div class="cardsort-done" id="done">
+                    <div class="done-badge"><i class="fa-solid fa-check"></i></div>
+                    <h2 class="done-title">All sorted — thank you!</h2>
+                    <p class="done-text">
+                        Here’s how you ranked these reasons. You can adjust anything before continuing.
+                    </p>
+                    <div class="done-recap" id="recap"></div>
+                    <button class="done-restart" id="restartBtn" type="button">
+                        <i class="fa-solid fa-rotate-left"></i> Start over
+                    </button>
+                </div>
+
+                <!-- ----- CLASSIC matrix view (the "before") ----- -->
+                <div class="classic" id="classic">
+                    <p class="classic-note">
+                        <i class="fa-solid fa-circle-info"></i>
+                        The current pattern: a row per reason, a column per rating. Shown here for comparison.
+                    </p>
+                    <table class="classic-table" id="classicTable">
+                        <thead>
+                            <tr>
+                                <th scope="col">Reason</th>
+                                <th scope="col">Not important</th>
+                                <th scope="col">Neutral</th>
+                                <th scope="col">Very important</th>
+                            </tr>
+                        </thead>
+                        <tbody id="classicBody"></tbody>
+                    </table>
+                </div>
+
+            </section>
+        </main>
+    </div>
+
+    <!-- ===== Fixed footer: help + navigation ============================= -->
+    <footer class="lesson-footer">
+        <button class="help-link" id="helpBtn" type="button">
+            <i class="fa-solid fa-circle-question"></i> Need help?
+        </button>
+        <div class="lesson-nav">
+            <vaadin-button theme="secondary" id="backBtn">Back</vaadin-button>
+            <vaadin-button theme="primary" id="nextBtn" disabled>Next</vaadin-button>
+        </div>
+    </footer>
+
+    <script src="js/lesson.js?v=4"></script>
+    <script>
+    /* ========================================================================
+       Reasons for Drinking — card-sort interaction.
+
+       Each reason is a card in a center deck. The learner sends the top card
+       to one of three importance buckets by:
+         • dragging it onto a bucket (Pointer Events — mouse + touch),
+         • tapping a bucket (assigns the current top card), or
+         • pressing 1 / 2 / 3 (or ←  ↓  → ) while the card is focused.
+       Placements are reversible (Undo / Start over). Next unlocks once every
+       card is sorted. A "Classic" toggle swaps in the matrix it replaces.
+       ===================================================================== */
+    (function () {
+        'use strict';
+
+        // ---- Content -----------------------------------------------------
+        const REASONS = [
+            { id: 'relax',  icon: 'fa-couch',           text: 'To relax or relieve stress' },
+            { id: 'fun',    icon: 'fa-champagne-glasses',text: 'To have fun or celebrate' },
+            { id: 'social', icon: 'fa-people-group',     text: 'To fit in socially' },
+            { id: 'drunk',  icon: 'fa-wine-bottle',      text: 'To get drunk' },
+            { id: 'others', icon: 'fa-users',            text: 'Because others are drinking' },
+            { id: 'cope',   icon: 'fa-cloud-bolt',       text: 'To cope with problems' },
+            { id: 'taste',  icon: 'fa-wine-glass',       text: 'Because I like the taste' },
+            { id: 'bored',  icon: 'fa-hourglass-half',   text: 'Out of boredom' },
+        ];
+        const BUCKETS = [
+            { id: 'not',     label: 'Not important', sub: 'Doesn’t apply' },
+            { id: 'neutral', label: 'Neutral',       sub: 'Somewhat' },
+            { id: 'very',    label: 'Very important',sub: 'Big reason' },
+        ];
+
+        // ---- Elements ----------------------------------------------------
+        const deckEl     = document.getElementById('deck');
+        const bucketsEl  = document.getElementById('buckets');
+        const dotsEl     = document.getElementById('deckDots');
+        const leftEl     = document.getElementById('deckLeft');
+        const undoBtn    = document.getElementById('undoBtn');
+        const restartBtn = document.getElementById('restartBtn');
+        const recapEl    = document.getElementById('recap');
+        const sectionEl  = document.getElementById('cardsort');
+        const nextBtn    = document.getElementById('nextBtn');
+
+        // ---- State -------------------------------------------------------
+        let queue   = [];     // reasons not yet placed (last item = top card)
+        let history = [];     // [{ reason, bucketId }] in placement order
+        const bucketRefs = {}; // id -> { el, countEl, chipsEl }
+
+        // ---- Build buckets ----------------------------------------------
+        BUCKETS.forEach((b, i) => {
+            const el = document.createElement('div');
+            el.className = 'bucket';
+            el.dataset.bucket = b.id;
+            el.setAttribute('role', 'button');
+            el.setAttribute('tabindex', '0');
+            el.setAttribute('aria-label', 'Place current card in: ' + b.label);
+            el.innerHTML =
+                '<span class="bucket-count"></span>' +
+                '<span class="bucket-label">' + (i + 1) + '. ' + b.label + '</span>' +
+                '<span class="bucket-sub">' + b.sub + '</span>' +
+                '<span class="bucket-chips"></span>';
+            bucketRefs[b.id] = {
+                el,
+                countEl: el.querySelector('.bucket-count'),
+                chipsEl: el.querySelector('.bucket-chips'),
+            };
+            // Tap / click / keyboard: assign the current top card here.
+            el.addEventListener('click', () => placeTop(b.id));
+            el.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); placeTop(b.id); }
+            });
+            bucketsEl.appendChild(el);
+        });
+
+        // ---- Reset / start ----------------------------------------------
+        function reset() {
+            queue = REASONS.slice();        // top card is the last element
+            history = [];
+            Object.values(bucketRefs).forEach((r) => {
+                r.chipsEl.replaceChildren();
+                r.countEl.textContent = '';
+                r.countEl.classList.remove('show');
+            });
+            sectionEl.classList.remove('done');
+            renderDeck();
+            renderDots();
+            updateMeta();
+            evaluateNext();
+        }
+
+        // ---- Render the visible deck (top 3 cards for depth) -------------
+        function renderDeck() {
+            deckEl.replaceChildren();
+            const start = Math.max(0, queue.length - 3);
+            for (let i = start; i < queue.length; i++) {
+                const reason = queue[i];
+                const isTop  = i === queue.length - 1;
+                const depth  = (queue.length - 1) - i;   // 0 for top
+                const card = document.createElement('div');
+                card.className = 'reason-card' + (isTop ? ' is-top' : '');
+                card.dataset.id = reason.id;
+                // Stacked offset for the cards beneath the top one.
+                card.style.transform = stackTransform(depth);
+                card.style.zIndex = String(10 + i);
+                card.innerHTML =
+                    '<i class="card-icon fa-solid ' + reason.icon + '"></i>' +
+                    '<span class="card-text">' + reason.text + '</span>';
+                if (isTop) {
+                    card.tabIndex = 0;
+                    card.setAttribute('role', 'group');
+                    card.setAttribute('aria-label',
+                        reason.text + '. Drag to a bucket, tap a bucket, or press 1, 2, or 3.');
+                    attachDrag(card);
+                    card.addEventListener('keydown', onCardKey);
+                }
+                deckEl.appendChild(card);
+            }
+        }
+
+        function stackTransform(depth) {
+            // Cards behind the top sit slightly up and scaled down.
+            const y = -depth * 8;
+            const s = 1 - depth * 0.04;
+            return 'translateY(' + y + 'px) scale(' + s + ')';
+        }
+
+        function renderDots() {
+            dotsEl.replaceChildren();
+            REASONS.forEach((_, i) => {
+                const d = document.createElement('span');
+                if (i < history.length) d.classList.add('done');
+                dotsEl.appendChild(d);
+            });
+        }
+
+        function updateMeta() {
+            leftEl.textContent = String(queue.length);
+            undoBtn.hidden = history.length === 0;
+        }
+
+        // ---- Keyboard on the top card -----------------------------------
+        function onCardKey(e) {
+            const map = { '1': 'not', '2': 'neutral', '3': 'very',
+                          'ArrowLeft': 'not', 'ArrowDown': 'neutral', 'ArrowRight': 'very' };
+            const bucketId = map[e.key];
+            if (bucketId) { e.preventDefault(); placeTop(bucketId); }
+        }
+
+        // ---- Drag (Pointer Events: mouse + touch) -----------------------
+        function attachDrag(card) {
+            let dragging = false, sx = 0, sy = 0, hovered = null;
+
+            card.addEventListener('pointerdown', (e) => {
+                // Ignore secondary buttons; only the live top card drags.
+                if (e.button && e.button !== 0) return;
+                dragging = true;
+                hovered = null;
+                sx = e.clientX; sy = e.clientY;
+                card.classList.add('dragging');
+                card.style.transition = 'none';
+                card.setPointerCapture(e.pointerId);
+            });
+
+            card.addEventListener('pointermove', (e) => {
+                if (!dragging) return;
+                const dx = e.clientX - sx;
+                const dy = e.clientY - sy;
+                const rot = Math.max(-12, Math.min(12, dx * 0.06));
+                card.style.transform = 'translate(' + dx + 'px,' + dy + 'px) rotate(' + rot + 'deg)';
+                const over = bucketAtPoint(e.clientX, e.clientY);
+                if (over !== hovered) {
+                    if (hovered) bucketRefs[hovered].el.classList.remove('over');
+                    hovered = over;
+                    if (hovered) bucketRefs[hovered].el.classList.add('over');
+                }
+            });
+
+            const end = (e) => {
+                if (!dragging) return;
+                dragging = false;
+                card.classList.remove('dragging');
+                card.style.transition = '';
+                if (hovered) {
+                    const target = hovered;
+                    bucketRefs[target].el.classList.remove('over');
+                    hovered = null;
+                    flyToBucket(card, target);
+                } else {
+                    // Snap back to the top of the deck.
+                    card.style.transform = stackTransform(0);
+                }
+            };
+            card.addEventListener('pointerup', end);
+            card.addEventListener('pointercancel', end);
+        }
+
+        function bucketAtPoint(x, y) {
+            for (const b of BUCKETS) {
+                const r = bucketRefs[b.id].el.getBoundingClientRect();
+                if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return b.id;
+            }
+            return null;
+        }
+
+        // ---- Placement ---------------------------------------------------
+        function placeTop(bucketId) {
+            if (!queue.length) return;
+            const card = deckEl.querySelector('.reason-card.is-top');
+            if (card) flyToBucket(card, bucketId);
+        }
+
+        // Animate the card toward the bucket, then commit the placement.
+        function flyToBucket(card, bucketId) {
+            const reason = queue[queue.length - 1];
+            if (!reason || reason.id !== card.dataset.id) return;
+
+            const cardRect = card.getBoundingClientRect();
+            const bRect = bucketRefs[bucketId].el.getBoundingClientRect();
+            const dx = (bRect.left + bRect.width / 2) - (cardRect.left + cardRect.width / 2);
+            const dy = (bRect.top + bRect.height / 2) - (cardRect.top + cardRect.height / 2);
+
+            card.classList.remove('is-top');
+            card.classList.add('placing');
+            card.style.zIndex = '50';
+            card.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(.18)';
+            card.style.opacity = '0';
+
+            const finish = () => {
+                card.removeEventListener('transitionend', finish);
+                commit(reason, bucketId);
+            };
+            card.addEventListener('transitionend', finish);
+            // Fallback in case transitionend doesn't fire.
+            setTimeout(() => { if (card.isConnected) finish(); }, 420);
+        }
+
+        function commit(reason, bucketId) {
+            queue.pop();
+            history.push({ reason, bucketId });
+
+            // Add a chip to the bucket + bump its count.
+            const ref = bucketRefs[bucketId];
+            const chip = document.createElement('span');
+            chip.className = 'bucket-chip';
+            chip.textContent = reason.text;
+            ref.chipsEl.appendChild(chip);
+            const n = history.filter((h) => h.bucketId === bucketId).length;
+            ref.countEl.textContent = String(n);
+            ref.countEl.classList.add('show');
+
+            renderDeck();
+            renderDots();
+            updateMeta();
+
+            if (queue.length === 0) finishSort();
+            evaluateNext();
+        }
+
+        // ---- Undo --------------------------------------------------------
+        undoBtn.addEventListener('click', () => {
+            if (!history.length) return;
+            sectionEl.classList.remove('done');
+            const last = history.pop();
+            queue.push(last.reason);
+
+            const ref = bucketRefs[last.bucketId];
+            const chips = ref.chipsEl.querySelectorAll('.bucket-chip');
+            if (chips.length) chips[chips.length - 1].remove();
+            const n = history.filter((h) => h.bucketId === last.bucketId).length;
+            ref.countEl.textContent = n ? String(n) : '';
+            ref.countEl.classList.toggle('show', n > 0);
+
+            renderDeck();
+            renderDots();
+            updateMeta();
+            evaluateNext();
+        });
+
+        restartBtn.addEventListener('click', reset);
+
+        // ---- Completion --------------------------------------------------
+        function finishSort() {
+            // Build a recap grouped by bucket.
+            recapEl.replaceChildren();
+            BUCKETS.forEach((b) => {
+                const items = history.filter((h) => h.bucketId === b.id).map((h) => h.reason.text);
+                const col = document.createElement('div');
+                col.className = 'recap-col';
+                const head = '<div class="recap-head">' + b.label + ' (' + items.length + ')</div>';
+                const list = items.length
+                    ? '<ul>' + items.map((t) => '<li>' + t + '</li>').join('') + '</ul>'
+                    : '<div class="recap-empty">Nothing here</div>';
+                col.innerHTML = head + list;
+                recapEl.appendChild(col);
+            });
+            sectionEl.classList.add('done');
+            Lesson.scrollCue && Lesson.scrollCue.refresh();
+        }
+
+        // ---- Next gating (per active view) ------------------------------
+        function evaluateNext() {
+            const classic = sectionEl.classList.contains('view-classic');
+            const done = classic ? allRowsRated() : (history.length === REASONS.length);
+            nextBtn.disabled = !done;
+        }
+
+        // ==================================================================
+        // CLASSIC matrix view (the pattern this experiment replaces)
+        // ==================================================================
+        const classicBody = document.getElementById('classicBody');
+        REASONS.forEach((reason) => {
+            const tr = document.createElement('tr');
+            const name = 'classic-' + reason.id;
+            let cells = '<td>' + reason.text + '</td>';
+            BUCKETS.forEach((b) => {
+                cells += '<td><input type="radio" name="' + name + '" value="' + b.id +
+                         '" aria-label="' + reason.text + ' — ' + b.label + '"></td>';
+            });
+            tr.innerHTML = cells;
+            classicBody.appendChild(tr);
+        });
+        classicBody.addEventListener('change', evaluateNext);
+
+        function allRowsRated() {
+            return REASONS.every((r) => !!classicBody.querySelector('input[name="classic-' + r.id + '"]:checked'));
+        }
+
+        // ---- View toggle -------------------------------------------------
+        const viewSort = document.getElementById('viewSort');
+        const viewClassic = document.getElementById('viewClassic');
+        function setView(classic) {
+            sectionEl.classList.toggle('view-classic', classic);
+            viewClassic.setAttribute('aria-pressed', String(classic));
+            viewSort.setAttribute('aria-pressed', String(!classic));
+            evaluateNext();
+            Lesson.scrollCue && Lesson.scrollCue.refresh();
+        }
+        viewSort.addEventListener('click', () => setView(false));
+        viewClassic.addEventListener('click', () => setView(true));
+
+        // ---- Footer help → AI helper panel ------------------------------
+        Lesson.chat.configure({
+            title: 'About this survey',
+            subtitle: 'AI learning helper',
+            intro: 'No pressure here — there are no right or wrong answers, and your responses stay private. Ask me anything about this step.',
+            suggestions: [
+                { q: 'Why are you asking this?',
+                  a: 'Your answers help tailor the rest of the course to what’s actually relevant to you. We don’t share them — they just personalize what you see next.' },
+                { q: 'What if none of these apply to me?',
+                  a: 'That’s completely fine. Sort each card into “Not important” if it doesn’t fit. The survey is about your honest read, not a “correct” pattern.' },
+                { q: 'Can I change an answer?',
+                  a: 'Yes — use Undo to pull the last card back, or Start over to re-sort everything before you continue.' },
+            ],
+            fallback: 'In a live lesson I’d talk this through with you. For this step, just sort each card honestly — your answers are private.',
+        });
+        document.getElementById('helpBtn').addEventListener('click', () => Lesson.chat.open());
+
+        // ---- Navigation (prototype: visual only) ------------------------
+        document.getElementById('backBtn').addEventListener('click', () => console.log('Back'));
+        nextBtn.addEventListener('click', () => {
+            if (nextBtn.disabled) return;
+            const summary = {};
+            history.forEach((h) => { (summary[h.bucketId] = summary[h.bucketId] || []).push(h.reason.id); });
+            console.log('Next — placements:', summary);
+        });
+
+        // ---- Go ----------------------------------------------------------
+        reset();
+    })();
+    </script>
+</body>
+</html>
