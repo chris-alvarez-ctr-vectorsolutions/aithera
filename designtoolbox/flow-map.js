@@ -61,12 +61,36 @@
     return PAGES_BASE + m[0].replace(/\/index\.html?$/i, '/');
   }
 
+  // ---- inline SVG icons -----------------------------------------------------
+  // Self-contained so the flow map's chrome renders even when the host mock does
+  // NOT load an icon font (Font Awesome, etc.). All use currentColor.
+  var SVG = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+  var ICON_MAP = '<svg ' + SVG + '><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>';
+  var ICON_MINUS = '<svg ' + SVG + '><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+  var ICON_PLUS = '<svg ' + SVG + '><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+  var ICON_EXPAND = '<svg ' + SVG + '><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
+  var ICON_X = '<svg ' + SVG + '><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  var ICON_NOTE = '<svg ' + SVG + '><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/><polyline points="14 3 14 9 20 9"/></svg>';
+  var ICON_FILE = '<svg ' + SVG + '><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>';
+  var ICON_GITHUB = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56 0-.27-.01-1.16-.02-2.1-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.69 5.39-5.25 5.68.41.36.78 1.06.78 2.14 0 1.55-.01 2.8-.01 3.18 0 .31.21.68.8.56A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>';
+
   // ---- styles ---------------------------------------------------------------
   var CSS = '\
 .fm-switcher{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:999990;display:inline-flex;align-items:center;gap:6px;background:#18181b;padding:6px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.28);font-family:"Open Sans",system-ui,sans-serif;}\
 .fm-launch{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:#4a2bd1;color:#fff;border:none;border-radius:999px;padding:9px 11px;font:700 14px/1 "Open Sans",system-ui,sans-serif;cursor:pointer;transition:background .12s,transform .12s;}\
 .fm-launch:hover{background:#5a3ce0;transform:translateY(-1px);}\
 .fm-launch.fm-in-vs{padding:8px 10px;font-size:13px;}\
+.fm-launch svg{width:17px;height:17px;display:block;}\
+/* Dev-notes GitHub link — sits right next to the Flow Map launcher. */\
+.fm-devnotes{display:inline-flex;align-items:center;justify-content:center;background:#2d2f45;color:#fff;border:none;border-radius:999px;padding:9px 11px;cursor:pointer;text-decoration:none;transition:background .12s,transform .12s;}\
+.fm-devnotes:hover{background:#3a3d59;transform:translateY(-1px);}\
+.fm-devnotes svg{width:17px;height:17px;display:block;}\
+.tbx-has-versions .fm-devnotes{width:38px;height:38px;min-width:0;padding:0;border-radius:50%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);-webkit-backdrop-filter:blur(10px) saturate(140%);backdrop-filter:blur(10px) saturate(140%);}\
+.tbx-has-versions .fm-devnotes:hover{background:rgba(255,255,255,.22);}\
+.fm-tbtn svg{width:15px;height:15px;}\
+.fm-add-note svg,.fm-note-badge svg{width:12px;height:12px;}\
+.fm-source svg{width:14px;height:14px;flex:none;margin-top:1px;}\
+.fm-drawer-head .x svg{width:16px;height:16px;}\
 .fm-vs-sep{width:1px;align-self:stretch;margin:2px 0 2px 6px;background:rgba(255,255,255,.16);}\
 .fm-ver-badge{position:absolute;top:8px;left:8px;z-index:3;background:#4a2bd1;color:#fff;font:700 11px/1 "Open Sans",system-ui,sans-serif;letter-spacing:.3px;padding:4px 9px;border-radius:999px;box-shadow:0 1px 5px rgba(0,0,0,.32);}\
 .fm-overlay{position:fixed;inset:0;z-index:999991;display:none;flex-direction:column;background:radial-gradient(circle at 30% 10%,#20243a 0%,#14162a 60%,#0e0f1d 100%);font-family:"Open Sans",system-ui,sans-serif;}\
@@ -251,7 +275,7 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
 
     var launch = el('button', 'fm-launch fm-in-vs');
     // Icon-only launcher — the glyph alone identifies it; the label is dropped.
-    launch.innerHTML = '<i class="fa-solid fa-map"></i>';
+    launch.innerHTML = ICON_MAP;
     launch.title = 'Open the flow map';
     launch.setAttribute('aria-label', 'Open the flow map');
     launch.addEventListener('click', openMap);
@@ -264,6 +288,36 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
       pill.appendChild(launch);
       document.body.appendChild(pill);
     }
+    // A GitHub link to this mock's DEV-NOTES.md, right beside the Flow Map button
+    // (shown only when that file actually exists — e.g. a dev-handoff build).
+    maybeAddDevNotesLink(launch);
+  }
+
+  // The DEV-NOTES.md GitHub URL for this mock, derived from its /products/ path.
+  function devNotesGitHubUrl() {
+    var m = location.pathname.match(/\/products\/.+$/i);
+    if (!m) return null;
+    var dir = m[0].replace(/[^/]*$/, '');                 // strip the filename → folder/
+    var path = dir.split('/').map(function (s) { return s ? encodeURIComponent(s) : s; }).join('/');
+    return 'https://github.com/VectorLearning/ux-mockups/blob/main' + path + 'DEV-NOTES.md';
+  }
+  // Add the dev-notes link only if DEV-NOTES.md is reachable and non-empty, so
+  // it never points at a 404 for mocks that don't have one.
+  function maybeAddDevNotesLink(launch) {
+    var url = devNotesGitHubUrl();
+    if (!url) return;
+    fetch(NOTES_URL, { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.text() : ''; })
+      .then(function (md) {
+        if (!md || !/^##\s+/m.test(md)) return;           // no notes → no link
+        var a = el('a', 'fm-devnotes');
+        a.href = url; a.target = '_blank'; a.rel = 'noopener';
+        a.title = 'Open DEV-NOTES.md on GitHub';
+        a.setAttribute('aria-label', 'Open this mock’s DEV-NOTES.md on GitHub');
+        a.innerHTML = ICON_GITHUB;
+        if (launch.parentNode) launch.parentNode.insertBefore(a, launch.nextSibling);
+      })
+      .catch(function () { /* local file:// / offline — skip the link */ });
   }
 
   function build() {
@@ -273,10 +327,10 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
         '<div class="fm-title"><span class="dot"></span><h2>' + CFG.title + '</h2><span class="tag">Dev tool</span></div>' +
         '<div class="fm-hint">Hover to preview the live design · click to open it live · 💬 view comments · 📝 view dev notes</div>' +
         '<div class="fm-tools">' +
-          '<button class="fm-tbtn" data-z="-1" title="Zoom out"><i class="fa-solid fa-minus"></i></button>' +
-          '<button class="fm-tbtn" data-z="0" title="Reset zoom"><i class="fa-solid fa-expand"></i></button>' +
-          '<button class="fm-tbtn" data-z="1" title="Zoom in"><i class="fa-solid fa-plus"></i></button>' +
-          '<button class="fm-tbtn" data-close="1" title="Close" style="margin-left:6px;"><i class="fa-solid fa-xmark"></i></button>' +
+          '<button class="fm-tbtn" data-z="-1" title="Zoom out">' + ICON_MINUS + '</button>' +
+          '<button class="fm-tbtn" data-z="0" title="Reset zoom">' + ICON_EXPAND + '</button>' +
+          '<button class="fm-tbtn" data-z="1" title="Zoom in">' + ICON_PLUS + '</button>' +
+          '<button class="fm-tbtn" data-close="1" title="Close" style="margin-left:6px;">' + ICON_X + '</button>' +
         '</div>' +
       '</div>' +
       '<div class="fm-view"><div class="fm-canvas"><svg class="fm-edges"></svg></div></div>';
@@ -291,10 +345,10 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
     // drawer (read-only dev notes from DEV-NOTES.md)
     drawer = el('div', 'fm-drawer');
     drawer.innerHTML =
-      '<div class="fm-drawer-head"><button class="x" data-dclose="1"><i class="fa-solid fa-xmark"></i></button>' +
+      '<div class="fm-drawer-head"><button class="x" data-dclose="1">' + ICON_X + '</button>' +
         '<div class="k">Dev notes</div><h3 class="fm-dtitle"></h3></div>' +
       '<div class="fm-drawer-body"></div>' +
-      '<div class="fm-composer"><div class="fm-source"><i class="fa-regular fa-file-lines"></i> Notes are maintained in <code>DEV-NOTES.md</code> next to this mock.</div>' +
+      '<div class="fm-composer"><div class="fm-source">' + ICON_FILE + ' Notes are maintained in <code>DEV-NOTES.md</code> next to this mock.</div>' +
         '<div class="row"><button class="fm-btn ghost" data-dclose="1">Close</button></div></div>';
     overlay.appendChild(drawer);
 
@@ -350,7 +404,7 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
           '<div class="fm-step-row"><div class="fm-step">' + (n.step || '') + '</div><span class="fm-note-slot"></span></div>' +
           '<div class="fm-name">' + n.name + '</div>' +
           '<div class="fm-desc">' + (n.desc || '') + '</div>' +
-          '<div class="fm-actions"><button class="fm-add-note"><i class="fa-regular fa-note-sticky"></i> Dev notes</button><span class="fm-open">Open live →</span></div>' +
+          '<div class="fm-actions"><button class="fm-add-note">' + ICON_NOTE + ' Dev notes</button><span class="fm-open">Open live →</span></div>' +
         '</div>';
       // open live (ignore clicks on chips / add-note)
       node.addEventListener('click', function (e) {
@@ -401,7 +455,7 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
       var cmtCorner = node.querySelector('.fm-cmt-corner'), noteSlot = node.querySelector('.fm-note-slot');
       var c = commentCounts[n.id] || 0, a = annsFor(n.id).length;
       cmtCorner.innerHTML = c ? '<span class="fm-cmt-badge" title="' + c + ' comment(s) — view">💬 ' + c + '</span>' : '';
-      noteSlot.innerHTML = a ? '<span class="fm-note-badge" title="' + a + ' dev note(s) — view"><i class="fa-regular fa-note-sticky"></i> ' + a + '</span>' : '';
+      noteSlot.innerHTML = a ? '<span class="fm-note-badge" title="' + a + ' dev note(s) — view">' + ICON_NOTE + ' ' + a + '</span>' : '';
       var cc = cmtCorner.querySelector('.fm-cmt-badge'); if (cc) cc.addEventListener('click', function (e) { e.stopPropagation(); viewComments(n.id); });
       var nc = noteSlot.querySelector('.fm-note-badge'); if (nc) nc.addEventListener('click', function (e) { e.stopPropagation(); openDrawer(n.id); });
     });
