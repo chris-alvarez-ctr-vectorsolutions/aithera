@@ -186,6 +186,76 @@ example across two branching flows.
 
 ---
 
+## Dev handoff build
+
+> **This is the standardized dev-handoff process.** It is the same for every
+> designer and every mock. The trigger + step-by-step procedure also lives in
+> the root `CLAUDE.md` ("Dev Handoff Process") so the agent runs it identically
+> every time a designer says *"this is ready for dev / ready for handoff."* This
+> section documents the toolbox/dashboard **mechanics** that process relies on.
+
+When a mock is ready for developers, it gets a **`dev_handoff.html`** — a copy
+of the design that hides the review comments and keeps the flow map (with dev
+notes) as the handoff reference.
+
+### What a dev build is
+
+`dev_handoff.html` is a **byte copy of the chosen design version's
+`index.html`**, with one line added before the `toolbox.js` include:
+
+```html
+<script>window.TOOLBOX = { comments: false };</script>
+<script src="../../../designtoolbox/toolbox.js"></script>
+```
+
+`comments:false` hides the **entire comment feature** — both the pin-and-comment
+widget and the flow map's **💬 comment-count chips** (the flow map suppresses its
+comment counts whenever the comment widget is off, surfacing **dev notes only**).
+The **flow map stays on**, so developers still get the screens, live thumbnails,
+and the read-only **dev-note annotations** from `DEV-NOTES.md`.
+
+### Annotations live in the flow map, not on the page
+
+The handoff intentionally adds **no annotation elements to the page itself** —
+the design stays clean. Every developer-facing detail (what changed, what to
+build, which VWC/Vaadin component each element maps to, states, edge cases) goes
+into `DEV-NOTES.md` per node, so developers see the **full picture** (the whole
+flow) and can drill into **every detail** per screen — see *Dev notes file
+format* above.
+
+### ⚠️ The toolbox dock is NOT part of the product
+
+The bottom-center **toolbox pill** and its **🗺 Flow Map button are
+review/handoff tooling only — not part of the shipping product.** Developers
+must **NOT ship the `toolbox.js` include, the dock pill, or the flow map
+button** — strip that one `<script src=".../toolbox.js">` line for production.
+Say this in each mock's `DEV-NOTES.md` too.
+
+### Multiple versions
+
+If a mock has more than one version (a `.version-switcher` V1/V2, or several
+variants), the designer is asked **which version to keep** before the build —
+we usually launch only one. If they keep more than one (e.g. **alpha** + **beta**
+both going to dev), each kept version gets its own dev build named accordingly:
+`dev_handoff_alpha.html`, `dev_handoff_beta.html`, etc. Point the dashboard at a
+non-default name with `devHandoff: "<file>.html"` in that mock's `meta.json`.
+
+### Dashboard wiring (automatic)
+
+`scripts/build-dashboards.js` detects a `dev_handoff.html` next to a mock's
+`index.html` on push and sets `devHandoff` on the card. `dashboard.js` then:
+
+- flips the card's status to **Ready for Dev**;
+- renders the **Dev Page + Dev HTML (GitHub) links first**, with a **"View Dev
+  Build"** primary button;
+- collapses the **original design links into a "Designer file" drawer** (the
+  prototype-with-comments build, kept one click away, not the primary action).
+
+No hand-editing of `meta.json` is needed unless the dev file uses a non-default
+name (see *Multiple versions* above).
+
+---
+
 ## Linking a product to its dashboard on the index
 
 **What I want:** A few products (SafeLMS and Scheduling today) have a *product

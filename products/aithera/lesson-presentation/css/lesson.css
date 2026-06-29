@@ -1630,6 +1630,270 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+   7. AI Discussion content type — "video just finished, now chat about it"
+
+   Two screens inside one lesson body, swapped via [hidden]:
+     a. Video screen   — a faux player whose clip has finished playing.
+     b. Discussion      — the AI chat IS the main content (not a side panel).
+   Reuses the .chat-msg / .chat-typing bubble styles from section 4.
+   ------------------------------------------------------------------------- */
+
+/* The two screens share the centered column; the active one fills the body. */
+.disc-screen {
+  width: 100%;
+  max-width: 760px;
+  flex: 1 1 auto;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;                 /* lets the chat thread own the scroll */
+}
+.disc-screen[hidden] { display: none; }
+
+/* Eyebrow shared by both screens (matches the other content types) */
+.disc-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.disc-eyebrow i { color: var(--accent); font-size: 12px; }
+
+/* --- a. Video screen ---------------------------------------------------- */
+.video-screen { justify-content: center; gap: 22px; }
+
+.video-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #0b1220;
+  box-shadow: var(--shadow-lg);
+  /* "Poster" — a soft scene-like gradient standing in for a real still */
+  background-image:
+    radial-gradient(120% 90% at 75% 15%, rgba(15,158,142,.42), transparent 55%),
+    radial-gradient(120% 90% at 15% 90%, rgba(124,58,237,.38), transparent 55%),
+    linear-gradient(160deg, #111827, #0b1220);
+}
+
+/* Dim veil so the finished-overlay controls read clearly over the poster */
+.video-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 12, 22, .35);
+}
+
+.video-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;                    /* above the dim veil */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: #fff;
+  text-align: center;
+  /* extra bottom room so the centered content never collides with the
+     scrubber when the 16:9 frame gets short on narrow screens */
+  padding: 24px 24px 60px;
+}
+.video-done-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .14);
+  backdrop-filter: blur(4px);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.video-done-pill i { color: #6ee7d8; }
+
+.video-replay {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  border: 1px solid rgba(255, 255, 255, .55);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .10);
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
+.video-replay:hover { background: rgba(255, 255, 255, .22); border-color: #fff; }
+
+.video-title {
+  margin: 0;
+  font-size: clamp(18px, 2.6vw, 24px);
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .4);
+}
+
+/* Faux scrubber pinned to the bottom of the frame — sits at 100% (finished) */
+.video-scrubber {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(to top, rgba(8, 12, 22, .7), transparent);
+  color: rgba(255, 255, 255, .9);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.video-scrubber i { font-size: 13px; }
+.video-track {
+  flex: 1 1 auto;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, .25);
+  overflow: hidden;
+}
+.video-track span {
+  display: block;
+  width: 100%;                   /* finished */
+  height: 100%;
+  background: var(--accent);
+}
+
+.video-caption {
+  margin: 0;
+  max-width: 60ch;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* --- b. Discussion (chat as main content) ------------------------------- */
+.discussion { gap: 0; }
+
+/* The shared shell normally lets the document scroll (body has min-height and
+   grows). For the discussion we lock the body to the viewport so the chat
+   *thread* owns the scroll — keeping the prompt and composer in view. */
+body.disc-mode .lesson-body {
+  height: calc(100vh - var(--header-h) - var(--footer-h));
+  min-height: 0;
+  overflow: hidden;
+  justify-content: flex-start;
+}
+
+.disc-prompt {
+  margin: 0 0 6px;
+  font-size: clamp(20px, 3vw, 26px);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -.01em;
+}
+.disc-lead {
+  margin: 0 0 18px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Bot bubbles default to --canvas, which is also this screen's background —
+   so on a white card they'd vanish. Lift them to a surface bubble with a
+   border (and match the typing indicator) for contrast against the canvas. */
+.disc-thread .chat-msg.bot,
+.disc-thread .chat-typing {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+}
+
+/* The scrolling conversation. Reuses .chat-msg / .chat-typing bubbles. */
+.disc-thread {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 4px 8px;
+  border-top: 1px solid var(--line);
+}
+
+/* Composer — the hero input for this content type (bigger than the panel's) */
+.disc-composer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 14px 0 2px;
+}
+.disc-composer textarea {
+  flex: 1 1 auto;
+  resize: none;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 13px 16px;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.45;
+  max-height: 140px;
+  background: var(--surface);
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.disc-composer textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.disc-composer textarea:disabled { background: var(--canvas); color: var(--ink-faint); }
+.disc-send {
+  flex: 0 0 auto;
+  width: 46px; height: 46px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background .15s ease;
+}
+.disc-send:hover { background: var(--accent-strong); }
+.disc-send:disabled { background: var(--ink-faint); cursor: default; }
+
+/* The wrap-up "you're done" affordance the AI surfaces at the end */
+.disc-done {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 600;
+}
+.disc-done i { font-size: 12px; }
+
+/* Short-viewport + phone tuning for the discussion screen */
+@media (max-width: 600px) {
+  .disc-prompt { font-size: 19px; }
+  .disc-composer textarea { font-size: 16px; }   /* avoids iOS zoom-on-focus */
+}
+
+/* ---------------------------------------------------------------------------
    Mobile frame — compact shared header/footer for phone-width screens
 
    The fixed header and footer wrap every experiment. On narrow screens the

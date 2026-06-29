@@ -105,6 +105,53 @@ For the complete list with props and examples, see `CORE-CONTEXT.md`
 
 Required resources are provided in the header to load Core and Themes bundles from the CDN plus the main font and icon set.
 
+## Dev Handoff Process
+
+**This is the standardized process for every dev handoff — it is the same for every designer and every mock.** When a designer says any of *"this is ready for dev,"* *"ready for handoff,"* *"it's dev-handoff time,"* *"hand this off,"* or similar, run these steps in order. Do not improvise a different flow per request.
+
+The mechanics live in the Design Toolbox — see `designtoolbox/README.md` ("Dev handoff build") for the toolbox/dashboard details referenced below.
+
+### Step 0 — Pick the version FIRST (before anything else)
+
+If the mock has **more than one version** (a `.version-switcher` V1/V2 pill, or multiple design variants), **stop and ask the designer which version to keep** — we almost always launch only one, so the handoff should not carry dead variants.
+
+- If they keep **one** version, build the handoff from that one.
+- If they intentionally keep **more than one** (e.g. an **alpha** and a **beta** both going to dev), **ask the designer what to name each**, then produce one dev build per kept version named accordingly (e.g. `dev_handoff_alpha.html`, `dev_handoff_beta.html`).
+- Never guess which version to keep or what to call them.
+
+### Step 1 — Component assessment
+
+Run the **`assess-mock-components`** skill on the chosen version's `index.html`. This audits every element against the Vector Web Components library (correct `vaadin-*` / `vwc-*` usage, `theme="outlined"` on inputs, button variants) and confirms theme-token usage. It produces `component-assessment.md` and never edits the mock.
+
+### Step 2 — Write the dev notes (`DEV-NOTES.md`)
+
+Author or refresh **`DEV-NOTES.md`** next to the mock (the flow map reads it — see the toolbox README's "Dev notes file format"). For **every node/screen** in the flow map, write the developer annotations: what each element is, **the VWC/Vaadin component it maps to** (fold in the Step 1 findings), states, edge cases, and — critically — **every place a change was made on the page that a developer needs to build.**
+
+- **Annotations live ONLY inside the flow map's dev notes — never as added elements on the page.** The design stays clean and uncluttered; developers drill into the flow map to see every detail per screen, while still seeing the full picture (the whole flow) in one place.
+- Include the **"do not ship the toolbox" warning** from Step 4 in `DEV-NOTES.md` too.
+
+### Step 3 — Duplicate the HTML into a dev-handoff build
+
+Copy the chosen `index.html` to **`dev_handoff.html`** in the same folder (one per kept version, named per Step 0). In the copy, **before the `toolbox.js` include**, add:
+
+```html
+<script>window.TOOLBOX = { comments: false };</script>
+```
+
+This **hides the entire comment feature** (the pin-and-comment widget *and* the flow map's 💬 comment-count chips) while **keeping the flow map on** so developers still get the screens, live thumbnails, and dev-note annotations. Keep the mock's `applyFlowState` / `bootFromHash` so the flow map and thumbnails work. **Do not hand-rewrite the design** — the dev build is a copy of the chosen version, only with comments off.
+
+### Step 4 — The toolbox dock is NOT part of the product
+
+The bottom-center **toolbox pill** and its **🗺 Flow Map button are review/handoff tooling only — they are not part of the actual product design.** State this prominently in `DEV-NOTES.md` (and anywhere a developer will look): **developers must NOT ship the `toolbox.js` include, the dock pill, or the flow map button** — strip that one `<script src=".../toolbox.js">` line for production.
+
+### Step 5 — Dashboard (automatic)
+
+No manual dashboard edit is needed. On push, `scripts/build-dashboards.js` detects `dev_handoff.html` and flips the product-dashboard card to **Ready for Dev**: the **Dev Page + Dev HTML (GitHub) links render first** with a **"View Dev Build"** primary button, and the **original design links collapse into a "Designer file" drawer**. (For a non-default filename like `dev_handoff_alpha.html`, set `devHandoff: "dev_handoff_alpha.html"` in the mock's `meta.json` entry.)
+
+### Step 6 — Commit and share
+
+Commit the new files, then give the designer the dev build's **GitHub Pages URL** (the "Dev Page" link).
+
 ### Style Guidelines
 
 Use THEMES-CONTEXT.md as the reference for design tokens and themeing provided from the themes bundle in styles.js.

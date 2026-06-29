@@ -226,27 +226,14 @@
   .toolbar-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   /* Filters scope badge (always visible) + a separate tertiary Clear button (only when filtered) */
   .filter-scope-row { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .filters-active { display: inline-flex; align-items: center; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 20px; overflow: hidden; }
-  .filters-scope-btn { background: none; border: 0; cursor: pointer; font-family: inherit; color: #1d4ed8; font-size: 12px; font-weight: 600; padding: 4px 12px; display: inline-flex; align-items: center; gap: 6px; }
-  .filters-scope-btn:hover { background: #e0ebff; }
-  .filters-scope-btn i { font-size: 10px; }
-  /* V2 — active filters as individual removable chips, stacking next to the scope chip */
+  /* Lead-in sentence: "Showing all courses" by default, "Filtered to:" once chips appear */
+  .filter-lead { font-size: 13px; color: var(--muted); }
+  /* Active filters as individual removable chips, stacking next to the Filters button */
   .applied-filters { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
   .applied-filters:empty { display: none; }
   .applied-filters .filter-chip { max-width: 280px; }
   .applied-filters .filter-chip .fc-k { color: #3b6fd4; font-weight: 700; flex-shrink: 0; overflow: visible; }
 
-  /* ===== Version switcher controller (bottom-center pill) ===== */
-  .version-switcher {
-    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
-    z-index: 2147483000; display: inline-flex; align-items: center; gap: 4px;
-    background: #18181b; padding: 6px 8px 6px 14px; border-radius: 999px;
-    box-shadow: 0 6px 20px rgba(0,0,0,.22); font-family: 'SF Mono', Menlo, Consolas, monospace;
-  }
-  .version-switcher .vs-controller-label { color: #a1a1aa; font-size: 11px; font-weight: 700; letter-spacing: .4px; margin-right: 4px; }
-  .version-switcher .vs-btn { background: transparent; border: 0; color: #d4d4d8; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 999px; cursor: pointer; font-family: inherit; transition: background .15s ease, color .15s ease; }
-  .version-switcher .vs-btn:hover { color: #fff; }
-  .version-switcher .vs-btn.active { background: #1f4596; color: #fff; }
   /* Course cell */
   .course-cell { color: var(--ink-2); }
   .toolbar-right { display: flex; align-items: center; gap: 8px; }
@@ -295,6 +282,23 @@
   /* Fixed layout so all columns fit the card width — no horizontal scroll; cells wrap instead.
      Column widths + visibility + order are driven by the JS column model (inline th widths). */
   .report-table { table-layout: fixed; width: 100%; border-collapse: collapse; font-size: 12.5px; }
+
+  /* When the filter panel is open the content area narrows. Rather than squishing the
+     columns, hold the table at its natural width so .report-table-wrap scrolls horizontally,
+     and freeze the Action column as a fixed pane pinned to the right edge. */
+  .page-layout.panel-open .report-table { min-width: 1080px; }
+  .page-layout.panel-open .report-table th.col-action,
+  .page-layout.panel-open .report-table td.cell-actions {
+    position: sticky; right: 0; z-index: 2;
+    box-shadow: -8px 0 12px -8px rgba(16,24,40,.18);   /* soft edge marks the frozen pane */
+  }
+  .page-layout.panel-open .report-table th.col-action { background: #f9fafb; z-index: 3; }
+  /* Frozen body cells need an opaque background so scrolled content doesn't show through —
+     mirror each row state (default / hover / selected). */
+  .page-layout.panel-open .report-table td.cell-actions { background: #fff; }
+  .page-layout.panel-open .report-table .data-row:hover td.cell-actions { background: #fafafa; }
+  .page-layout.panel-open .report-table .data-row.row-selected td.cell-actions { background: #eff6ff; }
+  .page-layout.panel-open .report-table .data-row.row-selected:hover td.cell-actions { background: #e0ebff; }
   .report-table td.nowrap, .report-table th.nowrap { white-space: nowrap; }
   .report-table thead { background: #f9fafb; }
   .report-table thead th {
@@ -670,16 +674,13 @@
         <!-- Meta + actions -->
         <div class="report-meta-row">
           <div class="meta-left">
-            <!-- Page-level filter scope — applies to the charts AND the table. Shows "All courses"
-                 by default (styled as an active filter) so it's clear the whole page is filterable.
-                 The Clear button is a separate tertiary button, shown only when a filter is active. -->
+            <!-- Page-level filter scope — applies to the charts AND the table.
+                 Default reads "Showing all courses"; once filters are applied the lead-in
+                 becomes "Filtered to:" followed by a removable chip per active filter,
+                 with a tertiary Clear button to clear them all. -->
             <div class="filter-scope-row">
-              <span class="filters-active" id="filtersActive">
-                <button class="filters-scope-btn" id="filtersScopeBtn" type="button" title="Change filters">
-                  <i class="fa-solid fa-filter"></i> <span id="filtersScope">All courses</span>
-                </button>
-              </span>
-              <!-- V2: each active filter renders as its own removable chip here, stacking next to the chip above -->
+              <!-- Sentence + chips describe the current scope; the Filters button lives in the action bar -->
+              <span class="filter-lead" id="filterLead">Showing all courses</span>
               <span class="applied-filters" id="appliedFilters"></span>
               <vaadin-button theme="tertiary small" id="filtersClearBtn" hidden><i class="fa-solid fa-xmark" slot="prefix"></i> Clear filters</vaadin-button>
             </div>
@@ -886,10 +887,10 @@
           <div class="filter-section">
             <label class="filter-label">Completion Status</label>
             <div class="filter-checkboxes" id="statusChecks">
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="passed" checked></vaadin-checkbox><span>Passed</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="in-progress" checked></vaadin-checkbox><span>In Progress</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="not-started" checked></vaadin-checkbox><span>Not Started</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="failed" checked></vaadin-checkbox><span>Failed</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="passed"></vaadin-checkbox><span>Passed</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="in-progress"></vaadin-checkbox><span>In Progress</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="not-started"></vaadin-checkbox><span>Not Started</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="failed"></vaadin-checkbox><span>Failed</span></label>
             </div>
           </div>
 
@@ -922,13 +923,6 @@
 <!-- Action-group bulk modal (opened from the Action Needed cards) -->
 <vaadin-dialog id="agDialog" no-close-on-outside-click></vaadin-dialog>
 <vaadin-notification id="toast" position="bottom-center" duration="3200"></vaadin-notification>
-
-<!-- Version switcher: V1 = single scope chip (filters live in the panel) · V2 = each active filter as a chip next to "All courses" -->
-<div class="version-switcher" role="group" aria-label="Filter display version">
-  <span class="vs-controller-label">FILTERS</span>
-  <button class="vs-btn active" data-version="1" type="button" title="Scope chip + filter panel">V1</button>
-  <button class="vs-btn" data-version="2" type="button" title="Active filters as chips next to the scope chip">V2</button>
-</div>
 
 <script>
   /* ═══════════════ Data — OSHA completion report, grouped by course ═══════════════ */
@@ -1120,6 +1114,7 @@
       const th = document.createElement('th');
       if (c.sortable) { th.classList.add('sortable-th'); th.dataset.sort = c.key; }
       if (c.headClass) th.classList.add(c.headClass);
+      if (c.key === 'action') th.classList.add('col-action');  // matches the frozen pane when the filter panel is open
       if (c.width) th.style.width = c.width;
       if (c.align === 'right') th.style.textAlign = 'right';
       th.innerHTML = `${c.label}${c.sortable ? ' <i class="fa-solid fa-sort sort-arrow"></i>' : ''}`;
@@ -1275,7 +1270,7 @@
   /* ═══════════════ Filters — status · course · learner · expiring · near-limit · search ═══════════════ */
   const searchInput = document.getElementById('qualSearch');
   const filters = {
-    statuses: new Set(['passed','in-progress','not-started','failed']),
+    statuses: new Set(),   // empty = all statuses (check specific ones to narrow)
     courses:  new Set(),   // empty = all courses
     learners: new Set(),   // empty = all learners
     expiringOnly: false,
@@ -1283,7 +1278,7 @@
   };
   function rowVisible(x) {
     const r = x.r;
-    if (!filters.statuses.has(r.status)) return false;
+    if (filters.statuses.size && !filters.statuses.has(r.status)) return false;
     if (filters.courses.size && !filters.courses.has(x.course)) return false;
     if (filters.learners.size && !filters.learners.has(r.name)) return false;
     if (filters.expiringOnly && !r.expSoon) return false;
@@ -1321,14 +1316,13 @@
   document.getElementById('chk-failed-limit').addEventListener('change', e => { filters.nearLimitOnly = e.target.checked; applyFilters(); });
   searchInput.addEventListener('input', applyFilters);
 
-  /* ═══════════════ Filters badge + applied-chips (V1 scope summary · V2 chips next to the scope) ═══════════════ */
-  let filterVersion = '1';
-  const filtersScope = document.getElementById('filtersScope');
+  /* ═══════════════ Filter scope sentence + applied-filter chips ═══════════════ */
   const filtersClearBtn = document.getElementById('filtersClearBtn');
   const appliedFilters = document.getElementById('appliedFilters');
+  const filterLead = document.getElementById('filterLead');
   function extraFilterCount() {
     let n = 0;
-    if (filters.statuses.size < 4) n++;
+    if (filters.statuses.size) n++;
     if (filters.learners.size) n++;
     if (filters.expiringOnly) n++;
     if (filters.nearLimitOnly) n++;
@@ -1342,17 +1336,15 @@
     renderChips(document.getElementById('courseChips'), filters.courses, applyFilters);
     renderChips(document.getElementById('userChips'),   filters.learners, applyFilters);
   }
-  const ALL_STATUSES = ['passed','in-progress','not-started','failed'];
-  // V2: one removable chip per active filter, stacking next to the "All courses" chip.
+  // One removable chip per active filter, rendered after the "Filtered to:" lead-in.
   function renderAppliedChips() {
     if (!appliedFilters) return;
-    if (filterVersion !== '2') { appliedFilters.innerHTML = ''; return; }
     const chips = [];
     filters.courses.forEach(c => chips.push({ k: 'Course', label: c, remove: () => { filters.courses.delete(c); syncPanelChips(); } }));
     filters.learners.forEach(l => chips.push({ k: 'Learner', label: l, remove: () => { filters.learners.delete(l); syncPanelChips(); } }));
-    if (filters.statuses.size < 4) {
-      const names = [...filters.statuses].map(s => STATUS_LABEL[s]).join(', ') || 'None';
-      chips.push({ k: 'Status', label: names, remove: () => { filters.statuses.clear(); ALL_STATUSES.forEach(s => filters.statuses.add(s)); syncStatusChecks(); } });
+    if (filters.statuses.size) {
+      const names = [...filters.statuses].map(s => STATUS_LABEL[s]).join(', ');
+      chips.push({ k: 'Status', label: names, remove: () => { filters.statuses.clear(); syncStatusChecks(); } });
     }
     if (filters.expiringOnly) chips.push({ k: '', label: 'Expiring ≤ 30 days', remove: () => { filters.expiringOnly = false; const e = document.getElementById('chk-expiring'); if (e) e.checked = false; } });
     if (filters.nearLimitOnly) chips.push({ k: '', label: 'Near 3-failure limit', remove: () => { filters.nearLimitOnly = false; const e = document.getElementById('chk-failed-limit'); if (e) e.checked = false; } });
@@ -1368,20 +1360,13 @@
     });
   }
   function updateFilterBadge() {
-    const cs = filters.courses;
-    const extra = extraFilterCount();
-    if (filterVersion === '2') {
-      filtersScope.textContent = 'All courses';   // anchor chip; active filters render as chips beside it
-      renderAppliedChips();
-    } else {
-      const scope = cs.size === 0 ? 'All courses' : (cs.size === 1 ? [...cs][0] : `${cs.size} courses`);
-      filtersScope.textContent = extra ? `${scope} · +${extra} filter${extra !== 1 ? 's' : ''}` : scope;
-      if (appliedFilters) appliedFilters.innerHTML = '';
-    }
-    filtersClearBtn.hidden = cs.size === 0 && extra === 0;
+    const hasFilters = filters.courses.size > 0 || extraFilterCount() > 0;
+    filterLead.textContent = hasFilters ? 'Filtered to:' : 'Showing all courses';
+    renderAppliedChips();   // active filters render as removable chips after the lead-in
+    filtersClearBtn.hidden = !hasFilters;
   }
   function clearAllFilters() {
-    filters.statuses.clear(); ALL_STATUSES.forEach(s => filters.statuses.add(s));
+    filters.statuses.clear();
     filters.courses.clear(); filters.learners.clear();
     filters.expiringOnly = false; filters.nearLimitOnly = false;
     searchInput.value = '';
@@ -1392,17 +1377,6 @@
     applyFilters();
   }
   filtersClearBtn.addEventListener('click', clearAllFilters);
-  // Clicking the scope chip opens the filter panel (so the badge is discoverable).
-  document.getElementById('filtersScopeBtn').addEventListener('click', () => openPanel());
-
-  /* Version switcher — V1 (scope summary) ⇄ V2 (active filters as chips beside the scope) */
-  function showFilterVersion(v) {
-    filterVersion = v;
-    document.querySelectorAll('.version-switcher .vs-btn').forEach(b => b.classList.toggle('active', b.dataset.version === v));
-    updateFilterBadge();
-  }
-  document.querySelectorAll('.version-switcher .vs-btn').forEach(btn =>
-    btn.addEventListener('click', () => showFilterVersion(btn.dataset.version)));
 
   /* ═══════════════ Module controls — per-student "Details" modal ═══════════════ */
   tbody.addEventListener('click', e => {
@@ -1789,13 +1763,16 @@
   /* ═══════════════ Filter panel open/close (ported from V1) ═══════════════ */
   const filterPanel = document.getElementById('filterPanel');
   const filterInlineToggle = document.getElementById('filterInlineToggle');
+  const oshaLayout = document.getElementById('oshaLayout');
   function closePanel() {
     filterPanel.classList.add('collapsed');
-    filterInlineToggle.style.display = '';
+    // Back to full width: table fits the card again (no horizontal scroll / frozen pane).
+    oshaLayout.classList.remove('panel-open');
   }
   function openPanel() {
     filterPanel.classList.remove('collapsed');
-    filterInlineToggle.style.display = 'none';
+    // Don't squish the table — hold its width, scroll horizontally, freeze the Action column.
+    oshaLayout.classList.add('panel-open');
   }
   document.getElementById('closePanelBtn').addEventListener('click', closePanel);
   filterInlineToggle.addEventListener('click', openPanel);
@@ -2184,7 +2161,7 @@
 
   /* ═══════════════ Dashboard tabs — OSHA Report vs. the other (out-of-scope) tabs ═══════════════ */
   const dashTabs = document.getElementById('dashTabs');
-  const oshaLayout = document.getElementById('oshaLayout');
+  // oshaLayout is declared earlier (filter panel open/close section)
   dashTabs.addEventListener('click', e => {
     const tab = e.target.closest('.dash-tab');
     if (!tab) return;
@@ -2195,8 +2172,6 @@
     });
     const isOsha = tab.dataset.tab === 'osha';
     oshaLayout.style.display = isOsha ? '' : 'none';
-    const vs = document.querySelector('.version-switcher');
-    if (vs) vs.style.display = isOsha ? '' : 'none';
   });
 
   /* ═══════════════ Init ═══════════════ */

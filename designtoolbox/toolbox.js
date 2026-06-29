@@ -48,25 +48,44 @@
   // the toolbox launchers share a single pill.
   (function defineDock() {
     if (window.ToolboxDock) return;
+    // Inline SVGs so the dock's own chrome never depends on the host page
+    // loading an icon font (Font Awesome, etc.).
+    var SVG_CHEV_DOWN = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6l4.5 4.5L12.5 6"/></svg>';
+    var SVG_CHEV_UP = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10l4.5-4.5L12.5 10"/></svg>';
+    var SVG_TOOLS = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2.5" y1="5" x2="13.5" y2="5"/><circle cx="6" cy="5" r="1.6" fill="currentColor" stroke="none"/><line x1="2.5" y1="11" x2="13.5" y2="11"/><circle cx="10" cy="11" r="1.6" fill="currentColor" stroke="none"/></svg>';
     var DOCK_CSS =
       '.tbx-dock{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:999990;' +
       'display:inline-flex;align-items:center;gap:8px;background:#18181b;padding:6px 8px;border-radius:999px;' +
       'box-shadow:0 6px 20px rgba(0,0,0,.28);font-family:"Open Sans",system-ui,sans-serif;}' +
       '.tbx-dock-sep{width:1px;align-self:stretch;margin:3px 0;background:rgba(255,255,255,.16);}' +
-      // Auto-hide: the dock is tucked fully below the viewport and only pops up
-      // when the user hovers it (or the invisible trigger strip at bottom-center).
+      // Open/close drawer: the dock is OPEN by default and slides down out of the
+      // way only when the user clicks its collapse chevron — never on hover.
       // Both .tbx-dock and an adopted .version-switcher use bottom:16px + left:50%
-      // + translateX(-50%), so the hidden transform just adds a downward shift.
-      '.tbx-autohide{transition:transform .22s ease,opacity .22s ease;}' +
-      '.tbx-autohide.tbx-hidden{transform:translateX(-50%) translateY(calc(100% + 24px));opacity:0;pointer-events:none;}' +
-      '.tbx-dock-trigger{position:fixed;left:50%;bottom:0;transform:translateX(-50%);' +
-      'width:220px;height:22px;z-index:999989;background:transparent;}' +
+      // + translateX(-50%), so the collapsed transform just adds a downward shift.
+      // The compound selector (+!important) outranks a mock's own
+      // `.version-switcher{transform:translateX(-50%)}` rule.
+      '.tbx-collapsible{transition:transform .24s ease,opacity .24s ease;}' +
+      '.tbx-collapsible.tbx-collapsed{transform:translateX(-50%) translateY(calc(100% + 28px)) !important;opacity:0;pointer-events:none;}' +
+      // Collapse chevron docked at the right end of the pill.
+      '.tbx-collapse-btn{flex:none;width:26px;height:26px;padding:0;border-radius:50%;cursor:pointer;' +
+      'display:inline-flex;align-items:center;justify-content:center;color:#cfd2e6;' +
+      'border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);transition:background .12s,color .12s;}' +
+      '.tbx-collapse-btn:hover{background:rgba(255,255,255,.2);color:#fff;}' +
+      '.tbx-collapse-btn svg{width:14px;height:14px;display:block;}' +
+      // The small, unobtrusive handle that peeks at the bottom while collapsed.
+      '.tbx-handle{position:fixed;left:50%;bottom:8px;transform:translateX(-50%);z-index:999989;' +
+      'display:none;align-items:center;gap:7px;background:#18181b;color:#fff;cursor:pointer;' +
+      'border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:6px 13px;' +
+      'font:700 12px/1 "Open Sans",system-ui,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.32);' +
+      'opacity:.9;transition:opacity .15s,transform .15s;}' +
+      '.tbx-handle.tbx-show{display:inline-flex;}' +
+      '.tbx-handle:hover{opacity:1;transform:translateX(-50%) translateY(-1px);}' +
+      '.tbx-handle svg{width:13px;height:13px;display:block;}' +
       // ── Multi-version dock (an adopted .version-switcher) ──────────────────
-      // When the mock ships its own V1/V2 switcher, the dock stays static and
-      // always visible (no auto-hide), the section dividers are dropped, and the
-      // Comments + Flow Map launchers collapse to compact glassmorphic icon
-      // buttons (label text hidden) so they read as quiet tools beside the
-      // version pills rather than two big solid-purple buttons.
+      // When the mock ships its own V1/V2 switcher, the section dividers are
+      // dropped and the Comments + Flow Map launchers collapse to compact
+      // glassmorphic icon buttons (label text hidden) so they read as quiet
+      // tools beside the version pills rather than two big solid-purple buttons.
       '.tbx-has-versions .tbx-dock-sep{display:none;}' +
       '.tbx-has-versions .cw-bubble--docked,.tbx-has-versions .fm-launch{' +
       'width:38px;height:38px;min-width:0;padding:0;border-radius:50%;gap:0;' +
@@ -80,7 +99,7 @@
       '.tbx-has-versions .cw-bubble--docked .cw-bubble-label{display:none;}' +
       '.tbx-has-versions .cw-bubble--docked .cw-bubble-icon{font-size:16px;}' +
       '.tbx-has-versions .fm-launch{font-size:0;}' +
-      '.tbx-has-versions .fm-launch i{font-size:15px;}' +
+      '.tbx-has-versions .fm-launch i,.tbx-has-versions .fm-launch svg{font-size:15px;}' +
       // Preserve the "comment pick-mode active" red feedback on the icon button.
       '.tbx-has-versions .cw-bubble--docked.cw-bubble--active{' +
       'background:linear-gradient(140deg,#ef4444,#dc2626);border-color:rgba(255,255,255,.4);}';
@@ -90,62 +109,74 @@
       var s = document.createElement('style'); s.textContent = DOCK_CSS;
       (document.head || document.documentElement).appendChild(s);
     }
-    // Wire a dock element so it hides by default and reveals on hover.
-    function setupAutoHide(dock) {
-      if (dock.__tbxAutoHide) return; dock.__tbxAutoHide = true;
+    // Wire a dock so it opens/closes as a drawer: visible by default, with a
+    // collapse chevron that tucks it away and a small handle to bring it back.
+    function setupCollapsible(dock) {
+      if (dock.__tbxCollapsible) return dock.__tbxToggle; dock.__tbxCollapsible = true;
       ensureStyle();
-      dock.classList.add('tbx-autohide', 'tbx-hidden');
+      dock.classList.add('tbx-collapsible');
 
-      // Invisible hover strip at the very bottom-center — the only thing the user
-      // can reach while the dock is hidden. Sits just below the dock's z-index so
-      // it never covers the revealed pill.
-      var trigger = document.createElement('div');
-      trigger.className = 'tbx-dock-trigger';
-      var z = parseInt(getComputedStyle(dock).zIndex, 10);
-      if (z) trigger.style.zIndex = (z - 1);
-      (document.body || document.documentElement).appendChild(trigger);
+      var handle = document.createElement('button');
+      handle.type = 'button';
+      handle.className = 'tbx-handle';
+      handle.title = 'Show design tools';
+      handle.setAttribute('aria-label', 'Show design tools');
+      handle.innerHTML = SVG_TOOLS + '<span>Tools</span>' + SVG_CHEV_UP;
+      (document.body || document.documentElement).appendChild(handle);
 
-      var hideTimer = null;
-      function show() { if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } dock.classList.remove('tbx-hidden'); }
-      function scheduleHide() {
-        if (hideTimer) clearTimeout(hideTimer);
-        hideTimer = setTimeout(function () { dock.classList.add('tbx-hidden'); }, 320);
-      }
-      trigger.addEventListener('mouseenter', show);
-      trigger.addEventListener('mouseleave', scheduleHide);
-      dock.addEventListener('mouseenter', show);
-      dock.addEventListener('mouseleave', scheduleHide);
+      var toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'tbx-collapse-btn';
+      toggle.title = 'Hide design tools';
+      toggle.setAttribute('aria-label', 'Hide design tools');
+      toggle.innerHTML = SVG_CHEV_DOWN;
+      dock.__tbxToggle = toggle;
+
+      function collapse() { dock.classList.add('tbx-collapsed'); handle.classList.add('tbx-show'); }
+      function expand() { dock.classList.remove('tbx-collapsed'); handle.classList.remove('tbx-show'); }
+      toggle.addEventListener('click', function (e) { e.stopPropagation(); collapse(); });
+      handle.addEventListener('click', function (e) { e.stopPropagation(); expand(); });
+      // Open by default — no stored/collapsed state on load.
+      return toggle;
     }
     function getDock() {
+      var dock;
       var vs = document.querySelector('.version-switcher');
       if (vs) {
-        // Multi-version mock: keep the island static and always on screen (no
-        // auto-hide) and flag it so the launchers render as glassmorphic icons.
+        // Multi-version mock: adopt the mock's own pill and flag it so the
+        // launchers render as glassmorphic icons beside the version buttons.
         ensureStyle();
         vs.classList.add('tbx-has-versions');
-        return vs;
+        dock = vs;
+      } else {
+        dock = document.querySelector('.tbx-dock');
+        if (!dock) {
+          ensureStyle();
+          dock = document.createElement('div');
+          dock.className = 'tbx-dock';
+          (document.body || document.documentElement).appendChild(dock);
+        }
       }
-      var existing = document.querySelector('.tbx-dock');
-      if (existing) { setupAutoHide(existing); return existing; }
-      ensureStyle();
-      var dock = document.createElement('div');
-      dock.className = 'tbx-dock';
-      (document.body || document.documentElement).appendChild(dock);
-      setupAutoHide(dock);
+      // The collapse chevron lives at the far-right of the pill; add() keeps it
+      // last so new launchers slot in before it.
+      var toggle = setupCollapsible(dock);
+      if (toggle && toggle.parentNode !== dock) dock.appendChild(toggle);
       return dock;
     }
     window.ToolboxDock = {
       get: getDock,
-      // Append a launcher to the dock, with a divider before it if the dock
-      // already holds something. Returns the dock element.
+      // Append a launcher to the dock (before the collapse chevron), with a
+      // divider before it if the dock already holds a launcher. Returns the dock.
       add: function (node) {
         var dock = getDock();
-        if (dock.childElementCount > 0) {
+        var toggle = dock.querySelector('.tbx-collapse-btn');
+        var hasLaunchers = dock.querySelector(':scope > :not(.tbx-collapse-btn):not(.tbx-dock-sep)') != null;
+        if (hasLaunchers) {
           var sep = document.createElement('span');
           sep.className = 'tbx-dock-sep';
-          dock.appendChild(sep);
+          dock.insertBefore(sep, toggle || null);
         }
-        dock.appendChild(node);
+        dock.insertBefore(node, toggle || null);
         return dock;
       },
     };
