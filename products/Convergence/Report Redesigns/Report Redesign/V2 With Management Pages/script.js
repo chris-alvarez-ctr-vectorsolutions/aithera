@@ -839,43 +839,84 @@ selectSavedViewDialog.footerRenderer = (root) => {
 
 // ── "Saved views" dropdown (replaces the old "Apply Saved View" button) ──
 // Label reads "Saved views" when none applied, "Saved views: {name}" when active.
+// Content facets for a saved view (date · activities/quals · users · status · columns)
+function viewContentFacets(view) {
+    if (!view) return [];
+    const allActs = !view.activities || view.activities[0] === 'All Activities';
+    const acts = allActs ? 'All Activities'
+        : (view.activities.length <= 2 ? view.activities.join(', ')
+            : `${view.activityCount || view.activities.length} Activities`);
+    const allUsers = !view.users || view.users[0] === 'All Users';
+    const usrs = allUsers ? 'All Users' : `${view.userCount || view.users.length} Users`;
+    const status = (view.statusTypes && view.statusTypes !== 'All') ? view.statusTypes : 'All statuses';
+    return [
+        { key: 'date',   text: view.dateRange },
+        { key: 'acts',   text: acts },
+        { key: 'users',  text: usrs },
+        { key: 'status', text: status },
+        { key: 'cols',   text: view.columns },
+    ].filter(f => f.text);
+}
+function viewFacetsHTML(view, keys) {
+    const facets = viewContentFacets(view).filter(f => !keys || keys.includes(f.key));
+    if (!facets.length) return '';
+    return `<div class="view-facets">` + facets.map(f => `<span class="vf-item">${f.text}</span>`).join('<span class="vf-sep">·</span>') + `</div>`;
+}
+
+// "Saved views" dropdown — rich rows (star + name + desc + facets), no report-type
+// badge, grouped Favorites / All (capped at 5 inline). The bottommost row is always
+// "All saved views", which opens the full saved-views modal.
 function buildSavedViewsDropdown(cfg) {
     const control = document.getElementById(cfg.controlId);
     const btn = document.getElementById(cfg.btnId);
     const menu = document.getElementById(cfg.menuId);
     if (!control || !btn || !menu) return;
+    const MAX_INLINE = 5;
 
     function render() {
         const views = SAVED_VIEWS.filter(v => v.report === cfg.reportName);
         const activeId = (appliedSavedView && appliedSavedView.report === cfg.reportName) ? appliedSavedView.id : null;
+        const favorites = views.filter(v => v.favorited);
+        const rest      = views.filter(v => !v.favorited);
+        const overCap   = views.length > MAX_INLINE;
+        const shown     = overCap ? [...favorites, ...rest].slice(0, MAX_INLINE) : [...favorites, ...rest];
+        const shownFav  = shown.filter(v => v.favorited);
+        const shownRest = shown.filter(v => !v.favorited);
+
+        const itemHTML = (v) => `
+            <div class="sv-dd-item ${v.id === activeId ? 'selected' : ''}" data-id="${v.id}">
+                <div class="sv-dd-item-head">
+                    <span class="sv-dd-star ${v.favorited ? 'active' : ''}" aria-hidden="true" title="${v.favorited ? 'Favorited' : 'Not favorited'}"><i class="${v.favorited ? 'fa-solid' : 'fa-regular'} fa-star"></i></span>
+                    <span class="sv-dd-name">${v.name}</span>
+                    ${v.id === activeId ? '<i class="fa-solid fa-check sv-dd-check"></i>' : ''}
+                </div>
+                ${v.desc ? `<p class="sv-dd-desc">${v.desc}</p>` : ''}
+                ${viewFacetsHTML(v, ['date', 'acts', 'users', 'status'])}
+            </div>`;
+
         let html = '';
-        if (activeId) {
-            html += `<button type="button" class="split-btn-item svm-clear"><i class="fa-solid fa-xmark"></i> Clear applied view</button>
-                     <div class="svm-divider"></div>`;
-        }
-        html += `<div class="svm-section">Apply a saved view</div>`;
-        if (views.length) {
-            views.forEach(v => {
-                html += `<button type="button" class="split-btn-item svm-view ${v.id === activeId ? 'active' : ''}" data-id="${v.id}">
-                    <i class="${v.id === activeId ? 'fa-solid' : 'fa-regular'} fa-bookmark"></i>
-                    <span class="svm-view-name">${v.name}</span>
-                    ${v.favorited ? '<i class="fa-solid fa-star svm-fav" title="Favorited"></i>' : ''}
-                </button>`;
-            });
+        if (activeId) html += `<button type="button" class="sv-dd-clear"><i class="fa-solid fa-xmark"></i> Clear applied view</button>`;
+        html += `<div class="sv-dd-list">`;
+        if (!views.length) {
+            html += `<div class="sv-dd-empty">No saved views for this report yet.</div>`;
         } else {
-            html += `<div class="svm-empty">No saved views for this report yet.</div>`;
+            if (shownFav.length)  html += `<div class="sv-dd-section">Favorites</div>` + shownFav.map(itemHTML).join('');
+            if (shownRest.length) html += `<div class="sv-dd-section">All saved views</div>` + shownRest.map(itemHTML).join('');
         }
-        html += `<div class="svm-divider"></div>
-                 <button type="button" class="split-btn-item svm-browse"><i class="fa-solid fa-magnifying-glass"></i> Browse all saved views</button>`;
+        html += `</div>`;
+        // Bottommost row — always present; opens the full saved-views modal
+        html += `<button type="button" class="sv-dd-browse"><i class="fa-regular fa-rectangle-list"></i> All saved views${views.length ? ` (${views.length})` : ''}</button>`;
         menu.innerHTML = html;
 
-        menu.querySelector('.svm-clear')?.addEventListener('click', () => { menu.style.display = 'none'; clearAppliedView(); });
-        menu.querySelectorAll('.svm-view').forEach(b => b.addEventListener('click', () => {
+        menu.querySelector('.sv-dd-clear')?.addEventListener('click', () => { menu.style.display = 'none'; clearAppliedView(); });
+        // Favorite is read-only here (the star is just an indicator) — favoriting
+        // happens only in the Manage Saved Views grid and the saved-view modals.
+        menu.querySelectorAll('.sv-dd-item').forEach(item => item.addEventListener('click', () => {
+            const v = SAVED_VIEWS.find(x => x.id === item.dataset.id);
             menu.style.display = 'none';
-            const v = SAVED_VIEWS.find(x => x.id === b.dataset.id);
             if (v) applyView(v);
         }));
-        menu.querySelector('.svm-browse')?.addEventListener('click', () => {
+        menu.querySelector('.sv-dd-browse')?.addEventListener('click', () => {
             menu.style.display = 'none';
             selectedSavedViewId = null;
             selectSavedViewDialog.opened = true;
@@ -884,7 +925,7 @@ function buildSavedViewsDropdown(cfg) {
 
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (menu.style.display === 'none') { render(); menu.style.display = 'block'; }
+        if (menu.style.display === 'none' || !menu.style.display) { render(); menu.style.display = 'block'; }
         else menu.style.display = 'none';
     });
     document.addEventListener('click', (e) => {
@@ -892,14 +933,23 @@ function buildSavedViewsDropdown(cfg) {
     });
 }
 
-// Keep the "Saved views" dropdown labels in sync with the applied view
+// Keep the "Saved views" buttons in sync with the applied view. The button label
+// always reads "Saved views"; when a view is applied its name shows as a removable
+// chip inside the button.
 function updateSavedViewsLabels() {
     const av = appliedSavedView;
-    const qLabel = document.getElementById('savedViewsBtnLabel');
-    if (qLabel) qLabel.textContent = (av && av.report === 'Qualification Report') ? `Saved views: ${av.name}` : 'Saved views';
-    const aLabel = document.getElementById('actExSavedViewsBtnLabel');
-    if (aLabel) aLabel.textContent = (av && av.report === 'Activity Exception Report') ? `Saved views: ${av.name}` : 'Saved views';
+    const apply = (active, chipId, nameId) => {
+        const chip = document.getElementById(chipId);
+        const name = document.getElementById(nameId);
+        if (name && active) name.textContent = av.name;
+        if (chip) chip.style.display = active ? '' : 'none';
+    };
+    apply(!!(av && av.report === 'Qualification Report'),      'savedViewsChip',      'savedViewsChipName');
+    apply(!!(av && av.report === 'Activity Exception Report'), 'actExSavedViewsChip', 'actExSavedViewsChipName');
 }
+// Clear the applied view straight from the Saved-views control (no need to open the menu)
+document.getElementById('savedViewsClear')?.addEventListener('click', (e) => { e.stopPropagation(); clearAppliedView(); });
+document.getElementById('actExSavedViewsClear')?.addEventListener('click', (e) => { e.stopPropagation(); clearAppliedView(); });
 
 // The saved view currently applied to the report (null = ad-hoc filters)
 let appliedSavedView = null;
@@ -949,24 +999,31 @@ function populateFilterPanelFromView(view) {
     suppressDirty = false;
 }
 
-// Render the applied-view badges (view name + clickable scheduled-report count)
+// Elevate the applied saved view into the report subtitle (view name + scheduled-
+// report count as metadata; clicking the count manages this view's schedules).
 function renderAppliedBanner() {
-    const banner = document.getElementById('appliedBanner');
-    if (!banner) return;
-    if (!appliedSavedView) { banner.style.display = 'none'; return; }
-    banner.style.display = 'flex';
-    const nameEl = document.getElementById('appliedBannerName');
-    if (nameEl) nameEl.innerHTML = `<i class="fa-solid fa-bookmark"></i> ${appliedSavedView.name}`;
-    const schedTag = document.getElementById('appliedBannerSched');
-    if (schedTag) {
-        const n = scheduleCountForView(appliedSavedView.id);
-        if (n > 0) {
-            schedTag.innerHTML = `<i class="fa-regular fa-clock"></i> ${n} scheduled report${n !== 1 ? 's' : ''}`;
-            schedTag.style.display = '';
-        } else {
-            schedTag.style.display = 'none';
+    [['Qualification Report', 'qualSubtitle', 'qualViewSubtitle'],
+     ['Activity Exception Report', 'actExSubtitle', 'actExViewSubtitle']].forEach(([report, subId, vsubId]) => {
+        const sub  = document.getElementById(subId);
+        const vsub = document.getElementById(vsubId);
+        if (!vsub) return;
+        const active = appliedSavedView && appliedSavedView.report === report;
+        if (!active) {
+            vsub.style.display = 'none';
+            vsub.innerHTML = '';
+            if (sub) sub.style.display = '';
+            return;
         }
-    }
+        if (sub) sub.style.display = 'none';
+        const n = scheduleCountForView(appliedSavedView.id);
+        const schedHTML = n > 0
+            ? `<span class="rvs-sep">·</span><button type="button" class="rvs-sched"><i class="fa-regular fa-clock"></i> ${n} scheduled report${n !== 1 ? 's' : ''}</button>`
+            : `<span class="rvs-sep">·</span><span class="rvs-sched-static">No scheduled reports</span>`;
+        vsub.style.display = 'flex';
+        vsub.innerHTML = `<span class="rvs-name"><i class="fa-solid fa-bookmark"></i> ${appliedSavedView.name}</span>${schedHTML}`;
+        const schedBtn = vsub.querySelector('.rvs-sched');
+        if (schedBtn) schedBtn.addEventListener('click', () => openManageSchedulesDialog(appliedSavedView));
+    });
 }
 
 function applyView(view) {
@@ -996,16 +1053,13 @@ function openViewInReport(view) {
 function clearAppliedView() {
     appliedSavedView = null;
     viewDirty = false;
-    document.getElementById('appliedBanner').style.display = 'none';
-    const schedTag = document.getElementById('appliedBannerSched');
-    if (schedTag) schedTag.style.display = 'none';
     const svMenu = document.getElementById('saveViewMenu');
     if (svMenu) svMenu.style.display = 'none';
     selectedSavedViewId = null;
     setSaveViewLabels(false);
+    renderAppliedBanner();
     updateSavedViewsLabels();
 }
-document.getElementById('clearAppliedViewBtn').addEventListener('click', clearAppliedView);
 
 // Mark the applied view dirty when its filters are changed
 (() => {
@@ -1969,9 +2023,15 @@ function renderManageSavedViews() {
 
 // Jump to the Scheduled Reports page, pre-filtered to a single saved view
 function openScheduledReportsForView(viewId) {
-    srFilterViewId = viewId;
+    const view = SAVED_VIEWS.find(v => v.id === viewId);
     navigateToReport('scheduled-reports');
     reportsSidenav.activeItemId = 'scheduled-reports';
+    // Drive the Saved view filter to this view; clear the report-type filter so
+    // the view's rows aren't hidden by a stale type selection.
+    const vf = document.getElementById('srViewFilter');
+    const rf = document.getElementById('srReportFilter');
+    if (rf) rf.selectedItems = [];
+    if (vf && view) vf.selectedItems = [view.name];
     renderScheduledReports();
 }
 
@@ -2319,6 +2379,12 @@ function applyEmailMode(mode) {
     // The saved-view requirement only applies to scheduling
     const note = document.getElementById('emailSavedViewNote');
     if (note) note.style.display = mode === 'schedule' ? '' : 'none';
+    // Inline "save as a saved view" — only when scheduling without an applied/tied view
+    const inline = document.getElementById('emailSaveViewInline');
+    if (inline) {
+        const needsView = mode === 'schedule' && !getDialogSavedView(emailDialogConfig);
+        inline.style.display = needsView ? '' : 'none';
+    }
     document.querySelectorAll('#emailModeToggle .email-mode-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.mode === mode);
     });
@@ -2389,7 +2455,7 @@ emailReportDialog.renderer = (root) => {
     root.innerHTML = '';
     // Belt-and-suspenders width: the overlayClass CSS sizes the overlay, and this
     // fixed content width forces it wide even if that rule doesn't apply.
-    root.style.width = '780px';
+    root.style.width = '100%';
     root.style.maxWidth = '100%';
 
     const cfg  = emailDialogConfig;
@@ -2403,85 +2469,100 @@ emailReportDialog.renderer = (root) => {
             <button type="button" class="email-mode-btn" data-mode="schedule"><i class="fa-regular fa-clock"></i> Schedule</button>
         </div>
 
-        <p class="sv-section-heading">Recipients</p>
-        <div class="recip-box" id="recipBox">
-            <div class="recip-chips" id="recipChips"></div>
-            <input type="text" id="recipInput" class="recip-input"
-                placeholder="Type a name or email, or paste comma-separated…">
-        </div>
-        <div class="recip-tools">
-            <button type="button" class="recip-browse" id="recipBrowseBtn">
-                <i class="fa-solid fa-address-book"></i> Browse all users
-            </button>
-            <span class="recip-error" id="recipError"></span>
-        </div>
-
-        <!-- SCHEDULE-ONLY FIELDS -->
-        <div id="emailScheduleFields">
-            <hr class="sv-hr">
-            <p class="sv-section-heading">Scheduled report name</p>
-            <vaadin-text-field theme="outlined" id="emailScheduleName" label="Name"
-                placeholder="e.g. Exec team — weekly" required style="width:100%"></vaadin-text-field>
-
-            <hr class="sv-hr">
-
-            <p class="sv-section-heading">Recurrence</p>
-            <vaadin-select theme="outlined" id="emailFrequency" label="Frequency" style="width:200px"></vaadin-select>
-
-            <div id="freq-weekly" class="freq-detail">
-                <label class="filter-label" style="display:block;margin-bottom:6px">Send on</label>
-                <div class="dow-row" id="dowRow"></div>
+        <div class="email-two-col">
+          <div class="email-col-main">
+            <p class="sv-section-heading">Recipients <span class="sv-req">*</span></p>
+            <div class="recip-box" id="recipBox">
+                <div class="recip-chips" id="recipChips"></div>
+                <input type="text" id="recipInput" class="recip-input" aria-label="Recipients"
+                    placeholder="Type a name or email, or paste comma-separated…">
             </div>
-            <div id="freq-monthly" class="freq-detail">
-                <div class="month-mode">
-                    <label class="month-mode-opt">
-                        <input type="radio" name="monthMode" value="weekday" checked>
-                        <span class="month-mode-row">On the
-                            <vaadin-select theme="outlined small" id="emailMonthOrdinal" style="width:120px"></vaadin-select>
-                            <vaadin-select theme="outlined small" id="emailMonthWeekday" style="width:150px"></vaadin-select>
-                            of every month</span>
-                    </label>
-                    <label class="month-mode-opt">
-                        <input type="radio" name="monthMode" value="day">
-                        <span class="month-mode-row">On day
-                            <vaadin-select theme="outlined small" id="emailDayOfMonth" style="width:104px"></vaadin-select>
-                            of every month</span>
-                    </label>
-                    <p class="month-day-note">If a month doesn’t have that day (e.g. day 31 in February), the report sends on the month’s last day.</p>
+            <div class="recip-tools">
+                <button type="button" class="recip-browse" id="recipBrowseBtn">
+                    <i class="fa-solid fa-address-book"></i> Browse all users
+                </button>
+                <span class="recip-error" id="recipError"></span>
+            </div>
+
+            <!-- SCHEDULE-ONLY FIELDS -->
+            <div id="emailScheduleFields">
+                <hr class="sv-hr">
+                <p class="sv-section-heading">Scheduled report name <span class="sv-req">*</span></p>
+                <vaadin-text-field theme="outlined" id="emailScheduleName" label="Name"
+                    placeholder="e.g. Exec team weekly" required style="width:100%"></vaadin-text-field>
+
+                <hr class="sv-hr">
+
+                <p class="sv-section-heading">Recurrence</p>
+                <vaadin-select theme="outlined" id="emailFrequency" label="Frequency" style="width:200px"></vaadin-select>
+
+                <div id="freq-weekly" class="freq-detail">
+                    <label class="filter-label" style="display:block;margin-bottom:6px">Send on</label>
+                    <div class="dow-row" id="dowRow"></div>
+                </div>
+                <div id="freq-monthly" class="freq-detail">
+                    <div class="month-mode">
+                        <label class="month-mode-opt">
+                            <input type="radio" name="monthMode" value="weekday" checked>
+                            <span class="month-mode-row">On the
+                                <vaadin-select theme="outlined small" id="emailMonthOrdinal" style="width:120px"></vaadin-select>
+                                <vaadin-select theme="outlined small" id="emailMonthWeekday" style="width:150px"></vaadin-select>
+                                of every month</span>
+                        </label>
+                        <label class="month-mode-opt">
+                            <input type="radio" name="monthMode" value="day">
+                            <span class="month-mode-row">On day
+                                <vaadin-select theme="outlined small" id="emailDayOfMonth" style="width:104px"></vaadin-select>
+                                of every month</span>
+                        </label>
+                        <p class="month-day-note">If a month doesn’t have that day (e.g. day 31 in February), the report sends on the month’s last day.</p>
+                    </div>
+                </div>
+                <div id="freq-quarterly" class="freq-detail freq-note">
+                    <i class="fa-regular fa-circle-info"></i> Sends on the first day of each quarter (Jan, Apr, Jul, Oct).
+                </div>
+
+                <div class="email-fieldrow">
+                    <vaadin-date-picker theme="outlined" id="emailStartDate" label="Start date" required style="width:180px"></vaadin-date-picker>
+                    <vaadin-select theme="outlined" id="emailTime" label="Time" style="width:140px"></vaadin-select>
+                    <vaadin-date-picker theme="outlined" id="emailEndDate" label="End date (optional)"
+                        helper-text="Leave blank to run indefinitely" style="width:180px"></vaadin-date-picker>
                 </div>
             </div>
-            <div id="freq-quarterly" class="freq-detail freq-note">
-                <i class="fa-regular fa-circle-info"></i> Sends on the first day of each quarter (Jan, Apr, Jul, Oct).
-            </div>
 
-            <div class="email-fieldrow">
-                <vaadin-date-picker theme="outlined" id="emailStartDate" label="Start date" style="width:180px"></vaadin-date-picker>
-                <vaadin-select theme="outlined" id="emailTime" label="Time" style="width:140px"></vaadin-select>
-                <vaadin-date-picker theme="outlined" id="emailEndDate" label="End date (optional)"
-                    helper-text="Leave blank to run indefinitely" style="width:180px"></vaadin-date-picker>
+            <hr class="sv-hr">
+
+            <!-- EMAIL CONTENT (both modes) -->
+            <p class="sv-section-heading">Email message</p>
+            <vaadin-text-field theme="outlined" id="emailSubject" label="Subject"
+                placeholder="${cfg.reportName}" style="width:100%"></vaadin-text-field>
+            <vaadin-text-area theme="outlined" id="emailMessage" label="Body message"
+                placeholder="Add a message for recipients..." style="width:100%;margin-top:10px"></vaadin-text-area>
+
+            <hr class="sv-hr">
+
+            <p class="sv-section-heading">Delivery</p>
+            <p class="deliv-single-note"><i class="fa-solid fa-file-arrow-down"></i> Recipients get a Convergence link to download the report file.</p>
+            <vaadin-select theme="outlined" id="emailFormat" label="File format" style="width:100%;margin-top:10px"></vaadin-select>
+          </div>
+
+          <aside class="email-col-summary">
+            <p class="sv-section-heading">Report contents</p>
+            <div id="emailSavedViewNote" class="email-sv-note"></div>
+            <div id="emailFilterSummary"></div>
+
+            <!-- Inline "save as a saved view" — shown only when scheduling without an applied view -->
+            <div class="email-saveview-inline" id="emailSaveViewInline" style="display:none">
+                <hr class="sv-hr">
+                <p class="sv-section-heading">Save as a saved view <span class="sv-req">*</span></p>
+                <p class="email-saveview-helper"><i class="fa-solid fa-circle-info"></i> A saved view is required to schedule a report. Name it to save these filters and finish scheduling.</p>
+                <vaadin-text-field theme="outlined" id="emailSaveViewName" label="Saved view name"
+                    placeholder="e.g. Weekly Compliance Review" required style="width:100%"></vaadin-text-field>
+                <vaadin-text-area theme="outlined" id="emailSaveViewDesc" label="Description (optional)"
+                    placeholder="What this view shows..." style="width:100%;margin-top:10px"></vaadin-text-area>
             </div>
+          </aside>
         </div>
-
-        <hr class="sv-hr">
-
-        <!-- EMAIL CONTENT (both modes) -->
-        <p class="sv-section-heading">Email message</p>
-        <vaadin-text-field theme="outlined" id="emailSubject" label="Subject"
-            placeholder="${cfg.reportName}" style="width:100%"></vaadin-text-field>
-        <vaadin-text-area theme="outlined" id="emailMessage" label="Body Message"
-            placeholder="Add a message for recipients..." style="width:100%;margin-top:10px"></vaadin-text-area>
-
-        <hr class="sv-hr">
-
-        <p class="sv-section-heading">Delivery</p>
-        <p class="deliv-single-note"><i class="fa-solid fa-file-arrow-down"></i> Recipients get a Convergence link to download the report file.</p>
-        <vaadin-select theme="outlined small" id="emailFormat" label="File format" style="width:210px;margin-top:10px"></vaadin-select>
-
-        <hr class="sv-hr">
-
-        <p class="sv-section-heading">Report contents</p>
-        <div id="emailSavedViewNote" class="email-sv-note"></div>
-        <div id="emailFilterSummary"></div>
     `;
 
     // Recipients — token input (type / paste) + browse
@@ -2520,13 +2601,26 @@ emailReportDialog.renderer = (root) => {
     ];
     fmtSel.value = (edit && edit.format) || 'PDF';
 
-    // Email subject + body (both modes) — prefill on edit
+    // Email subject + body — prefill with sensible defaults. The subject auto-fills
+    // as "[Report] - [Scheduled Report Name]" and live-syncs until the user edits it.
+    const subjEl = root.querySelector('#emailSubject');
+    const msgEl  = root.querySelector('#emailMessage');
+    const BODY_TEMPLATE = `Your scheduled report "${cfg.reportName}" is ready. Click the attached Convergence link to download your report file. This is a legitimate email sent from Convergence because this report was scheduled for delivery to you. If you weren't expecting it, you can safely ignore this message or reach out to your administrator.`;
+    let subjectEdited = false;
     if (edit) {
-        const subj = root.querySelector('#emailSubject');
-        const msg = root.querySelector('#emailMessage');
-        if (subj) subj.value = edit.subject || '';
-        if (msg) msg.value = edit.message || '';
+        if (subjEl) subjEl.value = edit.subject || `${cfg.reportName} - ${edit.name}`;
+        if (msgEl)  msgEl.value  = edit.message || BODY_TEMPLATE;
+        subjectEdited = !!edit.subject;
+    } else {
+        if (subjEl) subjEl.value = cfg.reportName;
+        if (msgEl)  msgEl.value  = BODY_TEMPLATE;
     }
+    if (subjEl) subjEl.addEventListener('input', () => { subjectEdited = true; });
+    // Schedule-name field calls this to keep the subject in the prefill format
+    root._syncSubject = (schedName) => {
+        if (subjectEdited || !subjEl) return;
+        subjEl.value = schedName ? `${cfg.reportName} - ${schedName}` : cfg.reportName;
+    };
 
     // Frequency select
     const freqSel = root.querySelector('#emailFrequency');
@@ -2587,6 +2681,11 @@ emailReportDialog.renderer = (root) => {
         root.querySelector('#emailStartDate').value = edit.startDate;
         root.querySelector('#emailEndDate').value = edit.endDate || '';
     }
+
+    // Keep the subject in the "[Report] - [Name]" prefill format as the name is typed
+    const schedNameEl = root.querySelector('#emailScheduleName');
+    schedNameEl?.addEventListener('input', () => root._syncSubject(schedNameEl.value.trim()));
+    if (!edit) root._syncSubject(schedNameEl?.value.trim() || '');
 
     // Mode toggle buttons
     root.querySelectorAll('#emailModeToggle .email-mode-btn').forEach(b => {
@@ -2703,6 +2802,11 @@ function submitEmailDialog() {
         showToast('Select at least one day of the week');
         return;
     }
+    if (!startDate) {
+        const sp = document.getElementById('emailStartDate');
+        if (sp) { sp.invalid = true; sp.errorMessage = 'Start date is required'; }
+        return;
+    }
     if (endDate && startDate && endDate < startDate) {
         const ep = document.getElementById('emailEndDate');
         if (ep) { ep.invalid = true; ep.errorMessage = 'End date must be after the start date'; }
@@ -2722,16 +2826,50 @@ function submitEmailDialog() {
         nextSend: formatDateFriendly(startDate),
     };
 
-    // A schedule must be tied to a saved view. If none exists for this report,
-    // prompt to save the current filters as a saved view before continuing.
-    const view = getDialogSavedView(cfg);
+    // A schedule must be tied to a saved view. If none is applied, create one from
+    // the inline name/description captured in the modal's summary column.
+    let view = getDialogSavedView(cfg);
     if (!view) {
-        pendingScheduleData = pending;
-        openSaveViewForSchedule(name, cfg.reportName);
-        return;
+        const nameF = document.getElementById('emailSaveViewName');
+        const viewName = nameF?.value.trim();
+        if (!viewName) {
+            if (nameF) { nameF.invalid = true; nameF.errorMessage = 'Saved view name is required'; }
+            return;
+        }
+        const desc = document.getElementById('emailSaveViewDesc')?.value.trim() || 'Created while scheduling a report';
+        view = createSavedViewFromFilters(viewName, desc, cfg.reportName);
+        appliedSavedView = view;
+        if (cfg.reportName === 'Qualification Report') applyView(view);
+        renderManageSavedViews();
     }
 
     finalizeSchedule(pending, view);
+}
+
+// Build a saved view from the report's current filters (used when scheduling
+// without an applied view — name/description come from the inline modal inputs).
+function createSavedViewFromFilters(name, desc, reportName) {
+    const summary = getReportFilterSummary(reportName);
+    const dateRow = summary.find(r => /date/i.test(r.label));
+    const curQualIds = (typeof pickerState !== 'undefined') ? [...pickerState.quals] : [];
+    const curUserIds = (typeof pickerState !== 'undefined') ? [...pickerState.qualUsers] : [];
+    const curStatus = document.getElementById('chk-qualified')?.checked ? 'qualified'
+        : document.getElementById('chk-incomplete')?.checked ? 'incomplete' : 'all';
+    const view = {
+        id: 'view-' + (Date.now ? Date.now() : Math.floor(performance.now())),
+        name, report: reportName, desc,
+        dateRange: (dateRow && dateRow.value) || 'Custom range',
+        qualIds: curQualIds,
+        activities: (summary.find(r => /qualif|activit/i.test(r.label)) || {}).pills || [],
+        userIds: curUserIds,
+        users: (summary.find(r => /user/i.test(r.label)) || {}).pills || [],
+        status: curStatus,
+        statusTypes: (summary.find(r => /status/i.test(r.label)) || {}).value || 'All',
+        columns: (summary.find(r => /column/i.test(r.label)) || {}).value || '—',
+        activityCount: 0, userCount: 0, favorited: false,
+    };
+    SAVED_VIEWS.push(view);
+    return view;
 }
 
 // Commit a schedule (create or edit), tied to a saved view
@@ -2907,21 +3045,13 @@ wireShareControl('actExShareControl', 'actExShareBtn', 'actExShareMenu', 'actExE
 
 // ── Scheduled Reports page ─────────────────────────────────────────
 // Filter state set when arriving from a saved view's "scheduled reports" count
-let srFilterViewId = null;
-
-function renderSrViewChip() {
-    const chip = document.getElementById('srViewChip');
-    if (!chip) return;
-    if (srFilterViewId) {
-        const v = SAVED_VIEWS.find(x => x.id === srFilterViewId);
-        chip.style.display = '';
-        chip.innerHTML = `<i class="fa-solid fa-filter"></i> Saved view: <strong>${v ? v.name : srFilterViewId}</strong>
-            <button type="button" class="sr-view-chip-x" title="Clear filter"><i class="fa-solid fa-xmark"></i></button>`;
-        chip.querySelector('.sr-view-chip-x').addEventListener('click', () => { srFilterViewId = null; renderScheduledReports(); });
-    } else {
-        chip.style.display = 'none';
-        chip.innerHTML = '';
-    }
+// Distinct saved-view names that have scheduled reports (for the CRUD filter)
+function getScheduledViewNames() {
+    return [...new Set(SCHEDULED_REPORTS.map(s => s.savedViewName).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+function selectedViewNames(el) {
+    const sel = el && el.selectedItems;
+    return Array.isArray(sel) ? sel.slice() : [];
 }
 
 // Flat, single-layer grid: one row per scheduled report, with Report Type and
@@ -2932,15 +3062,22 @@ function renderScheduledReports() {
     const table = document.getElementById('srTable');
     if (!tbody) return;
     tbody.innerHTML = '';
-    renderSrViewChip();
 
-    const q       = (document.getElementById('srSearch')?.value || '').trim().toLowerCase();
-    const sortSel = document.getElementById('srSort')?.value || 'report';
-    const types   = selectedReportTypes(document.getElementById('srReportFilter'));
+    // Keep the Saved view filter options in sync with the current schedules
+    const vfEl = document.getElementById('srViewFilter');
+    if (vfEl) {
+        const names = getScheduledViewNames();
+        if (JSON.stringify(vfEl.items || []) !== JSON.stringify(names)) vfEl.items = names;
+    }
+
+    const q         = (document.getElementById('srSearch')?.value || '').trim().toLowerCase();
+    const sortSel   = document.getElementById('srSort')?.value || 'report';
+    const types     = selectedReportTypes(document.getElementById('srReportFilter'));
+    const viewNames = selectedViewNames(document.getElementById('srViewFilter'));
 
     let rows = SCHEDULED_REPORTS.filter(s => {
-        if (srFilterViewId && s.savedViewId !== srFilterViewId) return false;
-        if (!srFilterViewId && types.length && !types.includes(s.report)) return false;
+        if (types.length && !types.includes(s.report)) return false;
+        if (viewNames.length && !viewNames.includes(s.savedViewName)) return false;
         if (q && !`${s.name} ${s.report} ${s.savedViewName || ''} ${s.recipients.join(' ')}`.toLowerCase().includes(q)) return false;
         return true;
     });
@@ -3127,10 +3264,8 @@ manageSchedulesDialog.footerRenderer = (root) => {
     root.appendChild(doneBtn);
 };
 
-// Report-page entry: click the scheduled-report badge to manage this view's schedules
-document.getElementById('appliedBannerSched')?.addEventListener('click', () => {
-    if (appliedSavedView) openManageSchedulesDialog(appliedSavedView);
-});
+// (The report-page "scheduled reports" metadata link is wired per-render in
+//  renderAppliedBanner, since the subtitle is rebuilt each time a view is applied.)
 
 // Edit a scheduled report from the CRUD → go to its report page, apply the view,
 // then open the schedule edit dialog (so editing happens on the report itself).
@@ -3313,6 +3448,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (rf) {
         rf.items = getReportTypeOptions();
         rf.addEventListener('selected-items-changed', renderScheduledReports);
+    }
+    const vf = document.getElementById('srViewFilter');
+    if (vf) {
+        vf.items = getScheduledViewNames();
+        vf.addEventListener('selected-items-changed', renderScheduledReports);
     }
     document.getElementById('srSearch')?.addEventListener('input', renderScheduledReports);
     document.getElementById('srSort')?.addEventListener('change', renderScheduledReports);

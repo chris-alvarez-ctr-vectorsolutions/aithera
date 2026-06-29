@@ -50,6 +50,15 @@
     .search-wrap input:focus { border-color:var(--vblue); box-shadow:0 0 0 3px var(--vblue-10); }
     .filter-select { height:36px; border:1px solid #d4d9e0; border-radius:7px; padding:0 10px; font-family:inherit; font-size:13px; background:#fff; color:#374151; cursor:pointer; }
 
+    /* Source tabs (All / Custom / Vector Solutions / Learning Studio): a content-source filter above the toolbar */
+    .source-tabs { display:flex; gap:2px; border-bottom:1px solid #e5e9ef; }
+    .source-tab { position:relative; border:none; background:none; font-family:inherit; font-size:13.5px; font-weight:600; color:#6b7280; padding:10px 14px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .12s; }
+    .source-tab:hover { color:#1a1a2e; }
+    .source-tab.active { color:var(--vblue); border-bottom-color:var(--vblue); }
+    .st-count { font-size:11.5px; font-weight:700; color:#6b7280; background:#eef1f5; border-radius:10px; padding:1px 8px; min-width:20px; text-align:center; }
+    .source-tab.active .st-count { color:var(--vblue); background:var(--vblue-10); }
+    .source-tab-desc { font-size:12.5px; color:#6b7280; margin:10px 0 16px; line-height:1.5; max-width:760px; }
+
     /* AG Grid theming */
     .ag-theme-quartz {
       --ag-font-family:"Open Sans","Segoe UI",Arial,sans-serif;
@@ -72,12 +81,23 @@
     /* Cell renderers */
     .cell-name-wrap { line-height:1.35; padding:7px 0; }
     .cell-name { font-weight:600; font-size:13.5px; color:#1a1a2e; }
+    .cell-name-link { text-decoration:none; cursor:pointer; }
+    .cell-name-link:hover { color:var(--vblue); text-decoration:underline; }
     .cell-desc { font-size:11.5px; color:#9ca3af; margin-top:1px; max-width:480px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:normal; }
     .cell-version { font-size:12px; color:#475569; font-family:ui-monospace,"SF Mono",monospace; }
     .cell-muted { font-size:12.5px; color:#9ca3af; }
     .cell-loc { display:flex; align-items:flex-start; gap:6px; font-size:12.5px; color:#6b7280; }
     .cell-loc i { color:#9ca3af; font-size:11px; flex-shrink:0; margin-top:3px; }
     .cell-loc .loc-text { line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:normal; }
+
+    /* Configurability: a SINGLE chip that is both the status badge and the configure CTA.
+       - .is-config (configurable): green, clickable, with the 3-gear icon → launches content configuration
+       - .is-locked (not configurable): neutral, static status only */
+    .config-chip { display:inline-flex; align-items:center; gap:7px; border:none; border-radius:999px; padding:6px 13px; font-family:inherit; font-size:12.5px; font-weight:600; line-height:1; white-space:nowrap; }
+    .config-chip.is-locked { background:#eef1f5; color:#64748b; }
+    .config-chip.is-config { background:#e3f3e9; color:#1a7a44; cursor:pointer; transition:background .12s, box-shadow .12s; }
+    .config-chip.is-config svg { width:16px; height:16px; flex-shrink:0; }
+    .config-chip.is-config:hover, .config-chip.is-config:focus-visible { background:#cfead9; box-shadow:0 1px 4px rgba(26,122,68,.22); outline:none; }
 
     /* Row actions */
     .row-actions { display:flex; gap:4px; align-items:center; }
@@ -91,6 +111,7 @@
     .row-dropdown-item.danger { color:#dc2626; }
     .row-dropdown-item.danger:hover { background:#fee2e2; }
     .row-dropdown-item i { width:14px; text-align:center; font-size:12px; color:#9ca3af; }
+    .row-dropdown-item .dd-gears { width:15px; height:15px; flex-shrink:0; color:#9ca3af; }
     .row-dropdown-item.danger i { color:#dc2626; }
     .row-dropdown-divider { height:1px; background:#e5e9ef; margin:4px 0; }
 
@@ -138,6 +159,11 @@
     .confirm-dialog h3 { font-size:16px; font-weight:700; color:#1a1a2e; margin-bottom:8px; }
     .confirm-dialog p { font-size:13px; color:#6b7280; line-height:1.6; margin-bottom:18px; }
     .confirm-dialog .cd-btns { display:flex; gap:8px; justify-content:flex-end; }
+
+    /* Edit in Learning Studio confirmation: uses the standard .confirm-dialog; warning callout has no colored left border */
+    .ls-warning { display:flex; gap:12px; align-items:flex-start; background:#fff8f3; border:1px solid #f1d8c0; border-radius:8px; padding:14px 16px; margin-bottom:18px; }
+    .ls-warning i { color:#c2520e; font-size:20px; flex-shrink:0; margin-top:1px; }
+    .ls-warning p { font-size:12.5px; font-weight:600; color:#1a1a2e; line-height:1.55; margin:0; }
   </style>
 </head>
 <body>
@@ -157,6 +183,16 @@
         </button>
       </div>
     </div>
+
+    <!-- Content-source tabs: separate activities by where they came from. The distinction matters because
+         editing accredited Vector Solutions content in Learning Studio removes its accreditation. -->
+    <nav class="source-tabs" role="tablist" aria-label="Filter activities by content source">
+      <button class="source-tab active" role="tab" aria-selected="true" data-source="" onclick="onSourceTab(this)">All <span class="st-count" id="st-count-all">0</span></button>
+      <button class="source-tab" role="tab" aria-selected="false" data-source="Custom" onclick="onSourceTab(this)">Custom <span class="st-count" id="st-count-custom">0</span></button>
+      <button class="source-tab" role="tab" aria-selected="false" data-source="Vector Solutions" onclick="onSourceTab(this)">Vector Solutions <span class="st-count" id="st-count-vs">0</span></button>
+      <button class="source-tab" role="tab" aria-selected="false" data-source="Learning Studio" onclick="onSourceTab(this)">Learning Studio <span class="st-count" id="st-count-ls">0</span></button>
+    </nav>
+    <div class="source-tab-desc" id="source-tab-desc">Showing activities from every content source.</div>
 
     <div class="mgmt-toolbar">
       <div class="search-wrap">
@@ -234,6 +270,22 @@
   </div>
 </div>
 
+<!-- Edit in Learning Studio confirmation -->
+<div class="confirm-overlay hidden" id="ls-overlay">
+  <div class="confirm-dialog">
+    <h3>Edit in Learning Studio</h3>
+    <p>This will duplicate <strong id="ls-activity-name">this activity</strong> to create a new, customizable course in Learning Studio. Learning Studio will then open so you can make your edits.</p>
+    <div class="ls-warning" id="ls-warning">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <p>You are creating a copy of a Vector Solutions course. Changes to this course may impact its ability to meet regulatory, certification, or compliance requirements. You are responsible for ensuring compliance is maintained after any modifications.</p>
+    </div>
+    <div class="cd-btns">
+      <button class="btn btn-secondary btn-sm" onclick="closeLearningStudio()">Back</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmLearningStudio()"><i class="fa-solid fa-check"></i> Launch in Learning Studio</button>
+    </div>
+  </div>
+</div>
+
 <!-- Convergence chrome -->
 <script>
   window.SHELL_CONFIG = { active: 'act-activities', parent: 'Activities', title: 'Activities' };
@@ -273,19 +325,43 @@ const ACTS = [
 
 /* Derive the content-management columns (prototype values, varied across rows) */
 const ACT_SIZES = ['8 KB','512 KB','1.2 MB','3.4 MB','680 KB','12 MB','2.1 MB','46 KB','5.8 MB','920 KB'];
+/* Content source drives the tabs (All / Custom / Vector Solutions / Learning Studio):
+   - Vector Solutions = accredited, pre-built content from Vector Solutions
+   - Learning Studio   = content created or edited in Learning Studio (editing an accredited
+                         Vector Solutions item in Learning Studio removes its accreditation, so it lands here)
+   - Custom            = everything the organization built itself */
+const LS_IDX = new Set([1, 5, 8, 16]);       // created/edited in Learning Studio
+const VS_IDX = new Set([0, 3, 6, 11, 15]);   // pre-built, accredited Vector Solutions content
 ACTS.forEach((a, i) => {
-  a.fileType    = (a.type === 'Course' && i % 2 === 0) ? 'SCORM' : 'VSP Content';
+  a.source = LS_IDX.has(i) ? 'Learning Studio' : (VS_IDX.has(i) ? 'Vector Solutions' : 'Custom');
+  if (a.source === 'Vector Solutions') {
+    a.fileType    = (a.type === 'Course') ? 'SCORM' : 'VSP Content';
+    a.licenseType = 'Commercial';
+    a.repository  = 'Vector Solutions Library';
+  } else if (a.source === 'Learning Studio') {
+    a.fileType    = 'VSP Content';
+    a.licenseType = 'None';
+    a.repository  = 'Learning Studio';
+  } else { // Custom
+    a.fileType    = 'VSP Content';
+    a.licenseType = 'None';
+    a.repository  = 'Custom Content';
+  }
   a.configurable = (i % 3 !== 0);                       // most are configurable, some are not
   a.updateStatus = (i % 6 === 1) ? 'New' : 'Current';   // a few flagged as newly updated
   a.size        = ACT_SIZES[i % ACT_SIZES.length];
-  a.licenseType = (a.fileType === 'SCORM') ? 'Commercial' : 'None';
-  a.repository  = (a.fileType === 'SCORM') ? 'Vendor SCORM Library' : 'Vector Content Library';
 });
 
+/* Link to the Edit Activity page, passing enough identity for that page to populate + branch the LS dialog. */
+function editActivityHref(a){
+  return 'Edit-Activity.html?name=' + encodeURIComponent(a.name) +
+         '&source=' + encodeURIComponent(a.source || '') +
+         '&location=' + encodeURIComponent(a.location || '');
+}
 function nameRenderer(p){
   const a = p.data;
   return `<div class="cell-name-wrap">
-    <div class="cell-name">${a.name}</div>
+    <a class="cell-name cell-name-link" href="${editActivityHref(a)}">${a.name}</a>
     <div class="cell-desc">${a.desc}</div>
   </div>`;
 }
@@ -298,7 +374,7 @@ function typeRenderer(p){
   return `<span theme="badge" style="display:inline-flex;align-items:center;gap:5px"><i class="fa-solid ${icon}" style="font-size:10px"></i> ${p.value}</span>`;
 }
 function versionRenderer(p){
-  return `<span class="cell-version">${p.value}</span>`;
+  return `<span class="cell-version">${p.value || '-'}</span>`;
 }
 function statusRenderer(p){
   const conn = p.value === 'Active' ? 'success' : 'contrast';
@@ -306,13 +382,38 @@ function statusRenderer(p){
 }
 function locationRenderer(p){
   const full = p.value || '';
-  const last = full.split(/[›>]/).pop().trim() || full;
-  return `<span class="cell-loc" title="${full.replace(/"/g,'&quot;')}"><i class="fa-solid fa-folder"></i><span class="loc-text">${last}</span></span>`;
+  const parts = full.split(/[›>]/).map(s => s.trim()).filter(Boolean);
+  if (!parts.length) return `<span class="cell-muted">-</span>`;
+  // Show only the bottom-most level (e.g. "Lockout/Tagout"); full path stays in the tooltip.
+  const last = parts[parts.length - 1];
+  return `<span class="cell-loc" title="${full.replace(/"/g,'&quot;')}"><i class="fa-solid fa-location-dot"></i><span class="loc-text">${last}</span></span>`;
+}
+/* Three-gear "configure" icon. Reused by the Configurability chip and the row "More" menu so they match. */
+const GEAR_D = "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z";
+function gearsSvg(px, cls){
+  const g = (t, s) => `<path transform="translate(${t}) scale(${s})" d="${GEAR_D}"/>`;
+  return `<svg class="${cls || ''}" viewBox="0 0 24 24" width="${px}" height="${px}" fill="currentColor" fill-rule="evenodd" aria-hidden="true">${g('-1.04,5.36', 0.72)}${g('12.48,1.48', 0.46)}${g('12.48,11.48', 0.46)}</svg>`;
 }
 function configRenderer(p){
-  return p.value
-    ? `<span theme="badge dot success">Configurable</span>`
-    : `<span theme="badge dot contrast">Not configurable</span>`;
+  // Not configurable: a static status badge, no action.
+  if (!p.value){
+    const span = document.createElement('span');
+    span.className = 'config-chip is-locked';
+    span.textContent = 'Not configurable';
+    return span;
+  }
+  // Configurable: ONE chip that is both the status badge (green "Configurable") and the configure CTA.
+  const btn = document.createElement('button');
+  btn.className = 'config-chip is-config';
+  btn.title = 'Configure content';
+  btn.setAttribute('aria-label', 'Configurable. Configure content');
+  btn.innerHTML = gearsSvg(16) + '<span>Configurable</span>';
+  btn.addEventListener('click', ev => { ev.stopPropagation(); launchConfigure(p.data); });
+  return btn;
+}
+/* Launch the content-configuration flow for an activity (prototype: toast only). */
+function launchConfigure(a){
+  showToast('Opening content configuration for "' + a.name + '" (prototype).');
 }
 function updateRenderer(p){
   return p.value === 'New'
@@ -320,17 +421,19 @@ function updateRenderer(p){
     : `<span class="cell-muted">Up to date</span>`;
 }
 function fileTypeRenderer(p){
+  if (!p.value) return `<span class="cell-muted">-</span>`;
   const scorm = p.value === 'SCORM';
   return `<span class="cell-meta"><i class="fa-solid ${scorm ? 'fa-cubes' : 'fa-box-open'}"></i> ${p.value}</span>`;
 }
-function sizeRenderer(p){ return `<span class="cell-muted">${p.value}</span>`; }
+function sizeRenderer(p){ return `<span class="cell-muted">${p.value || '-'}</span>`; }
 function licenseRenderer(p){
   return p.value === 'Commercial'
     ? `<span theme="badge dot contrast">Commercial</span>`
-    : `<span class="cell-muted">None</span>`;
+    : `<span class="cell-muted">-</span>`;
 }
 function repoRenderer(p){
-  return `<span class="cell-loc"><i class="fa-solid fa-folder-tree"></i><span class="loc-text">${p.value}</span></span>`;
+  if (!p.value) return `<span class="cell-muted">-</span>`;
+  return `<span class="cell-loc"><i class="fa-solid fa-folder"></i><span class="loc-text">${p.value}</span></span>`;
 }
 
 /* Shared floating dropdown */
@@ -348,7 +451,8 @@ function showDropdown(btn, items){
     } else {
       const b = document.createElement('button');
       b.className = 'row-dropdown-item' + (item.danger ? ' danger' : '');
-      b.innerHTML = `<i class="${item.icon}"></i> ${item.label}`;
+      const iconMarkup = item.iconHtml || `<i class="${item.icon}"></i>`;
+      b.innerHTML = `${iconMarkup} ${item.label}`;
       b.addEventListener('click', e => { e.stopPropagation(); closeDropdown(); item.action(); });
       dd.appendChild(b);
     }
@@ -366,15 +470,15 @@ function actionsRenderer(p){
   e.className = 'row-actions';
   e.innerHTML =
     `<button class="row-action-btn" title="Edit"><i class="fa-solid fa-pencil"></i></button>
-     <button class="row-action-btn" title="Configure"><i class="fa-solid fa-puzzle-piece"></i></button>
+     <button class="row-action-btn" title="Edit in Learning Studio"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg></button>
      <button class="row-action-btn" title="More actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>`;
-  const [editBtn, configBtn, moreBtn] = e.querySelectorAll('button');
-  editBtn.addEventListener('click', () => alert('Activity editor is out of scope for this prototype.'));
-  configBtn.addEventListener('click', ev => ev.stopPropagation());   // "Configure": not linked yet
+  const [editBtn, studioBtn, moreBtn] = e.querySelectorAll('button');
+  editBtn.addEventListener('click', () => { window.location.href = editActivityHref(p.data); });
+  studioBtn.addEventListener('click', ev => { ev.stopPropagation(); openLearningStudio(p.data); });
   moreBtn.addEventListener('click', ev => {
     ev.stopPropagation();
     const isActive = p.data.status === 'Active';
-    showDropdown(moreBtn, [
+    const items = [
       { icon: isActive ? 'fa-solid fa-circle-pause' : 'fa-solid fa-circle-play',
         label: isActive ? 'Deactivate' : 'Activate',
         action: () => {
@@ -386,6 +490,8 @@ function actionsRenderer(p){
           if (isActive) openDeactivate('Deactivate this activity?', apply);
           else apply();
         }},
+      // "Configure" is only available for configurable activities (mirrors the Configurability column).
+      ...(p.data.configurable ? [{ iconHtml: gearsSvg(15, 'dd-gears'), label:'Configure', action: () => launchConfigure(p.data) }] : []),
       { icon:'fa-regular fa-eye', label:'Preview', action: () => alert('Preview "' + p.data.name + '" (prototype).') },
       { icon:'fa-regular fa-copy', label:'Duplicate', action: () => alert('Duplicate "' + p.data.name + '" (prototype).') },
       { divider: true },
@@ -394,7 +500,8 @@ function actionsRenderer(p){
           gridApi.applyTransaction({ remove:[p.data] }); updateCount();
         }
       }},
-    ]);
+    ];
+    showDropdown(moreBtn, items);
   });
   return e;
 }
@@ -402,6 +509,7 @@ function actionsRenderer(p){
 let gridApi = null;
 let typeValue = '';
 let reqValue  = '';
+let sourceValue = '';   // active content-source tab ('' = All)
 
 const gridOptions = {
   rowData: ACTS,
@@ -411,13 +519,13 @@ const gridOptions = {
     { headerName:'Type',            field:'type',         width:130, cellRenderer:typeRenderer },
     { headerName:'Version',         field:'version',      width:100, cellRenderer:versionRenderer },
     { headerName:'Status',          field:'status',       width:120, cellRenderer:statusRenderer },
-    { headerName:'Configurability', field:'configurable', width:160, cellRenderer:configRenderer },
+    { headerName:'Location',        field:'location',     flex:2, minWidth:220, cellRenderer:locationRenderer },
+    { headerName:'Configurability', field:'configurable', width:180, cellRenderer:configRenderer },
     { headerName:'Update Status',   field:'updateStatus', width:130, cellRenderer:updateRenderer },
     { headerName:'File Type',       field:'fileType',     width:150, cellRenderer:fileTypeRenderer },
     { headerName:'Size',            field:'size',         width:100, cellRenderer:sizeRenderer },
     { headerName:'License Type',    field:'licenseType',  width:140, cellRenderer:licenseRenderer },
     { headerName:'Repository Name', field:'repository',   width:210, cellRenderer:repoRenderer },
-    { headerName:'Location',        field:'location',     flex:2, minWidth:200, cellRenderer:locationRenderer },
     { headerName:'Actions', colId:'actions', width:140, cellRenderer:actionsRenderer, sortable:false, filter:false, resizable:false, pinned:'right' },
   ],
   defaultColDef: { sortable:true, resizable:true, filter:true },
@@ -431,17 +539,54 @@ const gridOptions = {
   paginationPageSize: 10,
   paginationPageSizeSelector: [10, 25, 50],
   domLayout: 'autoHeight',
-  isExternalFilterPresent: () => typeValue !== '' || reqValue !== '',
+  isExternalFilterPresent: () => typeValue !== '' || reqValue !== '' || sourceValue !== '',
   doesExternalFilterPass: (node) =>
-    (!typeValue || node.data.type === typeValue) &&
-    (!reqValue  || node.data.requirement === reqValue),
-  onGridReady: () => updateCount(),
+    (!typeValue   || node.data.type === typeValue) &&
+    (!reqValue    || node.data.requirement === reqValue) &&
+    (!sourceValue || node.data.source === sourceValue),
+  onGridReady: () => { updateCount(); updateTabCounts(); },
   onModelUpdated: () => updateCount(),
   onSelectionChanged: () => updateBulkBar(),
 };
 
 function onSearch(v){ if (gridApi) gridApi.setGridOption('quickFilterText', v); }
-function onTypeFilter(v){ typeValue = v; if (gridApi) gridApi.onFilterChanged(); }
+function onTypeFilter(v){ typeValue = v; if (gridApi) gridApi.onFilterChanged(); updateTabCounts(); }
+
+/* ─── Content-source tabs ─── */
+const SOURCE_DESC = {
+  '': 'Showing activities from every content source.',
+  'Custom': 'Content created by your organization.',
+  'Vector Solutions': 'Accredited, ready-to-deploy content built by Vector Solutions.',
+  'Learning Studio': 'Content created or edited in Learning Studio. Editing accredited Vector Solutions content in Learning Studio removes its accreditation, so it moves here.'
+};
+function onSourceTab(btn){
+  sourceValue = btn.dataset.source;
+  document.querySelectorAll('.source-tab').forEach(t => {
+    const on = (t === btn);
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  const d = document.getElementById('source-tab-desc');
+  if (d) d.textContent = SOURCE_DESC[sourceValue] || '';
+  if (gridApi){
+    gridApi.deselectAll();              // selection from the previous tab no longer applies
+    gridApi.onFilterChanged();
+    gridApi.paginationGoToFirstPage();
+  }
+}
+/* Per-tab counts respect the Type dropdown and any requirement filter, but not the free-text search. */
+function updateTabCounts(){
+  const count = (src) => ACTS.filter(a =>
+    (!reqValue  || a.requirement === reqValue) &&
+    (!typeValue || a.type === typeValue) &&
+    (!src       || a.source === src)
+  ).length;
+  const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n; };
+  set('st-count-all', count(''));
+  set('st-count-custom', count('Custom'));
+  set('st-count-vs', count('Vector Solutions'));
+  set('st-count-ls', count('Learning Studio'));
+}
 function updateCount(){
   if (!gridApi) return;
   const shown = gridApi.getDisplayedRowCount();
@@ -522,6 +667,42 @@ function openDeactivate(title, onConfirm){
 }
 function closeDeactivate(){ document.getElementById('deactivate-overlay').classList.add('hidden'); _deactivateCb = null; }
 function confirmDeactivateAction(){ const cb = _deactivateCb; closeDeactivate(); if (cb) cb(); }
+
+/* ─── Edit in Learning Studio confirmation ─── */
+let _lsActivity = null;
+function openLearningStudio(a){
+  _lsActivity = a;
+  const nm = document.getElementById('ls-activity-name');
+  if (nm) nm.textContent = a.name;
+  // The compliance/accreditation warning only applies to accredited Vector Solutions content.
+  const warn = document.getElementById('ls-warning');
+  if (warn) warn.style.display = (a.source === 'Vector Solutions') ? '' : 'none';
+  document.getElementById('ls-overlay').classList.remove('hidden');
+}
+function closeLearningStudio(){
+  document.getElementById('ls-overlay').classList.add('hidden');
+  _lsActivity = null;
+}
+function confirmLearningStudio(){
+  const a = _lsActivity;
+  closeLearningStudio();
+  if (!a) return;
+  // Duplicate the activity as a new Learning Studio course. The original is untouched and keeps its accreditation.
+  const copy = Object.assign({}, a, {
+    name: a.name + ' (Learning Studio)',
+    source: 'Learning Studio',
+    fileType: 'VSP Content',
+    licenseType: 'None',
+    repository: 'Learning Studio',
+    updateStatus: 'New',
+    configurable: true,
+  });
+  ACTS.push(copy);
+  if (gridApi) gridApi.applyTransaction({ add: [copy] });
+  updateTabCounts();
+  updateCount();
+  showToast('Created a Learning Studio copy of "' + a.name + '" and launched Learning Studio (prototype).');
+}
 
 /* ─── Toast ─── */
 let _toastTimer = null;

@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit Activity | Convergence LMS</title>
+
+  <!-- Convergence chrome (topnav + admin sidenav + breadcrumb) -->
+  <link rel="stylesheet" href="../_shell/chrome.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+  <!-- Vector design system (used by the modern version) -->
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+
+  <style>
+    :root { --vblue:#0271ce; --vblue-hover:#015ba6; --vblue-10:#0271ce1a; --canvas:#f5f9fd; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Open Sans","Segoe UI",Arial,sans-serif; color:#1a1a2e; background:var(--canvas); }
+    .hidden { display:none !important; }
+    /* The shell relocates #cv-page into #cv-content; drop its default padding so each version controls its own. */
+    #cv-content { padding:0; }
+
+    /* ── Prototype version toggle (floating, not part of either design) ── */
+    .proto-toggle { position:fixed; bottom:18px; right:18px; z-index:5000; display:flex; align-items:center; gap:4px; background:#1f2937; color:#fff; padding:6px; border-radius:999px; box-shadow:0 10px 30px rgba(0,0,0,.3); font:600 12.5px "Open Sans",sans-serif; }
+    .proto-toggle .pt-label { padding:0 8px; opacity:.7; font-size:11px; text-transform:none; }
+    .proto-toggle button { border:none; background:transparent; color:#cbd5e1; font:inherit; padding:7px 14px; border-radius:999px; cursor:pointer; white-space:nowrap; }
+    .proto-toggle button.active { background:#fff; color:#1f2937; }
+
+    /* ─────────────────────────────────────────────────────────────
+       AI-styled "Edit in Learning Studio" CTA (gradient border + text + sparkle).
+       Used in BOTH versions. ───────────────────────────────────── */
+    .ls-cta { position:relative; display:inline-flex; align-items:center; gap:9px; border:2px solid transparent; border-radius:10px; padding:9px 16px; font-family:inherit; font-size:13.5px; font-weight:700; cursor:pointer;
+      background:linear-gradient(#fff,#fff) padding-box, linear-gradient(95deg,#2b7cff 0%,#8b5cf6 55%,#d65db1 100%) border-box; transition:box-shadow .15s, transform .05s; }
+    .ls-cta:hover { box-shadow:0 4px 16px rgba(124,92,246,.30); }
+    .ls-cta:active { transform:translateY(1px); }
+    .ls-cta .ls-cta-text { background:linear-gradient(95deg,#2b7cff 0%,#7c5cf6 55%,#c14fb0 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; }
+    .ls-cta svg { width:20px; height:20px; flex-shrink:0; }
+
+    /* ═══════════════════════ VERSION A — LEGACY (form + gray action toolbar, inside the shell) ═══════════════════════ */
+    /* Gray action toolbar */
+    .leg-toolbar { display:flex; align-items:center; gap:8px; background:#8b9197; padding:9px 14px; }
+    .leg-btn { display:inline-flex; align-items:center; gap:7px; background:#fff; border:1px solid #d3d8de; border-radius:6px; padding:7px 13px; font-family:inherit; font-size:13px; font-weight:600; color:#3c4148; cursor:pointer; }
+    .leg-btn:hover { background:#f3f5f7; }
+    .leg-btn i { color:var(--vblue); font-size:13px; }
+    .leg-btn .trash { color:#6b7280; }
+    .leg-btn .caret { color:#6b7280; font-size:10px; margin-left:2px; }
+    .leg-toolbar .ls-cta { padding:7px 14px; font-size:13px; }
+    .leg-toolbar .push { margin-left:auto; }
+
+    /* Form body */
+    .leg-body { padding:22px 26px 60px; max-width:980px; }
+    .leg-thumb { width:240px; height:150px; background:#3c4148; border-radius:4px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:46px; }
+    .leg-add-thumb { margin-top:12px; }
+    .btn-blue { display:inline-flex; align-items:center; gap:7px; background:var(--vblue); color:#fff; border:none; border-radius:6px; padding:9px 15px; font-family:inherit; font-size:13px; font-weight:600; cursor:pointer; }
+    .btn-blue:hover { background:var(--vblue-hover); }
+    .leg-reqnote { margin:22px 0 16px; font-size:13px; color:#444; }
+    .leg-reqnote .req { color:#d33; font-weight:700; }
+
+    .leg-field { display:flex; align-items:flex-start; gap:18px; padding:9px 0; }
+    .leg-field > label { flex:0 0 200px; font-size:13.5px; font-weight:700; color:#333; padding-top:7px; }
+    .leg-field .req { color:#d33; margin-right:1px; }
+    .leg-control { flex:1; display:flex; align-items:center; gap:10px; flex-wrap:wrap; min-height:34px; }
+    .leg-control .static { font-size:13.5px; color:#333; padding-top:1px; }
+    .leg-link { color:var(--vblue); font-weight:600; text-decoration:none; }
+    .leg-link:hover { text-decoration:underline; }
+    .leg-pickbtn { width:34px; height:34px; border:none; border-radius:6px; background:var(--vblue); color:#fff; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; }
+    .leg-input { border:1px solid #b9c0c7; border-radius:3px; padding:8px 10px; font-family:inherit; font-size:13.5px; color:#1a1a2e; background:#fff; }
+    .leg-input:focus { outline:none; border-color:var(--vblue); box-shadow:0 0 0 2px var(--vblue-10); }
+    .leg-input.txt { width:280px; }
+    .leg-input.num { width:90px; }
+    textarea.leg-input { width:330px; height:78px; resize:vertical; }
+    .leg-unit { font-size:13px; color:#555; font-style:italic; }
+    .leg-check { width:17px; height:17px; accent-color:var(--vblue); }
+
+    /* Sections (Activity Versions, Recomplete, Attachments) */
+    .leg-section { margin-top:26px; border:1px solid #c9ced4; border-radius:3px; overflow:hidden; background:#fff; }
+    .leg-section-head { background:#3c4148; color:#fff; font-size:14px; font-weight:700; padding:11px 14px; }
+    .leg-table { width:100%; border-collapse:collapse; }
+    .leg-table th { background:#c9ced4; color:#3c4148; font-size:12px; font-weight:700; text-align:left; padding:9px 14px; }
+    .leg-table td { background:#dde1e6; color:#333; font-size:13px; padding:11px 14px; border-top:2px solid #eef2f7; }
+    .leg-mini-btn { background:var(--vblue); color:#fff; border:none; border-radius:5px; padding:6px 14px; font-family:inherit; font-size:12.5px; font-weight:600; cursor:pointer; }
+    .leg-recomplete { background:#c9ced4; padding:18px 16px; }
+    .leg-recomplete p { font-size:13px; color:#3c4148; line-height:1.55; margin:0 0 14px; }
+    .leg-recomplete .rc-check { display:flex; align-items:center; gap:10px; font-size:13.5px; font-weight:700; color:#1a1a2e; margin-bottom:14px; }
+    .leg-recomplete p.note { margin:0; }
+    .leg-norecords { display:flex; align-items:center; gap:10px; background:#c0392b; color:#fff; font-size:13px; font-weight:600; padding:11px 14px; }
+    .leg-section-foot { padding:14px; background:#eef2f7; }
+    .leg-attr-bar { display:flex; align-items:center; gap:14px; margin-top:26px; background:#3c4148; padding:12px 16px; border-radius:3px; }
+    .leg-attr-bar > span { color:#fff; font-size:14px; font-weight:700; }
+    .leg-attr-bar select { flex:1; max-width:430px; height:34px; border:1px solid #b9c0c7; border-radius:3px; padding:0 10px; font-family:inherit; font-size:13.5px; background:#fff; }
+    .leg-advanced { display:flex; align-items:center; justify-content:space-between; margin-top:14px; background:#3c4148; color:#fff; padding:14px 16px; border-radius:3px; font-size:14px; font-weight:700; cursor:pointer; }
+    .leg-advanced i { color:#cbd2d9; }
+
+    /* ═══════════════════════ VERSION B — MODERN (builder-aligned) ═══════════════════════ */
+    .mod-header { position:sticky; top:0; z-index:20; background:#fff; border-bottom:1px solid #e5e9ef; padding:16px 28px; display:flex; align-items:center; justify-content:space-between; gap:20px; box-shadow:0 1px 3px rgba(16,24,40,.04); }
+    .mod-title { font-size:20px; font-weight:700; color:#1a1a2e; display:flex; align-items:center; gap:10px; }
+    .mod-title .type-pill { font-size:11.5px; font-weight:700; color:#475569; background:#eef1f5; border-radius:999px; padding:3px 10px; }
+    .mod-actions { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+    .mod-actions .div { width:1px; height:26px; background:#e5e9ef; margin:0 2px; }
+    .m-btn { display:inline-flex; align-items:center; gap:8px; font-family:inherit; font-size:13px; font-weight:600; border-radius:8px; padding:9px 15px; cursor:pointer; border:1px solid transparent; transition:background .12s,border-color .12s,color .12s; }
+    .m-btn.primary { background:var(--vblue); color:#fff; }
+    .m-btn.primary:hover { background:var(--vblue-hover); }
+    .m-btn.secondary { background:#fff; color:#374151; border-color:#d4d9e0; }
+    .m-btn.secondary:hover { background:#f3f4f6; }
+    .m-btn.danger { background:#fff; color:#dc2626; border-color:#f0b4b4; }
+    .m-btn.danger:hover { background:#fee2e2; }
+    .m-btn.ghost { background:transparent; color:#6b7280; }
+    .m-btn.ghost:hover { background:#eef1f5; color:#374151; }
+
+    .mod-body { padding:24px 28px 60px; max-width:1080px; margin:0 auto; display:grid; grid-template-columns:260px 1fr; gap:22px; align-items:start; }
+    .mod-card { background:#fff; border:1px solid #e5e9ef; border-radius:12px; padding:22px 24px; box-shadow:0 1px 3px rgba(16,24,40,.04); }
+    .mod-card + .mod-card { margin-top:20px; }
+    .mod-card h2 { font-size:14px; font-weight:700; color:#1a1a2e; margin:0 0 16px; }
+    .mod-aside { position:sticky; top:92px; }
+    .mod-thumb { width:100%; aspect-ratio:16/10; background:linear-gradient(135deg,#3c4148,#23272c); border-radius:10px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:42px; margin-bottom:12px; }
+    .mod-meta { margin-top:16px; font-size:12.5px; }
+    .mod-meta .row { display:flex; justify-content:space-between; gap:12px; padding:7px 0; border-top:1px solid #f0f2f5; }
+    .mod-meta .row:first-child { border-top:none; }
+    .mod-meta .k { color:#8a93a0; }
+    .mod-meta .v { color:#1a1a2e; font-weight:600; text-align:right; }
+    .mod-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px 20px; }
+    .mod-grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px 20px; }
+    .mod-field-label { display:block; font-size:12.5px; font-weight:600; color:#374151; margin-bottom:6px; }
+    .mod-switch-row { display:flex; align-items:center; gap:12px; padding:10px 0; }
+    .mod-switch-row .lbl { font-size:13px; font-weight:600; color:#374151; }
+    .mod-switch-row .desc { font-size:12px; color:#8a93a0; }
+    .mod-table { width:100%; border-collapse:collapse; }
+    .mod-table th { text-align:left; font-size:11.5px; font-weight:700; color:#64748b; padding:8px 10px; border-bottom:1px solid #e5e9ef; }
+    .mod-table td { font-size:13px; color:#374151; padding:11px 10px; border-bottom:1px solid #f0f2f5; }
+    .mod-empty { display:flex; flex-direction:column; align-items:center; gap:8px; padding:26px; color:#9aa3af; font-size:13px; }
+    .mod-empty i { font-size:22px; color:#c4cad3; }
+    .full { width:100%; }
+
+    /* ── Shared "Edit in Learning Studio" confirmation dialog (identical to the management page) ── */
+    .confirm-overlay { position:fixed; inset:0; background:rgba(15,23,42,.45); z-index:6000; display:flex; align-items:center; justify-content:center; }
+    .confirm-overlay.hidden { display:none !important; }
+    /* Edit in Learning Studio dialog: matches the standard confirm dialog used across the suite */
+    .confirm-dialog { background:#fff; border-radius:12px; width:460px; max-width:calc(100vw - 48px); padding:26px 28px 22px; box-shadow:0 25px 60px rgba(0,0,0,.2); }
+    .confirm-dialog h3 { font-size:16px; font-weight:700; color:#1a1a2e; margin:0 0 8px; }
+    .confirm-dialog p { font-size:13px; color:#6b7280; line-height:1.6; margin:0 0 18px; }
+    .confirm-dialog .cd-btns { display:flex; gap:8px; justify-content:flex-end; }
+    /* Standard buttons (shared dialog styling) */
+    .btn { font-family:inherit; font-size:13px; font-weight:600; border-radius:7px; padding:9px 15px; cursor:pointer; border:1px solid transparent; display:inline-flex; align-items:center; gap:7px; transition:background .12s,border-color .12s,color .12s; }
+    .btn-primary { background:var(--vblue); color:#fff; }
+    .btn-primary:hover { background:var(--vblue-hover); }
+    .btn-secondary { background:#fff; color:#374151; border-color:#d4d9e0; }
+    .btn-secondary:hover { background:#f3f4f6; }
+    .btn-sm { padding:7px 12px; font-size:12.5px; }
+    /* Warning callout (no colored left border) */
+    .ls-warning { display:flex; gap:12px; align-items:flex-start; background:#fff8f3; border:1px solid #f1d8c0; border-radius:8px; padding:14px 16px; margin-bottom:18px; }
+    .ls-warning i { color:#c2520e; font-size:20px; flex-shrink:0; margin-top:1px; }
+    .ls-warning p { font-size:12.5px; font-weight:600; color:#1a1a2e; line-height:1.55; margin:0; }
+
+    /* Toast */
+    .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:#1f2937; color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:7000; }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<!-- Prototype version toggle -->
+<div class="proto-toggle" role="tablist" aria-label="Switch layout version">
+  <span class="pt-label">Layout</span>
+  <button id="tg-legacy" class="active" onclick="setVersion('legacy')">Current</button>
+  <button id="tg-modern" onclick="setVersion('modern')">Modern</button>
+</div>
+
+
+<div id="cv-page">
+
+<!-- ═══════════════════════ VERSION A — LEGACY ═══════════════════════ -->
+<div id="v-legacy">
+
+  <div class="leg-toolbar">
+    <button class="leg-btn" onclick="toast('Saved (prototype).')"><i class="fa-solid fa-circle-check"></i> Save</button>
+    <button class="leg-btn" onclick="toast('Delete (prototype).')"><i class="fa-regular fa-trash-can trash"></i> Delete</button>
+    <button class="leg-btn" onclick="toast('Update File (prototype).')"><i class="fa-solid fa-folder-open"></i> Update File</button>
+    <button class="leg-btn" onclick="toast('Preview (prototype).')"><i class="fa-solid fa-play"></i> Preview</button>
+    <button class="leg-btn" onclick="launchConfigure()"><span class="gears-slot"></span> Configure</button>
+    <button class="ls-cta" onclick="openLearningStudio()">
+      <span class="sparkle-slot"></span>
+      <span class="ls-cta-text">Edit in Learning Studio</span>
+    </button>
+    <button class="leg-btn" onclick="toast('Other Actions (prototype).')">Other Actions <i class="fa-solid fa-chevron-down caret"></i></button>
+    <button class="leg-btn push" onclick="toast('Help (prototype).')"><i class="fa-regular fa-circle-question"></i> Help</button>
+    <button class="leg-btn" onclick="toast('Close (prototype).')"><i class="fa-solid fa-xmark"></i> Close</button>
+  </div>
+
+  <div class="leg-body">
+    <div class="leg-thumb"><i class="fa-solid fa-display"></i></div>
+    <button class="btn-blue leg-add-thumb"><i class="fa-solid fa-image"></i> Add Thumbnail</button>
+
+    <p class="leg-reqnote"><span class="req">*</span> Indicates a Required Field.</p>
+
+    <div class="leg-field">
+      <label><span class="req">*</span>Location:</label>
+      <div class="leg-control">
+        <a class="leg-link" id="leg-location" href="#">UAT Environment</a>
+        <button class="leg-pickbtn" title="Choose location"><i class="fa-solid fa-table-cells-large"></i></button>
+      </div>
+    </div>
+    <div class="leg-field">
+      <label><span class="req">*</span>Name:</label>
+      <div class="leg-control"><input class="leg-input txt" id="leg-name" value="03 Phil Knight PPE CBT"></div>
+    </div>
+    <div class="leg-field">
+      <label>Description:</label>
+      <div class="leg-control"><textarea class="leg-input"></textarea></div>
+    </div>
+    <div class="leg-field">
+      <label>Estimated Duration:</label>
+      <div class="leg-control"><input class="leg-input num" type="number" value="15"> <span class="leg-unit">(Minutes)</span></div>
+    </div>
+    <div class="leg-field">
+      <label>Custom Pre-test Score:</label>
+      <div class="leg-control"><input class="leg-input num" type="number"> <span class="leg-unit">(Percentage)</span></div>
+    </div>
+    <div class="leg-field">
+      <label>Custom Exam Score:</label>
+      <div class="leg-control"><input class="leg-input num" type="number"> <span class="leg-unit">(Percentage)</span></div>
+    </div>
+    <div class="leg-field">
+      <label>Force Sequential Completion:</label>
+      <div class="leg-control"><input class="leg-check" type="checkbox"></div>
+    </div>
+    <div class="leg-field">
+      <label>Mobile Compatible:</label>
+      <div class="leg-control"><input class="leg-check" type="checkbox" checked></div>
+    </div>
+    <div class="leg-field">
+      <label><span class="req">*</span>Type:</label>
+      <div class="leg-control"><span class="static">Computer-Based</span></div>
+    </div>
+    <div class="leg-field">
+      <label><span class="req">*</span>Display Width:</label>
+      <div class="leg-control"><input class="leg-input num" type="number" value="640"></div>
+    </div>
+    <div class="leg-field">
+      <label><span class="req">*</span>Display Height:</label>
+      <div class="leg-control"><input class="leg-input num" type="number" value="480"></div>
+    </div>
+    <div class="leg-field">
+      <label><span class="req">*</span>File:</label>
+      <div class="leg-control">
+        <a class="leg-link" id="leg-file" href="#">03 Phil Knight PPE CBT</a>
+        <button class="leg-pickbtn" title="Choose file"><i class="fa-solid fa-table-cells-large"></i></button>
+      </div>
+    </div>
+    <div class="leg-field">
+      <label>License Type:</label>
+      <div class="leg-control"><span class="static" id="leg-license">Private</span></div>
+    </div>
+    <div class="leg-field">
+      <label>Current Version:</label>
+      <div class="leg-control"><span class="static">1</span></div>
+    </div>
+
+    <!-- Activity Versions -->
+    <div class="leg-section">
+      <div class="leg-section-head">Activity Versions:</div>
+      <table class="leg-table">
+        <thead><tr><th style="width:130px">ACTIONS</th><th style="width:130px">VERSION</th><th>DESCRIPTION</th><th style="width:230px">CREATED ON</th></tr></thead>
+        <tbody><tr>
+          <td><button class="leg-mini-btn" onclick="toast('Preview version 1.1 (prototype).')">Preview</button></td>
+          <td>1.1</td><td></td><td>3/31/2026 9:45:08 PM</td>
+        </tr></tbody>
+      </table>
+    </div>
+
+    <!-- Recomplete Activity -->
+    <div class="leg-section">
+      <div class="leg-section-head">Recomplete Activity</div>
+      <div class="leg-recomplete">
+        <p>1 user has previously completed this activity. Click the check box below and then click Save to have the users recomplete this activity.</p>
+        <label class="rc-check"><input class="leg-check" type="checkbox"> Require users to recomplete this activity</label>
+        <p class="note">To send notifications to users who have previously completed this activity, activate the <strong>Completion status changed</strong> notification on the Notifications page.</p>
+      </div>
+    </div>
+
+    <!-- Attachments -->
+    <div class="leg-section">
+      <div class="leg-section-head">Attachments</div>
+      <table class="leg-table">
+        <thead><tr><th style="width:130px">ACTIONS</th><th style="width:110px">VERSION</th><th>NAME</th><th style="width:150px">CREATED</th><th style="width:150px">UPDATED</th></tr></thead>
+      </table>
+      <div class="leg-norecords"><i class="fa-solid fa-ban"></i> No records to display.</div>
+      <div class="leg-section-foot"><button class="btn-blue" onclick="toast('Add Attachment (prototype).')"><i class="fa-solid fa-paperclip"></i> Add Attachment</button></div>
+    </div>
+
+    <!-- Attributes -->
+    <div class="leg-attr-bar">
+      <span>Attributes</span>
+      <select><option></option><option>Confined Space</option><option>Hot Work</option><option>PPE</option></select>
+      <button class="btn-blue" onclick="toast('Add attribute (prototype).')">Add</button>
+    </div>
+
+    <!-- Advanced Properties -->
+    <div class="leg-advanced" onclick="toast('Advanced Properties (prototype).')">
+      <span>Advanced Properties</span>
+      <i class="fa-solid fa-chevron-down"></i>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════ VERSION B — MODERN ═══════════════════════ -->
+<div id="v-modern" class="hidden">
+
+  <div class="mod-header">
+    <div>
+      <div class="mod-title"><span id="mod-title-name">03 Phil Knight PPE CBT</span> <span class="type-pill">Computer-Based</span></div>
+    </div>
+    <div class="mod-actions">
+      <button class="ls-cta" onclick="openLearningStudio()"><span class="sparkle-slot"></span> <span class="ls-cta-text">Edit in Learning Studio</span></button>
+      <button class="m-btn secondary" onclick="launchConfigure()"><span class="gears-slot"></span> Configure</button>
+      <span class="div"></span>
+      <button class="m-btn ghost" onclick="toast('Delete (prototype).')"><i class="fa-regular fa-trash-can"></i> Delete</button>
+      <button class="m-btn secondary" onclick="toast('Discarded (prototype).')">Cancel</button>
+      <button class="m-btn primary" onclick="toast('Saved (prototype).')"><i class="fa-solid fa-check"></i> Save</button>
+    </div>
+  </div>
+
+  <div class="mod-body">
+    <!-- Aside: thumbnail + read-only meta -->
+    <aside class="mod-aside">
+      <div class="mod-card">
+        <div class="mod-thumb"><i class="fa-solid fa-display"></i></div>
+        <vaadin-button theme="secondary" style="width:100%"><i class="fa-solid fa-image" slot="prefix"></i> Add thumbnail</vaadin-button>
+        <div class="mod-meta">
+          <div class="row"><span class="k">Type</span><span class="v">Computer-Based</span></div>
+          <div class="row"><span class="k">License type</span><span class="v" id="mod-license">Private</span></div>
+          <div class="row"><span class="k">Current version</span><span class="v">1</span></div>
+          <div class="row"><span class="k">Location</span><span class="v" id="mod-location">UAT Environment</span></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main column -->
+    <div>
+      <div class="mod-card">
+        <h2>Details</h2>
+        <div style="margin-bottom:16px">
+          <vaadin-text-field class="full" theme="outlined" label="Name" required value="03 Phil Knight PPE CBT" id="mod-name"></vaadin-text-field>
+        </div>
+        <div style="margin-bottom:16px">
+          <vaadin-text-area class="full" theme="outlined" label="Description" placeholder="Add a description"></vaadin-text-area>
+        </div>
+        <div class="mod-grid3">
+          <vaadin-number-field theme="outlined" label="Estimated duration" value="15" helper-text="Minutes"></vaadin-number-field>
+          <vaadin-number-field theme="outlined" label="Custom pre-test score" helper-text="Percentage"></vaadin-number-field>
+          <vaadin-number-field theme="outlined" label="Custom exam score" helper-text="Percentage"></vaadin-number-field>
+        </div>
+        <div style="margin-top:6px">
+          <div class="mod-switch-row">
+            <vwc-switch></vwc-switch>
+            <div><div class="lbl">Force sequential completion</div><div class="desc">Learners must complete content in order.</div></div>
+          </div>
+          <div class="mod-switch-row">
+            <vwc-switch checked></vwc-switch>
+            <div><div class="lbl">Mobile compatible</div><div class="desc">Available in the Convergence mobile app.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mod-card">
+        <h2>Delivery</h2>
+        <div class="mod-grid2">
+          <vaadin-number-field theme="outlined" label="Display width" value="640"></vaadin-number-field>
+          <vaadin-number-field theme="outlined" label="Display height" value="480"></vaadin-number-field>
+        </div>
+        <div style="margin-top:16px">
+          <label class="mod-field-label">File</label>
+          <div style="display:flex; align-items:center; gap:12px">
+            <a class="leg-link" id="mod-file" href="#">03 Phil Knight PPE CBT</a>
+            <vaadin-button theme="tertiary"><i class="fa-solid fa-arrow-up-from-bracket" slot="prefix"></i> Update file</vaadin-button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mod-card">
+        <h2>Activity versions</h2>
+        <table class="mod-table">
+          <thead><tr><th>Version</th><th>Description</th><th>Created on</th><th style="text-align:right">Actions</th></tr></thead>
+          <tbody><tr>
+            <td><strong>1.1</strong></td><td style="color:#9aa3af">No description</td><td>Mar 31, 2026, 9:45 PM</td>
+            <td style="text-align:right"><vaadin-button theme="tertiary" onclick="toast('Preview version 1.1 (prototype).')">Preview</vaadin-button></td>
+          </tr></tbody>
+        </table>
+      </div>
+
+      <div class="mod-card">
+        <h2>Recomplete activity</h2>
+        <p style="font-size:13px; color:#475569; line-height:1.6; margin:0 0 14px">1 user has previously completed this activity. Turn this on and save to require those users to recomplete it.</p>
+        <div class="mod-switch-row" style="padding-top:0">
+          <vwc-switch></vwc-switch>
+          <div><div class="lbl">Require users to recomplete this activity</div><div class="desc">To notify affected users, enable the Completion status changed notification.</div></div>
+        </div>
+      </div>
+
+      <div class="mod-card">
+        <h2>Attachments</h2>
+        <div class="mod-empty"><i class="fa-regular fa-folder-open"></i> No attachments yet.
+          <vaadin-button theme="secondary" onclick="toast('Add Attachment (prototype).')"><i class="fa-solid fa-paperclip" slot="prefix"></i> Add attachment</vaadin-button>
+        </div>
+      </div>
+
+      <vaadin-details style="margin-top:20px" theme="filled">
+        <div slot="summary">Advanced properties</div>
+        <div style="font-size:13px; color:#6b7280; padding:8px 0">Advanced configuration options appear here.</div>
+      </vaadin-details>
+    </div>
+  </div>
+</div>
+
+</div><!-- /#cv-page -->
+
+
+<!-- Shared "Edit in Learning Studio" confirmation dialog -->
+<div class="confirm-overlay hidden" id="ls-overlay">
+  <div class="confirm-dialog">
+    <h3>Edit in Learning Studio</h3>
+    <p>This will duplicate <strong id="ls-activity-name">this activity</strong> to create a new, customizable course in Learning Studio. Learning Studio will then open so you can make your edits.</p>
+    <div class="ls-warning" id="ls-warning">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <p>You are creating a copy of a Vector Solutions course. Changes to this course may impact its ability to meet regulatory, certification, or compliance requirements. You are responsible for ensuring compliance is maintained after any modifications.</p>
+    </div>
+    <div class="cd-btns">
+      <button class="btn btn-secondary btn-sm" onclick="closeLearningStudio()">Back</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmLearningStudio()"><i class="fa-solid fa-check"></i> Launch in Learning Studio</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Convergence shell: configure BEFORE chrome.js builds the topnav + sidenav + breadcrumb -->
+<script>
+  window.SHELL_CONFIG = {
+    active: 'act-activities',
+    parent: 'Activities',
+    title:  'Edit Activity',
+    context: new URLSearchParams(location.search).get('location') || 'UAT Environment'
+  };
+</script>
+<script src="../_shell/chrome.js"></script>
+
+<script>
+  /* ── Read the activity passed from the Activities list ── */
+  const params    = new URLSearchParams(location.search);
+  const actName   = params.get('name')     || '03 Phil Knight PPE CBT';
+  const actSource = params.get('source')   || 'Vector Solutions';
+  const actLoc    = params.get('location') || 'UAT Environment';
+
+  /* Three-gear "configure" icon (matches the Activities list chip) */
+  const GEAR_D = "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z";
+  function gearsSvg(px, color){
+    const g = (t, s) => `<path transform="translate(${t}) scale(${s})" d="${GEAR_D}"/>`;
+    return `<svg viewBox="0 0 24 24" width="${px}" height="${px}" fill="${color}" fill-rule="evenodd" aria-hidden="true">${g('-1.04,5.36',0.72)}${g('12.48,1.48',0.46)}${g('12.48,11.48',0.46)}</svg>`;
+  }
+  /* Gradient sparkle for the Learning Studio CTA */
+  function sparkleSvg(id){
+    return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2b7cff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs>
+      <path fill="url(#${id})" d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/>
+    </svg>`;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Inject the shared icons
+    document.querySelectorAll('.gears-slot').forEach(s => s.innerHTML = gearsSvg(16, '#374151'));
+    document.querySelectorAll('.sparkle-slot').forEach((s, i) => s.innerHTML = sparkleSvg('lsg' + i));
+
+    // Populate the activity identity
+    document.getElementById('leg-name').value = actName;
+    document.getElementById('mod-name').setAttribute('value', actName);
+    document.getElementById('mod-title-name').textContent = actName;
+    document.getElementById('leg-file').textContent = actName;
+    document.getElementById('mod-file').textContent = actName;
+    document.getElementById('leg-location').textContent = actLoc;
+    document.getElementById('mod-location').textContent = actLoc;
+
+    setVersion('legacy');   // default to the current layout + set the content background
+  });
+
+  /* ── Version toggle ── */
+  function setVersion(v){
+    const legacy = (v === 'legacy');
+    document.getElementById('v-legacy').classList.toggle('hidden', !legacy);
+    document.getElementById('v-modern').classList.toggle('hidden', legacy);
+    document.getElementById('tg-legacy').classList.toggle('active', legacy);
+    document.getElementById('tg-modern').classList.toggle('active', !legacy);
+    // Paint the shell content area to match the active version.
+    const c = document.getElementById('cv-content');
+    if (c) c.style.background = legacy ? '#eef2f7' : '#f5f9fd';
+  }
+
+  /* ── Configure ── */
+  function launchConfigure(){ toast('Opening content configuration for "' + actName + '" (prototype).'); }
+
+  /* ── Edit in Learning Studio dialog (same as the management page) ── */
+  function openLearningStudio(){
+    document.getElementById('ls-activity-name').textContent = actName;
+    // Compliance warning only applies to accredited Vector Solutions content.
+    const warn = document.getElementById('ls-warning');
+    warn.style.display = (actSource === 'Custom' || actSource === 'Learning Studio') ? 'none' : '';
+    document.getElementById('ls-overlay').classList.remove('hidden');
+  }
+  function closeLearningStudio(){ document.getElementById('ls-overlay').classList.add('hidden'); }
+  function confirmLearningStudio(){
+    closeLearningStudio();
+    toast('Created a Learning Studio copy of "' + actName + '" and launched Learning Studio (prototype).');
+  }
+
+  /* ── Toast ── */
+  let _t = null;
+  function toast(msg){
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.classList.add('show');
+    clearTimeout(_t); _t = setTimeout(() => el.classList.remove('show'), 2600);
+  }
+</script>
+</body>
+</html>

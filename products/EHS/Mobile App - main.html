@@ -243,7 +243,10 @@
         #screen-records .rec-card-wrap:first-of-type { margin-top: 12px; }
         #screen-records .record-card-row { border-bottom: none; }
 
-        /* ── Swipe-to-reveal actions on record cards ── */
+        /* ── Swipe-to-reveal actions on record cards ──
+           The wrap must be positioned so each card's action layer is contained
+           inside (and clipped by) that card — not anchored to the scroll container. */
+        #screen-records .rec-card-wrap { position: relative; isolation: isolate; }
         #screen-records .record-card-row {
             position: relative; z-index: 1;
             transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
@@ -6536,21 +6539,18 @@ function attachRecordSwipe(wrap) {
     if (!row) return;
     let startX = 0, startY = 0, baseline = 0, pos = 0, dragging = false, decided = false, horiz = false;
 
-    row.addEventListener('touchstart', (e) => {
-        if (typeof selectMode !== 'undefined' && selectMode) return;   /* selection mode owns the tap */
-        if (e.touches.length !== 1) return;
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
+    function startDrag(x, y) {
+        if (typeof selectMode !== 'undefined' && selectMode) return false;   /* selection mode owns the tap */
+        startX = x; startY = y;
         baseline = wrap.classList.contains('swipe-open') ? -REC_SWIPE_W : 0;
         pos = baseline; dragging = true; decided = false; horiz = false;
         wrap.classList.add('swiping');
-    }, { passive: true });
+        return true;
+    }
 
-    row.addEventListener('touchmove', (e) => {
+    function moveDrag(x, y, prevent) {
         if (!dragging) return;
-        const t = e.touches[0];
-        const mdx = t.clientX - startX;
-        const mdy = t.clientY - startY;
+        const mdx = x - startX, mdy = y - startY;
         if (!decided) {
             if (Math.abs(mdx) < 8 && Math.abs(mdy) < 8) return;
             decided = true;
@@ -6558,12 +6558,12 @@ function attachRecordSwipe(wrap) {
             if (horiz && recOpenSwipeWrap && recOpenSwipeWrap !== wrap) closeRecordSwipe();
         }
         if (!horiz) return;
-        e.preventDefault();
+        if (prevent) prevent();   /* block scroll / text-selection only once it's a horizontal swipe */
         pos = Math.max(-REC_SWIPE_W, Math.min(0, baseline + mdx));
         row.style.transform = 'translateX(' + pos + 'px)';
-    }, { passive: false });
+    }
 
-    const end = () => {
+    function endDrag() {
         if (!dragging) return;
         dragging = false;
         wrap.classList.remove('swiping');
@@ -6580,9 +6580,33 @@ function attachRecordSwipe(wrap) {
             wrap.classList.remove('swipe-open');
             if (recOpenSwipeWrap === wrap) recOpenSwipeWrap = null;
         }
-    };
-    row.addEventListener('touchend', end);
-    row.addEventListener('touchcancel', end);
+    }
+
+    /* Touch (mobile) */
+    row.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) return;
+        startDrag(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    row.addEventListener('touchmove', (e) => {
+        if (!dragging || !e.touches[0]) return;
+        moveDrag(e.touches[0].clientX, e.touches[0].clientY, () => e.preventDefault());
+    }, { passive: false });
+    row.addEventListener('touchend', endDrag);
+    row.addEventListener('touchcancel', endDrag);
+
+    /* Mouse (desktop preview) — drag the card sideways with the cursor */
+    row.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        if (!startDrag(e.clientX, e.clientY)) return;
+        const onMove = (ev) => moveDrag(ev.clientX, ev.clientY, () => ev.preventDefault());
+        const onUp = () => {
+            endDrag();
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
 }
 
 /* Main click delegation */
