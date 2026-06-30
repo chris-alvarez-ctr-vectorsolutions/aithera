@@ -667,6 +667,15 @@
       .coach-panel-resume:hover { border-color: var(--s-you); color: var(--c-ink); }
       .coach-panel-resume i { font-size: 11px; }
       .coach-panel-resume[hidden] { display: none; }   /* class display would otherwise override [hidden] */
+      /* "Begin conversation" variant — pre-entry, this same slot reads as the primary
+         CTA (amber, previewing the scene) rather than the quiet "back" control. */
+      .coach-panel-resume.is-begin {
+        background: linear-gradient(135deg, var(--s-you), #e3a02f);
+        border-color: transparent;
+        color: var(--s-you-ink);
+        font-weight: 700;
+      }
+      .coach-panel-resume.is-begin:hover { filter: brightness(1.06); color: var(--s-you-ink); }
 
       .coach-panel-body {
         flex: 1 1 auto;
@@ -735,7 +744,9 @@
       .inputbar textarea::placeholder { color: var(--c-ink-faint); }
       .send-btn {
         flex: 0 0 auto;
-        width: 40px; height: 40px;
+        width: 40px;
+        align-self: stretch;     /* match the text field's height (row is align-end) */
+        min-height: 40px;
         border: 0;
         border-radius: 11px;
         background: var(--c-accent);
@@ -761,6 +772,29 @@
         color: var(--c-ink-faint);
       }
       .input-foot .hint { flex: 1 1 auto; }
+
+      /* Tooltip on the mode-toggle segments — clarifies what tapping does (esp. the
+         Practice segment as a way to begin / return). Hover-only, so it's a desktop
+         nicety layered on top of the always-visible affordances. */
+      .seg[data-tip] { position: relative; }
+      .seg[data-tip]:hover::after {
+        content: attr(data-tip);
+        position: absolute;
+        bottom: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        white-space: nowrap;
+        padding: 5px 9px;
+        border-radius: 7px;
+        background: var(--c-ink);
+        color: var(--c-surface);
+        font-size: 11.5px;
+        font-weight: 600;
+        letter-spacing: .01em;
+        box-shadow: var(--shadow-md);
+        pointer-events: none;
+        z-index: 70;
+      }
 
       /* Entry state — the CTA stands in for the composer, with a quiet
          "keep talking" escape hatch beneath it. */
@@ -994,7 +1028,7 @@
           <div class="input-row">
             <div class="input-shell">
               <i class="fa-solid fa-comment lead-icon" id="inputIcon" aria-hidden="true"></i>
-              <textarea id="composer" rows="1" placeholder="Talk it through with your AI coach…"
+              <textarea id="composer" rows="1" placeholder="Type your response…"
                         aria-label="Your message"></textarea>
             </div>
             <button class="send-btn" id="sendBtn" aria-label="Send"><i class="fa-solid fa-arrow-up"></i></button>
@@ -1466,13 +1500,21 @@ You didn't carry this alone, and you didn't ask her to either.` },
       const coachDisabled = mode !== 'coaching' && (busy || (complete && !state.awaitingDebrief));
       // "Practice" lights up once the coach has invited entry, even before stepping in
       const sceneDisabled = mode !== 'scene' && (busy || complete || (!hasEnteredScene && !state.awaitingEntry));
+      // hover tooltips clarify what tapping the inactive segment does (only meaningful
+      // when it's enabled and not already the active mode)
+      const learnTip = (mode !== 'coaching' && !coachDisabled)
+        ? (state.awaitingDebrief ? 'See AI Coach feedback' : 'Talk with your AI coach') : '';
+      const sceneTip = (mode !== 'scene' && !sceneDisabled)
+        ? (hasEnteredScene ? 'Return to the conversation' : 'Begin the conversation') : '';
       modeIndicator.innerHTML =
         `<div class="mode-toggle" role="group" aria-label="Learn or practice mode">
            <button class="seg ${mode === 'coaching' ? 'active' : ''}" data-seg="coaching"
+                   ${learnTip ? `data-tip="${learnTip}"` : ''}
                    aria-pressed="${mode === 'coaching'}" ${coachDisabled ? 'disabled' : ''}>
              <i class="fa-solid fa-chalkboard-user"></i> Learn
            </button>
            <button class="seg ${mode === 'scene' ? 'active' : ''}" data-seg="scene"
+                   ${sceneTip ? `data-tip="${sceneTip}"` : ''}
                    aria-pressed="${mode === 'scene'}" ${sceneDisabled ? 'disabled' : ''}>
              <i class="fa-solid fa-door-open"></i> Practice
            </button>
@@ -1528,14 +1570,24 @@ You didn't carry this alone, and you didn't ask her to either.` },
         composer.placeholder = `Say this to ${SCENARIO.character}…`;
         inputIcon.className = 'fa-solid fa-microphone lead-icon';
       } else {
-        composer.placeholder = 'Talk it through with your AI coach…';
+        composer.placeholder = 'Type your response…';
         inputIcon.className = 'fa-solid fa-comment lead-icon';
       }
 
       composer.disabled = complete || state.transitioning || state.sending || state.delivering || !state.started;
       sendBtn.disabled = composer.disabled || !composer.value.trim();
-      // "Back to practice" lowers the sheet — only meaningful once you've entered
-      resumeBtn.hidden = !hasEnteredScene || complete;
+      // The coach panel's top-right control. Post-entry it lowers the sheet ("Back to
+      // practice"). Pre-entry, while prepping (composer up, entry available), the SAME
+      // slot becomes the primary "Begin conversation" CTA — so the way forward always
+      // lives here rather than in a separate affordance.
+      const headerBegin = !hasEnteredScene && state.awaitingEntry && !inputMain.hidden && !complete;
+      const headerBack  = hasEnteredScene && !complete;
+      resumeBtn.hidden = !(headerBegin || headerBack);
+      resumeBtn.classList.toggle('is-begin', headerBegin);
+      resumeBtn.dataset.action = headerBegin ? 'begin' : 'back';
+      resumeBtn.innerHTML = headerBegin
+        ? 'Begin conversation <i class="fa-solid fa-arrow-right"></i>'
+        : 'Back to practice <i class="fa-solid fa-chevron-down"></i>';
       inputHint.textContent = complete
         ? 'Practice complete — press Restart to run it again.'
         : 'Enter to send · Shift+Enter for a new line';
@@ -1920,7 +1972,11 @@ You didn't carry this alone, and you didn't ask her to either.` },
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
     });
     sendBtn.addEventListener('click', send);
-    resumeBtn.addEventListener('click', resumeScene);
+    // pre-entry this control begins the conversation; once entered it lowers the sheet
+    resumeBtn.addEventListener('click', () => {
+      if (resumeBtn.dataset.action === 'begin') enterScene();
+      else resumeScene();
+    });
     scrim.addEventListener('click', resumeScene);     // tap the dimmed scene to resume
 
     // Entry bar: the CTA steps in; "keep talking" hands the bar back to the composer.
