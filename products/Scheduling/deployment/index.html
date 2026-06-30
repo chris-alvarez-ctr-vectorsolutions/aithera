@@ -1694,13 +1694,11 @@
                 lb = document.createElement('vaadin-list-box');
                 root.appendChild(lb);
             }
-            // Each open starts fresh: clear any prior query. Focus the box only
-            // on a real open — not when the renderer runs pre-emptively (closed)
-            // just to build items so a pre-selected value can show in the field.
-            if (input) {
-                input.value = '';
-                if (select.opened) requestAnimationFrame(() => input.focus());
-            }
+            // Each open starts fresh with an empty query. We deliberately do NOT
+            // steal focus into the search box — Vaadin focuses the active item on
+            // open for keyboard nav, and yanking focus out fought that and made
+            // the open/select feel broken. The user clicks the box to search.
+            if (input) input.value = '';
             paint('');
         };
     }
@@ -2222,17 +2220,17 @@
         const pinnedCode = new Set([CODE_ITEMS[0].value]);   // pre-pin one to show the pattern
         function pickRandomCode() { const sel = $('depCode'); if (sel) sel.value = CODE_ITEMS[Math.floor(Math.random() * CODE_ITEMS.length)].value; }
         customElements.whenDefined('vaadin-select').then(() => {
-            // requestContentUpdate() forces the renderer to build the list items
-            // up front (while closed) so the selected option — including its pin —
-            // renders in the closed field immediately, even before the first open.
-            const loc = $('depLocation'); if (loc) { loc.renderer = pinnableRenderer(LOCATION_ITEMS, pinnedLoc, false, true); loc.requestContentUpdate(); }
+            // Pre-build the list items (while closed) so a selected option — and
+            // its pin — renders in the closed field without needing a first open.
+            const prime = sel => { try { sel.requestContentUpdate(); } catch (e) {} };
+            const loc = $('depLocation'); if (loc) { loc.renderer = pinnableRenderer(LOCATION_ITEMS, pinnedLoc, false, true); prime(loc); }
             [$('depOnDuty'), $('depOffDuty')].forEach(e => {
                 if (!e) return;
                 e.renderer = pinnableRenderer(WORK_TYPE_ITEMS, pinnedWork, true, true);
-                e.requestContentUpdate();
+                prime(e);
                 e.addEventListener('value-changed', updateAll);   // keep the review's work-type rows + colors live
             });
-            const code = $('depCode'); if (code) { code.renderer = pinnableRenderer(CODE_ITEMS, pinnedCode, false, true); code.requestContentUpdate(); code.addEventListener('value-changed', updateAll); }
+            const code = $('depCode'); if (code) { code.renderer = pinnableRenderer(CODE_ITEMS, pinnedCode, false, true); prime(code); code.addEventListener('value-changed', updateAll); }
             pickRandomCode();
         });
 
