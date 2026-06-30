@@ -357,6 +357,21 @@
       }
       .cs-hint i { color: var(--accent); font-size: 14px; }
 
+      /* primary CTA inside the chat foot (e.g. "Rate my confidence") */
+      .cs-cta {
+        width: 100%;
+        display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+        appearance: none; border: 0; cursor: pointer;
+        border-radius: 12px;
+        padding: 12px 14px;
+        background: var(--accent); color: #fff;
+        font: inherit; font-size: 15px; font-weight: 600;
+        transition: background .15s ease, transform .1s ease;
+      }
+      .cs-cta:hover { background: var(--accent-strong); }
+      .cs-cta:active { transform: scale(.98); }
+      .cs-cta i { font-size: 14px; }
+
       /* completion state */
       .cs-done {
         display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -653,6 +668,7 @@ Respond with ONLY a JSON object, no markdown fences:
 
       // ----- state ------------------------------------------------------
       let phase       = 'intro';   // intro | rate | discuss | done
+      let awaitingRate= false;     // intro done — waiting on the learner to go rate
       let touched     = false;     // learner moved the slider at least once
       let confValue   = null;      // committed percent (null until shared)
       let bucket      = 'mid';
@@ -685,7 +701,13 @@ Respond with ONLY a JSON object, no markdown fences:
           foot:   surface.querySelector('#csFoot'),
           min:    surface.querySelector('#csMin'),
         };
-        surfaceRefs.min.addEventListener('click', closePanel);
+        // Minimizing is learner-controlled: during the intro it doubles as
+        // "I'm ready to rate" so the chevron is never a dead-end; otherwise it
+        // just tucks the coach away.
+        surfaceRefs.min.addEventListener('click', () => {
+          if (phase === 'intro' && awaitingRate) goRate();
+          else closePanel();
+        });
         renderThread();
         renderFoot();
       }
@@ -751,12 +773,29 @@ Respond with ONLY a JSON object, no markdown fences:
           return;
         }
 
-        // Intro / rate → the answer is the slider, not the chat. Quiet hint.
+        // Intro, prompt delivered → the learner chooses when to go rate.
+        if (phase === 'intro' && awaitingRate) {
+          const cta = document.createElement('button');
+          cta.className = 'cs-cta';
+          cta.type = 'button';
+          cta.innerHTML = '<i class="fa-solid fa-gauge-high"></i> Rate my confidence';
+          cta.addEventListener('click', goRate);
+          f.appendChild(cta);
+          return;
+        }
+
+        // Otherwise → the answer is the slider, not the chat. Quiet hint.
         const hint = document.createElement('div');
         hint.className = 'cs-hint';
-        hint.innerHTML =
-          '<i class="fa-solid fa-arrow-left-long"></i>' +
-          '<span>Set your confidence on the slider, then “Share with coach.”</span>';
+        if (phase === 'rate') {
+          hint.innerHTML =
+            '<i class="fa-solid fa-arrow-left-long"></i>' +
+            '<span>Set your confidence on the slider, then “Share with coach.”</span>';
+        } else {
+          hint.innerHTML =
+            '<i class="fa-solid fa-wand-magic-sparkles"></i>' +
+            '<span>Read what your coach says — you’ll rate your confidence next.</span>';
+        }
         f.appendChild(hint);
       }
 
@@ -966,29 +1005,40 @@ Respond with ONLY a JSON object, no markdown fences:
             "The real impact comes when you can apply what you've learned to protect yourself and the people you work alongside. So before we wrap up, let's put this to work.",
             () => botSays(
               "How confident are you feeling in your ability to describe what you learned here to someone else?",
-              revealSlider
+              introReady
             )
           )
         );
       }
 
-      function revealSlider() {
+      // Prompt delivered — hand control to the learner. The slider does NOT
+      // appear yet; the coach offers a "Rate my confidence" button and waits.
+      function introReady() {
+        awaitingRate = true;
+        instructions.textContent = 'When you’re ready, choose “Rate my confidence” to answer on the slider.';
+        renderFoot();
+        if (live) live.textContent = 'When you’re ready, choose to rate your confidence on the slider.';
+      }
+
+      // Learner-triggered transition: reveal the slider in the main view and
+      // step the coach aside (it returns on its own once the rating is shared).
+      function goRate() {
+        if (phase !== 'intro') return;
         phase = 'rate';
-        // hand the floor to the main content area
+        awaitingRate = false;
         confWait.hidden = true;
         confCard.hidden = false;
         confCard.classList.add('in');
         paintRange();
         instructions.textContent = 'Drag the slider to set how confident you feel.';
         if (live) live.textContent = 'A confidence slider is now on the page. Set your level, then share it with your coach.';
-        // step the coach aside so the slider is the focus; it returns on share
-        setTimeout(closePanel, reduceMotion ? 150 : 900);
+        closePanel();
         Lesson.scrollCue && Lesson.scrollCue.refresh();
       }
 
       // ====== reset =====================================================
       function reset() {
-        phase = 'intro'; touched = false; confValue = null; bucket = 'mid';
+        phase = 'intro'; awaitingRate = false; touched = false; confValue = null; bucket = 'mid';
         messages = []; loading = false; open = false; discussStep = 'format';
 
         range.value = 50;
