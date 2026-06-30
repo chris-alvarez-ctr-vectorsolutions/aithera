@@ -243,7 +243,10 @@
         #screen-records .rec-card-wrap:first-of-type { margin-top: 12px; }
         #screen-records .record-card-row { border-bottom: none; }
 
-        /* ── Swipe-to-reveal actions on record cards ── */
+        /* ── Swipe-to-reveal actions on record cards ──
+           The wrap must be positioned so each card's action layer is contained
+           inside (and clipped by) that card — not anchored to the scroll container. */
+        #screen-records .rec-card-wrap { position: relative; isolation: isolate; }
         #screen-records .record-card-row {
             position: relative; z-index: 1;
             transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
@@ -1796,11 +1799,6 @@
         }
 
         /* ── E-Signature screen ── */
-        .sig-count-bar {
-            background: white; border-bottom: 1px solid #e5e7eb;
-            padding: 9px 16px; flex-shrink: 0;
-        }
-        .sig-count-text { font-size: 12.5px; color: rgba(0,0,0,0.5); }
         /* User search in takeover */
         .sig-search-wrap { position: relative; }
         .sig-search-icon {
@@ -1854,14 +1852,10 @@
         .sig-user-result-role { font-size: 12px; color: rgba(0,0,0,0.5); margin-top: 1px; }
         .sig-selected-check { margin-left: auto; color: #0271ce; font-size: 14px; display: none; }
         .sig-user-result-item.selected .sig-selected-check { display: block; }
-        .sig-guest-notice {
+        .sig-no-results {
             padding: 14px 16px; font-size: 13px; color: rgba(0,0,0,0.55);
             line-height: 1.5; background: #f9fafb;
         }
-        .sig-guest-notice strong { color: rgba(0,0,0,0.8); }
-        /* "Add as guest" row — always rendered last, set off from matched users */
-        .sig-add-guest-item:not(:first-child) { border-top: 1px solid #eef0f2; }
-        .sig-add-guest-avatar { background: #f0f7ff; color: #0271ce; border: 1px dashed #9cc6ec; }
         .sig-signer-for {
             font-size: 12.5px; color: rgba(0,0,0,0.55); margin-bottom: 8px;
             display: none;
@@ -4623,18 +4617,13 @@
             <div class="jsa-stepper">
                 <div class="stepper-row">
                     <div class="stepper-step-info" onclick="openStepNavDrawer('signature')">
-                        <span class="stepper-step-name">Signature Collection</span>
+                        <span class="stepper-step-name" id="sig-step-name">Signature Collection (1)</span>
                         <i class="fa-solid fa-angle-down stepper-step-chevron"></i>
                     </div>
                 </div>
                 <div class="stepper-progress-track">
                     <div class="stepper-progress-fill" style="width:100%;"></div>
                 </div>
-            </div>
-
-            <!-- Signature count bar -->
-            <div class="sig-count-bar">
-                <span class="sig-count-text" id="sig-count-text">1 signature collected</span>
             </div>
 
             <div class="screen-body" style="padding-top:14px;">
@@ -4683,12 +4672,12 @@
                 <div class="sig-takeover-body">
                     <!-- User search -->
                     <div>
-                        <div class="sig-field-label">Search users</div>
+                        <div class="sig-field-label">Search employees (optional)</div>
                         <div class="sig-search-wrap">
                             <div id="sigSearchRow" style="position:relative;">
                                 <i class="fa-solid fa-magnifying-glass sig-search-icon"></i>
                                 <input type="text" class="sig-search-input" id="sigSearchInput"
-                                    placeholder="Type a name…"
+                                    placeholder="Type an employee name…"
                                     oninput="filterSigUsers(this.value)" />
                             </div>
                             <div id="sigSelectedBadge" class="sig-selected-badge">
@@ -6005,6 +5994,14 @@ function filterSigUsers(query) {
 
     const matches = sigPlatformUsers.filter(u => u.name.toLowerCase().includes(q.toLowerCase()));
 
+    if (matches.length === 0) {
+        const none = document.createElement('div');
+        none.className = 'sig-no-results';
+        none.textContent = 'No matching employees';
+        container.appendChild(none);
+        return;
+    }
+
     matches.forEach(u => {
         const item = document.createElement('div');
         item.className = 'sig-user-result-item';
@@ -6014,34 +6011,19 @@ function filterSigUsers(query) {
             '<div class="sig-user-result-role">' + escapeHtml(u.role) + '</div></div>' +
             '<i class="fa-solid fa-check sig-selected-check"></i>';
         item.addEventListener('click', () => {
-            sigSelectedUser = { name: u.name, role: u.role, initials: u.initials, isGuest: false };
+            sigSelectedUser = { name: u.name, role: u.role, initials: u.initials };
             showSigBadge(sigSelectedUser);
             updateSigSignerFor();
         });
         container.appendChild(item);
     });
-
-    /* "Add as guest" is ALWAYS the bottom-most option, beneath any matches.
-       Typing an unknown name no longer auto-adds anyone — the user must tap this. */
-    const guestItem = document.createElement('div');
-    guestItem.className = 'sig-user-result-item sig-add-guest-item';
-    guestItem.innerHTML =
-        '<div class="sig-user-result-avatar sig-add-guest-avatar"><i class="fa-solid fa-user-plus"></i></div>' +
-        '<div><div class="sig-user-result-name">Add &ldquo;' + escapeHtml(q) + '&rdquo; as guest</div>' +
-        '<div class="sig-user-result-role">' + (matches.length ? 'Not in the list above? Add as a guest signer' : 'No matching users found, add as a guest signer') + '</div></div>';
-    guestItem.addEventListener('click', () => {
-        sigSelectedUser = { name: q, role: 'Guest', initials: getInitials(q), isGuest: true };
-        showSigBadge(sigSelectedUser);
-        updateSigSignerFor();
-    });
-    container.appendChild(guestItem);
 }
 
 function showSigBadge(user) {
     document.getElementById('sigSearchRow').style.display = 'none';
     document.getElementById('sigUserResults').innerHTML = '';
     document.getElementById('sigBadgeAvatar').textContent = user.initials;
-    document.getElementById('sigBadgeName').textContent = user.name + (user.isGuest ? ' (Guest)' : '');
+    document.getElementById('sigBadgeName').textContent = user.name;
     document.getElementById('sigBadgeRole').textContent = user.role;
     document.getElementById('sigSelectedBadge').classList.add('visible');
 }
@@ -6060,7 +6042,7 @@ function updateSigSignerFor() {
     const nameEl = document.getElementById('sigSignerForName');
     if (sigSelectedUser) {
         el.style.display = '';
-        nameEl.textContent = sigSelectedUser.name + (sigSelectedUser.isGuest ? ' (Guest)' : '');
+        nameEl.textContent = sigSelectedUser.name;
     } else {
         el.style.display = 'none';
     }
@@ -6075,23 +6057,31 @@ function clearTakeoverCanvas() {
 }
 
 function confirmSigTakeover() {
-    if (!sigSelectedUser || !sigTakeoverHasStrokes) return;
+    if (!sigTakeoverHasStrokes) return;   /* an employee is optional; a drawn signature is not */
     const canvas = document.getElementById('sigTakeoverCanvas');
     const dataUrl = canvas.toDataURL();
     const now = new Date().toLocaleString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit', hour: 'numeric', minute: '2-digit' });
     const card = document.createElement('div');
     card.className = 'signature-card-v2 is-signed';
+    /* With an employee attached, show the full header; without one the card is
+       just the signature image and its timestamp. */
+    const header = sigSelectedUser
+        ? '<div class="sig-card-header">' +
+              '<div class="sig-avatar signed">' + escapeHtml(sigSelectedUser.initials) + '</div>' +
+              '<div class="sig-card-info">' +
+                  '<div class="sig-name">' + escapeHtml(sigSelectedUser.name) + '</div>' +
+                  '<div class="sig-role-text">' + escapeHtml(sigSelectedUser.role) + '</div>' +
+              '</div>' +
+          '</div>'
+        : '';
+    const stamp = sigSelectedUser
+        ? 'Signed ' + now + ' · ' + escapeHtml(sigSelectedUser.name)
+        : 'Signed ' + now;
     card.innerHTML =
-        '<div class="sig-card-header">' +
-            '<div class="sig-avatar signed">' + escapeHtml(sigSelectedUser.initials) + '</div>' +
-            '<div class="sig-card-info">' +
-                '<div class="sig-name">' + escapeHtml(sigSelectedUser.name) + '</div>' +
-                '<div class="sig-role-text">' + escapeHtml(sigSelectedUser.role) + '</div>' +
-            '</div>' +
-        '</div>' +
+        header +
         '<div class="sig-preview-area">' +
             '<img src="' + dataUrl + '" alt="Signature" style="width:100%;height:56px;object-fit:contain;display:block;" />' +
-            '<div class="sig-preview-timestamp">Signed ' + now + ' · ' + escapeHtml(sigSelectedUser.name) + '</div>' +
+            '<div class="sig-preview-timestamp">' + stamp + '</div>' +
         '</div>';
     const addBtn = document.getElementById('sigAddBtn');
     addBtn.before(card);
@@ -6101,8 +6091,8 @@ function confirmSigTakeover() {
 
 function updateSigCount() {
     const count = document.querySelectorAll('#screen-jsa-signature .signature-card-v2').length;
-    const el = document.getElementById('sig-count-text');
-    if (el) el.textContent = count + ' signature' + (count !== 1 ? 's' : '') + ' collected';
+    const el = document.getElementById('sig-step-name');
+    if (el) el.textContent = 'Signature Collection (' + count + ')';
 }
 
 function getInitials(name) {
@@ -7094,21 +7084,18 @@ function attachRecordSwipe(wrap) {
     if (!row) return;
     let startX = 0, startY = 0, baseline = 0, pos = 0, dragging = false, decided = false, horiz = false;
 
-    row.addEventListener('touchstart', (e) => {
-        if (typeof selectMode !== 'undefined' && selectMode) return;   /* selection mode owns the tap */
-        if (e.touches.length !== 1) return;
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
+    function startDrag(x, y) {
+        if (typeof selectMode !== 'undefined' && selectMode) return false;   /* selection mode owns the tap */
+        startX = x; startY = y;
         baseline = wrap.classList.contains('swipe-open') ? -REC_SWIPE_W : 0;
         pos = baseline; dragging = true; decided = false; horiz = false;
         wrap.classList.add('swiping');
-    }, { passive: true });
+        return true;
+    }
 
-    row.addEventListener('touchmove', (e) => {
+    function moveDrag(x, y, prevent) {
         if (!dragging) return;
-        const t = e.touches[0];
-        const mdx = t.clientX - startX;
-        const mdy = t.clientY - startY;
+        const mdx = x - startX, mdy = y - startY;
         if (!decided) {
             if (Math.abs(mdx) < 8 && Math.abs(mdy) < 8) return;
             decided = true;
@@ -7116,12 +7103,12 @@ function attachRecordSwipe(wrap) {
             if (horiz && recOpenSwipeWrap && recOpenSwipeWrap !== wrap) closeRecordSwipe();
         }
         if (!horiz) return;
-        e.preventDefault();
+        if (prevent) prevent();   /* block scroll / text-selection only once it's a horizontal swipe */
         pos = Math.max(-REC_SWIPE_W, Math.min(0, baseline + mdx));
         row.style.transform = 'translateX(' + pos + 'px)';
-    }, { passive: false });
+    }
 
-    const end = () => {
+    function endDrag() {
         if (!dragging) return;
         dragging = false;
         wrap.classList.remove('swiping');
@@ -7138,9 +7125,33 @@ function attachRecordSwipe(wrap) {
             wrap.classList.remove('swipe-open');
             if (recOpenSwipeWrap === wrap) recOpenSwipeWrap = null;
         }
-    };
-    row.addEventListener('touchend', end);
-    row.addEventListener('touchcancel', end);
+    }
+
+    /* Touch (mobile) */
+    row.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) return;
+        startDrag(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    row.addEventListener('touchmove', (e) => {
+        if (!dragging || !e.touches[0]) return;
+        moveDrag(e.touches[0].clientX, e.touches[0].clientY, () => e.preventDefault());
+    }, { passive: false });
+    row.addEventListener('touchend', endDrag);
+    row.addEventListener('touchcancel', endDrag);
+
+    /* Mouse (desktop preview) — drag the card sideways with the cursor */
+    row.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        if (!startDrag(e.clientX, e.clientY)) return;
+        const onMove = (ev) => moveDrag(ev.clientX, ev.clientY, () => ev.preventDefault());
+        const onUp = () => {
+            endDrag();
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
 }
 
 /* Main click delegation */
