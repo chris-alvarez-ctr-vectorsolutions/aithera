@@ -414,16 +414,20 @@
         .rev-details { background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; margin-bottom: 18px; }
         .rev-identity { display: flex; align-items: center; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
         .rev-swatch { width: 38px; height: 38px; border-radius: 8px; flex: none; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
-        .rev-name { font-size: 16px; font-weight: 700; color: var(--text); }
-        .rev-type { font-size: 12.5px; color: var(--text-soft); margin-top: 2px; }
-        .rev-rows { display: grid; gap: 9px; margin: 14px 0; }
+        .rev-name { font-size: 18px; font-weight: 700; color: var(--text); }
+        .rev-type { font-size: 13.5px; color: var(--text-soft); margin-top: 2px; }
+        .rev-rows { display: grid; gap: 11px; margin: 14px 0; }
+        /* Two-column detail layout: schedule/starts/ends on the left, the rest on the right. */
+        .rev-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 36px; margin: 14px 0; }
+        .rev-cols .rev-rows { margin: 0; align-content: start; }
+        @media (max-width: 640px) { .rev-cols { grid-template-columns: 1fr; gap: 11px; } }
         /* Label + value packed together on the left (a tidy label column) — no far-right values. */
-        .rev-row { display: flex; gap: 12px; font-size: 13px; }
-        .rev-row dt { color: var(--text-soft); flex: 0 0 150px; margin: 0; }
+        .rev-row { display: flex; gap: 12px; font-size: 14.5px; }
+        .rev-row dt { color: var(--text-soft); flex: 0 0 168px; margin: 0; }
         .rev-row dd { margin: 0; text-align: left; font-weight: 600; color: var(--text); }
         .rev-notes { border-top: 1px solid var(--border); margin-top: 14px; padding-top: 12px; }
-        .rev-notes dt { font-size: 12px; color: var(--text-soft); margin-bottom: 4px; }
-        .rev-notes p { margin: 0; font-size: 13px; color: var(--text); white-space: pre-wrap; }
+        .rev-notes dt { font-size: 13px; color: var(--text-soft); margin-bottom: 4px; }
+        .rev-notes p { margin: 0; font-size: 14.5px; line-height: 1.5; color: var(--text); white-space: pre-wrap; }
 
         /* ---- V3: pinned Review drawer (right edge, open/close at any time) ---- */
         /* Pinned tab on the right edge — rounded where it protrudes into the page, square at the
@@ -664,7 +668,7 @@
 
         /* Collapsible Assignments / Templates boxes inside step 3 */
         .dep-box { border: 1px solid var(--border); border-radius: 10px; margin-top: 16px; overflow: hidden; }
-        .dep-box-head { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; cursor: pointer; padding: 15px 16px; font: 800 18px inherit; color: var(--text); background: #eef3f8; text-align: left; }
+        .dep-box-head { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; cursor: pointer; padding: 15px 16px; font-family: inherit; font-weight: 800; font-size: 17px; color: var(--text); background: #eef3f8; text-align: left; }
         .dep-box--tmpl .dep-box-head { background: #f1ecfa; }
         /* Collapse/expand chevron sits on the right of the drawer header (after title + count). */
         .dep-box-head .chev { color: var(--text-muted); font-size: 13px; transition: transform .18s ease; order: 3; margin-left: 4px; }
@@ -687,6 +691,16 @@
         .dep-box-body .assign-grid.dep-grid-scroll { max-height: 580px; overflow-y: auto; padding: 6px 8px 4px 2px; }
         /* The whole card is a click target for selection — not just the checkbox. */
         .acard.acard--pick { cursor: pointer; }
+
+        /* Selected cards float to the top of their dropdown (existing assignments / templates) and
+           stack there under a "Selected" indicator; a plain hairline sets them off from the
+           not-yet-selected cards below. */
+        .sel-divider { grid-column: 1 / -1; display: flex; align-items: center; gap: 9px; margin: 4px 0 2px; font-size: 12px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-soft); }
+        .sel-divider::after { content: ""; flex: 1; border-top: 1px dashed var(--border); }
+        .sel-indicator { grid-column: 1 / -1; display: flex; align-items: center; gap: 9px; margin: 2px 0 4px; font-size: 12px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; color: var(--blue-link); }
+        .sel-indicator i { font-size: 13px; }
+        .sel-indicator .sd-count { background: var(--blue-link); color: #fff; border-radius: 10px; font-size: 11px; font-weight: 800; padding: 1px 8px; }
+        .sel-indicator::after { content: ""; flex: 1; border-top: 1px solid #cfe0f5; }
 
         /* Builder extras */
         .sf-tmpl-row { margin-top: 12px; }
@@ -2057,13 +2071,28 @@
                 return;
             }
             const f = filter.trim().toLowerCase();
-            const list = ASSIGNMENTS.filter(a => a.isDeployable)   // existing deployables only; built ones live in their own box
+            // Selected cards float to the front and stack at the top of this dropdown; the rest
+            // (not yet added) sort by name below a soft divider.
+            const list = ASSIGNMENTS.filter(a => a.isDeployable)
                 .filter(a => !f || a.name.toLowerCase().includes(f))
-                .slice().sort((a, b) => a.name.localeCompare(b.name));
-            grid.innerHTML = list.length ? list.map(assignCard).join('') : '<div class="dep-box-empty">No assignments match your search.</div>';
+                .slice().sort((a, b) => (Number(b.selected) - Number(a.selected)) || a.name.localeCompare(b.name));
+            grid.innerHTML = list.length ? withSelDivider(list, a => a.selected, assignCard) : '<div class="dep-box-empty">No assignments match your search.</div>';
             // Counter = how many are in this grouping (the cards shown), not how many are
             // selected — the footer already tracks the selected count.
             $('depAsgCount').textContent = list.length;
+        }
+        // Render a card list selected-first: a "Selected (N)" indicator heads the stack of selected
+        // cards, and a plain hairline sets them off from the not-yet-selected ones below.
+        // `isSel` reports a card's state.
+        function withSelDivider(list, isSel, render) {
+            const selCount = list.filter(isSel).length;
+            const hasRest = selCount < list.length;
+            return list.map((item, i) => {
+                let marker = '';
+                if (selCount && i === 0) marker += `<div class="sel-indicator"><i class="fa-solid fa-circle-check"></i> Selected <span class="sd-count">${selCount}</span></div>`;
+                if (selCount && hasRest && i === selCount) marker += `<div class="sel-divider"></div>`;
+                return marker + render(item);
+            }).join('');
         }
 
         // ---- Step 3 cards: editable name, fillable slots. Built-from-scratch ones can be
@@ -2104,12 +2133,12 @@
         }
         function renderTemplates() {
             const f = tplFilter.trim().toLowerCase();
+            // Selected templates float to the front and stack at the top; the rest sort by name below.
             const list = TEMPLATES.filter(t => !f || t.name.toLowerCase().includes(f))
-                .slice().sort((a, b) => a.name.localeCompare(b.name));
-            // Counter = how many are in this grouping (the cards shown), not how many are selected.
+                .slice().sort((a, b) => ((selTpl.has(b.id) ? 1 : 0) - (selTpl.has(a.id) ? 1 : 0)) || a.name.localeCompare(b.name));
             $('depTplCount').textContent = list.length;
             $('depTplGrid').innerHTML = list.length
-                ? list.map(tplCard).join('')
+                ? withSelDivider(list, t => selTpl.has(t.id), tplCard)
                 : (TEMPLATES.length ? '<div class="dep-box-empty">No templates match your search.</div>'
                                     : '<div class="dep-box-empty">No templates yet — build one and check “Save as a reusable template”.</div>');
         }
@@ -2143,23 +2172,40 @@
             const notes = (val('depNotes') || '').trim();
             const onDuty = itemLabel(WORK_TYPE_ITEMS, val('depOnDuty'));
             const offDuty = itemLabel(WORK_TYPE_ITEMS, val('depOffDuty'));
+            const code = (val('depCode') || '').trim();
+            const location = itemLabel(LOCATION_ITEMS, val('depLocation'));
+            // Every field is shown — empty ones read "Not set" so the review is the full record.
             const soft = v => v ? v : `<span style="color:var(--text-soft);font-weight:400;">Not set</span>`;
+            // 24-hour runs carry their start/end times; recurring carries the daily window.
             const whenRows = isRec
                 ? `<div class="rev-row"><dt>Schedule</dt><dd>Recurring · ${RECUR_PHRASE[recurPattern] || 'every day'}</dd></div>
                    <div class="rev-row"><dt>Daily window</dt><dd>${fmtTime12(val('depDailyStart'))} – ${fmtTime12(val('depDailyEnd'))}</dd></div>
                    <div class="rev-row"><dt>Runs</dt><dd>${fmtDateLong(val('depRecStart'))} → ${fmtDateLong(val('depRecEnd'))}</dd></div>`
                 : `<div class="rev-row"><dt>Schedule</dt><dd>24-hour (continuous)</dd></div>
-                   <div class="rev-row"><dt>Runs</dt><dd>${fmtDateLong(val('depStart'))} → ${fmtDateLong(val('depEnd'))}</dd></div>`;
+                   <div class="rev-row"><dt>Starts</dt><dd>${fmtDateLong(val('depStart'))} · ${fmtTime12(val('depStartTime'))}</dd></div>
+                   <div class="rev-row"><dt>Ends</dt><dd>${fmtDateLong(val('depEnd'))} · ${fmtTime12(val('depEndTime'))}</dd></div>`;
+            // Recurring deployments get the same plain-language repeat sentence shown in Step 1.
+            const recurLine = isRec
+                ? `<div class="recur-summary recur-summary--thin" style="margin:12px 0 2px;"><i class="fa-solid fa-circle-info"></i> <span>Repeats ${RECUR_PHRASE[recurPattern] || 'every day'} from ${fmtTime12(val('depDailyStart'))} to ${fmtTime12(val('depDailyEnd'))}, starting ${fmtDateLong(val('depRecStart'))} through ${fmtDateLong(val('depRecEnd'))}.</span></div>`
+                : '';
             return `
                 <div class="rev-details">
                     <div class="rev-identity">
                         <div><div class="rev-name">${name}</div><div class="rev-type">${isRec ? 'Recurring deployment' : '24-hour deployment'}</div></div></div>
-                    <div class="rev-rows">
-                        ${whenRows}
-                        <div class="rev-row"><dt>Work type — On-duty</dt><dd>${soft(onDuty)}</dd></div>
-                        <div class="rev-row"><dt>Work type — Off-duty</dt><dd>${soft(offDuty)}</dd></div>
+                    ${recurLine}
+                    <div class="rev-cols">
+                        <div class="rev-rows">
+                            ${whenRows}
+                        </div>
+                        <div class="rev-rows">
+                            <div class="rev-row"><dt>Code</dt><dd>${soft(code)}</dd></div>
+                            <div class="rev-row"><dt>CrewScheduler location</dt><dd>${soft(location)}</dd></div>
+                            <div class="rev-row"><dt>Work type — On-duty</dt><dd>${soft(onDuty)}</dd></div>
+                            <div class="rev-row"><dt>Work type — Off-duty</dt><dd>${soft(offDuty)}</dd></div>
+                            <div class="rev-row"><dt>Shift type</dt><dd>Work shift</dd></div>
+                        </div>
                     </div>
-                    ${notes ? `<div class="rev-notes"><dt>Notes</dt><p>${notes}</p></div>` : ''}
+                    <div class="rev-notes"><dt>Notes</dt><p>${notes ? notes.replace(/</g, '&lt;') : '<span style="color:var(--text-soft);">No notes added.</span>'}</p></div>
                 </div>`;
         }
         function reviewCardsHtml() {
@@ -2312,17 +2358,14 @@
         $('reviewClose').addEventListener('click', closeReview);
         // A "Still to fill" chip takes you to the specific card with that open position — so you
         // can see whether it's an existing assignment, a template, or a new build — and flags the slot.
-        $('reviewDrawerBody').addEventListener('click', e => {
-            const chip = e.target.closest('[data-fill-id]'); if (!chip) return;
-            const id = chip.dataset.fillId, kind = chip.dataset.fillKind, idx = +chip.dataset.fillIdx;
+        // Shared jump-to-card: expand the box the card lives in (and, in stepper modes, jump to
+        // the Pick-or-build step), then scroll the card into view and flash it + its open slot.
+        function jumpToCard(id, kind, idx) {
             const obj = (kind === 'tpl' ? TEMPLATES : ASSIGNMENTS).find(x => x.id === id); if (!obj) return;
-            closeReview();
-            // Expand the box this card lives in, and (stepper modes) jump to the Pick-or-build step.
             if (kind === 'tpl') setBox('depTplHead', 'depTplBody', true);
             else if (obj.built) setBox('depBuiltHead', 'depBuiltBody', true);
             else setBox('depAsgHead', 'depAsgBody', true);
             if (document.getElementById('view-deploy').dataset.ver !== '1') gotoStep('depStep3');
-            // Let the step/box reveal settle, then scroll the card in and flash it + the open slot.
             setTimeout(() => {
                 const cardEl = document.querySelector(`[data-acard="${id}"]`);
                 if (!cardEl) return;
@@ -2332,6 +2375,12 @@
                 const bar = cardEl.querySelectorAll('.slotbar')[idx];
                 if (bar) { bar.classList.add('slotbar--flash'); setTimeout(() => bar.classList.remove('slotbar--flash'), 1800); }
             }, 80);
+        }
+        // A "Still to fill" chip takes you to the specific card with that open position.
+        $('reviewDrawerBody').addEventListener('click', e => {
+            const chip = e.target.closest('[data-fill-id]'); if (!chip) return;
+            closeReview();
+            jumpToCard(chip.dataset.fillId, chip.dataset.fillKind, +chip.dataset.fillIdx);
         });
 
         // ---- Step 1: scheduler type + recurring pattern ----
