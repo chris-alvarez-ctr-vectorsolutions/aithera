@@ -1694,10 +1694,12 @@
                 lb = document.createElement('vaadin-list-box');
                 root.appendChild(lb);
             }
-            // Each open starts fresh: clear any prior query, focus the box.
+            // Each open starts fresh: clear any prior query. Focus the box only
+            // on a real open — not when the renderer runs pre-emptively (closed)
+            // just to build items so a pre-selected value can show in the field.
             if (input) {
                 input.value = '';
-                requestAnimationFrame(() => input.focus());
+                if (select.opened) requestAnimationFrame(() => input.focus());
             }
             paint('');
         };
@@ -2220,13 +2222,17 @@
         const pinnedCode = new Set([CODE_ITEMS[0].value]);   // pre-pin one to show the pattern
         function pickRandomCode() { const sel = $('depCode'); if (sel) sel.value = CODE_ITEMS[Math.floor(Math.random() * CODE_ITEMS.length)].value; }
         customElements.whenDefined('vaadin-select').then(() => {
-            const loc = $('depLocation'); if (loc) loc.renderer = pinnableRenderer(LOCATION_ITEMS, pinnedLoc, false, true);
+            // requestContentUpdate() forces the renderer to build the list items
+            // up front (while closed) so the selected option — including its pin —
+            // renders in the closed field immediately, even before the first open.
+            const loc = $('depLocation'); if (loc) { loc.renderer = pinnableRenderer(LOCATION_ITEMS, pinnedLoc, false, true); loc.requestContentUpdate(); }
             [$('depOnDuty'), $('depOffDuty')].forEach(e => {
                 if (!e) return;
                 e.renderer = pinnableRenderer(WORK_TYPE_ITEMS, pinnedWork, true, true);
+                e.requestContentUpdate();
                 e.addEventListener('value-changed', updateAll);   // keep the review's work-type rows + colors live
             });
-            const code = $('depCode'); if (code) { code.renderer = pinnableRenderer(CODE_ITEMS, pinnedCode, false, true); code.addEventListener('value-changed', updateAll); }
+            const code = $('depCode'); if (code) { code.renderer = pinnableRenderer(CODE_ITEMS, pinnedCode, false, true); code.requestContentUpdate(); code.addEventListener('value-changed', updateAll); }
             pickRandomCode();
         });
 
