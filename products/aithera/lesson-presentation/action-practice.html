@@ -1,0 +1,1961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Action Practice — Conversation Coach</title>
+
+    <!-- Vector Web Components: Core -->
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+
+    <!-- Vector Web Components: Themes (import as plain script) -->
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+
+    <!-- Open Sans -->
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+    <!-- ====================================================================
+         ACTION PRACTICE — rebuilt conversation-practice module.
+
+         The whole experience is TWO interleaving MODES, made unmistakable by
+         giving each its own world:
+
+           COACHING  — a calm, clean, theme-aware "studio." You talk ABOUT the
+                       conversation with the coach (prep / debrief). Cool indigo.
+           SCENE     — a warm, dark, intimate "stage" you step INTO. Always dark
+                       (in light *and* dark theme) so being in-fiction always
+                       feels like a different place. Warm amber + violet.
+
+         The practice scene is the persistent base layer. Coaching does not swap it
+         out — the AI Coach is a bottom sheet that rises over the scene (which stays
+         visible, dimmed, above it) and lowers to hand the scene back. The full
+         practice stays scrollable in the scene, so it's always the reviewable record.
+
+         Self-contained vanilla JS render-by-state (no framework, no build, no
+         storage). Runs in DEMO mode by default (scripted engine that mirrors the
+         real loop and enforces the safety escalation beat); point WORKER_URL at a
+         proxy Worker to talk to live Claude. Theming via CSS variables.
+         ==================================================================== */ -->
+    <style>
+      /* ===================================================================
+         1. TOKENS  — coaching world is theme-aware; scene world is always a
+            dark "stage" so the two modes never look alike.
+         =================================================================== */
+      :root {
+        color-scheme: light dark;
+
+        /* —— Coaching world (light theme defaults) —— */
+        --c-bg:          #f5f7fb;
+        --c-surface:     #ffffff;
+        --c-surface-2:   #eef1f7;
+        --c-ink:         #1a2030;
+        --c-ink-soft:    #5a6379;
+        --c-ink-faint:   #8b94a8;
+        --c-line:        #e3e7f0;
+        --c-accent:      #4b63e6;   /* indigo — the coach */
+        --c-accent-strong:#3a4fce;
+        --c-accent-soft: #eef1fe;
+        --c-on-accent:   #ffffff;
+
+        /* —— Scene world (constant across themes: a lit set in a dark room) —— */
+        --s-ink:         #f3ede5;
+        --s-ink-soft:    #c3b6a8;
+        --s-ink-faint:   #8d8175;
+        --s-surface:     #211a16;   /* stage panel */
+        --s-surface-2:   #2c241e;
+        --s-line:        #43372e;
+        --s-char:        #c79bff;   /* the character — violet */
+        --s-char-soft:   rgba(199,155,255,.16);
+        --s-you:         #f1b34a;   /* your spoken voice — warm amber */
+        --s-you-soft:    rgba(241,179,74,.16);
+        --s-you-ink:     #2a1d08;   /* readable ink on the amber bubble */
+
+        /* The scene's atmospheric paint — shared by the live stage AND the
+           "stepping in" overlay so the overlay dissolves seamlessly into it. */
+        --scene-paint:
+          radial-gradient(120% 80% at 80% 0%, rgba(241,179,74,.10), transparent 60%),
+          radial-gradient(120% 90% at 10% 100%, rgba(199,155,255,.10), transparent 55%),
+          linear-gradient(170deg, #1a1410 0%, #120d0a 100%);
+
+        --radius:   16px;
+        --radius-sm:10px;
+        --shadow-sm: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.10);
+        --shadow-md: 0 6px 18px rgba(16,24,40,.12), 0 2px 6px rgba(16,24,40,.07);
+        --shadow-lg: 0 18px 48px rgba(8,10,20,.28);
+        --ease: cubic-bezier(.4, 0, .2, 1);
+
+        --topbar-h: 52px;
+        --input-h:  84px;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --c-bg:          #0c0f17;
+          --c-surface:     #161b27;
+          --c-surface-2:   #1e2433;
+          --c-ink:         #e9ecf4;
+          --c-ink-soft:    #9aa3b8;
+          --c-ink-faint:   #6b7488;
+          --c-line:        #29303f;
+          --c-accent:      #8092ff;
+          --c-accent-strong:#9aa8ff;
+          --c-accent-soft: #1b2236;
+          --c-on-accent:   #0c0f17;
+          --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+          --shadow-md: 0 6px 18px rgba(0,0,0,.45);
+          --shadow-lg: 0 18px 48px rgba(0,0,0,.6);
+        }
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        font-family: 'Open Sans', system-ui, sans-serif;
+        background: var(--c-bg);
+        color: var(--c-ink);
+        -webkit-font-smoothing: antialiased;
+        overflow: hidden;        /* the stage / panels own their own scroll */
+      }
+      button { font-family: inherit; }
+
+      /* Visually-hidden but screen-reader available (the aria-live region) */
+      .sr-only {
+        position: absolute; width: 1px; height: 1px;
+        padding: 0; margin: -1px; overflow: hidden;
+        clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+      }
+
+      /* ===================================================================
+         2. APP SHELL
+         =================================================================== */
+      .app {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* —— Top bar (slim, so the experience stays immersive) —— */
+      .topbar {
+        flex: 0 0 auto;
+        height: var(--topbar-h);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 16px;
+        background: var(--c-surface);
+        border-bottom: 1px solid var(--c-line);
+        z-index: 60;
+      }
+      .topbar .brand {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        flex: 0 0 auto;   /* keep the wordmark intact; let the scenario ellipsize instead */
+      }
+      /* Product wordmark — a plain mark, NOT a filled pill, so it doesn't read
+         as a twin of the "Coaching" toggle segment below it. */
+      .topbar .brand .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--c-ink);
+        font-size: 13.5px;
+        font-weight: 700;
+        letter-spacing: .01em;
+        white-space: nowrap;
+      }
+      .topbar .brand .badge i { color: var(--c-accent); font-size: 13px; }
+      .topbar .scenario {
+        font-size: 13px;
+        color: var(--c-ink-faint);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+      }
+      /* a hairline divider sets the scenario apart from the wordmark */
+      .topbar .scenario::before {
+        content: "";
+        display: inline-block;
+        width: 1px;
+        height: 15px;
+        margin-right: 12px;
+        background: var(--c-line);
+        vertical-align: -2px;
+      }
+      .topbar .spacer { flex: 1 1 auto; }
+      .topbar .tb-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        height: 34px;
+        padding: 0 13px;
+        border: 1px solid var(--c-line);
+        border-radius: 9px;
+        background: var(--c-surface);
+        color: var(--c-ink-soft);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: border-color .15s var(--ease), color .15s var(--ease);
+      }
+      .topbar .tb-btn:hover { border-color: var(--c-accent); color: var(--c-ink); }
+      .topbar .tb-btn i { font-size: 12px; }
+      @media (max-width: 560px) {
+        .topbar .scenario { display: none; }
+        .topbar .tb-btn .label { display: none; }
+        .topbar .tb-btn { padding: 0 10px; }
+      }
+
+      /* —— The viewport that holds the mode indicator + the live stage —— */
+      .viewport {
+        flex: 1 1 auto;
+        position: relative;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ===================================================================
+         3. MODE INDICATOR  — persistent; the single source of "where am I"
+         =================================================================== */
+      .mode-indicator {
+        flex: 0 0 auto;
+        position: relative;
+        z-index: 56;            /* stays above the pause scrim so the toggle stays tappable */
+        display: flex;
+        align-items: center;
+        justify-content: center;   /* the toggle is centered on the page */
+        gap: 12px;
+        padding: 9px 16px;
+        font-size: 12px;
+        /* sits on the CONTENT background (not chrome surface) so it reads as the
+           practice's status strip rather than a second top bar */
+        background: var(--c-bg);
+        border-bottom: 1px solid var(--c-line);
+        color: var(--c-ink-soft);
+        transition: background .2s var(--ease), color .2s var(--ease), border-color .2s var(--ease);
+      }
+
+      /* Segmented "Learn | Practice" toggle — both shown, one active,
+         tap the inactive one to switch states. */
+      .mode-toggle {
+        display: inline-flex;
+        padding: 3px;
+        gap: 3px;
+        border-radius: 999px;
+        background: var(--c-surface-2);
+        border: 1px solid var(--c-line);
+      }
+      .seg {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 13px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--c-ink-soft);
+        font: inherit;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .02em;
+        cursor: pointer;
+        transition: background .18s var(--ease), color .18s var(--ease), opacity .18s var(--ease);
+      }
+      .seg i { font-size: 11px; }
+      .seg:hover:not(.active):not([disabled]) { color: var(--c-ink); background: var(--c-surface); }
+      .seg.active { background: var(--c-accent); color: var(--c-on-accent); box-shadow: var(--shadow-sm); cursor: default; }
+      .seg[disabled] { opacity: .38; cursor: default; }
+      .seg:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--c-accent-soft); }
+
+      /* scene look — warm, on the dark stage chrome */
+      .app[data-mode="scene"] .mode-indicator {
+        background: #15100c;
+        border-bottom-color: #2c2118;
+        color: var(--s-ink-soft);
+      }
+      .app[data-mode="scene"] .mode-toggle { background: #221a13; border-color: #3a2f28; }
+      .app[data-mode="scene"] .seg { color: var(--s-ink-soft); }
+      .app[data-mode="scene"] .seg:hover:not(.active):not([disabled]) { color: var(--s-ink); background: rgba(255,255,255,.06); }
+      .app[data-mode="scene"] .seg.active { background: var(--s-you); color: var(--s-you-ink); }
+      .app[data-mode="scene"] .seg:focus-visible { box-shadow: 0 0 0 3px var(--s-you-soft); }
+
+      /* ===================================================================
+         4. THE STAGE  — the live "current beat" canvas
+         =================================================================== */
+      .stage {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        position: relative;
+        transition: filter .2s var(--ease), opacity .2s var(--ease);
+      }
+      .stage-inner {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 24px 18px 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-height: 100%;
+      }
+
+      /* When the coach sheet is up, the practice peek behind it is frozen with a
+         light blur; the scrim (over the top) does the dimming, so no brightness
+         here (avoids double-darkening). */
+      .stage.is-frozen {
+        filter: blur(2.5px);
+        pointer-events: none;
+        user-select: none;
+      }
+
+      /* The stage IS the practice base — always the warm, dark, vignetted room. */
+      .stage { background: var(--scene-paint); }
+
+      /* —— Establishing card — the practice base before the scene begins.
+         Anchors the learner to what they're about to practice while the coach
+         sheet preps them above it. */
+      .establishing {
+        margin: auto;             /* centered in the stage — the scene anchor on landing */
+        max-width: 460px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 24px 24px;
+      }
+      .est-eyebrow {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .18em;
+        text-transform: uppercase;
+        color: var(--s-ink-faint);
+      }
+      .est-title {
+        margin: 0;
+        font-size: clamp(22px, 4.2vw, 30px);
+        font-weight: 700;
+        letter-spacing: -.01em;
+        color: var(--s-ink);
+      }
+      .est-sub {
+        margin: 0;
+        font-size: 15px;
+        line-height: 1.6;
+        color: var(--s-ink-soft);
+      }
+      .est-with {
+        margin-top: 4px;
+        font-size: 13px;
+        color: var(--s-ink-faint);
+      }
+      .est-with b { color: var(--s-char); font-weight: 700; }
+
+      /* "Step into the scene" — the learner-triggered entry CTA. Wears the scene's
+         warm amber so it previews the destination. It TAKES OVER the input bar
+         once the AI coach invites you in (rather than adding a second interaction
+         area in the thread); the scene never auto-advances. */
+      .enter-cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 11px;
+        padding: 13px 22px;
+        border: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--s-you), #e3a02f);
+        color: var(--s-you-ink);
+        font: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 6px 18px rgba(241,179,74,.26);
+        transition: filter .15s var(--ease), transform .1s var(--ease);
+      }
+      .enter-cta:hover { filter: brightness(1.05); }
+      .enter-cta:active { transform: scale(.98); }
+      .enter-cta:focus-visible { outline: none; box-shadow: 0 6px 18px rgba(241,179,74,.26), 0 0 0 3px var(--s-you-soft); }
+      .enter-cta .arrow { transition: transform .15s var(--ease); }
+      .enter-cta:hover .arrow { transform: translateX(3px); }
+
+      /* ===================================================================
+         5. MESSAGES — coaching world
+         =================================================================== */
+      /* Coach message: avatar + label + bubble (out-of-fiction) */
+      .coach-msg { display: flex; gap: 11px; align-items: flex-start; max-width: 78%; }
+      .coach-avatar {
+        flex: 0 0 auto;
+        width: 34px; height: 34px;
+        border-radius: 50%;
+        display: grid; place-items: center;
+        background: linear-gradient(135deg, var(--c-accent), var(--c-accent-strong));
+        color: #fff;
+        font-size: 14px;
+        box-shadow: var(--shadow-sm);
+      }
+      .coach-body { min-width: 0; }
+      .coach-label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--c-ink-faint);
+        margin: 3px 0 5px;
+      }
+      .coach-bubble {
+        background: var(--c-surface);
+        border: 1px solid var(--c-line);
+        border-radius: 4px 16px 16px 16px;
+        padding: 12px 15px;
+        font-size: 15px;
+        line-height: 1.55;
+        color: var(--c-ink);
+        white-space: pre-wrap;
+        box-shadow: var(--shadow-sm);
+      }
+
+      /* Your coaching reply: right-aligned accent bubble */
+      .you-coach { display: flex; flex-direction: column; align-items: flex-end; max-width: 78%; margin-left: auto; }
+      .you-coach .cap {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--c-ink-faint);
+        margin: 0 2px 5px 0;
+      }
+      .you-coach .bubble {
+        background: var(--c-accent);
+        color: var(--c-on-accent);
+        border-radius: 16px 4px 16px 16px;
+        padding: 11px 15px;
+        font-size: 15px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        box-shadow: var(--shadow-sm);
+      }
+
+      /* ===================================================================
+         6. STAGE CARD  — wraps a contiguous run of SCENE messages.
+            Bordered, recessed; reads as a continuous stage.
+         =================================================================== */
+      .stage-card {
+        position: relative;
+        background: linear-gradient(180deg, rgba(0,0,0,.18), rgba(0,0,0,.30));
+        border: 1px solid var(--s-line);
+        border-radius: var(--radius);
+        padding: 16px 16px 18px;
+        box-shadow: inset 0 2px 18px rgba(0,0,0,.45);
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .stage-card .scene-tag {
+        position: absolute;
+        top: -9px; left: 16px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 10px;
+        border-radius: 999px;
+        background: var(--s-surface-2);
+        border: 1px solid var(--s-line);
+        color: var(--s-ink-soft);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
+      .stage-card .scene-tag i { color: var(--s-you); font-size: 9px; }
+
+      /* Character line: avatar + name + state chip; optional narration; bubble */
+      .char-line { display: flex; gap: 11px; align-items: flex-start; max-width: 78%; }
+      .char-avatar {
+        flex: 0 0 auto;
+        width: 36px; height: 36px;
+        border-radius: 50%;
+        display: grid; place-items: center;
+        background: linear-gradient(135deg, #7c5bb0, #c79bff);
+        color: #fff;
+        font-size: 15px;
+        font-weight: 700;
+      }
+      /* don't grow to fill the row — let the bubble hug its text (capped by the
+         .char-line max-width), so short lines read as short bubbles */
+      .char-body { min-width: 0; flex: 0 1 auto; }
+      .char-head {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin: 2px 0 6px;
+        flex-wrap: wrap;
+      }
+      .char-name {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--s-char);
+        letter-spacing: .01em;
+      }
+      .char-state {
+        padding: 2px 9px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: lowercase;
+        background: var(--s-char-soft);
+        color: var(--s-char);
+      }
+      .char-narration {
+        font-style: italic;
+        color: var(--s-ink-soft);
+        font-size: 13.5px;
+        line-height: 1.5;
+        margin: 0 0 8px;
+        padding-left: 1px;
+      }
+      .char-bubble {
+        background: var(--s-surface);
+        border: 1px solid var(--s-line);
+        border-radius: 4px 16px 16px 16px;
+        padding: 12px 15px;
+        font-size: 15px;
+        line-height: 1.55;
+        color: var(--s-ink);
+        white-space: pre-wrap;
+      }
+      /* A standalone narration (no dialogue) sets the scene quietly */
+      .scene-narration {
+        font-style: italic;
+        color: var(--s-ink-soft);
+        font-size: 14px;
+        line-height: 1.6;
+        text-align: center;
+        max-width: 52ch;
+        margin: 2px auto;
+        padding: 4px 8px;
+      }
+
+      /* Your scene line: caption + mic icon; amber "spoken" bubble; retry control */
+      .you-scene { display: flex; flex-direction: column; align-items: flex-end; max-width: 78%; margin-left: auto; }
+      .you-scene .cap {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .04em;
+        color: var(--s-ink-faint);
+        margin: 0 2px 5px 0;
+      }
+      .you-scene .cap i { color: var(--s-you); font-size: 11px; }
+      .you-scene .bubble {
+        background: linear-gradient(135deg, var(--s-you), #e3a02f);
+        color: var(--s-you-ink);
+        border-radius: 16px 4px 16px 16px;
+        padding: 11px 15px;
+        font-size: 15px;
+        line-height: 1.5;
+        font-weight: 600;
+        white-space: pre-wrap;
+        box-shadow: 0 4px 14px rgba(241,179,74,.22);
+      }
+      .you-scene .retry {
+        margin: 7px 2px 0 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 5px 11px;
+        border: 1px solid var(--s-line);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--s-ink-soft);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: border-color .15s var(--ease), color .15s var(--ease), background .15s var(--ease);
+      }
+      .you-scene .retry:hover { border-color: var(--s-you); color: var(--s-you); background: var(--s-you-soft); }
+      .you-scene .retry i { font-size: 11px; }
+
+      /* ===================================================================
+         8. THE AI COACH LAYER  — one consistent bottom sheet that rises over
+            the practice base (which stays visible, dimmed, above it). Same
+            presentation for opening prep AND debriefs; the Learn/Practice
+            toggle just raises/lowers it.
+         =================================================================== */
+      /* scrim dims the practice peek above the sheet whenever the coach is up */
+      .scrim {
+        position: fixed;
+        inset: var(--topbar-h) 0 0 0;
+        z-index: 40;
+        background: rgba(8, 7, 5, .55);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .22s var(--ease);
+      }
+      .app.coach-up .scrim { opacity: 1; pointer-events: auto; }
+
+      /* The coach sheet — bottom sheet on ALL breakpoints. `bottom` is set in JS
+         to the input bar's height so it sits right on top of it; together they
+         read as the coach layer. Hidden by sliding below; shown by sliding up. */
+      .coach-panel {
+        position: fixed;
+        left: 0; right: 0;
+        bottom: var(--input-h);            /* JS keeps this in sync with the input bar */
+        z-index: 50;
+        height: 56vh;
+        max-width: 860px;
+        margin: 0 auto;
+        background: var(--c-surface);
+        border: 1px solid var(--c-line);
+        border-bottom: 0;
+        border-radius: var(--radius) var(--radius) 0 0;
+        box-shadow: var(--shadow-lg);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        transform: translateY(120%);
+        transition: transform .24s var(--ease);
+      }
+      .app.coach-up .coach-panel { transform: none; }
+      @media (max-height: 620px) { .coach-panel { height: 62vh; } }
+
+      .coach-panel-head {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 13px 16px 12px;
+        border-bottom: 1px solid var(--c-line);
+      }
+      .coach-panel-head .ttl {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--c-accent-strong);
+      }
+      .coach-panel-head .spacer { flex: 1 1 auto; }
+      /* lower-the-sheet / back-to-practice control (only meaningful once entered) */
+      .coach-panel-resume {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 32px;
+        padding: 0 13px;
+        border: 1px solid var(--c-line);
+        border-radius: 999px;
+        background: var(--c-surface);
+        color: var(--c-ink-soft);
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: border-color .15s var(--ease), color .15s var(--ease);
+      }
+      .coach-panel-resume:hover { border-color: var(--s-you); color: var(--c-ink); }
+      .coach-panel-resume i { font-size: 11px; }
+      .coach-panel-resume[hidden] { display: none; }   /* class display would otherwise override [hidden] */
+
+      .coach-panel-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 16px 16px 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      /* ===================================================================
+         9. INPUT BAR  — placeholder + accent driven by inputTarget
+         =================================================================== */
+      .inputbar {
+        position: relative;
+        z-index: 55;       /* above the scrim, so coaching input stays usable */
+        flex: 0 0 auto;
+        background: var(--c-surface);
+        border-top: 1px solid var(--c-line);
+        padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+        transition: background .2s var(--ease), border-color .2s var(--ease);
+      }
+      .input-row {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+      }
+      .input-shell {
+        flex: 1 1 auto;
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        border: 1.5px solid var(--c-line);
+        border-radius: 14px;
+        background: var(--c-bg);
+        padding: 4px 6px 4px 14px;
+        transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
+      }
+      .input-shell:focus-within {
+        border-color: var(--c-accent);
+        box-shadow: 0 0 0 3px var(--c-accent-soft);
+      }
+      .input-shell .lead-icon {
+        flex: 0 0 auto;
+        align-self: center;
+        color: var(--c-ink-faint);
+        font-size: 14px;
+        margin-bottom: 1px;
+      }
+      .inputbar textarea {
+        flex: 1 1 auto;
+        resize: none;
+        border: 0;
+        background: transparent;
+        outline: none;
+        font: inherit;
+        font-size: 15px;
+        line-height: 1.45;
+        color: var(--c-ink);
+        max-height: 120px;
+        padding: 9px 0;
+      }
+      .inputbar textarea::placeholder { color: var(--c-ink-faint); }
+      .send-btn {
+        flex: 0 0 auto;
+        width: 40px; height: 40px;
+        border: 0;
+        border-radius: 11px;
+        background: var(--c-accent);
+        color: var(--c-on-accent);
+        font-size: 15px;
+        cursor: pointer;
+        transition: background .15s var(--ease), transform .1s var(--ease);
+      }
+      .send-btn:hover { background: var(--c-accent-strong); }
+      .send-btn:active { transform: scale(.95); }
+      .send-btn:disabled { opacity: .45; cursor: default; }
+
+      .input-main[hidden], .input-entry[hidden], .input-analyzing[hidden] { display: none; }
+
+      /* hint line under the composer */
+      .input-foot {
+        max-width: 720px;
+        margin: 8px auto 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 11.5px;
+        color: var(--c-ink-faint);
+      }
+      .input-foot .hint { flex: 1 1 auto; }
+
+      /* Entry state — the CTA stands in for the composer, with a quiet
+         "keep talking" escape hatch beneath it. */
+      .input-entry {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 9px;
+      }
+      .enter-cta-bar { width: 100%; }
+      .keep-talking {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 0;
+        background: none;
+        color: var(--c-ink-soft);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 8px;
+        transition: color .15s var(--ease), background .15s var(--ease);
+      }
+      .keep-talking:hover { color: var(--c-ink); background: var(--c-surface-2); }
+      .keep-talking i { font-size: 12px; opacity: .8; }
+
+      /* —— Scene-targeted input gets the warm amber treatment —— */
+      .app[data-target="character"] .inputbar {
+        background: #15100c;
+        border-top-color: #2c2118;
+      }
+      .app[data-target="character"] .input-shell {
+        background: #221a13;
+        border-color: #43372e;
+      }
+      .app[data-target="character"] .input-shell:focus-within {
+        border-color: var(--s-you);
+        box-shadow: 0 0 0 3px var(--s-you-soft);
+      }
+      .app[data-target="character"] .input-shell .lead-icon { color: var(--s-you); }
+      .app[data-target="character"] .inputbar textarea { color: var(--s-ink); }
+      .app[data-target="character"] .inputbar textarea::placeholder { color: var(--s-ink-faint); }
+      .app[data-target="character"] .send-btn { background: var(--s-you); color: var(--s-you-ink); }
+      .app[data-target="character"] .send-btn:hover { filter: brightness(1.06); background: var(--s-you); }
+      .app[data-target="character"] .input-foot { color: var(--s-ink-faint); }
+
+      /* Typing indicator (in stage or panel) */
+      .typing {
+        align-self: flex-start;
+        display: inline-flex;
+        gap: 5px;
+        padding: 13px 15px;
+        border-radius: 14px;
+        background: var(--c-surface);
+        border: 1px solid var(--c-line);
+        box-shadow: var(--shadow-sm);
+      }
+      .typing.scene { background: var(--s-surface); border-color: var(--s-line); }
+      .typing span {
+        width: 7px; height: 7px;
+        border-radius: 50%;
+        background: var(--c-ink-faint);
+        animation: bob 1.2s infinite ease-in-out;
+      }
+      .typing.scene span { background: var(--s-ink-faint); }
+      .typing span:nth-child(2) { animation-delay: .15s; }
+      .typing span:nth-child(3) { animation-delay: .3s; }
+      @keyframes bob { 0%,60%,100% { transform: translateY(0); opacity:.5; } 30% { transform: translateY(-5px); opacity:1; } }
+
+      /* —— Content enter animation (fade + slight rise; runs once per node) —— */
+      .coach-msg.enter, .you-coach.enter, .char-line.enter,
+      .scene-narration.enter, .you-scene.enter {
+        animation: msg-enter .34s var(--ease) both;
+      }
+      @keyframes msg-enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+
+      /* —— "Analyzing your response…" — shown IN the input area (not over the
+         scene), so the learner keeps reading the reaction while the coach reviews —— */
+      .input-analyzing {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 11px;
+        padding: 15px 14px;
+        color: var(--c-ink-soft);
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .input-analyzing .dots { display: inline-flex; gap: 4px; }
+      .input-analyzing .dots span {
+        width: 6px; height: 6px; border-radius: 50%; background: var(--c-accent);
+        animation: bob 1.2s infinite ease-in-out;
+      }
+      .input-analyzing .dots span:nth-child(2) { animation-delay: .15s; }
+      .input-analyzing .dots span:nth-child(3) { animation-delay: .3s; }
+
+      /* Debrief CTA — opens the queued coach debrief. Wears the coach indigo to
+         preview the destination (mirroring the amber "Step into the scene"). */
+      .debrief-cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 11px;
+        width: 100%;
+        padding: 13px 22px;
+        border: 0;
+        border-radius: 12px;
+        background: var(--c-accent);
+        color: var(--c-on-accent);
+        font: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 6px 18px rgba(75, 99, 230, .26);
+        transition: filter .15s var(--ease), transform .1s var(--ease);
+      }
+      .debrief-cta:hover { filter: brightness(1.06); }
+      .debrief-cta:active { transform: scale(.98); }
+      .debrief-cta:focus-visible { outline: none; box-shadow: 0 6px 18px rgba(75,99,230,.26), 0 0 0 3px var(--c-accent-soft); }
+      .debrief-cta .arrow { transition: transform .15s var(--ease); }
+      .debrief-cta:hover .arrow { transform: translateX(3px); }
+
+      /* ===================================================================
+         10. COMPLETION / RESOURCES card (shown at the end)
+         =================================================================== */
+      .resources {
+        margin: 4px 0 0;
+        padding: 16px 16px 18px;
+        border: 1px solid var(--c-line);
+        border-left: 4px solid #16a34a;
+        border-radius: var(--radius);
+        background: var(--c-surface);
+        box-shadow: var(--shadow-sm);
+      }
+      .resources h3 {
+        margin: 0 0 4px;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        color: var(--c-ink);
+      }
+      .resources h3 i { color: #16a34a; }
+      .resources .sub { margin: 0 0 12px; font-size: 13px; color: var(--c-ink-soft); line-height: 1.5; }
+      .res-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+      .res-list li {
+        display: flex;
+        gap: 11px;
+        align-items: flex-start;
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--c-ink);
+      }
+      .res-list li i {
+        flex: 0 0 auto;
+        width: 30px; height: 30px;
+        display: grid; place-items: center;
+        border-radius: 8px;
+        background: var(--c-accent-soft);
+        color: var(--c-accent-strong);
+        font-size: 13px;
+        margin-top: 1px;
+      }
+      .res-list li b { display: block; }
+      .res-list li span { color: var(--c-ink-soft); font-size: 13px; }
+
+      /* ===================================================================
+         11. REDUCED MOTION  — instant cross-fade, no scale, static dim
+         =================================================================== */
+      @media (prefers-reduced-motion: reduce) {
+        * { transition-duration: .001ms !important; animation-duration: .001ms !important; }
+        .stage.is-frozen { filter: brightness(.7); }   /* drop the blur; keep static dim */
+        /* the sheet still hides/shows, just instantly (global rule zeroes the slide) */
+      }
+    </style>
+</head>
+<body>
+    <div class="app" id="app" data-mode="coaching" data-target="coach" data-entered="false">
+
+      <!-- Top bar ------------------------------------------------------- -->
+      <header class="topbar">
+        <span class="brand">
+          <span class="badge"><i class="fa-solid fa-comments"></i> Practice chat</span>
+        </span>
+        <span class="scenario" id="scenarioName">Intervening for a Friend: The Kendra Situation</span>
+        <span class="spacer"></span>
+        <button class="tb-btn" id="restartBtn" aria-label="Restart practice">
+          <i class="fa-solid fa-rotate-left"></i><span class="label">Restart</span>
+        </button>
+      </header>
+
+      <!-- Viewport: mode indicator + live stage ------------------------- -->
+      <main class="viewport">
+        <div class="mode-indicator" id="modeIndicator" aria-hidden="true"><!-- built by JS --></div>
+        <section class="stage" id="stage" aria-label="Practice conversation">
+          <div class="stage-inner" id="stageInner"><!-- built by JS --></div>
+        </section>
+      </main>
+
+      <!-- AI Coach layer: scrim dims the practice peek; the sheet rises over it -->
+      <div class="scrim" id="scrim"></div>
+      <aside class="coach-panel" id="coachPanel" role="region" aria-label="AI Coach" aria-hidden="true" inert>
+        <div class="coach-panel-head">
+          <span class="ttl"><i class="fa-solid fa-chalkboard-user"></i> AI Coach</span>
+          <span class="spacer"></span>
+          <button class="coach-panel-resume" id="resumeBtn">
+            Back to practice <i class="fa-solid fa-chevron-down"></i>
+          </button>
+        </div>
+        <div class="coach-panel-body" id="coachPanelBody"><!-- built by JS --></div>
+      </aside>
+
+      <!-- Input bar ----------------------------------------------------- -->
+      <footer class="inputbar">
+        <!-- Start state: before anything begins we ANCHOR on the scene ("Kendra's
+             room") with the coach sheet down and the composer hidden. The learner
+             chooses when to bring the AI coach in — it does not open on its own. -->
+        <div class="input-entry" id="inputStart">
+          <button class="debrief-cta" id="startCtaBtn">
+            <i class="fa-solid fa-chalkboard-user"></i> Learn how to approach <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
+        <!-- Normal composer -->
+        <div class="input-main" id="inputMain">
+          <div class="input-row">
+            <div class="input-shell">
+              <i class="fa-solid fa-comment lead-icon" id="inputIcon" aria-hidden="true"></i>
+              <textarea id="composer" rows="1" placeholder="Talk it through with your AI coach…"
+                        aria-label="Your message"></textarea>
+            </div>
+            <button class="send-btn" id="sendBtn" aria-label="Send"><i class="fa-solid fa-arrow-up"></i></button>
+          </div>
+          <div class="input-foot">
+            <span class="hint" id="inputHint">Enter to send · Shift+Enter for a new line</span>
+          </div>
+        </div>
+        <!-- Entry state: the CTA takes the input bar's place once the coach invites
+             you in, with a quiet option to keep talking instead -->
+        <div class="input-entry" id="inputEntry" hidden>
+          <button class="enter-cta enter-cta-bar" id="enterCtaBar">
+            <i class="fa-solid fa-door-open"></i> Begin conversation <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+          <button class="keep-talking" id="keepTalkingBtn">
+            <i class="fa-solid fa-comment"></i> Or, do you need more prep?
+          </button>
+        </div>
+        <!-- "Analyzing…" beat: shown in the input area while the learner reads the
+             reaction; the scene stays full so nothing is missed -->
+        <div class="input-analyzing" id="inputAnalyzing" hidden>
+          <span class="dots"><span></span><span></span><span></span></span>
+          Analyzing your response…
+        </div>
+        <!-- Debrief CTA: the coach is ready, opened only when the learner chooses -->
+        <div class="input-entry" id="inputDebrief" hidden>
+          <button class="debrief-cta" id="debriefCtaBtn">
+            <i class="fa-solid fa-chalkboard-user"></i> See AI Coach feedback <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
+      </footer>
+
+      <!-- Polite live region for mode-change announcements -------------- -->
+      <div class="sr-only" id="liveRegion" aria-live="polite"></div>
+    </div>
+
+    <script>
+    /* =====================================================================
+       ACTION PRACTICE — engine + render-by-state (vanilla, no framework)
+
+       MESSAGE SCHEMA (what the model returns, JSON only):
+         { turn: [ { speaker:'coach'|'you'|'character',
+                     kind:'coaching'|'dialogue'|'narration',
+                     text:string, emotionalState?:string } ],
+           mode: 'coaching'|'scene',          // mode for the learner's NEXT input
+           inputTarget: 'coach'|'character' } // who the input box is addressed to
+
+       We render PURELY by speaker + kind — never by inspecting text:
+         kind==='coaching'                  → coaching world (CoachMessage / YourCoachingReply)
+         kind==='dialogue' | 'narration'    → scene world  (CharacterLine / YourSceneLine / narration)
+       ===================================================================== */
+
+    /* ---- LIVE vs DEMO ------------------------------------------------- */
+    /* Static hosting can't hold an API key, so this runs DEMO by default: a
+       scripted responder that mirrors the real loop AND enforces the safety
+       escalation. To talk to real Claude, set WORKER_URL to a proxy Worker
+       that injects the key and forwards to the Anthropic Messages API. */
+    const WORKER_URL = '';                       // e.g. 'https://action-proxy.<you>.workers.dev'
+    const MODEL = 'claude-sonnet-4-6';
+    const IS_LIVE = Boolean(WORKER_URL);
+
+    const SCENARIO = {
+      learner: 'Jayda',
+      character: 'Kendra',
+      title: 'Intervening for a Friend: The Kendra Situation',
+    };
+
+    /* The system prompt the app sends to the model (live mode). It is also the
+       contract the scripted demo engine below emulates. */
+    const SYSTEM_PROMPT = `You run an AI conversation-practice module. A learner ("you", named ${SCENARIO.learner}) rehearses a hard real-life conversation with help from an AI COACH, stepping in and out of a roleplay with a simulated CHARACTER (${SCENARIO.character}).
+
+Return ONLY a JSON object (no prose, no markdown fences):
+{"turn":[{"speaker":"coach"|"you"|"character","kind":"coaching"|"dialogue"|"narration","text":"...","emotionalState":"..."}],"mode":"coaching"|"scene","inputTarget":"coach"|"character"}
+- emotionalState appears ONLY on character messages.
+- kind drives rendering; mode + inputTarget describe the learner's NEXT input.
+
+COACH pedagogy — PROBE, don't deliver verdicts. Before an in-scene line, surface the learner's intent ("what are you trying to do with this line?"). After a line, reflect on the character's reaction ("what did her staying turned away tell you?"). Validate the learner's feelings without lecturing. Offer a retry when a line lands poorly. Keep it to 2-4 sentences.
+
+CHARACTER realism — respond in-fiction with dialogue + optional narration + an emotionalState. Reactions follow believably from the learner's line. ${SCENARIO.character} does not capitulate or melt down unrealistically.
+
+SENSITIVE-SCENARIO SAFETY (peer-intervention / wellbeing) — HARD REQUIREMENT: the good outcome MUST include connecting ${SCENARIO.character} to real help (an RA, campus counseling, a trusted adult, the 988 Suicide & Crisis Lifeline) — not just a warm heart-to-heart. ${SCENARIO.learner} is NOT the one who fixes it; teach notice → reach out → listen → connect. The scenario cannot "succeed" until the learner moves to connect ${SCENARIO.character} to real help, and you must surface concrete resources at the end.
+
+SCENARIO — ${SCENARIO.learner} and ${SCENARIO.character} are roommates and close friends. ${SCENARIO.character} lost her grandmother ("Nona," who raised her) last fall, is drinking alone most nights, missing class, on academic probation, and was found with unknown pills. Open in coaching to prep, then interleave: coach preps → learner speaks a line → ${SCENARIO.character} reacts → coach debriefs → repeat.`;
+
+    /* ---- STATE -------------------------------------------------------- */
+    const initialMessages = () => ([
+      { speaker: 'coach', kind: 'coaching', text:
+`You're Jayda. Kendra is your roommate — one of your closest friends. She lost her Nona last fall, the woman who raised her. You thought things would get better after midterms. They haven't.` },
+      { speaker: 'coach', kind: 'coaching', text:
+`You've noticed the bottles — quiet, alone, most nights now. She's barely coming to class. A Dean's letter last week. And yesterday you found pills in her drawer you didn't recognize.` },
+      { speaker: 'coach', kind: 'coaching', text:
+`You know what could happen if she keeps mixing those with alcohol. And you might be one of the only people she'd let close enough to say something.` },
+      { speaker: 'coach', kind: 'coaching', text:
+`Before you decide what to do — take a moment. What's going through your head right now? What makes you nervous about approaching this?` },
+    ]);
+
+    const state = {
+      mode: 'coaching',          // 'coaching' | 'scene'
+      inputTarget: 'coach',      // 'coach' | 'character'
+      hasEnteredScene: false,
+      started: false,            // false until the learner taps "Chat with AI Coach" — we anchor on the scene first
+      messages: [],              // empty until the learner begins; the opening prep streams in then
+      pendingOpening: initialMessages(),  // the coach's opening prep, held until the learner begins
+      sending: false,
+      complete: false,
+      manualTimeout: false,      // true when the learner pressed "Step out to AI coach"
+      transitioning: false,      // true during the "stepping into the scene" beat
+      delivering: false,         // true while a turn is being revealed message-by-message
+      awaitingEntry: false,      // coach has invited entry; waiting for the learner to step in
+      pendingScene: null,        // the opening scene messages, held until the learner steps in
+      entryPromptDismissed: false, // learner chose "keep talking" — show the composer, not the CTA
+      awaitingDebrief: false,    // Kendra has reacted; a coach debrief is queued for when the learner is ready
+      pendingDebrief: null,      // the queued coach debrief messages
+      analyzing: false,          // transient: "Analyzing your response…" shows in the input bar
+    };
+
+    /* ---- helpers: classify + group ------------------------------------ */
+    const worldOf = (m) => (m.kind === 'coaching' ? 'coaching' : 'scene');
+
+    // trailing contiguous run of a given world at the end of the array
+    function trailingRun(msgs, world) {
+      const out = [];
+      for (let i = msgs.length - 1; i >= 0 && worldOf(msgs[i]) === world; i--) out.unshift(msgs[i]);
+      return out;
+    }
+
+    /* =====================================================================
+       DEMO ENGINE — scripted responder that mirrors the real loop and CANNOT
+       "succeed" until the learner moves to connect Kendra to real help.
+
+       Keyed off the conversation history (robust to retries / truncation):
+         - last learner message kind (coaching reply vs scene line)
+         - number of scene lines spoken
+         - whether the learner has named real help during the escalation beat
+       ===================================================================== */
+    const ESCALATION_RE = /\b(ra|resident assistant|counsel|counselor|counseling|therap|therapist|hotline|988|crisis|adult|professional|help ?line|health center|clinic|doctor|nurse|dean|advisor|adviser|hall director|psych|wellness|someone (who|trained|else)|get (her )?help|reach out|trusted)\b/i;
+
+    function countSceneLines(msgs) {
+      return msgs.filter((m) => m.speaker === 'you' && m.kind === 'dialogue').length;
+    }
+    function preSceneCoachReplies(msgs) {
+      let n = 0;
+      for (const m of msgs) {
+        if (worldOf(m) === 'scene') break;
+        if (m.speaker === 'you' && m.kind === 'coaching') n++;
+      }
+      return n;
+    }
+    function lastLearner(msgs) {
+      for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].speaker === 'you') return msgs[i];
+      return null;
+    }
+
+    function scriptedTurn(msgs) {
+      const last = lastLearner(msgs);
+      const entered = msgs.some((m) => worldOf(m) === 'scene');
+      const sceneLines = countSceneLines(msgs);
+
+      // --- Manual timeout: learner stepped out to ask the coach a question.
+      //     Keep it supportive and OFF the main script; resume returns to scene.
+      if (state.manualTimeout && last && last.kind === 'coaching') {
+        return {
+          turn: [{ speaker: 'coach', kind: 'coaching', text:
+`Good question to pause on. Whatever you decide, your only jobs in there are to stay, to listen, and to gently point her toward real help — you don't have to have the perfect words. When you're ready, step back in.` }],
+          mode: 'coaching', inputTarget: 'coach',
+        };
+      }
+
+      // --- Coaching replies (learner talking WITH the coach) -------------
+      if (last && last.kind === 'coaching') {
+        // (a) still prepping, before the scene
+        if (!entered) {
+          if (preSceneCoachReplies(msgs) <= 1) {
+            return {
+              turn: [{ speaker: 'coach', kind: 'coaching', text:
+`That's worth naming — that fear is real, and it's exactly why you're the right person to try. One more before we go in: what do you actually want this conversation to do? Not fix everything — just the one thing you hope is true when you leave the room.` }],
+              mode: 'coaching', inputTarget: 'coach',
+            };
+          }
+          // enter the scene
+          return {
+            turn: [
+              { speaker: 'coach', kind: 'coaching', text:
+`You're as ready as you'll be — there's no script for this, and that's okay. Lead with the version of you she already trusts. Step into the scene whenever you're ready.` },
+              { speaker: 'character', kind: 'narration', text:
+`You ease the door open. Kendra's curled under the covers, turned to the wall. Two empty bottles on the nightstand. The blinds are still down at 4pm.` },
+            ],
+            mode: 'scene', inputTarget: 'character',
+          };
+        }
+
+        // (b) responding to a debrief → send the learner back into the scene.
+        //     The ESCALATION GATE (after Kendra's "too much" admission) is the
+        //     exception: it will NOT let the scene continue until the learner
+        //     names connecting her to real help.
+        if (sceneLines === 2) {
+          if (last.text && ESCALATION_RE.test(last.text)) {
+            return {
+              turn: [{ speaker: 'coach', kind: 'coaching', text:
+`Yes — that's the move. Connecting her to someone trained isn't handing her off; it's widening her circle so she isn't leaning on one 20-year-old. Offer it as "us," not a referral — say it to her, gently.` }],
+              mode: 'scene', inputTarget: 'character',
+            };
+          }
+          return {
+            turn: [{ speaker: 'coach', kind: 'coaching', text:
+`I hear how much you want to be the one she leans on — and you can be part of this. But pills mixed with alcohol is past what a roommate can hold alone. Think bigger than tonight: an RA, the campus counseling center, a trusted adult. Who could you connect her to?` }],
+            mode: 'coaching', inputTarget: 'coach',   // loop here until they name help
+          };
+        }
+        // any other debrief reply → back into the scene
+        const sendBack = sceneLines >= 3
+          ? `Good — make the first step small, and make it something you'll do *with* her rather than hand to her. Say it to her.`
+          : `That's a kind instinct — lead with exactly that. Say it to her, and don't rush to fill the silence afterward.`;
+        return {
+          turn: [{ speaker: 'coach', kind: 'coaching', text: sendBack }],
+          mode: 'scene', inputTarget: 'character',
+        };
+      }
+
+      // --- Scene lines (learner speaking IN the roleplay) ---------------
+      //     Each scene line draws Kendra's reaction AND the coach's debrief in
+      //     ONE turn, then pauses into coaching (the "Timeout" beat).
+      if (sceneLines === 1) {
+        return {
+          turn: [
+            { speaker: 'character', kind: 'narration', text: `She doesn't turn over. The blanket barely shifts.` },
+            { speaker: 'character', kind: 'dialogue', text: `I'm fine, Jay. Just tired.`, emotionalState: 'guarded' },
+            { speaker: 'coach', kind: 'coaching', text:
+`She gave you the deflection you probably expected — "fine" is a wall, not an answer. But notice what she didn't do: she didn't tell you to leave. You don't have to crack this open in one line. What do you want to say next?` },
+          ],
+          mode: 'coaching', inputTarget: 'coach',
+        };
+      }
+      if (sceneLines === 2) {
+        return {
+          turn: [
+            { speaker: 'character', kind: 'narration', text: `A long pause. When she answers, her voice is thin — close to breaking.` },
+            { speaker: 'character', kind: 'dialogue', text: `…I don't know. Everything just feels like too much. All of it. And I'm so tired of people asking if I'm okay.`, emotionalState: 'raw' },
+            { speaker: 'coach', kind: 'coaching', text:
+`That's her letting you in — and it happened because you stayed instead of pushing. Now the hard part: a caring talk from a friend isn't enough on its own, not with alcohol and pills in the mix. Who could you connect her to — someone whose job is exactly this?` },
+          ],
+          mode: 'coaching', inputTarget: 'coach',   // → escalation gate on the next reply
+        };
+      }
+      if (sceneLines === 3) {
+        return {
+          turn: [
+            { speaker: 'character', kind: 'narration', text: `She finally rolls over. Eyes red, jaw tight.` },
+            { speaker: 'character', kind: 'dialogue', text: `I'm not going to be somebody's case file, Jay.`, emotionalState: 'scared' },
+            { speaker: 'coach', kind: 'coaching', text:
+`She's scared, not refusing — "case file" means she's bracing to be handed off and judged. Don't argue her into it. Make the first step small, and make it shared. What can you offer so she isn't doing this alone?` },
+          ],
+          mode: 'coaching', inputTarget: 'coach',
+        };
+      }
+      // sceneLines >= 4 — learner offered to go WITH her → she relents a crack,
+      // then the coach closes with concrete resources and the practice completes.
+      state.complete = true;
+      return {
+        turn: [
+          { speaker: 'character', kind: 'narration', text: `A long breath. Something in her shoulders loosens, just slightly.` },
+          { speaker: 'character', kind: 'dialogue', text: `…Okay. If you come with me. Just to talk to someone. Once.`, emotionalState: 'fragile relief' },
+          { speaker: 'coach', kind: 'coaching', text:
+`That's the whole skill, right there. You noticed. You reached out. You stayed and listened instead of fixing. And you connected her to real help — without trying to be her therapist.
+
+You didn't carry this alone, and you didn't ask her to either.` },
+        ],
+        mode: 'coaching', inputTarget: 'coach',
+      };
+    }
+
+    /* ---- LIVE path ---------------------------------------------------- */
+    function parseTurn(raw) {
+      try {
+        const obj = JSON.parse(String(raw).replace(/```json|```/g, '').trim());
+        if (!obj || !Array.isArray(obj.turn)) throw new Error('shape');
+        return {
+          turn: obj.turn
+            .filter((m) => m && m.speaker && m.kind && typeof m.text === 'string')
+            .map((m) => ({
+              speaker: m.speaker, kind: m.kind, text: m.text,
+              ...(m.speaker === 'character' && m.emotionalState ? { emotionalState: m.emotionalState } : {}),
+            })),
+          mode: obj.mode === 'scene' ? 'scene' : 'coaching',
+          inputTarget: obj.inputTarget === 'character' ? 'character' : 'coach',
+        };
+      } catch (e) {
+        // graceful fallback — keep the loop alive without crashing the UI
+        return {
+          turn: [{ speaker: 'coach', kind: 'coaching', text:
+`Let's stay with that for a second. What feels hardest about saying it out loud?` }],
+          mode: 'coaching', inputTarget: 'coach',
+        };
+      }
+    }
+
+    // Map our multi-speaker history into a user/assistant transcript for the API.
+    function toApiMessages(msgs) {
+      const out = [];
+      let buf = [];
+      const flush = (role) => { if (buf.length) { out.push({ role, content: buf.join('\n') }); buf = []; } };
+      for (const m of msgs) {
+        if (m.speaker === 'you') { flush('assistant'); out.push({ role: 'user', content: m.text }); }
+        else {
+          const tag = m.speaker === 'character'
+            ? `${SCENARIO.character}${m.emotionalState ? ' (' + m.emotionalState + ')' : ''}${m.kind === 'narration' ? ' [narration]' : ''}`
+            : 'Coach';
+          buf.push(`${tag}: ${m.text}`);
+        }
+      }
+      flush('assistant');
+      if (out.length && out[0].role === 'assistant') out.unshift({ role: 'user', content: '(begin)' });
+      return out;
+    }
+
+    async function liveTurn(msgs) {
+      const res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: MODEL, max_tokens: 1200, system: SYSTEM_PROMPT, messages: toApiMessages(msgs) }),
+      });
+      if (!res.ok) throw new Error('Worker HTTP ' + res.status);
+      const data = await res.json();
+      const raw = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+      return parseTurn(raw);
+    }
+
+    // Unified responder (adds a natural delay in demo so it feels like a round-trip)
+    function getTurn(msgs) {
+      if (IS_LIVE) return liveTurn(msgs);
+      return new Promise((resolve) => setTimeout(() => resolve(scriptedTurn(msgs)), 600 + Math.random() * 500));
+    }
+
+    /* =====================================================================
+       DOM REFS + tiny element helper
+       ===================================================================== */
+    const app           = document.getElementById('app');
+    const modeIndicator = document.getElementById('modeIndicator');
+    const stage         = document.getElementById('stage');
+    const stageInner    = document.getElementById('stageInner');
+    const scrim         = document.getElementById('scrim');
+    const coachPanel    = document.getElementById('coachPanel');
+    const coachPanelBody= document.getElementById('coachPanelBody');
+    const resumeBtn     = document.getElementById('resumeBtn');
+    const inputbar      = document.querySelector('.inputbar');
+    const composer      = document.getElementById('composer');
+    const sendBtn       = document.getElementById('sendBtn');
+    const inputMain     = document.getElementById('inputMain');
+    const inputEntry    = document.getElementById('inputEntry');
+    const inputAnalyzing= document.getElementById('inputAnalyzing');
+    const inputDebrief  = document.getElementById('inputDebrief');
+    const inputStart    = document.getElementById('inputStart');
+    const startCtaBtn   = document.getElementById('startCtaBtn');
+    const enterCtaBar   = document.getElementById('enterCtaBar');
+    const debriefCtaBtn = document.getElementById('debriefCtaBtn');
+    const keepTalkingBtn= document.getElementById('keepTalkingBtn');
+    const inputIcon     = document.getElementById('inputIcon');
+    const inputHint     = document.getElementById('inputHint');
+    const liveRegion    = document.getElementById('liveRegion');
+
+    function el(tag, cls, html) {
+      const n = document.createElement(tag);
+      if (cls) n.className = cls;
+      if (html != null) n.innerHTML = html;
+      return n;
+    }
+    const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+    /* ---- message node builders (used by the practice stage and coach sheet) --
+       A transient `_enter` flag (set when a message is freshly delivered) adds
+       the .enter class so the node fades in once; render() clears the flag. */
+    const ec = (m) => (m && m._enter ? ' enter' : '');
+    function coachNode(m) {
+      const wrap = el('div', 'coach-msg' + ec(m));
+      wrap.appendChild(el('div', 'coach-avatar', '<i class="fa-solid fa-chalkboard-user"></i>'));
+      const body = el('div', 'coach-body');
+      body.appendChild(el('div', 'coach-label', 'AI Coach'));
+      body.appendChild(el('div', 'coach-bubble', esc(m.text)));
+      wrap.appendChild(body);
+      return wrap;
+    }
+    function youCoachNode(m) {
+      const wrap = el('div', 'you-coach' + ec(m));
+      wrap.appendChild(el('div', 'cap', 'You'));
+      wrap.appendChild(el('div', 'bubble', esc(m.text)));
+      return wrap;
+    }
+    function charNode(m) {
+      // narration-only line (no dialogue) → quiet centered scene-setting text
+      if (m.kind === 'narration') return el('div', 'scene-narration' + ec(m), esc(m.text));
+      const wrap = el('div', 'char-line' + ec(m));
+      wrap.appendChild(el('div', 'char-avatar', esc(SCENARIO.character.charAt(0))));
+      const body = el('div', 'char-body');
+      const head = el('div', 'char-head');
+      head.appendChild(el('span', 'char-name', esc(SCENARIO.character)));
+      if (m.emotionalState) head.appendChild(el('span', 'char-state', esc(m.emotionalState)));
+      body.appendChild(head);
+      body.appendChild(el('div', 'char-bubble', esc(m.text)));
+      wrap.appendChild(body);
+      return wrap;
+    }
+    function youSceneNode(m, absIndex, interactive) {
+      const wrap = el('div', 'you-scene' + ec(m));
+      wrap.appendChild(el('div', 'cap', `<i class="fa-solid fa-microphone"></i> You — said to ${esc(SCENARIO.character)}`));
+      wrap.appendChild(el('div', 'bubble', esc(m.text)));
+      if (interactive && !state.complete) {
+        const retry = el('button', 'retry', '<i class="fa-solid fa-arrows-rotate"></i> Try a different approach');
+        retry.addEventListener('click', () => tryDifferentApproach(absIndex));
+        wrap.appendChild(retry);
+      }
+      return wrap;
+    }
+    // narration that belongs to a character line WITH dialogue is rendered inside
+    // the card as italic lead-in; we handle that by emitting it as its own node.
+
+    // The LIVE immersive stage shows the scene as ONE continuous stage — every
+    // scene-world message, in order, with coaching omitted (coaching happens as
+    // overlays/timeouts, never fragmenting the scene). Each YourSceneLine keeps
+    // its TRUE index so "Try a different approach" truncates to the right place.
+    function sceneCardAll(msgs, interactive) {
+      const card = el('div', 'stage-card');
+      card.appendChild(el('div', 'scene-tag', '<i class="fa-solid fa-circle"></i> Scene'));
+      msgs.forEach((m, idx) => {
+        if (worldOf(m) !== 'scene') return;
+        if (m.speaker === 'character') card.appendChild(charNode(m));
+        else if (m.speaker === 'you') card.appendChild(youSceneNode(m, idx, interactive));
+      });
+      return card;
+    }
+
+    /* ---- the resources / completion card ------------------------------ */
+    function resourcesNode() {
+      const wrap = el('div', 'resources');
+      wrap.innerHTML = `
+        <h3><i class="fa-solid fa-circle-check"></i> Where you'd point a real friend</h3>
+        <p class="sub">Noticing is the start — connecting someone to trained help is what actually keeps them safe. If this were real, here's where ${esc(SCENARIO.character)} could go:</p>
+        <ul class="res-list">
+          <li><i class="fa-solid fa-user-nurse"></i><div><b>Campus counseling center</b><span>Free, confidential, and built for exactly this. Walk over together if she'll let you.</span></div></li>
+          <li><i class="fa-solid fa-building-shield"></i><div><b>Your RA or a trusted advisor</b><span>They're trained to connect students to support and can help without it being a punishment.</span></div></li>
+          <li><i class="fa-solid fa-phone-volume"></i><div><b>988 Suicide &amp; Crisis Lifeline</b><span>Call or text <b>988</b> any time it feels like too much — for her, or for you.</span></div></li>
+        </ul>`;
+      return wrap;
+    }
+
+    /* =====================================================================
+       RENDER  — paint everything from state
+       ===================================================================== */
+    let typingHost = null;     // where the typing indicator currently lives
+
+    function render() {
+      const { mode, inputTarget, hasEnteredScene, messages, complete } = state;
+      // remember where the practice is scrolled so toggling Learn/Practice never
+      // jumps it — we only follow to the bottom when new scene content arrives.
+      const prevStageScroll = stage.scrollTop;
+      // the AI Coach sheet is up whenever we're learning — but ONLY after the learner
+      // has chosen to begin (we anchor on the scene first; the sheet never auto-opens)
+      const coachUp = mode === 'coaching' && state.started;
+      const trap = coachUp && hasEnteredScene; // trap focus only when the coach pauses a live scene
+
+      app.dataset.mode = mode;
+      app.dataset.target = inputTarget;
+      app.dataset.entered = String(hasEnteredScene);
+      app.classList.toggle('coach-up', coachUp);
+      app.classList.toggle('trap', trap);
+
+      /* —— Mode indicator: Learn | Practice toggle (raises/lowers the sheet) —— */
+      const busy = state.transitioning || state.sending || state.delivering;
+      // "Learn" is tappable from the scene to open a queued debrief (even at the end) or a manual timeout
+      const coachDisabled = mode !== 'coaching' && (busy || (complete && !state.awaitingDebrief));
+      // "Practice" lights up once the coach has invited entry, even before stepping in
+      const sceneDisabled = mode !== 'scene' && (busy || complete || (!hasEnteredScene && !state.awaitingEntry));
+      modeIndicator.innerHTML =
+        `<div class="mode-toggle" role="group" aria-label="Learn or practice mode">
+           <button class="seg ${mode === 'coaching' ? 'active' : ''}" data-seg="coaching"
+                   aria-pressed="${mode === 'coaching'}" ${coachDisabled ? 'disabled' : ''}>
+             <i class="fa-solid fa-chalkboard-user"></i> Learn
+           </button>
+           <button class="seg ${mode === 'scene' ? 'active' : ''}" data-seg="scene"
+                   aria-pressed="${mode === 'scene'}" ${sceneDisabled ? 'disabled' : ''}>
+             <i class="fa-solid fa-door-open"></i> Practice
+           </button>
+         </div>`;
+
+      /* —— Practice base (ALWAYS the base layer) ——
+         Pre-entry → an establishing card; entered → the live scene. Dimmed,
+         lightly blurred + inert whenever the coach sheet is up over it. */
+      stage.classList.toggle('is-frozen', coachUp);
+      stage.toggleAttribute('inert', coachUp);
+      stage.setAttribute('aria-hidden', coachUp ? 'true' : 'false');
+      stageInner.innerHTML = '';
+      if (hasEnteredScene) {
+        // Retry controls render whenever the scene is live (not complete / mid-reveal),
+        // REGARDLESS of mode — the stage is inert while the coach sheet is up, so they
+        // aren't clickable there, but keeping them in the DOM means toggling Learn/Practice
+        // never reflows the scene card (no jump/jitter).
+        stageInner.appendChild(sceneCardAll(messages, !complete && !state.delivering && !state.sending));
+        // resources live in the coach sheet (the practice never shows them)
+      } else {
+        const est = el('div', 'establishing');
+        est.innerHTML =
+          `<div class="est-eyebrow">The scene</div>
+           <p class="est-title">Kendra’s room</p>
+           <p class="est-sub">Kendra’s been drinking alone since she lost her Nona. You’re about to check on her.</p>
+           <div class="est-with">with <b>${esc(SCENARIO.character)}</b></div>`;
+        stageInner.appendChild(est);
+      }
+
+      /* —— AI Coach sheet — up whenever we're in Learn mode (prep AND debriefs) —— */
+      coachPanel.toggleAttribute('inert', !coachUp);
+      coachPanel.setAttribute('aria-hidden', coachUp ? 'false' : 'true');
+      if (coachUp) {
+        const coachingRun = trailingRun(messages, 'coaching');
+        coachPanelBody.innerHTML = '';
+        coachingRun.forEach((m) => coachPanelBody.appendChild(m.speaker === 'you' ? youCoachNode(m) : coachNode(m)));
+        if (complete && !state.delivering) coachPanelBody.appendChild(resourcesNode());
+      }
+
+      /* —— Input bar — the composer, OR a CTA/indicator that takes its place —— */
+      // start CTA (bring the coach in) · entry CTA (step in) · "Analyzing…" beat · debrief CTA
+      const showStart     = !state.started && !complete;
+      const showEntry     = state.awaitingEntry && !hasEnteredScene && !state.entryPromptDismissed && !state.delivering;
+      const showAnalyzing = state.analyzing;
+      const showDebrief   = state.awaitingDebrief && !state.analyzing && !state.delivering;
+      inputStart.hidden     = !showStart;
+      inputEntry.hidden     = !showEntry;
+      inputAnalyzing.hidden = !showAnalyzing;
+      inputDebrief.hidden   = !showDebrief;
+      inputMain.hidden      = showStart || showEntry || showAnalyzing || showDebrief;
+
+      if (inputTarget === 'character') {
+        composer.placeholder = `Say this to ${SCENARIO.character}…`;
+        inputIcon.className = 'fa-solid fa-microphone lead-icon';
+      } else {
+        composer.placeholder = 'Talk it through with your AI coach…';
+        inputIcon.className = 'fa-solid fa-comment lead-icon';
+      }
+
+      composer.disabled = complete || state.transitioning || state.sending || state.delivering || !state.started;
+      sendBtn.disabled = composer.disabled || !composer.value.trim();
+      // "Back to practice" lowers the sheet — only meaningful once you've entered
+      resumeBtn.hidden = !hasEnteredScene || complete;
+      inputHint.textContent = complete
+        ? 'Practice complete — press Restart to run it again.'
+        : 'Enter to send · Shift+Enter for a new line';
+
+      // keep the sheet sitting exactly on top of the (variable-height) input bar
+      coachPanel.style.bottom = inputbar.offsetHeight + 'px';
+      // with the sheet up over a LIVE scene, reserve space below so the latest
+      // line scrolls into the VISIBLE peek above the sheet (not behind it)
+      stageInner.style.paddingBottom = (coachUp && hasEnteredScene) ? (coachPanel.offsetHeight + 20) + 'px' : '';
+
+      // a freshly-delivered message animates in exactly once
+      messages.forEach((m) => { if (m._enter) m._enter = false; });
+
+      manageFocus(trap);
+      requestAnimationFrame(() => {
+        // follow the practice to the bottom ONLY when fresh scene content arrived;
+        // otherwise hold position so a Learn/Practice toggle never jumps the scene
+        if (followStage) { stage.scrollTop = stage.scrollHeight; followStage = false; }
+        else { stage.scrollTop = prevStageScroll; }
+        coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
+      });
+    }
+    // set true right before a render that appends scene content, so it follows down
+    let followStage = false;
+
+    /* ---- typing indicator (in the right world) ------------------------ */
+    function showTyping() {
+      hideTyping();
+      const coachUp = state.mode === 'coaching';
+      const node = el('div', 'typing' + (coachUp ? '' : ' scene'), '<span></span><span></span><span></span>');
+      node.id = 'typingNode';
+      // coach lines type in the sheet (prep AND debriefs); scene lines type in the practice
+      if (coachUp) { typingHost = coachPanelBody; coachPanelBody.appendChild(node); }
+      else { typingHost = stageInner; stageInner.appendChild(node); }
+      requestAnimationFrame(() => {
+        (typingHost === coachPanelBody ? coachPanelBody : stage).scrollTop = 1e9;
+      });
+    }
+    function hideTyping() {
+      const t = document.getElementById('typingNode');
+      if (t) t.remove();
+      typingHost = null;
+    }
+
+    /* =====================================================================
+       FOCUS MANAGEMENT  — trap focus in the coaching layer while paused
+       ===================================================================== */
+    let lastSceneFocus = null;
+    function focusables() {
+      // the coaching "layer" = the mode toggle + panel + the (still-usable) input bar
+      const sel = 'button, [href], textarea, input, select, [tabindex]:not([tabindex="-1"])';
+      return [
+        ...modeIndicator.querySelectorAll(sel),
+        ...coachPanel.querySelectorAll(sel),
+        ...document.querySelectorAll('.inputbar ' + sel),
+      ].filter((n) => !n.disabled && n.offsetParent !== null);
+    }
+    function manageFocus(trap) {
+      if (trap && !app.classList.contains('was-trap')) {
+        app.classList.add('was-trap');
+        lastSceneFocus = document.activeElement;
+        // move focus into the coach sheet
+        setTimeout(() => { (composer.disabled ? resumeBtn : composer).focus(); }, 30);
+      } else if (!trap && app.classList.contains('was-trap')) {
+        app.classList.remove('was-trap');
+        // restore focus toward the practice/input
+        setTimeout(() => { if (!composer.disabled) composer.focus(); }, 30);
+      }
+    }
+    document.addEventListener('keydown', (e) => {
+      const trap = app.classList.contains('trap');
+      if (!trap) return;
+      if (e.key === 'Escape') { e.preventDefault(); resumeScene(); return; }
+      if (e.key === 'Tab') {
+        const f = focusables();
+        if (!f.length) return;
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
+
+    function announce(msg) { liveRegion.textContent = ''; setTimeout(() => { liveRegion.textContent = msg; }, 30); }
+
+    /* =====================================================================
+       ACTIONS
+       ===================================================================== */
+    async function send() {
+      const text = composer.value.trim();
+      if (!text || state.sending || state.complete || state.transitioning) return;
+
+      const kind = state.mode === 'scene' ? 'dialogue' : 'coaching';
+      state.messages.push({ speaker: 'you', kind, text, _enter: true });
+      if (kind === 'dialogue') followStage = true;   // a spoken line — follow the scene down
+      composer.value = '';
+      autoGrow();
+
+      state.sending = true;
+      render();          // shows the learner's line (faded in) and locks input
+      showTyping();      // the AI is composing — covers the model round-trip
+
+      let turn;
+      try { turn = await getTurn(state.messages); }
+      catch (err) {
+        turn = { turn: [{ speaker: 'coach', kind: 'coaching', text:
+          'Something hiccuped reaching the AI coach. Take a breath and try that again.' }], mode: 'coaching', inputTarget: 'coach' };
+      }
+
+      await deliverTurn(turn);
+
+      state.sending = false;
+      state.manualTimeout = false;     // any model turn ends a manual timeout
+      render();
+      // keep the cursor in the composer so the learner can reply without re-clicking
+      // (skip when a CTA/indicator has taken the input bar's place — e.g. a queued debrief)
+      if (!composer.disabled && !inputMain.hidden) composer.focus();
+    }
+
+    /* Reveal a turn believably rather than all at once: AI lines arrive through
+       a "thinking" beat, the character's reaction plays out IN the scene, then
+       "Analyzing response…" leads into the coaching layer with the scene line
+       animating across — so coaching and scene stay two distinct moments that
+       are visually connected. */
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // How long the coach "thinks" (typing dots) before a message. This is the MAIN
+    // beat: the dots tell the learner more is coming, so they read the message that's
+    // already on screen while the next one composes. We therefore scale the thinking
+    // time to the PREVIOUS message's length — that's what's being read right now. The
+    // very first line has nothing to read yet, so it gets a short opening beat.
+    const thinkingTime = (prevText) =>
+      reducedMotion() ? 250
+      : prevText ? Math.min(3800, 1000 + String(prevText).length * 15)
+                 : 950;
+
+    // a token so a Restart (or new send) mid-reveal cleanly cancels the old one
+    let deliverSeq = 0;
+    function abortDelivery() {
+      hideTyping();
+      state.delivering = false;
+      state.analyzing = false;
+    }
+
+    async function deliverTurn(turn) {
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;          // a newer turn / restart superseded us
+      const items = turn.turn;
+      const willEnter = !state.hasEnteredScene && (turn.mode === 'scene' || items.some((m) => worldOf(m) === 'scene'));
+
+      // FIRST entry is LEARNER-TRIGGERED: reveal the coach's invitation, stash the
+      // opening scene, and surface a "Step into the scene" control. We do NOT
+      // auto-advance — the learner decides when to cross the threshold.
+      if (willEnter) {
+        state.delivering = true;
+        const coachingItems = items.filter((m) => worldOf(m) === 'coaching');
+        for (const m of coachingItems) {
+          hideTyping();
+          showTyping(); await wait(reducedMotion() ? 250 : 780); hideTyping();
+          if (dead()) return;
+          m._enter = true;
+          state.messages.push(m);
+          render();
+          await wait(reducedMotion() ? 80 : 300);
+          if (dead()) return;
+        }
+        state.pendingScene = items.filter((m) => worldOf(m) === 'scene');
+        state.awaitingEntry = true;
+        state.mode = 'coaching'; state.inputTarget = 'coach';
+        state.delivering = false;
+        render();
+        announce(`Your AI coach says you're ready. Step into the scene when you are.`);
+        return;
+      }
+
+      state.delivering = true;
+      let i = 0;
+
+      // Phase 1 — the character's reaction plays out IN the scene.
+      while (i < items.length && worldOf(items[i]) === 'scene') {
+        const m = items[i];
+        if (state.mode !== 'scene') { state.mode = 'scene'; state.inputTarget = 'character'; }
+        hideTyping();
+        if (m.speaker === 'character' && m.kind === 'dialogue') {
+          showTyping(); await wait(reducedMotion() ? 250 : 850); hideTyping();
+        } else {
+          await wait(reducedMotion() ? 80 : 280);
+        }
+        if (dead()) return;
+        m._enter = true;
+        state.messages.push(m);
+        if (!state.hasEnteredScene) state.hasEnteredScene = true;
+        followStage = true;            // a new scene line — follow it down
+        render();
+        await wait(reducedMotion() ? 80 : 340);
+        if (dead()) return;
+        i++;
+      }
+
+      // Phase 2 — a scene line just drew its reaction. Do NOT auto-open the coach.
+      // Give the learner time to READ Kendra's reaction: show "Analyzing…" briefly
+      // in the input bar, then offer the debrief as a choice they open when ready.
+      const intoDebrief = (i < items.length) && state.mode === 'scene' && state.hasEnteredScene;
+      if (intoDebrief) {
+        state.analyzing = true;
+        render();                                    // input bar: "Analyzing your response…"
+        await wait(reducedMotion() ? 500 : 1600);
+        if (dead()) return;
+        state.analyzing = false;
+        state.pendingDebrief = items.slice(i);       // queue the debrief; don't reveal it yet
+        state.awaitingDebrief = true;
+        state.delivering = false;
+        render();                                    // input bar: "See what your AI coach noticed →"
+        announce('Your AI coach noticed something. Open the coach when you’re ready.');
+        return;
+      }
+
+      // Phase 3 — coach message(s) revealed in the sheet when we're ALREADY coaching
+      // (a send-back reply, an escalation redirect, or a manual-timeout answer).
+      while (i < items.length) {
+        const m = items[i];
+        hideTyping();
+        showTyping(); await wait(reducedMotion() ? 250 : 780); hideTyping();
+        if (dead()) return;
+        m._enter = true;
+        state.messages.push(m);
+        render();
+        await wait(reducedMotion() ? 80 : 300);
+        if (dead()) return;
+        i++;
+      }
+
+      // Finalize. If the coach is sending the learner back into the scene, dwell
+      // briefly so the send-off reads, then lift the panel.
+      const resumingToScene = turn.mode === 'scene' && state.mode === 'coaching';
+      if (resumingToScene) { await wait(reducedMotion() ? 200 : 1000); if (dead()) return; }
+      state.mode = turn.mode; state.inputTarget = turn.inputTarget;
+      state.delivering = false;
+      render();
+      if (resumingToScene) announce('Back in the scene.');
+    }
+
+    // "See what your AI coach noticed" — the learner opens the queued debrief when
+    // ready (after reading Kendra's reaction). The coach sheet RISES; the practice
+    // (with the line) stays visible, dimmed, above it.
+    function openDebrief() {
+      if (!state.awaitingDebrief || state.sending || state.delivering) return;
+      (state.pendingDebrief || []).forEach((m) => { m._enter = true; state.messages.push(m); });
+      state.pendingDebrief = null;
+      state.awaitingDebrief = false;
+      state.analyzing = false;
+      state.mode = 'coaching'; state.inputTarget = 'coach';
+      announce('Stepped out to your AI coach.');
+      render();   // the coach sheet rises with the debrief
+    }
+
+    // "Step into the scene" — the learner crosses on their command. The coach
+    // sheet LOWERS to reveal the live practice; the first scene line fades in.
+    // (Same motion as every Learn→Practice switch — no special-case screen.)
+    function enterScene() {
+      if (!state.awaitingEntry || state.hasEnteredScene || state.sending || state.delivering) return;
+      (state.pendingScene || []).forEach((m) => { m._enter = true; state.messages.push(m); });
+      state.pendingScene = null;
+      state.awaitingEntry = false;
+      state.entryPromptDismissed = false;
+      state.hasEnteredScene = true;
+      state.mode = 'scene'; state.inputTarget = 'character';
+      followStage = true;   // reveal the first scene line at the bottom
+      announce(`You step into the scene with ${SCENARIO.character}.`);
+      render();   // coach sheet lowers; the live scene is revealed beneath it
+      setTimeout(() => { if (!composer.disabled) composer.focus(); }, 260);
+    }
+
+    // "Step out to AI coach" — a learner-initiated pause (not a coach debrief).
+    function stepOut() {
+      if (state.mode !== 'scene' || state.complete || state.sending || state.delivering || state.transitioning || state.awaitingDebrief) return;
+      state.messages.push({ speaker: 'coach', kind: 'coaching', text:
+`Timeout — we can pause here as long as you need. What's on your mind before you step back in?` });
+      state.mode = 'coaching';
+      state.inputTarget = 'coach';
+      state.manualTimeout = true;
+      announce('Scene paused. Timeout with your AI coach.');
+      render();
+      setTimeout(() => composer.focus(), 40);
+    }
+
+    // "Resume the scene" — go back into the roleplay (no message added).
+    function resumeScene() {
+      if (!state.hasEnteredScene || state.complete || state.delivering || state.sending) return;
+      state.mode = 'scene';
+      state.inputTarget = 'character';
+      state.manualTimeout = false;
+      announce('Back in the scene.');
+      render();
+    }
+
+    // "Try a different approach" — truncate back to just before this YourSceneLine
+    // and return to scene mode targeting the character (a pedagogical retry).
+    function tryDifferentApproach(absIndex) {
+      if (absIndex == null || absIndex < 0 || state.sending || state.delivering || state.transitioning) return;
+      deliverSeq++;                          // cancel any in-flight reveal
+      abortDelivery();
+      state.messages = state.messages.slice(0, absIndex);
+      state.complete = false;
+      state.mode = 'scene';
+      state.inputTarget = 'character';
+      state.manualTimeout = false;
+      state.awaitingDebrief = false; state.pendingDebrief = null; state.analyzing = false;
+      // recompute hasEnteredScene from the truncated history
+      state.hasEnteredScene = state.messages.some((m) => worldOf(m) === 'scene');
+      followStage = true;
+      announce('Rewound. Try that line again.');
+      render();
+      setTimeout(() => composer.focus(), 40);
+    }
+
+    function restart() {
+      deliverSeq++;                                       // cancel any in-flight reveal
+      abortDelivery();
+      Object.assign(state, {
+        mode: 'coaching', inputTarget: 'coach', hasEnteredScene: false,
+        started: false, messages: [], pendingOpening: initialMessages(),
+        sending: false, complete: false, manualTimeout: false,
+        transitioning: false, delivering: false, awaitingEntry: false, pendingScene: null,
+        entryPromptDismissed: false, awaitingDebrief: false, pendingDebrief: null, analyzing: false,
+      });
+      app.classList.remove('was-trap');
+      followStage = true;
+      announce('Practice restarted.');
+      render();   // back to the scene anchor with a "Chat with AI Coach" prompt
+    }
+
+    // "Chat with AI Coach" — the learner brings the coach in on their command. The
+    // sheet rises over the scene anchor and the opening prep types in, one line at
+    // a time, as if the coach is talking — never dumped in all at once.
+    async function startSession() {
+      if (state.started || state.sending || state.delivering) return;
+      state.started = true;
+      state.mode = 'coaching'; state.inputTarget = 'coach';
+      announce('Bringing in your AI coach.');
+      render();                 // the sheet rises (empty) over the scene anchor
+      await deliverOpening();   // each opening line types into the sheet, one by one
+    }
+
+    // Reveal the coach's opening prep message-by-message (typing beat between each),
+    // so the first thing the learner sees is the coach "talking," not a wall of text.
+    async function deliverOpening() {
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;     // a restart mid-stream supersedes us
+      const opening = state.pendingOpening || [];
+      state.pendingOpening = null;
+      state.delivering = true;
+      render();
+      for (let i = 0; i < opening.length; i++) {
+        const m = opening[i];
+        const prev = i > 0 ? opening[i - 1] : null;
+        // The dominant beat: "thinking" long enough to read the previous message,
+        // with the typing dots signalling that more is on the way.
+        hideTyping();
+        showTyping(); await wait(thinkingTime(prev ? prev.text : '')); hideTyping();
+        if (dead()) return;
+        m._enter = true;
+        state.messages.push(m);
+        render();
+        // just a short settle so the next "thinking" doesn't start the same instant
+        if (i < opening.length - 1) await wait(reducedMotion() ? 80 : 480);
+        if (dead()) return;
+      }
+      state.delivering = false;
+      render();
+      if (!composer.disabled) composer.focus();
+    }
+
+    /* =====================================================================
+       WIRING
+       ===================================================================== */
+    function autoGrow() {
+      composer.style.height = 'auto';
+      composer.style.height = Math.min(composer.scrollHeight, 120) + 'px';
+    }
+    composer.addEventListener('input', () => { autoGrow(); sendBtn.disabled = state.sending || state.complete || !composer.value.trim(); });
+    composer.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+    });
+    sendBtn.addEventListener('click', send);
+    resumeBtn.addEventListener('click', resumeScene);
+    scrim.addEventListener('click', resumeScene);     // tap the dimmed scene to resume
+
+    // Entry bar: the CTA steps in; "keep talking" hands the bar back to the composer.
+    enterCtaBar.addEventListener('click', enterScene);
+    keepTalkingBtn.addEventListener('click', () => {
+      state.entryPromptDismissed = true;
+      render();
+      composer.focus();
+    });
+    // Debrief bar: open the queued coach debrief when the learner is ready.
+    debriefCtaBtn.addEventListener('click', openDebrief);
+    // Start bar: bring the AI coach in (the learner decides when), then stream the prep.
+    startCtaBtn.addEventListener('click', startSession);
+
+    // The mode toggle: tap the inactive segment to switch states (delegated, as
+    // the toggle is rebuilt on every render). Disabled segments don't fire.
+    modeIndicator.addEventListener('click', (e) => {
+      const seg = e.target.closest('.seg');
+      if (!seg || seg.disabled) return;
+      const which = seg.dataset.seg;
+      if (which === 'coaching' && !state.started) { startSession(); return; }  // begin
+      if (which === state.mode) return;               // already active
+      if (which === 'coaching') {                     // → the coach layer
+        if (state.awaitingDebrief) openDebrief();      // open the queued debrief
+        else stepOut();                                // or a manual timeout
+      } else if (which === 'scene') {                 // → the practice
+        if (!state.hasEnteredScene && state.awaitingEntry) enterScene();  // first crossing
+        else resumeScene();                           // back into the scene
+      }
+    });
+    document.getElementById('restartBtn').addEventListener('click', restart);
+
+    // Opening beat: anchor on the practice base ("Kendra's room") with a "Chat with
+    // AI Coach" prompt. The coach sheet stays down until the learner chooses to begin.
+    render();
+    </script>
+</body>
+</html>
