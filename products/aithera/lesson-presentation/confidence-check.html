@@ -372,6 +372,44 @@
       .cs-cta:active { transform: scale(.98); }
       .cs-cta i { font-size: 14px; }
 
+      /* The learner's shared confidence, dropped into the thread as their turn
+         — deliberately NOT a chat bubble. It's a framed data card on the
+         learner's (right) side, so it reads as "they submitted this value" and
+         the coach's next bubble is clearly responding to it. */
+      .cs-rating {
+        align-self: flex-end;
+        max-width: 90%;
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+        padding: 12px 14px;
+        border: 1.5px solid var(--accent);
+        border-radius: 16px;
+        border-bottom-right-radius: 4px;   /* echoes the user-bubble tail */
+        background: var(--surface);
+        box-shadow: var(--shadow-sm);
+      }
+      .cs-rating-cap {
+        display: inline-flex; align-items: center; gap: 7px;
+        font-size: 11px; font-weight: 700;
+        letter-spacing: .06em; text-transform: uppercase;
+        color: var(--accent-strong);
+      }
+      .cs-rating-main { display: flex; align-items: baseline; gap: 10px; }
+      .cs-rating-pct {
+        font-size: 30px; font-weight: 800; line-height: 1;
+        color: var(--accent-strong);
+        font-variant-numeric: tabular-nums;
+      }
+      .cs-rating-pct span { font-size: 16px; font-weight: 800; margin-left: 1px; }
+      .cs-rating-word { font-size: 14px; font-weight: 600; color: var(--ink); }
+      .cs-rating-meter {
+        height: 6px; border-radius: 999px; background: var(--line); overflow: hidden;
+      }
+      .cs-rating-meter > span {
+        display: block; height: 100%; border-radius: 999px; background: var(--accent);
+      }
+
       /* completion state */
       .cs-done {
         display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -716,6 +754,20 @@ Respond with ONLY a JSON object, no markdown fences:
         const t = surfaceRefs.thread;
         t.replaceChildren();
         messages.forEach((m) => {
+          // The shared confidence renders as a distinct framed card, not a bubble.
+          if (m.role === 'rating') {
+            const card = document.createElement('div');
+            card.className = 'cs-rating';
+            card.innerHTML =
+              '<span class="cs-rating-cap"><i class="fa-solid fa-gauge-high"></i> Your confidence</span>' +
+              '<div class="cs-rating-main">' +
+                '<span class="cs-rating-pct">' + m.pct + '<span>%</span></span>' +
+                '<span class="cs-rating-word">' + m.word + '</span>' +
+              '</div>' +
+              '<div class="cs-rating-meter"><span style="width:' + m.pct + '%"></span></div>';
+            t.appendChild(card);
+            return;
+          }
           const b = document.createElement('div');
           b.className = 'chat-msg ' + (m.role === 'user' ? 'user' : 'bot');
           b.textContent = m.content;
@@ -848,8 +900,11 @@ Respond with ONLY a JSON object, no markdown fences:
         confCard.classList.add('is-committed');
         range.setAttribute('tabindex', '-1');
 
-        const word = wordFor(confValue).toLowerCase();
-        if (live) live.textContent = 'You shared ' + confValue + ' percent — ' + word + '. Your coach is responding.';
+        const word = wordFor(confValue);
+        // Drop the value into the thread as the learner's turn, so the coach's
+        // reply reads as a direct response to what they shared.
+        messages.push({ role: 'rating', pct: confValue, word: word });
+        if (live) live.textContent = 'You shared ' + confValue + ' percent — ' + word.toLowerCase() + '. Your coach is responding.';
         openDiscussion();
       }
       shareBtn.addEventListener('click', shareRating);
