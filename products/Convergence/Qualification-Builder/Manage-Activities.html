@@ -43,6 +43,23 @@
     .export-menu-item:hover { background:var(--vblue-10); }
     .export-menu-item i { color:var(--vblue); font-size:13px; width:16px; text-align:center; flex-shrink:0; }
 
+    /* Column customization panel (AG Grid columns tool-panel style: show/hide via checkboxes) */
+    .col-tool { position:relative; display:inline-flex; }
+    .col-panel { position:absolute; top:calc(100% + 5px); right:0; width:250px; background:#fff; border:1px solid #e5e9ef; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.14); z-index:50; padding:8px; }
+    .col-panel.hidden { display:none; }
+    .col-panel-head { display:flex; align-items:center; justify-content:space-between; padding:2px 6px 8px; }
+    .col-panel-title { font-size:12px; font-weight:700; color:#374151; }
+    .col-panel-reset { border:none; background:none; color:var(--vblue); font-family:inherit; font-size:12px; font-weight:600; cursor:pointer; padding:2px 4px; border-radius:4px; }
+    .col-panel-reset:hover { text-decoration:underline; }
+    .col-panel-search { display:flex; align-items:center; gap:7px; border:1px solid #d4d9e0; border-radius:6px; padding:6px 9px; margin-bottom:6px; }
+    .col-panel-search i { color:#9ca3af; font-size:12px; }
+    .col-panel-search input { border:none; outline:none; font-family:inherit; font-size:13px; width:100%; background:transparent; color:#1a1a2e; }
+    .col-panel-list { max-height:288px; overflow-y:auto; }
+    .col-panel-item { display:flex; align-items:center; gap:9px; padding:7px 8px; border-radius:6px; font-size:13px; color:#374151; cursor:pointer; }
+    .col-panel-item:hover { background:#f3f4f6; }
+    .col-panel-item input { width:15px; height:15px; accent-color:var(--vblue); cursor:pointer; flex-shrink:0; }
+    .col-panel-all { border-bottom:1px solid #eef1f5; border-radius:0; margin-bottom:4px; font-weight:600; color:#1a1a2e; }
+
     .mgmt-toolbar { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
     .search-wrap { position:relative; }
     .search-wrap i { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:#9ca3af; font-size:12px; }
@@ -90,17 +107,20 @@
     .cell-loc i { color:#9ca3af; font-size:11px; flex-shrink:0; margin-top:3px; }
     .cell-loc .loc-text { line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:normal; }
 
-    /* Configurability: a SINGLE chip that is both the status badge and the configure CTA.
-       - .is-config (configurable): green, clickable, with the 3-gear icon → launches content configuration
-       - .is-locked (not configurable): neutral, static status only */
-    .config-chip { display:inline-flex; align-items:center; gap:7px; border:none; border-radius:999px; padding:6px 13px; font-family:inherit; font-size:12.5px; font-weight:600; line-height:1; white-space:nowrap; }
-    .config-chip.is-locked { background:#eef1f5; color:#64748b; }
-    .config-chip.is-config { background:#e3f3e9; color:#1a7a44; cursor:pointer; transition:background .12s, box-shadow .12s; }
-    .config-chip.is-config svg { width:16px; height:16px; flex-shrink:0; }
-    .config-chip.is-config:hover, .config-chip.is-config:focus-visible { background:#cfead9; box-shadow:0 1px 4px rgba(26,122,68,.22); outline:none; }
+    /* Actionable status badges (Configurability + Learning Studio): a normal Lumo badge that reveals a
+       suffix icon on hover to signal it is clickable. Size/style come from the badge theme, matching Type/Status. */
+    .act-badge { cursor: pointer; }
+    .act-badge .ab-suffix { display: none; align-items: center; margin-left: 5px; }
+    .act-badge:hover .ab-suffix, .act-badge:focus-visible .ab-suffix { display: inline-flex; }
+    /* Reveal the actionable badge icons whenever the row is hovered, too */
+    .ag-theme-quartz .ag-row:hover .act-badge .ab-suffix { display: inline-flex; }
+    .act-badge .ab-suffix svg { width: 14px; height: 14px; display: block; }
+    .act-badge:focus-visible { outline: 2px solid var(--vblue); outline-offset: 1px; }
+    /* Purple "Learning Studio" badge (recolors the default Lumo badge, keeping the same size/shape) */
+    .ls-badge[theme~="badge"] { background-color: #f3e8ff !important; color: #6d28d9 !important; }
 
     /* Row actions */
-    .row-actions { display:flex; gap:4px; align-items:center; }
+    .row-actions { display:flex; gap:4px; align-items:center; justify-content:flex-end; width:100%; }
     .row-action-btn { width:30px; height:30px; border:none; background:transparent; border-radius:6px; color:#6b7280; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; justify-content:center; }
     .row-action-btn:hover { background:#eef1f5; color:#374151; }
 
@@ -208,12 +228,27 @@
         <option value="Signature">Signature</option>
         <option value="Document">Document</option>
       </select>
-      <div style="margin-left:auto">
+      <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
         <div class="export-split">
           <button class="btn btn-secondary btn-sm" onclick="toggleExportMenu(event)" aria-haspopup="true" aria-label="Export options"><i class="fa-solid fa-download"></i> Export <i class="fa-solid fa-chevron-down" style="font-size:10px"></i></button>
           <div class="export-menu hidden" id="export-menu">
             <button class="export-menu-item" onclick="exportCurrentPage()"><i class="fa-solid fa-file-arrow-down"></i> Export page <span class="exp-count" id="exp-page-n"></span></button>
             <button class="export-menu-item" onclick="exportFiltered()"><i class="fa-solid fa-download"></i> Export all <span class="exp-count" id="exp-all-n"></span></button>
+          </div>
+        </div>
+        <div class="col-tool">
+          <button class="btn btn-secondary btn-sm" onclick="toggleColumnPanel(event)" aria-haspopup="true" aria-label="Customize columns"><i class="fa-solid fa-table-columns"></i> Columns</button>
+          <div class="col-panel hidden" id="col-panel">
+            <div class="col-panel-head">
+              <span class="col-panel-title">Columns</span>
+              <button class="col-panel-reset" onclick="resetColumns()">Reset</button>
+            </div>
+            <div class="col-panel-search">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="col-panel-search" placeholder="Search columns" oninput="filterColumnPanel(this.value)"/>
+            </div>
+            <label class="col-panel-item col-panel-all"><input type="checkbox" id="col-all" onchange="toggleAllColumns(this.checked)"/><span>Select all</span></label>
+            <div class="col-panel-list" id="col-panel-list"></div>
           </div>
         </div>
       </div>
@@ -348,6 +383,7 @@ ACTS.forEach((a, i) => {
     a.repository  = 'Custom Content';
   }
   a.configurable = (i % 3 !== 0);                       // most are configurable, some are not
+  a.lsEditable   = (a.type === 'Course' || a.type === 'Quiz'); // course-style content can be authored/edited in Learning Studio
   a.updateStatus = (i % 6 === 1) ? 'New' : 'Current';   // a few flagged as newly updated
   a.size        = ACT_SIZES[i % ACT_SIZES.length];
 });
@@ -394,22 +430,41 @@ function gearsSvg(px, cls){
   const g = (t, s) => `<path transform="translate(${t}) scale(${s})" d="${GEAR_D}"/>`;
   return `<svg class="${cls || ''}" viewBox="0 0 24 24" width="${px}" height="${px}" fill="currentColor" fill-rule="evenodd" aria-hidden="true">${g('-1.04,5.36', 0.72)}${g('12.48,1.48', 0.46)}${g('12.48,11.48', 0.46)}</svg>`;
 }
+/* Sparkle ("Edit in Learning Studio") icon, shared by the actions column and the Learning Studio badge. */
+const SPARKLE_D = "M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z";
+function sparkleSvg(px){ return `<svg viewBox="0 0 24 24" width="${px}" height="${px}" fill="currentColor" aria-hidden="true"><path d="${SPARKLE_D}"/></svg>`; }
+
+/* An actionable status badge: same size/style as the Type/Status badges, but it reveals a suffix icon
+   on hover and is clickable. Used for Configurability (green) and Learning Studio (purple). */
+function actionableBadge(opts){
+  const span = document.createElement('span');
+  span.setAttribute('theme', opts.theme);
+  span.className = 'act-badge' + (opts.extraClass ? ' ' + opts.extraClass : '');
+  span.title = opts.title;
+  span.setAttribute('role', 'button');
+  span.tabIndex = 0;
+  span.innerHTML = opts.label + `<span class="ab-suffix">${opts.icon}</span>`;
+  const fire = ev => { ev.stopPropagation(); opts.onClick(); };
+  span.addEventListener('click', fire);
+  span.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fire(e); } });
+  return span;
+}
+/* A static (non-actionable) badge for the negative states. */
+function staticBadge(theme, label){
+  const span = document.createElement('span');
+  span.setAttribute('theme', theme);
+  span.textContent = label;
+  return span;
+}
 function configRenderer(p){
-  // Not configurable: a static status badge, no action.
-  if (!p.value){
-    const span = document.createElement('span');
-    span.className = 'config-chip is-locked';
-    span.textContent = 'Not configurable';
-    return span;
-  }
-  // Configurable: ONE chip that is both the status badge (green "Configurable") and the configure CTA.
-  const btn = document.createElement('button');
-  btn.className = 'config-chip is-config';
-  btn.title = 'Configure content';
-  btn.setAttribute('aria-label', 'Configurable. Configure content');
-  btn.innerHTML = gearsSvg(16) + '<span>Configurable</span>';
-  btn.addEventListener('click', ev => { ev.stopPropagation(); launchConfigure(p.data); });
-  return btn;
+  return p.value
+    ? actionableBadge({ theme:'badge dot success', label:'Configurable', icon: gearsSvg(14), title:'Configure content', onClick: () => launchConfigure(p.data) })
+    : staticBadge('badge dot contrast', 'Not configurable');
+}
+function lsRenderer(p){
+  return p.value
+    ? actionableBadge({ theme:'badge dot', extraClass:'ls-badge', label:'Editable', icon: sparkleSvg(14), title:'Edit in Learning Studio', onClick: () => openLearningStudio(p.data) })
+    : staticBadge('badge dot contrast', 'Not editable');
 }
 /* Launch the content-configuration flow for an activity (prototype: toast only). */
 function launchConfigure(a){
@@ -468,13 +523,20 @@ function showDropdown(btn, items){
 function actionsRenderer(p){
   const e = document.createElement('div');
   e.className = 'row-actions';
+  // Sparkle (Edit in Learning Studio) only for LS-editable activities. It's placed FIRST (leftmost) and the
+  // row is right-aligned, so when it's absent the always-present Edit/More buttons keep their position.
+  const sparkle = p.data.lsEditable
+    ? `<button class="row-action-btn" title="Edit in Learning Studio">${sparkleSvg(15)}</button>`
+    : '';
   e.innerHTML =
-    `<button class="row-action-btn" title="Edit"><i class="fa-solid fa-pencil"></i></button>
-     <button class="row-action-btn" title="Edit in Learning Studio"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg></button>
+    `${sparkle}
+     <button class="row-action-btn" title="Edit"><i class="fa-solid fa-pencil"></i></button>
      <button class="row-action-btn" title="More actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>`;
-  const [editBtn, studioBtn, moreBtn] = e.querySelectorAll('button');
+  const studioBtn = e.querySelector('[title="Edit in Learning Studio"]');
+  const editBtn   = e.querySelector('[title="Edit"]');
+  const moreBtn   = e.querySelector('[title="More actions"]');
+  if (studioBtn) studioBtn.addEventListener('click', ev => { ev.stopPropagation(); openLearningStudio(p.data); });
   editBtn.addEventListener('click', () => { window.location.href = editActivityHref(p.data); });
-  studioBtn.addEventListener('click', ev => { ev.stopPropagation(); openLearningStudio(p.data); });
   moreBtn.addEventListener('click', ev => {
     ev.stopPropagation();
     const isActive = p.data.status === 'Active';
@@ -520,7 +582,8 @@ const gridOptions = {
     { headerName:'Version',         field:'version',      width:100, cellRenderer:versionRenderer },
     { headerName:'Status',          field:'status',       width:120, cellRenderer:statusRenderer },
     { headerName:'Location',        field:'location',     flex:2, minWidth:220, cellRenderer:locationRenderer },
-    { headerName:'Configurability', field:'configurable', width:180, cellRenderer:configRenderer },
+    { headerName:'Configurability', field:'configurable', width:165, cellRenderer:configRenderer },
+    { headerName:'Learning Studio', field:'lsEditable',   width:165, cellRenderer:lsRenderer },
     { headerName:'Update Status',   field:'updateStatus', width:130, cellRenderer:updateRenderer },
     { headerName:'File Type',       field:'fileType',     width:150, cellRenderer:fileTypeRenderer },
     { headerName:'Size',            field:'size',         width:100, cellRenderer:sizeRenderer },
@@ -640,6 +703,73 @@ function toggleExportMenu(ev){
   if(willShow) setTimeout(()=>document.addEventListener('click', closeExportMenu, {once:true}), 0);
 }
 function closeExportMenu(){ const m=document.getElementById('export-menu'); if(m) m.classList.add('hidden'); }
+
+/* ─── Column customization (AG Grid columns tool-panel style: show/hide) ─── */
+const COL_PANEL_EXCLUDE = ['select', 'actions'];   // structural columns, not user-toggleable
+function toggleColumnPanel(ev){
+  ev.stopPropagation();
+  closeExportMenu();
+  const m = document.getElementById('col-panel'); if (!m) return;
+  const willShow = m.classList.contains('hidden');
+  if (willShow){
+    buildColumnPanel();
+    m.classList.remove('hidden');
+    setTimeout(() => document.addEventListener('click', onDocClickCol), 0);
+  } else {
+    closeColumnPanel();
+  }
+}
+function closeColumnPanel(){
+  const m = document.getElementById('col-panel'); if (m) m.classList.add('hidden');
+  document.removeEventListener('click', onDocClickCol);
+}
+function onDocClickCol(e){
+  const tool = document.querySelector('.col-tool');
+  if (tool && !tool.contains(e.target)) closeColumnPanel();   // clicks inside the panel keep it open
+}
+function buildColumnPanel(){
+  const list = document.getElementById('col-panel-list');
+  if (!gridApi || !list) return;
+  list.innerHTML = '';
+  const cols = gridApi.getColumns().filter(c => !COL_PANEL_EXCLUDE.includes(c.getColId()));
+  let allVisible = true;
+  cols.forEach(c => {
+    const id = c.getColId();
+    const label = c.getColDef().headerName || id;
+    const visible = c.isVisible();
+    if (!visible) allVisible = false;
+    const row = document.createElement('label');
+    row.className = 'col-panel-item';
+    row.dataset.label = label.toLowerCase();
+    row.innerHTML = `<input type="checkbox" ${visible ? 'checked' : ''}/><span>${label}</span>`;
+    row.querySelector('input').addEventListener('change', e => {
+      gridApi.setColumnsVisible([id], e.target.checked);
+      const all = document.getElementById('col-all');
+      if (all) all.checked = gridApi.getColumns().filter(c => !COL_PANEL_EXCLUDE.includes(c.getColId())).every(c => c.isVisible());
+    });
+    list.appendChild(row);
+  });
+  const all = document.getElementById('col-all'); if (all) all.checked = allVisible;
+}
+function toggleAllColumns(checked){
+  if (!gridApi) return;
+  const ids = gridApi.getColumns().filter(c => !COL_PANEL_EXCLUDE.includes(c.getColId())).map(c => c.getColId());
+  gridApi.setColumnsVisible(ids, checked);
+  buildColumnPanel();
+}
+function filterColumnPanel(q){
+  const t = (q || '').toLowerCase();
+  document.querySelectorAll('#col-panel-list .col-panel-item').forEach(it => {
+    it.style.display = it.dataset.label.includes(t) ? '' : 'none';
+  });
+}
+function resetColumns(){
+  if (!gridApi) return;
+  gridApi.resetColumnState();
+  const s = document.getElementById('col-panel-search'); if (s) s.value = '';
+  buildColumnPanel();
+  filterColumnPanel('');
+}
 function bulkSetStatus(status){
   const rows = bulkRows(); if(!rows.length) return;
   rows.forEach(r => r.status = status);
