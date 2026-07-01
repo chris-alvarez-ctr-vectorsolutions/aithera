@@ -1569,6 +1569,19 @@ SCENARIO — ${SCENARIO.learner} and ${SCENARIO.character} are roommates and clo
       for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].speaker === 'you') return msgs[i];
       return null;
     }
+    // How many times the learner has already replied at the CURRENT escalation
+    // gate without naming real help — walks back from the end, counting
+    // learner coaching replies, until it hits the scene line that opened this
+    // debrief. Caps the gate at a couple of nudges (below) so a learner who's
+    // genuinely stuck (or just testing with junk input) never hard-deadlocks.
+    function escalationAttempts(msgs) {
+      let n = 0;
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].speaker === 'you' && msgs[i].kind === 'coaching') { n++; continue; }
+        if (worldOf(msgs[i]) === 'scene') break;
+      }
+      return n;
+    }
 
     function scriptedTurn(msgs) {
       const last = lastLearner(msgs);
@@ -1620,10 +1633,22 @@ SCENARIO — ${SCENARIO.learner} and ${SCENARIO.character} are roommates and clo
               mode: 'scene', inputTarget: 'character',
             };
           }
+          const attempts = escalationAttempts(msgs);
+          // Don't hard-deadlock here — a learner who's genuinely stuck (or
+          // just poking at the demo) still needs a way through. One nudge,
+          // one more concrete nudge, then accept it and move the practice on.
+          if (attempts >= 2) {
+            return {
+              turn: [{ speaker: 'coach', kind: 'coaching', text:
+`That's okay — you don't need the exact name right now. Even deciding "someone besides just me" is the move. Tell her you want to loop someone else in.` }],
+              mode: 'scene', inputTarget: 'character',
+            };
+          }
           return {
-            turn: [{ speaker: 'coach', kind: 'coaching', text:
-`I hear how much you want to be the one she leans on — and you can be part of this. But pills mixed with alcohol is past what a roommate can hold alone. Think bigger than tonight: an RA, the campus counseling center, a trusted adult. Who could you connect her to?` }],
-            mode: 'coaching', inputTarget: 'coach',   // loop here until they name help
+            turn: [{ speaker: 'coach', kind: 'coaching', text: attempts === 0
+              ? `I hear how much you want to be the one she leans on — and you can be part of this. But pills mixed with alcohol is past what a roommate can hold alone. Think bigger than tonight: an RA, the campus counseling center, a trusted adult. Who could you connect her to?`
+              : `Let's make it concrete — just name ONE kind of person or place: a counselor, an RA, a trusted adult, even the 988 line. Who comes to mind?` }],
+            mode: 'coaching', inputTarget: 'coach',   // loop here until they name help (max two nudges)
           };
         }
         // any other debrief reply → back into the scene
