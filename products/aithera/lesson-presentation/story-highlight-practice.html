@@ -356,18 +356,32 @@
       /* The stage's mood — scene (warm, dark) vs. story (paper) — CROSSFADES
          rather than snapping. Two full-bleed layers stacked behind the
          content; toggling .is-story fades one out and the other in, so the
-         backdrop shift reads as ambient lighting change, not a hard repaint. */
-      .stage::before, .stage::after {
+         backdrop shift reads as ambient lighting change, not a hard repaint.
+
+         These are anchored to .stage-inner, NOT .stage, and deliberately:
+         .stage is the scroll container, so its OWN box height is just the
+         visible viewport slice — an inset:0 layer there stops at that slice
+         and leaves bare "nothing" below once you scroll a tall page (the bug
+         this replaced). .stage-inner instead grows to the FULL content height
+         (it's not itself clipped), so top:0/bottom:0 here always spans the
+         whole scrollable page. Because .stage-inner is also the centered,
+         width-capped content column, these break back out to full viewport
+         width via the left:50%/100vw/translateX(-50%) "full-bleed child"
+         trick, rather than being capped to the 720px column. */
+      .stage-inner::before, .stage-inner::after {
         content: '';
         position: absolute;
-        inset: 0;
-        z-index: 0;
+        top: 0; bottom: 0;
+        left: 50%;
+        width: 100vw;
+        transform: translateX(-50%);
+        z-index: -1;    /* .stage-inner's z-index:1 makes it a stacking context, so -1 sits behind its real (unpositioned) children without THEM needing z-index */
         transition: opacity .6s var(--ease);
       }
-      .stage::before { background: var(--scene-paint); opacity: 1; }
-      .stage::after  { background: var(--story-paper); opacity: 0; }
-      .stage.is-story::before { opacity: 0; }
-      .stage.is-story::after  { opacity: 1; }
+      .stage-inner::before { background: var(--scene-paint); opacity: 1; }
+      .stage-inner::after  { background: var(--story-paper); opacity: 0; }
+      .stage.is-story .stage-inner::before { opacity: 0; }
+      .stage.is-story .stage-inner::after  { opacity: 1; }
 
       /* —— Establishing card — the practice base before the scene begins.
          Anchors the learner to what they're about to practice while the coach
@@ -431,7 +445,7 @@
 
       /* —— The story page — a real reading world, the same way SCENE is a real
          stage: it owns the whole viewport (the stage's backdrop crossfades to
-         paper via .stage::after above) rather than floating as a card on
+         paper via .stage-inner::after above) rather than floating as a card on
          top of the scene's dark backdrop, which read as a coaching artifact.
          No card border/shadow — the paper IS the background, like the video
          intro in Action Practice owned the whole stage while it played.
@@ -962,7 +976,9 @@
         align-items: center;
         gap: 9px;
       }
-      .enter-cta-bar { width: 100%; }
+      /* Sized to its own text (not the full input bar) — .input-entry's
+         align-items:center keeps it centered either way. */
+      .enter-cta-bar { width: auto; }
       .keep-talking {
         display: inline-flex;
         align-items: center;
@@ -1035,7 +1051,7 @@
          Outgoing content softens and lifts away; incoming content settles in
          from below. Used by transitionStagePhase() so a phase change reads as
          one continuous motion instead of an instant repaint. The backdrop
-         crossfade on .stage::before/::after (above) runs underneath this on
+         crossfade on .stage-inner::before/::after (above) runs underneath this on
          its own, slightly longer timeline. */
       @keyframes phase-leave { from { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); } to { opacity: 0; transform: scale(.97) translateY(-10px); filter: blur(3px); } }
       @keyframes phase-enter { from { opacity: 0; transform: scale(.98) translateY(16px); } to { opacity: 1; transform: scale(1) translateY(0); } }
@@ -1071,7 +1087,6 @@
         align-items: center;
         justify-content: center;
         gap: 11px;
-        width: 100%;
         padding: 13px 22px;
         border: 0;
         border-radius: 12px;
@@ -1283,7 +1298,84 @@
       .results-nav-btn.primary:hover { background: var(--c-accent-strong); }
 
       /* ===================================================================
-         11. REDUCED MOTION  — instant cross-fade, no scale, static dim
+         11. HIGHLIGHT INTRO MODAL — a one-time, plain-language explainer of
+         the ask ("select text to highlight it"), shown the moment the story
+         page lands. This is UI instruction, not story world — it deliberately
+         wears the app's neutral coaching surface/accent (like the results
+         modal), not the story's paper or the scene's amber, so it reads as a
+         system tooltip rather than part of the reading itself.
+         =================================================================== */
+      .intro-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 90;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgba(0,0,0,.55);
+      }
+      .intro-modal[hidden] { display: none; }
+      .intro-modal-card {
+        width: 100%;
+        max-width: 420px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 14px;
+        padding: 28px 26px 24px;
+        background: var(--c-bg);
+        border: 1px solid var(--c-line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-lg);
+      }
+      .intro-modal-icon {
+        width: 52px; height: 52px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: #ffe17a;
+        color: #6b4a00;
+        font-size: 20px;
+        box-shadow: 0 0 0 1px rgba(191, 140, 0, .3);
+      }
+      .intro-modal-title {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--c-ink);
+      }
+      .intro-modal-body {
+        margin: 0;
+        font-size: 14.5px;
+        line-height: 1.55;
+        color: var(--c-ink-soft);
+        max-width: 34ch;
+      }
+      .intro-modal-body b { color: var(--c-ink); }
+      .intro-modal-cta {
+        margin-top: 4px;
+        width: 100%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        height: 44px;
+        border: 0;
+        border-radius: 11px;
+        background: var(--c-accent);
+        color: var(--c-on-accent);
+        font: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background .15s var(--ease);
+      }
+      .intro-modal-cta:hover { background: var(--c-accent-strong); }
+
+      /* ===================================================================
+         12. REDUCED MOTION  — instant cross-fade, no scale, static dim
          =================================================================== */
       @media (prefers-reduced-motion: reduce) {
         * { transition-duration: .001ms !important; animation-duration: .001ms !important; }
@@ -1414,6 +1506,18 @@
       </div>
     </div>
 
+    <!-- Highlight intro modal — a one-time explainer, shown the moment the
+         story page lands. Also a sibling of .app so it can be made inert
+         without inerting itself. -->
+    <div class="intro-modal" id="introModal" hidden role="dialog" aria-modal="true" aria-label="How to highlight">
+      <div class="intro-modal-card">
+        <div class="intro-modal-icon"><i class="fa-solid fa-highlighter"></i></div>
+        <h3 class="intro-modal-title">Highlight what matters</h3>
+        <p class="intro-modal-body" id="introModalBody"><!-- built by JS --></p>
+        <button class="intro-modal-cta" id="introModalCtaBtn">Got it <i class="fa-solid fa-arrow-right"></i></button>
+      </div>
+    </div>
+
     <script>
     /* =====================================================================
        ACTION PRACTICE — engine + render-by-state (vanilla, no framework)
@@ -1444,6 +1548,11 @@
       character: 'Kendra',
       title: 'Intervening for a Friend: The Kendra Situation',
     };
+
+    // The highlight ask, spelled out in plain terms — shared between the
+    // one-time intro modal (see openStoryIntro) and anywhere else that needs
+    // to restate it, so the wording never drifts between the two.
+    const STORY_INTRO_TEXT = `Read what's brought you here — then select any words, phrases, or lines that feel most significant. Your AI coach will look at what you chose.`;
 
     /* The backstory as a short read, in place of a cold-open video. Plain
        paragraph text — the learner can highlight ANY substring (drag-select,
@@ -1548,6 +1657,8 @@ SCENARIO — ${SCENARIO.learner} and ${SCENARIO.character} are roommates and clo
       analyzing: false,          // transient: "Analyzing your response…" shows in the input bar
       enteredScenario: false,    // true once the learner taps "Read the background story" on the landing card
       storyDone: false,          // true once the learner has submitted their highlights
+      introModalOpen: false,    // the one-time "Highlight what matters" explainer is showing
+      introModalShown: false,   // it's been shown once already this run — don't show it again
       highlights: [],            // free-range highlight spans: { para, start, end } (char offsets)
       closingStepperActive: false, // true while the closing "Analyzing… Determining…" stepper runs
       awaitingResults: false,   // the closing recap has landed; footer offers "View full results"
@@ -1807,6 +1918,9 @@ You didn't carry this alone, and you didn't ask her to either.` },
     const resultsModalBody= document.getElementById('resultsModalBody');
     const resultsModalFoot= document.getElementById('resultsModalFoot');
     const resultsDots     = document.getElementById('resultsDots');
+    const introModal       = document.getElementById('introModal');
+    const introModalBody   = document.getElementById('introModalBody');
+    const introModalCtaBtn = document.getElementById('introModalCtaBtn');
 
     function el(tag, cls, html) {
       const n = document.createElement(tag);
@@ -1861,7 +1975,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
            <span class="story-meta">before the conversation &middot; 2 min read</span>
          </div>
          <h2 class="story-headline">Two Empty Bottles</h2>
-         <p class="story-dek">You're about to knock on <b>${esc(SCENARIO.character)}</b>'s door. Read what's brought you here — then select any words, phrases, or lines below that feel most significant. Your AI coach will look at what you chose.</p>
+         <p class="story-dek">You're about to knock on <b>${esc(SCENARIO.character)}</b>'s door.</p>
          <hr class="story-hr">
          <div class="story-passage" id="storyPassage">${paras}</div>
          <div class="story-hint"><span>Drag to select and highlight — tap a highlight to remove it.</span><span><b id="storyCount">${state.highlights.length}</b> highlighted</span></div>`;
@@ -2142,10 +2256,11 @@ You didn't carry this alone, and you didn't ask her to either.` },
         : 'Enter to send · Shift+Enter for a new line';
 
       /* —— Results modal — strengths (page 0) or growth areas (page 1), one at
-         a time. .app goes inert while this is open (they're siblings, so the
-         modal itself is unaffected) so background content can't be tabbed into. —— */
+         a time. .app goes inert while this (or the intro modal below) is open
+         (they're siblings, so the modal itself is unaffected) so background
+         content can't be tabbed into. —— */
       resultsModal.hidden = !state.resultsModalOpen;
-      app.toggleAttribute('inert', state.resultsModalOpen);
+      app.toggleAttribute('inert', state.resultsModalOpen || state.introModalOpen);
       if (state.resultsModalOpen) {
         resultsModalBody.innerHTML = '';
         resultsModalBody.appendChild(state.resultsPage === 0 ? strengthsNode() : growthAreasNode());
@@ -2155,6 +2270,11 @@ You didn't carry this alone, and you didn't ask her to either.` },
           : `<button class="results-nav-btn" id="resultsBackBtn"><i class="fa-solid fa-arrow-left"></i> Back</button>
              <button class="results-nav-btn primary" id="resultsContinueBtn">Continue <i class="fa-solid fa-arrow-right"></i></button>`;
       }
+
+      /* —— Highlight intro modal — a one-time explainer, opened by
+         openStoryIntro() the moment the story page lands (see enterScenario). —— */
+      introModal.hidden = !state.introModalOpen;
+      if (state.introModalOpen) introModalBody.textContent = STORY_INTRO_TEXT;
 
       // keep the sheet sitting exactly on top of the (variable-height) input bar
       coachPanel.style.bottom = inputbar.offsetHeight + 'px';
@@ -2330,7 +2450,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
     // lifts away (.phase-leave), THEN `applyStateChange` mutates state and a
     // normal render() rebuilds stageInner, and the freshly-mounted content
     // settles in (.phase-enter). The backdrop mood (scene ⇄ story, via
-    // .stage::before/::after) crossfades on its own slightly-longer timeline
+    // .stage-inner::before/::after) crossfades on its own slightly-longer timeline
     // underneath this. `phaseBusy` blocks re-entry so a double-tap mid-swap
     // can't stack two transitions.
     let phaseBusy = false;
@@ -2351,11 +2471,29 @@ You didn't carry this alone, and you didn't ask her to either.` },
 
     // "Read the background story" — the very first beat. Leaves the landing
     // card behind and reveals the story page as one continuous motion (see
-    // transitionStagePhase) instead of a hard cut.
+    // transitionStagePhase) instead of a hard cut, then opens the one-time
+    // "Highlight what matters" explainer so the ask is unmistakable before
+    // the learner starts reading.
     async function enterScenario() {
       if (state.enteredScenario || phaseBusy) return;
       announce('Entering the scenario.');
       await transitionStagePhase(() => { state.enteredScenario = true; });
+      openStoryIntro();
+    }
+
+    function openStoryIntro() {
+      if (state.introModalShown) return;
+      state.introModalOpen = true;
+      state.introModalShown = true;
+      announce('Highlight what matters — read the story, then select what feels most significant.');
+      render();
+      setTimeout(() => introModalCtaBtn.focus(), 30);
+    }
+    function closeStoryIntro() {
+      if (!state.introModalOpen) return;
+      state.introModalOpen = false;
+      announce('Back to the story.');
+      render();
     }
 
     // "Send AI Coach my highlights" — the ONE way out of reading. The story
@@ -2676,7 +2814,8 @@ You didn't carry this alone, and you didn't ask her to either.` },
         sending: false, complete: false, manualTimeout: false,
         transitioning: false, delivering: false, awaitingEntry: false, pendingScene: null,
         entryPromptDismissed: false, awaitingDebrief: false, pendingDebrief: null, analyzing: false,
-        enteredScenario: false, storyDone: false, highlights: [], closingStepperActive: false,
+        enteredScenario: false, storyDone: false, introModalOpen: false, introModalShown: false,
+        highlights: [], closingStepperActive: false,
         awaitingResults: false, resultsModalOpen: false, resultsPage: 0, resultsViewed: false,
       });
       app.classList.remove('was-trap');
@@ -2765,6 +2904,8 @@ You didn't carry this alone, and you didn't ask her to either.` },
       else if (e.target.closest('#resultsBackBtn')) resultsBack();
       else if (e.target.closest('#resultsContinueBtn')) closeResultsModal();
     });
+    // Highlight intro modal: "Got it" is the only way through it.
+    introModalCtaBtn.addEventListener('click', closeStoryIntro);
     // Story page: free-range highlighting. mouseup/touchend turn whatever the
     // learner just drag-selected into a highlight; a plain click/tap (no
     // drag — selection stays collapsed) on an EXISTING mark removes it instead.
