@@ -272,8 +272,8 @@
         vaadin-item.opt-header { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); padding-top: 10px; padding-bottom: 4px; pointer-events: none; min-height: 0; }
         /* "No matches" placeholder shown when a search filters everything out. */
         vaadin-item.opt-empty { font-size: 13px; color: var(--text-muted); font-style: italic; pointer-events: none; }
-        /* Sticky search box pinned to the top of the dropdown overlay. */
-        .opt-search { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin: -4px -4px 4px; background: #fff; border-bottom: 1px solid var(--border); }
+        /* Sticky search box pinned to the top of the dropdown's scrolling list. */
+        .opt-search { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin-bottom: 4px; background: #fff; border-bottom: 1px solid var(--border); }
         .opt-search > i { color: var(--text-muted); font-size: 13px; flex: none; }
         .opt-search-input { flex: 1; min-width: 0; border: none; outline: none; background: none; font: inherit; font-size: 14px; color: var(--text); padding: 2px 0; }
         .opt-search-input::placeholder { color: var(--text-muted); }
@@ -1592,17 +1592,42 @@
         }
         return entries;
     }
+    // vaadin-select closes its overlay on ANY interaction inside it (it behaves
+    // like a native menu, via a capture-phase listener) — so pinning or searching
+    // would dismiss the dropdown. Bubble-phase stopPropagation on the row can't
+    // prevent that. This ONE window-level capture guard intercepts pin/search
+    // pointer + click events before Vaadin's close listener sees them, keeps the
+    // overlay open, and runs the pin toggle itself. A plain option-label click is
+    // NOT in a pin/search path, so it still selects + closes normally.
+    function installPinGuard() {
+        if (window.__vwcPinGuard) return;
+        window.__vwcPinGuard = true;
+        const find = (path, cls) => path.find(n => n.classList && n.classList.contains(cls));
+        ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(type => {
+            window.addEventListener(type, ev => {
+                const path = ev.composedPath();
+                const pin = find(path, 'opt-pin');
+                if (pin) {
+                    ev.stopPropagation();                       // keep the overlay open
+                    if (type === 'click' && typeof pin.__togglePin === 'function') pin.__togglePin();
+                    return;
+                }
+                if (find(path, 'opt-search')) ev.stopPropagation();   // searching must not close it
+            }, true);
+        });
+    }
+
     // A vaadin-select renderer that draws the ordered rows as a vaadin-list-box.
     // Each option carries a thumbtack toggle (inside the dropdown row, not an
     // outside control); clicking it re-pins in place. The pin is hidden in the
     // closed select's value via CSS so the field stays clean.
     //
-    // When `searchable`, a sticky search box sits above the list. Typing filters
+    // When `searchable`, a sticky search box sits atop the list. Typing filters
     // the options live (flat, match-only) without touching the pinned/grouped
-    // view; clearing it restores the pinned-first layout. All pin clicks and
-    // search interactions swallow their pointer/click/key events so the overlay
-    // stays OPEN — the scheduler can pin, unpin, and search freely, then pick.
+    // view; clearing it restores the pinned-first layout. Pin + search clicks are
+    // kept from closing the overlay by installPinGuard() above.
     function pinnableRenderer(items, pinnedSet, grouped, searchable) {
+        installPinGuard();
         // Build one selectable option row (label + in-line pin toggle).
         function optionItem(it) {
             const on = pinnedSet.has(it.value);
@@ -1619,32 +1644,60 @@
             pin.title = on ? 'Unpin' : 'Pin to top';
             pin.setAttribute('aria-label', pin.title);
             pin.innerHTML = '<i class="fa-solid fa-thumbtack"></i>';
-            // Swallow pointer + click so the pin never selects the row or closes
-            // the overlay — the dropdown stays open while pinning/unpinning.
-            ['pointerdown', 'mousedown'].forEach(t =>
-                pin.addEventListener(t, ev => { ev.preventDefault(); ev.stopPropagation(); }));
-            pin.addEventListener('click', ev => {
-                ev.preventDefault(); ev.stopPropagation();
-                // Toggle in place (no list rebuild) so the dropdown stays open.
-                // Pinned items float to the top the next time the list opens.
+            // The guard calls this on a pin click. Toggle in place (no list
+            // rebuild) so the overlay stays open; pinned items float to the top
+            // the next time the list opens.
+            pin.__togglePin = () => {
                 const nowOn = !pinnedSet.has(it.value);
                 nowOn ? pinnedSet.add(it.value) : pinnedSet.delete(it.value);
                 pin.classList.toggle('on', nowOn);
                 pin.title = nowOn ? 'Unpin' : 'Pin to top';
                 pin.setAttribute('aria-label', pin.title);
-            });
+            };
             row.appendChild(lab); row.appendChild(pin);
             item.appendChild(row);
             return item;
         }
 
         return (root, select) => {
+            // The vaadin-list-box MUST be the overlay's first (only) child —
+            // vaadin-select treats the overlay's first non-style child as its
+            // "menu element" and wires selection/close to it. The search box
+            // therefore lives INSIDE the list-box (as a non-item child), never as
+            // a preceding sibling — a sibling hijacks the menu element and
+            // silently breaks click-to-select + close.
             let lb = root.querySelector('vaadin-list-box');
-            let input = root.querySelector('.opt-search-input');
-            // (Re)paint the list-box for a given lowercase query. Empty query =
-            // full pinned/grouped view; otherwise a flat list of matches.
+            if (!lb) { lb = document.createElement('vaadin-list-box'); root.appendChild(lb); }
+
+            // Build the sticky search box ONCE and leave it attached to the
+            // list-box. paint() must never detach it — removing the focused input
+            // from the DOM blurs it, so only the first typed char would register.
+            let searchWrap = searchable ? lb.querySelector('.opt-search') : null;
+            let input = searchWrap ? searchWrap.querySelector('.opt-search-input') : null;
+            if (searchable && !searchWrap) {
+                searchWrap = document.createElement('div');
+                searchWrap.className = 'opt-search';
+                const ic = document.createElement('i');
+                ic.className = 'fa-solid fa-magnifying-glass';
+                input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'opt-search-input';
+                input.placeholder = 'Search…';
+                // Keep interaction inside the box — don't let it bubble to the
+                // list-box (which would move item focus or close the overlay).
+                ['pointerdown', 'mousedown', 'click', 'keydown', 'keyup'].forEach(t =>
+                    input.addEventListener(t, ev => ev.stopPropagation()));
+                input.addEventListener('input', () => paint(input.value.trim().toLowerCase()));
+                searchWrap.appendChild(ic); searchWrap.appendChild(input);
+                lb.appendChild(searchWrap);   // attach once, keep it mounted
+            }
+
+            // (Re)paint the OPTION rows for a given lowercase query, leaving the
+            // search box mounted. Empty query = full pinned/grouped view;
+            // otherwise a flat list of matches.
             function paint(q) {
-                lb.textContent = '';
+                // Remove only the option rows — never the search box (keeps focus).
+                [...lb.children].forEach(c => { if (c !== searchWrap) c.remove(); });
                 if (q) {
                     const hits = items.filter(i => i.label.toLowerCase().includes(q));
                     if (!hits.length) {
@@ -1672,32 +1725,9 @@
                 });
             }
 
-            // First render: build the sticky search box (once) + the list-box.
-            if (!lb) {
-                if (searchable) {
-                    const sw = document.createElement('div');
-                    sw.className = 'opt-search';
-                    const ic = document.createElement('i');
-                    ic.className = 'fa-solid fa-magnifying-glass';
-                    input = document.createElement('input');
-                    input.type = 'text';
-                    input.className = 'opt-search-input';
-                    input.placeholder = 'Search…';
-                    // Keep all interaction inside the box — don't let it bubble to
-                    // the select (which would move selection or close the overlay).
-                    ['pointerdown', 'mousedown', 'click', 'keydown', 'keyup'].forEach(t =>
-                        input.addEventListener(t, ev => ev.stopPropagation()));
-                    input.addEventListener('input', () => paint(input.value.trim().toLowerCase()));
-                    sw.appendChild(ic); sw.appendChild(input);
-                    root.appendChild(sw);
-                }
-                lb = document.createElement('vaadin-list-box');
-                root.appendChild(lb);
-            }
             // Each open starts fresh with an empty query. We deliberately do NOT
             // steal focus into the search box — Vaadin focuses the active item on
-            // open for keyboard nav, and yanking focus out fought that and made
-            // the open/select feel broken. The user clicks the box to search.
+            // open for keyboard nav; yanking focus out fights that.
             if (input) input.value = '';
             paint('');
         };
