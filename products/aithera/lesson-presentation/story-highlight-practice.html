@@ -614,6 +614,48 @@
         box-shadow: var(--shadow-sm);
       }
 
+      /* —— Highlight recap card — the learner's own highlights, restated in
+         the coach panel so the coach visibly "saw" the same thing the
+         learner selected. The mark swatch reuses --story-mark (the exact
+         highlighter color from the story page) as the connective thread. —— */
+      .you-highlights { display: flex; flex-direction: column; align-items: flex-end; max-width: 82%; margin-left: auto; }
+      .you-highlights .cap {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+        color: var(--c-ink-faint);
+        margin: 0 2px 5px 0;
+      }
+      .you-highlights .cap i { color: #b98600; font-size: 11px; }
+      .you-highlights .list {
+        background: var(--c-surface);
+        border: 1px solid var(--c-line);
+        border-radius: 16px 4px 16px 16px;
+        padding: 10px 13px;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        box-shadow: var(--shadow-sm);
+      }
+      .you-highlights .item { display: flex; align-items: flex-start; gap: 8px; text-align: left; }
+      .you-highlights .item .mark {
+        flex: 0 0 auto;
+        width: 10px; height: 10px;
+        margin-top: 4px;
+        border-radius: 2px;
+        background: var(--story-mark);
+        box-shadow: 0 0 0 1px rgba(155, 110, 0, .3);
+      }
+      .you-highlights .item .text {
+        font-size: 13.5px;
+        line-height: 1.45;
+        color: var(--c-ink);
+      }
+
       /* ===================================================================
          6. STAGE CARD  — wraps a contiguous run of SCENE messages.
             Bordered, recessed; reads as a continuous stage.
@@ -782,7 +824,8 @@
         left: 0; right: 0;
         bottom: var(--input-h);            /* JS keeps this in sync with the input bar */
         z-index: 50;
-        height: 56vh;
+        height: auto;                       /* grows to fit its content... */
+        max-height: 56vh;                   /* ...until this, where the body scrolls instead */
         max-width: 860px;
         margin: 0 auto;
         background: var(--c-surface);
@@ -797,7 +840,7 @@
         transition: transform .24s var(--ease);
       }
       .app.coach-up .coach-panel { transform: none; }
-      @media (max-height: 620px) { .coach-panel { height: 62vh; } }
+      @media (max-height: 620px) { .coach-panel { max-height: 62vh; } }
 
       .coach-panel-head {
         flex: 0 0 auto;
@@ -864,6 +907,16 @@
         position: relative;
         z-index: 55;       /* above the scrim, so coaching input stays usable */
         flex: 0 0 auto;
+        /* A CTA, a status line, and the composer+hint are different heights —
+           without a shared floor, switching between them visibly jumps the
+           whole page (this bar, the coach sheet sitting on it, and the stage
+           above). Centering a single-line state inside the composer's own
+           height (the tallest common case) makes most transitions height-
+           neutral; only the rare two-line entry state still grows a touch. */
+        min-height: 104px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
         background: var(--c-surface);
         border-top: 1px solid var(--c-line);
         padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
@@ -929,7 +982,7 @@
       .send-btn:active { transform: scale(.95); }
       .send-btn:disabled { opacity: .45; cursor: default; }
 
-      .input-main[hidden], .input-entry[hidden], .input-analyzing[hidden] { display: none; }
+      .input-main[hidden], .input-entry[hidden], .input-analyzing[hidden], .input-done[hidden] { display: none; }
 
       /* hint line under the composer */
       .input-foot {
@@ -1042,7 +1095,7 @@
 
       /* —— Content enter animation (fade + slight rise; runs once per node) —— */
       .coach-msg.enter, .you-coach.enter, .char-line.enter,
-      .scene-narration.enter, .you-scene.enter {
+      .scene-narration.enter, .you-scene.enter, .you-highlights.enter {
         animation: msg-enter .34s var(--ease) both;
       }
       @keyframes msg-enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
@@ -1080,6 +1133,22 @@
       .input-analyzing .dots span:nth-child(2) { animation-delay: .15s; }
       .input-analyzing .dots span:nth-child(3) { animation-delay: .3s; }
 
+      /* Settled state after "Continue" — no dots, no CTA, just confirmation
+         that this practice is done. */
+      .input-done {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        padding: 15px 14px;
+        color: var(--c-ink-soft);
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .input-done i { color: #16a34a; }
+
       /* Debrief CTA — opens the queued coach debrief. Wears the coach indigo to
          preview the destination (mirroring the amber "Step into the scene"). */
       .debrief-cta {
@@ -1107,27 +1176,18 @@
       .debrief-cta:hover .arrow { transform: translateX(3px); }
 
       /* ===================================================================
-         10. COMPLETION / RESOURCES card (shown at the end)
+         10. COMPLETION / RESOURCES  (shown at the end, as a coach message —
+             see resourcesNode() — not a separate boxed widget)
          =================================================================== */
-      .resources {
-        margin: 4px 0 0;
-        padding: 16px 16px 18px;
-        border: 1px solid var(--c-line);
-        border-left: 4px solid #16a34a;
-        border-radius: var(--radius);
-        background: var(--c-surface);
-        box-shadow: var(--shadow-sm);
-      }
-      .resources h3 {
-        margin: 0 0 4px;
-        font-size: 15px;
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        color: var(--c-ink);
-      }
-      .resources h3 i { color: #16a34a; }
-      .resources .sub { margin: 0 0 12px; font-size: 13px; color: var(--c-ink-soft); line-height: 1.5; }
+      /* A coach message that's a bit richer than plain text (a short list)
+         gets a little more room than the usual 78% text bubbles. */
+      .coach-msg.wide-msg { max-width: 92%; }
+      /* .coach-bubble sets white-space: pre-wrap for plain escaped coach text
+         (so \n\n paragraph breaks render); this bubble holds real markup
+         instead, so pre-wrap would render the template literal's own
+         indentation/newlines as visible blank space. */
+      .resources-bubble { white-space: normal; }
+      .resources-lead { margin: 0 0 12px; }
       .res-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
       .res-list li {
         display: flex;
@@ -1479,6 +1539,14 @@
             <i class="fa-solid fa-chalkboard-user"></i> See AI Coach feedback <i class="fa-solid fa-arrow-right arrow"></i>
           </button>
         </div>
+        <!-- Return CTA: the coach has replied and is ready to send the learner
+             back into the scene — but they cross back on their own command,
+             same as every other transition here. -->
+        <div class="input-entry" id="inputReturn" hidden>
+          <button class="enter-cta enter-cta-bar" id="returnCtaBtn">
+            <i class="fa-solid fa-door-open"></i> Continue practicing <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
         <!-- Results CTA: shown once the closing recap has landed — the full
              strengths/growth-areas report opens in its own modal, not dumped
              into the chat thread. -->
@@ -1486,6 +1554,18 @@
           <button class="debrief-cta" id="resultsCtaBtn">
             <i class="fa-solid fa-chart-simple"></i> View full results <i class="fa-solid fa-arrow-right arrow"></i>
           </button>
+        </div>
+        <!-- Continue: the practice's actual last step — replaces the composer
+             once the resources have landed, rather than leaving it sitting
+             there disabled with nothing left to type. -->
+        <div class="input-entry" id="inputContinue" hidden>
+          <button class="debrief-cta" id="continueCtaBtn">
+            Continue <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
+        <!-- Settled state after Continue — no further action, just confirmation. -->
+        <div class="input-done" id="inputDone" hidden>
+          <i class="fa-solid fa-circle-check"></i> Practice complete
         </div>
       </footer>
 
@@ -1664,11 +1744,18 @@ SCENARIO — ${SCENARIO.learner} and ${SCENARIO.character} are roommates and clo
       awaitingResults: false,   // the closing recap has landed; footer offers "View full results"
       resultsModalOpen: false,  // the strengths/growth-areas modal is open
       resultsPage: 0,           // 0 = strengths, 1 = growth areas
-      resultsViewed: false,     // learner has been through the modal (unlocks the resources card)
+      resultsViewed: false,     // learner has been through the modal (unlocks the resources message)
+      continued: false,         // learner tapped the final "Continue" — the practice is fully settled
+      awaitingReturn: false,    // the coach is ready to send the learner back into the scene; waiting for them to choose
+      pendingReturn: null,      // { mode, inputTarget } to apply once they do
     };
 
     /* ---- helpers: classify + group ------------------------------------ */
-    const worldOf = (m) => (m.kind === 'coaching' ? 'coaching' : 'scene');
+    // 'highlights' is the learner's own recap card (what they selected in the
+    // story) — it lives in the coaching world (rendered in the coach panel)
+    // but is intentionally NOT 'coaching' kind, so preSceneCoachReplies()
+    // doesn't miscount it as a typed reply.
+    const worldOf = (m) => (m.kind === 'coaching' || m.kind === 'highlights' ? 'coaching' : 'scene');
 
     // trailing contiguous run of a given world at the end of the array
     function trailingRun(msgs, world) {
@@ -1686,7 +1773,7 @@ SCENARIO — ${SCENARIO.learner} and ${SCENARIO.character} are roommates and clo
          - number of scene lines spoken
          - whether the learner has named real help during the escalation beat
        ===================================================================== */
-    const ESCALATION_RE = /\b(ra|resident assistant|counsel|counselor|counseling|therap|therapist|hotline|988|crisis|adult|professional|help ?line|health center|clinic|doctor|nurse|dean|advisor|adviser|hall director|psych|wellness|someone (who|trained|else)|get (her )?help|reach out|trusted)\b/i;
+    const ESCALATION_RE = /\b(ra|resident assistant|counsel\w*|therap\w*|hotline|988|crisis|adult|professional|help\s?line|health\s?center|clinic|doctor|nurse|dean|advisor|adviser|hall\s?director|hall\s?staff|psych\w*|wellness|someone|somebody|trained|trusted|specialist|expert|staff|support (group|system|line)?|resource|service|program|reach out|connect (her|them)|get (her )?help|title\s?ix|parent)\b/i;
 
     function countSceneLines(msgs) {
       return msgs.filter((m) => m.speaker === 'you' && m.kind === 'dialogue').length;
@@ -1912,8 +1999,13 @@ You didn't carry this alone, and you didn't ask her to either.` },
     const inputIcon     = document.getElementById('inputIcon');
     const inputHint     = document.getElementById('inputHint');
     const liveRegion    = document.getElementById('liveRegion');
+    const inputReturn    = document.getElementById('inputReturn');
+    const returnCtaBtn   = document.getElementById('returnCtaBtn');
     const inputResults  = document.getElementById('inputResults');
     const resultsCtaBtn = document.getElementById('resultsCtaBtn');
+    const inputContinue = document.getElementById('inputContinue');
+    const continueCtaBtn= document.getElementById('continueCtaBtn');
+    const inputDone      = document.getElementById('inputDone');
     const resultsModal    = document.getElementById('resultsModal');
     const resultsModalBody= document.getElementById('resultsModalBody');
     const resultsModalFoot= document.getElementById('resultsModalFoot');
@@ -2001,6 +2093,33 @@ You didn't carry this alone, and you didn't ask her to either.` },
       wrap.appendChild(el('div', 'bubble', esc(m.text)));
       return wrap;
     }
+    // Center-truncates a long excerpt (keeps the start AND end, drops the
+    // middle) — for a highlighted line, both edges usually carry more of the
+    // meaning than the middle, so this reads better than a tail ellipsis.
+    function truncateMid(text, max = 78) {
+      if (text.length <= max) return text;
+      const keepStart = Math.ceil((max - 1) * 0.6);
+      const keepEnd = (max - 1) - keepStart;
+      return `${text.slice(0, keepStart)}…${text.slice(text.length - keepEnd)}`;
+    }
+    // The learner's highlight recap — a "you" card in the coach panel so it's
+    // unmistakable the coach saw exactly what got selected, not a generic
+    // "thanks for highlighting." Each excerpt gets its own line with a
+    // highlighter-yellow swatch (the same --story-mark color as the page).
+    function youHighlightsNode(m) {
+      const wrap = el('div', 'you-highlights' + ec(m));
+      wrap.appendChild(el('div', 'cap',
+        `<i class="fa-solid fa-highlighter"></i> You highlighted ${m.highlights.length} ${m.highlights.length === 1 ? 'passage' : 'passages'}`));
+      const list = el('div', 'list');
+      m.highlights.forEach((h) => {
+        const item = el('div', 'item');
+        item.appendChild(el('span', 'mark'));
+        item.appendChild(el('span', 'text', esc(truncateMid(h))));
+        list.appendChild(item);
+      });
+      wrap.appendChild(list);
+      return wrap;
+    }
     function charNode(m) {
       // narration-only line (no dialogue) → quiet centered scene-setting text
       if (m.kind === 'narration') return el('div', 'scene-narration' + ec(m), esc(m.text));
@@ -2046,15 +2165,20 @@ You didn't carry this alone, and you didn't ask her to either.` },
 
     /* ---- the resources / completion card ------------------------------ */
     function resourcesNode() {
-      const wrap = el('div', 'resources');
-      wrap.innerHTML = `
-        <h3><i class="fa-solid fa-circle-check"></i> Where you'd point a real friend</h3>
-        <p class="sub">Noticing is the start — connecting someone to trained help is what actually keeps them safe. If this were real, here's where ${esc(SCENARIO.character)} could go:</p>
+      const wrap = el('div', 'coach-msg wide-msg');
+      wrap.appendChild(el('div', 'coach-avatar', '<i class="fa-solid fa-chalkboard-user"></i>'));
+      const body = el('div', 'coach-body');
+      body.appendChild(el('div', 'coach-label', 'AI Coach'));
+      const bubble = el('div', 'coach-bubble resources-bubble');
+      bubble.innerHTML = `
+        <p class="resources-lead">Noticing is the start — connecting someone to trained help is what actually keeps them safe. If this were real, here's where ${esc(SCENARIO.character)} could go:</p>
         <ul class="res-list">
           <li><i class="fa-solid fa-user-nurse"></i><div><b>Campus counseling center</b><span>Free, confidential, and built for exactly this. Walk over together if she'll let you.</span></div></li>
           <li><i class="fa-solid fa-building-shield"></i><div><b>Your RA or a trusted advisor</b><span>They're trained to connect students to support and can help without it being a punishment.</span></div></li>
           <li><i class="fa-solid fa-phone-volume"></i><div><b>988 Suicide &amp; Crisis Lifeline</b><span>Call or text <b>988</b> any time it feels like too much — for her, or for you.</span></div></li>
         </ul>`;
+      body.appendChild(bubble);
+      wrap.appendChild(body);
       return wrap;
     }
 
@@ -2142,18 +2266,26 @@ You didn't carry this alone, and you didn't ask her to either.` },
          </div>`;
 
       /* —— Practice base (ALWAYS the base layer) ——
-         Landing (pre-entry) → an establishing card; reading → the story page;
-         entered → the live scene; prepping → the establishing card again, now
-         as the dimmed anchor under the coach sheet. Dimmed, lightly blurred +
-         inert whenever the coach sheet is up over it. */
+         Landing (pre-entry) → an establishing card; reading AND coach prep →
+         the story page (it stays put as the backdrop through the coach's
+         reaction and follow-up questions — submitting highlights shouldn't
+         cut away from the page the learner was just reading); the moment the
+         coach actually offers "Begin practicing" → the establishing card
+         again, now as the dimmed anchor under the coach sheet; entered → the
+         live scene. Dimmed, lightly blurred + inert whenever the coach sheet
+         is up over it. */
+      // True from "Read the background story" all the way through the coach's
+      // opening reaction and prep Q&A — false only once the scene invitation
+      // (awaitingEntry) or the scene itself has arrived.
+      const showingStory = state.enteredScenario && !hasEnteredScene && !state.awaitingEntry;
       stage.classList.toggle('is-frozen', coachUp);
-      stage.classList.toggle('is-story', state.enteredScenario && !state.storyDone);
+      stage.classList.toggle('is-story', showingStory);
       stage.toggleAttribute('inert', coachUp);
       stage.setAttribute('aria-hidden', coachUp ? 'true' : 'false');
-      // The story page owns the stage (paper background, no card chrome) until
-      // the learner submits their highlights. It's cheap (a handful of
-      // paragraphs), so it simply rebuilds from state.highlights on every
-      // render — no special-case DOM patching needed.
+      // The story page owns the stage (paper background, no card chrome) for
+      // as long as showingStory holds. It's cheap (a handful of paragraphs),
+      // so it simply rebuilds from state.highlights on every render — no
+      // special-case DOM patching needed.
       {
         stageInner.innerHTML = '';
         if (!state.enteredScenario) {
@@ -2162,7 +2294,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
           // place to add framing copy for whatever activity follows.
           stageInner.appendChild(establishingNode(
             `Before you knock, read what's brought you here — and mark what matters most. Your AI coach will look at what you chose.`));
-        } else if (!state.storyDone) {
+        } else if (showingStory) {
           stageInner.appendChild(storyNode());
         } else if (hasEnteredScene) {
           // Retry controls render whenever the scene is live (not complete / mid-reveal),
@@ -2172,9 +2304,8 @@ You didn't carry this alone, and you didn't ask her to either.` },
           stageInner.appendChild(sceneCardAll(messages, !complete && !state.delivering && !state.sending));
           // resources live in the coach sheet (the practice never shows them)
         } else {
-          stageInner.appendChild(establishingNode(state.transitioning
-            ? 'Bringing in your AI coach…'
-            : 'Kendra’s been drinking alone since she lost her Nona. You’re about to check on her.'));
+          stageInner.appendChild(establishingNode(
+            'Kendra’s been drinking alone since she lost her Nona. You’re about to check on her.'));
         }
       }
 
@@ -2188,7 +2319,8 @@ You didn't carry this alone, and you didn't ask her to either.` },
           coachPanelBody.appendChild(closingStepperNode());
         } else {
           const coachingRun = trailingRun(messages, 'coaching');
-          coachingRun.forEach((m) => coachPanelBody.appendChild(m.speaker === 'you' ? youCoachNode(m) : coachNode(m)));
+          coachingRun.forEach((m) => coachPanelBody.appendChild(
+            m.kind === 'highlights' ? youHighlightsNode(m) : (m.speaker === 'you' ? youCoachNode(m) : coachNode(m))));
           // The full strengths/growth-areas report lives in its own modal (see
           // resultsModal below) — opened only when the learner taps "View full
           // results" in the footer, never dumped in here. Resources are the
@@ -2205,20 +2337,34 @@ You didn't carry this alone, and you didn't ask her to either.` },
       // landing CTA (enter the scenario) · story CTA (submit highlights) ·
       // entry CTA (step in) · "Analyzing…" beat · debrief CTA
       const showLanding    = !state.enteredScenario;
-      const showStory       = state.enteredScenario && !state.storyDone;
+      // Distinct from the stage's `showingStory` above: THIS is the submit
+      // CTA, which hides as soon as highlights are sent — the story page
+      // itself keeps showing on the stage behind the coach sheet afterward.
+      const showStoryCta    = state.enteredScenario && !state.storyDone;
       const showEntry      = state.awaitingEntry && !hasEnteredScene && !state.entryPromptDismissed && !state.delivering;
       const showAnalyzing  = state.analyzing;
       const showDebrief    = state.awaitingDebrief && !state.analyzing && !state.delivering;
+      // The coach has replied and is ready to send the learner back into the
+      // scene, but waits for this tap rather than auto-transitioning.
+      const showReturn     = state.awaitingReturn && !state.delivering;
       // Once the recap lands, this replaces the composer just like every other
       // CTA here — tapping it is what opens the results modal (never auto-shown).
       const showResults    = state.awaitingResults && !state.resultsModalOpen;
+      // The practice's actual last step: once the resources have landed, this
+      // takes the composer's place instead of leaving it sitting there disabled
+      // with nothing left to type.
+      const showContinue   = complete && state.resultsViewed && !state.delivering && !state.continued;
+      const showDone        = state.continued;
       inputLanding.hidden   = !showLanding;
-      inputStory.hidden     = !showStory;
+      inputStory.hidden     = !showStoryCta;
       inputEntry.hidden     = !showEntry;
       inputAnalyzing.hidden = !showAnalyzing;
       inputDebrief.hidden   = !showDebrief;
+      inputReturn.hidden    = !showReturn;
       inputResults.hidden   = !showResults;
-      inputMain.hidden      = showLanding || showStory || showEntry || showAnalyzing || showDebrief || showResults;
+      inputContinue.hidden  = !showContinue;
+      inputDone.hidden      = !showDone;
+      inputMain.hidden      = showLanding || showStoryCta || showEntry || showAnalyzing || showDebrief || showReturn || showResults || showContinue || showDone;
       storyCtaBtn.disabled  = state.highlights.length === 0;
       if (showAnalyzing) {
         inputAnalyzing.lastChild.textContent = complete ? 'Wrapping up your practice…' : 'Analyzing your response…';
@@ -2659,14 +2805,36 @@ You didn't carry this alone, and you didn't ask her to either.` },
         i++;
       }
 
-      // Finalize. If the coach is sending the learner back into the scene, dwell
-      // briefly so the send-off reads, then lift the panel.
+      // Finalize. If the coach is sending the learner back into the scene, don't
+      // auto-cut over — give them a beat to read the reply, then offer it as a
+      // choice (same "learner decides when" pattern as every other transition
+      // here), rather than yanking the panel closed out from under them.
       const resumingToScene = turn.mode === 'scene' && state.mode === 'coaching';
-      if (resumingToScene) { await wait(reducedMotion() ? 200 : 1000); if (dead()) return; }
+      if (resumingToScene) {
+        state.pendingReturn = { mode: turn.mode, inputTarget: turn.inputTarget };
+        state.awaitingReturn = true;
+        state.delivering = false;
+        render();                                     // input bar: "Continue practicing →"
+        announce('Your AI coach is ready to send you back. Continue when you are.');
+        return;
+      }
       state.mode = turn.mode; state.inputTarget = turn.inputTarget;
       state.delivering = false;
       render();
-      if (resumingToScene) announce('Back in the scene.');
+    }
+
+    // "Continue practicing" — the learner returns to the scene on their own
+    // command, once they're done reading the coach's reply.
+    function returnToScene() {
+      if (!state.awaitingReturn || state.sending || state.delivering) return;
+      const p = state.pendingReturn;
+      state.pendingReturn = null;
+      state.awaitingReturn = false;
+      state.mode = p.mode; state.inputTarget = p.inputTarget;
+      followStage = true;
+      announce('Back in the scene.');
+      render();
+      setTimeout(() => { if (!composer.disabled) composer.focus(); }, 260);
     }
 
     // "See what your AI coach noticed" — the learner opens the queued debrief when
@@ -2714,11 +2882,39 @@ You didn't carry this alone, and you didn't ask her to either.` },
       announce('Your results: strengths.');
       render();
     }
-    function closeResultsModal() {
+    // Closing the modal doesn't just dump the resources in — the coach
+    // "introduces" them first, as its own typed-in message, the same way any
+    // other coach line arrives (see deliverTurn/deliverOpening).
+    async function closeResultsModal() {
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;
       state.resultsModalOpen = false;
       state.awaitingResults = false;
-      state.resultsViewed = true;
+      state.delivering = true;
       announce('Back to your AI coach.');
+      render();
+      showTyping(); await wait(reducedMotion() ? 250 : 900); hideTyping();
+      if (dead()) return;
+      state.messages.push({ speaker: 'coach', kind: 'coaching', _enter: true, text:
+        `Great work! Here are some resources for dealing with situations just like this.` });
+      render();
+      await wait(reducedMotion() ? 80 : 500);
+      if (dead()) return;
+      showTyping(); await wait(reducedMotion() ? 250 : 900); hideTyping();
+      if (dead()) return;
+      state.resultsViewed = true;   // reveals the resources message — see render()
+      state.delivering = false;
+      announce('Here are some resources.');
+      render();
+    }
+
+    // "Continue" — the practice's actual last step. Nothing in this prototype
+    // routes to a real next lesson, so this just settles the footer into a
+    // clear, final "done" state rather than pretending to navigate anywhere.
+    function finishPractice() {
+      if (!state.resultsViewed || state.continued) return;
+      state.continued = true;
+      announce('Practice complete.');
       render();
     }
     function resultsNext() {
@@ -2781,6 +2977,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
       state.mode = 'scene';
       state.inputTarget = 'character';
       state.manualTimeout = false;
+      state.awaitingReturn = false; state.pendingReturn = null;   // this covers it too
       announce('Back in the scene.');
       render();
     }
@@ -2817,11 +3014,28 @@ You didn't carry this alone, and you didn't ask her to either.` },
         enteredScenario: false, storyDone: false, introModalOpen: false, introModalShown: false,
         highlights: [], closingStepperActive: false,
         awaitingResults: false, resultsModalOpen: false, resultsPage: 0, resultsViewed: false,
+        continued: false, awaitingReturn: false, pendingReturn: null,
       });
       app.classList.remove('was-trap');
       followStage = true;
       announce('Practice restarted.');
       render();   // back to the story, ready to read and highlight again
+    }
+
+    // Builds the learner's highlight recap as its own "you" message — sent
+    // into the coach panel BEFORE the coach's reaction, so the coach visibly
+    // responds to a record the learner can see, not a black box.
+    function highlightsRecapMessage() {
+      const excerpts = state.highlights
+        .slice()
+        .sort((a, b) => a.para - b.para || a.start - b.start)
+        .map((h) => STORY_PARAGRAPHS[h.para].slice(h.start, h.end).trim());
+      return {
+        speaker: 'you',
+        kind: 'highlights',
+        highlights: excerpts,
+        text: `Highlighted: ${excerpts.map((t) => `"${t}"`).join(' / ')}`,   // plain-text fallback (live/API mode)
+      };
     }
 
     // "Show my coach what I highlighted" hands off here: the coach opens with a
@@ -2832,6 +3046,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
       state.started = true;
       state.mode = 'coaching'; state.inputTarget = 'coach';
       state.pendingOpening = [
+        highlightsRecapMessage(),
         { speaker: 'coach', kind: 'coaching', text: buildHighlightOpening() },
       ];
       announce('Bringing in your AI coach.');
@@ -2851,10 +3066,16 @@ You didn't carry this alone, and you didn't ask her to either.` },
       for (let i = 0; i < opening.length; i++) {
         const m = opening[i];
         const prev = i > 0 ? opening[i - 1] : null;
-        // The dominant beat: "thinking" long enough to read the previous message,
-        // with the typing dots signalling that more is on the way.
         hideTyping();
-        showTyping(); await wait(thinkingTime(prev ? prev.text : '')); hideTyping();
+        if (m.speaker === 'you') {
+          // The learner's own recap isn't AI-composed — a brief settle, no
+          // "typing" dots (those mean the COACH is composing).
+          await wait(reducedMotion() ? 80 : 320);
+        } else {
+          // The dominant beat: "thinking" long enough to read the previous message,
+          // with the typing dots signalling that more is on the way.
+          showTyping(); await wait(thinkingTime(prev ? prev.text : '')); hideTyping();
+        }
         if (dead()) return;
         m._enter = true;
         state.messages.push(m);
@@ -2896,6 +3117,8 @@ You didn't carry this alone, and you didn't ask her to either.` },
     });
     // Debrief bar: open the queued coach debrief when the learner is ready.
     debriefCtaBtn.addEventListener('click', openDebrief);
+    // Return bar: cross back into the scene on the learner's own command.
+    returnCtaBtn.addEventListener('click', returnToScene);
     // Results bar: opens the strengths/growth-areas modal (never auto-shown).
     resultsCtaBtn.addEventListener('click', openResultsModal);
     // Modal nav — delegated since the footer's buttons are rebuilt every render.
@@ -2904,6 +3127,8 @@ You didn't carry this alone, and you didn't ask her to either.` },
       else if (e.target.closest('#resultsBackBtn')) resultsBack();
       else if (e.target.closest('#resultsContinueBtn')) closeResultsModal();
     });
+    // The practice's actual last step, once the resources have landed.
+    continueCtaBtn.addEventListener('click', finishPractice);
     // Highlight intro modal: "Got it" is the only way through it.
     introModalCtaBtn.addEventListener('click', closeStoryIntro);
     // Story page: free-range highlighting. mouseup/touchend turn whatever the
