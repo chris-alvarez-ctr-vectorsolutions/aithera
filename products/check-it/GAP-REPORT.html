@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design System Gap Report — v4 Prototype</title>
+
+<!-- Vector Web Components JS (module) -->
+<script type="module"
+  src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.5.1/core.iife.js"></script>
+<!-- Vector Theme Styles (must be imported as script, not module) -->
+<script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.1.1/styles.js"></script>
+<!-- Open Sans -->
+<link rel="stylesheet"
+  href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+<!-- Font Awesome 6 -->
+<link rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+<style>
+  /* ============================================================
+     REPORT CHROME (not part of the prototype — the document shell)
+     ============================================================ */
+  :root {
+    /* Fallback Lumo tokens in case the CDN theme bundle is blocked offline.
+       The CDN styles.js (loaded above) overrides these with the real palette. */
+    --lumo-base-color: #fff;
+    --lumo-primary-color: #0271ce;
+    --lumo-primary-color-10pct: #0271ce1a;
+    --lumo-primary-text-color: #0271ce;
+    --lumo-error-color: #d83e38;
+    --lumo-error-color-10pct: #e71d131a;
+    --lumo-error-text-color: #ca150c;
+    --lumo-warning-color: #e0782e;
+    --lumo-warning-color-10pct: #ffcc001a;
+    --lumo-warning-text-color: #995211;
+    --lumo-success-color: #158444;
+    --lumo-success-color-10pct: #1688461a;
+    --lumo-success-text-color: #0a7637;
+    --lumo-header-text-color: #000000de;
+    --lumo-body-text-color: #000000de;
+    --lumo-secondary-text-color: #00000099;
+    --lumo-tertiary-text-color: #1c304a85;
+    --lumo-contrast-5pct: #1924340d;
+    --lumo-contrast-10pct: #1924341a;
+    --lumo-contrast-20pct: #19243433;
+    --lumo-contrast-50pct: #19243480;
+  }
+  body {
+    font-family: 'Open Sans', -apple-system, system-ui, sans-serif;
+    margin: 0; background: #eef1f5; color: #1a2340;
+    line-height: 1.55; font-size: 14px;
+  }
+  .report { max-width: 1080px; margin: 0 auto; padding: 40px 28px 80px; }
+  .report-head { border-bottom: 3px solid var(--lumo-primary-color); padding-bottom: 18px; margin-bottom: 8px; }
+  h1 { font-size: 26px; margin: 0 0 6px; color: #0d1b33; }
+  h2 { font-size: 19px; margin: 40px 0 6px; color: #0d1b33; padding-top: 18px; border-top: 1px solid #d4dae3; }
+  h2:first-of-type { border-top: none; }
+  h3 { font-size: 15px; margin: 26px 0 4px; color: #243657; }
+  .sub { color: #5a6b87; font-size: 13px; }
+  .meta-line { font-size: 12.5px; color: #5a6b87; margin: 2px 0; }
+  a { color: var(--lumo-primary-color); }
+  code { background: #e3e8ef; padding: 1px 5px; border-radius: 4px; font-size: 12px; font-family: ui-monospace, Menlo, monospace; }
+
+  .callout-box { background: #fff7e6; border: 1px solid #f0c97b; border-left: 4px solid #e0782e; border-radius: 8px; padding: 14px 18px; margin: 18px 0; }
+  .callout-box.info { background: #eaf3fb; border-color: #9cc4e6; border-left-color: var(--lumo-primary-color); }
+  .callout-box strong { color: #0d1b33; }
+
+  table.summary { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13px; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  table.summary th { background: #f3f6fa; text-align: left; padding: 9px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #5a6b87; border-bottom: 1px solid #d4dae3; }
+  table.summary td { padding: 9px 12px; border-bottom: 1px solid #eef1f5; vertical-align: top; }
+  table.summary tr:last-child td { border-bottom: none; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  .tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; }
+  .tag.real { background: #e3f3ea; color: #0a7637; }
+  .tag.cons { background: #eaeef5; color: #3d4f6e; }
+  .tag.art  { background: #eef1f5; color: #5a6b87; }
+  .tag.checkit { background: #f0e9fb; color: #6b3fa0; }
+  .tag.split { background: #fdf0e4; color: #995211; }
+
+  /* Gap element card: live render (left) + analysis (right) */
+  .gap { background: #fff; border: 1px solid #d9e0ea; border-radius: 10px; margin: 16px 0; overflow: hidden; box-shadow: 0 1px 5px rgba(0,0,0,0.05); }
+  .gap-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 18px; background: #f7f9fc; border-bottom: 1px solid #e3e8ef; }
+  .gap-head .id { font-family: ui-monospace, Menlo, monospace; font-size: 12px; font-weight: 700; color: var(--lumo-primary-color); }
+  .gap-head .name { font-size: 15px; font-weight: 700; color: #0d1b33; }
+  .gap-head .effort { margin-left: auto; font-size: 11px; font-weight: 700; color: #5a6b87; background: #e3e8ef; padding: 2px 8px; border-radius: 10px; }
+  .gap-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); }
+  @media (max-width: 760px) { .gap-body { grid-template-columns: 1fr; } }
+  .gap-visual { padding: 22px 20px; background: #fbfcfe; border-right: 1px solid #eef1f5; display: flex; flex-direction: column; gap: 10px; justify-content: center; }
+  .gap-visual .vlabel { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #93a0b5; margin-bottom: 2px; }
+  .gap-analysis { padding: 16px 20px; font-size: 13px; }
+  .gap-analysis dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; }
+  .gap-analysis dt { font-weight: 700; color: #5a6b87; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; padding-top: 2px; }
+  .gap-analysis dd { margin: 0; color: #28344c; }
+  .gap-analysis .rec { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e3e8ef; font-size: 12.5px; }
+  .gap-analysis .rec strong { color: #0a7637; }
+
+  /* ============================================================
+     PROTOTYPE ELEMENT CSS (light-adjusted from the real prototype;
+     dark-only values replaced with the prototype's own
+     html[data-theme="light"] override values).
+     ============================================================ */
+
+  /* status pill */
+  .status-pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; display:inline-flex; align-items:center; gap:5px; }
+  .status-pill.ok      { background: var(--lumo-success-color-10pct); color: var(--lumo-success-text-color); }
+  .status-pill.warn    { background: var(--lumo-warning-color-10pct); color: var(--lumo-warning-text-color); }
+  .status-pill.error   { background: var(--lumo-error-color-10pct);   color: var(--lumo-error-text-color); }
+  .status-pill.neutral { background: var(--lumo-contrast-10pct);      color: var(--lumo-secondary-text-color); }
+  .status-pill.info    { background: var(--lumo-primary-color-10pct); color: var(--lumo-primary-color); }
+  .status-pill i { font-size: 6px; }
+
+  /* button content-justification (BTN-C01) */
+  .action-btn-row { display: flex; flex-direction: column; gap: 6px; }
+  .action-btn-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--lumo-contrast-10pct); background: #fff; font-family: inherit; font-size: 12.5px; font-weight: 500; color: var(--lumo-body-text-color); cursor: pointer; width: 100%; text-align: left; }
+  .action-btn-item:hover { background: var(--lumo-contrast-5pct); border-color: var(--lumo-contrast-20pct); }
+  .action-btn-item i { width: 16px; text-align: center; font-size: 12px; color: var(--lumo-secondary-text-color); flex-shrink: 0; }
+  .action-btn-item .action-label { flex: 1; }
+  .action-btn-item .action-arrow { font-size: 9px; color: var(--lumo-tertiary-text-color); opacity: 0; transition: opacity 0.12s; }
+  .action-btn-item:hover .action-arrow { opacity: 1; }
+  .action-btn-item.primary { background: var(--lumo-primary-color); border-color: var(--lumo-primary-color); color: #fff; font-weight: 600; }
+  .action-btn-item.primary i { color: rgba(255,255,255,0.85); }
+  .action-btn-item.danger i { color: var(--lumo-error-color); }
+  .action-btn-item.danger:hover { background: var(--lumo-error-color-10pct); border-color: var(--lumo-error-color); }
+
+  /* tab count badge (TAB-S01) */
+  .detail-tabs { display: flex; border-bottom: 1px solid var(--lumo-contrast-10pct); background: var(--lumo-contrast-5pct); border-radius: 6px 6px 0 0; }
+  .detail-tab { padding: 11px 18px; font-size: 13px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; color: var(--lumo-secondary-text-color); margin-bottom: -1px; user-select: none; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .detail-tab.active { color: var(--lumo-primary-color); border-bottom-color: var(--lumo-primary-color); }
+  .detail-tab-count { font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 8px; background: var(--lumo-contrast-10pct); color: var(--lumo-secondary-text-color); }
+  .detail-tab.active .detail-tab-count { background: var(--lumo-primary-color-10pct); color: var(--lumo-primary-color); }
+
+  /* KPI tile (CARD-C01) */
+  .stat-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+  .stat-tile { background: #fff; border: 1px solid var(--lumo-contrast-10pct); border-radius: 10px; border-top: 3px solid var(--lumo-contrast-20pct); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .stat-tile-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--lumo-secondary-text-color); }
+  .stat-tile-value { font-size: 24px; font-weight: 700; color: var(--lumo-header-text-color); line-height: 1.1; }
+  .stat-tile-sub { font-size: 11px; color: var(--lumo-secondary-text-color); }
+  .stat-tile.warn { border-top-color: var(--lumo-warning-color); }
+  .stat-tile-trend { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; }
+  .stat-tile-trend.warn { color: var(--lumo-warning-text-color); }
+
+  /* toggle chip (CHIP-V01) */
+  .filter-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--lumo-contrast-20pct); background: #fff; font-size: 12px; font-weight: 600; color: var(--lumo-secondary-text-color); cursor: pointer; user-select: none; }
+  .filter-chip.active { border-color: var(--lumo-primary-color); background: var(--lumo-primary-color-10pct); color: var(--lumo-primary-color); }
+  .filter-chip i { font-size: 10px; }
+
+  /* dismissible chip (CHIP-V02) — light values */
+  .filter-summary-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 6px; background: rgba(99,102,241,0.10); color: #4338ca; font-size: 11px; font-weight: 600; }
+  .filter-summary-chip button { background: none; border: none; cursor: pointer; color: inherit; opacity: 0.6; font-size: 9px; padding: 0; line-height: 1; }
+  .filter-summary-chip button:hover { opacity: 1; }
+
+  /* inline alert (ALERT-C01) — state-callout, light-safe */
+  .state-callout { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 8px; border-left: 4px solid; box-shadow: 0 1px 4px rgba(0,0,0,0.06); background:#fff; }
+  .state-callout.block    { background: var(--lumo-error-color-10pct);   border-left-color: var(--lumo-error-color); }
+  .state-callout.conflict { background: var(--lumo-warning-color-10pct); border-left-color: var(--lumo-warning-color); }
+  .state-callout-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .state-callout.block .state-callout-icon { color: var(--lumo-error-color); }
+  .state-callout.conflict .state-callout-icon { color: var(--lumo-warning-text-color); }
+  .state-callout-body { flex: 1; }
+  .state-callout-title { font-size: 13px; font-weight: 700; line-height: 1.3; }
+  .state-callout.block .state-callout-title { color: var(--lumo-error-text-color); }
+  .state-callout.conflict .state-callout-title { color: var(--lumo-warning-text-color); }
+  .state-callout-desc { font-size: 12px; color: var(--lumo-secondary-text-color); margin-top: 3px; line-height: 1.4; }
+
+  /* par/threshold bar (STEP-V02) */
+  .inline-par-bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .inline-par-bar { flex: 1; max-width: 140px; height: 6px; background: rgba(0,0,0,0.08); border-radius: 3px; overflow: hidden; }
+  .inline-par-fill { height: 100%; border-radius: 3px; }
+  .inline-par-fill.ok { background: var(--lumo-success-color); }
+  .inline-par-fill.warn { background: var(--lumo-warning-color); }
+  .inline-par-fill.low { background: var(--lumo-error-color); }
+  .inline-par-pct { font-size: 11px; color: var(--lumo-secondary-text-color); font-weight: 600; }
+
+  /* empty state (EMPTY-C01) */
+  .empty-state { text-align: center; padding: 28px 16px; color: var(--lumo-secondary-text-color); }
+  .empty-state .empty-icon { font-size: 28px; margin-bottom: 8px; opacity: 0.5; }
+  .empty-state .empty-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; color: var(--lumo-body-text-color); }
+  .empty-state .empty-msg { font-size: 12px; }
+
+  /* timeline (TIME-C01) */
+  .history-event { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--lumo-contrast-5pct); font-size: 12px; }
+  .history-event:last-child { border-bottom: none; }
+  .history-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+  .history-dot.check { background: var(--lumo-success-color); }
+  .history-dot.transfer { background: var(--lumo-primary-color); }
+  .history-dot.flag { background: var(--lumo-warning-color); }
+  .history-body { flex: 1; }
+  .history-what { font-weight: 500; color: var(--lumo-body-text-color); line-height: 1.35; }
+  .history-when { font-size: 10.5px; color: var(--lumo-tertiary-text-color); margin-top: 2px; }
+
+  /* avatar (AVA-C01) */
+  .person-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--lumo-primary-color-10pct); color: var(--lumo-primary-color); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+  .crew-avatar { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; background: var(--lumo-contrast-10pct); color: var(--lumo-body-text-color); }
+  .crew-avatar.warn { background: var(--lumo-warning-color-10pct); color: var(--lumo-warning-text-color); }
+
+  /* batch bar (LIST-C01) — light values */
+  .batch-bar { display: inline-flex; align-items: center; gap: 10px; padding: 6px 12px; background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.18); border-radius: 8px; }
+  .batch-bar-label { font-size: 12px; font-weight: 700; color: #4338ca; }
+  .batch-action-btn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; font-size: 12px; font-weight: 600; border: 1px solid rgba(0,0,0,0.12); border-radius: 6px; background: #fff; color: #2d3a56; cursor: pointer; font-family: inherit; }
+  .batch-action-btn:hover { border-color: #6366f1; color: #4338ca; }
+  .batch-action-btn i { font-size: 11px; opacity: 0.75; }
+  .batch-bar-deselect { background: none; border: none; cursor: pointer; font-size: 12px; color: #6b7a99; font-weight: 600; padding: 0 6px; }
+  .batch-bar-deselect:hover { color: #1a2340; }
+
+  /* selectable option card (OPTCARD-C01) */
+  .rcv-mode-card { background: #fff; border: 1px solid var(--lumo-contrast-10pct); border-radius: 12px; padding: 18px; cursor: pointer; position: relative; }
+  .rcv-mode-card:hover { border-color: var(--lumo-primary-color); }
+  .rcv-mode-card.selected { border-color: var(--lumo-primary-color); box-shadow: 0 0 0 3px rgba(99,102,241,0.18); }
+  .rcv-mode-card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .rcv-mode-card-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; }
+  .rcv-mode-card.fast .rcv-mode-card-icon { background: rgba(245,158,11,0.14); color: #b45309; }
+  .rcv-mode-card.complete .rcv-mode-card-icon { background: rgba(16,185,129,0.14); color: #047857; }
+  .rcv-mode-card-title { font-size: 15px; font-weight: 700; color: var(--lumo-header-text-color); margin: 0; }
+  .rcv-mode-card-state { font-size: 11px; font-weight: 700; color: var(--lumo-secondary-text-color); text-transform: uppercase; letter-spacing: 0.5px; }
+  .rcv-mode-card-desc { font-size: 13px; color: var(--lumo-secondary-text-color); line-height: 1.5; margin: 0; }
+  .rcv-mode-card-tag { position: absolute; top: 12px; right: 12px; font-size: 10px; font-weight: 700; color: var(--lumo-primary-color); background: rgba(99,102,241,0.14); padding: 3px 8px; border-radius: 8px; text-transform: uppercase; letter-spacing: 0.4px; }
+
+  /* expand-in-place row (LIST-V01) */
+  .unit-row-wrap { border-bottom: 1px solid var(--lumo-contrast-5pct); }
+  .unit-row { display: flex; align-items: center; gap: 12px; padding: 11px 12px; cursor: pointer; border-radius: 8px; }
+  .unit-row:hover { background: var(--lumo-contrast-5pct); }
+  .unit-row.promoted { background: var(--lumo-contrast-5pct); box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-radius: 8px 8px 0 0; }
+  .unit-row.promoted .unit-row-chevron { transform: rotate(90deg); color: var(--lumo-primary-color); }
+  .unit-row.promoted .unit-row-name { color: var(--lumo-primary-color); }
+  .unit-row-icon { width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+  .unit-row-icon.ok { background: var(--lumo-success-color-10pct); color: var(--lumo-success-color); }
+  .unit-row-icon.warn { background: var(--lumo-warning-color-10pct); color: var(--lumo-warning-text-color); }
+  .unit-row-name-cell { flex: 1; min-width: 0; }
+  .unit-row-name { font-size: 13px; font-weight: 600; color: var(--lumo-body-text-color); }
+  .unit-row-sub { font-size: 11px; color: var(--lumo-secondary-text-color); margin-top: 1px; }
+  .unit-row-chevron { font-size: 10px; color: var(--lumo-tertiary-text-color); transition: transform 0.18s; flex-shrink: 0; }
+  .unit-row-expand { background: var(--lumo-contrast-5pct); border-radius: 0 0 8px 8px; padding: 12px 16px 14px; }
+  .expand-attrs { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px 16px; }
+  .expand-attr { display: flex; flex-direction: column; gap: 2px; }
+  .expand-attr-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--lumo-secondary-text-color); }
+  .expand-attr-value { font-size: 12.5px; color: var(--lumo-body-text-color); font-weight: 500; }
+  .expand-attr-value.warn { color: var(--lumo-warning-text-color); }
+  .expand-attr-value.error { color: var(--lumo-error-color); }
+
+  /* grid composed-cell row (LIST-D01) — light values */
+  .loc-list-wrap { border: 1px solid var(--lumo-contrast-10pct); border-radius: 12px; overflow: hidden; background: #fff; }
+  .loc-list-header { display: grid; grid-template-columns: 2.4fr 1fr 0.8fr 1fr 80px; padding: 9px 16px; background: var(--lumo-contrast-5pct); border-bottom: 1px solid var(--lumo-contrast-10pct); font-size: 11px; font-weight: 700; color: var(--lumo-secondary-text-color); text-transform: uppercase; letter-spacing: 0.04em; }
+  .loc-row { display: grid; grid-template-columns: 2.4fr 1fr 0.8fr 1fr 80px; padding: 12px 16px; align-items: center; border-bottom: 1px solid var(--lumo-contrast-5pct); color: inherit; text-decoration: none; }
+  .loc-row:last-child { border-bottom: none; }
+  .loc-row:hover { background: var(--lumo-contrast-5pct); }
+  .loc-name-cell { display: flex; align-items: center; gap: 11px; min-width: 0; }
+  .loc-icon-badge { width: 36px; height: 36px; border-radius: 9px; background: var(--lumo-primary-color-10pct); color: var(--lumo-primary-color); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .loc-icon-badge.t-hq        { background: rgba(168,85,247,0.10); color: #7c3aed; }
+  .loc-icon-badge.t-warehouse { background: rgba(245,158,11,0.10); color: #b45309; }
+  .loc-name { font-size: 13.5px; font-weight: 600; color: var(--lumo-body-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .loc-addr { font-size: 11.5px; color: var(--lumo-tertiary-text-color); margin-top: 1px; }
+  .loc-cell { font-size: 13px; color: var(--lumo-secondary-text-color); display: flex; align-items: center; gap: 6px; }
+  .loc-type-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 600; background: var(--lumo-contrast-10pct); color: var(--lumo-secondary-text-color); }
+  .loc-status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .loc-status-pill.ok { background: rgba(5,150,105,0.10); color: #059669; }
+  .loc-status-pill.warn { background: rgba(217,119,6,0.10); color: #b45309; }
+  .loc-count-strong { font-weight: 700; color: var(--lumo-body-text-color); }
+  .loc-row-actions { display: flex; justify-content: flex-end; }
+
+  /* sidenav section header (SHELL-D02) */
+  .mini-sidenav { width: 232px; max-width: 100%; background: #fafbfc; border: 1px solid #e3e8ef; border-radius: 8px; padding: 8px 0; }
+  .sidebar-cluster-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--lumo-tertiary-text-color); padding: 12px 16px 4px; border-top: 1px solid var(--lumo-contrast-5pct); margin-top: 4px; }
+  .sidebar-cluster-label:first-child { border-top: none; margin-top: 0; }
+  .sidebar-nav { list-style: none; padding: 0; margin: 0; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 16px; font-size: 13.5px; font-weight: 500; color: var(--lumo-body-text-color); text-decoration: none; border-left: 4px solid transparent; cursor: pointer; }
+  .nav-item:hover { background: var(--lumo-contrast-5pct); }
+  .nav-item.active { color: var(--lumo-primary-color); background: var(--lumo-primary-color-10pct); border-left-color: var(--lumo-primary-color); font-weight: 600; }
+  .nav-icon { width: 18px; text-align: center; font-size: 14px; color: var(--lumo-secondary-text-color); }
+  .nav-item.active .nav-icon { color: var(--lumo-primary-color); }
+
+  /* context banner (CTXB-C01) — light values */
+  .context-banner { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.18); border-radius: 8px; flex-wrap: wrap; row-gap: 8px; }
+  .cb-entity { display: flex; align-items: center; gap: 10px; }
+  .cb-entity-badge { width: 36px; height: 36px; border-radius: 9px; background: rgba(99,102,241,0.10); border: 1px solid rgba(99,102,241,0.24); color: #4338ca; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  .cb-entity-name { font-size: 14px; font-weight: 700; color: #1a2340; line-height: 1.2; }
+  .cb-entity-meta { font-size: 11.5px; color: #4a5673; margin-top: 1px; }
+  .cb-mode-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: #4338ca; background: rgba(99,102,241,0.10); border: 1px solid rgba(99,102,241,0.22); border-radius: 6px; padding: 3px 9px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .cb-divider { width: 1px; height: 28px; background: rgba(99,102,241,0.22); }
+  .cb-detail { display: flex; flex-direction: column; gap: 1px; }
+  .cb-detail-label { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #6b7a99; }
+  .cb-detail-value { font-size: 12.5px; font-weight: 600; color: #1a2340; }
+  .cb-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+  /* per-button pass/fail (CER-V01) — light values */
+  .verify-controls { display: flex; gap: 6px; }
+  .verify-btn { padding: 5px 12px; border-radius: 6px; border: 1.5px solid rgba(0,0,0,0.12); background: rgba(255,255,255,0.8); font-size: 11.5px; font-weight: 700; cursor: pointer; font-family: inherit; color: #6b7a99; }
+  .verify-btn:hover { background: rgba(0,0,0,0.04); color: #1a2340; }
+  .verify-btn.pass.selected       { background: rgba(5,150,105,0.10); border-color: #059669; color: #059669; }
+  .verify-btn.deficiency.selected { background: rgba(220,38,38,0.10); border-color: #dc2626; color: #dc2626; }
+  .verify-btn.na.selected         { background: rgba(0,0,0,0.07); border-color: rgba(0,0,0,0.20); color: #3d4f6e; }
+</style>
+</head>
+<body>
+<div class="report">
+
+  <div class="report-head">
+    <h1>Design System Gap Report — v4 Prototype</h1>
+    <p class="meta-line">Vector Web Components v1.5.1 · Prepared 2026-06-29 · For the Vector design-system team + CheckIt product leadership</p>
+    <p class="meta-line"><strong>What this is:</strong> the high-level effort read and recommendations, plus — for every <em>genuine</em> design-system gap — a live render of the UI element next to its gap analysis. Elements render using the prototype's real CSS (dark-only colors swapped for the prototype's own light-theme values), so what you see matches the prototype on a production light background.</p>
+    <p class="meta-line"><strong>Companion docs:</strong> <a href="EFFORT-SUMMARY.md">EFFORT-SUMMARY.md</a> · <a href="ADJUDICATION-WORKSHEET.md">ADJUDICATION-WORKSHEET.md</a> · <a href="DEDUP-SWEEP.md">DEDUP-SWEEP.md</a> · <a href="expansion-matrix.md">expansion-matrix.md</a></p>
+  </div>
+
+  <!-- ============================ EXEC SUMMARY ============================ -->
+  <h2>The headline</h2>
+  <p>Supporting the v4 prototype's fidelity is <strong>at most ~197 design-system person-days</strong> — but that is a <strong>pre-adjudication ceiling</strong> that assumes every callout is a real, independent gap. It isn't. A consistency sweep found that <strong>~77% of the prototype's ~214 distinct custom-pattern implementations are the same pattern reimplemented under different class names</strong> (the prototype was built without design-system validation). The apparent surface is ~214 treatments; it collapses to <strong>~27 real components</strong>.</p>
+
+  <div class="callout-box">
+    <strong>The realistic design-system build is small.</strong> After adjudication, only <strong>~19 callouts are genuine design-system gaps</strong>, and they skew small — mostly themes, slots, and recipes, plus a handful of clean net-new primitives. Everything else is prototype cleanup (your team), straight adoption of shipped components, or product-layer work that shouldn't be design-system-costed at all.
+  </div>
+
+  <h3>Where the ceiling goes once adjudicated</h3>
+  <table class="summary">
+    <tr><th>Disposition</th><th class="num">Callouts</th><th>Meaning for design-system effort</th></tr>
+    <tr><td><span class="tag real"><i class="fa-solid fa-circle-check"></i> REAL GAP</span></td><td class="num">~19</td><td>The actual DS build. Themes/slots/recipes + a few net-new primitives. <strong>Detailed with live renders below.</strong></td></tr>
+    <tr><td><span class="tag cons"><i class="fa-solid fa-layer-group"></i> CONSOLIDATE</span></td><td class="num">~10</td><td>Zero DS build — prototype cleanup (your team). Cards, drawers, tabs, menus, fields.</td></tr>
+    <tr><td><span class="tag art"><i class="fa-solid fa-check"></i> ARTIFACT</span></td><td class="num">~10</td><td>Zero effort — shipped component already does it. Search (20/22), app shell, segmented control, form-layout.</td></tr>
+    <tr><td><span class="tag checkit"><i class="fa-solid fa-cube"></i> CheckIt-layer</span></td><td class="num">~6</td><td>Build in the product layer, not the design system. The ceremony-runner family.</td></tr>
+    <tr><td><span class="tag split"><i class="fa-solid fa-code-branch"></i> SPLIT / DEFER</span></td><td class="num">~8</td><td>Needs a decision from you (voice? dark theme? mobile-web?) before it's counted.</td></tr>
+  </table>
+
+  <h3>Build these first (highest leverage)</h3>
+  <table class="summary">
+    <tr><th>Item</th><th>Why it punches above its size</th></tr>
+    <tr><td><code>THEME-V02</code> categorical color palette</td><td>Small build; unblocks all four color-policy fixes + avatar + persona. A prerequisite, not a leaf.</td></tr>
+    <tr><td><code>ALERT-C01</code> inline alert</td><td>No inline (non-transient) alert ships. Absorbs 8+ reinventions and 3 other rows.</td></tr>
+    <tr><td><code>SHELL-D02</code> nav section-header</td><td>Load-bearing — the locked four-cluster nav can't ship without it.</td></tr>
+    <tr><td><code>BADGE</code> icon slot + ~4 themes, <code>CHIP-V01</code> toggle theme</td><td>Touch nearly every screen.</td></tr>
+    <tr><td><code>LIST-D01</code> grid renderer recipes</td><td>Resolves the single most-duplicated pattern (~30 row reinventions → 2–3 recipes).</td></tr>
+  </table>
+
+  <div class="callout-box info">
+    <strong>Five decisions gate the rest.</strong> (1) Is <strong>voice</strong> committed product direction? (2) Does production keep the <strong>dark/glass theme</strong>? (3) Is <strong>mobile-web</strong> near-term? (4) Are the draft/ready bucket colors <em>status</em> or <em>category</em>? (5) <strong>Composite ownership</strong> — context-banner and entity-panel as Vector primitives or CheckIt-layer? My recs are in the worksheet; answering these produces the final adjudicated number.
+  </div>
+
+  <p class="sub">Below: each genuine gap, grouped by component family, with a live render of the element on the left and the gap analysis on the right. Renders use the prototype's real CSS on a light background.</p>
+
+  <!-- ============================ BADGE ============================ -->
+  <h2>Badge / status pill</h2>
+
+  <div class="gap">
+    <div class="gap-head"><span class="id">BADGE-V01..V06</span><span class="name">Semantic + dot themes</span><span class="effort">~4 themes · S each</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — shipped 8 themes cover these:</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <span class="status-pill ok">In Service</span>
+          <span class="status-pill error">Overdue</span>
+          <span class="status-pill neutral">Draft</span>
+        </div>
+        <div class="vlabel" style="margin-top:8px;">Gap — these states have no theme:</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <span class="status-pill info">In&nbsp;Progress</span>
+          <span class="status-pill warn">Warning</span>
+          <span class="status-pill neutral">Archived</span>
+        </div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>Distinguishes ~13 status states across <code>.status-pill</code> and a dozen renamed variants.</dd>
+          <dt>Ships today</dt><dd><code>vaadin-badge</code> has 8 themes (incl. success/error/contrast).</dd>
+          <dt>Gap</dt><dd>~4 missing themes: <code>in-progress</code>, <code>draft</code>, <code>info</code>, <code>warning</code> + a dot variant. <code>warning</code> is also a cross-component consistency fix (button/notification have it; badge doesn't).</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP (scoped down).</strong> Smaller than the 13 it looks like — collapse the ~17 health pills onto the 8 shipped themes + ~4 new. Two vocabularies (health + lifecycle), not 28 classes.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="gap">
+    <div class="gap-head"><span class="id">BADGE-S01</span><span class="name">Leading-icon slot</span><span class="effort">M</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — what the prototype hand-tunes today:</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <span class="status-pill ok"><i class="fa-solid fa-circle"></i> Active</span>
+          <span class="status-pill warn"><i class="fa-solid fa-triangle-exclamation" style="font-size:9px;"></i> Due Soon</span>
+          <span class="status-pill info"><i class="fa-solid fa-rotate" style="font-size:9px;"></i> Syncing</span>
+        </div>
+        <div class="sub" style="font-size:11px;">Icon sizing is set inline per usage (e.g. <code>style="font-size:6px"</code>) — no slot.</div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>~80% of status pills lead with an icon, inserted as a raw <code>&lt;i&gt;</code> with hand-tuned font-size.</dd>
+          <dt>Ships today</dt><dd>Badge is attribute-only on a host span — no documented icon slot.</dd>
+          <dt>Gap</dt><dd>One leading-icon slot + spacing tokens that auto-scale with badge size.</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP.</strong> High leverage — every status pill benefits, and it kills the per-usage sizing drift.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ BUTTON ============================ -->
+  <h2>Button</h2>
+  <div class="gap">
+    <div class="gap-head"><span class="id">BTN-C01</span><span class="name">Content-justification variant</span><span class="effort">S</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — left-aligned label + trailing chevron (hover a row):</div>
+        <div class="action-btn-row" style="max-width:300px;">
+          <button class="action-btn-item primary"><i class="fa-solid fa-box"></i><span class="action-label">Restock placement</span><i class="fa-solid fa-chevron-right action-arrow"></i></button>
+          <button class="action-btn-item"><i class="fa-solid fa-right-left"></i><span class="action-label">Transfer to another unit</span><i class="fa-solid fa-chevron-right action-arrow"></i></button>
+          <button class="action-btn-item danger"><i class="fa-solid fa-ban"></i><span class="action-label">Remove placement</span><i class="fa-solid fa-chevron-right action-arrow"></i></button>
+        </div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>Entity/detail rails stack actions with a leading icon, a flex-filled label, and a chevron that fades in on hover (<code>.action-btn-row</code>).</dd>
+          <dt>Ships today</dt><dd><code>vaadin-button</code> centers its content; no content-justification or trailing-affordance variant.</dd>
+          <dt>Gap</dt><dd>An <code>align-start</code> + trailing-slot variant. Confirmed real by the light-Lumo fitness test.</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP (small).</strong> Small (S), but recurs in every entity/detail rail — worth blessing.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ TABS ============================ -->
+  <h2>Tabs</h2>
+  <div class="gap">
+    <div class="gap-head"><span class="id">TAB-S01</span><span class="name">Count-badge slot</span><span class="effort">M</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — count pill riding on a tab:</div>
+        <div class="detail-tabs">
+          <div class="detail-tab active"><i class="fa-solid fa-circle-info"></i> Overview</div>
+          <div class="detail-tab"><i class="fa-solid fa-rocket"></i> Deployments <span class="detail-tab-count">3</span></div>
+          <div class="detail-tab"><i class="fa-solid fa-clock-rotate-left"></i> History</div>
+        </div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>15+ files put a count pill on a tab (<code>.detail-tab-count</code>, <code>.proc-tab-count</code>, <code>.bucket-count</code>, <code>.cat-tab-count</code>).</dd>
+          <dt>Ships today</dt><dd><code>vaadin-tabs</code>/<code>vaadin-tab</code> — no count-badge slot.</dd>
+          <dt>Gap</dt><dd>A count slot on the tab. (The tab strip itself is consolidation, not a gap — see worksheet TAB-D01.)</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP.</strong> The one genuine Tab ask; pairs with collapsing the 14 hand-built strips.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ CARD ============================ -->
+  <h2>Card</h2>
+  <div class="gap">
+    <div class="gap-head"><span class="id">CARD-C01</span><span class="name">KPI / metric tile recipe</span><span class="effort">M</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — metric tiles incl. a warning accent:</div>
+        <div class="stat-tiles">
+          <div class="stat-tile"><div class="stat-tile-label">In Service</div><div class="stat-tile-value">142</div><div class="stat-tile-sub">6 stations</div></div>
+          <div class="stat-tile warn"><div class="stat-tile-label">Due Soon</div><div class="stat-tile-value">8</div><span class="stat-tile-trend warn"><i class="fa-solid fa-arrow-trend-up"></i> +3</span></div>
+          <div class="stat-tile"><div class="stat-tile-label">OOS</div><div class="stat-tile-value">2</div><div class="stat-tile-sub">awaiting parts</div></div>
+        </div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>Metric tile recurs everywhere (<code>.stat-tile</code> + <code>.ldc-stat</code>, <code>.qs-tile</code>, <code>.rcv-review-tile</code>) with a value/label/sub/trend vocabulary and semantic top-accent.</dd>
+          <dt>Ships today</dt><dd><code>vwc-card</code> can compose it but there's no blessed KPI recipe.</dd>
+          <dt>Gap</dt><dd>A canonical metric recipe (value/label/trend/accent) on <code>vwc-card</code>, or a small <code>vwc-metric</code>.</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP.</strong> Consolidate the 4 SAME tiles first, then one recipe. The trend/accent vocabulary is worth standardizing.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ CHIP ============================ -->
+  <h2>Chip</h2>
+  <div class="gap">
+    <div class="gap-head"><span class="id">CHIP-V01</span><span class="name">Toggle filter chip</span><span class="effort">S</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — toggleable filter chips (one active):</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <span class="filter-chip active"><i class="fa-solid fa-check"></i> All</span>
+          <span class="filter-chip">Apparatus</span>
+          <span class="filter-chip">Controlled Substances</span>
+        </div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>8 SAME toggle-chip implementations (<code>.filter-chip</code>, <code>.loc-pill</code>, <code>.roster-pill</code>, <code>.cat-chip</code>…), radius drift only.</dd>
+          <dt>Ships today</dt><dd><code>vwc-toggle-button</code> — no pill/chip theme.</dd>
+          <dt>Gap</dt><dd>One chip theme on <code>vwc-toggle-button</code> (pill, icon-leading, optional count).</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP (scoped down).</strong> The gap is one theme, not 11 chips — consolidate the 8 SAME onto it.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="gap">
+    <div class="gap-head"><span class="id">CHIP-V02</span><span class="name">Dismissible chip</span><span class="effort">S</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — removable filter tokens:</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <span class="filter-summary-chip">Status: In Service <button aria-label="Remove"><i class="fa-solid fa-xmark"></i></button></span>
+          <span class="filter-summary-chip">Station 7 <button aria-label="Remove"><i class="fa-solid fa-xmark"></i></button></span>
+        </div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>Removable filter tokens with a trailing ✕ (<code>.filter-summary-chip</code>, <code>.strip-chip</code>).</dd>
+          <dt>Ships today</dt><dd>No dismissible-chip affordance.</dd>
+          <dt>Gap</dt><dd>A trailing-✕ dismiss variant; pairs with CHIP-V01 and the filter-summary bar (CHIP-C01).</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP (small).</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ ALERT ============================ -->
+  <h2>Inline alert</h2>
+  <div class="gap">
+    <div class="gap-head"><span class="id">ALERT-C01</span><span class="name">Inline alert / callout</span><span class="effort">L</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — persistent inline alerts (warn + error):</div>
+        <div class="state-callout conflict">
+          <i class="fa-solid fa-triangle-exclamation state-callout-icon"></i>
+          <div class="state-callout-body"><div class="state-callout-title">Inspection due in 3 days</div><div class="state-callout-desc">SCBA hydro test expires 07/02. Schedule before the unit goes OOS.</div></div>
+        </div>
+        <div class="state-callout block">
+          <i class="fa-solid fa-circle-exclamation state-callout-icon"></i>
+          <div class="state-callout-body"><div class="state-callout-title">Controlled substance count mismatch</div><div class="state-callout-desc">Expected 12 vials, witnessed 11. Resolve before closing the shift.</div></div>
+        </div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>8+ reinventions of a persistent in-page callout (<code>.state-callout</code>, <code>.ep-alert</code>, <code>.issue-callout</code>…).</dd>
+          <dt>Ships today</dt><dd><code>vaadin-notification</code> is transient (toast) only — no inline, persistent alert.</dd>
+          <dt>Gap</dt><dd>An inline alert primitive: icon + title + body + optional inline action, warn/error/info/success.</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP (high-value).</strong> Highest-leverage (C) — absorbs 8+ reinventions plus ALERT-V01, ALERT-C02, and CER-V03 framing. Build early.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ PROGRESS ============================ -->
+  <h2>Progress</h2>
+  <div class="gap">
+    <div class="gap-head"><span class="id">STEP-V02</span><span class="name">Par / threshold progress bar</span><span class="effort">S</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — qty-vs-par fill, color shifts on threshold:</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div class="inline-par-bar-wrap"><div class="inline-par-bar"><div class="inline-par-fill ok" style="width:90%;"></div></div><span class="inline-par-pct">9 / 10</span></div>
+          <div class="inline-par-bar-wrap"><div class="inline-par-bar"><div class="inline-par-fill warn" style="width:40%;"></div></div><span class="inline-par-pct">4 / 10</span></div>
+          <div class="inline-par-bar-wrap"><div class="inline-par-bar"><div class="inline-par-fill low" style="width:15%;"></div></div><span class="inline-par-pct">1 / 8</span></div>
+        </div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>Qty-vs-par fill with threshold color shift (<code>.inline-par-bar</code>, <code>.agg-par-bar</code>, <code>.po-line-qty-bar</code>).</dd>
+          <dt>Ships today</dt><dd><code>vaadin-progress-bar</code> — single color, no threshold semantics.</dd>
+          <dt>Gap</dt><dd>A threshold-aware variant (color shifts as fill crosses a par level).</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP (small).</strong> Consolidate the 3 SAME first.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ LIST / DATA ============================ -->
+  <h2>List / data</h2>
+  <div class="gap">
+    <div class="gap-head"><span class="id">LIST-D01</span><span class="name">Grid composed-cell renderers</span><span class="effort">M</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — the rich row the prototype reinvents ~30 ways:</div>
+        <div class="loc-list-wrap">
+          <div class="loc-list-header"><div>Location</div><div>Type</div><div>Subs</div><div>Status</div><div></div></div>
+          <a class="loc-row" href="#">
+            <div class="loc-name-cell"><div class="loc-icon-badge t-hq"><i class="fa-solid fa-building"></i></div><div style="min-width:0;"><div class="loc-name">Headquarters — Station 1</div><div class="loc-addr">400 Main St</div></div></div>
+            <div class="loc-cell"><span class="loc-type-pill"><i class="fa-solid fa-star"></i> HQ</span></div>
+            <div class="loc-cell"><span class="loc-count-strong">6</span></div>
+            <div class="loc-cell"><span class="loc-status-pill ok"><i class="fa-solid fa-circle-check"></i> Active</span></div>
+            <div class="loc-row-actions"><i class="fa-solid fa-chevron-right" style="color:var(--lumo-tertiary-text-color);"></i></div>
+          </a>
+          <a class="loc-row" href="#">
+            <div class="loc-name-cell"><div class="loc-icon-badge t-warehouse"><i class="fa-solid fa-warehouse"></i></div><div style="min-width:0;"><div class="loc-name">Central Warehouse</div><div class="loc-addr">88 Depot Rd</div></div></div>
+            <div class="loc-cell"><span class="loc-type-pill"><i class="fa-solid fa-boxes-stacked"></i> Whse</span></div>
+            <div class="loc-cell"><span class="loc-count-strong">12</span></div>
+            <div class="loc-cell"><span class="loc-status-pill warn"><i class="fa-solid fa-triangle-exclamation"></i> Low</span></div>
+            <div class="loc-row-actions"><i class="fa-solid fa-chevron-right" style="color:var(--lumo-tertiary-text-color);"></i></div>
+          </a>
+        </div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>~30 rich-row implementations (~18 the same): icon tile + 2-line name/meta + type pill + status pill + chevron.</dd>
+          <dt>Ships today</dt><dd><code>vaadin-grid</code> renders text columns; composed cells need <code>renderer</code> functions.</dd>
+          <dt>Gap</dt><dd>2–3 blessed column-renderer recipes (icon-tile cell, 2-line cell, status-pill cell).</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP (scoped down) — highest-value DS deliverable.</strong> The answer is renderer <em>recipes</em>, not 18 components. Consolidate the ~18 onto them.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="gap">
+    <div class="gap-head"><span class="id">LIST-V01</span><span class="name">Expand-in-place row</span><span class="effort">M</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — collapsed + expanded (detail beneath):</div>
+        <div style="border:1px solid var(--lumo-contrast-10pct);border-radius:8px;padding:4px 8px;background:#fff;">
+          <div class="unit-row-wrap">
+            <div class="unit-row"><div class="unit-row-icon ok"><i class="fa-solid fa-truck"></i></div><div class="unit-row-name-cell"><div class="unit-row-name">Engine 12</div><div class="unit-row-sub">Station 7 · Ready</div></div><i class="fa-solid fa-chevron-right unit-row-chevron"></i></div>
+          </div>
+          <div class="unit-row-wrap">
+            <div class="unit-row promoted"><div class="unit-row-icon warn"><i class="fa-solid fa-truck-medical"></i></div><div class="unit-row-name-cell"><div class="unit-row-name">Medic 4</div><div class="unit-row-sub">Station 3 · Needs attention</div></div><i class="fa-solid fa-chevron-right unit-row-chevron"></i></div>
+            <div class="unit-row-expand"><div class="expand-attrs"><div class="expand-attr"><div class="expand-attr-label">Last check</div><div class="expand-attr-value warn">2 days ago</div></div><div class="expand-attr"><div class="expand-attr-label">Open issues</div><div class="expand-attr-value error">1 deficiency</div></div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>Click a row to reveal detail beneath it (<code>.unit-row</code> + <code>.unit-row-expand</code>); 4 impls, 3 mechanisms.</dd>
+          <dt>Ships today</dt><dd>No grid expand-in-place primitive.</dd>
+          <dt>Gap</dt><dd>An expand-in-place row pattern; consolidate the 4 (incl. the dead <code>.aab-row</code> toggle).</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP.</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="gap">
+    <div class="gap-head"><span class="id">LIST-V03</span><span class="name">In-row editable selection</span><span class="effort">M</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — checkbox row + inline editable controls:</div>
+        <div style="border:1px solid var(--lumo-contrast-10pct);border-radius:8px;background:#fff;overflow:hidden;">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--lumo-contrast-5pct);">
+            <input type="checkbox" checked>
+            <div style="flex:1;"><div style="font-size:13px;font-weight:600;">SCBA Cylinder</div><div style="font-size:11px;color:var(--lumo-secondary-text-color);">Equipment</div></div>
+            <input type="number" value="4" style="width:48px;font-size:12px;padding:3px 5px;border:1px solid var(--lumo-contrast-20pct);border-radius:5px;">
+            <select style="font-size:12px;padding:3px 5px;border:1px solid var(--lumo-contrast-20pct);border-radius:5px;"><option>Lot A-441</option></select>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(99,102,241,0.05);">
+            <input type="checkbox" checked>
+            <div style="flex:1;"><div style="font-size:13px;font-weight:600;">Gauze Pack</div><div style="font-size:11px;color:var(--lumo-secondary-text-color);">Supply</div></div>
+            <input type="number" value="20" style="width:48px;font-size:12px;padding:3px 5px;border:1px solid var(--lumo-contrast-20pct);border-radius:5px;">
+            <select style="font-size:12px;padding:3px 5px;border:1px solid var(--lumo-contrast-20pct);border-radius:5px;"><option>Lot B-203</option></select>
+          </div>
+        </div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>Selection rows with per-row editable qty/lot/target inputs (<code>.transfer-item</code>); 3 rows are missing the selected-tint entirely (a bug).</dd>
+          <dt>Ships today</dt><dd><code>vaadin-grid</code> selection = checkbox + row tint only; can't drive in-row editing.</dd>
+          <dt>Gap</dt><dd>An editable-cell selection pattern. Confirmed real by the fitness test.</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP.</strong> Also fixes the 3 tint-less rows + off-palette teal selection (cleanup).</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="gap">
+    <div class="gap-head"><span class="id">LIST-C01</span><span class="name">Batch-action bar</span><span class="effort">M</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — appears on selection:</div>
+        <div class="batch-bar">
+          <span class="batch-bar-label">3 selected</span>
+          <button class="batch-action-btn"><i class="fa-solid fa-hashtag"></i> Apply qty</button>
+          <button class="batch-action-btn"><i class="fa-solid fa-tag"></i> Apply lot</button>
+          <button class="batch-bar-deselect">Deselect</button>
+        </div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>Selection-driven action bar (<code>.batch-bar</code> ≡ <code>.aab-batch-bar</code>; <code>.cat-bulk-bar</code> is a floating variant).</dd>
+          <dt>Ships today</dt><dd>No selection-action-bar primitive.</dd>
+          <dt>Gap</dt><dd>An appears-on-selection bar (count + actions + deselect).</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP.</strong> Build the inline form; decide separately if the floating anchoring (<code>.cat-bulk-bar</code>) is also needed (SPLIT).</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ OPTION CARD ============================ -->
+  <h2>Selectable option card</h2>
+  <div class="gap">
+    <div class="gap-head"><span class="id">OPTCARD-C01</span><span class="name">Selectable option card</span><span class="effort">M</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — radio-as-cards (one selected):</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="rcv-mode-card fast selected"><span class="rcv-mode-card-tag">Selected</span><div class="rcv-mode-card-head"><div class="rcv-mode-card-icon"><i class="fa-solid fa-bolt"></i></div><div><h3 class="rcv-mode-card-title">Fast receive</h3><div class="rcv-mode-card-state">Quick intake</div></div></div><p class="rcv-mode-card-desc">Log quantities now, finish details later.</p></div>
+          <div class="rcv-mode-card complete"><div class="rcv-mode-card-head"><div class="rcv-mode-card-icon"><i class="fa-solid fa-clipboard-check"></i></div><div><h3 class="rcv-mode-card-title">Complete receive</h3><div class="rcv-mode-card-state">Full record</div></div></div><p class="rcv-mode-card-desc">Capture lot, expiry, and serials on intake.</p></div>
+        </div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>"Radio-as-cards" for mode/candidate selection (<code>.rcv-mode-card</code>, <code>.ff-slot-card</code>, <code>.ff-candidate</code>).</dd>
+          <dt>Ships today</dt><dd>No selectable-card pattern (radio is a control, not a card).</dd>
+          <dt>Gap</dt><dd>A selectable-card recipe on <code>vwc-card</code> (icon + title + desc + selected state).</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP.</strong> Genuine reusable pattern; consolidate the 3.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ CEREMONY CONTROL ============================ -->
+  <h2>Toggle control</h2>
+  <div class="gap">
+    <div class="gap-head"><span class="id">CER-V01</span><span class="name">Per-button semantic color</span><span class="effort">S</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — pass/fail control (pass selected = green):</div>
+        <div class="verify-controls">
+          <button class="verify-btn pass selected">Pass</button>
+          <button class="verify-btn deficiency">Deficiency</button>
+          <button class="verify-btn na">N/A</button>
+        </div>
+        <div style="margin-top:6px;"></div>
+        <div class="verify-controls">
+          <button class="verify-btn pass">Pass</button>
+          <button class="verify-btn deficiency selected">Deficiency</button>
+          <button class="verify-btn na">N/A</button>
+        </div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>Pass/Deficiency/N-A control with per-button selected color: green pass, red deficiency, neutral N/A (<code>.verify-btn</code>).</dd>
+          <dt>Ships today</dt><dd><code>vwc-toggle-button-group</code> radio mode gives a <em>uniform</em> accent; <code>vwc-toggle-button</code> has no per-button semantic theme (unlike <code>vaadin-button</code>).</dd>
+          <dt>Gap</dt><dd>A per-button semantic-color theme on the toggle button. Confirmed real by the fitness test.</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP (small).</strong> Useful beyond ceremonies — any pass/fail control. (The full ceremony runner around it is CheckIt-layer, not DS.)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ NAVIGATION ============================ -->
+  <h2>Navigation</h2>
+  <div class="gap">
+    <div class="gap-head"><span class="id">SHELL-D02</span><span class="name">Sidenav static section-header</span><span class="effort">M</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — non-collapsible cluster headings:</div>
+        <nav class="mini-sidenav">
+          <div class="sidebar-cluster-label">Operations</div>
+          <ul class="sidebar-nav">
+            <li><a class="nav-item active"><i class="fa-solid fa-gauge-high nav-icon"></i> Readiness</a></li>
+            <li><a class="nav-item"><i class="fa-solid fa-truck nav-icon"></i> Fleet</a></li>
+          </ul>
+          <div class="sidebar-cluster-label">Configurations</div>
+          <ul class="sidebar-nav">
+            <li><a class="nav-item"><i class="fa-solid fa-layer-group nav-icon"></i> Catalog</a></li>
+          </ul>
+        </nav>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>The locked four-cluster nav uses static, non-collapsible section headings above groups of items (<code>.sidebar-cluster-label</code>).</dd>
+          <dt>Ships today</dt><dd><code>vwc-sidenav</code>'s item union is link/button/group/divider — no static <code>section</code> type, and <code>group</code> is always collapsible (wrong semantics).</dd>
+          <dt>Gap</dt><dd>A static section-header item type. Confirmed real by the fitness test.</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP — load-bearing.</strong> The product's locked IA can't ship without it. Prioritize.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ WORKFLOW HEADER ============================ -->
+  <h2>Workflow header</h2>
+  <div class="gap">
+    <div class="gap-head"><span class="id">CTXB-C01</span><span class="name">Context banner</span><span class="effort">L · decision-gated</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — sticky workflow context header:</div>
+        <div class="context-banner">
+          <div class="cb-entity"><div class="cb-entity-badge"><i class="fa-solid fa-truck"></i></div><div><div class="cb-entity-name">Engine 12</div><div class="cb-entity-meta">Station 7 · Apparatus</div></div></div>
+          <span class="cb-mode-pill"><i class="fa-solid fa-right-left"></i> Move</span>
+          <div class="cb-divider"></div>
+          <div class="cb-detail"><div class="cb-detail-label">Destination</div><div class="cb-detail-value">Central Warehouse</div></div>
+          <div class="cb-detail"><div class="cb-detail-label">Items</div><div class="cb-detail-value">14 selected</div></div>
+          <div class="cb-actions"><vaadin-button theme="secondary">Cancel</vaadin-button><vaadin-button theme="primary">Commit</vaadin-button></div>
+        </div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>Sticky workflow header: entity badge + mode pill + detail blocks + actions (<code>.context-banner</code>, transfer/RTS/receiving/OOS variants + <code>.ceremony-state-bar</code>).</dd>
+          <dt>Ships today</dt><dd>No workflow-header primitive.</dd>
+          <dt>Gap</dt><dd>Generic enough to be a small Vector "workflow header"; consolidate the variants.</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP (decision-gated).</strong> Build DS-side rather than CheckIt chrome — it recurs across workspaces. Needs your composite-ownership call.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ NET-NEW PRIMITIVES ============================ -->
+  <h2>Net-new primitives</h2>
+  <div class="gap">
+    <div class="gap-head"><span class="id">EMPTY-C01</span><span class="name">Empty state</span><span class="effort">L</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — empty-state placeholder:</div>
+        <div class="empty-state" style="border:1px dashed var(--lumo-contrast-20pct);border-radius:8px;">
+          <div class="empty-icon"><i class="fa-solid fa-box-open"></i></div>
+          <div class="empty-title">No assets assigned</div>
+          <div class="empty-msg">Items assigned to this location will appear here.</div>
+        </div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>10+ files, one consistent empty-state pattern (<code>.empty-state</code>).</dd>
+          <dt>Ships today</dt><dd>No empty-state primitive.</dd>
+          <dt>Gap</dt><dd><code>vwc-empty-state</code>: icon + title + message + optional action slot.</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP.</strong> Clean, low-risk — the prototype is already consistent. Good first (C) to build.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="gap">
+    <div class="gap-head"><span class="id">TIME-C01</span><span class="name">Timeline / history row</span><span class="effort">M</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — history timeline:</div>
+        <div style="background:#fff;border:1px solid var(--lumo-contrast-10pct);border-radius:8px;padding:6px 14px;">
+          <div class="history-event"><span class="history-dot check"></span><div class="history-body"><div class="history-what">Daily check completed — all items verified</div><div class="history-when">Today, 06:42 · J. Alvarez</div></div></div>
+          <div class="history-event"><span class="history-dot transfer"></span><div class="history-body"><div class="history-what">Transferred from Station 7 to Engine 12</div><div class="history-when">Jun 24, 14:10 · M. Chen</div></div></div>
+          <div class="history-event"><span class="history-dot flag"></span><div class="history-body"><div class="history-what">Flagged: seal integrity check needed</div><div class="history-when">Jun 22, 09:05 · System</div></div></div>
+        </div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>Dot + icon + what + when, consistent across history/audit views (<code>.history-event</code>, <code>.hx-row</code>, <code>.run-history-entry</code>).</dd>
+          <dt>Ships today</dt><dd>No timeline primitive.</dd>
+          <dt>Gap</dt><dd>A timeline/history-row primitive (dot color encodes action type).</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP.</strong> Recurs and already consistent; consolidate the 3.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="gap">
+    <div class="gap-head"><span class="id">AVA-C01</span><span class="name">Avatar</span><span class="effort">M</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — initials avatars:</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="person-avatar">JA</span>
+          <span class="person-avatar">MC</span>
+          <span class="crew-avatar">RT</span>
+          <span class="crew-avatar warn">DP</span>
+        </div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>Initials/photo circles across personnel, crew, fleet (<code>.person-avatar</code>, <code>.crew-avatar</code>).</dd>
+          <dt>Ships today</dt><dd>No avatar primitive in the library.</dd>
+          <dt>Gap</dt><dd><code>vwc-avatar</code>: initials/photo circle with sizes; pairs with the persona pill (AVA-V01) + palette (THEME-V02).</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP.</strong> Surprising miss; high reuse.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ FOUNDATION ============================ -->
+  <h2>Foundation</h2>
+  <div class="gap">
+    <div class="gap-head"><span class="id">THEME-V02</span><span class="name">Categorical role-color palette</span><span class="effort">M · foundational</span></div>
+    <div class="gap-body">
+      <div class="gap-visual">
+        <div class="vlabel">Live — non-semantic categorical swatches (type/persona/domain):</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#445928;background:#e8efd8;padding:4px 10px;border-radius:8px;">Conifer</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#195049;background:#d8ebe8;padding:4px 10px;border-radius:8px;">Puerto Rico</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#1a4c61;background:#d9eaf1;padding:4px 10px;border-radius:8px;">Picton</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#4a2253;background:#ece0ef;padding:4px 10px;border-radius:8px;">Violet</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#693c12;background:#f3e6d8;padding:4px 10px;border-radius:8px;">Ecstasy</span>
+        </div>
+        <div class="sub" style="font-size:11px;">Swatches use the existing <code>--vwc-color-*</code> palette — a non-semantic set distinct from green/amber/red status.</div>
+      </div>
+      <div class="gap-analysis">
+        <dl>
+          <dt>Prototype</dt><dd>Colors types/personas/domains — but reaches for status colors (green/amber/red/purple), violating the "type = primary only" rule in 4 places (CONSTR-01..04).</dd>
+          <dt>Ships today</dt><dd>A <code>--vwc-color-*</code> decorative palette exists but isn't blessed as the categorical-coloring system.</dd>
+          <dt>Gap</dt><dd>A documented categorical role-color palette, explicitly separate from semantic status.</dd>
+        </dl>
+        <div class="rec"><strong>Recommend: REAL GAP — foundational.</strong> Small build, outsized leverage: unblocks all 4 constraint fixes + avatar + persona. Do it early.</div>
+      </div>
+    </div>
+  </div>
+
+  <p class="sub" style="margin-top:34px;border-top:1px solid #d4dae3;padding-top:16px;">
+    Smaller real gaps not given a full render (theme/state tweaks rather than novel UI): <code>TAB-V01</code> mobile sticky-scroll tabs, <code>DRWR-V02</code> bottom-sheet handle, <code>LIST-V04</code> sticky mobile paginator, <code>CHIP-C01</code> filter-summary bar, <code>CER-V02</code> required-but-unselected chip state, <code>EP-V01</code> row-affordance utilities, <code>AVA-V01</code> persona pill. Several of these are decision-gated on mobile-web priority — see the worksheet. Full per-row evidence and dispositions: <a href="ADJUDICATION-WORKSHEET.md">ADJUDICATION-WORKSHEET.md</a>.
+  </p>
+
+</div>
+</body>
+</html>

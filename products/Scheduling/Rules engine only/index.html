@@ -751,6 +751,23 @@ const REPLY_SUBQS = {
   },
 };
 
+// ── Guided fill-in questions ──────────────────────────────────────────────────
+// Used by the "Describe it in my own words" and "Upload my MOU" paths: after the
+// AI pre-fills whatever it could extract from the user's prose / MOU (and pulses
+// those fields on the right panel), it walks the user through the REMAINING
+// blanks one question at a time — the same step-by-step feel as the guided path.
+// `field` is the form key each question fills; a question is only asked if that
+// field wasn't already answered by the extraction. Chip labels are chosen so
+// parseAndPatch maps each answer cleanly back onto its field.
+const GUIDED_FILL = [
+  { field: 'ruleType',         text: "First — how should employees be ranked in this callback list?", chips: ['Hours based','Turns based','Seniority (hire date)','Rolodex rotation'] },
+  { field: 'ruleAffects',      text: "Which approach(es) should this rule apply to?", chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','Battalion Chief','FF3','All approaches'], multi: true },
+  { field: 'tieBreaker',       text: "When two employees are tied, what should break the tie?", chips: ['Seniority (hire date)','Last shift worked','Last callback date','Alphabetical'] },
+  { field: 'declineAction',    text: "If someone declines a callback, what should happen to their spot?", chips: ['Move to back of list','Stay in position','Penalty points'] },
+  { field: 'ruleEvaluates',    text: "Should this rule evaluate callbacks only, or include all shifts?", chips: ['Callbacks only','All shifts'] },
+  { field: 'includePrevShifts',text: "Last one — should it include shifts created before the rule was activated?", chips: ['Yes, include past shifts','No, only new shifts'] },
+];
+
 // ── RuleBuilderView helpers ───────────────────────────────────────────────────
 const ALL_APPROACHES_LIST = ['Firefighter 2', 'Captains', 'Patrol Deputy', 'Bay Guard', 'Battalion Chief', 'FF3'];
 const ALL_STATUSES_LIST   = ['Dispatched', 'Accepted', 'Pending Acceptance', 'Declined', 'Expired', 'No Response'];
@@ -1221,8 +1238,16 @@ function buildSummary(form) {
   parts.push(`Callback list for ${approachLabel} ranked by ${typeLabels[form.ruleType] || 'fewest accumulated callback hours'}`);
   if (form.lookBack) parts[0] += ` over a ${form.lookBack}-day window`;
   if (form.tieBreaker) parts.push(`Ties broken by ${form.tieBreaker.toLowerCase()}`);
-  if (form.callMethod) parts.push(form.callMethod === 'candidate' ? 'Candidate method (notify all eligible at once)' : 'Wait-time method (call one at a time)');
+  if (form.callMethod) parts.push(form.callMethod === 'candidate' ? 'Goes out to everyone at once (candidate method)' : 'Goes out one at a time (wait-time method)');
+  if (form.notifyChannel) parts.push(`Notified via ${form.notifyChannel.toLowerCase()}`);
   if (form.declineAction) parts.push(`Declines: ${form.declineAction.toLowerCase()}`);
+  if (form.recycleList === 'Yes') parts.push(`Recycles the list until filled${form.stillOpenNotice === 'Yes' ? ', notifying everyone it’s still open each pass' : ''}`);
+  if (form.hardShiftDays && form.hardShiftDays !== "Don't flag hard shifts") {
+    const incentive = form.hardShiftIncentive && form.hardShiftIncentive !== 'No incentive — just flag them'
+      ? `, incentivized with ${(form.hardShiftDetail || form.hardShiftIncentive).toLowerCase()}`
+      : '';
+    parts.push(`${form.hardShiftDays} flagged as hard shifts${incentive}`);
+  }
   if (form.minShift || form.maxShift) {
     const range = [form.minShift && `min ${form.minShift}h`, form.maxShift && `max ${form.maxShift}h`].filter(Boolean).join(', ');
     parts.push(`Shift filter: ${range}`);
@@ -1389,6 +1414,25 @@ function FormGroup({ label, children }) {
   );
 }
 
+// Sectional divider for the rule-configuration panel — splits the long form into
+// scannable groups (e.g. "Rule settings" vs "Call settings"). `first` drops the
+// top border/extra spacing so the leading section sits flush at the panel top.
+function PanelSection({ title, subtitle, first }) {
+  return (
+    <div style={{
+      margin: first ? '0 0 16px' : '10px 0 16px',
+      paddingTop: first ? 0 : 18,
+      borderTop: first ? 'none' : '1px solid rgba(0,0,0,.09)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ width: 4, height: 13, borderRadius: 2, background: '#7C3AED', flex: 'none' }} />
+        <span style={{ font: '700 11.5px/1 Inter,sans-serif', letterSpacing: '.08em', textTransform: 'uppercase', color: '#5B21B6' }}>{title}</span>
+      </div>
+      {subtitle && <div style={{ font: '400 11px/1.45 Inter,sans-serif', color: 'rgba(0,0,0,.45)', marginTop: 5, marginLeft: 12 }}>{subtitle}</div>}
+    </div>
+  );
+}
+
 function FormInput({ value, onChange, placeholder, type = 'text' }) {
   return (
     <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
@@ -1470,6 +1514,8 @@ const NOTIFY_CHANNEL_OPTIONS = [
   { value: 'Phone call',         title: 'Phone Call',          desc: 'Crew Scheduler auto-dials each ranked employee in turn.',                  icon: 'fa-solid fa-phone' },
   { value: 'Text message',       title: 'Text Message',        desc: 'Send an SMS to each ranked employee with an accept / decline reply.',     icon: 'fa-solid fa-comment-sms' },
   { value: 'Push notification',  title: 'Push Notification',   desc: 'Send an in-app push to each ranked employee with an accept / decline tap.', icon: 'fa-solid fa-bell' },
+  { value: 'Email',              title: 'Email',               desc: 'Email each ranked employee with an accept / decline link.',                icon: 'fa-solid fa-envelope' },
+  { value: 'All channels',       title: 'All Channels',        desc: 'Reach each employee by call, text, push, and email at the same time.',     icon: 'fa-solid fa-tower-broadcast' },
 ];
 
 const NOTIFY_CADENCE_OPTIONS = {
@@ -1493,6 +1539,19 @@ const NOTIFY_CADENCE_OPTIONS = {
     'Push everyone all at once (broadcast)',
     'Push one at a time (top of list first)',
   ],
+  'Email': [
+    'Email every 30 minutes until filled',
+    'Email every hour until filled',
+    'Email everyone all at once (broadcast)',
+    'Email one at a time (top of list first)',
+  ],
+  'All channels': [
+    'Send every 15 minutes until filled',
+    'Send every 30 minutes until filled',
+    'Send every hour until filled',
+    'Send to everyone all at once (broadcast)',
+    'Send one at a time (top of list first)',
+  ],
 };
 
 const NEXT_DAY_CADENCE_OPTIONS = {
@@ -1511,6 +1570,42 @@ const NEXT_DAY_CADENCE_OPTIONS = {
     'Retry push every 2 hours until filled',
     'Retry push every 4 hours until filled',
   ],
+  'Email': [
+    'Single retry email the next morning',
+    'Retry email every 2 hours until filled',
+    'Retry email every 4 hours until filled',
+  ],
+  'All channels': [
+    'Single retry the next morning',
+    'Retry every 2 hours until filled',
+    'Retry every 4 hours until filled',
+  ],
+};
+
+// ── Hard-shift incentives ─────────────────────────────────────────────────────
+// Holiday / weekend callbacks are the hardest to fill. The rule can flag them
+// and attach an incentive to encourage employees to take them. The incentive is
+// a dropdown; the chosen incentive reveals a second dropdown for its detail.
+const HARD_SHIFT_DAYS_OPTIONS = [
+  'Holidays & weekends',
+  'Holidays only',
+  'Weekends only',
+  "Don't flag hard shifts",
+];
+
+const HARD_SHIFT_INCENTIVE_OPTIONS = [
+  'Bonus ranking credit',
+  'Recognition badge / award',
+  'Premium pay multiplier',
+  'Priority for preferred shifts',
+  'No incentive — just flag them',
+];
+
+const HARD_SHIFT_DETAIL_OPTIONS = {
+  'Bonus ranking credit':         ['+25% accrued credit', '+50% accrued credit', 'Double credit (2×)'],
+  'Recognition badge / award':    ['Holiday Hero badge', 'Hard-shift streak badge', 'Both badges'],
+  'Premium pay multiplier':       ['1.5× pay', '2× pay', 'Flat bonus per shift'],
+  'Priority for preferred shifts':['First pick on the next opening', 'Bank a priority credit', 'Protected from next mandatory callback'],
 };
 
 // ── Human-readable labels for form fields ────────────────────────────────────
@@ -1555,6 +1650,11 @@ const FIELD_LABELS = {
   notifyCadence:        'Notification cadence',
   nextDayRetry:         'Next-day retry',
   nextDayCadence:       'Next-day cadence',
+  recycleList:          'Recycle list until filled',
+  stillOpenNotice:      'Still-open notification',
+  hardShiftDays:        'Hard-shift flagging',
+  hardShiftIncentive:   'Hard-shift incentive',
+  hardShiftDetail:      'Hard-shift incentive detail',
 };
 
 // Fields that update on every keystroke — recording each keystroke in the chat
@@ -1939,6 +2039,15 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
   // their own description first. This flag is true between picking that option
   // and sending that first description.
   const [awaitingFirstDescription, setAwaitingFirstDescription] = useState(false);
+  // The "Upload my MOU" path: true between picking that option and the user
+  // sending their MOU (an attachment and/or a note). The send simulates an
+  // extraction, pre-fills a representative rule, then hands off to the guided
+  // fill-in below.
+  const [awaitingMou, setAwaitingMou] = useState(false);
+  // Guided fill-in queue (see GUIDED_FILL). Null when inactive; otherwise the
+  // remaining questions to walk after a describe / MOU extraction. The first
+  // entry is always the question currently on screen.
+  const [fillQueue, setFillQueue] = useState(null);
   // True once the user has answered the guided flow's opening "which
   // approaches?" question. When set, picking a ranking template skips that
   // template's own approaches question (flow[0]) so we don't ask approaches
@@ -2055,10 +2164,19 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
     // notifyChannel drives which `notifyCadence` and `nextDayCadence` menus render —
     // phone calls and text/push notifications have different operational rhythms,
     // so we keep their sub-options separate to avoid showing nonsensical options.
-    notifyChannel:       '',  // 'Phone call' | 'Text message' | 'Push notification'
+    notifyChannel:       '',  // 'Phone call' | 'Text message' | 'Push notification' | 'Email' | 'All channels'
     notifyCadence:       '',  // varies per channel — see NOTIFY_CADENCE_OPTIONS
     nextDayRetry:        '',  // 'Yes' | 'No'
     nextDayCadence:      '',  // varies per channel — second-day retry rhythm
+    // Recycle the ranked list until the shift is filled, and (optionally) tell
+    // everyone on the list each pass that the position is still open.
+    recycleList:         existingRule?.config?.recycleList || '',     // 'Yes' | 'No'
+    stillOpenNotice:     existingRule?.config?.stillOpenNotice || '', // 'Yes' | 'No'
+    // Hard shifts (holidays / weekends) — flag them and attach an incentive to
+    // encourage employees to take them. See HARD_SHIFT_* option lists.
+    hardShiftDays:       existingRule?.config?.hardShiftDays || '',      // which dates count
+    hardShiftIncentive:  existingRule?.config?.hardShiftIncentive || '', // the incentive
+    hardShiftDetail:     existingRule?.config?.hardShiftDetail || '',    // incentive detail
   });
 
   // Tracks which config fields have been surfaced by chat answers
@@ -2407,6 +2525,38 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
     else if (lower === 'yes, most senior first' || lower === 'most senior first') updates.tieBreakerOrder = 'Most senior first';
     else if (lower === 'least senior first') updates.tieBreakerOrder = 'Least senior first';
     if (Object.keys(updates).length) patchForm(updates, { fromChat: true });
+    return updates;
+  };
+
+  // After an extraction (a typed description or an MOU upload), acknowledge what
+  // was pulled in — those fields are already pulsing on the right panel — and
+  // then walk the user through the remaining blanks one question at a time,
+  // skipping anything the extraction already answered. This gives the describe /
+  // MOU paths the same guided, step-by-step "fill in the blanks" feel as the
+  // "Guide me step by step" path, instead of dropping a wall of template chips.
+  const beginGuidedFill = (extracted, source) => {
+    const answered = new Set(Object.keys(extracted || {}));
+    // selectedApproaches arrives alongside ruleAffects — treat the approach
+    // question as answered if either key came back from the extraction.
+    if (answered.has('selectedApproaches')) answered.add('ruleAffects');
+    const queue = GUIDED_FILL.filter(q => !answered.has(q.field));
+    const filled = [...answered]
+      .filter(k => FIELD_LABELS[k] && k !== 'ruleName' && k !== 'selectedApproaches')
+      .map(k => FIELD_LABELS[k]);
+    const lead = filled.length
+      ? `I pulled ${filled.length === 1 ? 'one setting' : `${filled.length} settings`} from your ${source} and filled ${filled.length === 1 ? 'it' : 'them'} in on the right${filled.length <= 3 ? ` — ${filled.join(', ').toLowerCase()}` : ''}.`
+      : `Got it — I've started a rule from your ${source}.`;
+    setTyping(true);
+    setTimeout(() => {
+      if (queue.length) {
+        const q = queue[0];
+        setMessages(m => [...m, { role: 'ai', text: `${lead}\n\nLet's fill in the blanks together. ${q.text}`, chips: q.chips, multi: q.multi }]);
+        setFillQueue(queue);
+      } else {
+        setMessages(m => [...m, { role: 'ai', text: `${lead}\n\nThat covers everything — save it, preview the ranking, or adjust anything?`, chips: ['Save rule','Preview ranking','Adjust something'] }]);
+      }
+      setTyping(false);
+    }, 800);
   };
 
   // True once the user has supplied enough info that a Preview Mode jump
@@ -2417,7 +2567,10 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
 
   const send = (text, opts = {}) => {
     const isSkip = !!opts.skip;
-    if (!isSkip && !text.trim() || typing) return;
+    if (typing) return;
+    // Normally a send needs typed text; the one exception is the MOU upload step,
+    // where an attached file alone is enough to trigger the extraction.
+    if (!isSkip && !text.trim() && !(awaitingMou && attachments.length)) return;
     // The composer cue has served its purpose once the user sends anything.
     if (composerSpotlight) setComposerSpotlight(false);
 
@@ -2483,9 +2636,11 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
       } else if (text === 'Upload my MOU') {
         setMessages(m => [...m,
           { role: 'user', text },
-          { role: 'ai', text: "Sure — drop in your MOU (PDF, DOCX, or text) and I'll pull out the callback rules so you can review them before saving. Or pick a starting point below to build from scratch." },
-          { role: 'suggestions' },
+          { role: 'ai', text: "Sure — attach your MOU below (PDF, DOCX, or text) and send it. I'll pull out the callback rules, fill in what I can on the right, then we'll fill in the blanks together." },
         ]);
+        setAwaitingMou(true);
+        // Nudge the composer/attach affordance as the next step.
+        setComposerSpotlight(true);
       } else {
         // "Describe it in my own words", "Something else", a typed sentence, or a skip.
         // Hold the starting-point suggestions back until the user has written
@@ -2502,23 +2657,57 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
       return;
     }
     // 2.6) First free-text description in the "Describe it in my own words"
-    //      path. Now that the user has written something, acknowledge it and
-    //      THEN reveal the starting-point suggestions so they can refine or
-    //      pick a template to build from.
+    //      path. Parse out whatever the user gave us (which pulses those fields
+    //      on the right panel), then hand off to the guided fill-in so we walk
+    //      them through the remaining blanks step by step.
     if (awaitingFirstDescription && !existingRule) {
       setAwaitingFirstDescription(false);
-      parseAndPatch(text);
+      const extracted = parseAndPatch(text);
       setMessages(m => [...m, { role: 'user', text, skipped: isSkip }]);
       setInput('');
       setCustomAnswer(false);
+      beginGuidedFill(extracted, 'description');
+      return;
+    }
+    // 2.7) MOU upload sent. Simulate an extraction — pre-fill a representative
+    //      callback rule (pulsing those fields on the right) — then walk the
+    //      remaining blanks via the same guided fill-in as the describe path.
+    if (awaitingMou && !existingRule) {
+      setAwaitingMou(false);
+      const fileLabel = attachments.length
+        ? attachments.map(f => f.name).join(', ')
+        : (text.trim() || 'your MOU');
+      setMessages(m => [...m, { role: 'user', text: attachments.length ? `📎 ${fileLabel}` : text }]);
+      setAttachments([]);
+      setInput('');
+      setCustomAnswer(false);
+      // Representative rules an MOU parse would surface. patchForm pulses these
+      // on the right; beginGuidedFill then asks only for what's still missing.
+      const extracted = { ruleType: 'hours', ruleAffects: 'selected', selectedApproaches: ['Firefighter 2', 'Captains'], hoursCountedOutcomes: 'Accepted only', resetCadence: 'Annually (fiscal year)' };
+      patchForm(extracted, { fromChat: true });
+      beginGuidedFill(extracted, 'MOU');
+      return;
+    }
+    // 2.8) Guided fill-in answer (describe / MOU paths). Parse the answer onto
+    //      its field, then advance to the next blank — or wrap up when the queue
+    //      is empty.
+    if (fillQueue && !existingRule) {
+      if (!isSkip) parseAndPatch(text);
+      setMessages(m => [...m, { role: 'user', text, skipped: isSkip }]);
+      setInput('');
+      setCustomAnswer(false);
+      const rest = fillQueue.slice(1);
+      setFillQueue(rest.length ? rest : null);
       setTyping(true);
       setTimeout(() => {
-        setMessages(m => [...m,
-          { role: 'ai', text: "Got it — I've started a rule from that. Keep refining it in your own words, or pick a starting point below to build from." },
-          { role: 'suggestions' },
-        ]);
+        if (rest.length) {
+          const q = rest[0];
+          setMessages(m => [...m, { role: 'ai', text: q.text, chips: q.chips, multi: q.multi }]);
+        } else {
+          setMessages(m => [...m, { role: 'ai', text: "That's everything filled in on the right. Save the rule, preview the ranking, or adjust anything?", chips: ['Save rule', 'Preview ranking', 'Adjust something'] }]);
+        }
         setTyping(false);
-      }, 800);
+      }, 700 + Math.random() * 300);
       return;
     }
     // 3) Initial approach question — when the user chose the guided setup, the
@@ -2769,16 +2958,23 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
     randomizeFrequency: '', randomWeighting: '', randomGuardrail: '',
     ruleEvaluates: '', includePrevShifts: '',
     notifyChannel: '', notifyCadence: '', nextDayRetry: '', nextDayCadence: '',
+    recycleList: '', stillOpenNotice: '',
+    hardShiftDays: '', hardShiftIncentive: '', hardShiftDetail: '',
   };
   const startOver = () => {
+    // Reset all the way up to the path-choice question — guide / describe /
+    // upload — so the user re-picks how they want to build, not just which
+    // approaches to use.
     setMessages([
-      { role: 'ai', text: "Hi! Let's create a new rule.\n\nWhich approach(es) should this rule apply to?",
-        chips: ['Firefighter 2','Captains','Patrol Deputy','Bay Guard','Battalion Chief','FF3','All approaches'],
-        multi: true },
+      { role: 'ai', text: "Hi! Let's create a new rule.\n\nShould I guide you step by step, or would you rather describe it in your own words or upload your MOU?",
+        chips: ['Guide me step by step', 'Describe it in my own words', 'Upload my MOU'] },
     ]);
-    setAwaitingInitialApproach(true);
+    setAwaitingSetupChoice(true);
+    setAwaitingInitialApproach(false);
     setInitialApproachAnswered(false);
     setAwaitingFirstDescription(false);
+    setAwaitingMou(false);
+    setFillQueue(null);
     setComposerSpotlight(false);
     setForm(blankForm);
     setInput('');
@@ -2791,6 +2987,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
     setNewestField(null);
     setSubResumeIdx(null);
     setSubQCount(0);
+    setAttachments([]);
     panelEditCountRef.current = 0;
   };
 
@@ -3214,15 +3411,17 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           }}>
             <textarea ref={textareaRef} value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); } }}
-              placeholder={composerSpotlight ? "Start here — describe the rule you'd like in your own words…" : messages.some(m => m.role === 'suggestions') ? "Describe the rule you'd like to create, or pick a suggestion above…" : "Type a response or tap a suggestion above…"}
+              placeholder={awaitingMou ? "Attach your MOU below, add a note if you like, then send…" : composerSpotlight ? "Start here — describe the rule you'd like in your own words…" : messages.some(m => m.role === 'suggestions') ? "Describe the rule you'd like to create, or pick a suggestion above…" : "Type a response or tap a suggestion above…"}
               rows={composerSpotlight ? 4 : 2}
               style={{ width: '100%', padding: '11px 52px 11px 16px', border: composerSpotlight ? '1.5px solid #7C3AED' : '1px solid rgba(0,0,0,.15)', borderRadius: 12, outline: 'none', font: '400 14px/1.55 Inter,sans-serif', color: 'rgba(24,39,58,.94)', background: composerSpotlight ? 'rgba(124,58,237,.05)' : 'rgba(124,58,237,.02)', resize: 'none', display: 'block', transition: 'border-color .2s, background .2s' }}
               onFocus={e => { e.target.style.borderColor = '#7C3AED'; e.target.style.background = 'rgba(124,58,237,.05)'; }}
               onBlur={e  => { e.target.style.borderColor = composerSpotlight ? '#7C3AED' : 'rgba(0,0,0,.15)'; e.target.style.background = composerSpotlight ? 'rgba(124,58,237,.05)' : 'rgba(124,58,237,.02)'; }}
             />
-            <button onClick={() => send(input)} style={{ position: 'absolute', right: 10, bottom: 10, width: 34, height: 34, borderRadius: '50%', background: input.trim() ? 'linear-gradient(135deg,#7C3AED,#5B21B6)' : 'rgba(0,0,0,.1)', border: 'none', cursor: input.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .15s', boxShadow: input.trim() ? '0 2px 8px rgba(124,58,237,.4)' : 'none' }}>
+            {(() => { const canSend = input.trim() || (awaitingMou && attachments.length > 0); return (
+            <button onClick={() => send(input)} style={{ position: 'absolute', right: 10, bottom: 10, width: 34, height: 34, borderRadius: '50%', background: canSend ? 'linear-gradient(135deg,#7C3AED,#5B21B6)' : 'rgba(0,0,0,.1)', border: 'none', cursor: canSend ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .15s', boxShadow: canSend ? '0 2px 8px rgba(124,58,237,.4)' : 'none' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round"><path d="M2 12l20-9-9 20-2-9z"/></svg>
             </button>
+            ); })()}
           </div>
 
           {/* File attaching — sits directly below the text input. An "Attach
@@ -3274,7 +3473,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
         /* Same slot as the config panel — identical width/border/position so
            the dual-screen layout is unchanged; only the panel contents swap
            from the configuration form to the preview simulator. */
-        <div id="rule-builder-config" style={{ width: 460, flex: 'none', display: 'flex', flexDirection: 'column', background: '#F8F7FC', borderLeft: '1px solid rgba(0,0,0,.08)', overflow: 'hidden' }}>
+        <div id="rule-builder-config" style={{ flex: '0 0 40%', minWidth: 460, display: 'flex', flexDirection: 'column', background: '#F8F7FC', borderLeft: '1px solid rgba(0,0,0,.08)', overflow: 'hidden' }}>
           <SimulatorView seed={{ form }} panelOnly onBack={exitPreview} />
         </div>
       ) : (
@@ -3289,7 +3488,7 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
         </div>
       )}
       {cfgOpen && (
-      <div id="rule-builder-config" style={{ width: 460, flex: 'none', display: 'flex', flexDirection: 'column', background: '#F8F7FC', borderLeft: '1px solid rgba(0,0,0,.08)', overflow: 'hidden' }}>
+      <div id="rule-builder-config" style={{ flex: '0 0 40%', minWidth: 460, display: 'flex', flexDirection: 'column', background: '#F8F7FC', borderLeft: '1px solid rgba(0,0,0,.08)', overflow: 'hidden' }}>
         {/* Sticky banner header — compact, single-line title to free up vertical space.
             The "Next" indicator lives here (not inside the Preview Ranking box) so the
             top-of-list employee is always visible regardless of which tab is active. */}
@@ -3335,6 +3534,10 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
           )}
 
           <div style={{ padding: '16px 24px 8px' }}>
+
+          {/* ── Section 1: Rule settings — who the rule covers, how it ranks,
+              and which shifts/outcomes it considers. */}
+          <PanelSection first title="Rule settings" subtitle="Who it covers, how it ranks, and which shifts count." />
 
           {/* Rule Name — always visible */}
           <FormGroup label="Rule Name">
@@ -3708,21 +3911,60 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
             </div>
           )}
 
-          {/* ── Callback delivery section ─────────────────────────────────
-              How the system reaches employees on the ranked list. The cadence
-              menus differ per channel because phone calls and pushes have very
-              different ergonomics (calls disrupt, pushes don't). Each channel
-              also gets its own "next-day retry" cadence menu so the second-day
-              recovery rhythm matches the primary channel. */}
+          {/* ── Hard-shift incentive ──────────────────────────────────────
+              Holiday / weekend callbacks are the hardest to fill. Flag those
+              dates and attach an incentive (a dropdown) to encourage employees
+              to take them. Picking an incentive reveals a second dropdown with
+              the detail for that incentive. */}
+          {shown('hardShiftDays') && (
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('hardShiftDays') }} data-field="hardShiftDays">
+              <FormGroup label="Flag Hard Shifts (Holidays & Weekends)">
+                <FieldSelect value={form.hardShiftDays}
+                  onChange={v => patchForm({ hardShiftDays: v, ...(v === "Don't flag hard shifts" ? { hardShiftIncentive: '', hardShiftDetail: '' } : {}) })}
+                  options={HARD_SHIFT_DAYS_OPTIONS}
+                  placeholder="Which dates count as hard shifts?" />
+              </FormGroup>
+            </div>
+          )}
+
+          {form.hardShiftDays && form.hardShiftDays !== "Don't flag hard shifts" && (
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('hardShiftIncentive') }} data-field="hardShiftIncentive">
+              <FormGroup label="Encourage Employees to Take Them">
+                <FieldSelect value={form.hardShiftIncentive}
+                  onChange={v => patchForm({ hardShiftIncentive: v, hardShiftDetail: '' })}
+                  options={HARD_SHIFT_INCENTIVE_OPTIONS}
+                  placeholder="Pick an incentive" />
+              </FormGroup>
+            </div>
+          )}
+
+          {form.hardShiftIncentive && HARD_SHIFT_DETAIL_OPTIONS[form.hardShiftIncentive] && (
+            <div style={{ animation: 'fieldReveal .3s ease both', marginBottom: 22, marginTop: -10, paddingLeft: 14, borderLeft: '2px solid rgba(124,58,237,.18)', ...highlight('hardShiftDetail') }} data-field="hardShiftDetail">
+              <FormGroup label={`${form.hardShiftIncentive} detail`}>
+                <FieldSelect value={form.hardShiftDetail}
+                  onChange={v => patchForm({ hardShiftDetail: v })}
+                  options={HARD_SHIFT_DETAIL_OPTIONS[form.hardShiftIncentive]}
+                  placeholder="Pick the detail" />
+              </FormGroup>
+            </div>
+          )}
+
+          {/* ── Section 2: Call settings — how the callback actually goes out
+              to the ranked list (channel, dispatch order, retries, recycling).
+              The cadence menus differ per channel because phone calls and pushes
+              have very different ergonomics (calls disrupt, pushes don't). Each
+              channel also gets its own "next-day retry" cadence menu so the
+              second-day recovery rhythm matches the primary channel. */}
+          <PanelSection title="Call settings" subtitle="How the callback goes out to the ranked list." />
 
           {/* Callback method — dispatch strategy for the ranked list. Always
               shown (it's core to how the rule runs). */}
           <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('callMethod') }} data-field="callMethod">
-            <FormGroup label="Callback Method">
+            <FormGroup label="How Should It Go Out?">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {[
-                  { v: 'wait', l: 'Wait time', sub: 'Call down the list one at a time, waiting for a response before moving on.' },
-                  { v: 'candidate', l: 'Candidate method', sub: 'Notify every eligible candidate at once — first to accept takes the shift.' },
+                  { v: 'wait', l: 'One at a time', sub: 'Go down the list one person at a time (wait-time method), waiting for a response before moving on.' },
+                  { v: 'candidate', l: 'All at once', sub: 'Notify every eligible person at the same time (candidate method) — first to accept takes the shift.' },
                 ].map(opt => (
                   <label key={opt.v} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}
                     onClick={() => patchForm({ callMethod: opt.v })}>
@@ -3784,6 +4026,49 @@ function RuleBuilderView({ seed, onBack, onSaved }) {
                   onChange={v => patchForm({ nextDayCadence: v })}
                   options={NEXT_DAY_CADENCE_OPTIONS[form.notifyChannel] || []}
                   placeholder="Pick a retry cadence" />
+              </FormGroup>
+            </div>
+          )}
+
+          {/* Recycle the list — if the system reaches the bottom of the ranked
+              list and the shift is still open, start over from the top and keep
+              cycling until it's filled. */}
+          {form.notifyChannel && (
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('recycleList') }} data-field="recycleList">
+              <FormGroup label="Keep Cycling the List Until Filled?">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {[
+                    { v: 'Yes', l: 'Yes — recycle the list', sub: "When the list runs out and the shift is still open, start again from the top and keep going around until it's filled." },
+                    { v: 'No',  l: 'No — one pass only',     sub: 'Run down the list once; if no one accepts, leave the shift open.' },
+                  ].map(opt => (
+                    <label key={opt.v} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}
+                      onClick={() => patchForm({ recycleList: opt.v, ...(opt.v === 'No' ? { stillOpenNotice: '' } : {}) })}>
+                      <span style={{ width: 16, height: 16, marginTop: 2, borderRadius: '50%', border: `2px solid ${form.recycleList === opt.v ? '#7C3AED' : 'rgba(0,0,0,.28)'}`, background: form.recycleList === opt.v ? '#7C3AED' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
+                        {form.recycleList === opt.v && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#fff' }} />}
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: 'block', font: '500 14px/1.3 Inter,sans-serif', color: 'rgba(24,39,58,.87)' }}>{opt.l}</span>
+                        <span style={{ display: 'block', font: '400 12px/1.4 Inter,sans-serif', color: 'rgba(0,0,0,.5)', marginTop: 2 }}>{opt.sub}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </FormGroup>
+            </div>
+          )}
+
+          {/* Still-open notice — each time through the list, let everyone on it
+              know the position is still open. Only relevant when recycling. */}
+          {form.notifyChannel && form.recycleList === 'Yes' && (
+            <div style={{ animation: 'fieldReveal .3s ease both', ...highlight('stillOpenNotice') }} data-field="stillOpenNotice">
+              <FormGroup label="Notify the List It's Still Open?">
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}
+                  onClick={() => patchForm({ stillOpenNotice: form.stillOpenNotice === 'Yes' ? 'No' : 'Yes' })}>
+                  <span style={{ width: 18, height: 18, marginTop: 1, borderRadius: 4, border: `1.5px solid ${form.stillOpenNotice === 'Yes' ? '#7C3AED' : 'rgba(124,58,237,.4)'}`, background: form.stillOpenNotice === 'Yes' ? '#7C3AED' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', transition: 'all .15s' }}>
+                    {form.stillOpenNotice === 'Yes' && <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><path d="M9 16l-4-4 1.4-1.4L9 13.2l8.6-8.6L19 6z"/></svg>}
+                  </span>
+                  <span style={{ font: '400 13px/1.4 Inter,sans-serif', color: 'rgba(24,39,58,.87)' }}>On each pass through the list, send a "position still open" notification to everyone on it.</span>
+                </label>
               </FormGroup>
             </div>
           )}
@@ -4172,6 +4457,21 @@ function SimulatorView({ seed, onBack, panelOnly }) {
   // ── Optional operational filters (the "Add details" drawer) ──
   // Collapsed by default; mirror the real CallBack form's filter sections.
   const [detailsOpen, setDetailsOpen]           = useSimSt(false);
+  // Compact (Preview Mode) renders the filters as a floating dropdown. Clicking
+  // anywhere outside it — including into the preview ranking/chain below —
+  // applies the live filters and closes the dropdown. The ref wraps the whole
+  // filters block so clicks on its header/body don't count as "outside".
+  const filtersWrapRef = useSimRef(null);
+  useSimEffect(() => {
+    if (!detailsOpen) return;
+    const onDown = (e) => {
+      if (filtersWrapRef.current && !filtersWrapRef.current.contains(e.target)) {
+        setDetailsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [detailsOpen]);
   const [fClassifications, setFClassifications] = useSimSt([]);
   const [groupMode, setGroupMode]               = useSimSt('include'); // include | exclude
   const [fGroups, setFGroups]                   = useSimSt([]);
@@ -4680,13 +4980,16 @@ function SimulatorView({ seed, onBack, panelOnly }) {
                   {[4, 8, 12, 24, 48].map(h => <option key={h} value={h}>{h} hours</option>)}
                 </select>
               </div>
-              <CallbackFilters
-                open={detailsOpen} onToggle={() => setDetailsOpen(v => !v)} compact
-                activeFilterCount={activeFilterCount} matchCount={ranking.length}
-                classifications={fClassifications} setClassifications={setFClassifications}
-                groupMode={groupMode} setGroupMode={setGroupMode} groups={fGroups} setGroups={setFGroups}
-                qualAny={qualAny} setQualAny={setQualAny} qualAll={qualAll} setQualAll={setQualAll}
-                approach={approach} />
+              <div ref={filtersWrapRef}>
+                <CallbackFilters
+                  open={detailsOpen} onToggle={() => setDetailsOpen(v => !v)} compact
+                  onApply={() => setDetailsOpen(false)}
+                  activeFilterCount={activeFilterCount} matchCount={ranking.length}
+                  classifications={fClassifications} setClassifications={setFClassifications}
+                  groupMode={groupMode} setGroupMode={setGroupMode} groups={fGroups} setGroups={setFGroups}
+                  qualAny={qualAny} setQualAny={setQualAny} qualAll={qualAll} setQualAll={setQualAll}
+                  approach={approach} />
+              </div>
               {window.RuleSummary && React.createElement(window.RuleSummary, { form: ruleForm, ranking })}
             </div>
           )}
@@ -4947,7 +5250,7 @@ function FilterChip({ label, active, onToggle, tone = '#7C3AED' }) {
 // call order live. `compact` trims spacing for the embedded (panelOnly) strip.
 function CallbackFilters(props) {
   const {
-    open, onToggle, activeFilterCount, matchCount, compact,
+    open, onToggle, onApply, activeFilterCount, matchCount, compact,
     classifications, setClassifications, groupMode, setGroupMode, groups, setGroups,
     qualAny, setQualAny, qualAll, setQualAll,
   } = props;
@@ -5071,6 +5374,14 @@ function CallbackFilters(props) {
             {activeFilterCount > 0 && (
               <button onClick={clearAll} style={{ height: 26, padding: '0 10px', borderRadius: 6, border: '1px solid rgba(0,0,0,.18)', background: '#fff', color: 'rgba(24,39,58,.7)', font: '600 11.5px/1 Inter,sans-serif', cursor: 'pointer' }}>
                 Clear filters
+              </button>
+            )}
+            {/* Apply — closes the floating dropdown (filters already apply live).
+                Compact/Preview only; the full-page version has no dropdown to
+                close. Clicking outside the dropdown does the same thing. */}
+            {compact && (
+              <button onClick={onApply} style={{ height: 26, padding: '0 14px', borderRadius: 6, border: 'none', background: '#7C3AED', color: '#fff', font: '700 11.5px/1 Inter,sans-serif', cursor: 'pointer' }}>
+                Apply
               </button>
             )}
           </div>
@@ -6373,6 +6684,17 @@ const HISTORY_ROWS = [
   { id: 36313435, assignment: 'Overtime Day',      callback: '',  start: '2026-01-06 06:00:00', end: '2026-01-06 08:00:00', workType: 'Regular Time [REG]', hours: 2 },
 ];
 
+// Callback fill activity — one row per callback position the system worked to
+// fill. `cycles` is how many times it went around the ranked list before the
+// position was taken; `filledAt` is when it filled; `notifySentAt` is when the
+// "position filled" notification went out. An open position has filledAt null.
+const CALLBACK_FILL_ACTIVITY = [
+  { id: 36412233, position: 'Engine 12 — Firefighter',      approach: 'Firefighter 2', cycles: 2, filledAt: '2026-01-08 19:42', filledBy: 'Treva Aguinaga',  notifySentAt: '2026-01-08 19:43' },
+  { id: 36412240, position: 'Dispatch Nights — Dispatcher', approach: 'Dispatch',      cycles: 1, filledAt: '2026-01-09 06:03', filledBy: 'Marcus Bell',     notifySentAt: '2026-01-09 06:04' },
+  { id: 36412255, position: 'Jail Medic — Day',             approach: 'Bay Guard',     cycles: 3, filledAt: '2026-01-10 14:21', filledBy: 'Priya Nadkarni',  notifySentAt: '2026-01-10 14:22' },
+  { id: 36412261, position: 'Patrol Swing — Deputy',        approach: 'Patrol Deputy', cycles: 4, filledAt: null,                filledBy: null,             notifySentAt: null },
+];
+
 
 function StatCard({ label, value, accent }) {
   return (
@@ -6394,6 +6716,90 @@ function StatCard({ label, value, accent }) {
           <circle cx="12" cy="12" r="10"/>
           <polyline points="12 6 12 12 16 14"/>
         </svg>
+      </div>
+    </div>
+  );
+}
+
+// Callback fill activity table for the History page. Surfaces, per callback
+// position: the cycle count to fill, the fill time + who took it, and whether
+// the "position filled" notification was sent.
+function CallbackFillActivity({ rows }) {
+  // "2026-01-08 19:42" → "Jan 8, 7:42 PM"
+  const fmt = (s) => {
+    if (!s) return null;
+    const [datePart, timePart] = s.split(' ');
+    const [y, mo, d] = datePart.split('-').map(Number);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    let [hr, min] = timePart.split(':').map(Number);
+    const ampm = hr >= 12 ? 'PM' : 'AM';
+    hr = hr % 12 || 12;
+    return `${months[mo - 1]} ${d}, ${hr}:${String(min).padStart(2, '0')} ${ampm}`;
+  };
+
+  return (
+    <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,.08)', borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,.06)', marginBottom: 20 }}>
+      <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,.07)', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ font: '600 14px/1 Inter,sans-serif', color: 'rgba(24,39,58,.94)' }}>Callback Fill Activity</span>
+        <span style={{ background: 'rgba(0,0,0,.07)', color: 'rgba(0,0,0,.5)', borderRadius: 4, padding: '2px 8px', font: '500 11.5px/1 Inter,sans-serif' }}>{rows.length}</span>
+        <span style={{ font: '400 12px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)' }}>Cycles run, fill time, and fill-notification status per position.</span>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: '#F8F9FB' }}>
+              {['Position', 'Approach', 'Cycles to Fill', 'Position Filled', 'Fill Notification'].map(col => (
+                <th key={col} style={{ padding: '10px 16px', textAlign: 'left', font: '600 11px/1 Inter,sans-serif', color: 'rgba(0,0,0,.45)', letterSpacing: '.5px', textTransform: 'uppercase', borderBottom: '1px solid rgba(0,0,0,.08)', whiteSpace: 'nowrap' }}>{col}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => {
+              const filled = !!r.filledAt;
+              return (
+                <tr key={r.id} style={{ background: i % 2 === 0 ? '#fff' : '#FAFBFC' }}>
+                  <td style={{ padding: '11px 16px', borderBottom: '1px solid rgba(0,0,0,.05)', font: '500 13px/1.2 Inter,sans-serif', color: 'rgba(24,39,58,.9)', whiteSpace: 'nowrap' }}>{r.position}</td>
+                  <td style={{ padding: '11px 16px', borderBottom: '1px solid rgba(0,0,0,.05)', font: '400 12.5px/1 Inter,sans-serif', color: 'rgba(0,0,0,.55)', whiteSpace: 'nowrap' }}>{r.approach}</td>
+                  {/* Cycle count — how many times the system went around the list */}
+                  <td style={{ padding: '11px 16px', borderBottom: '1px solid rgba(0,0,0,.05)' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(124,58,237,.1)', color: '#6D28D9', border: '1px solid rgba(124,58,237,.22)', borderRadius: 5, padding: '3px 9px', font: '600 12px/1 Inter,sans-serif', whiteSpace: 'nowrap' }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M3 12a9 9 0 109-9"/><path d="M3 3v6h6"/></svg>
+                      {r.cycles} {r.cycles === 1 ? 'cycle' : 'cycles'}
+                    </span>
+                  </td>
+                  {/* Position filled — status + timestamp + who took it */}
+                  <td style={{ padding: '11px 16px', borderBottom: '1px solid rgba(0,0,0,.05)', whiteSpace: 'nowrap' }}>
+                    {filled ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, font: '600 12px/1 Inter,sans-serif', color: '#158444' }}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="#158444"><path d="M9 16l-4-4 1.4-1.4L9 13.2l8.6-8.6L19 6z"/></svg>
+                          Filled · {fmt(r.filledAt)}
+                        </span>
+                        <span style={{ font: '400 11.5px/1.3 Inter,sans-serif', color: 'rgba(0,0,0,.5)' }}>by {r.filledBy}</span>
+                      </div>
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, font: '600 12px/1 Inter,sans-serif', color: '#D83E38' }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                        Still open
+                      </span>
+                    )}
+                  </td>
+                  {/* Fill-notification status */}
+                  <td style={{ padding: '11px 16px', borderBottom: '1px solid rgba(0,0,0,.05)', whiteSpace: 'nowrap' }}>
+                    {r.notifySentAt ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, font: '500 12px/1 Inter,sans-serif', color: 'rgba(24,39,58,.7)' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#158444" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                        Sent · {fmt(r.notifySentAt)}
+                      </span>
+                    ) : (
+                      <span style={{ font: '500 12px/1 Inter,sans-serif', color: 'rgba(0,0,0,.4)' }}>— not sent yet</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -6518,6 +6924,12 @@ function HistoryPage() {
           <StatCard label="Callbacks"       value={callbackHours} accent="#E0782E" />
           <StatCard label="Scheduler Hours" value={schedulerHours} accent="#2BA76C" />
         </div>
+
+        {/* ── Callback fill activity card ──
+            One row per callback position the system worked to fill. Shows how
+            many times it cycled the ranked list before the position was taken,
+            when it filled, and when the "position filled" notification went out. */}
+        <CallbackFillActivity rows={CALLBACK_FILL_ACTIVITY} />
 
         {/* ── Table card ── */}
         <div style={{
@@ -6677,10 +7089,11 @@ window.RULES_DATA = RULES_DATA;
 
 function App() {
   // `building` holds the rule-builder seed; when truthy, the dual-screen builder
-  // takes over the main area. It starts as `{}` because the default flow is the
-  // "Rules engine" flow, which lands the user straight inside the builder (as if
-  // they'd just clicked "Add New Rule"). The other two flows reset it to null.
-  const [building, setBuilding] = useAppSt({});
+  // takes over the main area. It starts as `null` because the default landing
+  // flow is "Rule step" ('v2') — the Approaches & Rules page with approaches
+  // created but no rule yet. The "Rules engine" flow resets it to `{}` to drop
+  // straight into the builder.
+  const [building, setBuilding] = useAppSt(null);
   const [subNav, setSubNav]     = useAppSt('approaches');
   // Toast banner shown at the top of Approaches & Rules after a save. We carry
   // the rule's name + a kind ('saved' for new rules, 'updated' for edits) so
@@ -6696,17 +7109,17 @@ function App() {
 
   // ── Flow switcher ──────────────────────────────────────────────────────────
   // A bottom-center pill (same convention as other ux-mockups version switchers)
-  // that swaps between three flows. The default / landing flow is "Rules engine":
+  // that swaps between three flows. The default / landing flow is "Rule step"
+  // ('v2'): approaches are created but no rule exists yet.
   //   • 'engine' — Rules engine: lands the user straight inside the dual-screen
-  //     rule builder, as if they'd just clicked "Add New Rule". This is the
-  //     front pill and the default on load.
+  //     rule builder, as if they'd just clicked "Add New Rule".
   //   • 'v1' — First setup: fresh account, no approaches yet. The page leads with
   //     a purple dotted "create your first approach" empty-state; Rules is quiet
   //     plain text. Saving an approach flips `approachesCreated` and the page
   //     advances into the Rule-step state.
   //   • 'v2' — Rule step: approaches already exist; creating the first rule is
-  //     next (the page's original behaviour).
-  const [flowVersion,      setFlowVersion]      = useAppSt('engine');
+  //     next. This is the default on load — approaches created, no rule yet.
+  const [flowVersion,      setFlowVersion]      = useAppSt('v2');
   const [approachesCreated, setApproachesCreated] = useAppSt(false);
   const [createdName,      setCreatedName]      = useAppSt('');
   const [creatingApproach, setCreatingApproach] = useAppSt(false);
