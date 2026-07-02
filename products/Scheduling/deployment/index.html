@@ -389,8 +389,9 @@
         .acard-head .acard-x, .acard-head .acard-edit { color: #8a93a0; cursor: pointer; font-size: 15px; }
         .acard-cb { width: 18px; height: 18px; accent-color: var(--blue-link); }
 
-        .slotbar { position: relative; background: #1f5e7e; color: #fff; border-radius: 7px; padding: 12px 13px; margin-top: 16px; display: flex; align-items: center; justify-content: space-between; font-size: 14px; }
-        .slotbar .slot-tabs { position: absolute; top: -11px; left: 9px; display: flex; gap: 3px; }
+        .slotbar { position: relative; background: #1f5e7e; color: #fff; border-radius: 7px; padding: 12px 13px; margin-top: 10px; display: flex; align-items: center; justify-content: space-between; font-size: 14px; }
+        /* Qualifier chips sit on the bar's right — same spot on filled and open slots. */
+        .slotbar .slot-right { display: flex; gap: 4px; flex: none; }
         .qtab { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 5px; line-height: 1.5; }
         .qtab--ff { background: #fff; color: #333; border: 1px solid #c9ced6; }
         .qtab--pm { background: #1d4ed8; color: #fff; }
@@ -405,11 +406,9 @@
         .slotbar-x { cursor: pointer; opacity: .85; font-size: 20px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; margin: -10px -8px -10px 6px; border-radius: 7px; flex: none; }
         .slotbar-x:hover { opacity: 1; background: rgba(255,255,255,.2); }
         .slotbar--open { background: var(--slot-bg); border: 1px solid var(--slot-border); color: #8a7f3f; cursor: pointer; }
-        .slotbar--open .slot-right { display: flex; gap: 4px; }
         /* Idle open slot — shown before the card is selected: looks like an open slot but is not a
            click target itself; the click selects the whole card (inherits the card's pointer). */
         .slotbar--idle { background: var(--slot-bg); border: 1px solid var(--slot-border); color: #8a7f3f; cursor: inherit; }
-        .slotbar--idle .slot-right { display: flex; gap: 4px; }
         /* Filled + selected: the name is a button that re-opens Select Employee to replace the person. */
         .slot-name { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; flex: 1; min-width: 0; }
         .slot-name:hover { text-decoration: underline; }
@@ -714,12 +713,98 @@
         .dep-box-note i { margin-top: 2px; color: var(--text-muted); }
         .dep-box-note a { color: var(--blue-link); font-weight: 600; text-decoration: none; white-space: nowrap; }
         .dep-box-note a:hover { text-decoration: underline; }
-        /* Pick-lists (existing assignments + templates + new): start compact and
-           let the user drag the bottom edge taller to see more. `resize: vertical`
-           adds a native drag handle; the height is the starting size, expandable
-           up to max-height. The extra top/right padding keeps the slot tabs +
-           scrollbar from clipping the cards. */
-        .dep-box-body .assign-grid.dep-grid-scroll { height: 360px; min-height: 150px; max-height: 80vh; overflow-y: auto; resize: vertical; padding: 6px 8px 4px 2px; }
+        /* Pick-lists (existing assignments + templates + new): start tall and
+           let the user drag the WHOLE bottom edge taller to see more. Instead of
+           the tiny native corner grip, a full-width `.dep-grid-resizer` bar (added
+           right after each grid) is the drag target — see the pointer-drag JS below.
+           The height here is the starting size, expandable up to max-height. The
+           extra top/right padding keeps the slot tabs + scrollbar from clipping the
+           cards. */
+        .dep-box-body .assign-grid.dep-grid-scroll { height: 480px; min-height: 150px; max-height: 80vh; overflow-y: auto; padding: 6px 8px 4px 2px; }
+        /* Full-width drag handle: the entire bottom line of the list is the target. */
+        .dep-grid-resizer { height: 16px; margin-top: 4px; display: flex; align-items: center; justify-content: center; cursor: ns-resize; border-radius: 8px; background: #eef3f8; border: 1px solid var(--border); color: var(--text-soft); touch-action: none; user-select: none; transition: background .15s ease; }
+        .dep-grid-resizer:hover { background: #e3ebf4; }
+        .dep-grid-resizer.dragging { background: #dbe6f4; }
+        .dep-grid-resizer::before { content: ""; width: 48px; height: 3px; border-radius: 3px; background: currentColor; opacity: .55; }
+
+        /* =========================================================
+           V1 — tabbed pick/build + interactive cart. Everything in
+           this block is scoped to #view-deploy[data-ver="1"] so V2/V3
+           keep the original stacked-drawer + review-step layout.
+           ========================================================= */
+        /* Tab bar + density toggle are V1-only surfaces — hidden elsewhere. */
+        .dep-tabs, .dep-viewtoggle, .cart-bar, .cart-panel { display: none; }
+
+        .dep-tabs { gap: 4px; margin: 6px 0 18px; border-bottom: 2px solid var(--border); }
+        #view-deploy[data-ver="1"] .dep-tabs { display: flex; }
+        .dep-tab { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; cursor: pointer; font-family: inherit; font-weight: 700; font-size: 15px; color: var(--text-soft); padding: 11px 18px; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: color .15s ease, border-color .15s ease; }
+        .dep-tab:hover { color: var(--text); }
+        .dep-tab.active { color: var(--blue-link); border-bottom-color: var(--blue-link); }
+        .dep-tab-count { background: #eef3f8; color: var(--text-muted); border-radius: 11px; font-size: 12px; font-weight: 800; padding: 1px 9px; }
+        .dep-tab.active .dep-tab-count { background: #e0edfb; color: var(--blue-link); }
+
+        /* Search + density control share one row: search stretches, the toggle hangs right.
+           (margin-left:auto keeps the toggle right-aligned even while the search is hidden
+           pre-start-date on the assignments tab.) */
+        .dep-toolsrow { display: flex; align-items: center; gap: 16px; margin: 2px 0 14px; }
+        .dep-toolsrow .dialog-search { flex: 1; margin: 0; }
+        /* Density segmented control (Compact / Comfortable). */
+        #view-deploy[data-ver="1"] .dep-viewtoggle { display: inline-flex; margin-left: auto; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; flex: none; }
+        .dep-viewtoggle button { border: 0; background: #fff; cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 700; color: var(--text-soft); padding: 7px 14px; display: inline-flex; align-items: center; gap: 7px; }
+        .dep-viewtoggle button + button { border-left: 1px solid var(--border); }
+        .dep-viewtoggle button.active { background: var(--blue-link); color: #fff; }
+
+        /* Wall-to-wall: strip the box chrome + drawer headers, hide the built box + review step. */
+        #view-deploy[data-ver="1"] .dep-box { border: 0; border-radius: 0; margin-top: 0; overflow: visible; }
+        #view-deploy[data-ver="1"] .dep-box-head { display: none; }
+        #view-deploy[data-ver="1"] #depBuiltBox { display: none !important; }
+        #view-deploy[data-ver="1"] #depStep2 { display: none !important; }
+        #view-deploy[data-ver="1"] .dep-box-body { padding: 0; display: block; }
+        /* The build tab body (its drawer wrapper header is hidden). */
+        #view-deploy[data-ver="1"] #depBuilder { padding: 6px 0 0; }
+
+        /* Existing/templates list runs tall in V1 (one tab visible at a time). */
+        #view-deploy[data-ver="1"] .assign-grid.dep-grid-scroll { height: 62vh; min-height: 320px; }
+        /* Compact view = a dense multi-column list of short rows (comfortable = the full card
+           grid). Narrow columns + slim padding fit far more assignments per screen. */
+        .assign-grid.dep-grid-scroll.view-compact { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important; gap: 6px 10px; }
+        .view-compact .acard { padding: 6px 12px !important; }
+        .view-compact .acard-head { margin-bottom: 0 !important; }
+        /* Long names clip with an ellipsis so every compact row stays one line tall. */
+        .dep-grid-scroll.view-compact .acard .acard-head .acard-title { display: block; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13.5px; }
+        .view-compact .acard .slotbar, .view-compact .acard .acard-foot, .view-compact .acard .acard-name-input { display: none; }
+        .view-compact .acard .acard-x { display: none; }
+        .view-comfortable .acard-metrics { display: none; }
+        .acard-metrics { margin-left: auto; color: var(--text-soft); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+        .acard-metrics .am-open { color: #b06a00; }
+
+        /* ---- Cart (V1) — collapsed bar + wall-to-wall adjustable panel ---- */
+        #view-deploy[data-ver="1"].active .cart-bar { display: inline-flex; }
+        .cart-bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: 74px; z-index: 44; align-items: center; justify-content: space-between; gap: 18px; background: var(--blue-link); color: #fff; border: 0; cursor: pointer; padding: 12px 20px; border-radius: 12px; font: 700 13.5px inherit; box-shadow: 0 10px 26px rgba(0,0,0,.24); min-width: min(460px, 90vw); }
+        .cart-bar:hover { filter: brightness(1.06); }
+        .cart-bar.hidden { display: none !important; }
+        .cart-bar-label { display: inline-flex; align-items: center; gap: 10px; }
+        .cart-bar-label > i { font-size: 16px; }
+        .cart-bar strong { font-weight: 800; }
+        #view-deploy[data-ver="1"] .cart-panel { display: flex; }
+        .cart-panel { position: fixed; left: 50%; bottom: 64px; transform: translateX(-50%) translateY(116%); z-index: 43; width: min(1760px, 96vw); height: 46vh; min-height: 200px; max-height: 84vh; background: #fff; border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 -20px 54px rgba(0,0,0,.26); flex-direction: column; transition: transform .26s ease; }
+        .cart-panel.open { transform: translateX(-50%) translateY(0); }
+        .cart-resize { height: 16px; flex: none; display: flex; align-items: center; justify-content: center; cursor: ns-resize; touch-action: none; }
+        .cart-resize::before { content: ""; width: 46px; height: 4px; border-radius: 999px; background: var(--border-strong); }
+        .cart-head { display: flex; align-items: center; gap: 12px; padding: 6px 20px 14px; border-bottom: 1px solid var(--border); flex: none; }
+        .cart-title { font-size: 15px; font-weight: 800; color: var(--text); display: inline-flex; align-items: center; gap: 9px; }
+        .cart-title i { color: var(--blue-link); }
+        .cart-count-pill { background: #e0edfb; color: var(--blue-link); border-radius: 11px; font-size: 12px; font-weight: 800; padding: 1px 9px; }
+        .cart-head-fill { font-size: 12.5px; color: var(--text-soft); font-weight: 600; }
+        .cart-head-fill .chf-open { color: #b06a00; font-weight: 800; }
+        .cart-head-fill .chf-done { color: #2e7d52; font-weight: 700; }
+        .cart-head .dialog-close { margin-left: auto; }
+        .cart-body { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 20px 24px; }
+        .cart-body .assign-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; max-width: none; margin: 0; }
+        .cart-empty { color: var(--text-soft); font-size: 14px; padding: 20px 2px; }
+        .cart-group-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin: 2px 0 10px; }
+        .cart-group + .cart-group { margin-top: 22px; }
+
         /* Compact the "name" cards in the pick lists so more fit per scroll —
            tighter padding, smaller title, and slimmer position bars. Applies to
            existing, template, and new-assignment cards alike. */
@@ -729,7 +814,6 @@
         .dep-grid-scroll .acard .acard-name-input { font-size: 14.5px; }
         .dep-grid-scroll .acard .acard-name-input { padding: 2px 6px; }
         .dep-grid-scroll .acard .slotbar { padding: 7px 10px; margin-top: 11px; font-size: 12.5px; }
-        .dep-grid-scroll .acard .slot-tabs { top: -9px; }
         .dep-grid-scroll .acard .acard-foot { margin-top: 9px; padding-top: 9px; }
         /* The whole card is a click target for selection — not just the checkbox. */
         .acard.acard--pick { cursor: pointer; }
@@ -856,8 +940,9 @@
         .version-switcher .vs-btn { background: transparent; border: 0; color: #d4d4d8; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 999px; cursor: pointer; font-family: inherit; transition: background .15s ease, color .15s ease; }
         .version-switcher .vs-btn:hover { color: #fff; }
         .version-switcher .vs-btn.active { background: #1f4596; color: #fff; }
-        /* V1 = flat one-page layout: inline builder, no Continue/Back stepper nav. */
-        #view-deploy[data-ver="1"] .v-step-nav { display: none; }
+        /* V1 (tabs) + V3 (original flat one-page) both show every section — no Continue/Back stepper nav. */
+        #view-deploy[data-ver="1"] .v-step-nav,
+        #view-deploy[data-ver="3"] .v-step-nav { display: none; }
         /* V2/V3 = stepper: builder hidden until "Build a new assignment" is clicked. */
         .v-step-num { width: 24px; height: 24px; border-radius: 50%; background: var(--blue-link); color: #fff; font: 700 12px inherit; display: inline-flex; align-items: center; justify-content: center; flex: none; }
         .v-card-actions { margin-top: 16px; display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
@@ -1157,6 +1242,14 @@
             <div class="v-card v-section build-area" id="depStep3">
                 <div class="v-card-title"><span class="v-step-num">2</span> Pick or build assignments <span class="ot-sub" style="font-weight:400;">— select existing, choose templates, or build new</span> <span class="vc-navhint"></span><span class="vc-chev"><i class="fa-solid fa-chevron-down"></i></span></div>
 
+                <!-- V1-only tab bar. Each tab shows one source panel wall-to-wall (no scrolling
+                     past the others). Hidden in V2/V3, where the boxes render as stacked drawers. -->
+                <div class="dep-tabs" id="depTabs" role="tablist" aria-label="Pick or build">
+                    <button class="dep-tab active" type="button" role="tab" data-deptab="asg">Existing assignments <span class="dep-tab-count" id="depTabAsgCount">0</span></button>
+                    <button class="dep-tab" type="button" role="tab" data-deptab="tpl">Templates <span class="dep-tab-count" id="depTabTplCount">0</span></button>
+                    <button class="dep-tab" type="button" role="tab" data-deptab="build"><i class="fa-solid fa-plus" style="font-size:11px;margin-right:6px;"></i>Build from scratch</button>
+                </div>
+
                 <!-- Existing assignments — same collapsible drawer style as Templates.
                      Empty (count 0) with a short hint until the start date is set. -->
                 <div class="dep-box" id="depAsgBox">
@@ -1167,8 +1260,15 @@
                     </button>
                     <div class="dep-box-body" id="depAsgBody">
                         <p class="dep-box-note"><i class="fa-solid fa-circle-info"></i> <span>Mark an assignment as “deployable” within the assignment settings for it to appear in this list. <a href="#" id="depAsgEditLink">Edit assignments</a></span></p>
-                        <div class="dialog-search" id="depSearchWrap" style="display:none;"><i class="fa-solid fa-magnifying-glass"></i><input type="text" placeholder="Search assignments…" id="depSearch"></div>
-                        <div class="assign-grid dep-grid-scroll" id="depAsgGrid"></div>
+                        <div class="dep-toolsrow">
+                            <div class="dialog-search" id="depSearchWrap" style="display:none;"><i class="fa-solid fa-magnifying-glass"></i><input type="text" placeholder="Search assignments…" id="depSearch"></div>
+                            <div class="dep-viewtoggle" data-vt="asg" role="group" aria-label="Card density">
+                                <button type="button" class="active" data-density="compact"><i class="fa-solid fa-list"></i> Compact</button>
+                                <button type="button" data-density="comfortable"><i class="fa-solid fa-table-cells-large"></i> Comfortable</button>
+                            </div>
+                        </div>
+                        <div class="assign-grid dep-grid-scroll view-compact" id="depAsgGrid"></div>
+                        <div class="dep-grid-resizer" title="Drag to resize"></div>
                     </div>
                 </div>
 
@@ -1180,8 +1280,15 @@
                         <span class="dep-box-count" id="depTplCount">0</span>
                     </button>
                     <div class="dep-box-body" id="depTplBody" style="display:none;">
-                        <div class="dialog-search"><i class="fa-solid fa-magnifying-glass"></i><input type="text" placeholder="Search templates…" id="depTplSearch"></div>
-                        <div class="assign-grid dep-grid-scroll" id="depTplGrid" style="margin-top:14px;"></div>
+                        <div class="dep-toolsrow">
+                            <div class="dialog-search"><i class="fa-solid fa-magnifying-glass"></i><input type="text" placeholder="Search templates…" id="depTplSearch"></div>
+                            <div class="dep-viewtoggle" data-vt="tpl" role="group" aria-label="Card density">
+                                <button type="button" class="active" data-density="compact"><i class="fa-solid fa-list"></i> Compact</button>
+                                <button type="button" data-density="comfortable"><i class="fa-solid fa-table-cells-large"></i> Comfortable</button>
+                            </div>
+                        </div>
+                        <div class="assign-grid dep-grid-scroll view-compact" id="depTplGrid" style="margin-top:14px;"></div>
+                        <div class="dep-grid-resizer" title="Drag to resize"></div>
                     </div>
                 </div>
 
@@ -1251,6 +1358,7 @@
                     </button>
                     <div class="dep-box-body" id="depBuiltBody">
                         <div class="assign-grid dep-grid-scroll" id="depBuiltGrid"></div>
+                        <div class="dep-grid-resizer" title="Drag to resize"></div>
                     </div>
                 </div>
 
@@ -1302,6 +1410,24 @@
                 <button class="dialog-close" id="reviewClose" aria-label="Close review"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="rd-body" id="reviewDrawerBody"></div>
+        </aside>
+
+        <!-- V1: interactive "cart" — replaces the Review step. A collapsed bar sits above the
+             footer; clicking it opens a wall-to-wall, height-adjustable panel that lists every
+             selected assignment/template/new build and lets you fill people right there. It is
+             modeless: no backdrop, no outside-click close — the page stays interactive behind it. -->
+        <button class="cart-bar" id="cartBar" type="button" aria-label="Open deployment cart">
+            <span class="cart-bar-label"><i class="fa-solid fa-list-check"></i> <span id="cartBarText"><strong>0</strong> selected</span></span>
+            <i class="fa-solid fa-chevron-up cart-bar-chev"></i>
+        </button>
+        <aside class="cart-panel" id="cartPanel" aria-label="Deployment cart">
+            <div class="cart-resize" id="cartResize" title="Drag to resize"></div>
+            <div class="cart-head">
+                <span class="cart-title"><i class="fa-solid fa-list-check"></i> Deployment cart <span class="cart-count-pill" id="cartHeadCount">0</span></span>
+                <span class="cart-head-fill" id="cartHeadFill"></span>
+                <button class="dialog-close" id="cartClose" aria-label="Collapse cart"><i class="fa-solid fa-chevron-down"></i></button>
+            </div>
+            <div class="cart-body" id="cartBody"></div>
         </aside>
     </div>
 
@@ -1404,8 +1530,9 @@
          Toolbox dock adopts this pill, so the comment + flow-map launchers tuck into it. -->
     <div class="version-switcher" role="group" aria-label="Switch build-area version">
         <span class="vs-controller-label">BUILD</span>
-        <button class="vs-btn active" data-version="1" type="button" title="From-scratch builder shown inline">V1</button>
-        <button class="vs-btn" data-version="2" type="button" title="Build new assignment behind a button">V2</button>
+        <button class="vs-btn active" data-version="1" type="button" title="Tabbed pick + interactive cart">V1</button>
+        <button class="vs-btn" data-version="2" type="button" title="Stepper + bottom review island">V2</button>
+        <button class="vs-btn" data-version="3" type="button" title="Flat one-page + inline review (original V1)">V3</button>
     </div>
 
     <script>
@@ -1870,11 +1997,12 @@
         // In the review, a filled bar is tinted with its work-type color so a
         // scheduler can scan for anyone in the wrong code before deploying.
         const wtStyle = opts.wtColor ? ` style="background:${opts.wtColor};color:${opts.wtText || '#fff'};"` : '';
+        // Filled bars mirror the open-slot layout: name on the left, qualifier chips on the right.
         if (interactive) {
             // Filled + selected: the name re-opens Select Employee (replace); the × clears the slot.
-            return `<div class="slotbar"${wtStyle}><span class="slot-tabs">${tabs}</span><button type="button" class="slot-name" ${opts.openClick || ''}>${slot.emp}</button><span class="slotbar-x" ${opts.removeAttr || ''} title="Remove / replace">&times;</span></div>`;
+            return `<div class="slotbar"${wtStyle}><button type="button" class="slot-name" ${opts.openClick || ''}>${slot.emp}</button><span class="slot-right">${tabs}</span><span class="slotbar-x" ${opts.removeAttr || ''} title="Remove / replace">&times;</span></div>`;
         }
-        return `<div class="slotbar"${wtStyle}><span class="slot-tabs">${tabs}</span><span>${slot.emp}</span></div>`;
+        return `<div class="slotbar"${wtStyle}><span>${slot.emp}</span><span class="slot-right">${tabs}</span></div>`;
     }
 
     // ---- Template position helpers (shared by the builder + Manage Templates editor) ----
@@ -2300,12 +2428,22 @@
         const selAssignments = () => ASSIGNMENTS.filter(a => isAsg(a) && a.selected);
         const selCount = () => selAssignments().length + selTpl.size;   // existing + built + checked templates
 
+        // Compact-row summary: total positions ("people") + distinct qualifiers. Shown in the
+        // Compact density view instead of the full slot bars (see .acard-metrics CSS).
+        function cardMetrics(item) {
+            const people = item.slots.length;
+            const q = new Set(); item.slots.forEach(s => s.quals.forEach(k => q.add(k)));
+            const open = item.slots.filter(s => !s.emp).length;
+            const openTxt = open ? ` · <span class="am-open">${open} open</span>` : '';
+            return `${people} ${people === 1 ? 'person' : 'people'} · ${q.size} ${q.size === 1 ? 'qual' : 'quals'}${openTxt}`;
+        }
+
         // ---- Box A — existing deployable assignments. Full cards show the roster; when a
         //      card is selected its slots become fillable/removable. ----
         function assignCard(a) {
             const bars = a.slots.map((s, i) => slotBarHtml(s, { interactive: a.selected, openClick: `data-vfill="${a.id}:${i}"`, removeAttr: `data-vremove="${a.id}:${i}"` })).join('');
             const tag = a.built ? ' <span style="font-weight:400;color:var(--text-soft);font-size:12px;">· new</span>' : '';
-            return `<div class="acard acard--pick ${a.selected ? 'sel' : ''}" data-acard="${a.id}" data-card-sel="${a.id}"><div class="acard-head"><input type="checkbox" class="acard-cb" data-vtoggle="${a.id}" ${a.selected ? 'checked' : ''}><span class="acard-title">${a.name}${tag}</span></div>${bars}</div>`;
+            return `<div class="acard acard--pick ${a.selected ? 'sel' : ''}" data-acard="${a.id}" data-card-sel="${a.id}"><div class="acard-head"><input type="checkbox" class="acard-cb" data-vtoggle="${a.id}" ${a.selected ? 'checked' : ''}><span class="acard-title">${a.name}${tag}</span><span class="acard-metrics">${cardMetrics(a)}</span></div>${bars}</div>`;
         }
         function renderAsg() {
             const grid = $('depAsgGrid');
@@ -2316,6 +2454,7 @@
             if (!ready) {
                 grid.innerHTML = '<div class="dep-box-empty">Set the start date in Step 1 — the deployable assignments for that date appear here automatically.</div>';
                 $('depAsgCount').textContent = '0';
+                { const tc = $('depTabAsgCount'); if (tc) tc.textContent = '0'; }
                 return;
             }
             const f = filter.trim().toLowerCase();
@@ -2328,6 +2467,7 @@
             // Counter = how many are in this grouping (the cards shown), not how many are
             // selected — the footer already tracks the selected count.
             $('depAsgCount').textContent = list.length;
+            { const tc = $('depTabAsgCount'); if (tc) tc.textContent = list.length; }
         }
         // Render a card list selected-first: a "Selected (N)" indicator heads the stack of selected
         // cards, and a plain hairline sets them off from the not-yet-selected ones below.
@@ -2377,6 +2517,7 @@
                 <div class="acard-head">
                     <input type="checkbox" class="acard-cb" data-ttoggle="${t.id}" ${on ? 'checked' : ''}>
                     <span class="acard-title">${t.name}</span>
+                    <span class="acard-metrics">${cardMetrics(t)}</span>
                 </div>${bars}</div>`;
         }
         function renderTemplates() {
@@ -2385,6 +2526,7 @@
             const list = TEMPLATES.filter(t => !f || t.name.toLowerCase().includes(f))
                 .slice().sort((a, b) => ((selTpl.has(b.id) ? 1 : 0) - (selTpl.has(a.id) ? 1 : 0)) || a.name.localeCompare(b.name));
             $('depTplCount').textContent = list.length;
+            { const tc = $('depTabTplCount'); if (tc) tc.textContent = list.length; }
             $('depTplGrid').innerHTML = list.length
                 ? withSelDivider(list, t => selTpl.has(t.id), tplCard)
                 : (TEMPLATES.length ? '<div class="dep-box-empty">No templates match your search.</div>'
@@ -2548,6 +2690,69 @@
             const bar = $('reviewTab'); if (bar) bar.innerHTML = reviewBarHtml();
         }
 
+        // ---- Cart (V1) — the interactive replacement for the Review step ----
+        // Groups every selection (existing · templates · new builds) and renders the SAME
+        // interactive cards used in the pick lists, so people can be filled right in the cart.
+        function cartItemsHtml() {
+            const existing = ASSIGNMENTS.filter(a => a.isDeployable && a.selected && !a.built);
+            const built = ASSIGNMENTS.filter(a => a.built);
+            const tpls = [...selTpl].map(id => TEMPLATES.find(t => t.id === id)).filter(Boolean);
+            const group = (title, n, cardsHtml) => `<div class="cart-group"><div class="cart-group-title">${title} (${n})</div><div class="assign-grid">${cardsHtml}</div></div>`;
+            let html = '';
+            if (existing.length) html += group('Existing assignments', existing.length, existing.map(assignCard).join(''));
+            if (tpls.length) html += group('Templates', tpls.length, tpls.map(tplCard).join(''));
+            if (built.length) html += group('New builds', built.length, built.map(builtCard).join(''));
+            return html;
+        }
+        function renderCart() {
+            const { total, openCount } = reviewStats();
+            const barText = $('cartBarText');
+            if (barText) barText.innerHTML = total
+                ? `<strong>${total}</strong> selected${openCount ? ` · <strong>${openCount}</strong> to fill` : ' · all filled'}`
+                : `<strong>0</strong> selected`;
+            const hc = $('cartHeadCount'); if (hc) hc.textContent = total;
+            const hf = $('cartHeadFill');
+            if (hf) hf.innerHTML = total
+                ? (openCount ? `<span class="chf-open">${openCount} still to fill</span>` : `<span class="chf-done"><i class="fa-solid fa-circle-check"></i> All positions filled</span>`)
+                : '';
+            const body = $('cartBody');
+            if (body) body.innerHTML = total
+                ? cartItemsHtml()
+                : '<div class="cart-empty">Nothing selected yet — pick existing assignments, choose templates, or build one on the tabs above and it lands here.</div>';
+        }
+        // Modeless: no backdrop and NO outside-click close — the page stays interactive behind
+        // the cart. It opens/collapses only from its own bar + collapse control.
+        function openCart() {
+            renderCart();
+            $('cartPanel').classList.add('open');
+            $('cartBar').classList.add('hidden');
+        }
+        function closeCart() {
+            const p = $('cartPanel'); if (p) p.classList.remove('open');
+            const b = $('cartBar'); if (b) b.classList.remove('hidden');
+        }
+        { const b = $('cartBar'); if (b) b.addEventListener('click', openCart); }
+        { const c = $('cartClose'); if (c) c.addEventListener('click', closeCart); }
+        // Height-adjustable: drag the top grip (up = taller), clamped to the panel's CSS bounds.
+        { const rz = $('cartResize'); const panel = $('cartPanel');
+          if (rz && panel) rz.addEventListener('pointerdown', e => {
+              e.preventDefault();
+              const startY = e.clientY;
+              const startH = panel.getBoundingClientRect().height;
+              const maxH = window.innerHeight * 0.84, minH = 200;
+              rz.setPointerCapture(e.pointerId);
+              const onMove = ev => {
+                  let h = startH + (startY - ev.clientY);   // drag up → taller
+                  h = Math.max(minH, Math.min(maxH, h));
+                  panel.style.height = h + 'px';
+              };
+              const onUp = () => { rz.removeEventListener('pointermove', onMove); rz.removeEventListener('pointerup', onUp); };
+              rz.addEventListener('pointermove', onMove);
+              rz.addEventListener('pointerup', onUp);
+          });
+        }
+
+        let hadCartItems = false;   // tracks the 0 → 1+ selection transition for the cart auto-open
         function renderGrids() { renderAsg(); renderTemplates(); renderBuilt(); updateAll(); }   // updateAll() renders the review
         // empContinue (main script) calls this after filling a card slot.
         window.renderVBuilder = renderGrids;
@@ -2576,6 +2781,12 @@
             ['depStart', 'depEnd', 'depRecStart', 'depRecEnd'].forEach(id => { const el = $(id); if (el) el.classList.toggle('needs-attn', warn && !dOk); });
             renderSummary();
             renderReview();
+            renderCart();
+            // The very first pick pops the cart open (V1 only) so the running selection is
+            // obvious; after that it opens/collapses only from its own bar + collapse control.
+            const inV1 = document.getElementById('view-deploy').dataset.ver === '1';
+            if (count > 0 && !hadCartItems && inV1) openCart();
+            hadCartItems = count > 0;
         }
         customElements.whenDefined('vaadin-text-field').then(() => { const n = $('depName'); if (n) n.addEventListener('value-changed', updateAll); });
 
@@ -2635,7 +2846,7 @@
             if (kind === 'tpl') setBox('depTplHead', 'depTplBody', true);
             else if (obj.built) setBox('depBuiltHead', 'depBuiltBody', true);
             else setBox('depAsgHead', 'depAsgBody', true);
-            if (document.getElementById('view-deploy').dataset.ver !== '1') gotoStep('depStep3');
+            if (document.getElementById('view-deploy').dataset.ver === '2') gotoStep('depStep3');
             setTimeout(() => {
                 const cardEl = document.querySelector(`[data-acard="${id}"]`);
                 if (!cardEl) return;
@@ -2726,11 +2937,12 @@
         $('depTplHead').addEventListener('click', () => toggleBox('depTplHead', 'depTplBody'));
 
         // ---- Step cards collapse/expand from their header ----
-        // In V2 (stepper) clicking any step jumps to it; in V1 it just toggles that card.
+        // In V2 (stepper) clicking any step jumps to it; in the flat layouts (V1 tabs, V3 original)
+        // it just toggles that card open/closed.
         document.querySelectorAll('#view-deploy > .deploy-page .v-card > .v-card-title').forEach(t => {
             t.addEventListener('click', () => {
                 const card = t.closest('.v-card');
-                if (document.getElementById('view-deploy').dataset.ver !== '1') gotoStep(card.id);
+                if (document.getElementById('view-deploy').dataset.ver === '2') gotoStep(card.id);
                 else card.classList.toggle('collapsed');
             });
         });
@@ -2756,19 +2968,63 @@
             });
         });
 
-        // ---- Version switcher — V1 flat one-page · V2 stepper + side review · V3 stepper + bottom island ----
+        // ---- Step-2 tabs (V1 only): one source panel visible at a time ----
+        // Each tab maps to one of the existing boxes; we show that box and hide the rest.
+        let depTab = 'asg';
+        const DEP_TABS = { asg: 'depAsgBox', tpl: 'depTplBox', build: 'depBuildBox' };
+        function setDepTab(name) {
+            depTab = name;
+            document.querySelectorAll('.dep-tab').forEach(t => t.classList.toggle('active', t.dataset.deptab === name));
+            Object.entries(DEP_TABS).forEach(([k, boxId]) => { const el = $(boxId); if (el) el.style.display = k === name ? '' : 'none'; });
+            // Make sure the active box's body is actually shown (drawer headers are hidden in V1).
+            setBox('depAsgHead', 'depAsgBody', name === 'asg');
+            setBox('depTplHead', 'depTplBody', name === 'tpl');
+            setBox('depBuildHead', 'depBuilder', name === 'build');
+        }
+        document.querySelectorAll('.dep-tab').forEach(t => t.addEventListener('click', () => setDepTab(t.dataset.deptab)));
+        // Restore the stacked-drawer defaults used by V2/V3 (undo any V1 tab display state).
+        function resetBoxesForStacked() {
+            ['depAsgBox', 'depTplBox', 'depBuildBox'].forEach(id => { const el = $(id); if (el) el.style.display = ''; });
+            setBox('depAsgHead', 'depAsgBody', true);
+            setBox('depTplHead', 'depTplBody', false);
+            setBox('depBuildHead', 'depBuilder', false);
+            setBox('depBuiltHead', 'depBuiltBody', true);
+        }
+
+        // ---- Density toggle (Compact / Comfortable) on the pick tabs ----
+        document.querySelectorAll('.dep-viewtoggle').forEach(tog => {
+            tog.addEventListener('click', e => {
+                const btn = e.target.closest('button[data-density]'); if (!btn) return;
+                const gridId = tog.dataset.vt === 'tpl' ? 'depTplGrid' : 'depAsgGrid';
+                const grid = $(gridId); if (!grid) return;
+                const compact = btn.dataset.density === 'compact';
+                grid.classList.toggle('view-compact', compact);
+                grid.classList.toggle('view-comfortable', !compact);
+                tog.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+            });
+        });
+
+        // ---- Version switcher — V1 tabs + cart · V2 stepper + island · V3 flat one-page + review ----
         function setVersion(v) {
             document.getElementById('view-deploy').dataset.ver = v;
             document.querySelectorAll('.version-switcher .vs-btn').forEach(b => b.classList.toggle('active', b.dataset.version === v));
-            setBox('depBuildHead', 'depBuilder', false);   // build drawer starts collapsed in every version
+            closeReview();              // reset whichever review surface was open
+            closeCart();
             if (v === '1') {
-                // V1 — flat one-page layout: every step expanded, no stepper.
+                // V1 — flat one-page (all sections expanded), Step 2 shown as tabs, cart replaces review.
+                STEP_IDS.forEach(s => { const c = $(s); if (c) c.classList.remove('collapsed'); });
+                setDepTab(depTab);
+            } else if (v === '3') {
+                // V3 — the original flat one-page layout: every section expanded, inline review, no tabs.
+                resetBoxesForStacked();
                 STEP_IDS.forEach(s => { const c = $(s); if (c) c.classList.remove('collapsed'); });
             } else {
-                gotoStep('depStep1');   // stepper starts on Step 1
+                // V2 — stepper, one step at a time.
+                resetBoxesForStacked();
+                gotoStep('depStep1');
             }
-            closeReview();              // reset whichever review surface was open
             renderReview();
+            renderCart();
         }
         document.querySelectorAll('.version-switcher .vs-btn').forEach(b =>
             b.addEventListener('click', () => setVersion(b.dataset.version)));
@@ -2781,7 +3037,8 @@
         });
 
         // ---- Templates multi-select: check to include in the deployment ----
-        $('depTplGrid').addEventListener('click', e => {
+        // Named so the cart can reuse the exact same click behavior (fill/replace/toggle).
+        function onTplGridClick(e) {
             // Fill / replace a template slot — only present once the template is selected.
             const tf = e.target.closest('[data-tfill]');
             if (tf) {
@@ -2795,7 +3052,7 @@
             if (tr) {
                 const [tid, idx] = tr.dataset.tremove.split(':');
                 const t = TEMPLATES.find(x => x.id === tid);
-                if (t) { t.slots[+idx].emp = null; renderTemplates(); renderReview(); updateAll(); }
+                if (t) { t.slots[+idx].emp = null; renderTemplates(); renderReview(); renderCart(); updateAll(); }
                 return;
             }
             // The checkbox reports its own (post-click) state; anywhere else on the card flips it
@@ -2811,32 +3068,40 @@
                 const id = card.dataset.cardTpl;
                 if (selTpl.has(id)) selTpl.delete(id); else selTpl.add(id);
             } else { return; }
-            renderTemplates(); renderReview(); updateAll();
-        });
+            renderTemplates(); renderReview(); renderCart(); updateAll();
+        }
+        $('depTplGrid').addEventListener('click', onTplGridClick);
 
         // ---- New-assignment card actions: rename, remove, save-as-template (delegated) ----
-        $('depBuiltGrid').addEventListener('input', e => {
+        function onBuiltGridInput(e) {
             const nm = e.target.closest('[data-bname]'); if (!nm) return;
             const a = ASSIGNMENTS.find(x => x.id === nm.dataset.bname); if (a) a.name = nm.value;
-        });
-        $('depBuiltGrid').addEventListener('click', e => {
+        }
+        function onBuiltGridClick(e) {
             const del = e.target.closest('[data-bdel]');
-            if (del) { const i = ASSIGNMENTS.findIndex(x => x.id === del.dataset.bdel); if (i > -1) ASSIGNMENTS.splice(i, 1); renderGrids(); return; }
+            if (del) { const i = ASSIGNMENTS.findIndex(x => x.id === del.dataset.bdel); if (i > -1) ASSIGNMENTS.splice(i, 1); renderGrids(); renderCart(); return; }
             const tpl = e.target.closest('[data-bsavetpl]');
             if (tpl) {
                 const a = ASSIGNMENTS.find(x => x.id === tpl.dataset.bsavetpl); if (!a) return;
                 const name = (a.name || '').trim();
                 if (!name || /^New assignment \d+$/.test(name)) {
                     showToast('Give this assignment a name before saving it as a template.');
-                    const inp = $('depBuiltGrid').querySelector(`[data-bname="${a.id}"]`); if (inp) inp.focus();
+                    const inp = document.querySelector(`[data-bname="${a.id}"]`); if (inp) inp.focus();
                     return;
                 }
                 TEMPLATES.push({ id: 'tpl-' + (++tmplSeq), name, slots: a.slots.map(s => ({ quals: s.quals.slice(), emp: null })) });
                 a.template = true;
-                renderBuilt(); renderTemplates();
+                renderBuilt(); renderTemplates(); renderCart();
                 showToast(`“${name}” saved as a reusable template — it’s now in the Templates list.`);
             }
-        });
+        }
+        $('depBuiltGrid').addEventListener('input', onBuiltGridInput);
+        $('depBuiltGrid').addEventListener('click', onBuiltGridClick);
+
+        // ---- Cart (V1): reuse the same template + built-card handlers so it's fully interactive.
+        //      (Existing/built vtoggle/vfill/vremove already work via the document-level handler.) ----
+        $('cartBody').addEventListener('click', e => { onTplGridClick(e); onBuiltGridClick(e); });
+        $('cartBody').addEventListener('input', onBuiltGridInput);
 
         // ---- Grid interactions (delegated) — Step 3 assignment cards ----
         document.addEventListener('click', e => {
@@ -2864,6 +3129,34 @@
         });
         $('depSearch').addEventListener('input', e => { filter = e.target.value; renderAsg(); });
         $('depTplSearch').addEventListener('input', e => { tplFilter = e.target.value; renderTemplates(); });
+
+        /* Drag-to-resize the pick lists by their full bottom edge. Each
+           `.dep-grid-resizer` bar sits right after its `.dep-grid-scroll` list and
+           drives that list's height on pointer drag (clamped to its CSS min/max). */
+        document.querySelectorAll('.dep-grid-resizer').forEach(bar => {
+            const grid = bar.previousElementSibling;
+            if (!grid || !grid.classList.contains('dep-grid-scroll')) return;
+            bar.addEventListener('pointerdown', e => {
+                e.preventDefault();
+                const startY = e.clientY;
+                const startH = grid.getBoundingClientRect().height;
+                const maxH = window.innerHeight * 0.8;   // matches CSS max-height: 80vh
+                bar.classList.add('dragging');
+                bar.setPointerCapture(e.pointerId);
+                const onMove = ev => {
+                    let h = startH + (ev.clientY - startY);
+                    h = Math.max(150, Math.min(maxH, h));   // matches CSS min-height
+                    grid.style.height = h + 'px';
+                };
+                const onUp = () => {
+                    bar.classList.remove('dragging');
+                    bar.removeEventListener('pointermove', onMove);
+                    bar.removeEventListener('pointerup', onUp);
+                };
+                bar.addEventListener('pointermove', onMove);
+                bar.addEventListener('pointerup', onUp);
+            });
+        });
 
         /* ============================================================
            Step 2 — two-column qualifier builder.
