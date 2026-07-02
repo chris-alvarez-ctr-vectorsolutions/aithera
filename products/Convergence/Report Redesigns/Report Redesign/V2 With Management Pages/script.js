@@ -938,14 +938,17 @@ function buildSavedViewsDropdown(cfg) {
 // chip inside the button.
 function updateSavedViewsLabels() {
     const av = appliedSavedView;
-    const apply = (active, chipId, nameId) => {
-        const chip = document.getElementById(chipId);
-        const name = document.getElementById(nameId);
+    // When a view is applied, hide the "Saved views" text so only the chip shows.
+    const apply = (active, labelId, chipId, nameId) => {
+        const label = document.getElementById(labelId);
+        const chip  = document.getElementById(chipId);
+        const name  = document.getElementById(nameId);
+        if (label) label.style.display = active ? 'none' : '';
         if (name && active) name.textContent = av.name;
         if (chip) chip.style.display = active ? '' : 'none';
     };
-    apply(!!(av && av.report === 'Qualification Report'),      'savedViewsChip',      'savedViewsChipName');
-    apply(!!(av && av.report === 'Activity Exception Report'), 'actExSavedViewsChip', 'actExSavedViewsChipName');
+    apply(!!(av && av.report === 'Qualification Report'),      'savedViewsBtnLabel',      'savedViewsChip',      'savedViewsChipName');
+    apply(!!(av && av.report === 'Activity Exception Report'), 'actExSavedViewsBtnLabel', 'actExSavedViewsChip', 'actExSavedViewsChipName');
 }
 // Clear the applied view straight from the Saved-views control (no need to open the menu)
 document.getElementById('savedViewsClear')?.addEventListener('click', (e) => { e.stopPropagation(); clearAppliedView(); });
@@ -999,29 +1002,23 @@ function populateFilterPanelFromView(view) {
     suppressDirty = false;
 }
 
-// Elevate the applied saved view into the report subtitle (view name + scheduled-
-// report count as metadata; clicking the count manages this view's schedules).
+// Surface the applied saved view as an eyebrow ABOVE the report title (view name +
+// scheduled-report count as metadata; clicking the count manages this view's
+// schedules). The "Last updated" subtitle stays visible underneath the title.
 function renderAppliedBanner() {
-    [['Qualification Report', 'qualSubtitle', 'qualViewSubtitle'],
-     ['Activity Exception Report', 'actExSubtitle', 'actExViewSubtitle']].forEach(([report, subId, vsubId]) => {
-        const sub  = document.getElementById(subId);
-        const vsub = document.getElementById(vsubId);
-        if (!vsub) return;
+    [['Qualification Report', 'qualViewEyebrow'],
+     ['Activity Exception Report', 'actExViewEyebrow']].forEach(([report, eyeId]) => {
+        const eye = document.getElementById(eyeId);
+        if (!eye) return;
         const active = appliedSavedView && appliedSavedView.report === report;
-        if (!active) {
-            vsub.style.display = 'none';
-            vsub.innerHTML = '';
-            if (sub) sub.style.display = '';
-            return;
-        }
-        if (sub) sub.style.display = 'none';
+        if (!active) { eye.style.display = 'none'; eye.innerHTML = ''; return; }
         const n = scheduleCountForView(appliedSavedView.id);
         const schedHTML = n > 0
             ? `<span class="rvs-sep">·</span><button type="button" class="rvs-sched"><i class="fa-regular fa-clock"></i> ${n} scheduled report${n !== 1 ? 's' : ''}</button>`
             : `<span class="rvs-sep">·</span><span class="rvs-sched-static">No scheduled reports</span>`;
-        vsub.style.display = 'flex';
-        vsub.innerHTML = `<span class="rvs-name"><i class="fa-solid fa-bookmark"></i> ${appliedSavedView.name}</span>${schedHTML}`;
-        const schedBtn = vsub.querySelector('.rvs-sched');
+        eye.style.display = 'flex';
+        eye.innerHTML = `<span class="rvs-name"><i class="fa-solid fa-bookmark"></i> ${appliedSavedView.name}</span>${schedHTML}`;
+        const schedBtn = eye.querySelector('.rvs-sched');
         if (schedBtn) schedBtn.addEventListener('click', () => openManageSchedulesDialog(appliedSavedView));
     });
 }
@@ -2265,6 +2262,12 @@ function reportBadgeClass(report) {
     if (report === 'Activity Exception Report') return 'rt-badge rt-actex';
     return 'rt-badge rt-other';
 }
+// Compact report-type label for the narrow Scheduled Reports grid badge (full name in the title attr)
+function srShortReport(report) {
+    if (report === 'Qualification Report') return 'Qualification';
+    if (report === 'Activity Exception Report') return 'Activity Exception';
+    return report;
+}
 
 function formatSchedule(s) {
     let base;
@@ -3105,7 +3108,7 @@ function renderScheduledReports() {
         tr.dataset.id = s.id;
         tr.innerHTML = `
             <td class="sr-dname"><i class="fa-regular fa-paper-plane sr-deliv-icon"></i> ${s.name}</td>
-            <td><span class="${reportBadgeClass(s.report)}">${s.report}</span></td>
+            <td><span class="${reportBadgeClass(s.report)}" title="${s.report}">${srShortReport(s.report)}</span></td>
             <td>${s.savedViewId
                 ? `<button class="sr-view-link" data-view="${s.savedViewId}" title="View saved view details">${s.savedViewName || '—'}</button>`
                 : `<span class="sr-dim">—</span>`}</td>

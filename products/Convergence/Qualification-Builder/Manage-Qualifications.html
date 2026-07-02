@@ -163,6 +163,36 @@
     .confirm-dialog h3 { font-size:16px; font-weight:700; color:#1a1a2e; margin-bottom:8px; }
     .confirm-dialog p { font-size:13px; color:#6b7280; line-height:1.6; margin-bottom:18px; }
     .confirm-dialog .cd-btns { display:flex; gap:8px; justify-content:flex-end; }
+    /* Build with AI: intake modal (questions + optional context upload) */
+    .ai-intake-dialog { width:560px; text-align:left; padding:24px 26px 20px; }
+    .aii-eyebrow { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:var(--vblue); margin-bottom:6px; }
+    .ai-intake-dialog h3 { margin-bottom:6px; }
+    .ai-intake-dialog > p { margin-bottom:18px; }
+    .aii-body { display:flex; flex-direction:column; gap:16px; margin-bottom:20px; max-height:56vh; overflow-y:auto; }
+    .aii-label { display:block; font-size:13px; font-weight:600; color:#1a1a2e; margin-bottom:6px; }
+    .aii-opt { font-weight:400; color:#9ca3af; }
+    .aii-req { color:#dc2626; }
+    .aii-field input[type=text], .aii-field textarea { width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:8px; padding:9px 11px; font-family:inherit; font-size:14px; color:#1a1a2e; outline:none; transition:border-color .12s, box-shadow .12s; }
+    .aii-field input[type=text]:focus, .aii-field textarea:focus { border-color:var(--vblue); box-shadow:0 0 0 3px var(--vblue-10); }
+    .aii-field textarea { resize:vertical; min-height:88px; line-height:1.5; }
+    .aii-hint { font-size:12px; color:#6b7280; margin-bottom:8px; line-height:1.5; }
+    .aii-attach-list { display:flex; flex-wrap:wrap; gap:8px; }
+    .aii-attach-list:empty { display:none; }
+    .aii-attach-list + .aii-attach-trigger { margin-top:8px; }
+    .aii-attach-chip { display:flex; align-items:center; gap:8px; max-width:100%; background:#fff; border:1px solid #d1d5db; border-radius:10px; padding:6px 6px 6px 8px; }
+    .aii-attach-ico { display:flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:7px; background:#eef2f7; color:#475569; font-size:14px; flex-shrink:0; }
+    .aii-attach-meta { display:flex; flex-direction:column; min-width:0; line-height:1.25; }
+    .aii-attach-name { font-size:12px; font-weight:600; color:#1a1a2e; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .aii-attach-size { font-size:11px; color:#6b7280; }
+    .aii-attach-x { border:0; background:transparent; color:#9ca3af; cursor:pointer; padding:3px; font-size:12px; flex-shrink:0; border-radius:5px; line-height:1; }
+    .aii-attach-x:hover { background:#eef2f7; color:#374151; }
+    .aii-attach-trigger { display:inline-flex; align-items:center; justify-content:center; gap:8px; width:100%; border:1px dashed #cbd5e1; background:#fff; color:#374151; border-radius:9px; padding:10px 12px; font-family:inherit; font-size:12.5px; cursor:pointer; transition:border-color .12s, color .12s, background .12s; }
+    .aii-attach-trigger:hover { border-color:var(--vblue); color:var(--vblue); background:var(--vblue-10); }
+    .aii-attach-error { display:flex; align-items:flex-start; gap:8px; background:#fdecec; border:1px solid #f3c2c0; color:#a3271f; border-radius:9px; padding:10px 12px; margin-bottom:8px; font-size:12px; line-height:1.45; }
+    .aii-attach-error.hidden { display:none; }
+    .aii-err-x { border:0; background:transparent; color:#a3271f; cursor:pointer; padding:2px; font-size:13px; flex-shrink:0; margin-left:auto; }
+    .ai-intake-dialog.drop-hot { outline:2px dashed var(--vblue); outline-offset:4px; }
+    .aii-generate i { margin-right:6px; }
   </style>
 </head>
 <body>
@@ -184,7 +214,7 @@
             <i class="fa-solid fa-pen-to-square"></i>
             <div><strong>Create manually</strong><span>Start from a blank builder</span></div>
           </a>
-          <a href="AI-Qualification-Builder.html?ai=1">
+          <a href="AI-Qualification-Builder.html?ai=1" onclick="openAiIntake(event)">
             <i class="fa-solid fa-wand-magic-sparkles"></i>
             <div><strong>Build with AI</strong><span>Describe it and let AI draft it</span></div>
           </a>
@@ -263,6 +293,41 @@
     <div class="cd-btns">
       <button class="btn btn-secondary btn-sm" onclick="closeDeactivate()">Cancel</button>
       <button class="btn btn-primary btn-sm" onclick="confirmDeactivateAction()">Deactivate</button>
+    </div>
+  </div>
+</div>
+
+<!-- Build with AI: intake modal (asks a few questions + optional context upload, then hands off to the builder) -->
+<div class="confirm-overlay hidden" id="ai-intake-overlay">
+  <div class="confirm-dialog ai-intake-dialog" id="aii-dialog" ondragover="aiiDragOver(event)" ondragleave="aiiDragLeave(event)" ondrop="aiiDrop(event)">
+    <div class="aii-eyebrow"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Qualification Assistant</div>
+    <h3>Build with AI</h3>
+    <p>Answer a few questions and, if you like, upload a job description or SOP. AI drafts the qualification and you refine it in the builder.</p>
+    <div class="aii-body">
+      <div class="aii-field">
+        <span class="aii-label">Summary</span>
+        <input type="text" id="aii-summary" placeholder="e.g., Operate the Line 3 AC motor controller safely"/>
+      </div>
+      <div class="aii-field">
+        <span class="aii-label">Timeline of training <span class="aii-opt">(optional)</span></span>
+        <input type="text" id="aii-timeline" placeholder="e.g., 2 days, 6 weeks, ongoing"/>
+      </div>
+      <div class="aii-field">
+        <span class="aii-label">Describe the goals of this qualification <span class="aii-req">*</span></span>
+        <textarea id="aii-goals" rows="4" placeholder="Describe the skill or task to certify, the equipment involved, the safety procedures, and how competency should be verified." oninput="aiiSyncGenerate()" onpaste="aiiPaste(event)"></textarea>
+      </div>
+      <div class="aii-field">
+        <span class="aii-label">Add a document <span class="aii-opt">(optional)</span></span>
+        <div class="aii-hint">Upload a job description or SOP (PDF, Word, or text file) and the draft is built from it, so you do not have to copy, paste, or retype it.</div>
+        <div class="aii-attach-error hidden" id="aii-attach-error"></div>
+        <div class="aii-attach-list" id="aii-attach-list"></div>
+        <button type="button" class="aii-attach-trigger" id="aii-attach-trigger" onclick="document.getElementById('aii-file-input').click()"><i class="fa-solid fa-paperclip"></i> Upload a document, or drag one in</button>
+        <input type="file" id="aii-file-input" accept=".pdf,.txt,.md,.markdown,.doc,.docx,.rtf,.csv,application/pdf,text/plain" multiple style="display:none" onchange="aiiAddFiles(this.files); this.value='';"/>
+      </div>
+    </div>
+    <div class="cd-btns">
+      <button class="btn btn-secondary btn-sm" onclick="closeAiIntake()">Cancel</button>
+      <button class="btn btn-primary btn-sm aii-generate" id="aii-generate" onclick="submitAiIntake()" disabled><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Qualification</button>
     </div>
   </div>
 </div>
@@ -526,6 +591,55 @@ function showToast(msg){
 }
 
 function toggleCreate(e){ e.stopPropagation(); document.getElementById('create-menu').classList.toggle('hidden'); }
+
+/* ─── Build with AI: intake modal (asks questions + optional context here, then hands off to the builder) ─── */
+let aiiDocs = [];
+const AII_DOC_TYPES = ['application/pdf','text/plain','text/markdown','text/csv','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/rtf','text/rtf'];
+function aiiSupported(f){ return f && (AII_DOC_TYPES.includes(f.type) || /\.(pdf|txt|md|markdown|doc|docx|rtf|csv)$/i.test(f.name||'')); }
+function aiiDocIcon(name){ const n=(name||'').toLowerCase(); if(/\.pdf$/.test(n)) return 'fa-file-pdf'; if(/\.(doc|docx)$/.test(n)) return 'fa-file-word'; if(/\.csv$/.test(n)) return 'fa-file-csv'; return 'fa-file-lines'; }
+function aiiFmtSize(b){ if(b==null) return ''; return b>=1048576 ? (b/1048576).toFixed(1)+' MB' : b>=1024 ? Math.round(b/1024)+' KB' : b+' B'; }
+function aiiEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function openAiIntake(e){
+  if(e) e.preventDefault();
+  const m=document.getElementById('create-menu'); if(m) m.classList.add('hidden');
+  aiiDocs=[]; ['aii-summary','aii-timeline','aii-goals'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  aiiRenderDocs(); aiiClearError(); aiiSyncGenerate();
+  document.getElementById('ai-intake-overlay').classList.remove('hidden');
+  setTimeout(()=>{ const g=document.getElementById('aii-goals'); if(g) g.focus(); }, 60);
+}
+function closeAiIntake(){ const o=document.getElementById('ai-intake-overlay'); if(o) o.classList.add('hidden'); const d=document.getElementById('aii-dialog'); if(d) d.classList.remove('drop-hot'); }
+function aiiAddFiles(list){
+  const all=[...(list||[])].filter(Boolean);
+  const good=all.filter(aiiSupported), bad=all.filter(f=>!aiiSupported(f));
+  if(bad.length) aiiShowError(bad.map(f=>f.name||'file')); else if(good.length) aiiClearError();
+  if(!good.length) return;
+  good.forEach(f=>aiiDocs.push({ name:f.name, sizeLabel:aiiFmtSize(f.size) }));
+  aiiRenderDocs(); aiiSyncGenerate();
+}
+function aiiRemoveDoc(i){ aiiDocs.splice(i,1); aiiRenderDocs(); aiiSyncGenerate(); }
+function aiiRenderDocs(){
+  const wrap=document.getElementById('aii-attach-list'); if(!wrap) return;
+  wrap.innerHTML = aiiDocs.map((a,i)=>`<div class="aii-attach-chip" title="${aiiEsc(a.name)}"><span class="aii-attach-ico"><i class="fa-solid ${aiiDocIcon(a.name)}"></i></span><span class="aii-attach-meta"><span class="aii-attach-name">${aiiEsc(a.name)}</span>${a.sizeLabel?`<span class="aii-attach-size">${aiiEsc(a.sizeLabel)}</span>`:''}</span><button type="button" class="aii-attach-x" aria-label="Remove ${aiiEsc(a.name)}" onclick="aiiRemoveDoc(${i})"><i class="fa-solid fa-xmark"></i></button></div>`).join('');
+}
+function aiiShowError(names){
+  const el=document.getElementById('aii-attach-error'); if(!el) return;
+  el.innerHTML = `<span><i class="fa-solid fa-circle-exclamation" style="margin-right:7px"></i>Unsupported file type: ${aiiEsc(names.join(', '))}. Upload a PDF, Word, or text document (for example, a job description or SOP).</span><button type="button" class="aii-err-x" aria-label="Dismiss" onclick="aiiClearError()"><i class="fa-solid fa-xmark"></i></button>`;
+  el.classList.remove('hidden');
+}
+function aiiClearError(){ const el=document.getElementById('aii-attach-error'); if(el){ el.classList.add('hidden'); el.innerHTML=''; } }
+function aiiSyncGenerate(){ const g=document.getElementById('aii-generate'); const goals=((document.getElementById('aii-goals')||{}).value||'').trim(); if(g) g.disabled = !(goals || aiiDocs.length); }
+function aiiDragOver(e){ if(e.dataTransfer && Array.from(e.dataTransfer.types||[]).includes('Files')){ e.preventDefault(); const d=document.getElementById('aii-dialog'); if(d) d.classList.add('drop-hot'); } }
+function aiiDragLeave(e){ const d=document.getElementById('aii-dialog'); if(d && !d.contains(e.relatedTarget)) d.classList.remove('drop-hot'); }
+function aiiDrop(e){ if(!(e.dataTransfer && Array.from(e.dataTransfer.types||[]).includes('Files'))) return; e.preventDefault(); const d=document.getElementById('aii-dialog'); if(d) d.classList.remove('drop-hot'); aiiAddFiles(e.dataTransfer.files); }
+function aiiPaste(e){ const f=e.clipboardData && e.clipboardData.files; if(f && f.length){ e.preventDefault(); aiiAddFiles(f); } }
+function submitAiIntake(){
+  const summary=((document.getElementById('aii-summary')||{}).value||'').trim();
+  const timeline=((document.getElementById('aii-timeline')||{}).value||'').trim();
+  const goals=((document.getElementById('aii-goals')||{}).value||'').trim();
+  if(!goals && !aiiDocs.length) return;
+  try { sessionStorage.setItem('cvAiIntake', JSON.stringify({ summary, timeline, goals, docs: aiiDocs })); } catch(err){}
+  window.location.href = 'AI-Qualification-Builder.html?ai=1';
+}
 document.addEventListener('click', () => { document.getElementById('create-menu')?.classList.add('hidden'); closeDropdown(); });
 
 document.addEventListener('DOMContentLoaded', () => {

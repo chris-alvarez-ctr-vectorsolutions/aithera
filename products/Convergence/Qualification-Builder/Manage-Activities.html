@@ -118,6 +118,10 @@
     .act-badge:focus-visible { outline: 2px solid var(--vblue); outline-offset: 1px; }
     /* Purple "Learning Studio" badge (recolors the default Lumo badge, keeping the same size/shape) */
     .ls-badge[theme~="badge"] { background-color: #f3e8ff !important; color: #6d28d9 !important; }
+    /* Amber "Draft" status badge (Learning Studio content not yet published): recolors the dot badge, same size/shape */
+    .badge-draft[theme~="badge"] { background-color: #fdf0d5 !important; color: #92610a !important; }
+    /* "Vector Solutions" source badge (light blue), matching the badge size/shape */
+    .src-vs[theme~="badge"] { background-color: #e0f2fe !important; color: #075985 !important; }
 
     /* Row actions */
     .row-actions { display:flex; gap:4px; align-items:center; justify-content:flex-end; width:100%; }
@@ -360,28 +364,31 @@ const ACTS = [
 
 /* Derive the content-management columns (prototype values, varied across rows) */
 const ACT_SIZES = ['8 KB','512 KB','1.2 MB','3.4 MB','680 KB','12 MB','2.1 MB','46 KB','5.8 MB','920 KB'];
+/* Repository = the saved folder / collection in the content library where the file lives (a storage location).
+   It is NOT the content source and NOT the tab the activity appears under. */
+const REPO_FOLDERS = ['Safety Training Library','Compliance and OSHA','Operations Library','Onboarding and Orientation','Equipment Training','Field Procedures'];
 /* Content source drives the tabs (All / Custom / Vector Solutions / Learning Studio):
    - Vector Solutions = accredited, pre-built content from Vector Solutions
    - Learning Studio   = content created or edited in Learning Studio (editing an accredited
                          Vector Solutions item in Learning Studio removes its accreditation, so it lands here)
    - Custom            = everything the organization built itself */
 const LS_IDX = new Set([1, 5, 8, 16]);       // created/edited in Learning Studio
+const LS_DRAFT_IDX = new Set([8, 16]);       // Learning Studio content still being authored (shows as Draft, not yet published)
 const VS_IDX = new Set([0, 3, 6, 11, 15]);   // pre-built, accredited Vector Solutions content
 ACTS.forEach((a, i) => {
   a.source = LS_IDX.has(i) ? 'Learning Studio' : (VS_IDX.has(i) ? 'Vector Solutions' : 'Custom');
   if (a.source === 'Vector Solutions') {
     a.fileType    = (a.type === 'Course') ? 'SCORM' : 'VSP Content';
     a.licenseType = 'Commercial';
-    a.repository  = 'Vector Solutions Library';
   } else if (a.source === 'Learning Studio') {
     a.fileType    = 'VSP Content';
     a.licenseType = 'None';
-    a.repository  = 'Learning Studio';
+    if (LS_DRAFT_IDX.has(i)) a.status = 'Draft';   // Learning Studio content still being authored (not yet published)
   } else { // Custom
     a.fileType    = 'VSP Content';
     a.licenseType = 'None';
-    a.repository  = 'Custom Content';
   }
+  a.repository = REPO_FOLDERS[i % REPO_FOLDERS.length];   // saved folder location (independent of source/tab)
   a.configurable = (i % 3 !== 0);                       // most are configurable, some are not
   a.lsEditable   = (a.type === 'Course' || a.type === 'Quiz'); // course-style content can be authored/edited in Learning Studio
   a.updateStatus = (i % 6 === 1) ? 'New' : 'Current';   // a few flagged as newly updated
@@ -413,8 +420,20 @@ function versionRenderer(p){
   return `<span class="cell-version">${p.value || '-'}</span>`;
 }
 function statusRenderer(p){
+  if (p.value === 'Draft') return `<span theme="badge dot" class="badge-draft">${p.value}</span>`;
   const conn = p.value === 'Active' ? 'success' : 'contrast';
   return `<span theme="badge dot ${conn}">${p.value}</span>`;
+}
+/* Which content source (and therefore which tab) an activity belongs to. Shown only on the All tab, where sources are mixed. */
+function sourceRenderer(p){
+  const v = p.value || '';
+  if (!v) return `<span class="cell-muted">-</span>`;
+  const meta = {
+    'Custom':           { icon:'fa-screwdriver-wrench', theme:'badge contrast', cls:'' },
+    'Vector Solutions': { icon:'fa-shield-halved',      theme:'badge',          cls:'src-vs' },
+    'Learning Studio':  { icon:'fa-pen-ruler',          theme:'badge',          cls:'ls-badge' }
+  }[v] || { icon:'fa-cube', theme:'badge', cls:'' };
+  return `<span theme="${meta.theme}" class="${meta.cls}" style="display:inline-flex;align-items:center;gap:5px"><i class="fa-solid ${meta.icon}" style="font-size:10px"></i> ${v}</span>`;
 }
 function locationRenderer(p){
   const full = p.value || '';
@@ -584,6 +603,7 @@ const gridOptions = {
     { headerName:'Location',        field:'location',     flex:2, minWidth:220, cellRenderer:locationRenderer },
     { headerName:'Configurability', field:'configurable', width:165, cellRenderer:configRenderer },
     { headerName:'Learning Studio', field:'lsEditable',   width:165, cellRenderer:lsRenderer },
+    { headerName:'Source',          field:'source',       width:175, cellRenderer:sourceRenderer },
     { headerName:'Update Status',   field:'updateStatus', width:130, cellRenderer:updateRenderer },
     { headerName:'File Type',       field:'fileType',     width:150, cellRenderer:fileTypeRenderer },
     { headerName:'Size',            field:'size',         width:100, cellRenderer:sizeRenderer },
@@ -607,7 +627,7 @@ const gridOptions = {
     (!typeValue   || node.data.type === typeValue) &&
     (!reqValue    || node.data.requirement === reqValue) &&
     (!sourceValue || node.data.source === sourceValue),
-  onGridReady: () => { updateCount(); updateTabCounts(); },
+  onGridReady: () => { updateCount(); updateTabCounts(); applySourceColVisibility(); },
   onModelUpdated: () => updateCount(),
   onSelectionChanged: () => updateBulkBar(),
 };
@@ -635,7 +655,12 @@ function onSourceTab(btn){
     gridApi.deselectAll();              // selection from the previous tab no longer applies
     gridApi.onFilterChanged();
     gridApi.paginationGoToFirstPage();
+    applySourceColVisibility();         // Source column shows only on the All tab (mixed sources)
   }
+}
+/* The tabs already filter by source, so the per-row Source column is only useful on the All tab (mixed sources). */
+function applySourceColVisibility(){
+  if (gridApi) gridApi.setColumnsVisible(['source'], sourceValue === '');
 }
 /* Per-tab counts respect the Type dropdown and any requirement filter, but not the free-text search. */
 function updateTabCounts(){
@@ -705,7 +730,7 @@ function toggleExportMenu(ev){
 function closeExportMenu(){ const m=document.getElementById('export-menu'); if(m) m.classList.add('hidden'); }
 
 /* ─── Column customization (AG Grid columns tool-panel style: show/hide) ─── */
-const COL_PANEL_EXCLUDE = ['select', 'actions'];   // structural columns, not user-toggleable
+const COL_PANEL_EXCLUDE = ['select', 'actions', 'source'];   // structural / context-managed columns, not user-toggleable (Source shows only on the All tab)
 function toggleColumnPanel(ev){
   ev.stopPropagation();
   closeExportMenu();
@@ -766,6 +791,7 @@ function filterColumnPanel(q){
 function resetColumns(){
   if (!gridApi) return;
   gridApi.resetColumnState();
+  applySourceColVisibility();   // keep Source tied to the All tab even after a reset
   const s = document.getElementById('col-panel-search'); if (s) s.value = '';
   buildColumnPanel();
   filterColumnPanel('');
@@ -801,6 +827,13 @@ function confirmDeactivateAction(){ const cb = _deactivateCb; closeDeactivate();
 /* ─── Edit in Learning Studio confirmation ─── */
 let _lsActivity = null;
 function openLearningStudio(a){
+  // If this activity is already a Learning Studio item, it was previously duplicated / separated from
+  // its original, so editing it again does NOT create another copy (no duplication popup). It opens
+  // directly for editing. This is what keeps the Draft state meaningful (you cannot duplicate a draft).
+  if (a && a.source === 'Learning Studio'){
+    showToast('Opening "' + a.name + '" in Learning Studio to edit (prototype).');
+    return;
+  }
   _lsActivity = a;
   const nm = document.getElementById('ls-activity-name');
   if (nm) nm.textContent = a.name;
@@ -823,10 +856,10 @@ function confirmLearningStudio(){
     source: 'Learning Studio',
     fileType: 'VSP Content',
     licenseType: 'None',
-    repository: 'Learning Studio',
+    status: 'Draft',            // a freshly duplicated Learning Studio copy starts as a draft being authored
     updateStatus: 'New',
     configurable: true,
-  });
+  });   // repository (saved folder) is inherited from the original activity
   ACTS.push(copy);
   if (gridApi) gridApi.applyTransaction({ add: [copy] });
   updateTabCounts();
