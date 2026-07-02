@@ -1004,6 +1004,12 @@
         .version-switcher .vs-btn { background: transparent; border: 0; color: #d4d4d8; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 999px; cursor: pointer; font-family: inherit; transition: background .15s ease, color .15s ease; }
         .version-switcher .vs-btn:hover { color: #fff; }
         .version-switcher .vs-btn.active { background: #1f4596; color: #fff; }
+        /* V4 — the standalone "Deploy Existing Assignments" concept build. It's a complete
+           self-contained app (own nav, fonts, flows), so it loads in a full-viewport iframe
+           overlay; the version pill stays on top to switch back. */
+        .v4-frame { position: fixed; inset: 0; z-index: 1000; background: #14232F; display: none; }
+        .v4-frame.open { display: block; }
+        .v4-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
         /* V1 (tabs) + V3 (original flat one-page) both show every section — no Continue/Back stepper nav. */
         #view-deploy[data-ver="1"] .v-step-nav,
         #view-deploy[data-ver="3"] .v-step-nav { display: none; }
@@ -1648,11 +1654,15 @@
 
     <!-- Version switcher — V1 (inline builder) vs V2 ("Build new" button). The Design
          Toolbox dock adopts this pill, so the comment + flow-map launchers tuck into it. -->
+    <!-- V4 loads the standalone concept build (v4.html) in an overlay iframe. -->
+    <div class="v4-frame" id="v4Frame"><iframe id="v4Iframe" title="V4 — standalone deployment concept"></iframe></div>
+
     <div class="version-switcher" role="group" aria-label="Switch build-area version">
         <span class="vs-controller-label">BUILD</span>
         <button class="vs-btn active" data-version="1" type="button" title="Tabbed pick + interactive cart">V1</button>
         <button class="vs-btn" data-version="2" type="button" title="Stepper + bottom review island">V2</button>
         <button class="vs-btn" data-version="3" type="button" title="Flat one-page + inline review (original V1)">V3</button>
+        <button class="vs-btn" data-version="4" type="button" title="Standalone concept — full CrewScheduler + deployments app">V4</button>
     </div>
 
     <script>
@@ -3294,6 +3304,14 @@
             document.querySelectorAll('.version-switcher .vs-btn').forEach(b => b.classList.toggle('active', b.dataset.version === v));
             closeReview();              // reset whichever review surface was open
             closeCart();
+            // V4 — the standalone concept build (v4.html) takes over the whole viewport in an
+            // overlay iframe (lazy-loaded on first open); the version pill stays on top.
+            { const fr = $('v4Frame');
+              if (fr) {
+                  const on = v === '4';
+                  fr.classList.toggle('open', on);
+                  if (on) { const f = $('v4Iframe'); if (f && !f.getAttribute('src')) f.src = 'v4.html'; return; }
+              } }
             if (v === '1') {
                 // V1 — flat one-page (all sections expanded), Step 2 shown as tabs, cart replaces review.
                 STEP_IDS.forEach(s => { const c = $(s); if (c) c.classList.remove('collapsed'); });
