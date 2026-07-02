@@ -851,6 +851,58 @@
         .toast.show { opacity: 1; visibility: visible; transform: translateY(0); }
         .toast i { font-size: 16px; }
 
+        /* ---- Shared-qualifier crew coverage (a shared qualifier is satisfied by ANYONE on
+           the crew holding it — not a specific position). One chip per shared qualifier,
+           green when someone on the roster covers it, amber when nobody does yet. ---- */
+        .acard-cover { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .cov { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+        .cov.ok { background: #e7f5ec; color: #23703f; }
+        .cov.warn { background: #fdf1dc; color: #8a5b00; }
+        #view-deploy[data-ver="1"] .view-compact .acard .acard-cover { display: none; }
+
+        /* Same person filling two positions in this deployment — flag on the slot bar. */
+        .slot-dup { color: #ffd166; margin-right: 7px; flex: none; }
+        .slotbar--open .slot-dup, .slotbar--idle .slot-dup { color: #b06a00; }
+
+        /* ---- Small confirm dialog (date-change reset · duplicate person) ----
+           Sits above every other overlay (it can pop while the Edit Deployment
+           dialog or the employee picker is open). */
+        #cfOverlay { z-index: 70; }
+        .dlg-confirm { width: min(520px, 92vw); }
+        .cf-body { padding: 4px 24px 8px; font-size: 14px; color: var(--text); line-height: 1.55; }
+        .cf-body .cf-hint { margin-top: 8px; font-size: 12.5px; color: var(--text-soft); }
+
+        /* ---- Edit Deployment dialog (post-deploy: end date, add/remove assignments,
+           fill open slots, callback). Save funnels through the note modal. ---- */
+        .dlg-editdep { width: min(1060px, 94vw); max-height: 90vh; display: flex; flex-direction: column; }
+        .dlg-editdep .ed-sub { font-size: 12.5px; color: var(--text-soft); margin-top: 4px; }
+        .ed-body { padding: 6px 24px 12px; overflow-y: auto; }
+        .ed-dates { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-end; padding: 10px 0 16px; border-bottom: 1px solid var(--border); }
+        .ed-dates .sub-label { display: block; font-size: 12px; font-weight: 700; color: var(--text-soft); margin-bottom: 5px; }
+        .ed-lock-note { font-size: 12px; color: var(--text-soft); margin-top: 5px; }
+        .ed-sec-title { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); margin: 18px 0 10px; }
+        .ed-sec-title .ed-cb-btn { margin-left: auto; }
+        .ed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+        .ed-grid .acard { position: relative; }
+        .ed-add-list { border: 1px dashed var(--border-strong); border-radius: 10px; padding: 12px 14px; margin-top: 12px; display: none; }
+        .ed-add-list.open { display: block; }
+        .ed-add-row { display: flex; align-items: center; gap: 10px; padding: 7px 4px; font-size: 13.5px; border-radius: 6px; cursor: pointer; }
+        .ed-add-row:hover { background: #f4f7fa; }
+        .ed-add-row input { width: 16px; height: 16px; accent-color: var(--blue-link); }
+        .ed-add-row .ed-add-meta { margin-left: auto; color: var(--text-soft); font-size: 12px; white-space: nowrap; }
+        .ed-empty { color: var(--text-soft); font-size: 13.5px; padding: 10px 2px; }
+        .run-callback-btn.ed-cb-btn { margin: 0; }
+
+        /* ---- Save-note modal — every post-deploy edit carries a note on the confirmation. ---- */
+        .dlg-note { width: min(560px, 92vw); }
+        .edn-body { padding: 4px 24px 8px; }
+        .edn-diff { background: #f4f7fa; border: 1px solid var(--border); border-radius: 9px; padding: 11px 14px; font-size: 13px; color: var(--text); margin-bottom: 14px; }
+        .edn-diff ul { margin: 4px 0 0; padding-left: 18px; }
+        .edn-diff li { margin: 2px 0; }
+        .edn-body textarea { width: 100%; min-height: 88px; border: 1px solid var(--border-strong); border-radius: 8px; padding: 10px 12px; font: 13.5px inherit; font-family: inherit; color: var(--text); resize: vertical; outline: none; }
+        .edn-body textarea:focus { border-color: var(--blue-link); }
+        .edn-label { font-size: 12.5px; font-weight: 700; color: var(--text-soft); margin: 0 0 6px; }
+
         /* Shared layout for the deployment builder (lives inside .deploy-page) */
         .v-wrap { max-width: 1800px; margin: 0 auto; }
         .v-head { margin-bottom: 20px; }
@@ -1397,9 +1449,6 @@
                 <vaadin-button theme="primary" id="depDeploy">Deploy</vaadin-button>
             </div>
         </div>
-        <!-- Success toast (green, bottom-left, auto-dismiss) -->
-        <div class="toast" id="depToast" role="status" aria-live="polite"></div>
-
         <!-- Collapsible summary rail — sticks to the right edge, follows on scroll -->
         <button class="sum-tab" id="sumTab" aria-label="Open deployment summary"><i class="fa-solid fa-clipboard-list"></i> Summary</button>
         <aside class="sum-panel" id="sumPanel" aria-label="Deployment summary">
@@ -1435,6 +1484,65 @@
             </div>
             <div class="cart-body" id="cartBody"></div>
         </aside>
+    </div>
+
+    <!-- Success toast (green, bottom-left, auto-dismiss). Lives at body level so it
+         shows on ANY view — the deploy handler fires it after returning to the landing. -->
+    <div class="toast" id="depToast" role="status" aria-live="polite"></div>
+
+    <!-- ===================== Confirm dialog (shared) =====================
+         One small yes/no dialog reused for the date-change roster reset and the
+         duplicate-person (already in this deployment) warning. -->
+    <div class="overlay" id="cfOverlay">
+        <div class="dialog dlg-confirm">
+            <div class="dialog-head">
+                <div class="row1"><h2 id="cfTitle">Are you sure?</h2><button class="dialog-close" id="cfClose"><i class="fa-solid fa-xmark"></i></button></div>
+            </div>
+            <div class="cf-body" id="cfBody"></div>
+            <div class="dialog-footer">
+                <vaadin-button theme="secondary" id="cfCancel">Cancel</vaadin-button>
+                <vaadin-button theme="primary" id="cfOk">Continue</vaadin-button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== Edit Deployment dialog =====================
+         Reopens a deployed deployment from the landing table's ⋯ menu: extend/shorten
+         the end date (start date locked — time stays editable), add/remove whole
+         assignments from the group, fill open slots, or run a callback. Saving always
+         routes through the note modal below so the change is annotated. -->
+    <div class="overlay" id="edOverlay">
+        <div class="dialog dlg-editdep">
+            <div class="dialog-head">
+                <div class="row1"><h2 id="edTitle">Edit deployment</h2><button class="dialog-close" id="edClose"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="ed-sub" id="edSub"></div>
+            </div>
+            <div class="ed-body" id="edBody"></div>
+            <div class="dialog-footer">
+                <span class="footer-left" style="font-size:12.5px;color:var(--text-soft);" id="edFootNote"></span>
+                <vaadin-button theme="secondary" id="edCancel">Cancel</vaadin-button>
+                <vaadin-button theme="primary" id="edSave">Save changes</vaadin-button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save-note modal — appears on every Edit Deployment save; the note is appended
+         to the save confirmation (and would land in the deployment's audit log). -->
+    <div class="overlay" id="ednOverlay">
+        <div class="dialog dlg-note">
+            <div class="dialog-head">
+                <div class="row1"><h2>Add a note to this change</h2><button class="dialog-close" id="ednClose"><i class="fa-solid fa-xmark"></i></button></div>
+            </div>
+            <div class="edn-body">
+                <div class="edn-diff" id="ednDiff"></div>
+                <div class="edn-label">Note (added to the save confirmation)</div>
+                <textarea id="ednText" placeholder="e.g. Extended through the weekend per IC request…"></textarea>
+            </div>
+            <div class="dialog-footer">
+                <vaadin-button theme="secondary" id="ednBack">Back</vaadin-button>
+                <vaadin-button theme="primary" id="ednSave">Save deployment</vaadin-button>
+            </div>
+        </div>
     </div>
 
     <!-- ===================== Select Employee dialog ===================== -->
@@ -1659,9 +1767,31 @@
        Select Employee dialog — shared state (used by the builder + card slots)
        ============================================================ */
     let dialogSelection = null;
-    let dialogMode = 'flowB';   // 'flowB' (assignment-card slot) or 'vcreate' (builder slot)
+    let dialogMode = 'flowB';   // 'flowB' (assignment-card slot) · 'vcreate' (builder slot) · 'editdep' (Edit Deployment dialog)
     let flowBTarget = null;     // {aid, idx} when filling a card slot
     let currentRequired = [];   // qualifier codes the slot needs (for match ranking)
+
+    /* ============================================================
+       Shared confirm dialog — one yes/no surface reused by the
+       date-change roster reset and the duplicate-person warning.
+       Returns a promise resolving true (OK) / false (cancel/close).
+       ============================================================ */
+    const cfOverlay = document.getElementById('cfOverlay');
+    let cfResolve = null;
+    function confirmDialog(opts) {
+        document.getElementById('cfTitle').textContent = opts.title || 'Are you sure?';
+        document.getElementById('cfBody').innerHTML = opts.body || '';
+        document.getElementById('cfOk').textContent = opts.okLabel || 'Continue';
+        document.getElementById('cfCancel').textContent = opts.cancelLabel || 'Cancel';
+        cfOverlay.classList.add('open');
+        return new Promise(res => { cfResolve = res; });
+    }
+    function cfDone(v) { cfOverlay.classList.remove('open'); if (cfResolve) { const r = cfResolve; cfResolve = null; r(v); } }
+    document.getElementById('cfOk').addEventListener('click', () => cfDone(true));
+    document.getElementById('cfCancel').addEventListener('click', () => cfDone(false));
+    document.getElementById('cfClose').addEventListener('click', () => cfDone(false));
+    cfOverlay.addEventListener('click', e => { if (e.target === cfOverlay) cfDone(false); });
+    window.confirmDialog = confirmDialog;
 
     function setSelectItems(el, items) { el.items = items; }
 
@@ -2003,12 +2133,15 @@
         // In the review, a filled bar is tinted with its work-type color so a
         // scheduler can scan for anyone in the wrong code before deploying.
         const wtStyle = opts.wtColor ? ` style="background:${opts.wtColor};color:${opts.wtText || '#fff'};"` : '';
+        // Same person holding two positions in this deployment → amber flag on the bar.
+        const dup = (window.__dupNames && window.__dupNames.has(slot.emp))
+            ? '<i class="fa-solid fa-triangle-exclamation slot-dup" title="Also filling a position on another assignment in this deployment"></i>' : '';
         // Filled bars mirror the open-slot layout: name on the left, qualifier chips on the right.
         if (interactive) {
             // Filled + selected: the name re-opens Select Employee (replace); the × clears the slot.
-            return `<div class="slotbar"${wtStyle}><button type="button" class="slot-name" ${opts.openClick || ''}>${slot.emp}</button><span class="slot-right">${tabs}</span><span class="slotbar-x" ${opts.removeAttr || ''} title="Remove / replace">&times;</span></div>`;
+            return `<div class="slotbar"${wtStyle}>${dup}<button type="button" class="slot-name" ${opts.openClick || ''}>${slot.emp}</button><span class="slot-right">${tabs}</span><span class="slotbar-x" ${opts.removeAttr || ''} title="Remove / replace">&times;</span></div>`;
         }
-        return `<div class="slotbar"${wtStyle}><span>${slot.emp}</span><span class="slot-right">${tabs}</span></div>`;
+        return `<div class="slotbar"${wtStyle}>${dup}<span>${slot.emp}</span><span class="slot-right">${tabs}</span></div>`;
     }
 
     // ---- Template position helpers (shared by the builder + Manage Templates editor) ----
@@ -2078,18 +2211,47 @@
     document.getElementById('empClose').addEventListener('click', () => empOverlay.classList.remove('open'));
     document.getElementById('empCancel').addEventListener('click', () => empOverlay.classList.remove('open'));
     document.getElementById('empContinue').addEventListener('click', () => {
-        if (dialogSelection !== null) {
+        if (dialogSelection === null) { empOverlay.classList.remove('open'); return; }
+        const person = dialogSelection;
+        // Apply the fill to whichever surface opened the picker.
+        const apply = () => {
             if (dialogMode === 'flowB' && flowBTarget) {
                 // Target is either an existing/built assignment (aid) or a selected template (tid).
                 const coll = flowBTarget.tid ? TEMPLATES : ASSIGNMENTS;
                 const obj = coll.find(x => x.id === (flowBTarget.tid || flowBTarget.aid));
-                if (obj) obj.slots[flowBTarget.idx].emp = dialogSelection;
+                if (obj) obj.slots[flowBTarget.idx].emp = person;
                 if (window.renderVBuilder) window.renderVBuilder();   // refresh the builder grid
             }
             // Builder "build a new assignment" fills its open slot via this hook.
-            else if (dialogMode === 'vcreate' && window.__vcFill) { window.__vcFill(dialogSelection); }
+            else if (dialogMode === 'vcreate' && window.__vcFill) { window.__vcFill(person); }
+            // Edit Deployment dialog fills its open slot via this hook.
+            else if (dialogMode === 'editdep' && window.__edFill) { window.__edFill(person); }
+            empOverlay.classList.remove('open');
+        };
+        // One person can't hold two positions in the same deployment. Scan everything in
+        // the deployment (or, when editing a deployed one, that deployment's assignments)
+        // and offer Replace (move them here) / Cancel.
+        const items = dialogMode === 'editdep'
+            ? (window.__edItems ? window.__edItems() : [])
+            : (window.__depItems ? window.__depItems() : []);
+        let dup = null;
+        items.forEach(it => it.slots.forEach((s, i) => {
+            if (dup || s.emp !== person) return;
+            const isTarget = dialogMode === 'flowB' && flowBTarget && i === flowBTarget.idx
+                && it.id === (flowBTarget.tid || flowBTarget.aid);
+            const isEdTarget = dialogMode === 'editdep' && window.__edTargetIs && window.__edTargetIs(it, i);
+            if (!isTarget && !isEdTarget) dup = { it, i };
+        }));
+        if (dup) {
+            empOverlay.classList.remove('open');
+            confirmDialog({
+                title: 'Already in this deployment',
+                body: `<strong>${person}</strong> is already filling a position on <strong>${dup.it.name}</strong>. One person can’t hold two positions in the same deployment.<div class="cf-hint">Replace moves them off ${dup.it.name} and into this position instead.</div>`,
+                okLabel: 'Replace — move here', cancelLabel: 'Cancel',
+            }).then(ok => { if (ok) { dup.it.slots[dup.i].emp = null; apply(); } });
+            return;
         }
-        empOverlay.classList.remove('open');
+        apply();
     });
     const qdOverlay = document.getElementById('qdOverlay');
     [empOverlay, qdOverlay].forEach(ov => ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('open'); }));
@@ -2242,8 +2404,12 @@
     document.getElementById('qdCancel').addEventListener('click', () => qdOverlay.classList.remove('open'));
     document.getElementById('qdContinue').addEventListener('click', () => {
         // Carry the quick-picked dates onto the deployment builder (satisfies the date step).
+        // Suppress the change-the-start-date guard — this is a fresh deployment, not an edit.
+        window.__suppressDateGuard = true;
         copyVal('qdStart', 'depStart'); copyVal('qdStartTime', 'depStartTime');
         copyVal('qdEnd', 'depEnd'); copyVal('qdEndTime', 'depEndTime');
+        window.__suppressDateGuard = false;
+        if (window.__syncStartBaseline) window.__syncStartBaseline();
         let names = []; try { names = JSON.parse(qdOverlay.dataset.names || '[]'); } catch (_) {}
         qdOverlay.classList.remove('open');
         quickDeploy(names);
@@ -2255,7 +2421,10 @@
     const rowMenu = document.getElementById('rowMenu');
     function openRowMenu(btn, name) {
         const deployable = DEPLOYABLE.has(name);
+        // Rows created by a deployment get "Edit deployment" — reopens the whole group.
+        const depId = window.DEPLOYED_ROWS && window.DEPLOYED_ROWS.get(name);
         rowMenu.innerHTML =
+            (depId ? `<button data-rm="editdep"><i class="fa-solid fa-clipboard-list"></i> Edit deployment</button>` : '') +
             (deployable ? `<button data-rm="deploy"><i class="fa-solid fa-bolt"></i> Deploy</button>` : '') +
             `<button data-rm="edit"><i class="fa-regular fa-pen-to-square"></i> Edit</button>` +
             `<button class="danger" data-rm="delete"><i class="fa-solid fa-trash-can"></i> Delete</button>`;
@@ -2269,7 +2438,8 @@
     rowMenu.addEventListener('click', e => {
         const b = e.target.closest('[data-rm]'); if (!b) return;
         const name = rowMenu.dataset.name; closeRowMenu();
-        if (b.dataset.rm === 'deploy') openQuickDeploy(name);
+        if (b.dataset.rm === 'editdep') { if (window.openEditDeployment) window.openEditDeployment(window.DEPLOYED_ROWS.get(name)); }
+        else if (b.dataset.rm === 'deploy') openQuickDeploy(name);
         else if (b.dataset.rm === 'edit') alert(`Edit "${name}" — assignment settings (out of scope for this mock).`);
         else if (b.dataset.rm === 'delete') alert(`Delete "${name}" (out of scope for this mock).`);
     });
@@ -2346,6 +2516,10 @@
         let tplFilter = '';
         let triedDeploy = false;   // becomes true after the first Deploy attempt — gates the "what's missing" warning
         const selTpl = new Set();             // template ids checked to include in this deployment
+        // Deployed deployments — each is reopenable/editable from the landing table's ⋯ menu.
+        const DEPLOYMENTS = [];
+        let depSeq = 0;
+        window.DEPLOYED_ROWS = new Map();     // landing row name → deployment id
 
         // ---- Builder state (the two-column qualifier builder) ----
         const bPrimary = {};   // { FF: 2, Capt: 1 } — required primary qualifiers + counts
@@ -2433,6 +2607,46 @@
         const isAsg = a => a.isDeployable || a.built;
         const selAssignments = () => ASSIGNMENTS.filter(a => isAsg(a) && a.selected);
         const selCount = () => selAssignments().length + selTpl.size;   // existing + built + checked templates
+        // Everything currently in the deployment — used by the duplicate-person check too.
+        const depItems = () => [
+            ...ASSIGNMENTS.filter(a => (a.isDeployable && a.selected) || a.built),
+            ...[...selTpl].map(id => TEMPLATES.find(t => t.id === id)).filter(Boolean),
+        ];
+        window.__depItems = depItems;
+        // Names filling MORE than one position across the deployment → flagged on their bars.
+        function computeDups() {
+            const seen = new Set(), dup = new Set();
+            depItems().forEach(it => it.slots.forEach(s => {
+                if (!s.emp) return;
+                if (seen.has(s.emp)) dup.add(s.emp); else seen.add(s.emp);
+            }));
+            window.__dupNames = dup;
+        }
+
+        // ---- Shared-qualifier crew coverage ----
+        // A shared qualifier (PM/EMT/HM) is satisfied when ANYONE on the crew holds it — it
+        // isn't tied to a specific position. Look the person up in the demo employee list
+        // when possible; otherwise assume whoever fills a slot requiring it holds it.
+        function sharedStatus(item) {
+            const codes = [...new Set(item.slots.flatMap(s => s.quals.filter(q => SHARED[q])))];
+            return codes.map(c => {
+                const holder = item.slots.find(s => {
+                    if (!s.emp) return false;
+                    const e = EMPLOYEES.find(x => x.name === s.emp);
+                    const eq = e ? e.quals.map(q => (q === 'PM1' ? 'PM' : q)) : null;
+                    return eq ? eq.includes(c) : s.quals.includes(c);
+                });
+                return { code: c, holder: holder ? holder.emp : null };
+            });
+        }
+        function coverHtml(item) {
+            const st = sharedStatus(item);
+            if (!st.length) return '';
+            return `<div class="acard-cover">${st.map(s => s.holder
+                ? `<span class="cov ok" title="Shared qualifier covered by ${s.holder}"><i class="fa-solid fa-circle-check"></i> ${s.code} covered · ${s.holder}</span>`
+                : `<span class="cov warn" title="No one on this crew holds ${SHARED[s.code].name} yet"><i class="fa-solid fa-triangle-exclamation"></i> ${s.code} — no one holds it yet</span>`).join('')}</div>`;
+        }
+        window.__coverHtml = coverHtml;   // the Edit Deployment dialog reuses it
 
         // Compact-row summary: total positions ("people") + distinct qualifiers. Shown in the
         // Compact density view instead of the full slot bars (see .acard-metrics CSS).
@@ -2441,7 +2655,10 @@
             const q = new Set(); item.slots.forEach(s => s.quals.forEach(k => q.add(k)));
             const open = item.slots.filter(s => !s.emp).length;
             const openTxt = open ? ` · <span class="am-open">${open} open</span>` : '';
-            return `${people} ${people === 1 ? 'person' : 'people'} · ${q.size} ${q.size === 1 ? 'qual' : 'quals'}${openTxt}`;
+            // Compact rows hide the coverage chips — surface uncovered shared quals here instead.
+            const uncov = sharedStatus(item).filter(s => !s.holder).map(s => s.code);
+            const shTxt = uncov.length ? ` · <span class="am-open">${uncov.join(', ')} uncovered</span>` : '';
+            return `${people} ${people === 1 ? 'person' : 'people'} · ${q.size} ${q.size === 1 ? 'qual' : 'quals'}${openTxt}${shTxt}`;
         }
 
         // ---- Box A — existing deployable assignments. Full cards show the roster; when a
@@ -2449,7 +2666,7 @@
         function assignCard(a) {
             const bars = a.slots.map((s, i) => slotBarHtml(s, { interactive: a.selected, openClick: `data-vfill="${a.id}:${i}"`, removeAttr: `data-vremove="${a.id}:${i}"` })).join('');
             const tag = a.built ? ' <span style="font-weight:400;color:var(--text-soft);font-size:12px;">· new</span>' : '';
-            return `<div class="acard acard--pick ${a.selected ? 'sel' : ''}" data-acard="${a.id}" data-card-sel="${a.id}"><div class="acard-head"><input type="checkbox" class="acard-cb" data-vtoggle="${a.id}" ${a.selected ? 'checked' : ''}><span class="acard-title">${a.name}${tag}</span><span class="acard-metrics">${cardMetrics(a)}</span></div>${bars}</div>`;
+            return `<div class="acard acard--pick ${a.selected ? 'sel' : ''}" data-acard="${a.id}" data-card-sel="${a.id}"><div class="acard-head"><input type="checkbox" class="acard-cb" data-vtoggle="${a.id}" ${a.selected ? 'checked' : ''}><span class="acard-title">${a.name}${tag}</span><span class="acard-metrics">${cardMetrics(a)}</span></div>${coverHtml(a)}${bars}</div>`;
         }
         function renderAsg() {
             const grid = $('depAsgGrid');
@@ -2504,7 +2721,7 @@
                     <input type="checkbox" class="acard-cb" data-vtoggle="${a.id}" ${a.selected ? 'checked' : ''}>
                     <input class="acard-name-input" data-bname="${a.id}" value="${nm}" aria-label="Assignment name" placeholder="Name this assignment…">
                     <span class="acard-x" data-bdel="${a.id}" title="Remove">&times;</span>
-                </div>${bars}
+                </div>${coverHtml(a)}${bars}
                 <div class="acard-foot">${foot}</div></div>`;
         }
         // The "New assignments" box — only the ones built from scratch here (editable).
@@ -2524,9 +2741,10 @@
                     <input type="checkbox" class="acard-cb" data-ttoggle="${t.id}" ${on ? 'checked' : ''}>
                     <span class="acard-title">${t.name}</span>
                     <span class="acard-metrics">${cardMetrics(t)}</span>
-                </div>${bars}</div>`;
+                </div>${coverHtml(t)}${bars}</div>`;
         }
         function renderTemplates() {
+            computeDups();   // template slots can clear/fill outside renderGrids (cart ×)
             const f = tplFilter.trim().toLowerCase();
             // Selected templates float to the front and stack at the top; the rest sort by name below.
             const list = TEMPLATES.filter(t => !f || t.name.toLowerCase().includes(f))
@@ -2562,7 +2780,7 @@
             // the body is neutral so the work-type colors on the bars read clearly.
             const txt = readableText(selColor);
             const tag = label ? ` <span style="font-weight:400;color:${txt};opacity:.82;font-size:12px;">· ${label}</span>` : '';
-            return `<div class="acard acard--ro" style="border-color:${selColor};"><div class="acard-head" style="background:${selColor};margin:-10px -12px 2px;padding:7px 12px;border-radius:9px 9px 0 0;"><span class="acard-title" style="color:${txt};">${item.name}${tag}</span></div>${bars}</div>`;
+            return `<div class="acard acard--ro" style="border-color:${selColor};"><div class="acard-head" style="background:${selColor};margin:-10px -12px 2px;padding:7px 12px;border-radius:9px 9px 0 0;"><span class="acard-title" style="color:${txt};">${item.name}${tag}</span></div>${coverHtml(item)}${bars}</div>`;
         }
         // The deployment-level details (name, color, schedule, dates, tallies) — rendered both
         // atop the inline Step 3 review and inside the V3 pinned drawer.
@@ -2759,12 +2977,13 @@
         }
 
         let hadCartItems = false;   // tracks the 0 → 1+ selection transition for the cart auto-open
-        function renderGrids() { renderAsg(); renderTemplates(); renderBuilt(); updateAll(); }   // updateAll() renders the review
+        function renderGrids() { computeDups(); renderAsg(); renderTemplates(); renderBuilt(); updateAll(); }   // updateAll() renders the review
         // empContinue (main script) calls this after filling a card slot.
         window.renderVBuilder = renderGrids;
 
         // ---- Counts / deploy-enable / footer ----
         function updateAll() {
+            computeDups();   // keep the duplicate-person flags fresh on review + cart renders
             const count = selCount();
             const c = $('depCount'); if (c) c.textContent = `${count} selected`;
             const nameOk = !!(val('depName') || '').trim();
@@ -2892,12 +3111,67 @@
                 updateAll();
             });
         });
+        // ---- Start-date changes re-populate the rosters (who's scheduled on that date). ----
+        // If the admin already edited rosters, warn first: repopulating resets that work.
+        // Cancel reverts the picker to the previous date. Selections themselves are kept.
+        const ROSTER_SNAP = new Map();   // assignment id → the "as scheduled" roster for the current start date
+        const snapRoster = a => { if (!ROSTER_SNAP.has(a.id)) ROSTER_SNAP.set(a.id, a.slots.map(s => s.emp)); };
+        ASSIGNMENTS.filter(a => a.isDeployable).forEach(snapRoster);
+        function rosterEdited() {
+            return ASSIGNMENTS.some(a => {
+                if (!a.isDeployable || a.built) return false;
+                const snap = ROSTER_SNAP.get(a.id);
+                if (!snap) { snapRoster(a); return false; }   // quick-deploy synthesized card — baseline now
+                return a.slots.some((s, i) => s.emp !== snap[i]);
+            });
+        }
+        function repopulateRosters() {
+            ASSIGNMENTS.forEach(a => {
+                if (!a.isDeployable || a.built) return;
+                const snap = ROSTER_SNAP.get(a.id); if (!snap) return;
+                a.slots.forEach((s, i) => { s.emp = snap[i]; });
+            });
+        }
+        const lastStart = {};        // id → last accepted start-date value
+        let revertingDate = false;   // guards the programmatic revert from re-triggering the dialog
+        function onStartDateChanged(id) {
+            if (revertingDate) return;
+            const nv = val(id);
+            // First observation (preset value), no real change, quick-deploy prefill, or no
+            // roster work yet → accept silently.
+            if (!(id in lastStart) || lastStart[id] === nv || window.__suppressDateGuard || !rosterEdited()) {
+                lastStart[id] = nv;
+                if (id === 'depRecStart') updateRecurSummary();
+                renderAsg(); updateAll();
+                return;
+            }
+            confirmDialog({
+                title: 'Change the start date?',
+                body: `Rosters pre-populate from who’s scheduled on the start date. Changing it to <strong>${fmtDateLong(nv)}</strong> refreshes every roster — <strong>your roster edits will be reset</strong>.<div class="cf-hint">Your selected assignments stay selected; only the people in their positions re-pull from the schedule.</div>`,
+                okLabel: 'Change date & refresh', cancelLabel: 'Keep current date',
+            }).then(ok => {
+                if (ok) {
+                    lastStart[id] = nv;
+                    repopulateRosters();
+                    if (id === 'depRecStart') updateRecurSummary();
+                    renderGrids();
+                    showToast(`Rosters refreshed for ${fmtDateLong(nv)}.`);
+                } else {
+                    revertingDate = true;
+                    const el = $(id); if (el) el.value = lastStart[id];
+                    setTimeout(() => { revertingDate = false; renderAsg(); updateAll(); }, 0);
+                }
+            });
+        }
+        window.__syncStartBaseline = () => { ['depStart', 'depRecStart'].forEach(id => { lastStart[id] = val(id); }); };
         // Dates drive the assignment list (no Pull step) and the plain-language summary.
         customElements.whenDefined('vaadin-date-picker').then(() => {
-            ['depRecStart', 'depRecEnd'].forEach(id => { const el = $(id); if (el) el.addEventListener('value-changed', () => { updateRecurSummary(); renderAsg(); updateAll(); }); });
-            ['depStart', 'depEnd'].forEach(id => { const el = $(id); if (el) el.addEventListener('value-changed', () => { renderAsg(); updateAll(); }); });
+            ['depRecStart', 'depStart'].forEach(id => { const el = $(id); if (el) el.addEventListener('value-changed', () => onStartDateChanged(id)); });
+            { const el = $('depRecEnd'); if (el) el.addEventListener('value-changed', () => { updateRecurSummary(); renderAsg(); updateAll(); }); }
+            { const el = $('depEnd'); if (el) el.addEventListener('value-changed', () => { renderAsg(); updateAll(); }); }
             // The date pickers ship with preset values; the initial value-changed may fire
             // before these listeners attach, so sync the list + summary once they're ready.
+            window.__syncStartBaseline();
             renderAsg(); updateRecurSummary(); updateAll();
         });
         customElements.whenDefined('vaadin-time-picker').then(() => {
@@ -3364,15 +3638,29 @@
                 ...[...selTpl].map(id => TEMPLATES.find(t => t.id === id)).filter(Boolean),
                 ...ASSIGNMENTS.filter(a => a.built),
             ];
-            const multi = items.length > 1;
             const recurring = schedType === 'recurring';
             const startCell = recurring
                 ? `${fmtDate(val('depRecStart'))} ${fmtTime12(val('depDailyStart'))}`
                 : `${fmtDate(val('depStart'))} ${fmtTime12(val('depStartTime'))}`;
+            // Persist the deployment so it can be reopened + edited from the landing table.
+            const dep = {
+                id: 'dep' + (++depSeq),
+                name: nm, color: selColor, recurring,
+                startDate: recurring ? val('depRecStart') : val('depStart'),
+                startTime: recurring ? val('depDailyStart') : val('depStartTime'),
+                endDate: recurring ? val('depRecEnd') : val('depEnd'),
+                endTime: recurring ? val('depDailyEnd') : val('depEndTime'),
+                items: items.map(it => ({ id: it.id, name: it.name, slots: it.slots.map(s => ({ quals: s.quals.slice(), emp: s.emp })) })),
+                notes: [],
+            };
+            DEPLOYMENTS.push(dep);
             newlyDeployed.clear();
             const rows = items.map(it => {
-                const rowName = multi ? `${nm} – ${it.name}` : nm;
+                // Always "Deployment – Assignment" (AC-7.3) — even for a single assignment —
+                // so reporting reads one consistent field.
+                const rowName = `${nm} – ${it.name}`;
                 newlyDeployed.add(rowName);
+                window.DEPLOYED_ROWS.set(rowName, dep.id);
                 return [rowName, (it.name[0] || 'D').toUpperCase(), 'Yes', startCell.trim(), String(it.slots.length), recurring ? 'yes' : 'no', 'No'];
             });
             ASSIGN_ROWS.unshift(...rows);     // newest at the top so it's immediately visible
@@ -3386,11 +3674,207 @@
         const back = $('depBack'); if (back) back.addEventListener('click', () => showView('landing'));
         const cancel = $('depCancel'); if (cancel) cancel.addEventListener('click', () => showView('landing'));
 
+        /* ============================================================
+           Edit a deployed deployment — opened from the landing table's ⋯ menu.
+           End date/time is editable and applies to the whole group; the start
+           DATE is locked after deploying (only its time can be fine-tuned).
+           Whole assignments can be added to / removed from the group, open
+           slots filled (or callbacks run). Saving always routes through the
+           note modal so the change is annotated on the save confirmation.
+           ============================================================ */
+        let ed = null;            // working copy { dep, items, startTime, endDate, endTime, added[], removed[] }
+        let edFillTarget = null;  // { i, j } — slot being filled via the shared employee picker
+        const edOpenCount = () => ed ? ed.items.reduce((n, it) => n + it.slots.filter(s => !s.emp).length, 0) : 0;
+        window.__edItems = () => (ed ? ed.items : []);
+        window.__edTargetIs = (it, i) => !!(ed && edFillTarget && ed.items[edFillTarget.i] === it && edFillTarget.j === i);
+        window.__edFill = name => { if (ed && edFillTarget) { ed.items[edFillTarget.i].slots[edFillTarget.j].emp = name; edFillTarget = null; renderEd(); } };
+
+        function openEditDeployment(id) {
+            const dep = DEPLOYMENTS.find(d => d.id === id); if (!dep) return;
+            ed = {
+                dep,
+                items: dep.items.map(it => ({ id: it.id, name: it.name, slots: it.slots.map(s => ({ quals: s.quals.slice(), emp: s.emp })) })),
+                startTime: dep.startTime, endDate: dep.endDate, endTime: dep.endTime,
+                added: [], removed: [],
+            };
+            $('edTitle').textContent = `Edit deployment — ${dep.name}`;
+            $('edSub').textContent = `${dep.recurring ? 'Recurring' : '24-hour'} · started ${fmtDateLong(dep.startDate)} · ${dep.items.length} assignment${dep.items.length === 1 ? '' : 's'} deployed as one group`;
+            renderEd();
+            $('edOverlay').classList.add('open');
+        }
+        window.openEditDeployment = openEditDeployment;
+
+        function renderEd() {
+            if (!ed) return;
+            const dep = ed.dep;
+            // Duplicate-person flags inside this deployment (slotBarHtml reads __dupNames).
+            { const seen = new Set(), dup = new Set();
+              ed.items.forEach(it => it.slots.forEach(s => { if (!s.emp) return; if (seen.has(s.emp)) dup.add(s.emp); else seen.add(s.emp); }));
+              window.__dupNames = dup; }
+            const open = edOpenCount();
+            const cards = ed.items.map((it, i) => {
+                const bars = it.slots.map((s, j) => slotBarHtml(s, { interactive: true, openClick: `data-edfill="${i}:${j}"`, removeAttr: `data-edremove="${i}:${j}"` })).join('');
+                return `<div class="acard sel"><div class="acard-head"><span class="acard-title">${it.name}</span><span class="acard-x" data-edx="${i}" title="Remove from this deployment">&times;</span></div>${window.__coverHtml(it)}${bars}</div>`;
+            }).join('');
+            const inGroup = new Set(ed.items.map(it => it.name));
+            const candidates = ASSIGNMENTS.filter(a => a.isDeployable && !a.built && !inGroup.has(a.name));
+            $('edBody').innerHTML = `
+                <div class="ed-dates">
+                    <div><span class="sub-label">Start</span>
+                        <div class="date-inline">
+                            <vaadin-date-picker theme="outlined" value="${dep.startDate || ''}" disabled></vaadin-date-picker>
+                            <vaadin-time-picker id="edStartTime" theme="outlined" value="${ed.startTime || ''}"></vaadin-time-picker>
+                        </div>
+                        <div class="ed-lock-note"><i class="fa-solid fa-lock"></i> The start date is locked after deploying — the start time can still be fine-tuned.</div>
+                    </div>
+                    <div><span class="sub-label">End</span>
+                        <div class="date-inline">
+                            <vaadin-date-picker id="edEndDate" theme="outlined" value="${ed.endDate || ''}"></vaadin-date-picker>
+                            <vaadin-time-picker id="edEndTime" theme="outlined" value="${ed.endTime || ''}"></vaadin-time-picker>
+                        </div>
+                        <div class="ed-lock-note">Extending or shortening applies to every assignment in this deployment.</div>
+                    </div>
+                </div>
+                <div class="ed-sec-title">Assignments in this deployment (${ed.items.length})
+                    ${open ? `<button type="button" class="run-callback-btn ed-cb-btn" data-ed-callback><i class="fa-solid fa-phone-volume"></i> Run callback to fill ${open} open ${open === 1 ? 'position' : 'positions'}</button>` : ''}
+                </div>
+                ${ed.items.length
+                    ? `<div class="ed-grid">${cards}</div>`
+                    : '<div class="ed-empty"><i class="fa-solid fa-triangle-exclamation"></i> No assignments left — saving now deletes the whole deployment from the crew scheduler.</div>'}
+                <div class="ed-sec-title" style="margin-top:20px;">Add assignments
+                    <button type="button" class="tpl-btn ed-cb-btn" data-ed-addtoggle><i class="fa-solid fa-plus"></i> Add from deployable assignments</button>
+                </div>
+                <div class="ed-add-list${ed.addOpen ? ' open' : ''}" id="edAddList">
+                    ${candidates.length ? candidates.slice().sort((a, b) => a.name.localeCompare(b.name)).map(a => `
+                        <label class="ed-add-row"><input type="checkbox" data-ed-add="${a.id}"> ${a.name}
+                            <span class="ed-add-meta">${a.slots.length} position${a.slots.length === 1 ? '' : 's'} · ${a.slots.filter(s => !s.emp).length} open</span></label>`).join('')
+                    : '<div class="ed-empty">Every deployable assignment is already in this deployment.</div>'}
+                </div>`;
+            $('edFootNote').textContent = open
+                ? `${open} open ${open === 1 ? 'position' : 'positions'} — fill here or run a callback.`
+                : 'All positions filled.';
+            // End date / times feed the working copy (applied on save, not live).
+            customElements.whenDefined('vaadin-date-picker').then(() => {
+                const e1 = $('edEndDate'); if (e1) e1.addEventListener('value-changed', ev => { ed && (ed.endDate = ev.detail.value); });
+            });
+            customElements.whenDefined('vaadin-time-picker').then(() => {
+                const t1 = $('edStartTime'); if (t1) t1.addEventListener('value-changed', ev => { ed && (ed.startTime = ev.detail.value); });
+                const t2 = $('edEndTime'); if (t2) t2.addEventListener('value-changed', ev => { ed && (ed.endTime = ev.detail.value); });
+            });
+        }
+
+        $('edBody').addEventListener('click', e => {
+            if (!ed) return;
+            const f = e.target.closest('[data-edfill]');
+            if (f) {
+                const [i, j] = f.dataset.edfill.split(':').map(Number);
+                edFillTarget = { i, j }; dialogMode = 'editdep';
+                openEmployeeDialogForQuals(ed.items[i].slots[j].quals);
+                return;
+            }
+            const r = e.target.closest('[data-edremove]');
+            if (r) { const [i, j] = r.dataset.edremove.split(':').map(Number); ed.items[i].slots[j].emp = null; renderEd(); return; }
+            const x = e.target.closest('[data-edx]');
+            if (x) { const [it] = ed.items.splice(+x.dataset.edx, 1); ed.removed.push(it.name); renderEd(); return; }
+            if (e.target.closest('[data-ed-addtoggle]')) { ed.addOpen = !ed.addOpen; $('edAddList').classList.toggle('open', ed.addOpen); return; }
+            const add = e.target.closest('input[data-ed-add]');
+            if (add) {
+                const a = ASSIGNMENTS.find(z => z.id === add.dataset.edAdd);
+                if (a && add.checked) {
+                    ed.items.push({ id: a.id, name: a.name, slots: a.slots.map(s => ({ quals: s.quals.slice(), emp: s.emp })) });
+                    ed.added.push(a.name);
+                    ed.addOpen = true;
+                    renderEd();
+                }
+                return;
+            }
+            if (e.target.closest('[data-ed-callback]')) {
+                const n = edOpenCount();
+                showToast(`Callbacks started for ${n} open ${n === 1 ? 'position' : 'positions'} — they’ll fill as people accept.`);
+            }
+        });
+        function edCancel() { ed = null; edFillTarget = null; $('edOverlay').classList.remove('open'); }
+        $('edClose').addEventListener('click', edCancel);
+        $('edCancel').addEventListener('click', edCancel);
+        $('edOverlay').addEventListener('click', e => { if (e.target === $('edOverlay')) edCancel(); });
+
+        // What changed vs the deployed record — shown in the note modal so the note has context.
+        function edDiff() {
+            const dep = ed.dep, out = [];
+            if (ed.endDate !== dep.endDate || ed.endTime !== dep.endTime)
+                out.push(`End moved to <strong>${fmtDateLong(ed.endDate)} · ${fmtTime12(ed.endTime)}</strong> (was ${fmtDateLong(dep.endDate)} · ${fmtTime12(dep.endTime)}) — applies to all ${ed.items.length || 'remaining'} assignments in the group.`);
+            if (ed.startTime !== dep.startTime)
+                out.push(`Start time fine-tuned to <strong>${fmtTime12(ed.startTime)}</strong> (was ${fmtTime12(dep.startTime)}).`);
+            ed.added.forEach(n => out.push(`Added <strong>${n}</strong> to the deployment.`));
+            ed.removed.forEach(n => out.push(`Removed <strong>${n}</strong> — its deployed shifts come off the crew scheduler.`));
+            let fills = 0, clears = 0;
+            ed.items.forEach(it => {
+                const orig = dep.items.find(o => o.name === it.name); if (!orig) return;
+                it.slots.forEach((s, i) => {
+                    const was = orig.slots[i] ? orig.slots[i].emp : null;
+                    if (s.emp === was) return;
+                    if (s.emp && !was) fills++;
+                    else if (!s.emp && was) clears++;
+                    else { fills++; clears++; }
+                });
+            });
+            if (fills) out.push(`${fills} position${fills === 1 ? '' : 's'} filled.`);
+            if (clears) out.push(`${clears} position${clears === 1 ? '' : 's'} cleared.`);
+            return out;
+        }
+        // Save → note modal (the note rides the save confirmation), then apply everything.
+        $('edSave').addEventListener('click', () => {
+            if (!ed) return;
+            const diff = edDiff();
+            $('ednDiff').innerHTML = diff.length
+                ? `<strong>You’re saving:</strong><ul>${diff.map(d => `<li>${d}</li>`).join('')}</ul>`
+                : 'No changes detected — saving keeps the deployment as is.';
+            $('ednText').value = '';
+            $('ednOverlay').classList.add('open');
+        });
+        $('ednBack').addEventListener('click', () => $('ednOverlay').classList.remove('open'));
+        $('ednClose').addEventListener('click', () => $('ednOverlay').classList.remove('open'));
+        $('ednOverlay').addEventListener('click', e => { if (e.target === $('ednOverlay')) $('ednOverlay').classList.remove('open'); });
+        $('ednSave').addEventListener('click', () => {
+            if (!ed) return;
+            const dep = ed.dep;
+            const note = $('ednText').value.trim();
+            dep.endDate = ed.endDate; dep.endTime = ed.endTime; dep.startTime = ed.startTime;
+            dep.items = ed.items;
+            dep.notes.push(note || '(no note)');
+            // Sync the landing table: drop removed assignments' rows, add rows for added ones,
+            // and refresh the start cell if the start time was fine-tuned.
+            const rowNameFor = n => `${dep.name} – ${n}`;
+            ed.removed.forEach(n => {
+                const rn = rowNameFor(n);
+                const i = ASSIGN_ROWS.findIndex(row => row[0] === rn);
+                if (i > -1) ASSIGN_ROWS.splice(i, 1);
+                window.DEPLOYED_ROWS.delete(rn);
+                newlyDeployed.delete(rn);
+            });
+            const startCell = `${fmtDate(dep.startDate)} ${fmtTime12(dep.startTime)}`.trim();
+            ed.added.forEach(n => {
+                const it = dep.items.find(z => z.name === n); if (!it) return;
+                const rn = rowNameFor(n);
+                ASSIGN_ROWS.unshift([rn, (n[0] || 'D').toUpperCase(), 'Yes', startCell, String(it.slots.length), dep.recurring ? 'yes' : 'no', 'No']);
+                window.DEPLOYED_ROWS.set(rn, dep.id);
+                newlyDeployed.add(rn);
+            });
+            ASSIGN_ROWS.forEach(row => { if (window.DEPLOYED_ROWS.get(row[0]) === dep.id) row[3] = startCell; });
+            renderTable();
+            $('ednOverlay').classList.remove('open');
+            edCancel();
+            showToast(note
+                ? `“${dep.name}” updated — note saved with the change: “${note.length > 64 ? note.slice(0, 61) + '…' : note}”`
+                : `“${dep.name}” updated.`);
+        });
+
         // ---- Reset / open ----
         function reset() {
             // Drop any one-off built assignments from a prior session; clear selections.
             for (let i = ASSIGNMENTS.length - 1; i >= 0; i--) if (ASSIGNMENTS[i].built) ASSIGNMENTS.splice(i, 1);
             ASSIGNMENTS.forEach(a => { a.selected = false; });
+            repopulateRosters();   // a new deployment starts from the as-scheduled rosters
             selTpl.clear();
             filter = ''; seq = 1; schedType = '24'; triedDeploy = false;
             recurPattern = 'daily'; { const sel = $('depPattern'); if (sel) sel.value = 'daily'; }
@@ -3411,6 +3895,7 @@
             setBox('depBuiltHead', 'depBuiltBody', true);
             // Apply the current version's layout: V1 flat (all steps open), V2 stepper.
             setVersion(document.getElementById('view-deploy').dataset.ver || '1');
+            window.__syncStartBaseline();   // fresh deployment — current dates are the baseline
             renderGrids();
         }
 
