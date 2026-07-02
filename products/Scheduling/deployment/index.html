@@ -765,8 +765,11 @@
         /* The build tab body (its drawer wrapper header is hidden). */
         #view-deploy[data-ver="1"] #depBuilder { padding: 6px 0 0; }
 
-        /* Existing/templates list runs tall in V1 (one tab visible at a time). */
-        #view-deploy[data-ver="1"] .assign-grid.dep-grid-scroll { height: 62vh; min-height: 320px; }
+        /* Existing/templates list heights (V1): the list hugs its content — when the compact
+           rows all fit, no dead space below. Compact scrolls past 62vh; comfortable starts
+           tall (about five card rows) before it scrolls. The drag-resizer still overrides. */
+        #view-deploy[data-ver="1"] .assign-grid.dep-grid-scroll { height: auto; min-height: 0; max-height: 62vh; }
+        #view-deploy[data-ver="1"] .assign-grid.dep-grid-scroll.view-comfortable { max-height: 1240px; }
         /* Compact view = a dense multi-column list of short rows (comfortable = the full card
            grid). Narrow columns + slim padding fit far more assignments per screen. The whole
            density system is V1-only — V2/V3 keep the original full cards (metrics hidden below). */
@@ -779,10 +782,13 @@
         #view-deploy[data-ver="1"] .view-compact .acard .acard-foot,
         #view-deploy[data-ver="1"] .view-compact .acard .acard-name-input,
         #view-deploy[data-ver="1"] .view-compact .acard .acard-x { display: none; }
-        /* Metrics row only appears in V1's compact density; hidden everywhere else. */
+        /* Metrics row only appears in V1's compact density; hidden everywhere else.
+           Reads: 👤 filled/total + the distinct qualifiers as tags (no open count). */
         .acard-metrics { display: none; }
-        #view-deploy[data-ver="1"] .view-compact .acard-metrics { display: inline; margin-left: auto; color: var(--text-soft); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
-        .acard-metrics .am-open { color: #b06a00; }
+        #view-deploy[data-ver="1"] .view-compact .acard-metrics { display: inline-flex; align-items: center; gap: 9px; margin-left: auto; white-space: nowrap; }
+        .acard-metrics .am-count { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 700; color: var(--text-soft); }
+        .acard-metrics .am-count i { font-size: 11px; color: var(--text-muted); }
+        .acard-metrics .am-tags { display: inline-flex; gap: 3px; }
 
         /* ---- Cart (V1) — collapsed bar + wall-to-wall adjustable panel ---- */
         #view-deploy[data-ver="1"].active .cart-bar { display: inline-flex; }
@@ -2648,17 +2654,14 @@
         }
         window.__coverHtml = coverHtml;   // the Edit Deployment dialog reuses it
 
-        // Compact-row summary: total positions ("people") + distinct qualifiers. Shown in the
-        // Compact density view instead of the full slot bars (see .acard-metrics CSS).
+        // Compact-row summary: filled/total with a person icon + the distinct qualifiers as
+        // tags. Shown in the Compact density view instead of the full slot bars — no open
+        // count needed, the fraction already tells that story (see .acard-metrics CSS).
         function cardMetrics(item) {
-            const people = item.slots.length;
-            const q = new Set(); item.slots.forEach(s => s.quals.forEach(k => q.add(k)));
-            const open = item.slots.filter(s => !s.emp).length;
-            const openTxt = open ? ` · <span class="am-open">${open} open</span>` : '';
-            // Compact rows hide the coverage chips — surface uncovered shared quals here instead.
-            const uncov = sharedStatus(item).filter(s => !s.holder).map(s => s.code);
-            const shTxt = uncov.length ? ` · <span class="am-open">${uncov.join(', ')} uncovered</span>` : '';
-            return `${people} ${people === 1 ? 'person' : 'people'} · ${q.size} ${q.size === 1 ? 'qual' : 'quals'}${openTxt}${shTxt}`;
+            const total = item.slots.length;
+            const filled = item.slots.filter(s => s.emp).length;
+            const quals = [...new Set(item.slots.flatMap(s => s.quals))];
+            return `<span class="am-count"><i class="fa-solid fa-user"></i> ${filled}/${total}</span><span class="am-tags">${quals.map(qtab).join('')}</span>`;
         }
 
         // ---- Box A — existing deployable assignments. Full cards show the roster; when a
@@ -3280,6 +3283,7 @@
                 const compact = btn.dataset.density === 'compact';
                 grid.classList.toggle('view-compact', compact);
                 grid.classList.toggle('view-comfortable', !compact);
+                grid.style.height = ''; grid.style.maxHeight = '';   // drop any manual resize — each density has its own default
                 tog.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
             });
         });
@@ -3421,6 +3425,7 @@
                 const startY = e.clientY;
                 const startH = grid.getBoundingClientRect().height;
                 const maxH = window.innerHeight * 0.8;   // matches CSS max-height: 80vh
+                grid.style.maxHeight = 'none';           // manual drag overrides the hug/5-row caps
                 bar.classList.add('dragging');
                 bar.setPointerCapture(e.pointerId);
                 const onMove = ev => {
