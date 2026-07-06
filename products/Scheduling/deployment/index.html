@@ -2700,15 +2700,15 @@
                 return;
             }
             const f = filter.trim().toLowerCase();
-            // V1 drops the "Selected" section entirely — cards stay in their alphabetical spot
-            // and a pick just reflects on the card in place. V2/V3 still float selected-first
+            // V1 & V2 drop the "Selected" section entirely — cards stay in their alphabetical
+            // spot and a pick just reflects on the card in place. V3 still floats selected-first
             // under a "Selected (N)" header.
-            const isV1 = document.getElementById('view-deploy').dataset.ver === '1';
+            const flatPick = ['1', '2'].includes(document.getElementById('view-deploy').dataset.ver);
             const list = ASSIGNMENTS.filter(a => a.isDeployable)
                 .filter(a => !f || a.name.toLowerCase().includes(f))
-                .slice().sort((a, b) => (isV1 ? 0 : (Number(b.selected) - Number(a.selected))) || a.name.localeCompare(b.name));
+                .slice().sort((a, b) => (flatPick ? 0 : (Number(b.selected) - Number(a.selected))) || a.name.localeCompare(b.name));
             grid.innerHTML = list.length
-                ? (isV1 ? list.map(assignCard).join('') : withSelDivider(list, a => a.selected, assignCard))
+                ? (flatPick ? list.map(assignCard).join('') : withSelDivider(list, a => a.selected, assignCard))
                 : '<div class="dep-box-empty">No assignments match your search.</div>';
             // Counter = how many are in this grouping (the cards shown), not how many are
             // selected — the footer already tracks the selected count.
@@ -2769,14 +2769,14 @@
         function renderTemplates() {
             computeDups();   // template slots can clear/fill outside renderGrids (cart ×)
             const f = tplFilter.trim().toLowerCase();
-            // V1 drops the "Selected" section (see renderAsg); V2/V3 keep the selected-first stack.
-            const isV1 = document.getElementById('view-deploy').dataset.ver === '1';
+            // V1 & V2 drop the "Selected" section (see renderAsg); V3 keeps the selected-first stack.
+            const flatPick = ['1', '2'].includes(document.getElementById('view-deploy').dataset.ver);
             const list = TEMPLATES.filter(t => !f || t.name.toLowerCase().includes(f))
-                .slice().sort((a, b) => (isV1 ? 0 : ((selTpl.has(b.id) ? 1 : 0) - (selTpl.has(a.id) ? 1 : 0))) || a.name.localeCompare(b.name));
+                .slice().sort((a, b) => (flatPick ? 0 : ((selTpl.has(b.id) ? 1 : 0) - (selTpl.has(a.id) ? 1 : 0))) || a.name.localeCompare(b.name));
             $('depTplCount').textContent = list.length;
             { const tc = $('depTabTplCount'); if (tc) tc.textContent = list.length; }
             $('depTplGrid').innerHTML = list.length
-                ? (isV1 ? list.map(tplCard).join('') : withSelDivider(list, t => selTpl.has(t.id), tplCard))
+                ? (flatPick ? list.map(tplCard).join('') : withSelDivider(list, t => selTpl.has(t.id), tplCard))
                 : (TEMPLATES.length ? '<div class="dep-box-empty">No templates match your search.</div>'
                                     : '<div class="dep-box-empty">No templates yet — build one and check “Save as a reusable template”.</div>');
         }
