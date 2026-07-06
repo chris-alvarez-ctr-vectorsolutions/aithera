@@ -704,6 +704,13 @@
         transition: background .2s var(--ease), border-color .2s var(--ease);
       }
       .inputbar[hidden] { display: none; }
+      /* In Observe (scene review) the bar stays visible to hold the "Back to
+         AI Coach" return — wear the scene's dark chrome (same palette as the
+         mode indicator's scene look) so it belongs to the stage, not the studio. */
+      .app[data-mode="scene"] .inputbar {
+        background: #15100c;
+        border-top-color: #2c2118;
+      }
       .input-row {
         max-width: 720px;
         margin: 0 auto;
@@ -1150,6 +1157,15 @@
             <i class="fa-solid fa-video"></i> Watch what happens next <i class="fa-solid fa-arrow-right arrow"></i>
           </button>
         </div>
+        <!-- Reviewing the scene: the way back to the conversation lives here
+             (not just in the top toggle). Indigo, previewing the coach world
+             it returns to — the stage's center button keeps scene actions
+             (replay / watch next), so the two directions never share a spot. -->
+        <div class="input-entry" id="inputReturn" hidden>
+          <button class="debrief-cta" id="returnCoachBtn">
+            <i class="fa-solid fa-chalkboard-user"></i> Back to AI Coach <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
         <!-- Recap CTA: the coach is ready to build your results, opened only
              when the learner chooses. -->
         <div class="input-entry" id="inputRecap" hidden>
@@ -1451,6 +1467,8 @@ Nothing about that tank got safer today. The difference is you'd have kept every
     const inputMain      = document.getElementById('inputMain');
     const inputWatching  = document.getElementById('inputWatching');
     const inputObserve   = document.getElementById('inputObserve');
+    const inputReturn    = document.getElementById('inputReturn');
+    const returnCoachBtn = document.getElementById('returnCoachBtn');
     const observeNextBtn = document.getElementById('observeNextBtn');
     const inputStart     = document.getElementById('inputStart');
     const startCtaBtn    = document.getElementById('startCtaBtn');
@@ -1688,25 +1706,32 @@ Nothing about that tank got safer today. The difference is you'd have kept every
       }
       resumeBtn.hidden = !coachUp;
 
-      inputbar.hidden = state.started && mode === 'scene';
+      // The bar disappears only while a clip is actually PLAYING in Observe
+      // (full-screen watch or contained replay). Reviewing the still frame
+      // keeps it, holding the "Back to AI Coach" return — otherwise the top
+      // toggle is the only way back to the conversation (a dead end).
+      inputbar.hidden = state.started && mode === 'scene' && state.videoLive;
 
       const showStart    = !state.started && !state.videoLive;
       const showWatching = state.videoLive && !state.started;
+      // Reviewing the scene: the footer carries the way back to the coach.
+      const showReturn   = state.started && mode === 'scene' && !state.videoLive;
       // Chapter break: the coach has closed a chapter — the composer steps
       // aside for the "Watch what happens next" CTA until the segment plays.
-      const showObserveNext = state.awaitingObserve && !state.videoLive && !state.delivering;
-      const showRecap    = complete && !state.delivering && !state.closingStepperActive && !state.awaitingResults && !state.resultsViewed;
-      const showResultsCta = state.awaitingResults && !state.resultsModalOpen;
-      const showContinue = complete && state.resultsViewed && !state.delivering && !state.continued;
-      const showDone      = state.continued;
+      const showObserveNext = state.awaitingObserve && !state.videoLive && !state.delivering && !showReturn;
+      const showRecap    = complete && !state.delivering && !state.closingStepperActive && !state.awaitingResults && !state.resultsViewed && !showReturn;
+      const showResultsCta = state.awaitingResults && !state.resultsModalOpen && !showReturn;
+      const showContinue = complete && state.resultsViewed && !state.delivering && !state.continued && !showReturn;
+      const showDone      = state.continued && !showReturn;
       inputStart.hidden    = !showStart;
       inputWatching.hidden = !showWatching;
+      inputReturn.hidden   = !showReturn;
       inputObserve.hidden  = !showObserveNext;
       inputRecap.hidden    = !showRecap;
       inputResults.hidden  = !showResultsCta;
       inputContinue.hidden = !showContinue;
       inputDone.hidden      = !showDone;
-      inputMain.hidden = showStart || showWatching || showObserveNext || showRecap || showResultsCta || showContinue || showDone;
+      inputMain.hidden = showStart || showWatching || showReturn || showObserveNext || showRecap || showResultsCta || showContinue || showDone;
 
       composer.disabled = complete || state.sending || state.delivering || state.awaitingObserve || !state.started;
       sendBtn.disabled = composer.disabled || !composer.value.trim();
@@ -2178,6 +2203,16 @@ Nothing about that tank got safer today. The difference is you'd have kept every
     startCtaBtn.addEventListener('click', watchNextSegment);
     // Chapter break: flip back to Observe and play the next segment.
     observeNextBtn.addEventListener('click', watchNextSegment);
+    // Reviewing the scene: back to the conversation on the learner's command
+    // (mirrors the React toggle segment, but lives where every other "way
+    // forward" does — the input bar).
+    returnCoachBtn.addEventListener('click', () => {
+      if (state.videoLive) return;
+      state.mode = 'coaching';
+      announce('Back with your AI coach.');
+      render();
+      setTimeout(() => { if (!composer.disabled) composer.focus(); }, 260);
+    });
 
     // The mode toggle: tap the inactive segment to switch (delegated, since
     // the toggle is rebuilt on every render). Disabled segments don't fire.
