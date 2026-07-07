@@ -46,7 +46,7 @@
     display: grid;
     grid-template-columns: 224px minmax(0,1fr);
     min-height: 100vh;
-    min-width: 1080px;
+    min-width: 860px;
     position: relative;
   }
 
@@ -279,26 +279,32 @@
 
   /* ── Report table (V1) ── */
   .report-table-wrap { overflow-x: auto; }
-  /* Fixed layout so all columns fit the card width — no horizontal scroll; cells wrap instead.
+  /* Fixed layout keeps the column widths stable; a min-width (set below) holds the table at
+     its natural size so it scrolls horizontally inside .report-table-wrap when the area is
+     narrow, instead of squishing/overlapping cells.
      Column widths + visibility + order are driven by the JS column model (inline th widths). */
   .report-table { table-layout: fixed; width: 100%; border-collapse: collapse; font-size: 14.5px; }
 
-  /* When the filter panel is open the content area narrows. Rather than squishing the
-     columns, hold the table at its natural width so .report-table-wrap scrolls horizontally,
-     and freeze the Action column as a fixed pane pinned to the right edge. */
-  .page-layout.panel-open .report-table { min-width: 1080px; }
-  .page-layout.panel-open .report-table th.col-action,
-  .page-layout.panel-open .report-table td.cell-actions {
+  /* Whenever the content area is too narrow for every column (e.g. the filter panel is
+     open, or the window is small), hold the table at its natural width so
+     .report-table-wrap scrolls horizontally rather than squishing/overlapping the columns,
+     and freeze the Action column as a fixed pane pinned to the right edge. This is always on:
+     when the table already fits, the frozen pane simply sits flush at the right edge. */
+  /* min-width is generous enough that every column (incl. the Modules-Complete cell's
+     fraction + bar + Details link) has room without cells overlapping their neighbours. */
+  .report-table { min-width: 1300px; }
+  .report-table th.col-action,
+  .report-table td.cell-actions {
     position: sticky; right: 0; z-index: 2;
     box-shadow: -8px 0 12px -8px rgba(16,24,40,.18);   /* soft edge marks the frozen pane */
   }
-  .page-layout.panel-open .report-table th.col-action { background: #f9fafb; z-index: 3; }
+  .report-table th.col-action { background: #f9fafb; z-index: 3; }
   /* Frozen body cells need an opaque background so scrolled content doesn't show through —
      mirror each row state (default / hover / selected). */
-  .page-layout.panel-open .report-table td.cell-actions { background: #fff; }
-  .page-layout.panel-open .report-table .data-row:hover td.cell-actions { background: #fafafa; }
-  .page-layout.panel-open .report-table .data-row.row-selected td.cell-actions { background: #eff6ff; }
-  .page-layout.panel-open .report-table .data-row.row-selected:hover td.cell-actions { background: #e0ebff; }
+  .report-table td.cell-actions { background: #fff; }
+  .report-table .data-row:hover td.cell-actions { background: #fafafa; }
+  .report-table .data-row.row-selected td.cell-actions { background: #eff6ff; }
+  .report-table .data-row.row-selected:hover td.cell-actions { background: #e0ebff; }
   .report-table td.nowrap, .report-table th.nowrap { white-space: nowrap; }
   .report-table thead { background: #f9fafb; }
   .report-table thead th {
@@ -505,12 +511,14 @@
   }
   .action-card:hover { border-color: var(--blue-primary); box-shadow: 0 2px 10px rgba(16,24,40,.10); }
   .action-card:active { transform: translateY(1px); }
+  /* Active quick-filter state — the card whose action group the table is currently filtered to. */
+  .action-card.active { border-color: var(--blue-primary); box-shadow: 0 0 0 1px var(--blue-primary) inset; background: #f5f8ff; }
   .action-card .ac-ico { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; font-size: 19px; flex-shrink: 0; }
   .action-card .ac-body { flex: 1; min-width: 0; }
   .action-card .ac-count { font-size: 26px; font-weight: 800; color: var(--ink); line-height: 1.05; }
   .action-card .ac-count .ac-of { font-size: 14px; font-weight: 600; color: var(--muted); margin-left: 3px; }
   .action-card .ac-label { display: block; font-size: 14.5px; color: var(--ink-2); margin-top: 2px; }
-  .action-card .ac-cta { margin-left: auto; flex-shrink: 0; font-size: 13px; font-weight: 700; color: var(--blue-accent); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .action-card .ac-take { margin-left: auto; flex-shrink: 0; }
   .action-card .ac-ico.intervene { background: #f3f4f6; color: #4b5563; }
   .action-card .ac-ico.nudge     { background: #fef3c7; color: #d97706; }
   .action-card .ac-ico.retry     { background: #fee2e2; color: #b91c1c; }
@@ -523,7 +531,20 @@
   .mod-link { background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; color: var(--blue-accent); font-size: 13px; font-weight: 600; white-space: nowrap; }
   .mod-link:hover { text-decoration: underline; }
 
-  /* ── Per-student module detail modal ── */
+  /* ── Nested module-detail row (expands inside the report table, like the Tasklist Report) ── */
+  .detail-row { display: none; }
+  .detail-row.open { display: table-row; }
+  .detail-row > td { padding: 0; background: #f8fafc; border-bottom: 2px solid var(--blue-primary); }
+  /* Sticky-left so the expanded module table stays put next to the frozen columns even as the
+     wide report table scrolls horizontally. Constrained width keeps all its columns on screen. */
+  .mod-detail-inner { padding: 14px 20px 18px 46px; position: sticky; left: 0; width: min(760px, 100%); }
+  .mod-detail-title { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 10px; }
+  .mod-detail-inner .mods-list { max-width: 700px; }
+  /* The Details link shows a caret that rotates when its row is expanded. */
+  .mod-link .mod-caret { display: inline-block; margin-right: 4px; font-size: 11px; transition: transform .15s; }
+  .mod-link.open .mod-caret { transform: rotate(90deg); }
+
+  /* ── Per-student module detail (nested table + modal share these styles) ── */
   .mods-summary { display: flex; gap: 26px; margin: 2px 0 16px; }
   .mods-summary .ms-cell .ms-k { font-size: 13px; color: var(--muted); }
   .mods-summary .ms-cell .ms-v { font-size: 19px; font-weight: 800; color: var(--ink); margin-top: 2px; }
@@ -664,7 +685,7 @@
     <div class="dash-tabs" role="tablist" id="dashTabs">
       <button class="dash-tab" data-tab="completions" role="tab">Completions</button>
       <button class="dash-tab" data-tab="impact" role="tab">Impact Insights</button>
-      <button class="dash-tab active" data-tab="osha" role="tab" aria-selected="true">OSHA Report</button>
+      <button class="dash-tab active" data-tab="osha" role="tab" aria-selected="true">OSHA Dashboard</button>
     </div>
 
     <!-- Report content + right filter panel -->
@@ -691,7 +712,6 @@
           </div>
           <div class="actions-right">
             <vaadin-button theme="secondary small" id="filterInlineToggle"><i class="fa-solid fa-sliders" slot="prefix"></i> Filters</vaadin-button>
-            <vaadin-button theme="secondary small" id="sendBtn"><i class="fa-regular fa-paper-plane" slot="prefix"></i> Send Report</vaadin-button>
             <vaadin-button theme="primary small" id="exportBtn"><i class="fa-solid fa-file-export" slot="prefix"></i> Export</vaadin-button>
           </div>
         </div>
@@ -705,35 +725,14 @@
             </div>
           </div>
           <div class="chart-area">
-            <!-- Overview chart: toggle between the completion-distribution pie and the
-                 "Where Learners Are" progress breakdown (both rendered live from the data). -->
+            <!-- Status Distribution: share of learners by completion status (live from the data).
+                 Reflects the applied panel filters only — the table's temporary search box does
+                 NOT change these numbers. -->
             <div class="chart-col">
-              <div class="chart-flip" id="chartFlip">
-                <button class="cf-btn active" data-chart="dist" type="button">Completion Distribution</button>
-                <button class="cf-btn" data-chart="progress" type="button">Where Learners Are</button>
-                <button class="cf-btn" data-chart="passfail" type="button">Course Pass / Fail</button>
-              </div>
-
-              <!-- Pie: share of learners by completion status -->
-              <div class="chart-view" id="view-dist">
-                <div class="pie-chart-wrap">
-                  <div class="pie-chart" id="pieChart"></div>
-                  <div class="pie-labels" id="pieLabels"><!-- rendered by JS --></div>
-                </div>
-              </div>
-
-              <!-- Where Learners Are: how far along learners are right now -->
-              <div class="chart-view" id="view-progress" hidden>
-                <div class="prog-chart" id="progressChart"><!-- rendered by JS --></div>
-              </div>
-
-              <!-- Course Pass / Fail: pass-rate donut with a per-module pass/fail drill-through -->
-              <div class="chart-view" id="view-passfail" hidden>
-                <div id="passFailChart"><!-- donut + legend rendered by JS --></div>
-                <button class="drill-toggle" id="drillToggle" aria-expanded="false">
-                  <i class="fa-solid fa-chevron-right"></i> Show module pass / fail
-                </button>
-                <div class="module-breakdown" id="moduleBreakdown" hidden><!-- rendered by JS --></div>
+              <div class="chart-section-title">Status Distribution</div>
+              <div class="pie-chart-wrap">
+                <div class="pie-chart" id="pieChart"></div>
+                <div class="pie-labels" id="pieLabels"><!-- rendered by JS --></div>
               </div>
             </div>
 
@@ -865,20 +864,10 @@
 
           <div class="filter-divider"></div>
 
-          <!-- OSHA Courses -->
+          <!-- OSHA Courses — inline checkbox multiselect (rendered by JS from the data) -->
           <div class="filter-section">
             <label class="filter-label">OSHA Courses</label>
-            <button class="filter-select-btn" id="selectCoursesBtn">Select OSHA Courses</button>
-            <div class="filter-chips" id="courseChips"></div>
-          </div>
-
-          <div class="filter-divider"></div>
-
-          <!-- Learners -->
-          <div class="filter-section">
-            <label class="filter-label">Learners</label>
-            <button class="filter-select-btn" id="selectUsersBtn">Select Learners</button>
-            <div class="filter-chips" id="userChips"></div>
+            <div class="filter-checkboxes" id="courseChecks"><!-- rendered by JS --></div>
           </div>
 
           <div class="filter-divider"></div>
@@ -891,6 +880,18 @@
               <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="in-progress"></vaadin-checkbox><span>In Progress</span></label>
               <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="not-started"></vaadin-checkbox><span>Not Started</span></label>
               <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="failed"></vaadin-checkbox><span>Failed</span></label>
+            </div>
+          </div>
+
+          <div class="filter-divider"></div>
+
+          <!-- Action Needed — mirrors the Action-Needed cards above the table -->
+          <div class="filter-section">
+            <label class="filter-label">Action Needed</label>
+            <div class="filter-checkboxes" id="actionChecks">
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="intervene"></vaadin-checkbox><span>Not started — needs intervention</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="nudge"></vaadin-checkbox><span>Behind pace — needs a nudge</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="retry"></vaadin-checkbox><span>Failed — needs a retry</span></label>
             </div>
           </div>
 
@@ -912,14 +913,8 @@
   </section>
 </div>
 
-<!-- Select Courses / Learners pickers -->
-<vaadin-dialog id="selectCoursesDialog" header-title="Select OSHA Courses"></vaadin-dialog>
-<vaadin-dialog id="selectUsersDialog" header-title="Select Learners"></vaadin-dialog>
-
 <!-- Per-row action modal (Intervene / Nudge / Schedule Retry / View / Certificate) + toast -->
 <vaadin-dialog id="actionDialog" no-close-on-outside-click></vaadin-dialog>
-<!-- Per-student module progress + quiz scores -->
-<vaadin-dialog id="moduleDialog"></vaadin-dialog>
 <!-- Action-group bulk modal (opened from the Action Needed cards) -->
 <vaadin-dialog id="agDialog" no-close-on-outside-click></vaadin-dialog>
 <vaadin-notification id="toast" position="bottom-center" duration="3200"></vaadin-notification>
@@ -1049,13 +1044,13 @@
   /* ═══════════════ Column model — drives the header, cells, order & visibility ═══════════════ */
   // render(r, course, gid) → cell HTML. `required` columns can't be hidden (but can still be reordered).
   const COLUMNS = [
-    { key:'learner',  label:'Learner',          width:'14%', sortable:true, required:true, cellClass:'l-name',
+    { key:'learner',  label:'Learner',          width:'12%', sortable:true, required:true, cellClass:'l-name',
       render:(r) => `${r.name}<span class="l-id">${r.ext}</span>` },
-    { key:'course',   label:'Course',           width:'14%', sortable:true,
+    { key:'course',   label:'Course',           width:'13%', sortable:true,
       render:(r, course) => `<span class="course-cell">${course}</span>` },
     { key:'status',   label:'Status',           width:'8%',  sortable:true,
       render:(r) => `<span class="status-badge ${r.status}">${STATUS_LABEL[r.status]}</span>` },
-    { key:'mods',     label:'Modules Complete', width:'11%', sortable:true,
+    { key:'mods',     label:'Modules Complete', width:'14%', sortable:true,
       render:(r, course, gid) => modCellHTML(r, gid) },
     { key:'time',     label:'Time Spent',       width:'8%',  sortable:true, cellClass:'nowrap', headClass:'nowrap',
       render:(r) => r.time },
@@ -1088,8 +1083,36 @@
     return `<span class="mod-cell">
       <span class="mod-frac">${r.mods}/${MOD_TOTAL}</span>
       <span class="mod-bar"><span style="width:${modPct}%; background:${PCT_COLOR[r.status]};"></span></span>
-      <button class="mod-link" data-key="${key}">Details</button>
+      <button class="mod-link" data-key="${key}"><i class="fa-solid fa-chevron-right mod-caret"></i>Details</button>
     </span>`;
+  }
+
+  // Just the per-module table (no summary stats) — rendered inline in an expandable detail row.
+  function moduleTableHTML(r, course) {
+    const mods = learnerModules(r, course);
+    return `<div class="mods-list">
+      <div class="mod-item mod-head">
+        <div class="mi-num"></div>
+        <div class="mi-name">Module</div>
+        <div class="mi-status">Status</div>
+        <div class="mi-time">Time</div>
+        <div class="mi-score">Quiz</div>
+      </div>
+      ${mods.map((m, i) => {
+        const fail = m.status === 'complete' && m.score < 70;
+        const cls = m.status === 'complete' ? (fail ? 'failed-mod' : 'done') : '';
+        const sLabel = m.status === 'complete' ? 'Complete' : (m.status === 'in-progress' ? 'In Progress' : 'Not Started');
+        const numInner = m.status === 'complete' ? (fail ? '<i class="fa-solid fa-xmark"></i>' : '<i class="fa-solid fa-check"></i>') : (i + 1);
+        const score = m.score != null ? `${m.score}%` : '—';
+        return `<div class="mod-item ${cls}">
+          <div class="mi-num">${numInner}</div>
+          <div class="mi-name">${m.name}</div>
+          <div class="mi-status s-${m.status}">${sLabel}</div>
+          <div class="mi-time">${fmtMin(m.time)}</div>
+          <div class="mi-score ${m.score != null ? '' : 'dash'}">${score}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
   }
 
   function dataRowHTML(r, course, gid) {
@@ -1099,10 +1122,20 @@
       const cls = c.cellClass ? ` class="${c.cellClass}"` : '';
       return `<td${cls}>${c.render(r, course, gid)}</td>`;
     }).join('');
+    // colspan = the select-checkbox column + every visible data column.
+    const span = visibleColumns().length + 1;
     return `
       <tr class="data-row${sel ? ' row-selected' : ''}" data-group="${gid}" data-ext="${r.ext}" data-key="${key}" data-status="${r.status}">
         <td class="sel-cell"><vaadin-checkbox class="row-sel" data-group="${gid}" data-ext="${r.ext}"${sel ? ' checked' : ''} aria-label="Select ${r.name}"></vaadin-checkbox></td>
         ${cells}
+      </tr>
+      <tr class="detail-row" id="detail-${key}" data-key="${key}">
+        <td colspan="${span}">
+          <div class="mod-detail-inner">
+            <div class="mod-detail-title">${displayName(r.name)} · Module completion — ${course}</div>
+            ${moduleTableHTML(r, course)}
+          </div>
+        </td>
       </tr>`;
   }
 
@@ -1272,25 +1305,52 @@
   const filters = {
     statuses: new Set(),   // empty = all statuses (check specific ones to narrow)
     courses:  new Set(),   // empty = all courses
-    learners: new Set(),   // empty = all learners
+    actions:  new Set(),   // action-needed groups: 'intervene' | 'nudge' | 'retry' (empty = all)
     expiringOnly: false,
     nearLimitOnly: false,
   };
-  function rowVisible(x) {
+  // "Base" filters — course · status · expiring · near-limit. These scope both the table
+  // and the Action-Needed cards (the cards intentionally ignore the action-needed quick filter
+  // so their counts stay meaningful).
+  function passesBase(x) {
     const r = x.r;
     if (filters.statuses.size && !filters.statuses.has(r.status)) return false;
     if (filters.courses.size && !filters.courses.has(x.course)) return false;
-    if (filters.learners.size && !filters.learners.has(r.name)) return false;
     if (filters.expiringOnly && !r.expSoon) return false;
     if (filters.nearLimitOnly && !(r.status === 'failed' && (r.attempts || 1) >= 2)) return false;
-    const q = searchInput.value.trim().toLowerCase();
-    if (q && !`${r.name} ${r.ext} ${x.course}`.toLowerCase().includes(q)) return false;
     return true;
   }
+  // Applied filters = base + the action-needed quick filter. Drives the pie + the table.
+  // The table's search box is deliberately NOT part of this — search is table-only and
+  // temporary (see rowVisible), so it never changes the overview or the Filtered-to chips.
+  function passesFilters(x) {
+    if (!passesBase(x)) return false;
+    if (filters.actions.size && !BULK_ORDER.some(t => filters.actions.has(t) && GROUP_MATCH[t](x.r))) return false;
+    return true;
+  }
+  function matchesSearch(x) {
+    const q = searchInput.value.trim().toLowerCase();
+    if (!q) return true;
+    return `${x.r.name} ${x.r.ext} ${x.course}`.toLowerCase().includes(q);
+  }
+  // Table row visibility = applied filters + the temporary search box.
+  function rowVisible(x) { return passesFilters(x) && matchesSearch(x); }
   function applyFilters() {
     rows.forEach(x => {
-      const tr = tbody.querySelector(`.data-row[data-key="${rowKey(x.gid, x.r.ext)}"]`);
-      if (tr) tr.style.display = rowVisible(x) ? '' : 'none';
+      const key = rowKey(x.gid, x.r.ext);
+      const vis = rowVisible(x);
+      const tr = tbody.querySelector(`.data-row[data-key="${key}"]`);
+      if (tr) tr.style.display = vis ? '' : 'none';
+      // Keep each learner's expandable module-detail row in sync — a filtered-out row's
+      // detail must not linger open.
+      if (!vis) {
+        const detail = document.getElementById('detail-' + key);
+        if (detail && detail.classList.contains('open')) {
+          detail.classList.remove('open');
+          const link = tbody.querySelector(`.mod-link[data-key="${key}"]`);
+          if (link) link.classList.remove('open');
+        }
+      }
     });
     updateFilterBadge();
     // Course (and the other panel filters) scope the WHOLE page — refresh the charts too.
@@ -1298,9 +1358,11 @@
     if (typeof renderOverviewCharts === 'function') renderOverviewCharts();
     if (typeof updateBulkBar === 'function') updateBulkBar();
   }
-  // Learners (and their wrappers) passing the current filters — the data source for the charts.
-  function scopedWrappers() { return rows.filter(rowVisible); }
+  // Learners passing the applied filters (NOT the search box) — the data source for the pie.
+  function scopedWrappers() { return rows.filter(passesFilters); }
   function scopedLearners() { return scopedWrappers().map(x => x.r); }
+  // The Action-Needed cards ignore the action-needed quick filter so their counts stay stable.
+  function cardScopeLearners() { return rows.filter(passesBase).map(x => x.r); }
   // Back-compat aliases — bulk-flow call sites still reference these names.
   function applyStatusFilter() { applyFilters(); }
   function syncSearch() { applyFilters(); }
@@ -1312,6 +1374,24 @@
       applyFilters();
     });
   });
+  document.querySelectorAll('#actionChecks vaadin-checkbox').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const a = cb.dataset.action;
+      cb.checked ? filters.actions.add(a) : filters.actions.delete(a);
+      applyFilters();
+    });
+  });
+  // OSHA Courses — inline checkbox multiselect, built from the data.
+  const courseChecks = document.getElementById('courseChecks');
+  courseChecks.innerHTML = GROUPS.map(g =>
+    `<label class="filter-check-row"><vaadin-checkbox theme="small" data-course="${g.course.replace(/"/g,'&quot;')}"></vaadin-checkbox><span>${g.course}</span></label>`).join('');
+  courseChecks.querySelectorAll('vaadin-checkbox').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const c = cb.dataset.course;
+      cb.checked ? filters.courses.add(c) : filters.courses.delete(c);
+      applyFilters();
+    });
+  });
   document.getElementById('chk-expiring').addEventListener('change', e => { filters.expiringOnly = e.target.checked; applyFilters(); });
   document.getElementById('chk-failed-limit').addEventListener('change', e => { filters.nearLimitOnly = e.target.checked; applyFilters(); });
   searchInput.addEventListener('input', applyFilters);
@@ -1320,36 +1400,39 @@
   const filtersClearBtn = document.getElementById('filtersClearBtn');
   const appliedFilters = document.getElementById('appliedFilters');
   const filterLead = document.getElementById('filterLead');
+  const ACTION_FILTER_LABEL = { intervene: 'Not started — needs intervention', nudge: 'Behind pace — needs a nudge', retry: 'Failed — needs a retry' };
+  // The search box is intentionally excluded — it is a temporary table-only filter and must
+  // not flip the scope to "Filtered to" nor appear as an applied-filter chip.
   function extraFilterCount() {
     let n = 0;
     if (filters.statuses.size) n++;
-    if (filters.learners.size) n++;
+    if (filters.actions.size) n += filters.actions.size;
     if (filters.expiringOnly) n++;
     if (filters.nearLimitOnly) n++;
-    if (searchInput.value.trim()) n++;
     return n;
   }
   function syncStatusChecks() {
     document.querySelectorAll('#statusChecks vaadin-checkbox').forEach(cb => { cb.checked = filters.statuses.has(cb.dataset.status); });
   }
-  function syncPanelChips() {
-    renderChips(document.getElementById('courseChips'), filters.courses, applyFilters);
-    renderChips(document.getElementById('userChips'),   filters.learners, applyFilters);
+  function syncActionChecks() {
+    document.querySelectorAll('#actionChecks vaadin-checkbox').forEach(cb => { cb.checked = filters.actions.has(cb.dataset.action); });
   }
+  function syncCourseChecks() {
+    document.querySelectorAll('#courseChecks vaadin-checkbox').forEach(cb => { cb.checked = filters.courses.has(cb.dataset.course); });
+  }
+  function syncPanelChips() { syncCourseChecks(); }
   // One removable chip per active filter, rendered after the "Filtered to:" lead-in.
   function renderAppliedChips() {
     if (!appliedFilters) return;
     const chips = [];
-    filters.courses.forEach(c => chips.push({ k: 'Course', label: c, remove: () => { filters.courses.delete(c); syncPanelChips(); } }));
-    filters.learners.forEach(l => chips.push({ k: 'Learner', label: l, remove: () => { filters.learners.delete(l); syncPanelChips(); } }));
+    filters.courses.forEach(c => chips.push({ k: 'Course', label: c, remove: () => { filters.courses.delete(c); syncCourseChecks(); } }));
     if (filters.statuses.size) {
       const names = [...filters.statuses].map(s => STATUS_LABEL[s]).join(', ');
       chips.push({ k: 'Status', label: names, remove: () => { filters.statuses.clear(); syncStatusChecks(); } });
     }
+    filters.actions.forEach(a => chips.push({ k: 'Action needed', label: ACTION_FILTER_LABEL[a], remove: () => { filters.actions.delete(a); syncActionChecks(); } }));
     if (filters.expiringOnly) chips.push({ k: '', label: 'Expiring ≤ 30 days', remove: () => { filters.expiringOnly = false; const e = document.getElementById('chk-expiring'); if (e) e.checked = false; } });
     if (filters.nearLimitOnly) chips.push({ k: '', label: 'Near 3-failure limit', remove: () => { filters.nearLimitOnly = false; const e = document.getElementById('chk-failed-limit'); if (e) e.checked = false; } });
-    const q = searchInput.value.trim();
-    if (q) chips.push({ k: 'Search', label: q, remove: () => { searchInput.value = ''; } });
     appliedFilters.innerHTML = '';
     chips.forEach(c => {
       const chip = document.createElement('span');
@@ -1367,24 +1450,26 @@
   }
   function clearAllFilters() {
     filters.statuses.clear();
-    filters.courses.clear(); filters.learners.clear();
+    filters.courses.clear(); filters.actions.clear();
     filters.expiringOnly = false; filters.nearLimitOnly = false;
     searchInput.value = '';
     syncStatusChecks();
+    syncActionChecks();
+    syncCourseChecks();
     const ce = document.getElementById('chk-expiring'); if (ce) ce.checked = false;
     const cf = document.getElementById('chk-failed-limit'); if (cf) cf.checked = false;
-    syncPanelChips();
     applyFilters();
   }
   filtersClearBtn.addEventListener('click', clearAllFilters);
 
-  /* ═══════════════ Module controls — per-student "Details" modal ═══════════════ */
+  /* ═══════════════ Module controls — expand a per-student module table inline ═══════════════ */
   tbody.addEventListener('click', e => {
     const link = e.target.closest('.mod-link');
-    if (link) {
-      const { r, g } = getRow(link.dataset.key) || {};
-      if (r) openStudentModules(r, g.course);
-    }
+    if (!link) return;
+    const detail = document.getElementById('detail-' + link.dataset.key);
+    if (!detail) return;
+    const open = detail.classList.toggle('open');
+    link.classList.toggle('open', open);
   });
 
   /* ═══════════════ Row actions → action modals (Intervene / Nudge / Retry / View / Certificate) ═══════════════ */
@@ -1443,47 +1528,64 @@
     content.emailOn = true; content.pushOn = true;
     return content;
   }
+  // Email channel block. `withToggle` renders the on/off checkbox (single-row modals, which can
+  // pick channels); bulk confirmations omit it — they are email-only by definition.
+  function emailChannelHTML(content, withToggle) {
+    const off = withToggle && !content.emailOn ? ' dlv-off' : '';
+    return `<div class="dlv-channel${off}" data-ch="email">
+      <div class="dlv-head">
+        ${withToggle ? `<vaadin-checkbox class="dlv-toggle" ${content.emailOn ? 'checked' : ''}></vaadin-checkbox>` : ''}
+        <span class="dlv-name"><i class="fa-regular fa-envelope"></i> Email</span>
+        <button type="button" class="dlv-edit-btn"><i class="fa-solid fa-pen"></i> Edit</button>
+      </div>
+      <div class="dlv-preview">
+        <div class="ep">
+          <div class="ep-line"><span class="ep-k">Subject</span><span class="ep-v" data-fld="subject">${content.email.subject}</span></div>
+          <div class="ep-body" data-fld="body">${content.email.body}</div>
+        </div>
+      </div>
+      <div class="dlv-editor" hidden>
+        <vaadin-text-field theme="outlined" label="Subject" value="${esc(content.email.subject)}" data-edit="subject" style="width:100%"></vaadin-text-field>
+        <vaadin-text-area theme="outlined" label="Message" value="${esc(content.email.body)}" data-edit="body" style="width:100%"></vaadin-text-area>
+        <div class="dlv-editor-actions"><vaadin-button theme="tertiary small" class="dlv-done">Done</vaadin-button></div>
+      </div>
+    </div>`;
+  }
+  function pushChannelHTML(content) {
+    return `<div class="dlv-channel${content.pushOn ? '' : ' dlv-off'}" data-ch="push">
+      <div class="dlv-head">
+        <vaadin-checkbox class="dlv-toggle" ${content.pushOn ? 'checked' : ''}></vaadin-checkbox>
+        <span class="dlv-name"><i class="fa-solid fa-bell"></i> Push notification</span>
+        <button type="button" class="dlv-edit-btn"><i class="fa-solid fa-pen"></i> Edit</button>
+      </div>
+      <div class="dlv-preview">
+        <div class="pp">
+          <div class="pp-top"><span class="pp-ico">V</span> SafeLMS · now</div>
+          <div class="pp-title" data-fld="title">${content.push.title}</div>
+          <div class="pp-body" data-fld="body">${content.push.body}</div>
+        </div>
+      </div>
+      <div class="dlv-editor" hidden>
+        <vaadin-text-field theme="outlined" label="Title" value="${esc(content.push.title)}" data-edit="title" style="width:100%"></vaadin-text-field>
+        <vaadin-text-area theme="outlined" label="Message" value="${esc(content.push.body)}" data-edit="body" style="width:100%"></vaadin-text-area>
+        <div class="dlv-editor-actions"><vaadin-button theme="tertiary small" class="dlv-done">Done</vaadin-button></div>
+      </div>
+    </div>`;
+  }
+  // Single-row action modals let you pick Email and/or Push (channel checkboxes).
   function deliveryHTML(content) {
-    const chOff = on => on ? '' : ' dlv-off';
     return `<div class="field-label">SEND VIA</div>
       <div class="delivery">
-        <div class="dlv-channel${chOff(content.emailOn)}" data-ch="email">
-          <div class="dlv-head">
-            <vaadin-checkbox class="dlv-toggle" ${content.emailOn ? 'checked' : ''}></vaadin-checkbox>
-            <span class="dlv-name"><i class="fa-regular fa-envelope"></i> Email</span>
-            <button type="button" class="dlv-edit-btn"><i class="fa-solid fa-pen"></i> Edit</button>
-          </div>
-          <div class="dlv-preview">
-            <div class="ep">
-              <div class="ep-line"><span class="ep-k">Subject</span><span class="ep-v" data-fld="subject">${content.email.subject}</span></div>
-              <div class="ep-body" data-fld="body">${content.email.body}</div>
-            </div>
-          </div>
-          <div class="dlv-editor" hidden>
-            <vaadin-text-field theme="outlined" label="Subject" value="${esc(content.email.subject)}" data-edit="subject" style="width:100%"></vaadin-text-field>
-            <vaadin-text-area theme="outlined" label="Message" value="${esc(content.email.body)}" data-edit="body" style="width:100%"></vaadin-text-area>
-            <div class="dlv-editor-actions"><vaadin-button theme="tertiary small" class="dlv-done">Done</vaadin-button></div>
-          </div>
-        </div>
-        <div class="dlv-channel${chOff(content.pushOn)}" data-ch="push">
-          <div class="dlv-head">
-            <vaadin-checkbox class="dlv-toggle" ${content.pushOn ? 'checked' : ''}></vaadin-checkbox>
-            <span class="dlv-name"><i class="fa-solid fa-bell"></i> Push notification</span>
-            <button type="button" class="dlv-edit-btn"><i class="fa-solid fa-pen"></i> Edit</button>
-          </div>
-          <div class="dlv-preview">
-            <div class="pp">
-              <div class="pp-top"><span class="pp-ico">V</span> SafeLMS · now</div>
-              <div class="pp-title" data-fld="title">${content.push.title}</div>
-              <div class="pp-body" data-fld="body">${content.push.body}</div>
-            </div>
-          </div>
-          <div class="dlv-editor" hidden>
-            <vaadin-text-field theme="outlined" label="Title" value="${esc(content.push.title)}" data-edit="title" style="width:100%"></vaadin-text-field>
-            <vaadin-text-area theme="outlined" label="Message" value="${esc(content.push.body)}" data-edit="body" style="width:100%"></vaadin-text-area>
-            <div class="dlv-editor-actions"><vaadin-button theme="tertiary small" class="dlv-done">Done</vaadin-button></div>
-          </div>
-        </div>
+        ${emailChannelHTML(content, true)}
+        ${pushChannelHTML(content)}
+      </div>`;
+  }
+  // Bulk confirmation: email-only, no channel checkbox — a plain confirmation of the email
+  // that will go out to the listed people.
+  function emailConfirmHTML(content) {
+    return `<div class="field-label">SENDING VIA EMAIL</div>
+      <div class="delivery">
+        ${emailChannelHTML(content, false)}
       </div>`;
   }
   // Wire toggles/edit/preview. `content` (optional) persists committed edits + channel state.
@@ -1495,7 +1597,7 @@
       const preview = ch.querySelector('.dlv-preview');
       const editor = ch.querySelector('.dlv-editor');
       const showPreview = () => { editor.hidden = true; preview.style.display = ''; editBtn.style.display = ''; };
-      toggle.addEventListener('change', () => {
+      if (toggle) toggle.addEventListener('change', () => {
         const on = toggle.checked;
         if (content) content[key + 'On'] = on;
         ch.classList.toggle('dlv-off', !on);
@@ -1685,21 +1787,22 @@
         <span class="r-meta">${STATUS_LABEL[r.status]}</span>
       </div>`).join('')}</div>`;
   }
+  // Bulk steps are a pure confirmation that an email is going out to the listed learners —
+  // email-only, no channel/opt checkboxes.
   function bulkMeta(type, items) {
     const n = items.length, s = MODAL_STYLE[type];
     if (type === 'intervene') return { ...s, title:'Send Intervention', confirm:'Send Intervention', cTheme:'error primary', cIcon:'fa-paper-plane',
-      body:`<p>Send a high-priority intervention to these <b>${n}</b> learner${n>1?'s':''} who haven’t started in time.</p>
+      body:`<p>Send a high-priority intervention email to these <b>${n}</b> learner${n>1?'s':''} who haven’t started in time.</p>
         ${recipListHTML(items)}
-        <div class="opt"><vaadin-checkbox checked></vaadin-checkbox><span class="o-text"><b>Copy their supervisors</b></span></div>
-        ${deliveryHTML(deliveryContent('intervene', null, { plural:true }))}` };
+        ${emailConfirmHTML(deliveryContent('intervene', null, { plural:true }))}` };
     if (type === 'nudge') return { ...s, title:'Send Nudge', confirm:'Send Nudge', cTheme:'warning primary', cIcon:'fa-bell',
-      body:`<p>Send a friendly nudge to these <b>${n}</b> learner${n>1?'s':''} with low recent activity.</p>
+      body:`<p>Send a friendly nudge email to these <b>${n}</b> learner${n>1?'s':''} with low recent activity.</p>
         ${recipListHTML(items)}
-        ${deliveryHTML(deliveryContent('nudge', null, { plural:true }))}` };
+        ${emailConfirmHTML(deliveryContent('nudge', null, { plural:true }))}` };
     return { ...s, title:'Schedule Retry', confirm:'Schedule Retry', cTheme:'primary', cIcon:'fa-rotate-right',
-      body:`<p>Schedule a retry for these <b>${n}</b> learner${n>1?'s':''}. Each retry begins after that learner’s 14-day cooldown.</p>
+      body:`<p>Email a retry notice to these <b>${n}</b> learner${n>1?'s':''}. Each retry begins after that learner’s 14-day cooldown.</p>
         ${recipListHTML(items)}
-        ${deliveryHTML(deliveryContent('retry', null, { plural:true }))}` };
+        ${emailConfirmHTML(deliveryContent('retry', null, { plural:true }))}` };
   }
   function openBulkFlow() {
     const rows = [...selectedRows].map(getRow).filter(Boolean);
@@ -1764,81 +1867,19 @@
   const filterPanel = document.getElementById('filterPanel');
   const filterInlineToggle = document.getElementById('filterInlineToggle');
   const oshaLayout = document.getElementById('oshaLayout');
-  function closePanel() {
-    filterPanel.classList.add('collapsed');
-    // Back to full width: table fits the card again (no horizontal scroll / frozen pane).
-    oshaLayout.classList.remove('panel-open');
-  }
-  function openPanel() {
-    filterPanel.classList.remove('collapsed');
-    // Don't squish the table — hold its width, scroll horizontally, freeze the Action column.
-    oshaLayout.classList.add('panel-open');
-  }
+  // The table always holds its width and scrolls horizontally with a frozen Action column
+  // (see CSS), so opening the panel just narrows the content area — no extra table state to flip.
+  function closePanel() { filterPanel.classList.add('collapsed'); }
+  function openPanel()  { filterPanel.classList.remove('collapsed'); }
   document.getElementById('closePanelBtn').addEventListener('click', closePanel);
   filterInlineToggle.addEventListener('click', openPanel);
   /* Filters start closed on the report. */
   closePanel();
 
-  /* Apply Filters — apply the status filter, then just close the panel. */
+  /* Apply Filters — just close the panel (filters apply live as checkboxes change). */
   document.getElementById('applyFiltersBtn').addEventListener('click', () => {
-    applyStatusFilter(); syncSearch();
     closePanel();
   });
-
-  /* ═══════════════ Filter chips + pickers — Courses / Learners (drive the real filters) ═══════════════ */
-  const ALL_COURSES = GROUPS.map(g => g.course);
-  const ALL_USERS = [...new Set(rows.map(x => x.r.name))].sort((a, b) => a.localeCompare(b));
-
-  function makeChip(label, onRemove) {
-    const chip = document.createElement('span');
-    chip.className = 'filter-chip';
-    chip.innerHTML = `<span>${label}</span><button class="filter-chip-remove" aria-label="Remove ${label}"><i class="fa-solid fa-xmark"></i></button>`;
-    chip.querySelector('.filter-chip-remove').addEventListener('click', () => onRemove(label));
-    return chip;
-  }
-  function renderChips(chipsWrap, selected, onChange) {
-    chipsWrap.innerHTML = '';
-    [...selected].forEach(label => chipsWrap.appendChild(makeChip(label, l => {
-      selected.delete(l); renderChips(chipsWrap, selected, onChange); onChange();
-    })));
-  }
-
-  /* Vaadin dialog picker: a checklist that commits to `selected` on Apply, then re-filters. */
-  function wirePicker(dialogId, buttonId, chipsId, title, items, selected, onApply) {
-    const dialog = document.getElementById(dialogId);
-    const chipsWrap = document.getElementById(chipsId);
-    document.getElementById(buttonId).addEventListener('click', () => {
-      const working = new Set(selected);   // edits are discarded unless Apply is clicked
-      dialog.headerRenderer = (root) => { root.innerHTML = `<strong style="font-size: 17px">${title}</strong>`; };
-      dialog.renderer = (root) => {
-        root.innerHTML = `<div style="width:min(420px,90vw); max-height:340px; overflow:auto;">
-          ${items.map(it => `<label style="display:flex; align-items:center; gap:10px; padding:8px 2px; border-bottom:1px solid #f3f4f6; font-size: 15px; cursor:pointer;">
-            <vaadin-checkbox data-pick="${it.replace(/"/g,'&quot;')}" ${working.has(it) ? 'checked' : ''}></vaadin-checkbox><span>${it}</span></label>`).join('')}
-        </div>`;
-        root.querySelectorAll('vaadin-checkbox[data-pick]').forEach(cb => {
-          cb.addEventListener('change', () => { cb.checked ? working.add(cb.dataset.pick) : working.delete(cb.dataset.pick); });
-        });
-      };
-      dialog.footerRenderer = (root) => {
-        root.innerHTML = '';
-        const cancel = document.createElement('vaadin-button');
-        cancel.setAttribute('theme','tertiary'); cancel.textContent = 'Cancel';
-        cancel.addEventListener('click', () => { dialog.opened = false; });
-        const apply = document.createElement('vaadin-button');
-        apply.setAttribute('theme','primary'); apply.textContent = 'Apply';
-        apply.addEventListener('click', () => {
-          selected.clear(); working.forEach(v => selected.add(v));
-          renderChips(chipsWrap, selected, onApply);
-          onApply();
-          dialog.opened = false;
-        });
-        root.append(cancel, apply);
-      };
-      dialog.opened = true;
-    });
-  }
-  wirePicker('selectCoursesDialog', 'selectCoursesBtn', 'courseChips', 'Select OSHA Courses', ALL_COURSES, filters.courses,  applyFilters);
-  wirePicker('selectUsersDialog',   'selectUsersBtn',   'userChips',   'Select Learners',     ALL_USERS,   filters.learners, applyFilters);
 
   /* ═══════════════ Date-range dropdown (ported from V1) ═══════════════ */
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1893,74 +1934,6 @@
     b.setAttribute('disabled',''); setTimeout(() => b.removeAttribute('disabled'), 1200);
   });
 
-  /* ═══════════════ V1 — per-student module progress + quiz scores modal ═══════════════ */
-  const moduleDialog = document.getElementById('moduleDialog');
-  function openStudentModules(r, course) {
-    const mods = learnerModules(r, course);
-    const done = mods.filter(m => m.status === 'complete').length;
-    const scored = mods.filter(m => m.score != null);
-    const avg = scored.length ? Math.round(scored.reduce((a, m) => a + m.score, 0) / scored.length) : null;
-    const totalTime = mods.reduce((a, m) => a + (m.time || 0), 0);
-    const name = displayName(r.name);
-    moduleDialog.headerRenderer = (root) => {
-      root.innerHTML = `<div class="dlg-head" style="width:min(560px,92vw)">
-        <div class="m-ico" style="background:#dbeafe;color:#1d4ed8"><i class="fa-solid fa-list-check"></i></div>
-        <div><div class="m-title">${name}</div><div class="m-sub">${course}</div></div>
-        <vaadin-button theme="icon tertiary" id="mdClose" aria-label="Close" style="margin-left:auto"><i class="fa-solid fa-xmark"></i></vaadin-button>
-      </div>`;
-      root.querySelector('#mdClose').addEventListener('click', () => { moduleDialog.opened = false; });
-    };
-    moduleDialog.renderer = (root) => {
-      root.innerHTML = `<div class="dlg-body" style="width:min(560px,92vw)">
-        <div class="mods-summary">
-          <div class="ms-cell"><div class="ms-k">Status</div><div class="ms-v"><span class="status-badge ${r.status}">${STATUS_LABEL[r.status]}</span></div></div>
-          <div class="ms-cell"><div class="ms-k">Modules complete</div><div class="ms-v">${done}/${MOD_TOTAL}</div></div>
-          <div class="ms-cell"><div class="ms-k">Avg quiz score</div><div class="ms-v">${avg != null ? avg + '%' : '—'}</div></div>
-          <div class="ms-cell"><div class="ms-k">Time spent</div><div class="ms-v">${fmtMin(totalTime)}</div></div>
-        </div>
-        <div class="mods-list">
-          <div class="mod-item mod-head">
-            <div class="mi-num"></div>
-            <div class="mi-name">Module</div>
-            <div class="mi-status">Status</div>
-            <div class="mi-time">Time</div>
-            <div class="mi-score">Quiz</div>
-          </div>
-          ${mods.map((m, i) => {
-            const fail = m.status === 'complete' && m.score < 70;
-            const cls = m.status === 'complete' ? (fail ? 'failed-mod' : 'done') : '';
-            const sLabel = m.status === 'complete' ? 'Complete' : (m.status === 'in-progress' ? 'In Progress' : 'Not Started');
-            const numInner = m.status === 'complete' ? (fail ? '<i class="fa-solid fa-xmark"></i>' : '<i class="fa-solid fa-check"></i>') : (i + 1);
-            const score = m.score != null ? `${m.score}%` : '—';
-            return `<div class="mod-item ${cls}">
-              <div class="mi-num">${numInner}</div>
-              <div class="mi-name">${m.name}</div>
-              <div class="mi-status s-${m.status}">${sLabel}</div>
-              <div class="mi-time">${fmtMin(m.time)}</div>
-              <div class="mi-score ${m.score != null ? '' : 'dash'}">${score}</div>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>`;
-    };
-    moduleDialog.footerRenderer = (root) => {
-      root.innerHTML = '';
-      const close = document.createElement('vaadin-button');
-      close.setAttribute('theme', 'tertiary'); close.textContent = 'Close';
-      close.addEventListener('click', () => { moduleDialog.opened = false; });
-      root.appendChild(close);
-      const a = ACTIONS[r.status];
-      if (a) {
-        const act = document.createElement('vaadin-button');
-        act.setAttribute('theme', a.theme.replace('secondary', 'primary')); // emphasize the action
-        act.innerHTML = `<i class="fa-solid ${a.icon}" slot="prefix"></i>${a.label}`;
-        act.addEventListener('click', () => { moduleDialog.opened = false; openModal(a.type, r, course); });
-        root.appendChild(act);
-      }
-    };
-    moduleDialog.opened = true;
-  }
-
   /* ═══════════════ Action-needed cards (replace the Top-5 bar chart) ═══════════════ */
   const GROUP_MATCH = {
     intervene: r => r.status === 'not-started',
@@ -1968,7 +1941,9 @@
     retry:     r => r.status === 'failed',
   };
   function renderActionCards() {
-    const data = scopedLearners();
+    // Cards ignore the action-needed quick filter (cardScopeLearners) so their counts stay
+    // stable when a card is used as a quick filter.
+    const data = cardScopeLearners();
     const total = data.length;
     const inProgress = data.filter(r => r.status === 'in-progress').length;
     const cards = [
@@ -1977,21 +1952,37 @@
       { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: total,      label: 'Failed the assessment — needs a retry' },
     ];
     const wrap = document.getElementById('actionCards');
+    // Clicking the card BODY applies that group as a quick filter (shows a Filtered-to chip);
+    // the "Take action" secondary button opens the bulk action modal.
     wrap.innerHTML = cards.map(c => `
-      <button class="action-card" data-action="${c.type}">
+      <div class="action-card${filters.actions.has(c.type) ? ' active' : ''}" data-action="${c.type}" role="button" tabindex="0">
         <span class="ac-ico ${c.cls}"><i class="fa-solid ${c.icon}"></i></span>
         <span class="ac-body">
           <span class="ac-count">${c.count} <span class="ac-of">of ${c.of}</span></span>
           <span class="ac-label">${c.label}</span>
         </span>
-        <span class="ac-cta">Take action <i class="fa-solid fa-arrow-right"></i></span>
-      </button>`).join('');
-    wrap.querySelectorAll('.action-card').forEach(btn =>
-      btn.addEventListener('click', () => openActionGroup(btn.dataset.action)));
+        <vaadin-button theme="secondary small" class="ac-take"><i class="fa-solid ${c.icon}" slot="prefix"></i>Take action</vaadin-button>
+      </div>`).join('');
+    wrap.querySelectorAll('.action-card').forEach(card => {
+      const type = card.dataset.action;
+      const takeBtn = card.querySelector('.ac-take');
+      takeBtn.addEventListener('click', e => { e.stopPropagation(); openActionGroup(type); });
+      const quickFilter = () => toggleActionQuickFilter(type);
+      card.addEventListener('click', quickFilter);
+      card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); quickFilter(); } });
+    });
+  }
+  // Card-body click → focus the table on that action group. Clicking the active card again clears it.
+  function toggleActionQuickFilter(type) {
+    if (filters.actions.size === 1 && filters.actions.has(type)) filters.actions.delete(type);
+    else { filters.actions.clear(); filters.actions.add(type); }
+    syncActionChecks();
+    applyFilters();
   }
 
-  /* ═══════════════ Overview charts — Completion Distribution (pie) ⇄ Where Learners Are ═══════════════ */
+  /* ═══════════════ Overview chart — Status Distribution (pie) ═══════════════ */
   // Pie: share of learners by completion status (live from the data, not hard-coded).
+  // scopedLearners() reflects the applied panel filters only — NOT the table's search box.
   function renderDistribution() {
     const data = scopedLearners();
     const total = data.length || 1;
@@ -2007,83 +1998,7 @@
     document.getElementById('pieLabels').innerHTML = segs.map(s =>
       `<span class="pie-label"><span class="pd" style="background:${s.color}"></span> ${s.label}: ${Math.round(s.n / total * 100)}%</span>`).join('');
   }
-  // Where Learners Are: how far along learners are right now (counts per progress category).
-  function renderProgress() {
-    const data = scopedLearners();
-    const cats = [
-      { label: 'Not started',      color: '#9ca3af', n: data.filter(r => r.status === 'not-started').length },
-      { label: 'On track',         color: '#3b82f6', n: data.filter(r => r.status === 'in-progress' && !r.behind).length },
-      { label: 'Behind / delayed', color: '#f59e0b', n: data.filter(r => r.status === 'in-progress' && r.behind).length },
-      { label: 'Failed / retry',   color: '#dc2626', n: data.filter(r => r.status === 'failed').length },
-      { label: 'Completed',        color: '#22c55e', n: data.filter(r => r.status === 'passed').length },
-    ];
-    const max = Math.max(1, ...cats.map(c => c.n));
-    document.getElementById('progressChart').innerHTML = cats.map(c => `
-      <div class="prog-row">
-        <span class="prog-label"><span class="pdot" style="background:${c.color}"></span>${c.label}</span>
-        <span class="prog-track"><span class="prog-fill" style="width:${c.n / max * 100}%; background:${c.color};"></span></span>
-        <span class="prog-val">${c.n}</span>
-      </div>`).join('');
-  }
-  // Course Pass / Fail: a pass-rate donut (passed vs. failed vs. not-yet-assessed).
-  function renderPassFail() {
-    const data = scopedLearners();
-    const passed = data.filter(r => r.status === 'passed').length;
-    const failed = data.filter(r => r.status === 'failed').length;
-    const pending = data.length - passed - failed;
-    const total = data.length || 1;
-    const segs = [
-      { label: 'Passed', count: passed, color: '#22c55e' },
-      { label: 'Failed', count: failed, color: '#ef4444' },
-      { label: 'Not yet assessed', count: pending, color: '#d1d5db' },
-    ];
-    let acc = 0;
-    const stops = segs.map(s => { const a = acc / total * 360; acc += s.count; return `${s.color} ${a}deg ${acc / total * 360}deg`; }).join(', ');
-    const assessed = passed + failed;
-    const passRate = assessed ? Math.round(passed / assessed * 100) : 0;
-    document.getElementById('passFailChart').innerHTML = `
-      <div class="donut-wrap">
-        <div class="donut" style="background: conic-gradient(${stops});">
-          <div class="donut-center"><div><div class="dc-num">${passRate}%</div><div class="dc-lbl">Pass rate</div></div></div>
-        </div>
-        <div class="donut-legend">
-          ${segs.map(s => `<span class="dl"><span class="dd" style="background:${s.color}"></span><b>${s.count}</b> ${s.label}</span>`).join('')}
-        </div>
-      </div>`;
-  }
-  // Drill-through: per-module pass/fail counts (completed modules scoring ≥70 pass, else fail), across all courses.
-  function renderModuleBreakdown() {
-    const acc = Array.from({ length: MOD_TOTAL }, () => ({ pass: 0, fail: 0 }));
-    const labels = Array.from({ length: MOD_TOTAL }, (_, i) => `Module ${i + 1}`);
-    labels[MOD_TOTAL - 1] = 'Final Assessment';
-    scopedWrappers().forEach(x => learnerModules(x.r, x.course).forEach((m, i) => {
-      if (m.status === 'complete') (m.score >= 70 ? acc[i].pass++ : acc[i].fail++);
-    }));
-    document.getElementById('moduleBreakdown').innerHTML = acc.map((a, i) => {
-      const tot = (a.pass + a.fail) || 1;
-      return `<div class="mb-row">
-        <span class="mb-name" title="${labels[i]}">${labels[i]}</span>
-        <span class="mb-bar"><span class="mb-pass" style="width:${a.pass / tot * 100}%"></span><span class="mb-fail" style="width:${a.fail / tot * 100}%"></span></span>
-        <span class="mb-counts"><span class="mc-p">${a.pass}</span> / <span class="mc-f">${a.fail}</span></span>
-      </div>`;
-    }).join('');
-  }
-  function renderOverviewCharts() { renderDistribution(); renderProgress(); renderPassFail(); renderModuleBreakdown(); }
-  // Drill-through toggle under the donut.
-  document.getElementById('drillToggle').addEventListener('click', (e) => {
-    const mb = document.getElementById('moduleBreakdown');
-    const open = mb.hidden;
-    mb.hidden = !open;
-    e.currentTarget.setAttribute('aria-expanded', String(open));
-    e.currentTarget.innerHTML = `<i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i> ${open ? 'Hide' : 'Show'} module pass / fail`;
-  });
-  // Flip between the overview views (each view's id is `view-<data-chart>`).
-  document.getElementById('chartFlip').addEventListener('click', (e) => {
-    const btn = e.target.closest('.cf-btn');
-    if (!btn) return;
-    document.querySelectorAll('#chartFlip .cf-btn').forEach(b => b.classList.toggle('active', b === btn));
-    document.querySelectorAll('.chart-area .chart-view').forEach(v => { v.hidden = v.id !== `view-${btn.dataset.chart}`; });
-  });
+  function renderOverviewCharts() { renderDistribution(); }
 
   /* ═══════════════ Action-group modal — filter by course, then take a bulk action ═══════════════ */
   const agDialog = document.getElementById('agDialog');
@@ -2096,13 +2011,10 @@
   function agVisibleItems() {
     return agState.items.filter(x => agState.courseFilter === 'all' || x.course === agState.courseFilter);
   }
-  function agSelectedCount() {
-    return agVisibleItems().filter(x => agState.sel.has(x.key)).length;
-  }
   function openActionGroup(type) {
     const items = [];
     GROUPS.forEach(g => g.rows.forEach(r => { if (GROUP_MATCH[type](r)) items.push({ r, course: g.course, key: rowKey(g.id, r.ext) }); }));
-    agState = { type, items, courseFilter: 'all', sel: new Set(items.map(x => x.key)), delivery: deliveryContent(type, null, { plural: true }) };
+    agState = { type, items, courseFilter: 'all', delivery: deliveryContent(type, null, { plural: true }) };
     const s = MODAL_STYLE[type], meta = AG_META[type];
     agDialog.headerRenderer = (root) => {
       root.innerHTML = `<div class="dlg-head" style="width:min(560px,92vw)">
@@ -2120,14 +2032,14 @@
           <span class="agf-label">Filter by course</span>
           <vaadin-select theme="outlined small" id="agCourse" style="flex:1"></vaadin-select>
         </div>
+        <p style="font-size:14.5px;color:var(--muted);margin:0 0 12px">This will email the <b>${vis.length}</b> learner${vis.length !== 1 ? 's' : ''} below.</p>
         ${vis.length ? `<div class="recip-list">${vis.map(x => `
-          <label class="recip" style="cursor:pointer">
-            <vaadin-checkbox class="ag-pick" data-key="${x.key}" ${agState.sel.has(x.key) ? 'checked' : ''}></vaadin-checkbox>
+          <div class="recip">
             <div class="r-avatar" style="background:${PCT_COLOR[x.r.status] || '#155DFC'}">${initials(x.r.name)}</div>
             <div><div class="r-name">${displayName(x.r.name)}</div><div class="r-mail">${x.course}</div></div>
             <span class="r-meta">${STATUS_LABEL[x.r.status]}</span>
-          </label>`).join('')}</div>` : '<div class="ag-empty">No learners match this course.</div>'}
-        ${deliveryHTML(agState.delivery)}
+          </div>`).join('')}</div>` : '<div class="ag-empty">No learners match this course.</div>'}
+        ${emailConfirmHTML(agState.delivery)}
       </div>`;
       const sel = root.querySelector('#agCourse');
       sel.items = [{ label: 'All courses', value: 'all' }, ...courses.map(c => ({ label: c, value: c }))];
@@ -2135,17 +2047,13 @@
       sel.addEventListener('value-changed', () => {
         if (sel.value && sel.value !== agState.courseFilter) { agState.courseFilter = sel.value; agDialog.requestContentUpdate(); }
       });
-      root.querySelectorAll('.ag-pick').forEach(cb => cb.addEventListener('change', () => {
-        cb.checked ? agState.sel.add(cb.dataset.key) : agState.sel.delete(cb.dataset.key);
-        agDialog.requestContentUpdate(); // refresh the footer count
-      }));
-      // Delivery edits/toggles persist via agState.delivery across content updates.
+      // Delivery edits persist via agState.delivery across content updates.
       wireDelivery(root, agState.delivery);
     };
     agDialog.footerRenderer = (root) => {
       root.innerHTML = '';
       const meta2 = AG_META[agState.type];
-      const n = agSelectedCount();
+      const n = agVisibleItems().length;
       const cancel = document.createElement('vaadin-button');
       cancel.setAttribute('theme', 'tertiary'); cancel.textContent = 'Cancel';
       cancel.addEventListener('click', () => { agDialog.opened = false; });
