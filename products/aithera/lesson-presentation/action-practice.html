@@ -493,6 +493,32 @@
       }
       .intro-playpause:hover { background: rgba(0,0,0,.7); }
       .intro-playpause:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,255,255,.4); }
+      /* Skip — PROTOTYPE-ONLY review affordance so stakeholders can jump past
+         the cold open without watching all six clips. The actual design keeps
+         the intro unskippable (see the note above) — do NOT carry this into
+         the real build. Sits above the loading beat too, so a reviewer can
+         bail even while clips are still buffering. */
+      .intro-skip {
+        position: absolute;
+        right: 12px; bottom: 12px;
+        z-index: 4;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border: 0;
+        border-radius: 999px;
+        padding: 7px 14px;
+        background: rgba(0,0,0,.5);
+        color: #fff;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background .15s var(--ease);
+      }
+      .intro-skip:hover { background: rgba(0,0,0,.7); }
+      .intro-skip:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,255,255,.4); }
+      .intro-skip i { font-size: 11px; }
       /* One-time fallback if the browser blocks autoplay even muted */
       .intro-begin {
         position: absolute;
@@ -1836,6 +1862,9 @@ You didn't carry this alone, and you didn't ask her to either.` },
          <button class="intro-playpause" id="introPlayPauseBtn" aria-label="Pause">
            <i class="fa-solid fa-pause"></i>
          </button>
+         <button class="intro-skip" id="introSkipBtn" aria-label="Skip intro video">
+           Skip <i class="fa-solid fa-forward"></i>
+         </button>
          <button class="intro-begin" id="introBeginBtn" hidden>
            <i class="fa-solid fa-circle-play"></i> Tap to begin
          </button>
@@ -2343,6 +2372,23 @@ You didn't carry this alone, and you didn't ask her to either.` },
       const introBeginBtn  = document.getElementById('introBeginBtn');
       const introLoading   = document.getElementById('introLoading');
       const introPlayPause = document.getElementById('introPlayPauseBtn');
+      const introSkipBtn   = document.getElementById('introSkipBtn');
+
+      // PROTOTYPE-ONLY skip: lets stakeholders jump past the cold open during
+      // review. Bumping introSeq abandons the in-flight clip loop and its
+      // captions (every await re-checks the seq), then we chain straight into
+      // the coach exactly as a natural video ending would. The real design
+      // keeps the intro unskippable — strip this for the build.
+      introSkipBtn.addEventListener('click', () => {
+        if (mySeq !== introSeq) return;
+        introSeq++;
+        const active = sceneVideo.querySelector('.intro-video.is-active');
+        if (active) active.pause();
+        introCaption.classList.remove('is-visible');
+        introSkipBtn.hidden = true;
+        introBeginBtn.hidden = true;   // in case the autoplay-block fallback was up
+        finishVideoIntro();
+      }, { once: true });
 
       // The only transport control offered: pause/resume the clip that's
       // currently active. No seek, no skip — that still isn't on the table.
