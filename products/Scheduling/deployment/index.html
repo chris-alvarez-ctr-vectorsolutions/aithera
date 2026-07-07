@@ -281,14 +281,11 @@
            not a toggle): upright/blue if pinned, muted/tilted if not. */
         vaadin-select-value-button .opt-row { width: auto; gap: 8px; }
         vaadin-select-value-button .opt-pin { pointer-events: none; font-size: 12.5px; padding: 0 0 0 2px; background: none !important; }
-        /* Work-type color legend + run-callback action on the review */
+        /* Work-type color legend on the review */
         .wt-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; margin: 2px 0 12px; font-size: 12.5px; color: var(--text-soft); }
         .wt-legend-item { display: inline-flex; align-items: center; gap: 7px; }
         .wt-legend-item strong { color: var(--text); font-weight: 700; }
         .wt-dot { width: 11px; height: 11px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
-        .run-callback-btn { display: inline-flex; align-items: center; gap: 7px; background: var(--blue-link); color: #fff; border: none; border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
-        .run-callback-btn:hover { filter: brightness(1.06); }
-        .run-callback-btn i { font-size: 12px; }
         .csw { width: 40px; height: 40px; border-radius: 10px; border: none; cursor: pointer; padding: 0; color: #fff; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1px rgba(0,0,0,.1); transition: box-shadow .12s; }
         .csw:hover { box-shadow: inset 0 0 0 1px rgba(0,0,0,.1), 0 0 0 2px rgba(0,0,0,.18); }
         .csw .fa-check { opacity: 0; text-shadow: 0 1px 2px rgba(0,0,0,.35); }
@@ -903,7 +900,6 @@
         .ed-add-row input { width: 16px; height: 16px; accent-color: var(--blue-link); }
         .ed-add-row .ed-add-meta { margin-left: auto; color: var(--text-soft); font-size: 12px; white-space: nowrap; }
         .ed-empty { color: var(--text-soft); font-size: 13.5px; padding: 10px 2px; }
-        .run-callback-btn.ed-cb-btn { margin: 0; }
 
         /* ---- Save-note modal — every post-deploy edit carries a note on the confirmation. ---- */
         .dlg-note { width: min(560px, 92vw); }
@@ -2903,21 +2899,15 @@
                 : `<strong>0</strong> selected`;
             return `<span class="rfab-label"><i class="fa-solid fa-clipboard-check"></i> ${summary}</span><i class="fa-solid fa-chevron-up rfab-chev"></i>`;
         }
-        // Legend tying the position colors to the on-duty work type, plus a
-        // "Run callback" action to fill any open positions (you can deploy with
-        // open slots and let callbacks fill them).
+        // Legend tying the position colors to the on-duty work type.
         function reviewLegendHtml() {
             const wt = val('depOnDuty');
             const color = workTypeColor(wt);
             const wtLabel = itemLabel(WORK_TYPE_ITEMS, wt);
-            const { openCount } = reviewStats();
             const legend = color
                 ? `<span class="wt-legend-item"><span class="wt-dot" style="background:${color}"></span> Positions colored by on-duty work type: <strong>${wtLabel}</strong></span>`
                 : `<span class="wt-legend-item">Set an on-duty work type in Step 1 to color positions by work type.</span>`;
-            const cb = openCount
-                ? `<button type="button" class="run-callback-btn" data-run-callback><i class="fa-solid fa-phone-volume"></i> Run callback to fill ${openCount} open ${openCount === 1 ? 'position' : 'positions'}</button>`
-                : '';
-            return legend + cb;
+            return legend;
         }
         function renderReview() {
             const cards = reviewCardsHtml();
@@ -3121,16 +3111,6 @@
             const chip = e.target.closest('[data-fill-id]'); if (!chip) return;
             closeReview();
             jumpToCard(chip.dataset.fillId, chip.dataset.fillKind, +chip.dataset.fillIdx);
-        });
-
-        // "Run callback to fill open positions" — you can deploy with open slots
-        // and let callbacks fill them. Fires from the inline review legend and the
-        // bottom review island. (Prototype: confirms with a toast.)
-        document.addEventListener('click', e => {
-            if (!e.target.closest('[data-run-callback]')) return;
-            const { openCount } = reviewStats();
-            if (!openCount) return;
-            showToast(`Callbacks started for ${openCount} open ${openCount === 1 ? 'position' : 'positions'} — they’ll fill as people accept.`);
         });
 
         // ---- Step 1: scheduler type + recurring pattern ----
@@ -3779,9 +3759,7 @@
                         <div class="ed-lock-note">Extending or shortening applies to every assignment in this deployment.</div>
                     </div>
                 </div>
-                <div class="ed-sec-title">Assignments in this deployment (${ed.items.length})
-                    ${open ? `<button type="button" class="run-callback-btn ed-cb-btn" data-ed-callback><i class="fa-solid fa-phone-volume"></i> Run callback to fill ${open} open ${open === 1 ? 'position' : 'positions'}</button>` : ''}
-                </div>
+                <div class="ed-sec-title">Assignments in this deployment (${ed.items.length})</div>
                 ${ed.items.length
                     ? `<div class="ed-grid">${cards}</div>`
                     : '<div class="ed-empty"><i class="fa-solid fa-triangle-exclamation"></i> No assignments left — saving now deletes the whole deployment from the crew scheduler.</div>'}
@@ -3795,7 +3773,7 @@
                     : '<div class="ed-empty">Every deployable assignment is already in this deployment.</div>'}
                 </div>`;
             $('edFootNote').textContent = open
-                ? `${open} open ${open === 1 ? 'position' : 'positions'} — fill here or run a callback.`
+                ? `${open} open ${open === 1 ? 'position' : 'positions'} — fill them here, or leave open for callbacks.`
                 : 'All positions filled.';
             // End date / times feed the working copy (applied on save, not live).
             customElements.whenDefined('vaadin-date-picker').then(() => {
@@ -3831,10 +3809,6 @@
                     renderEd();
                 }
                 return;
-            }
-            if (e.target.closest('[data-ed-callback]')) {
-                const n = edOpenCount();
-                showToast(`Callbacks started for ${n} open ${n === 1 ? 'position' : 'positions'} — they’ll fill as people accept.`);
             }
         });
         function edCancel() { ed = null; edFillTarget = null; $('edOverlay').classList.remove('open'); }
