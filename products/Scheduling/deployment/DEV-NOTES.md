@@ -20,6 +20,12 @@ pill hidden, comments off, and the flow map on.
 `<script src="../../../designtoolbox/toolbox.js">` include** (and the `window.TOOLBOX` line
 above it). None of that dock/flow-map UI is part of the deployment design.
 
+**Dashboard status is automatic.** Because `dev_handoff.html` exists next to `index.html`,
+`scripts/build-dashboards.js` flips this mock's Scheduling-dashboard card to **Ready for Dev**
+on every push — the **Dev Page + Dev HTML links lead** (with a "View Dev Build" button) and the
+original designer file collapses into a "Designer file" drawer. **No manual dashboard/meta.json
+edit is needed** — creating `dev_handoff.html` and pushing is what marks it Ready for Dev.
+
 **Stripped in the dev build only (master keeps them):** the **Templates** feature and the
 **"Save as reusable template"** controls (checkbox in the builder + "Save as template" on a
 built card) are removed from `dev_handoff.html` — the first release ships without templates.
@@ -37,13 +43,29 @@ tooltips, density toggle, and the deployable switch are the highest-value VWC sw
 - Picking an assignment **hoists it into a "Selected (N)" bucket** at the top of the list
   (light-blue background), moved out of the unselected group; the list stays searchable.
 - The shared-qualifier **"cover" badge is hidden** in V2.
-- **Review page**: no card background; schedule (start/end) on top, other details underneath;
-  label-left / value-right; condensed spacing.
+- **Review page (Step 3)**: no card background; a **scannable summary** — identity, then a
+  2-column grid of stacked **label-above-value** pairs (schedule/dates first, then code,
+  location, work types, shift type), then Notes, split by hairlines. (Replaced the old
+  far-apart label-left / value-right list.)
 - The **"Run callback to fill open positions"** button was removed (open slots still fill via
   callback as copy notes).
 - The **multi-select "Select to deploy"** path on the landing was **removed entirely** —
   deploy via **Add New Deployment** or a row's **⋯ → Deploy**.
 - **Edit-after-deploy is end-date-only** (start date locks after deploy; MVP).
+- The **"Selected (N)" bucket** is a blue **section panel**; each pick inside is a **white card
+  with a bright-blue outline** (not a filled blue card).
+- The floating **"Review deployment" island** (the bottom expandable peek) was **removed** —
+  Step 3 in the stepper is the only review surface now.
+- **New assignments** built from scratch render **inline under a plain "New assignments" heading**
+  in the build area — not a separate collapsible folder.
+- The **"mark an assignment as deployable" hint** sits **above** the Existing-assignments box
+  (not inside it).
+- The builder's **"Save as a reusable template" info tooltip was removed.**
+- **Search fields** (assignments, templates, employee picker) are **`vaadin-text-field`**
+  (outlined, magnifying-glass `prefix` icon, `clear-button-visible`) — the design-system search.
+- **Canceling** a started deployment (named it, picked/built an assignment, or added builder
+  positions) shows a **"Discard this deployment?"** confirm (Discard & leave / Keep editing);
+  an untouched builder cancels with no prompt.
 
 ---
 

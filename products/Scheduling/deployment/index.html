@@ -3528,8 +3528,28 @@
         $('depDeploy').addEventListener('click', doDeploy);
         { const dr = $('depDeployReview'); if (dr) dr.addEventListener('click', doDeploy); }   // V2 review-step Deploy
         const back = $('depBack'); if (back) back.addEventListener('click', () => showView('landing'));
-        const cancel = $('depCancel'); if (cancel) cancel.addEventListener('click', () => showView('landing'));
-        document.querySelectorAll('#view-deploy .dep-cancel-btn').forEach(b => b.addEventListener('click', () => showView('landing')));   // V2 per-step Cancel
+        // Cancel — if the user has actually configured something (named it, picked/built an
+        // assignment, or added builder positions), confirm before discarding. An untouched
+        // builder cancels straight out with no prompt.
+        function deployHasConfig() {
+            return selCount() > 0
+                || Object.keys(bPrimary).length > 0 || bOpen > 0
+                || !!(val('depName') || '').trim();
+        }
+        async function cancelDeploy() {
+            if (deployHasConfig()) {
+                const ok = await confirmDialog({
+                    title: 'Discard this deployment?',
+                    body: 'You’ve started setting up this deployment. If you leave now, this configuration won’t be saved.',
+                    okLabel: 'Discard & leave',
+                    cancelLabel: 'Keep editing'
+                });
+                if (!ok) return;
+            }
+            showView('landing');
+        }
+        const cancel = $('depCancel'); if (cancel) cancel.addEventListener('click', cancelDeploy);
+        document.querySelectorAll('#view-deploy .dep-cancel-btn').forEach(b => b.addEventListener('click', cancelDeploy));   // V2 per-step Cancel
 
         /* ============================================================
            Edit a deployed deployment — opened from the landing table's ⋯ menu.
@@ -3728,6 +3748,7 @@
             repopulateRosters();   // a new deployment starts from the as-scheduled rosters
             selTpl.clear();
             filter = ''; seq = 1; schedType = '24'; triedDeploy = false;
+            { const n0 = $('depName'); if (n0) n0.value = ''; }   // fresh builder starts with an empty name
             recurPattern = 'daily'; { const sel = $('depPattern'); if (sel) sel.value = 'daily'; }
             const rg = $('depSchedType'); if (rg) rg.value = '24';
             showEl('depMode24', true); showEl('depModeRecur', false);
