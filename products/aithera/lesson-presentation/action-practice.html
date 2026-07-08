@@ -56,7 +56,7 @@
         --c-surface-2:   #eef1f7;
         --c-ink:         #1a2030;
         --c-ink-soft:    #5a6379;
-        --c-ink-faint:   #8b94a8;
+        --c-ink-faint:   #626c85;   /* ≥4.5:1 on all three light surfaces */
         --c-line:        #e3e7f0;
         --c-accent:      #4b63e6;   /* indigo — the coach */
         --c-accent-strong:#3a4fce;
@@ -66,7 +66,7 @@
         /* —— Scene world (constant across themes: a lit set in a dark room) —— */
         --s-ink:         #f3ede5;
         --s-ink-soft:    #c3b6a8;
-        --s-ink-faint:   #8d8175;
+        --s-ink-faint:   #a89b8c;   /* lighter, so it clears 4.5:1 on the dark stage */
         --s-surface:     #211a16;   /* stage panel */
         --s-surface-2:   #2c241e;
         --s-line:        #43372e;
@@ -101,7 +101,7 @@
           --c-surface-2:   #1e2433;
           --c-ink:         #e9ecf4;
           --c-ink-soft:    #9aa3b8;
-          --c-ink-faint:   #6b7488;
+          --c-ink-faint:   #8b94a8;   /* lighter, so it clears 4.5:1 on the dark surfaces */
           --c-line:        #29303f;
           --c-accent:      #8092ff;
           --c-accent-strong:#9aa8ff;
@@ -1333,9 +1333,10 @@
 
       <!-- Viewport: mode indicator + live stage ------------------------- -->
       <main class="viewport">
+        <h1 class="sr-only">Practice: A conversation with Kendra</h1>
         <div class="mode-indicator is-hidden" id="modeIndicator" aria-hidden="true"><!-- built by JS --></div>
         <section class="stage" id="stage" aria-label="Practice conversation">
-          <div class="stage-inner" id="stageInner"><!-- built by JS --></div>
+          <div class="stage-inner" id="stageInner" aria-live="polite"><!-- built by JS --></div>
         </section>
       </main>
 
@@ -1349,7 +1350,7 @@
             Back to practice <i class="fa-solid fa-chevron-down"></i>
           </button>
         </div>
-        <div class="coach-panel-body" id="coachPanelBody"><!-- built by JS --></div>
+        <div class="coach-panel-body" id="coachPanelBody" aria-live="polite"><!-- built by JS --></div>
       </aside>
 
       <!-- Input bar ----------------------------------------------------- -->
@@ -1441,7 +1442,7 @@
     <!-- Results modal — a sibling of .app (not a descendant), so .app can be
          made inert while this is open without inerting itself. -->
     <div class="results-modal" id="resultsModal" hidden role="dialog" aria-modal="true" aria-label="Your results">
-      <div class="results-modal-card">
+      <div class="results-modal-card" tabindex="-1">
         <div class="results-modal-head">
           <span class="results-modal-eyebrow">Your results</span>
           <div class="results-modal-dots" id="resultsDots"><span></span><span></span></div>
@@ -1487,16 +1488,22 @@
        products/aithera/assets/videos/. */
     const INTRO_SCENES = [
       { src: '../assets/videos/scene_1.mp4',
+        label: 'Kendra, your roommate at CU Boulder',
         text: `Kendra is your roommate — one of your closest friends and you both attend CU Boulder. She lost her grandmother, the woman who raised her, last fall and hasn't been the same since.` },
       { src: '../assets/videos/scene_2.mp4',
+        label: 'Kendra quiet and alone',
         text: `She's quiet, often alone...` },
       { src: '../assets/videos/scene_3.mp4',
+        label: 'Kendra’s empty desk in class',
         text: `You've also noticed that she's barely coming to class. Her desk is empty most days.` },
       { src: '../assets/videos/scene_4.mp4',
+        label: 'Bottles piling up in the dorm',
         text: `Back in your dorm, you've seen more and more bottles piling up on the floor.` },
       { src: '../assets/videos/scene_5.mp4',
+        label: 'Unfamiliar pills in her drawer',
         text: `And yesterday you found pills in her drawer you didn't recognize.` },
       { src: '../assets/videos/scene_6.mp4',
+        label: 'Deciding whether to say something',
         text: `You know what could happen if she keeps mixing pills with alcohol. But you might be one of the only people she's close enough with to say something.` },
     ];
 
@@ -1854,8 +1861,10 @@ You didn't carry this alone, and you didn't ask her to either.` },
     // moment this mounts, well before any of them needs to actually play.
     function videoNode() {
       const wrap = el('div', 'scene-video');
+      // Each clip gets its own label (from INTRO_SCENES) and starts hidden from
+      // assistive tech — the playback loop unhides only the active clip.
       const videos = INTRO_SCENES.map((s, i) =>
-        `<video class="intro-video" data-idx="${i}" muted playsinline preload="auto" src="${esc(s.src)}" aria-label="Scene-setting video"></video>`
+        `<video class="intro-video" data-idx="${i}" muted playsinline preload="auto" src="${esc(s.src)}" aria-label="Scene video ${i + 1} of ${INTRO_SCENES.length}: ${esc(s.label)}" aria-hidden="true"></video>`
       ).join('');
       wrap.innerHTML = videos +
         `<div class="intro-caption-wrap"><p class="intro-caption" id="introCaption" aria-live="polite"></p></div>
@@ -2068,7 +2077,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
           const est = el('div', 'establishing');
           est.innerHTML =
             `<div class="est-eyebrow">The scene</div>
-             <p class="est-title">Kendra’s room</p>
+             <h2 class="est-title">Kendra’s room</h2>
              <p class="est-sub">Kendra’s been drinking alone since she lost her Nona. You’re about to check on her.</p>
              <div class="est-with">with <b>${esc(SCENARIO.character)}</b></div>`;
           stageInner.appendChild(est);
@@ -2245,6 +2254,12 @@ You didn't carry this alone, and you didn't ask her to either.` },
       }
     }
     document.addEventListener('keydown', (e) => {
+      // The results modal sits above everything (with .app inert) — Escape
+      // dismisses it, and no other layer should react while it's open.
+      if (state.resultsModalOpen) {
+        if (e.key === 'Escape') { e.preventDefault(); closeResultsModal(); }
+        return;
+      }
       const trap = app.classList.contains('trap');
       if (!trap) return;
       if (e.key === 'Escape') { e.preventDefault(); resumeScene(); return; }
@@ -2411,7 +2426,10 @@ You didn't carry this alone, and you didn't ask her to either.` },
         const v = videos[i];
         const scene = INTRO_SCENES[i];
         introCaption.classList.remove('is-visible');
-        videos.forEach((other, j) => other.classList.toggle('is-active', j === i));
+        videos.forEach((other, j) => {
+          other.classList.toggle('is-active', j === i);
+          other.setAttribute('aria-hidden', j === i ? 'false' : 'true');   // only the live clip is exposed
+        });
         try {
           await v.play();
         } catch (err) {
@@ -2659,6 +2677,11 @@ You didn't carry this alone, and you didn't ask her to either.` },
       state.resultsModalOpen = true;
       announce('Your results: strengths.');
       render();
+      // Move focus into the dialog — the primary "Next" button, falling back to
+      // the card itself (tabindex="-1"). .app is inert, so focus can't escape.
+      setTimeout(() => {
+        (document.getElementById('resultsNextBtn') || resultsModal.querySelector('.results-modal-card')).focus();
+      }, 30);
     }
     // Closing the modal doesn't just dump the resources in — the coach
     // "introduces" them first, as its own typed-in message, the same way any
@@ -2671,6 +2694,9 @@ You didn't carry this alone, and you didn't ask her to either.` },
       state.delivering = true;
       announce('Back to your AI coach.');
       render();
+      // The control that opened the modal is gone now — hand focus to the one
+      // control that's always visible (Restart, in the top bar).
+      setTimeout(() => document.getElementById('restartBtn').focus(), 30);
       showTyping(); await wait(reducedMotion() ? 250 : 900); hideTyping();
       if (dead()) return;
       state.messages.push({ speaker: 'coach', kind: 'coaching', _enter: true, text:

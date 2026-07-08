@@ -56,7 +56,7 @@
         --c-surface-2:   #eef1f7;
         --c-ink:         #1a2030;
         --c-ink-soft:    #5a6379;
-        --c-ink-faint:   #8b94a8;
+        --c-ink-faint:   #67718a;   /* darkened for ≥4.5:1 on light surfaces (was #8b94a8) */
         --c-line:        #e3e7f0;
         --c-accent:      #4b63e6;   /* indigo — the coach */
         --c-accent-strong:#3a4fce;
@@ -66,7 +66,7 @@
         /* —— Scene world (constant across themes: a lit set in a dark room) —— */
         --s-ink:         #f3ede5;
         --s-ink-soft:    #c3b6a8;
-        --s-ink-faint:   #8d8175;
+        --s-ink-faint:   #a89b8c;   /* lightened for ≥4.5:1 on the dark stage (was #8d8175) */
         --s-surface:     #211a16;   /* stage panel */
         --s-surface-2:   #2c241e;
         --s-line:        #43372e;
@@ -101,7 +101,7 @@
           --c-surface-2:   #1e2433;
           --c-ink:         #e9ecf4;
           --c-ink-soft:    #9aa3b8;
-          --c-ink-faint:   #6b7488;
+          --c-ink-faint:   #8b94a8;   /* ≥4.5:1 on the dark surfaces (was #6b7488 ≈ 3.3:1) */
           --c-line:        #29303f;
           --c-accent:      #8092ff;
           --c-accent-strong:#9aa8ff;
@@ -1320,6 +1320,9 @@
 <body>
     <div class="app" id="app" data-mode="coaching" data-target="coach" data-entered="false">
 
+      <!-- Page name for screen readers (the visible title lives in the top bar) -->
+      <h1 class="sr-only" id="pageTitle">Practice scenario: Intervening for a Friend: The Kendra Situation</h1>
+
       <!-- Top bar ------------------------------------------------------- -->
       <header class="topbar">
         <span class="brand">
@@ -1336,7 +1339,7 @@
       <main class="viewport">
         <div class="mode-indicator is-hidden" id="modeIndicator" aria-hidden="true"><!-- built by JS --></div>
         <section class="stage" id="stage" aria-label="Practice conversation">
-          <div class="stage-inner" id="stageInner"><!-- built by JS --></div>
+          <div class="stage-inner" id="stageInner" aria-live="polite"><!-- built by JS --></div>
         </section>
       </main>
 
@@ -1350,7 +1353,7 @@
             Back to practice <i class="fa-solid fa-chevron-down"></i>
           </button>
         </div>
-        <div class="coach-panel-body" id="coachPanelBody"><!-- built by JS --></div>
+        <div class="coach-panel-body" id="coachPanelBody" aria-live="polite"><!-- built by JS --></div>
       </aside>
 
       <!-- Input bar ----------------------------------------------------- -->
@@ -1442,7 +1445,7 @@
     <!-- Results modal — a sibling of .app (not a descendant), so .app can be
          made inert while this is open without inerting itself. -->
     <div class="results-modal" id="resultsModal" hidden role="dialog" aria-modal="true" aria-label="Your results">
-      <div class="results-modal-card">
+      <div class="results-modal-card" tabindex="-1">
         <div class="results-modal-head">
           <span class="results-modal-eyebrow">Your results</span>
           <div class="results-modal-dots" id="resultsDots"><span></span><span></span><span></span></div>
@@ -1497,6 +1500,7 @@
       title: ACTIVE_SCENARIO.title,
     };
     document.getElementById('scenarioName').textContent = SCENARIO.title;
+    document.getElementById('pageTitle').textContent = 'Practice scenario: ' + SCENARIO.title;
 
     // When a writer-published scenario is active, say so in the top bar and
     // offer a one-click revert to the shipped scenario (the writer's copy
@@ -1912,7 +1916,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
     function videoNode() {
       const wrap = el('div', 'scene-video');
       const videos = INTRO_SCENES.map((s, i) =>
-        `<video class="intro-video" data-idx="${i}" muted playsinline preload="auto" src="${esc(s.src)}" aria-label="Scene-setting video"></video>`
+        `<video class="intro-video" data-idx="${i}" muted playsinline preload="auto" src="${esc(s.src)}" aria-label="Scene-setting video, part ${i + 1} of ${INTRO_SCENES.length}"></video>`
       ).join('');
       wrap.innerHTML = videos +
         `<div class="intro-caption-wrap"><p class="intro-caption" id="introCaption" aria-live="polite"></p></div>
@@ -1994,18 +1998,27 @@ You didn't carry this alone, and you didn't ask her to either.` },
     /* ---- the resources card, presented AS a coach message (same avatar +
        label + bubble as every other coach line) rather than a separate boxed
        widget — it's the coach sharing something, not a bolted-on component. -- */
+    /* Writer-authored resources (scenario.resources) + the LOCKED crisis
+       floor: elevated-stakes scenarios always end with 988, whatever else
+       the writer authored. Icons are page-side, cycled from a pool. */
+    const RESOURCE_ICONS = ['fa-user-nurse', 'fa-building-shield', 'fa-hand-holding-heart', 'fa-people-group'];
     function resourcesNode() {
       const wrap = el('div', 'coach-msg wide-msg');
       wrap.appendChild(el('div', 'coach-avatar', '<i class="fa-solid fa-chalkboard-user"></i>'));
       const body = el('div', 'coach-body');
       body.appendChild(el('div', 'coach-label', 'AI Coach'));
       const bubble = el('div', 'coach-bubble resources-bubble');
+      const fillTxt = (t) => AitheraScenario.fill(t, ACTIVE_SCENARIO);
+      const items = (ACTIVE_SCENARIO.resources.items || [])
+        .filter((r) => r && (r.title || r.body))
+        .map((r, i) => ({ icon: RESOURCE_ICONS[i % RESOURCE_ICONS.length], title: fillTxt(r.title), body: fillTxt(r.body) }));
+      if (ACTIVE_SCENARIO.elevatedStakes) {
+        items.push({ icon: 'fa-phone-volume', ...AitheraScenario.CRISIS_FLOOR });
+      }
       bubble.innerHTML = `
-        <p class="resources-lead">Noticing is the start — connecting someone to trained help is what actually keeps them safe. If this were real, here's where ${esc(SCENARIO.character)} could go:</p>
+        <p class="resources-lead">${esc(fillTxt(ACTIVE_SCENARIO.resources.lead))}</p>
         <ul class="res-list">
-          <li><i class="fa-solid fa-user-nurse"></i><div><b>Campus counseling center</b><span>Free, confidential, and built for exactly this. Walk over together if she'll let you.</span></div></li>
-          <li><i class="fa-solid fa-building-shield"></i><div><b>Your RA or a trusted advisor</b><span>They're trained to connect students to support and can help without it being a punishment.</span></div></li>
-          <li><i class="fa-solid fa-phone-volume"></i><div><b>988 Suicide &amp; Crisis Lifeline</b><span>Call or text <b>988</b> any time it feels like too much — for her, or for you.</span></div></li>
+          ${items.map((r) => `<li><i class="fa-solid ${r.icon}"></i><div><b>${esc(r.title)}</b><span>${esc(r.body)}</span></div></li>`).join('')}
         </ul>`;
       body.appendChild(bubble);
       wrap.appendChild(body);
@@ -2055,23 +2068,24 @@ You didn't carry this alone, and you didn't ask her to either.` },
       (state.report && state.report.growthAreas.length) ? withIcons(state.report.growthAreas, GROWTH_ICONS) : CLOSING_GROWTH);
 
     /* The playbook — the expert-validated toolkit every learner leaves with,
-       IDENTICAL for everyone regardless of how their conversation went. It is
-       deliberately hardcoded here (not model-generated) so completion always
-       means consistent instructional coverage. */
-    const CLOSING_PLAYBOOK = [
-      { icon: 'fa-heart', title: 'Lead with care, not confrontation', body: `Open from love. Ultimatums and shame close the window before the conversation starts.` },
-      { icon: 'fa-cloud-rain', title: 'Name the grief explicitly', body: `When loss is the root cause, saying it out loud creates connection instead of defensiveness.` },
-      { icon: 'fa-eye', title: `Observe, don't label`, body: `"I've noticed…" opens doors that "you're…" slams shut.` },
-      { icon: 'fa-map-location-dot', title: 'Bring a concrete next step', body: `"I'm here for you" leaves them without a move. Come with something specific — health center hours, a counselor's name.` },
-      { icon: 'fa-people-arrows', title: 'Offer to go with them', body: `"I'll go with you" removes the biggest barrier: facing it alone.` },
-      { icon: 'fa-hand-holding-heart', title: `Don't try to solve the grief`, body: `Your role is connection and referral — not being their counselor.` },
-      { icon: 'fa-triangle-exclamation', title: 'Know the physical stakes', body: `Alcohol mixed with prescription medication can be life-threatening. That makes this urgent, not just concerning.` },
-    ];
+       IDENTICAL for everyone regardless of how their conversation went. The
+       CONTENT is writer-authored (scenario.playbook — the LO schema's
+       content_elements); the GUARANTEE is the page's: it renders here on
+       completion, never model-generated, so coverage is always consistent. */
+    const PLAYBOOK_ICONS = ['fa-heart', 'fa-cloud-rain', 'fa-eye', 'fa-map-location-dot', 'fa-people-arrows', 'fa-hand-holding-heart', 'fa-triangle-exclamation'];
+    const CLOSING_PLAYBOOK = (ACTIVE_SCENARIO.playbook || [])
+      .filter((p) => p && (p.title || p.body))
+      .map((p, i) => ({
+        icon: PLAYBOOK_ICONS[i % PLAYBOOK_ICONS.length],
+        title: AitheraScenario.fill(p.title, ACTIVE_SCENARIO),
+        body: AitheraScenario.fill(p.body, ACTIVE_SCENARIO),
+      }));
     const playbookNode = () => reportListNode('playbook', 'fa-list-check', 'The approach that works', CLOSING_PLAYBOOK);
     const RESULTS_PAGES = [
       { node: strengthsNode, announce: 'Your results: strengths.' },
       { node: growthAreasNode, announce: 'Your results: growth areas.' },
-      { node: playbookNode, announce: 'Your results: the approach that works.' },
+      // A scenario with no playbook simply has a two-page report.
+      ...(CLOSING_PLAYBOOK.length ? [{ node: playbookNode, announce: 'Your results: the approach that works.' }] : []),
     ];
 
     /* =====================================================================
@@ -2159,7 +2173,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
           const est = el('div', 'establishing');
           est.innerHTML =
             `<div class="est-eyebrow">The scene</div>
-             <p class="est-title">Kendra’s room</p>
+             <h2 class="est-title">Kendra’s room</h2>
              <p class="est-sub">Kendra’s been drinking alone since she lost her Nona. You’re about to check on her.</p>
              <div class="est-with">with <b>${esc(SCENARIO.character)}</b></div>`;
           stageInner.appendChild(est);
@@ -2264,7 +2278,10 @@ You didn't carry this alone, and you didn't ask her to either.` },
         resultsModalBody.innerHTML = '';
         resultsModalBody.appendChild(RESULTS_PAGES[state.resultsPage].node());
         resultsModalBody.scrollTop = 0;
-        [...resultsDots.children].forEach((d, i) => d.classList.toggle('is-active', i === state.resultsPage));
+        [...resultsDots.children].forEach((d, i) => {
+          d.hidden = i >= RESULTS_PAGES.length;   // scenario may have fewer report pages
+          d.classList.toggle('is-active', i === state.resultsPage);
+        });
         const NEXT_LABELS = ['Next: Growth areas', 'Next: The approach that works'];
         const backBtn = state.resultsPage > 0
           ? `<button class="results-nav-btn" id="resultsBackBtn"><i class="fa-solid fa-arrow-left"></i> Back</button>` : `<span></span>`;
@@ -2339,7 +2356,16 @@ You didn't carry this alone, and you didn't ask her to either.` },
         setTimeout(() => { if (!composer.disabled) composer.focus(); }, 30);
       }
     }
+    // Escape closes the results modal while it's open (checked before the
+    // coach-sheet trap below, which is inert-blocked anyway while it's up).
     document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && state.resultsModalOpen) {
+        e.preventDefault();
+        closeResultsModal();
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (state.resultsModalOpen) return;   // the results modal owns Escape/Tab while open
       const trap = app.classList.contains('trap');
       if (!trap) return;
       if (e.key === 'Escape') { e.preventDefault(); resumeScene(); return; }
@@ -2447,6 +2473,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
       const mySeq = ++introSeq;
       state.videoPlaying = true;
       render();              // mounts all six <video> elements — they start buffering now
+      announce('Watching the scene.');
       runIntroSequence(mySeq);
     }
 
@@ -2551,6 +2578,9 @@ You didn't carry this alone, and you didn't ask her to either.` },
       catch (err) {
         turn = { turn: [{ speaker: 'coach', kind: 'coaching', text:
           'Something hiccuped reaching the AI coach. Take a breath and try that again.' }], mode: 'coaching', inputTarget: 'coach' };
+        // Mirror the failure into the polite live region — the coach sheet may
+        // be aria-hidden when this lands, so announce it explicitly.
+        announce('Something hiccuped reaching the AI coach. Take a breath and try that again.');
       }
 
       // Live mode signals the end of the practice on the turn itself (the demo
@@ -2661,6 +2691,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
       if (intoDebrief) {
         state.analyzing = true;
         render();                                    // input bar: "Analyzing your response…"
+        announce(state.complete ? 'Wrapping up your practice.' : 'Analyzing your response.');
         await wait(reducedMotion() ? 500 : 1600);
         if (dead()) return;
         state.analyzing = false;
@@ -2759,17 +2790,22 @@ You didn't carry this alone, and you didn't ask her to either.` },
       render();   // just the recap message for now
     }
 
+    let resultsReturnFocus = null;   // where focus goes back to when the modal closes
     function openResultsModal() {
       if (!state.awaitingResults) return;
       state.resultsPage = 0;
       state.resultsModalOpen = true;
+      resultsReturnFocus = document.activeElement;
       announce('Your results: strengths.');
       render();
+      // Move focus into the dialog (the card is its tabbable landing point).
+      document.querySelector('.results-modal-card').focus();
     }
     // Closing the modal doesn't just dump the resources in — the coach
     // "introduces" them first, as its own typed-in message, the same way any
     // other coach line arrives (see deliverTurn/deliverOpening).
     async function closeResultsModal() {
+      if (!state.resultsModalOpen) return;
       const myseq = ++deliverSeq;
       const dead = () => myseq !== deliverSeq;
       state.resultsModalOpen = false;
@@ -2790,6 +2826,12 @@ You didn't carry this alone, and you didn't ask her to either.` },
       state.delivering = false;
       announce('Here are some resources.');
       render();
+      // Restore focus out of the closed dialog — back to its opener if that
+      // control still exists, otherwise to the CTA that replaced it.
+      const rf = resultsReturnFocus;
+      resultsReturnFocus = null;
+      if (rf && rf.isConnected && rf.offsetParent !== null) rf.focus();
+      else document.getElementById('continueCtaBtn').focus();
     }
 
     // "Continue" — the practice's actual last step. Nothing in this prototype

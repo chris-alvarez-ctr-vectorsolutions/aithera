@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson Experiments — Accessibility Audit</title>
+<style>
+  :root {
+    --ground: #fafbfc;
+    --panel: #ffffff;
+    --panel-soft: #f1f4f6;
+    --ink: #1a2330;
+    --ink-soft: #45525f;
+    --ink-mute: #5b6773;
+    --line: #dde3e8;
+    --accent: #0b6e63;
+    --accent-soft: #e3f1ef;
+    --sev-low: #1a7f37;      --sev-low-bg: #e2f2e6;
+    --sev-lowmed: #4d7c0f;   --sev-lowmed-bg: #ecf3dd;
+    --sev-med: #9a6700;      --sev-med-bg: #fbf0d7;
+    --sev-medhigh: #b45309;  --sev-medhigh-bg: #fdeeda;
+    --sev-high: #c4520e;     --sev-high-bg: #fde8dc;
+    --sev-vhigh: #b42318;    --sev-vhigh-bg: #fce4e2;
+    --blocker: #b42318;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #131820;
+      --panel: #1a212b;
+      --panel-soft: #212a35;
+      --ink: #e6ecf2;
+      --ink-soft: #b3bfca;
+      --ink-mute: #8b97a3;
+      --line: #303b47;
+      --accent: #4cc4b4;
+      --accent-soft: #17332f;
+      --sev-low: #57c576;     --sev-low-bg: #16301d;
+      --sev-lowmed: #a3cc4a;  --sev-lowmed-bg: #26300f;
+      --sev-med: #e3b341;     --sev-med-bg: #362a08;
+      --sev-medhigh: #eda03c; --sev-medhigh-bg: #38260c;
+      --sev-high: #f0834a;    --sev-high-bg: #3a2012;
+      --sev-vhigh: #f2726a;   --sev-vhigh-bg: #3b1614;
+      --blocker: #f2726a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #131820; --panel: #1a212b; --panel-soft: #212a35;
+    --ink: #e6ecf2; --ink-soft: #b3bfca; --ink-mute: #8b97a3; --line: #303b47;
+    --accent: #4cc4b4; --accent-soft: #17332f;
+    --sev-low: #57c576; --sev-low-bg: #16301d;
+    --sev-lowmed: #a3cc4a; --sev-lowmed-bg: #26300f;
+    --sev-med: #e3b341; --sev-med-bg: #362a08;
+    --sev-medhigh: #eda03c; --sev-medhigh-bg: #38260c;
+    --sev-high: #f0834a; --sev-high-bg: #3a2012;
+    --sev-vhigh: #f2726a; --sev-vhigh-bg: #3b1614;
+    --blocker: #f2726a;
+  }
+  :root[data-theme="light"] {
+    --ground: #fafbfc; --panel: #ffffff; --panel-soft: #f1f4f6;
+    --ink: #1a2330; --ink-soft: #45525f; --ink-mute: #5b6773; --line: #dde3e8;
+    --accent: #0b6e63; --accent-soft: #e3f1ef;
+    --sev-low: #1a7f37; --sev-low-bg: #e2f2e6;
+    --sev-lowmed: #4d7c0f; --sev-lowmed-bg: #ecf3dd;
+    --sev-med: #9a6700; --sev-med-bg: #fbf0d7;
+    --sev-medhigh: #b45309; --sev-medhigh-bg: #fdeeda;
+    --sev-high: #c4520e; --sev-high-bg: #fde8dc;
+    --sev-vhigh: #b42318; --sev-vhigh-bg: #fce4e2;
+    --blocker: #b42318;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font: 400 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 48px 24px 96px; }
+
+  a { color: var(--accent); }
+  a:focus-visible, button:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px;
+  }
+  code { font-family: var(--mono); font-size: .84em; background: var(--panel-soft); padding: 1px 5px; border-radius: 4px; }
+
+  /* ---------- header ---------- */
+  .eyebrow {
+    font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700; margin: 0 0 10px;
+  }
+  h1 { font-size: 32px; line-height: 1.2; margin: 0 0 10px; letter-spacing: -.015em; text-wrap: balance; }
+  .subtitle { color: var(--ink-soft); max-width: 62ch; margin: 0 0 8px; }
+  .meta-line { font-size: 13px; color: var(--ink-mute); margin: 0 0 36px; }
+
+  h2 { font-size: 21px; margin: 56px 0 6px; letter-spacing: -.01em; }
+  h2 + .section-note { margin-top: 0; }
+  .section-note { color: var(--ink-soft); font-size: 14.5px; max-width: 68ch; margin: 4px 0 20px; }
+
+  /* ---------- verdict strip ---------- */
+  .verdict { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 28px 0 8px; }
+  .stat {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px;
+  }
+  .stat .num { font-size: 26px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stat .lbl { font-size: 13px; color: var(--ink-soft); line-height: 1.4; margin-top: 2px; }
+
+  /* ---------- difficulty distribution ---------- */
+  .distro { display: flex; gap: 4px; margin: 20px 0 6px; border-radius: 6px; overflow: hidden; }
+  .distro span { height: 14px; }
+  .distro-key { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: var(--ink-soft); margin-bottom: 8px; }
+  .distro-key i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; font-style: normal; }
+
+  /* ---------- badges ---------- */
+  .sev { display: inline-block; font-size: 11.5px; font-weight: 700; letter-spacing: .04em;
+         padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .sev.low     { color: var(--sev-low);     background: var(--sev-low-bg); }
+  .sev.lowmed  { color: var(--sev-lowmed);  background: var(--sev-lowmed-bg); }
+  .sev.med     { color: var(--sev-med);     background: var(--sev-med-bg); }
+  .sev.medhigh { color: var(--sev-medhigh); background: var(--sev-medhigh-bg); }
+  .sev.high    { color: var(--sev-high);    background: var(--sev-high-bg); }
+  .sev.vhigh   { color: var(--sev-vhigh);   background: var(--sev-vhigh-bg); }
+
+  .sc { font-family: var(--mono); font-size: 12px; color: var(--ink-mute); white-space: nowrap; }
+
+  .blocker-flag {
+    display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--blocker); border: 1.5px solid var(--blocker); border-radius: 5px; padding: 1px 7px; margin-left: 8px;
+    vertical-align: 2px;
+  }
+
+  /* ---------- table ---------- */
+  .tbl-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+  table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 14px; }
+  th { text-align: left; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase;
+       color: var(--ink-mute); font-weight: 700; padding: 12px 14px 8px; border-bottom: 1px solid var(--line); }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.file { font-weight: 600; white-space: nowrap; }
+  td.file .fname { display: block; font-family: var(--mono); font-size: 11.5px; font-weight: 400; color: var(--ink-mute); }
+  td.mods { color: var(--ink-soft); font-size: 13.5px; }
+  td.headline { color: var(--ink-soft); font-size: 13.5px; min-width: 260px; }
+
+  /* ---------- systemic cards ---------- */
+  .sys-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .sys-grid { grid-template-columns: 1fr; } }
+  .sys {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px;
+  }
+  .sys h3 { margin: 0 0 6px; font-size: 15.5px; }
+  .sys p { margin: 0; font-size: 13.8px; color: var(--ink-soft); }
+  .sys .where { display: block; margin-top: 8px; font-size: 12px; color: var(--ink-mute); }
+
+  /* ---------- experiment cards ---------- */
+  .tier-label { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+                color: var(--ink-mute); margin: 40px 0 12px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 22px 24px; margin-bottom: 18px;
+  }
+  .card-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 2px; }
+  .card-head h3 { margin: 0; font-size: 18px; letter-spacing: -.01em; }
+  .card-head .fname { font-family: var(--mono); font-size: 12px; color: var(--ink-mute); }
+  .why { font-size: 13.8px; color: var(--ink-soft); margin: 6px 0 14px; max-width: 72ch; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 14px; }
+  .chip { font-size: 12px; color: var(--ink-soft); background: var(--panel-soft);
+          border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+  .chip.ai { color: var(--accent); background: var(--accent-soft); border-color: transparent; font-weight: 600; }
+
+  .card h4 { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-mute);
+             margin: 18px 0 8px; }
+  .card ul { margin: 0; padding-left: 20px; font-size: 14.2px; }
+  .card li { margin-bottom: 7px; }
+  .card li:last-child { margin-bottom: 0; }
+  .fix-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 720px) { .fix-cols { grid-template-columns: 1fr; } }
+
+  .good { color: var(--sev-low); font-weight: 600; }
+
+  /* ---------- sequencing ---------- */
+  ol.seq { padding-left: 22px; font-size: 15px; }
+  ol.seq li { margin-bottom: 14px; max-width: 72ch; }
+  ol.seq strong { display: block; }
+  ol.seq .seq-note { color: var(--ink-soft); font-size: 14px; }
+
+  .footnote { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line);
+              font-size: 13px; color: var(--ink-mute); max-width: 72ch; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <p class="eyebrow">Accessibility Review · WCAG 2.2 AA</p>
+  <h1>Lesson Presentation Experiments — Accessibility Audit</h1>
+  <p class="subtitle">A code-level review of all 16 prototypes in <code>products/aithera/lesson-presentation</code>: what each one uses (video, AI chat, drag, TTS…), the main compliance concerns, how hard each is to remediate, and what to change. Review tooling (toolbox, flow map, version switchers) was excluded.</p>
+  <p class="meta-line">July 7, 2026 · Full HTML/CSS/JS read of each file plus shared <code>css/lesson.css</code> and <code>js/lesson.js</code></p>
+
+  <div class="sys" style="border-color: var(--sev-low); margin-bottom: 8px;">
+    <h3 style="color: var(--sev-low);">Remediation status — updated July 8</h3>
+    <p>The shared-layer fixes (all six "fix once" items below), both hard blockers' quick-win portions, and every per-experiment quick win listed on the cards have been <strong>applied and browser-verified</strong> across all 16 experiments. Still open: the structural items — WebVTT captions/transcripts for the three video experiments, a keyboard path for story highlighting (needs LX design input; the Live AI <code>aria-hidden</code> blocker itself is fixed), TTS opt-in and playback-gate decisions for Audio Summary, and a Skip affordance for Hazmat's full-screen takeover (LX decision). Cards below describe the original findings.</p>
+  </div>
+
+  <div class="verdict">
+    <div class="stat"><div class="num">16</div><div class="lbl">experiments audited (~17,500 lines)</div></div>
+    <div class="stat"><div class="num">2</div><div class="lbl">hard blockers — screen-reader or keyboard users cannot complete the experience</div></div>
+    <div class="stat"><div class="num">6</div><div class="lbl">systemic issues fixable once in shared CSS/JS, improving most experiments at once</div></div>
+    <div class="stat"><div class="num">10 of 16</div><div class="lbl">rank Medium or easier — mostly missing markup, not redesign</div></div>
+  </div>
+
+  <div class="distro" role="img" aria-label="Difficulty distribution: 3 Low, 3 Low to Medium, 5 Medium, 1 Medium to High, 3 High, 1 Very High">
+    <span style="flex:3;background:var(--sev-low)"></span><span style="flex:3;background:var(--sev-lowmed)"></span><span style="flex:5;background:var(--sev-med)"></span><span style="flex:1;background:var(--sev-medhigh)"></span><span style="flex:3;background:var(--sev-high)"></span><span style="flex:1;background:var(--sev-vhigh)"></span>
+  </div>
+  <div class="distro-key">
+    <span><i style="background:var(--sev-low)"></i>Low ×3</span>
+    <span><i style="background:var(--sev-lowmed)"></i>Low–Med ×3</span>
+    <span><i style="background:var(--sev-med)"></i>Medium ×5</span>
+    <span><i style="background:var(--sev-medhigh)"></i>Med–High ×1</span>
+    <span><i style="background:var(--sev-high)"></i>High ×3</span>
+    <span><i style="background:var(--sev-vhigh)"></i>Very High ×1</span>
+  </div>
+
+  <h2>The headline</h2>
+  <p class="section-note">The good news: the difficulty is <em>not</em> where you'd expect. The AI chat experiments are largely fine — every scripted chat that uses the shared thread is already announced to screen readers, and typed input is inherently accessible. The real cost centers are <strong>(1) the muted-video-plus-timed-captions pattern</strong> (captions run on their own timers, don't pause with the video, and have no track or transcript), <strong>(2) pointer-only mechanics that gate progression</strong> (story highlighting is a hard keyboard blocker), and <strong>(3) the coach-conversation experiments never announcing the actual dialogue</strong> — screen-reader users hear "your coach noticed something" but never what the coach said. Live (unscripted) AI raises the difficulty a tier wherever it's enabled.</p>
+
+  <h2>Difficulty ranking — all 16</h2>
+  <p class="section-note">Ranked hardest to easiest. "Headline concern" is the single issue that most drives the rank.</p>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th scope="col">Experiment</th><th scope="col">Uses</th><th scope="col">Difficulty</th><th scope="col">Headline concern</th></tr></thead>
+    <tbody>
+      <tr><td class="file">Hazmat Size-Up<span class="fname">hazmat-scene-practice.html</span></td><td class="mods">Silent video ×3, timed captions, scripted coach chat</td><td><span class="sev vhigh">Very High</span></td><td class="headline">Unskippable full-screen video with JS-timed captions that don't pause, no track/transcript, no headings</td></tr>
+      <tr><td class="file">With video Intro<span class="fname">action-practice.html</span></td><td class="mods">Silent video ×6, scripted roleplay chat, results modal</td><td><span class="sev high">High</span></td><td class="headline">Timer-driven captions are the only narration and keep advancing while video is paused; dialogue never announced</td></tr>
+      <tr><td class="file">With video Intro — Live AI<span class="fname">action-practice-live.html</span></td><td class="mods">Silent video ×6, <strong>real Claude</strong> roleplay via worker</td><td><span class="sev high">High</span></td><td class="headline">Learn/Practice toggle is stuck <code>aria-hidden</code> (invisible to screen readers); live AI output never announced</td></tr>
+      <tr><td class="file">With story intro<span class="fname">story-highlight-practice.html</span></td><td class="mods">Drag-select text highlighting, scripted roleplay chat</td><td><span class="sev high">High</span></td><td class="headline">Highlighting is pointer-only and gates Continue — keyboard users cannot progress at all</td></tr>
+      <tr><td class="file">No intro<span class="fname">direct-practice.html</span></td><td class="mods">Scripted two-persona roleplay chat, results modal</td><td><span class="sev medhigh">Med–High</span></td><td class="headline">Strong a11y foundation, but streamed coach/character dialogue is never announced to screen readers</td></tr>
+      <tr><td class="file">Video Reflection B<span class="fname">reflection-ab.html</span></td><td class="mods">Placeholder video, scripted reflection chat, modal gate</td><td><span class="sev med">Medium</span></td><td class="headline">"Blocking" modal doesn't trap focus; real video will need captions + transcript when it lands</td></tr>
+      <tr><td class="file">Audio Summary<span class="fname">narrated-presentation.html</span></td><td class="mods">Real TTS narration, karaoke word highlight, autoplay</td><td><span class="sev med">Medium</span></td><td class="headline">TTS auto-plays and double-talks over the user's own screen reader; Continue is locked until playback finishes</td></tr>
+      <tr><td class="file">Custom Code A<span class="fname">peak-bac.html</span></td><td class="mods">Custom drag slider, calculator, animated meter</td><td><span class="sev med">Medium</span></td><td class="headline">Slider itself is excellent; screen changes never move focus and the count-up floods the live region</td></tr>
+      <tr><td class="file">Matrix Card Sort<span class="fname">reasons-for-drinking.html</span></td><td class="mods">Drag-and-drop card sort (with keyboard alternative), help chat</td><td><span class="sev med">Medium</span></td><td class="headline">Keyboard placement exists but is completely silent — no announcement, and focus drops after every card</td></tr>
+      <tr><td class="file">Peer Results<span class="fname">peer-results.html</span></td><td class="mods">Choice buttons, range slider, SVG chart, count-up</td><td><span class="sev med">Medium</span></td><td class="headline">Radio group announces semantics it doesn't implement (no arrow keys); count-up spams the live region</td></tr>
+      <tr><td class="file">Terms to Remember<span class="fname">terms-to-remember.html</span></td><td class="mods">3-D flip card, scripted "ask about this" chat</td><td><span class="sev lowmed">Low–Med</span></td><td class="headline">Card back is exposed to screen readers before the flip; shared chat panel doesn't trap or restore focus</td></tr>
+      <tr><td class="file">Confidence Check<span class="fname">confidence-check.html</span></td><td class="mods">Native slider, scripted coach orb/panel</td><td><span class="sev lowmed">Low–Med</span></td><td class="headline">Best single control in the set (the slider); dialog semantics and hover-only locked tooltip need work</td></tr>
+      <tr><td class="file">Personalized FAQ<span class="fname">cannabis-faq.html</span></td><td class="mods">Accordion, guess-then-reveal inputs, regex "AI"</td><td><span class="sev lowmed">Low–Med</span></td><td class="headline">Revealed answers replace the DOM silently and destroy focus; accordion missing <code>aria-controls</code></td></tr>
+      <tr><td class="file">Quick Question<span class="fname">quick-question.html</span></td><td class="mods">Single-select choice, clarifier modal</td><td><span class="sev low">Low</span></td><td class="headline">Radio pattern missing arrow-key behavior; confirmation text not announced</td></tr>
+      <tr><td class="file">Video Reflection A<span class="fname">chat-reflection.html</span></td><td class="mods">Placeholder video, scripted reflection chat</td><td><span class="sev low">Low</span></td><td class="headline">Already solid — chat is a live region; needs focus moves on screen change + future video captions</td></tr>
+      <tr><td class="file">Conversation Step-In<span class="fname">your-path.html</span></td><td class="mods">Scripted peer chat, guided reveal</td><td><span class="sev low">Low</span></td><td class="headline">Fully keyboard operable; "your turn" handoff isn't announced and one glow animation never stops</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Two hard blockers</h2>
+  <p class="section-note">Everything else degrades the experience; these two prevent completion outright for some users.</p>
+  <div class="sys-grid">
+    <div class="sys">
+      <h3>Story highlighting locks out keyboard users <span class="blocker-flag">Blocker</span></h3>
+      <p>In <strong>With story intro</strong>, the only way to create a highlight is drag-selecting text with a pointer, and the Continue button stays disabled until at least one highlight exists. A keyboard-only or switch user can never leave the story screen. Needs an alternate selection model (e.g., per-sentence toggle marks) — a design change, not a markup fix. <span class="sc">2.1.1 · 2.5.7</span></p>
+    </div>
+    <div class="sys">
+      <h3>Live AI's main nav is invisible to screen readers <span class="blocker-flag">Blocker</span></h3>
+      <p>In <strong>Live AI</strong>, the Learn/Practice mode toggle is authored with <code>aria-hidden="true"</code> and the show/hide logic only ever toggles a CSS class — so the primary navigation stays hidden from assistive tech for the whole session, while its buttons remain in the Tab order (an ARIA anti-pattern). One-line fix, severe impact. <span class="sc">4.1.2 · 1.3.1</span></p>
+    </div>
+  </div>
+
+  <h2>Fix once, fix (almost) everywhere</h2>
+  <p class="section-note">Six issues live in the shared layer (<code>css/lesson.css</code>, <code>js/lesson.js</code>, and copy-pasted patterns). Fixing them centrally clears findings across most of the set before touching any individual experiment.</p>
+  <div class="sys-grid">
+    <div class="sys">
+      <h3>1 · No <code>prefers-reduced-motion</code> in shared CSS</h3>
+      <p><code>lesson.css</code> has zero reduced-motion rules, so typing dots, flips, glows, shimmers, count-ups and scroll cues run for everyone. The four big coach experiments handle it inline — the other twelve inherit nothing. One global block fixes most of it. <span class="sc">2.3.3</span></p>
+      <span class="where">Affects ~12 experiments via lesson.css</span>
+    </div>
+    <div class="sys">
+      <h3>2 · Contrast tokens fail across the board</h3>
+      <p><code>--ink-faint #9ca3af</code> is ~2.6:1 on white and is used for real text (hints, ranges, eyebrows) everywhere; white-on-teal button labels (<code>--accent</code>) are ~3.2:1. Darkening two tokens and switching labels to <code>--accent-strong</code> clears dozens of instances. The coach experiments' own faint tokens (<code>#8b94a8</code>, <code>#8d8175</code>) have the same problem. <span class="sc">1.4.3</span></p>
+      <span class="where">Affects nearly every experiment</span>
+    </div>
+    <div class="sys">
+      <h3>3 · Shared chat/dialog panels don't manage focus</h3>
+      <p><code>Lesson.chat</code> opens as a <code>role="dialog"</code> but never traps Tab, never restores focus to the trigger on close, and leaves the page behind fully tabbable (even when full-bleed on mobile). <code>Lesson.modal</code> restores focus but doesn't trap either. <span class="sc">2.4.3 · 4.1.2</span></p>
+      <span class="where">Fix in js/lesson.js — clears findings in every chat-equipped page</span>
+    </div>
+    <div class="sys">
+      <h3>4 · Dialogue and state changes aren't announced</h3>
+      <p>The shared chat thread <em>is</em> a live region (good), but the four coach experiments inject conversation into non-live containers, and nearly every page updates its <code>#instructions</code> footer text silently. Pattern fix: make instruction/status areas <code>aria-live="polite"</code> and mirror injected dialogue into a live region with speaker prefixes. <span class="sc">4.1.3</span></p>
+      <span class="where">Worst in the 4 coach experiments; minor everywhere else</span>
+    </div>
+    <div class="sys">
+      <h3>5 · Fake radio groups (three copies)</h3>
+      <p>Quick Question, Peer Results, and the BAC calculator all declare <code>role="radiogroup"</code>/<code>role="radio"</code> but wire only click — no arrow keys, no roving tabindex. Screen readers announce behavior that doesn't exist. Use one shared implementation or native <code>&lt;input type="radio"&gt;</code>. <span class="sc">4.1.2 · 2.1.1</span></p>
+      <span class="where">3 experiments, same bug</span>
+    </div>
+    <div class="sys">
+      <h3>6 · Missing <code>&lt;h1&gt;</code> / heading outline</h3>
+      <p>All four coach experiments, Hazmat, and Audio Summary have no <code>&lt;h1&gt;</code> anywhere — titles are styled <code>&lt;span&gt;</code>/<code>&lt;p&gt;</code> elements. Screen-reader users get no document outline. Trivial per file. <span class="sc">1.3.1 · 2.4.6</span></p>
+      <span class="where">6 experiments</span>
+    </div>
+  </div>
+
+  <h2>Experiment detail</h2>
+  <p class="section-note">Hardest first. Concerns listed are the ones that drive effort — full line-level findings are in the session notes and can be turned into per-file tickets on request.</p>
+
+  <p class="tier-label">Very High</p>
+
+  <div class="card">
+    <div class="card-head"><h3>Observe / React: Hazmat Size-Up</h3><span class="fname">hazmat-scene-practice.html</span><span class="sev vhigh">Very High</span></div>
+    <div class="chips"><span class="chip">3 muted videos</span><span class="chip">timed captions</span><span class="chip ai">scripted AI coach</span><span class="chip">free-text input</span><span class="chip">full-screen takeover</span><span class="chip">results modal</span></div>
+    <p class="why"><strong>Why Very High:</strong> the core modality — silent video narrated by independently-timed caption chunks, shown in an unskippable full-screen takeover — is fundamentally hard to make conformant. It needs real caption tracks, transcripts, synchronized pause, and a skip path, on top of a long list of markup fixes.</p>
+    <h4>Main concerns</h4>
+    <ul>
+      <li>Captions are JS timers, not a <code>&lt;track&gt;</code>: pausing the video does <em>not</em> pause the captions, chunks display 1.7–5.2s with no way to slow or replay, and there's no transcript. Since videos are muted, this text is the only narration. <span class="sc">1.2.1 · 1.2.2 · 2.2.1</span></li>
+      <li>First watch of each segment is an unskippable full-viewport takeover with no alternative for users who can't watch. <span class="sc">2.2.1</span></li>
+      <li>All videos share one generic label ("Hazmat scene video"); no persistent scene description for non-visual users. <span class="sc">1.1.1</span></li>
+      <li>No <code>&lt;h1&gt;</code>/<code>&lt;h2&gt;</code> in the document; results modal opens without moving focus and has no Escape; Escape is remapped to a mode switch. <span class="sc">1.3.1 · 2.4.3</span></li>
+      <li>White caption text sits on a 42%-black pill over arbitrary video frames — contrast isn't guaranteed. <span class="sc">1.4.3</span></li>
+    </ul>
+    <div class="fix-cols">
+      <div><h4>Quick wins</h4><ul><li>Add <code>&lt;h1&gt;</code>; distinct per-video labels; focus + Escape for results modal; darken caption pill to ~70% black; add a Skip control</li></ul></div>
+      <div><h4>Structural</h4><ul><li>Real WebVTT captions + transcript; pause captions with the video; persistent scene descriptions independent of playback timing</li></ul></div>
+    </div>
+  </div>
+
+  <p class="tier-label">High</p>
+
+  <div class="card">
+    <div class="card-head"><h3>With video Intro</h3><span class="fname">action-practice.html</span><span class="sev high">High</span></div>
+    <div class="chips"><span class="chip">6 muted videos</span><span class="chip">timed captions</span><span class="chip ai">scripted AI roleplay</span><span class="chip">free-text input</span><span class="chip">coach sheet</span><span class="chip">results modal</span></div>
+    <p class="why"><strong>Why High:</strong> same video/caption architecture as Hazmat (captions keep advancing while paused; no track or transcript) plus a branching two-persona roleplay whose dialogue is never announced. Rises to Very High if pointed at the live worker, since unscripted output can't be pre-captioned. Notably good bones otherwise: working focus trap on the coach sheet, <code>inert</code> backgrounds, thorough reduced-motion support.</p>
+    <h4>Main concerns</h4>
+    <ul>
+      <li>Timer-paced captions are the only narration; they don't pause with the video and can't be slowed or replayed. <span class="sc">1.2.x · 2.2.1</span></li>
+      <li>Coach and character messages are injected into non-live containers — screen readers hear "your coach noticed something" but never the message. <span class="sc">4.1.3</span></li>
+      <li>Results modal never receives focus, has no trap and no Escape (the app behind it is <code>inert</code>, so focus is orphaned). <span class="sc">2.4.3</span></li>
+      <li>No <code>&lt;h1&gt;</code>; six videos share one identical label; faint ink tokens below 4.5:1. <span class="sc">1.3.1 · 1.4.3</span></li>
+    </ul>
+    <div class="fix-cols">
+      <div><h4>Quick wins</h4><ul><li>Live-region the conversation containers; fix results-modal focus/Escape; add <code>&lt;h1&gt;</code>; lift faint tokens</li></ul></div>
+      <div><h4>Structural</h4><ul><li>Caption track/transcript + pause-synced captions; announced rendering path before enabling live AI</li></ul></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>With video Intro — Live AI</h3><span class="fname">action-practice-live.html</span><span class="sev high">High</span></div>
+    <div class="chips"><span class="chip">6 muted videos</span><span class="chip">timed captions</span><span class="chip ai">real Claude via worker</span><span class="chip">free-text input</span><span class="chip">streaming reveal</span><span class="chip">results modal</span></div>
+    <p class="why"><strong>Why High:</strong> shares every concern of its scripted twin, plus the two most severe single findings in the whole set — and in live mode the coach's output is unscripted model text, which makes the missing announcements a safety issue as well as a compliance one (a crisis-resources message could go entirely unheard by a screen-reader user).</p>
+    <h4>Main concerns</h4>
+    <ul>
+      <li>Learn/Practice toggle permanently <code>aria-hidden</code> — the show/hide code toggles a class but never the attribute, so the primary nav is invisible to AT while its buttons stay tabbable. <span class="sc">4.1.2</span></li>
+      <li>Streamed AI dialogue, "Analyzing…" states, and live-AI error messages are never announced. <span class="sc">4.1.3</span></li>
+      <li>Results modal focus never set or restored; captions don't pause with video; no transcript; no <code>&lt;h1&gt;</code>. <span class="sc">2.4.3 · 1.2.x · 1.3.1</span></li>
+    </ul>
+    <div class="fix-cols">
+      <div><h4>Quick wins</h4><ul><li>One-line <code>aria-hidden</code> toggle fix; live-region for status/error text; modal focus; visually-hidden <code>&lt;h1&gt;</code></li></ul></div>
+      <div><h4>Structural</h4><ul><li>Announce streamed messages (mirrored live region with speaker prefixes); caption/transcript work shared with the scripted version</li></ul></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>With story intro</h3><span class="fname">story-highlight-practice.html</span><span class="sev high">High</span></div>
+    <div class="chips"><span class="chip">drag-select highlighting</span><span class="chip ai">scripted AI roleplay</span><span class="chip">free-text input</span><span class="chip">modals</span><span class="chip">no video/audio</span></div>
+    <p class="why"><strong>Why High:</strong> the defining mechanic — free-range drag-to-highlight — has no keyboard equivalent and gates progression, making it a hard blocker. Designing an accessible alternative (per-sentence toggles, "mark this passage" affordances) is real interaction-design work. The rest is familiar: unannounced dialogue, modal focus, missing headings. Good scaffolding already exists (focus trap, <code>inert</code>, reduced-motion).</p>
+    <h4>Main concerns</h4>
+    <ul>
+      <li>Highlights can only be created by pointer drag, and Continue is disabled until one exists — keyboard/switch users cannot progress. <span class="sc">2.1.1 · 2.5.7</span></li>
+      <li>Coach/Kendra dialogue never announced; highlight count updates silently; instructions are pointer-centric ("drag to select"). <span class="sc">4.1.3 · 3.3.2</span></li>
+      <li>Removing a highlight rebuilds the DOM and drops focus to <code>&lt;body&gt;</code>; results modal opens without focusing. <span class="sc">2.4.3</span></li>
+      <li>Story-paper faint ink (~2.8:1) and no <code>&lt;h1&gt;</code>. <span class="sc">1.4.3 · 1.3.1</span></li>
+    </ul>
+    <div class="fix-cols">
+      <div><h4>Quick wins</h4><ul><li>Focus management on mark removal and modal open; announce highlight count; <code>&lt;h1&gt;</code>; darken faint tokens</li></ul></div>
+      <div><h4>Structural</h4><ul><li>Keyboard path to highlighting (the must-fix); live-region the conversation</li></ul></div>
+    </div>
+  </div>
+
+  <p class="tier-label">Medium — High</p>
+
+  <div class="card">
+    <div class="card-head"><h3>No intro (Direct Practice)</h3><span class="fname">direct-practice.html</span><span class="sev medhigh">Med–High</span></div>
+    <div class="chips"><span class="chip ai">scripted AI roleplay</span><span class="chip">free-text input</span><span class="chip">coach sheet</span><span class="chip">results modal</span><span class="chip">no video</span></div>
+    <p class="why"><strong>Why Med–High:</strong> the most accessibility-aware of the coach experiments — focus trap, <code>inert</code>, live region, reduced-motion all present. What remains is one genuinely hard problem (narrating a streaming two-speaker roleplay to screen readers: who spoke, emotional-state chips, retries) plus quick markup fixes.</p>
+    <h4>Main concerns</h4>
+    <ul>
+      <li>The conversation itself — the entire value of the page — is injected into non-live containers; only meta-summaries are announced. <span class="sc">4.1.3</span></li>
+      <li>Results modal: focus never moved in or restored. <span class="sc">2.4.3</span></li>
+      <li>No <code>&lt;h1&gt;</code>/<code>&lt;h2&gt;</code>; faint ink tokens ~2.6:1. <span class="sc">1.3.1 · 1.4.3</span></li>
+    </ul>
+    <div class="fix-cols">
+      <div><h4>Quick wins</h4><ul><li><code>&lt;h1&gt;</code>; modal focus in/out; darken faint tokens</li></ul></div>
+      <div><h4>Structural</h4><ul><li>Live-region mirror emitting each line with a speaker prefix ("Kendra, guarded: …")</li></ul></div>
+    </div>
+  </div>
+
+  <p class="tier-label">Medium</p>
+
+  <div class="card">
+    <div class="card-head"><h3>Video Reflection B</h3><span class="fname">reflection-ab.html</span><span class="sev med">Medium</span></div>
+    <div class="chips"><span class="chip">placeholder video (fake)</span><span class="chip ai">scripted reflection chat</span><span class="chip">modal gate (variant A)</span><span class="chip">orb + panel (variant B)</span></div>
+    <p class="why"><strong>Why Medium:</strong> the chat gate is largely accessible already (live-region thread, labeled composer, reduced-motion handled, no autoplay). Two structural items: variant A's "non-dismissable" modal declares <code>aria-modal</code> but traps nothing, and the placeholder video will need captions + transcript the moment it becomes real. Rises to Med–High then.</p>
+    <h4>Main concerns</h4>
+    <ul>
+      <li>Variant A modal: <code>aria-modal="true"</code> with no focus trap and no <code>inert</code> background — focus escapes the "blocking" dialog. <span class="sc">2.4.3 · 4.1.2</span></li>
+      <li>No caption/transcript path for the planned 0:45 clip; "Skip to end" bypasses content with no text alternative. <span class="sc">1.2.x</span></li>
+      <li>Panel auto-opens and grabs focus 750ms after the video ends; closing it never returns focus to the orb. <span class="sc">2.4.3 · 3.2.x</span></li>
+      <li>Locked-Continue tooltip is hover-only (invisible to sighted keyboard users); only heading in the page is inside the completion overlay. <span class="sc">1.4.13 · 1.3.1</span></li>
+    </ul>
+    <div class="fix-cols">
+      <div><h4>Quick wins</h4><ul><li><code>&lt;h1&gt;</code>; focus-visible tooltip; restore focus on panel close; overlay role + focus</li></ul></div>
+      <div><h4>Structural</h4><ul><li>Focus trap + <code>inert</code> for variant A; captions/transcript when the real video lands; reconsider the automatic focus grab</li></ul></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>Audio Summary</h3><span class="fname">narrated-presentation.html</span><span class="sev med">Medium</span></div>
+    <div class="chips"><span class="chip">real TTS (Web Speech)</span><span class="chip">karaoke word highlight</span><span class="chip">autoplay attempt</span><span class="chip">canvas waveform</span><span class="chip">no chat</span></div>
+    <p class="why"><strong>Why Medium:</strong> the big media items are half-solved — the visible prose <em>is</em> the transcript, and a 44px pause control exists. What's left is a cluster of logic changes: don't auto-start audio, don't fight the user's own screen reader with synthesized speech, and don't lock Continue behind full playback.</p>
+    <h4>Main concerns</h4>
+    <ul>
+      <li>Narration auto-plays on load where the browser allows it. <span class="sc">1.4.2</span></li>
+      <li>Browser TTS reads the same text the user's screen reader is reading — double narration at a voice/rate they didn't choose.</li>
+      <li>Continue is disabled until the narration (or its estimated fallback timeline) completes — a wait-it-out gate for anyone not following the karaoke. <span class="sc">2.2.1-adjacent</span></li>
+      <li>During playback, unspoken words are dimmed to ~3:1 for the whole passage; progress/completion is never announced; the scrubber is a non-interactive div. <span class="sc">1.4.3 · 4.1.3</span></li>
+      <li>No headings at all; waveform keeps animating under reduced motion. <span class="sc">1.3.1 · 2.3.3</span></li>
+    </ul>
+    <div class="fix-cols">
+      <div><h4>Quick wins</h4><ul><li>Keep unspoken words at full ink; live-region progress/completion (or real progressbar role); halt waveform under reduced motion; <code>&lt;h1&gt;</code></li></ul></div>
+      <div><h4>Structural</h4><ul><li>Make play an explicit gesture (drop autoplay); enable Continue once the text has been available; make TTS clearly opt-in</li></ul></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>Custom Code A (Peak BAC)</h3><span class="fname">peak-bac.html</span><span class="sev med">Medium</span></div>
+    <div class="chips"><span class="chip">custom drag slider</span><span class="chip">native range inputs</span><span class="chip">stepper + radio toggle</span><span class="chip">animated meter</span><span class="chip">3-screen flow</span><span class="chip">no AI</span></div>
+    <p class="why"><strong>Why Medium:</strong> the hardest part is already done well — the custom vertical slider has full ARIA, arrow/Home/End keys, and click alternatives to drag <span class="good">(2.5.7 satisfied)</span>. Remaining work is behavioral: focus on screen swaps, live-region flooding, radio pattern, reduced motion.</p>
+    <h4>Main concerns</h4>
+    <ul>
+      <li>Screen changes never move focus — it can be left on a now-hidden button. <span class="sc">2.4.3</span></li>
+      <li>The interstitial's count-up rewrites a polite live region every animation frame for ~900ms — announcement spam. <span class="sc">4.1.3</span></li>
+      <li>Sex toggle declares a radiogroup but has no arrow keys / roving tabindex; interstitial overlays the page without making the background <code>inert</code>. <span class="sc">4.1.2</span></li>
+      <li>No reduced-motion handling; faint range/hint text below 4.5:1. <span class="sc">2.3.3 · 1.4.3</span></li>
+    </ul>
+    <div class="fix-cols">
+      <div><h4>Quick wins</h4><ul><li>Focus each new screen's heading; write the count-up value once at the end; darken faint text; stronger row focus style</li></ul></div>
+      <div><h4>Structural</h4><ul><li>Proper radio keyboard pattern; <code>inert</code> background during interstitial; reduced-motion guard</li></ul></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>Matrix Card Sort</h3><span class="fname">reasons-for-drinking.html</span><span class="sev med">Medium</span></div>
+    <div class="chips"><span class="chip">drag-and-drop sort</span><span class="chip">keyboard alternative ✓</span><span class="chip ai">canned help chat</span><span class="chip">classic table fallback</span></div>
+    <p class="why"><strong>Why Medium:</strong> the scary part is already solved — cards can be placed by tapping a bucket or pressing 1/2/3 <span class="good">(2.5.7 satisfied)</span>, and a native radio-table "Classic" fallback exists. But the accessible path is completely silent: no confirmation, no count, no focus after each placement. Additive fixes, no redesign.</p>
+    <h4>Main concerns</h4>
+    <ul>
+      <li>Keyboard placements announce nothing — no "placed", no new top card, no completion. <span class="sc">4.1.3</span></li>
+      <li>After each placement the deck re-renders and focus drops to <code>&lt;body&gt;</code>; completion swap also unmanaged. <span class="sc">2.4.3</span></li>
+      <li>The interactive top card is a focusable <code>role="group"</code>, not a control; bucket hover state is color-only. <span class="sc">4.1.2 · 1.4.1</span></li>
+      <li>Faint text and white-on-teal buttons fail contrast; no reduced-motion for card-fly/chip-pop. <span class="sc">1.4.3 · 2.3.3</span></li>
+    </ul>
+    <div class="fix-cols">
+      <div><h4>Quick wins</h4><ul><li>Polite status region ("To relax → Very important. 3 cards left"); focus the new top card after commit; contrast tokens</li></ul></div>
+      <div><h4>Structural</h4><ul><li>Make the top card a real button; reduced-motion block; non-color bucket cues</li></ul></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>Peer Results</h3><span class="fname">peer-results.html</span><span class="sev med">Medium</span></div>
+    <div class="chips"><span class="chip">choice buttons</span><span class="chip">native range slider</span><span class="chip">SVG distribution chart</span><span class="chip">count-up animation</span><span class="chip">no AI</span></div>
+    <p class="why"><strong>Why Medium:</strong> the chart — usually the hard part — is already handled (<code>role="img"</code> with a percentile description, meaning not color-only). The fixes are behavioral: a fake radio pattern and a live region being flooded 60 times a second.</p>
+    <h4>Main concerns</h4>
+    <ul>
+      <li>Radio buttons expose <code>role="radio"</code> semantics with click-only wiring — no arrow keys, every option a separate tab stop. <span class="sc">4.1.2</span></li>
+      <li>Count-up rewrites numbers inside an <code>aria-live</code> region every frame; whole result block announces at once (verbose). <span class="sc">4.1.3</span></li>
+      <li>Slider shows "20+" visually but exposes bare "20" (no <code>aria-valuetext</code>); no reduced motion; SVG labels don't scale with text zoom. <span class="sc">4.1.2 · 2.3.3 · 1.4.4</span></li>
+    </ul>
+    <div class="fix-cols">
+      <div><h4>Quick wins</h4><ul><li><code>aria-valuetext</code> on the slider; announce only the settled verdict once; reduced-motion skip for count-up/spin</li></ul></div>
+      <div><h4>Structural</h4><ul><li>Real radio pattern (or native inputs); focus a results heading on reveal</li></ul></div>
+    </div>
+  </div>
+
+  <p class="tier-label">Low — Medium</p>
+
+  <div class="card">
+    <div class="card-head"><h3>Terms to Remember</h3><span class="fname">terms-to-remember.html</span><span class="sev lowmed">Low–Med</span></div>
+    <div class="chips"><span class="chip">3-D flip card</span><span class="chip ai">canned Q&amp;A chat</span><span class="chip">no video/audio</span></div>
+    <p class="why"><strong>Why Low–Med:</strong> simple page; most findings live in the shared chat panel (systemic fix #3) and the flip card's screen-reader semantics — the "hidden" definition is fully readable to AT before the flip, which quietly defeats the interaction.</p>
+    <h4>Main concerns</h4>
+    <ul>
+      <li>Card back isn't <code>aria-hidden</code> — screen readers read the definition immediately; the flip and its Continue gate are meaningless to AT. <span class="sc">1.3.1</span></li>
+      <li>Chat panel: no focus trap, focus never returned to the trigger, page behind stays tabbable (shared bug). <span class="sc">2.4.3</span></li>
+      <li>Reveal/Continue-enabled states not announced; 0.6s 3-D rotation with no reduced-motion; no heading. <span class="sc">4.1.3 · 2.3.3 · 1.3.1</span></li>
+    </ul>
+    <div class="fix-cols">
+      <div><h4>Quick wins</h4><ul><li>Sync <code>aria-hidden</code> on card faces with the flip + announce the definition; <code>&lt;h1&gt;</code>; live-region instructions</li></ul></div>
+      <div><h4>Structural</h4><ul><li>Shared chat-panel focus work (systemic #3); shared reduced-motion block (#1)</li></ul></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>Confidence Check</h3><span class="fname">confidence-check.html</span><span class="sev lowmed">Low–Med</span></div>
+    <div class="chips"><span class="chip">native range slider</span><span class="chip ai">scripted coach orb</span><span class="chip">free-text input</span><span class="chip">completion overlay</span></div>
+    <p class="why"><strong>Why Low–Med:</strong> contains the strongest single control in the whole set — a native slider with maintained <code>aria-valuetext</code> and a hidden visual readout. The chat thread is a live region and reduced motion is handled. Remaining issues are focused and small.</p>
+    <h4>Main concerns</h4>
+    <ul>
+      <li>Coach panel claims <code>role="dialog"</code> but is non-modal with no trap, no <code>inert</code>, and no focus restore to the orb on close. <span class="sc">2.4.3 · 4.1.2</span></li>
+      <li>Locked-Continue tooltip is hover-only and not programmatically tied to the disabled button. <span class="sc">1.4.13</span></li>
+      <li>Completion overlay covers the page without receiving focus or inerting what's beneath; faint text and white-on-teal labels fail contrast. <span class="sc">2.4.3 · 1.4.3</span></li>
+    </ul>
+    <div class="fix-cols">
+      <div><h4>Quick wins</h4><ul><li>Contrast tokens; <code>aria-describedby</code> lock reason on Continue; restore focus on panel close</li></ul></div>
+      <div><h4>Structural</h4><ul><li>Commit to modal (trap + inert) or drop the dialog role; focus + role for the completion overlay</li></ul></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>Personalized FAQ</h3><span class="fname">cannabis-faq.html</span><span class="sev lowmed">Low–Med</span></div>
+    <div class="chips"><span class="chip">accordion</span><span class="chip">guess-then-reveal inputs</span><span class="chip ai">regex "personalization"</span><span class="chip">no video/audio</span></div>
+    <p class="why"><strong>Why Low–Med:</strong> structurally an accordion — an inherently accessible pattern, and the headers already carry <code>aria-expanded</code>. The gaps are additive wiring: announcements, panel associations, per-item labels, focus after reveal.</p>
+    <h4>Main concerns</h4>
+    <ul>
+      <li>Submitting a guess replaces the panel's DOM (destroying the focused control) and the revealed answer is never announced; the "Personalizing…" shimmer exposes no busy state. <span class="sc">4.1.3 · 2.4.3</span></li>
+      <li>Accordion headers lack <code>aria-controls</code>/panel regions; every guess input shares the same generic label ("Your answer"). <span class="sc">4.1.2 · 3.3.2</span></li>
+      <li>Infinite spinner/shimmer with no reduced-motion; two <code>&lt;h1&gt;</code>s in the DOM; faint-text and button-label contrast. <span class="sc">2.3.3 · 1.3.1 · 1.4.3</span></li>
+    </ul>
+    <div class="fix-cols">
+      <div><h4>Quick wins</h4><ul><li>Live-region "answer revealed"; <code>aria-labelledby</code> per input; <code>aria-controls</code> wiring; contrast tokens</li></ul></div>
+      <div><h4>Structural</h4><ul><li>Move focus to the revealed answer; <code>aria-busy</code> during the shimmer; single <code>&lt;h1&gt;</code> per screen</li></ul></div>
+    </div>
+  </div>
+
+  <p class="tier-label">Low</p>
+
+  <div class="card">
+    <div class="card-head"><h3>Quick Question</h3><span class="fname">quick-question.html</span><span class="sev low">Low</span></div>
+    <div class="chips"><span class="chip">single-select choice</span><span class="chip">clarifier modal</span><span class="chip">no AI / video / audio</span></div>
+    <p class="why"><strong>Why Low:</strong> semantics are already largely right — real buttons, labeled radiogroup, <code>&lt;h1&gt;</code>, labeled progress bar, non-color selection state. Everything left is small and shared with other pages.</p>
+    <h4>Main concerns</h4>
+    <ul>
+      <li>Radiogroup missing arrow keys / roving tabindex (systemic #5). <span class="sc">4.1.2</span></li>
+      <li>Selection confirmation ("Thanks for sharing…") and Next-enabled state not announced. <span class="sc">4.1.3</span></li>
+      <li>Shared modal doesn't trap focus or inert the background; no reduced-motion in shared CSS. <span class="sc">2.4.3 · 2.3.3</span></li>
+    </ul>
+    <div class="fix-cols">
+      <div><h4>Quick wins</h4><ul><li>Live-region the instructions line</li></ul></div>
+      <div><h4>Structural</h4><ul><li>All shared-layer: radio pattern, modal trap, reduced-motion</li></ul></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>Video Reflection A</h3><span class="fname">chat-reflection.html</span><span class="sev low">Low</span></div>
+    <div class="chips"><span class="chip">placeholder video (fake)</span><span class="chip ai">scripted reflection chat</span><span class="chip">free-text input</span></div>
+    <p class="why"><strong>Why Low:</strong> the most compliant chat in the set — the thread is already <code>aria-live</code>, headings and landmarks are present, controls are labeled, the decorative scrubber is correctly hidden. Only small behavior fixes remain, plus a flag for when the real video arrives.</p>
+    <h4>Main concerns</h4>
+    <ul>
+      <li>Screen change and completion never move focus (to the discussion heading / Continue). <span class="sc">2.4.3</span></li>
+      <li>Typing-dots node is appended inside the live region (blank announcements); instruction changes silent. <span class="sc">4.1.3</span></li>
+      <li>Future real video will need captions + transcript — flag now so it's budgeted. <span class="sc">1.2.x</span></li>
+    </ul>
+    <div class="fix-cols">
+      <div><h4>Quick wins</h4><ul><li>Focus moves on transition; <code>aria-hidden</code> typing dots; live-region instructions</li></ul></div>
+      <div><h4>Structural</h4><ul><li>None today — captions/transcript when the real player lands</li></ul></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>Conversation Step-In</h3><span class="fname">your-path.html</span><span class="sev low">Low</span></div>
+    <div class="chips"><span class="chip ai">scripted peer chat</span><span class="chip">guided reveal</span><span class="chip">free-text input</span><span class="chip">no video/audio</span></div>
+    <p class="why"><strong>Why Low:</strong> fully keyboard operable end to end, thread already a live region, proper <code>&lt;h1&gt;</code> and landmarks. Three small fixes.</p>
+    <h4>Main concerns</h4>
+    <ul>
+      <li>The "your turn" handoff and instruction changes aren't announced. <span class="sc">4.1.3</span></li>
+      <li>Composer glow loops forever with no reduced-motion opt-out. <span class="sc">2.2.2 · 2.3.3</span></li>
+      <li>Wrap-up card appears without a focus move; progress dots have no text equivalent. <span class="sc">2.4.3 · 1.3.1</span></li>
+    </ul>
+    <div class="fix-cols">
+      <div><h4>Quick wins</h4><ul><li>Live-region the handoff; reduced-motion guard on the glow; focus the wrap-up heading</li></ul></div>
+      <div><h4>Structural</h4><ul><li>None</li></ul></div>
+    </div>
+  </div>
+
+  <h2>Suggested order of attack</h2>
+  <ol class="seq">
+    <li><strong>Shared layer first (1–2 days of work, touches nothing visual)</strong><span class="seq-note">Reduced-motion block + focus trap/restore in <code>lesson.css</code>/<code>lesson.js</code>, darken the two faint-ink tokens, switch teal button labels to the strong token, one shared radio-group implementation. This alone clears findings in ~12 of 16 experiments.</span></li>
+    <li><strong>The two blockers</strong><span class="seq-note">The one-line <code>aria-hidden</code> fix in Live AI, then design a keyboard path for story highlighting (the only item needing LX/design input before code).</span></li>
+    <li><strong>Per-file quick wins</strong><span class="seq-note">Headings, live-region instructions, modal focus in/out, focus moves on screen changes — mechanical, a few per file.</span></li>
+    <li><strong>The video/caption architecture (the real project)</strong><span class="seq-note">Hazmat + both action-practice intros share the same pattern: replace JS-timed captions with WebVTT tracks + transcripts, pause captions with the video, add skip paths. Decide this once as a pattern, since it's the template for any future video experiment.</span></li>
+    <li><strong>Policy decisions, not code</strong><span class="seq-note">Whether live AI ships with a screen-reader announcement strategy (required if crisis-resource messages can appear); whether Audio Summary's TTS is opt-in; whether playback-completion gates are acceptable at all.</span></li>
+  </ol>
+
+  <p class="footnote">Method: five parallel code audits reading every file end-to-end (inline JS + CSS + shared <code>lesson.css</code>/<code>lesson.js</code>), assessed against WCAG 2.2 AA. Contrast figures are computed from the hard-coded token values. Line-level findings with file/line citations are available and can be converted into per-experiment remediation tickets. No behavioral (screen-reader/browser) testing was performed — a NVDA/VoiceOver pass on the top 4 is the recommended next validation step before committing to estimates.</p>
+</div>
+
+</body>
+</html>
