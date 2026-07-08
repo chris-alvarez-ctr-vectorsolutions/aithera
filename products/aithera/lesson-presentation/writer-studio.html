@@ -61,6 +61,9 @@
         --accent-strong:#3a4fce;
         --accent-soft: #eef1fe;
         --on-accent:   #ffffff;
+        /* Every editable surface shares this fill so "where do I type" is
+           scannable at a glance — read-only guidance stays on card white. */
+        --field-bg:    #f2f5fc;
 
         /* Lint severities */
         --err:   #d64550;
@@ -100,6 +103,7 @@
           --accent-strong:#9aa8ff;
           --accent-soft: #1b2236;
           --on-accent:   #0c0f17;
+          --field-bg:    #202a3e;
           --warn:  #e0a33c;
           --err:   #ef6d77;
           --ok:    #4fbd8c;
@@ -267,21 +271,77 @@
       .card .lead {
         margin: 6px 0 0; color: var(--ink-soft); font-size: 13px; max-width: 62ch;
       }
-      /* The "you used to write MCQs" bridge — the coaching layer of the tool */
-      .bridge {
-        display: flex; gap: 10px; align-items: flex-start;
-        margin: 12px 0 2px; padding: 10px 12px;
-        background: var(--accent-soft); border-radius: var(--radius-sm);
+      /* The "you used to write MCQs" bridge — the coaching layer of the
+         tool. Collapsed by default so each section leads with its fields;
+         the summary line says what's inside, and nothing is lost — it's a
+         click away. This is the READ layer; it stays on plain card white. */
+      details.bridge {
+        margin: 10px 0 2px; max-width: 62ch;
+        border: 1px solid var(--line); border-radius: var(--radius-sm);
+      }
+      details.bridge summary {
+        display: flex; align-items: center; gap: 8px;
+        padding: 8px 12px; cursor: pointer; list-style: none;
+        font-size: 12px; font-weight: 600; color: var(--ink-soft);
+      }
+      details.bridge summary::-webkit-details-marker { display: none; }
+      details.bridge summary .fa-solid { color: var(--ink-faint); font-size: 11px; width: 14px; text-align: center; }
+      details.bridge summary::after {
+        content: '\f078'; /* chevron-down */
+        font-family: 'Font Awesome 6 Free'; font-weight: 900; font-size: 9px;
+        margin-left: auto; color: var(--ink-faint);
+        transition: transform .15s ease;
+      }
+      details.bridge[open] summary::after { transform: rotate(180deg); }
+      details.bridge .bridge-body {
+        padding: 0 12px 10px 34px;
+        color: var(--ink-soft); font-size: 12.5px;
+      }
+      details.bridge .bridge-body b { color: var(--ink); }
+
+      /* Short must-read note that sits with the fields (not collapsible). */
+      .fieldnote {
+        display: flex; gap: 9px; align-items: flex-start;
         color: var(--ink-soft); font-size: 12.5px; max-width: 62ch;
       }
-      .bridge .fa-solid { color: var(--accent); margin-top: 2px; flex: 0 0 auto; }
-      .bridge b { color: var(--ink); }
+      .fieldnote .fa-solid { color: var(--ink-faint); margin-top: 2px; flex: 0 0 auto; }
+      .fieldnote b { color: var(--ink); }
 
-      .fields { display: grid; gap: 14px; margin-top: 14px; }
+      /* Divider between the read zone (title, lead, guidance) and the edit
+         zone (fields) inside every section card. */
+      .fields {
+        display: grid; gap: 14px; margin-top: 14px;
+        padding-top: 14px; border-top: 1px solid var(--line);
+      }
       .fields .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
       @media (max-width: 1100px) { .fields .row2 { grid-template-columns: 1fr; } }
 
       vaadin-text-field, vaadin-text-area { width: 100%; }
+
+      /* ---- Read vs. edit ------------------------------------------------
+         The form mixes a lot of prose (section leads, craft guidance) with
+         the fields writers actually fill in. Three cues keep them apart:
+           1. every input surface gets the shared --field-bg fill,
+           2. field labels are the darkest, boldest text in the fields zone,
+           3. helper text drops to the faint tier below the label.
+         Guidance prose lives ABOVE the .fields divider on plain card white. */
+      vaadin-text-field::part(input-field),
+      vaadin-text-area::part(input-field) {
+        /* !important: the component theme sets its own !important background
+           inside the shadow root, which outranks a normal ::part rule. */
+        background: var(--field-bg) !important;
+        border-radius: 8px;
+      }
+      vaadin-text-field::part(label),
+      vaadin-text-area::part(label) {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      vaadin-text-field::part(helper-text),
+      vaadin-text-area::part(helper-text) {
+        color: var(--ink-faint);
+        font-size: 11.5px;
+      }
 
       /* Dynamic list rows (dimensions / reactions / misconceptions) */
       .rows { display: grid; gap: 10px; margin-top: 14px; }
@@ -309,9 +369,10 @@
       }
       .addrow:hover { background: var(--accent-soft); border-color: var(--accent); }
 
-      /* Locked engine section */
+      /* Locked engine section — read-only, so it sits on the gray surface
+         tier instead of card white (no accent bars; the fill IS the cue). */
       .locked .card h2 .fa-solid { color: var(--ink-faint); }
-      .lockcard { border-left: 3px solid var(--ink-faint); }
+      .lockcard { background: var(--surface-2); }
       .lockcard .lockhead {
         display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 13.5px;
       }
@@ -321,7 +382,7 @@
       .lockcard summary { cursor: pointer; color: var(--accent); font-size: 12.5px; font-weight: 600; }
       .lockcard pre {
         white-space: pre-wrap; font-size: 11.5px; line-height: 1.5;
-        color: var(--ink-soft); background: var(--surface-2);
+        color: var(--ink-soft); background: var(--surface);
         padding: 10px 12px; border-radius: var(--radius-sm); margin: 8px 0 0;
       }
 
@@ -487,7 +548,7 @@
     </span>
     <vaadin-button theme="tertiary" id="resetBtn"><i class="fa-solid fa-clock-rotate-left" slot="prefix"></i> Reset to shipped</vaadin-button>
     <vaadin-button theme="tertiary" id="exportBtn"><i class="fa-solid fa-file-export" slot="prefix"></i> Export JSON</vaadin-button>
-    <a class="preview-link" href="action-practice-live.html" target="_blank" rel="noopener">
+    <a class="preview-link" id="previewLink" href="action-practice-live.html" target="_blank" rel="noopener">
       <i class="fa-solid fa-arrow-up-right-from-square"></i> Learner preview
     </a>
     <vaadin-button theme="primary" id="publishBtn"><i class="fa-solid fa-paper-plane" slot="prefix"></i> Publish to prototype</vaadin-button>
@@ -606,35 +667,44 @@
       lead: 'Who is in this practice, and how long it should run.' },
     { id: 'setup', icon: 'fa-clapperboard', title: 'Scenario setup',
       lead: 'The situation as it stands when the learner walks in. The AI treats every detail here as true, so write only what you want it to build on.',
-      bridge: '<b>From your old craft:</b> this is the question stem — except the AI can improvise around it, so contradictions and loose ends become bugs, not flavor. Use <b>{{learner}}</b> and <b>{{character}}</b> instead of literal names so renames propagate everywhere.' },
+      bridgeTitle: 'From your old craft: this is the question stem',
+      bridge: 'Except the AI can improvise around it, so contradictions and loose ends become bugs, not flavor. Use <b>{{learner}}</b> and <b>{{character}}</b> instead of literal names so renames propagate everywhere.' },
     { id: 'dimensions', icon: 'fa-scale-balanced', title: 'Assessment dimensions',
       lead: 'What every learner line is silently scored on. The character\'s reaction and the coach\'s debrief are both driven by these — they are the whole answer key.',
-      bridge: '<b>From your old craft:</b> in multiple choice you wrote one right answer and three wrong ones. Here, "what strong looks like" is the right answer and <b>"what weak looks like" is your distractors</b> — describe the tempting mistakes, and the AI recognizes them in anything a learner types.' },
+      bridgeTitle: 'From your old craft: right answers and distractors',
+      bridge: 'In multiple choice you wrote one right answer and three wrong ones. Here, "what strong looks like" is the right answer and <b>"what weak looks like" is your distractors</b> — describe the tempting mistakes, and the AI recognizes them in anything a learner types.' },
     { id: 'realism', icon: 'fa-masks-theater', title: 'Character realism',
       lead: 'The reaction map: if the learner\'s line does X, the character does Y. This is what makes the character feel like a person instead of a quiz.',
-      bridge: '<b>From your old craft:</b> this replaces per-answer feedback. Instead of "Incorrect — try again," the character\'s believable reaction <b>is</b> the feedback, and the coach names the lesson afterward.' },
+      bridgeTitle: 'From your old craft: this replaces per-answer feedback',
+      bridge: 'Instead of "Incorrect — try again," the character\'s believable reaction <b>is</b> the feedback, and the coach names the lesson afterward.' },
     { id: 'misconceptions', icon: 'fa-lightbulb', title: 'Misconceptions',
       lead: 'Wrong beliefs the practice should surface and disprove. The scene demonstrates the consequence first; the coach names it gently afterward.',
-      bridge: '<b>From your old craft:</b> these are the beliefs your best distractors used to encode. State each one with its real consequence so the scene can play it out.' },
+      bridgeTitle: 'From your old craft: the beliefs behind your distractors',
+      bridge: 'These are the beliefs your best distractors used to encode. State each one with its real consequence so the scene can play it out.' },
     { id: 'gate', icon: 'fa-flag-checkered', title: 'The gate',
       lead: 'The hard requirement: what must happen before the scene is allowed to resolve positively. Without a gate, warm-but-empty conversations "win."',
-      bridge: '<b>From your old craft:</b> this is the passing criterion. Name an observable action — something you could point at in a transcript — not a feeling.' },
+      bridgeTitle: 'From your old craft: this is the passing criterion',
+      bridge: 'Name an observable action — something you could point at in a transcript — not a feeling.' },
     { id: 'voice', icon: 'fa-comment-dots', title: 'Coach voice',
       lead: 'Who the coach is and how they talk. The coach probes and reflects — it never grades out loud and never lectures.' },
     { id: 'completion', icon: 'fa-medal', title: 'Completion',
       lead: 'When the practice counts as done, and how the resolution should play. The final report (strengths and growth areas) is generated from what the learner actually said.' },
     { id: 'playbook', icon: 'fa-list-check', title: 'The playbook',
       lead: 'The expert-validated components EVERY learner leaves with, identically, however their conversation went. The page delivers this after the personal report — guaranteed, never AI-generated.',
-      bridge: '<b>From your old craft:</b> these are your SME-validated teaching points (a course\'s <i>content elements</i>). The conversation personalizes; the playbook standardizes — that pairing is what makes completion mean consistent coverage.' },
+      bridgeTitle: 'From your old craft: your SME-validated teaching points',
+      bridge: 'These are a course\'s <i>content elements</i>. The conversation personalizes; the playbook standardizes — that pairing is what makes completion mean consistent coverage.' },
     { id: 'resources', icon: 'fa-hand-holding-medical', title: 'Resources',
       lead: 'Where the character could really go — shown by the coach after the results. Make these real for the scenario\'s world: a campus counseling center here, an EAP or safety officer in a workplace course.',
-      bridge: '<b>Locked floor:</b> when a scenario is flagged <b>elevated stakes</b> (wellbeing, substance, crisis-adjacent), the 988 crisis line is appended after your resources automatically. You author everything above it; you can\'t remove it.' },
+      bridgeTitle: 'The locked crisis floor',
+      bridge: 'When a scenario is flagged <b>elevated stakes</b> (wellbeing, substance, crisis-adjacent), the 988 crisis line is appended after your resources automatically. You author everything above it; you can\'t remove it.' },
     { id: 'references', icon: 'fa-file-shield', title: 'Reference material',
       lead: 'Paste excerpts from the policies, guidelines, or standards this practice must follow. The AI treats them as authoritative facts — where a reference disagrees with its general knowledge, the reference wins.',
-      bridge: '<b>Paste text, don\'t link:</b> the AI cannot open a URL. Curated excerpts beat document dumps — every turn re-sends everything here, and locked grounding rules make pasted text <i>data, not instructions</i>, so a document can\'t rewrite the practice\'s rules.' },
+      bridgeTitle: 'Why paste text instead of linking',
+      bridge: 'The AI cannot open a URL. Curated excerpts beat document dumps — every turn re-sends everything here, and locked grounding rules make pasted text <i>data, not instructions</i>, so a document can\'t rewrite the practice\'s rules.' },
     { id: 'opening', icon: 'fa-film', title: 'Opening & intro',
       lead: 'The coach\'s first question, and how the scene is set before the practice: a video cold open, a written story the learner highlights, or nothing at all. Switching type keeps your work in the other types.',
-      bridge: '<b>Same practice, three doors in:</b> the video, story, and no-intro experiments are the SAME conversation practice — only this intro module differs. Author it once here and each variant page uses its piece.' },
+      bridgeTitle: 'Same practice, three doors in',
+      bridge: 'The video, story, and no-intro experiments are the SAME conversation practice — only this intro module differs. Author it once here and each variant page uses its piece.' },
     { id: 'guardrails', icon: 'fa-lock', title: 'System guardrails', locked: true,
       lead: 'These sections ship inside every scenario and cannot be edited: they are what makes the experience safe to hand to an AI. You can read exactly what they say.' },
   ];
@@ -652,6 +722,17 @@
     el.addEventListener('input', onField);
     el.addEventListener('change', onField);
     return el;
+  }
+
+  /* Collapsed guidance disclosure — the READ layer. The summary line names
+     what's inside; the body is a click away instead of pushing the fields
+     down the page. */
+  function guidance(summaryText, icon, bodyHTML) {
+    const d = document.createElement('details');
+    d.className = 'bridge';
+    d.innerHTML = `<summary><i class="fa-solid ${esc(icon)}" aria-hidden="true"></i>${esc(summaryText)}</summary>
+      <div class="bridge-body">${bodyHTML}</div>`;
+    return d;
   }
 
   function rowsBlock(listPath, renderRow, addLabel) {
@@ -876,10 +957,8 @@
         const t = scenario.intro.type;
 
         if (t === 'video') {
-          const hint = document.createElement('div');
-          hint.className = 'bridge';
-          hint.innerHTML = '<i class="fa-solid fa-film"></i><span><b>Adding your own footage:</b> videos are plain files served by the site. Put the clip in <code>products/aithera/assets/videos/</code> in the repo (or send it to Chris to add), then paste its URL here — relative like <code>../assets/videos/my-clip.mp4</code>, or the full page URL. Any number of scenes works; they play back-to-back as one continuous cold open.</span>';
-          introBody.appendChild(hint);
+          introBody.appendChild(guidance('Adding your own footage', 'fa-film',
+            'Videos are plain files served by the site. Put the clip in <code>products/aithera/assets/videos/</code> in the repo (or send it to Chris to add), then paste its URL here — relative like <code>../assets/videos/my-clip.mp4</code>, or the full page URL. Any number of scenes works; they play back-to-back as one continuous cold open.'));
           introBody.appendChild(rowsBlock('intro.video.scenes', (s, i, onDel) => rowCard(
             `Scene ${i + 1}`, onDel,
             tf(`intro.video.scenes.${i}.src`, 'Video URL', { placeholder: '../assets/videos/scene_1.mp4' }),
@@ -912,8 +991,9 @@
         }
 
         if (t === 'none') {
+          // Short and actionable, so it stays visible rather than collapsing.
           const note = document.createElement('div');
-          note.className = 'bridge';
+          note.className = 'fieldnote';
           note.innerHTML = '<i class="fa-solid fa-forward"></i><span>The learner lands straight on the establishing card and the coach\'s opening carries the backstory — make sure <b>Scenario setup</b> covers everything they\'d otherwise learn from an intro.</span>';
           introBody.appendChild(note);
         }
@@ -941,10 +1021,8 @@
           <details><summary>Read the exact locked text</summary><pre data-guardrail="${esc(g.id)}"></pre></details>`;
         box.appendChild(card);
       });
-      const note = document.createElement('div');
-      note.className = 'bridge';
-      note.innerHTML = '<i class="fa-solid fa-shield-halved"></i><span>Also locked: the JSON output contract\'s enforcement, the two-nudge cap on the gate, the final report format, and the rule that scores are never shown to the learner. Your fields plug into this machinery — they can\'t switch it off.</span>';
-      box.appendChild(note);
+      box.appendChild(guidance('Also locked beyond these sections', 'fa-shield-halved',
+        'The JSON output contract\'s enforcement, the two-nudge cap on the gate, the final report format, and the rule that scores are never shown to the learner. Your fields plug into this machinery — they can\'t switch it off.'));
     }
 
     return box;
@@ -960,8 +1038,10 @@
       card.id = 'sec-' + sec.id;
       card.innerHTML = `
         <h2><i class="fa-solid ${esc(sec.icon)}"></i> ${esc(sec.title)}</h2>
-        <p class="lead">${esc(sec.lead)}</p>
-        ${sec.bridge ? `<div class="bridge"><i class="fa-solid fa-graduation-cap"></i><span>${sec.bridge}</span></div>` : ''}`;
+        <p class="lead">${esc(sec.lead)}</p>`;
+      if (sec.bridge) {
+        card.appendChild(guidance(sec.bridgeTitle || 'How this maps to your old craft', 'fa-graduation-cap', sec.bridge));
+      }
       card.appendChild(buildSectionFields(sec));
       form.appendChild(card);
     });
@@ -1271,6 +1351,11 @@
     renderPubState();
     refreshGuardrailText();
     renderPlaytestTarget();
+    // The learner preview follows the intro type: the story variant has its
+    // own live page; video and none both enter through the video-intro page.
+    $('#previewLink').href = scenario.intro.type === 'story'
+      ? 'story-highlight-practice-live.html'
+      : 'action-practice-live.html';
   }
 
   /* =======================================================================

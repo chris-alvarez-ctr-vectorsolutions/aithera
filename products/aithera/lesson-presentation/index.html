@@ -28,6 +28,7 @@
     />
 
     <style>
+        html { scroll-behavior: smooth; }
         body {
             font-family: 'Open Sans', system-ui, sans-serif;
             margin: 0;
@@ -38,11 +39,75 @@
         main { max-width: 920px; margin: 0 auto; }
 
         .page-title { font-size: 28px; margin: 0 0 8px; }
-        .page-intro { color: #6b7280; margin: 0; max-width: 70ch; }
+        .page-intro { color: #6b7280; margin: 0 0 8px; max-width: 70ch; }
+        .page-intro:last-of-type { margin-bottom: 0; }
+        .page-intro .live-flag { vertical-align: 1px; }
+
+        /* -------------------------------------------------------------------
+           Section jump nav — the page is long enough that scrolling to find a
+           section is a chore. Sticky pill bar; counts are filled in by script
+           from the DOM so they can't drift as cards are added or removed.
+           ------------------------------------------------------------------- */
+        .section-nav {
+            position: sticky;
+            top: 12px;
+            z-index: 40;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 24px;
+            padding: 6px;
+            background: rgba(255, 255, 255, .94);
+            backdrop-filter: blur(6px);
+            border: 1px solid #e5e7eb;
+            border-radius: 999px;
+            box-shadow: 0 1px 2px rgba(16, 24, 40, .06);
+        }
+        .section-nav a {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            text-decoration: none;
+        }
+        .section-nav a:hover { background: #e6f5f3; color: #0b7d70; }
+        .section-nav a .count {
+            padding: 1px 7px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #6b7280;
+            background: #eef1f4;
+        }
+        .section-nav a:hover .count { background: #fff; color: #0b7d70; }
+
+        /* "Live AI" flag — marks a variant that runs on a real model (Claude
+           via the Worker proxy) instead of the scripted demo engine. Shown on
+           the card thumbnail, in the page intro legend, and in the modal's
+           Live AI callout. */
+        .live-flag {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .02em;
+            color: #fff;
+            background: linear-gradient(120deg, #7c3aed, #0f9e8e);
+            box-shadow: 0 1px 3px rgba(16, 24, 40, .25);
+        }
 
         /* Each section groups related experiments. Variant families (A/B/C…)
-           get their own section so the alternatives sit next to each other. */
-        .section { margin-top: 64px; }
+           get their own section so the alternatives sit next to each other.
+           scroll-margin keeps jumped-to sections clear of the sticky nav
+           (sized for the nav's two-row wrap at the 920px content width). */
+        .section { margin-top: 64px; scroll-margin-top: 108px; }
         .section:first-of-type { margin-top: 44px; }
         .section-head {
             display: flex;
@@ -69,6 +134,8 @@
 
         .card {
             display: block;
+            /* Anchors the absolutely-positioned .live-flag over the thumb. */
+            position: relative;
             /* border-box so height:100% (used for equal-height cards in the
                .compare grids) includes padding + border. Without it, padding
                is added on top of the row height and cards overflow/overlap the
@@ -104,13 +171,17 @@
             background: #eef1f4;
             border-bottom: 1px solid #e5e7eb;
         }
+        /* Live AI flag floats over the thumbnail's top-left corner. */
+        .card > .live-flag { position: absolute; top: 10px; left: 10px; }
         .card-body { display: block; padding: 14px 18px 16px; }
         .card .title { font-weight: 600; font-size: 15px; }
         /* Full descriptions stay in the markup (they're the modal's content
            source and keep the HTML self-documenting) but are hidden on the
            card so the grid stays scannable — clicking the card opens them
-           in the details modal, whose CTA opens the prototype itself. */
-        .card .desc { display: none; }
+           in the details modal, whose CTA opens the prototype itself.
+           .desc-live is the same idea for a card's Live AI variant: it feeds
+           the modal's Live AI callout and second CTA (see data-live-href). */
+        .card .desc, .card .desc-live { display: none; }
         /* "Updated <date>" stamp, filled in from updated.json (see the script
            at the end of <body>). Absent until the data loads — cards render
            fine without it. */
@@ -210,54 +281,80 @@
         }
         .lesson-modal-body .modal-updated i { margin-right: 4px; }
 
+        /* Live AI callout — rendered when the card has a data-live-href;
+           describes what the live variant adds, above the "Launch with
+           Live AI" CTA in the footer. */
+        .modal-live {
+            margin: 14px 0 12px;
+            padding: 12px 14px;
+            border: 1px solid #ddd6fe;
+            border-radius: 12px;
+            background: #f8f6ff;
+        }
+        .modal-live p { margin: 8px 0 0; font-size: 14px; }
+        /* Roadmap note for cards marked data-live-planned — a live variant
+           is intended but not built yet, so no CTA. */
+        .modal-live-planned { font-size: 13px; color: #9ca3af; }
+        .modal-live-planned i { margin-right: 6px; color: #a78bfa; }
+
         .lesson-modal-foot {
             display: flex;
             justify-content: flex-end;
+            gap: 10px;
             padding: 16px 20px 20px;
         }
+        /* The Live AI launch CTA carries the same gradient as the flag so
+           the badge → callout → button all read as one feature. */
+        vaadin-button.live-cta {
+            background: linear-gradient(120deg, #7c3aed, #0f9e8e);
+            color: #fff;
+        }
+        vaadin-button.live-cta[hidden] { display: none; }
     </style>
 </head>
 <body>
     <main>
         <h1 class="page-title">Lesson Presentation Experiments</h1>
         <p class="page-intro">New ways to present lesson content and check understanding — each one still fits inside the same lesson experience learners already know.</p>
+        <p class="page-intro">Experiments marked <span class="live-flag"><i class="fa-solid fa-wand-magic-sparkles"></i>Live AI</span> can also be launched on a real model (Claude) instead of the scripted demo engine — look for the launch option in the experiment's details.</p>
 
-        <!-- ===== Conversation Simulation — same Kendra scene, two intros ==== -->
-        <section class="section">
+        <!-- Jump nav: one pill per section below; counts filled in by script. -->
+        <nav class="section-nav" aria-label="Jump to section">
+            <a href="#conversation-simulation">Conversation Simulation</a>
+            <a href="#scene-analysis">Scene Analysis</a>
+            <a href="#video-reflection">Video Reflection</a>
+            <a href="#basic-interactions">Basic Interactions</a>
+            <a href="#authoring-tools">Authoring Tools</a>
+            <a href="#custom-code">Custom Code</a>
+        </nav>
+
+        <!-- ===== Conversation Simulation — same Kendra scene, three intros ===
+             One card per way into the scene. A variant that runs on a real
+             model is NOT a separate card: give the card data-live-href
+             (pointing at the live page) + a .live-flag on the thumb + a
+             hidden .desc-live blurb, and the details modal grows a
+             "Launch with Live AI" CTA. data-live-planned (no href) renders
+             a "planned" note in the modal instead. The same attributes work
+             on any card in any section as more live variants get built. -->
+        <section class="section" id="conversation-simulation">
             <div class="section-head">
                 <h2 class="section-title">Conversation Simulation</h2>
                 <span class="section-note">Same AI conversation-practice scene, three different ways into it</span>
             </div>
             <ul class="cards compare">
                 <li>
-                    <a class="card" href="action-practice.html">
+                    <a class="card" href="action-practice.html" data-live-href="action-practice-live.html">
                         <img class="thumb" src="thumbnails/action-practice.png" alt="Action Practice — With video Intro preview" loading="lazy">
+                        <span class="live-flag"><i class="fa-solid fa-wand-magic-sparkles"></i>Live AI</span>
                         <span class="card-body">
                         <span class="title">With video Intro</span>
                         <span class="desc">The learner practices a hard real-life conversation — checking in on a friend, Kendra, who's showing signs of a drinking problem. A short video sets the emotional scene, then an AI coach preps the learner before each line and reacts afterward, while an AI-played Kendra responds in character. The learner can always retry a line that didn't land, and the practice isn't considered a success until they take the one action that matters: connecting Kendra to real help.</span>
+                        <span class="desc-live">Same scene, same flow — but the coach and Kendra are played by a real LLM (Claude) through a Cloudflare Worker proxy instead of the scripted demo engine. The conversation is real, so the coach reacts to what the learner actually says, and off-script input (garbage text, curveballs, tough questions) gets a real response.</span>
                         </span>
                     </a>
                 </li>
                 <li>
-                    <a class="card" href="action-practice-live.html">
-                        <img class="thumb" src="thumbnails/action-practice.png" alt="Action Practice — Live AI preview" loading="lazy">
-                        <span class="card-body">
-                        <span class="title">With video Intro — Live AI</span>
-                        <span class="desc">A cut of the "With video Intro" experiment evolved in one direction: the coach and Kendra are played by a real LLM (Claude) through a Cloudflare Worker proxy, instead of the scripted demo engine. Same scene, same flow — but the conversation is real, so the coach reacts to what the learner actually says, and off-script input (garbage text, curveballs, tough questions) gets a real response.</span>
-                        </span>
-                    </a>
-                </li>
-                <li>
-                    <a class="card" href="writer-studio.html">
-                        <img class="thumb" src="thumbnails/action-practice.png" alt="Writer Studio — Conversation Practice preview" loading="lazy">
-                        <span class="card-body">
-                        <span class="title">Writer Studio (for content writers)</span>
-                        <span class="desc">The authoring side of the Live AI experiment. Content writers moving from multiple-choice scripts to AI-assisted assessment fill structured, plain-language fields — the scenario, the assessment dimensions, the character's reaction map, the success gate — and the tool compiles them into the live prototype's system prompt around locked safety guardrails. Includes real authoring lints, a live compiled-prompt view, and a playtest panel with stress-test presets that runs the draft against the same AI proxy the learner page uses. Publish, and the Live AI page (in the same browser) runs the new scenario.</span>
-                        </span>
-                    </a>
-                </li>
-                <li>
-                    <a class="card" href="story-highlight-practice.html">
+                    <a class="card" href="story-highlight-practice.html" data-live-planned>
                         <img class="thumb" src="thumbnails/story-highlight-practice.png" alt="Story Highlight Practice — With story intro preview" loading="lazy">
                         <span class="card-body">
                         <span class="title">With story intro</span>
@@ -266,7 +363,16 @@
                     </a>
                 </li>
                 <li>
-                    <a class="card" href="direct-practice.html">
+                    <a class="card" href="story-highlight-practice-live.html">
+                        <img class="thumb" src="thumbnails/story-highlight-practice.png" alt="Story Highlight Practice — Live AI preview" loading="lazy">
+                        <span class="card-body">
+                        <span class="title">With story intro — Live AI</span>
+                        <span class="desc">The story-intro variant hooked to a real LLM and the Writer Studio: the story the learner reads, the key-moments answer key, and everything about the conversation are writer-authored scenario content — and the coach's opening reaction to what the learner highlighted (and missed) is generated live by Claude, judged against the writer's answer key.</span>
+                        </span>
+                    </a>
+                </li>
+                <li>
+                    <a class="card" href="direct-practice.html" data-live-planned>
                         <img class="thumb" src="thumbnails/direct-practice.png" alt="Direct Practice — No intro preview" loading="lazy">
                         <span class="card-body">
                         <span class="title">No intro</span>
@@ -278,7 +384,7 @@
         </section>
 
         <!-- ===== Scene Analysis — Observe/React flavor of the same module === -->
-        <section class="section">
+        <section class="section" id="scene-analysis">
             <div class="section-head">
                 <h2 class="section-title">Scene Analysis Simulation</h2>
                 <span class="section-note">Same coach-in-a-bottom-sheet module, with the conversation replaced by a scene to read</span>
@@ -297,7 +403,7 @@
         </section>
 
         <!-- ===== Video Reflection — A/B of the same reflection gate ======== -->
-        <section class="section">
+        <section class="section" id="video-reflection">
             <div class="section-head">
                 <h2 class="section-title">Video Reflection</h2>
                 <span class="section-note">Same post-video reflection, presented two ways — compared side by side</span>
@@ -325,7 +431,7 @@
         </section>
 
         <!-- ===== Basic Interactions — distinct standalone content types ==== -->
-        <section class="section">
+        <section class="section" id="basic-interactions">
             <div class="section-head">
                 <h2 class="section-title">Basic Interactions</h2>
                 <span class="section-note">Distinct lesson content types</span>
@@ -406,8 +512,27 @@
             </ul>
         </section>
 
+        <!-- ===== Authoring Tools — for content writers, not learners ======= -->
+        <section class="section" id="authoring-tools">
+            <div class="section-head">
+                <h2 class="section-title">Authoring Tools</h2>
+                <span class="section-note">For content writers — the builder side of the Live AI experiments</span>
+            </div>
+            <ul class="cards compare">
+                <li>
+                    <a class="card" href="writer-studio.html">
+                        <img class="thumb" src="thumbnails/action-practice.png" alt="Writer Studio — Conversation Practice preview" loading="lazy">
+                        <span class="card-body">
+                        <span class="title">Writer Studio — Conversation Practice</span>
+                        <span class="desc">The authoring side of the Live AI experiment. Content writers moving from multiple-choice scripts to AI-assisted assessment fill structured, plain-language fields — the scenario, the assessment dimensions, the character's reaction map, the success gate — and the tool compiles them into the live prototype's system prompt around locked safety guardrails. Includes real authoring lints, a live compiled-prompt view, and a playtest panel with stress-test presets that runs the draft against the same AI proxy the learner page uses. Publish, and the Live AI page (in the same browser) runs the new scenario.</span>
+                        </span>
+                    </a>
+                </li>
+            </ul>
+        </section>
+
         <!-- ===== Custom Code — hand-built interactions (more to come) ====== -->
-        <section class="section">
+        <section class="section" id="custom-code">
             <div class="section-head">
                 <h2 class="section-title">Custom Code</h2>
                 <span class="section-note">Hand-built interactions — more variants to come</span>
@@ -442,6 +567,11 @@
             <div class="lesson-modal-body" id="cardModalBody"></div>
             <footer class="lesson-modal-foot">
                 <vaadin-button theme="primary" id="cardModalCta">Open prototype</vaadin-button>
+                <!-- Only shown when the card has a data-live-href -->
+                <vaadin-button class="live-cta" id="cardModalLive" hidden>
+                    <i class="fa-solid fa-wand-magic-sparkles" slot="prefix"></i>
+                    Launch with Live AI
+                </vaadin-button>
             </footer>
         </div>
     </div>
@@ -458,16 +588,21 @@
         const titleEl = document.getElementById('cardModalTitle');
         const bodyEl = document.getElementById('cardModalBody');
         const ctaEl = document.getElementById('cardModalCta');
+        const liveCtaEl = document.getElementById('cardModalLive');
         const closeEl = document.getElementById('cardModalClose');
 
-        let lastFocused = null;   // restore focus here on close
-        let currentHref = '';     // the card link the CTA opens
+        let lastFocused = null;    // restore focus here on close
+        let currentHref = '';      // the card link the CTA opens
+        let currentLiveHref = '';  // the Live AI variant, if the card has one
 
         function openFor(cardLink) {
             const title = (cardLink.querySelector('.title') || {}).textContent || '';
             const desc = (cardLink.querySelector('.desc') || {}).textContent || '';
+            const liveDesc = cardLink.querySelector('.desc-live');
             const updated = cardLink.querySelector('.updated'); // may not exist yet
             currentHref = cardLink.getAttribute('href');
+            currentLiveHref = cardLink.getAttribute('data-live-href') || '';
+            liveCtaEl.hidden = !currentLiveHref;
 
             titleEl.textContent = title;
             bodyEl.replaceChildren();
@@ -476,6 +611,27 @@
                 p.textContent = para.trim();
                 bodyEl.appendChild(p);
             });
+
+            // Live AI callout (data-live-href) or roadmap note (data-live-planned)
+            if (currentLiveHref) {
+                const box = document.createElement('div');
+                box.className = 'modal-live';
+                const flag = document.createElement('span');
+                flag.className = 'live-flag';
+                flag.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i>Live AI available';
+                box.appendChild(flag);
+                const p = document.createElement('p');
+                p.textContent = liveDesc ? liveDesc.textContent.trim()
+                    : 'This experiment can also run on a real model instead of the scripted demo engine.';
+                box.appendChild(p);
+                bodyEl.appendChild(box);
+            } else if (cardLink.hasAttribute('data-live-planned')) {
+                const p = document.createElement('p');
+                p.className = 'modal-live-planned';
+                p.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i>A Live AI version of this variant is planned — not built yet.';
+                bodyEl.appendChild(p);
+            }
+
             if (updated) {
                 const p = document.createElement('p');
                 p.className = 'modal-updated';
@@ -507,6 +663,9 @@
         });
 
         ctaEl.addEventListener('click', () => { window.location.href = currentHref; });
+        liveCtaEl.addEventListener('click', () => {
+            if (currentLiveHref) window.location.href = currentLiveHref;
+        });
         closeEl.addEventListener('click', close);
         backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
         document.addEventListener('keydown', (e) => {
@@ -517,7 +676,10 @@
         // as Lesson.modal in js/lesson.js).
         backdrop.addEventListener('keydown', (e) => {
             if (e.key !== 'Tab' || !backdrop.classList.contains('open')) return;
-            const focusables = dialog.querySelectorAll('button, vaadin-button, [href]');
+            // Skip hidden controls (the Live AI CTA when the card has none).
+            const focusables = Array.from(
+                dialog.querySelectorAll('button, vaadin-button, [href]')
+            ).filter((el) => !el.hidden);
             if (!focusables.length) return;
             const first = focusables[0];
             const last = focusables[focusables.length - 1];
@@ -528,6 +690,19 @@
             }
         });
     })();
+    </script>
+
+    <script>
+    /* Jump-nav counts — read from the DOM so the numbers can never drift
+       from the actual cards as experiments are added or removed. */
+    document.querySelectorAll('.section-nav a[href^="#"]').forEach((a) => {
+        const section = document.querySelector(a.getAttribute('href'));
+        if (!section) return;
+        const count = document.createElement('span');
+        count.className = 'count';
+        count.textContent = section.querySelectorAll('a.card').length;
+        a.appendChild(count);
+    });
     </script>
 
     <script>
