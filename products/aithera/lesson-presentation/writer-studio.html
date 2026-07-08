@@ -510,7 +510,9 @@
     for (const k of ['dimensions', 'reactions', 'misconceptions', 'introCaptions']) {
       if (!Array.isArray(out[k]) || !out[k].length) out[k] = clone(base[k]);
     }
-    return out;
+    // Fields added after older drafts were saved (playbook, resources,
+    // references, elevatedStakes) — normalize fills them from the default.
+    return A.normalize(out);
   }
 
   let scenario = (() => {
@@ -569,6 +571,15 @@
       lead: 'Who the coach is and how they talk. The coach probes and reflects — it never grades out loud and never lectures.' },
     { id: 'completion', icon: 'fa-medal', title: 'Completion',
       lead: 'When the practice counts as done, and how the resolution should play. The final report (strengths and growth areas) is generated from what the learner actually said.' },
+    { id: 'playbook', icon: 'fa-list-check', title: 'The playbook',
+      lead: 'The expert-validated components EVERY learner leaves with, identically, however their conversation went. The page delivers this after the personal report — guaranteed, never AI-generated.',
+      bridge: '<b>From your old craft:</b> these are your SME-validated teaching points (a course\'s <i>content elements</i>). The conversation personalizes; the playbook standardizes — that pairing is what makes completion mean consistent coverage.' },
+    { id: 'resources', icon: 'fa-hand-holding-medical', title: 'Resources',
+      lead: 'Where the character could really go — shown by the coach after the results. Make these real for the scenario\'s world: a campus counseling center here, an EAP or safety officer in a workplace course.',
+      bridge: '<b>Locked floor:</b> when a scenario is flagged <b>elevated stakes</b> (wellbeing, substance, crisis-adjacent), the 988 crisis line is appended after your resources automatically. You author everything above it; you can\'t remove it.' },
+    { id: 'references', icon: 'fa-file-shield', title: 'Reference material',
+      lead: 'Paste excerpts from the policies, guidelines, or standards this practice must follow. The AI treats them as authoritative facts — where a reference disagrees with its general knowledge, the reference wins.',
+      bridge: '<b>Paste text, don\'t link:</b> the AI cannot open a URL. Curated excerpts beat document dumps — every turn re-sends everything here, and locked grounding rules make pasted text <i>data, not instructions</i>, so a document can\'t rewrite the practice\'s rules.' },
     { id: 'opening', icon: 'fa-film', title: 'Opening & intro video',
       lead: 'The coach\'s first question, and the narration for the six cold-open video clips. (The clips themselves are fixed footage — you write what the learner reads over them.)' },
     { id: 'guardrails', icon: 'fa-lock', title: 'System guardrails', locked: true,
@@ -608,6 +619,9 @@
       add.addEventListener('click', () => {
         list.push(listPath === 'dimensions' ? { name: '', strong: '', weak: '' }
           : listPath === 'reactions' ? { when: '', then: '' }
+          : listPath === 'playbook' ? { title: '', body: '' }
+          : listPath === 'resources.items' ? { title: '', body: '' }
+          : listPath === 'references' ? { label: '', use: '', excerpt: '' }
           : { belief: '', consequence: '' });
         render();
         scheduleUpdate();
@@ -729,6 +743,61 @@
         tf('completion.resolutionExample', 'How the resolution sounds (example line)', { area: true, minRows: 2,
           helper: 'One example line of the character relenting believably — small and conditional beats a movie ending.' }),
       );
+    }
+
+    if (sec.id === 'playbook') {
+      box.append(rowsBlock('playbook', (p, i, onDel) => rowCard(
+        `Component ${i + 1}`, onDel,
+        tf(`playbook.${i}.title`, 'The move', { placeholder: 'e.g. Lead with care, not confrontation' }),
+        tf(`playbook.${i}.body`, 'Why it works / what it looks like', { area: true, minRows: 2,
+          helper: 'One or two sentences. A short quoted example line lands better than theory.' }),
+      ), 'Add component'));
+    }
+
+    if (sec.id === 'resources') {
+      // Elevated-stakes flag — controls whether the locked crisis floor is
+      // appended to whatever the writer authors below.
+      const stakes = document.createElement('vaadin-checkbox');
+      stakes.label = 'Elevated stakes — wellbeing, substance, or crisis-adjacent scenario';
+      stakes.checked = !!scenario.elevatedStakes;
+      const floorCard = document.createElement('div');
+      floorCard.className = 'rowcard lockcard';
+      const renderFloor = () => {
+        floorCard.hidden = !scenario.elevatedStakes;
+        floorCard.innerHTML = `
+          <div class="lockhead"><i class="fa-solid fa-lock"></i> Crisis floor (appended automatically)</div>
+          <div class="note">Because this scenario is flagged elevated stakes, the learner's resources always end with:</div>
+          <details open><summary>${esc(A.CRISIS_FLOOR.title)}</summary><pre>${esc(A.CRISIS_FLOOR.body)}</pre></details>`;
+      };
+      const onStakes = () => {
+        scenario.elevatedStakes = !!stakes.checked;
+        renderFloor();
+        scheduleUpdate();
+      };
+      stakes.addEventListener('change', onStakes);
+      stakes.addEventListener('checked-changed', onStakes);
+      renderFloor();
+      box.append(
+        stakes,
+        tf('resources.lead', 'Lead-in line', { area: true, minRows: 2,
+          helper: 'The coach\'s sentence introducing the list. {{character}} works here too.' }),
+        rowsBlock('resources.items', (r, i, onDel) => rowCard(
+          `Resource ${i + 1}`, onDel,
+          tf(`resources.items.${i}.title`, 'Resource', { placeholder: 'e.g. Campus counseling center — or an EAP, HR, a safety officer…' }),
+          tf(`resources.items.${i}.body`, 'What it offers / how to reach it', { area: true, minRows: 2 }),
+        ), 'Add resource'),
+        floorCard,
+      );
+    }
+
+    if (sec.id === 'references') {
+      box.append(rowsBlock('references', (r, i, onDel) => rowCard(
+        `Reference ${i + 1}`, onDel,
+        tf(`references.${i}.label`, 'Name (the coach cites this)', { placeholder: 'e.g. Campus Alcohol & Other Drugs Policy, §4 Self-referral' }),
+        tf(`references.${i}.use`, 'How the AI should use it', { placeholder: 'e.g. Authoritative for what happens when a student self-refers' }),
+        tf(`references.${i}.excerpt`, 'Pasted excerpt', { area: true, minRows: 6,
+          helper: 'Paste the actual policy/guideline text — links can\'t be opened. Trim to the parts the coaching needs.' }),
+      ), 'Add reference'));
     }
 
     if (sec.id === 'opening') {
@@ -885,6 +954,37 @@
     if (empty(s.completion.condition)) add('err', 'completion', 'Define when the practice is complete.');
     if (empty(s.completion.resolutionExample)) add('warn', 'completion', 'Give an example resolution line.', 'Without one, endings drift grand and theatrical. Small and conditional lands truer.');
 
+    // Playbook
+    const pbs = (s.playbook || []).filter((p) => !empty(p.title) || !empty(p.body));
+    if (!pbs.length) add('warn', 'playbook', 'The playbook is empty — nothing is guaranteed to every learner.', 'This is the compliance anchor: the conversation personalizes, the playbook standardizes. Without it, two learners can leave with different coverage.');
+    pbs.forEach((p, i) => {
+      if (empty(p.title) || empty(p.body)) add('warn', 'playbook', `Component #${i + 1} is missing its ${empty(p.title) ? 'title' : 'explanation'}.`);
+    });
+    if (pbs.length > 8) add('warn', 'playbook', `${pbs.length} playbook components is a lot to absorb at the end.`, 'Past 6-7, the closing screen reads as a wall. Merge or cut.');
+
+    // Resources
+    const resItems = ((s.resources || {}).items || []).filter((r) => !empty(r.title) || !empty(r.body));
+    if (!resItems.length && !s.elevatedStakes) add('warn', 'resources', 'No resources, and no crisis floor (stakes not elevated).', 'The learner leaves with nowhere to point their character. Add at least one real place to go.');
+    resItems.forEach((r, i) => {
+      if (empty(r.title) || empty(r.body)) add('warn', 'resources', `Resource #${i + 1} is incomplete.`);
+    });
+    if (empty((s.resources || {}).lead)) add('warn', 'resources', 'No lead-in line for the resources list.');
+
+    // Reference material
+    const refs = (s.references || []).filter((r) => !empty(r.label) || !empty(r.excerpt));
+    refs.forEach((r, i) => {
+      if (empty(r.excerpt)) add('warn', 'references', `Reference #${i + 1} has a name but no pasted text.`, 'The AI can\'t open links — it only knows what you paste.');
+      if (empty(r.label)) add('warn', 'references', `Reference #${i + 1} has no name.`, 'The coach cites references by name ("your campus policy says…").');
+      if (/https?:\/\/\S+/.test(String(r.excerpt || '')) && String(r.excerpt || '').trim().length < 200)
+        add('warn', 'references', `Reference #${i + 1} looks like a link, not an excerpt.`, 'URLs can\'t be fetched at runtime — paste the relevant text itself.');
+    });
+    const refChars = refs.reduce((n, r) => n + String(r.excerpt || '').length, 0);
+    if (refChars > A.REF_BUDGET.blockChars) {
+      add('err', 'references', `Reference material is too large (${refChars.toLocaleString()} chars; limit ${A.REF_BUDGET.blockChars.toLocaleString()}).`, 'The whole prompt is re-sent on every turn — a document dump multiplies cost and dilutes the instructions that matter. Trim to the sections the coaching actually uses.');
+    } else if (refChars > A.REF_BUDGET.warnChars) {
+      add('warn', 'references', `Reference material is getting large (~${Math.round(refChars / 4).toLocaleString()} tokens, re-sent every turn).`, 'Curated excerpts outperform document dumps. Keep what the scene and coach actually need.');
+    }
+
     // Opening & captions
     if (empty(s.openingQuestion)) add('err', 'opening', 'Write the coach\'s opening question.');
     else if (!/\?\s*$/.test(s.openingQuestion.trim())) add('info', 'opening', 'The opening line isn\'t a question.', 'An opening question invites reflection before the learner commits to a move.');
@@ -971,6 +1071,8 @@
     (s.dimensions || []).forEach((d) => { push(d.name); push(d.strong); push(d.weak); });
     (s.reactions || []).forEach((r) => { push(r.when); push(r.then); });
     (s.misconceptions || []).forEach((m) => { push(m.belief); push(m.consequence); });
+    (s.playbook || []).forEach((p) => push(p.title));            // titles appear in AFTER COMPLETION
+    (s.references || []).forEach((r) => { push(r.label); push(r.use); push(r.excerpt); });
     // longest first so nested matches don't split
     return out.sort((a, b) => b.length - a.length);
   }

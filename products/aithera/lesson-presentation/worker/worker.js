@@ -32,6 +32,8 @@ const ALLOWED_ORIGINS = [
   'http://127.0.0.1:8080',
   'http://localhost:4599',
   'http://127.0.0.1:4599',
+  'http://localhost:4601',
+  'http://127.0.0.1:4601',
   'https://vectorlearning.github.io',
 ];
 
