@@ -166,6 +166,26 @@
       }
       .topbar .spacer { flex: 1; }
       .save-status { color: var(--ink-faint); font-size: 12.5px; white-space: nowrap; }
+
+      /* —— Scenario library popover (topbar) —— */
+      .libwrap { position: relative; }
+      .libpanel {
+        position: absolute; top: calc(100% + 6px); right: 0; z-index: 60;
+        min-width: 300px; max-width: 360px; max-height: 60vh; overflow: auto;
+        background: var(--surface); border: 1px solid var(--line);
+        border-radius: var(--radius-sm); box-shadow: var(--shadow-md); padding: 8px;
+      }
+      .libpanel .libhead { padding: 4px 10px 6px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+      .libpanel .librow { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 7px; }
+      .libpanel .librow:hover { background: var(--surface-2); }
+      .libpanel .librow .meta { flex: 1; min-width: 0; text-align: left; background: none; border: 0; cursor: pointer; color: var(--ink); font: inherit; padding: 0; }
+      .libpanel .librow .meta .t { display: block; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .libpanel .librow .meta .d { display: block; font-size: 11.5px; color: var(--ink-faint); }
+      .libpanel .librow .rm { background: none; border: 0; color: var(--ink-faint); cursor: pointer; padding: 6px; border-radius: 6px; }
+      .libpanel .librow .rm:hover { color: var(--err); background: var(--err-soft); }
+      .libpanel .libsave { display: flex; width: 100%; align-items: center; gap: 8px; margin-top: 6px; padding: 9px 10px; border: 1px dashed var(--line); border-radius: 7px; background: none; color: var(--accent); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+      .libpanel .libsave:hover { background: var(--accent-soft); border-color: var(--accent); }
+      .libpanel .libempty { padding: 10px; font-size: 12.5px; color: var(--ink-soft); }
       .save-status .fa-circle-check { color: var(--ok); }
       .preview-link {
         display: inline-flex; align-items: center; gap: 6px;
@@ -461,6 +481,10 @@
     <span class="sub" id="subTitle">Conversation practice</span>
     <span class="spacer"></span>
     <span class="save-status" id="saveStatus"></span>
+    <span class="libwrap">
+      <vaadin-button theme="tertiary" id="libraryBtn" aria-haspopup="true" aria-expanded="false"><i class="fa-solid fa-folder-open" slot="prefix"></i> Library <i class="fa-solid fa-chevron-down" slot="suffix" style="font-size:10px"></i></vaadin-button>
+      <div class="libpanel" id="libPanel" hidden role="menu" aria-label="Scenario library"><!-- built by JS --></div>
+    </span>
     <vaadin-button theme="tertiary" id="resetBtn"><i class="fa-solid fa-clock-rotate-left" slot="prefix"></i> Reset to shipped</vaadin-button>
     <vaadin-button theme="tertiary" id="exportBtn"><i class="fa-solid fa-file-export" slot="prefix"></i> Export JSON</vaadin-button>
     <a class="preview-link" href="action-practice-live.html" target="_blank" rel="noopener">
@@ -608,8 +632,9 @@
     { id: 'references', icon: 'fa-file-shield', title: 'Reference material',
       lead: 'Paste excerpts from the policies, guidelines, or standards this practice must follow. The AI treats them as authoritative facts — where a reference disagrees with its general knowledge, the reference wins.',
       bridge: '<b>Paste text, don\'t link:</b> the AI cannot open a URL. Curated excerpts beat document dumps — every turn re-sends everything here, and locked grounding rules make pasted text <i>data, not instructions</i>, so a document can\'t rewrite the practice\'s rules.' },
-    { id: 'opening', icon: 'fa-film', title: 'Opening & intro video',
-      lead: 'The coach\'s first question, and the narration for the six cold-open video clips. (The clips themselves are fixed footage — you write what the learner reads over them.)' },
+    { id: 'opening', icon: 'fa-film', title: 'Opening & intro',
+      lead: 'The coach\'s first question, and how the scene is set before the practice: a video cold open, a written story the learner highlights, or nothing at all. Switching type keeps your work in the other types.',
+      bridge: '<b>Same practice, three doors in:</b> the video, story, and no-intro experiments are the SAME conversation practice — only this intro module differs. Author it once here and each variant page uses its piece.' },
     { id: 'guardrails', icon: 'fa-lock', title: 'System guardrails', locked: true,
       lead: 'These sections ship inside every scenario and cannot be edited: they are what makes the experience safe to hand to an AI. You can read exactly what they say.' },
   ];
@@ -650,6 +675,9 @@
           : listPath === 'playbook' ? { title: '', body: '' }
           : listPath === 'resources.items' ? { title: '', body: '' }
           : listPath === 'references' ? { label: '', use: '', excerpt: '' }
+          : listPath === 'intro.video.scenes' ? { src: '', caption: '' }
+          : listPath === 'intro.story.paragraphs' ? ''
+          : listPath === 'intro.story.keyMoments' ? { phrase: '', label: '' }
           : { belief: '', consequence: '' });
         render();
         scheduleUpdate();
@@ -832,10 +860,75 @@
     if (sec.id === 'opening') {
       box.append(tf('openingQuestion', 'The coach\'s opening question', { area: true, minRows: 2,
         helper: 'On screen before the AI\'s first turn. It should invite reflection, not test.' }));
-      scenario.introCaptions.forEach((c, i) => {
-        box.append(tf(`introCaptions.${i}`, `Clip ${i + 1} caption`, { area: true, minRows: 2,
-          helper: i === 0 ? 'Read over fixed footage — around two short sentences per clip fits comfortably.' : undefined }));
+
+      // —— Intro type picker + per-type fields ——
+      const rg = document.createElement('vaadin-radio-group');
+      rg.label = 'How the scene is set before the practice';
+      [['video', 'Video cold open'], ['story', 'Written story the learner highlights'], ['none', 'No intro — straight in']].forEach(([v, l]) => {
+        const rb = document.createElement('vaadin-radio-button');
+        rb.value = v; rb.label = l;
+        rg.appendChild(rb);
       });
+      rg.value = scenario.intro.type;
+      const introBody = document.createElement('div');
+      const renderIntroBody = () => {
+        introBody.innerHTML = '';
+        const t = scenario.intro.type;
+
+        if (t === 'video') {
+          const hint = document.createElement('div');
+          hint.className = 'bridge';
+          hint.innerHTML = '<i class="fa-solid fa-film"></i><span><b>Adding your own footage:</b> videos are plain files served by the site. Put the clip in <code>products/aithera/assets/videos/</code> in the repo (or send it to Chris to add), then paste its URL here — relative like <code>../assets/videos/my-clip.mp4</code>, or the full page URL. Any number of scenes works; they play back-to-back as one continuous cold open.</span>';
+          introBody.appendChild(hint);
+          introBody.appendChild(rowsBlock('intro.video.scenes', (s, i, onDel) => rowCard(
+            `Scene ${i + 1}`, onDel,
+            tf(`intro.video.scenes.${i}.src`, 'Video URL', { placeholder: '../assets/videos/scene_1.mp4' }),
+            tf(`intro.video.scenes.${i}.caption`, 'Caption narration', { area: true, minRows: 2,
+              helper: i === 0 ? 'Read over the footage — around two short sentences per clip fits comfortably.' : undefined }),
+          ), 'Add scene'));
+        }
+
+        if (t === 'story') {
+          const r = document.createElement('div'); r.className = 'row2';
+          r.append(
+            tf('intro.story.kicker', 'Kicker (small line above the headline)', { placeholder: 'A friendship, under strain · a scenario' }),
+            tf('intro.story.headline', 'Headline', { placeholder: 'Two Empty Bottles' }),
+          );
+          introBody.append(
+            r,
+            tf('intro.story.instruction', 'The highlighting ask', { area: true, minRows: 2,
+              helper: 'Told to the learner before they read — what to select and why.' }),
+            rowsBlock('intro.story.paragraphs', (p, i, onDel) => rowCard(
+              `Paragraph ${i + 1}`, onDel,
+              tf(`intro.story.paragraphs.${i}`, 'Text', { area: true, minRows: 3 }),
+            ), 'Add paragraph'),
+            rowsBlock('intro.story.keyMoments', (m, i, onDel) => rowCard(
+              `Key moment ${i + 1}`, onDel,
+              tf(`intro.story.keyMoments.${i}.phrase`, 'The phrase (word-for-word from a paragraph)', { area: true, minRows: 2,
+                helper: 'The coach reacts to which of these the learner caught or missed — it must appear exactly in the story text above.' }),
+              tf(`intro.story.keyMoments.${i}.label`, 'How the coach names it', { placeholder: 'e.g. losing her Nona' }),
+            ), 'Add key moment'),
+          );
+        }
+
+        if (t === 'none') {
+          const note = document.createElement('div');
+          note.className = 'bridge';
+          note.innerHTML = '<i class="fa-solid fa-forward"></i><span>The learner lands straight on the establishing card and the coach\'s opening carries the backstory — make sure <b>Scenario setup</b> covers everything they\'d otherwise learn from an intro.</span>';
+          introBody.appendChild(note);
+        }
+      };
+      const onType = () => {
+        const v = rg.value;
+        if (!v || v === scenario.intro.type) return;
+        scenario.intro.type = v;
+        renderIntroBody();
+        scheduleUpdate();
+      };
+      rg.addEventListener('value-changed', onType);
+      rg.addEventListener('change', onType);
+      renderIntroBody();
+      box.append(rg, introBody);
     }
 
     if (sec.id === 'guardrails') {
@@ -1014,13 +1107,39 @@
       add('warn', 'references', `Reference material is getting large (~${Math.round(refChars / 4).toLocaleString()} tokens, re-sent every turn).`, 'Curated excerpts outperform document dumps. Keep what the scene and coach actually need.');
     }
 
-    // Opening & captions
+    // Opening & intro
     if (empty(s.openingQuestion)) add('err', 'opening', 'Write the coach\'s opening question.');
     else if (!/\?\s*$/.test(s.openingQuestion.trim())) add('info', 'opening', 'The opening line isn\'t a question.', 'An opening question invites reflection before the learner commits to a move.');
-    (s.introCaptions || []).forEach((c, i) => {
-      if (empty(c)) add('warn', 'opening', `Clip ${i + 1} has no caption.`, 'That clip will play silently.');
-      else if (c.length > 240) add('warn', 'opening', `Clip ${i + 1} caption is long (${c.length} chars).`, 'Learners read these over ~8 seconds of footage — keep captions near two short sentences.');
-    });
+
+    const intro = s.intro || {};
+    if (intro.type === 'video') {
+      const scenes = ((intro.video || {}).scenes || []).filter((sc) => sc && (!empty(sc.src) || !empty(sc.caption)));
+      if (!scenes.length) add('warn', 'opening', 'Video intro selected, but there are no scenes.', 'The learner page will skip the cold open entirely until at least one scene has a video URL.');
+      scenes.forEach((sc, i) => {
+        if (empty(sc.src)) add('warn', 'opening', `Scene ${i + 1} has a caption but no video URL.`, 'It will be skipped. Paste the clip\'s URL — see the note above the scenes for how uploads work.');
+        else if (!/^(https?:\/\/|\.{0,2}\/)/.test(sc.src.trim()) || /\s/.test(sc.src.trim()))
+          add('warn', 'opening', `Scene ${i + 1}'s video URL doesn't look like a path or URL.`, 'Use a relative path like ../assets/videos/my-clip.mp4 or a full https:// URL.');
+        else if (!/\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(sc.src.trim()))
+          add('info', 'opening', `Scene ${i + 1}'s URL doesn't end in a video extension.`, 'Direct file URLs (.mp4/.webm) work; page links (YouTube, SharePoint) won\'t.');
+        if (empty(sc.caption)) add('warn', 'opening', `Scene ${i + 1} has no caption.`, 'That clip will play silently.');
+        else if (sc.caption.length > 240) add('warn', 'opening', `Scene ${i + 1}'s caption is long (${sc.caption.length} chars).`, 'Learners read these over ~8 seconds of footage — keep captions near two short sentences.');
+      });
+    }
+    if (intro.type === 'story') {
+      const st = intro.story || {};
+      const paras = (st.paragraphs || []).filter((p) => !empty(p));
+      if (empty(st.headline)) add('warn', 'opening', 'The story has no headline.');
+      if (empty(st.instruction)) add('warn', 'opening', 'No highlighting ask.', 'The learner needs to know what to select and why before they read.');
+      if (paras.length < 3) add('warn', 'opening', 'The story is very short.', 'A few paragraphs give the learner something real to notice — and to miss.');
+      const filledParas = paras.map((p) => A.fill(p, s));
+      (st.keyMoments || []).filter((m) => m && (!empty(m.phrase) || !empty(m.label))).forEach((m, i) => {
+        if (empty(m.phrase)) { add('warn', 'opening', `Key moment ${i + 1} has no phrase.`); return; }
+        if (!filledParas.some((p) => p.includes(A.fill(m.phrase, s))))
+          add('err', 'opening', `Key moment ${i + 1} doesn't appear word-for-word in the story.`, 'This is the highlighting answer key — the coach can only credit what it can find. Copy the phrase exactly from a paragraph.');
+        if (empty(m.label)) add('warn', 'opening', `Key moment ${i + 1} has no label.`, 'The coach uses the label to name what the learner caught or missed.');
+      });
+      if (!(st.keyMoments || []).some((m) => m && !empty(m.phrase))) add('warn', 'opening', 'No key moments defined.', 'Without them the coach has no answer key for the learner\'s highlights.');
+    }
 
     // Budget
     const prompt = A.compilePrompt(s);
@@ -1403,6 +1522,68 @@
     await navigator.clipboard.writeText(A.compilePrompt(scenario));
     toast('Compiled prompt copied');
   });
+
+  /* ---- scenario library (topbar popover) ----------------------------------
+     Named saved scenarios in this browser. "Save current" snapshots the
+     draft under its title; loading an entry REPLACES the draft (after
+     confirm). The published slot is separate and untouched by all of this. */
+  const libBtn = $('#libraryBtn');
+  const libPanel = $('#libPanel');
+
+  function renderLibrary() {
+    const entries = A.listLibrary();
+    let html = '<div class="libhead">Saved scenarios (this browser)</div>';
+    if (!entries.length) {
+      html += '<div class="libempty">Nothing saved yet. "Save current" snapshots your draft so you can start another scenario without losing this one.</div>';
+    } else {
+      html += entries.map((e) => {
+        const when = e.savedAt ? new Date(e.savedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+        return `<div class="librow">
+          <button class="meta" data-load="${esc(e.id)}" title="Load into the editor"><span class="t">${esc(e.title)}</span><span class="d">Saved ${esc(when)}</span></button>
+          <button class="rm" data-remove="${esc(e.id)}" aria-label="Delete ${esc(e.title)} from library"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>
+        </div>`;
+      }).join('');
+    }
+    html += `<button class="libsave" id="libSaveBtn"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save current draft as a new entry</button>`;
+    libPanel.innerHTML = html;
+
+    $('#libSaveBtn', libPanel).addEventListener('click', () => {
+      A.saveToLibrary(clone(scenario));
+      renderLibrary();
+      toast(`Saved "${scenario.title}" to the library`);
+    });
+    $$('[data-load]', libPanel).forEach((b) => b.addEventListener('click', () => {
+      const s = A.loadFromLibrary(b.dataset.load);
+      if (!s) { toast('That entry could not be loaded'); return; }
+      if (!confirm(`Load "${s.title}" into the editor? Your current draft is replaced — save it to the library first if you want to keep it.`)) return;
+      scenario = mergeScenario(s);
+      buildForm();
+      update();
+      ptReset();
+      closeLibrary();
+      toast(`Loaded "${s.title}"`);
+    }));
+    $$('[data-remove]', libPanel).forEach((b) => b.addEventListener('click', () => {
+      if (!confirm('Delete this saved scenario? This can\'t be undone.')) return;
+      A.removeFromLibrary(b.dataset.remove);
+      renderLibrary();
+    }));
+  }
+
+  function openLibrary() {
+    renderLibrary();
+    libPanel.hidden = false;
+    libBtn.setAttribute('aria-expanded', 'true');
+  }
+  function closeLibrary() {
+    libPanel.hidden = true;
+    libBtn.setAttribute('aria-expanded', 'false');
+  }
+  libBtn.addEventListener('click', () => (libPanel.hidden ? openLibrary() : closeLibrary()));
+  document.addEventListener('click', (e) => {
+    if (!libPanel.hidden && !e.composedPath().includes(libPanel) && !e.composedPath().includes(libBtn)) closeLibrary();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !libPanel.hidden) closeLibrary(); });
 
   /* ---- scroll spy: keep the nav highlighting the visible section ---------- */
   const spy = new IntersectionObserver((entries) => {

@@ -1521,14 +1521,21 @@
       document.querySelector('.topbar .spacer').after(writerChip);
     }
 
-    /* The cold-open video sequence — six atmospheric clips, played back-to-back,
-       narrated via caption text instead of audio. The clips are fixed assets in
-       products/aithera/assets/videos/; the caption narration is writer-authored
-       scenario content. */
-    const INTRO_SCENES = ACTIVE_SCENARIO.introCaptions.map((text, i) => ({
-      src: `../assets/videos/scene_${i + 1}.mp4`,
-      text: AitheraScenario.fill(text, ACTIVE_SCENARIO),
-    }));
+    /* The cold-open video sequence — writer-authored scenes (any count),
+       played back-to-back, narrated via caption text instead of audio. Each
+       scene is a video URL (a repo asset under products/aithera/assets/videos/
+       served by GitHub Pages, or any absolute URL) + its caption. A scenario
+       whose intro.type is 'story' or 'none' has no cold open on THIS page —
+       the begin button goes straight to the establishing card + coach. */
+    const HAS_VIDEO_INTRO = ACTIVE_SCENARIO.intro.type === 'video'
+      && (ACTIVE_SCENARIO.intro.video.scenes || []).some((s) => s && s.src);
+    const INTRO_SCENES = !HAS_VIDEO_INTRO ? [] :
+      ACTIVE_SCENARIO.intro.video.scenes
+        .filter((s) => s && s.src)
+        .map((s) => ({
+          src: AitheraScenario.fill(s.src, ACTIVE_SCENARIO),
+          text: AitheraScenario.fill(s.caption || '', ACTIVE_SCENARIO),
+        }));
 
     /* =====================================================================
        THE SYSTEM PROMPT (live mode) — compiled, not hand-written.
@@ -3033,7 +3040,10 @@ You didn't carry this alone, and you didn't ask her to either.` },
     continueCtaBtn.addEventListener('click', finishPractice);
     // Start bar: "Enter scenario" plays the cold-open in the stage; the video
     // itself is the transition into the AI coach, so there's no second tap.
-    startCtaBtn.addEventListener('click', enterVideoIntro);
+    // 'video' intro → the cold open IS the entry. 'story'/'none' → skip
+    // straight to the coach (the story variant has its own page; here the
+    // establishing card + coach opening carry the setup).
+    startCtaBtn.addEventListener('click', () => (HAS_VIDEO_INTRO ? enterVideoIntro() : startSession()));
 
     // The mode toggle: tap the inactive segment to switch states (delegated, as
     // the toggle is rebuilt on every render). Disabled segments don't fire.
