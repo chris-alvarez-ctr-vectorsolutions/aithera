@@ -24,6 +24,7 @@
     draft:     'aithera.writerStudio.draft.v1',      // studio autosave
     published: 'aithera.scenario.published.v1',      // what the live page reads
     workerUrl: 'aithera.writerStudio.workerUrl',     // playtest proxy URL
+    library:   'aithera.writerStudio.library.v1',    // named saved scenarios
   };
 
   /* =======================================================================
@@ -151,16 +152,60 @@
     // The coach's opening prep question (already on screen when the AI joins).
     openingQuestion: 'Before you decide what to do — take a moment. What\'s going through your head right now? What makes you nervous about approaching this?',
 
-    // Cold-open video captions — one per clip, played in order.
-    // (Video files themselves are fixed assets; writers author the narration.)
-    introCaptions: [
-      '{{character}} is your roommate — one of your closest friends and you both attend CU Boulder. She lost her grandmother, the woman who raised her, last fall and hasn\'t been the same since.',
-      'She\'s quiet, often alone...',
-      'You\'ve also noticed that she\'s barely coming to class. Her desk is empty most days.',
-      'Back in your dorm, you\'ve seen more and more bottles piling up on the floor.',
-      'And yesterday you found pills in her drawer you didn\'t recognize.',
-      'You know what could happen if she keeps mixing pills with alcohol. But you might be one of the only people she\'s close enough with to say something.',
-    ],
+    // THE INTRO MODULE — how the scene is set before the practice begins.
+    // type picks the experience; both sub-blocks stay authored so a writer
+    // can switch types without losing work.
+    //   'video' — cold-open clips with caption narration (With video Intro)
+    //   'story' — a written backstory the learner reads and free-highlights
+    //             (With story intro)
+    //   'none'  — straight to the establishing card (No intro)
+    intro: {
+      type: 'video',
+
+      // Each scene: a video URL + the caption read over it. Videos are plain
+      // repo assets served by GitHub Pages — put the file in
+      // products/aithera/assets/videos/ and reference it here, either
+      // relative to the experiment pages ('../assets/videos/my-clip.mp4')
+      // or as the full Pages URL. Any count of scenes works.
+      video: {
+        scenes: [
+          { src: '../assets/videos/scene_1.mp4', caption: '{{character}} is your roommate — one of your closest friends and you both attend CU Boulder. She lost her grandmother, the woman who raised her, last fall and hasn\'t been the same since.' },
+          { src: '../assets/videos/scene_2.mp4', caption: 'She\'s quiet, often alone...' },
+          { src: '../assets/videos/scene_3.mp4', caption: 'You\'ve also noticed that she\'s barely coming to class. Her desk is empty most days.' },
+          { src: '../assets/videos/scene_4.mp4', caption: 'Back in your dorm, you\'ve seen more and more bottles piling up on the floor.' },
+          { src: '../assets/videos/scene_5.mp4', caption: 'And yesterday you found pills in her drawer you didn\'t recognize.' },
+          { src: '../assets/videos/scene_6.mp4', caption: 'You know what could happen if she keeps mixing pills with alcohol. But you might be one of the only people she\'s close enough with to say something.' },
+        ],
+      },
+
+      // The written-backstory variant. keyMoments is the highlighting answer
+      // key: each phrase must appear VERBATIM in a paragraph (the coach
+      // reacts to which of these the learner caught or missed).
+      story: {
+        kicker: 'A friendship, under strain · a scenario',
+        headline: 'Two Empty Bottles',
+        instruction: 'Read what\'s brought you here — then select any words, phrases, or lines that feel most significant. Your AI coach will look at what you chose.',
+        paragraphs: [
+          '{{character}} has been your roommate since the first week of freshman year, when you ended up on the same dorm floor and never really stopped talking. Last fall she lost her Nona, the grandmother who raised her after her mom died when {{character}} was fourteen. You flew home with her for the funeral and held her hand through the whole service.',
+          'You told yourself the worst of it would ease with time, the way grief is supposed to. Midterms came and went. It didn\'t.',
+          'The bottles started around then — not the loud, party kind you\'re used to seeing on this campus, but something quieter: alone, most nights now, one on her desk on a Tuesday, three by Thursday, always after you\'ve already gone to bed.',
+          'Her seat in your shared 9 a.m. lecture has been empty more mornings than not. Last week, a Dean\'s letter showed up in her mailbox — the kind that means someone official is already keeping score.',
+          'Yesterday, digging through her nightstand drawer for a charger, you found a bottle of pills you didn\'t recognize, tucked behind a stack of old birthday cards. You didn\'t say anything. You still don\'t know what you would have said.',
+          'You know what it can mean to mix pills like that with the amount she\'s been drinking lately. You\'ve looked it up twice tonight already, hoping the second search would tell you something different than the first.',
+          'What scares you most isn\'t any single thing — it\'s how ordinary this has started to feel. The "I\'m fine" from the next room. The shape of her under a heap of blankets at four in the afternoon. Her eyes catching yours in the doorway, then just as quickly looking away.',
+          'You\'ve thought about calling someone else — an RA, a counselor, her mom\'s oldest friend — someone with the training you don\'t have and none of the fear you do. But you also know something they don\'t, standing here in the hallway: {{character}} let you back into this room tonight, when she hasn\'t let anyone else in for two weeks.',
+          'That\'s the part that keeps you standing here instead of turning around. You might be the only person she\'d let close enough right now to actually hear what she isn\'t saying.',
+        ],
+        keyMoments: [
+          { phrase: 'she lost her Nona, the grandmother who raised her after her mom died when {{character}} was fourteen.', label: 'losing her Nona' },
+          { phrase: 'alone, most nights now, one on her desk on a Tuesday, three by Thursday', label: 'the drinking — alone, escalating, most nights now' },
+          { phrase: 'a Dean\'s letter showed up in her mailbox', label: 'the Dean\'s letter' },
+          { phrase: 'you found a bottle of pills you didn\'t recognize', label: 'the pills you found' },
+          { phrase: 'mix pills like that with the amount she\'s been drinking lately', label: 'mixing those pills with how much she\'s been drinking' },
+          { phrase: 'the only person she\'d let close enough right now to actually hear what she isn\'t saying', label: 'that you might be the only person she\'d let close' },
+        ],
+      },
+    },
   };
 
   /* ---- locked crisis floor ---------------------------------------------
@@ -320,7 +365,7 @@
   function isValidScenario(s) {
     return !!(s && s.v === 1 && s.title && s.learnerName && s.characterName &&
       s.setup && Array.isArray(s.dimensions) && s.gate && s.coachVoice &&
-      s.completion && Array.isArray(s.introCaptions));
+      s.completion && (Array.isArray(s.introCaptions) || (s.intro && s.intro.type)));
   }
 
   // Fill fields added after a scenario was saved (schema is additive; v stays
@@ -333,7 +378,58 @@
     if (!Array.isArray(out.playbook)) out.playbook = clone(DEFAULT_SCENARIO.playbook);
     if (!out.resources || !Array.isArray(out.resources.items)) out.resources = clone(DEFAULT_SCENARIO.resources);
     if (!Array.isArray(out.references)) out.references = [];
+
+    // Intro-module migration: pre-intro scenarios carried a flat
+    // introCaptions[] (fixed six video assets). Rebuild that as
+    // intro.video.scenes; missing sub-blocks fill from the default so a
+    // writer can switch intro types without losing work.
+    if (!out.intro || !out.intro.type) {
+      const caps = Array.isArray(out.introCaptions) && out.introCaptions.length
+        ? out.introCaptions
+        : DEFAULT_SCENARIO.intro.video.scenes.map((sc) => sc.caption);
+      out.intro = clone(DEFAULT_SCENARIO.intro);
+      out.intro.video.scenes = caps.map((caption, i) => ({
+        src: `../assets/videos/scene_${i + 1}.mp4`, caption,
+      }));
+    } else {
+      if (!['video', 'story', 'none'].includes(out.intro.type)) out.intro.type = 'video';
+      if (!out.intro.video || !Array.isArray(out.intro.video.scenes)) out.intro.video = clone(DEFAULT_SCENARIO.intro.video);
+      if (!out.intro.story || !Array.isArray(out.intro.story.paragraphs)) out.intro.story = clone(DEFAULT_SCENARIO.intro.story);
+      if (!Array.isArray(out.intro.story.keyMoments)) out.intro.story.keyMoments = clone(DEFAULT_SCENARIO.intro.story.keyMoments);
+    }
+    // Legacy mirror so older readers of introCaptions keep working.
+    out.introCaptions = out.intro.video.scenes.map((sc) => sc.caption);
     return out;
+  }
+
+  /* ---- scenario library ---------------------------------------------------
+     Named saved scenarios (same-browser, like everything else here). Stored
+     as a map keyed by id: { [id]: { savedAt, scenario } }. */
+  function readLibrary() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.library)) || {}; }
+    catch (e) { return {}; }
+  }
+  function listLibrary() {
+    const lib = readLibrary();
+    return Object.keys(lib)
+      .map((id) => ({ id, savedAt: lib[id].savedAt, title: (lib[id].scenario || {}).title || '(untitled)' }))
+      .sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)));
+  }
+  function saveToLibrary(scenario, id) {
+    const lib = readLibrary();
+    const key = id || 'scn-' + Date.now().toString(36);
+    lib[key] = { savedAt: new Date().toISOString(), scenario };
+    localStorage.setItem(STORAGE_KEYS.library, JSON.stringify(lib));
+    return key;
+  }
+  function loadFromLibrary(id) {
+    const entry = readLibrary()[id];
+    return entry && isValidScenario(entry.scenario) ? normalize(entry.scenario) : null;
+  }
+  function removeFromLibrary(id) {
+    const lib = readLibrary();
+    delete lib[id];
+    localStorage.setItem(STORAGE_KEYS.library, JSON.stringify(lib));
   }
 
   // The live page calls this: a writer-published scenario, or null.
@@ -372,5 +468,9 @@
     loadPublished,
     publish,
     clearPublished,
+    listLibrary,
+    saveToLibrary,
+    loadFromLibrary,
+    removeFromLibrary,
   };
 })();
