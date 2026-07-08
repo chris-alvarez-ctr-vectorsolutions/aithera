@@ -155,6 +155,13 @@
     @media (max-width: 600px) {
         .yp-setup { font-size: 14px; }
     }
+
+    /* Visually hidden but screen-reader available (progress-dot status) */
+    .sr-only {
+        position: absolute; width: 1px; height: 1px;
+        padding: 0; margin: -1px; overflow: hidden;
+        clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
     </style>
 </head>
 <body>
@@ -224,6 +231,8 @@
                 <!-- guided phase: progress dots + Next -->
                 <div id="guidedControls">
                     <div class="yp-dots" id="dots" aria-hidden="true"></div>
+                    <!-- text equivalent of the decorative dots above -->
+                    <span class="sr-only" id="dotsStatus"></span>
                     <div class="yp-next-row">
                         <vaadin-button theme="primary" id="nextBtn">
                             Next
@@ -259,7 +268,9 @@
 
     <!-- ===== Fixed footer: instructions + navigation ===================== -->
     <footer class="lesson-footer">
-        <p class="lesson-instructions" id="instructions">
+        <!-- aria-live so each phase change (read along → your turn → finish)
+             is announced as the text swaps -->
+        <p class="lesson-instructions" id="instructions" aria-live="polite">
             Select Continue to open the conversation.
         </p>
         <div class="lesson-nav">
@@ -294,6 +305,7 @@
         const guidedControls = document.getElementById('guidedControls');
         const liveControls   = document.getElementById('liveControls');
         const dotsEl         = document.getElementById('dots');
+        const dotsStatus     = document.getElementById('dotsStatus');
         const nextBtn        = document.getElementById('nextBtn');
         const turnCue        = document.getElementById('turnCue');
         const input          = document.getElementById('composerInput');
@@ -400,6 +412,8 @@
                 d.className = 'yp-dot' + (i < revealed ? ' on' : '');
                 dotsEl.appendChild(d);
             }
+            // keep the screen-reader text equivalent in step with the dots
+            dotsStatus.textContent = 'Part ' + revealed + ' of ' + SCRIPT.length;
         }
 
         function revealNext() {
@@ -473,12 +487,16 @@
             });
             wrap.innerHTML =
                 '<div class="yp-wrap-eyebrow">Nice work</div>' +
-                '<h2>That’s how a new community starts.</h2>' +
+                '<h2 tabindex="-1">That’s how a new community starts.</h2>' +
                 '<p>You read the moment, kept it warm, and left room for the friendship no ' +
                 'matter how Friday night plays out. A few things worth carrying with you:</p>' +
                 '<div class="yp-takeaways">' + items + '</div>';
             thread.appendChild(wrap);
             thread.scrollTop = thread.scrollHeight;
+
+            // The composer just went disabled under the keyboard user — land
+            // focus on the wrap-up heading so the ending is read out.
+            wrap.querySelector('h2').focus();
 
             continueBtn.disabled = false;
             instructions.textContent = 'Great conversation — select Continue to move on.';

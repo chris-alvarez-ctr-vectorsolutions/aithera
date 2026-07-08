@@ -21,6 +21,15 @@
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
 
     <link rel="stylesheet" href="css/lesson.css?v=18" />
+
+    <style>
+        /* Visually hidden but available to screen readers (heading + live region) */
+        .sr-only {
+            position: absolute; width: 1px; height: 1px;
+            padding: 0; margin: -1px; overflow: hidden;
+            clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+        }
+    </style>
 </head>
 <body>
 
@@ -42,6 +51,7 @@
         <main class="lesson-body" id="main">
 
             <!-- Content type: Terms to Remember -->
+            <h1 class="sr-only">Terms to remember: Proof</h1>
             <p class="terms-eyebrow">
                 <i class="fa-solid fa-bookmark"></i> Remember this term
             </p>
@@ -49,10 +59,11 @@
             <button class="term-card" id="termCard" aria-pressed="false"
                     aria-label="Flip card to reveal the definition of Proof">
                 <div class="term-card-inner">
-                    <div class="term-face term-front">
+                    <div class="term-face term-front" aria-hidden="false">
                         <span class="term-word">Proof</span>
                     </div>
-                    <div class="term-face term-back">
+                    <!-- The back face stays hidden from screen readers until the flip -->
+                    <div class="term-face term-back" aria-hidden="true">
                         <p class="term-back-word">Proof</p>
                         <p class="term-back-def">
                             A measure of how much alcohol (ethanol) a spirit contains. In the U.S.,
@@ -81,7 +92,7 @@
 
     <!-- ===== Fixed footer: instructions + navigation ===================== -->
     <footer class="lesson-footer">
-        <p class="lesson-instructions" id="instructions">
+        <p class="lesson-instructions" id="instructions" aria-live="polite">
             Read the term, then flip the card to reveal its definition before continuing.
         </p>
         <div class="lesson-nav">
@@ -90,6 +101,9 @@
         </div>
     </footer>
 
+    <!-- Polite live region: announces the revealed definition on first flip -->
+    <p class="sr-only" id="defAnnounce" aria-live="polite"></p>
+
     <script src="js/lesson.js?v=5"></script>
     <script>
         // ---- Card flip ---------------------------------------------------
@@ -97,11 +111,18 @@
         const askBtn      = document.getElementById('askBtn');
         const continueBtn = document.getElementById('continueBtn');
         const instructions = document.getElementById('instructions');
+        const frontFace   = card.querySelector('.term-front');
+        const backFace    = card.querySelector('.term-back');
+        const defAnnounce = document.getElementById('defAnnounce');
         let hasFlipped = false;
 
         card.addEventListener('click', () => {
             const flipped = card.classList.toggle('flipped');
             card.setAttribute('aria-pressed', flipped ? 'true' : 'false');
+
+            // Only the visible face is exposed to screen readers.
+            frontFace.setAttribute('aria-hidden', flipped ? 'true' : 'false');
+            backFace.setAttribute('aria-hidden', flipped ? 'false' : 'true');
 
             // First reveal unlocks Continue + the "Ask about this" affordance.
             if (flipped && !hasFlipped) {
@@ -110,6 +131,9 @@
                 continueBtn.disabled = false;
                 instructions.textContent =
                     'Nice — you can continue now, or ask the AI helper to go deeper on this term.';
+                // Read the definition out through the live region for reliability.
+                defAnnounce.textContent =
+                    'Proof: ' + backFace.querySelector('.term-back-def').textContent.replace(/\s+/g, ' ').trim();
             }
         });
 

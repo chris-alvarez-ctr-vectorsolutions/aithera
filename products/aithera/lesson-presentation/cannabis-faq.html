@@ -208,16 +208,16 @@
         border: 0;
         border-radius: 10px;
         padding: 11px 18px;
-        background: var(--accent);
+        background: var(--accent-strong);   /* strong for 4.5:1 with white */
         color: #fff;
         font: inherit;
         font-size: 14px;
         font-weight: 600;
         cursor: pointer;
-        transition: background .15s ease;
+        transition: filter .15s ease;
         white-space: nowrap;
       }
-      .faq-guess-btn:hover:not(:disabled) { background: var(--accent-strong); }
+      .faq-guess-btn:hover:not(:disabled) { filter: brightness(1.12); }
       .faq-guess-btn:disabled { background: var(--ink-faint); cursor: default; }
       .faq-guess-hint { margin: 10px 0 0; font-size: 12px; color: var(--ink-faint); }
 
@@ -266,9 +266,17 @@
       .faq-answer-opener { margin: 0 0 8px; font-size: 15px; font-weight: 700; color: var(--ink); line-height: 1.5; }
       .faq-answer-fact { margin: 0; font-size: 15px; line-height: 1.6; color: var(--ink-soft); }
       .faq-answer.in { animation: faq-rise .45s cubic-bezier(.2, .7, .2, 1) both; }
+      .faq-answer:focus { outline: none; }   /* programmatic focus target, not a control */
       @keyframes faq-rise {
         from { opacity: 0; transform: translateY(8px); }
         to   { opacity: 1; transform: none; }
+      }
+
+      /* Visually hidden, screen-reader only (the live status region) */
+      .sr-only {
+        position: absolute; width: 1px; height: 1px;
+        padding: 0; margin: -1px; overflow: hidden;
+        clip: rect(0 0 0 0); white-space: nowrap; border: 0;
       }
     </style>
 </head>
@@ -322,7 +330,7 @@
                 <p class="disc-eyebrow">
                     <i class="fa-solid fa-circle-question"></i> Cannabis FAQ
                 </p>
-                <h1 class="disc-prompt">Answer each one your way.</h1>
+                <h2 class="disc-prompt">Answer each one your way.</h2>
                 <p class="disc-lead" id="faqLead">Take a guess, then open it up to see how you did.</p>
 
                 <div class="faq-accordion" id="faqAccordion"></div>
@@ -330,6 +338,9 @@
 
         </main>
     </div>
+
+    <!-- Polite live region: announces answer reveals for screen readers -->
+    <span class="sr-only" id="faqStatus" aria-live="polite"></span>
 
     <!-- ===== Fixed footer: instructions + navigation ===================== -->
     <footer class="lesson-footer">
@@ -384,6 +395,13 @@
         const continueBtn  = document.getElementById('continueBtn');
         const backBtn      = document.getElementById('backBtn');
         const instructions = document.getElementById('instructions');
+        const faqStatus    = document.getElementById('faqStatus');
+
+        // Screen-reader announcements (clear first so repeats re-announce).
+        function announce(msg) {
+            faqStatus.textContent = '';
+            setTimeout(() => { faqStatus.textContent = msg; }, 30);
+        }
 
         // ----- Stamp the personalized intro copy ------------------------------
         document.getElementById('personalChip').innerHTML =
@@ -566,9 +584,11 @@
             const header = document.createElement('button');
             header.type = 'button';
             header.className = 'faq-item-header';
+            header.id = 'faqHeader' + i;
             header.setAttribute('aria-expanded', 'false');
+            header.setAttribute('aria-controls', 'faqPanel' + i);
             header.innerHTML =
-                '<span class="faq-item-q">' + item.question + '</span>' +
+                '<span class="faq-item-q" id="faqQ' + i + '">' + item.question + '</span>' +
                 '<span class="faq-item-status">' +
                     '<span class="faq-item-check"><i class="fa-solid fa-check"></i></span>' +
                     '<i class="fa-solid fa-chevron-down faq-item-chevron"></i>' +
@@ -576,6 +596,9 @@
 
             const panel = document.createElement('div');
             panel.className = 'faq-item-panel';
+            panel.id = 'faqPanel' + i;
+            panel.setAttribute('role', 'region');
+            panel.setAttribute('aria-labelledby', 'faqHeader' + i);
             const panelInner = document.createElement('div');
             panelInner.className = 'faq-item-panel-inner';
             panel.appendChild(panelInner);
@@ -609,7 +632,8 @@
             panelInner.innerHTML =
                 '<p class="faq-guess-prompt">' + prompt + '</p>' +
                 '<div class="faq-guess-row">' +
-                    '<input type="text" class="faq-guess-input" placeholder="' + item.placeholder + '" aria-label="Your answer">' +
+                    '<input type="text" class="faq-guess-input" placeholder="' + item.placeholder + '"' +
+                        ' aria-labelledby="faqQ' + i + '" aria-label="Your answer">' +
                     '<button type="button" class="faq-guess-btn" disabled>' + (item.cta || 'Reveal answer') + '</button>' +
                 '</div>' +
                 '<p class="faq-guess-hint">' + hint + '</p>';
@@ -634,6 +658,8 @@
             if (!value || revealed[i]) return;
 
             const label = item === IAQ ? 'Finding your answer…' : 'Personalizing your answer…';
+            const panelEl = panelInner.closest('.faq-item-panel');
+            panelEl.setAttribute('aria-busy', 'true');   // panel content is mid-swap
             panelInner.innerHTML =
                 '<div class="faq-thinking">' +
                     '<span class="faq-thinking-label"><i class="fa-solid fa-wand-magic-sparkles"></i>' + label + '</span>' +
@@ -666,16 +692,22 @@
                 }
 
                 panelInner.innerHTML =
-                    '<div class="faq-answer in">' +
+                    '<div class="faq-answer in" tabindex="-1">' +
                         '<p class="faq-answer-tag"><i class="fa-solid fa-wand-magic-sparkles"></i> ' +
                             (item === IAQ ? 'Answered just for you' : 'Personalized based on your answer') +
                         '</p>' +
                         openerHtml +
                         '<p class="faq-answer-fact">' + factHtml + '</p>' +
                     '</div>';
+                panelEl.removeAttribute('aria-busy');
 
                 const itemEl = panelInner.closest('.faq-item');
                 itemEl.classList.add('is-revealed');
+
+                // Tell screen readers, and move focus onto the revealed answer.
+                announce('Answer revealed.');
+                const answerEl = panelInner.querySelector('.faq-answer');
+                if (answerEl) answerEl.focus();
 
                 updateProgress();
             }, delay);
