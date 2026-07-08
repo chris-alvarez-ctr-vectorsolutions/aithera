@@ -146,7 +146,9 @@ The bottom-center **toolbox pill** and its **🗺 Flow Map button are review/han
 
 ### Step 5 — Dashboard (automatic)
 
-No manual dashboard edit is needed. On push, `scripts/build-dashboards.js` detects `dev_handoff.html` and flips the product-dashboard card to **Ready for Dev**: the **Dev Page + Dev HTML (GitHub) links render first** with a **"View Dev Build"** primary button, and the **original design links collapse into a "Designer file" drawer**. (For a non-default filename like `dev_handoff_alpha.html`, set `devHandoff: "dev_handoff_alpha.html"` in the mock's `meta.json` entry.)
+No manual dashboard edit is needed. On push, `scripts/build-dashboards.js` detects `dev_handoff.html` and flips the product-dashboard card to **Ready for Dev**: the card's **status pill updates to "Ready for Dev"**, the **Dev Page + Dev HTML (GitHub) links render first** with a **"View Dev Build"** primary button, and the **original design links collapse into a "Designer file" drawer**. (For a non-default filename like `dev_handoff_alpha.html`, set `devHandoff: "dev_handoff_alpha.html"` in the mock's `meta.json` entry.)
+
+The dev-handoff file **drives the "Ready for Dev" status pill** — so at handoff either leave the mock's `status` unset in `meta.json` (the file alone flips it) or set `"status": "ready-for-dev"` explicitly. Don't leave a stale `status` like `"in-progress"` pinned, or the pill won't update to Ready for Dev.
 
 ### Step 6 — Commit and share
 

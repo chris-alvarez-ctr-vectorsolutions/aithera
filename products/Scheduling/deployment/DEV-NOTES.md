@@ -20,11 +20,12 @@ pill hidden, comments off, and the flow map on.
 `<script src="../../../designtoolbox/toolbox.js">` include** (and the `window.TOOLBOX` line
 above it). None of that dock/flow-map UI is part of the deployment design.
 
-**Dashboard status is automatic.** Because `dev_handoff.html` exists next to `index.html`,
-`scripts/build-dashboards.js` flips this mock's Scheduling-dashboard card to **Ready for Dev**
-on every push — the **Dev Page + Dev HTML links lead** (with a "View Dev Build" button) and the
-original designer file collapses into a "Designer file" drawer. **No manual dashboard/meta.json
-edit is needed** — creating `dev_handoff.html` and pushing is what marks it Ready for Dev.
+**Dashboard status → "Ready for Dev".** Because `dev_handoff.html` exists next to `index.html`,
+this mock's Scheduling-dashboard card shows the **"Ready for Dev" status pill**, the **Dev Page +
+Dev HTML links lead** (with a "View Dev Build" button), and the original designer file collapses
+into a "Designer file" drawer. The dev-handoff file **drives that status** — the mock's
+`meta.json` `status` is `ready-for-dev` (leaving it unset would also work; just don't pin a stale
+`in-progress`). Creating `dev_handoff.html` + pushing is what marks it Ready for Dev.
 
 **Stripped in the dev build only (master keeps them):** the **Templates** feature and the
 **"Save as reusable template"** controls (checkbox in the builder + "Save as template" on a
