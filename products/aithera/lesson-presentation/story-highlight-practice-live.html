@@ -1,0 +1,3398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Story Highlight Practice — Conversation Coach (Live AI)</title>
+
+    <!-- Vector Web Components: Core -->
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+
+    <!-- Vector Web Components: Themes (import as plain script) -->
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+
+    <!-- Open Sans -->
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+    <!-- ====================================================================
+         STORY HIGHLIGHT PRACTICE — a variant of Action Practice that sets the
+         scene with a short READ + HIGHLIGHT beat instead of a cold-open video:
+
+           STORY     — the backstory as an actual magazine-style page the
+                       learner reads and free-highlights (drag-select ANY
+                       words/phrases/lines, like a real highlighter — not
+                       locked to whole sentences). Its own always-paper world,
+                       the same way SCENE is always dark, so it never reads as
+                       coaching chrome or a floating card.
+           COACHING  — the AI Coach reviews what got highlighted (and what
+                       didn't) in a couple of quick turns, then invites the
+                       learner in. Cool indigo.
+           SCENE     — the warm, dark, immersive stage the learner steps INTO
+                       to speak lines to a character (Kendra). Warm amber + violet.
+
+         The practice scene is the persistent base layer once entered. Coaching
+         does not swap it out — the AI Coach is a bottom sheet that rises over
+         the scene (which stays visible, dimmed, above it) and lowers to hand
+         the scene back. The full practice stays scrollable, so it's always
+         the reviewable record.
+
+         Self-contained vanilla JS render-by-state (no framework, no build, no
+         storage). Runs in DEMO mode by default (scripted engine that mirrors the
+         real loop and enforces the safety escalation beat); point WORKER_URL at a
+         proxy Worker to talk to live Claude. Theming via CSS variables.
+         ==================================================================== */ -->
+    <style>
+      /* ===================================================================
+         1. TOKENS  — coaching world is theme-aware; scene world is always a
+            dark "stage" so the two modes never look alike.
+         =================================================================== */
+      :root {
+        color-scheme: light dark;
+
+        /* —— Coaching world (light theme defaults) —— */
+        --c-bg:          #f5f7fb;
+        --c-surface:     #ffffff;
+        --c-surface-2:   #eef1f7;
+        --c-ink:         #1a2030;
+        --c-ink-soft:    #5a6379;
+        --c-ink-faint:   #67718a;   /* darkened for ≥4.5:1 contrast on the light surfaces */
+        --c-line:        #e3e7f0;
+        --c-accent:      #4b63e6;   /* indigo — the coach */
+        --c-accent-strong:#3a4fce;
+        --c-accent-soft: #eef1fe;
+        --c-on-accent:   #ffffff;
+
+        /* —— Scene world (constant across themes: a lit set in a dark room) —— */
+        --s-ink:         #f3ede5;
+        --s-ink-soft:    #c3b6a8;
+        --s-ink-faint:   #8d8175;
+        --s-surface:     #211a16;   /* stage panel */
+        --s-surface-2:   #2c241e;
+        --s-line:        #43372e;
+        --s-char:        #c79bff;   /* the character — violet */
+        --s-char-soft:   rgba(199,155,255,.16);
+        --s-you:         #f1b34a;   /* your spoken voice — warm amber */
+        --s-you-soft:    rgba(241,179,74,.16);
+        --s-you-ink:     #2a1d08;   /* readable ink on the amber bubble */
+
+        /* The scene's atmospheric paint — shared by the live stage AND the
+           "stepping in" overlay so the overlay dissolves seamlessly into it. */
+        --scene-paint:
+          radial-gradient(120% 80% at 80% 0%, rgba(241,179,74,.10), transparent 60%),
+          radial-gradient(120% 90% at 10% 100%, rgba(199,155,255,.10), transparent 55%),
+          linear-gradient(170deg, #1a1410 0%, #120d0a 100%);
+
+        /* —— Story world (constant across themes, like the scene world: an
+           actual printed page, not UI chrome). A warm parchment, not either
+           the coaching white or the scene's dark stage. —— */
+        --story-paper:    #f4eedd;
+        --story-ink:      #2b2417;
+        --story-ink-soft: #6b6151;
+        --story-ink-faint:#6e6350;  /* darkened for ≥4.5:1 contrast on the parchment */
+        --story-rule:     #ddd1b2;
+        --story-serif:    Georgia, 'Times New Roman', serif;
+        --story-mark:     #ffd75e;
+        --story-mark-hover:#ffc933;
+        --story-mark-ink: #3a2c00;
+
+        --radius:   16px;
+        --radius-sm:10px;
+        --shadow-sm: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.10);
+        --shadow-md: 0 6px 18px rgba(16,24,40,.12), 0 2px 6px rgba(16,24,40,.07);
+        --shadow-lg: 0 18px 48px rgba(8,10,20,.28);
+        --ease: cubic-bezier(.4, 0, .2, 1);
+
+        --topbar-h: 52px;
+        --input-h:  84px;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --c-bg:          #0c0f17;
+          --c-surface:     #161b27;
+          --c-surface-2:   #1e2433;
+          --c-ink:         #e9ecf4;
+          --c-ink-soft:    #9aa3b8;
+          --c-ink-faint:   #6b7488;
+          --c-line:        #29303f;
+          --c-accent:      #8092ff;
+          --c-accent-strong:#9aa8ff;
+          --c-accent-soft: #1b2236;
+          --c-on-accent:   #0c0f17;
+          --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+          --shadow-md: 0 6px 18px rgba(0,0,0,.45);
+          --shadow-lg: 0 18px 48px rgba(0,0,0,.6);
+        }
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        font-family: 'Open Sans', system-ui, sans-serif;
+        background: var(--c-bg);
+        color: var(--c-ink);
+        -webkit-font-smoothing: antialiased;
+        overflow: hidden;        /* the stage / panels own their own scroll */
+      }
+      button { font-family: inherit; }
+
+      /* Visually-hidden but screen-reader available (the aria-live region) */
+      .sr-only {
+        position: absolute; width: 1px; height: 1px;
+        padding: 0; margin: -1px; overflow: hidden;
+        clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+      }
+
+      /* ===================================================================
+         2. APP SHELL
+         =================================================================== */
+      .app {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* —— Top bar (slim, so the experience stays immersive) —— */
+      .topbar {
+        flex: 0 0 auto;
+        height: var(--topbar-h);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 16px;
+        background: var(--c-surface);
+        border-bottom: 1px solid var(--c-line);
+        z-index: 60;
+      }
+      .topbar .brand {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        flex: 0 0 auto;   /* keep the wordmark intact; let the scenario ellipsize instead */
+      }
+      /* Product wordmark — a plain mark, NOT a filled pill, so it doesn't read
+         as a twin of the "Coaching" toggle segment below it. */
+      .topbar .brand .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--c-ink);
+        font-size: 13.5px;
+        font-weight: 700;
+        letter-spacing: .01em;
+        white-space: nowrap;
+      }
+      .topbar .brand .badge i { color: var(--c-accent); font-size: 13px; }
+      .topbar .scenario {
+        font-size: 13px;
+        color: var(--c-ink-faint);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+      }
+      /* a hairline divider sets the scenario apart from the wordmark */
+      .topbar .scenario::before {
+        content: "";
+        display: inline-block;
+        width: 1px;
+        height: 15px;
+        margin-right: 12px;
+        background: var(--c-line);
+        vertical-align: -2px;
+      }
+      .topbar .spacer { flex: 1 1 auto; }
+      .topbar .tb-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        height: 34px;
+        padding: 0 13px;
+        border: 1px solid var(--c-line);
+        border-radius: 9px;
+        background: var(--c-surface);
+        color: var(--c-ink-soft);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: border-color .15s var(--ease), color .15s var(--ease);
+      }
+      .topbar .tb-btn:hover { border-color: var(--c-accent); color: var(--c-ink); }
+      .topbar .tb-btn i { font-size: 12px; }
+      @media (max-width: 560px) {
+        .topbar .scenario { display: none; }
+        .topbar .tb-btn .label { display: none; }
+        .topbar .tb-btn { padding: 0 10px; }
+      }
+
+      /* —— The viewport that holds the mode indicator + the live stage —— */
+      .viewport {
+        flex: 1 1 auto;
+        position: relative;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ===================================================================
+         3. MODE INDICATOR  — persistent; the single source of "where am I"
+         =================================================================== */
+      .mode-indicator {
+        flex: 0 0 auto;
+        position: relative;
+        z-index: 56;            /* stays above the pause scrim so the toggle stays tappable */
+        display: flex;
+        align-items: center;
+        justify-content: center;   /* the toggle is centered on the page */
+        gap: 12px;
+        padding: 9px 16px;
+        font-size: 12px;
+        /* sits on the CONTENT background (not chrome surface) so it reads as the
+           practice's status strip rather than a second top bar */
+        background: var(--c-bg);
+        border-bottom: 1px solid var(--c-line);
+        color: var(--c-ink-soft);
+        max-height: 64px;
+        overflow: hidden;
+        transition: background .2s var(--ease), color .2s var(--ease), border-color .2s var(--ease),
+                    max-height .45s var(--ease), opacity .4s var(--ease), padding .45s var(--ease),
+                    transform .45s var(--ease);
+      }
+      /* Withheld until the learner is past the establishing card / cold-open video
+         — the Learn|Practice choice isn't meaningful before then. Drops down and
+         fades in once the AI coach actually begins. */
+      .mode-indicator.is-hidden {
+        max-height: 0;
+        opacity: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        border-bottom-color: transparent;
+        transform: translateY(-10px);
+        pointer-events: none;
+      }
+
+      /* Segmented "Learn | Practice" toggle — both shown, one active,
+         tap the inactive one to switch states. */
+      .mode-toggle {
+        display: inline-flex;
+        padding: 3px;
+        gap: 3px;
+        border-radius: 999px;
+        background: var(--c-surface-2);
+        border: 1px solid var(--c-line);
+      }
+      .seg {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 13px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--c-ink-soft);
+        font: inherit;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .02em;
+        cursor: pointer;
+        transition: background .18s var(--ease), color .18s var(--ease), opacity .18s var(--ease);
+      }
+      .seg i { font-size: 11px; }
+      .seg:hover:not(.active):not([disabled]) { color: var(--c-ink); background: var(--c-surface); }
+      .seg.active { background: var(--c-accent); color: var(--c-on-accent); box-shadow: var(--shadow-sm); cursor: default; }
+      .seg[disabled] { opacity: .38; cursor: default; }
+      .seg:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--c-accent-soft); }
+
+      /* scene look — warm, on the dark stage chrome */
+      .app[data-mode="scene"] .mode-indicator {
+        background: #15100c;
+        border-bottom-color: #2c2118;
+        color: var(--s-ink-soft);
+      }
+      .app[data-mode="scene"] .mode-toggle { background: #221a13; border-color: #3a2f28; }
+      .app[data-mode="scene"] .seg { color: var(--s-ink-soft); }
+      .app[data-mode="scene"] .seg:hover:not(.active):not([disabled]) { color: var(--s-ink); background: rgba(255,255,255,.06); }
+      .app[data-mode="scene"] .seg.active { background: var(--s-you); color: var(--s-you-ink); }
+      .app[data-mode="scene"] .seg:focus-visible { box-shadow: 0 0 0 3px var(--s-you-soft); }
+
+      /* ===================================================================
+         4. THE STAGE  — the live "current beat" canvas
+         =================================================================== */
+      .stage {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        position: relative;
+        transition: filter .2s var(--ease), opacity .2s var(--ease);
+      }
+      .stage-inner {
+        position: relative;   /* sit above the two backdrop layers below */
+        z-index: 1;
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 24px 18px 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-height: 100%;
+      }
+
+      /* When the coach sheet is up, the practice peek behind it is frozen with a
+         light blur; the scrim (over the top) does the dimming, so no brightness
+         here (avoids double-darkening). */
+      .stage.is-frozen {
+        filter: blur(2.5px);
+        pointer-events: none;
+        user-select: none;
+      }
+
+      /* The stage's mood — scene (warm, dark) vs. story (paper) — CROSSFADES
+         rather than snapping. Two full-bleed layers stacked behind the
+         content; toggling .is-story fades one out and the other in, so the
+         backdrop shift reads as ambient lighting change, not a hard repaint.
+
+         These are anchored to .stage-inner, NOT .stage, and deliberately:
+         .stage is the scroll container, so its OWN box height is just the
+         visible viewport slice — an inset:0 layer there stops at that slice
+         and leaves bare "nothing" below once you scroll a tall page (the bug
+         this replaced). .stage-inner instead grows to the FULL content height
+         (it's not itself clipped), so top:0/bottom:0 here always spans the
+         whole scrollable page. Because .stage-inner is also the centered,
+         width-capped content column, these break back out to full viewport
+         width via the left:50%/100vw/translateX(-50%) "full-bleed child"
+         trick, rather than being capped to the 720px column. */
+      .stage-inner::before, .stage-inner::after {
+        content: '';
+        position: absolute;
+        top: 0; bottom: 0;
+        left: 50%;
+        width: 100vw;
+        transform: translateX(-50%);
+        z-index: -1;    /* .stage-inner's z-index:1 makes it a stacking context, so -1 sits behind its real (unpositioned) children without THEM needing z-index */
+        transition: opacity .6s var(--ease);
+      }
+      .stage-inner::before { background: var(--scene-paint); opacity: 1; }
+      .stage-inner::after  { background: var(--story-paper); opacity: 0; }
+      .stage.is-story .stage-inner::before { opacity: 0; }
+      .stage.is-story .stage-inner::after  { opacity: 1; }
+
+      /* —— Establishing card — the practice base before the scene begins.
+         Anchors the learner to what they're about to practice while the coach
+         sheet preps them above it. */
+      .establishing {
+        margin: auto;             /* centered in the stage — the scene anchor on landing */
+        max-width: 460px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 24px 24px;
+      }
+      .est-eyebrow {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .18em;
+        text-transform: uppercase;
+        color: var(--s-ink-faint);
+      }
+      .est-title {
+        margin: 0;
+        font-size: clamp(22px, 4.2vw, 30px);
+        font-weight: 700;
+        letter-spacing: -.01em;
+        color: var(--s-ink);
+      }
+      .est-sub {
+        margin: 0;
+        font-size: 15px;
+        line-height: 1.6;
+        color: var(--s-ink-soft);
+      }
+      /* "Step into the scene" — the learner-triggered entry CTA. Wears the scene's
+         warm amber so it previews the destination. It TAKES OVER the input bar
+         once the AI coach invites you in (rather than adding a second interaction
+         area in the thread); the scene never auto-advances. */
+      .enter-cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 11px;
+        padding: 13px 22px;
+        border: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--s-you), #e3a02f);
+        color: var(--s-you-ink);
+        font: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 6px 18px rgba(241,179,74,.26);
+        transition: filter .15s var(--ease), transform .1s var(--ease);
+      }
+      .enter-cta:hover { filter: brightness(1.05); }
+      .enter-cta:active { transform: scale(.98); }
+      .enter-cta:focus-visible { outline: none; box-shadow: 0 6px 18px rgba(241,179,74,.26), 0 0 0 3px var(--s-you-soft); }
+      .enter-cta .arrow { transition: transform .15s var(--ease); }
+      .enter-cta:hover .arrow { transform: translateX(3px); }
+
+      /* —— The story page — a real reading world, the same way SCENE is a real
+         stage: it owns the whole viewport (the stage's backdrop crossfades to
+         paper via .stage-inner::after above) rather than floating as a card on
+         top of the scene's dark backdrop, which read as a coaching artifact.
+         No card border/shadow — the paper IS the background, like the video
+         intro in Action Practice owned the whole stage while it played.
+         Prose is LEFT-aligned at a capped measure (never centered multi-line
+         text — that reads worse the longer it runs). —— */
+      .story-page {
+        margin: 0 auto;
+        width: 100%;
+        max-width: 720px;
+        padding: 12px 6px 8px;
+      }
+      /* Masthead row — kicker on the left, a quiet read-time chip on the
+         right, the same editorial convention as a magazine's section tag +
+         "part / min read" line. */
+      .story-topline {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 14px;
+        margin: 0 0 10px;
+      }
+      .story-kicker {
+        font-family: 'Open Sans', system-ui, sans-serif;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .18em;
+        text-transform: uppercase;
+        color: var(--story-ink-faint);
+      }
+      .story-meta {
+        flex: 0 0 auto;
+        font-family: 'Open Sans', system-ui, sans-serif;
+        font-size: 11px;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+        color: var(--story-ink-faint);
+        white-space: nowrap;
+      }
+      .story-headline {
+        margin: 0 0 12px;
+        font-family: var(--story-serif);
+        font-size: clamp(28px, 5.4vw, 42px);
+        line-height: 1.08;
+        font-weight: 700;
+        letter-spacing: -.01em;
+        color: var(--story-ink);
+      }
+      .story-dek {
+        margin: 0 0 22px;
+        max-width: 58ch;
+        font-family: var(--story-serif);
+        font-style: italic;
+        font-size: 17px;
+        line-height: 1.55;
+        color: var(--story-ink-soft);
+      }
+      .story-dek b { font-style: normal; font-weight: 700; color: var(--story-ink); }
+      .story-hr {
+        border: 0;
+        border-top: 1px solid var(--story-rule);
+        margin: 0 0 26px;
+      }
+      /* the passage itself — capped measure, left-aligned prose, serif body */
+      .story-passage {
+        max-width: 62ch;
+        font-family: var(--story-serif);
+        font-size: 19px;
+        line-height: 1.7;
+        color: var(--story-ink);
+      }
+      .story-passage p { margin: 0 0 20px; }
+      .story-passage p:last-child { margin-bottom: 0; }
+      /* a classic magazine drop cap opens the piece */
+      .story-passage p:first-of-type::first-letter {
+        font-size: 3.2em;
+        line-height: .78;
+        font-weight: 700;
+        float: left;
+        padding: 3px 7px 0 0;
+        color: var(--story-ink);
+      }
+      /* Free-range highlight marks — any selected text, not whole sentences.
+         A highlighter-yellow wash, deliberately NOT the coaching indigo or
+         scene amber, so a highlight reads as the learner's OWN mark. Tap a
+         mark again to remove it (that's the only thing a click here does —
+         placing/selecting text is otherwise native browser selection). */
+      mark.hl-mark {
+        background: var(--story-mark);
+        color: var(--story-mark-ink);
+        border-radius: 2px;
+        padding: .03em 1px;
+        cursor: pointer;
+        box-shadow: 0 0 0 1px rgba(155, 110, 0, .3);
+      }
+      mark.hl-mark:hover { background: var(--story-mark-hover); }
+      mark.hl-mark:focus-visible { outline: 2px solid #7a5200; outline-offset: 1px; }
+      ::selection { background: rgba(255, 213, 79, .55); }
+      .story-hint {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 30px;
+        padding-top: 16px;
+        border-top: 1px solid var(--story-rule);
+        font-family: 'Open Sans', system-ui, sans-serif;
+        font-size: 12.5px;
+        color: var(--story-ink-faint);
+      }
+      .story-hint b { color: #8a6200; font-size: 13px; }
+
+      /* ===================================================================
+         5. MESSAGES — coaching world
+         =================================================================== */
+      /* Coach message: avatar + label + bubble (out-of-fiction) */
+      .coach-msg { display: flex; gap: 11px; align-items: flex-start; max-width: 78%; }
+      .coach-avatar {
+        flex: 0 0 auto;
+        width: 34px; height: 34px;
+        border-radius: 50%;
+        display: grid; place-items: center;
+        background: linear-gradient(135deg, var(--c-accent), var(--c-accent-strong));
+        color: #fff;
+        font-size: 14px;
+        box-shadow: var(--shadow-sm);
+      }
+      .coach-body { min-width: 0; }
+      .coach-label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--c-ink-faint);
+        margin: 3px 0 5px;
+      }
+      .coach-bubble {
+        background: var(--c-surface);
+        border: 1px solid var(--c-line);
+        border-radius: 4px 16px 16px 16px;
+        padding: 12px 15px;
+        font-size: 15px;
+        line-height: 1.55;
+        color: var(--c-ink);
+        white-space: pre-wrap;
+        box-shadow: var(--shadow-sm);
+      }
+
+      /* Your coaching reply: right-aligned accent bubble */
+      .you-coach { display: flex; flex-direction: column; align-items: flex-end; max-width: 78%; margin-left: auto; }
+      .you-coach .cap {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--c-ink-faint);
+        margin: 0 2px 5px 0;
+      }
+      .you-coach .bubble {
+        background: var(--c-accent);
+        color: var(--c-on-accent);
+        border-radius: 16px 4px 16px 16px;
+        padding: 11px 15px;
+        font-size: 15px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        box-shadow: var(--shadow-sm);
+      }
+
+      /* —— Highlight recap card — the learner's own highlights, restated in
+         the coach panel so the coach visibly "saw" the same thing the
+         learner selected. The mark swatch reuses --story-mark (the exact
+         highlighter color from the story page) as the connective thread. —— */
+      .you-highlights { display: flex; flex-direction: column; align-items: flex-end; max-width: 82%; margin-left: auto; }
+      .you-highlights .cap {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+        color: var(--c-ink-faint);
+        margin: 0 2px 5px 0;
+      }
+      .you-highlights .cap i { color: #b98600; font-size: 11px; }
+      .you-highlights .list {
+        background: var(--c-surface);
+        border: 1px solid var(--c-line);
+        border-radius: 16px 4px 16px 16px;
+        padding: 10px 13px;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        box-shadow: var(--shadow-sm);
+      }
+      .you-highlights .item { display: flex; align-items: flex-start; gap: 8px; text-align: left; }
+      .you-highlights .item .mark {
+        flex: 0 0 auto;
+        width: 10px; height: 10px;
+        margin-top: 4px;
+        border-radius: 2px;
+        background: var(--story-mark);
+        box-shadow: 0 0 0 1px rgba(155, 110, 0, .3);
+      }
+      .you-highlights .item .text {
+        font-size: 13.5px;
+        line-height: 1.45;
+        color: var(--c-ink);
+      }
+
+      /* ===================================================================
+         6. STAGE CARD  — wraps a contiguous run of SCENE messages.
+            Bordered, recessed; reads as a continuous stage.
+         =================================================================== */
+      .stage-card {
+        position: relative;
+        background: linear-gradient(180deg, rgba(0,0,0,.18), rgba(0,0,0,.30));
+        border: 1px solid var(--s-line);
+        border-radius: var(--radius);
+        padding: 16px 16px 18px;
+        box-shadow: inset 0 2px 18px rgba(0,0,0,.45);
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .stage-card .scene-tag {
+        position: absolute;
+        top: -9px; left: 16px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 10px;
+        border-radius: 999px;
+        background: var(--s-surface-2);
+        border: 1px solid var(--s-line);
+        color: var(--s-ink-soft);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
+      .stage-card .scene-tag i { color: var(--s-you); font-size: 9px; }
+
+      /* Character line: avatar + name + state chip; optional narration; bubble */
+      .char-line { display: flex; gap: 11px; align-items: flex-start; max-width: 78%; }
+      .char-avatar {
+        flex: 0 0 auto;
+        width: 36px; height: 36px;
+        border-radius: 50%;
+        display: grid; place-items: center;
+        background: linear-gradient(135deg, #7c5bb0, #c79bff);
+        color: #fff;
+        font-size: 15px;
+        font-weight: 700;
+      }
+      /* don't grow to fill the row — let the bubble hug its text (capped by the
+         .char-line max-width), so short lines read as short bubbles */
+      .char-body { min-width: 0; flex: 0 1 auto; }
+      .char-head {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin: 2px 0 6px;
+        flex-wrap: wrap;
+      }
+      .char-name {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--s-char);
+        letter-spacing: .01em;
+      }
+      .char-state {
+        padding: 2px 9px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: lowercase;
+        background: var(--s-char-soft);
+        color: var(--s-char);
+      }
+      .char-narration {
+        font-style: italic;
+        color: var(--s-ink-soft);
+        font-size: 13.5px;
+        line-height: 1.5;
+        margin: 0 0 8px;
+        padding-left: 1px;
+      }
+      .char-bubble {
+        background: var(--s-surface);
+        border: 1px solid var(--s-line);
+        border-radius: 4px 16px 16px 16px;
+        padding: 12px 15px;
+        font-size: 15px;
+        line-height: 1.55;
+        color: var(--s-ink);
+        white-space: pre-wrap;
+      }
+      /* A standalone narration (no dialogue) sets the scene quietly */
+      .scene-narration {
+        font-style: italic;
+        color: var(--s-ink-soft);
+        font-size: 14px;
+        line-height: 1.6;
+        text-align: center;
+        max-width: 52ch;
+        margin: 2px auto;
+        padding: 4px 8px;
+      }
+
+      /* Your scene line: caption + mic icon; amber "spoken" bubble; retry control */
+      .you-scene { display: flex; flex-direction: column; align-items: flex-end; max-width: 78%; margin-left: auto; }
+      .you-scene .cap {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .04em;
+        color: var(--s-ink-faint);
+        margin: 0 2px 5px 0;
+      }
+      .you-scene .cap i { color: var(--s-you); font-size: 11px; }
+      .you-scene .bubble {
+        background: linear-gradient(135deg, var(--s-you), #e3a02f);
+        color: var(--s-you-ink);
+        border-radius: 16px 4px 16px 16px;
+        padding: 11px 15px;
+        font-size: 15px;
+        line-height: 1.5;
+        font-weight: 600;
+        white-space: pre-wrap;
+        box-shadow: 0 4px 14px rgba(241,179,74,.22);
+      }
+      .you-scene .retry {
+        margin: 7px 2px 0 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 5px 11px;
+        border: 1px solid var(--s-line);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--s-ink-soft);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: border-color .15s var(--ease), color .15s var(--ease), background .15s var(--ease);
+      }
+      .you-scene .retry:hover { border-color: var(--s-you); color: var(--s-you); background: var(--s-you-soft); }
+      .you-scene .retry i { font-size: 11px; }
+
+      /* ===================================================================
+         8. THE AI COACH LAYER  — one consistent bottom sheet that rises over
+            the practice base (which stays visible, dimmed, above it). Same
+            presentation for opening prep AND debriefs; the Learn/Practice
+            toggle just raises/lowers it.
+         =================================================================== */
+      /* scrim dims the practice peek above the sheet whenever the coach is up */
+      .scrim {
+        position: fixed;
+        inset: var(--topbar-h) 0 0 0;
+        z-index: 40;
+        background: rgba(8, 7, 5, .55);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .22s var(--ease);
+      }
+      .app.coach-up .scrim { opacity: 1; pointer-events: auto; }
+
+      /* The coach sheet — bottom sheet on ALL breakpoints. `bottom` is set in JS
+         to the input bar's height so it sits right on top of it; together they
+         read as the coach layer. Hidden by sliding below; shown by sliding up. */
+      .coach-panel {
+        position: fixed;
+        left: 0; right: 0;
+        bottom: var(--input-h);            /* JS keeps this in sync with the input bar */
+        z-index: 50;
+        height: auto;                       /* grows to fit its content... */
+        max-height: 56vh;                   /* ...until this, where the body scrolls instead */
+        max-width: 860px;
+        margin: 0 auto;
+        background: var(--c-surface);
+        border: 1px solid var(--c-line);
+        border-bottom: 0;
+        border-radius: var(--radius) var(--radius) 0 0;
+        box-shadow: var(--shadow-lg);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        transform: translateY(120%);
+        transition: transform .24s var(--ease);
+      }
+      .app.coach-up .coach-panel { transform: none; }
+      @media (max-height: 620px) { .coach-panel { max-height: 62vh; } }
+
+      .coach-panel-head {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 13px 16px 12px;
+        border-bottom: 1px solid var(--c-line);
+      }
+      .coach-panel-head .ttl {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--c-accent-strong);
+      }
+      .coach-panel-head .spacer { flex: 1 1 auto; }
+      /* lower-the-sheet / back-to-practice control (only meaningful once entered) */
+      .coach-panel-resume {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 32px;
+        padding: 0 13px;
+        border: 1px solid var(--c-line);
+        border-radius: 999px;
+        background: var(--c-surface);
+        color: var(--c-ink-soft);
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: border-color .15s var(--ease), color .15s var(--ease);
+      }
+      .coach-panel-resume:hover { border-color: var(--s-you); color: var(--c-ink); }
+      .coach-panel-resume i { font-size: 11px; }
+      .coach-panel-resume[hidden] { display: none; }   /* class display would otherwise override [hidden] */
+      /* "Begin practicing" variant — pre-entry, this same slot reads as the primary
+         CTA (amber, previewing the scene) rather than the quiet "back" control. */
+      .coach-panel-resume.is-begin {
+        background: linear-gradient(135deg, var(--s-you), #e3a02f);
+        border-color: transparent;
+        color: var(--s-you-ink);
+        font-weight: 700;
+      }
+      .coach-panel-resume.is-begin:hover { filter: brightness(1.06); color: var(--s-you-ink); }
+
+      .coach-panel-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 16px 16px 22px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      /* ===================================================================
+         9. INPUT BAR  — placeholder + accent driven by inputTarget
+         =================================================================== */
+      .inputbar {
+        position: relative;
+        z-index: 55;       /* above the scrim, so coaching input stays usable */
+        flex: 0 0 auto;
+        /* A CTA, a status line, and the composer+hint are different heights —
+           without a shared floor, switching between them visibly jumps the
+           whole page (this bar, the coach sheet sitting on it, and the stage
+           above). Centering a single-line state inside the composer's own
+           height (the tallest common case) makes most transitions height-
+           neutral; only the rare two-line entry state still grows a touch. */
+        min-height: 104px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        background: var(--c-surface);
+        border-top: 1px solid var(--c-line);
+        padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+        transition: background .2s var(--ease), border-color .2s var(--ease);
+      }
+      .input-row {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+      }
+      .input-shell {
+        flex: 1 1 auto;
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        border: 1.5px solid var(--c-line);
+        border-radius: 14px;
+        background: var(--c-bg);
+        padding: 4px 6px 4px 14px;
+        transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
+      }
+      .input-shell:focus-within {
+        border-color: var(--c-accent);
+        box-shadow: 0 0 0 3px var(--c-accent-soft);
+      }
+      .input-shell .lead-icon {
+        flex: 0 0 auto;
+        align-self: center;
+        color: var(--c-ink-faint);
+        font-size: 14px;
+        margin-bottom: 1px;
+      }
+      .inputbar textarea {
+        flex: 1 1 auto;
+        resize: none;
+        border: 0;
+        background: transparent;
+        outline: none;
+        font: inherit;
+        font-size: 15px;
+        line-height: 1.45;
+        color: var(--c-ink);
+        max-height: 120px;
+        padding: 9px 0;
+      }
+      .inputbar textarea::placeholder { color: var(--c-ink-faint); }
+      .send-btn {
+        flex: 0 0 auto;
+        width: 40px;
+        align-self: stretch;     /* match the text field's height (row is align-end) */
+        min-height: 40px;
+        border: 0;
+        border-radius: 11px;
+        background: var(--c-accent);
+        color: var(--c-on-accent);
+        font-size: 15px;
+        cursor: pointer;
+        transition: background .15s var(--ease), transform .1s var(--ease);
+      }
+      .send-btn:hover { background: var(--c-accent-strong); }
+      .send-btn:active { transform: scale(.95); }
+      .send-btn:disabled { opacity: .45; cursor: default; }
+
+      .input-main[hidden], .input-entry[hidden], .input-analyzing[hidden], .input-done[hidden] { display: none; }
+
+      /* hint line under the composer */
+      .input-foot {
+        max-width: 720px;
+        margin: 8px auto 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 11.5px;
+        color: var(--c-ink-faint);
+      }
+      .input-foot .hint { flex: 1 1 auto; }
+
+      /* Tooltip on the mode-toggle segments — clarifies what tapping does (esp. the
+         Practice segment as a way to begin / return). Hover-only, so it's a desktop
+         nicety layered on top of the always-visible affordances. */
+      .seg[data-tip] { position: relative; }
+      .seg[data-tip]:hover::after {
+        content: attr(data-tip);
+        position: absolute;
+        bottom: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        white-space: nowrap;
+        padding: 5px 9px;
+        border-radius: 7px;
+        background: var(--c-ink);
+        color: var(--c-surface);
+        font-size: 11.5px;
+        font-weight: 600;
+        letter-spacing: .01em;
+        box-shadow: var(--shadow-md);
+        pointer-events: none;
+        z-index: 70;
+      }
+
+      /* Entry state — the CTA stands in for the composer, with a quiet
+         "keep talking" escape hatch beneath it. */
+      .input-entry {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 9px;
+      }
+      /* Sized to its own text (not the full input bar) — .input-entry's
+         align-items:center keeps it centered either way. */
+      .enter-cta-bar { width: auto; }
+      .keep-talking {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 0;
+        background: none;
+        color: var(--c-ink-soft);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 8px;
+        transition: color .15s var(--ease), background .15s var(--ease);
+      }
+      .keep-talking:hover { color: var(--c-ink); background: var(--c-surface-2); }
+      .keep-talking i { font-size: 12px; opacity: .8; }
+
+      /* —— Scene-targeted input gets the warm amber treatment —— */
+      .app[data-target="character"] .inputbar {
+        background: #15100c;
+        border-top-color: #2c2118;
+      }
+      .app[data-target="character"] .input-shell {
+        background: #221a13;
+        border-color: #43372e;
+      }
+      .app[data-target="character"] .input-shell:focus-within {
+        border-color: var(--s-you);
+        box-shadow: 0 0 0 3px var(--s-you-soft);
+      }
+      .app[data-target="character"] .input-shell .lead-icon { color: var(--s-you); }
+      .app[data-target="character"] .inputbar textarea { color: var(--s-ink); }
+      .app[data-target="character"] .inputbar textarea::placeholder { color: var(--s-ink-faint); }
+      .app[data-target="character"] .send-btn { background: var(--s-you); color: var(--s-you-ink); }
+      .app[data-target="character"] .send-btn:hover { filter: brightness(1.06); background: var(--s-you); }
+      .app[data-target="character"] .input-foot { color: var(--s-ink-faint); }
+
+      /* Typing indicator (in stage or panel) */
+      .typing {
+        align-self: flex-start;
+        display: inline-flex;
+        gap: 5px;
+        padding: 13px 15px;
+        border-radius: 14px;
+        background: var(--c-surface);
+        border: 1px solid var(--c-line);
+        box-shadow: var(--shadow-sm);
+      }
+      .typing.scene { background: var(--s-surface); border-color: var(--s-line); }
+      .typing span {
+        width: 7px; height: 7px;
+        border-radius: 50%;
+        background: var(--c-ink-faint);
+        animation: bob 1.2s infinite ease-in-out;
+      }
+      .typing.scene span { background: var(--s-ink-faint); }
+      .typing span:nth-child(2) { animation-delay: .15s; }
+      .typing span:nth-child(3) { animation-delay: .3s; }
+      @keyframes bob { 0%,60%,100% { transform: translateY(0); opacity:.5; } 30% { transform: translateY(-5px); opacity:1; } }
+
+      /* —— Content enter animation (fade + slight rise; runs once per node) —— */
+      .coach-msg.enter, .you-coach.enter, .char-line.enter,
+      .scene-narration.enter, .you-scene.enter, .you-highlights.enter {
+        animation: msg-enter .34s var(--ease) both;
+      }
+      @keyframes msg-enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+
+      /* —— Phase transition (whole-stage content swaps, e.g. landing → story) ——
+         Outgoing content softens and lifts away; incoming content settles in
+         from below. Used by transitionStagePhase() so a phase change reads as
+         one continuous motion instead of an instant repaint. The backdrop
+         crossfade on .stage-inner::before/::after (above) runs underneath this on
+         its own, slightly longer timeline. */
+      @keyframes phase-leave { from { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); } to { opacity: 0; transform: scale(.97) translateY(-10px); filter: blur(3px); } }
+      @keyframes phase-enter { from { opacity: 0; transform: scale(.98) translateY(16px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+      .phase-leave { animation: phase-leave .26s var(--ease) forwards; }
+      .phase-enter { animation: phase-enter .42s var(--ease) both; }
+
+      /* —— "Analyzing your response…" — shown IN the input area (not over the
+         scene), so the learner keeps reading the reaction while the coach reviews —— */
+      .input-analyzing {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 11px;
+        padding: 15px 14px;
+        color: var(--c-ink-soft);
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .input-analyzing .dots { display: inline-flex; gap: 4px; }
+      .input-analyzing .dots span {
+        width: 6px; height: 6px; border-radius: 50%; background: var(--c-accent);
+        animation: bob 1.2s infinite ease-in-out;
+      }
+      .input-analyzing .dots span:nth-child(2) { animation-delay: .15s; }
+      .input-analyzing .dots span:nth-child(3) { animation-delay: .3s; }
+
+      /* Settled state after "Continue" — no dots, no CTA, just confirmation
+         that this practice is done. */
+      .input-done {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        padding: 15px 14px;
+        color: var(--c-ink-soft);
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .input-done i { color: #16a34a; }
+
+      /* Debrief CTA — opens the queued coach debrief. Wears the coach indigo to
+         preview the destination (mirroring the amber "Step into the scene"). */
+      .debrief-cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 11px;
+        padding: 13px 22px;
+        border: 0;
+        border-radius: 12px;
+        background: var(--c-accent);
+        color: var(--c-on-accent);
+        font: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 6px 18px rgba(75, 99, 230, .26);
+        transition: filter .15s var(--ease), transform .1s var(--ease);
+      }
+      .debrief-cta:hover:not(:disabled) { filter: brightness(1.06); }
+      .debrief-cta:active:not(:disabled) { transform: scale(.98); }
+      .debrief-cta:disabled { opacity: .4; cursor: default; box-shadow: none; }
+      .debrief-cta:focus-visible { outline: none; box-shadow: 0 6px 18px rgba(75,99,230,.26), 0 0 0 3px var(--c-accent-soft); }
+      .debrief-cta .arrow { transition: transform .15s var(--ease); }
+      .debrief-cta:hover .arrow { transform: translateX(3px); }
+
+      /* ===================================================================
+         10. COMPLETION / RESOURCES  (shown at the end, as a coach message —
+             see resourcesNode() — not a separate boxed widget)
+         =================================================================== */
+      /* A coach message that's a bit richer than plain text (a short list)
+         gets a little more room than the usual 78% text bubbles. */
+      .coach-msg.wide-msg { max-width: 92%; }
+      /* .coach-bubble sets white-space: pre-wrap for plain escaped coach text
+         (so \n\n paragraph breaks render); this bubble holds real markup
+         instead, so pre-wrap would render the template literal's own
+         indentation/newlines as visible blank space. */
+      .resources-bubble { white-space: normal; }
+      .resources-lead { margin: 0 0 12px; }
+      .res-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+      .res-list li {
+        display: flex;
+        gap: 11px;
+        align-items: flex-start;
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--c-ink);
+      }
+      .res-list li i {
+        flex: 0 0 auto;
+        width: 30px; height: 30px;
+        display: grid; place-items: center;
+        border-radius: 8px;
+        background: var(--c-accent-soft);
+        color: var(--c-accent-strong);
+        font-size: 13px;
+        margin-top: 1px;
+      }
+      .res-list li b { display: block; }
+      .res-list li span { color: var(--c-ink-soft); font-size: 13px; }
+
+      /* —— Closing stepper — "Analyzing conversation… determining strengths…
+         determining growth areas…", shown in the coach sheet while the closing
+         summary "builds" after the learner taps to see their results. Replaces
+         the coach sheet's messages briefly; never appears for mid-practice
+         debriefs, only the final one. —— */
+      .closing-stepper {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 8px 2px;
+      }
+      .closing-step {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--c-ink-faint);
+        transition: color .25s var(--ease);
+      }
+      .closing-step .mark {
+        flex: 0 0 auto;
+        width: 22px; height: 22px;
+        border-radius: 50%;
+        border: 2px solid var(--c-line);
+        display: grid;
+        place-items: center;
+        font-size: 10px;
+        color: transparent;
+        transition: border-color .25s var(--ease), background .25s var(--ease), color .25s var(--ease);
+      }
+      .closing-step.is-active { color: var(--c-ink); }
+      .closing-step.is-active .mark {
+        border-color: var(--c-accent);
+        animation: stepPulse 1.1s ease-in-out infinite;
+      }
+      @keyframes stepPulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+      .closing-step.is-done { color: var(--c-ink-soft); }
+      .closing-step.is-done .mark {
+        border-color: var(--c-accent);
+        background: var(--c-accent);
+        color: #fff;
+      }
+
+      /* —— Closing report — strengths / growth areas as a distinct, non-chat
+         read: short scannable items, not paragraphs, so it doesn't read like
+         the wall-of-text stakeholder draft. Lives INSIDE the results modal
+         below, one section per page — the modal card is the container, so no
+         extra box/border here. —— */
+      .report-section h3 {
+        margin: 0 0 12px;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        color: var(--c-ink);
+      }
+      .report-section h3 i { color: var(--accent-color, #16a34a); }
+      .report-section.growth { --accent-color: #d97706; }
+      .report-section.playbook { --accent-color: #2563eb; }
+
+      /* —— Results modal — strengths and growth areas, one page at a time,
+         opened only when the learner taps "View full results" (never
+         auto-shown). Deliberately linear: Next → Back/Continue, no stray
+         dismiss affordance, so there's exactly one clear way through it. —— */
+      .results-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 90;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgba(0,0,0,.55);
+      }
+      .results-modal[hidden] { display: none; }
+      .results-modal-card {
+        width: 100%;
+        max-width: 560px;
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+        background: var(--c-bg);
+        border: 1px solid var(--c-line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-lg);
+        overflow: hidden;
+      }
+      .results-modal-head {
+        flex: 0 0 auto;
+        padding: 16px 20px 13px;
+        border-bottom: 1px solid var(--c-line);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .results-modal-eyebrow {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--c-ink-faint);
+      }
+      .results-modal-dots { display: flex; gap: 6px; }
+      .results-modal-dots span {
+        width: 7px; height: 7px;
+        border-radius: 50%;
+        background: var(--c-line);
+        transition: background .2s var(--ease);
+      }
+      .results-modal-dots span.is-active { background: var(--c-accent); }
+      .results-modal-body {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        padding: 20px;
+      }
+      .results-modal-foot {
+        flex: 0 0 auto;
+        padding: 14px 20px 18px;
+        border-top: 1px solid var(--c-line);
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .results-nav-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        padding: 10px 16px;
+        border-radius: 10px;
+        border: 1px solid var(--c-line);
+        background: var(--c-surface);
+        color: var(--c-ink);
+        font: inherit;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background .15s var(--ease), border-color .15s var(--ease);
+      }
+      .results-nav-btn:hover { border-color: var(--c-accent); }
+      .results-nav-btn.primary {
+        margin-left: auto;
+        background: var(--c-accent);
+        border-color: transparent;
+        color: var(--c-on-accent);
+      }
+      .results-nav-btn.primary:hover { background: var(--c-accent-strong); }
+
+      /* ===================================================================
+         11. HIGHLIGHT INTRO MODAL — a one-time, plain-language explainer of
+         the ask ("select text to highlight it"), shown the moment the story
+         page lands. This is UI instruction, not story world — it deliberately
+         wears the app's neutral coaching surface/accent (like the results
+         modal), not the story's paper or the scene's amber, so it reads as a
+         system tooltip rather than part of the reading itself.
+         =================================================================== */
+      .intro-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 90;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgba(0,0,0,.55);
+      }
+      .intro-modal[hidden] { display: none; }
+      .intro-modal-card {
+        width: 100%;
+        max-width: 420px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 14px;
+        padding: 28px 26px 24px;
+        background: var(--c-bg);
+        border: 1px solid var(--c-line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-lg);
+      }
+      .intro-modal-icon {
+        width: 52px; height: 52px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: #ffe17a;
+        color: #6b4a00;
+        font-size: 20px;
+        box-shadow: 0 0 0 1px rgba(191, 140, 0, .3);
+      }
+      .intro-modal-title {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--c-ink);
+      }
+      .intro-modal-body {
+        margin: 0;
+        font-size: 14.5px;
+        line-height: 1.55;
+        color: var(--c-ink-soft);
+        max-width: 34ch;
+      }
+      .intro-modal-body b { color: var(--c-ink); }
+      .intro-modal-cta {
+        margin-top: 4px;
+        width: 100%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        height: 44px;
+        border: 0;
+        border-radius: 11px;
+        background: var(--c-accent);
+        color: var(--c-on-accent);
+        font: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background .15s var(--ease);
+      }
+      .intro-modal-cta:hover { background: var(--c-accent-strong); }
+
+      /* ===================================================================
+         12. REDUCED MOTION  — instant cross-fade, no scale, static dim
+         =================================================================== */
+      @media (prefers-reduced-motion: reduce) {
+        * { transition-duration: .001ms !important; animation-duration: .001ms !important; }
+        .stage.is-frozen { filter: brightness(.7); }   /* drop the blur; keep static dim */
+        /* the sheet still hides/shows, just instantly (global rule zeroes the slide) */
+      }
+    </style>
+</head>
+<body>
+    <div class="app" id="app" data-mode="coaching" data-target="coach" data-entered="false">
+
+      <!-- Page title for screen readers — the visible chrome names the
+           scenario in a plain span, so this keeps a proper heading outline
+           (h1 → the story's h2 → modal h3s) without changing the layout. -->
+      <h1 class="sr-only">Story highlight practice: Intervening for a Friend — The Kendra Situation</h1>
+
+      <!-- Top bar ------------------------------------------------------- -->
+      <header class="topbar">
+        <span class="brand">
+          <span class="badge"><i class="fa-solid fa-comments"></i> Practice chat</span>
+        </span>
+        <span class="scenario" id="scenarioName">Setting the Scene: The Kendra Situation</span>
+        <span class="spacer"></span>
+        <button class="tb-btn" id="restartBtn" aria-label="Restart practice">
+          <i class="fa-solid fa-rotate-left"></i><span class="label">Restart</span>
+        </button>
+      </header>
+
+      <!-- Viewport: mode indicator + live stage ------------------------- -->
+      <main class="viewport">
+        <div class="mode-indicator is-hidden" id="modeIndicator" aria-hidden="true"><!-- built by JS --></div>
+        <section class="stage" id="stage" aria-label="Practice conversation">
+          <div class="stage-inner" id="stageInner" aria-live="polite"><!-- built by JS --></div>
+        </section>
+      </main>
+
+      <!-- AI Coach layer: scrim dims the practice peek; the sheet rises over it -->
+      <div class="scrim" id="scrim"></div>
+      <aside class="coach-panel" id="coachPanel" role="region" aria-label="AI Coach" aria-hidden="true" inert>
+        <div class="coach-panel-head">
+          <span class="ttl"><i class="fa-solid fa-chalkboard-user"></i> AI Coach</span>
+          <span class="spacer"></span>
+          <button class="coach-panel-resume" id="resumeBtn">
+            Back to practice <i class="fa-solid fa-chevron-down"></i>
+          </button>
+        </div>
+        <div class="coach-panel-body" id="coachPanelBody" aria-live="polite"><!-- built by JS --></div>
+      </aside>
+
+      <!-- Input bar ----------------------------------------------------- -->
+      <footer class="inputbar">
+        <!-- Landing state: the very first beat. Anchors the learner on the
+             scene ("Kendra's room") before anything else — reading, coaching,
+             practice — begins. Gives the designer a place to set up the
+             activity before the learner is dropped into the story. -->
+        <div class="input-entry" id="inputLanding">
+          <button class="debrief-cta" id="landingCtaBtn">
+            <i class="fa-solid fa-book-open"></i> Read the background story <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
+        <!-- Story state: after entering, the input bar carries the ONE way
+             forward out of reading — a CTA that's disabled until the learner
+             has highlighted at least one passage. The coach sheet stays down and
+             the composer stays hidden until the learner is done reading. -->
+        <div class="input-entry" id="inputStory">
+          <button class="debrief-cta" id="storyCtaBtn" disabled>
+            <i class="fa-solid fa-chalkboard-user"></i> Send AI Coach my highlights <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+          <span class="keep-talking" id="storyHint" style="cursor:default;">
+            <i class="fa-solid fa-highlighter"></i> Select any text above to highlight it — highlight at least one passage to continue
+          </span>
+        </div>
+        <!-- Normal composer -->
+        <div class="input-main" id="inputMain">
+          <div class="input-row">
+            <div class="input-shell">
+              <i class="fa-solid fa-comment lead-icon" id="inputIcon" aria-hidden="true"></i>
+              <textarea id="composer" rows="1" placeholder="Type your response…"
+                        aria-label="Your message"></textarea>
+            </div>
+            <button class="send-btn" id="sendBtn" aria-label="Send"><i class="fa-solid fa-arrow-up"></i></button>
+          </div>
+          <div class="input-foot">
+            <span class="hint" id="inputHint">Enter to send · Shift+Enter for a new line</span>
+          </div>
+        </div>
+        <!-- Entry state: the CTA takes the input bar's place once the coach invites
+             you in, with a quiet option to keep talking instead -->
+        <div class="input-entry" id="inputEntry" hidden>
+          <button class="enter-cta enter-cta-bar" id="enterCtaBar">
+            <i class="fa-solid fa-door-open"></i> Begin practicing <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+          <button class="keep-talking" id="keepTalkingBtn">
+            <i class="fa-solid fa-comment"></i> Or, do you need more prep?
+          </button>
+        </div>
+        <!-- "Analyzing…" beat: shown in the input area while the learner reads the
+             reaction; the scene stays full so nothing is missed -->
+        <div class="input-analyzing" id="inputAnalyzing" hidden>
+          <span class="dots"><span></span><span></span><span></span></span>
+          Analyzing your response…
+        </div>
+        <!-- Debrief CTA: the coach is ready, opened only when the learner chooses -->
+        <div class="input-entry" id="inputDebrief" hidden>
+          <button class="debrief-cta" id="debriefCtaBtn">
+            <i class="fa-solid fa-chalkboard-user"></i> See AI Coach feedback <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
+        <!-- Return CTA: the coach has replied and is ready to send the learner
+             back into the scene — but they cross back on their own command,
+             same as every other transition here. -->
+        <div class="input-entry" id="inputReturn" hidden>
+          <button class="enter-cta enter-cta-bar" id="returnCtaBtn">
+            <i class="fa-solid fa-door-open"></i> Continue practicing <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
+        <!-- Results CTA: shown once the closing recap has landed — the full
+             strengths/growth-areas report opens in its own modal, not dumped
+             into the chat thread. -->
+        <div class="input-entry" id="inputResults" hidden>
+          <button class="debrief-cta" id="resultsCtaBtn">
+            <i class="fa-solid fa-chart-simple"></i> View full results <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
+        <!-- Continue: the practice's actual last step — replaces the composer
+             once the resources have landed, rather than leaving it sitting
+             there disabled with nothing left to type. -->
+        <div class="input-entry" id="inputContinue" hidden>
+          <button class="debrief-cta" id="continueCtaBtn">
+            Continue <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
+        <!-- Settled state after Continue — no further action, just confirmation. -->
+        <div class="input-done" id="inputDone" hidden>
+          <i class="fa-solid fa-circle-check"></i> Practice complete
+        </div>
+      </footer>
+
+      <!-- Polite live region for mode-change announcements -------------- -->
+      <div class="sr-only" id="liveRegion" aria-live="polite"></div>
+    </div>
+
+    <!-- Results modal — a sibling of .app (not a descendant), so .app can be
+         made inert while this is open without inerting itself. -->
+    <div class="results-modal" id="resultsModal" hidden role="dialog" aria-modal="true" aria-label="Your results">
+      <div class="results-modal-card">
+        <div class="results-modal-head">
+          <span class="results-modal-eyebrow">Your results</span>
+          <div class="results-modal-dots" id="resultsDots"><span></span><span></span><span></span></div>
+        </div>
+        <div class="results-modal-body" id="resultsModalBody"><!-- built by JS --></div>
+        <div class="results-modal-foot" id="resultsModalFoot"><!-- built by JS --></div>
+      </div>
+    </div>
+
+    <!-- Highlight intro modal — a one-time explainer, shown the moment the
+         story page lands. Also a sibling of .app so it can be made inert
+         without inerting itself. -->
+    <div class="intro-modal" id="introModal" hidden role="dialog" aria-modal="true" aria-label="How to highlight">
+      <div class="intro-modal-card">
+        <div class="intro-modal-icon"><i class="fa-solid fa-highlighter"></i></div>
+        <h3 class="intro-modal-title">Highlight what matters</h3>
+        <p class="intro-modal-body" id="introModalBody"><!-- built by JS --></p>
+        <button class="intro-modal-cta" id="introModalCtaBtn">Got it <i class="fa-solid fa-arrow-right"></i></button>
+      </div>
+    </div>
+
+    <script src="js/scenario.js"></script>
+    <script>
+    /* =====================================================================
+       ACTION PRACTICE — engine + render-by-state (vanilla, no framework)
+
+       MESSAGE SCHEMA (what the model returns, JSON only):
+         { turn: [ { speaker:'coach'|'you'|'character',
+                     kind:'coaching'|'dialogue'|'narration',
+                     text:string, emotionalState?:string } ],
+           mode: 'coaching'|'scene',          // mode for the learner's NEXT input
+           inputTarget: 'coach'|'character' } // who the input box is addressed to
+
+       We render PURELY by speaker + kind — never by inspecting text:
+         kind==='coaching'                  → coaching world (CoachMessage / YourCoachingReply)
+         kind==='dialogue' | 'narration'    → scene world  (CharacterLine / YourSceneLine / narration)
+       ===================================================================== */
+
+    /* ---- LIVE vs DEMO ------------------------------------------------- */
+    /* This is the LIVE cut: WORKER_URL points at the Cloudflare proxy that
+       injects the API key (see worker/README.md). Clear it to fall back to
+       the scripted demo responder. */
+    const WORKER_URL = 'https://aithera-action-proxy.vector-aithera.workers.dev';  // see worker/README.md
+    const MODEL = 'claude-opus-4-8';
+    const IS_LIVE = Boolean(WORKER_URL);
+
+    /* ---- SCENARIO DATA -------------------------------------------------
+       All writer-authored content — including the story the learner reads
+       and its key-moments answer key — lives in the structured scenario
+       object (js/scenario.js). The Writer Studio publishes revisions to
+       this browser's localStorage; otherwise we run the shipped default.
+       This page always renders the scenario's STORY intro block, whatever
+       intro.type says — it IS the "with story intro" variant. */
+    const PUBLISHED = AitheraScenario.loadPublished();
+    const ACTIVE_SCENARIO = PUBLISHED ? PUBLISHED.scenario : AitheraScenario.normalize(JSON.parse(JSON.stringify(AitheraScenario.DEFAULT_SCENARIO)));
+    const fillTxt = (t) => AitheraScenario.fill(t, ACTIVE_SCENARIO);
+    const SCENARIO = {
+      learner: ACTIVE_SCENARIO.learnerName,
+      character: ACTIVE_SCENARIO.characterName,
+      title: ACTIVE_SCENARIO.title,
+    };
+    const STORY = ACTIVE_SCENARIO.intro.story;
+
+    // When a writer-published scenario is active, say so in the top bar and
+    // offer a one-click revert (same affordance as the video-intro live page).
+    if (PUBLISHED) {
+      const writerChip = document.createElement('button');
+      writerChip.className = 'tb-btn';
+      writerChip.innerHTML = '<i class="fa-solid fa-pen-nib"></i><span class="label">Writer scenario</span>';
+      writerChip.title = 'Running a scenario published from the Writer Studio'
+        + (PUBLISHED.savedAt ? ' on ' + new Date(PUBLISHED.savedAt).toLocaleString() : '')
+        + '. Click to revert to the shipped scenario.';
+      writerChip.addEventListener('click', () => {
+        if (confirm('Revert to the shipped scenario? The published version stays available in the Writer Studio.')) {
+          AitheraScenario.clearPublished();
+          location.reload();
+        }
+      });
+      document.querySelector('.topbar .spacer').after(writerChip);
+    }
+
+    document.getElementById('scenarioName').textContent = SCENARIO.title;
+    const srH1 = document.querySelector('h1.sr-only');
+    if (srH1) srH1.textContent = 'Story highlight practice: ' + SCENARIO.title;
+
+    // The highlight ask, spelled out in plain terms — shared between the
+    // one-time intro modal (see openStoryIntro) and anywhere else that needs
+    // to restate it, so the wording never drifts between the two.
+    const STORY_INTRO_TEXT = fillTxt(STORY.instruction);
+
+    /* The backstory as a short read, in place of a cold-open video — all of
+       it writer-authored scenario content (intro.story). STORY_CRITICAL is
+       the key-moments answer key: each phrase's character offset within its
+       paragraph is located via indexOf once, below, so a highlight only
+       needs to OVERLAP it, not match it exactly, to count as "caught."
+       (The studio's lint guarantees each phrase appears verbatim; anything
+       that still doesn't resolve is skipped rather than crashing.) */
+    const STORY_PARAGRAPHS = (STORY.paragraphs || []).map(fillTxt).filter((p) => p.trim());
+    const STORY_CRITICAL = (STORY.keyMoments || [])
+      .map((m, i) => {
+        const phrase = fillTxt(m.phrase || '').trim();
+        const label = fillTxt(m.label || '') || phrase;
+        if (!phrase) return null;
+        for (let para = 0; para < STORY_PARAGRAPHS.length; para++) {
+          const start = STORY_PARAGRAPHS[para].indexOf(phrase);
+          if (start >= 0) return { key: 'moment' + i, para, phrase, label, start, end: start + phrase.length };
+        }
+        return null;   // phrase not found — studio lint blocks this, but never crash
+      })
+      .filter(Boolean);
+
+    /* The system prompt (live mode) — compiled from the same structured
+       scenario the Writer Studio edits, plus this page's story-intro
+       addendum: the model's first message must react to what the learner
+       actually highlighted, judged against the key-moments answer key. */
+    const SYSTEM_PROMPT = AitheraScenario.compilePrompt(ACTIVE_SCENARIO) + `
+
+STORY INTRO (this variant) — before this conversation, the learner read the backstory below and highlighted the passages they judged most significant. The conversation transcript OPENS with their highlights ("Highlighted: ..."). This replaces the on-screen opening question described above — your FIRST message reacts to their specific highlights instead:
+- Judge their highlights against the KEY MOMENTS answer key below. Name what they caught (use the key-moment labels, warmly), surface AT MOST ONE key moment they missed and why it matters tonight, and end with a question that moves them toward the scene ("what worries you most?" / "why do you think that one matters?").
+- If their highlights caught nothing from the answer key, don't shame them — point at the one or two moments that most change what tonight requires, and ask why those might matter.
+- After that first reaction, run the loop exactly as described above (reflection beat(s) → invite them into the scene with an establishing narration → interleave).
+
+THE STORY the learner read:
+${STORY_PARAGRAPHS.map((p, i) => `[${i + 1}] ${p}`).join('\n')}
+
+KEY MOMENTS (answer key — never shown to the learner as a list):
+${STORY_CRITICAL.map((c, i) => `${i + 1}. "${c.phrase}" — ${c.label}`).join('\n')}`;
+
+    /* Builds the coach's OPENING line from what the learner actually highlighted
+       — this replaces the generic "what's going through your head" opener,
+       since the coach is now reacting to a specific, learner-made choice
+       rather than backstory it just delivered itself. A critical phrase counts
+       as "caught" if any of the learner's free-range highlights in that same
+       paragraph overlap it by a meaningful amount — not an exact-match, since
+       highlights can start/end anywhere. */
+    function listify(arr) {
+      if (arr.length <= 1) return arr[0] || '';
+      if (arr.length === 2) return `${arr[0]} and ${arr[1]}`;
+      return `${arr.slice(0, -1).join(', ')}, and ${arr[arr.length - 1]}`;
+    }
+    function isCritCaught(crit) {
+      const need = Math.min(12, Math.ceil((crit.end - crit.start) * 0.35));
+      return state.highlights.some((h) => h.para === crit.para &&
+        Math.min(h.end, crit.end) - Math.max(h.start, crit.start) >= need);
+    }
+    function buildHighlightOpening() {
+      const hits = STORY_CRITICAL.filter(isCritCaught);
+      const missed = STORY_CRITICAL.filter((c) => !isCritCaught(c));
+      const count = state.highlights.length;
+      if (hits.length === 0) {
+        // Generic across scenarios: point at the first key moments the writer
+        // defined (the scripted demo can't rank them; the live model can).
+        const top = STORY_CRITICAL.slice(0, 2).map((c) => c.label);
+        return `You highlighted ${count} ${count === 1 ? 'thing' : 'things'} — worth a second pass, though. The ${top.length > 1 ? 'two' : 'one'} I'd put at the top of your list: ${listify(top)}. Why do you think I'm flagging ${top.length > 1 ? 'those two' : 'that one'} specifically?`;
+      }
+      if (missed.length === 0) {
+        return `You caught everything that matters here — ${listify(hits.map((c) => c.label))}. That's exactly the picture you need before you walk in tonight. Of all of that, what worries you most?`;
+      }
+      const missedPick = missed[0];
+      return `Good eye — you caught ${listify(hits.map((c) => c.label))}. One more I'd put on your radar: ${missedPick.label}. Why do you think that one matters, going into tonight?`;
+    }
+
+    /* ---- STATE -------------------------------------------------------- */
+    const state = {
+      mode: 'coaching',          // 'coaching' | 'scene'
+      inputTarget: 'coach',      // 'coach' | 'character'
+      hasEnteredScene: false,
+      started: false,            // false until the story is done and the coach opens — we read first
+      messages: [],              // empty until the coach begins; the opening reaction streams in then
+      pendingOpening: null,      // built from highlights once the story is submitted (see finishStory)
+      sending: false,
+      complete: false,
+      report: null,              // live mode: model-written {strengths, growthAreas} for the results modal
+      manualTimeout: false,      // true when the learner pressed "Step out to AI coach"
+      transitioning: false,      // true during the "leaving the story, bringing in the coach" beat
+      delivering: false,         // true while a turn is being revealed message-by-message
+      awaitingEntry: false,      // coach has invited entry; waiting for the learner to step in
+      pendingScene: null,        // the opening scene messages, held until the learner steps in
+      entryPromptDismissed: false, // learner chose "keep talking" — show the composer, not the CTA
+      awaitingDebrief: false,    // Kendra has reacted; a coach debrief is queued for when the learner is ready
+      pendingDebrief: null,      // the queued coach debrief messages
+      analyzing: false,          // transient: "Analyzing your response…" shows in the input bar
+      enteredScenario: false,    // true once the learner taps "Read the background story" on the landing card
+      storyDone: false,          // true once the learner has submitted their highlights
+      introModalOpen: false,    // the one-time "Highlight what matters" explainer is showing
+      introModalShown: false,   // it's been shown once already this run — don't show it again
+      highlights: [],            // free-range highlight spans: { para, start, end } (char offsets)
+      closingStepperActive: false, // true while the closing "Analyzing… Determining…" stepper runs
+      awaitingResults: false,   // the closing recap has landed; footer offers "View full results"
+      resultsModalOpen: false,  // the strengths/growth-areas modal is open
+      resultsPage: 0,           // 0 = strengths, 1 = growth areas
+      resultsViewed: false,     // learner has been through the modal (unlocks the resources message)
+      continued: false,         // learner tapped the final "Continue" — the practice is fully settled
+      awaitingReturn: false,    // the coach is ready to send the learner back into the scene; waiting for them to choose
+      pendingReturn: null,      // { mode, inputTarget } to apply once they do
+    };
+
+    /* ---- helpers: classify + group ------------------------------------ */
+    // 'highlights' is the learner's own recap card (what they selected in the
+    // story) — it lives in the coaching world (rendered in the coach panel)
+    // but is intentionally NOT 'coaching' kind, so preSceneCoachReplies()
+    // doesn't miscount it as a typed reply.
+    const worldOf = (m) => (m.kind === 'coaching' || m.kind === 'highlights' ? 'coaching' : 'scene');
+
+    // trailing contiguous run of a given world at the end of the array
+    function trailingRun(msgs, world) {
+      const out = [];
+      for (let i = msgs.length - 1; i >= 0 && worldOf(msgs[i]) === world; i--) out.unshift(msgs[i]);
+      return out;
+    }
+
+    /* =====================================================================
+       DEMO ENGINE — scripted responder that mirrors the real loop and CANNOT
+       "succeed" until the learner moves to connect Kendra to real help.
+
+       Keyed off the conversation history (robust to retries / truncation):
+         - last learner message kind (coaching reply vs scene line)
+         - number of scene lines spoken
+         - whether the learner has named real help during the escalation beat
+       ===================================================================== */
+    const ESCALATION_RE = /\b(ra|resident assistant|counsel\w*|therap\w*|hotline|988|crisis|adult|professional|help\s?line|health\s?center|clinic|doctor|nurse|dean|advisor|adviser|hall\s?director|hall\s?staff|psych\w*|wellness|someone|somebody|trained|trusted|specialist|expert|staff|support (group|system|line)?|resource|service|program|reach out|connect (her|them)|get (her )?help|title\s?ix|parent)\b/i;
+
+    function countSceneLines(msgs) {
+      return msgs.filter((m) => m.speaker === 'you' && m.kind === 'dialogue').length;
+    }
+    function preSceneCoachReplies(msgs) {
+      let n = 0;
+      for (const m of msgs) {
+        if (worldOf(m) === 'scene') break;
+        if (m.speaker === 'you' && m.kind === 'coaching') n++;
+      }
+      return n;
+    }
+    function lastLearner(msgs) {
+      for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].speaker === 'you') return msgs[i];
+      return null;
+    }
+    // How many times the learner has already replied at the CURRENT escalation
+    // gate without naming real help — walks back from the end, counting
+    // learner coaching replies, until it hits the scene line that opened this
+    // debrief. Caps the gate at a couple of nudges (below) so a learner who's
+    // genuinely stuck (or just testing with junk input) never hard-deadlocks.
+    function escalationAttempts(msgs) {
+      let n = 0;
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].speaker === 'you' && msgs[i].kind === 'coaching') { n++; continue; }
+        if (worldOf(msgs[i]) === 'scene') break;
+      }
+      return n;
+    }
+
+    function scriptedTurn(msgs) {
+      const last = lastLearner(msgs);
+      const entered = msgs.some((m) => worldOf(m) === 'scene');
+      const sceneLines = countSceneLines(msgs);
+
+      // --- Manual timeout: learner stepped out to ask the coach a question.
+      //     Keep it supportive and OFF the main script; resume returns to scene.
+      if (state.manualTimeout && last && last.kind === 'coaching') {
+        return {
+          turn: [{ speaker: 'coach', kind: 'coaching', text:
+`Good question to pause on. Whatever you decide, your only jobs in there are to stay, to listen, and to gently point her toward real help — you don't have to have the perfect words. When you're ready, step back in.` }],
+          mode: 'coaching', inputTarget: 'coach',
+        };
+      }
+
+      // --- Coaching replies (learner talking WITH the coach) -------------
+      if (last && last.kind === 'coaching') {
+        // (a) still prepping, before the scene
+        if (!entered) {
+          if (preSceneCoachReplies(msgs) <= 1) {
+            return {
+              turn: [{ speaker: 'coach', kind: 'coaching', text:
+`Good — hold onto that. One more before we go in: what do you actually want this conversation to do tonight? Not fix everything — just the one thing you hope is true when you leave the room.` }],
+              mode: 'coaching', inputTarget: 'coach',
+            };
+          }
+          // enter the scene
+          return {
+            turn: [
+              { speaker: 'coach', kind: 'coaching', text:
+`You're as ready as you'll be — there's no script for this, and that's okay. Lead with the version of you she already trusts. Step into the scene whenever you're ready.` },
+              { speaker: 'character', kind: 'narration', text:
+`You ease the door open. Kendra's curled under the covers, turned to the wall. Two empty bottles on the nightstand. The blinds are still down at 4pm.` },
+            ],
+            mode: 'scene', inputTarget: 'character',
+          };
+        }
+
+        // (b) responding to a debrief → send the learner back into the scene.
+        //     The ESCALATION GATE (after Kendra's "too much" admission) is the
+        //     exception: it will NOT let the scene continue until the learner
+        //     names connecting her to real help.
+        if (sceneLines === 2) {
+          if (last.text && ESCALATION_RE.test(last.text)) {
+            return {
+              turn: [{ speaker: 'coach', kind: 'coaching', text:
+`Yes — that's the move. Connecting her to someone trained isn't handing her off; it's widening her circle so she isn't leaning on one 20-year-old. Offer it as "us," not a referral — say it to her, gently.` }],
+              mode: 'scene', inputTarget: 'character',
+            };
+          }
+          const attempts = escalationAttempts(msgs);
+          // Don't hard-deadlock here — a learner who's genuinely stuck (or
+          // just poking at the demo) still needs a way through. One nudge,
+          // one more concrete nudge, then accept it and move the practice on.
+          if (attempts >= 2) {
+            return {
+              turn: [{ speaker: 'coach', kind: 'coaching', text:
+`That's okay — you don't need the exact name right now. Even deciding "someone besides just me" is the move. Tell her you want to loop someone else in.` }],
+              mode: 'scene', inputTarget: 'character',
+            };
+          }
+          return {
+            turn: [{ speaker: 'coach', kind: 'coaching', text: attempts === 0
+              ? `I hear how much you want to be the one she leans on — and you can be part of this. But pills mixed with alcohol is past what a roommate can hold alone. Think bigger than tonight: an RA, the campus counseling center, a trusted adult. Who could you connect her to?`
+              : `Let's make it concrete — just name ONE kind of person or place: a counselor, an RA, a trusted adult, even the 988 line. Who comes to mind?` }],
+            mode: 'coaching', inputTarget: 'coach',   // loop here until they name help (max two nudges)
+          };
+        }
+        // any other debrief reply → back into the scene
+        const sendBack = sceneLines >= 3
+          ? `Good — make the first step small, and make it something you'll do *with* her rather than hand to her. Say it to her.`
+          : `That's a kind instinct — lead with exactly that. Say it to her, and don't rush to fill the silence afterward.`;
+        return {
+          turn: [{ speaker: 'coach', kind: 'coaching', text: sendBack }],
+          mode: 'scene', inputTarget: 'character',
+        };
+      }
+
+      // --- Scene lines (learner speaking IN the roleplay) ---------------
+      //     Each scene line draws Kendra's reaction AND the coach's debrief in
+      //     ONE turn, then pauses into coaching (the "Timeout" beat).
+      if (sceneLines === 1) {
+        return {
+          turn: [
+            { speaker: 'character', kind: 'narration', text: `She doesn't turn over. The blanket barely shifts.` },
+            { speaker: 'character', kind: 'dialogue', text: `I'm fine, Jay. Just tired.`, emotionalState: 'guarded' },
+            { speaker: 'coach', kind: 'coaching', text:
+`She gave you the deflection you probably expected — "fine" is a wall, not an answer. But notice what she didn't do: she didn't tell you to leave. You don't have to crack this open in one line. What do you want to say next?` },
+          ],
+          mode: 'coaching', inputTarget: 'coach',
+        };
+      }
+      if (sceneLines === 2) {
+        return {
+          turn: [
+            { speaker: 'character', kind: 'narration', text: `A long pause. When she answers, her voice is thin — close to breaking.` },
+            { speaker: 'character', kind: 'dialogue', text: `…I don't know. Everything just feels like too much. All of it. And I'm so tired of people asking if I'm okay.`, emotionalState: 'raw' },
+            { speaker: 'coach', kind: 'coaching', text:
+`That's her letting you in — and it happened because you stayed instead of pushing. Now the hard part: a caring talk from a friend isn't enough on its own, not with alcohol and pills in the mix. Who could you connect her to — someone whose job is exactly this?` },
+          ],
+          mode: 'coaching', inputTarget: 'coach',   // → escalation gate on the next reply
+        };
+      }
+      if (sceneLines === 3) {
+        return {
+          turn: [
+            { speaker: 'character', kind: 'narration', text: `She finally rolls over. Eyes red, jaw tight.` },
+            { speaker: 'character', kind: 'dialogue', text: `I'm not going to be somebody's case file, Jay.`, emotionalState: 'scared' },
+            { speaker: 'coach', kind: 'coaching', text:
+`She's scared, not refusing — "case file" means she's bracing to be handed off and judged. Don't argue her into it. Make the first step small, and make it shared. What can you offer so she isn't doing this alone?` },
+          ],
+          mode: 'coaching', inputTarget: 'coach',
+        };
+      }
+      // sceneLines >= 4 — learner offered to go WITH her → she relents a crack,
+      // then the coach closes with concrete resources and the practice completes.
+      state.complete = true;
+      return {
+        turn: [
+          { speaker: 'character', kind: 'narration', text: `A long breath. Something in her shoulders loosens, just slightly.` },
+          { speaker: 'character', kind: 'dialogue', text: `…Okay. If you come with me. Just to talk to someone. Once.`, emotionalState: 'fragile relief' },
+          { speaker: 'coach', kind: 'coaching', text:
+`That's the whole skill, right there. You noticed. You reached out. You stayed and listened instead of fixing. And you connected her to real help — without trying to be her therapist.
+
+You didn't carry this alone, and you didn't ask her to either.` },
+        ],
+        mode: 'coaching', inputTarget: 'coach',
+      };
+    }
+
+    /* ---- LIVE path ---------------------------------------------------- */
+    // Validate one report list from the model: keep only well-shaped items.
+    function cleanReportItems(items, max) {
+      if (!Array.isArray(items)) return [];
+      return items
+        .filter((it) => it && typeof it.title === 'string' && typeof it.body === 'string')
+        .slice(0, max)
+        .map((it) => ({ title: it.title, body: it.body }));
+    }
+    // Repair the two ways models most often break "JSON only" output:
+    //  1. prose around the object → slice from the first '{' to the last '}'
+    //  2. raw line breaks INSIDE string values (illegal JSON) → walk the chars
+    //     tracking whether we're inside a string, and escape them there only.
+    function repairJson(raw) {
+      let s = String(raw).replace(/```json|```/g, '').trim();
+      const a = s.indexOf('{'), b = s.lastIndexOf('}');
+      if (a >= 0 && b > a) s = s.slice(a, b + 1);
+      let out = '', inStr = false, escaped = false;
+      for (const ch of s) {
+        if (inStr && !escaped && (ch === '\n' || ch === '\r' || ch === '\t')) {
+          out += ch === '\n' ? '\\n' : ch === '\r' ? '\\r' : '\\t';
+          continue;
+        }
+        out += ch;
+        if (escaped) { escaped = false; continue; }
+        if (ch === '\\') { escaped = true; continue; }
+        if (ch === '"') inStr = !inStr;
+      }
+      return out;
+    }
+    function parseTurn(raw) {
+      try {
+        const obj = JSON.parse(repairJson(raw));
+        if (!obj || !Array.isArray(obj.turn)) throw new Error('shape');
+        const report = obj.report ? {
+          strengths: cleanReportItems(obj.report.strengths, 3),
+          growthAreas: cleanReportItems(obj.report.growthAreas, 2),
+        } : null;
+        return {
+          turn: obj.turn
+            .filter((m) => m && m.speaker && m.kind && typeof m.text === 'string')
+            .map((m) => ({
+              speaker: m.speaker, kind: m.kind, text: m.text,
+              ...(m.speaker === 'character' && m.emotionalState ? { emotionalState: m.emotionalState } : {}),
+            })),
+          mode: obj.mode === 'scene' ? 'scene' : 'coaching',
+          inputTarget: obj.inputTarget === 'character' ? 'character' : 'coach',
+          complete: obj.complete === true,
+          ...(report && (report.strengths.length || report.growthAreas.length) ? { report } : {}),
+        };
+      } catch (e) {
+        // graceful fallback — keep the loop alive without crashing the UI
+        return {
+          turn: [{ speaker: 'coach', kind: 'coaching', text:
+`Let's stay with that for a second. What feels hardest about saying it out loud?` }],
+          mode: 'coaching', inputTarget: 'coach',
+        };
+      }
+    }
+
+    // Map our multi-speaker history into a user/assistant transcript for the API.
+    function toApiMessages(msgs) {
+      const out = [];
+      let buf = [];
+      const flush = (role) => { if (buf.length) { out.push({ role, content: buf.join('\n') }); buf = []; } };
+      for (const m of msgs) {
+        if (m.speaker === 'you') { flush('assistant'); out.push({ role: 'user', content: m.text }); }
+        else {
+          const tag = m.speaker === 'character'
+            ? `${SCENARIO.character}${m.emotionalState ? ' (' + m.emotionalState + ')' : ''}${m.kind === 'narration' ? ' [narration]' : ''}`
+            : 'Coach';
+          buf.push(`${tag}: ${m.text}`);
+        }
+      }
+      flush('assistant');
+      if (out.length && out[0].role === 'assistant') out.unshift({ role: 'user', content: '(begin)' });
+      return out;
+    }
+
+    async function liveTurn(msgs) {
+      const res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: MODEL, max_tokens: 1600, system: SYSTEM_PROMPT, messages: toApiMessages(msgs) }),
+      });
+      if (!res.ok) throw new Error('Worker HTTP ' + res.status);
+      const data = await res.json();
+      const raw = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+      return parseTurn(raw);
+    }
+
+    // Unified responder (adds a natural delay in demo so it feels like a round-trip)
+    function getTurn(msgs) {
+      if (IS_LIVE) return liveTurn(msgs);
+      return new Promise((resolve) => setTimeout(() => resolve(scriptedTurn(msgs)), 600 + Math.random() * 500));
+    }
+
+    /* =====================================================================
+       DOM REFS + tiny element helper
+       ===================================================================== */
+    const app           = document.getElementById('app');
+    const modeIndicator = document.getElementById('modeIndicator');
+    const stage         = document.getElementById('stage');
+    const stageInner    = document.getElementById('stageInner');
+    const scrim         = document.getElementById('scrim');
+    const coachPanel    = document.getElementById('coachPanel');
+    const coachPanelBody= document.getElementById('coachPanelBody');
+    const resumeBtn     = document.getElementById('resumeBtn');
+    const inputbar      = document.querySelector('.inputbar');
+    const composer      = document.getElementById('composer');
+    const sendBtn       = document.getElementById('sendBtn');
+    const inputMain     = document.getElementById('inputMain');
+    const inputEntry    = document.getElementById('inputEntry');
+    const inputAnalyzing= document.getElementById('inputAnalyzing');
+    const inputDebrief  = document.getElementById('inputDebrief');
+    const inputLanding  = document.getElementById('inputLanding');
+    const landingCtaBtn = document.getElementById('landingCtaBtn');
+    const inputStory    = document.getElementById('inputStory');
+    const storyCtaBtn   = document.getElementById('storyCtaBtn');
+    const enterCtaBar   = document.getElementById('enterCtaBar');
+    const debriefCtaBtn = document.getElementById('debriefCtaBtn');
+    const keepTalkingBtn= document.getElementById('keepTalkingBtn');
+    const inputIcon     = document.getElementById('inputIcon');
+    const inputHint     = document.getElementById('inputHint');
+    const liveRegion    = document.getElementById('liveRegion');
+    const inputReturn    = document.getElementById('inputReturn');
+    const returnCtaBtn   = document.getElementById('returnCtaBtn');
+    const inputResults  = document.getElementById('inputResults');
+    const resultsCtaBtn = document.getElementById('resultsCtaBtn');
+    const inputContinue = document.getElementById('inputContinue');
+    const continueCtaBtn= document.getElementById('continueCtaBtn');
+    const inputDone      = document.getElementById('inputDone');
+    const resultsModal    = document.getElementById('resultsModal');
+    const resultsModalBody= document.getElementById('resultsModalBody');
+    const resultsModalFoot= document.getElementById('resultsModalFoot');
+    const resultsDots     = document.getElementById('resultsDots');
+    const introModal       = document.getElementById('introModal');
+    const introModalBody   = document.getElementById('introModalBody');
+    const introModalCtaBtn = document.getElementById('introModalCtaBtn');
+
+    function el(tag, cls, html) {
+      const n = document.createElement(tag);
+      if (cls) n.className = cls;
+      if (html != null) n.innerHTML = html;
+      return n;
+    }
+    const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+    // Renders one paragraph's text with any of its highlight ranges wrapped in
+    // <mark>. Ranges in state.highlights are already merged/non-overlapping
+    // per paragraph (see addHighlight), so this is a simple left-to-right walk.
+    function paragraphMarksHTML(paraIndex) {
+      const text = STORY_PARAGRAPHS[paraIndex];
+      const ranges = state.highlights
+        .filter((h) => h.para === paraIndex)
+        .sort((a, b) => a.start - b.start);
+      let html = '';
+      let pos = 0;
+      ranges.forEach((r) => {
+        if (r.start > pos) html += esc(text.slice(pos, r.start));
+        html += `<mark class="hl-mark" data-para="${paraIndex}" data-start="${r.start}" data-end="${r.end}"
+                       tabindex="0" role="button" aria-label="Highlighted — press to remove">${esc(text.slice(r.start, r.end))}</mark>`;
+        pos = r.end;
+      });
+      if (pos < text.length) html += esc(text.slice(pos));
+      return html;
+    }
+
+    // The scene anchor — shown BOTH as the interactive landing (with "Enter
+    // scenario" in the footer) and later, unchanged, as the dimmed backdrop
+    // under the coach sheet while prepping. Same card, different moment; only
+    // the sub-line changes per call site.
+    function establishingNode(subText) {
+      const est = el('div', 'establishing');
+      est.innerHTML =
+        `<div class="est-eyebrow">The scene</div>
+         <p class="est-title">Kendra’s room</p>
+         <p class="est-sub">${esc(subText)}</p>`;
+      return est;
+    }
+
+    // Built once when the story phase mounts and rebuilt on every highlight
+    // change (cheap — six paragraphs) so marks always reflect true state
+    // rather than being patched in place.
+    function storyNode() {
+      const wrap = el('div', 'story-page');
+      const paras = STORY_PARAGRAPHS.map((_, i) => `<p>${paragraphMarksHTML(i)}</p>`).join('');
+      // Read time ≈ 200 wpm over the writer's actual paragraphs, floor 1 min.
+      const words = STORY_PARAGRAPHS.join(' ').split(/\s+/).filter(Boolean).length;
+      const mins = Math.max(1, Math.round(words / 200));
+      wrap.innerHTML =
+        `<div class="story-topline">
+           <span class="story-kicker">${esc(fillTxt(STORY.kicker || ''))}</span>
+           <span class="story-meta">before the conversation &middot; ${mins} min read</span>
+         </div>
+         <h2 class="story-headline">${esc(fillTxt(STORY.headline || ''))}</h2>
+         <p class="story-dek">You're about to knock on <b>${esc(SCENARIO.character)}</b>'s door.</p>
+         <hr class="story-hr">
+         <div class="story-passage" id="storyPassage" tabindex="-1">${paras}</div>
+         <div class="story-hint"><span>Drag to select and highlight — tap a highlight to remove it.</span><span><b id="storyCount">${state.highlights.length}</b> highlighted</span></div>`;
+      return wrap;
+    }
+
+    /* ---- message node builders (used by the practice stage and coach sheet) --
+       A transient `_enter` flag (set when a message is freshly delivered) adds
+       the .enter class so the node fades in once; render() clears the flag. */
+    const ec = (m) => (m && m._enter ? ' enter' : '');
+    function coachNode(m) {
+      const wrap = el('div', 'coach-msg' + ec(m));
+      wrap.appendChild(el('div', 'coach-avatar', '<i class="fa-solid fa-chalkboard-user"></i>'));
+      const body = el('div', 'coach-body');
+      body.appendChild(el('div', 'coach-label', 'AI Coach'));
+      body.appendChild(el('div', 'coach-bubble', esc(m.text)));
+      wrap.appendChild(body);
+      return wrap;
+    }
+    function youCoachNode(m) {
+      const wrap = el('div', 'you-coach' + ec(m));
+      wrap.appendChild(el('div', 'cap', 'You'));
+      wrap.appendChild(el('div', 'bubble', esc(m.text)));
+      return wrap;
+    }
+    // Center-truncates a long excerpt (keeps the start AND end, drops the
+    // middle) — for a highlighted line, both edges usually carry more of the
+    // meaning than the middle, so this reads better than a tail ellipsis.
+    function truncateMid(text, max = 78) {
+      if (text.length <= max) return text;
+      const keepStart = Math.ceil((max - 1) * 0.6);
+      const keepEnd = (max - 1) - keepStart;
+      return `${text.slice(0, keepStart)}…${text.slice(text.length - keepEnd)}`;
+    }
+    // The learner's highlight recap — a "you" card in the coach panel so it's
+    // unmistakable the coach saw exactly what got selected, not a generic
+    // "thanks for highlighting." Each excerpt gets its own line with a
+    // highlighter-yellow swatch (the same --story-mark color as the page).
+    function youHighlightsNode(m) {
+      const wrap = el('div', 'you-highlights' + ec(m));
+      wrap.appendChild(el('div', 'cap',
+        `<i class="fa-solid fa-highlighter"></i> You highlighted ${m.highlights.length} ${m.highlights.length === 1 ? 'passage' : 'passages'}`));
+      const list = el('div', 'list');
+      m.highlights.forEach((h) => {
+        const item = el('div', 'item');
+        item.appendChild(el('span', 'mark'));
+        item.appendChild(el('span', 'text', esc(truncateMid(h))));
+        list.appendChild(item);
+      });
+      wrap.appendChild(list);
+      return wrap;
+    }
+    function charNode(m) {
+      // narration-only line (no dialogue) → quiet centered scene-setting text
+      if (m.kind === 'narration') return el('div', 'scene-narration' + ec(m), esc(m.text));
+      const wrap = el('div', 'char-line' + ec(m));
+      wrap.appendChild(el('div', 'char-avatar', esc(SCENARIO.character.charAt(0))));
+      const body = el('div', 'char-body');
+      const head = el('div', 'char-head');
+      head.appendChild(el('span', 'char-name', esc(SCENARIO.character)));
+      if (m.emotionalState) head.appendChild(el('span', 'char-state', esc(m.emotionalState)));
+      body.appendChild(head);
+      body.appendChild(el('div', 'char-bubble', esc(m.text)));
+      wrap.appendChild(body);
+      return wrap;
+    }
+    function youSceneNode(m, absIndex, interactive) {
+      const wrap = el('div', 'you-scene' + ec(m));
+      wrap.appendChild(el('div', 'cap', `<i class="fa-solid fa-microphone"></i> You — said to ${esc(SCENARIO.character)}`));
+      wrap.appendChild(el('div', 'bubble', esc(m.text)));
+      if (interactive && !state.complete) {
+        const retry = el('button', 'retry', '<i class="fa-solid fa-arrows-rotate"></i> Try a different approach');
+        retry.addEventListener('click', () => tryDifferentApproach(absIndex));
+        wrap.appendChild(retry);
+      }
+      return wrap;
+    }
+    // narration that belongs to a character line WITH dialogue is rendered inside
+    // the card as italic lead-in; we handle that by emitting it as its own node.
+
+    // The LIVE immersive stage shows the scene as ONE continuous stage — every
+    // scene-world message, in order, with coaching omitted (coaching happens as
+    // overlays/timeouts, never fragmenting the scene). Each YourSceneLine keeps
+    // its TRUE index so "Try a different approach" truncates to the right place.
+    function sceneCardAll(msgs, interactive) {
+      const card = el('div', 'stage-card');
+      card.appendChild(el('div', 'scene-tag', '<i class="fa-solid fa-circle"></i> Scene'));
+      msgs.forEach((m, idx) => {
+        if (worldOf(m) !== 'scene') return;
+        if (m.speaker === 'character') card.appendChild(charNode(m));
+        else if (m.speaker === 'you') card.appendChild(youSceneNode(m, idx, interactive));
+      });
+      return card;
+    }
+
+    /* ---- the resources / completion card ------------------------------ */
+    /* Writer-authored resources (scenario.resources) + the LOCKED crisis
+       floor: elevated-stakes scenarios always end with 988, whatever else
+       the writer authored. Icons are page-side, cycled from a pool. */
+    const RESOURCE_ICONS = ['fa-user-nurse', 'fa-building-shield', 'fa-hand-holding-heart', 'fa-people-group'];
+    function resourcesNode() {
+      const wrap = el('div', 'coach-msg wide-msg');
+      wrap.appendChild(el('div', 'coach-avatar', '<i class="fa-solid fa-chalkboard-user"></i>'));
+      const body = el('div', 'coach-body');
+      body.appendChild(el('div', 'coach-label', 'AI Coach'));
+      const bubble = el('div', 'coach-bubble resources-bubble');
+      const items = (ACTIVE_SCENARIO.resources.items || [])
+        .filter((r) => r && (r.title || r.body))
+        .map((r, i) => ({ icon: RESOURCE_ICONS[i % RESOURCE_ICONS.length], title: fillTxt(r.title), body: fillTxt(r.body) }));
+      if (ACTIVE_SCENARIO.elevatedStakes) {
+        items.push({ icon: 'fa-phone-volume', ...AitheraScenario.CRISIS_FLOOR });
+      }
+      bubble.innerHTML = `
+        <p class="resources-lead">${esc(fillTxt(ACTIVE_SCENARIO.resources.lead))}</p>
+        <ul class="res-list">
+          ${items.map((r) => `<li><i class="fa-solid ${r.icon}"></i><div><b>${esc(r.title)}</b><span>${esc(r.body)}</span></div></li>`).join('')}
+        </ul>`;
+      body.appendChild(bubble);
+      wrap.appendChild(body);
+      return wrap;
+    }
+
+    /* ---- the closing summary: stepper + strengths/growth report ------- */
+    const CLOSING_STEPS = ['Analyzing conversation…', 'Determining strengths…', 'Determining growth areas…'];
+    const CLOSING_STRENGTHS = [
+      { icon: 'fa-ear-listen', title: 'You stayed instead of pushing', body: `When Kendra deflected with "I'm fine," you didn't press — that's why she let you back in a few lines later.` },
+      { icon: 'fa-share-nodes', title: 'You named real help, not just feelings', body: `Once the coach asked who you could connect her to, you named someone trained — not just "I'm here for you."` },
+      { icon: 'fa-handshake', title: 'You made it concrete and shared', body: `Offering to go WITH her, not just telling her to get help, is what actually got her to say yes.` },
+    ];
+    const CLOSING_GROWTH = [
+      { icon: 'fa-clock', title: 'Naming help took a nudge', body: `The coach had to ask "who could you connect her to?" before you named someone — getting there a beat sooner keeps the momentum she gave you.` },
+      { icon: 'fa-shield-heart', title: 'Watch for the "case file" fear', body: `When Kendra said she didn't want to be "somebody's case file," that's a fear of being handed off — naming that you're not stepping back, just adding support, defuses it fastest.` },
+    ];
+
+    function closingStepperNode() {
+      const wrap = el('div', 'closing-stepper');
+      wrap.innerHTML = CLOSING_STEPS
+        .map((label) => `<div class="closing-step"><span class="mark"><i class="fa-solid fa-check"></i></span>${esc(label)}</div>`)
+        .join('');
+      return wrap;
+    }
+
+    function reportListNode(cls, icon, heading, items) {
+      const wrap = el('div', `report-section ${cls}`);
+      wrap.innerHTML = `
+        <h3><i class="fa-solid ${icon}"></i> ${esc(heading)}</h3>
+        <ul class="res-list">
+          ${items.map((it) => `<li><i class="fa-solid ${it.icon}"></i><div><b>${esc(it.title)}</b><span>${esc(it.body)}</span></div></li>`).join('')}
+        </ul>`;
+      return wrap;
+    }
+    // Icons are assigned page-side (cycled from a pool) so the model only has
+    // to write titles + bodies — it never picks Font Awesome class names.
+    const STRENGTH_ICONS = ['fa-ear-listen', 'fa-share-nodes', 'fa-handshake'];
+    const GROWTH_ICONS = ['fa-clock', 'fa-shield-heart'];
+    const withIcons = (items, icons) => items.map((it, i) => ({ ...it, icon: icons[i % icons.length] }));
+
+    const strengthsNode = () => reportListNode('strengths', 'fa-star', 'Strengths',
+      (state.report && state.report.strengths.length) ? withIcons(state.report.strengths, STRENGTH_ICONS) : CLOSING_STRENGTHS);
+    const growthAreasNode = () => reportListNode('growth', 'fa-seedling', 'Growth areas',
+      (state.report && state.report.growthAreas.length) ? withIcons(state.report.growthAreas, GROWTH_ICONS) : CLOSING_GROWTH);
+
+    /* The playbook — the expert-validated toolkit every learner leaves with,
+       IDENTICAL for everyone regardless of how their conversation went. The
+       CONTENT is writer-authored (scenario.playbook); the GUARANTEE is the
+       page's: rendered here on completion, never model-generated. */
+    const PLAYBOOK_ICONS = ['fa-heart', 'fa-cloud-rain', 'fa-eye', 'fa-map-location-dot', 'fa-people-arrows', 'fa-hand-holding-heart', 'fa-triangle-exclamation'];
+    const CLOSING_PLAYBOOK = (ACTIVE_SCENARIO.playbook || [])
+      .filter((p) => p && (p.title || p.body))
+      .map((p, i) => ({ icon: PLAYBOOK_ICONS[i % PLAYBOOK_ICONS.length], title: fillTxt(p.title), body: fillTxt(p.body) }));
+    const playbookNode = () => reportListNode('playbook', 'fa-list-check', 'The approach that works', CLOSING_PLAYBOOK);
+    const RESULTS_PAGES = [
+      { node: strengthsNode, announce: 'Your results: strengths.' },
+      { node: growthAreasNode, announce: 'Your results: growth areas.' },
+      // A scenario with no playbook simply has a two-page report.
+      ...(CLOSING_PLAYBOOK.length ? [{ node: playbookNode, announce: 'Your results: the approach that works.' }] : []),
+    ];
+
+    /* =====================================================================
+       RENDER  — paint everything from state
+       ===================================================================== */
+    let typingHost = null;     // where the typing indicator currently lives
+
+    function render() {
+      const { mode, inputTarget, hasEnteredScene, messages, complete } = state;
+      // remember where the practice is scrolled so toggling Learn/Practice never
+      // jumps it — we only follow to the bottom when new scene content arrives.
+      const prevStageScroll = stage.scrollTop;
+      // the AI Coach sheet is up whenever we're learning — but ONLY after the learner
+      // has chosen to begin (we anchor on the scene first; the sheet never auto-opens)
+      const coachUp = mode === 'coaching' && state.started;
+      const trap = coachUp && hasEnteredScene; // trap focus only when the coach pauses a live scene
+
+      app.dataset.mode = mode;
+      app.dataset.target = inputTarget;
+      app.dataset.entered = String(hasEnteredScene);
+      app.classList.toggle('coach-up', coachUp);
+      app.classList.toggle('trap', trap);
+
+      // Withheld through the establishing card and the cold-open video — there's
+      // no real Learn/Practice choice yet. Revealed once the coach actually begins.
+      modeIndicator.classList.toggle('is-hidden', !state.started);
+
+      /* —— Mode indicator: Learn | Practice toggle (raises/lowers the sheet) —— */
+      const busy = state.transitioning || state.sending || state.delivering;
+      // "Learn" is tappable from the scene to open a queued debrief (even at the end) or a manual timeout
+      const coachDisabled = mode !== 'coaching' && (busy || (complete && !state.awaitingDebrief));
+      // "Practice" lights up once the coach has invited entry, even before stepping in
+      const sceneDisabled = mode !== 'scene' && (busy || complete || (!hasEnteredScene && !state.awaitingEntry));
+      // hover tooltips clarify what tapping the inactive segment does (only meaningful
+      // when it's enabled and not already the active mode)
+      const learnTip = (mode !== 'coaching' && !coachDisabled)
+        ? (state.awaitingDebrief ? (complete ? 'See your results' : 'See AI Coach feedback') : 'Talk with your AI coach') : '';
+      const sceneTip = (mode !== 'scene' && !sceneDisabled)
+        ? (hasEnteredScene ? 'Return to practice' : 'Begin practicing') : '';
+      modeIndicator.innerHTML =
+        `<div class="mode-toggle" role="group" aria-label="Learn or practice mode">
+           <button class="seg ${mode === 'coaching' ? 'active' : ''}" data-seg="coaching"
+                   ${learnTip ? `data-tip="${learnTip}"` : ''}
+                   aria-pressed="${mode === 'coaching'}" ${coachDisabled ? 'disabled' : ''}>
+             <i class="fa-solid fa-chalkboard-user"></i> Learn
+           </button>
+           <button class="seg ${mode === 'scene' ? 'active' : ''}" data-seg="scene"
+                   ${sceneTip ? `data-tip="${sceneTip}"` : ''}
+                   aria-pressed="${mode === 'scene'}" ${sceneDisabled ? 'disabled' : ''}>
+             <i class="fa-solid fa-door-open"></i> Practice
+           </button>
+         </div>`;
+
+      /* —— Practice base (ALWAYS the base layer) ——
+         Landing (pre-entry) → an establishing card; reading AND coach prep →
+         the story page (it stays put as the backdrop through the coach's
+         reaction and follow-up questions — submitting highlights shouldn't
+         cut away from the page the learner was just reading); the moment the
+         coach actually offers "Begin practicing" → the establishing card
+         again, now as the dimmed anchor under the coach sheet; entered → the
+         live scene. Dimmed, lightly blurred + inert whenever the coach sheet
+         is up over it. */
+      // True from "Read the background story" all the way through the coach's
+      // opening reaction and prep Q&A — false only once the scene invitation
+      // (awaitingEntry) or the scene itself has arrived.
+      const showingStory = state.enteredScenario && !hasEnteredScene && !state.awaitingEntry;
+      stage.classList.toggle('is-frozen', coachUp);
+      stage.classList.toggle('is-story', showingStory);
+      stage.toggleAttribute('inert', coachUp);
+      stage.setAttribute('aria-hidden', coachUp ? 'true' : 'false');
+      // The story page owns the stage (paper background, no card chrome) for
+      // as long as showingStory holds. It's cheap (a handful of paragraphs),
+      // so it simply rebuilds from state.highlights on every render — no
+      // special-case DOM patching needed.
+      {
+        stageInner.innerHTML = '';
+        if (!state.enteredScenario) {
+          // The landing beat — sets up the scene (and the activity to come)
+          // before the learner is dropped into anything. This is the ONE
+          // place to add framing copy for whatever activity follows.
+          stageInner.appendChild(establishingNode(
+            `Before you knock, read what's brought you here — and mark what matters most. Your AI coach will look at what you chose.`));
+        } else if (showingStory) {
+          stageInner.appendChild(storyNode());
+        } else if (hasEnteredScene) {
+          // Retry controls render whenever the scene is live (not complete / mid-reveal),
+          // REGARDLESS of mode — the stage is inert while the coach sheet is up, so they
+          // aren't clickable there, but keeping them in the DOM means toggling Learn/Practice
+          // never reflows the scene card (no jump/jitter).
+          stageInner.appendChild(sceneCardAll(messages, !complete && !state.delivering && !state.sending));
+          // resources live in the coach sheet (the practice never shows them)
+        } else {
+          stageInner.appendChild(establishingNode(
+            'Kendra’s been drinking alone since she lost her Nona. You’re about to check on her.'));
+        }
+      }
+
+      /* —— AI Coach sheet — up whenever we're in Learn mode (prep AND debriefs) —— */
+      coachPanel.toggleAttribute('inert', !coachUp);
+      coachPanel.setAttribute('aria-hidden', coachUp ? 'false' : 'true');
+      if (coachUp) {
+        coachPanelBody.innerHTML = '';
+        if (state.closingStepperActive) {
+          // the closing summary "builds" — no messages behind it yet
+          coachPanelBody.appendChild(closingStepperNode());
+        } else {
+          const coachingRun = trailingRun(messages, 'coaching');
+          coachingRun.forEach((m) => coachPanelBody.appendChild(
+            m.kind === 'highlights' ? youHighlightsNode(m) : (m.speaker === 'you' ? youCoachNode(m) : coachNode(m))));
+          // The full strengths/growth-areas report lives in its own modal (see
+          // resultsModal below) — opened only when the learner taps "View full
+          // results" in the footer, never dumped in here. Resources are the
+          // one thing that still shows inline, and only once they've been
+          // through that report, so the coach panel reads as ONE thing at a
+          // time landing, not everything at once.
+          if (complete && !state.delivering && state.resultsViewed) {
+            coachPanelBody.appendChild(resourcesNode());
+          }
+        }
+      }
+
+      /* —— Input bar — the composer, OR a CTA/indicator that takes its place —— */
+      // landing CTA (enter the scenario) · story CTA (submit highlights) ·
+      // entry CTA (step in) · "Analyzing…" beat · debrief CTA
+      const showLanding    = !state.enteredScenario;
+      // Distinct from the stage's `showingStory` above: THIS is the submit
+      // CTA, which hides as soon as highlights are sent — the story page
+      // itself keeps showing on the stage behind the coach sheet afterward.
+      const showStoryCta    = state.enteredScenario && !state.storyDone;
+      const showEntry      = state.awaitingEntry && !hasEnteredScene && !state.entryPromptDismissed && !state.delivering;
+      const showAnalyzing  = state.analyzing;
+      const showDebrief    = state.awaitingDebrief && !state.analyzing && !state.delivering;
+      // The coach has replied and is ready to send the learner back into the
+      // scene, but waits for this tap rather than auto-transitioning.
+      const showReturn     = state.awaitingReturn && !state.delivering;
+      // Once the recap lands, this replaces the composer just like every other
+      // CTA here — tapping it is what opens the results modal (never auto-shown).
+      const showResults    = state.awaitingResults && !state.resultsModalOpen;
+      // The practice's actual last step: once the resources have landed, this
+      // takes the composer's place instead of leaving it sitting there disabled
+      // with nothing left to type.
+      const showContinue   = complete && state.resultsViewed && !state.delivering && !state.continued;
+      const showDone        = state.continued;
+      inputLanding.hidden   = !showLanding;
+      inputStory.hidden     = !showStoryCta;
+      inputEntry.hidden     = !showEntry;
+      inputAnalyzing.hidden = !showAnalyzing;
+      inputDebrief.hidden   = !showDebrief;
+      inputReturn.hidden    = !showReturn;
+      inputResults.hidden   = !showResults;
+      inputContinue.hidden  = !showContinue;
+      inputDone.hidden      = !showDone;
+      inputMain.hidden      = showLanding || showStoryCta || showEntry || showAnalyzing || showDebrief || showReturn || showResults || showContinue || showDone;
+      storyCtaBtn.disabled  = state.highlights.length === 0;
+      if (showAnalyzing) {
+        inputAnalyzing.lastChild.textContent = complete ? 'Wrapping up your practice…' : 'Analyzing your response…';
+      }
+      if (showDebrief) {
+        debriefCtaBtn.innerHTML = complete
+          ? '<i class="fa-solid fa-chalkboard-user"></i> See your results <i class="fa-solid fa-arrow-right arrow"></i>'
+          : '<i class="fa-solid fa-chalkboard-user"></i> See AI Coach feedback <i class="fa-solid fa-arrow-right arrow"></i>';
+      }
+
+      if (inputTarget === 'character') {
+        composer.placeholder = `Say this to ${SCENARIO.character}…`;
+        inputIcon.className = 'fa-solid fa-microphone lead-icon';
+      } else {
+        composer.placeholder = 'Type your response…';
+        inputIcon.className = 'fa-solid fa-comment lead-icon';
+      }
+
+      composer.disabled = complete || state.transitioning || state.sending || state.delivering || !state.started;
+      sendBtn.disabled = composer.disabled || !composer.value.trim();
+      // The coach panel's top-right control. Post-entry it lowers the sheet ("Back to
+      // practice"). Pre-entry, while prepping (composer up, entry available), the SAME
+      // slot becomes the primary "Begin practicing" CTA — so the way forward always
+      // lives here rather than in a separate affordance.
+      const headerBegin = !hasEnteredScene && state.awaitingEntry && !inputMain.hidden && !complete;
+      const headerBack  = hasEnteredScene && !complete;
+      resumeBtn.hidden = !(headerBegin || headerBack);
+      resumeBtn.classList.toggle('is-begin', headerBegin);
+      resumeBtn.dataset.action = headerBegin ? 'begin' : 'back';
+      resumeBtn.innerHTML = headerBegin
+        ? 'Begin practicing <i class="fa-solid fa-arrow-right"></i>'
+        : 'Back to practice <i class="fa-solid fa-chevron-down"></i>';
+      inputHint.textContent = complete
+        ? 'Practice complete — press Restart to run it again.'
+        : 'Enter to send · Shift+Enter for a new line';
+
+      /* —— Results modal — strengths (page 0) or growth areas (page 1), one at
+         a time. .app goes inert while this (or the intro modal below) is open
+         (they're siblings, so the modal itself is unaffected) so background
+         content can't be tabbed into. —— */
+      resultsModal.hidden = !state.resultsModalOpen;
+      app.toggleAttribute('inert', state.resultsModalOpen || state.introModalOpen);
+      if (state.resultsModalOpen) {
+        resultsModalBody.innerHTML = '';
+        resultsModalBody.appendChild(RESULTS_PAGES[state.resultsPage].node());
+        resultsModalBody.scrollTop = 0;
+        [...resultsDots.children].forEach((d, i) => {
+          d.hidden = i >= RESULTS_PAGES.length;   // scenario may have fewer report pages
+          d.classList.toggle('is-active', i === state.resultsPage);
+        });
+        const NEXT_LABELS = ['Next: Growth areas', 'Next: The approach that works'];
+        const backBtn = state.resultsPage > 0
+          ? `<button class="results-nav-btn" id="resultsBackBtn"><i class="fa-solid fa-arrow-left"></i> Back</button>` : `<span></span>`;
+        const fwdBtn = state.resultsPage < RESULTS_PAGES.length - 1
+          ? `<button class="results-nav-btn primary" id="resultsNextBtn">${NEXT_LABELS[state.resultsPage]} <i class="fa-solid fa-arrow-right"></i></button>`
+          : `<button class="results-nav-btn primary" id="resultsContinueBtn">Continue <i class="fa-solid fa-arrow-right"></i></button>`;
+        resultsModalFoot.innerHTML = backBtn + fwdBtn;
+      }
+
+      /* —— Highlight intro modal — a one-time explainer, opened by
+         openStoryIntro() the moment the story page lands (see enterScenario). —— */
+      introModal.hidden = !state.introModalOpen;
+      if (state.introModalOpen) introModalBody.textContent = STORY_INTRO_TEXT;
+
+      // keep the sheet sitting exactly on top of the (variable-height) input bar
+      coachPanel.style.bottom = inputbar.offsetHeight + 'px';
+      // with the sheet up over a LIVE scene, reserve space below so the latest
+      // line scrolls into the VISIBLE peek above the sheet (not behind it)
+      stageInner.style.paddingBottom = (coachUp && hasEnteredScene) ? (coachPanel.offsetHeight + 20) + 'px' : '';
+
+      // a freshly-delivered message animates in exactly once
+      messages.forEach((m) => { if (m._enter) m._enter = false; });
+
+      manageFocus(trap);
+      requestAnimationFrame(() => {
+        // follow the practice to the bottom ONLY when fresh scene content arrived;
+        // otherwise hold position so a Learn/Practice toggle never jumps the scene
+        if (followStage) { stage.scrollTop = stage.scrollHeight; followStage = false; }
+        else { stage.scrollTop = prevStageScroll; }
+        coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
+      });
+    }
+    // set true right before a render that appends scene content, so it follows down
+    let followStage = false;
+
+    /* ---- typing indicator (in the right world) ------------------------ */
+    function showTyping() {
+      hideTyping();
+      const coachUp = state.mode === 'coaching';
+      const node = el('div', 'typing' + (coachUp ? '' : ' scene'), '<span></span><span></span><span></span>');
+      node.id = 'typingNode';
+      // coach lines type in the sheet (prep AND debriefs); scene lines type in the practice
+      if (coachUp) { typingHost = coachPanelBody; coachPanelBody.appendChild(node); }
+      else { typingHost = stageInner; stageInner.appendChild(node); }
+      requestAnimationFrame(() => {
+        (typingHost === coachPanelBody ? coachPanelBody : stage).scrollTop = 1e9;
+      });
+    }
+    function hideTyping() {
+      const t = document.getElementById('typingNode');
+      if (t) t.remove();
+      typingHost = null;
+    }
+
+    /* =====================================================================
+       FOCUS MANAGEMENT  — trap focus in the coaching layer while paused
+       ===================================================================== */
+    let lastSceneFocus = null;
+    function focusables() {
+      // the coaching "layer" = the mode toggle + panel + the (still-usable) input bar
+      const sel = 'button, [href], textarea, input, select, [tabindex]:not([tabindex="-1"])';
+      return [
+        ...modeIndicator.querySelectorAll(sel),
+        ...coachPanel.querySelectorAll(sel),
+        ...document.querySelectorAll('.inputbar ' + sel),
+      ].filter((n) => !n.disabled && n.offsetParent !== null);
+    }
+    function manageFocus(trap) {
+      if (trap && !app.classList.contains('was-trap')) {
+        app.classList.add('was-trap');
+        lastSceneFocus = document.activeElement;
+        // move focus into the coach sheet
+        setTimeout(() => { (composer.disabled ? resumeBtn : composer).focus(); }, 30);
+      } else if (!trap && app.classList.contains('was-trap')) {
+        app.classList.remove('was-trap');
+        // restore focus toward the practice/input
+        setTimeout(() => { if (!composer.disabled) composer.focus(); }, 30);
+      }
+    }
+    document.addEventListener('keydown', (e) => {
+      const trap = app.classList.contains('trap');
+      if (!trap) return;
+      if (e.key === 'Escape') { e.preventDefault(); resumeScene(); return; }
+      if (e.key === 'Tab') {
+        const f = focusables();
+        if (!f.length) return;
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
+
+    function announce(msg) { liveRegion.textContent = ''; setTimeout(() => { liveRegion.textContent = msg; }, 30); }
+
+    /* =====================================================================
+       STORY + HIGHLIGHT — the read-first beat that replaces a cold-open video.
+       Free-range highlighting: the learner drag-selects any run of text (like
+       a real highlighter), across word/phrase/sentence boundaries — it is NOT
+       locked to pre-cut chunks. Selections are converted to plain-text char
+       offsets PER PARAGRAPH (see textOffsetIn / clipRangeToNode below), stored
+       in state.highlights, and re-rendered as <mark> spans. Tapping an
+       existing mark removes exactly that highlight. Submitting hands the
+       ranges to the coach, who opens with a reaction built from them
+       (buildHighlightOpening, via overlap against STORY_CRITICAL).
+       ===================================================================== */
+
+    // Range → plain-text offset, using Range.toString().length as the ruler:
+    // the text of [start of root, node/offset) IS the offset, natively
+    // correct whether the boundary lands on a text node or an element.
+    function textOffsetIn(root, node, offset) {
+      const r = document.createRange();
+      r.selectNodeContents(root);
+      r.setEnd(node, offset);
+      return r.toString().length;
+    }
+
+    // Clips `range` to the portion that falls inside `node` (a paragraph),
+    // or returns null if they don't overlap at all.
+    function clipRangeToNode(range, node) {
+      const full = document.createRange();
+      full.selectNodeContents(node);
+      // Note: per spec, START_TO_END compares THIS range's end to sourceRange's
+      // start (and END_TO_START compares this's start to sourceRange's end) —
+      // the opposite of what the constant names suggest.
+      if (range.compareBoundaryPoints(Range.START_TO_END, full) <= 0) return null;  // range ends at/before node's start
+      if (range.compareBoundaryPoints(Range.END_TO_START, full) >= 0) return null;  // range starts at/after node's end
+      const clipped = full.cloneRange();
+      if (range.compareBoundaryPoints(Range.START_TO_START, full) > 0) {
+        clipped.setStart(range.startContainer, range.startOffset);
+      }
+      if (range.compareBoundaryPoints(Range.END_TO_END, full) < 0) {
+        clipped.setEnd(range.endContainer, range.endOffset);
+      }
+      return clipped;
+    }
+
+    // Merges a new [start,end) into state.highlights for one paragraph,
+    // combining it with any overlapping/adjacent ranges already there.
+    function addHighlight(para, start, end) {
+      const rest = state.highlights.filter((h) => h.para !== para);
+      const same = state.highlights.filter((h) => h.para === para);
+      same.push({ para, start, end });
+      same.sort((a, b) => a.start - b.start);
+      const merged = [];
+      same.forEach((h) => {
+        const last = merged[merged.length - 1];
+        if (last && h.start <= last.end) last.end = Math.max(last.end, h.end);
+        else merged.push({ ...h });
+      });
+      state.highlights = rest.concat(merged);
+    }
+    function removeHighlightAt(para, start, end) {
+      state.highlights = state.highlights.filter((h) => !(h.para === para && h.start === start && h.end === end));
+    }
+
+    // Fires on mouseup/touchend inside the passage: turns whatever the browser
+    // just selected into one highlight per paragraph it touches (a drag can
+    // span more than one), trims leading/trailing whitespace, then clears the
+    // native selection so our own <mark> styling is the only visible mark.
+    function handleStorySelection() {
+      if (state.storyDone) return;
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+      const range = sel.getRangeAt(0);
+      const passage = document.getElementById('storyPassage');
+      if (!passage) return;
+      let added = false;
+      passage.querySelectorAll('p').forEach((pEl, i) => {
+        const sub = clipRangeToNode(range, pEl);
+        if (!sub) return;
+        let start = textOffsetIn(pEl, sub.startContainer, sub.startOffset);
+        let end = start + sub.toString().length;
+        const text = STORY_PARAGRAPHS[i];
+        while (start < end && /\s/.test(text[start])) start++;
+        while (end > start && /\s/.test(text[end - 1])) end--;
+        if (end - start < 1) return;
+        addHighlight(i, start, end);
+        added = true;
+      });
+      sel.removeAllRanges();
+      if (added) {
+        render();
+        // the on-page count rebuilds silently, so voice the change here
+        announce(`Highlight added — ${state.highlights.length} highlighted.`);
+      }
+    }
+
+    // After a mark is removed, render() rebuilds the whole passage — the
+    // focused mark is destroyed and keyboard focus would drop to <body>.
+    // Land it on the next remaining mark (or the passage itself) instead.
+    function refocusAfterMarkRemoval(para, start) {
+      const marks = [...stage.querySelectorAll('mark.hl-mark')];
+      const next = marks.find((m) =>
+        Number(m.dataset.para) > para ||
+        (Number(m.dataset.para) === para && Number(m.dataset.start) >= start)
+      ) || marks[marks.length - 1];
+      if (next) next.focus();
+      else document.getElementById('storyPassage')?.focus();
+    }
+
+    // Orchestrates a whole-stage content swap as one continuous motion rather
+    // than an instant repaint: the current stage-inner content softens and
+    // lifts away (.phase-leave), THEN `applyStateChange` mutates state and a
+    // normal render() rebuilds stageInner, and the freshly-mounted content
+    // settles in (.phase-enter). The backdrop mood (scene ⇄ story, via
+    // .stage-inner::before/::after) crossfades on its own slightly-longer timeline
+    // underneath this. `phaseBusy` blocks re-entry so a double-tap mid-swap
+    // can't stack two transitions.
+    let phaseBusy = false;
+    async function transitionStagePhase(applyStateChange) {
+      if (phaseBusy) return;
+      phaseBusy = true;
+      const outgoing = stageInner.firstElementChild;
+      if (outgoing && !reducedMotion()) {
+        outgoing.classList.add('phase-leave');
+        await wait(260);
+      }
+      applyStateChange();
+      render();
+      const incoming = stageInner.firstElementChild;
+      if (incoming && !reducedMotion()) incoming.classList.add('phase-enter');
+      phaseBusy = false;
+    }
+
+    // "Read the background story" — the very first beat. Leaves the landing
+    // card behind and reveals the story page as one continuous motion (see
+    // transitionStagePhase) instead of a hard cut, then opens the one-time
+    // "Highlight what matters" explainer so the ask is unmistakable before
+    // the learner starts reading.
+    async function enterScenario() {
+      if (state.enteredScenario || phaseBusy) return;
+      announce('Entering the scenario.');
+      await transitionStagePhase(() => { state.enteredScenario = true; });
+      openStoryIntro();
+    }
+
+    function openStoryIntro() {
+      if (state.introModalShown) return;
+      state.introModalOpen = true;
+      state.introModalShown = true;
+      announce('Highlight what matters — read the story, then select what feels most significant.');
+      render();
+      setTimeout(() => introModalCtaBtn.focus(), 30);
+    }
+    function closeStoryIntro() {
+      if (!state.introModalOpen) return;
+      state.introModalOpen = false;
+      announce('Back to the story.');
+      render();
+    }
+
+    // "Send AI Coach my highlights" — the ONE way out of reading. The story
+    // page gives way to the establishing card (a short, clearly-labeled beat:
+    // "Bringing in your AI coach…") which is itself the transition into the
+    // coach's opening reaction, delivered in the standard AI Coach panel —
+    // no second tap required.
+    async function finishStory() {
+      if (state.storyDone || state.highlights.length === 0) return;
+      state.storyDone = true;
+      state.transitioning = true;
+      announce('Bringing in your AI coach.');
+      render();
+      await wait(reducedMotion() ? 0 : 700);
+      state.transitioning = false;
+      startSession();
+    }
+
+    /* =====================================================================
+       ACTIONS
+       ===================================================================== */
+    async function send() {
+      const text = composer.value.trim();
+      if (!text || state.sending || state.complete || state.transitioning) return;
+
+      const kind = state.mode === 'scene' ? 'dialogue' : 'coaching';
+      state.messages.push({ speaker: 'you', kind, text, _enter: true });
+      if (kind === 'dialogue') followStage = true;   // a spoken line — follow the scene down
+      composer.value = '';
+      autoGrow();
+
+      state.sending = true;
+      render();          // shows the learner's line (faded in) and locks input
+      showTyping();      // the AI is composing — covers the model round-trip
+
+      let turn;
+      try { turn = await getTurn(state.messages); }
+      catch (err) {
+        turn = { turn: [{ speaker: 'coach', kind: 'coaching', text:
+          'Something hiccuped reaching the AI coach. Take a breath and try that again.' }], mode: 'coaching', inputTarget: 'coach' };
+      }
+
+      // Live mode signals the end of the practice on the turn itself (the demo
+      // engine sets state.complete directly). The report feeds the results modal.
+      if (turn.complete) state.complete = true;
+      if (turn.report) state.report = turn.report;
+
+      await deliverTurn(turn);
+
+      state.sending = false;
+      state.manualTimeout = false;     // any model turn ends a manual timeout
+      render();
+      // keep the cursor in the composer so the learner can reply without re-clicking
+      // (skip when a CTA/indicator has taken the input bar's place — e.g. a queued debrief)
+      if (!composer.disabled && !inputMain.hidden) composer.focus();
+    }
+
+    /* Reveal a turn believably rather than all at once: AI lines arrive through
+       a "thinking" beat, the character's reaction plays out IN the scene, then
+       "Analyzing response…" leads into the coaching layer with the scene line
+       animating across — so coaching and scene stay two distinct moments that
+       are visually connected. */
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // How long the coach "thinks" (typing dots) before a message. This is the MAIN
+    // beat: the dots tell the learner more is coming, so they read the message that's
+    // already on screen while the next one composes. We therefore scale the thinking
+    // time to the PREVIOUS message's length — that's what's being read right now. The
+    // very first line has nothing to read yet, so it gets a short opening beat.
+    const thinkingTime = (prevText) =>
+      reducedMotion() ? 250
+      : prevText ? Math.min(3800, 1000 + String(prevText).length * 15)
+                 : 950;
+
+    // a token so a Restart (or new send) mid-reveal cleanly cancels the old one
+    let deliverSeq = 0;
+    function abortDelivery() {
+      hideTyping();
+      state.delivering = false;
+      state.analyzing = false;
+    }
+
+    async function deliverTurn(turn) {
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;          // a newer turn / restart superseded us
+      const items = turn.turn;
+      const willEnter = !state.hasEnteredScene && (turn.mode === 'scene' || items.some((m) => worldOf(m) === 'scene'));
+
+      // FIRST entry is LEARNER-TRIGGERED: reveal the coach's invitation, stash the
+      // opening scene, and surface a "Step into the scene" control. We do NOT
+      // auto-advance — the learner decides when to cross the threshold.
+      if (willEnter) {
+        state.delivering = true;
+        const coachingItems = items.filter((m) => worldOf(m) === 'coaching');
+        for (const m of coachingItems) {
+          hideTyping();
+          showTyping(); await wait(reducedMotion() ? 250 : 780); hideTyping();
+          if (dead()) return;
+          m._enter = true;
+          state.messages.push(m);
+          render();
+          await wait(reducedMotion() ? 80 : 300);
+          if (dead()) return;
+        }
+        state.pendingScene = items.filter((m) => worldOf(m) === 'scene');
+        // Safety net (live mode): if the model invited us in without painting the
+        // room, establish the scene from the writer's opening image.
+        if (!state.pendingScene.length) {
+          state.pendingScene = [{ speaker: 'character', kind: 'narration', text:
+`You step in. ${fillTxt(ACTIVE_SCENARIO.openingImage)}.` }];
+        }
+        state.awaitingEntry = true;
+        state.mode = 'coaching'; state.inputTarget = 'coach';
+        state.delivering = false;
+        render();
+        announce(`Your AI coach says you're ready. Step into the scene when you are.`);
+        return;
+      }
+
+      state.delivering = true;
+      let i = 0;
+
+      // Phase 1 — the character's reaction plays out IN the scene.
+      while (i < items.length && worldOf(items[i]) === 'scene') {
+        const m = items[i];
+        if (state.mode !== 'scene') { state.mode = 'scene'; state.inputTarget = 'character'; }
+        hideTyping();
+        if (m.speaker === 'character' && m.kind === 'dialogue') {
+          showTyping(); await wait(reducedMotion() ? 250 : 850); hideTyping();
+        } else {
+          await wait(reducedMotion() ? 80 : 280);
+        }
+        if (dead()) return;
+        m._enter = true;
+        state.messages.push(m);
+        if (!state.hasEnteredScene) state.hasEnteredScene = true;
+        followStage = true;            // a new scene line — follow it down
+        render();
+        await wait(reducedMotion() ? 80 : 340);
+        if (dead()) return;
+        i++;
+      }
+
+      // Phase 2 — a scene line just drew its reaction. Do NOT auto-open the coach.
+      // Give the learner time to READ Kendra's reaction: show "Analyzing…" briefly
+      // in the input bar, then offer the debrief as a choice they open when ready.
+      const intoDebrief = (i < items.length) && state.mode === 'scene' && state.hasEnteredScene;
+      if (intoDebrief) {
+        state.analyzing = true;
+        render();                                    // input bar: "Analyzing your response…"
+        await wait(reducedMotion() ? 500 : 1600);
+        if (dead()) return;
+        state.analyzing = false;
+        state.pendingDebrief = items.slice(i);       // queue the debrief; don't reveal it yet
+        state.awaitingDebrief = true;
+        state.delivering = false;
+        render();                                    // input bar: "See what your AI coach noticed →"
+        announce('Your AI coach noticed something. Open the coach when you’re ready.');
+        return;
+      }
+
+      // Phase 3 — coach message(s) revealed in the sheet when we're ALREADY coaching
+      // (a send-back reply, an escalation redirect, or a manual-timeout answer).
+      while (i < items.length) {
+        const m = items[i];
+        hideTyping();
+        showTyping(); await wait(reducedMotion() ? 250 : 780); hideTyping();
+        if (dead()) return;
+        m._enter = true;
+        state.messages.push(m);
+        render();
+        await wait(reducedMotion() ? 80 : 300);
+        if (dead()) return;
+        i++;
+      }
+
+      // Finalize. If the coach is sending the learner back into the scene, don't
+      // auto-cut over — give them a beat to read the reply, then offer it as a
+      // choice (same "learner decides when" pattern as every other transition
+      // here), rather than yanking the panel closed out from under them.
+      const resumingToScene = turn.mode === 'scene' && state.mode === 'coaching';
+      if (resumingToScene) {
+        state.pendingReturn = { mode: turn.mode, inputTarget: turn.inputTarget };
+        state.awaitingReturn = true;
+        state.delivering = false;
+        render();                                     // input bar: "Continue practicing →"
+        announce('Your AI coach is ready to send you back. Continue when you are.');
+        return;
+      }
+      state.mode = turn.mode; state.inputTarget = turn.inputTarget;
+      state.delivering = false;
+      render();
+    }
+
+    // "Continue practicing" — the learner returns to the scene on their own
+    // command, once they're done reading the coach's reply.
+    function returnToScene() {
+      if (!state.awaitingReturn || state.sending || state.delivering) return;
+      const p = state.pendingReturn;
+      state.pendingReturn = null;
+      state.awaitingReturn = false;
+      state.mode = p.mode; state.inputTarget = p.inputTarget;
+      followStage = true;
+      announce('Back in the scene.');
+      render();
+      setTimeout(() => { if (!composer.disabled) composer.focus(); }, 260);
+    }
+
+    // "See what your AI coach noticed" — the learner opens the queued debrief when
+    // ready (after reading Kendra's reaction). The coach sheet RISES; the practice
+    // (with the line) stays visible, dimmed, above it.
+    function openDebrief() {
+      if (!state.awaitingDebrief || state.sending || state.delivering) return;
+      if (state.complete) { openClosingDebrief(); return; }
+      (state.pendingDebrief || []).forEach((m) => { m._enter = true; state.messages.push(m); });
+      state.pendingDebrief = null;
+      state.awaitingDebrief = false;
+      state.analyzing = false;
+      state.mode = 'coaching'; state.inputTarget = 'coach';
+      announce('Stepped out to your AI coach.');
+      render();   // the coach sheet rises with the debrief
+    }
+
+    // The FINAL debrief gets a build-up instead of an instant reveal: the coach
+    // sheet rises into a short "Analyzing… Determining…" stepper, THEN the recap
+    // message + the strengths/growth-areas report land together.
+    async function openClosingDebrief() {
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;
+      const pending = state.pendingDebrief || [];
+      state.pendingDebrief = null;
+      state.awaitingDebrief = false;
+      state.analyzing = false;
+      state.mode = 'coaching'; state.inputTarget = 'coach';
+      state.closingStepperActive = true;
+      announce('Analyzing the conversation.');
+      render();   // the coach sheet rises, showing the stepper
+      await runClosingStepper(dead);
+      if (dead()) return;
+      state.closingStepperActive = false;
+      pending.forEach((m) => { m._enter = true; state.messages.push(m); });
+      state.awaitingResults = true;   // footer offers "View full results" — the report opens in its own modal
+      announce('Your AI coach has a recap. View your full results when ready.');
+      render();   // just the recap message for now
+    }
+
+    // The modal's footer is rebuilt on every render, so focus lands via a
+    // fresh query — same delayed-focus pattern the intro modal's CTA uses.
+    let resultsOpenerFocus = null;
+    function focusResultsPrimary() {
+      setTimeout(() => {
+        const btn = resultsModalFoot.querySelector('.results-nav-btn.primary');
+        if (btn) btn.focus();
+      }, 30);
+    }
+    function openResultsModal() {
+      if (!state.awaitingResults) return;
+      state.resultsPage = 0;
+      state.resultsModalOpen = true;
+      resultsOpenerFocus = document.activeElement;   // restored on close
+      announce('Your results: strengths.');
+      render();
+      focusResultsPrimary();
+    }
+    // Closing the modal doesn't just dump the resources in — the coach
+    // "introduces" them first, as its own typed-in message, the same way any
+    // other coach line arrives (see deliverTurn/deliverOpening).
+    async function closeResultsModal() {
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;
+      state.resultsModalOpen = false;
+      state.awaitingResults = false;
+      state.delivering = true;
+      announce('Back to your AI coach.');
+      render();
+      // Restore focus out of the (now-hidden) modal. The CTA that opened it
+      // has already left the footer, so fall back to the coach panel the
+      // learner is returned to.
+      setTimeout(() => {
+        if (resultsOpenerFocus && resultsOpenerFocus.offsetParent !== null) resultsOpenerFocus.focus();
+        else { coachPanel.setAttribute('tabindex', '-1'); coachPanel.focus(); }
+        resultsOpenerFocus = null;
+      }, 30);
+      showTyping(); await wait(reducedMotion() ? 250 : 900); hideTyping();
+      if (dead()) return;
+      state.messages.push({ speaker: 'coach', kind: 'coaching', _enter: true, text:
+        `Great work! Here are some resources for dealing with situations just like this.` });
+      render();
+      await wait(reducedMotion() ? 80 : 500);
+      if (dead()) return;
+      showTyping(); await wait(reducedMotion() ? 250 : 900); hideTyping();
+      if (dead()) return;
+      state.resultsViewed = true;   // reveals the resources message — see render()
+      state.delivering = false;
+      announce('Here are some resources.');
+      render();
+    }
+
+    // "Continue" — the practice's actual last step. Nothing in this prototype
+    // routes to a real next lesson, so this just settles the footer into a
+    // clear, final "done" state rather than pretending to navigate anywhere.
+    function finishPractice() {
+      if (!state.resultsViewed || state.continued) return;
+      state.continued = true;
+      announce('Practice complete.');
+      render();
+    }
+    function resultsNext() {
+      state.resultsPage = Math.min(state.resultsPage + 1, RESULTS_PAGES.length - 1);
+      announce(RESULTS_PAGES[state.resultsPage].announce);
+      render();
+      focusResultsPrimary();   // the footer was rebuilt — don't drop focus to body
+    }
+    function resultsBack() {
+      state.resultsPage = Math.max(state.resultsPage - 1, 0);
+      announce(RESULTS_PAGES[state.resultsPage].announce);
+      render();
+      focusResultsPrimary();
+    }
+
+    async function runClosingStepper(dead) {
+      const steps = () => [...coachPanelBody.querySelectorAll('.closing-step')];
+      for (let i = 0; i < CLOSING_STEPS.length; i++) {
+        if (dead()) return;
+        const els = steps();
+        if (els[i]) els[i].classList.add('is-active');
+        await wait(reducedMotion() ? 150 : 900);
+        if (dead()) return;
+        if (els[i]) { els[i].classList.remove('is-active'); els[i].classList.add('is-done'); }
+      }
+      await wait(reducedMotion() ? 0 : 350);
+    }
+
+    // "Step into the scene" — the learner crosses on their command. The coach
+    // sheet LOWERS to reveal the live practice; the first scene line fades in.
+    // (Same motion as every Learn→Practice switch — no special-case screen.)
+    function enterScene() {
+      if (!state.awaitingEntry || state.hasEnteredScene || state.sending || state.delivering) return;
+      (state.pendingScene || []).forEach((m) => { m._enter = true; state.messages.push(m); });
+      state.pendingScene = null;
+      state.awaitingEntry = false;
+      state.entryPromptDismissed = false;
+      state.hasEnteredScene = true;
+      state.mode = 'scene'; state.inputTarget = 'character';
+      followStage = true;   // reveal the first scene line at the bottom
+      announce(`You step into the scene with ${SCENARIO.character}.`);
+      render();   // coach sheet lowers; the live scene is revealed beneath it
+      setTimeout(() => { if (!composer.disabled) composer.focus(); }, 260);
+    }
+
+    // "Step out to AI coach" — a learner-initiated pause (not a coach debrief).
+    function stepOut() {
+      if (state.mode !== 'scene' || state.complete || state.sending || state.delivering || state.transitioning || state.awaitingDebrief) return;
+      state.messages.push({ speaker: 'coach', kind: 'coaching', text:
+`Timeout — we can pause here as long as you need. What's on your mind before you step back in?` });
+      state.mode = 'coaching';
+      state.inputTarget = 'coach';
+      state.manualTimeout = true;
+      announce('Scene paused. Timeout with your AI coach.');
+      render();
+      setTimeout(() => composer.focus(), 40);
+    }
+
+    // "Resume the scene" — go back into the roleplay (no message added).
+    function resumeScene() {
+      if (!state.hasEnteredScene || state.complete || state.delivering || state.sending) return;
+      state.mode = 'scene';
+      state.inputTarget = 'character';
+      state.manualTimeout = false;
+      state.awaitingReturn = false; state.pendingReturn = null;   // this covers it too
+      announce('Back in the scene.');
+      render();
+    }
+
+    // "Try a different approach" — truncate back to just before this YourSceneLine
+    // and return to scene mode targeting the character (a pedagogical retry).
+    function tryDifferentApproach(absIndex) {
+      if (absIndex == null || absIndex < 0 || state.sending || state.delivering || state.transitioning) return;
+      deliverSeq++;                          // cancel any in-flight reveal
+      abortDelivery();
+      state.messages = state.messages.slice(0, absIndex);
+      state.complete = false;
+      state.mode = 'scene';
+      state.inputTarget = 'character';
+      state.manualTimeout = false;
+      state.awaitingDebrief = false; state.pendingDebrief = null; state.analyzing = false;
+      // recompute hasEnteredScene from the truncated history
+      state.hasEnteredScene = state.messages.some((m) => worldOf(m) === 'scene');
+      followStage = true;
+      announce('Rewound. Try that line again.');
+      render();
+      setTimeout(() => composer.focus(), 40);
+    }
+
+    function restart() {
+      deliverSeq++;                                       // cancel any in-flight reveal
+      abortDelivery();
+      Object.assign(state, {
+        mode: 'coaching', inputTarget: 'coach', hasEnteredScene: false,
+        started: false, messages: [], pendingOpening: null,
+        sending: false, complete: false, report: null, manualTimeout: false,
+        transitioning: false, delivering: false, awaitingEntry: false, pendingScene: null,
+        entryPromptDismissed: false, awaitingDebrief: false, pendingDebrief: null, analyzing: false,
+        enteredScenario: false, storyDone: false, introModalOpen: false, introModalShown: false,
+        highlights: [], closingStepperActive: false,
+        awaitingResults: false, resultsModalOpen: false, resultsPage: 0, resultsViewed: false,
+        continued: false, awaitingReturn: false, pendingReturn: null,
+      });
+      app.classList.remove('was-trap');
+      followStage = true;
+      announce('Practice restarted.');
+      render();   // back to the story, ready to read and highlight again
+    }
+
+    // Builds the learner's highlight recap as its own "you" message — sent
+    // into the coach panel BEFORE the coach's reaction, so the coach visibly
+    // responds to a record the learner can see, not a black box.
+    function highlightsRecapMessage() {
+      const excerpts = state.highlights
+        .slice()
+        .sort((a, b) => a.para - b.para || a.start - b.start)
+        .map((h) => STORY_PARAGRAPHS[h.para].slice(h.start, h.end).trim());
+      return {
+        speaker: 'you',
+        kind: 'highlights',
+        highlights: excerpts,
+        text: `Highlighted: ${excerpts.map((t) => `"${t}"`).join(' / ')}`,   // plain-text fallback (live/API mode)
+      };
+    }
+
+    // "Show my coach what I highlighted" hands off here: the coach opens with a
+    // reaction built from the learner's highlight set, then the sheet rises over
+    // the scene anchor and types it in, same as every other coach reveal.
+    async function startSession() {
+      if (state.started || state.sending || state.delivering) return;
+      state.started = true;
+      state.mode = 'coaching'; state.inputTarget = 'coach';
+
+      // LIVE: the learner's recap lands first, then the MODEL reacts to their
+      // actual highlights (judged against the key-moments answer key in the
+      // system prompt) — a real read, not the scripted template below.
+      if (IS_LIVE) {
+        state.pendingOpening = [highlightsRecapMessage()];
+        announce('Bringing in your AI coach.');
+        render();
+        await deliverOpening();
+        state.sending = true;
+        render();
+        showTyping();
+        let turn;
+        try { turn = await getTurn(state.messages); }
+        catch (err) {
+          // network hiccup → the scripted reaction keeps the session alive
+          turn = { turn: [{ speaker: 'coach', kind: 'coaching', text: buildHighlightOpening() }], mode: 'coaching', inputTarget: 'coach' };
+        }
+        if (turn.complete) state.complete = true;
+        if (turn.report) state.report = turn.report;
+        await deliverTurn(turn);
+        state.sending = false;
+        render();
+        if (!composer.disabled && !inputMain.hidden) composer.focus();
+        return;
+      }
+
+      state.pendingOpening = [
+        highlightsRecapMessage(),
+        { speaker: 'coach', kind: 'coaching', text: buildHighlightOpening() },
+      ];
+      announce('Bringing in your AI coach.');
+      render();                 // the sheet rises (empty) over the scene anchor
+      await deliverOpening();   // each opening line types into the sheet, one by one
+    }
+
+    // Reveal the coach's opening prep message-by-message (typing beat between each),
+    // so the first thing the learner sees is the coach "talking," not a wall of text.
+    async function deliverOpening() {
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;     // a restart mid-stream supersedes us
+      const opening = state.pendingOpening || [];
+      state.pendingOpening = null;
+      state.delivering = true;
+      render();
+      for (let i = 0; i < opening.length; i++) {
+        const m = opening[i];
+        const prev = i > 0 ? opening[i - 1] : null;
+        hideTyping();
+        if (m.speaker === 'you') {
+          // The learner's own recap isn't AI-composed — a brief settle, no
+          // "typing" dots (those mean the COACH is composing).
+          await wait(reducedMotion() ? 80 : 320);
+        } else {
+          // The dominant beat: "thinking" long enough to read the previous message,
+          // with the typing dots signalling that more is on the way.
+          showTyping(); await wait(thinkingTime(prev ? prev.text : '')); hideTyping();
+        }
+        if (dead()) return;
+        m._enter = true;
+        state.messages.push(m);
+        render();
+        // just a short settle so the next "thinking" doesn't start the same instant
+        if (i < opening.length - 1) await wait(reducedMotion() ? 80 : 480);
+        if (dead()) return;
+      }
+      state.delivering = false;
+      render();
+      if (!composer.disabled) composer.focus();
+    }
+
+    /* =====================================================================
+       WIRING
+       ===================================================================== */
+    function autoGrow() {
+      composer.style.height = 'auto';
+      composer.style.height = Math.min(composer.scrollHeight, 120) + 'px';
+    }
+    composer.addEventListener('input', () => { autoGrow(); sendBtn.disabled = state.sending || state.complete || !composer.value.trim(); });
+    composer.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+    });
+    sendBtn.addEventListener('click', send);
+    // pre-entry this control begins the conversation; once entered it lowers the sheet
+    resumeBtn.addEventListener('click', () => {
+      if (resumeBtn.dataset.action === 'begin') enterScene();
+      else resumeScene();
+    });
+    scrim.addEventListener('click', resumeScene);     // tap the dimmed scene to resume
+
+    // Entry bar: the CTA steps in; "keep talking" hands the bar back to the composer.
+    enterCtaBar.addEventListener('click', enterScene);
+    keepTalkingBtn.addEventListener('click', () => {
+      state.entryPromptDismissed = true;
+      render();
+      composer.focus();
+    });
+    // Debrief bar: open the queued coach debrief when the learner is ready.
+    debriefCtaBtn.addEventListener('click', openDebrief);
+    // Return bar: cross back into the scene on the learner's own command.
+    returnCtaBtn.addEventListener('click', returnToScene);
+    // Results bar: opens the strengths/growth-areas modal (never auto-shown).
+    resultsCtaBtn.addEventListener('click', openResultsModal);
+    // Modal nav — delegated since the footer's buttons are rebuilt every render.
+    resultsModalFoot.addEventListener('click', (e) => {
+      if (e.target.closest('#resultsNextBtn')) resultsNext();
+      else if (e.target.closest('#resultsBackBtn')) resultsBack();
+      else if (e.target.closest('#resultsContinueBtn')) closeResultsModal();
+    });
+    // The practice's actual last step, once the resources have landed.
+    continueCtaBtn.addEventListener('click', finishPractice);
+    // Highlight intro modal: "Got it" is the only way through it.
+    introModalCtaBtn.addEventListener('click', closeStoryIntro);
+    // Story page: free-range highlighting. mouseup/touchend turn whatever the
+    // learner just drag-selected into a highlight; a plain click/tap (no
+    // drag — selection stays collapsed) on an EXISTING mark removes it instead.
+    // Both are delegated on the stage since the page is rebuilt on every render.
+    stage.addEventListener('mouseup', () => handleStorySelection());
+    stage.addEventListener('touchend', () => setTimeout(handleStorySelection, 0));
+    stage.addEventListener('click', (e) => {
+      if (state.storyDone) return;
+      const mark = e.target.closest('mark.hl-mark');
+      if (!mark) return;
+      const para = Number(mark.dataset.para), start = Number(mark.dataset.start);
+      removeHighlightAt(para, start, Number(mark.dataset.end));
+      render();
+      announce(`Highlight removed — ${state.highlights.length} highlighted.`);
+      refocusAfterMarkRemoval(para, start);
+    });
+    stage.addEventListener('keydown', (e) => {
+      if (state.storyDone || (e.key !== 'Enter' && e.key !== ' ')) return;
+      const mark = e.target.closest('mark.hl-mark');
+      if (!mark) return;
+      e.preventDefault();
+      const para = Number(mark.dataset.para), start = Number(mark.dataset.start);
+      removeHighlightAt(para, start, Number(mark.dataset.end));
+      render();
+      announce(`Highlight removed — ${state.highlights.length} highlighted.`);
+      refocusAfterMarkRemoval(para, start);
+    });
+    // Landing bar: the very first tap — leaves the scene anchor for the story.
+    landingCtaBtn.addEventListener('click', enterScenario);
+    // Story bar: hand the highlights to the coach — the coach's opening
+    // reaction IS the transition into coaching, so there's no second tap.
+    storyCtaBtn.addEventListener('click', finishStory);
+
+    // The mode toggle: tap the inactive segment to switch states (delegated, as
+    // the toggle is rebuilt on every render). Disabled segments don't fire.
+    modeIndicator.addEventListener('click', (e) => {
+      const seg = e.target.closest('.seg');
+      if (!seg || seg.disabled) return;
+      const which = seg.dataset.seg;
+      if (which === 'coaching' && !state.started) { startSession(); return; }  // begin
+      if (which === state.mode) return;               // already active
+      if (which === 'coaching') {                     // → the coach layer
+        if (state.awaitingDebrief) openDebrief();      // open the queued debrief
+        else stepOut();                                // or a manual timeout
+      } else if (which === 'scene') {                 // → the practice
+        if (!state.hasEnteredScene && state.awaitingEntry) enterScene();  // first crossing
+        else resumeScene();                           // back into the scene
+      }
+    });
+    document.getElementById('restartBtn').addEventListener('click', restart);
+
+    // Opening beat: the landing card anchors the scene. The story page (and
+    // everything after it) waits for the learner to tap "Read the background story."
+    render();
+    </script>
+</body>
+</html>
