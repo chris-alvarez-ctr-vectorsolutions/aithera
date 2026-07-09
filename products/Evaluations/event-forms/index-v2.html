@@ -492,6 +492,37 @@
         }
         .vwc-table .delete-link:hover { text-decoration: underline; }
 
+        /* ── Empty state (session table, when all sessions are deleted) ── */
+        .sessions-table .empty-state-row td {
+            padding: 0;
+            border-bottom: none;
+        }
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 40px 24px;
+            color: var(--lumo-secondary-text-color, #666);
+        }
+        .empty-state .empty-state-icon {
+            font-size: 40px;
+            color: var(--lumo-contrast-30pct, #ccc);
+            margin-bottom: 12px;
+        }
+        .empty-state .empty-state-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--lumo-body-text-color, #1a1a1a);
+            margin: 0 0 4px;
+        }
+        .empty-state .empty-state-message {
+            font-size: 13px;
+            margin: 0 0 16px;
+            max-width: 320px;
+            line-height: 1.5;
+        }
+
         /* ── Row action icon buttons ── */
         .action-btns {
             display: inline-flex;
@@ -1659,6 +1690,21 @@
                             </span>
                         </td>
                     </tr>
+
+                    <!-- Empty state — shown only when every session/series has been deleted -->
+                    <tr class="empty-state-row" id="sessions-empty-state" style="display:none;">
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <i class="fa-regular fa-calendar-plus empty-state-icon"></i>
+                                <p class="empty-state-title">No sessions scheduled yet</p>
+                                <p class="empty-state-message">Use Add Session to create multiple unique sessions or a recurring set for this event.</p>
+                                <vaadin-button theme="primary" onclick="document.getElementById('add-session-btn').click()">
+                                    <i class="fa-solid fa-plus" slot="prefix"></i>
+                                    Add Session
+                                </vaadin-button>
+                            </div>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
             </div>
@@ -2117,8 +2163,37 @@
     document.getElementById('add-session-btn').addEventListener('click', () => openDrawer('create'));
     document.getElementById('drawer-cancel-btn').addEventListener('click', closeDrawer);
     document.getElementById('drawer-close-btn').addEventListener('click', closeDrawer);
-    drawerSubmitBtn.addEventListener('click', closeDrawer);
+    drawerSubmitBtn.addEventListener('click', () => {
+        // When creating a new session from an empty table, drop in a demo row so
+        // the empty state clears and the flow reads end-to-end in the prototype.
+        if (drawerMode === 'create') addDemoSession();
+        closeDrawer();
+    });
     drawerScrim.addEventListener('click', closeDrawer);
+
+    // Append a placeholder session row (prototype-only stand-in for real save).
+    function addDemoSession() {
+        const tbody = document.getElementById('sessions-tbody');
+        const emptyRow = document.getElementById('sessions-empty-state');
+        const row = document.createElement('tr');
+        const n = tbody.querySelectorAll('tr:not(.empty-state-row)').length + 1;
+        const id = 'new-' + n;
+        row.innerHTML = `
+            <td></td>
+            <td><span class="session-title">New Session</span></td>
+            <td>10/15/2025 9:00 am – 10:00 am</td>
+            <td>Classroom 102</td>
+            <td>Jane Smith</td>
+            <td class="col-credits">1 ISH</td>
+            <td>
+                <span class="action-btns">
+                    <vaadin-button theme="icon tertiary" id="act-edit-${id}" aria-label="Edit session" onclick="openEditSession(event)"><i class="fa-solid fa-pen"></i></vaadin-button>
+                    <vaadin-button theme="icon tertiary" class="action-delete" id="act-del-${id}" aria-label="Delete session" onclick="deleteSession(event)"><i class="fa-solid fa-trash"></i></vaadin-button>
+                </span>
+            </td>`;
+        tbody.insertBefore(row, emptyRow);
+        updateSessionsEmptyState();
+    }
 
     function openEditSession(e) {
         e.preventDefault();
@@ -2142,6 +2217,7 @@
         e.preventDefault();
         if (confirm('Delete this session?')) {
             e.target.closest('tr').remove();
+            updateSessionsEmptyState();
         }
     }
 
@@ -2156,7 +2232,18 @@
             ' occurrences will be removed.')) {
             document.querySelectorAll(`.occurrence-row[data-series="${seriesId}"]`).forEach(r => r.remove());
             parentRow.remove();
+            updateSessionsEmptyState();
         }
+    }
+
+    // Show the empty state only when no real session rows remain. Any row that
+    // isn't the empty-state placeholder counts as a session (series parent,
+    // occurrence, or standalone session).
+    function updateSessionsEmptyState() {
+        const tbody = document.getElementById('sessions-tbody');
+        const emptyRow = document.getElementById('sessions-empty-state');
+        const hasSessions = tbody.querySelector('tr:not(.empty-state-row)') !== null;
+        emptyRow.style.display = hasSessions ? 'none' : 'table-row';
     }
 
     // ── Series accordion (editable table) ──
