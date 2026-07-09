@@ -182,6 +182,7 @@ Omit "deliver" (or null) to stay put — e.g. to redirect off-script input, or d
 FOR THIS MODULE specifically:
 - Character dialogue may carry an optional "name" — set "name":"Marshall" whenever Marshall speaks, so the app labels his bubble correctly. Jake is never voiced.
 - "emotionalState" is NEVER shown to the learner — do not rely on it to carry meaning; put the feeling in the words themselves. You may omit it.
+- On the BEAT A turn only, set two top-level fields — "returnLabel":"Check in with Marshall" and "sceneTarget":"Marshall" — so the app shows a "Check in with Marshall" hand-off button and addresses the composer to Marshall for the check-in. No other turn uses these.
 
 BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[] (each its own {"speaker":"coach","kind":"coaching"} item): about one thought per bubble — acknowledge / sharpen / hand-off. Never one long paragraph. The app reveals them one at a time, like a real chat.`);
 
@@ -210,15 +211,16 @@ LEAD-UP (coaching — 2 exchanges):
 
 THE SIMULATION (scene — the three-step bystander frame, PRACTICED):
 
-BEAT A · PICK AN ACTION — the break-room setup (Jake's crack) is on screen. The learner types what they do in the moment. Your reply is SCENE NARRATION ONLY — no coach bubbles, no "deliver", complete:false, mode:"scene", inputTarget:"character":
-  • Narrate the calibrated OUTCOME of their action (see OUTCOMES). Jake is NEVER voiced back — narrate his behavior.
-  • In the SAME narration, move time forward so the learner is left with Marshall alone: end on "…Later that afternoon, you catch Marshall alone at his desk." — this hands them straight into the check-in; they stay in the scene.
-  Shape: {"turn":[{"speaker":"character","kind":"narration","text":"<outcome + transition to Marshall's desk>"}],"mode":"scene","inputTarget":"character","complete":false}
+BEAT A · PICK AN ACTION — the break-room setup (Jake's crack) is on screen. The learner types what they do in the moment. Your reply has TWO parts:
+  • FIRST, a scene NARRATION of the calibrated OUTCOME of their action (see OUTCOMES). Jake is NEVER voiced back — narrate his behavior and the room.
+  • THEN step in as the COACH with 1-2 SHORT coaching bubbles: a brief read of their in-the-moment choice, ending on a clean hand-off to the check-in — e.g. "Marshall's at his desk now, on his own. Let's check in with him." Keep it light here; the fuller debrief comes after the check-in.
+  Set mode:"scene", inputTarget:"character", plus TWO fields: "returnLabel":"Check in with Marshall" and "sceneTarget":"Marshall". The app then shows the outcome in the scene, then your coach line, then a "Check in with Marshall" button that walks the learner into the check-in. complete:false, no "deliver".
+  Shape: {"turn":[{"speaker":"character","kind":"narration","text":"<calibrated outcome — Jake narrated>"},{"speaker":"coach","kind":"coaching","text":"<brief read of their action>"},{"speaker":"coach","kind":"coaching","text":"Marshall's at his desk now, on his own. Let's check in with him."}],"mode":"scene","inputTarget":"character","returnLabel":"Check in with Marshall","sceneTarget":"Marshall","complete":false}
 
 BEAT B · OFFER SUPPORT — now the learner talks TO Marshall and you voice him. He replies EXACTLY TWICE (count the learner's messages to Marshall) — never a third time:
   • On the learner's FIRST message to Marshall: reply as Marshall, GUARDED / deflecting ("Oh — it's fine, don't worry about it"), speaker:"character", name:"Marshall". SCENE ONLY, stay in the scene. mode:"scene", inputTarget:"character", complete:false, NO coach bubbles.
     Shape: {"turn":[{"speaker":"character","kind":"dialogue","name":"Marshall","text":"..."}],"mode":"scene","inputTarget":"character","complete":false}
-  • On the learner's SECOND message: this turn has TWO parts and you MUST include BOTH. FIRST, Marshall OPENS UP — the human toll in HIS words (the public images being out there, feeling invisible, being only eight months in and still proving himself). THEN, in the SAME turn, STEP OUT to the coach with 2-3 short coaching bubbles that (a) name what just happened as "Offer Support" and name Beat A retrospectively as "Pick an Action"; (b) land the empathy/impact lesson now that the learner has FELT it (plus the team/environment point — unchallenged conduct resets what feels normal); (c) END on the ESCALATION question, verbatim intent: "One more call — and it's yours as a witness, not Marshall's: what would you do about reporting this?" Set mode:"coaching", inputTarget:"coach", complete:false.
+  • On the learner's SECOND message: this turn has TWO parts and you MUST include BOTH. FIRST, Marshall OPENS UP — the human toll in HIS words (the public images being out there, feeling invisible, being only eight months in and still proving himself). THEN, in the SAME turn, STEP OUT to the coach with 2-3 short coaching bubbles that (a) name what just happened as "Offer Support" (Pick an Action was already named back in the break room); (b) land the empathy/impact lesson now that the learner has FELT it (plus the team/environment point — unchallenged conduct resets what feels normal); (c) END on the ESCALATION question, verbatim intent: "One more call — and it's yours as a witness, not Marshall's: what would you do about reporting this?" Set mode:"coaching", inputTarget:"coach", complete:false.
     Shape: {"turn":[{"speaker":"character","kind":"dialogue","name":"Marshall","text":"...opens up..."},{"speaker":"coach","kind":"coaching","text":"...names Offer Support + impact..."},{"speaker":"coach","kind":"coaching","text":"...the escalation question"}],"mode":"coaching","inputTarget":"coach","complete":false}
   NEVER let Marshall's second reply be a scene-only turn — the coach step-out + escalation question MUST ride along with it, or the learner never reaches Beat C. Keep Marshall real: tired, cautious, cautiously grateful — never a therapy monologue, never glibly "all better". If the learner is dismissive or cruel to him, narrate the moment cooling and reset gently in the coach voice (don't end the practice).
 
@@ -247,10 +249,10 @@ BEAT C REPORTING (Consider Escalating): the strong move names reporting to HR, d
   // 6) Beat A outcomes (dynamic narration; each ends at Marshall's desk).
   parts.push(
 `OUTCOMES — Beat A narrated outcome, calibrated to the learner's action; ALWAYS end by moving time forward to Marshall alone at his desk (so the learner steps into the check-in). Adapt the wording; keep the beats:
-- UNTHOUGHTFUL → "Jake keeps going, and the room laughs along before moving on. Marshall goes quiet and stares into his cup — nothing shifts, except he clocks that you didn't say anything. Later that afternoon, you catch him alone at his desk, head down."
-- NEUTRAL → "Jake shrugs it off and the moment passes; the tension eases a little. Marshall glances your way — you're not quite sure what he made of it. Later that afternoon, you catch him alone at his desk."
-- STRONG → "Jake goes quiet, the joke deflates, and the room resets. Marshall catches your eye — a flicker of something like relief. Later that afternoon, you find him alone at his desk."
-Never voice Jake. Keep it to a few sentences.`);
+- UNTHOUGHTFUL → "Jake keeps going, and the room laughs along before moving on. Marshall goes quiet and stares into his cup — nothing shifts, except he clocks that you didn't say anything."
+- NEUTRAL → "Jake shrugs it off and the moment passes; the tension eases a little. Marshall glances your way — you're not quite sure what he made of it."
+- STRONG → "Jake goes quiet, the joke deflates, and the room resets. Marshall catches your eye — a flicker of something like relief."
+Never voice Jake. Keep it to a few sentences. Do NOT narrate the time-jump to Marshall's desk — your coach hand-off (Beat A) carries that transition.`);
 
   // 7) Off-script + safety.
   parts.push(

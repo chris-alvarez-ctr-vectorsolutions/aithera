@@ -1460,7 +1460,7 @@
     <!-- Reusable context-setter (narrated audio / reading) for the opening scene -->
     <script src="js/scene-context.js"></script>
     <!-- The Marshall scenario: content + compiled system prompt (this page) -->
-    <script src="js/marshall-scenario.js?v=2"></script>
+    <script src="js/marshall-scenario.js?v=3"></script>
 
     <script>
     /* =====================================================================
@@ -1569,7 +1569,10 @@
       resultsViewed: false,     // learner has been through the modal (unlocks the resources message)
       continued: false,         // learner tapped the final "Continue" — the practice is fully settled
       awaitingReturn: false,    // the coach is ready to send the learner back into the scene; waiting for them to choose
-      pendingReturn: null,      // { mode, inputTarget } to apply once they do
+      pendingReturn: null,      // { mode, inputTarget, sceneTarget } to apply once they do
+      debriefReturn: null,      // if the debrief the learner is about to open is a coach-led transition BACK into the scene (e.g. "check in with Marshall"), the return context to arm once it's read
+      returnLabel: null,        // custom label for the scene-return CTA (e.g. "Check in with Marshall")
+      sceneTarget: null,        // who the learner is speaking to in the scene now (e.g. "Marshall") — drives the composer placeholder
     };
 
     /* ---- helpers: classify + group ------------------------------------ */
@@ -1668,6 +1671,10 @@
             : (mode === 'scene' ? 'character' : 'coach'),
           complete: obj.complete === true,
           ...(deliver ? { deliver } : {}),
+          // A coach-led scene transition may relabel the return CTA and name who
+          // the learner will speak to next (e.g. "Check in with Marshall").
+          ...(typeof obj.returnLabel === 'string' && obj.returnLabel.trim() ? { returnLabel: obj.returnLabel.trim() } : {}),
+          ...(typeof obj.sceneTarget === 'string' && obj.sceneTarget.trim() ? { sceneTarget: obj.sceneTarget.trim() } : {}),
           ...(report && (report.strengths.length || report.growthAreas.length) ? { report } : {}),
         };
       } catch (e) {
@@ -2144,9 +2151,15 @@
           ? '<i class="fa-solid fa-chalkboard-user"></i> See your results <i class="fa-solid fa-arrow-right arrow"></i>'
           : '<i class="fa-solid fa-chalkboard-user"></i> See AI Coach feedback <i class="fa-solid fa-arrow-right arrow"></i>';
       }
+      if (showReturn) {
+        // A coach-led hand-off can name its own CTA (e.g. "Check in with Marshall").
+        const rl = state.returnLabel || 'Continue practicing';
+        returnCtaBtn.innerHTML = `<i class="fa-solid fa-door-open"></i> ${esc(rl)} <i class="fa-solid fa-arrow-right arrow"></i>`;
+      }
 
       if (inputTarget === 'character') {
-        composer.placeholder = ACTIVE_SCENARIO.sceneInputPlaceholder || `Say this to ${SCENARIO.character}…`;
+        composer.placeholder = state.sceneTarget ? `Say something to ${state.sceneTarget}…`
+          : (ACTIVE_SCENARIO.sceneInputPlaceholder || `Say this to ${SCENARIO.character}…`);
         inputIcon.className = 'fa-solid fa-microphone lead-icon';
       } else {
         composer.placeholder = 'Type your response…';
@@ -2662,6 +2675,12 @@
         state.analyzing = false;
         state.pendingDebrief = items.slice(i);       // queue the debrief; don't reveal it yet
         state.awaitingDebrief = true;
+        // If this debrief is a coach-led hand-off BACK into the scene (a scene-
+        // mode, non-final turn — e.g. "let's check in with Marshall now"), arm a
+        // scene-return CTA to show once the coach's line has been read.
+        state.debriefReturn = (!state.complete && turn.mode === 'scene')
+          ? { mode: turn.mode, inputTarget: turn.inputTarget, label: turn.returnLabel || null, sceneTarget: turn.sceneTarget || null }
+          : null;
         state.delivering = false;
         render();                                    // input bar: "See what your AI coach noticed →"
         announce('Your AI coach noticed something. Open the coach when you’re ready.');
@@ -2691,7 +2710,8 @@
       // rather than yanking the panel closed out from under them.
       const resumingToScene = turn.mode === 'scene' && state.mode === 'coaching';
       if (resumingToScene) {
-        state.pendingReturn = { mode: turn.mode, inputTarget: turn.inputTarget };
+        state.pendingReturn = { mode: turn.mode, inputTarget: turn.inputTarget, sceneTarget: turn.sceneTarget || null };
+        state.returnLabel = turn.returnLabel || null;
         state.awaitingReturn = true;
         state.delivering = false;
         render();                                     // input bar: "Continue practicing →"
@@ -2710,9 +2730,11 @@
       const p = state.pendingReturn;
       state.pendingReturn = null;
       state.awaitingReturn = false;
+      state.returnLabel = null;
       state.mode = p.mode; state.inputTarget = p.inputTarget;
+      if (p.sceneTarget) state.sceneTarget = p.sceneTarget;   // now speaking to Marshall
       followStage = true;
-      announce('Back in the scene.');
+      announce(p.sceneTarget ? `Checking in with ${p.sceneTarget}.` : 'Back in the scene.');
       render();
       setTimeout(() => { if (!composer.disabled) composer.focus(); }, 260);
     }
@@ -2728,8 +2750,17 @@
       state.awaitingDebrief = false;
       state.analyzing = false;
       state.mode = 'coaching'; state.inputTarget = 'coach';
+      // If the coach's message is a hand-off back into the scene, offer the
+      // return as its own reinforcing CTA (e.g. "Check in with Marshall →")
+      // rather than making the learner type — the coach steps them across.
+      if (state.debriefReturn) {
+        state.pendingReturn = { mode: state.debriefReturn.mode, inputTarget: state.debriefReturn.inputTarget, sceneTarget: state.debriefReturn.sceneTarget };
+        state.returnLabel = state.debriefReturn.label;
+        state.debriefReturn = null;
+        state.awaitingReturn = true;
+      }
       announce('Stepped out to your AI coach.');
-      render();   // the coach sheet rises with the debrief
+      render();   // the coach sheet rises with the debrief (+ a return CTA if armed)
     }
 
     // The FINAL debrief gets a build-up instead of an instant reveal: the coach
@@ -2908,6 +2939,7 @@
         videoPlaying: false, audioIntroPlaying: false, closingStepperActive: false,
         awaitingResults: false, resultsModalOpen: false, resultsPage: 0, resultsViewed: false, continued: false,
         awaitingReturn: false, pendingReturn: null,
+        debriefReturn: null, returnLabel: null, sceneTarget: null,
       });
       app.classList.remove('was-trap');
       followStage = true;
