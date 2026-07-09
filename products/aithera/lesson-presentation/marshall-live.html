@@ -1460,7 +1460,7 @@
     <!-- Reusable context-setter (narrated audio / reading) for the opening scene -->
     <script src="js/scene-context.js"></script>
     <!-- The Marshall scenario: content + compiled system prompt (this page) -->
-    <script src="js/marshall-scenario.js?v=3"></script>
+    <script src="js/marshall-scenario.js?v=4"></script>
 
     <script>
     /* =====================================================================
@@ -1675,6 +1675,9 @@
           // the learner will speak to next (e.g. "Check in with Marshall").
           ...(typeof obj.returnLabel === 'string' && obj.returnLabel.trim() ? { returnLabel: obj.returnLabel.trim() } : {}),
           ...(typeof obj.sceneTarget === 'string' && obj.sceneTarget.trim() ? { sceneTarget: obj.sceneTarget.trim() } : {}),
+          // Narration painting the NEW sub-scene (e.g. Marshall's desk), shown in
+          // the scene pane when the learner crosses via the return CTA.
+          ...(typeof obj.sceneSetup === 'string' && obj.sceneSetup.trim() ? { sceneSetup: obj.sceneSetup.trim() } : {}),
           ...(report && (report.strengths.length || report.growthAreas.length) ? { report } : {}),
         };
       } catch (e) {
@@ -2679,7 +2682,7 @@
         // mode, non-final turn — e.g. "let's check in with Marshall now"), arm a
         // scene-return CTA to show once the coach's line has been read.
         state.debriefReturn = (!state.complete && turn.mode === 'scene')
-          ? { mode: turn.mode, inputTarget: turn.inputTarget, label: turn.returnLabel || null, sceneTarget: turn.sceneTarget || null }
+          ? { mode: turn.mode, inputTarget: turn.inputTarget, label: turn.returnLabel || null, sceneTarget: turn.sceneTarget || null, sceneSetup: turn.sceneSetup || null }
           : null;
         state.delivering = false;
         render();                                    // input bar: "See what your AI coach noticed →"
@@ -2710,7 +2713,7 @@
       // rather than yanking the panel closed out from under them.
       const resumingToScene = turn.mode === 'scene' && state.mode === 'coaching';
       if (resumingToScene) {
-        state.pendingReturn = { mode: turn.mode, inputTarget: turn.inputTarget, sceneTarget: turn.sceneTarget || null };
+        state.pendingReturn = { mode: turn.mode, inputTarget: turn.inputTarget, sceneTarget: turn.sceneTarget || null, sceneSetup: turn.sceneSetup || null };
         state.returnLabel = turn.returnLabel || null;
         state.awaitingReturn = true;
         state.delivering = false;
@@ -2733,6 +2736,9 @@
       state.returnLabel = null;
       state.mode = p.mode; state.inputTarget = p.inputTarget;
       if (p.sceneTarget) state.sceneTarget = p.sceneTarget;   // now speaking to Marshall
+      // Paint the NEW sub-scene in the scene pane so the shift reads visually —
+      // otherwise the learner is dropped back into the (now-stale) break-room card.
+      if (p.sceneSetup) state.messages.push({ speaker: 'character', kind: 'narration', text: p.sceneSetup, _enter: true });
       followStage = true;
       announce(p.sceneTarget ? `Checking in with ${p.sceneTarget}.` : 'Back in the scene.');
       render();
@@ -2754,7 +2760,7 @@
       // return as its own reinforcing CTA (e.g. "Check in with Marshall →")
       // rather than making the learner type — the coach steps them across.
       if (state.debriefReturn) {
-        state.pendingReturn = { mode: state.debriefReturn.mode, inputTarget: state.debriefReturn.inputTarget, sceneTarget: state.debriefReturn.sceneTarget };
+        state.pendingReturn = { mode: state.debriefReturn.mode, inputTarget: state.debriefReturn.inputTarget, sceneTarget: state.debriefReturn.sceneTarget, sceneSetup: state.debriefReturn.sceneSetup };
         state.returnLabel = state.debriefReturn.label;
         state.debriefReturn = null;
         state.awaitingReturn = true;
