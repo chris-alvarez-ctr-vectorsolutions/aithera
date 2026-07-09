@@ -122,51 +122,54 @@
 
   // --- Connect to the Design Toolbox dock --------------------------------
   // If the loaded version runs toolbox.js, it exposes window.ToolboxDock — the
-  // shared bottom-center pill. We move our version buttons into that pill (via
-  // its documented .add()) and hide the loader's own pill, so the version
-  // controls and the tool launchers share ONE dock. If there's no toolbox (the
-  // common case for a plain mock), we just show the loader's own dark pill.
-  // Best-effort + fully guarded: any failure falls back to the loader's pill.
+  // shared bottom-center pill. We add a version group to that pill (via its
+  // documented .add()) and hide the loader's own pill, so the version controls
+  // and the tool launchers share ONE dock. If there's no toolbox (the common
+  // case for a plain mock), we just show the loader's own dark pill.
+  //
+  // The version buttons in the dock are built FRESH in the iframe's own
+  // document each load — never the parent's button elements. Moving one element
+  // across the iframe boundary and re-adopting it after each navigation orphans
+  // it in the torn-down document (which broke switching back). Fresh per-load
+  // buttons are destroyed with the iframe and rebuilt cleanly next load; their
+  // click handlers just call the parent's showVersion. Best-effort + guarded.
   function adoptIntoDock(frame) {
     let tries = 0;
     (function attempt() {
-      let dock = null;
+      let docked = false;
       try {
         const win = frame.contentWindow;
         if (win && win.ToolboxDock && typeof win.ToolboxDock.add === 'function') {
-          // Build a self-contained version group and hand it to the dock's
-          // .add(). NB: deliberately NOT class "version-switcher" — that class
-          // is the toolbox's own "adopt me as the dock" signal, and tagging our
-          // group with it would make the toolbox nest its launchers inside us.
           const idoc = win.document;
-          let group = idoc.querySelector('#loader-version-group');
-          if (!group) {
-            group = idoc.createElement('span');
+          if (!idoc.querySelector('#loader-version-group')) {
+            // NB: deliberately NOT class "version-switcher" — that class is the
+            // toolbox's own "adopt me as the dock" signal, and tagging our group
+            // with it would make the toolbox nest its launchers inside us.
+            const group = idoc.createElement('span');
             group.id = 'loader-version-group';
             group.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:transparent;box-shadow:none;padding:0;position:static;transform:none;';
             const label = idoc.createElement('span');
-            label.className = 'vs-label';
             label.textContent = 'VERSION';
-            label.style.cssText = 'color:#a1a1aa;font-size:11px;font-weight:700;letter-spacing:.4px;';
+            label.style.cssText = 'color:#a1a1aa;font-size:11px;font-weight:700;letter-spacing:.4px;font-family:"Open Sans",system-ui,sans-serif;';
             group.appendChild(label);
-            buttons.forEach(b => {
-              b.style.cssText = 'background:transparent;border:0;color:#d4d4d8;font-size:12px;font-weight:700;padding:6px 14px;border-radius:999px;cursor:pointer;white-space:nowrap;font-family:inherit;';
+            versions.forEach(v => {
+              const b = idoc.createElement('button');
+              b.type = 'button';
+              b.textContent = v.label;
+              if (v.title) b.title = v.title;
+              const on = v.id === currentId;
+              b.style.cssText = 'border:0;font-size:12px;font-weight:700;padding:6px 14px;border-radius:999px;cursor:pointer;white-space:nowrap;font-family:"Open Sans",system-ui,sans-serif;' +
+                (on ? 'background:#1f4596;color:#fff;' : 'background:transparent;color:#d4d4d8;');
+              b.addEventListener('click', () => showVersion(v.id));
               group.appendChild(b);
             });
             win.ToolboxDock.add(group);
           }
-          // Re-apply active styling inside the dock (inline, so it survives the
-          // move across documents where the loader stylesheet doesn't reach).
-          buttons.forEach(b => {
-            const on = b.dataset.id === currentId;
-            b.style.background = on ? '#1f4596' : 'transparent';
-            b.style.color = on ? '#fff' : '#d4d4d8';
-          });
-          dock = group;
+          docked = true;
         }
       } catch (e) { /* cross-origin or not ready — fall through to loader pill */ }
 
-      if (dock) {
+      if (docked) {
         switcher.style.display = 'none';          // merged into the toolbox pill
       } else if (tries++ < 8) {
         setTimeout(attempt, 200);                 // dock may mount just after load
