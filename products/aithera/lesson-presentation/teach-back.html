@@ -657,13 +657,29 @@
       </div>
     </div>
 
+    <!-- Scenario type + published-draft plumbing. The engine + type register
+         AitheraStudio.get('teach-back'); this page reads whatever the Writer
+         Studio published (or the shipped default). -->
+    <script src="js/studio-engine.js?v=1"></script>
+    <script src="js/scenario-types/teach-back.js?v=1"></script>
+
     <script>
     /* =====================================================================
        TEACH ME — controller (vanilla, render-by-state). Drives the same
        simulator shell as Action Practice. Live LLM: coach framing chat,
        tile-coverage grading, stuck hints, and closing feedback — through
        the shared Cloudflare Worker proxy.
+
+       Content (topics + the three prompts) is authored data: the scenario
+       type js/scenario-types/teach-back.js supplies the DEFAULT, and the
+       Writer Studio can publish a revised scenario this page picks up. See
+       ACTIVE below.
        ===================================================================== */
+
+    /* ---- active scenario: published draft, else the shipped default ------ */
+    const TB_TYPE = window.AitheraStudio && window.AitheraStudio.get('teach-back');
+    const TB_PUBLISHED = TB_TYPE ? TB_TYPE.store.loadPublished() : null;
+    const ACTIVE = TB_PUBLISHED ? TB_PUBLISHED.scenario : (TB_TYPE ? TB_TYPE.DEFAULT : null);
 
     const WORKER_URL = 'https://aithera-action-proxy.vector-aithera.workers.dev';
     const MODEL = 'claude-opus-4-8';          // coach chat + closing feedback (quality)
@@ -671,78 +687,14 @@
     const IS_LIVE = Boolean(WORKER_URL);
 
     /* ---- THE 10 REQUIRED TOPICS -------------------------------------- */
-    const TOPICS = [
-      { short: 'Requirements of the HazCom Standard',
-        full: 'The requirements of OSHA\'s Hazard Communication Standard itself — the regulatory foundation every training program must establish.',
-        synonyms: 'the standard, OSHA rule, the regulation, HazCom law, why training is required' },
-      { short: 'The written HazCom program & how to access it',
-        full: 'The details of the employer\'s written HazCom program and how to access it — employees must know it exists, where it is, and how to use it.',
-        synonyms: 'written plan, the paperwork, company program document, where the plan is kept' },
-      { short: 'Where hazardous chemicals are in the work area',
-        full: 'The locations of hazardous chemicals in the work area — where chemical hazards exist in the environment.',
-        synonyms: 'where chemicals are stored, chemical locations, what\'s in my area' },
-      { short: 'Physical & health hazards of the chemicals',
-        full: 'The physical and health hazards of the chemicals employees may encounter — what the chemicals can actually do to you.',
-        synonyms: 'dangers of the chemicals, flammable/toxic, health effects, what it does to you' },
-      { short: 'How to detect a chemical\'s presence or release',
-        full: 'How to detect the presence or release of hazardous chemicals — recognizing a hazard in real time (smell, monitors, alarms, visible signs).',
-        synonyms: 'detection, spotting a leak, monitors, alarms, sensing a release, smell' },
-      { short: 'Measures employees can take to protect themselves',
-        full: 'Measures EMPLOYEES can use to protect themselves — employee-initiated protective actions (distinct from employer-provided systems).',
-        synonyms: 'what workers can do, self-protection, personal safe habits, things I can do' },
-      { short: 'Employer protective measures: work practices, emergency procedures & PPE',
-        full: 'Protective measures the EMPLOYER has put into action — the three-component breakdown of work practices, emergency procedures, and PPE.',
-        synonyms: 'work practices, emergency procedures, spill response, PPE program, employer controls, engineering controls' },
-      { short: 'Labels on containers & the worksite labeling system',
-        full: 'Explanation of labels on shipped containers and the worksite chemical labeling system — reading and interpreting hazard-communication labels (GHS).',
-        synonyms: 'labels, GHS labels, pictograms, container markings, secondary labels' },
-      { short: 'Where SDSs are & how to access them',
-        full: 'Where Safety Data Sheets (SDSs) are located and how employees can access them — a right for ALL workers, not just safety officers.',
-        synonyms: 'SDS, safety data sheets, MSDS, chemical info binder, where the sheets are' },
-      { short: 'Who to contact if an issue arises',
-        full: 'Who to contact if an issue arises — the appropriate point of contact for hazard-related concerns.',
-        synonyms: 'who to call, point of contact, report a problem, supervisor to notify' },
-    ];
+    const TOPICS = ACTIVE.topics;
 
     /* ---- PROMPTS ----------------------------------------------------- */
-    const CHAT_SYSTEM =
-`You are a warm, knowledgeable workplace-safety coach running a short "teach-back" exercise. The learner has just finished a Hazard Communication (HazCom) course. In a moment they'll be shown 10 blurred topic tiles and asked to teach each one back — speaking or typing — and each tile comes into focus as they cover it.
+    const CHAT_SYSTEM = TB_TYPE.calibratePrompt(ACTIVE);
 
-Your job RIGHT NOW is only a brief, encouraging calibration chat before that begins. You are NOT scoring anything yet. Keep every message to 2-3 short sentences, plain-spoken and human. The learner has already seen your opening message; read their reply, acknowledge it warmly WITHOUT evaluating it, and point them to tap "Start teaching."
+    function gradeSystem() { return TB_TYPE.gradePrompt(ACTIVE); }
 
-Return STRICT JSON ONLY, no markdown, no code fences:
-{"text": "your reply (2-3 sentences)", "ready": true}
-
-Set "ready": true once you've acknowledged their reply (almost always after their first reply). Only set "ready": false if they asked a direct question you must answer first — then answer briefly and invite them to reply again.`;
-
-    function gradeSystem() {
-      const list = TOPICS.map((t, i) => `${i + 1}. ${t.full} (accept phrasing like: ${t.synonyms})`).join('\n');
-      return `You grade a HazCom teach-back. The learner is explaining, from memory, the topics a COMPLETE HazCom employee-training program must cover. The 10 required topics:
-
-${list}
-
-You will receive everything the learner has said so far (speech + typing, concatenated). Decide which of the 10 they have CLEARLY addressed.
-
-Rules:
-- Accept synonyms and plain language. Err toward crediting when intent is clear — don't require exact terminology.
-- Topics 6 and 7 are distinct: 6 = what the EMPLOYEE does to protect themselves; 7 = employer-implemented systems (work practices, emergency procedures, PPE). Credit the more specific one; credit both only if both are clearly present.
-- Don't credit topics they never gestured at.
-
-Return STRICT JSON ONLY, no markdown, no code fences:
-{"covered": [topic numbers 1-10 addressed], "nudge": "one short, warm, category-level hint toward the single most useful topic NOT yet covered — do NOT name the topic outright; empty string if all 10 covered"}`;
-    }
-
-    function closeSystem() {
-      const list = TOPICS.map((t, i) => `${i + 1}. ${t.short}`).join('\n');
-      return `You are the safety coach closing out a HazCom teach-back. The 10 required topics:
-
-${list}
-
-You'll be told the learner's final score (how many of the 10 they taught back) and which they missed. Write brief, warm, NON-punitive closing feedback — say it like "you named X of 10" (never "you missed 3"). Reference one thing they did well, and name one area to hold onto (the general area of a missed topic) if any were missed. 2-3 sentences total.
-
-Return STRICT JSON ONLY, no markdown, no code fences:
-{"headline": "a short 2-4 word encouraging headline", "feedback": "2-3 warm sentences"}`;
-    }
+    function closeSystem() { return TB_TYPE.closePrompt(ACTIVE); }
 
     /* ---- LLM PLUMBING ------------------------------------------------ */
     function repairJson(raw) {
@@ -770,36 +722,20 @@ Return STRICT JSON ONLY, no markdown, no code fences:
       return (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
     }
 
-    /* ---- OFFLINE FALLBACK GRADER ------------------------------------- */
-    const FALLBACK_KEYS = [
-      ['standard','regulation','osha','required','law','rule'],
-      ['written','program','plan','document','paperwork'],
-      ['location','where','stored','area','kept'],
-      ['hazard','physical','health','flammable','toxic','danger','harm','burn'],
-      ['detect','leak','release','monitor','alarm','smell','sensor','spot'],
-      ['protect myself','employee','worker can','self','habit','careful','wash'],
-      ['work practice','emergency','spill response','evacuat','ppe','glove','goggle','respirator','equipment','first aid'],
-      ['label','ghs','pictogram','container','marking'],
-      ['sds','safety data sheet','msds','sheet','binder'],
-      ['contact','call','supervisor','report','notify','who to'],
-    ];
-    const FALLBACK_HINTS = [
-      'Think about the rule itself — what actually requires this training?',
-      'There\'s a written document at the company level workers should be able to find.',
-      'Where would a new worker even find the chemicals around them?',
-      'What can these chemicals actually do to a person?',
-      'How would someone know a chemical got loose in real time?',
-      'What can a worker personally do, day to day, to stay safe?',
-      'What has the employer already put in place — think practices, emergencies, and gear.',
-      'How do you read what\'s printed on a container?',
-      'Where does the detailed safety info for each chemical live?',
-      'If something goes wrong, who does a worker reach out to?'
-    ];
+    /* ---- OFFLINE FALLBACK GRADER ------------------------------------
+       Only runs if the live grader call fails (WORKER_URL unreachable).
+       Keywords are derived from each topic's synonyms + label so the fallback
+       tracks whatever topics were published, rather than a fixed list. */
+    function topicKeywords(topic) {
+      const fromSyn = String(topic.synonyms || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+      const fromShort = String(topic.short || '').toLowerCase().split(/[^a-z]+/).filter((w) => w.length > 3);
+      return [...new Set([...fromSyn, ...fromShort])];
+    }
     function fallbackGrade(text) {
       const t = text.toLowerCase(); const covered = [];
-      FALLBACK_KEYS.forEach((keys, i) => { if (keys.some((k) => t.includes(k))) covered.push(i + 1); });
+      TOPICS.forEach((topic, i) => { if (topicKeywords(topic).some((k) => k && t.includes(k))) covered.push(i + 1); });
       let nudge = '';
-      for (let i = 1; i <= 10; i++) { if (!covered.includes(i)) { nudge = FALLBACK_HINTS[i - 1]; break; } }
+      for (let i = 1; i <= TOPICS.length; i++) { if (!covered.includes(i)) { nudge = 'There\'s at least one required topic you haven\'t touched on yet — keep going.'; break; } }
       return { covered, nudge };
     }
 
@@ -915,6 +851,27 @@ Return STRICT JSON ONLY, no markdown, no code fences:
          </div>`));
     }
     function boot() {
+      // Reflect the active scenario's title, and — when a Writer-Studio draft
+      // is published — flag it in the top bar with a one-click revert.
+      if (ACTIVE && ACTIVE.title) {
+        $('scenarioName').textContent = ACTIVE.title;
+        document.querySelector('h1.sr-only').textContent = 'Teach-back — ' + ACTIVE.title;
+      }
+      if (TB_PUBLISHED) {
+        const chip = document.createElement('button');
+        chip.className = 'tb-btn';
+        chip.innerHTML = '<i class="fa-solid fa-pen-nib"></i><span class="label">Writer scenario</span>';
+        chip.title = 'Running a teach-back published from the Writer Studio'
+          + (TB_PUBLISHED.savedAt ? ' on ' + new Date(TB_PUBLISHED.savedAt).toLocaleString() : '')
+          + '. Click to revert to the shipped scenario.';
+        chip.addEventListener('click', () => {
+          if (confirm('Revert to the shipped teach-back? The published version stays available in the Writer Studio.')) {
+            TB_TYPE.store.clearPublished();
+            location.reload();
+          }
+        });
+        document.querySelector('.topbar .spacer').after(chip);
+      }
       renderEstablishing();
       showInput('inputStart');
       $('progressStrip').classList.add('is-hidden');
@@ -927,9 +884,7 @@ Return STRICT JSON ONLY, no markdown, no code fences:
        =================================================================== */
     // The coach's opening. (The "you just wrapped the course" line now lives on
     // the title slide, so the chat gets straight to the calibration question.)
-    const OPENING = [
-      'How confident are you feeling, and what\'s the one thing you\'d want a brand-new coworker to walk away knowing?',
-    ];
+    const OPENING = [ACTIVE.calibrate.openingQuestion];
 
     async function beginFraming() {
       state.phase = 'framing';
