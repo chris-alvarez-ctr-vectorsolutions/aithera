@@ -205,6 +205,18 @@
           { phrase: 'the only person she\'d let close enough right now to actually hear what she isn\'t saying', label: 'that you might be the only person she\'d let close' },
         ],
       },
+
+      // The narrated-AUDIO / READING variant (see js/scene-context.js): the
+      // situation is shown and read aloud with per-word highlighting (the
+      // "Audio Summary" player) — the learner can listen or just read — and
+      // when they continue the coach's opening question appears. Same intro
+      // schema shape as video/story, so a writer switches modality without
+      // losing work. `text` is the context script the player narrates.
+      audio: {
+        eyebrow: 'The situation · listen or read along',
+        title: 'What’s been happening',
+        text: '{{character}} has been your roommate since freshman year — one of your closest friends. Last fall she lost her Nona, the grandmother who raised her, and she hasn’t been the same since. She’s quiet now, often alone, and her seat in your 9 a.m. lecture is empty more mornings than not. Back in your dorm, the bottles have been piling up — alone, most nights, after you’ve already gone to bed. And yesterday you found a bottle of pills in her drawer you didn’t recognize. You know what it can mean to mix those with the amount she’s been drinking. But you might be one of the only people she’d let close enough right now to say something.',
+      },
     },
   };
 
@@ -392,10 +404,13 @@
         src: `../assets/videos/scene_${i + 1}.mp4`, caption,
       }));
     } else {
-      if (!['video', 'story', 'none'].includes(out.intro.type)) out.intro.type = 'video';
+      if (!['video', 'story', 'none', 'audio', 'reading'].includes(out.intro.type)) out.intro.type = 'video';
       if (!out.intro.video || !Array.isArray(out.intro.video.scenes)) out.intro.video = clone(DEFAULT_SCENARIO.intro.video);
       if (!out.intro.story || !Array.isArray(out.intro.story.paragraphs)) out.intro.story = clone(DEFAULT_SCENARIO.intro.story);
       if (!Array.isArray(out.intro.story.keyMoments)) out.intro.story.keyMoments = clone(DEFAULT_SCENARIO.intro.story.keyMoments);
+      // Audio/reading share one authored block; fill it so switching modality
+      // never loses (or lacks) content.
+      if (!out.intro.audio || typeof out.intro.audio.text !== 'string') out.intro.audio = clone(DEFAULT_SCENARIO.intro.audio);
     }
     // Legacy mirror so older readers of introCaptions keep working.
     out.introCaptions = out.intro.video.scenes.map((sc) => sc.caption);
@@ -658,6 +673,11 @@
       });
       if (!(st.keyMoments || []).some((m) => m && !empty(m.phrase))) add('warn', 'opening', 'No key moments defined.', 'Without them the coach has no answer key for the learner\'s highlights.');
     }
+    if (intro.type === 'audio' || intro.type === 'reading') {
+      const au = intro.audio || {};
+      if (empty(au.text)) add('warn', 'opening', `${intro.type === 'audio' ? 'Narrated audio' : 'Reading'} intro selected, but there's no context text.`, 'The learner lands on an empty card. Write the situation the player reads (and, for audio, narrates) before the coach appears.');
+      else if (fill(au.text, s).length > 1400) add('info', 'opening', `The context text is long (${fill(au.text, s).length} chars).`, 'It’s read aloud end to end — a few short paragraphs keeps the cold open from dragging.');
+    }
 
     // Budget
     const prompt = compilePrompt(s);
@@ -879,7 +899,7 @@
       // —— Intro type picker + per-type fields ——
       const rg = document.createElement('vaadin-radio-group');
       rg.label = 'How the scene is set before the practice';
-      [['video', 'Video cold open'], ['story', 'Written story the learner highlights'], ['none', 'No intro — straight in']].forEach(([v, l]) => {
+      [['video', 'Video cold open'], ['audio', 'Narrated audio (listen or read)'], ['reading', 'Reading — text only'], ['story', 'Written story the learner highlights'], ['none', 'No intro — straight in']].forEach(([v, l]) => {
         const rb = document.createElement('vaadin-radio-button');
         rb.value = v; rb.label = l;
         rg.appendChild(rb);
@@ -922,6 +942,53 @@
               tf(`intro.story.keyMoments.${i}.label`, 'How the coach names it', { placeholder: 'e.g. losing her Nona' }),
             ), 'Add key moment', () => ({ phrase: '', label: '' })),
           );
+        }
+
+        if (t === 'audio' || t === 'reading') {
+          introBody.appendChild(guidance(
+            t === 'audio' ? 'Narrated by the browser — no audio file needed' : 'A read-only context card',
+            t === 'audio' ? 'fa-headphones' : 'fa-book-open',
+            t === 'audio'
+              ? 'The situation is shown and read aloud with each word highlighting as it\'s spoken — the same "Audio Summary" player. The learner can listen or just read, then continue to the coach. The browser narrates the text, so there\'s nothing to upload.'
+              : 'The situation is shown as a reading activity. The learner reads, then continues — and the coach appears with the opening question.'));
+          const r = document.createElement('div'); r.className = 'row2';
+          r.append(
+            tf('intro.audio.eyebrow', 'Eyebrow (small label above the card)', { placeholder: 'The situation · listen or read along' }),
+            tf('intro.audio.title', 'Card title', { placeholder: 'What’s been happening' }),
+          );
+          introBody.append(r, tf('intro.audio.text', 'The context script', { area: true, minRows: 6,
+            helper: (t === 'audio' ? 'What the player reads aloud' : 'What the learner reads') + ' before the coach appears. A few short paragraphs; {{character}} / {{learner}} work here.' }));
+
+          // —— Inline learner preview: mount the real SceneContext player with
+          // the authored text so the writer sees/hears exactly what ships. ——
+          const previewWrap = document.createElement('div');
+          previewWrap.className = 'ctx-preview';
+          const bar = document.createElement('div'); bar.className = 'ctx-preview-bar';
+          const btn = document.createElement('button');
+          btn.type = 'button'; btn.className = 'ctx-preview-btn';
+          btn.innerHTML = '<i class="fa-solid fa-play"></i> Preview for the learner';
+          const stageEl = document.createElement('div'); stageEl.className = 'ctx-preview-stage'; stageEl.hidden = true;
+          let handle = null;
+          const teardown = () => { if (handle && handle.stop) handle.stop(); handle = null; };
+          btn.addEventListener('click', () => {
+            if (!window.SceneContext) { stageEl.hidden = false; stageEl.innerHTML = '<p class="ctx-preview-note">Preview unavailable — scene-context.js isn\'t loaded.</p>'; return; }
+            teardown();
+            stageEl.hidden = false; stageEl.innerHTML = '';
+            const cur = H.getScenario();
+            const au = cur.intro.audio || {};
+            handle = window.SceneContext.mount(stageEl, {
+              modality: t,
+              eyebrow: fill(au.eyebrow || '', cur),
+              title: fill(au.title || '', cur),
+              text: fill(au.text || '', cur),
+              continueLabel: 'This is where the coach steps in',
+              autoplay: false,   // let the writer press play — no surprise audio in the studio
+              onContinue: () => { teardown(); stageEl.innerHTML = '<p class="ctx-preview-note"><i class="fa-solid fa-arrow-turn-down"></i> …and here the AI coach appears with your opening question above.</p>'; },
+            });
+          });
+          bar.append(btn);
+          previewWrap.append(bar, stageEl);
+          introBody.appendChild(previewWrap);
         }
 
         if (t === 'none') {
