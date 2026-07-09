@@ -98,12 +98,34 @@ For the complete list with props and examples, see `CORE-CONTEXT.md`
 
 #### 3. For a NEW mock
 
-1. Create a new directory under the product directory specified. If no mock name is given, ask and use that for the directory name.
-2. Copy the index.html from /base-template as your starting point.
-3. If no details about the mock description are given, simply copy the index.html and then ask about where to start with the new mock.
-4. **Always add the new prototype to the `PRODUCTS` array in `/index.html`** so it appears in the shareable index. Add it under the correct product block. Use `{ name: 'Display Name', href: 'products/ProductName/folder-name/' }` for an index.html prototype or `{ name: 'Display Name', href: 'products/ProductName/file.html' }` for a single-file prototype. If the prototype belongs in a sub-folder group, add it inside the matching `{ folder: '...', items: [...] }` entry, or create a new one.
+**Every feature is a versioned folder.** The feature's `index.html` is never the design — it is a generic **version loader** that reads `versions.json` and renders the chosen version in a full-page iframe. The actual mock lives one level down in `verN/verN.html`. You always start at `ver1` even for a single-version ticket; the loader stays invisible until a second version exists, so a one-version feature looks like a plain mock. This means you never "commit to versioning up front" — and adding a version later touches only new files, never the design.
 
-Required resources are provided in the header to load Core and Themes bundles from the CDN plus the main font and icon set.
+**Scaffold a new feature like this** (feature folder = the ticket/ask name; ask if not given):
+
+```
+products/<Product>/<feature>/
+  index.html        <- the loader — COPY base-template/index.html VERBATIM, never edit it
+  versions.json     <- [ { "id": "ver1", "label": "V1", "path": "ver1/ver1.html" } ]
+  ver1/
+    ver1.html       <- the actual mock — COPY base-template/version.html here, then WORK IN THIS FILE
+```
+
+1. Create `products/<Product>/<feature>/`.
+2. Copy **`base-template/index.html`** (the loader) to the feature root as `index.html`. **Do not modify it** — it is identical across every feature; only `versions.json` differs.
+3. Create **`versions.json`** with the single `ver1` entry shown above.
+4. Create the **`ver1/`** folder and copy **`base-template/version.html`** (the blank Vector canvas) to `ver1/ver1.html`. **Do all design work here, not in `index.html`.**
+5. If no mock description is given, scaffold these files and then ask where to start with the design in `ver1/ver1.html`.
+6. **Always add the new prototype to the `PRODUCTS` array in `/index.html`** so it appears in the shareable index, pointing at the **feature folder** (the loader): `{ name: 'Display Name', href: 'products/ProductName/feature-folder/' }`. Add it under the correct product block; if it belongs in a sub-folder group, add it inside the matching `{ folder: '...', items: [...] }` entry, or create a new one.
+
+**Adding another version later** (do NOT add a hide/unhide switcher inside a design file):
+
+1. Copy the version folder you're branching from, e.g. `cp -r ver1 ver2`, and rename the file to match: `ver2/ver2.html`.
+2. Add an entry to `versions.json`: `{ "id": "ver2", "label": "V2", "path": "ver2/ver2.html" }`.
+3. That's it — the loader **automatically shows the floating version-switcher pill** the moment there are 2+ versions. It's a dark **bottom-center** pill matching the Design Toolbox dock; when the loaded version runs the toolbox, the loader **merges the version buttons into that same dock** so they share one pill. It swaps versions in place via one iframe, deep-links each with `?v=<id>`, and needs no code changes. Order the manifest however you like; the first entry is what opens by default (put the newest first if you want it to open on the latest).
+
+Sub-versions use a dotted folder + dashed file, e.g. `ver2.x/ver2-x.html` with `{ "id": "ver2x", "label": "V2.x", "path": "ver2.x/ver2-x.html" }`.
+
+**Paths inside a version file:** because every version file sits at `products/<Product>/<feature>/verN/verN.html` (four levels below the repo root), any repo-root asset it references resolves at `../../../../` — e.g. the Design Toolbox include is `<script src="../../../../designtoolbox/toolbox.js"></script>`. Required Core/Themes/font/icon resources are already in `base-template/version.html`'s header (absolute CDN URLs).
 
 ## Dev Handoff Process
 
@@ -113,15 +135,15 @@ The mechanics live in the Design Toolbox — see `designtoolbox/README.md` ("Dev
 
 ### Step 0 — Pick the version FIRST (before anything else)
 
-If the mock has **more than one version** (a `.version-switcher` V1/V2 pill, or multiple design variants), **stop and ask the designer which version to keep** — we almost always launch only one, so the handoff should not carry dead variants.
+Feature folders are versioned: the design lives in separate **`verN/verN.html`** files, listed in **`versions.json`**, behind the loader `index.html`. **Read `versions.json` to see which versions exist**, then — if there is **more than one** — **stop and ask the designer which version to hand off** (name them by their `label`, e.g. "V1 or V2?"). We almost always launch only one, so the handoff should not carry dead variants. (A legacy in-file `.version-switcher` V1/V2 pill counts as multiple versions too — same question applies.)
 
-- If they keep **one** version, build the handoff from that one.
+- If they keep **one** version, build the handoff from that version's file.
 - If they intentionally keep **more than one** (e.g. an **alpha** and a **beta** both going to dev), **ask the designer what to name each**, then produce one dev build per kept version named accordingly (e.g. `dev_handoff_alpha.html`, `dev_handoff_beta.html`).
 - Never guess which version to keep or what to call them.
 
 ### Step 1 — Component assessment
 
-Run the **`assess-mock-components`** skill on the chosen version's `index.html`. This audits every element against the Vector Web Components library (correct `vaadin-*` / `vwc-*` usage, `theme="outlined"` on inputs, button variants) and confirms theme-token usage. It produces `component-assessment.md` and never edits the mock.
+Run the **`assess-mock-components`** skill on the **chosen version's file** (`verN/verN.html`) — not the loader `index.html`, which has no design in it. This audits every element against the Vector Web Components library (correct `vaadin-*` / `vwc-*` usage, `theme="outlined"` on inputs, button variants) and confirms theme-token usage. It produces `component-assessment.md` and never edits the mock.
 
 ### Step 2 — Write the dev notes (`DEV-NOTES.md`)
 
@@ -132,7 +154,9 @@ Author or refresh **`DEV-NOTES.md`** next to the mock (the flow map reads it —
 
 ### Step 3 — Duplicate the HTML into a dev-handoff build
 
-Copy the chosen `index.html` to **`dev_handoff.html`** in the same folder (one per kept version, named per Step 0). In the copy, **before the `toolbox.js` include**, add:
+Copy the **chosen version's file** (`verN/verN.html`) to **`dev_handoff.html`** at the **feature root** — next to the loader `index.html`, NOT inside the `verN/` folder. That placement is required: `scripts/build-dashboards.js` only detects a dev build named `dev_handoff.html` (or a custom name set via `meta.json`) sitting beside the feature's `index.html`. Produce one per kept version, named per Step 0 (e.g. `dev_handoff_alpha.html`).
+
+Because the copy moves **up one folder** (from `verN/` to the feature root), **fix any repo-root-relative paths by removing one `../`** — most importantly the toolbox include changes from `../../../../designtoolbox/toolbox.js` to `../../../designtoolbox/toolbox.js`. Then, in the copy, **before the `toolbox.js` include**, add:
 
 ```html
 <script>window.TOOLBOX = { comments: false };</script>

@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.17.0';
+  const WIDGET_VERSION = '1.18.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -129,10 +129,12 @@
 /* Label is only shown in the docked (pill) layout, hidden for the floating circular bubble. */
 .cw-bubble-label { display: none; font: 700 13px/1 "Open Sans", system-ui, sans-serif; }
 /* Docked: the bubble lives inside the shared Toolbox dock pill (bottom-center) as an inline pill button next to the Flow Map button, instead of a floating circle. */
-.cw-bubble--docked { position: static; top: auto; right: auto; width: auto; height: auto; border-radius: 999px; padding: 7px 14px; gap: 8px; font-size: 13px; background: #4a2bd1; box-shadow: none; animation: none; transition: background .12s, transform .12s; }
+/* Docked in the toolbox pill: a compact ICON-ONLY round button (no "Comments"
+   word) so it reads as a quiet tool next to the flow-map + version buttons. */
+.cw-bubble--docked { position: static; top: auto; right: auto; width: 38px; height: 38px; border-radius: 50%; padding: 0; gap: 0; justify-content: center; font-size: 15px; background: #4a2bd1; box-shadow: none; animation: none; transition: background .12s, transform .12s; }
 .cw-bubble--docked:hover { transform: translateY(-1px); background: #5a3ce0; box-shadow: none; }
 .cw-bubble--docked .cw-bubble-icon { font-size: 15px; }
-.cw-bubble--docked .cw-bubble-label { display: inline; }
+.cw-bubble--docked .cw-bubble-label { display: none; }
 .cw-bubble--docked .cw-bubble-tip { display: none; }
 .cw-bubble--docked.cw-bubble--active { background: linear-gradient(140deg, #ef4444, #dc2626); animation: none; }
 .cw-bubble--docked.cw-bubble--active:hover { transform: translateY(-1px); }
@@ -927,6 +929,7 @@
       class: 'cw-bubble',
       type: 'button',
       'aria-label': 'Add feedback',
+      title: 'Comments',
       onclick: togglePickMode,
     }, [
       bubbleIcon,
