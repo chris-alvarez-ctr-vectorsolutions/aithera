@@ -126,6 +126,65 @@
             justify-content: flex-end;
         }
 
+        /* ── Add Author split button + menu ── */
+        .add-author-split {
+            position: relative;
+            display: inline-flex;
+            align-items: stretch;
+        }
+        /* Join the two buttons: square the touching edges so they read as one control. */
+        .add-author-split .split-main::part(label) { padding-right: 4px; }
+        .add-author-split .split-main {
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+        .add-author-split .split-caret {
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+            min-width: 36px;
+            margin-left: 1px;
+            padding: 0;
+        }
+        .add-author-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            z-index: 900;
+            min-width: 300px;
+            background: #fff;
+            border: 1px solid rgba(28,55,90,0.15);
+            border-radius: 8px;
+            box-shadow: 0 6px 20px rgba(15,46,61,0.16);
+            padding: 6px;
+        }
+        .aa-menu-option {
+            display: flex;
+            align-items: flex-start;
+            gap: 11px;
+            width: 100%;
+            padding: 10px 12px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            font-family: inherit;
+            text-align: left;
+            cursor: pointer;
+        }
+        .aa-menu-option:hover { background: #f3f4f6; }
+        .aa-menu-icon {
+            color: var(--lumo-primary-color);
+            font-size: 15px;
+            margin-top: 2px;
+            width: 18px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .aa-menu-text { display: flex; flex-direction: column; gap: 2px; }
+        .aa-menu-name { font-size: 13px; font-weight: 700; color: #0f2e3d; }
+        .aa-menu-desc { font-size: 11.5px; color: var(--lumo-secondary-text-color); line-height: 1.4; }
+        .aa-full-link { color: var(--lumo-primary-color); text-decoration: none; }
+        .aa-full-link:hover { text-decoration: underline; }
+
         /* ── Add Author overlay panel ── */
         .aa-scrim {
             position: fixed;
@@ -458,9 +517,33 @@
 
             <div class="page-header">
                 <div class="page-title">Authors</div>
-                <vaadin-button id="open-add-author" theme="primary">
-                    Add Author
-                </vaadin-button>
+                <!-- Split button: primary = Quick add (drawer); caret opens a menu
+                     to choose Quick add vs. Full profile (dedicated screen). -->
+                <div class="add-author-split" id="add-author-split">
+                    <vaadin-button id="open-add-author" theme="primary" class="split-main">
+                        <i class="fa-solid fa-bolt" slot="prefix"></i>
+                        Quick add
+                    </vaadin-button>
+                    <vaadin-button id="add-author-caret" theme="primary" class="split-caret" aria-haspopup="menu" aria-expanded="false" aria-label="More ways to add an author">
+                        <i class="fa-solid fa-chevron-down"></i>
+                    </vaadin-button>
+                    <div class="add-author-menu" id="add-author-menu" role="menu" hidden>
+                        <button class="aa-menu-option" role="menuitem" data-action="quick">
+                            <i class="fa-solid fa-bolt aa-menu-icon"></i>
+                            <span class="aa-menu-text">
+                                <span class="aa-menu-name">Quick add</span>
+                                <span class="aa-menu-desc">Name and a few basics — an admin completes the rest later.</span>
+                            </span>
+                        </button>
+                        <button class="aa-menu-option" role="menuitem" data-action="full">
+                            <i class="fa-solid fa-id-card aa-menu-icon"></i>
+                            <span class="aa-menu-text">
+                                <span class="aa-menu-name">Full profile</span>
+                                <span class="aa-menu-desc">Create a complete author profile with all sections.</span>
+                            </span>
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <div class="search-filter-bar">
@@ -540,9 +623,10 @@
     <aside class="aa-panel" id="aa-panel" role="dialog" aria-labelledby="aa-title" aria-hidden="true">
         <div class="aa-drawer-header">
             <div class="aa-drawer-header-body">
-                <div class="aa-drawer-title" id="aa-title">Add Author</div>
+                <div class="aa-drawer-title" id="aa-title">Quick add author</div>
                 <div class="aa-drawer-subtitle">
-                    Create a new author profile.
+                    Create a lightweight author shell now — an admin can complete the full profile later.
+                    Need everything up front? <a href="author-profile.html" class="aa-full-link">Create a full profile instead</a>.
                 </div>
             </div>
             <button class="aa-close-btn" id="aa-close" aria-label="Close">
@@ -894,6 +978,31 @@ customElements.whenDefined('vwc-sidenav').then(() => {
     scrim.addEventListener('click', closeOverlay);
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && panel.classList.contains('open')) closeOverlay();
+    });
+
+    // ── Split-button caret menu (Quick add vs. Full profile) ──
+    const caretBtn = document.getElementById('add-author-caret');
+    const addMenu = document.getElementById('add-author-menu');
+    function openAddMenu() { addMenu.hidden = false; caretBtn.setAttribute('aria-expanded', 'true'); }
+    function closeAddMenu() { addMenu.hidden = true; caretBtn.setAttribute('aria-expanded', 'false'); }
+    caretBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        addMenu.hidden ? openAddMenu() : closeAddMenu();
+    });
+    document.addEventListener('click', (e) => {
+        if (!addMenu.hidden && !addMenu.contains(e.target) && e.target !== caretBtn) closeAddMenu();
+    });
+    addMenu.querySelectorAll('.aa-menu-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+            closeAddMenu();
+            if (opt.dataset.action === 'quick') {
+                openOverlay();
+            } else {
+                // Full profile = dedicated creation screen. Stubbed to the profile
+                // page for now; a ?new flag can drive an empty "create" state there.
+                window.location.href = 'author-profile.html?new=1';
+            }
+        });
     });
 
     function initialsFor(name) {
