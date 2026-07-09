@@ -45,7 +45,13 @@
       padding:clamp(22px,4vw,34px) clamp(20px,4vw,34px) clamp(14px,3vw,20px);
       box-shadow:0 20px 50px -30px rgba(0,0,0,0.6); }
     .sc-title { margin:0 0 12px; font-size:clamp(18px,2.4vw,22px); font-weight:700; color:var(--sc-text); }
-    .sc-text { margin:0; max-width:60ch; font-size:clamp(15px,1.8vw,18px); line-height:1.7; color:var(--sc-text); text-align:left; }
+    /* The text is a bounded, scrollable region so the player controls + CTA
+       below it stay in view no matter how long the script is; playback
+       auto-scrolls it to follow the highlighted word (see keepWordVisible). */
+    .sc-text { margin:0; max-width:60ch; font-size:clamp(15px,1.8vw,18px); line-height:1.7; color:var(--sc-text); text-align:left;
+      max-height:clamp(160px,40vh,440px); overflow-y:auto; padding-right:10px; overscroll-behavior:contain; }
+    .sc-text::-webkit-scrollbar { width:8px; }
+    .sc-text::-webkit-scrollbar-thumb { background:var(--sc-line); border-radius:8px; }
     .sc-text .sc-w { border-radius:5px; padding:0 .08em; transition:color .15s ease, background-color .18s ease; }
     .sc-card.reading .sc-text .sc-w      { color:var(--sc-dim); }
     .sc-card.reading .sc-text .sc-w.read { color:var(--sc-text); }
@@ -149,13 +155,26 @@
     textEl.innerHTML = words.map((w, i) => `<span class="sc-w" data-i="${i}">${escapeHtml(w.text)}</span>`).join(' ');
     textEl.querySelectorAll('.sc-w').forEach((el, i) => { words[i].el = el; });
 
+    // Auto-scroll the bounded text region so the spoken word stays in view.
+    // Only nudge when the word drifts out of a comfortable band (so it isn't
+    // scrolling on every single word), and keep it instant under reduced motion.
+    function keepWordVisible(el) {
+      if (!el || textEl.scrollHeight <= textEl.clientHeight) return;
+      const cr = textEl.getBoundingClientRect(), wr = el.getBoundingClientRect();
+      const rel = (wr.top - cr.top) / textEl.clientHeight;
+      if (rel >= 0.12 && rel <= 0.68) return;   // already comfortably in view
+      const target = textEl.scrollTop + (wr.top - cr.top) - textEl.clientHeight * 0.4 + wr.height / 2;
+      const max = textEl.scrollHeight - textEl.clientHeight;
+      textEl.scrollTo({ top: Math.max(0, Math.min(max, target)), behavior: reduceMotion ? 'auto' : 'smooth' });
+    }
+
     let current = -1, scrubberStep = 0;
     function highlight(i) {
       if (i === current) return;
       i = Math.max(0, Math.min(words.length - 1, i));
       if (current >= 0 && words[current].el) { words[current].el.classList.remove('now'); words[current].el.classList.add('read'); }
       current = i;
-      if (words[i].el) words[i].el.classList.add('now');
+      if (words[i].el) { words[i].el.classList.add('now'); keepWordVisible(words[i].el); }
       for (let k = 0; k < i; k++) words[k].el && words[k].el.classList.add('read');
       const pct = Math.round(((i + 1) / words.length) * 100);
       scrubFill.style.width = pct + '%'; timeLabel.textContent = pct + '%';
@@ -166,6 +185,7 @@
     function resetHighlight() {
       current = -1; words.forEach((w) => w.el && w.el.classList.remove('now', 'read'));
       scrubFill.style.width = '0%'; timeLabel.textContent = '0%'; scrubberStep = 0; scrubber.setAttribute('aria-valuenow', '0');
+      textEl.scrollTop = 0;
     }
 
     let state = 'idle', chosenVoice = null, boundarySeen = false, fallbackTimer = null, fallbackIdx = 0, keepAlive = null;
