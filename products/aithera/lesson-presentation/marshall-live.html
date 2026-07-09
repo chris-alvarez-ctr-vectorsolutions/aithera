@@ -1460,7 +1460,7 @@
     <!-- Reusable context-setter (narrated audio / reading) for the opening scene -->
     <script src="js/scene-context.js"></script>
     <!-- The Marshall scenario: content + compiled system prompt (this page) -->
-    <script src="js/marshall-scenario.js"></script>
+    <script src="js/marshall-scenario.js?v=2"></script>
 
     <script>
     /* =====================================================================
@@ -1637,6 +1637,9 @@
           .filter((m) => m && m.speaker && m.kind && typeof m.text === 'string' && m.text.trim())
           .map((m) => ({
             speaker: m.speaker, kind: m.kind, text: m.text,
+            // Preserve a per-message speaker name (e.g. "Marshall") so a second
+            // in-scene character renders/labels correctly.
+            ...(m.speaker === 'character' && typeof m.name === 'string' && m.name.trim() ? { name: m.name.trim() } : {}),
             ...(m.speaker === 'character' && m.emotionalState ? { emotionalState: m.emotionalState } : {}),
           }));
         if (!turn.length) return null;
@@ -1648,10 +1651,21 @@
         // dynamic message this turn (see applyDeliver). Whitelist to known ids.
         const LOCKED = ACTIVE_SCENARIO.locked || {};
         const deliver = (typeof obj.deliver === 'string' && LOCKED[obj.deliver]) ? obj.deliver : null;
+        // If the model omits mode/inputTarget (common on a stay-in-scene
+        // character reply), infer from the turn's TRAILING content instead of
+        // defaulting to coaching — otherwise a Marshall-only reply would wrongly
+        // pull the learner out of the scene.
+        const lastKind = turn.length ? turn[turn.length - 1].kind : 'coaching';
+        const trailingScene = lastKind === 'dialogue' || lastKind === 'narration';
+        const mode = obj.mode === 'scene' ? 'scene'
+          : obj.mode === 'coaching' ? 'coaching'
+          : (trailingScene ? 'scene' : 'coaching');
         return {
           turn,
-          mode: obj.mode === 'scene' ? 'scene' : 'coaching',
-          inputTarget: obj.inputTarget === 'character' ? 'character' : 'coach',
+          mode,
+          inputTarget: obj.inputTarget === 'character' ? 'character'
+            : obj.inputTarget === 'coach' ? 'coach'
+            : (mode === 'scene' ? 'character' : 'coach'),
           complete: obj.complete === true,
           ...(deliver ? { deliver } : {}),
           ...(report && (report.strengths.length || report.growthAreas.length) ? { report } : {}),
@@ -1683,6 +1697,7 @@
         if (!group.length) return;
         const turn = group.map((m) => ({
           speaker: m.speaker, kind: m.kind, text: m.text,
+          ...(m.speaker === 'character' && m.name ? { name: m.name } : {}),
           ...(m.speaker === 'character' && m.emotionalState ? { emotionalState: m.emotionalState } : {}),
         }));
         out.push({ role: 'assistant', content: JSON.stringify({ turn }) });
@@ -1829,11 +1844,15 @@
       // narration-only line (no dialogue) → quiet centered scene-setting text
       if (m.kind === 'narration') return el('div', 'scene-narration' + ec(m), esc(m.text));
       const wrap = el('div', 'char-line' + ec(m));
-      wrap.appendChild(el('div', 'char-avatar', esc(SCENARIO.character.charAt(0))));
+      // Per-message speaker (m.name) so a second in-scene character (Marshall)
+      // is labeled correctly; falls back to the scenario's default character.
+      const speaker = m.name || SCENARIO.character;
+      wrap.appendChild(el('div', 'char-avatar', esc(speaker.charAt(0))));
       const body = el('div', 'char-body');
       const head = el('div', 'char-head');
-      head.appendChild(el('span', 'char-name', esc(SCENARIO.character)));
-      if (m.emotionalState) head.appendChild(el('span', 'char-state', esc(m.emotionalState)));
+      head.appendChild(el('span', 'char-name', esc(speaker)));
+      // emotionalState is intentionally NOT rendered as a chip in this scenario —
+      // the emotion lives in the words + narration, not a clinical label.
       body.appendChild(head);
       body.appendChild(el('div', 'char-bubble', esc(m.text)));
       wrap.appendChild(body);
@@ -2628,7 +2647,12 @@
       // Phase 2 — a scene line just drew its reaction. Do NOT auto-open the coach.
       // Give the learner time to READ Kendra's reaction: show "Analyzing…" briefly
       // in the input bar, then offer the debrief as a choice they open when ready.
-      const intoDebrief = (i < items.length) && state.mode === 'scene' && state.hasEnteredScene;
+      // Queue the coaching items as a "debrief" (gated behind a tap) either when
+      // a scene line just drew its reaction, OR on the FINAL turn — so a
+      // completion delivered in coaching (Beat C ends with a coach recap, not a
+      // scene beat) still routes through the closing build-up + results.
+      const intoDebrief = (i < items.length) && state.hasEnteredScene
+        && (state.mode === 'scene' || state.complete);
       if (intoDebrief) {
         state.analyzing = true;
         render();                                    // input bar: "Analyzing your response…"
