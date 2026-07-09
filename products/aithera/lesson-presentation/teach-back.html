@@ -553,7 +553,7 @@
       <!-- Viewport: progress strip + live stage -->
       <main class="viewport">
         <div class="progress-strip is-hidden" id="progressStrip" aria-hidden="true">
-          <span class="count"><b id="meterN">0</b> / 10 taught</span>
+          <span class="count"><b id="meterN">0</b> / <b id="meterTotal">10</b> taught</span>
           <span class="bar"><span id="meterBar"></span></span>
           <button class="done-btn" id="doneBtn"><i class="fa-solid fa-flag-checkered"></i> Done</button>
         </div>
@@ -625,7 +625,7 @@
       <div class="intro-card" id="introCard" tabindex="-1">
         <span class="eyebrow">Your turn to teach</span>
         <h2>Teach it back</h2>
-        <p>The 10 cards behind this are the topics a complete HazCom training must cover. Explain each one in your own words — in any order — and it locks in. Cover as many as you can, then tap <b>Done</b>. If you go quiet, your coach will step in with a hint.</p>
+        <p>The cards behind this are the topics a complete training must cover. Explain each one in your own words — in any order — and it locks in. Cover as many as you can, then tap <b>Done</b>. If you go quiet, your coach will step in with a hint.</p>
         <span class="intro-choose">How do you want to teach?</span>
         <div class="io-pick" id="ioPick">
           <button id="pickTalkBtn" aria-pressed="false"><i class="fa-solid fa-microphone"></i> Talk it out <small>Speak your answers</small></button>
@@ -648,7 +648,7 @@
               <circle class="track" cx="84" cy="84" r="72"/>
               <circle class="fill" id="scoreFill" cx="84" cy="84" r="72"/>
             </svg>
-            <div class="num"><b id="scoreNum">0</b><span>of 10 topics</span></div>
+            <div class="num"><b id="scoreNum">0</b><span>of <span id="scoreTotal">10</span> topics</span></div>
           </div>
           <h2 class="score-headline" id="scoreHeadline">Nice work.</h2>
           <p class="score-feedback" id="scoreFeedback"></p>
@@ -657,92 +657,55 @@
       </div>
     </div>
 
+    <!-- Scenario type + published-draft plumbing. The engine + type register
+         AitheraStudio.get('teach-back'); this page reads whatever the Writer
+         Studio published (or the shipped default). -->
+    <script src="js/studio-engine.js?v=1"></script>
+    <script src="js/scenario-types/teach-back.js?v=1"></script>
+
     <script>
     /* =====================================================================
        TEACH ME — controller (vanilla, render-by-state). Drives the same
        simulator shell as Action Practice. Live LLM: coach framing chat,
        tile-coverage grading, stuck hints, and closing feedback — through
        the shared Cloudflare Worker proxy.
+
+       Content (topics + the three prompts) is authored data: the scenario
+       type js/scenario-types/teach-back.js supplies the DEFAULT, and the
+       Writer Studio can publish a revised scenario this page picks up. See
+       ACTIVE below.
        ===================================================================== */
+
+    /* ---- active scenario: published draft, else the shipped default ------ */
+    const TB_TYPE = window.AitheraStudio && window.AitheraStudio.get('teach-back');
+    const TB_PUBLISHED = TB_TYPE ? TB_TYPE.store.loadPublished() : null;
+    const ACTIVE = TB_PUBLISHED ? TB_PUBLISHED.scenario : (TB_TYPE ? TB_TYPE.DEFAULT : null);
+
+    // The page hard-depends on the engine + type module (same-origin scripts
+    // above). If either failed to load/register, fail loud instead of throwing
+    // an opaque TypeError at parse time and white-screening.
+    if (!ACTIVE) {
+      document.getElementById('app').innerHTML =
+        '<div style="padding:48px;max-width:32rem;margin:0 auto;text-align:center;color:var(--ink,#333)">'
+        + '<h2>Couldn\'t load this exercise</h2><p>Its scenario data didn\'t load. Refresh the page; if it keeps happening, the studio scripts may be missing from this deploy.</p></div>';
+      throw new Error('teach-back: scenario type not registered (AitheraStudio missing?)');
+    }
 
     const WORKER_URL = 'https://aithera-action-proxy.vector-aithera.workers.dev';
     const MODEL = 'claude-opus-4-8';          // coach chat + closing feedback (quality)
     const FAST_MODEL = 'claude-haiku-4-5';    // live tile grading (speed — turns around in ~1s)
     const IS_LIVE = Boolean(WORKER_URL);
 
-    /* ---- THE 10 REQUIRED TOPICS -------------------------------------- */
-    const TOPICS = [
-      { short: 'Requirements of the HazCom Standard',
-        full: 'The requirements of OSHA\'s Hazard Communication Standard itself — the regulatory foundation every training program must establish.',
-        synonyms: 'the standard, OSHA rule, the regulation, HazCom law, why training is required' },
-      { short: 'The written HazCom program & how to access it',
-        full: 'The details of the employer\'s written HazCom program and how to access it — employees must know it exists, where it is, and how to use it.',
-        synonyms: 'written plan, the paperwork, company program document, where the plan is kept' },
-      { short: 'Where hazardous chemicals are in the work area',
-        full: 'The locations of hazardous chemicals in the work area — where chemical hazards exist in the environment.',
-        synonyms: 'where chemicals are stored, chemical locations, what\'s in my area' },
-      { short: 'Physical & health hazards of the chemicals',
-        full: 'The physical and health hazards of the chemicals employees may encounter — what the chemicals can actually do to you.',
-        synonyms: 'dangers of the chemicals, flammable/toxic, health effects, what it does to you' },
-      { short: 'How to detect a chemical\'s presence or release',
-        full: 'How to detect the presence or release of hazardous chemicals — recognizing a hazard in real time (smell, monitors, alarms, visible signs).',
-        synonyms: 'detection, spotting a leak, monitors, alarms, sensing a release, smell' },
-      { short: 'Measures employees can take to protect themselves',
-        full: 'Measures EMPLOYEES can use to protect themselves — employee-initiated protective actions (distinct from employer-provided systems).',
-        synonyms: 'what workers can do, self-protection, personal safe habits, things I can do' },
-      { short: 'Employer protective measures: work practices, emergency procedures & PPE',
-        full: 'Protective measures the EMPLOYER has put into action — the three-component breakdown of work practices, emergency procedures, and PPE.',
-        synonyms: 'work practices, emergency procedures, spill response, PPE program, employer controls, engineering controls' },
-      { short: 'Labels on containers & the worksite labeling system',
-        full: 'Explanation of labels on shipped containers and the worksite chemical labeling system — reading and interpreting hazard-communication labels (GHS).',
-        synonyms: 'labels, GHS labels, pictograms, container markings, secondary labels' },
-      { short: 'Where SDSs are & how to access them',
-        full: 'Where Safety Data Sheets (SDSs) are located and how employees can access them — a right for ALL workers, not just safety officers.',
-        synonyms: 'SDS, safety data sheets, MSDS, chemical info binder, where the sheets are' },
-      { short: 'Who to contact if an issue arises',
-        full: 'Who to contact if an issue arises — the appropriate point of contact for hazard-related concerns.',
-        synonyms: 'who to call, point of contact, report a problem, supervisor to notify' },
-    ];
+    /* ---- REQUIRED TOPICS (authored data; count is dynamic) ----------- */
+    const TOPICS = ACTIVE.topics;
+    const TOPIC_COUNT = TOPICS.length;   // was hardcoded 10 throughout; now follows the scenario
 
     /* ---- PROMPTS ----------------------------------------------------- */
-    const CHAT_SYSTEM =
-`You are a warm, knowledgeable workplace-safety coach running a short "teach-back" exercise. The learner has just finished a Hazard Communication (HazCom) course. In a moment they'll be shown 10 blurred topic tiles and asked to teach each one back — speaking or typing — and each tile comes into focus as they cover it.
+    const CHAT_SYSTEM = TB_TYPE.calibratePrompt(ACTIVE);
 
-Your job RIGHT NOW is only a brief, encouraging calibration chat before that begins. You are NOT scoring anything yet. Keep every message to 2-3 short sentences, plain-spoken and human. The learner has already seen your opening message; read their reply, acknowledge it warmly WITHOUT evaluating it, and point them to tap "Start teaching."
+    function gradeSystem() { return TB_TYPE.gradePrompt(ACTIVE); }
 
-Return STRICT JSON ONLY, no markdown, no code fences:
-{"text": "your reply (2-3 sentences)", "ready": true}
-
-Set "ready": true once you've acknowledged their reply (almost always after their first reply). Only set "ready": false if they asked a direct question you must answer first — then answer briefly and invite them to reply again.`;
-
-    function gradeSystem() {
-      const list = TOPICS.map((t, i) => `${i + 1}. ${t.full} (accept phrasing like: ${t.synonyms})`).join('\n');
-      return `You grade a HazCom teach-back. The learner is explaining, from memory, the topics a COMPLETE HazCom employee-training program must cover. The 10 required topics:
-
-${list}
-
-You will receive everything the learner has said so far (speech + typing, concatenated). Decide which of the 10 they have CLEARLY addressed.
-
-Rules:
-- Accept synonyms and plain language. Err toward crediting when intent is clear — don't require exact terminology.
-- Topics 6 and 7 are distinct: 6 = what the EMPLOYEE does to protect themselves; 7 = employer-implemented systems (work practices, emergency procedures, PPE). Credit the more specific one; credit both only if both are clearly present.
-- Don't credit topics they never gestured at.
-
-Return STRICT JSON ONLY, no markdown, no code fences:
-{"covered": [topic numbers 1-10 addressed], "nudge": "one short, warm, category-level hint toward the single most useful topic NOT yet covered — do NOT name the topic outright; empty string if all 10 covered"}`;
-    }
-
-    function closeSystem() {
-      const list = TOPICS.map((t, i) => `${i + 1}. ${t.short}`).join('\n');
-      return `You are the safety coach closing out a HazCom teach-back. The 10 required topics:
-
-${list}
-
-You'll be told the learner's final score (how many of the 10 they taught back) and which they missed. Write brief, warm, NON-punitive closing feedback — say it like "you named X of 10" (never "you missed 3"). Reference one thing they did well, and name one area to hold onto (the general area of a missed topic) if any were missed. 2-3 sentences total.
-
-Return STRICT JSON ONLY, no markdown, no code fences:
-{"headline": "a short 2-4 word encouraging headline", "feedback": "2-3 warm sentences"}`;
-    }
+    function closeSystem() { return TB_TYPE.closePrompt(ACTIVE); }
 
     /* ---- LLM PLUMBING ------------------------------------------------ */
     function repairJson(raw) {
@@ -770,36 +733,26 @@ Return STRICT JSON ONLY, no markdown, no code fences:
       return (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
     }
 
-    /* ---- OFFLINE FALLBACK GRADER ------------------------------------- */
-    const FALLBACK_KEYS = [
-      ['standard','regulation','osha','required','law','rule'],
-      ['written','program','plan','document','paperwork'],
-      ['location','where','stored','area','kept'],
-      ['hazard','physical','health','flammable','toxic','danger','harm','burn'],
-      ['detect','leak','release','monitor','alarm','smell','sensor','spot'],
-      ['protect myself','employee','worker can','self','habit','careful','wash'],
-      ['work practice','emergency','spill response','evacuat','ppe','glove','goggle','respirator','equipment','first aid'],
-      ['label','ghs','pictogram','container','marking'],
-      ['sds','safety data sheet','msds','sheet','binder'],
-      ['contact','call','supervisor','report','notify','who to'],
-    ];
-    const FALLBACK_HINTS = [
-      'Think about the rule itself — what actually requires this training?',
-      'There\'s a written document at the company level workers should be able to find.',
-      'Where would a new worker even find the chemicals around them?',
-      'What can these chemicals actually do to a person?',
-      'How would someone know a chemical got loose in real time?',
-      'What can a worker personally do, day to day, to stay safe?',
-      'What has the employer already put in place — think practices, emergencies, and gear.',
-      'How do you read what\'s printed on a container?',
-      'Where does the detailed safety info for each chemical live?',
-      'If something goes wrong, who does a worker reach out to?'
-    ];
+    /* ---- OFFLINE FALLBACK GRADER ------------------------------------
+       Only runs if the live grader call fails (WORKER_URL unreachable). This
+       is a lossy heuristic, not the real grader. Keywords come from each
+       topic's SYNONYMS only (full phrases + their significant words) — the
+       short label is deliberately excluded, since generic label words like
+       "work"/"chemicals"/"area" are shared across topics and cross-credit. A
+       small stoplist drops the most collision-prone generic words. */
+    const KW_STOP = new Set(['what', 'where', 'when', 'this', 'that', 'them', 'they',
+      'your', 'with', 'from', 'into', 'about', 'work', 'area', 'kept', 'plan', 'know',
+      'stuff', 'things', 'access', 'each', 'some', 'have', 'made']);
+    function topicKeywords(topic) {
+      const phrases = String(topic.synonyms || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+      const words = phrases.flatMap((p) => p.split(/[^a-z]+/)).filter((w) => w.length > 3 && !KW_STOP.has(w));
+      return [...new Set([...phrases, ...words])];
+    }
     function fallbackGrade(text) {
       const t = text.toLowerCase(); const covered = [];
-      FALLBACK_KEYS.forEach((keys, i) => { if (keys.some((k) => t.includes(k))) covered.push(i + 1); });
+      TOPICS.forEach((topic, i) => { if (topicKeywords(topic).some((k) => k && t.includes(k))) covered.push(i + 1); });
       let nudge = '';
-      for (let i = 1; i <= 10; i++) { if (!covered.includes(i)) { nudge = FALLBACK_HINTS[i - 1]; break; } }
+      for (let i = 1; i <= TOPICS.length; i++) { if (!covered.includes(i)) { nudge = 'There\'s at least one required topic you haven\'t touched on yet — keep going.'; break; } }
       return { covered, nudge };
     }
 
@@ -911,10 +864,34 @@ Return STRICT JSON ONLY, no markdown, no code fences:
          <div class="est-meta">
            <span><i class="fa-solid fa-comments"></i> Talk with a coach</span>
            <span><i class="fa-solid fa-microphone"></i> Speak or type</span>
-           <span><i class="fa-solid fa-list-check"></i> Fill in 10 topics</span>
+           <span><i class="fa-solid fa-list-check"></i> Fill in ${TOPIC_COUNT} topics</span>
          </div>`));
     }
     function boot() {
+      // Reflect the active scenario's title, and — when a Writer-Studio draft
+      // is published — flag it in the top bar with a one-click revert.
+      if (ACTIVE && ACTIVE.title) {
+        $('scenarioName').textContent = ACTIVE.title;
+        document.querySelector('h1.sr-only').textContent = 'Teach-back — ' + ACTIVE.title;
+      }
+      // Score/meter denominators follow the actual topic count.
+      if ($('meterTotal')) $('meterTotal').textContent = TOPIC_COUNT;
+      if ($('scoreTotal')) $('scoreTotal').textContent = TOPIC_COUNT;
+      if (TB_PUBLISHED) {
+        const chip = document.createElement('button');
+        chip.className = 'tb-btn';
+        chip.innerHTML = '<i class="fa-solid fa-pen-nib"></i><span class="label">Writer scenario</span>';
+        chip.title = 'Running a teach-back published from the Writer Studio'
+          + (TB_PUBLISHED.savedAt ? ' on ' + new Date(TB_PUBLISHED.savedAt).toLocaleString() : '')
+          + '. Click to revert to the shipped scenario.';
+        chip.addEventListener('click', () => {
+          if (confirm('Revert to the shipped teach-back? The published version stays available in the Writer Studio.')) {
+            TB_TYPE.store.clearPublished();
+            location.reload();
+          }
+        });
+        document.querySelector('.topbar .spacer').after(chip);
+      }
       renderEstablishing();
       showInput('inputStart');
       $('progressStrip').classList.add('is-hidden');
@@ -927,9 +904,7 @@ Return STRICT JSON ONLY, no markdown, no code fences:
        =================================================================== */
     // The coach's opening. (The "you just wrapped the course" line now lives on
     // the title slide, so the chat gets straight to the calibration question.)
-    const OPENING = [
-      'How confident are you feeling, and what\'s the one thing you\'d want a brand-new coworker to walk away knowing?',
-    ];
+    const OPENING = [ACTIVE.calibrate.openingQuestion];
 
     async function beginFraming() {
       state.phase = 'framing';
@@ -967,7 +942,7 @@ Return STRICT JSON ONLY, no markdown, no code fences:
         reply.text = String(obj.text || '').trim();
         reply.ready = obj.ready !== false;
       } catch (e) {
-        reply.text = "Love it — that's exactly the mindset. Whenever you're ready, tap Start teaching and we'll bring those 10 topics into focus one by one.";
+        reply.text = `Love it — that's exactly the mindset. Whenever you're ready, tap Start teaching and we'll bring those ${TOPIC_COUNT} topics into focus one by one.`;
         reply.ready = true;
       }
       if (!reply.text) reply.text = "Great. Tap Start teaching when you're ready.";
@@ -999,7 +974,7 @@ Return STRICT JSON ONLY, no markdown, no code fences:
        TEACHING — the 10 tiles on the stage
        =================================================================== */
     function renderTeachStage() {
-      const head = el('div', 'slots-head', '<h2>10 HazCom topics</h2><p>Teach each one in your own words — in any order. They fill in as you go.</p>');
+      const head = el('div', 'slots-head', `<h2>${TOPIC_COUNT} HazCom topics</h2><p>Teach each one in your own words — in any order. They fill in as you go.</p>`);
       const grid = el('div', 'slots'); grid.id = 'slots';
       TOPICS.forEach((t, i) => {
         const n = i + 1; const on = state.covered.has(n);
@@ -1018,7 +993,7 @@ Return STRICT JSON ONLY, no markdown, no code fences:
     function updateMeter() {
       const n = state.covered.size;
       $('meterN').textContent = n;
-      $('meterBar').style.width = (n * 10) + '%';
+      $('meterBar').style.width = (TOPIC_COUNT ? (n / TOPIC_COUNT) * 100 : 0) + '%';
     }
 
     // "Start teaching" hands off from the coach: bring up the board, then greet
@@ -1125,17 +1100,17 @@ Return STRICT JSON ONLY, no markdown, no code fences:
       } catch (e) { result = fallbackGrade(transcript); }
       state.grading = false;
       const before = state.covered.size;
-      (result.covered || []).forEach((n) => { if (n >= 1 && n <= 10) state.covered.add(n); });
+      (result.covered || []).forEach((n) => { if (n >= 1 && n <= TOPIC_COUNT) state.covered.add(n); });
       state.lastNudge = String(result.nudge || '');
       revealCovered();
       const gained = state.covered.size - before;
       if (gained > 0) {
-        announce(`${gained} more topic${gained > 1 ? 's' : ''} covered. ${state.covered.size} of 10.`);
+        announce(`${gained} more topic${gained > 1 ? 's' : ''} covered. ${state.covered.size} of ${TOPIC_COUNT}.`);
         const h = $('inputHint'); if (h) { h.classList.remove('nudge'); h.textContent = defaultTeachHint(); }
-      } else if (submittedSinceLast && state.phase === 'teaching' && state.covered.size < 10) {
+      } else if (submittedSinceLast && state.phase === 'teaching' && state.covered.size < TOPIC_COUNT) {
         showTinyNudge(state.lastNudge);          // gentle "not a new one yet — keep going"
       }
-      if (state.covered.size >= 10 && state.phase === 'teaching') { finishTeaching(); }
+      if (state.covered.size >= TOPIC_COUNT && state.phase === 'teaching') { finishTeaching(); }
     }
     function revealCovered() {
       document.querySelectorAll('.slot').forEach((slot) => {
@@ -1155,7 +1130,7 @@ Return STRICT JSON ONLY, no markdown, no code fences:
       state.silenceTimer = setTimeout(async () => {
         if (state.phase !== 'teaching' || state.utterances.length === 0) return;
         await runGrade();
-        if (state.covered.size < 10 && state.phase === 'teaching') raiseStuck(false);
+        if (state.covered.size < TOPIC_COUNT && state.phase === 'teaching') raiseStuck(false);
       }, 14000);
     }
 
@@ -1176,7 +1151,7 @@ Return STRICT JSON ONLY, no markdown, no code fences:
       const hint = state.lastNudge || 'Think about the whole picture a new worker would need.';
       coachClear();
       raiseCoach();
-      await coachType(`You've taught ${n} of 10 so far${n ? ' — nice progress' : ''}. Here's a nudge: ${hint}\n\nKeep going, or wrap up and see your score.`);
+      await coachType(`You've taught ${n} of ${TOPIC_COUNT} so far${n ? ' — nice progress' : ''}. Here's a nudge: ${hint}\n\nKeep going, or wrap up and see your score.`);
       showInput('inputStuck');
       state.doneOffered = true;
       announce('Coach hint: ' + hint);
@@ -1229,14 +1204,14 @@ Return STRICT JSON ONLY, no markdown, no code fences:
       const missedLabels = missed.map((n) => TOPICS[n - 1].short);
       const fb = {
         headline: state.finalScore >= 8 ? 'Strong teach-back' : state.finalScore >= 5 ? 'Good foundation' : 'Solid start',
-        feedback: state.finalScore >= 10
-          ? 'You taught back all 10 required topics — exactly what a complete HazCom program covers. You clearly know this well enough to explain it to someone else.'
-          : `You named ${state.finalScore} of the 10 required topics — a real teach-back, not just recall. Hold onto the areas you didn't reach yet${missedLabels.length ? ', like ' + missedLabels[0].toLowerCase() : ''}; that's where to look next time.`,
+        feedback: state.finalScore >= TOPIC_COUNT
+          ? 'You taught back all ${TOPIC_COUNT} required topics — exactly what a complete HazCom program covers. You clearly know this well enough to explain it to someone else.'
+          : `You named ${state.finalScore} of the ${TOPIC_COUNT} required topics — a real teach-back, not just recall. Hold onto the areas you didn't reach yet${missedLabels.length ? ', like ' + missedLabels[0].toLowerCase() : ''}; that's where to look next time.`,
       };
       try {
         if (!IS_LIVE) throw new Error('offline');
         const raw = await callLLM(closeSystem(),
-          [{ role: 'user', content: `Final score: ${state.finalScore} of 10.\nCovered: ${[...state.covered].sort((a,b)=>a-b).join(', ') || 'none'}.\nMissed: ${missed.join(', ') || 'none'} (${missedLabels.join('; ') || 'none'}).` }], 400);
+          [{ role: 'user', content: `Final score: ${state.finalScore} of ${TOPIC_COUNT}.\nCovered: ${[...state.covered].sort((a,b)=>a-b).join(', ') || 'none'}.\nMissed: ${missed.join(', ') || 'none'} (${missedLabels.join('; ') || 'none'}).` }], 400);
         const obj = parseJson(raw);
         return { headline: String(obj.headline || fb.headline).trim(), feedback: String(obj.feedback || fb.feedback).trim() };
       } catch (e) { return fb; }
@@ -1252,12 +1227,12 @@ Return STRICT JSON ONLY, no markdown, no code fences:
       const C = 2 * Math.PI * 72;
       const fill = $('scoreFill');
       fill.style.strokeDasharray = C; fill.style.strokeDashoffset = C;
-      requestAnimationFrame(() => { fill.style.strokeDashoffset = C * (1 - state.finalScore / 10); });
+      requestAnimationFrame(() => { fill.style.strokeDashoffset = C * (1 - (TOPIC_COUNT ? state.finalScore / TOPIC_COUNT : 0)); });
       let cur = 0; const target = state.finalScore; const numEl = $('scoreNum');
       numEl.textContent = '0';
       const iv = setInterval(() => { cur++; numEl.textContent = cur; if (cur >= target) clearInterval(iv); }, 90);
       setTimeout(() => $('scoreNextBtn').focus(), 200);
-      announce(`You scored ${target} out of 10. ${c.feedback}`);
+      announce(`You scored ${target} out of ${TOPIC_COUNT}. ${c.feedback}`);
     }
     function closeScore() {
       $('resultsModal').hidden = true;
