@@ -121,9 +121,12 @@ Trade-off accepted: the "manage a controlled list" UI pattern will repeat in mor
 - **Associated Content**: unchanged — already the correct derived-backlink model.
 
 **Built (authors.html):**
-- **Add Author** is now a split button: Quick add (drawer) + Full profile (menu → dedicated screen, stubbed to `author-profile.html?new=1`).
+- **Add Author** is now a split button: Quick add (drawer) + Full profile (menu → `author-create.html`).
+- **List synced with the profile data model:** data rows carry `title` (role/headline) + controlled `credentials: []` + `subjects: []` + `email` + full `status` enum (dropped the old free-text `credentials` string and the `linked`/`linkedEmail` indicators — user-account linkage is out of scope). Status column + Status filter render all 5 enum states; added a Subject filter. Quick-add creates a row in the new shape. (Filters: Status, Subject, Content — a completeness filter was tried then removed.)
+- **Credentials in its own column** (moved out of the Author identity cell). Both Credentials and Subject Domain use a **chip-overflow collapse**: first `CHIP_LIMIT` (2) chips shown, remainder behind a **"+N" pill** that opens a body-level popover with the full list (avoids grid-cell clipping + the shadow-DOM hover pitfall; dismiss on outside-click/Esc/grid-scroll, toggles off on re-click, click-through to row suppressed). Fixed visible cap chosen over width-measuring — deterministic across grid re-renders/resizes.
+
+**Built (author-create.html):**
+- Dedicated full-profile creation screen. Single form, all sections always in edit mode, one "Create Author" submit (no per-section save/edit toggles). Only Author Name required. Includes Public Profile (photo w/ live initials, name, display name, bio, subject + credential combo-boxes, repeatable degrees/publications) and Vendor/Business (email, phone, address, structured rate, resume/contract upload stubs, create-time Status select). Omits Archive + Associated Content (those belong only to a *saved* author). Sticky bottom action bar.
 
 **Not yet built:**
-- **Full-profile creation screen** — currently stubbed to the profile page; needs an empty "create" state driven by `?new`.
-- **Authors-list Status filter** — still lists only Active/Archived; expand to the full enum.
 - **Reference-data admin screens** — per-section management of subjects/credentials (under Authors) and tagging categories (under Content Library). Separate effort.

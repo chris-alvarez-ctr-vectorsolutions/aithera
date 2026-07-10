@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Author — LearningStudio Content Portal</title>
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Open Sans', -apple-system, sans-serif;
+            font-size: 13px;
+            color: #0f2e3d;
+            background: #ffffff;
+            min-height: 100vh;
+        }
+
+        vwc-topnav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+        }
+
+        .app-body {
+            display: flex;
+            padding-top: 56px;
+            height: 100vh;
+        }
+
+        vwc-sidenav {
+            --vwc-sidenav-width: 240px;
+            --vwc-sidenav-max-width: 240px;
+            --offset: 56px;
+            flex-shrink: 0;
+            z-index: 10;
+            background: var(--lumo-base-color);
+            border-right: 1px solid rgba(28,55,90,0.1);
+        }
+        vwc-sidenav[collapsed] {
+            --vwc-sidenav-width: 56px;
+            --vwc-sidenav-max-width: 56px;
+        }
+
+        .main-content {
+            flex: 1;
+            min-width: 0;
+            overflow-y: auto;
+        }
+
+        .content-inner {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 24px 32px 120px;   /* bottom pad clears the sticky action bar */
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--lumo-primary-color);
+            text-decoration: none;
+            margin-bottom: 16px;
+        }
+        .back-link:hover { text-decoration: underline; }
+
+        .create-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #0f2e3d;
+            margin-bottom: 4px;
+        }
+        .create-subtitle {
+            font-size: 13px;
+            color: var(--lumo-secondary-text-color);
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        /* Form sections — same card style as the profile screen */
+        .form-section {
+            background: var(--lumo-base-color);
+            border: 1px solid rgba(28,55,90,0.1);
+            border-radius: 8px;
+            padding: 18px 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        }
+        .form-section-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f2e3d;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .form-section-title .title-text { flex: 1; }
+        .form-section-desc {
+            font-size: 12px;
+            color: var(--lumo-secondary-text-color);
+            line-height: 1.45;
+            margin-bottom: 16px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid rgba(28,55,90,0.07);
+        }
+
+        /* Internal-only tag on the Vendor section */
+        .internal-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            background: #eceff1;
+            color: #546e7a;
+        }
+
+        .form-row { margin-bottom: 14px; }
+        .form-row:last-child { margin-bottom: 0; }
+        vaadin-text-field, vaadin-text-area, vaadin-multi-select-combo-box { width: 100%; }
+
+        /* Edit-mode field labels (for custom pickers, not Vaadin fields) */
+        .edit-field-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #0f2e3d;
+            margin-bottom: 8px;
+        }
+
+        /* Photo upload row */
+        .photo-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .big-avatar {
+            width: 72px; height: 72px;
+            border-radius: 50%;
+            background: #e3eaf0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            font-weight: 700;
+            color: #90a4ae;
+            flex-shrink: 0;
+        }
+        .big-avatar.has-photo {
+            background-size: cover;
+            background-position: center;
+            color: transparent;
+        }
+        .photo-helper {
+            font-size: 11.5px;
+            color: var(--lumo-secondary-text-color);
+            line-height: 1.4;
+            margin-top: 6px;
+        }
+
+        /* Repeatable entry rows (degrees / publications) */
+        .repeat-list { display: flex; flex-direction: column; gap: 10px; }
+        .repeat-row {
+            display: grid;
+            gap: 8px;
+            padding: 12px;
+            border: 1px solid rgba(28,55,90,0.12);
+            border-radius: 8px;
+            background: #f8fafc;
+            position: relative;
+        }
+        .repeat-row.degree-row { grid-template-columns: 130px 1fr 90px; }
+        .repeat-row.pub-row { grid-template-columns: 1fr 1fr 90px; }
+        .repeat-row vaadin-text-field, .repeat-row vaadin-select { width: 100%; }
+        .repeat-row .remove-row-btn {
+            position: absolute;
+            top: -8px; right: -8px;
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            border: 1px solid rgba(28,55,90,0.15);
+            background: #fff;
+            color: var(--lumo-secondary-text-color);
+            cursor: pointer;
+            font-size: 10px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .repeat-row .remove-row-btn:hover { color: #c62828; border-color: #c62828; }
+        .add-entry-btn { margin-top: 10px; }
+        .empty-hint {
+            font-size: 12px;
+            color: var(--lumo-secondary-text-color);
+            font-style: italic;
+            padding: 4px 0;
+        }
+
+        /* Vendor form grids */
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+        .form-grid vaadin-text-field, .form-grid vaadin-number-field, .form-grid vaadin-select { width: 100%; }
+        .rate-grid { grid-template-columns: 1fr 1fr 1fr; }
+
+        /* Upload stub rows (represent a file; no real upload) */
+        .upload-stub {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border: 1px dashed rgba(28,55,90,0.22);
+            border-radius: 6px;
+            background: #f8fafc;
+            margin-bottom: 8px;
+            font-size: 12.5px;
+            color: var(--lumo-secondary-text-color);
+        }
+        .upload-stub i { font-size: 14px; }
+
+        /* Status field: create defaults to Active; a simple select is enough here
+           (the full state machine + archive lives on the saved profile). */
+
+        /* Sticky action bar */
+        .create-actions {
+            position: fixed;
+            bottom: 0;
+            left: 240px;   /* clears the sidenav; JS adjusts when collapsed */
+            right: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 32px;
+            background: #ffffff;
+            border-top: 1px solid rgba(28,55,90,0.12);
+            box-shadow: 0 -2px 8px rgba(15,46,61,0.06);
+            transition: left 0.2s ease;
+        }
+        .main-content.sidenav-collapsed ~ .create-actions,
+        body.sidenav-collapsed .create-actions { left: 56px; }
+        .create-actions .actions-hint {
+            flex: 1;
+            font-size: 12px;
+            color: var(--lumo-secondary-text-color);
+        }
+        .create-actions .required-star { color: #c62828; }
+
+        .section-required-tag {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #c62828;
+            margin-left: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <vwc-topnav id="topnav" sidenav-id="sidenav"></vwc-topnav>
+
+    <div class="app-body">
+        <vwc-sidenav id="sidenav" active-item-id="authors"></vwc-sidenav>
+
+        <main class="main-content">
+        <div class="content-inner">
+
+            <a class="back-link" href="authors.html">
+                <i class="fa-solid fa-arrow-left"></i> Back to Authors
+            </a>
+
+            <div class="create-title">Create Author</div>
+            <div class="create-subtitle">
+                Build a complete author profile. Only the author name is required — everything else can be added now or later.
+                Prefer a quick shell? <a href="authors.html" style="color:var(--lumo-primary-color)">Use Quick add instead</a>.
+            </div>
+
+            <!-- ── Public Profile ── -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <i class="fa-solid fa-id-card" style="color:var(--lumo-primary-color)"></i>
+                    <span class="title-text">Public Profile</span>
+                </div>
+                <div class="form-section-desc">
+                    Identity and expertise shown to learners in the LMS.
+                </div>
+
+                <!-- Photo -->
+                <div class="form-row">
+                    <label class="edit-field-label">Profile Photo</label>
+                    <div class="photo-row">
+                        <div class="big-avatar" id="create-avatar"><i class="fa-solid fa-user"></i></div>
+                        <div>
+                            <vaadin-button theme="secondary" id="upload-photo-btn">
+                                <i class="fa-solid fa-arrow-up-from-bracket" slot="prefix"></i> Upload photo
+                            </vaadin-button>
+                            <div class="photo-helper">JPG or PNG, recommended 400×400. Surfaces in published content.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <vaadin-text-field id="create-name" theme="outlined" label="Author Name" required
+                        error-message="Author name is required" placeholder="e.g., Dr. Sarah Mitchell"></vaadin-text-field>
+                </div>
+
+                <div class="form-row">
+                    <vaadin-text-field id="create-display-name" theme="outlined" label="Display Name"
+                        helper-text="Optional. The name shown to learners. Defaults to the author name if left blank."
+                        placeholder="e.g., Sarah Mitchell"></vaadin-text-field>
+                </div>
+
+                <div class="form-row">
+                    <vaadin-text-area id="create-bio" theme="outlined" label="Bio" rows="4"
+                        placeholder="Professional background, experience, and areas of focus…"></vaadin-text-area>
+                </div>
+
+                <div class="form-row">
+                    <vaadin-multi-select-combo-box id="create-subjects" theme="outlined"
+                        label="Subject Matter Domain"
+                        helper-text="Type to search. Standardized so authors can be filtered and matched to content.">
+                    </vaadin-multi-select-combo-box>
+                </div>
+
+                <div class="form-row">
+                    <vaadin-multi-select-combo-box id="create-credentials" theme="outlined"
+                        label="Credentials / Certifications / Licenses"
+                        helper-text="Type to search the standardized list, or type one that isn't listed and press Enter to add it."
+                        allow-custom-value>
+                    </vaadin-multi-select-combo-box>
+                </div>
+
+                <div class="form-row">
+                    <label class="edit-field-label">Degrees / Formal Education</label>
+                    <div class="repeat-list" id="create-degrees"></div>
+                    <vaadin-button id="add-degree-btn" theme="tertiary" class="add-entry-btn">
+                        <i class="fa-solid fa-plus" slot="prefix"></i> Add degree
+                    </vaadin-button>
+                </div>
+
+                <div class="form-row">
+                    <label class="edit-field-label">Publications</label>
+                    <div class="repeat-list" id="create-publications"></div>
+                    <vaadin-button id="add-pub-btn" theme="tertiary" class="add-entry-btn">
+                        <i class="fa-solid fa-plus" slot="prefix"></i> Add publication
+                    </vaadin-button>
+                </div>
+            </div>
+
+            <!-- ── Vendor / Business ── -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <i class="fa-solid fa-briefcase" style="color:var(--lumo-primary-color)"></i>
+                    <span class="title-text">Vendor / Business</span>
+                    <span class="internal-tag" title="Internal only — not shown to learners">
+                        <i class="fa-solid fa-lock"></i> Internal
+                    </span>
+                </div>
+                <div class="form-section-desc">
+                    Internal contact, commercial, and document details. Never shown to learners.
+                </div>
+
+                <div class="form-grid">
+                    <vaadin-text-field id="create-email" theme="outlined" label="Email"
+                        placeholder="user@company.com"
+                        helper-text="Contact email. A future release will use this to link a user account."></vaadin-text-field>
+                    <vaadin-text-field id="create-phone" theme="outlined" label="Phone"
+                        placeholder="(555) 555-0100"></vaadin-text-field>
+                </div>
+
+                <div class="form-row">
+                    <vaadin-text-field id="create-address" theme="outlined" label="Address"
+                        placeholder="Street, City, State ZIP"></vaadin-text-field>
+                </div>
+
+                <div class="form-grid rate-grid">
+                    <vaadin-number-field id="create-rate-amount" theme="outlined" label="Rate">
+                        <span slot="prefix">$</span>
+                    </vaadin-number-field>
+                    <vaadin-select id="create-rate-currency" theme="outlined" label="Currency"></vaadin-select>
+                    <vaadin-select id="create-rate-unit" theme="outlined" label="Per"></vaadin-select>
+                </div>
+
+                <div class="form-row">
+                    <label class="edit-field-label">Resume</label>
+                    <div class="upload-stub" id="resume-stub">
+                        <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                        <span>Upload a resume (PDF, DOC)</span>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <label class="edit-field-label">Contracts</label>
+                    <div class="upload-stub" id="contract-stub">
+                        <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                        <span>Upload a contract (PDF)</span>
+                    </div>
+                    <vaadin-button theme="tertiary" class="add-entry-btn">
+                        <i class="fa-solid fa-plus" slot="prefix"></i> Add another contract
+                    </vaadin-button>
+                </div>
+
+                <div class="form-row">
+                    <vaadin-select id="create-status" theme="outlined" label="Status"
+                        helper-text="New authors default to Active. Do Not Contact / archiving are managed on the saved profile."></vaadin-select>
+                </div>
+            </div>
+
+        </div><!-- /.content-inner -->
+        </main>
+
+        <!-- Sticky action bar -->
+        <div class="create-actions" id="create-actions">
+            <div class="actions-hint">
+                <span class="required-star">*</span> Author name is required. All other fields are optional.
+            </div>
+            <vaadin-button theme="secondary" id="create-cancel">Cancel</vaadin-button>
+            <vaadin-button theme="primary" id="create-submit">
+                <i class="fa-solid fa-check" slot="prefix"></i> Create Author
+            </vaadin-button>
+        </div>
+    </div>
+
+<script>
+customElements.whenDefined('vwc-sidenav').then(() => {
+    const topnav = document.getElementById('topnav');
+    topnav.logo = { src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 32'><rect x='0' y='4' width='24' height='24' rx='4' fill='%230f2e3d'/><text x='32' y='22' font-family='Open Sans,sans-serif' font-size='16' font-weight='700' fill='%230f2e3d'>LOGO</text></svg>", alt: 'Logo' };
+
+    const sidenav = document.getElementById('sidenav');
+    sidenav.items = [
+        { type: 'link', id: 'library',  text: 'Content Library', href: 'content-library.html', icon: { type: 'svg', path: 'M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z' } },
+        { type: 'link', id: 'authors',  text: 'Authors', href: 'authors.html', icon: { type: 'svg', path: 'M16,2L14.6,3.43L18.57,7.41L20,6M13.89,4.14L4,14.03V18H7.97L17.86,8.11L13.89,4.14M4,20V22H20V20H4Z' } },
+        { type: 'divider' },
+        { type: 'link', id: 'assets',   text: 'Assets', href: 'global-assets.html', icon: { type: 'svg', path: 'M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z' } },
+        { type: 'link', id: 'settings', text: 'Settings', href: 'settings.html', icon: { type: 'svg', path: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.11-.22.06-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z' } }
+    ];
+
+    sidenav.addEventListener('collapsed-changed', () => {
+        document.body.classList.toggle('sidenav-collapsed', sidenav.collapsed);
+        document.querySelector('.main-content').classList.toggle('sidenav-collapsed', sidenav.collapsed);
+    });
+
+    // ── Controlled taxonomies (mirror the profile screen) ──
+    const ALL_SUBJECTS = ['Industrial Safety', 'Fire Safety', 'Emergency Response', 'Industrial Hygiene', 'Construction Safety', 'Occupational Health', 'Hazardous Materials', 'Electrical Safety', 'Ergonomics'];
+    const ALL_CREDENTIALS = ['CSP', 'CIH', 'CHMM', 'CHST', 'OHST', 'OSHA-10', 'OSHA-30', 'CFPS', 'CIE', 'ASP', 'COHN-S', 'EMT-P', 'NREMT-P'];
+
+    // ── Searchable multiselect pickers ──
+    const subjectCombo = document.getElementById('create-subjects');
+    const credentialCombo = document.getElementById('create-credentials');
+    subjectCombo.items = ALL_SUBJECTS;
+    credentialCombo.items = ALL_CREDENTIALS;
+    credentialCombo.addEventListener('custom-value-set', (e) => {
+        const val = (e.detail || '').trim();
+        if (!val) return;
+        if (!credentialCombo.items.includes(val)) credentialCombo.items = [...credentialCombo.items, val];
+        credentialCombo.selectedItems = [...(credentialCombo.selectedItems || []), val];
+    });
+
+    // ── Rate + status selects ──
+    const rateCurrency = document.getElementById('create-rate-currency');
+    const rateUnit = document.getElementById('create-rate-unit');
+    const statusSelect = document.getElementById('create-status');
+    rateCurrency.items = ['USD', 'CAD', 'EUR', 'GBP', 'AUD'].map(c => ({ label: c, value: c }));
+    rateCurrency.value = 'USD';
+    rateUnit.items = [
+        { label: 'hour', value: 'hour' },
+        { label: 'day', value: 'day' },
+        { label: 'project', value: 'project' },
+        { label: 'word', value: 'word' }
+    ];
+    rateUnit.value = 'hour';
+    // Create-time statuses only (Archived is a lifecycle action on the saved profile).
+    statusSelect.items = [
+        { label: 'Active', value: 'active' },
+        { label: 'Available / Under Contract', value: 'contract' },
+        { label: 'Inactive / On Hold', value: 'inactive' },
+        { label: 'Do Not Contact', value: 'dnc' }
+    ];
+    statusSelect.value = 'active';
+
+    // ── Repeatable entry rows: degrees & publications ──
+    const DEGREE_LEVELS = ['Certificate', 'Associate', 'B.A.', 'B.S.', 'M.A.', 'M.S.', 'M.B.A.', 'Ph.D.', 'M.D.', 'J.D.', 'Ed.D.'];
+
+    function makeSelect(label, opts) {
+        const sel = document.createElement('vaadin-select');
+        sel.setAttribute('theme', 'outlined');
+        sel.setAttribute('label', label);
+        sel.items = opts.map(o => ({ label: o, value: o }));
+        return sel;
+    }
+    function makeField(label, placeholder) {
+        const f = document.createElement('vaadin-text-field');
+        f.setAttribute('theme', 'outlined');
+        f.setAttribute('label', label);
+        if (placeholder) f.setAttribute('placeholder', placeholder);
+        return f;
+    }
+    function removeBtn(row, listId, hintId) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'remove-row-btn';
+        b.setAttribute('aria-label', 'Remove');
+        b.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+        b.addEventListener('click', () => { row.remove(); refreshHint(listId, hintId); });
+        return b;
+    }
+
+    // Empty-state hint per repeatable list.
+    function refreshHint(listId, hintId) {
+        const list = document.getElementById(listId);
+        const has = list.querySelector('.repeat-row');
+        let hint = document.getElementById(hintId);
+        if (!has && !hint) {
+            hint = document.createElement('div');
+            hint.className = 'empty-hint';
+            hint.id = hintId;
+            hint.textContent = listId.includes('degree') ? 'No degrees added yet.' : 'No publications added yet.';
+            list.appendChild(hint);
+        } else if (has && hint) {
+            hint.remove();
+        }
+    }
+
+    function addDegreeRow() {
+        const list = document.getElementById('create-degrees');
+        const existingHint = document.getElementById('degrees-hint');
+        if (existingHint) existingHint.remove();
+        const row = document.createElement('div');
+        row.className = 'repeat-row degree-row';
+        row.appendChild(makeSelect('Level', DEGREE_LEVELS));
+        row.appendChild(makeField('Field of study', 'e.g., Occupational Safety'));
+        row.appendChild(makeField('Year', 'YYYY'));
+        const inst = makeField('Institution', 'e.g., Ohio State University');
+        inst.style.gridColumn = '1 / -1';
+        row.appendChild(inst);
+        row.appendChild(removeBtn(row, 'create-degrees', 'degrees-hint'));
+        list.appendChild(row);
+    }
+
+    function addPubRow() {
+        const list = document.getElementById('create-publications');
+        const existingHint = document.getElementById('pubs-hint');
+        if (existingHint) existingHint.remove();
+        const row = document.createElement('div');
+        row.className = 'repeat-row pub-row';
+        const title = makeField('Title', 'Publication title');
+        title.style.gridColumn = '1 / -1';
+        row.appendChild(title);
+        row.appendChild(makeField('Publisher', 'e.g., Journal of…'));
+        row.appendChild(makeField('Year', 'YYYY'));
+        const url = makeField('Link (optional)', 'https://');
+        url.style.gridColumn = '1 / -1';
+        row.appendChild(url);
+        row.appendChild(removeBtn(row, 'create-publications', 'pubs-hint'));
+        list.appendChild(row);
+    }
+
+    // Start empty (a create screen has nothing yet) with a hint.
+    refreshHint('create-degrees', 'degrees-hint');
+    refreshHint('create-publications', 'pubs-hint');
+    document.getElementById('add-degree-btn').addEventListener('click', addDegreeRow);
+    document.getElementById('add-pub-btn').addEventListener('click', addPubRow);
+
+    // ── Photo upload (stub: applies a swatch so the interaction reads) ──
+    const avatar = document.getElementById('create-avatar');
+    const nameField = document.getElementById('create-name');
+    // Reflect initials into the placeholder as the name is typed.
+    nameField.addEventListener('input', () => {
+        if (avatar.classList.contains('has-photo')) return;
+        const name = nameField.value.trim();
+        if (!name) { avatar.innerHTML = '<i class="fa-solid fa-user"></i>'; return; }
+        const parts = name.split(/\s+/).filter(p => !/^(dr\.?|mr\.?|mrs\.?|ms\.?|prof\.?)$/i.test(p));
+        if (parts.length === 0) { avatar.innerHTML = '<i class="fa-solid fa-user"></i>'; return; }
+        const initials = parts.length === 1 ? parts[0].slice(0, 2).toUpperCase()
+            : (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        avatar.textContent = initials;
+        avatar.style.color = '#546e7a';
+    });
+
+    // ── Toast (matches the profile screen) ──
+    function showToast(message, type = 'success') {
+        const note = document.createElement('vaadin-notification');
+        note.position = 'bottom-center';
+        note.duration = 3000;
+        const ok = type !== 'error';
+        const icon = ok ? 'fa-circle-check' : 'fa-circle-exclamation';
+        const color = ok ? '#2e7d32' : '#c62828';
+        note.renderer = (root) => {
+            root.innerHTML = `<span style="display:inline-flex; align-items:center; gap:8px;"><i class="fa-solid ${icon}" style="color:${color}"></i> ${message}</span>`;
+        };
+        document.body.appendChild(note);
+        note.opened = true;
+        note.addEventListener('opened-changed', e => { if (!e.detail.value) note.remove(); });
+    }
+
+    // ── Submit / cancel ──
+    document.getElementById('create-cancel').addEventListener('click', () => {
+        window.location.href = 'authors.html';
+    });
+
+    document.getElementById('create-submit').addEventListener('click', () => {
+        const name = nameField.value.trim();
+        if (!name) {
+            nameField.invalid = true;
+            nameField.focus();
+            showToast('Author name is required.', 'error');
+            return;
+        }
+        // Prototype: no backend — confirm and route back to the list.
+        showToast(`“${name}” created.`);
+        setTimeout(() => { window.location.href = 'authors.html'; }, 900);
+    });
+
+}); // end whenDefined
+</script>
+</body>
+</html>
