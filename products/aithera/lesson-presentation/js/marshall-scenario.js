@@ -119,16 +119,25 @@
       ],
     },
 
-    /* CONTEXT MODALITY — narrated audio (the "Audio Summary" player); swap type
-       to 'reading'/'video'/'none' without touching the arc. */
+    /* CONTEXT MODALITY — a short dramatized VIDEO of the situation, played with
+       the Kendra "with video" cold-open player. This clip has its own audio, so
+       it plays with SOUND and no caption overlay (video.sound:true). Swap type
+       back to 'audio'/'reading' to use the narrated-text player instead — the
+       coaching arc is unchanged either way. */
     intro: {
-      type: 'audio',
+      type: 'video',
+      video: {
+        sound: true,   // the clip is narrated — don't mute it, and skip captions
+        scenes: [ { src: '../assets/videos/marshall.mp4?v=1', caption: '' } ],
+      },
+      // Kept so switching modality later is one field; the narrated-audio player
+      // would read this. (OPENING_SITUATION also grounds the coach — see prompt.)
       audio: {
         eyebrow: 'The situation · listen or read along',
         title: 'What you’ve been seeing',
         text: OPENING_SITUATION,
       },
-      video: { scenes: [] }, story: {},
+      story: {},
     },
   };
 
@@ -190,7 +199,7 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
   parts.push(
 `LOCKED BEATS (app-owned — shown to the learner VERBATIM; never write or repeat these yourself):
 
-ALREADY DELIVERED before the conversation starts — the learner heard/read THE SITUATION as narrated audio, then the app showed your reflection prompt. You know it fully; ground your coaching in these details (don't repeat the narration back):
+ALREADY DELIVERED before the conversation starts — the learner just watched a short video of THE SITUATION, then the app showed your reflection prompt. You know it fully; ground your coaching in these details (don't repeat them back):
     THE SITUATION (narrated): "${OPENING_SITUATION}"
     Coach: "${REFLECTION_PROMPT}"
 

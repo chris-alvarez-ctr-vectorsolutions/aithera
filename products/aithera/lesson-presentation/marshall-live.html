@@ -1460,7 +1460,7 @@
     <!-- Reusable context-setter (narrated audio / reading) for the opening scene -->
     <script src="js/scene-context.js"></script>
     <!-- The Marshall scenario: content + compiled system prompt (this page) -->
-    <script src="js/marshall-scenario.js?v=4"></script>
+    <script src="js/marshall-scenario.js?v=6"></script>
 
     <script>
     /* =====================================================================
@@ -1506,13 +1506,19 @@
     document.getElementById('scenarioName').textContent = SCENARIO.title;
     document.getElementById('pageTitle').textContent = 'Practice scenario: ' + SCENARIO.title;
 
-    /* No cold-open video for Marshall — the coach presents the situation in
-       the opening messages. Kept as a no-op so the shared shell's
-       HAS_VIDEO_INTRO gate reads false and the begin button goes straight to
-       the establishing card + coach. */
+    /* Cold-open VIDEO (the Kendra "with video" player). Marshall sets its
+       context with one dramatized clip that has its own audio (video.sound). */
     const HAS_VIDEO_INTRO = ACTIVE_SCENARIO.intro.type === 'video'
       && (ACTIVE_SCENARIO.intro.video.scenes || []).some((s) => s && s.src);
-    const INTRO_SCENES = [];
+    const INTRO_SCENES = !HAS_VIDEO_INTRO ? [] :
+      ACTIVE_SCENARIO.intro.video.scenes
+        .filter((s) => s && s.src)
+        .map((s) => ({
+          src: AitheraScenario.fill(s.src, ACTIVE_SCENARIO),
+          text: AitheraScenario.fill(s.caption || '', ACTIVE_SCENARIO),
+        }));
+    // Whether the cold-open clip plays with its own sound (vs muted + captions).
+    const INTRO_VIDEO_SOUND = !!(ACTIVE_SCENARIO.intro.video && ACTIVE_SCENARIO.intro.video.sound);
 
     /* AUDIO / READING context modality — the opening "scene" is narrated (or
        read) instead of delivered as coach chat text. When it finishes, the
@@ -1814,7 +1820,7 @@
     function videoNode() {
       const wrap = el('div', 'scene-video');
       const videos = INTRO_SCENES.map((s, i) =>
-        `<video class="intro-video" data-idx="${i}" muted playsinline preload="auto" src="${esc(s.src)}" aria-label="Scene-setting video, part ${i + 1} of ${INTRO_SCENES.length}"></video>`
+        `<video class="intro-video" data-idx="${i}" ${INTRO_VIDEO_SOUND ? '' : 'muted'} playsinline preload="auto" src="${esc(s.src)}" aria-label="Scene-setting video, part ${i + 1} of ${INTRO_SCENES.length}"></video>`
       ).join('');
       wrap.innerHTML = videos +
         `<div class="intro-caption-wrap"><p class="intro-caption" id="introCaption" aria-live="polite"></p></div>
@@ -2351,11 +2357,25 @@
       return new Promise((resolve) => {
         let done = false;
         const finish = () => { if (done) return; done = true; cleanup(); resolve(); };
-        function cleanup() { videoEl.removeEventListener('ended', finish); videoEl.removeEventListener('error', finish); }
+        function cleanup() { videoEl.removeEventListener('ended', finish); videoEl.removeEventListener('error', finish); clearInterval(watch); }
+        // If the element already errored (e.g. the 'error' fired while play() was
+        // rejecting, before we attached), don't wait — move on to the coach.
+        if (videoEl.error) { resolve(); return; }
         videoEl.addEventListener('ended', finish);
         videoEl.addEventListener('error', finish);
-        // Safety net so a missing/slow asset can't trap the learner on a black screen.
-        setTimeout(() => { if (mySeq === introSeq) finish(); }, 12000);
+        // Safety net is a STALL watchdog, not a fixed cap — so a long clip plays
+        // fully, but a missing/frozen asset (or an abandoned sequence) still can't
+        // trap the learner. Finish only if the sequence was superseded, or
+        // playback made no progress for ~10s while trying to play (not merely
+        // paused by the learner).
+        let last = -1, stalls = 0;
+        const watch = setInterval(() => {
+          if (mySeq !== introSeq || videoEl.error) { finish(); return; }
+          const t = videoEl.currentTime || 0;
+          if (t > last + 0.25) { last = t; stalls = 0; return; }
+          if (!videoEl.paused && !videoEl.ended) stalls++;
+          if (stalls >= 5) finish();
+        }, 2000);
       });
     }
 
@@ -2400,6 +2420,9 @@
       // the video's frozen final frame (now blurred/dimmed), not the
       // establishing card. See the render() guard above for why that avoids
       // a flash back to "Kendra's room" mid-transition.
+      // Freeze + silence the clip so a not-yet-ended (or sound-on) video can't
+      // keep playing audio under the coaching that follows.
+      document.querySelectorAll('#stage .intro-video').forEach((v) => { try { v.pause(); v.muted = true; } catch (e) {} });
       await wait(reducedMotion() ? 0 : 250);   // a short breath, not a second decision point
       startSession();        // the video IS the transition — chain straight into the coach
     }
@@ -2935,6 +2958,7 @@
       deliverSeq++;                                       // cancel any in-flight reveal
       abortDelivery();
       introSeq++;   // abandon any in-flight video sequence
+      document.querySelectorAll('#stage .intro-video').forEach((v) => { try { v.pause(); v.muted = true; } catch (e) {} });  // silence a mid-play cold open
       if (audioIntroHandle) { audioIntroHandle.stop(); audioIntroHandle = null; }  // stop any narration
       Object.assign(state, {
         mode: 'coaching', inputTarget: 'coach', hasEnteredScene: false,
