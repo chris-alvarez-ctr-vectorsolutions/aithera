@@ -432,11 +432,6 @@
         }
 
         /* Subjects column */
-        .author-subjects {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 4px;
-        }
         .subject-chip {
             display: inline-flex;
             align-items: center;
@@ -452,27 +447,6 @@
             background: #fff3e0;
             color: #e65100;
         }
-
-        /* Indicators column */
-        .author-indicators {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 2px 9px;
-            border-radius: 10px;
-            font-size: 11px;
-            font-weight: 600;
-            white-space: nowrap;
-        }
-        .badge-complete { background: #e6f4ea; color: #2e7d32; }
-        .badge-incomplete { background: #fff3e0; color: #e65100; }
-        .badge-linked { background: rgba(14,165,233,0.1); color: #0271ce; }
-        .badge-unlinked { background: rgba(28,55,90,0.07); color: var(--lumo-secondary-text-color); }
 
         /* Content count */
         .content-count {
@@ -497,11 +471,86 @@
             border-radius: 50%;
             flex-shrink: 0;
         }
+        /* Status states — kept in sync with the author-profile status badge. */
         .status-active { background: #e6f4ea; color: #2e7d32; }
         .status-active .status-dot { background: #2e7d32; }
+        .status-contract { background: #e3f2fd; color: #1565c0; }
+        .status-contract .status-dot { background: #1565c0; }
+        .status-inactive { background: #eceff1; color: #546e7a; }
+        .status-inactive .status-dot { background: #546e7a; }
+        .status-dnc { background: rgba(198,40,40,0.12); color: #c62828; }
+        .status-dnc .status-dot { background: #c62828; }
         /* Archived: design-system semi-transparent red (error) badge style */
         .status-archived { background: rgba(198,40,40,0.12); color: #c62828; }
         .status-archived .status-dot { background: #c62828; }
+
+        /* Title/role line under the author name */
+        .author-title {
+            font-size: 11.5px;
+            color: var(--lumo-secondary-text-color);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 340px;
+        }
+        /* Credential chips (own column now) */
+        .cred-chip-sm {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10.5px;
+            font-weight: 600;
+            background: rgba(46,125,50,0.1);
+            color: #2e7d32;
+            white-space: nowrap;
+        }
+
+        /* ── Chip cell + overflow collapse (credentials & subjects) ── */
+        .chip-cell {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px;
+        }
+        .chip-empty { color: var(--lumo-disabled-text-color); }
+        .chip-more {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10.5px;
+            font-weight: 700;
+            font-family: inherit;
+            border: 1px solid rgba(28,55,90,0.18);
+            background: #fff;
+            color: var(--lumo-secondary-text-color);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.1s, border-color 0.1s, color 0.1s;
+        }
+        .chip-more:hover {
+            background: #f3f4f6;
+            border-color: var(--lumo-primary-color);
+            color: var(--lumo-primary-color);
+        }
+
+        /* Overflow popover — body-level so the grid cell's overflow doesn't clip it */
+        .chip-popover {
+            position: absolute;
+            z-index: 1100;
+            max-width: 280px;
+            background: #fff;
+            border: 1px solid rgba(28,55,90,0.15);
+            border-radius: 8px;
+            box-shadow: 0 6px 20px rgba(15,46,61,0.16);
+            padding: 10px;
+        }
+        .chip-popover-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
 
     </style>
 </head>
@@ -560,15 +609,11 @@
                     <select id="filter-status" aria-label="Status">
                         <option value="">All Statuses</option>
                         <option value="active">Active</option>
+                        <option value="contract">Available / Under Contract</option>
+                        <option value="inactive">Inactive / On Hold</option>
+                        <option value="dnc">Do Not Contact</option>
                         <option value="archived">Archived</option>
                     </select>
-                    <select id="filter-content" aria-label="Content">
-                        <option value="">All Authors</option>
-                        <option value="has">Has Content</option>
-                        <option value="none">No Content</option>
-                    </select>
-
-                    <!-- POSSIBLE FUTURE ITERATION: filters for the hidden Subjects / Indicators columns
                     <select id="filter-subject" aria-label="Subject Area">
                         <option value="">All Subjects</option>
                         <option value="Industrial Safety">Industrial Safety</option>
@@ -581,33 +626,23 @@
                         <option value="Electrical Safety">Electrical Safety</option>
                         <option value="Ergonomics">Ergonomics</option>
                     </select>
-                    <select id="filter-completeness" aria-label="Profile Completeness">
-                        <option value="">All Completeness</option>
-                        <option value="complete">Complete</option>
-                        <option value="incomplete">Incomplete</option>
+                    <select id="filter-content" aria-label="Content">
+                        <option value="">All Authors</option>
+                        <option value="has">Has Content</option>
+                        <option value="none">No Content</option>
                     </select>
-                    <select id="filter-linked" aria-label="Linked Account">
-                        <option value="">All Accounts</option>
-                        <option value="linked">Linked</option>
-                        <option value="unlinked">Unlinked</option>
-                    </select>
-                    -->
                 </div>
             </div>
 
             <div class="results-summary">Showing 6 authors</div>
 
             <vaadin-grid id="authors-grid" theme="no-border" all-rows-visible aria-label="Authors">
-                <vaadin-grid-sort-column id="col-name" path="name" header="Name" flex-grow="1"></vaadin-grid-sort-column>
-                <!-- POSSIBLE FUTURE ITERATION: Subjects column — hidden for now
-                <vaadin-grid-column id="col-subjects" header="Subjects" flex-grow="2"></vaadin-grid-column>
-                -->
-                <!-- POSSIBLE FUTURE ITERATION: Indicators column (Complete/Incomplete, Linked/Unlinked) — hidden for now
-                <vaadin-grid-column id="col-indicators" header="Indicators" width="200px" flex-grow="0"></vaadin-grid-column>
-                -->
-                <vaadin-grid-sort-column id="col-content" path="contentCount" header="Content" flex-grow="1"></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column id="col-name" path="name" header="Author" flex-grow="2"></vaadin-grid-sort-column>
+                <vaadin-grid-column id="col-credentials" header="Credentials" flex-grow="2"></vaadin-grid-column>
+                <vaadin-grid-column id="col-subjects" header="Subject Domain" flex-grow="2"></vaadin-grid-column>
+                <vaadin-grid-sort-column id="col-content" path="contentCount" header="Content" width="120px" flex-grow="0"></vaadin-grid-sort-column>
                 <!-- Status pinned to the right edge -->
-                <vaadin-grid-sort-column id="col-status" path="status" header="Status" width="160px" flex-grow="0" text-align="end"></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column id="col-status" path="status" header="Status" width="170px" flex-grow="0" text-align="end"></vaadin-grid-sort-column>
             </vaadin-grid>
 
             <div class="pagination-row">
@@ -626,7 +661,7 @@
                 <div class="aa-drawer-title" id="aa-title">Quick add author</div>
                 <div class="aa-drawer-subtitle">
                     Create a lightweight author shell now — an admin can complete the full profile later.
-                    Need everything up front? <a href="author-profile.html" class="aa-full-link">Create a full profile instead</a>.
+                    Need everything up front? <a href="author-create.html" class="aa-full-link">Create a full profile instead</a>.
                 </div>
             </div>
             <button class="aa-close-btn" id="aa-close" aria-label="Close">
@@ -734,7 +769,7 @@ customElements.whenDefined('vwc-sidenav').then(() => {
     const sidenav = document.getElementById('sidenav');
     sidenav.items = [
         { type: 'link', id: 'library',  text: 'Content Library', href: 'content-library.html', icon: { type: 'svg', path: 'M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z' } },
-        { type: 'link', id: 'authors',  text: 'Authors', href: 'authors.html', icon: { type: 'svg', path: 'M19.39,10.74L11,19.13V22H13.87L22.26,13.61L19.39,10.74M23.85,9.62L22.37,11.1L19.45,8.18L20.93,6.7C21.13,6.5 21.46,6.5 21.66,6.7L23.85,8.89C24.05,9.09 24.05,9.42 23.85,9.62M9,22H4A2,2 0 0,1 2,20V4A2,2 0 0,1 4,2H9C9.5,2 10.07,2.2 10.42,2.59L12,4.17L13.59,2.59C13.93,2.2 14.5,2 15,2H20A2,2 0 0,1 22,4V8.17L20,10.17V4H13L12,5L11,4H4V20H9V22Z' } },
+        { type: 'link', id: 'authors',  text: 'Authors', href: 'authors.html', icon: { type: 'svg', path: 'M16,2L14.6,3.43L18.57,7.41L20,6M13.89,4.14L4,14.03V18H7.97L17.86,8.11L13.89,4.14M4,20V22H20V20H4Z' } },
         { type: 'divider' },
         { type: 'link', id: 'assets',   text: 'Assets', href: 'global-assets.html', icon: { type: 'svg', path: 'M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z' } },
         { type: 'link', id: 'settings', text: 'Settings', href: 'settings.html', icon: { type: 'svg', path: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.11-.22.06-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z' } }
@@ -749,41 +784,42 @@ customElements.whenDefined('vwc-sidenav').then(() => {
     const AVATAR_COLORS = ['#1976d2', '#388e3c', '#e64a19', '#6a1b9a', '#00838f', '#c62828', '#f9a825', '#5e35b1', '#00695c', '#283593', '#bf360c', '#4527a0'];
 
     const authors = [
-        { initials: 'SM', color: '#1976d2', name: 'Dr. Sarah Mitchell', credentials: 'Ph.D. Occupational Safety · Industrial Safety Specialist', subjects: ['Industrial Safety', 'Electrical Safety', 'Hazardous Materials'], complete: true, linked: true, linkedEmail: 'sarah.mitchell@acme.com', contentCount: 5, href: 'author-profile.html' },
-        { initials: 'JK', color: '#388e3c', name: 'James Kowalski', credentials: 'EMT-P · EMS Training Officer', subjects: ['Emergency Response', 'Occupational Health'], complete: true, linked: true, linkedEmail: 'j.kowalski@acme.com', contentCount: 3, href: 'author-profile.html' },
-        { initials: 'TR', color: '#e64a19', name: 'Teresa Ramos', credentials: 'CHMM · EHS Coordinator, Acme Corp', subjects: ['Fire Safety', 'Hazardous Materials', 'Emergency Response'], complete: false, linked: false, linkedEmail: null, contentCount: 2, status: 'archived', href: 'author-profile.html' },
-        { initials: 'LN', color: '#6a1b9a', name: 'Dr. Linda Nguyen', credentials: 'CIH, CSP · Industrial Hygienist', subjects: ['Industrial Hygiene', 'Hazardous Materials', 'Occupational Health'], complete: true, linked: false, linkedEmail: null, contentCount: 4, href: 'author-profile.html' },
-        { initials: 'MO', color: '#00838f', name: 'Marcus Okafor', credentials: 'CHST · Construction Safety Supervisor', subjects: ['Construction Safety', 'Ergonomics'], complete: false, linked: true, linkedEmail: 'm.okafor@acme.com', contentCount: 1, href: 'author-profile.html' },
-        { initials: 'AC', color: '#c62828', name: 'Amanda Chen', credentials: 'RN, COHN-S · Occupational Health Nurse', subjects: ['Occupational Health', 'Ergonomics', 'Industrial Hygiene'], complete: true, linked: true, linkedEmail: 'a.chen@acme.com', contentCount: 6, href: 'author-profile.html' },
-        { initials: 'DP', color: '#f9a825', name: 'David Park', credentials: 'CSP · Electrical Safety Trainer', subjects: ['Electrical Safety', 'Industrial Safety'], complete: true, linked: true, linkedEmail: 'd.park@acme.com', contentCount: 4, href: 'author-profile.html' },
-        { initials: 'RH', color: '#5e35b1', name: 'Rachel Hernandez', credentials: 'OHST · Construction Safety Lead', subjects: ['Construction Safety', 'Industrial Safety'], complete: true, linked: false, linkedEmail: null, contentCount: 2, href: 'author-profile.html' },
-        { initials: 'BM', color: '#00695c', name: 'Brian Murphy', credentials: 'NREMT-P · Emergency Response Coordinator', subjects: ['Emergency Response', 'Fire Safety'], complete: false, linked: true, linkedEmail: 'b.murphy@acme.com', contentCount: 3, href: 'author-profile.html' },
-        { initials: 'EJ', color: '#283593', name: 'Dr. Emily Johnson', credentials: 'Ph.D. Toxicology · Hazmat Specialist', subjects: ['Hazardous Materials', 'Industrial Hygiene'], complete: true, linked: true, linkedEmail: 'e.johnson@acme.com', contentCount: 7, href: 'author-profile.html' },
-        { initials: 'CW', color: '#bf360c', name: 'Carlos Williams', credentials: 'CFPS · Fire Prevention Officer', subjects: ['Fire Safety', 'Emergency Response'], complete: true, linked: true, linkedEmail: 'c.williams@acme.com', contentCount: 5, href: 'author-profile.html' },
-        { initials: 'KT', color: '#4527a0', name: 'Kim Tanaka', credentials: 'CIE · Ergonomics Consultant', subjects: ['Ergonomics', 'Occupational Health'], complete: false, linked: false, linkedEmail: null, contentCount: 1, status: 'archived', href: 'author-profile.html' },
-        { initials: 'AR', color: '#1976d2', name: 'Aisha Robinson', credentials: 'CSP, ASP · Safety Manager', subjects: ['Industrial Safety', 'Construction Safety'], complete: true, linked: true, linkedEmail: 'a.robinson@acme.com', contentCount: 4, href: 'author-profile.html' },
-        { initials: 'NG', color: '#388e3c', name: 'Dr. Nathan Garcia', credentials: 'M.D. Occupational Medicine', subjects: ['Occupational Health', 'Industrial Hygiene'], complete: true, linked: true, linkedEmail: 'n.garcia@acme.com', contentCount: 8, href: 'author-profile.html' },
-        { initials: 'PL', color: '#e64a19', name: 'Priya Lakshmi', credentials: 'CIH · Industrial Hygienist II', subjects: ['Industrial Hygiene', 'Hazardous Materials'], complete: true, linked: false, linkedEmail: null, contentCount: 2, href: 'author-profile.html' },
-        { initials: 'SC', color: '#6a1b9a', name: 'Steven Choi', credentials: 'OSHA 500 Trainer', subjects: ['Industrial Safety', 'Construction Safety', 'Electrical Safety'], complete: false, linked: true, linkedEmail: 's.choi@acme.com', contentCount: 3, href: 'author-profile.html' },
-        { initials: 'JM', color: '#00838f', name: 'Jordan Morrison', credentials: 'CSHO · Safety & Health Officer', subjects: ['Industrial Safety', 'Emergency Response'], complete: true, linked: true, linkedEmail: 'j.morrison@acme.com', contentCount: 6, href: 'author-profile.html' },
-        { initials: 'VK', color: '#c62828', name: 'Dr. Victoria Klein', credentials: 'Ph.D. Public Health · OHN Lead', subjects: ['Occupational Health'], complete: true, linked: true, linkedEmail: 'v.klein@acme.com', contentCount: 3, href: 'author-profile.html' },
-        { initials: 'OB', color: '#f9a825', name: 'Omar Bashir', credentials: 'CFEI · Fire Investigator', subjects: ['Fire Safety'], complete: false, linked: false, linkedEmail: null, contentCount: 1, status: 'archived', href: 'author-profile.html' },
-        { initials: 'HS', color: '#5e35b1', name: 'Hannah Schultz', credentials: 'CSP · Workplace Safety Consultant', subjects: ['Industrial Safety', 'Ergonomics'], complete: true, linked: true, linkedEmail: 'h.schultz@acme.com', contentCount: 4, href: 'author-profile.html' },
-        { initials: 'TM', color: '#00695c', name: 'Trevor Martinez', credentials: 'NFPA 70E Trainer · Electrical Specialist', subjects: ['Electrical Safety', 'Industrial Safety'], complete: true, linked: true, linkedEmail: 't.martinez@acme.com', contentCount: 5, href: 'author-profile.html' },
-        { initials: 'LP', color: '#283593', name: 'Lauren Patel', credentials: 'RN · Health & Safety Educator', subjects: ['Occupational Health', 'Emergency Response'], complete: false, linked: true, linkedEmail: 'l.patel@acme.com', contentCount: 2, href: 'author-profile.html' },
-        { initials: 'DH', color: '#bf360c', name: 'Diego Hernandez', credentials: 'CFPS, CFEI · Fire Safety Engineer', subjects: ['Fire Safety', 'Emergency Response'], complete: true, linked: false, linkedEmail: null, contentCount: 3, href: 'author-profile.html' },
-        { initials: 'EK', color: '#4527a0', name: 'Dr. Elena Kowalski', credentials: 'Ph.D. Environmental Health', subjects: ['Industrial Hygiene', 'Hazardous Materials', 'Occupational Health'], complete: true, linked: true, linkedEmail: 'e.kowalski@acme.com', contentCount: 9, href: 'author-profile.html' },
-        { initials: 'RB', color: '#1976d2', name: 'Rashad Brooks', credentials: 'CHST · Site Safety Manager', subjects: ['Construction Safety'], complete: false, linked: true, linkedEmail: 'r.brooks@acme.com', contentCount: 1, href: 'author-profile.html' },
-        { initials: 'MW', color: '#388e3c', name: 'Maya Walker', credentials: 'CIE · Human Factors Specialist', subjects: ['Ergonomics', 'Occupational Health'], complete: true, linked: true, linkedEmail: 'm.walker@acme.com', contentCount: 5, href: 'author-profile.html' },
-        { initials: 'IS', color: '#e64a19', name: 'Ian Sullivan', credentials: 'OSHA 510 · Construction Safety Coordinator', subjects: ['Construction Safety', 'Industrial Safety'], complete: true, linked: false, linkedEmail: null, contentCount: 2, href: 'author-profile.html' },
-        { initials: 'YC', color: '#6a1b9a', name: 'Yara Castillo', credentials: 'NFPA Certified Trainer', subjects: ['Fire Safety', 'Hazardous Materials'], complete: true, linked: true, linkedEmail: 'y.castillo@acme.com', contentCount: 4, href: 'author-profile.html' },
-        { initials: 'PG', color: '#00838f', name: 'Peter Goldberg', credentials: 'CSP, CHMM · Safety & Hazmat Lead', subjects: ['Hazardous Materials', 'Industrial Safety'], complete: false, linked: true, linkedEmail: 'p.goldberg@acme.com', contentCount: 2, href: 'author-profile.html' },
-        { initials: 'NL', color: '#c62828', name: 'Naomi Liu', credentials: 'RN, COHN · Occupational Health Lead', subjects: ['Occupational Health', 'Ergonomics'], complete: true, linked: true, linkedEmail: 'n.liu@acme.com', contentCount: 6, href: 'author-profile.html' }
+        {"initials":"SM","color":"#1976d2","name":"Dr. Sarah Mitchell","title":"Industrial Safety Specialist","credentials":["Ph.D.","CSP","OSHA-30","CIH"],"subjects":["Industrial Safety","Electrical Safety","Hazardous Materials"],"complete":true,"email":"sarah.mitchell@acme.com","contentCount":5,"status":"active","href":"author-profile.html"},
+        {"initials":"JK","color":"#388e3c","name":"James Kowalski","title":"EMS Training Officer","credentials":["EMT-P"],"subjects":["Emergency Response","Occupational Health"],"complete":true,"email":"j.kowalski@acme.com","contentCount":3,"status":"active","href":"author-profile.html"},
+        {"initials":"TR","color":"#e64a19","name":"Teresa Ramos","title":"EHS Coordinator, Acme Corp","credentials":["CHMM"],"subjects":["Fire Safety","Hazardous Materials","Emergency Response"],"complete":false,"email":null,"contentCount":2,"status":"archived","href":"author-profile.html"},
+        {"initials":"LN","color":"#6a1b9a","name":"Dr. Linda Nguyen","title":"Industrial Hygienist","credentials":["CIH","CSP","CHMM"],"subjects":["Industrial Hygiene","Hazardous Materials","Occupational Health"],"complete":true,"email":null,"contentCount":4,"status":"active","href":"author-profile.html"},
+        {"initials":"MO","color":"#00838f","name":"Marcus Okafor","title":"Construction Safety Supervisor","credentials":["CHST"],"subjects":["Construction Safety","Ergonomics"],"complete":false,"email":"m.okafor@acme.com","contentCount":1,"status":"inactive","href":"author-profile.html"},
+        {"initials":"AC","color":"#c62828","name":"Amanda Chen","title":"Occupational Health Nurse","credentials":["COHN-S","RN","CSP","OSHA-30"],"subjects":["Occupational Health","Ergonomics","Industrial Hygiene"],"complete":true,"email":"a.chen@acme.com","contentCount":6,"status":"active","href":"author-profile.html"},
+        {"initials":"DP","color":"#f9a825","name":"David Park","title":"Electrical Safety Trainer","credentials":["CSP"],"subjects":["Electrical Safety","Industrial Safety"],"complete":true,"email":"d.park@acme.com","contentCount":4,"status":"active","href":"author-profile.html"},
+        {"initials":"RH","color":"#5e35b1","name":"Rachel Hernandez","title":"Construction Safety Lead","credentials":["OHST"],"subjects":["Construction Safety","Industrial Safety"],"complete":true,"email":null,"contentCount":2,"status":"active","href":"author-profile.html"},
+        {"initials":"BM","color":"#00695c","name":"Brian Murphy","title":"Emergency Response Coordinator","credentials":["NREMT-P"],"subjects":["Emergency Response","Fire Safety"],"complete":false,"email":"b.murphy@acme.com","contentCount":3,"status":"dnc","href":"author-profile.html"},
+        {"initials":"EJ","color":"#283593","name":"Dr. Emily Johnson","title":"Hazmat Specialist","credentials":["Ph.D."],"subjects":["Hazardous Materials","Industrial Hygiene"],"complete":true,"email":"e.johnson@acme.com","contentCount":7,"status":"active","href":"author-profile.html"},
+        {"initials":"CW","color":"#bf360c","name":"Carlos Williams","title":"Fire Prevention Officer","credentials":["CFPS"],"subjects":["Fire Safety","Emergency Response"],"complete":true,"email":"c.williams@acme.com","contentCount":5,"status":"active","href":"author-profile.html"},
+        {"initials":"KT","color":"#4527a0","name":"Kim Tanaka","title":"Ergonomics Consultant","credentials":["CIE"],"subjects":["Ergonomics","Occupational Health"],"complete":false,"email":null,"contentCount":1,"status":"archived","href":"author-profile.html"},
+        {"initials":"AR","color":"#1976d2","name":"Aisha Robinson","title":"Safety Manager","credentials":["CSP","ASP","CHST"],"subjects":["Industrial Safety","Construction Safety"],"complete":true,"email":"a.robinson@acme.com","contentCount":4,"status":"contract","href":"author-profile.html"},
+        {"initials":"NG","color":"#388e3c","name":"Dr. Nathan Garcia","title":"Occupational Medicine","credentials":["M.D."],"subjects":["Occupational Health","Industrial Hygiene"],"complete":true,"email":"n.garcia@acme.com","contentCount":8,"status":"active","href":"author-profile.html"},
+        {"initials":"PL","color":"#e64a19","name":"Priya Lakshmi","title":"Industrial Hygienist II","credentials":["CIH"],"subjects":["Industrial Hygiene","Hazardous Materials"],"complete":true,"email":null,"contentCount":2,"status":"active","href":"author-profile.html"},
+        {"initials":"SC","color":"#6a1b9a","name":"Steven Choi","title":"Trainer","credentials":["OSHA 500"],"subjects":["Industrial Safety","Construction Safety","Electrical Safety","Fire Safety"],"complete":false,"email":"s.choi@acme.com","contentCount":3,"status":"inactive","href":"author-profile.html"},
+        {"initials":"JM","color":"#00838f","name":"Jordan Morrison","title":"Safety & Health Officer","credentials":["CSHO"],"subjects":["Industrial Safety","Emergency Response"],"complete":true,"email":"j.morrison@acme.com","contentCount":6,"status":"active","href":"author-profile.html"},
+        {"initials":"VK","color":"#c62828","name":"Dr. Victoria Klein","title":"OHN Lead","credentials":["Ph.D."],"subjects":["Occupational Health"],"complete":true,"email":"v.klein@acme.com","contentCount":3,"status":"active","href":"author-profile.html"},
+        {"initials":"OB","color":"#f9a825","name":"Omar Bashir","title":"Fire Investigator","credentials":["CFEI"],"subjects":["Fire Safety"],"complete":false,"email":null,"contentCount":1,"status":"archived","href":"author-profile.html"},
+        {"initials":"HS","color":"#5e35b1","name":"Hannah Schultz","title":"Workplace Safety Consultant","credentials":["CSP"],"subjects":["Industrial Safety","Ergonomics"],"complete":true,"email":"h.schultz@acme.com","contentCount":4,"status":"active","href":"author-profile.html"},
+        {"initials":"TM","color":"#00695c","name":"Trevor Martinez","title":"Electrical Specialist","credentials":["NFPA 70E"],"subjects":["Electrical Safety","Industrial Safety"],"complete":true,"email":"t.martinez@acme.com","contentCount":5,"status":"active","href":"author-profile.html"},
+        {"initials":"LP","color":"#283593","name":"Lauren Patel","title":"Health & Safety Educator","credentials":["RN"],"subjects":["Occupational Health","Emergency Response"],"complete":false,"email":"l.patel@acme.com","contentCount":2,"status":"contract","href":"author-profile.html"},
+        {"initials":"DH","color":"#bf360c","name":"Diego Hernandez","title":"Fire Safety Engineer","credentials":["CFPS","CFEI"],"subjects":["Fire Safety","Emergency Response"],"complete":true,"email":null,"contentCount":3,"status":"active","href":"author-profile.html"},
+        {"initials":"EK","color":"#4527a0","name":"Dr. Elena Kowalski","title":"Environmental Health","credentials":["Ph.D.","CIH","CHMM"],"subjects":["Industrial Hygiene","Hazardous Materials","Occupational Health","Industrial Safety"],"complete":true,"email":"e.kowalski@acme.com","contentCount":9,"status":"active","href":"author-profile.html"},
+        {"initials":"RB","color":"#1976d2","name":"Rashad Brooks","title":"Site Safety Manager","credentials":["CHST"],"subjects":["Construction Safety"],"complete":false,"email":"r.brooks@acme.com","contentCount":1,"status":"contract","href":"author-profile.html"},
+        {"initials":"MW","color":"#388e3c","name":"Maya Walker","title":"Human Factors Specialist","credentials":["CIE"],"subjects":["Ergonomics","Occupational Health"],"complete":true,"email":"m.walker@acme.com","contentCount":5,"status":"active","href":"author-profile.html"},
+        {"initials":"IS","color":"#e64a19","name":"Ian Sullivan","title":"Construction Safety Coordinator","credentials":["OSHA 510"],"subjects":["Construction Safety","Industrial Safety"],"complete":true,"email":null,"contentCount":2,"status":"inactive","href":"author-profile.html"},
+        {"initials":"YC","color":"#6a1b9a","name":"Yara Castillo","title":"NFPA Certified Trainer","credentials":["NFPA Certified Trainer"],"subjects":["Fire Safety","Hazardous Materials"],"complete":true,"email":"y.castillo@acme.com","contentCount":4,"status":"active","href":"author-profile.html"},
+        {"initials":"PG","color":"#00838f","name":"Peter Goldberg","title":"Safety & Hazmat Lead","credentials":["CSP","CHMM","OSHA-30","CFPS"],"subjects":["Hazardous Materials","Industrial Safety"],"complete":false,"email":"p.goldberg@acme.com","contentCount":2,"status":"dnc","href":"author-profile.html"},
+        {"initials":"NL","color":"#c62828","name":"Naomi Liu","title":"Occupational Health Lead","credentials":["COHN","RN"],"subjects":["Occupational Health","Ergonomics"],"complete":true,"email":"n.liu@acme.com","contentCount":6,"status":"active","href":"author-profile.html"}
     ];
 
     const grid = document.getElementById('authors-grid');
     const resultsSummary = document.querySelector('.results-summary');
     const statusFilter = document.getElementById('filter-status');
+    const subjectFilter = document.getElementById('filter-subject');
     const contentFilter = document.getElementById('filter-content');
     const paginator = document.getElementById('paginator');
     paginator.pageSizeOptions = [10, 25, 50];
@@ -803,7 +839,94 @@ customElements.whenDefined('vwc-sidenav').then(() => {
         return (stripped.length ? stripped : parts).join(' ');
     }
 
+    // Status definitions — kept in sync with the author-profile status badge.
+    const STATUS_DEFS = {
+        active:   { label: 'Active',                      cls: 'status-active' },
+        contract: { label: 'Available / Under Contract',  cls: 'status-contract' },
+        inactive: { label: 'Inactive / On Hold',          cls: 'status-inactive' },
+        dnc:      { label: 'Do Not Contact',              cls: 'status-dnc' },
+        archived: { label: 'Archived',                    cls: 'status-archived' }
+    };
+
+    // ── Chip overflow: show the first N chips + a "+N" pill that opens a
+    //    popover with the full list. A fixed visible cap is deterministic across
+    //    grid re-renders and resizes (measuring widths flickers). The popover
+    //    renders at the body level so it isn't clipped by the cell's overflow.
+    const CHIP_LIMIT = 2;
+
+    function renderChipCell(root, values, chipClass, matchValue) {
+        root.innerHTML = '';
+        const items = Array.isArray(values) ? values : [];
+        const wrap = document.createElement('div');
+        wrap.className = 'chip-cell';
+        if (!items.length) {
+            wrap.innerHTML = `<span class="chip-empty">—</span>`;
+            root.appendChild(wrap);
+            return;
+        }
+        const visible = items.slice(0, CHIP_LIMIT);
+        const overflow = items.slice(CHIP_LIMIT);
+        wrap.innerHTML = visible
+            .map(v => `<span class="${chipClass}${matchValue === v ? ' match' : ''}">${escapeHtml(v)}</span>`)
+            .join('');
+        if (overflow.length) {
+            const more = document.createElement('button');
+            more.type = 'button';
+            more.className = 'chip-more';
+            more.textContent = `+${overflow.length}`;
+            more.setAttribute('aria-label', `Show ${overflow.length} more`);
+            // Stop the row-navigation click; open the full-list popover instead.
+            more.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openChipPopover(more, items, chipClass, matchValue);
+            });
+            wrap.appendChild(more);
+        }
+        root.appendChild(wrap);
+    }
+
+    // Single reusable popover element (created once, repositioned per trigger).
+    let chipPopover = null;
+    let chipPopoverAnchor = null;
+
+    function closeChipPopover() {
+        if (chipPopover) { chipPopover.remove(); chipPopover = null; chipPopoverAnchor = null; }
+    }
+
+    function openChipPopover(anchor, items, chipClass, matchValue) {
+        // Toggle off if the same "+N" was clicked again.
+        if (chipPopoverAnchor === anchor) { closeChipPopover(); return; }
+        closeChipPopover();
+        chipPopoverAnchor = anchor;
+
+        const pop = document.createElement('div');
+        pop.className = 'chip-popover';
+        pop.innerHTML = `<div class="chip-popover-list">${
+            items.map(v => `<span class="${chipClass}${matchValue === v ? ' match' : ''}">${escapeHtml(v)}</span>`).join('')
+        }</div>`;
+        document.body.appendChild(pop);
+        chipPopover = pop;
+
+        // Position under the anchor, kept inside the viewport.
+        const r = anchor.getBoundingClientRect();
+        const top = r.bottom + window.scrollY + 6;
+        let left = r.left + window.scrollX;
+        const maxLeft = window.scrollX + document.documentElement.clientWidth - pop.offsetWidth - 12;
+        if (left > maxLeft) left = Math.max(window.scrollX + 12, maxLeft);
+        pop.style.top = top + 'px';
+        pop.style.left = left + 'px';
+    }
+
+    // Dismiss on outside click, scroll, or Escape.
+    document.addEventListener('click', (e) => {
+        if (chipPopover && !chipPopover.contains(e.target) && e.target !== chipPopoverAnchor) closeChipPopover();
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeChipPopover(); });
+    // The grid scrolls its own body; close the popover so it doesn't detach visually.
+    grid.addEventListener('scroll', closeChipPopover, true);
+
     // ── Grid column renderers ──
+    // Author cell: name + display/role title.
     document.getElementById('col-name').renderer = (root, _col, model) => {
         root.innerHTML = '';
         const a = model.item;
@@ -814,44 +937,21 @@ customElements.whenDefined('vwc-sidenav').then(() => {
             <div class="author-avatar" style="background:${a.color}">${escapeHtml(a.initials)}</div>
             <div class="name-cell-body">
                 <div class="author-name">${escapeHtml(a.name)}</div>
-                <div class="author-display-name">${escapeHtml(displayName)}</div>
+                ${a.title ? `<div class="author-title">${escapeHtml(a.title)}</div>` : ''}
             </div>
         `;
         root.appendChild(wrap);
     };
 
-    // POSSIBLE FUTURE ITERATION: Subjects + Indicators column renderers — hidden for now.
-    // Re-enable alongside the column markup above when these columns return.
-    /*
-    document.getElementById('col-subjects').renderer = (root, _col, model) => {
-        root.innerHTML = '';
-        const subjectValue = subjectFilter.value;
-        const wrap = document.createElement('div');
-        wrap.className = 'author-subjects';
-        wrap.innerHTML = model.item.subjects
-            .map(s => `<span class="subject-chip${subjectValue === s ? ' match' : ''}">${escapeHtml(s)}</span>`)
-            .join('');
-        root.appendChild(wrap);
+    // Credentials cell: controlled credential chips with overflow collapse.
+    document.getElementById('col-credentials').renderer = (root, _col, model) => {
+        renderChipCell(root, model.item.credentials, 'cred-chip-sm');
     };
 
-    document.getElementById('col-indicators').renderer = (root, _col, model) => {
-        root.innerHTML = '';
-        const a = model.item;
-        const wrap = document.createElement('div');
-        wrap.className = 'author-indicators';
-        wrap.innerHTML = `
-            ${a.complete
-                ? `<span class="badge badge-complete"><i class="fa-solid fa-circle-check"></i> Complete</span>`
-                : `<span class="badge badge-incomplete"><i class="fa-solid fa-circle-exclamation"></i> Incomplete</span>`
-            }
-            ${a.linked
-                ? `<span class="badge badge-linked"><i class="fa-solid fa-link"></i> Linked</span>`
-                : `<span class="badge badge-unlinked"><i class="fa-solid fa-link-slash"></i> Unlinked</span>`
-            }
-        `;
-        root.appendChild(wrap);
+    // Subject Domain cell: taxonomy chips with overflow collapse; highlights the active filter match.
+    document.getElementById('col-subjects').renderer = (root, _col, model) => {
+        renderChipCell(root, model.item.subjects, 'subject-chip', subjectFilter.value);
     };
-    */
 
     document.getElementById('col-content').renderer = (root, _col, model) => {
         root.innerHTML = '';
@@ -862,13 +962,13 @@ customElements.whenDefined('vwc-sidenav').then(() => {
         root.appendChild(span);
     };
 
-    // Status: authors default to 'active' unless explicitly archived.
+    // Status: authors default to 'active'; full enum matches the profile screen.
     document.getElementById('col-status').renderer = (root, _col, model) => {
         root.innerHTML = '';
-        const archived = model.item.status === 'archived';
+        const def = STATUS_DEFS[model.item.status] || STATUS_DEFS.active;
         const span = document.createElement('span');
-        span.className = 'status-badge ' + (archived ? 'status-archived' : 'status-active');
-        span.innerHTML = `<span class="status-dot"></span> ${archived ? 'Archived' : 'Active'}`;
+        span.className = 'status-badge ' + def.cls;
+        span.innerHTML = `<span class="status-dot"></span> ${def.label}`;
         root.appendChild(span);
     };
 
@@ -886,11 +986,13 @@ customElements.whenDefined('vwc-sidenav').then(() => {
 
     function getFiltered() {
         const statusValue = statusFilter.value;
+        const subjectValue = subjectFilter.value;
         const contentValue = contentFilter.value;
 
         return authors.filter(a => {
-            const status = a.status === 'archived' ? 'archived' : 'active';
+            const status = a.status || 'active';
             if (statusValue && status !== statusValue) return false;
+            if (subjectValue && !(a.subjects || []).includes(subjectValue)) return false;
             if (contentValue === 'has' && a.contentCount <= 0) return false;
             if (contentValue === 'none' && a.contentCount > 0) return false;
             return true;
@@ -922,7 +1024,7 @@ customElements.whenDefined('vwc-sidenav').then(() => {
             : `Showing ${showingFrom}–${showingTo} of ${filtered.length} ${filtered.length === authors.length ? 'authors' : `(${authors.length} total)`}`;
     }
 
-    [statusFilter, contentFilter].forEach(el => {
+    [statusFilter, subjectFilter, contentFilter].forEach(el => {
         el.addEventListener('change', () => {
             paginationState.page = 0;
             renderAuthors();
@@ -998,9 +1100,8 @@ customElements.whenDefined('vwc-sidenav').then(() => {
             if (opt.dataset.action === 'quick') {
                 openOverlay();
             } else {
-                // Full profile = dedicated creation screen. Stubbed to the profile
-                // page for now; a ?new flag can drive an empty "create" state there.
-                window.location.href = 'author-profile.html?new=1';
+                // Full profile = dedicated creation screen with all sections.
+                window.location.href = 'author-create.html';
             }
         });
     });
@@ -1030,11 +1131,12 @@ customElements.whenDefined('vwc-sidenav').then(() => {
             color,
             name,
             displayName,
-            // FUTURE ADDITION fields — kept on the model but not collected in the form for now
+            // Quick add collects only the shell — the rest is filled in on the profile.
+            title: '',
+            credentials: [],
             subjects: [],
             complete: !!aaBio.value.trim(),
-            linked: false,
-            linkedEmail: null,
+            email: null,
             contentCount: 0,
             status: 'active',
             href: 'author-profile.html'
@@ -1046,6 +1148,7 @@ customElements.whenDefined('vwc-sidenav').then(() => {
 
         // Reset filters and page so the new author is guaranteed visible
         statusFilter.value = '';
+        subjectFilter.value = '';
         contentFilter.value = '';
         paginationState.page = 0;
 

@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Content Portal — LearningStudio</title>
+
+  <!-- Vector Web Components -->
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      height: 100%; margin: 0; padding: 0;
+      font-family: 'Open Sans', system-ui, sans-serif;
+      color: var(--lumo-body-text-color, #0f2e3d);
+      background: #f5f6f9;
+    }
+
+    /* ============================================================
+       SHELL — top nav + sidenav (matches Content Portal shell)
+       ============================================================ */
+    vwc-topnav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; }
+
+    .app-body { display: flex; height: 100vh; padding-top: 56px; }
+
+    vwc-sidenav {
+      --vwc-sidenav-width: 240px; --vwc-sidenav-max-width: 240px; --offset: 56px;
+      flex-shrink: 0; z-index: 10; background: var(--lumo-base-color, #fff);
+      border-right: 1px solid rgba(28,55,90,0.1);
+    }
+    vwc-sidenav[collapsed] { --vwc-sidenav-width: 56px; --vwc-sidenav-max-width: 56px; }
+
+    .main-content {
+      flex: 1; min-width: 0; overflow-y: auto;
+      background:
+        radial-gradient(circle at 88% -6%, #e6edff 0%, transparent 42%),
+        radial-gradient(circle at -6% 4%, #f2eafc 0%, transparent 34%),
+        #f5f6f9;
+    }
+    .content-inner { max-width: 1160px; margin: 0 auto; padding: 28px 32px 72px; }
+
+    /* ============================================================
+       GREETING
+       ============================================================ */
+    .greeting { margin: 6px 0 22px; }
+    .greeting h1 { font-size: 26px; font-weight: 700; letter-spacing: -.3px; margin: 0 0 4px; }
+    .greeting p { margin: 0; font-size: 14px; color: var(--lumo-secondary-text-color, #55606f); }
+
+    /* ============================================================
+       HERO — "What's new": the AI builder
+       ============================================================ */
+    .hero {
+      position: relative; overflow: hidden; border-radius: 22px; padding: 40px 44px;
+      color: #fff; margin-bottom: 40px;
+      background:
+        radial-gradient(circle at 88% 12%, rgba(255,255,255,.18) 0%, transparent 42%),
+        linear-gradient(120deg, #1a4c9e 0%, #1676f3 42%, #7c3aed 100%);
+      box-shadow: 0 18px 46px rgba(22,72,180,.30);
+      opacity: 0; transform: translateY(14px); animation: rise .55s cubic-bezier(.2,.7,.3,1) .05s forwards;
+    }
+    @keyframes rise { to { opacity: 1; transform: translateY(0); } }
+
+    /* decorative floating orbs */
+    .hero::after {
+      content: ''; position: absolute; right: -60px; top: -60px; width: 280px; height: 280px;
+      background: radial-gradient(circle, rgba(255,255,255,.16) 0%, transparent 70%); border-radius: 50%;
+    }
+    .hero-inner { position: relative; z-index: 1; max-width: 620px; }
+    .hero .whatsnew {
+      display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700;
+      letter-spacing: .5px; text-transform: uppercase; padding: 6px 13px; border-radius: 30px;
+      background: rgba(255,255,255,.18); backdrop-filter: blur(6px); margin-bottom: 16px;
+    }
+    .hero .whatsnew .pulse { width: 7px; height: 7px; border-radius: 50%; background: #7dffb0; box-shadow: 0 0 0 0 rgba(125,255,176,.7); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(125,255,176,.6)} 70%{box-shadow:0 0 0 9px rgba(125,255,176,0)} 100%{box-shadow:0 0 0 0 rgba(125,255,176,0)} }
+    .hero h2 { font-size: 30px; font-weight: 800; letter-spacing: -.5px; margin: 0 0 12px; line-height: 1.15; }
+    .hero p { font-size: 15.5px; line-height: 1.6; margin: 0 0 26px; color: rgba(255,255,255,.92); }
+    .hero-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .hero-cta {
+      display: inline-flex; align-items: center; gap: 11px; font: inherit; font-size: 15px; font-weight: 700;
+      color: #1676f3; background: #fff; border: none; border-radius: 12px; padding: 14px 26px; cursor: pointer;
+      box-shadow: 0 10px 26px rgba(0,0,0,.20); transition: transform .2s, box-shadow .2s;
+    }
+    .hero-cta:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(0,0,0,.28); }
+    .hero-cta i.arr { transition: transform .2s; }
+    .hero-cta:hover i.arr { transform: translateX(4px); }
+    .hero-link { color: #fff; font-size: 14px; font-weight: 600; text-decoration: none; opacity: .9; display: inline-flex; align-items: center; gap: 7px; }
+    .hero-link:hover { opacity: 1; text-decoration: underline; }
+
+    /* ============================================================
+       SECTION scaffolding
+       ============================================================ */
+    .section { margin-bottom: 40px; }
+    .section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
+    .section-head h3 { font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -.2px; }
+    .section-head .see-all { font-size: 13px; font-weight: 600; color: var(--lumo-primary-color, #1676f3); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+    .section-head .see-all:hover { text-decoration: underline; }
+
+    /* ---- Start something new (type tiles) ---- */
+    .start-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    @media (min-width: 820px) { .start-grid { grid-template-columns: repeat(4, 1fr); } }
+    .start-tile {
+      position: relative; overflow: hidden; background: #fff; border: 1px solid rgba(0,0,0,.04);
+      border-radius: 15px; padding: 20px; cursor: pointer;
+      box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 6px 18px rgba(16,24,40,.05);
+      transition: transform .26s cubic-bezier(.2,.7,.3,1), box-shadow .26s;
+    }
+    .start-tile::before { content: ''; position: absolute; inset: 0; opacity: 0; transition: opacity .3s; background: radial-gradient(circle at 24% 0%, var(--wash) 0%, transparent 60%); }
+    .start-tile:hover { transform: translateY(-5px); box-shadow: 0 16px 34px rgba(16,24,40,.14); }
+    .start-tile:hover::before { opacity: .55; }
+    .start-tile:hover .st-ico { transform: scale(1.08) rotate(-3deg); box-shadow: 0 8px 18px var(--glow); }
+    .start-tile .st-ico {
+      position: relative; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
+      color: #fff; font-size: 18px; margin-bottom: 14px; background: var(--accent);
+      transition: transform .26s cubic-bezier(.2,.7,.3,1), box-shadow .26s;
+    }
+    .start-tile h4 { position: relative; margin: 0 0 4px; font-size: 15px; font-weight: 700; }
+    .start-tile p { position: relative; margin: 0; font-size: 12px; line-height: 1.5; color: var(--lumo-secondary-text-color, #5b6472); }
+
+    /* ---- Recent work ---- */
+    .recent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+    .recent-card {
+      background: #fff; border: 1px solid rgba(0,0,0,.04); border-radius: 15px; overflow: hidden; cursor: pointer;
+      box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 6px 18px rgba(16,24,40,.05);
+      transition: transform .26s cubic-bezier(.2,.7,.3,1), box-shadow .26s;
+    }
+    .recent-card:hover { transform: translateY(-5px); box-shadow: 0 16px 34px rgba(16,24,40,.14); }
+    .recent-thumb { height: 108px; display: grid; place-items: center; color: #fff; font-size: 30px; position: relative; }
+    .recent-thumb .type-pill {
+      position: absolute; top: 10px; left: 10px; font-size: 10.5px; font-weight: 700; letter-spacing: .3px;
+      text-transform: uppercase; background: rgba(255,255,255,.9); color: #1a2b3c; padding: 3px 9px; border-radius: 20px;
+    }
+    .recent-body { padding: 14px 15px 15px; }
+    .recent-body h4 {
+      margin: 0 0 5px; font-size: 14px; font-weight: 700; line-height: 1.35;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .recent-meta { font-size: 11.5px; color: var(--lumo-secondary-text-color, #6b7280); display: flex; align-items: center; gap: 7px; }
+    .recent-meta .dot { width: 3px; height: 3px; border-radius: 50%; background: #c3ccd8; }
+    .status-chip { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+    .status-draft { background: rgba(28,55,90,.08); color: #55606f; }
+    .status-published { background: #e6f4ea; color: #2e7d32; }
+
+    /* ---- New templates ---- */
+    .tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 16px; }
+    .tpl-card {
+      position: relative; background: #fff; border: 1px solid rgba(0,0,0,.04); border-radius: 15px; padding: 18px;
+      cursor: pointer; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 6px 18px rgba(16,24,40,.05);
+      transition: transform .26s cubic-bezier(.2,.7,.3,1), box-shadow .26s;
+    }
+    .tpl-card:hover { transform: translateY(-5px); box-shadow: 0 16px 34px rgba(16,24,40,.14); }
+    .tpl-card .new-flag {
+      position: absolute; top: 14px; right: 14px; font-size: 10px; font-weight: 800; letter-spacing: .4px;
+      text-transform: uppercase; color: #fff; background: #7c3aed; padding: 3px 8px; border-radius: 20px;
+    }
+    .tpl-icon { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; font-size: 17px; margin-bottom: 13px; }
+    .tpl-card h4 { margin: 0 0 5px; font-size: 14px; font-weight: 700; }
+    .tpl-card p { margin: 0 0 12px; font-size: 12px; line-height: 1.5; color: var(--lumo-secondary-text-color, #5b6472); }
+    .tpl-card .use { font-size: 12.5px; font-weight: 700; color: var(--lumo-primary-color, #1676f3); display: inline-flex; align-items: center; gap: 6px; }
+
+    /* ---- Library strip ---- */
+    .lib-strip {
+      display: flex; align-items: center; gap: 18px; background: #fff; border: 1px solid rgba(0,0,0,.05);
+      border-radius: 16px; padding: 20px 24px; box-shadow: 0 6px 18px rgba(16,24,40,.05);
+      transition: transform .2s, box-shadow .2s;
+    }
+    .lib-strip:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(16,24,40,.10); }
+    .lib-strip .lib-ico { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; background: rgba(22,118,243,.1); color: #1676f3; font-size: 20px; flex-shrink: 0; }
+    .lib-strip .lib-txt { flex: 1; }
+    .lib-strip .lib-txt h4 { margin: 0 0 3px; font-size: 15px; font-weight: 700; }
+    .lib-strip .lib-txt p { margin: 0; font-size: 12.5px; color: var(--lumo-secondary-text-color, #5b6472); }
+  </style>
+</head>
+<body>
+
+  <!-- Top navigation -->
+  <vwc-topnav id="topnav" sidenav-id="sidenav"></vwc-topnav>
+
+  <div class="app-body">
+    <!-- Sidenav -->
+    <vwc-sidenav id="sidenav" active-item-id="home"></vwc-sidenav>
+
+    <main class="main-content">
+      <div class="content-inner">
+
+        <!-- Greeting -->
+        <div class="greeting">
+          <h1>Good afternoon, Jordan 👋</h1>
+          <p>Here's what's new and where you left off.</p>
+        </div>
+
+        <!-- HERO — What's new: AI builder -->
+        <section class="hero">
+          <div class="hero-inner">
+            <span class="whatsnew"><span class="pulse"></span> New in LearningStudio</span>
+            <h2>Create content with AI — from idea to ready-to-build in minutes.</h2>
+            <p>Our new guided builder turns a short conversation into a polished, generation-ready plan. Pick a content type, add a template if you have one, and let AI do the heavy lifting.</p>
+            <div class="hero-actions">
+              <button class="hero-cta" onclick="window.location='index.html'">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Try the AI builder
+                <i class="fa-solid fa-arrow-right arr"></i>
+              </button>
+              <a class="hero-link" href="#" onclick="return false;">See everything that's new <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+          </div>
+        </section>
+
+        <!-- START SOMETHING NEW -->
+        <section class="section">
+          <div class="section-head">
+            <h3>Start something new</h3>
+            <a class="see-all" href="index.html">More options <i class="fa-solid fa-arrow-right"></i></a>
+          </div>
+          <div class="start-grid" id="startGrid"></div>
+        </section>
+
+        <!-- RECENT WORK -->
+        <section class="section">
+          <div class="section-head">
+            <h3>Jump back in</h3>
+            <a class="see-all" href="../../Content Portal/mockups/content-library.html">View all <i class="fa-solid fa-arrow-right"></i></a>
+          </div>
+          <div class="recent-grid" id="recentGrid"></div>
+        </section>
+
+        <!-- NEW TEMPLATES -->
+        <section class="section">
+          <div class="section-head">
+            <h3>Fresh templates</h3>
+            <a class="see-all" href="#" onclick="return false;">Browse templates <i class="fa-solid fa-arrow-right"></i></a>
+          </div>
+          <div class="tpl-grid" id="tplGrid"></div>
+        </section>
+
+        <!-- LIBRARY STRIP -->
+        <section class="section" style="margin-bottom:0">
+          <a class="lib-strip" href="../../Content Portal/mockups/content-library.html" style="text-decoration:none; color:inherit;">
+            <div class="lib-ico"><i class="fa-solid fa-book-open"></i></div>
+            <div class="lib-txt">
+              <h4>Browse the full content library</h4>
+              <p>Prefer the classic table view? See every course, module, and asset with filters and search.</p>
+            </div>
+            <i class="fa-solid fa-arrow-right" style="color:#1676f3; font-size:16px;"></i>
+          </a>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // helper: hex -> translucent
+    function rgba(hex, a) {
+      const n = parseInt(hex.slice(1), 16);
+      return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+    }
+
+    /* ============================================================
+       DATA
+       ============================================================ */
+    // Content types — mirror the builder entry tiles
+    const TYPES = [
+      { id: 'course',     name: 'Course',            icon: 'fa-graduation-cap', accent: '#1676f3', desc: 'Multi-scene learning experience' },
+      { id: 'activity',   name: 'Learning Activity', icon: 'fa-list-check',     accent: '#7c3aed', desc: 'Focused, single-concept practice' },
+      { id: 'simulation', name: 'Simulation',        icon: 'fa-vr-cardboard',   accent: '#0891b2', desc: 'Branching, hands-on decisions' },
+      { id: 'scenario',   name: 'Scenario',          icon: 'fa-comments',       accent: '#db2777', desc: 'Story-driven, real-world moment' },
+    ];
+
+    // Recent work — reuses the Content Portal's content model, links back to its detail pages
+    const RECENT = [
+      { title: 'Chemical Hazard Communication (HazCom)', type: 'Course', status: 'draft',     opened: 'Edited 2h ago',      color: '#558b2f', icon: 'fa-flask',              href: '../../Content Portal/mockups/content-detail-customer.html' },
+      { title: 'Fire Safety — Custom (Acme Corp)',        type: 'Course', status: 'draft',     opened: 'Edited yesterday',   color: '#e64a19', icon: 'fa-fire-extinguisher',  href: '../../Content Portal/mockups/content-detail-customer.html' },
+      { title: 'Lockout/Tagout Safety — Fundamentals',    type: 'Course', status: 'published', opened: 'Opened 2 days ago',  color: '#1976d2', icon: 'fa-shield-halved',      href: '../../Content Portal/mockups/content-detail-vector.html' },
+      { title: 'Bloodborne Pathogen Control',             type: 'Module', status: 'published', opened: 'Opened 3 days ago',  color: '#c62828', icon: 'fa-syringe',            href: '../../Content Portal/mockups/content-detail-vector.html' },
+    ];
+
+    // New templates — released by the software owner
+    const TEMPLATES = [
+      { name: 'Compliance Course Starter', desc: 'Intro → policy sections → knowledge checks → attestation.', icon: 'fa-scale-balanced', accent: '#1676f3', type: 'course' },
+      { name: 'Branching Scenario',        desc: 'A decision-point story with consequence paths and feedback.', icon: 'fa-code-branch',    accent: '#db2777', type: 'scenario' },
+      { name: 'Skills Simulation',         desc: 'Guided practice environment with steps and retry loops.',     icon: 'fa-vr-cardboard',   accent: '#0891b2', type: 'simulation' },
+      { name: 'Quick Knowledge Check',     desc: 'A short activity — 5–8 questions with instant feedback.',     icon: 'fa-list-check',     accent: '#7c3aed', type: 'activity' },
+    ];
+
+    /* ============================================================
+       RENDER — Start tiles (→ builder for that type)
+       ============================================================ */
+    const startGrid = document.getElementById('startGrid');
+    TYPES.forEach(t => {
+      const el = document.createElement('div');
+      el.className = 'start-tile';
+      el.style.setProperty('--accent', t.accent);
+      el.style.setProperty('--glow', rgba(t.accent, .30));
+      el.style.setProperty('--wash', rgba(t.accent, .14));
+      el.innerHTML = `
+        <div class="st-ico"><i class="fa-solid ${t.icon}"></i></div>
+        <h4>${t.name}</h4>
+        <p>${t.desc}</p>`;
+      el.addEventListener('click', () => window.location = `builder.html?type=${t.id}&path=ai`);
+      startGrid.appendChild(el);
+    });
+
+    /* ============================================================
+       RENDER — Recent work
+       ============================================================ */
+    const recentGrid = document.getElementById('recentGrid');
+    const statusLabel = { draft: 'Draft', published: 'Published' };
+    RECENT.forEach(r => {
+      const el = document.createElement('div');
+      el.className = 'recent-card';
+      el.innerHTML = `
+        <div class="recent-thumb" style="background:linear-gradient(135deg, ${r.color}, ${rgba(r.color,.72)})">
+          <span class="type-pill">${r.type}</span>
+          <i class="fa-solid ${r.icon}"></i>
+        </div>
+        <div class="recent-body">
+          <h4>${r.title}</h4>
+          <div class="recent-meta">
+            <span class="status-chip status-${r.status}">${statusLabel[r.status]}</span>
+            <span class="dot"></span>
+            <span>${r.opened}</span>
+          </div>
+        </div>`;
+      el.addEventListener('click', () => window.location = r.href);
+      recentGrid.appendChild(el);
+    });
+
+    /* ============================================================
+       RENDER — New templates (→ builder, combined path, template preset)
+       ============================================================ */
+    const tplGrid = document.getElementById('tplGrid');
+    TEMPLATES.forEach(tp => {
+      const el = document.createElement('div');
+      el.className = 'tpl-card';
+      el.innerHTML = `
+        <span class="new-flag">New</span>
+        <div class="tpl-icon" style="background:${rgba(tp.accent,.12)}; color:${tp.accent}"><i class="fa-solid ${tp.icon}"></i></div>
+        <h4>${tp.name}</h4>
+        <p>${tp.desc}</p>
+        <span class="use">Start from this <i class="fa-solid fa-arrow-right"></i></span>`;
+      el.addEventListener('click', () => {
+        const params = new URLSearchParams({ type: tp.type, path: 'combined', template: tp.name });
+        window.location = `builder.html?${params.toString()}`;
+      });
+      tplGrid.appendChild(el);
+    });
+
+    /* ============================================================
+       SHELL — topnav + sidenav (Content Portal parity)
+       ============================================================ */
+    customElements.whenDefined('vwc-sidenav').then(() => {
+      const topnav = document.getElementById('topnav');
+      topnav.logo = { src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 32'><rect x='0' y='4' width='24' height='24' rx='4' fill='%230f2e3d'/><text x='32' y='22' font-family='Open Sans,sans-serif' font-size='16' font-weight='700' fill='%230f2e3d'>LOGO</text></svg>", alt: 'Logo' };
+
+      const sidenav = document.getElementById('sidenav');
+      const CP = '../../Content Portal/mockups/';
+      sidenav.items = [
+        { type: 'link', id: 'home',     text: 'Home',            href: 'home.html',                icon: { type: 'svg', path: 'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z' } },
+        { type: 'link', id: 'library',  text: 'Content Library', href: CP + 'content-library.html', icon: { type: 'svg', path: 'M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z' } },
+        { type: 'link', id: 'authors',  text: 'Authors',         href: CP + 'authors.html',         icon: { type: 'svg', path: 'M12,5.5A3.5,3.5 0 0,1 15.5,9A3.5,3.5 0 0,1 12,12.5A3.5,3.5 0 0,1 8.5,9A3.5,3.5 0 0,1 12,5.5M5,8C5.56,8 6.08,8.15 6.53,8.42C6.38,9.85 6.8,11.27 7.66,12.38C7.16,13.34 6.16,14 5,14A3,3 0 0,1 2,11A3,3 0 0,1 5,8M19,8A3,3 0 0,1 22,11A3,3 0 0,1 19,14C17.84,14 16.84,13.34 16.34,12.38C17.2,11.27 17.62,9.85 17.47,8.42C17.92,8.15 18.44,8 19,8M5.5,18.25C5.5,16.18 8.41,14.5 12,14.5C15.59,14.5 18.5,16.18 18.5,18.25V20H5.5V18.25M0,20V18.5C0,17.11 1.89,15.94 4.45,15.6C3.86,16.28 3.5,17.22 3.5,18.25V20H0M24,20H20.5V18.25C20.5,17.22 20.14,16.28 19.55,15.6C22.11,15.94 24,17.11 24,18.5V20Z' } },
+        { type: 'divider' },
+        { type: 'link', id: 'assets',   text: 'Assets',          href: CP + 'global-assets.html',   icon: { type: 'svg', path: 'M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z' } },
+        { type: 'link', id: 'settings', text: 'Settings',        href: CP + 'settings.html',        icon: { type: 'svg', path: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.11-.22.06-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z' } }
+      ];
+    });
+  </script>
+</body>
+</html>
