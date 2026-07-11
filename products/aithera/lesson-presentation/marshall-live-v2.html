@@ -1460,7 +1460,7 @@
     <!-- Reusable context-setter (narrated audio / reading) for the opening scene -->
     <script src="js/scene-context.js"></script>
     <!-- The Marshall scenario (V2 — video turn): content + compiled system prompt -->
-    <script src="js/marshall-scenario-v2.js?v=2"></script>
+    <script src="js/marshall-scenario-v2.js?v=4"></script>
 
     <script>
     /* =====================================================================
@@ -1588,7 +1588,9 @@
       pendingDebrief: null,      // the queued coach debrief messages
       analyzing: false,          // transient: "Analyzing your response…" shows in the input bar
       videoPlaying: false,       // true while a video sequence owns the stage (cold-open OR incident)
-      midVideo: false,           // true only during the mid-conversation INCIDENT clip (vs the cold-open)
+      midVideo: false,           // true only while the incident clip is ACTIVELY playing (Observe mode)
+      observed: false,           // true once the incident clip has finished at least once (enables re-watch)
+      observePrompted: false,    // true once the coach's post-video reflection prompt has been delivered
       audioIntroPlaying: false,  // true while the narrated/reading context owns the stage (pre-coach)
       closingStepperActive: false, // true while the closing "Analyzing… Determining…" stepper runs
       awaitingResults: false,   // the closing recap has landed; footer offers "View full results"
@@ -2052,29 +2054,29 @@
       modeIndicator.setAttribute('aria-hidden', String(!state.started));
       modeIndicator.inert = !state.started;
 
-      /* —— Mode indicator: Learn | Practice toggle (raises/lowers the sheet) —— */
+      /* —— Mode indicator: Learn | Observe toggle ——
+         V2 has NO role-play. "Observe" = watching the incident clip; "Learn" =
+         the coach conversation. Learn is the resting mode; Observe is active only
+         while the clip plays, and stays tappable afterward to RE-WATCH. */
       const busy = state.transitioning || state.sending || state.delivering;
-      // "Learn" is tappable from the scene to open a queued debrief (even at the end) or a manual timeout
-      const coachDisabled = mode !== 'coaching' && (busy || (complete && !state.awaitingDebrief));
-      // "Practice" lights up once the coach has invited entry, even before stepping in
-      const sceneDisabled = mode !== 'scene' && (busy || complete || (!hasEnteredScene && !state.awaitingEntry));
-      // hover tooltips clarify what tapping the inactive segment does (only meaningful
-      // when it's enabled and not already the active mode)
-      const learnTip = (mode !== 'coaching' && !coachDisabled)
-        ? (state.awaitingDebrief ? (complete ? 'See your results' : 'See AI Coach feedback') : 'Talk with your AI coach') : '';
-      const sceneTip = (mode !== 'scene' && !sceneDisabled)
-        ? (hasEnteredScene ? 'Return to practice' : 'Watch what happens') : '';
+      const learnActive  = mode === 'coaching' && !state.midVideo;
+      const observeActive = state.midVideo;
+      // Learn is only ever the active/resting mode here — never a tappable target.
+      const learnDisabled = !learnActive;
+      // Observe is tappable to START the clip (awaiting the watch) or RE-WATCH it
+      // (already observed), except while it's already playing / busy / complete.
+      const observeDisabled = observeActive || busy || complete || (!state.awaitingEntry && !state.observed);
+      const observeTip = !observeDisabled ? (state.observed ? 'Re-watch the clip' : 'Watch what happens') : '';
       modeIndicator.innerHTML =
-        `<div class="mode-toggle" role="group" aria-label="Learn or practice mode">
-           <button class="seg ${mode === 'coaching' ? 'active' : ''}" data-seg="coaching"
-                   ${learnTip ? `data-tip="${learnTip}"` : ''}
-                   aria-pressed="${mode === 'coaching'}" ${coachDisabled ? 'disabled' : ''}>
+        `<div class="mode-toggle" role="group" aria-label="Learn or observe mode">
+           <button class="seg ${learnActive ? 'active' : ''}" data-seg="learn"
+                   aria-pressed="${learnActive}" ${learnDisabled ? 'disabled' : ''}>
              <i class="fa-solid fa-chalkboard-user"></i> Learn
            </button>
-           <button class="seg ${mode === 'scene' ? 'active' : ''}" data-seg="scene"
-                   ${sceneTip ? `data-tip="${sceneTip}"` : ''}
-                   aria-pressed="${mode === 'scene'}" ${sceneDisabled ? 'disabled' : ''}>
-             <i class="fa-solid fa-door-open"></i> Practice
+           <button class="seg ${observeActive ? 'active' : ''}" data-seg="observe"
+                   ${observeTip ? `data-tip="${observeTip}"` : ''}
+                   aria-pressed="${observeActive}" ${observeDisabled ? 'disabled' : ''}>
+             <i class="fa-solid fa-eye"></i> Observe
            </button>
          </div>`;
 
@@ -2448,7 +2450,7 @@
 
     // V2 — the ONE video turn. Plays the INCIDENT clip mid-conversation (after
     // the legal lead-up), reusing the exact cold-open player. When it ends, it
-    // runs `done` (revealScenePrompt) instead of chaining into a fresh session.
+    // runs `done` (afterObserve) instead of chaining into a fresh session.
     function playIncidentVideo(done) {
       if (state.delivering) return;   // NOT guarded on videoPlaying — the cold-open's
       // frozen frame is still "playing" (lingering as the coach backdrop); this
@@ -2470,31 +2472,60 @@
       // videoPlaying stays true here on purpose — for the cold-open, the coach
       // sheet rises over the video's frozen final frame (now blurred/dimmed),
       // not the establishing card, which avoids a flash mid-transition. For the
-      // incident, revealScenePrompt() turns videoPlaying off itself.
+      // incident, afterObserve() keeps videoPlaying on as the frozen backdrop.
       // Freeze + silence the clip so a not-yet-ended (or sound-on) video can't
       // keep playing audio under whatever follows.
       document.querySelectorAll('#stage .intro-video').forEach((v) => { try { v.pause(); v.muted = true; } catch (e) {} });
       await wait(reducedMotion() ? 0 : 250);   // a short breath, not a second decision point
       const cb = onVideoDone; onVideoDone = null;
-      (cb || startSession)();  // cold-open → startSession; incident → revealScenePrompt
+      (cb || startSession)();  // cold-open → startSession; incident → afterObserve
     }
 
-    // V2 — after the incident clip ends: drop the learner into the in-the-moment
-    // ask (the locked SCENE_ASK stashed as pendingScene) in scene mode. The video
-    // took the place of the narrated break-room setup, so this is a slim version
-    // of enterScene() with no coaching to reveal.
-    function revealScenePrompt() {
+    // V2 — after the incident clip ends: return to LEARN mode with the coach
+    // reappearing OVER the frozen video frame (HazMat-style). videoPlaying stays
+    // true so the clip's last frame is the dimmed backdrop behind the coach sheet.
+    // The FIRST time, the coach's locked post-video prompt types in (asking what
+    // the learner would do); on a RE-WATCH it just returns to the conversation.
+    async function afterObserve() {
       if (!state.midVideo) return;   // a Restart during the clip's final breath cancels this
-      (state.pendingScene || []).forEach((m) => { m._enter = true; state.messages.push(m); });
-      state.pendingScene = null;
-      state.hasEnteredScene = true;
-      state.videoPlaying = false;   // the incident's job is done — swap the frozen frame for the scene
-      state.midVideo = false;
-      state.mode = 'scene'; state.inputTarget = 'character';
-      followStage = true;
-      announce('You’re in the moment. What do you do?');
+      state.midVideo = false;        // done watching (keep videoPlaying → frozen backdrop)
+      state.observed = true;
+      state.mode = 'coaching'; state.inputTarget = 'coach';
+      if (state.observePrompted) { render(); if (!composer.disabled) composer.focus(); return; }
+      state.observePrompted = true;
+      // Deliver the coach's locked reflection prompt over the frozen video, typed
+      // in one bubble at a time like any other coach turn.
+      const beat = (ACTIVE_SCENARIO.locked.observe || []).map((m) => ({ ...m }));
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;
+      state.delivering = true;
+      render();   // coach sheet rises over the frozen frame (coachUp true now)
+      let firstReveal = true;
+      for (const m of beat) {
+        hideTyping();
+        showTyping(); await wait(typingTime(m.text, firstReveal)); hideTyping();
+        firstReveal = false;
+        if (dead()) return;
+        m._enter = true;
+        state.messages.push(m);
+        render();
+        await wait(reducedMotion() ? 80 : 320);
+        if (dead()) return;
+      }
+      state.delivering = false;
+      announce('Your AI coach has a question about what you saw.');
       render();
-      setTimeout(() => { if (!composer.disabled) composer.focus(); }, 260);
+      if (!composer.disabled) composer.focus();
+    }
+
+    // "Watch what happens" / "Re-watch" — play the incident clip in OBSERVE mode.
+    // Same entry for the first watch (from the CTA) and every re-watch (from the
+    // Observe toggle); afterObserve() only re-prompts on the first pass.
+    function watchIncident() {
+      if (state.sending || state.delivering || state.midVideo || state.complete) return;
+      state.awaitingEntry = false;
+      state.entryPromptDismissed = false;
+      playIncidentVideo(afterObserve);
     }
 
     /* =====================================================================
@@ -2614,7 +2645,10 @@
       const lockedKeys = new Set(beat.map((m) => norm(m.text)));
       turn.turn = (turn.turn || []).filter((m) => !lockedKeys.has(norm(m.text)));
       turn.turn = turn.turn.concat(beat);
-      if (turn.deliver === 'scene') { turn.mode = 'scene'; turn.inputTarget = 'character'; }
+      // V2: delivering "scene" is the hand-off into OBSERVE (watch the clip), not
+      // a role-play scene. Flag it so deliverTurn arms the "Watch what happens"
+      // entry after the pivot; the turn STAYS in coaching mode.
+      if (turn.deliver === 'scene') { turn._observe = true; }
     }
 
     /* =====================================================================
@@ -2673,15 +2707,21 @@
        are visually connected. */
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    // How long the coach "thinks" (typing dots) before a message. This is the MAIN
-    // beat: the dots tell the learner more is coming, so they read the message that's
-    // already on screen while the next one composes. We therefore scale the thinking
-    // time to the PREVIOUS message's length — that's what's being read right now. The
-    // very first line has nothing to read yet, so it gets a short opening beat.
-    const thinkingTime = (prevText) =>
-      reducedMotion() ? 250
-      : prevText ? Math.min(3800, 1000 + String(prevText).length * 15)
-                 : 950;
+    // How long the typing dots show BEFORE a message lands. Scaled to the length
+    // of the message ABOUT TO APPEAR — a one-liner types in quickly, a longer
+    // bubble takes a real beat, as if the coach is actually composing it. Every
+    // coach bubble goes through this, so two never drop back-to-back with no beat
+    // between them. Floored so even a tiny line still shows dots; capped so a long
+    // paragraph never stalls. Reduced-motion collapses it to a token pause.
+    // Dots-before-a-message beat. The FIRST bubble in a burst appears FAST — the
+    // model round-trip (or the stepper before a recap) already served as the
+    // "thinking", so we don't stack a long compose on top of it. Later bubbles in
+    // the same burst get a beat scaled to THEIR OWN length (a longer line reads as
+    // a longer compose, a one-liner pops), on a tight range so it never swings.
+    const typingTime = (text, isFirst) =>
+      reducedMotion() ? (isFirst ? 120 : 220)
+      : isFirst ? 450
+      : Math.min(2600, Math.max(650, Math.round(300 + String(text || '').length * 13)));
 
     // a token so a Restart (or new send) mid-reveal cleanly cancels the old one
     let deliverSeq = 0;
@@ -2695,17 +2735,21 @@
       const myseq = ++deliverSeq;
       const dead = () => myseq !== deliverSeq;          // a newer turn / restart superseded us
       const items = turn.turn;
-      const willEnter = !state.hasEnteredScene && (turn.mode === 'scene' || items.some((m) => worldOf(m) === 'scene'));
+      // V2: the ONLY "entry" is into OBSERVE (watch the clip), flagged by _observe
+      // on the pivot turn. There is no role-play scene entry.
+      const willEnter = turn._observe && !state.observed;
 
-      // FIRST entry is LEARNER-TRIGGERED: reveal the coach's invitation, stash the
-      // opening scene, and surface a "Step into the scene" control. We do NOT
-      // auto-advance — the learner decides when to cross the threshold.
+      // OBSERVE HAND-OFF is LEARNER-TRIGGERED: reveal the coach's pivot bubbles,
+      // then surface the "Watch what happens" control. We do NOT auto-play — the
+      // learner taps to watch when ready.
       if (willEnter) {
         state.delivering = true;
         const coachingItems = items.filter((m) => worldOf(m) === 'coaching');
+        let firstReveal = true;
         for (const m of coachingItems) {
           hideTyping();
-          showTyping(); await wait(reducedMotion() ? 250 : 780); hideTyping();
+          showTyping(); await wait(typingTime(m.text, firstReveal)); hideTyping();
+          firstReveal = false;
           if (dead()) return;
           m._enter = true;
           state.messages.push(m);
@@ -2713,19 +2757,12 @@
           await wait(reducedMotion() ? 80 : 300);
           if (dead()) return;
         }
-        state.pendingScene = items.filter((m) => worldOf(m) === 'scene');
-        // Safety net (live mode): if the model invited us in without painting the
-        // room, establish the scene ourselves from the writer's opening image so
-        // the learner never enters a blank stage — in ANY scenario.
-        if (!state.pendingScene.length) {
-          state.pendingScene = [{ speaker: 'character', kind: 'narration', text:
-`You step in. ${AitheraScenario.fill(ACTIVE_SCENARIO.openingImage, ACTIVE_SCENARIO)}.` }];
-        }
+        state.pendingScene = null;   // no role-play scene — the video is what's observed
         state.awaitingEntry = true;
         state.mode = 'coaching'; state.inputTarget = 'coach';
         state.delivering = false;
         render();
-        announce(`Your AI coach says you're ready. Watch what happens when you are.`);
+        announce(`Your AI coach is ready. Watch what happens when you are.`);
         return;
       }
 
@@ -2738,7 +2775,7 @@
         if (state.mode !== 'scene') { state.mode = 'scene'; state.inputTarget = 'character'; }
         hideTyping();
         if (m.speaker === 'character' && m.kind === 'dialogue') {
-          showTyping(); await wait(reducedMotion() ? 250 : 850); hideTyping();
+          showTyping(); await wait(typingTime(m.text)); hideTyping();
         } else {
           await wait(reducedMotion() ? 80 : 280);
         }
@@ -2753,15 +2790,12 @@
         i++;
       }
 
-      // Phase 2 — a scene line just drew its reaction. Do NOT auto-open the coach.
-      // Give the learner time to READ Kendra's reaction: show "Analyzing…" briefly
-      // in the input bar, then offer the debrief as a choice they open when ready.
-      // Queue the coaching items as a "debrief" (gated behind a tap) either when
-      // a scene line just drew its reaction, OR on the FINAL turn — so a
-      // completion delivered in coaching (Beat C ends with a coach recap, not a
-      // scene beat) still routes through the closing build-up + results.
-      const intoDebrief = (i < items.length) && state.hasEnteredScene
-        && (state.mode === 'scene' || state.complete);
+      // Phase 2 — (V1 scene path only) a scene line just drew its reaction. Give
+      // the learner time to READ it: show "Analyzing…" briefly, then offer the
+      // debrief as a choice. V2 never enters a scene, so this never fires there —
+      // the coach's reply (including the final follow-up) always lands INLINE
+      // below (Phase 3), then the results CTA appears.
+      const intoDebrief = (i < items.length) && state.hasEnteredScene && state.mode === 'scene';
       if (intoDebrief) {
         state.analyzing = true;
         render();                                    // input bar: "Analyzing your response…"
@@ -2783,12 +2817,15 @@
         return;
       }
 
-      // Phase 3 — coach message(s) revealed in the sheet when we're ALREADY coaching
-      // (a send-back reply, an escalation redirect, or a manual-timeout answer).
+      // Phase 3 — coach message(s) revealed inline in the sheet. This is the
+      // normal coaching reply, AND (in V2) the final follow-up to the learner's
+      // post-video answer — the coach responds here, in view, before any results.
+      let firstReveal = (i === 0);
       while (i < items.length) {
         const m = items[i];
         hideTyping();
-        showTyping(); await wait(reducedMotion() ? 250 : 780); hideTyping();
+        showTyping(); await wait(typingTime(m.text, firstReveal)); hideTyping();
+        firstReveal = false;
         if (dead()) return;
         m._enter = true;
         state.messages.push(m);
@@ -2796,6 +2833,17 @@
         await wait(reducedMotion() ? 80 : 300);
         if (dead()) return;
         i++;
+      }
+
+      // COMPLETION (V2 / any coaching-mode finish): the coach's follow-up just
+      // landed inline above. Now surface the results scorecard — no hidden closing
+      // debrief, no "See your results" standing in for the coach's actual reply.
+      if (state.complete) {
+        state.awaitingResults = true;
+        state.delivering = false;
+        render();                                     // input bar: "View full results →"
+        announce('Your AI coach has wrapped up. View your results when ready.');
+        return;
       }
 
       // Finalize. If the coach is sending the learner back into the scene, dwell
@@ -2841,14 +2889,31 @@
     // "See what your AI coach noticed" — the learner opens the queued debrief when
     // ready (after reading Kendra's reaction). The coach sheet RISES; the practice
     // (with the line) stays visible, dimmed, above it.
-    function openDebrief() {
+    async function openDebrief() {
       if (!state.awaitingDebrief || state.sending || state.delivering) return;
       if (state.complete) { openClosingDebrief(); return; }
-      (state.pendingDebrief || []).forEach((m) => { m._enter = true; state.messages.push(m); });
+      const pending = state.pendingDebrief || [];
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;
       state.pendingDebrief = null;
       state.awaitingDebrief = false;
       state.analyzing = false;
       state.mode = 'coaching'; state.inputTarget = 'coach';
+      state.delivering = true;
+      announce('Stepped out to your AI coach.');
+      render();   // the coach sheet rises (empty); the debrief types in below
+      // Reveal the debrief ONE bubble at a time, each behind its own typing beat.
+      for (const m of pending) {
+        hideTyping();
+        showTyping(); await wait(typingTime(m.text)); hideTyping();
+        if (dead()) return;
+        m._enter = true;
+        state.messages.push(m);
+        render();
+        await wait(reducedMotion() ? 80 : 320);
+        if (dead()) return;
+      }
+      state.delivering = false;
       // If the coach's message is a hand-off back into the scene, offer the
       // return as its own reinforcing CTA (e.g. "Check in with Marshall →")
       // rather than making the learner type — the coach steps them across.
@@ -2858,8 +2923,7 @@
         state.debriefReturn = null;
         state.awaitingReturn = true;
       }
-      announce('Stepped out to your AI coach.');
-      render();   // the coach sheet rises with the debrief (+ a return CTA if armed)
+      render();   // the coach sheet now shows the full debrief (+ a return CTA if armed)
     }
 
     // The FINAL debrief gets a build-up instead of an instant reveal: the coach
@@ -2879,10 +2943,22 @@
       await runClosingStepper(dead);
       if (dead()) return;
       state.closingStepperActive = false;
-      pending.forEach((m) => { m._enter = true; state.messages.push(m); });
+      render();   // clear the stepper so the recap can type in beneath it
+      // Reveal the recap bubbles ONE AT A TIME, each behind its own typing beat
+      // (scaled to its length) — never dropped in all at once.
+      for (const m of pending) {
+        hideTyping();
+        showTyping(); await wait(typingTime(m.text)); hideTyping();
+        if (dead()) return;
+        m._enter = true;
+        state.messages.push(m);
+        render();
+        await wait(reducedMotion() ? 80 : 320);
+        if (dead()) return;
+      }
       state.awaitingResults = true;   // footer offers "View full results" — the report opens in its own modal
       announce('Your AI coach has a recap. View your full results when ready.');
-      render();   // just the recap message for now
+      render();
     }
 
     let resultsReturnFocus = null;   // where focus goes back to when the modal closes
@@ -2908,14 +2984,14 @@
       state.delivering = true;
       announce('Back to your AI coach.');
       render();
-      showTyping(); await wait(reducedMotion() ? 250 : 900); hideTyping();
+      const resourcesIntro = `Great work! Here are some resources for dealing with situations just like this.`;
+      showTyping(); await wait(typingTime(resourcesIntro, true)); hideTyping();
       if (dead()) return;
-      state.messages.push({ speaker: 'coach', kind: 'coaching', _enter: true, text:
-        `Great work! Here are some resources for dealing with situations just like this.` });
+      state.messages.push({ speaker: 'coach', kind: 'coaching', _enter: true, text: resourcesIntro });
       render();
       await wait(reducedMotion() ? 80 : 500);
       if (dead()) return;
-      showTyping(); await wait(reducedMotion() ? 250 : 900); hideTyping();
+      showTyping(); await wait(reducedMotion() ? 250 : 1100); hideTyping();
       if (dead()) return;
       state.resultsViewed = true;   // reveals the resources message — see render()
       state.delivering = false;
@@ -2962,18 +3038,8 @@
       await wait(reducedMotion() ? 0 : 350);
     }
 
-    // "Watch what happens" — the learner crosses on their command. In V2 the
-    // break-room moment is a VIDEO, so crossing PLAYS the incident clip; when it
-    // ends, revealScenePrompt() drops them into the in-the-moment ask (the locked
-    // SCENE_ASK, held in pendingScene). The coach sheet lowers for the clip.
-    function enterScene() {
-      if (!state.awaitingEntry || state.hasEnteredScene || state.sending || state.delivering) return;
-      state.awaitingEntry = false;
-      state.entryPromptDismissed = false;
-      // pendingScene (SCENE_ASK) stays stashed — revealScenePrompt reveals it
-      // once the clip finishes. The video takes the place of the narrated setup.
-      playIncidentVideo(revealScenePrompt);
-    }
+    // (watchIncident() — the "Watch what happens" / re-watch handler — lives up
+    // with afterObserve(), next to the video machinery it drives.)
 
     // "Step out to AI coach" — a learner-initiated pause (not a coach debrief).
     function stepOut() {
@@ -3031,7 +3097,7 @@
         sending: false, complete: false, report: null, manualTimeout: false,
         transitioning: false, delivering: false, awaitingEntry: false, pendingScene: null,
         entryPromptDismissed: false, awaitingDebrief: false, pendingDebrief: null, analyzing: false,
-        videoPlaying: false, midVideo: false, audioIntroPlaying: false, closingStepperActive: false,
+        videoPlaying: false, midVideo: false, observed: false, observePrompted: false, audioIntroPlaying: false, closingStepperActive: false,
         awaitingResults: false, resultsModalOpen: false, resultsPage: 0, resultsViewed: false, continued: false,
         awaitingReturn: false, pendingReturn: null,
         debriefReturn: null, returnLabel: null, sceneTarget: null,
@@ -3065,11 +3131,9 @@
       render();
       for (let i = 0; i < opening.length; i++) {
         const m = opening[i];
-        const prev = i > 0 ? opening[i - 1] : null;
-        // The dominant beat: "thinking" long enough to read the previous message,
-        // with the typing dots signalling that more is on the way.
+        // First line lands fast; later lines scale to their length (see typingTime).
         hideTyping();
-        showTyping(); await wait(thinkingTime(prev ? prev.text : '')); hideTyping();
+        showTyping(); await wait(typingTime(m.text, i === 0)); hideTyping();
         if (dead()) return;
         m._enter = true;
         state.messages.push(m);
@@ -3095,15 +3159,15 @@
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
     });
     sendBtn.addEventListener('click', send);
-    // pre-entry this control begins the conversation; once entered it lowers the sheet
+    // pre-watch this control plays the incident clip; otherwise it lowers the sheet
     resumeBtn.addEventListener('click', () => {
-      if (resumeBtn.dataset.action === 'begin') enterScene();
+      if (resumeBtn.dataset.action === 'begin') watchIncident();
       else resumeScene();
     });
     scrim.addEventListener('click', resumeScene);     // tap the dimmed scene to resume
 
-    // Entry bar: the CTA steps in; "keep talking" hands the bar back to the composer.
-    enterCtaBar.addEventListener('click', enterScene);
+    // Entry bar: the CTA plays the clip; "keep talking" hands the bar back to the composer.
+    enterCtaBar.addEventListener('click', watchIncident);
     keepTalkingBtn.addEventListener('click', () => {
       state.entryPromptDismissed = true;
       render();
@@ -3137,15 +3201,10 @@
       const seg = e.target.closest('.seg');
       if (!seg || seg.disabled) return;
       const which = seg.dataset.seg;
-      if (which === 'coaching' && !state.started) { startSession(); return; }  // begin
-      if (which === state.mode) return;               // already active
-      if (which === 'coaching') {                     // → the coach layer
-        if (state.awaitingDebrief) openDebrief();      // open the queued debrief
-        else stepOut();                                // or a manual timeout
-      } else if (which === 'scene') {                 // → the practice
-        if (!state.hasEnteredScene && state.awaitingEntry) enterScene();  // first crossing
-        else resumeScene();                           // back into the scene
-      }
+      // V2: "observe" plays (or re-plays) the incident clip; "learn" is the
+      // resting mode (disabled as a target), except to open a queued debrief.
+      if (which === 'observe') { watchIncident(); return; }
+      if (which === 'learn' && state.awaitingDebrief) openDebrief();
     });
     document.getElementById('restartBtn').addEventListener('click', restart);
 
