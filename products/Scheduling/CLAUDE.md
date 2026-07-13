@@ -53,7 +53,7 @@ Mockups in this directory split into two architectures. Match the existing style
 | `ai-search-engine-dashboard/` | "CallBack" React prototype | React 18 + Babel standalone via CDN + Inter font |
 | `advance-scheduling/` | empty placeholder | — |
 
-The CallBack prototypes predate the repo-wide vanilla/Vector convention and use Lumo CSS variables (`--lumo-primary-color`, etc.) rather than Vector theme tokens. Treat them as a legacy island — when starting a *new* Scheduling mock, scaffold the versioned feature structure per the parent CLAUDE.md ("For a NEW mock"): copy `base-template/index.html` (the loader) to the feature root untouched, add `versions.json`, and do the design in `ver1/ver1.html` copied from `base-template/version.html` (the blank Vector canvas), using Vector components.
+The CallBack prototypes predate the repo-wide vanilla/Vector convention and use Lumo CSS variables (`--lumo-primary-color`, etc.) rather than Vector theme tokens. Treat them as a legacy island — when starting a *new* Scheduling mock, scaffold the versioned feature structure per the parent CLAUDE.md ("For a NEW mock"): copy `base-template/index.html` (the loader) to the feature root untouched, add `versions.json`, and do the design in `ver1/index.html` copied from `base-template/version.html` (the blank Vector canvas), using Vector components.
 
 ## CallBack React prototype architecture
 

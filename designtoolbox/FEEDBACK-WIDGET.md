@@ -167,7 +167,7 @@ All pins for a page are stored together in **one** KV value (`pins:<encoded-page
 
 ## ⚠️ Renaming or moving a mock orphans its comments
 
-**Comments are keyed by the page URL, not the file.** The KV key is `pins:<encodeURIComponent(pageUrl)>`, where `pageUrl` is rebuilt from the `/products/...` path (`canonicalPageUrl()` in `feedback-widget.js`). So if you **rename or move a mock folder** — or a versioned `verN/verN.html` file — every page under it gets a **new** key, and the existing comments stay behind under the **old** key. They aren't deleted, just unreachable: the widget now looks up the new path and finds nothing.
+**Comments are keyed by the page URL, not the file.** The KV key is `pins:<encodeURIComponent(pageUrl)>`, where `pageUrl` is rebuilt from the `/products/...` path (`canonicalPageUrl()` in `feedback-widget.js`). So if you **rename or move a mock folder** — or a versioned `verN/index.html` file — every page under it gets a **new** key, and the existing comments stay behind under the **old** key. They aren't deleted, just unreachable: the widget now looks up the new path and finds nothing.
 
 **A space in a folder name makes it worse.** The browser encodes the space as `%20` in the URL, so the old key contains `versioning%2520test` (the `%20`, itself re-encoded by `encodeURIComponent`). That stray `%` is the tell-tale sign of a space-folder rename.
 
