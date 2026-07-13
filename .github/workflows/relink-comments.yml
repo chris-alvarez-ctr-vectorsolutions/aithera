@@ -1,0 +1,54 @@
+name: Relink comments on mock rename
+
+# Comments are stored in Cloudflare KV keyed by the page URL, so renaming/moving a
+# mock folder orphans them (and breaks the activity-log links). This workflow
+# detects a rename in the push and re-links the comments automatically.
+#
+# KV WRITE BUDGET: this is FREE on ordinary pushes. ci-relink-renames.js first
+# asks git whether anything under products/ was renamed — a local diff, no KV.
+# Only when a real rename is found does it run relink-comments.js --apply and do
+# the (few) necessary writes. No rename → no wrangler, no KV ops at all.
+# See designtoolbox/FEEDBACK-WIDGET.md ("Renaming or moving a mock…").
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'products/**'
+      - 'designtoolbox/scripts/relink-comments.js'
+      - 'designtoolbox/scripts/ci-relink-renames.js'
+      - '.github/workflows/relink-comments.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+# Never let two relink runs write KV at the same time.
+concurrency:
+  group: relink-comments-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  relink:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history so we can diff before..after)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Global install so the scripts' `npx wrangler` calls resolve instantly
+      # (v4 matches the `kv key … --ttl` syntax the scripts use).
+      - name: Install wrangler
+        run: npm install -g wrangler@4
+
+      - name: Detect renames and relink comments
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 0ac5632f74c7b275d02a9aa945db59c1
+        run: node designtoolbox/scripts/ci-relink-renames.js "${{ github.event.before }}" "${{ github.sha }}"

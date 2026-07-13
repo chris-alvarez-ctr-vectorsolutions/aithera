@@ -171,10 +171,12 @@ All pins for a page are stored together in **one** KV value (`pins:<encoded-page
 
 **A space in a folder name makes it worse.** The browser encodes the space as `%20` in the URL, so the old key contains `versioning%2520test` (the `%20`, itself re-encoded by `encodeURIComponent`). That stray `%` is the tell-tale sign of a space-folder rename.
 
-**Two ways to avoid the pain:**
+**This is now handled automatically on push.** The `.github/workflows/relink-comments.yml` workflow watches `products/**`; when a push **renames** a mock folder/file, it runs the relink for you (comments + log links). It's cheap on the KV write budget: `ci-relink-renames.js` checks git for a rename *first* (a local diff — no KV), and only touches KV when there actually is one, so ordinary pushes cost **zero** KV ops. Requires a `CLOUDFLARE_API_TOKEN` repo secret (Workers KV **edit** scope). If the secret is missing the workflow simply fails loudly — the manual steps below still work.
+
+**Even so, two things still help:**
 
 1. **Prefer hyphens over spaces** in new mock/feature folder names (`versioning-test`, not `versioning test`). No spaces → no `%20` → cleaner keys and URLs. (This is also why the loader/versioned-folder convention uses hyphenated names.)
-2. **After any rename/move, re-link the comments** with the helper script — it copies the pins from the old key to the new one AND repoints the activity-log links, so both reappear on the renamed page:
+2. **To re-link manually** (local runs, or if CI is unavailable) — the helper script copies the pins from the old key to the new one AND repoints the activity-log links, so both reappear on the renamed page:
 
    ```sh
    cd designtoolbox/worker      # so wrangler picks up wrangler.toml (KV namespace id)
