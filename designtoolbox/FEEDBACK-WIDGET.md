@@ -174,18 +174,26 @@ All pins for a page are stored together in **one** KV value (`pins:<encoded-page
 **Two ways to avoid the pain:**
 
 1. **Prefer hyphens over spaces** in new mock/feature folder names (`versioning-test`, not `versioning test`). No spaces → no `%20` → cleaner keys and URLs. (This is also why the loader/versioned-folder convention uses hyphenated names.)
-2. **After any rename/move, re-link the comments** with the helper script — it copies the pins from the old key to the new one so they reappear on the renamed page:
+2. **After any rename/move, re-link the comments** with the helper script — it copies the pins from the old key to the new one AND repoints the activity-log links, so both reappear on the renamed page:
 
    ```sh
    cd designtoolbox/worker      # so wrangler picks up wrangler.toml (KV namespace id)
    wrangler login               # one-time auth; the script shells out to wrangler
-   # dry run first — prints exactly what it would copy, writes nothing:
+
+   # (optional) see what's in KV for a folder — old vs new path, per-version comment counts:
+   node ../scripts/relink-comments.js --inspect "versioning"
+
+   # dry run first — prints exactly what it would copy/repoint, writes nothing:
    node ../scripts/relink-comments.js --from "versioning test" --to "versioning-test"
-   # then actually copy:
+   # then actually do it:
    node ../scripts/relink-comments.js --from "versioning test" --to "versioning-test" --apply
    ```
 
-   `--from`/`--to` are the old/new path fragments (bare folder name, or `Scheduling/versioning test` for a more precise match). Spaces are handled automatically. It copies both `pins:` and `settings:` keys, **leaves the originals in place** as a backup, and won't overwrite a destination that already has comments. Reload the renamed mock on GitHub Pages and the comments are back. See `designtoolbox/scripts/relink-comments.js` for full options.
+   `--from`/`--to` are the old/new path fragments (bare folder name, or `Scheduling/versioning test` for a more precise match). Spaces are handled automatically. The script:
+   - **copies `pins:` and `settings:` keys** to the new path (matches *every* page under the folder — so all versions, `ver1`/`ver2`/…, are relinked in one run), **leaves the originals in place** as a backup, and won't overwrite a destination that already has comments;
+   - **rewrites the `url` inside matching `log:` entries in place** so the activity-log (`log.html`) links point at the renamed page instead of the dead one (TTL refreshed to 90 days).
+
+   Use `--inspect` first if a comment (e.g. a specific version's) doesn't come back — it prints each `pins:` key's decoded page URL and active-comment count, so you can see whether that version's comments live under the old or new path. Reload the renamed mock on GitHub Pages afterward. See `designtoolbox/scripts/relink-comments.js` for full options (`--no-log`, `--no-settings`, `--namespace-id`).
 
 ## Worker API
 
