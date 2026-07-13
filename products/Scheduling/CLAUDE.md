@@ -48,16 +48,16 @@ Mockups in this directory split into two architectures. Match the existing style
 | Mock | Style | Stack |
 |---|---|---|
 | `Event Indicator: UX-2474/` | Standard repo style | Vector web components + vanilla JS + Open Sans |
-| `Theme Colors/` | Standard repo style | Vector web components + vanilla JS + Open Sans |
-| `Rules engine only/` | "CallBack" React prototype | React 18 + Babel standalone via CDN + Inter font |
-| `AI search engine dashboard/` | "CallBack" React prototype | React 18 + Babel standalone via CDN + Inter font |
+| `theme-colors/` | Standard repo style | Vector web components + vanilla JS + Open Sans |
+| `rules-engine-only/` | "CallBack" React prototype | React 18 + Babel standalone via CDN + Inter font |
+| `ai-search-engine-dashboard/` | "CallBack" React prototype | React 18 + Babel standalone via CDN + Inter font |
 | `advance-scheduling/` | empty placeholder | — |
 
 The CallBack prototypes predate the repo-wide vanilla/Vector convention and use Lumo CSS variables (`--lumo-primary-color`, etc.) rather than Vector theme tokens. Treat them as a legacy island — when starting a *new* Scheduling mock, scaffold the versioned feature structure per the parent CLAUDE.md ("For a NEW mock"): copy `base-template/index.html` (the loader) to the feature root untouched, add `versions.json`, and do the design in `ver1/ver1.html` copied from `base-template/version.html` (the blank Vector canvas), using Vector components.
 
 ## CallBack React prototype architecture
 
-The `Rules engine only/index.html` and `AI search engine dashboard/index.html` files share an authoring pattern that is non-obvious from reading any single block:
+The `rules-engine-only/index.html` and `ai-search-engine-dashboard/index.html` files share an authoring pattern that is non-obvious from reading any single block:
 
 - **Multi-block `<script type="text/babel">` layout.** The file is split into ~5–10 separate Babel script blocks (PRIMITIVES, SHELL, view-specific blocks, app entry). Each block ends with `Object.assign(window, { ... })` to publish its components onto `window`, which is how later blocks consume them. There are no imports — components must be defined in an earlier block and re-published to `window`.
 - **`useAppSt` is just an alias for `useState`.** Different blocks alias `useState` with different local names (`useStateW`, `useAppSt`) to avoid re-declaration errors across blocks. The aliasing is cosmetic, not semantic.
@@ -73,7 +73,7 @@ Layout structure (top-down): 40px dark topnav → 48px dark icon sidenav → too
 
 ### Shift-edit modal (`current-ui.html`)
 
-`Event Indicator UX-2474/current-ui.html` is the production-faithful "before" companion to the redesign. It contains a reusable **shift-edit modal** reproducing the live edit-shift dialog the scheduler sees when clicking an assigned person on the day view.
+`event-indicator-UX-2474/current-ui.html` is the production-faithful "before" companion to the redesign. It contains a reusable **shift-edit modal** reproducing the live edit-shift dialog the scheduler sees when clicking an assigned person on the day view.
 
 - **Trigger:** clicking any assigned person row (`.prow[data-modby]` or `.drow[data-modby]`) opens it. The same rows still show the black hover-card on hover; the modal is the click action. Closes on the ✕, backdrop click, or Esc.
 - **Markup/CSS prefix:** everything is namespaced `.sm-*` (`.shift-modal`, `.sm-head`, `.sm-body`, `.sm-field`, `.sm-foot`, etc.); the overlay is `#shiftModal.modal-overlay`. It's plain vanilla CSS/JS in the file's production-reproduction style — **not** Vector web components (this page deliberately mimics current production, not the design system).
@@ -83,7 +83,7 @@ Layout structure (top-down): 40px dark topnav → 48px dark icon sidenav → too
 
 ## Theme Colors mock
 
-`Theme Colors/index.html` is a settings-page prototype for an interactive theme picker. Its `:root` declares two distinct token groups that are documented inline at the top of the file:
+`theme-colors/index.html` is a settings-page prototype for an interactive theme picker. Its `:root` declares two distinct token groups that are documented inline at the top of the file:
 
 - `--bar-*` — driven by the color/gradient/image picker for the nav + topbar.
 - `--page-*` — derived via HSL math from the key color + appearance mode (light/dark).
