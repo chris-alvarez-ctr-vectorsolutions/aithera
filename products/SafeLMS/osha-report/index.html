@@ -10,135 +10,167 @@
 <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
 <style>
-  /* ============================================================
-     This OSHA dashboard is built on the Convergence "Report
-     Redesign V1" report patterns (per the OSHA reporting plan to
-     leverage VRF / Convergence), wearing the SafeLMS wrapper:
-       • SafeLMS chrome  → left sidebar + blue topbar
-       • Ported from V1  → Completion Status Overview (pie + bar),
-                           the Completion Report grouped table style,
-                           and the right-side report filter panel.
-     ============================================================ */
-  :root {
-    --blue-primary: #155DFC;
-    --blue-accent:  #0271CE;
-    --blue-dark:    #1038C8;
-    --ink:   #101828;
-    --ink-2: #344055;
-    --muted: #6A7282;
-    --muted-2: #99A1AF;
-    --hair:   #E5E7EB;
-    --hair-2: #F3F4F6;
-    --canvas: #f3f4f6;
-  }
-  *, *::before, *::after { box-sizing: border-box; }
-  html, body {
-    margin: 0; padding: 0;
-    background: var(--canvas);
-    font-family: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-    font-size: 16px;
-    color: var(--ink);
-    -webkit-font-smoothing: antialiased;
-  }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  /* ── App grid (SafeLMS chrome) ── */
-  .app {
-    display: grid;
-    grid-template-columns: 224px minmax(0,1fr);
-    min-height: 100vh;
-    min-width: 1080px;
-    position: relative;
-  }
+:root {
+  /* ── Convergence report tokens (from the Tasklist Report redesign) ── */
+  --topnav-active-bg: #d9f1df;
+  --topnav-active-bg-hover: #c7e8cf;
+  --topnav-active-ink: #185b33;
+  --location-selection-bg: #dce9fb;
+  --location-hover-bg: rgba(220,233,251,.52);
+  --location-control-ink: #4a5568;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-light: #eff6ff;
+  --bg: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-hover: #f1f5f9;
+  --border: #e2e8f0;
+  --border-light: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.08);
+  --radius: 6px;
+  --radius-sm: 4px;
 
-  /* ── Sidebar (SafeLMS) ── */
-  .sidebar {
-    background: #fff;
-    border-right: 1px solid var(--hair-2);
-    padding: 16px 16px 80px;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-  }
-  .logo { display: flex; align-items: center; gap: 7px; }
-  .logo svg { display: block; flex-shrink: 0; }
-  .logo .wordmark { display: flex; flex-direction: column; line-height: 1; }
-  .logo .wordmark .brand { font-weight: 700; font-size: 16px; letter-spacing: .1px; color: #374C61; }
-  .logo .wordmark .brand sup { font-size: 8px; color: #374C61; font-weight: 700; }
-  .logo .wordmark .sub { font-size: 9px; margin-top: 3px; color: var(--muted); letter-spacing: .2px; }
+  /* ── OSHA component tokens, remapped onto the Convergence palette so the
+        existing OSHA component CSS below adopts the new look automatically. ── */
+  --blue-primary: #2563eb;
+  --blue-accent:  #2563eb;
+  --blue-dark:    #1d4ed8;
+  --ink:   #0f172a;
+  --ink-2: #334155;
+  --muted: #64748b;
+  --muted-2: #94a3b8;
+  --hair:   #e2e8f0;
+  --hair-2: #f1f5f9;
+  --canvas: #eef3f8;
+}
 
-  .sidebar .user { display: flex; align-items: center; gap: 10px; margin: 24px 0 0; padding-left: 2px; }
-  .sidebar .user .avatar {
-    width: 30px; height: 30px; border-radius: 50%;
-    background: #E9EBF0; display: grid; place-items: center; color: var(--muted-2); flex-shrink: 0;
-  }
-  .sidebar .user .name { font-size: 15px; line-height: 1.3; color: #364153; }
-  .sidebar .user .name b { display: block; font-weight: 600; }
-  .sidebar .user .name span { font-weight: 400; color: #4A5565; }
+html, body { height: 100%; }
+html { overflow: hidden; }
+body {
+  font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: #eef3f8;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
 
-  .nav-group { margin-top: 24px; }
-  .nav-group .label {
-    font-size: 12px; font-weight: 700; letter-spacing: .8px;
-    color: var(--muted-2); padding: 4px 6px; margin-bottom: 2px;
-  }
-  .nav-item {
-    display: flex; align-items: center; gap: 11px;
-    padding: 7px 6px; border-radius: 4px;
-    font-size: 15px; color: #364153; cursor: pointer; text-decoration: none;
-  }
-  .nav-item:hover { background: var(--hair-2); }
-  .nav-item .ico { width: 17px; height: 17px; display: grid; place-items: center; color: #4A5565; flex: 0 0 17px; }
-  .nav-item .lbl { white-space: nowrap; }
-  .nav-item.active { font-weight: 700; color: var(--ink); }
-  .nav-item.active .lbl { text-decoration: underline; text-underline-offset: 2px; }
-  .nav-item .chev { margin-left: auto; color: var(--muted-2); }
+/* ── Breakpoint Simulator ── */
+.bp-sim-toolbar {
+  position: fixed; bottom: 16px; left: 16px; z-index: 2147483000;
+  display: flex; align-items: center; gap: 2px;
+  background: #18181b; color: white; padding: 5px; border-radius: 999px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.25);
+  font-family: 'Open Sans', sans-serif; font-size: 11px; font-weight: 700;
+}
+.bp-sim-label { padding: 0 10px 0 12px; color: rgba(255,255,255,.55); font-size: 9.5px; font-weight: 700; border-right: 1px solid rgba(255,255,255,.12); margin-right: 4px; white-space: nowrap; }
+.bp-sim-btn { border: none; background: transparent; color: rgba(255,255,255,.78); padding: 7px 11px; border-radius: 999px; cursor: pointer; font: inherit; line-height: 1; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; transition: background .12s, color .12s; }
+.bp-sim-btn .bp-sim-sub { font-weight: 400; font-size: 9.5px; opacity: .65; }
+.bp-sim-btn:hover { background: rgba(255,255,255,.08); color: white; }
+.bp-sim-btn.active { background: #2563eb; color: white; }
+.bp-sim-btn.active .bp-sim-sub { opacity: .8; }
+body.bp-simulating { background: repeating-linear-gradient(-45deg,#dbe4ee,#dbe4ee 6px,#c7d3e0 6px,#c7d3e0 12px); }
+body.bp-simulating .app-shell { max-width: var(--bp-sim-width, none); margin: 0 auto; box-shadow: 0 0 0 2px #94a3b8, 0 12px 44px rgba(0,0,0,.22); background: var(--bg); }
 
-  .sidebar-footer { position: absolute; left: 0; right: 0; bottom: 18px; display: grid; place-items: center; }
-  .sidebar-footer .emblem {
-    width: 52px; height: 52px; border-radius: 50%;
-    background: #fff; display: grid; place-items: center; box-shadow: 0 0 0 1px var(--hair-2);
-    text-align: center; font-size: 7px; font-weight: 700; color: #2F6FB0; letter-spacing: .3px; line-height: 1.35;
-  }
+/* ── Top Nav ── */
+vwc-topnav { position: sticky; top: 0; z-index: 100; border-top: 0 !important; box-shadow: var(--lumo-box-shadow-xs); }
+vwc-topnav::before { display: none !important; height: 0 !important; background: transparent !important; }
+vwc-topnav::part(desktop-logo) { margin-inline-start: 16px; }
+.topnav-links { display: flex; align-items: center; gap: 4px; }
+.topnav-link { text-decoration: none; color: var(--lumo-secondary-text-color); font-weight: 700; font-size: 13px; padding: 8px 14px; border-radius: 999px; transition: background-color 160ms ease, color 160ms ease; display: inline-flex; align-items: center; gap: 6px; }
+.topnav-link:hover { background: var(--lumo-primary-color-10pct); }
+.topnav-link.active { color: var(--topnav-active-ink); background: var(--topnav-active-bg); }
+.topnav-link.active:hover { background: var(--topnav-active-bg-hover); }
+.topnav-beta { padding: 2px 6px; border-radius: 999px; background: #7c3aed; color: white; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 
-  /* ── Main column ── */
-  /* Fixed viewport height so the report area scrolls internally and the filter
-     panel (with its pinned Apply button) is always fully visible. */
-  .main { display: flex; flex-direction: column; background: var(--canvas); height: 100vh; overflow: hidden; }
+/* ── App Shell ── */
+.app-shell { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
-  /* Blue topbar (SafeLMS) */
-  .topbar {
-    min-height: 92px;
-    background: linear-gradient(90deg, #05347a 0%, #095ad2 100%);
-    display: flex; align-items: center;
-    padding: 18px 32px; color: #fff; gap: 22px; flex-shrink: 0;
-  }
-  .topbar .t-title { font-weight: 700; font-size: 34px; letter-spacing: .2px; flex-shrink: 0; }
-  .topbar .t-sub { font-size: 16px; color: #cdd9f0; opacity: .95; line-height: 1.45; max-width: 720px; }
+/* ── Location Picker Overlay ── */
+.location-picker-overlay { position: fixed; inset: 0; z-index: 50; opacity: 0; pointer-events: none; background: rgba(238,243,248,.18); backdrop-filter: blur(10px) saturate(1.02); transition: opacity 320ms ease; }
+.app-shell.location-picker-open .location-picker-overlay { opacity: 1; pointer-events: auto; }
 
-  /* ============================================================
-     PAGE LAYOUT — report content + right filter panel (V1)
-     ============================================================ */
-  .page-layout { display: flex; align-items: stretch; gap: 0; flex: 1 1 auto; min-height: 0; }
+/* ── Page Banner ── */
+.page-banner { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 8px 20px; min-height: 42px; display: flex; align-items: center; gap: 12px; position: relative; z-index: 60; flex-shrink: 0; }
+.context-ribbon { flex: 1; min-width: 0; position: relative; display: flex; align-items: center; gap: 12px; }
+.location-trigger-wrap { position: relative; display: inline-flex; align-items: center; align-self: center; flex-shrink: 0; }
+.location-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #bfdbfe; border-radius: 20px; background: #eff6ff; padding: 3px 10px; color: #2563eb; font-weight: 600; font-size: 12px; font-family: inherit; cursor: pointer; transition: background 160ms ease; position: relative; z-index: 62; white-space: nowrap; }
+.location-chip:hover { background: #dbeafe; }
+.location-chip i { font-size: 12px; color: #2563eb; }
+.breadcrumb-trail { flex: 1; min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; line-height: 1.3; font-size: 13px; }
+.breadcrumb-segment { white-space: nowrap; font-weight: 400; font-size: 13px; color: #2563eb; border: 0; padding: 0; background: transparent; font-family: inherit; cursor: pointer; text-decoration: none; }
+.breadcrumb-segment:hover { text-decoration: underline; }
+.breadcrumb-current { font-weight: 600; font-size: 13px; color: #374151; white-space: nowrap; }
+.breadcrumb-sep, .context-chevron { color: #9ca3af; font-size: 10px; }
+.banner-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.help-btn { background: none; border: none; cursor: pointer; color: #6b7280; font-size: 16px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: background .15s, color .15s; }
+.help-btn:hover { background: #f3f4f6; color: #374151; }
 
-  .main-content {
-    flex: 1; min-width: 0; min-height: 0; overflow-y: auto;
-    padding: 24px;
-    display: flex; flex-direction: column; gap: 20px;
-  }
-  /* main-content scrolls as a whole — its cards keep their natural height and must NOT
-     shrink to fit (the cards use overflow:hidden, which would otherwise let them collapse). */
-  .main-content > * { flex-shrink: 0; }
+/* ── Location Picker Panel ── */
+.location-picker-panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 200; width: max-content; min-width: 320px; max-width: 400px; max-height: 500px; overflow: hidden; border-radius: 16px; opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-8px) scale(0.985); transform-origin: top left; background: rgba(255,255,255,.96); backdrop-filter: blur(22px) saturate(1.04); box-shadow: 0 8px 32px rgba(0,0,0,.16), 0 0 0 1px rgba(0,0,0,.06); transition: opacity 260ms ease, transform 420ms cubic-bezier(.22,1,.36,1), visibility 0s linear 420ms; }
+.location-picker-panel.is-open { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0) scale(1); transition-delay: 0ms, 0ms, 0ms; }
+.location-picker-tree { display: grid; align-content: start; gap: 2px; padding: 8px; max-height: 500px; overflow-y: auto; opacity: 0; transition: opacity 280ms ease; }
+.location-picker-panel.is-open .location-picker-tree { opacity: 1; transition-delay: 220ms; }
+.location-node { display: grid; width: 100%; gap: 2px; grid-template-rows: auto 0fr; }
+.location-node.expanded { grid-template-rows: auto 1fr; }
+.location-children { display: grid; gap: 0; min-height: 0; overflow: hidden; }
+.location-node-row { display: grid; grid-template-columns: 22px minmax(0,1fr) 18px; align-items: center; column-gap: 6px; min-height: 52px; border-radius: 12px; padding: 0 10px 0 calc(8px + (var(--location-depth,0) * 16px)); position: relative; background: transparent; transition: background 160ms; }
+.location-node-row::before { content: ""; position: absolute; inset: 0; border-radius: 12px; background: transparent; opacity: 0; transition: background 160ms, opacity 160ms; pointer-events: none; }
+.location-node-row > * { position: relative; z-index: 1; }
+.location-node-row.selected::before { background: var(--location-selection-bg); opacity: 1; }
+.location-node-row:not(.selected):hover::before { background: var(--location-hover-bg); opacity: 1; }
+.location-toggle-button, .location-toggle-spacer { width: 22px; min-width: 22px; height: 52px; display: inline-grid; place-items: center; border: 0; background: transparent; color: var(--location-control-ink); cursor: pointer; }
+.location-toggle-spacer { cursor: default; }
+.location-option-summary { min-height: 52px; border: 0; border-radius: 10px; background: transparent; color: #0f172a; display: grid; align-content: center; justify-items: start; padding: 6px 8px; text-align: left; cursor: pointer; transition: background 160ms; }
+.location-option-copy { display: grid; gap: 2px; min-width: 0; }
+.location-option-copy strong { font-size: 13px; font-weight: 700; line-height: 1.25; }
+.location-option-copy span { color: #6b7280; font-size: 11.5px; line-height: 1.3; }
+.location-option-check { width: 16px; color: var(--primary); grid-column: 3; justify-self: end; align-self: center; transition: opacity 160ms, transform 160ms; }
+.location-option-check.is-hidden { opacity: 0; transform: scale(.86); }
+.location-option-chevron { width: 14px; }
 
-  /* Report meta row (last-updated + actions) — replaces V1 page-title row,
-     since the SafeLMS blue topbar already carries the page title. */
-  .report-meta-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  .meta-left { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; }
-  .data-note { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
-  .data-note i { color: var(--blue-primary); }
-  .data-note b { color: var(--ink-2); font-weight: 700; }
-  .actions-right { display: flex; align-items: center; gap: 8px; }
-  vaadin-button i[slot="prefix"] { margin-inline-end: 7px; }
+/* ── Main Layout ── */
+.main-layout { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+vwc-sidenav { --vwc-sidenav-offset: 0px; --vwc-sidenav-width: 220px; --vwc-item-min-height: 36px; --vwc-item-vertical-padding: 5px; --vwc-item-horizontal-padding: 12px; flex-shrink: 0; min-height: 0; align-self: stretch; position: relative !important; z-index: 1 !important; }
 
-  /* ── Report card (V1) ── */
+/* ── Report Area ── */
+.report-area { flex: 1; display: flex; overflow: hidden; }
+.report-content { flex: 1; padding: 20px 24px; overflow-y: auto; overflow-x: hidden; min-width: 0; display: block; }
+
+/* ── Report Header ── */
+.report-header { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.report-title h1 { font-size: 20px; font-weight: 700; letter-spacing: -.015em; }
+.report-updated { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; display: inline-flex; align-items: center; gap: 7px; }
+.report-updated b { color: var(--text-secondary); font-weight: 700; }
+.report-actions-bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.report-actions-left { display: flex; gap: 6px; align-items: center; }
+.report-actions-right { display: flex; gap: 6px; align-items: center; }
+vaadin-button vwc-icon[slot="prefix"] { width: 16px; height: 16px; flex-shrink: 0; }
+vaadin-button i[slot="prefix"] { margin-inline-end: 7px; }
+
+/* ── Section Header ── */
+.section-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 10px; }
+.section-title { font-size: 14px; font-weight: 700; }
+.section-date { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--primary); background: var(--primary-light); padding: 2px 8px; border-radius: 3px; }
+
+/* ── Filter reveal button (shown when the panel is collapsed) ── */
+.filter-reveal-btn { display: none; width: 36px; height: 36px; flex-shrink: 0; align-items: center; justify-content: center; background: var(--bg); border: 1.5px solid var(--primary); border-radius: var(--radius); color: var(--primary); font-size: 15px; cursor: pointer; transition: background .12s, box-shadow .12s; box-shadow: 0 1px 4px rgba(37,99,235,.10); }
+.filter-reveal-btn:hover { background: var(--primary-light); box-shadow: 0 2px 8px rgba(37,99,235,.18); }
+.filter-panel-wrap { display: flex; flex-shrink: 0; position: relative; }
+
+/* ── Tooltips ── */
+.global-tooltip { position: fixed; z-index: 900; display: none; width: 230px; padding: 9px 12px; background: #1e293b; color: white; font-size: 11.5px; line-height: 1.5; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,.24); pointer-events: none; }
+.global-tooltip::after { content: ''; position: absolute; left: 50%; transform: translateX(-50%); top: 100%; border: 5px solid transparent; border-top-color: #1e293b; }
+
+/* ── Report card (V1) ── */
   .report-card { background: #fff; border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; }
   .report-card-header { padding: 16px 20px 12px; border-bottom: 1px solid var(--hair-2); }
   .report-card-title-row { display: flex; align-items: center; justify-content: space-between; }
@@ -279,26 +311,32 @@
 
   /* ── Report table (V1) ── */
   .report-table-wrap { overflow-x: auto; }
-  /* Fixed layout so all columns fit the card width — no horizontal scroll; cells wrap instead.
+  /* Fixed layout keeps the column widths stable; a min-width (set below) holds the table at
+     its natural size so it scrolls horizontally inside .report-table-wrap when the area is
+     narrow, instead of squishing/overlapping cells.
      Column widths + visibility + order are driven by the JS column model (inline th widths). */
   .report-table { table-layout: fixed; width: 100%; border-collapse: collapse; font-size: 14.5px; }
 
-  /* When the filter panel is open the content area narrows. Rather than squishing the
-     columns, hold the table at its natural width so .report-table-wrap scrolls horizontally,
-     and freeze the Action column as a fixed pane pinned to the right edge. */
-  .page-layout.panel-open .report-table { min-width: 1080px; }
-  .page-layout.panel-open .report-table th.col-action,
-  .page-layout.panel-open .report-table td.cell-actions {
+  /* Whenever the content area is too narrow for every column (e.g. the filter panel is
+     open, or the window is small), hold the table at its natural width so
+     .report-table-wrap scrolls horizontally rather than squishing/overlapping the columns,
+     and freeze the Action column as a fixed pane pinned to the right edge. This is always on:
+     when the table already fits, the frozen pane simply sits flush at the right edge. */
+  /* min-width is generous enough that every column (incl. the Modules-Complete cell's
+     fraction + bar + Details link) has room without cells overlapping their neighbours. */
+  .report-table { min-width: 1300px; }
+  .report-table th.col-action,
+  .report-table td.cell-actions {
     position: sticky; right: 0; z-index: 2;
     box-shadow: -8px 0 12px -8px rgba(16,24,40,.18);   /* soft edge marks the frozen pane */
   }
-  .page-layout.panel-open .report-table th.col-action { background: #f9fafb; z-index: 3; }
+  .report-table th.col-action { background: #f9fafb; z-index: 3; }
   /* Frozen body cells need an opaque background so scrolled content doesn't show through —
      mirror each row state (default / hover / selected). */
-  .page-layout.panel-open .report-table td.cell-actions { background: #fff; }
-  .page-layout.panel-open .report-table .data-row:hover td.cell-actions { background: #fafafa; }
-  .page-layout.panel-open .report-table .data-row.row-selected td.cell-actions { background: #eff6ff; }
-  .page-layout.panel-open .report-table .data-row.row-selected:hover td.cell-actions { background: #e0ebff; }
+  .report-table td.cell-actions { background: #fff; }
+  .report-table .data-row:hover td.cell-actions { background: #fafafa; }
+  .report-table .data-row.row-selected td.cell-actions { background: #eff6ff; }
+  .report-table .data-row.row-selected:hover td.cell-actions { background: #e0ebff; }
   .report-table td.nowrap, .report-table th.nowrap { white-space: nowrap; }
   .report-table thead { background: #f9fafb; }
   .report-table thead th {
@@ -474,24 +512,6 @@
   .footer .copy { display: flex; align-items: center; gap: 6px; color: var(--ink-2); }
 
   /* ============================================================
-     DASHBOARD TABS — OSHA Report lives as a tab in the Dashboard
-     menu (alongside Completions + Impact Insights), not as a
-     separate left-nav item.
-     ============================================================ */
-  .dash-tabs {
-    display: flex; gap: 28px; padding: 0 32px;
-    background: #fff; border-bottom: 1px solid var(--hair); flex-shrink: 0;
-  }
-  .dash-tab {
-    padding: 13px 2px 14px; font-size: 16px; color: #4A5565; cursor: pointer;
-    border-bottom: 3px solid transparent; margin-bottom: -1px; white-space: nowrap;
-    background: none; border-top: 0; border-left: 0; border-right: 0; font-family: inherit;
-    transition: color .12s;
-  }
-  .dash-tab:hover { color: var(--ink); }
-  .dash-tab.active { color: var(--blue-accent); border-bottom-color: var(--blue-accent); font-weight: 700; }
-
-  /* ============================================================
      ACTION-NEEDED CARDS — replace the "Top 5 courses" bar chart.
      Each card = a count of learners in an actionable group; click
      opens a course-filterable bulk-action modal.
@@ -505,12 +525,14 @@
   }
   .action-card:hover { border-color: var(--blue-primary); box-shadow: 0 2px 10px rgba(16,24,40,.10); }
   .action-card:active { transform: translateY(1px); }
+  /* Active quick-filter state — the card whose action group the table is currently filtered to. */
+  .action-card.active { border-color: var(--blue-primary); box-shadow: 0 0 0 1px var(--blue-primary) inset; background: #f5f8ff; }
   .action-card .ac-ico { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; font-size: 19px; flex-shrink: 0; }
   .action-card .ac-body { flex: 1; min-width: 0; }
   .action-card .ac-count { font-size: 26px; font-weight: 800; color: var(--ink); line-height: 1.05; }
   .action-card .ac-count .ac-of { font-size: 14px; font-weight: 600; color: var(--muted); margin-left: 3px; }
   .action-card .ac-label { display: block; font-size: 14.5px; color: var(--ink-2); margin-top: 2px; }
-  .action-card .ac-cta { margin-left: auto; flex-shrink: 0; font-size: 13px; font-weight: 700; color: var(--blue-accent); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .action-card .ac-take { margin-left: auto; flex-shrink: 0; }
   .action-card .ac-ico.intervene { background: #f3f4f6; color: #4b5563; }
   .action-card .ac-ico.nudge     { background: #fef3c7; color: #d97706; }
   .action-card .ac-ico.retry     { background: #fee2e2; color: #b91c1c; }
@@ -523,7 +545,20 @@
   .mod-link { background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; color: var(--blue-accent); font-size: 13px; font-weight: 600; white-space: nowrap; }
   .mod-link:hover { text-decoration: underline; }
 
-  /* ── Per-student module detail modal ── */
+  /* ── Nested module-detail row (expands inside the report table, like the Tasklist Report) ── */
+  .detail-row { display: none; }
+  .detail-row.open { display: table-row; }
+  .detail-row > td { padding: 0; background: #eef2fb; border-bottom: 2px solid var(--blue-primary); }
+  /* Sticky-left so the expanded module table stays put next to the frozen columns even as the
+     wide report table scrolls horizontally. Constrained width keeps all its columns on screen. */
+  .mod-detail-inner { padding: 14px 20px 18px 46px; position: sticky; left: 0; width: min(760px, 100%); }
+  .mod-detail-title { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 10px; }
+  .mod-detail-inner .mods-list { max-width: 700px; background: #fff; }
+  /* The Details link shows a caret that rotates when its row is expanded. */
+  .mod-link .mod-caret { display: inline-block; margin-right: 4px; font-size: 11px; transition: transform .15s; }
+  .mod-link.open .mod-caret { transform: rotate(90deg); }
+
+  /* ── Per-student module detail (nested table + modal share these styles) ── */
   .mods-summary { display: flex; gap: 26px; margin: 2px 0 16px; }
   .mods-summary .ms-cell .ms-k { font-size: 13px; color: var(--muted); }
   .mods-summary .ms-cell .ms-v { font-size: 19px; font-weight: 800; color: var(--ink); margin-top: 2px; }
@@ -577,126 +612,136 @@
   .dlv-editor { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
   .dlv-editor[hidden] { display: none; }   /* author display:flex would otherwise override [hidden] */
   .dlv-editor-actions { display: flex; justify-content: flex-end; }
+
+
+/* ============================================================
+   CONVERGENCE RE-SKIN OVERRIDES — tune the kept OSHA components
+   to the Tasklist Report design system (cards, table, chips).
+   ============================================================ */
+.report-content > * { flex-shrink: 0; }
+
+/* Cards → white, hairline border, subtle shadow, 6px radius */
+.report-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 18px; }
+.report-card-header { padding: 14px 18px 12px; border-bottom: 1px solid var(--border); }
+.report-card-title { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.date-badge { background: var(--primary-light); color: var(--primary); border: none; font-size: 11.5px; padding: 3px 9px; border-radius: 3px; }
+.chart-section-title { font-size: 11px; font-weight: 700; letter-spacing: .5px; color: var(--text-muted); }
+
+/* Report toolbar / search */
+.report-toolbar { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.search-input { font-size: 13px; border-color: #c4c4c4; }
+.search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37,99,235,.12); }
+.col-picker-btn { border-color: #c4c4c4; }
+
+/* Table → Tasklist grid look: sticky slate header, compact 12.5px cells */
+.report-table { font-size: 12.5px; }
+.report-table thead th { position: sticky; top: 0; z-index: 10; background: var(--bg-secondary); font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .02em; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+.report-table .data-row td { padding: 10px 12px; font-size: 12.5px; border-bottom: 1px solid var(--border-light); color: var(--text-secondary); }
+.report-table .data-row .l-name { color: var(--text-primary); font-weight: 600; }
+.report-table .data-row:hover td { background: var(--bg-hover); }
+.sortable-th:hover { background: var(--bg-hover); }
+.report-table th.col-action { background: var(--bg-secondary); }
+
+/* Status badges → squarer Convergence pills */
+.status-badge { border-radius: 4px; font-size: 11px; font-weight: 700; padding: 3px 8px; }
+
+/* Filter scope sentence sits just under the header */
+.filter-scope-row { margin-bottom: 16px; }
+.filter-lead { font-size: 13px; color: var(--text-muted); }
+
+/* Filter panel → Convergence styling (labels, checkboxes, footer buttons) */
+.filter-panel { border-left: 1px solid #e5e7eb; }
+.filter-panel.collapsed { opacity: 1; }
+.filter-panel-title { font-size: 14px; color: #111827; }
+.filter-label { font-size: 12px; font-weight: 600; color: #6b7280; text-transform: none; letter-spacing: 0; }
+.filter-check-row { font-size: 13px; color: #374151; }
+.filter-footer-btns { display: flex; gap: 8px; }
+.filter-footer-btns vaadin-button { flex: 1; }
+
+/* Action-needed cards → align with card border tokens */
+.action-card { border-radius: var(--radius); }
+
+/* Nested module-detail panel keeps its pale-blue background */
+.detail-row > td { background: #eef2fb; border-bottom: 2px solid var(--primary); }
+
 </style>
 </head>
 <body>
+<div class="app-shell" id="appShell">
 
-<div class="app">
+  <!-- Location Picker Overlay -->
+  <div class="location-picker-overlay" id="locationPickerOverlay" aria-hidden="true"></div>
 
-  <!-- ═══ Sidebar (SafeLMS chrome) ═══ -->
-  <aside class="sidebar">
-    <div class="logo">
-      <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-        <path d="M4 6 L16 26 L28 6 L22 6 L16 16 L10 6 Z" fill="#155DFC"/>
-      </svg>
-      <div class="wordmark">
-        <span class="brand">VectorSolutions<sup>®</sup></span>
-        <span class="sub">Vector Training, K-12 Edition</span>
+  <!-- Top Nav (Convergence) -->
+  <vwc-topnav id="topnav" main-content-id="mainContent">
+    <div slot="rightSide" class="topnav-links">
+      <a href="#" class="topnav-link">Home</a>
+      <a href="#" class="topnav-link">Training</a>
+      <a href="#" class="topnav-link">Catalog</a>
+      <a href="#" class="topnav-link active">Insights <span class="topnav-beta">Beta</span></a>
+      <a href="#" class="topnav-link">Administration</a>
+    </div>
+    <vwc-user-menu id="topnavUserMenu" slot="app-switcher">
+      <vwc-language-selector-dialog id="languageSelectorDialog" slot="language-selector"></vwc-language-selector-dialog>
+    </vwc-user-menu>
+    <vwc-notifications-menu id="topnavNotificationsMenu" slot="notifications-menu"></vwc-notifications-menu>
+  </vwc-topnav>
+
+  <!-- Page Banner (location chip + breadcrumb) -->
+  <div class="page-banner">
+    <div class="context-ribbon">
+      <div class="location-trigger-wrap">
+        <button type="button" id="locationChip" class="location-chip" aria-expanded="false" aria-controls="locationPickerPanel">
+          <i class="fa-solid fa-location-dot"></i>
+          <span>Location</span>
+        </button>
+        <div id="locationPickerPanel" class="location-picker-panel" role="dialog" aria-label="Location picker">
+          <div id="locationPickerTree" class="location-picker-tree"></div>
+        </div>
+      </div>
+      <div id="breadcrumbTrail" class="breadcrumb-trail" aria-label="Current location">
+        <span class="breadcrumb-current">OSHA Report</span>
       </div>
     </div>
-
-    <div class="user">
-      <div class="avatar">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg>
-      </div>
-      <div class="name"><span>Welcome,</span><b>Deborah Kim</b></div>
+    <div class="banner-right">
+      <button class="help-btn" aria-label="Help"><i class="fa-regular fa-circle-question"></i></button>
     </div>
+  </div>
 
-    <div class="nav-group">
-      <div class="label">MAIN</div>
-      <a class="nav-item" href="#">
-        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/></svg></span>
-        <span class="lbl">My Assignments</span>
-      </a>
-      <a class="nav-item" href="#">
-        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
-        <span class="lbl">Training History</span>
-      </a>
-      <a class="nav-item" href="#">
-        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="13" rx="2"/><path d="M4 10h16"/></svg></span>
-        <span class="lbl">Extra Training</span>
-      </a>
-    </div>
+  <!-- Main Layout -->
+  <div class="main-layout" id="mainContent">
 
-    <div class="nav-group">
-      <div class="label">ADMIN</div>
-      <a class="nav-item active" href="#">
-        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="9" rx="1"/><rect x="13" y="4" width="7" height="5" rx="1"/><rect x="13" y="11" width="7" height="9" rx="1"/><rect x="4" y="15" width="7" height="5" rx="1"/></svg></span>
-        <span class="lbl">Dashboard</span>
-      </a>
-      <a class="nav-item" href="#">
-        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9h16"/><path d="M8 5V3M16 5V3"/></svg></span>
-        <span class="lbl">Training Plans</span>
-      </a>
-      <a class="nav-item" href="#">
-        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3"/><circle cx="16" cy="10" r="2"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/><path d="M15 18c0-2 2-3 4-3s3 1 3 3"/></svg></span>
-        <span class="lbl">Employees</span>
-      </a>
-      <a class="nav-item" href="#">
-        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 9l5 3-5 3z" fill="currentColor" stroke="none"/></svg></span>
-        <span class="lbl">Courses</span>
-      </a>
-      <a class="nav-item" href="#">
-        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 9h18M3 14h18M9 4v16M15 4v16"/></svg></span>
-        <span class="lbl">Reports</span>
-      </a>
-      <a class="nav-item" href="#">
-        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span>
-        <span class="lbl">Settings</span>
-      </a>
-    </div>
+    <!-- Side Nav -->
+    <vwc-sidenav id="sideNav"></vwc-sidenav>
 
-    <div class="sidebar-footer">
-      <div class="emblem">SAMPLE<br>SCHOOL<br>DISTRICT</div>
-    </div>
-  </aside>
+    <!-- Report Area -->
+    <div class="report-area">
+      <div class="report-content">
 
-  <!-- ═══ Main ═══ -->
-  <section class="main">
-
-    <!-- Blue topbar (SafeLMS) -->
-    <div class="topbar">
-      <div class="t-title">Dashboard</div>
-      <div class="t-sub">The administrative dashboard offers a quick overview of recent activity and insights, including course completions and feedback from your users.</div>
-    </div>
-
-    <!-- Dashboard menu tabs — OSHA Report sits next to Impact Insights -->
-    <div class="dash-tabs" role="tablist" id="dashTabs">
-      <button class="dash-tab" data-tab="completions" role="tab">Completions</button>
-      <button class="dash-tab" data-tab="impact" role="tab">Impact Insights</button>
-      <button class="dash-tab active" data-tab="osha" role="tab" aria-selected="true">OSHA Report</button>
-    </div>
-
-    <!-- Report content + right filter panel -->
-    <div class="page-layout" id="oshaLayout">
-      <main class="main-content">
-
-        <!-- Meta + actions -->
-        <div class="report-meta-row">
-          <div class="meta-left">
-            <!-- Page-level filter scope — applies to the charts AND the table.
-                 Default reads "Showing all courses"; once filters are applied the lead-in
-                 becomes "Filtered to:" followed by a removable chip per active filter,
-                 with a tertiary Clear button to clear them all. -->
-            <div class="filter-scope-row">
-              <!-- Sentence + chips describe the current scope; the Filters button lives in the action bar -->
-              <span class="filter-lead" id="filterLead">Showing all courses</span>
-              <span class="applied-filters" id="appliedFilters"></span>
-              <vaadin-button theme="tertiary small" id="filtersClearBtn" hidden><i class="fa-solid fa-xmark" slot="prefix"></i> Clear filters</vaadin-button>
-            </div>
-            <div class="data-note">
-              <i class="fa-solid fa-rotate"></i>
-              <span>Data refreshed nightly from ClickSafety · Last updated <b>Jun 22, 2026 at 6:00 AM EDT</b></span>
-            </div>
+        <!-- Report Header -->
+        <div class="report-header">
+          <div class="report-title">
+            <h1>OSHA Report</h1>
+            <div class="report-updated"><i class="fa-solid fa-rotate"></i> Data refreshed nightly from ClickSafety · Last updated <b>Jun 22, 2026 at 6:00 AM EDT</b></div>
           </div>
-          <div class="actions-right">
-            <vaadin-button theme="secondary small" id="filterInlineToggle"><i class="fa-solid fa-sliders" slot="prefix"></i> Filters</vaadin-button>
-            <vaadin-button theme="secondary small" id="sendBtn"><i class="fa-regular fa-paper-plane" slot="prefix"></i> Send Report</vaadin-button>
-            <vaadin-button theme="primary small" id="exportBtn"><i class="fa-solid fa-file-export" slot="prefix"></i> Export</vaadin-button>
+          <div class="report-actions-bar">
+            <div class="report-actions-left">
+              <vaadin-button theme="primary" id="exportBtn"><i class="fa-solid fa-file-export" slot="prefix"></i> Export</vaadin-button>
+            </div>
+            <div class="report-actions-right">
+              <button class="filter-reveal-btn" id="filterInlineToggle" title="Show filters" aria-label="Show filters"><i class="fa-solid fa-filter"></i></button>
+            </div>
           </div>
         </div>
 
-        <!-- ── Completion Status Overview ── -->
+        <!-- Page-level filter scope — applies to the charts AND the table -->
+        <div class="filter-scope-row">
+          <span class="filter-lead" id="filterLead">Showing all courses</span>
+          <span class="applied-filters" id="appliedFilters"></span>
+          <vaadin-button theme="tertiary small" id="filtersClearBtn" hidden><i class="fa-solid fa-xmark" slot="prefix"></i> Clear filters</vaadin-button>
+        </div>
+
+<!-- ── Completion Status Overview ── -->
         <div class="report-card" id="completionOverview">
           <div class="report-card-header">
             <div class="report-card-title-row">
@@ -705,35 +750,14 @@
             </div>
           </div>
           <div class="chart-area">
-            <!-- Overview chart: toggle between the completion-distribution pie and the
-                 "Where Learners Are" progress breakdown (both rendered live from the data). -->
+            <!-- Status Distribution: share of learners by completion status (live from the data).
+                 Reflects the applied panel filters only — the table's temporary search box does
+                 NOT change these numbers. -->
             <div class="chart-col">
-              <div class="chart-flip" id="chartFlip">
-                <button class="cf-btn active" data-chart="dist" type="button">Completion Distribution</button>
-                <button class="cf-btn" data-chart="progress" type="button">Where Learners Are</button>
-                <button class="cf-btn" data-chart="passfail" type="button">Course Pass / Fail</button>
-              </div>
-
-              <!-- Pie: share of learners by completion status -->
-              <div class="chart-view" id="view-dist">
-                <div class="pie-chart-wrap">
-                  <div class="pie-chart" id="pieChart"></div>
-                  <div class="pie-labels" id="pieLabels"><!-- rendered by JS --></div>
-                </div>
-              </div>
-
-              <!-- Where Learners Are: how far along learners are right now -->
-              <div class="chart-view" id="view-progress" hidden>
-                <div class="prog-chart" id="progressChart"><!-- rendered by JS --></div>
-              </div>
-
-              <!-- Course Pass / Fail: pass-rate donut with a per-module pass/fail drill-through -->
-              <div class="chart-view" id="view-passfail" hidden>
-                <div id="passFailChart"><!-- donut + legend rendered by JS --></div>
-                <button class="drill-toggle" id="drillToggle" aria-expanded="false">
-                  <i class="fa-solid fa-chevron-right"></i> Show module pass / fail
-                </button>
-                <div class="module-breakdown" id="moduleBreakdown" hidden><!-- rendered by JS --></div>
+              <div class="chart-section-title">Status Distribution</div>
+              <div class="pie-chart-wrap">
+                <div class="pie-chart" id="pieChart"></div>
+                <div class="pie-labels" id="pieLabels"><!-- rendered by JS --></div>
               </div>
             </div>
 
@@ -808,123 +832,109 @@
           </div>
         </div>
 
-        <!-- Footer (sits at the bottom of the content column, beside the panel) -->
-        <div class="footer">
-          <div class="links">
-            <a href="#">Terms Of Use</a><span class="sep">·</span>
-            <a href="#">Privacy Policy</a><span class="sep">·</span>
-            <a href="#">Contact</a><span class="sep">·</span>
-            <a href="#">UI Version 4 ⌄</a>
+      </div><!-- /report-content -->
+
+      <!-- Filter Panel -->
+      <div class="filter-panel-wrap">
+  <aside class="filter-panel" id="filterPanel">
+          <div class="filter-panel-header">
+            <h3 class="filter-panel-title">Report Filters</h3>
+            <button class="filter-close-btn" id="closePanelBtn" title="Close filters"><i class="fa-solid fa-xmark"></i></button>
           </div>
-          <div class="copy">© 2026 Vector Solutions
-            <svg width="16" height="16" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M4 6 L16 26 L28 6 L22 6 L16 16 L10 6 Z" fill="#155DFC"/></svg>
-            VectorSolutions
-          </div>
-        </div>
 
-      </main><!-- /main-content -->
-
-      <!-- ── FILTER PANEL (V1) ── -->
-      <aside class="filter-panel" id="filterPanel">
-        <div class="filter-panel-header">
-          <h3 class="filter-panel-title">Report Filters</h3>
-          <button class="filter-close-btn" id="closePanelBtn" title="Close filters"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-
-        <div class="filter-panel-body">
-          <!-- Date Range -->
-          <div class="filter-section">
-            <label class="filter-label">Date Range</label>
-            <div class="date-range-dd" data-drange="qual">
-              <button type="button" class="drange-trigger">
-                <span class="drange-trigger-label">Past 30 days</span>
-                <i class="fa-solid fa-chevron-down drange-trigger-chev"></i>
-              </button>
-              <div class="drange-menu" hidden>
-                <div class="drange-presets">
-                  <button type="button" class="drange-opt" data-range="today">Today</button>
-                  <button type="button" class="drange-opt" data-range="yesterday">Yesterday</button>
-                  <button type="button" class="drange-opt" data-range="last7">Past 7 days</button>
-                  <button type="button" class="drange-opt active" data-range="last30">Past 30 days</button>
-                  <button type="button" class="drange-opt" data-range="last90">Past 90 days</button>
-                  <button type="button" class="drange-opt" data-range="lastyear">Past year</button>
-                  <button type="button" class="drange-opt drange-opt-custom" data-range="custom">Custom date range</button>
-                </div>
-                <div class="drange-custom" hidden>
-                  <button type="button" class="drange-back"><i class="fa-solid fa-chevron-left"></i> Date range options</button>
-                  <vaadin-date-picker theme="outlined small" class="drange-start" label="Start date" style="width:100%"></vaadin-date-picker>
-                  <vaadin-date-picker theme="outlined small" class="drange-end" label="End date" style="width:100%;margin-top:8px"></vaadin-date-picker>
-                  <div class="drange-custom-actions">
-                    <vaadin-button theme="primary small" class="drange-apply">Apply</vaadin-button>
+          <div class="filter-panel-body">
+            <!-- Date Range -->
+            <div class="filter-section">
+              <label class="filter-label">Date Range</label>
+              <div class="date-range-dd" data-drange="qual">
+                <button type="button" class="drange-trigger">
+                  <span class="drange-trigger-label">Past 30 days</span>
+                  <i class="fa-solid fa-chevron-down drange-trigger-chev"></i>
+                </button>
+                <div class="drange-menu" hidden>
+                  <div class="drange-presets">
+                    <button type="button" class="drange-opt" data-range="today">Today</button>
+                    <button type="button" class="drange-opt" data-range="yesterday">Yesterday</button>
+                    <button type="button" class="drange-opt" data-range="last7">Past 7 days</button>
+                    <button type="button" class="drange-opt active" data-range="last30">Past 30 days</button>
+                    <button type="button" class="drange-opt" data-range="last90">Past 90 days</button>
+                    <button type="button" class="drange-opt" data-range="lastyear">Past year</button>
+                    <button type="button" class="drange-opt drange-opt-custom" data-range="custom">Custom date range</button>
+                  </div>
+                  <div class="drange-custom" hidden>
+                    <button type="button" class="drange-back"><i class="fa-solid fa-chevron-left"></i> Date range options</button>
+                    <vaadin-date-picker theme="outlined small" class="drange-start" label="Start date" style="width:100%"></vaadin-date-picker>
+                    <vaadin-date-picker theme="outlined small" class="drange-end" label="End date" style="width:100%;margin-top:8px"></vaadin-date-picker>
+                    <div class="drange-custom-actions">
+                      <vaadin-button theme="primary small" class="drange-apply">Apply</vaadin-button>
+                    </div>
                   </div>
                 </div>
+                <input type="hidden" class="date-input" value="Past 30 days">
               </div>
-              <input type="hidden" class="date-input" value="Past 30 days">
+            </div>
+
+            <div class="filter-divider"></div>
+
+            <!-- OSHA Courses — inline checkbox multiselect (rendered by JS from the data) -->
+            <div class="filter-section">
+              <label class="filter-label">OSHA Courses</label>
+              <div class="filter-checkboxes" id="courseChecks"><!-- rendered by JS --></div>
+            </div>
+
+            <div class="filter-divider"></div>
+
+            <!-- Completion Status -->
+            <div class="filter-section">
+              <label class="filter-label">Completion Status</label>
+              <div class="filter-checkboxes" id="statusChecks">
+                <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="passed"></vaadin-checkbox><span>Passed</span></label>
+                <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="in-progress"></vaadin-checkbox><span>In Progress</span></label>
+                <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="not-started"></vaadin-checkbox><span>Not Started</span></label>
+                <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="failed"></vaadin-checkbox><span>Failed</span></label>
+              </div>
+            </div>
+
+            <div class="filter-divider"></div>
+
+            <!-- Action Needed — mirrors the Action-Needed cards above the table -->
+            <div class="filter-section">
+              <label class="filter-label">Action Needed</label>
+              <div class="filter-checkboxes" id="actionChecks">
+                <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="intervene"></vaadin-checkbox><span>Not started — needs intervention</span></label>
+                <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="nudge"></vaadin-checkbox><span>Behind pace — needs a nudge</span></label>
+                <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="retry"></vaadin-checkbox><span>Failed — needs a retry</span></label>
+              </div>
+            </div>
+
+            <div class="filter-divider"></div>
+
+            <!-- Extra options -->
+            <div class="filter-section filter-extra">
+              <label class="filter-check-row"><vaadin-checkbox theme="small" id="chk-expiring"></vaadin-checkbox><span>Only certifications expiring ≤ 30 days</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" id="chk-failed-limit"></vaadin-checkbox><span>Only learners near the 3-failure limit</span></label>
             </div>
           </div>
 
-          <div class="filter-divider"></div>
-
-          <!-- OSHA Courses -->
-          <div class="filter-section">
-            <label class="filter-label">OSHA Courses</label>
-            <button class="filter-select-btn" id="selectCoursesBtn">Select OSHA Courses</button>
-            <div class="filter-chips" id="courseChips"></div>
+          <div class="filter-panel-footer">
+            <div class="filter-footer-btns"><vaadin-button theme="secondary" id="resetFiltersBtn">Reset Filters</vaadin-button><vaadin-button theme="primary" id="applyFiltersBtn">Apply Filters</vaadin-button></div>
           </div>
+        </aside>
+      </div>
+    </div><!-- /report-area -->
 
-          <div class="filter-divider"></div>
+  </div><!-- /main-layout -->
+</div><!-- /app-shell -->
 
-          <!-- Learners -->
-          <div class="filter-section">
-            <label class="filter-label">Learners</label>
-            <button class="filter-select-btn" id="selectUsersBtn">Select Learners</button>
-            <div class="filter-chips" id="userChips"></div>
-          </div>
-
-          <div class="filter-divider"></div>
-
-          <!-- Completion Status -->
-          <div class="filter-section">
-            <label class="filter-label">Completion Status</label>
-            <div class="filter-checkboxes" id="statusChecks">
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="passed"></vaadin-checkbox><span>Passed</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="in-progress"></vaadin-checkbox><span>In Progress</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="not-started"></vaadin-checkbox><span>Not Started</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="failed"></vaadin-checkbox><span>Failed</span></label>
-            </div>
-          </div>
-
-          <div class="filter-divider"></div>
-
-          <!-- Extra options -->
-          <div class="filter-section filter-extra">
-            <label class="filter-check-row"><vaadin-checkbox theme="small" id="chk-expiring"></vaadin-checkbox><span>Only certifications expiring ≤ 30 days</span></label>
-            <label class="filter-check-row"><vaadin-checkbox theme="small" id="chk-failed-limit"></vaadin-checkbox><span>Only learners near the 3-failure limit</span></label>
-          </div>
-        </div>
-
-        <div class="filter-panel-footer">
-          <vaadin-button theme="primary" id="applyFiltersBtn">Apply Filters</vaadin-button>
-        </div>
-      </aside>
-    </div><!-- /page-layout -->
-
-  </section>
-</div>
-
-<!-- Select Courses / Learners pickers -->
-<vaadin-dialog id="selectCoursesDialog" header-title="Select OSHA Courses"></vaadin-dialog>
-<vaadin-dialog id="selectUsersDialog" header-title="Select Learners"></vaadin-dialog>
 
 <!-- Per-row action modal (Intervene / Nudge / Schedule Retry / View / Certificate) + toast -->
 <vaadin-dialog id="actionDialog" no-close-on-outside-click></vaadin-dialog>
-<!-- Per-student module progress + quiz scores -->
-<vaadin-dialog id="moduleDialog"></vaadin-dialog>
 <!-- Action-group bulk modal (opened from the Action Needed cards) -->
 <vaadin-dialog id="agDialog" no-close-on-outside-click></vaadin-dialog>
 <vaadin-notification id="toast" position="bottom-center" duration="3200"></vaadin-notification>
 
 <script>
+
   /* ═══════════════ Data — OSHA completion report, grouped by course ═══════════════ */
   // mods = # of the course's 10 modules the learner has completed (drives "8/10").
   // behind = backend-flagged "behind the expected pace" for in-progress learners (needs a nudge).
@@ -947,7 +957,7 @@
       { name:'Jensen, Cole',    ext:'cjensen472',  status:'in-progress', mods:5,  pct:50,  time:'2h 30m', last:'4 days ago',  exp:'10/05/2026' },
       { name:'Keller, Ruth',    ext:'rkeller138',  status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'05/30/2026', expSoon:true },
     ]},
-    { id:'g2', course:'OSHA 30-Hour General Industry', expanded:true, rows:[
+    { id:'g2', course:'OSHA 10-Hour Construction', expanded:true, rows:[
       { name:'Reyes, Tomás',    ext:'treyes824',   status:'in-progress', mods:2,  pct:15,  time:'1h 10m', last:'24 days ago', exp:'07/30/2026', behind:true },
       { name:'Osei, Janet',     ext:'josei330',    status:'in-progress', mods:4,  pct:38,  time:'2h 40m', last:'16 days ago', exp:'09/02/2026', behind:true },
       { name:'Zhang, Emily',    ext:'ezhang118',   status:'in-progress', mods:5,  pct:48,  time:'3h 20m', last:'Yesterday',   exp:'11/01/2026' },
@@ -965,7 +975,7 @@
       { name:'Kim, Sora',       ext:'skim671',     status:'passed',      mods:10, pct:100, time:'6h 10m', last:'04/20/2026',  exp:'04/20/2027' },
       { name:'Lowe, Trent',     ext:'tlowe238',    status:'in-progress', mods:5,  pct:46,  time:'3h 30m', last:'6 days ago',  exp:'10/22/2026' },
     ]},
-    { id:'g3', course:'Bloodborne Pathogens', expanded:false, rows:[
+    { id:'g3', course:'OSHA 30-Hour Construction', expanded:false, rows:[
       { name:'Brooks, Devon',   ext:'dbrooks662',  status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'05/20/2026', expSoon:true },
       { name:'Patel, Noah',     ext:'npatel743',   status:'in-progress', mods:8,  pct:81,  time:'2h 05m', last:'Today',       exp:'10/22/2026' },
       { name:'Foster, Hannah',  ext:'hfoster915',  status:'failed',      mods:10, pct:100, time:'1h 50m', last:'05/03/2026',  exp:'—', failDate:'05/03/2026', attempts:1 },
@@ -991,8 +1001,8 @@
   const MOD_TOTAL = 10;
   const COURSE_MODULES = {
     'OSHA 10-Hour General Industry': ['Intro to OSHA','Walking-Working Surfaces','Exit Routes & Emergency Plans','Electrical Safety','Personal Protective Equipment','Hazard Communication','Materials Handling','Machine Guarding','Bloodborne Pathogens','Final Assessment'],
-    'OSHA 30-Hour General Industry': ['Intro to OSHA','Managing Safety & Health','Walking-Working Surfaces','Electrical Safety','Personal Protective Equipment','Hazard Communication','Ergonomics','Fall Protection','Machine Guarding','Final Assessment'],
-    'Bloodborne Pathogens': ['Overview & Standards','Exposure Routes','Exposure Control Plan','Engineering Controls','Personal Protective Equipment','Housekeeping & Waste','Hepatitis B Vaccination','Post-Exposure Response','Labels & Signs','Final Assessment'],
+    'OSHA 10-Hour Construction': ['Intro to OSHA','OSHA Focus Four Hazards','Fall Protection','Electrical Safety','Personal Protective Equipment','Hand & Power Tools','Scaffolds','Ladders & Stairways','Health Hazards in Construction','Final Assessment'],
+    'OSHA 30-Hour Construction': ['Intro to OSHA','Managing Safety & Health','OSHA Focus Four Hazards','Fall Protection','Electrocution Hazards','Struck-By & Caught-Between','Excavations & Trenching','Cranes & Rigging','Materials Handling & Storage','Final Assessment'],
   };
   // Deterministic per-module quiz score (stable across re-renders — no Math.random).
   function scoreFor(ext, i) {
@@ -1049,13 +1059,13 @@
   /* ═══════════════ Column model — drives the header, cells, order & visibility ═══════════════ */
   // render(r, course, gid) → cell HTML. `required` columns can't be hidden (but can still be reordered).
   const COLUMNS = [
-    { key:'learner',  label:'Learner',          width:'14%', sortable:true, required:true, cellClass:'l-name',
+    { key:'learner',  label:'Learner',          width:'12%', sortable:true, required:true, cellClass:'l-name',
       render:(r) => `${r.name}<span class="l-id">${r.ext}</span>` },
-    { key:'course',   label:'Course',           width:'14%', sortable:true,
+    { key:'course',   label:'Course',           width:'13%', sortable:true,
       render:(r, course) => `<span class="course-cell">${course}</span>` },
     { key:'status',   label:'Status',           width:'8%',  sortable:true,
       render:(r) => `<span class="status-badge ${r.status}">${STATUS_LABEL[r.status]}</span>` },
-    { key:'mods',     label:'Modules Complete', width:'11%', sortable:true,
+    { key:'mods',     label:'Modules Complete', width:'14%', sortable:true,
       render:(r, course, gid) => modCellHTML(r, gid) },
     { key:'time',     label:'Time Spent',       width:'8%',  sortable:true, cellClass:'nowrap', headClass:'nowrap',
       render:(r) => r.time },
@@ -1088,8 +1098,36 @@
     return `<span class="mod-cell">
       <span class="mod-frac">${r.mods}/${MOD_TOTAL}</span>
       <span class="mod-bar"><span style="width:${modPct}%; background:${PCT_COLOR[r.status]};"></span></span>
-      <button class="mod-link" data-key="${key}">Details</button>
+      <button class="mod-link" data-key="${key}"><i class="fa-solid fa-chevron-right mod-caret"></i>Details</button>
     </span>`;
+  }
+
+  // Just the per-module table (no summary stats) — rendered inline in an expandable detail row.
+  function moduleTableHTML(r, course) {
+    const mods = learnerModules(r, course);
+    return `<div class="mods-list">
+      <div class="mod-item mod-head">
+        <div class="mi-num"></div>
+        <div class="mi-name">Module</div>
+        <div class="mi-status">Status</div>
+        <div class="mi-time">Time</div>
+        <div class="mi-score">Quiz</div>
+      </div>
+      ${mods.map((m, i) => {
+        const fail = m.status === 'complete' && m.score < 70;
+        const cls = m.status === 'complete' ? (fail ? 'failed-mod' : 'done') : '';
+        const sLabel = m.status === 'complete' ? 'Complete' : (m.status === 'in-progress' ? 'In Progress' : 'Not Started');
+        const numInner = m.status === 'complete' ? (fail ? '<i class="fa-solid fa-xmark"></i>' : '<i class="fa-solid fa-check"></i>') : (i + 1);
+        const score = m.score != null ? `${m.score}%` : '—';
+        return `<div class="mod-item ${cls}">
+          <div class="mi-num">${numInner}</div>
+          <div class="mi-name">${m.name}</div>
+          <div class="mi-status s-${m.status}">${sLabel}</div>
+          <div class="mi-time">${fmtMin(m.time)}</div>
+          <div class="mi-score ${m.score != null ? '' : 'dash'}">${score}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
   }
 
   function dataRowHTML(r, course, gid) {
@@ -1099,10 +1137,20 @@
       const cls = c.cellClass ? ` class="${c.cellClass}"` : '';
       return `<td${cls}>${c.render(r, course, gid)}</td>`;
     }).join('');
+    // colspan = the select-checkbox column + every visible data column.
+    const span = visibleColumns().length + 1;
     return `
       <tr class="data-row${sel ? ' row-selected' : ''}" data-group="${gid}" data-ext="${r.ext}" data-key="${key}" data-status="${r.status}">
         <td class="sel-cell"><vaadin-checkbox class="row-sel" data-group="${gid}" data-ext="${r.ext}"${sel ? ' checked' : ''} aria-label="Select ${r.name}"></vaadin-checkbox></td>
         ${cells}
+      </tr>
+      <tr class="detail-row" id="detail-${key}" data-key="${key}">
+        <td colspan="${span}">
+          <div class="mod-detail-inner">
+            <div class="mod-detail-title">${displayName(r.name)} · Module completion — ${course}</div>
+            ${moduleTableHTML(r, course)}
+          </div>
+        </td>
       </tr>`;
   }
 
@@ -1272,25 +1320,52 @@
   const filters = {
     statuses: new Set(),   // empty = all statuses (check specific ones to narrow)
     courses:  new Set(),   // empty = all courses
-    learners: new Set(),   // empty = all learners
+    actions:  new Set(),   // action-needed groups: 'intervene' | 'nudge' | 'retry' (empty = all)
     expiringOnly: false,
     nearLimitOnly: false,
   };
-  function rowVisible(x) {
+  // "Base" filters — course · status · expiring · near-limit. These scope both the table
+  // and the Action-Needed cards (the cards intentionally ignore the action-needed quick filter
+  // so their counts stay meaningful).
+  function passesBase(x) {
     const r = x.r;
     if (filters.statuses.size && !filters.statuses.has(r.status)) return false;
     if (filters.courses.size && !filters.courses.has(x.course)) return false;
-    if (filters.learners.size && !filters.learners.has(r.name)) return false;
     if (filters.expiringOnly && !r.expSoon) return false;
     if (filters.nearLimitOnly && !(r.status === 'failed' && (r.attempts || 1) >= 2)) return false;
-    const q = searchInput.value.trim().toLowerCase();
-    if (q && !`${r.name} ${r.ext} ${x.course}`.toLowerCase().includes(q)) return false;
     return true;
   }
+  // Applied filters = base + the action-needed quick filter. Drives the pie + the table.
+  // The table's search box is deliberately NOT part of this — search is table-only and
+  // temporary (see rowVisible), so it never changes the overview or the Filtered-to chips.
+  function passesFilters(x) {
+    if (!passesBase(x)) return false;
+    if (filters.actions.size && !BULK_ORDER.some(t => filters.actions.has(t) && GROUP_MATCH[t](x.r))) return false;
+    return true;
+  }
+  function matchesSearch(x) {
+    const q = searchInput.value.trim().toLowerCase();
+    if (!q) return true;
+    return `${x.r.name} ${x.r.ext} ${x.course}`.toLowerCase().includes(q);
+  }
+  // Table row visibility = applied filters + the temporary search box.
+  function rowVisible(x) { return passesFilters(x) && matchesSearch(x); }
   function applyFilters() {
     rows.forEach(x => {
-      const tr = tbody.querySelector(`.data-row[data-key="${rowKey(x.gid, x.r.ext)}"]`);
-      if (tr) tr.style.display = rowVisible(x) ? '' : 'none';
+      const key = rowKey(x.gid, x.r.ext);
+      const vis = rowVisible(x);
+      const tr = tbody.querySelector(`.data-row[data-key="${key}"]`);
+      if (tr) tr.style.display = vis ? '' : 'none';
+      // Keep each learner's expandable module-detail row in sync — a filtered-out row's
+      // detail must not linger open.
+      if (!vis) {
+        const detail = document.getElementById('detail-' + key);
+        if (detail && detail.classList.contains('open')) {
+          detail.classList.remove('open');
+          const link = tbody.querySelector(`.mod-link[data-key="${key}"]`);
+          if (link) link.classList.remove('open');
+        }
+      }
     });
     updateFilterBadge();
     // Course (and the other panel filters) scope the WHOLE page — refresh the charts too.
@@ -1298,9 +1373,11 @@
     if (typeof renderOverviewCharts === 'function') renderOverviewCharts();
     if (typeof updateBulkBar === 'function') updateBulkBar();
   }
-  // Learners (and their wrappers) passing the current filters — the data source for the charts.
-  function scopedWrappers() { return rows.filter(rowVisible); }
+  // Learners passing the applied filters (NOT the search box) — the data source for the pie.
+  function scopedWrappers() { return rows.filter(passesFilters); }
   function scopedLearners() { return scopedWrappers().map(x => x.r); }
+  // The Action-Needed cards ignore the action-needed quick filter so their counts stay stable.
+  function cardScopeLearners() { return rows.filter(passesBase).map(x => x.r); }
   // Back-compat aliases — bulk-flow call sites still reference these names.
   function applyStatusFilter() { applyFilters(); }
   function syncSearch() { applyFilters(); }
@@ -1312,6 +1389,24 @@
       applyFilters();
     });
   });
+  document.querySelectorAll('#actionChecks vaadin-checkbox').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const a = cb.dataset.action;
+      cb.checked ? filters.actions.add(a) : filters.actions.delete(a);
+      applyFilters();
+    });
+  });
+  // OSHA Courses — inline checkbox multiselect, built from the data.
+  const courseChecks = document.getElementById('courseChecks');
+  courseChecks.innerHTML = GROUPS.map(g =>
+    `<label class="filter-check-row"><vaadin-checkbox theme="small" data-course="${g.course.replace(/"/g,'&quot;')}"></vaadin-checkbox><span>${g.course}</span></label>`).join('');
+  courseChecks.querySelectorAll('vaadin-checkbox').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const c = cb.dataset.course;
+      cb.checked ? filters.courses.add(c) : filters.courses.delete(c);
+      applyFilters();
+    });
+  });
   document.getElementById('chk-expiring').addEventListener('change', e => { filters.expiringOnly = e.target.checked; applyFilters(); });
   document.getElementById('chk-failed-limit').addEventListener('change', e => { filters.nearLimitOnly = e.target.checked; applyFilters(); });
   searchInput.addEventListener('input', applyFilters);
@@ -1320,36 +1415,39 @@
   const filtersClearBtn = document.getElementById('filtersClearBtn');
   const appliedFilters = document.getElementById('appliedFilters');
   const filterLead = document.getElementById('filterLead');
+  const ACTION_FILTER_LABEL = { intervene: 'Not started — needs intervention', nudge: 'Behind pace — needs a nudge', retry: 'Failed — needs a retry' };
+  // The search box is intentionally excluded — it is a temporary table-only filter and must
+  // not flip the scope to "Filtered to" nor appear as an applied-filter chip.
   function extraFilterCount() {
     let n = 0;
     if (filters.statuses.size) n++;
-    if (filters.learners.size) n++;
+    if (filters.actions.size) n += filters.actions.size;
     if (filters.expiringOnly) n++;
     if (filters.nearLimitOnly) n++;
-    if (searchInput.value.trim()) n++;
     return n;
   }
   function syncStatusChecks() {
     document.querySelectorAll('#statusChecks vaadin-checkbox').forEach(cb => { cb.checked = filters.statuses.has(cb.dataset.status); });
   }
-  function syncPanelChips() {
-    renderChips(document.getElementById('courseChips'), filters.courses, applyFilters);
-    renderChips(document.getElementById('userChips'),   filters.learners, applyFilters);
+  function syncActionChecks() {
+    document.querySelectorAll('#actionChecks vaadin-checkbox').forEach(cb => { cb.checked = filters.actions.has(cb.dataset.action); });
   }
+  function syncCourseChecks() {
+    document.querySelectorAll('#courseChecks vaadin-checkbox').forEach(cb => { cb.checked = filters.courses.has(cb.dataset.course); });
+  }
+  function syncPanelChips() { syncCourseChecks(); }
   // One removable chip per active filter, rendered after the "Filtered to:" lead-in.
   function renderAppliedChips() {
     if (!appliedFilters) return;
     const chips = [];
-    filters.courses.forEach(c => chips.push({ k: 'Course', label: c, remove: () => { filters.courses.delete(c); syncPanelChips(); } }));
-    filters.learners.forEach(l => chips.push({ k: 'Learner', label: l, remove: () => { filters.learners.delete(l); syncPanelChips(); } }));
+    filters.courses.forEach(c => chips.push({ k: 'Course', label: c, remove: () => { filters.courses.delete(c); syncCourseChecks(); } }));
     if (filters.statuses.size) {
       const names = [...filters.statuses].map(s => STATUS_LABEL[s]).join(', ');
       chips.push({ k: 'Status', label: names, remove: () => { filters.statuses.clear(); syncStatusChecks(); } });
     }
+    filters.actions.forEach(a => chips.push({ k: 'Action needed', label: ACTION_FILTER_LABEL[a], remove: () => { filters.actions.delete(a); syncActionChecks(); } }));
     if (filters.expiringOnly) chips.push({ k: '', label: 'Expiring ≤ 30 days', remove: () => { filters.expiringOnly = false; const e = document.getElementById('chk-expiring'); if (e) e.checked = false; } });
     if (filters.nearLimitOnly) chips.push({ k: '', label: 'Near 3-failure limit', remove: () => { filters.nearLimitOnly = false; const e = document.getElementById('chk-failed-limit'); if (e) e.checked = false; } });
-    const q = searchInput.value.trim();
-    if (q) chips.push({ k: 'Search', label: q, remove: () => { searchInput.value = ''; } });
     appliedFilters.innerHTML = '';
     chips.forEach(c => {
       const chip = document.createElement('span');
@@ -1367,24 +1465,26 @@
   }
   function clearAllFilters() {
     filters.statuses.clear();
-    filters.courses.clear(); filters.learners.clear();
+    filters.courses.clear(); filters.actions.clear();
     filters.expiringOnly = false; filters.nearLimitOnly = false;
     searchInput.value = '';
     syncStatusChecks();
+    syncActionChecks();
+    syncCourseChecks();
     const ce = document.getElementById('chk-expiring'); if (ce) ce.checked = false;
     const cf = document.getElementById('chk-failed-limit'); if (cf) cf.checked = false;
-    syncPanelChips();
     applyFilters();
   }
   filtersClearBtn.addEventListener('click', clearAllFilters);
 
-  /* ═══════════════ Module controls — per-student "Details" modal ═══════════════ */
+  /* ═══════════════ Module controls — expand a per-student module table inline ═══════════════ */
   tbody.addEventListener('click', e => {
     const link = e.target.closest('.mod-link');
-    if (link) {
-      const { r, g } = getRow(link.dataset.key) || {};
-      if (r) openStudentModules(r, g.course);
-    }
+    if (!link) return;
+    const detail = document.getElementById('detail-' + link.dataset.key);
+    if (!detail) return;
+    const open = detail.classList.toggle('open');
+    link.classList.toggle('open', open);
   });
 
   /* ═══════════════ Row actions → action modals (Intervene / Nudge / Retry / View / Certificate) ═══════════════ */
@@ -1443,47 +1543,64 @@
     content.emailOn = true; content.pushOn = true;
     return content;
   }
+  // Email channel block. `withToggle` renders the on/off checkbox (single-row modals, which can
+  // pick channels); bulk confirmations omit it — they are email-only by definition.
+  function emailChannelHTML(content, withToggle) {
+    const off = withToggle && !content.emailOn ? ' dlv-off' : '';
+    return `<div class="dlv-channel${off}" data-ch="email">
+      <div class="dlv-head">
+        ${withToggle ? `<vaadin-checkbox class="dlv-toggle" ${content.emailOn ? 'checked' : ''}></vaadin-checkbox>` : ''}
+        <span class="dlv-name"><i class="fa-regular fa-envelope"></i> Email</span>
+        <button type="button" class="dlv-edit-btn"><i class="fa-solid fa-pen"></i> Edit</button>
+      </div>
+      <div class="dlv-preview">
+        <div class="ep">
+          <div class="ep-line"><span class="ep-k">Subject</span><span class="ep-v" data-fld="subject">${content.email.subject}</span></div>
+          <div class="ep-body" data-fld="body">${content.email.body}</div>
+        </div>
+      </div>
+      <div class="dlv-editor" hidden>
+        <vaadin-text-field theme="outlined" label="Subject" value="${esc(content.email.subject)}" data-edit="subject" style="width:100%"></vaadin-text-field>
+        <vaadin-text-area theme="outlined" label="Message" value="${esc(content.email.body)}" data-edit="body" style="width:100%"></vaadin-text-area>
+        <div class="dlv-editor-actions"><vaadin-button theme="tertiary small" class="dlv-done">Done</vaadin-button></div>
+      </div>
+    </div>`;
+  }
+  function pushChannelHTML(content) {
+    return `<div class="dlv-channel${content.pushOn ? '' : ' dlv-off'}" data-ch="push">
+      <div class="dlv-head">
+        <vaadin-checkbox class="dlv-toggle" ${content.pushOn ? 'checked' : ''}></vaadin-checkbox>
+        <span class="dlv-name"><i class="fa-solid fa-bell"></i> Push notification</span>
+        <button type="button" class="dlv-edit-btn"><i class="fa-solid fa-pen"></i> Edit</button>
+      </div>
+      <div class="dlv-preview">
+        <div class="pp">
+          <div class="pp-top"><span class="pp-ico">V</span> SafeLMS · now</div>
+          <div class="pp-title" data-fld="title">${content.push.title}</div>
+          <div class="pp-body" data-fld="body">${content.push.body}</div>
+        </div>
+      </div>
+      <div class="dlv-editor" hidden>
+        <vaadin-text-field theme="outlined" label="Title" value="${esc(content.push.title)}" data-edit="title" style="width:100%"></vaadin-text-field>
+        <vaadin-text-area theme="outlined" label="Message" value="${esc(content.push.body)}" data-edit="body" style="width:100%"></vaadin-text-area>
+        <div class="dlv-editor-actions"><vaadin-button theme="tertiary small" class="dlv-done">Done</vaadin-button></div>
+      </div>
+    </div>`;
+  }
+  // Single-row action modals let you pick Email and/or Push (channel checkboxes).
   function deliveryHTML(content) {
-    const chOff = on => on ? '' : ' dlv-off';
     return `<div class="field-label">SEND VIA</div>
       <div class="delivery">
-        <div class="dlv-channel${chOff(content.emailOn)}" data-ch="email">
-          <div class="dlv-head">
-            <vaadin-checkbox class="dlv-toggle" ${content.emailOn ? 'checked' : ''}></vaadin-checkbox>
-            <span class="dlv-name"><i class="fa-regular fa-envelope"></i> Email</span>
-            <button type="button" class="dlv-edit-btn"><i class="fa-solid fa-pen"></i> Edit</button>
-          </div>
-          <div class="dlv-preview">
-            <div class="ep">
-              <div class="ep-line"><span class="ep-k">Subject</span><span class="ep-v" data-fld="subject">${content.email.subject}</span></div>
-              <div class="ep-body" data-fld="body">${content.email.body}</div>
-            </div>
-          </div>
-          <div class="dlv-editor" hidden>
-            <vaadin-text-field theme="outlined" label="Subject" value="${esc(content.email.subject)}" data-edit="subject" style="width:100%"></vaadin-text-field>
-            <vaadin-text-area theme="outlined" label="Message" value="${esc(content.email.body)}" data-edit="body" style="width:100%"></vaadin-text-area>
-            <div class="dlv-editor-actions"><vaadin-button theme="tertiary small" class="dlv-done">Done</vaadin-button></div>
-          </div>
-        </div>
-        <div class="dlv-channel${chOff(content.pushOn)}" data-ch="push">
-          <div class="dlv-head">
-            <vaadin-checkbox class="dlv-toggle" ${content.pushOn ? 'checked' : ''}></vaadin-checkbox>
-            <span class="dlv-name"><i class="fa-solid fa-bell"></i> Push notification</span>
-            <button type="button" class="dlv-edit-btn"><i class="fa-solid fa-pen"></i> Edit</button>
-          </div>
-          <div class="dlv-preview">
-            <div class="pp">
-              <div class="pp-top"><span class="pp-ico">V</span> SafeLMS · now</div>
-              <div class="pp-title" data-fld="title">${content.push.title}</div>
-              <div class="pp-body" data-fld="body">${content.push.body}</div>
-            </div>
-          </div>
-          <div class="dlv-editor" hidden>
-            <vaadin-text-field theme="outlined" label="Title" value="${esc(content.push.title)}" data-edit="title" style="width:100%"></vaadin-text-field>
-            <vaadin-text-area theme="outlined" label="Message" value="${esc(content.push.body)}" data-edit="body" style="width:100%"></vaadin-text-area>
-            <div class="dlv-editor-actions"><vaadin-button theme="tertiary small" class="dlv-done">Done</vaadin-button></div>
-          </div>
-        </div>
+        ${emailChannelHTML(content, true)}
+        ${pushChannelHTML(content)}
+      </div>`;
+  }
+  // Bulk confirmation: email-only, no channel checkbox — a plain confirmation of the email
+  // that will go out to the listed people.
+  function emailConfirmHTML(content) {
+    return `<div class="field-label">SENDING VIA EMAIL</div>
+      <div class="delivery">
+        ${emailChannelHTML(content, false)}
       </div>`;
   }
   // Wire toggles/edit/preview. `content` (optional) persists committed edits + channel state.
@@ -1495,7 +1612,7 @@
       const preview = ch.querySelector('.dlv-preview');
       const editor = ch.querySelector('.dlv-editor');
       const showPreview = () => { editor.hidden = true; preview.style.display = ''; editBtn.style.display = ''; };
-      toggle.addEventListener('change', () => {
+      if (toggle) toggle.addEventListener('change', () => {
         const on = toggle.checked;
         if (content) content[key + 'On'] = on;
         ch.classList.toggle('dlv-off', !on);
@@ -1685,21 +1802,22 @@
         <span class="r-meta">${STATUS_LABEL[r.status]}</span>
       </div>`).join('')}</div>`;
   }
+  // Bulk steps are a pure confirmation that an email is going out to the listed learners —
+  // email-only, no channel/opt checkboxes.
   function bulkMeta(type, items) {
     const n = items.length, s = MODAL_STYLE[type];
     if (type === 'intervene') return { ...s, title:'Send Intervention', confirm:'Send Intervention', cTheme:'error primary', cIcon:'fa-paper-plane',
-      body:`<p>Send a high-priority intervention to these <b>${n}</b> learner${n>1?'s':''} who haven’t started in time.</p>
+      body:`<p>Send a high-priority intervention email to these <b>${n}</b> learner${n>1?'s':''} who haven’t started in time.</p>
         ${recipListHTML(items)}
-        <div class="opt"><vaadin-checkbox checked></vaadin-checkbox><span class="o-text"><b>Copy their supervisors</b></span></div>
-        ${deliveryHTML(deliveryContent('intervene', null, { plural:true }))}` };
+        ${emailConfirmHTML(deliveryContent('intervene', null, { plural:true }))}` };
     if (type === 'nudge') return { ...s, title:'Send Nudge', confirm:'Send Nudge', cTheme:'warning primary', cIcon:'fa-bell',
-      body:`<p>Send a friendly nudge to these <b>${n}</b> learner${n>1?'s':''} with low recent activity.</p>
+      body:`<p>Send a friendly nudge email to these <b>${n}</b> learner${n>1?'s':''} with low recent activity.</p>
         ${recipListHTML(items)}
-        ${deliveryHTML(deliveryContent('nudge', null, { plural:true }))}` };
+        ${emailConfirmHTML(deliveryContent('nudge', null, { plural:true }))}` };
     return { ...s, title:'Schedule Retry', confirm:'Schedule Retry', cTheme:'primary', cIcon:'fa-rotate-right',
-      body:`<p>Schedule a retry for these <b>${n}</b> learner${n>1?'s':''}. Each retry begins after that learner’s 14-day cooldown.</p>
+      body:`<p>Email a retry notice to these <b>${n}</b> learner${n>1?'s':''}. Each retry begins after that learner’s 14-day cooldown.</p>
         ${recipListHTML(items)}
-        ${deliveryHTML(deliveryContent('retry', null, { plural:true }))}` };
+        ${emailConfirmHTML(deliveryContent('retry', null, { plural:true }))}` };
   }
   function openBulkFlow() {
     const rows = [...selectedRows].map(getRow).filter(Boolean);
@@ -1763,82 +1881,19 @@
   /* ═══════════════ Filter panel open/close (ported from V1) ═══════════════ */
   const filterPanel = document.getElementById('filterPanel');
   const filterInlineToggle = document.getElementById('filterInlineToggle');
-  const oshaLayout = document.getElementById('oshaLayout');
-  function closePanel() {
-    filterPanel.classList.add('collapsed');
-    // Back to full width: table fits the card again (no horizontal scroll / frozen pane).
-    oshaLayout.classList.remove('panel-open');
-  }
-  function openPanel() {
-    filterPanel.classList.remove('collapsed');
-    // Don't squish the table — hold its width, scroll horizontally, freeze the Action column.
-    oshaLayout.classList.add('panel-open');
-  }
+  // The table always holds its width and scrolls horizontally with a frozen Action column
+  // (see CSS), so opening the panel just narrows the content area — no extra table state to flip.
+  function closePanel() { filterPanel.classList.add('collapsed'); const b = document.getElementById('filterInlineToggle'); if (b) b.style.display = 'flex'; }
+  function openPanel()  { filterPanel.classList.remove('collapsed'); const b = document.getElementById('filterInlineToggle'); if (b) b.style.display = 'none'; }
   document.getElementById('closePanelBtn').addEventListener('click', closePanel);
   filterInlineToggle.addEventListener('click', openPanel);
   /* Filters start closed on the report. */
   closePanel();
 
-  /* Apply Filters — apply the status filter, then just close the panel. */
+  /* Apply Filters — just close the panel (filters apply live as checkboxes change). */
   document.getElementById('applyFiltersBtn').addEventListener('click', () => {
-    applyStatusFilter(); syncSearch();
     closePanel();
   });
-
-  /* ═══════════════ Filter chips + pickers — Courses / Learners (drive the real filters) ═══════════════ */
-  const ALL_COURSES = GROUPS.map(g => g.course);
-  const ALL_USERS = [...new Set(rows.map(x => x.r.name))].sort((a, b) => a.localeCompare(b));
-
-  function makeChip(label, onRemove) {
-    const chip = document.createElement('span');
-    chip.className = 'filter-chip';
-    chip.innerHTML = `<span>${label}</span><button class="filter-chip-remove" aria-label="Remove ${label}"><i class="fa-solid fa-xmark"></i></button>`;
-    chip.querySelector('.filter-chip-remove').addEventListener('click', () => onRemove(label));
-    return chip;
-  }
-  function renderChips(chipsWrap, selected, onChange) {
-    chipsWrap.innerHTML = '';
-    [...selected].forEach(label => chipsWrap.appendChild(makeChip(label, l => {
-      selected.delete(l); renderChips(chipsWrap, selected, onChange); onChange();
-    })));
-  }
-
-  /* Vaadin dialog picker: a checklist that commits to `selected` on Apply, then re-filters. */
-  function wirePicker(dialogId, buttonId, chipsId, title, items, selected, onApply) {
-    const dialog = document.getElementById(dialogId);
-    const chipsWrap = document.getElementById(chipsId);
-    document.getElementById(buttonId).addEventListener('click', () => {
-      const working = new Set(selected);   // edits are discarded unless Apply is clicked
-      dialog.headerRenderer = (root) => { root.innerHTML = `<strong style="font-size: 17px">${title}</strong>`; };
-      dialog.renderer = (root) => {
-        root.innerHTML = `<div style="width:min(420px,90vw); max-height:340px; overflow:auto;">
-          ${items.map(it => `<label style="display:flex; align-items:center; gap:10px; padding:8px 2px; border-bottom:1px solid #f3f4f6; font-size: 15px; cursor:pointer;">
-            <vaadin-checkbox data-pick="${it.replace(/"/g,'&quot;')}" ${working.has(it) ? 'checked' : ''}></vaadin-checkbox><span>${it}</span></label>`).join('')}
-        </div>`;
-        root.querySelectorAll('vaadin-checkbox[data-pick]').forEach(cb => {
-          cb.addEventListener('change', () => { cb.checked ? working.add(cb.dataset.pick) : working.delete(cb.dataset.pick); });
-        });
-      };
-      dialog.footerRenderer = (root) => {
-        root.innerHTML = '';
-        const cancel = document.createElement('vaadin-button');
-        cancel.setAttribute('theme','tertiary'); cancel.textContent = 'Cancel';
-        cancel.addEventListener('click', () => { dialog.opened = false; });
-        const apply = document.createElement('vaadin-button');
-        apply.setAttribute('theme','primary'); apply.textContent = 'Apply';
-        apply.addEventListener('click', () => {
-          selected.clear(); working.forEach(v => selected.add(v));
-          renderChips(chipsWrap, selected, onApply);
-          onApply();
-          dialog.opened = false;
-        });
-        root.append(cancel, apply);
-      };
-      dialog.opened = true;
-    });
-  }
-  wirePicker('selectCoursesDialog', 'selectCoursesBtn', 'courseChips', 'Select OSHA Courses', ALL_COURSES, filters.courses,  applyFilters);
-  wirePicker('selectUsersDialog',   'selectUsersBtn',   'userChips',   'Select Learners',     ALL_USERS,   filters.learners, applyFilters);
 
   /* ═══════════════ Date-range dropdown (ported from V1) ═══════════════ */
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1893,74 +1948,6 @@
     b.setAttribute('disabled',''); setTimeout(() => b.removeAttribute('disabled'), 1200);
   });
 
-  /* ═══════════════ V1 — per-student module progress + quiz scores modal ═══════════════ */
-  const moduleDialog = document.getElementById('moduleDialog');
-  function openStudentModules(r, course) {
-    const mods = learnerModules(r, course);
-    const done = mods.filter(m => m.status === 'complete').length;
-    const scored = mods.filter(m => m.score != null);
-    const avg = scored.length ? Math.round(scored.reduce((a, m) => a + m.score, 0) / scored.length) : null;
-    const totalTime = mods.reduce((a, m) => a + (m.time || 0), 0);
-    const name = displayName(r.name);
-    moduleDialog.headerRenderer = (root) => {
-      root.innerHTML = `<div class="dlg-head" style="width:min(560px,92vw)">
-        <div class="m-ico" style="background:#dbeafe;color:#1d4ed8"><i class="fa-solid fa-list-check"></i></div>
-        <div><div class="m-title">${name}</div><div class="m-sub">${course}</div></div>
-        <vaadin-button theme="icon tertiary" id="mdClose" aria-label="Close" style="margin-left:auto"><i class="fa-solid fa-xmark"></i></vaadin-button>
-      </div>`;
-      root.querySelector('#mdClose').addEventListener('click', () => { moduleDialog.opened = false; });
-    };
-    moduleDialog.renderer = (root) => {
-      root.innerHTML = `<div class="dlg-body" style="width:min(560px,92vw)">
-        <div class="mods-summary">
-          <div class="ms-cell"><div class="ms-k">Status</div><div class="ms-v"><span class="status-badge ${r.status}">${STATUS_LABEL[r.status]}</span></div></div>
-          <div class="ms-cell"><div class="ms-k">Modules complete</div><div class="ms-v">${done}/${MOD_TOTAL}</div></div>
-          <div class="ms-cell"><div class="ms-k">Avg quiz score</div><div class="ms-v">${avg != null ? avg + '%' : '—'}</div></div>
-          <div class="ms-cell"><div class="ms-k">Time spent</div><div class="ms-v">${fmtMin(totalTime)}</div></div>
-        </div>
-        <div class="mods-list">
-          <div class="mod-item mod-head">
-            <div class="mi-num"></div>
-            <div class="mi-name">Module</div>
-            <div class="mi-status">Status</div>
-            <div class="mi-time">Time</div>
-            <div class="mi-score">Quiz</div>
-          </div>
-          ${mods.map((m, i) => {
-            const fail = m.status === 'complete' && m.score < 70;
-            const cls = m.status === 'complete' ? (fail ? 'failed-mod' : 'done') : '';
-            const sLabel = m.status === 'complete' ? 'Complete' : (m.status === 'in-progress' ? 'In Progress' : 'Not Started');
-            const numInner = m.status === 'complete' ? (fail ? '<i class="fa-solid fa-xmark"></i>' : '<i class="fa-solid fa-check"></i>') : (i + 1);
-            const score = m.score != null ? `${m.score}%` : '—';
-            return `<div class="mod-item ${cls}">
-              <div class="mi-num">${numInner}</div>
-              <div class="mi-name">${m.name}</div>
-              <div class="mi-status s-${m.status}">${sLabel}</div>
-              <div class="mi-time">${fmtMin(m.time)}</div>
-              <div class="mi-score ${m.score != null ? '' : 'dash'}">${score}</div>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>`;
-    };
-    moduleDialog.footerRenderer = (root) => {
-      root.innerHTML = '';
-      const close = document.createElement('vaadin-button');
-      close.setAttribute('theme', 'tertiary'); close.textContent = 'Close';
-      close.addEventListener('click', () => { moduleDialog.opened = false; });
-      root.appendChild(close);
-      const a = ACTIONS[r.status];
-      if (a) {
-        const act = document.createElement('vaadin-button');
-        act.setAttribute('theme', a.theme.replace('secondary', 'primary')); // emphasize the action
-        act.innerHTML = `<i class="fa-solid ${a.icon}" slot="prefix"></i>${a.label}`;
-        act.addEventListener('click', () => { moduleDialog.opened = false; openModal(a.type, r, course); });
-        root.appendChild(act);
-      }
-    };
-    moduleDialog.opened = true;
-  }
-
   /* ═══════════════ Action-needed cards (replace the Top-5 bar chart) ═══════════════ */
   const GROUP_MATCH = {
     intervene: r => r.status === 'not-started',
@@ -1968,7 +1955,9 @@
     retry:     r => r.status === 'failed',
   };
   function renderActionCards() {
-    const data = scopedLearners();
+    // Cards ignore the action-needed quick filter (cardScopeLearners) so their counts stay
+    // stable when a card is used as a quick filter.
+    const data = cardScopeLearners();
     const total = data.length;
     const inProgress = data.filter(r => r.status === 'in-progress').length;
     const cards = [
@@ -1977,21 +1966,37 @@
       { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: total,      label: 'Failed the assessment — needs a retry' },
     ];
     const wrap = document.getElementById('actionCards');
+    // Clicking the card BODY applies that group as a quick filter (shows a Filtered-to chip);
+    // the "Take action" secondary button opens the bulk action modal.
     wrap.innerHTML = cards.map(c => `
-      <button class="action-card" data-action="${c.type}">
+      <div class="action-card${filters.actions.has(c.type) ? ' active' : ''}" data-action="${c.type}" role="button" tabindex="0">
         <span class="ac-ico ${c.cls}"><i class="fa-solid ${c.icon}"></i></span>
         <span class="ac-body">
           <span class="ac-count">${c.count} <span class="ac-of">of ${c.of}</span></span>
           <span class="ac-label">${c.label}</span>
         </span>
-        <span class="ac-cta">Take action <i class="fa-solid fa-arrow-right"></i></span>
-      </button>`).join('');
-    wrap.querySelectorAll('.action-card').forEach(btn =>
-      btn.addEventListener('click', () => openActionGroup(btn.dataset.action)));
+        <vaadin-button theme="secondary small" class="ac-take"><i class="fa-solid ${c.icon}" slot="prefix"></i>Take action</vaadin-button>
+      </div>`).join('');
+    wrap.querySelectorAll('.action-card').forEach(card => {
+      const type = card.dataset.action;
+      const takeBtn = card.querySelector('.ac-take');
+      takeBtn.addEventListener('click', e => { e.stopPropagation(); openActionGroup(type); });
+      const quickFilter = () => toggleActionQuickFilter(type);
+      card.addEventListener('click', quickFilter);
+      card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); quickFilter(); } });
+    });
+  }
+  // Card-body click → focus the table on that action group. Clicking the active card again clears it.
+  function toggleActionQuickFilter(type) {
+    if (filters.actions.size === 1 && filters.actions.has(type)) filters.actions.delete(type);
+    else { filters.actions.clear(); filters.actions.add(type); }
+    syncActionChecks();
+    applyFilters();
   }
 
-  /* ═══════════════ Overview charts — Completion Distribution (pie) ⇄ Where Learners Are ═══════════════ */
+  /* ═══════════════ Overview chart — Status Distribution (pie) ═══════════════ */
   // Pie: share of learners by completion status (live from the data, not hard-coded).
+  // scopedLearners() reflects the applied panel filters only — NOT the table's search box.
   function renderDistribution() {
     const data = scopedLearners();
     const total = data.length || 1;
@@ -2007,83 +2012,7 @@
     document.getElementById('pieLabels').innerHTML = segs.map(s =>
       `<span class="pie-label"><span class="pd" style="background:${s.color}"></span> ${s.label}: ${Math.round(s.n / total * 100)}%</span>`).join('');
   }
-  // Where Learners Are: how far along learners are right now (counts per progress category).
-  function renderProgress() {
-    const data = scopedLearners();
-    const cats = [
-      { label: 'Not started',      color: '#9ca3af', n: data.filter(r => r.status === 'not-started').length },
-      { label: 'On track',         color: '#3b82f6', n: data.filter(r => r.status === 'in-progress' && !r.behind).length },
-      { label: 'Behind / delayed', color: '#f59e0b', n: data.filter(r => r.status === 'in-progress' && r.behind).length },
-      { label: 'Failed / retry',   color: '#dc2626', n: data.filter(r => r.status === 'failed').length },
-      { label: 'Completed',        color: '#22c55e', n: data.filter(r => r.status === 'passed').length },
-    ];
-    const max = Math.max(1, ...cats.map(c => c.n));
-    document.getElementById('progressChart').innerHTML = cats.map(c => `
-      <div class="prog-row">
-        <span class="prog-label"><span class="pdot" style="background:${c.color}"></span>${c.label}</span>
-        <span class="prog-track"><span class="prog-fill" style="width:${c.n / max * 100}%; background:${c.color};"></span></span>
-        <span class="prog-val">${c.n}</span>
-      </div>`).join('');
-  }
-  // Course Pass / Fail: a pass-rate donut (passed vs. failed vs. not-yet-assessed).
-  function renderPassFail() {
-    const data = scopedLearners();
-    const passed = data.filter(r => r.status === 'passed').length;
-    const failed = data.filter(r => r.status === 'failed').length;
-    const pending = data.length - passed - failed;
-    const total = data.length || 1;
-    const segs = [
-      { label: 'Passed', count: passed, color: '#22c55e' },
-      { label: 'Failed', count: failed, color: '#ef4444' },
-      { label: 'Not yet assessed', count: pending, color: '#d1d5db' },
-    ];
-    let acc = 0;
-    const stops = segs.map(s => { const a = acc / total * 360; acc += s.count; return `${s.color} ${a}deg ${acc / total * 360}deg`; }).join(', ');
-    const assessed = passed + failed;
-    const passRate = assessed ? Math.round(passed / assessed * 100) : 0;
-    document.getElementById('passFailChart').innerHTML = `
-      <div class="donut-wrap">
-        <div class="donut" style="background: conic-gradient(${stops});">
-          <div class="donut-center"><div><div class="dc-num">${passRate}%</div><div class="dc-lbl">Pass rate</div></div></div>
-        </div>
-        <div class="donut-legend">
-          ${segs.map(s => `<span class="dl"><span class="dd" style="background:${s.color}"></span><b>${s.count}</b> ${s.label}</span>`).join('')}
-        </div>
-      </div>`;
-  }
-  // Drill-through: per-module pass/fail counts (completed modules scoring ≥70 pass, else fail), across all courses.
-  function renderModuleBreakdown() {
-    const acc = Array.from({ length: MOD_TOTAL }, () => ({ pass: 0, fail: 0 }));
-    const labels = Array.from({ length: MOD_TOTAL }, (_, i) => `Module ${i + 1}`);
-    labels[MOD_TOTAL - 1] = 'Final Assessment';
-    scopedWrappers().forEach(x => learnerModules(x.r, x.course).forEach((m, i) => {
-      if (m.status === 'complete') (m.score >= 70 ? acc[i].pass++ : acc[i].fail++);
-    }));
-    document.getElementById('moduleBreakdown').innerHTML = acc.map((a, i) => {
-      const tot = (a.pass + a.fail) || 1;
-      return `<div class="mb-row">
-        <span class="mb-name" title="${labels[i]}">${labels[i]}</span>
-        <span class="mb-bar"><span class="mb-pass" style="width:${a.pass / tot * 100}%"></span><span class="mb-fail" style="width:${a.fail / tot * 100}%"></span></span>
-        <span class="mb-counts"><span class="mc-p">${a.pass}</span> / <span class="mc-f">${a.fail}</span></span>
-      </div>`;
-    }).join('');
-  }
-  function renderOverviewCharts() { renderDistribution(); renderProgress(); renderPassFail(); renderModuleBreakdown(); }
-  // Drill-through toggle under the donut.
-  document.getElementById('drillToggle').addEventListener('click', (e) => {
-    const mb = document.getElementById('moduleBreakdown');
-    const open = mb.hidden;
-    mb.hidden = !open;
-    e.currentTarget.setAttribute('aria-expanded', String(open));
-    e.currentTarget.innerHTML = `<i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i> ${open ? 'Hide' : 'Show'} module pass / fail`;
-  });
-  // Flip between the overview views (each view's id is `view-<data-chart>`).
-  document.getElementById('chartFlip').addEventListener('click', (e) => {
-    const btn = e.target.closest('.cf-btn');
-    if (!btn) return;
-    document.querySelectorAll('#chartFlip .cf-btn').forEach(b => b.classList.toggle('active', b === btn));
-    document.querySelectorAll('.chart-area .chart-view').forEach(v => { v.hidden = v.id !== `view-${btn.dataset.chart}`; });
-  });
+  function renderOverviewCharts() { renderDistribution(); }
 
   /* ═══════════════ Action-group modal — filter by course, then take a bulk action ═══════════════ */
   const agDialog = document.getElementById('agDialog');
@@ -2096,13 +2025,10 @@
   function agVisibleItems() {
     return agState.items.filter(x => agState.courseFilter === 'all' || x.course === agState.courseFilter);
   }
-  function agSelectedCount() {
-    return agVisibleItems().filter(x => agState.sel.has(x.key)).length;
-  }
   function openActionGroup(type) {
     const items = [];
     GROUPS.forEach(g => g.rows.forEach(r => { if (GROUP_MATCH[type](r)) items.push({ r, course: g.course, key: rowKey(g.id, r.ext) }); }));
-    agState = { type, items, courseFilter: 'all', sel: new Set(items.map(x => x.key)), delivery: deliveryContent(type, null, { plural: true }) };
+    agState = { type, items, courseFilter: 'all', delivery: deliveryContent(type, null, { plural: true }) };
     const s = MODAL_STYLE[type], meta = AG_META[type];
     agDialog.headerRenderer = (root) => {
       root.innerHTML = `<div class="dlg-head" style="width:min(560px,92vw)">
@@ -2120,14 +2046,14 @@
           <span class="agf-label">Filter by course</span>
           <vaadin-select theme="outlined small" id="agCourse" style="flex:1"></vaadin-select>
         </div>
+        <p style="font-size:14.5px;color:var(--muted);margin:0 0 12px">This will email the <b>${vis.length}</b> learner${vis.length !== 1 ? 's' : ''} below.</p>
         ${vis.length ? `<div class="recip-list">${vis.map(x => `
-          <label class="recip" style="cursor:pointer">
-            <vaadin-checkbox class="ag-pick" data-key="${x.key}" ${agState.sel.has(x.key) ? 'checked' : ''}></vaadin-checkbox>
+          <div class="recip">
             <div class="r-avatar" style="background:${PCT_COLOR[x.r.status] || '#155DFC'}">${initials(x.r.name)}</div>
             <div><div class="r-name">${displayName(x.r.name)}</div><div class="r-mail">${x.course}</div></div>
             <span class="r-meta">${STATUS_LABEL[x.r.status]}</span>
-          </label>`).join('')}</div>` : '<div class="ag-empty">No learners match this course.</div>'}
-        ${deliveryHTML(agState.delivery)}
+          </div>`).join('')}</div>` : '<div class="ag-empty">No learners match this course.</div>'}
+        ${emailConfirmHTML(agState.delivery)}
       </div>`;
       const sel = root.querySelector('#agCourse');
       sel.items = [{ label: 'All courses', value: 'all' }, ...courses.map(c => ({ label: c, value: c }))];
@@ -2135,17 +2061,13 @@
       sel.addEventListener('value-changed', () => {
         if (sel.value && sel.value !== agState.courseFilter) { agState.courseFilter = sel.value; agDialog.requestContentUpdate(); }
       });
-      root.querySelectorAll('.ag-pick').forEach(cb => cb.addEventListener('change', () => {
-        cb.checked ? agState.sel.add(cb.dataset.key) : agState.sel.delete(cb.dataset.key);
-        agDialog.requestContentUpdate(); // refresh the footer count
-      }));
-      // Delivery edits/toggles persist via agState.delivery across content updates.
+      // Delivery edits persist via agState.delivery across content updates.
       wireDelivery(root, agState.delivery);
     };
     agDialog.footerRenderer = (root) => {
       root.innerHTML = '';
       const meta2 = AG_META[agState.type];
-      const n = agSelectedCount();
+      const n = agVisibleItems().length;
       const cancel = document.createElement('vaadin-button');
       cancel.setAttribute('theme', 'tertiary'); cancel.textContent = 'Cancel';
       cancel.addEventListener('click', () => { agDialog.opened = false; });
@@ -2159,26 +2081,197 @@
     agDialog.opened = true;
   }
 
-  /* ═══════════════ Dashboard tabs — OSHA Report vs. the other (out-of-scope) tabs ═══════════════ */
-  const dashTabs = document.getElementById('dashTabs');
-  // oshaLayout is declared earlier (filter panel open/close section)
-  dashTabs.addEventListener('click', e => {
-    const tab = e.target.closest('.dash-tab');
-    if (!tab) return;
-    dashTabs.querySelectorAll('.dash-tab').forEach(t => {
-      const on = t === tab;
-      t.classList.toggle('active', on);
-      t.setAttribute('aria-selected', String(on));
-    });
-    const isOsha = tab.dataset.tab === 'osha';
-    oshaLayout.style.display = isOsha ? '' : 'none';
-  });
 
   /* ═══════════════ Init ═══════════════ */
   renderColumnManager(); // build the show/hide + reorder list
   applySort();           // default sort: learner name A→Z
   renderTable();         // first paint (renderHead + body + applyFilters → charts + badge)
-</script>
 
+
+  /* ═══════════════ Convergence chrome — topnav · location picker · breadcrumb · sidenav · breakpoint sim ═══════════════ */
+  // ── Location Tree (Shaw Industries) ──
+  const locationTree = [
+    { id: 'shaw-industries', text: 'Shaw Industries', regions: [
+      { id: 'residential-carpet', text: 'Residential Carpet Manufacturing', sites: [
+        { id: 'shaw-plant-70', text: 'Shaw Plant 70', departments: [
+          { id: 'proc-00982', text: 'Process Improvement 00982', teams: [
+            { id: 'rel-tech-d-982', text: 'Reliability Technician D' },
+            { id: 'rel-tech-c-982', text: 'Reliability Technician C' } ] },
+          { id: 'proc-00969', text: 'Process Improvement 00969', teams: [
+            { id: 'rel-tech-d-969', text: 'Reliability Technician D' },
+            { id: 'maint-969', text: 'Maintenance Operations' } ] } ] },
+        { id: 'shaw-plant-62', text: 'Shaw Plant 62', departments: [
+          { id: 'proc-00945', text: 'Process Improvement 00945', teams: [
+            { id: 'rel-tech-d-945', text: 'Reliability Technician D' } ] } ] } ] },
+      { id: 'commercial-carpet', text: 'Commercial Carpet Manufacturing', sites: [
+        { id: 'shaw-plant-4', text: 'Shaw Plant 4', departments: [
+          { id: 'ops-001', text: 'Manufacturing Operations', teams: [
+            { id: 'shift-sup', text: 'Shift Supervisors' } ] } ] } ] } ] }
+  ];
+  const locationLevels = [
+    { key: 'organizationId', label: 'Organization', childKey: 'regions' },
+    { key: 'regionId',       label: 'Region',       childKey: 'sites'   },
+    { key: 'siteId',         label: 'Site',         childKey: 'departments' },
+    { key: 'departmentId',   label: 'Department',   childKey: 'teams'   },
+    { key: 'teamId',         label: 'Team',         childKey: null       }
+  ];
+  const locState = {
+    open: false,
+    expanded: new Set(['shaw-industries', 'residential-carpet', 'shaw-plant-70']),
+    selected: { organizationId: 'shaw-industries', regionId: 'residential-carpet', siteId: 'shaw-plant-70', departmentId: '', teamId: '' }
+  };
+  function setLocationPickerOpen(isOpen) {
+    locState.open = isOpen;
+    document.getElementById('appShell').classList.toggle('location-picker-open', isOpen);
+    document.getElementById('locationPickerPanel').classList.toggle('is-open', isOpen);
+    document.getElementById('locationChip').setAttribute('aria-expanded', String(isOpen));
+    if (isOpen) renderLocationPicker();
+  }
+  function getActiveLocationSelection() {
+    for (let i = locationLevels.length - 1; i >= 0; i--) {
+      const level = locationLevels[i];
+      if (locState.selected[level.key]) return { key: level.key, id: locState.selected[level.key] };
+    }
+    return { key: '', id: '' };
+  }
+  function buildLocationLevel(items, levelIndex) {
+    const level = locationLevels[levelIndex];
+    const active = getActiveLocationSelection();
+    return items.map(item => {
+      const isActive = active.key === level.key && active.id === item.id;
+      const childItems = level.childKey ? (item[level.childKey] || []) : [];
+      const hasChildren = childItems.length > 0 && levelIndex < locationLevels.length - 1;
+      const isExpanded = locState.expanded.has(item.id);
+      const rowContent = `
+        <div class="location-node-row ${isActive ? 'selected' : ''}" style="--location-depth:${levelIndex};">
+          ${hasChildren
+            ? `<button type="button" class="location-toggle-button" data-location-toggle="${item.id}" aria-expanded="${isExpanded}"><i class="fa-solid ${isExpanded ? 'fa-chevron-down' : 'fa-chevron-right'} location-option-chevron" aria-hidden="true"></i></button>`
+            : `<span class="location-toggle-spacer" aria-hidden="true"></span>`}
+          <button type="button" class="location-option-summary" data-location-level="${level.key}" data-location-id="${item.id}">
+            <span class="location-option-copy"><strong>${item.text}</strong><span>${level.label}</span></span>
+          </button>
+          <i class="fa-solid fa-check location-option-check${isActive ? '' : ' is-hidden'}" aria-hidden="true"></i>
+        </div>`;
+      if (!hasChildren) return `<div class="location-option-leaf">${rowContent}</div>`;
+      return `<div class="location-node ${isExpanded ? 'expanded' : ''}">${rowContent}<div class="location-children" ${isExpanded ? '' : 'hidden'}>${isExpanded ? buildLocationLevel(childItems, levelIndex + 1) : ''}</div></div>`;
+    }).join('');
+  }
+  function renderLocationPicker() { document.getElementById('locationPickerTree').innerHTML = buildLocationLevel(locationTree, 0); }
+  function renderBreadcrumb() {
+    const sel = locState.selected;
+    const org = locationTree.find(o => o.id === sel.organizationId);
+    const region = org ? (org.regions || []).find(r => r.id === sel.regionId) : null;
+    const site = region ? (region.sites || []).find(s => s.id === sel.siteId) : null;
+    const dept = site ? (site.departments || []).find(d => d.id === sel.departmentId) : null;
+    const team = dept ? (dept.teams || []).find(t => t.id === sel.teamId) : null;
+    const segments = [org, region, site, dept, team].filter(Boolean);
+    const pageLabel = 'OSHA Report';
+    const trail = document.getElementById('breadcrumbTrail');
+    if (!segments.length) { trail.innerHTML = `<span class="breadcrumb-current">${pageLabel}</span>`; return; }
+    trail.innerHTML = segments.map(s => `<button class="breadcrumb-segment">${s.text}</button><i class="fa-solid fa-chevron-right context-chevron" aria-hidden="true"></i>`).join('') + `<span class="breadcrumb-current">${pageLabel}</span>`;
+  }
+  document.getElementById('locationChip').addEventListener('click', () => setLocationPickerOpen(!locState.open));
+  document.getElementById('locationPickerOverlay').addEventListener('click', () => setLocationPickerOpen(false));
+  document.getElementById('locationPickerTree').addEventListener('click', e => {
+    const toggleBtn = e.target.closest('[data-location-toggle]');
+    if (toggleBtn) { const id = toggleBtn.dataset.locationToggle; locState.expanded.has(id) ? locState.expanded.delete(id) : locState.expanded.add(id); renderLocationPicker(); return; }
+    const optionBtn = e.target.closest('[data-location-level]');
+    if (optionBtn) {
+      const lvlKey = optionBtn.dataset.locationLevel, id = optionBtn.dataset.locationId;
+      const lvlIdx = locationLevels.findIndex(l => l.key === lvlKey);
+      for (let i = lvlIdx; i < locationLevels.length; i++) locState.selected[locationLevels[i].key] = '';
+      locState.selected[lvlKey] = id;
+      renderLocationPicker(); renderBreadcrumb();
+    }
+  });
+  document.addEventListener('click', e => {
+    if (!locState.open) return;
+    const path = e.composedPath();
+    if (!path.includes(document.getElementById('locationPickerPanel')) && !path.includes(document.getElementById('locationChip')) && !path.includes(document.getElementById('locationPickerOverlay'))) setLocationPickerOpen(false);
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && locState.open) { setLocationPickerOpen(false); document.getElementById('locationChip').focus(); } });
+  renderBreadcrumb();
+
+  // Reset Filters (footer) reuses the existing clear-all logic.
+  document.getElementById('resetFiltersBtn')?.addEventListener('click', () => { if (typeof clearAllFilters === 'function') clearAllFilters(); });
+
+  // ── Sidenav shadow-DOM patch (text-only, compact — matches the Tasklist Report) ──
+  function patchSidenavItemIcons() {
+    const sidenav = document.getElementById('sideNav');
+    if (!sidenav?.shadowRoot) { setTimeout(patchSidenavItemIcons, 100); return; }
+    const items = sidenav.shadowRoot.querySelectorAll('vwc-item');
+    if (!items.length) { setTimeout(patchSidenavItemIcons, 100); return; }
+    items.forEach(item => {
+      if (!item.shadowRoot || item.shadowRoot.querySelector('#icon-gap-patch')) return;
+      const style = document.createElement('style');
+      style.id = 'icon-gap-patch';
+      style.textContent = `:host { font-size: 13px !important; } .item { gap: 0 !important; font-size: 13px !important; } slot[name="graphic"], [part="graphic"], slot[name="icon"], slot[name="prefix"], slot[name="start"] { display: none !important; width: 0 !important; min-width: 0 !important; flex: 0 0 0 !important; overflow: hidden !important; }`;
+      item.shadowRoot.prepend(style);
+    });
+    if (!sidenav.shadowRoot.querySelector('#sidenav-font-patch')) {
+      const s = document.createElement('style');
+      s.id = 'sidenav-font-patch';
+      s.textContent = `.group-item-label, .nav-group-label, [part="group-label"], .sidenav-group__label { font-size: 11px !important; }`;
+      sidenav.shadowRoot.prepend(s);
+    }
+  }
+
+  // ── Topnav logo + sidenav setup ──
+  window.addEventListener('load', () => {
+    const topnav = document.getElementById('topnav');
+    if (topnav && typeof topnav.logo !== 'undefined') {
+      topnav.logo = { src: '../../EHS-Prevent/assets/vector-solutions-logo.svg', alt: 'Vector Solutions' };
+    }
+    const sideNav = document.getElementById('sideNav');
+    sideNav.items = [
+      { id: 'COMPLIANCE', type: 'group', text: 'Compliance Reports', children: [
+        { id: 'OSHA', type: 'button', text: 'OSHA Report' },
+        { id: 'CERT_EXP', type: 'button', text: 'Certification Expiration Report' }
+      ]},
+      { type: 'divider' },
+      { id: 'ACTIVITY_REPORTS', type: 'group', text: 'Activity Reports', children: [
+        { id: 'COMPLETIONS', type: 'button', text: 'Course Completions Report' },
+        { id: 'AER', type: 'button', text: 'Activity Exception Report' }
+      ]}
+    ];
+    sideNav.expandedGroupIds = ['COMPLIANCE', 'ACTIVITY_REPORTS'];
+    sideNav.activeItemId = 'OSHA';
+    patchSidenavItemIcons();
+    sideNav.style.width = '220px';
+    new MutationObserver(() => { sideNav.style.width = sideNav.hasAttribute('collapsed') ? '' : '220px'; }).observe(sideNav, { attributes: true, attributeFilter: ['collapsed'] });
+    const shadowStyle = document.createElement('style');
+    shadowStyle.textContent = '.vwc-sidenav { width: 100% !important; min-width: 0 !important; } nav.vwc-sidenav--list { width: 100% !important; min-width: 0 !important; }';
+    if (sideNav.shadowRoot) sideNav.shadowRoot.appendChild(shadowStyle);
+  });
+
+  // ── Breakpoint Simulator ──
+  (function() {
+    const BP_PRESETS = [
+      { w: 0, label: 'Fit window', sub: '' }, { w: 2560, label: 'QHD', sub: '2560' },
+      { w: 1920, label: 'FHD', sub: '1920' }, { w: 1600, label: 'XL', sub: '1600' },
+      { w: 1440, label: 'LG', sub: '1440' }, { w: 1200, label: 'MD', sub: '1200' },
+      { w: 900, label: 'SM', sub: '900' }, { w: 390, label: 'XS', sub: '390' }
+    ];
+    const toolbar = document.createElement('div');
+    toolbar.className = 'bp-sim-toolbar';
+    toolbar.innerHTML = '<span class="bp-sim-label">Preview at</span>' + BP_PRESETS.map((bp, i) => `<button class="bp-sim-btn${i === 0 ? ' active' : ''}" data-bpw="${bp.w}">${bp.label}${bp.sub ? ` <span class="bp-sim-sub">${bp.sub}</span>` : ''}</button>`).join('');
+    document.body.appendChild(toolbar);
+    function applyBP(w) {
+      const sideNav = document.getElementById('sideNav'), filterPanel = document.getElementById('filterPanel');
+      if (w === 0) { document.body.classList.remove('bp-simulating'); document.body.style.removeProperty('--bp-sim-width'); return; }
+      document.body.classList.add('bp-simulating');
+      document.body.style.setProperty('--bp-sim-width', w + 'px');
+      if (sideNav) sideNav.style.display = w <= 1200 ? 'none' : '';
+      if (filterPanel) { if (w <= 1200) { filterPanel.classList.add('collapsed'); const b = document.getElementById('filterInlineToggle'); if (b) b.style.display = 'flex'; } else { filterPanel.classList.remove('collapsed'); const b = document.getElementById('filterInlineToggle'); if (b) b.style.display = 'none'; } }
+    }
+    toolbar.querySelectorAll('.bp-sim-btn').forEach(btn => btn.addEventListener('click', () => {
+      toolbar.querySelectorAll('.bp-sim-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      applyBP(parseInt(btn.dataset.bpw, 10));
+    }));
+  })();
+
+</script>
+<div id="globalTooltip" class="global-tooltip"></div>
 </body>
 </html>

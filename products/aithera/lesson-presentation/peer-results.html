@@ -20,7 +20,22 @@
     <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
 
-    <link rel="stylesheet" href="css/lesson.css?v=17" />
+    <link rel="stylesheet" href="css/lesson.css?v=19" />
+
+    <style>
+        /* Visually hidden but still read by screen readers (live status). */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            margin: -1px;
+            padding: 0;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            white-space: nowrap;
+            border: 0;
+        }
+    </style>
 </head>
 <body>
 
@@ -55,7 +70,7 @@
             </section>
 
             <!-- Screen 2: results ------------------------------------------ -->
-            <section class="peer-results" id="resultScreen" hidden aria-live="polite">
+            <section class="peer-results" id="resultScreen" hidden>
 
                 <!-- Loading beat -->
                 <div class="peer-loading" id="peerLoading">
@@ -71,7 +86,7 @@
 
                     <div id="peerChartWrap"><!-- SVG injected here --></div>
 
-                    <p class="peer-verdict" id="peerVerdict"></p>
+                    <p class="peer-verdict" id="peerVerdict" tabindex="-1"></p>
 
                     <div class="peer-stats">
                         <div class="peer-stat is-you">
@@ -95,16 +110,19 @@
         </main>
     </div>
 
+    <!-- Screen-reader status: receives ONE message once results are revealed -->
+    <div class="sr-only" id="peerStatus" role="status" aria-live="polite"></div>
+
     <!-- ===== Fixed footer: instructions + navigation ===================== -->
     <footer class="lesson-footer">
-        <p class="lesson-instructions" id="instructions">Answer below, then compare your results with your peers.</p>
+        <p class="lesson-instructions" id="instructions" aria-live="polite">Answer below, then compare your results with your peers.</p>
         <div class="lesson-nav">
             <vaadin-button theme="secondary" id="backBtn">Back</vaadin-button>
             <vaadin-button theme="primary" id="nextBtn" disabled>Next</vaadin-button>
         </div>
     </footer>
 
-    <script src="js/lesson.js?v=4"></script>
+    <script src="js/lesson.js?v=5"></script>
     <script>
     // =========================================================================
     // SCENARIO — the only thing you edit to repurpose this content type.
@@ -199,12 +217,19 @@
     segField.appendChild(seg);
     fields.appendChild(segField);
 
+    // Roving tabindex + arrow-key selection for the role="radio" buttons.
+    window.Lesson?.radiogroup?.(seg);
+
     // Slider measure
     const m = SCENARIO.measure;
     let measureVal = m.default;
     const sliderField = document.createElement('div');
     sliderField.className = 'peer-field';
     const fmt = (v) => (v >= m.max && m.maxLabel ? m.maxLabel : String(v));
+    // Spoken value for the slider — reflects the "20+" cap and the unit.
+    const spokenVal = (v) => (v >= m.max && m.maxLabel
+        ? m.max + ' or more ' + m.unit
+        : v + ' ' + m.unit);
     sliderField.innerHTML =
         '<div class="peer-slider-head">' +
             '<span class="peer-field-label">' + m.label + '</span>' +
@@ -212,7 +237,7 @@
         '</div>' +
         '<input class="peer-range" type="range" id="measureRange" ' +
             'min="' + m.min + '" max="' + m.max + '" step="1" value="' + measureVal + '" ' +
-            'aria-label="' + m.label + '">' +
+            'aria-label="' + m.label + '" aria-valuetext="' + spokenVal(measureVal) + '">' +
         '<div class="peer-range-scale">' +
             '<span>' + m.min + '</span><span>' + Math.round(m.max / 2) + '</span>' +
             '<span>' + (m.maxLabel || m.max) + '</span>' +
@@ -224,6 +249,7 @@
     range.addEventListener('input', () => {
         measureVal = Number(range.value);
         sliderVal.textContent = fmt(measureVal);
+        range.setAttribute('aria-valuetext', spokenVal(measureVal));
     });
 
     // =========================================================================
@@ -247,6 +273,7 @@
         inputScreen.hidden  = false;
         resultScreen.hidden = true;
         peerResult.classList.remove('in');
+        document.getElementById('peerStatus').textContent = '';   // reset so a retry re-announces
         instructions.textContent = 'Make your selections, then select Compare to see how you stack up.';
         nextBtn.disabled = true;
         window.Lesson?.scrollCue?.refresh();
@@ -271,6 +298,15 @@
             instructions.textContent = 'Here’s how your answer compares. Continue when ready.';
             nextBtn.disabled = false;
             window.Lesson?.scrollCue?.refresh();
+
+            // Move focus to the verdict so screen readers land on the result,
+            // then announce ONE final status message after the count-ups end
+            // (the live numbers themselves are not in a live region).
+            const verdict = document.getElementById('peerVerdict');
+            verdict.focus();
+            window.setTimeout(() => {
+                document.getElementById('peerStatus').textContent = verdict.textContent;
+            }, 1100);
         }, 1100);
     }
 
@@ -322,6 +358,11 @@
         const start = performance.now();
         const dur = 900;
         suffix = suffix || '';
+        // Reduced motion: skip the tween and land on the final number.
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            elm.textContent = (decimals ? target.toFixed(decimals) : Math.round(target)) + suffix;
+            return;
+        }
         function frame(now) {
             const t = Math.min(1, (now - start) / dur);
             const eased = 1 - Math.pow(1 - t, 3);

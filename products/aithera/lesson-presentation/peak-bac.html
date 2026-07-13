@@ -20,7 +20,7 @@
     <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
 
-    <link rel="stylesheet" href="css/lesson.css?v=17" />
+    <link rel="stylesheet" href="css/lesson.css?v=19" />
 </head>
 <body>
 
@@ -43,7 +43,7 @@
 
             <!-- Content type: Estimate Peak BAC -->
             <section class="bac" aria-labelledby="bacTitle">
-                <h1 class="bac-title" id="bacTitle">Estimate your peak BAC</h1>
+                <h1 class="bac-title" id="bacTitle" tabindex="-1">Estimate your peak BAC</h1>
                 <p class="bac-intro">
                     Blood Alcohol Concentration (BAC) is the amount of alcohol in a person&rsquo;s blood.
                     Different BAC levels tend to bring on different effects.
@@ -112,7 +112,7 @@
 
             <!-- Content type: Calculate exact BAC (Screen 3) -->
             <section class="calc" id="calcScreen" aria-labelledby="calcTitle" hidden>
-                <h1 class="calc-title" id="calcTitle">Calculate your BAC</h1>
+                <h1 class="calc-title" id="calcTitle" tabindex="-1">Calculate your BAC</h1>
                 <p class="calc-sub">Adjust the details to see your estimated BAC.</p>
 
                 <div class="calc-grid">
@@ -121,8 +121,8 @@
                         <div class="calc-field">
                             <span class="calc-label">Biological sex</span>
                             <div class="calc-toggle" role="radiogroup" aria-label="Biological sex" id="sexToggle">
-                                <button type="button" role="radio" data-sex="male" class="is-on" aria-checked="true">Male</button>
-                                <button type="button" role="radio" data-sex="female" aria-checked="false">Female</button>
+                                <button type="button" role="radio" data-sex="male" class="is-on" aria-checked="true" tabindex="0">Male</button>
+                                <button type="button" role="radio" data-sex="female" aria-checked="false" tabindex="-1">Female</button>
                             </div>
                         </div>
 
@@ -163,7 +163,9 @@
                         <div class="calc-bac" id="calcBac">0.00</div>
                         <span class="calc-zone" id="calcZone">&nbsp;</span>
 
-                        <div class="calc-meter">
+                        <!-- Purely graphical — the value / zone / compare text above and
+                             below carry the same information for screen readers. -->
+                        <div class="calc-meter" aria-hidden="true">
                             <div class="calc-meter-track">
                                 <div class="calc-estimate" id="calcEstimate"></div>
                                 <div class="calc-marker" id="calcMarker"></div>
@@ -196,7 +198,7 @@
     <section class="interstitial" id="interstitial" aria-hidden="true" aria-live="polite">
         <div class="interstitial-inner">
             <p class="interstitial-eyebrow">Let&rsquo;s take this further</p>
-            <p class="interstitial-lead">You estimated your BAC to be</p>
+            <p class="interstitial-lead" id="interLead" tabindex="-1">You estimated your BAC to be</p>
             <p class="interstitial-level" id="interLevel">Severe effects</p>
             <div class="interstitial-value" id="interValue">0.00</div>
             <p class="interstitial-note">Now, let&rsquo;s calculate it exactly.</p>
@@ -375,6 +377,19 @@
         let screen = 'slider';
 
         function countUp(target) {
+            // Only the FINAL value should reach the interstitial's live region:
+            // the tweening element is hidden from assistive tech while it spins,
+            // and the settled value is written once at the end.
+            const settle = () => {
+                interValue.textContent = target.toFixed(2);
+                interValue.removeAttribute('aria-hidden');
+            };
+            // No tween at all under reduced motion — land on the value directly.
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                settle();
+                return;
+            }
+            interValue.setAttribute('aria-hidden', 'true');
             const start = performance.now();
             const dur = 900;
             function frame(now) {
@@ -382,7 +397,7 @@
                 const eased = 1 - Math.pow(1 - t, 3);   // easeOutCubic
                 interValue.textContent = (target * eased).toFixed(2);
                 if (t < 1) requestAnimationFrame(frame);
-                else interValue.textContent = target.toFixed(2);
+                else settle();
             }
             requestAnimationFrame(frame);
         }
@@ -395,6 +410,11 @@
             interstitial.setAttribute('aria-hidden', onInter ? 'false' : 'true');
             document.body.classList.toggle('interstitial-open', onInter);
 
+            // While the interstitial covers the page, the chrome underneath it
+            // (header / main / footer) is out of reach for keyboard + AT too.
+            document.querySelectorAll('.lesson-header, .lesson-shell, .lesson-footer')
+                .forEach((el) => el.toggleAttribute('inert', onInter));
+
             bacSection.hidden  = name !== 'slider';
             calcScreen.hidden  = name !== 'calc';
 
@@ -404,6 +424,13 @@
                 interValue.textContent = '0.00';
                 countUp(Number(lvl.dataset.bac));
             }
+
+            // Move focus to the shown screen's heading so keyboard/SR users
+            // land at the start of the new content.
+            const focusTarget = onInter ? document.getElementById('interLead')
+                : name === 'calc' ? document.getElementById('calcTitle')
+                : document.getElementById('bacTitle');
+            if (focusTarget) focusTarget.focus();
 
             if (name === 'slider') {
                 progressLabel.textContent = 'Step 3 of 8';
@@ -531,8 +558,28 @@
                 const on = b === btn;
                 b.classList.toggle('is-on', on);
                 b.setAttribute('aria-checked', on);
+                b.tabIndex = on ? 0 : -1;   // roving tabindex: only the checked radio is tabbable
             });
             renderCalc();
+        });
+
+        // Standard radiogroup keyboard pattern: arrows move AND select; Home/End
+        // jump to the ends. Selection goes through the click handler above.
+        sexToggle.addEventListener('keydown', (e) => {
+            const radios = Array.from(sexToggle.querySelectorAll('[role="radio"]'));
+            const idx = radios.indexOf(e.target.closest('[role="radio"]'));
+            if (idx === -1) return;
+            let next = null;
+            switch (e.key) {
+                case 'ArrowRight': case 'ArrowDown': next = radios[(idx + 1) % radios.length]; break;
+                case 'ArrowLeft':  case 'ArrowUp':   next = radios[(idx - 1 + radios.length) % radios.length]; break;
+                case 'Home': next = radios[0]; break;
+                case 'End':  next = radios[radios.length - 1]; break;
+            }
+            if (!next) return;
+            e.preventDefault();
+            next.click();
+            next.focus();
         });
         weightInput.addEventListener('input', () => {
             weightOut.textContent = weightInput.value + ' lb';

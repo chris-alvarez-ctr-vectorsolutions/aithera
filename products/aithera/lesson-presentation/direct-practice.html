@@ -59,7 +59,7 @@
         --c-surface-2:   #eef1f7;
         --c-ink:         #1a2030;
         --c-ink-soft:    #5a6379;
-        --c-ink-faint:   #8b94a8;
+        --c-ink-faint:   #67718a;   /* ≥4.5:1 on the light surfaces (was #8b94a8) */
         --c-line:        #e3e7f0;
         --c-accent:      #4b63e6;   /* indigo — the coach */
         --c-accent-strong:#3a4fce;
@@ -69,7 +69,7 @@
         /* —— Scene world (constant across themes: a lit set in a dark room) —— */
         --s-ink:         #f3ede5;
         --s-ink-soft:    #c3b6a8;
-        --s-ink-faint:   #8d8175;
+        --s-ink-faint:   #a89b8c;   /* ≥4.5:1 on the dark stage (was #8d8175) */
         --s-surface:     #211a16;   /* stage panel */
         --s-surface-2:   #2c241e;
         --s-line:        #43372e;
@@ -104,7 +104,7 @@
           --c-surface-2:   #1e2433;
           --c-ink:         #e9ecf4;
           --c-ink-soft:    #9aa3b8;
-          --c-ink-faint:   #6b7488;
+          --c-ink-faint:   #8b94a8;   /* ≥4.5:1 on the dark surfaces (was #6b7488 ≈ 3.3:1) */
           --c-line:        #29303f;
           --c-accent:      #8092ff;
           --c-accent-strong:#9aa8ff;
@@ -1165,6 +1165,10 @@
 <body>
     <div class="app" id="app" data-mode="coaching" data-target="coach" data-entered="false">
 
+      <!-- Page name for screen readers (the visual design carries it in the
+           top bar's wordmark + scenario line instead) -->
+      <h1 class="sr-only">Practice chat — Intervening for a Friend: The Kendra Situation</h1>
+
       <!-- Top bar ------------------------------------------------------- -->
       <header class="topbar">
         <span class="brand">
@@ -1181,7 +1185,7 @@
       <main class="viewport">
         <div class="mode-indicator is-hidden" id="modeIndicator" aria-hidden="true"><!-- built by JS --></div>
         <section class="stage" id="stage" aria-label="Practice conversation">
-          <div class="stage-inner" id="stageInner"><!-- built by JS --></div>
+          <div class="stage-inner" id="stageInner" aria-live="polite"><!-- built by JS --></div>
         </section>
       </main>
 
@@ -1195,7 +1199,7 @@
             Back to practice <i class="fa-solid fa-chevron-down"></i>
           </button>
         </div>
-        <div class="coach-panel-body" id="coachPanelBody"><!-- built by JS --></div>
+        <div class="coach-panel-body" id="coachPanelBody" aria-live="polite"><!-- built by JS --></div>
       </aside>
 
       <!-- Input bar ----------------------------------------------------- -->
@@ -1281,7 +1285,7 @@
     <!-- Results modal — a sibling of .app (not a descendant), so .app can be
          made inert while this is open without inerting itself. -->
     <div class="results-modal" id="resultsModal" hidden role="dialog" aria-modal="true" aria-label="Your results">
-      <div class="results-modal-card">
+      <div class="results-modal-card" id="resultsModalCard" tabindex="-1">
         <div class="results-modal-head">
           <span class="results-modal-eyebrow">Your results</span>
           <div class="results-modal-dots" id="resultsDots"><span></span><span></span></div>
@@ -1854,7 +1858,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
         const est = el('div', 'establishing');
         est.innerHTML =
           `<div class="est-eyebrow">The scene</div>
-           <p class="est-title">Kendra’s room</p>
+           <h2 class="est-title">Kendra’s room</h2>
            <p class="est-sub">Kendra’s been drinking alone since she lost her Nona. You’re about to check on her.</p>
            <div class="est-with">with <b>${esc(SCENARIO.character)}</b></div>`;
         stageInner.appendChild(est);
@@ -2024,6 +2028,11 @@ You didn't carry this alone, and you didn't ask her to either.` },
         setTimeout(() => { if (!composer.disabled) composer.focus(); }, 30);
       }
     }
+    // Escape closes the results modal (same path as its Continue button, so
+    // the flow keeps moving rather than stranding the learner)
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && state.resultsModalOpen) { e.preventDefault(); closeResultsModal(); }
+    });
     document.addEventListener('keydown', (e) => {
       const trap = app.classList.contains('trap');
       if (!trap) return;
@@ -2264,6 +2273,8 @@ You didn't carry this alone, and you didn't ask her to either.` },
       state.resultsModalOpen = true;
       announce('Your results: strengths.');
       render();
+      // move focus into the dialog so keyboard/SR users land in it
+      document.getElementById('resultsModalCard').focus();
     }
     // Closing the modal doesn't just dump the resources in — the coach
     // "introduces" them first, as its own typed-in message, the same way any
@@ -2276,6 +2287,9 @@ You didn't carry this alone, and you didn't ask her to either.` },
       state.delivering = true;
       announce('Back to your AI coach.');
       render();
+      // the modal (and the CTA that opened it) are gone — hand focus to a
+      // control that's still visible while the coach types the resources in
+      document.getElementById('restartBtn').focus();
       showTyping(); await wait(reducedMotion() ? 250 : 900); hideTyping();
       if (dead()) return;
       state.messages.push({ speaker: 'coach', kind: 'coaching', _enter: true, text:
@@ -2289,6 +2303,8 @@ You didn't carry this alone, and you didn't ask her to either.` },
       state.delivering = false;
       announce('Here are some resources.');
       render();
+      // settle focus on the practice's actual next step
+      if (!inputContinue.hidden) continueCtaBtn.focus();
     }
 
     // "Continue" — the practice's actual last step. Nothing in this prototype

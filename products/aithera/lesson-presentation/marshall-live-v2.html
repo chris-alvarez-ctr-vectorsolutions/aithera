@@ -1,0 +1,3217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Action Practice — Conversation Coach (Live AI)</title>
+
+    <!-- Vector Web Components: Core -->
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+
+    <!-- Vector Web Components: Themes (import as plain script) -->
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+
+    <!-- Open Sans -->
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+    <!-- ====================================================================
+         ACTION PRACTICE — rebuilt conversation-practice module.
+
+         The whole experience is TWO interleaving MODES, made unmistakable by
+         giving each its own world:
+
+           COACHING  — a calm, clean, theme-aware "studio." You talk ABOUT the
+                       conversation with the coach (prep / debrief). Cool indigo.
+           SCENE     — a warm, dark, intimate "stage" you step INTO. Always dark
+                       (in light *and* dark theme) so being in-fiction always
+                       feels like a different place. Warm amber + violet.
+
+         The practice scene is the persistent base layer. Coaching does not swap it
+         out — the AI Coach is a bottom sheet that rises over the scene (which stays
+         visible, dimmed, above it) and lowers to hand the scene back. The full
+         practice stays scrollable in the scene, so it's always the reviewable record.
+
+         Self-contained vanilla JS render-by-state (no framework, no build, no
+         storage). Runs in DEMO mode by default (scripted engine that mirrors the
+         real loop and enforces the safety escalation beat); point WORKER_URL at a
+         proxy Worker to talk to live Claude. Theming via CSS variables.
+         ==================================================================== */ -->
+    <style>
+      /* ===================================================================
+         1. TOKENS  — coaching world is theme-aware; scene world is always a
+            dark "stage" so the two modes never look alike.
+         =================================================================== */
+      :root {
+        color-scheme: light dark;
+
+        /* —— Coaching world (light theme defaults) —— */
+        --c-bg:          #f5f7fb;
+        --c-surface:     #ffffff;
+        --c-surface-2:   #eef1f7;
+        --c-ink:         #1a2030;
+        --c-ink-soft:    #5a6379;
+        --c-ink-faint:   #67718a;   /* darkened for ≥4.5:1 on light surfaces (was #8b94a8) */
+        --c-line:        #e3e7f0;
+        --c-accent:      #4b63e6;   /* indigo — the coach */
+        --c-accent-strong:#3a4fce;
+        --c-accent-soft: #eef1fe;
+        --c-on-accent:   #ffffff;
+
+        /* —— Scene world (constant across themes: a lit set in a dark room) —— */
+        --s-ink:         #f3ede5;
+        --s-ink-soft:    #c3b6a8;
+        --s-ink-faint:   #a89b8c;   /* lightened for ≥4.5:1 on the dark stage (was #8d8175) */
+        --s-surface:     #211a16;   /* stage panel */
+        --s-surface-2:   #2c241e;
+        --s-line:        #43372e;
+        --s-char:        #c79bff;   /* the character — violet */
+        --s-char-soft:   rgba(199,155,255,.16);
+        --s-you:         #f1b34a;   /* your spoken voice — warm amber */
+        --s-you-soft:    rgba(241,179,74,.16);
+        --s-you-ink:     #2a1d08;   /* readable ink on the amber bubble */
+
+        /* The scene's atmospheric paint — shared by the live stage AND the
+           "stepping in" overlay so the overlay dissolves seamlessly into it. */
+        --scene-paint:
+          radial-gradient(120% 80% at 80% 0%, rgba(241,179,74,.10), transparent 60%),
+          radial-gradient(120% 90% at 10% 100%, rgba(199,155,255,.10), transparent 55%),
+          linear-gradient(170deg, #1a1410 0%, #120d0a 100%);
+
+        --radius:   16px;
+        --radius-sm:10px;
+        --shadow-sm: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.10);
+        --shadow-md: 0 6px 18px rgba(16,24,40,.12), 0 2px 6px rgba(16,24,40,.07);
+        --shadow-lg: 0 18px 48px rgba(8,10,20,.28);
+        --ease: cubic-bezier(.4, 0, .2, 1);
+
+        --topbar-h: 52px;
+        --input-h:  84px;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --c-bg:          #0c0f17;
+          --c-surface:     #161b27;
+          --c-surface-2:   #1e2433;
+          --c-ink:         #e9ecf4;
+          --c-ink-soft:    #9aa3b8;
+          --c-ink-faint:   #8b94a8;   /* ≥4.5:1 on the dark surfaces (was #6b7488 ≈ 3.3:1) */
+          --c-line:        #29303f;
+          --c-accent:      #8092ff;
+          --c-accent-strong:#9aa8ff;
+          --c-accent-soft: #1b2236;
+          --c-on-accent:   #0c0f17;
+          --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+          --shadow-md: 0 6px 18px rgba(0,0,0,.45);
+          --shadow-lg: 0 18px 48px rgba(0,0,0,.6);
+        }
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        font-family: 'Open Sans', system-ui, sans-serif;
+        background: var(--c-bg);
+        color: var(--c-ink);
+        -webkit-font-smoothing: antialiased;
+        overflow: hidden;        /* the stage / panels own their own scroll */
+      }
+      button { font-family: inherit; }
+
+      /* Visually-hidden but screen-reader available (the aria-live region) */
+      .sr-only {
+        position: absolute; width: 1px; height: 1px;
+        padding: 0; margin: -1px; overflow: hidden;
+        clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+      }
+
+      /* ===================================================================
+         2. APP SHELL
+         =================================================================== */
+      .app {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* —— Top bar (slim, so the experience stays immersive) —— */
+      .topbar {
+        flex: 0 0 auto;
+        height: var(--topbar-h);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 16px;
+        background: var(--c-surface);
+        border-bottom: 1px solid var(--c-line);
+        z-index: 60;
+      }
+      .topbar .brand {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        flex: 0 0 auto;   /* keep the wordmark intact; let the scenario ellipsize instead */
+      }
+      /* Product wordmark — a plain mark, NOT a filled pill, so it doesn't read
+         as a twin of the "Coaching" toggle segment below it. */
+      .topbar .brand .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--c-ink);
+        font-size: 13.5px;
+        font-weight: 700;
+        letter-spacing: .01em;
+        white-space: nowrap;
+      }
+      .topbar .brand .badge i { color: var(--c-accent); font-size: 13px; }
+      .topbar .scenario {
+        font-size: 13px;
+        color: var(--c-ink-faint);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+      }
+      /* a hairline divider sets the scenario apart from the wordmark */
+      .topbar .scenario::before {
+        content: "";
+        display: inline-block;
+        width: 1px;
+        height: 15px;
+        margin-right: 12px;
+        background: var(--c-line);
+        vertical-align: -2px;
+      }
+      .topbar .spacer { flex: 1 1 auto; }
+      .topbar .tb-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        height: 34px;
+        padding: 0 13px;
+        border: 1px solid var(--c-line);
+        border-radius: 9px;
+        background: var(--c-surface);
+        color: var(--c-ink-soft);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: border-color .15s var(--ease), color .15s var(--ease);
+      }
+      .topbar .tb-btn:hover { border-color: var(--c-accent); color: var(--c-ink); }
+      .topbar .tb-btn i { font-size: 12px; }
+      @media (max-width: 560px) {
+        .topbar .scenario { display: none; }
+        .topbar .tb-btn .label { display: none; }
+        .topbar .tb-btn { padding: 0 10px; }
+      }
+
+      /* —— The viewport that holds the mode indicator + the live stage —— */
+      .viewport {
+        flex: 1 1 auto;
+        position: relative;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ===================================================================
+         3. MODE INDICATOR  — persistent; the single source of "where am I"
+         =================================================================== */
+      .mode-indicator {
+        flex: 0 0 auto;
+        position: relative;
+        z-index: 56;            /* stays above the pause scrim so the toggle stays tappable */
+        display: flex;
+        align-items: center;
+        justify-content: center;   /* the toggle is centered on the page */
+        gap: 12px;
+        padding: 9px 16px;
+        font-size: 12px;
+        /* sits on the CONTENT background (not chrome surface) so it reads as the
+           practice's status strip rather than a second top bar */
+        background: var(--c-bg);
+        border-bottom: 1px solid var(--c-line);
+        color: var(--c-ink-soft);
+        max-height: 64px;
+        overflow: hidden;
+        transition: background .2s var(--ease), color .2s var(--ease), border-color .2s var(--ease),
+                    max-height .45s var(--ease), opacity .4s var(--ease), padding .45s var(--ease),
+                    transform .45s var(--ease);
+      }
+      /* Withheld until the learner is past the establishing card / cold-open video
+         — the Learn|Practice choice isn't meaningful before then. Drops down and
+         fades in once the AI coach actually begins. */
+      .mode-indicator.is-hidden {
+        max-height: 0;
+        opacity: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        border-bottom-color: transparent;
+        transform: translateY(-10px);
+        pointer-events: none;
+      }
+
+      /* Segmented "Learn | Practice" toggle — both shown, one active,
+         tap the inactive one to switch states. */
+      .mode-toggle {
+        display: inline-flex;
+        padding: 3px;
+        gap: 3px;
+        border-radius: 999px;
+        background: var(--c-surface-2);
+        border: 1px solid var(--c-line);
+      }
+      .seg {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 13px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--c-ink-soft);
+        font: inherit;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .02em;
+        cursor: pointer;
+        transition: background .18s var(--ease), color .18s var(--ease), opacity .18s var(--ease);
+      }
+      .seg i { font-size: 11px; }
+      .seg:hover:not(.active):not([disabled]) { color: var(--c-ink); background: var(--c-surface); }
+      .seg.active { background: var(--c-accent); color: var(--c-on-accent); box-shadow: var(--shadow-sm); cursor: default; }
+      .seg[disabled] { opacity: .38; cursor: default; }
+      .seg:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--c-accent-soft); }
+
+      /* scene look — warm, on the dark stage chrome */
+      .app[data-mode="scene"] .mode-indicator {
+        background: #15100c;
+        border-bottom-color: #2c2118;
+        color: var(--s-ink-soft);
+      }
+      .app[data-mode="scene"] .mode-toggle { background: #221a13; border-color: #3a2f28; }
+      .app[data-mode="scene"] .seg { color: var(--s-ink-soft); }
+      .app[data-mode="scene"] .seg:hover:not(.active):not([disabled]) { color: var(--s-ink); background: rgba(255,255,255,.06); }
+      .app[data-mode="scene"] .seg.active { background: var(--s-you); color: var(--s-you-ink); }
+      .app[data-mode="scene"] .seg:focus-visible { box-shadow: 0 0 0 3px var(--s-you-soft); }
+
+      /* ===================================================================
+         4. THE STAGE  — the live "current beat" canvas
+         =================================================================== */
+      .stage {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        position: relative;
+        transition: filter .2s var(--ease), opacity .2s var(--ease);
+      }
+      .stage-inner {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 24px 18px 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-height: 100%;
+      }
+
+      /* When the coach sheet is up, the practice peek behind it is frozen with a
+         light blur; the scrim (over the top) does the dimming, so no brightness
+         here (avoids double-darkening). */
+      .stage.is-frozen {
+        filter: blur(2.5px);
+        pointer-events: none;
+        user-select: none;
+      }
+
+      /* The stage IS the practice base — always the warm, dark, vignetted room. */
+      .stage { background: var(--scene-paint); }
+
+      /* —— Establishing card — the practice base before the scene begins.
+         Anchors the learner to what they're about to practice while the coach
+         sheet preps them above it. */
+      .establishing {
+        margin: auto;             /* centered in the stage — the scene anchor on landing */
+        max-width: 460px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 24px 24px;
+      }
+      .est-eyebrow {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .18em;
+        text-transform: uppercase;
+        color: var(--s-ink-faint);
+      }
+      .est-title {
+        margin: 0;
+        font-size: clamp(22px, 4.2vw, 30px);
+        font-weight: 700;
+        letter-spacing: -.01em;
+        color: var(--s-ink);
+      }
+      .est-sub {
+        margin: 0;
+        font-size: 15px;
+        line-height: 1.6;
+        color: var(--s-ink-soft);
+      }
+      .est-with {
+        margin-top: 4px;
+        font-size: 13px;
+        color: var(--s-ink-faint);
+      }
+      .est-with b { color: var(--s-char); font-weight: 700; }
+
+      /* "Step into the scene" — the learner-triggered entry CTA. Wears the scene's
+         warm amber so it previews the destination. It TAKES OVER the input bar
+         once the AI coach invites you in (rather than adding a second interaction
+         area in the thread); the scene never auto-advances. */
+      .enter-cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 11px;
+        padding: 13px 22px;
+        border: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--s-you), #e3a02f);
+        color: var(--s-you-ink);
+        font: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 6px 18px rgba(241,179,74,.26);
+        transition: filter .15s var(--ease), transform .1s var(--ease);
+      }
+      .enter-cta:hover { filter: brightness(1.05); }
+      .enter-cta:active { transform: scale(.98); }
+      .enter-cta:focus-visible { outline: none; box-shadow: 0 6px 18px rgba(241,179,74,.26), 0 0 0 3px var(--s-you-soft); }
+      .enter-cta .arrow { transition: transform .15s var(--ease); }
+      .enter-cta:hover .arrow { transform: translateX(3px); }
+
+      /* —— Scene video — a cold-open that plays INSIDE the practice layer (the
+         stage) as a contained card, not a standalone full-screen player and not
+         edge-to-edge either. Six clips play back-to-back with a hard cut between
+         them and no progress/counter of any kind, so it reads as one continuous
+         video — the learner can pause/resume, but can't skip ahead between clips.
+         Narration is shown as short caption chunks (not the whole paragraph at
+         once) fading at the bottom — the same "reveal a little at a time" idea
+         as the Audio Summary experiment, just timer-paced since there's no
+         narration audio to follow. Centered the same way .establishing is
+         (margin: auto inside .stage-inner's flex column). —— */
+      .scene-video {
+        position: relative;
+        margin: auto;
+        width: 100%;
+        max-width: 560px;
+        aspect-ratio: 16 / 9;
+        border-radius: var(--radius);
+        background: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        box-shadow: var(--shadow-md);
+      }
+      /* All six get their own element, stacked, all preloading from the moment
+         the phase mounts — only the active one is opaque. Swapping opacity
+         instead of swapping one element's src is what lets every clip buffer
+         in the background while an earlier one plays, and avoids re-triggering
+         a fresh decode pipeline on every cut. */
+      .intro-video {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+      }
+      .intro-video.is-active { opacity: 1; }
+      /* Vignette so white caption text stays legible over a bright clip */
+      .scene-video::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(0,0,0,.15) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0) 60%, rgba(0,0,0,.65) 100%);
+        pointer-events: none;
+      }
+      .intro-caption-wrap {
+        position: absolute;
+        left: 0; right: 0; bottom: 28px;
+        display: flex;
+        justify-content: center;
+        padding: 0 24px;
+        z-index: 1;
+      }
+      .intro-caption {
+        margin: 0;
+        max-width: 560px;
+        text-align: center;
+        font-size: clamp(15px, 2.4vw, 18px);
+        line-height: 1.45;
+        font-weight: 600;
+        color: #fff;
+        text-shadow: 0 1px 3px rgba(0,0,0,.6);
+        background: rgba(0,0,0,.42);
+        border-radius: 10px;
+        padding: 9px 16px;
+        opacity: 0;
+        transition: opacity .35s var(--ease);
+      }
+      .intro-caption.is-visible { opacity: 1; }
+      /* Play/pause — the one transport control the learner gets. No seek, no
+         skip-ahead between clips; just the ability to pause and resume. */
+      .intro-playpause {
+        position: absolute;
+        left: 12px; top: 12px;
+        z-index: 1;
+        width: 34px; height: 34px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        background: rgba(0,0,0,.5);
+        color: #fff;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background .15s var(--ease);
+      }
+      .intro-playpause:hover { background: rgba(0,0,0,.7); }
+      .intro-playpause:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,255,255,.4); }
+      /* Skip — PROTOTYPE-ONLY review affordance so stakeholders can jump past
+         the cold open without watching all six clips. The actual design keeps
+         the intro unskippable (see the note above) — do NOT carry this into
+         the real build. Sits above the loading beat too, so a reviewer can
+         bail even while clips are still buffering. */
+      .intro-skip {
+        position: absolute;
+        right: 12px; bottom: 12px;
+        z-index: 4;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border: 0;
+        border-radius: 999px;
+        padding: 7px 14px;
+        background: rgba(0,0,0,.5);
+        color: #fff;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background .15s var(--ease);
+      }
+      .intro-skip:hover { background: rgba(0,0,0,.7); }
+      .intro-skip:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,255,255,.4); }
+      .intro-skip i { font-size: 11px; }
+      /* One-time fallback if the browser blocks autoplay even muted */
+      .intro-begin {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0,0,0,.35);
+        border: 0;
+        color: #fff;
+        font: inherit;
+        font-size: 17px;
+        font-weight: 700;
+        gap: 10px;
+        cursor: pointer;
+      }
+      .intro-begin i { font-size: 28px; }
+      .intro-begin[hidden] { display: none; }
+      /* Quiet loading beat while all six clips preload, before the first plays.
+         Sits ABOVE the (still-buffering, invisible) videos and fades out once
+         every one of them reports ready — see preloadVideos(). */
+      .intro-loading {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000;
+        transition: opacity .3s var(--ease);
+      }
+      .intro-loading.is-out { opacity: 0; pointer-events: none; }
+      .intro-loading .dots { display: inline-flex; gap: 6px; }
+      .intro-loading .dots span {
+        width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.85);
+        animation: bob 1.2s infinite ease-in-out;
+      }
+      .intro-loading .dots span:nth-child(2) { animation-delay: .15s; }
+      .intro-loading .dots span:nth-child(3) { animation-delay: .3s; }
+
+      /* ===================================================================
+         5. MESSAGES — coaching world
+         =================================================================== */
+      /* Coach message: avatar + label + bubble (out-of-fiction) */
+      .coach-msg { display: flex; gap: 11px; align-items: flex-start; max-width: 78%; }
+      .coach-avatar {
+        flex: 0 0 auto;
+        width: 34px; height: 34px;
+        border-radius: 50%;
+        display: grid; place-items: center;
+        background: linear-gradient(135deg, var(--c-accent), var(--c-accent-strong));
+        color: #fff;
+        font-size: 14px;
+        box-shadow: var(--shadow-sm);
+      }
+      .coach-body { min-width: 0; }
+      .coach-label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--c-ink-faint);
+        margin: 3px 0 5px;
+      }
+      .coach-bubble {
+        background: var(--c-surface);
+        border: 1px solid var(--c-line);
+        border-radius: 4px 16px 16px 16px;
+        padding: 12px 15px;
+        font-size: 15px;
+        line-height: 1.55;
+        color: var(--c-ink);
+        white-space: pre-wrap;
+        box-shadow: var(--shadow-sm);
+      }
+
+      /* Your coaching reply: right-aligned accent bubble */
+      .you-coach { display: flex; flex-direction: column; align-items: flex-end; max-width: 78%; margin-left: auto; }
+      .you-coach .cap {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--c-ink-faint);
+        margin: 0 2px 5px 0;
+      }
+      .you-coach .bubble {
+        background: var(--c-accent);
+        color: var(--c-on-accent);
+        border-radius: 16px 4px 16px 16px;
+        padding: 11px 15px;
+        font-size: 15px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        box-shadow: var(--shadow-sm);
+      }
+
+      /* ===================================================================
+         6. STAGE CARD  — wraps a contiguous run of SCENE messages.
+            Bordered, recessed; reads as a continuous stage.
+         =================================================================== */
+      .stage-card {
+        position: relative;
+        background: linear-gradient(180deg, rgba(0,0,0,.18), rgba(0,0,0,.30));
+        border: 1px solid var(--s-line);
+        border-radius: var(--radius);
+        padding: 16px 16px 18px;
+        box-shadow: inset 0 2px 18px rgba(0,0,0,.45);
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .stage-card .scene-tag {
+        position: absolute;
+        top: -9px; left: 16px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 10px;
+        border-radius: 999px;
+        background: var(--s-surface-2);
+        border: 1px solid var(--s-line);
+        color: var(--s-ink-soft);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
+      .stage-card .scene-tag i { color: var(--s-you); font-size: 9px; }
+
+      /* Character line: avatar + name + state chip; optional narration; bubble */
+      .char-line { display: flex; gap: 11px; align-items: flex-start; max-width: 78%; }
+      .char-avatar {
+        flex: 0 0 auto;
+        width: 36px; height: 36px;
+        border-radius: 50%;
+        display: grid; place-items: center;
+        background: linear-gradient(135deg, #7c5bb0, #c79bff);
+        color: #fff;
+        font-size: 15px;
+        font-weight: 700;
+      }
+      /* don't grow to fill the row — let the bubble hug its text (capped by the
+         .char-line max-width), so short lines read as short bubbles */
+      .char-body { min-width: 0; flex: 0 1 auto; }
+      .char-head {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin: 2px 0 6px;
+        flex-wrap: wrap;
+      }
+      .char-name {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--s-char);
+        letter-spacing: .01em;
+      }
+      .char-state {
+        padding: 2px 9px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: lowercase;
+        background: var(--s-char-soft);
+        color: var(--s-char);
+      }
+      .char-narration {
+        font-style: italic;
+        color: var(--s-ink-soft);
+        font-size: 13.5px;
+        line-height: 1.5;
+        margin: 0 0 8px;
+        padding-left: 1px;
+      }
+      .char-bubble {
+        background: var(--s-surface);
+        border: 1px solid var(--s-line);
+        border-radius: 4px 16px 16px 16px;
+        padding: 12px 15px;
+        font-size: 15px;
+        line-height: 1.55;
+        color: var(--s-ink);
+        white-space: pre-wrap;
+      }
+      /* A standalone narration (no dialogue) sets the scene quietly */
+      .scene-narration {
+        font-style: italic;
+        color: var(--s-ink-soft);
+        font-size: 14px;
+        line-height: 1.6;
+        text-align: center;
+        max-width: 52ch;
+        margin: 2px auto;
+        padding: 4px 8px;
+      }
+
+      /* Your scene line: caption + mic icon; amber "spoken" bubble; retry control */
+      .you-scene { display: flex; flex-direction: column; align-items: flex-end; max-width: 78%; margin-left: auto; }
+      .you-scene .cap {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .04em;
+        color: var(--s-ink-faint);
+        margin: 0 2px 5px 0;
+      }
+      .you-scene .cap i { color: var(--s-you); font-size: 11px; }
+      .you-scene .bubble {
+        background: linear-gradient(135deg, var(--s-you), #e3a02f);
+        color: var(--s-you-ink);
+        border-radius: 16px 4px 16px 16px;
+        padding: 11px 15px;
+        font-size: 15px;
+        line-height: 1.5;
+        font-weight: 600;
+        white-space: pre-wrap;
+        box-shadow: 0 4px 14px rgba(241,179,74,.22);
+      }
+      .you-scene .retry {
+        margin: 7px 2px 0 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 5px 11px;
+        border: 1px solid var(--s-line);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--s-ink-soft);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: border-color .15s var(--ease), color .15s var(--ease), background .15s var(--ease);
+      }
+      .you-scene .retry:hover { border-color: var(--s-you); color: var(--s-you); background: var(--s-you-soft); }
+      .you-scene .retry i { font-size: 11px; }
+
+      /* ===================================================================
+         8. THE AI COACH LAYER  — one consistent bottom sheet that rises over
+            the practice base (which stays visible, dimmed, above it). Same
+            presentation for opening prep AND debriefs; the Learn/Practice
+            toggle just raises/lowers it.
+         =================================================================== */
+      /* scrim dims the practice peek above the sheet whenever the coach is up */
+      .scrim {
+        position: fixed;
+        inset: var(--topbar-h) 0 0 0;
+        z-index: 40;
+        background: rgba(8, 7, 5, .55);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .22s var(--ease);
+      }
+      .app.coach-up .scrim { opacity: 1; pointer-events: auto; }
+
+      /* The coach sheet — bottom sheet on ALL breakpoints. `bottom` is set in JS
+         to the input bar's height so it sits right on top of it; together they
+         read as the coach layer. Hidden by sliding below; shown by sliding up. */
+      .coach-panel {
+        position: fixed;
+        left: 0; right: 0;
+        bottom: var(--input-h);            /* JS keeps this in sync with the input bar */
+        z-index: 50;
+        height: auto;                       /* grows to fit its content... */
+        max-height: 56vh;                   /* ...until this, where the body scrolls instead */
+        max-width: 860px;
+        margin: 0 auto;
+        background: var(--c-surface);
+        border: 1px solid var(--c-line);
+        border-bottom: 0;
+        border-radius: var(--radius) var(--radius) 0 0;
+        box-shadow: var(--shadow-lg);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        transform: translateY(120%);
+        transition: transform .24s var(--ease);
+      }
+      .app.coach-up .coach-panel { transform: none; }
+      @media (max-height: 620px) { .coach-panel { max-height: 62vh; } }
+
+      .coach-panel-head {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 13px 16px 12px;
+        border-bottom: 1px solid var(--c-line);
+      }
+      .coach-panel-head .ttl {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--c-accent-strong);
+      }
+      .coach-panel-head .spacer { flex: 1 1 auto; }
+      /* lower-the-sheet / back-to-practice control (only meaningful once entered) */
+      .coach-panel-resume {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 32px;
+        padding: 0 13px;
+        border: 1px solid var(--c-line);
+        border-radius: 999px;
+        background: var(--c-surface);
+        color: var(--c-ink-soft);
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: border-color .15s var(--ease), color .15s var(--ease);
+      }
+      .coach-panel-resume:hover { border-color: var(--s-you); color: var(--c-ink); }
+      .coach-panel-resume i { font-size: 11px; }
+      .coach-panel-resume[hidden] { display: none; }   /* class display would otherwise override [hidden] */
+      /* "Begin practicing" variant — pre-entry, this same slot reads as the primary
+         CTA (amber, previewing the scene) rather than the quiet "back" control. */
+      .coach-panel-resume.is-begin {
+        background: linear-gradient(135deg, var(--s-you), #e3a02f);
+        border-color: transparent;
+        color: var(--s-you-ink);
+        font-weight: 700;
+      }
+      .coach-panel-resume.is-begin:hover { filter: brightness(1.06); color: var(--s-you-ink); }
+
+      .coach-panel-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 16px 16px 22px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      /* ===================================================================
+         9. INPUT BAR  — placeholder + accent driven by inputTarget
+         =================================================================== */
+      .inputbar {
+        position: relative;
+        z-index: 55;       /* above the scrim, so coaching input stays usable */
+        flex: 0 0 auto;
+        /* A CTA, a status line, and the composer+hint are different heights —
+           without a shared floor, switching between them visibly jumps the
+           whole page (this bar, the coach sheet sitting on it, and the stage
+           above). Centering a single-line state inside the composer's own
+           height (the tallest common case) makes most transitions height-
+           neutral; only the rare two-line entry state still grows a touch. */
+        min-height: 104px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        background: var(--c-surface);
+        border-top: 1px solid var(--c-line);
+        padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+        transition: background .2s var(--ease), border-color .2s var(--ease);
+      }
+      .input-row {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+      }
+      .input-shell {
+        flex: 1 1 auto;
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        border: 1.5px solid var(--c-line);
+        border-radius: 14px;
+        background: var(--c-bg);
+        padding: 4px 6px 4px 14px;
+        transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
+      }
+      .input-shell:focus-within {
+        border-color: var(--c-accent);
+        box-shadow: 0 0 0 3px var(--c-accent-soft);
+      }
+      .input-shell .lead-icon {
+        flex: 0 0 auto;
+        align-self: center;
+        color: var(--c-ink-faint);
+        font-size: 14px;
+        margin-bottom: 1px;
+      }
+      .inputbar textarea {
+        flex: 1 1 auto;
+        resize: none;
+        border: 0;
+        background: transparent;
+        outline: none;
+        font: inherit;
+        font-size: 15px;
+        line-height: 1.45;
+        color: var(--c-ink);
+        max-height: 120px;
+        padding: 9px 0;
+      }
+      .inputbar textarea::placeholder { color: var(--c-ink-faint); }
+      .send-btn {
+        flex: 0 0 auto;
+        width: 40px;
+        align-self: stretch;     /* match the text field's height (row is align-end) */
+        min-height: 40px;
+        border: 0;
+        border-radius: 11px;
+        background: var(--c-accent);
+        color: var(--c-on-accent);
+        font-size: 15px;
+        cursor: pointer;
+        transition: background .15s var(--ease), transform .1s var(--ease);
+      }
+      .send-btn:hover { background: var(--c-accent-strong); }
+      .send-btn:active { transform: scale(.95); }
+      .send-btn:disabled { opacity: .45; cursor: default; }
+
+      .input-main[hidden], .input-entry[hidden], .input-analyzing[hidden], .input-done[hidden] { display: none; }
+
+      /* hint line under the composer */
+      .input-foot {
+        max-width: 720px;
+        margin: 8px auto 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 11.5px;
+        color: var(--c-ink-faint);
+      }
+      .input-foot .hint { flex: 1 1 auto; }
+
+      /* Tooltip on the mode-toggle segments — clarifies what tapping does (esp. the
+         Practice segment as a way to begin / return). Hover-only, so it's a desktop
+         nicety layered on top of the always-visible affordances. */
+      .seg[data-tip] { position: relative; }
+      .seg[data-tip]:hover::after {
+        content: attr(data-tip);
+        position: absolute;
+        bottom: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        white-space: nowrap;
+        padding: 5px 9px;
+        border-radius: 7px;
+        background: var(--c-ink);
+        color: var(--c-surface);
+        font-size: 11.5px;
+        font-weight: 600;
+        letter-spacing: .01em;
+        box-shadow: var(--shadow-md);
+        pointer-events: none;
+        z-index: 70;
+      }
+
+      /* Entry state — the CTA stands in for the composer, with a quiet
+         "keep talking" escape hatch beneath it. */
+      .input-entry {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 9px;
+      }
+      /* Sized to its own text (not the full input bar) — .input-entry's
+         align-items:center keeps it centered either way. */
+      .enter-cta-bar { width: auto; }
+      .keep-talking {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 0;
+        background: none;
+        color: var(--c-ink-soft);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 8px;
+        transition: color .15s var(--ease), background .15s var(--ease);
+      }
+      .keep-talking:hover { color: var(--c-ink); background: var(--c-surface-2); }
+      .keep-talking i { font-size: 12px; opacity: .8; }
+
+      /* —— Scene-targeted input gets the warm amber treatment —— */
+      .app[data-target="character"] .inputbar {
+        background: #15100c;
+        border-top-color: #2c2118;
+      }
+      .app[data-target="character"] .input-shell {
+        background: #221a13;
+        border-color: #43372e;
+      }
+      .app[data-target="character"] .input-shell:focus-within {
+        border-color: var(--s-you);
+        box-shadow: 0 0 0 3px var(--s-you-soft);
+      }
+      .app[data-target="character"] .input-shell .lead-icon { color: var(--s-you); }
+      .app[data-target="character"] .inputbar textarea { color: var(--s-ink); }
+      .app[data-target="character"] .inputbar textarea::placeholder { color: var(--s-ink-faint); }
+      .app[data-target="character"] .send-btn { background: var(--s-you); color: var(--s-you-ink); }
+      .app[data-target="character"] .send-btn:hover { filter: brightness(1.06); background: var(--s-you); }
+      .app[data-target="character"] .input-foot { color: var(--s-ink-faint); }
+
+      /* Typing indicator (in stage or panel) */
+      .typing {
+        align-self: flex-start;
+        display: inline-flex;
+        gap: 5px;
+        padding: 13px 15px;
+        border-radius: 14px;
+        background: var(--c-surface);
+        border: 1px solid var(--c-line);
+        box-shadow: var(--shadow-sm);
+      }
+      .typing.scene { background: var(--s-surface); border-color: var(--s-line); }
+      .typing span {
+        width: 7px; height: 7px;
+        border-radius: 50%;
+        background: var(--c-ink-faint);
+        animation: bob 1.2s infinite ease-in-out;
+      }
+      .typing.scene span { background: var(--s-ink-faint); }
+      .typing span:nth-child(2) { animation-delay: .15s; }
+      .typing span:nth-child(3) { animation-delay: .3s; }
+      @keyframes bob { 0%,60%,100% { transform: translateY(0); opacity:.5; } 30% { transform: translateY(-5px); opacity:1; } }
+
+      /* —— Content enter animation (fade + slight rise; runs once per node) —— */
+      .coach-msg.enter, .you-coach.enter, .char-line.enter,
+      .scene-narration.enter, .you-scene.enter {
+        animation: msg-enter .34s var(--ease) both;
+      }
+      @keyframes msg-enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+
+      /* —— "Analyzing your response…" — shown IN the input area (not over the
+         scene), so the learner keeps reading the reaction while the coach reviews —— */
+      .input-analyzing {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 11px;
+        padding: 15px 14px;
+        color: var(--c-ink-soft);
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .input-analyzing .dots { display: inline-flex; gap: 4px; }
+      .input-analyzing .dots span {
+        width: 6px; height: 6px; border-radius: 50%; background: var(--c-accent);
+        animation: bob 1.2s infinite ease-in-out;
+      }
+      .input-analyzing .dots span:nth-child(2) { animation-delay: .15s; }
+      .input-analyzing .dots span:nth-child(3) { animation-delay: .3s; }
+
+      /* Settled state after "Continue" — no dots, no CTA, just confirmation
+         that this practice is done. */
+      .input-done {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        padding: 15px 14px;
+        color: var(--c-ink-soft);
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .input-done i { color: #16a34a; }
+
+      /* Debrief CTA — opens the queued coach debrief. Wears the coach indigo to
+         preview the destination (mirroring the amber "Step into the scene"). */
+      .debrief-cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 11px;
+        padding: 13px 22px;
+        border: 0;
+        border-radius: 12px;
+        background: var(--c-accent);
+        color: var(--c-on-accent);
+        font: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 6px 18px rgba(75, 99, 230, .26);
+        transition: filter .15s var(--ease), transform .1s var(--ease);
+      }
+      .debrief-cta:hover { filter: brightness(1.06); }
+      .debrief-cta:active { transform: scale(.98); }
+      .debrief-cta:focus-visible { outline: none; box-shadow: 0 6px 18px rgba(75,99,230,.26), 0 0 0 3px var(--c-accent-soft); }
+      .debrief-cta .arrow { transition: transform .15s var(--ease); }
+      .debrief-cta:hover .arrow { transform: translateX(3px); }
+
+      /* ===================================================================
+         10. COMPLETION / RESOURCES  (shown at the end, as a coach message —
+             see resourcesNode() — not a separate boxed widget)
+         =================================================================== */
+      /* A coach message that's a bit richer than plain text (a short list)
+         gets a little more room than the usual 78% text bubbles. */
+      .coach-msg.wide-msg { max-width: 92%; }
+      /* .coach-bubble sets white-space: pre-wrap for plain escaped coach text
+         (so \n\n paragraph breaks render); this bubble holds real markup
+         instead, so pre-wrap would render the template literal's own
+         indentation/newlines as visible blank space. */
+      .resources-bubble { white-space: normal; }
+      .resources-lead { margin: 0 0 12px; }
+      .res-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+      .res-list li {
+        display: flex;
+        gap: 11px;
+        align-items: flex-start;
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--c-ink);
+      }
+      .res-list li i {
+        flex: 0 0 auto;
+        width: 30px; height: 30px;
+        display: grid; place-items: center;
+        border-radius: 8px;
+        background: var(--c-accent-soft);
+        color: var(--c-accent-strong);
+        font-size: 13px;
+        margin-top: 1px;
+      }
+      .res-list li b { display: block; }
+      .res-list li span { color: var(--c-ink-soft); font-size: 13px; }
+
+      /* —— Closing stepper — "Analyzing conversation… determining strengths…
+         determining growth areas…", shown in the coach sheet while the closing
+         summary "builds" after the learner taps to see their results. Replaces
+         the coach sheet's messages briefly; never appears for mid-practice
+         debriefs, only the final one. —— */
+      .closing-stepper {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 8px 2px;
+      }
+      .closing-step {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--c-ink-faint);
+        transition: color .25s var(--ease);
+      }
+      .closing-step .mark {
+        flex: 0 0 auto;
+        width: 22px; height: 22px;
+        border-radius: 50%;
+        border: 2px solid var(--c-line);
+        display: grid;
+        place-items: center;
+        font-size: 10px;
+        color: transparent;
+        transition: border-color .25s var(--ease), background .25s var(--ease), color .25s var(--ease);
+      }
+      .closing-step.is-active { color: var(--c-ink); }
+      .closing-step.is-active .mark {
+        border-color: var(--c-accent);
+        animation: stepPulse 1.1s ease-in-out infinite;
+      }
+      @keyframes stepPulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+      .closing-step.is-done { color: var(--c-ink-soft); }
+      .closing-step.is-done .mark {
+        border-color: var(--c-accent);
+        background: var(--c-accent);
+        color: #fff;
+      }
+
+      /* —— Closing report — strengths / growth areas as a distinct, non-chat
+         read: short scannable items, not paragraphs, so it doesn't read like
+         the wall-of-text stakeholder draft. Lives INSIDE the results modal
+         below, one section per page — the modal card is the container, so no
+         extra box/border here. —— */
+      .report-section h3 {
+        margin: 0 0 12px;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        color: var(--c-ink);
+      }
+      .report-section h3 i { color: var(--accent-color, #16a34a); }
+      .report-section.growth { --accent-color: #d97706; }
+      .report-section.playbook { --accent-color: #2563eb; }
+
+      /* —— Results modal — strengths and growth areas, one page at a time,
+         opened only when the learner taps "View full results" (never
+         auto-shown). Deliberately linear: Next → Back/Continue, no stray
+         dismiss affordance, so there's exactly one clear way through it. —— */
+      .results-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 90;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgba(0,0,0,.55);
+      }
+      .results-modal[hidden] { display: none; }
+      .results-modal-card {
+        width: 100%;
+        max-width: 560px;
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+        background: var(--c-bg);
+        border: 1px solid var(--c-line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-lg);
+        overflow: hidden;
+      }
+      .results-modal-head {
+        flex: 0 0 auto;
+        padding: 16px 20px 13px;
+        border-bottom: 1px solid var(--c-line);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .results-modal-eyebrow {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--c-ink-faint);
+      }
+      .results-modal-dots { display: flex; gap: 6px; }
+      .results-modal-dots span {
+        width: 7px; height: 7px;
+        border-radius: 50%;
+        background: var(--c-line);
+        transition: background .2s var(--ease);
+      }
+      .results-modal-dots span.is-active { background: var(--c-accent); }
+      .results-modal-body {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        padding: 20px;
+      }
+      .results-modal-foot {
+        flex: 0 0 auto;
+        padding: 14px 20px 18px;
+        border-top: 1px solid var(--c-line);
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .results-nav-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        padding: 10px 16px;
+        border-radius: 10px;
+        border: 1px solid var(--c-line);
+        background: var(--c-surface);
+        color: var(--c-ink);
+        font: inherit;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background .15s var(--ease), border-color .15s var(--ease);
+      }
+      .results-nav-btn:hover { border-color: var(--c-accent); }
+      .results-nav-btn.primary {
+        margin-left: auto;
+        background: var(--c-accent);
+        border-color: transparent;
+        color: var(--c-on-accent);
+      }
+      .results-nav-btn.primary:hover { background: var(--c-accent-strong); }
+
+      /* ===================================================================
+         11. REDUCED MOTION  — instant cross-fade, no scale, static dim
+         =================================================================== */
+      @media (prefers-reduced-motion: reduce) {
+        * { transition-duration: .001ms !important; animation-duration: .001ms !important; }
+        .stage.is-frozen { filter: brightness(.7); }   /* drop the blur; keep static dim */
+        /* the sheet still hides/shows, just instantly (global rule zeroes the slide) */
+      }
+    </style>
+</head>
+<body>
+    <div class="app" id="app" data-mode="coaching" data-target="coach" data-entered="false">
+
+      <!-- Page name for screen readers (the visible title lives in the top bar) -->
+      <h1 class="sr-only" id="pageTitle">Practice scenario: Bystander Intervention: The Marshall Scenario</h1>
+
+      <!-- Top bar ------------------------------------------------------- -->
+      <header class="topbar">
+        <span class="brand">
+          <span class="badge"><i class="fa-solid fa-comments"></i> Practice chat</span>
+        </span>
+        <span class="scenario" id="scenarioName">Bystander Intervention: The Marshall Scenario</span>
+        <span class="spacer"></span>
+        <button class="tb-btn" id="restartBtn" aria-label="Restart practice">
+          <i class="fa-solid fa-rotate-left"></i><span class="label">Restart</span>
+        </button>
+      </header>
+
+      <!-- Viewport: mode indicator + live stage ------------------------- -->
+      <main class="viewport">
+        <div class="mode-indicator is-hidden" id="modeIndicator" aria-hidden="true"><!-- built by JS --></div>
+        <section class="stage" id="stage" aria-label="Practice conversation">
+          <div class="stage-inner" id="stageInner" aria-live="polite"><!-- built by JS --></div>
+        </section>
+      </main>
+
+      <!-- AI Coach layer: scrim dims the practice peek; the sheet rises over it -->
+      <div class="scrim" id="scrim"></div>
+      <aside class="coach-panel" id="coachPanel" role="region" aria-label="AI Coach" aria-hidden="true" inert>
+        <div class="coach-panel-head">
+          <span class="ttl"><i class="fa-solid fa-chalkboard-user"></i> AI Coach</span>
+          <span class="spacer"></span>
+          <button class="coach-panel-resume" id="resumeBtn">
+            Back to practice <i class="fa-solid fa-chevron-down"></i>
+          </button>
+        </div>
+        <div class="coach-panel-body" id="coachPanelBody" aria-live="polite"><!-- built by JS --></div>
+      </aside>
+
+      <!-- Input bar ----------------------------------------------------- -->
+      <footer class="inputbar">
+        <!-- Start state: before anything begins we ANCHOR on the scene ("Kendra's
+             room") with the coach sheet down and the composer hidden. The learner
+             chooses when to bring the AI coach in — it does not open on its own. -->
+        <div class="input-entry" id="inputStart">
+          <button class="debrief-cta" id="startCtaBtn">
+            <i class="fa-solid fa-door-open"></i> Enter scenario <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
+        <!-- Normal composer -->
+        <div class="input-main" id="inputMain">
+          <div class="input-row">
+            <div class="input-shell">
+              <i class="fa-solid fa-comment lead-icon" id="inputIcon" aria-hidden="true"></i>
+              <textarea id="composer" rows="1" placeholder="Type your response…"
+                        aria-label="Your message"></textarea>
+            </div>
+            <button class="send-btn" id="sendBtn" aria-label="Send"><i class="fa-solid fa-arrow-up"></i></button>
+          </div>
+          <div class="input-foot">
+            <span class="hint" id="inputHint">Enter to send · Shift+Enter for a new line</span>
+          </div>
+        </div>
+        <!-- Entry state: the CTA takes the input bar's place once the coach invites
+             you in, with a quiet option to keep talking instead -->
+        <div class="input-entry" id="inputEntry" hidden>
+          <button class="enter-cta enter-cta-bar" id="enterCtaBar">
+            <i class="fa-solid fa-play"></i> Watch what happens <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+          <button class="keep-talking" id="keepTalkingBtn">
+            <i class="fa-solid fa-comment"></i> Or, do you need more prep?
+          </button>
+        </div>
+        <!-- "Analyzing…" beat: shown in the input area while the learner reads the
+             reaction; the scene stays full so nothing is missed -->
+        <div class="input-analyzing" id="inputAnalyzing" hidden>
+          <span class="dots"><span></span><span></span><span></span></span>
+          Analyzing your response…
+        </div>
+        <!-- Cold-open video: the bar stays present (not empty) while it plays —
+             there's nothing to tap yet, just a quiet status. -->
+        <div class="input-analyzing" id="inputWatching" hidden>
+          <span class="dots"><span></span><span></span><span></span></span>
+          Watching the scene…
+        </div>
+        <!-- Debrief CTA: the coach is ready, opened only when the learner chooses -->
+        <div class="input-entry" id="inputDebrief" hidden>
+          <button class="debrief-cta" id="debriefCtaBtn">
+            <i class="fa-solid fa-chalkboard-user"></i> See AI Coach feedback <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
+        <!-- Return CTA: the coach has replied and is ready to send the learner
+             back into the scene — but they cross back on their own command,
+             same as every other transition here. -->
+        <div class="input-entry" id="inputReturn" hidden>
+          <button class="enter-cta enter-cta-bar" id="returnCtaBtn">
+            <i class="fa-solid fa-door-open"></i> Continue practicing <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
+        <!-- Results CTA: shown once the closing recap has landed — the full
+             strengths/growth-areas report opens in its own modal, not dumped
+             into the chat thread. -->
+        <div class="input-entry" id="inputResults" hidden>
+          <button class="debrief-cta" id="resultsCtaBtn">
+            <i class="fa-solid fa-chart-simple"></i> View full results <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
+        <!-- Continue: the practice's actual last step — replaces the composer
+             once the resources have landed, rather than leaving it sitting
+             there disabled with nothing left to type. -->
+        <div class="input-entry" id="inputContinue" hidden>
+          <button class="debrief-cta" id="continueCtaBtn">
+            Continue <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
+        </div>
+        <!-- Settled state after Continue — no further action, just confirmation. -->
+        <div class="input-done" id="inputDone" hidden>
+          <i class="fa-solid fa-circle-check"></i> Practice complete
+        </div>
+      </footer>
+
+      <!-- Polite live region for mode-change announcements -------------- -->
+      <div class="sr-only" id="liveRegion" aria-live="polite"></div>
+    </div>
+
+    <!-- Results modal — a sibling of .app (not a descendant), so .app can be
+         made inert while this is open without inerting itself. -->
+    <div class="results-modal" id="resultsModal" hidden role="dialog" aria-modal="true" aria-label="Your results">
+      <div class="results-modal-card" tabindex="-1">
+        <div class="results-modal-head">
+          <span class="results-modal-eyebrow">Your results</span>
+          <div class="results-modal-dots" id="resultsDots"><span></span><span></span><span></span></div>
+        </div>
+        <div class="results-modal-body" id="resultsModalBody"><!-- built by JS --></div>
+        <div class="results-modal-foot" id="resultsModalFoot"><!-- built by JS --></div>
+      </div>
+    </div>
+
+    <!-- Kendra engine: the locked output contract + fill() helper we reuse -->
+    <script src="js/scenario.js"></script>
+    <!-- Reusable context-setter (narrated audio / reading) for the opening scene -->
+    <script src="js/scene-context.js"></script>
+    <!-- The Marshall scenario (V2 — video turn): content + compiled system prompt -->
+    <script src="js/marshall-scenario-v2.js?v=4"></script>
+
+    <script>
+    /* =====================================================================
+       ACTION PRACTICE — engine + render-by-state (vanilla, no framework)
+
+       MESSAGE SCHEMA (what the model returns, JSON only):
+         { turn: [ { speaker:'coach'|'you'|'character',
+                     kind:'coaching'|'dialogue'|'narration',
+                     text:string, emotionalState?:string } ],
+           mode: 'coaching'|'scene',          // mode for the learner's NEXT input
+           inputTarget: 'coach'|'character',  // who the input box is addressed to
+           complete?: true,                   // only on the final turn
+           report?: { strengths:[{title,body}],      // only on the final turn —
+                      growthAreas:[{title,body}] } } // feeds the results modal
+
+       We render PURELY by speaker + kind — never by inspecting text:
+         kind==='coaching'                  → coaching world (CoachMessage / YourCoachingReply)
+         kind==='dialogue' | 'narration'    → scene world  (CharacterLine / YourSceneLine / narration)
+       ===================================================================== */
+
+    /* ---- LIVE ---------------------------------------------------------
+       This page runs LIVE against real Claude through the Cloudflare Worker
+       proxy (it injects the API key a static page can't hold). Unlike the
+       Kendra practice pages there is no scripted demo fallback for Marshall —
+       the five-phase coaching arc is model-driven end to end. */
+    const WORKER_URL = 'https://aithera-action-proxy.vector-aithera.workers.dev';  // see worker/README.md
+    const MODEL = 'claude-opus-4-8';
+    const IS_LIVE = Boolean(WORKER_URL);
+
+    /* ---- SCENARIO DATA -------------------------------------------------
+       The Marshall scenario is authored in code (js/marshall-scenario.js), not
+       published from the Writer Studio: its pedagogy — a linear five-phase
+       coaching arc with a single witnessed scene — is different from the
+       Kendra roleplay loop the Studio's action-practice type models. We reuse
+       the Kendra SHELL + rendering engine here and supply Marshall's content
+       and system prompt from that module. */
+    const ACTIVE_SCENARIO = MarshallScenarioV2.SCENARIO;
+    const SCENARIO = {
+      learner: ACTIVE_SCENARIO.learnerName,
+      character: ACTIVE_SCENARIO.characterName,
+      title: ACTIVE_SCENARIO.title,
+    };
+    document.getElementById('scenarioName').textContent = SCENARIO.title;
+    document.getElementById('pageTitle').textContent = 'Practice scenario: ' + SCENARIO.title;
+
+    /* Cold-open VIDEO (the Kendra "with video" player). Marshall sets its
+       context with one dramatized clip that has its own audio (video.sound). */
+    const HAS_VIDEO_INTRO = ACTIVE_SCENARIO.intro.type === 'video'
+      && (ACTIVE_SCENARIO.intro.video.scenes || []).some((s) => s && s.src);
+    const INTRO_SCENES = !HAS_VIDEO_INTRO ? [] :
+      ACTIVE_SCENARIO.intro.video.scenes
+        .filter((s) => s && s.src)
+        .map((s) => ({
+          src: AitheraScenario.fill(s.src, ACTIVE_SCENARIO),
+          text: AitheraScenario.fill(s.caption || '', ACTIVE_SCENARIO),
+        }));
+    // Whether the cold-open clip plays with its own sound (vs muted + captions).
+    const INTRO_VIDEO_SOUND = !!(ACTIVE_SCENARIO.intro.video && ACTIVE_SCENARIO.intro.video.sound);
+
+    /* THE INCIDENT VIDEO (V2) — the ONE video turn, played mid-conversation
+       after the legal lead-up: Jake's break-room crack. Built the same way as
+       the cold-open so it reuses the exact same player (preload, pause/resume,
+       stall watchdog, frozen-frame hand-off). See playIncidentVideo(). */
+    const INCIDENT = ACTIVE_SCENARIO.incident || {};
+    const INCIDENT_SCENES = !(INCIDENT.scenes || []).some((s) => s && s.src) ? [] :
+      INCIDENT.scenes
+        .filter((s) => s && s.src)
+        .map((s) => ({
+          src: AitheraScenario.fill(s.src, ACTIVE_SCENARIO),
+          text: AitheraScenario.fill(s.caption || '', ACTIVE_SCENARIO),
+        }));
+    const INCIDENT_VIDEO_SOUND = !!INCIDENT.sound;
+
+    /* The video player is invoked TWICE now (cold-open, then the incident), so
+       what it plays and what it does when it ends are per-invocation. These are
+       the cold-open defaults; playIncidentVideo() swaps them for the incident. */
+    let VIDEO_SCENES = INTRO_SCENES;      // which clip set videoNode()/runIntroSequence use
+    let VIDEO_SOUND  = INTRO_VIDEO_SOUND; // whether that set plays unmuted
+    let onVideoDone  = null;              // callback when the clips end (null → startSession)
+
+    /* AUDIO / READING context modality — the opening "scene" is narrated (or
+       read) instead of delivered as coach chat text. When it finishes, the
+       coach appears with the reflection prompt (see enterAudioIntro below). */
+    const HAS_AUDIO_INTRO = (ACTIVE_SCENARIO.intro.type === 'audio' || ACTIVE_SCENARIO.intro.type === 'reading')
+      && !!(ACTIVE_SCENARIO.intro.audio && ACTIVE_SCENARIO.intro.audio.text);
+    const AUDIO_INTRO = ACTIVE_SCENARIO.intro.audio || {};
+    const AUDIO_INTRO_MODALITY = ACTIVE_SCENARIO.intro.type === 'reading' ? 'reading' : 'audio';
+
+    /* =====================================================================
+       THE SYSTEM PROMPT (live) — the conversation arc, guardrails, and
+       conversation guiding for the Marshall experience. Authored from the
+       Content Design LO + POC deck in js/marshall-scenario.js, it drives the
+       same strict JSON turn contract the Kendra engine renders. The
+       break-room outcomes, the legal/empathy calibration, and the guaranteed
+       nine-component close all live there.
+       ===================================================================== */
+    const SYSTEM_PROMPT = MarshallScenarioV2.SYSTEM_PROMPT;
+
+    /* ---- STATE -------------------------------------------------------- */
+    /* The coach's opening beat is SEEDED (not model-generated) so every
+       learner meets the same SME-authored framing: the situation, then the
+       non-evaluated reflection prompt. The learner's first reply kicks off
+       Phase 1. */
+    const initialMessages = () => ACTIVE_SCENARIO.opening.map((text) => (
+      { speaker: 'coach', kind: 'coaching', text }
+    ));
+
+    const state = {
+      mode: 'coaching',          // 'coaching' | 'scene'
+      inputTarget: 'coach',      // 'coach' | 'character'
+      hasEnteredScene: false,
+      started: false,            // false until the learner taps "Chat with AI Coach" — we anchor on the scene first
+      messages: [],              // empty until the learner begins; the opening prep streams in then
+      pendingOpening: initialMessages(),  // the coach's opening prep, held until the learner begins
+      sending: false,
+      complete: false,
+      report: null,              // live mode: model-written {strengths, growthAreas} for the results modal
+      manualTimeout: false,      // true when the learner pressed "Step out to AI coach"
+      transitioning: false,      // true during the "stepping into the scene" beat
+      delivering: false,         // true while a turn is being revealed message-by-message
+      awaitingEntry: false,      // coach has invited entry; waiting for the learner to step in
+      pendingScene: null,        // the opening scene messages, held until the learner steps in
+      entryPromptDismissed: false, // learner chose "keep talking" — show the composer, not the CTA
+      awaitingDebrief: false,    // Kendra has reacted; a coach debrief is queued for when the learner is ready
+      pendingDebrief: null,      // the queued coach debrief messages
+      analyzing: false,          // transient: "Analyzing your response…" shows in the input bar
+      videoPlaying: false,       // true while a video sequence owns the stage (cold-open OR incident)
+      midVideo: false,           // true only while the incident clip is ACTIVELY playing (Observe mode)
+      observed: false,           // true once the incident clip has finished at least once (enables re-watch)
+      observePrompted: false,    // true once the coach's post-video reflection prompt has been delivered
+      audioIntroPlaying: false,  // true while the narrated/reading context owns the stage (pre-coach)
+      closingStepperActive: false, // true while the closing "Analyzing… Determining…" stepper runs
+      awaitingResults: false,   // the closing recap has landed; footer offers "View full results"
+      resultsModalOpen: false,  // the strengths/growth-areas modal is open
+      resultsPage: 0,           // 0 = strengths, 1 = growth areas
+      resultsViewed: false,     // learner has been through the modal (unlocks the resources message)
+      continued: false,         // learner tapped the final "Continue" — the practice is fully settled
+      awaitingReturn: false,    // the coach is ready to send the learner back into the scene; waiting for them to choose
+      pendingReturn: null,      // { mode, inputTarget, sceneTarget } to apply once they do
+      debriefReturn: null,      // if the debrief the learner is about to open is a coach-led transition BACK into the scene (e.g. "check in with Marshall"), the return context to arm once it's read
+      returnLabel: null,        // custom label for the scene-return CTA (e.g. "Check in with Marshall")
+      sceneTarget: null,        // who the learner is speaking to in the scene now (e.g. "Marshall") — drives the composer placeholder
+    };
+
+    /* ---- helpers: classify + group ------------------------------------ */
+    const worldOf = (m) => (m.kind === 'coaching' ? 'coaching' : 'scene');
+
+    // trailing contiguous run of a given world at the end of the array
+    function trailingRun(msgs, world) {
+      const out = [];
+      for (let i = msgs.length - 1; i >= 0 && worldOf(msgs[i]) === world; i--) out.unshift(msgs[i]);
+      return out;
+    }
+
+    /* =====================================================================
+       NO DEMO ENGINE — Marshall runs LIVE only (see WORKER_URL above). The
+       five-phase coaching arc is model-driven end to end, so there is no
+       scripted fallback to maintain. This stub exists solely so getTurn's
+       demo branch stays defined; if the Worker is ever unset, it surfaces a
+       plain notice rather than pretending to run the arc offline.
+       ===================================================================== */
+    function scriptedTurn() {
+      return {
+        turn: [{ speaker: 'coach', kind: 'coaching', text:
+          'This scenario runs on a live AI coach, which isn’t reachable right now. Please try again in a moment.' }],
+        mode: 'coaching', inputTarget: 'coach',
+      };
+    }
+
+    /* ---- LIVE path ---------------------------------------------------- */
+    // Validate one report list from the model: keep only well-shaped items.
+    function cleanReportItems(items, max) {
+      if (!Array.isArray(items)) return [];
+      return items
+        .filter((it) => it && typeof it.title === 'string' && typeof it.body === 'string')
+        .slice(0, max)
+        .map((it) => ({ title: it.title, body: it.body }));
+    }
+    // Repair the two ways models most often break "JSON only" output:
+    //  1. prose around the object → slice from the first '{' to the last '}'
+    //  2. raw line breaks INSIDE string values (illegal JSON) → walk the chars
+    //     tracking whether we're inside a string, and escape them there only.
+    function repairJson(raw) {
+      let s = String(raw).replace(/```json|```/g, '').trim();
+      const a = s.indexOf('{'), b = s.lastIndexOf('}');
+      if (a >= 0 && b > a) s = s.slice(a, b + 1);
+      let out = '', inStr = false, escaped = false;
+      for (const ch of s) {
+        if (inStr && !escaped && (ch === '\n' || ch === '\r' || ch === '\t')) {
+          out += ch === '\n' ? '\\n' : ch === '\r' ? '\\r' : '\\t';
+          continue;
+        }
+        out += ch;
+        if (escaped) { escaped = false; continue; }
+        if (ch === '\\') { escaped = true; continue; }
+        if (ch === '"') inStr = !inStr;
+      }
+      return out;
+    }
+    // STRICT parse: returns a normalized turn, or null if the model didn't
+    // return a usable JSON object (so liveTurn can retry before giving up).
+    function strictParseTurn(raw) {
+      try {
+        const obj = JSON.parse(repairJson(raw));
+        if (!obj || !Array.isArray(obj.turn)) return null;
+        const turn = obj.turn
+          .filter((m) => m && m.speaker && m.kind && typeof m.text === 'string' && m.text.trim())
+          .map((m) => ({
+            speaker: m.speaker, kind: m.kind, text: m.text,
+            // Preserve a per-message speaker name (e.g. "Marshall") so a second
+            // in-scene character renders/labels correctly.
+            ...(m.speaker === 'character' && typeof m.name === 'string' && m.name.trim() ? { name: m.name.trim() } : {}),
+            ...(m.speaker === 'character' && m.emotionalState ? { emotionalState: m.emotionalState } : {}),
+          }));
+        if (!turn.length) return null;
+        const report = obj.report ? {
+          strengths: cleanReportItems(obj.report.strengths, 3),
+          growthAreas: cleanReportItems(obj.report.growthAreas, 2),
+        } : null;
+        // "deliver" names a LOCKED (app-owned) beat to append after the model's
+        // dynamic message this turn (see applyDeliver). Whitelist to known ids.
+        const LOCKED = ACTIVE_SCENARIO.locked || {};
+        const deliver = (typeof obj.deliver === 'string' && LOCKED[obj.deliver]) ? obj.deliver : null;
+        // If the model omits mode/inputTarget (common on a stay-in-scene
+        // character reply), infer from the turn's TRAILING content instead of
+        // defaulting to coaching — otherwise a Marshall-only reply would wrongly
+        // pull the learner out of the scene.
+        const lastKind = turn.length ? turn[turn.length - 1].kind : 'coaching';
+        const trailingScene = lastKind === 'dialogue' || lastKind === 'narration';
+        const mode = obj.mode === 'scene' ? 'scene'
+          : obj.mode === 'coaching' ? 'coaching'
+          : (trailingScene ? 'scene' : 'coaching');
+        return {
+          turn,
+          mode,
+          inputTarget: obj.inputTarget === 'character' ? 'character'
+            : obj.inputTarget === 'coach' ? 'coach'
+            : (mode === 'scene' ? 'character' : 'coach'),
+          complete: obj.complete === true,
+          ...(deliver ? { deliver } : {}),
+          // A coach-led scene transition may relabel the return CTA and name who
+          // the learner will speak to next (e.g. "Check in with Marshall").
+          ...(typeof obj.returnLabel === 'string' && obj.returnLabel.trim() ? { returnLabel: obj.returnLabel.trim() } : {}),
+          ...(typeof obj.sceneTarget === 'string' && obj.sceneTarget.trim() ? { sceneTarget: obj.sceneTarget.trim() } : {}),
+          // Narration painting the NEW sub-scene (e.g. Marshall's desk), shown in
+          // the scene pane when the learner crosses via the return CTA.
+          ...(typeof obj.sceneSetup === 'string' && obj.sceneSetup.trim() ? { sceneSetup: obj.sceneSetup.trim() } : {}),
+          ...(report && (report.strengths.length || report.growthAreas.length) ? { report } : {}),
+        };
+      } catch (e) {
+        return null;
+      }
+    }
+    // Last-resort fallback so a bad turn never crashes the UI mid-conversation.
+    function parseTurn(raw) {
+      return strictParseTurn(raw) || {
+        turn: [{ speaker: 'coach', kind: 'coaching', text:
+`Sorry — that didn't come through cleanly on my end. Say that once more and we'll keep going.` }],
+        mode: 'coaching', inputTarget: 'coach',
+      };
+    }
+
+    // Map our multi-speaker history into a user/assistant transcript for the API.
+    // We serialize each assistant run as the SAME JSON turn shape the model must
+    // return ({"turn":[{speaker,kind,text,emotionalState?}]}) rather than as
+    // flattened "Coach:"/"Narrator:" prose. Opus 4.8 doesn't allow assistant
+    // prefill to force JSON, so this is what keeps the model in format: it sees
+    // its own history as JSON and continues producing JSON. (App-injected LOCKED
+    // beats sit in these turns too — they're part of what was said.)
+    function toApiMessages(msgs) {
+      const out = [];
+      let group = [];
+      const flush = () => {
+        if (!group.length) return;
+        const turn = group.map((m) => ({
+          speaker: m.speaker, kind: m.kind, text: m.text,
+          ...(m.speaker === 'character' && m.name ? { name: m.name } : {}),
+          ...(m.speaker === 'character' && m.emotionalState ? { emotionalState: m.emotionalState } : {}),
+        }));
+        out.push({ role: 'assistant', content: JSON.stringify({ turn }) });
+        group = [];
+      };
+      for (const m of msgs) {
+        if (m.speaker === 'you') { flush(); out.push({ role: 'user', content: m.text }); }
+        else group.push(m);
+      }
+      flush();
+      if (out.length && out[0].role === 'assistant') out.unshift({ role: 'user', content: '(begin)' });
+      return out;
+    }
+
+    async function callModel(messages) {
+      const res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: MODEL, max_tokens: 1600, system: SYSTEM_PROMPT, messages }),
+      });
+      if (!res.ok) throw new Error('Worker HTTP ' + res.status);
+      const data = await res.json();
+      return (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+    }
+
+    async function liveTurn(msgs) {
+      // History is fed back as JSON turns (see toApiMessages), which keeps the
+      // model in format. If a reply still doesn't parse, retry ONCE — append the
+      // reminder to the learner's OWN (last user) message so roles stay
+      // alternating and we never introduce a plain-text assistant example to
+      // pattern-match against. Fall back gracefully so a stray turn never
+      // crashes the conversation.
+      const messages = toApiMessages(msgs);
+      let raw = await callModel(messages);
+      let parsed = strictParseTurn(raw);
+      if (!parsed && messages.length) {
+        const nudged = messages.slice();
+        const last = nudged[nudged.length - 1];
+        nudged[nudged.length - 1] = { ...last,
+          content: last.content + '\n\n[Reply with ONLY the JSON object defined in the OUTPUT CONTRACT — start with { and end with }, no other text.]' };
+        raw = await callModel(nudged);
+        parsed = strictParseTurn(raw);
+      }
+      return parsed || parseTurn(raw);
+    }
+
+    // Unified responder (adds a natural delay in demo so it feels like a round-trip)
+    function getTurn(msgs) {
+      if (IS_LIVE) return liveTurn(msgs);
+      return new Promise((resolve) => setTimeout(() => resolve(scriptedTurn(msgs)), 600 + Math.random() * 500));
+    }
+
+    /* =====================================================================
+       DOM REFS + tiny element helper
+       ===================================================================== */
+    const app           = document.getElementById('app');
+    const modeIndicator = document.getElementById('modeIndicator');
+    const stage         = document.getElementById('stage');
+    const stageInner    = document.getElementById('stageInner');
+    const scrim         = document.getElementById('scrim');
+    const coachPanel    = document.getElementById('coachPanel');
+    const coachPanelBody= document.getElementById('coachPanelBody');
+    const resumeBtn     = document.getElementById('resumeBtn');
+    const inputbar      = document.querySelector('.inputbar');
+    const composer      = document.getElementById('composer');
+    const sendBtn       = document.getElementById('sendBtn');
+    const inputMain     = document.getElementById('inputMain');
+    const inputEntry    = document.getElementById('inputEntry');
+    const inputAnalyzing= document.getElementById('inputAnalyzing');
+    const inputWatching = document.getElementById('inputWatching');
+    const inputDebrief  = document.getElementById('inputDebrief');
+    const inputReturn   = document.getElementById('inputReturn');
+    const returnCtaBtn  = document.getElementById('returnCtaBtn');
+    const inputStart    = document.getElementById('inputStart');
+    const startCtaBtn   = document.getElementById('startCtaBtn');
+    const enterCtaBar   = document.getElementById('enterCtaBar');
+    const debriefCtaBtn = document.getElementById('debriefCtaBtn');
+    const keepTalkingBtn= document.getElementById('keepTalkingBtn');
+    const inputIcon     = document.getElementById('inputIcon');
+    const inputHint     = document.getElementById('inputHint');
+    const liveRegion    = document.getElementById('liveRegion');
+    const inputResults  = document.getElementById('inputResults');
+    const resultsCtaBtn = document.getElementById('resultsCtaBtn');
+    const resultsModal    = document.getElementById('resultsModal');
+    const resultsModalBody= document.getElementById('resultsModalBody');
+    const resultsModalFoot= document.getElementById('resultsModalFoot');
+    const resultsDots     = document.getElementById('resultsDots');
+    const inputContinue = document.getElementById('inputContinue');
+    const continueCtaBtn= document.getElementById('continueCtaBtn');
+    const inputDone      = document.getElementById('inputDone');
+
+    function el(tag, cls, html) {
+      const n = document.createElement(tag);
+      if (cls) n.className = cls;
+      if (html != null) n.innerHTML = html;
+      return n;
+    }
+    const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+    // Built ONCE per video phase and never re-rendered mid-playback (render()
+    // isn't called again until finishVideoIntro) — every clip gets its own
+    // <video preload="auto">, so all six start buffering in the background the
+    // moment this mounts, well before any of them needs to actually play.
+    function videoNode() {
+      const wrap = el('div', 'scene-video');
+      const videos = VIDEO_SCENES.map((s, i) =>
+        `<video class="intro-video" data-idx="${i}" ${VIDEO_SOUND ? '' : 'muted'} playsinline preload="auto" src="${esc(s.src)}" aria-label="Scene-setting video, part ${i + 1} of ${VIDEO_SCENES.length}"></video>`
+      ).join('');
+      wrap.innerHTML = videos +
+        `<div class="intro-caption-wrap"><p class="intro-caption" id="introCaption" aria-live="polite"></p></div>
+         <button class="intro-playpause" id="introPlayPauseBtn" aria-label="Pause">
+           <i class="fa-solid fa-pause"></i>
+         </button>
+         <button class="intro-skip" id="introSkipBtn" aria-label="Skip intro video">
+           Skip <i class="fa-solid fa-forward"></i>
+         </button>
+         <button class="intro-begin" id="introBeginBtn" hidden>
+           <i class="fa-solid fa-circle-play"></i> Tap to begin
+         </button>
+         <div class="intro-loading" id="introLoading"><span class="dots"><span></span><span></span><span></span></span></div>`;
+      return wrap;
+    }
+
+    /* ---- message node builders (used by the practice stage and coach sheet) --
+       A transient `_enter` flag (set when a message is freshly delivered) adds
+       the .enter class so the node fades in once; render() clears the flag. */
+    const ec = (m) => (m && m._enter ? ' enter' : '');
+    function coachNode(m) {
+      const wrap = el('div', 'coach-msg' + ec(m));
+      wrap.appendChild(el('div', 'coach-avatar', '<i class="fa-solid fa-chalkboard-user"></i>'));
+      const body = el('div', 'coach-body');
+      body.appendChild(el('div', 'coach-label', 'AI Coach'));
+      body.appendChild(el('div', 'coach-bubble', esc(m.text)));
+      wrap.appendChild(body);
+      return wrap;
+    }
+    function youCoachNode(m) {
+      const wrap = el('div', 'you-coach' + ec(m));
+      wrap.appendChild(el('div', 'cap', 'You'));
+      wrap.appendChild(el('div', 'bubble', esc(m.text)));
+      return wrap;
+    }
+    function charNode(m) {
+      // narration-only line (no dialogue) → quiet centered scene-setting text
+      if (m.kind === 'narration') return el('div', 'scene-narration' + ec(m), esc(m.text));
+      const wrap = el('div', 'char-line' + ec(m));
+      // Per-message speaker (m.name) so a second in-scene character (Marshall)
+      // is labeled correctly; falls back to the scenario's default character.
+      const speaker = m.name || SCENARIO.character;
+      wrap.appendChild(el('div', 'char-avatar', esc(speaker.charAt(0))));
+      const body = el('div', 'char-body');
+      const head = el('div', 'char-head');
+      head.appendChild(el('span', 'char-name', esc(speaker)));
+      // emotionalState is intentionally NOT rendered as a chip in this scenario —
+      // the emotion lives in the words + narration, not a clinical label.
+      body.appendChild(head);
+      body.appendChild(el('div', 'char-bubble', esc(m.text)));
+      wrap.appendChild(body);
+      return wrap;
+    }
+    function youSceneNode(m, absIndex, interactive) {
+      const wrap = el('div', 'you-scene' + ec(m));
+      wrap.appendChild(el('div', 'cap', `<i class="fa-solid fa-microphone"></i> ${esc(ACTIVE_SCENARIO.sceneLineCaption || ('You — said to ' + SCENARIO.character))}`));
+      wrap.appendChild(el('div', 'bubble', esc(m.text)));
+      if (interactive && !state.complete) {
+        const retry = el('button', 'retry', '<i class="fa-solid fa-arrows-rotate"></i> Try a different approach');
+        retry.addEventListener('click', () => tryDifferentApproach(absIndex));
+        wrap.appendChild(retry);
+      }
+      return wrap;
+    }
+    // narration that belongs to a character line WITH dialogue is rendered inside
+    // the card as italic lead-in; we handle that by emitting it as its own node.
+
+    // The LIVE immersive stage shows the scene as ONE continuous stage — every
+    // scene-world message, in order, with coaching omitted (coaching happens as
+    // overlays/timeouts, never fragmenting the scene). Each YourSceneLine keeps
+    // its TRUE index so "Try a different approach" truncates to the right place.
+    function sceneCardAll(msgs, interactive) {
+      const card = el('div', 'stage-card');
+      card.appendChild(el('div', 'scene-tag', '<i class="fa-solid fa-circle"></i> Scene'));
+      msgs.forEach((m, idx) => {
+        if (worldOf(m) !== 'scene') return;
+        if (m.speaker === 'character') card.appendChild(charNode(m));
+        else if (m.speaker === 'you') card.appendChild(youSceneNode(m, idx, interactive));
+      });
+      return card;
+    }
+
+    /* ---- the resources card, presented AS a coach message (same avatar +
+       label + bubble as every other coach line) rather than a separate boxed
+       widget — it's the coach sharing something, not a bolted-on component. -- */
+    /* Writer-authored resources (scenario.resources) + the LOCKED crisis
+       floor: elevated-stakes scenarios always end with 988, whatever else
+       the writer authored. Icons are page-side, cycled from a pool. */
+    const RESOURCE_ICONS = ['fa-user-nurse', 'fa-building-shield', 'fa-hand-holding-heart', 'fa-people-group'];
+    function resourcesNode() {
+      const wrap = el('div', 'coach-msg wide-msg');
+      wrap.appendChild(el('div', 'coach-avatar', '<i class="fa-solid fa-chalkboard-user"></i>'));
+      const body = el('div', 'coach-body');
+      body.appendChild(el('div', 'coach-label', 'AI Coach'));
+      const bubble = el('div', 'coach-bubble resources-bubble');
+      const fillTxt = (t) => AitheraScenario.fill(t, ACTIVE_SCENARIO);
+      const items = (ACTIVE_SCENARIO.resources.items || [])
+        .filter((r) => r && (r.title || r.body))
+        .map((r, i) => ({ icon: RESOURCE_ICONS[i % RESOURCE_ICONS.length], title: fillTxt(r.title), body: fillTxt(r.body) }));
+      if (ACTIVE_SCENARIO.elevatedStakes) {
+        items.push({ icon: 'fa-phone-volume', ...AitheraScenario.CRISIS_FLOOR });
+      }
+      bubble.innerHTML = `
+        <p class="resources-lead">${esc(fillTxt(ACTIVE_SCENARIO.resources.lead))}</p>
+        <ul class="res-list">
+          ${items.map((r) => `<li><i class="fa-solid ${r.icon}"></i><div><b>${esc(r.title)}</b><span>${esc(r.body)}</span></div></li>`).join('')}
+        </ul>`;
+      body.appendChild(bubble);
+      wrap.appendChild(body);
+      return wrap;
+    }
+
+    /* ---- the closing summary: stepper + strengths/growth report ------- */
+    const CLOSING_STEPS = ['Analyzing conversation…', 'Determining strengths…', 'Determining growth areas…'];
+    // Safety-net lists, shown only if a live turn ever arrives WITHOUT a
+    // report. In normal operation the model writes strengths and growth areas
+    // from what the learner actually said (state.report).
+    const CLOSING_STRENGTHS = [
+      { icon: 'fa-scale-balanced', title: 'You named it correctly', body: `You worked through the legal question and landed on the right frame — this is sex-based harassment under Title VII.` },
+      { icon: 'fa-heart', title: 'You saw the human cost', body: `You looked past "just jokes" to what sustained harassment actually does to Marshall.` },
+      { icon: 'fa-hand', title: 'You didn’t stay silent', body: `When the break-room moment came, you were willing to act rather than look away.` },
+    ];
+    const CLOSING_GROWTH = [
+      { icon: 'fa-hand-holding-heart', title: 'Follow up with Marshall', body: `The in-the-moment signal is visible — but checking in privately afterward is what tells him he wasn’t invisible.` },
+      { icon: 'fa-flag', title: 'Know your witness obligations', body: `Check your organization’s harassment policy — as a witness you may have reporting responsibilities independent of what Marshall decides.` },
+    ];
+
+    function closingStepperNode() {
+      const wrap = el('div', 'closing-stepper');
+      wrap.innerHTML = CLOSING_STEPS
+        .map((label) => `<div class="closing-step"><span class="mark"><i class="fa-solid fa-check"></i></span>${esc(label)}</div>`)
+        .join('');
+      return wrap;
+    }
+
+    function reportListNode(cls, icon, heading, items) {
+      const wrap = el('div', `report-section ${cls}`);
+      wrap.innerHTML = `
+        <h3><i class="fa-solid ${icon}"></i> ${esc(heading)}</h3>
+        <ul class="res-list">
+          ${items.map((it) => `<li><i class="fa-solid ${it.icon}"></i><div><b>${esc(it.title)}</b><span>${esc(it.body)}</span></div></li>`).join('')}
+        </ul>`;
+      return wrap;
+    }
+    // Icons are assigned page-side (cycled from a pool) so the model only has
+    // to write titles + bodies — it never picks Font Awesome class names.
+    const STRENGTH_ICONS = ['fa-ear-listen', 'fa-share-nodes', 'fa-handshake'];
+    const GROWTH_ICONS = ['fa-clock', 'fa-shield-heart'];
+    const withIcons = (items, icons) => items.map((it, i) => ({ ...it, icon: icons[i % icons.length] }));
+
+    const strengthsNode = () => reportListNode('strengths', 'fa-star', 'Strengths',
+      (state.report && state.report.strengths.length) ? withIcons(state.report.strengths, STRENGTH_ICONS) : CLOSING_STRENGTHS);
+    const growthAreasNode = () => reportListNode('growth', 'fa-seedling', 'Growth areas',
+      (state.report && state.report.growthAreas.length) ? withIcons(state.report.growthAreas, GROWTH_ICONS) : CLOSING_GROWTH);
+
+    /* The playbook — the expert-validated toolkit every learner leaves with,
+       IDENTICAL for everyone regardless of how their conversation went. The
+       CONTENT is writer-authored (scenario.playbook — the LO schema's
+       content_elements); the GUARANTEE is the page's: it renders here on
+       completion, never model-generated, so coverage is always consistent. */
+    const PLAYBOOK_ICONS = ['fa-scale-balanced', 'fa-building-shield', 'fa-people-group', 'fa-crosshairs', 'fa-weight-hanging', 'fa-file-lines', 'fa-hand', 'fa-hand-holding-heart', 'fa-flag'];
+    const CLOSING_PLAYBOOK = (ACTIVE_SCENARIO.playbook || [])
+      .filter((p) => p && (p.title || p.body))
+      .map((p, i) => ({
+        icon: PLAYBOOK_ICONS[i % PLAYBOOK_ICONS.length],
+        title: AitheraScenario.fill(p.title, ACTIVE_SCENARIO),
+        body: AitheraScenario.fill(p.body, ACTIVE_SCENARIO),
+      }));
+    const playbookNode = () => reportListNode('playbook', 'fa-list-check', 'The approach that works', CLOSING_PLAYBOOK);
+    const RESULTS_PAGES = [
+      { node: strengthsNode, announce: 'Your results: strengths.' },
+      { node: growthAreasNode, announce: 'Your results: growth areas.' },
+      // A scenario with no playbook simply has a two-page report.
+      ...(CLOSING_PLAYBOOK.length ? [{ node: playbookNode, announce: 'Your results: the approach that works.' }] : []),
+    ];
+
+    /* =====================================================================
+       RENDER  — paint everything from state
+       ===================================================================== */
+    let typingHost = null;     // where the typing indicator currently lives
+
+    function render() {
+      const { mode, inputTarget, hasEnteredScene, messages, complete } = state;
+      // remember where the practice is scrolled so toggling Learn/Practice never
+      // jumps it — we only follow to the bottom when new scene content arrives.
+      const prevStageScroll = stage.scrollTop;
+      // the AI Coach sheet is up whenever we're learning — but ONLY after the learner
+      // has chosen to begin (we anchor on the scene first; the sheet never auto-opens)
+      // While the mid-conversation INCIDENT clip is actively playing, the coach
+      // sheet stays down so it plays full in the stage. (The cold-open's frozen
+      // frame lingers as the blurred backdrop BEHIND a rising coach sheet, so it
+      // must NOT suppress the sheet — hence midVideo, not videoPlaying.)
+      const coachUp = mode === 'coaching' && state.started && !state.midVideo;
+      const trap = coachUp && hasEnteredScene; // trap focus only when the coach pauses a live scene
+
+      app.dataset.mode = mode;
+      app.dataset.target = inputTarget;
+      app.dataset.entered = String(hasEnteredScene);
+      app.classList.toggle('coach-up', coachUp);
+      app.classList.toggle('trap', trap);
+
+      // Withheld through the establishing card and the cold-open video — there's
+      // no real Learn/Practice choice yet. Revealed once the coach actually begins.
+      // aria-hidden + inert must track visibility, or the toggle stays invisible
+      // to screen readers (while its buttons stay tabbable) for the whole session.
+      modeIndicator.classList.toggle('is-hidden', !state.started);
+      modeIndicator.setAttribute('aria-hidden', String(!state.started));
+      modeIndicator.inert = !state.started;
+
+      /* —— Mode indicator: Learn | Observe toggle ——
+         V2 has NO role-play. "Observe" = watching the incident clip; "Learn" =
+         the coach conversation. Learn is the resting mode; Observe is active only
+         while the clip plays, and stays tappable afterward to RE-WATCH. */
+      const busy = state.transitioning || state.sending || state.delivering;
+      const learnActive  = mode === 'coaching' && !state.midVideo;
+      const observeActive = state.midVideo;
+      // Learn is only ever the active/resting mode here — never a tappable target.
+      const learnDisabled = !learnActive;
+      // Observe is tappable to START the clip (awaiting the watch) or RE-WATCH it
+      // (already observed), except while it's already playing / busy / complete.
+      const observeDisabled = observeActive || busy || complete || (!state.awaitingEntry && !state.observed);
+      const observeTip = !observeDisabled ? (state.observed ? 'Re-watch the clip' : 'Watch what happens') : '';
+      modeIndicator.innerHTML =
+        `<div class="mode-toggle" role="group" aria-label="Learn or observe mode">
+           <button class="seg ${learnActive ? 'active' : ''}" data-seg="learn"
+                   aria-pressed="${learnActive}" ${learnDisabled ? 'disabled' : ''}>
+             <i class="fa-solid fa-chalkboard-user"></i> Learn
+           </button>
+           <button class="seg ${observeActive ? 'active' : ''}" data-seg="observe"
+                   ${observeTip ? `data-tip="${observeTip}"` : ''}
+                   aria-pressed="${observeActive}" ${observeDisabled ? 'disabled' : ''}>
+             <i class="fa-solid fa-eye"></i> Observe
+           </button>
+         </div>`;
+
+      /* —— Practice base (ALWAYS the base layer) ——
+         Pre-entry → an establishing card; entered → the live scene. Dimmed,
+         lightly blurred + inert whenever the coach sheet is up over it. */
+      stage.classList.toggle('is-frozen', coachUp);
+      stage.toggleAttribute('inert', coachUp);
+      stage.setAttribute('aria-hidden', coachUp ? 'true' : 'false');
+      // While the video is up, only mount it once — re-rendering for OTHER
+      // reasons (the coach sheet rising, opening prep typing in) must NOT
+      // rebuild it. Once it ends, the coach sheet rises immediately and this
+      // keeps the video's frozen final frame as the blurred backdrop through
+      // the whole coach-prep phase, instead of swapping back to the
+      // establishing card, which read as a flash mid-transition. The real
+      // swap to the establishing/scene card happens once enterScene() turns
+      // videoPlaying off for good.
+      // Same "mount once" guard for the narrated/reading context: re-renders for
+      // other reasons (the coach sheet rising) must not tear down a playing card.
+      const videoAlreadyMounted = state.videoPlaying && stageInner.querySelector('.scene-video');
+      const audioAlreadyMounted = state.audioIntroPlaying && stageInner.querySelector('.sc-wrap');
+      if (!videoAlreadyMounted && !audioAlreadyMounted) {
+        stageInner.innerHTML = '';
+        if (state.videoPlaying) {
+          stageInner.appendChild(videoNode());
+        } else if (state.audioIntroPlaying) {
+          mountAudioIntro(stageInner);
+        } else if (hasEnteredScene) {
+          // Retry controls render whenever the scene is live (not complete / mid-reveal),
+          // REGARDLESS of mode — the stage is inert while the coach sheet is up, so they
+          // aren't clickable there, but keeping them in the DOM means toggling Learn/Practice
+          // never reflows the scene card (no jump/jitter).
+          stageInner.appendChild(sceneCardAll(messages, !complete && !state.delivering && !state.sending));
+          // resources live in the coach sheet (the practice never shows them)
+        } else {
+          const est = el('div', 'establishing');
+          const estab = ACTIVE_SCENARIO.establishing || {};
+          est.innerHTML =
+            `<div class="est-eyebrow">${esc(estab.eyebrow || 'The scenario')}</div>
+             <h2 class="est-title">${esc(estab.title || SCENARIO.title)}</h2>
+             <p class="est-sub">${esc(estab.sub || '')}</p>
+             ${ACTIVE_SCENARIO.course ? `<div class="est-with">${esc(ACTIVE_SCENARIO.course)}</div>` : ''}`;
+          stageInner.appendChild(est);
+        }
+      }
+
+      /* —— AI Coach sheet — up whenever we're in Learn mode (prep AND debriefs) —— */
+      coachPanel.toggleAttribute('inert', !coachUp);
+      coachPanel.setAttribute('aria-hidden', coachUp ? 'false' : 'true');
+      if (coachUp) {
+        coachPanelBody.innerHTML = '';
+        if (state.closingStepperActive) {
+          // the closing summary "builds" — no messages behind it yet
+          coachPanelBody.appendChild(closingStepperNode());
+        } else {
+          const coachingRun = trailingRun(messages, 'coaching');
+          coachingRun.forEach((m) => coachPanelBody.appendChild(m.speaker === 'you' ? youCoachNode(m) : coachNode(m)));
+          // The full strengths/growth-areas report lives in its own modal (see
+          // resultsModal below) — opened only when the learner taps "View full
+          // results" in the footer, never dumped in here. Resources are the
+          // one thing that still shows inline, and only once they've been
+          // through that report, so the coach panel reads as ONE thing at a
+          // time landing, not everything at once.
+          if (complete && !state.delivering && state.resultsViewed) {
+            coachPanelBody.appendChild(resourcesNode());
+          }
+        }
+      }
+
+      /* —— Input bar — the composer, OR a CTA/indicator that takes its place —— */
+      // start CTA (bring the coach in) · entry CTA (step in) · "Analyzing…"/"Watching…" beats · debrief CTA
+      const showStart     = !state.started && !complete && !state.videoPlaying && !state.audioIntroPlaying;
+      const showEntry     = state.awaitingEntry && !hasEnteredScene && !state.entryPromptDismissed && !state.delivering;
+      const showAnalyzing = state.analyzing;
+      // videoPlaying stays true after the clips end too (it lingers as the
+      // blurred coach-prep backdrop — see the render() guard above), so this
+      // needs its own check rather than just mirroring state.videoPlaying.
+      // The cold-open shows "Watching" only pre-session (!started); the mid-
+      // conversation incident shows it while it's actively playing (midVideo).
+      const showWatching  = (state.videoPlaying || state.audioIntroPlaying) && (!state.started || state.midVideo);
+      const showDebrief   = state.awaitingDebrief && !state.analyzing && !state.delivering;
+      // The coach has replied and is ready to send the learner back into the
+      // scene, but waits for this tap rather than auto-transitioning.
+      const showReturn    = state.awaitingReturn && !state.delivering;
+      // Once the recap lands, this replaces the composer just like every other
+      // CTA here — tapping it is what opens the results modal (never auto-shown).
+      const showResults   = state.awaitingResults && !state.resultsModalOpen;
+      // The practice's actual last step: once the resources have landed, this
+      // takes the composer's place instead of leaving it sitting there disabled
+      // with nothing left to type.
+      const showContinue  = complete && state.resultsViewed && !state.delivering && !state.continued;
+      const showDone       = state.continued;
+      inputStart.hidden     = !showStart;
+      inputEntry.hidden     = !showEntry;
+      inputAnalyzing.hidden = !showAnalyzing;
+      inputWatching.hidden  = !showWatching;
+      inputDebrief.hidden   = !showDebrief;
+      inputReturn.hidden    = !showReturn;
+      inputResults.hidden   = !showResults;
+      inputContinue.hidden  = !showContinue;
+      inputDone.hidden      = !showDone;
+      inputMain.hidden      = showStart || showEntry || showAnalyzing || showWatching || showDebrief || showReturn || showResults || showContinue || showDone;
+      if (showAnalyzing) {
+        inputAnalyzing.lastChild.textContent = complete ? 'Wrapping up your practice…' : 'Analyzing your response…';
+      }
+      if (showWatching) {
+        inputWatching.lastChild.textContent = state.audioIntroPlaying ? 'Setting the scene — listen or read, then continue' : 'Watching the scene…';
+      }
+      if (showDebrief) {
+        debriefCtaBtn.innerHTML = complete
+          ? '<i class="fa-solid fa-chalkboard-user"></i> See your results <i class="fa-solid fa-arrow-right arrow"></i>'
+          : '<i class="fa-solid fa-chalkboard-user"></i> See AI Coach feedback <i class="fa-solid fa-arrow-right arrow"></i>';
+      }
+      if (showReturn) {
+        // A coach-led hand-off can name its own CTA (e.g. "Check in with Marshall").
+        const rl = state.returnLabel || 'Continue practicing';
+        returnCtaBtn.innerHTML = `<i class="fa-solid fa-door-open"></i> ${esc(rl)} <i class="fa-solid fa-arrow-right arrow"></i>`;
+      }
+
+      if (inputTarget === 'character') {
+        composer.placeholder = state.sceneTarget ? `Say something to ${state.sceneTarget}…`
+          : (ACTIVE_SCENARIO.sceneInputPlaceholder || `Say this to ${SCENARIO.character}…`);
+        inputIcon.className = 'fa-solid fa-microphone lead-icon';
+      } else {
+        composer.placeholder = 'Type your response…';
+        inputIcon.className = 'fa-solid fa-comment lead-icon';
+      }
+
+      composer.disabled = complete || state.transitioning || state.sending || state.delivering || !state.started;
+      sendBtn.disabled = composer.disabled || !composer.value.trim();
+      // The coach panel's top-right control. Post-entry it lowers the sheet ("Back to
+      // practice"). Pre-entry, while prepping (composer up, entry available), the SAME
+      // slot becomes the primary "Begin practicing" CTA — so the way forward always
+      // lives here rather than in a separate affordance.
+      const headerBegin = !hasEnteredScene && state.awaitingEntry && !inputMain.hidden && !complete;
+      const headerBack  = hasEnteredScene && !complete;
+      resumeBtn.hidden = !(headerBegin || headerBack);
+      resumeBtn.classList.toggle('is-begin', headerBegin);
+      resumeBtn.dataset.action = headerBegin ? 'begin' : 'back';
+      resumeBtn.innerHTML = headerBegin
+        ? 'Watch what happens <i class="fa-solid fa-arrow-right"></i>'
+        : 'Back to practice <i class="fa-solid fa-chevron-down"></i>';
+      inputHint.textContent = complete
+        ? 'Practice complete — press Restart to run it again.'
+        : 'Enter to send · Shift+Enter for a new line';
+
+      /* —— Results modal — strengths (page 0) or growth areas (page 1), one at
+         a time. .app goes inert while this is open (they're siblings, so the
+         modal itself is unaffected) so background content can't be tabbed into. —— */
+      resultsModal.hidden = !state.resultsModalOpen;
+      app.toggleAttribute('inert', state.resultsModalOpen);
+      if (state.resultsModalOpen) {
+        resultsModalBody.innerHTML = '';
+        resultsModalBody.appendChild(RESULTS_PAGES[state.resultsPage].node());
+        resultsModalBody.scrollTop = 0;
+        [...resultsDots.children].forEach((d, i) => {
+          d.hidden = i >= RESULTS_PAGES.length;   // scenario may have fewer report pages
+          d.classList.toggle('is-active', i === state.resultsPage);
+        });
+        const NEXT_LABELS = ['Next: Growth areas', 'Next: The approach that works'];
+        const backBtn = state.resultsPage > 0
+          ? `<button class="results-nav-btn" id="resultsBackBtn"><i class="fa-solid fa-arrow-left"></i> Back</button>` : `<span></span>`;
+        const fwdBtn = state.resultsPage < RESULTS_PAGES.length - 1
+          ? `<button class="results-nav-btn primary" id="resultsNextBtn">${NEXT_LABELS[state.resultsPage]} <i class="fa-solid fa-arrow-right"></i></button>`
+          : `<button class="results-nav-btn primary" id="resultsContinueBtn">Continue <i class="fa-solid fa-arrow-right"></i></button>`;
+        resultsModalFoot.innerHTML = backBtn + fwdBtn;
+      }
+
+      // keep the sheet sitting exactly on top of the (variable-height) input bar
+      coachPanel.style.bottom = inputbar.offsetHeight + 'px';
+      // with the sheet up over a LIVE scene, reserve space below so the latest
+      // line scrolls into the VISIBLE peek above the sheet (not behind it)
+      stageInner.style.paddingBottom = (coachUp && hasEnteredScene) ? (coachPanel.offsetHeight + 20) + 'px' : '';
+
+      // a freshly-delivered message animates in exactly once
+      messages.forEach((m) => { if (m._enter) m._enter = false; });
+
+      manageFocus(trap);
+      requestAnimationFrame(() => {
+        // follow the practice to the bottom ONLY when fresh scene content arrived;
+        // otherwise hold position so a Learn/Practice toggle never jumps the scene
+        if (followStage) { stage.scrollTop = stage.scrollHeight; followStage = false; }
+        else { stage.scrollTop = prevStageScroll; }
+        coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
+      });
+    }
+    // set true right before a render that appends scene content, so it follows down
+    let followStage = false;
+
+    /* ---- typing indicator (in the right world) ------------------------ */
+    function showTyping() {
+      hideTyping();
+      const coachUp = state.mode === 'coaching';
+      const node = el('div', 'typing' + (coachUp ? '' : ' scene'), '<span></span><span></span><span></span>');
+      node.id = 'typingNode';
+      // coach lines type in the sheet (prep AND debriefs); scene lines type in the practice
+      if (coachUp) { typingHost = coachPanelBody; coachPanelBody.appendChild(node); }
+      else { typingHost = stageInner; stageInner.appendChild(node); }
+      requestAnimationFrame(() => {
+        (typingHost === coachPanelBody ? coachPanelBody : stage).scrollTop = 1e9;
+      });
+    }
+    function hideTyping() {
+      const t = document.getElementById('typingNode');
+      if (t) t.remove();
+      typingHost = null;
+    }
+
+    /* =====================================================================
+       FOCUS MANAGEMENT  — trap focus in the coaching layer while paused
+       ===================================================================== */
+    let lastSceneFocus = null;
+    function focusables() {
+      // the coaching "layer" = the mode toggle + panel + the (still-usable) input bar
+      const sel = 'button, [href], textarea, input, select, [tabindex]:not([tabindex="-1"])';
+      return [
+        ...modeIndicator.querySelectorAll(sel),
+        ...coachPanel.querySelectorAll(sel),
+        ...document.querySelectorAll('.inputbar ' + sel),
+      ].filter((n) => !n.disabled && n.offsetParent !== null);
+    }
+    function manageFocus(trap) {
+      if (trap && !app.classList.contains('was-trap')) {
+        app.classList.add('was-trap');
+        lastSceneFocus = document.activeElement;
+        // move focus into the coach sheet
+        setTimeout(() => { (composer.disabled ? resumeBtn : composer).focus(); }, 30);
+      } else if (!trap && app.classList.contains('was-trap')) {
+        app.classList.remove('was-trap');
+        // restore focus toward the practice/input
+        setTimeout(() => { if (!composer.disabled) composer.focus(); }, 30);
+      }
+    }
+    // Escape closes the results modal while it's open (checked before the
+    // coach-sheet trap below, which is inert-blocked anyway while it's up).
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && state.resultsModalOpen) {
+        e.preventDefault();
+        closeResultsModal();
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (state.resultsModalOpen) return;   // the results modal owns Escape/Tab while open
+      const trap = app.classList.contains('trap');
+      if (!trap) return;
+      if (e.key === 'Escape') { e.preventDefault(); resumeScene(); return; }
+      if (e.key === 'Tab') {
+        const f = focusables();
+        if (!f.length) return;
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
+
+    function announce(msg) { liveRegion.textContent = ''; setTimeout(() => { liveRegion.textContent = msg; }, 30); }
+
+    /* =====================================================================
+       VIDEO INTRO — the locked, no-skip cold open (see INTRO_SCENES above).
+       Captions are chunked smaller than the full paragraph (sentence-sized,
+       splitting overlong sentences on a comma too) so they read like real
+       captions rather than a wall of text, the same "reveal gradually" idea
+       as the Audio Summary experiment — just timer-paced since there's no
+       narration audio to follow.
+       ===================================================================== */
+    let introSeq = 0;   // bumped on restart so an in-flight sequence abandons itself
+
+    function splitCaptionChunks(text) {
+      const sentences = text.match(/[^.!?]+[.!?]*/g) || [text];
+      const chunks = [];
+      sentences.forEach((s) => {
+        s = s.trim();
+        if (!s) return;
+        if (s.length <= 100) { chunks.push(s); return; }
+        // an overlong sentence reads better split on its first comma
+        const mid = s.indexOf(',');
+        if (mid > 10 && mid < s.length - 10) {
+          chunks.push(s.slice(0, mid + 1).trim());
+          chunks.push(s.slice(mid + 1).trim());
+        } else {
+          chunks.push(s);
+        }
+      });
+      return chunks;
+    }
+    const captionMs = (chunk) => Math.max(1700, Math.min(5200, chunk.split(/\s+/).length * 330));
+
+    async function showCaption(captionEl, text, mySeq) {
+      captionEl.classList.remove('is-visible');
+      await wait(reducedMotion() ? 0 : 160);
+      if (mySeq !== introSeq) return;
+      captionEl.textContent = text;
+      captionEl.classList.add('is-visible');
+    }
+
+    // Fire-and-forget: cancels itself (via the seq check) the moment the video
+    // ends or a restart supersedes it, rather than racing the video for control.
+    async function runCaptions(captionEl, chunks, mySeq) {
+      for (const chunk of chunks) {
+        if (mySeq !== introSeq) return;
+        await showCaption(captionEl, chunk, mySeq);
+        if (mySeq !== introSeq) return;
+        await wait(reducedMotion() ? 1400 : captionMs(chunk));
+      }
+    }
+
+    function waitForVideoEnd(videoEl, mySeq) {
+      return new Promise((resolve) => {
+        let done = false;
+        const finish = () => { if (done) return; done = true; cleanup(); resolve(); };
+        function cleanup() { videoEl.removeEventListener('ended', finish); videoEl.removeEventListener('error', finish); clearInterval(watch); }
+        // If the element already errored (e.g. the 'error' fired while play() was
+        // rejecting, before we attached), don't wait — move on to the coach.
+        if (videoEl.error) { resolve(); return; }
+        videoEl.addEventListener('ended', finish);
+        videoEl.addEventListener('error', finish);
+        // Safety net is a STALL watchdog, not a fixed cap — so a long clip plays
+        // fully, but a missing/frozen asset (or an abandoned sequence) still can't
+        // trap the learner. Finish only if the sequence was superseded, or
+        // playback made no progress for ~10s while trying to play (not merely
+        // paused by the learner).
+        let last = -1, stalls = 0;
+        const watch = setInterval(() => {
+          if (mySeq !== introSeq || videoEl.error) { finish(); return; }
+          const t = videoEl.currentTime || 0;
+          if (t > last + 0.25) { last = t; stalls = 0; return; }
+          if (!videoEl.paused && !videoEl.ended) stalls++;
+          if (stalls >= 5) finish();
+        }, 2000);
+      });
+    }
+
+    function waitForTap(btn) {
+      return new Promise((resolve) => {
+        btn.hidden = false;
+        btn.addEventListener('click', () => { btn.hidden = true; resolve(); }, { once: true });
+      });
+    }
+
+    // Waits for every clip's OWN element to report ready (or its individual
+    // timeout, so one slow/bad asset can't hold up the rest). Each element
+    // already has its real src and preload="auto" from the moment videoNode()
+    // mounted, so they've been buffering in the background this whole time —
+    // this is just the gate that makes sure clip 1 doesn't start before its
+    // (and everyone else's) data has actually arrived.
+    function preloadVideos(videos) {
+      return Promise.all(videos.map((v) => new Promise((resolve) => {
+        if (v.readyState >= 3) return resolve();   // HAVE_FUTURE_DATA already
+        let t;
+        const done = () => { clearTimeout(t); v.removeEventListener('canplaythrough', done); v.removeEventListener('error', done); resolve(); };
+        v.addEventListener('canplaythrough', done, { once: true });
+        v.addEventListener('error', done, { once: true });
+        t = setTimeout(done, 9000);
+      })));
+    }
+
+    // Brings the cold-open video into the stage (the practice layer), not as a
+    // separate full-screen player. Six clips play back to back with a hard cut
+    // and no counter/progress UI of any kind, so it reads as one continuous video.
+    function enterVideoIntro() {
+      if (state.videoPlaying || state.delivering) return;
+      // Cold-open: the default clip set, ending straight into the coach.
+      VIDEO_SCENES = INTRO_SCENES; VIDEO_SOUND = INTRO_VIDEO_SOUND; onVideoDone = null;
+      const mySeq = ++introSeq;
+      state.videoPlaying = true;
+      state.midVideo = false;
+      render();              // mounts the intro <video> element(s) — they start buffering now
+      announce('Watching the scene.');
+      runIntroSequence(mySeq);
+    }
+
+    // V2 — the ONE video turn. Plays the INCIDENT clip mid-conversation (after
+    // the legal lead-up), reusing the exact cold-open player. When it ends, it
+    // runs `done` (afterObserve) instead of chaining into a fresh session.
+    function playIncidentVideo(done) {
+      if (state.delivering) return;   // NOT guarded on videoPlaying — the cold-open's
+      // frozen frame is still "playing" (lingering as the coach backdrop); this
+      // deliberately supersedes it with the incident clip.
+      VIDEO_SCENES = INCIDENT_SCENES; VIDEO_SOUND = INCIDENT_VIDEO_SOUND; onVideoDone = done;
+      // Tear down the cold-open's lingering frozen-frame node, or render()'s
+      // mount-once guard would keep that clip on screen instead of the incident.
+      const stale = stageInner.querySelector('.scene-video');
+      if (stale) stale.remove();
+      const mySeq = ++introSeq;
+      state.videoPlaying = true;
+      state.midVideo = true;   // keeps the "Watching…" status up even though the session has started
+      render();                // coach sheet lowers (see coachUp guard); the incident clip mounts + buffers
+      announce('Watch what happens.');
+      runIntroSequence(mySeq);
+    }
+
+    async function finishVideoIntro() {
+      // videoPlaying stays true here on purpose — for the cold-open, the coach
+      // sheet rises over the video's frozen final frame (now blurred/dimmed),
+      // not the establishing card, which avoids a flash mid-transition. For the
+      // incident, afterObserve() keeps videoPlaying on as the frozen backdrop.
+      // Freeze + silence the clip so a not-yet-ended (or sound-on) video can't
+      // keep playing audio under whatever follows.
+      document.querySelectorAll('#stage .intro-video').forEach((v) => { try { v.pause(); v.muted = true; } catch (e) {} });
+      await wait(reducedMotion() ? 0 : 250);   // a short breath, not a second decision point
+      const cb = onVideoDone; onVideoDone = null;
+      (cb || startSession)();  // cold-open → startSession; incident → afterObserve
+    }
+
+    // V2 — after the incident clip ends: return to LEARN mode with the coach
+    // reappearing OVER the frozen video frame (HazMat-style). videoPlaying stays
+    // true so the clip's last frame is the dimmed backdrop behind the coach sheet.
+    // The FIRST time, the coach's locked post-video prompt types in (asking what
+    // the learner would do); on a RE-WATCH it just returns to the conversation.
+    async function afterObserve() {
+      if (!state.midVideo) return;   // a Restart during the clip's final breath cancels this
+      state.midVideo = false;        // done watching (keep videoPlaying → frozen backdrop)
+      state.observed = true;
+      state.mode = 'coaching'; state.inputTarget = 'coach';
+      if (state.observePrompted) { render(); if (!composer.disabled) composer.focus(); return; }
+      state.observePrompted = true;
+      // Deliver the coach's locked reflection prompt over the frozen video, typed
+      // in one bubble at a time like any other coach turn.
+      const beat = (ACTIVE_SCENARIO.locked.observe || []).map((m) => ({ ...m }));
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;
+      state.delivering = true;
+      render();   // coach sheet rises over the frozen frame (coachUp true now)
+      let firstReveal = true;
+      for (const m of beat) {
+        hideTyping();
+        showTyping(); await wait(typingTime(m.text, firstReveal)); hideTyping();
+        firstReveal = false;
+        if (dead()) return;
+        m._enter = true;
+        state.messages.push(m);
+        render();
+        await wait(reducedMotion() ? 80 : 320);
+        if (dead()) return;
+      }
+      state.delivering = false;
+      announce('Your AI coach has a question about what you saw.');
+      render();
+      if (!composer.disabled) composer.focus();
+    }
+
+    // "Watch what happens" / "Re-watch" — play the incident clip in OBSERVE mode.
+    // Same entry for the first watch (from the CTA) and every re-watch (from the
+    // Observe toggle); afterObserve() only re-prompts on the first pass.
+    function watchIncident() {
+      if (state.sending || state.delivering || state.midVideo || state.complete) return;
+      state.awaitingEntry = false;
+      state.entryPromptDismissed = false;
+      playIncidentVideo(afterObserve);
+    }
+
+    /* =====================================================================
+       AUDIO / READING INTRO — the context modality (see scene-context.js).
+       Mirrors the video cold-open: it takes over the stage, and when the
+       learner continues it hands straight off to the coach's reflection prompt.
+       ===================================================================== */
+    let audioIntroHandle = null;
+    function mountAudioIntro(host) {
+      if (audioIntroHandle) { audioIntroHandle.stop(); audioIntroHandle = null; }
+      audioIntroHandle = SceneContext.mount(host, {
+        modality: AUDIO_INTRO_MODALITY,
+        eyebrow: AUDIO_INTRO.eyebrow,
+        title: AUDIO_INTRO.title,
+        text: AitheraScenario.fill(AUDIO_INTRO.text || '', ACTIVE_SCENARIO),
+        continueLabel: AUDIO_INTRO.continueLabel || 'Talk it through with your coach',
+        onContinue: finishAudioIntro,
+      });
+    }
+    function enterAudioIntro() {
+      if (state.audioIntroPlaying || state.started || state.delivering) return;
+      state.audioIntroPlaying = true;
+      render();              // mounts the narrated/reading card in the stage
+      announce(AUDIO_INTRO_MODALITY === 'reading' ? 'Read the scene, then continue.' : 'Setting the scene. Listen or read along, then continue.');
+    }
+    function finishAudioIntro() {
+      if (!state.audioIntroPlaying) return;
+      if (audioIntroHandle) { audioIntroHandle.stop(); audioIntroHandle = null; }
+      state.audioIntroPlaying = false;   // the context's job is done — the coach takes the stage
+      startSession();        // chain straight into the coach's reflection prompt
+    }
+
+    async function runIntroSequence(mySeq) {
+      const sceneVideo = document.querySelector('.scene-video');
+      if (!sceneVideo) return;
+      const videos = [...sceneVideo.querySelectorAll('.intro-video')];
+      const introCaption   = document.getElementById('introCaption');
+      const introBeginBtn  = document.getElementById('introBeginBtn');
+      const introLoading   = document.getElementById('introLoading');
+      const introPlayPause = document.getElementById('introPlayPauseBtn');
+      const introSkipBtn   = document.getElementById('introSkipBtn');
+
+      // PROTOTYPE-ONLY skip: lets stakeholders jump past the cold open during
+      // review. Bumping introSeq abandons the in-flight clip loop and its
+      // captions (every await re-checks the seq), then we chain straight into
+      // the coach exactly as a natural video ending would. The real design
+      // keeps the intro unskippable — strip this for the build.
+      introSkipBtn.addEventListener('click', () => {
+        if (mySeq !== introSeq) return;
+        introSeq++;
+        const active = sceneVideo.querySelector('.intro-video.is-active');
+        if (active) active.pause();
+        introCaption.classList.remove('is-visible');
+        introSkipBtn.hidden = true;
+        introBeginBtn.hidden = true;   // in case the autoplay-block fallback was up
+        finishVideoIntro();
+      }, { once: true });
+
+      // The only transport control offered: pause/resume the clip that's
+      // currently active. No seek, no skip — that still isn't on the table.
+      introPlayPause.addEventListener('click', () => {
+        const active = sceneVideo.querySelector('.intro-video.is-active');
+        if (!active) return;
+        if (active.paused) active.play(); else active.pause();
+        introPlayPause.innerHTML = active.paused ? '<i class="fa-solid fa-play"></i>' : '<i class="fa-solid fa-pause"></i>';
+        introPlayPause.setAttribute('aria-label', active.paused ? 'Play' : 'Pause');
+      });
+
+      await preloadVideos(videos);
+      if (mySeq !== introSeq) return;
+      introLoading.classList.add('is-out');
+      await wait(reducedMotion() ? 0 : 260);
+      if (mySeq !== introSeq) return;
+
+      for (let i = 0; i < videos.length; i++) {
+        if (mySeq !== introSeq) return;
+        const v = videos[i];
+        const scene = VIDEO_SCENES[i];
+        introCaption.classList.remove('is-visible');
+        videos.forEach((other, j) => other.classList.toggle('is-active', j === i));
+        try {
+          await v.play();
+        } catch (err) {
+          // Only an actual autoplay-policy block needs a tap to recover from —
+          // a missing/corrupt asset (NotSupportedError etc.) should just move on
+          // and let waitForVideoEnd's error handler advance the sequence below,
+          // rather than stranding the learner on a button that can't help.
+          if (err && err.name === 'NotAllowedError') {
+            await waitForTap(introBeginBtn);
+            if (mySeq !== introSeq) return;
+            try { await v.play(); } catch (e2) { /* asset itself is the problem — move on */ }
+          }
+        }
+        if (mySeq !== introSeq) return;
+        runCaptions(introCaption, splitCaptionChunks(scene.text), mySeq);   // alongside the video, self-cancels
+        await waitForVideoEnd(v, mySeq);
+        if (mySeq !== introSeq) return;
+      }
+      if (mySeq !== introSeq) return;
+      finishVideoIntro();
+    }
+
+    /* Append the LOCKED (app-owned) beat the model asked for via turn.deliver.
+       The grey text lives in the scenario data (ACTIVE_SCENARIO.locked) — the
+       page owns it verbatim; the model never writes it. 'scene' also flips the
+       turn into scene mode so deliverTurn's willEnter handshake presents our
+       locked break-room as "Begin practicing". No-op for scenarios without a
+       .locked map (the Kendra pages), so this stays inert there. */
+    function applyDeliver(turn) {
+      const LOCKED = ACTIVE_SCENARIO.locked;
+      if (!turn || !turn.deliver || !LOCKED || !LOCKED[turn.deliver]) return;
+      const beat = LOCKED[turn.deliver].map((m) => ({ ...m }));   // fresh copies (each gets _enter)
+      // The model is told the locked text but sometimes reproduces it anyway;
+      // drop any message it wrote that matches a locked beat so the app's copy
+      // is the only one (prevents a duplicated scene / pivot).
+      const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40);
+      const lockedKeys = new Set(beat.map((m) => norm(m.text)));
+      turn.turn = (turn.turn || []).filter((m) => !lockedKeys.has(norm(m.text)));
+      turn.turn = turn.turn.concat(beat);
+      // V2: delivering "scene" is the hand-off into OBSERVE (watch the clip), not
+      // a role-play scene. Flag it so deliverTurn arms the "Watch what happens"
+      // entry after the pivot; the turn STAYS in coaching mode.
+      if (turn.deliver === 'scene') { turn._observe = true; }
+    }
+
+    /* =====================================================================
+       ACTIONS
+       ===================================================================== */
+    async function send() {
+      const text = composer.value.trim();
+      if (!text || state.sending || state.complete || state.transitioning) return;
+
+      const kind = state.mode === 'scene' ? 'dialogue' : 'coaching';
+      state.messages.push({ speaker: 'you', kind, text, _enter: true });
+      if (kind === 'dialogue') followStage = true;   // a spoken line — follow the scene down
+      composer.value = '';
+      autoGrow();
+
+      state.sending = true;
+      render();          // shows the learner's line (faded in) and locks input
+      showTyping();      // the AI is composing — covers the model round-trip
+
+      let turn;
+      try { turn = await getTurn(state.messages); }
+      catch (err) {
+        turn = { turn: [{ speaker: 'coach', kind: 'coaching', text:
+          'Something hiccuped reaching the AI coach. Take a breath and try that again.' }], mode: 'coaching', inputTarget: 'coach' };
+        // Mirror the failure into the polite live region — the coach sheet may
+        // be aria-hidden when this lands, so announce it explicitly.
+        announce('Something hiccuped reaching the AI coach. Take a breath and try that again.');
+      }
+
+      // LOCKED (grey) beats: the model only writes the dynamic feedback, then
+      // asks us to show the next app-owned beat via turn.deliver. We append that
+      // beat VERBATIM to this turn's messages so it renders right after the
+      // coach's line — and, for the break-room, flip into scene mode so the
+      // engine's entry handshake ("Begin practicing") fires on our locked scene.
+      applyDeliver(turn);
+
+      // Live mode signals the end of the practice on the turn itself (the demo
+      // engine sets state.complete directly). The report feeds the results modal.
+      if (turn.complete) state.complete = true;
+      if (turn.report) state.report = turn.report;
+
+      await deliverTurn(turn);
+
+      state.sending = false;
+      state.manualTimeout = false;     // any model turn ends a manual timeout
+      render();
+      // keep the cursor in the composer so the learner can reply without re-clicking
+      // (skip when a CTA/indicator has taken the input bar's place — e.g. a queued debrief)
+      if (!composer.disabled && !inputMain.hidden) composer.focus();
+    }
+
+    /* Reveal a turn believably rather than all at once: AI lines arrive through
+       a "thinking" beat, the character's reaction plays out IN the scene, then
+       "Analyzing response…" leads into the coaching layer with the scene line
+       animating across — so coaching and scene stay two distinct moments that
+       are visually connected. */
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // How long the typing dots show BEFORE a message lands. Scaled to the length
+    // of the message ABOUT TO APPEAR — a one-liner types in quickly, a longer
+    // bubble takes a real beat, as if the coach is actually composing it. Every
+    // coach bubble goes through this, so two never drop back-to-back with no beat
+    // between them. Floored so even a tiny line still shows dots; capped so a long
+    // paragraph never stalls. Reduced-motion collapses it to a token pause.
+    // Dots-before-a-message beat. The FIRST bubble in a burst appears FAST — the
+    // model round-trip (or the stepper before a recap) already served as the
+    // "thinking", so we don't stack a long compose on top of it. Later bubbles in
+    // the same burst get a beat scaled to THEIR OWN length (a longer line reads as
+    // a longer compose, a one-liner pops), on a tight range so it never swings.
+    const typingTime = (text, isFirst) =>
+      reducedMotion() ? (isFirst ? 120 : 220)
+      : isFirst ? 450
+      : Math.min(2600, Math.max(650, Math.round(300 + String(text || '').length * 13)));
+
+    // a token so a Restart (or new send) mid-reveal cleanly cancels the old one
+    let deliverSeq = 0;
+    function abortDelivery() {
+      hideTyping();
+      state.delivering = false;
+      state.analyzing = false;
+    }
+
+    async function deliverTurn(turn) {
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;          // a newer turn / restart superseded us
+      const items = turn.turn;
+      // V2: the ONLY "entry" is into OBSERVE (watch the clip), flagged by _observe
+      // on the pivot turn. There is no role-play scene entry.
+      const willEnter = turn._observe && !state.observed;
+
+      // OBSERVE HAND-OFF is LEARNER-TRIGGERED: reveal the coach's pivot bubbles,
+      // then surface the "Watch what happens" control. We do NOT auto-play — the
+      // learner taps to watch when ready.
+      if (willEnter) {
+        state.delivering = true;
+        const coachingItems = items.filter((m) => worldOf(m) === 'coaching');
+        let firstReveal = true;
+        for (const m of coachingItems) {
+          hideTyping();
+          showTyping(); await wait(typingTime(m.text, firstReveal)); hideTyping();
+          firstReveal = false;
+          if (dead()) return;
+          m._enter = true;
+          state.messages.push(m);
+          render();
+          await wait(reducedMotion() ? 80 : 300);
+          if (dead()) return;
+        }
+        state.pendingScene = null;   // no role-play scene — the video is what's observed
+        state.awaitingEntry = true;
+        state.mode = 'coaching'; state.inputTarget = 'coach';
+        state.delivering = false;
+        render();
+        announce(`Your AI coach is ready. Watch what happens when you are.`);
+        return;
+      }
+
+      state.delivering = true;
+      let i = 0;
+
+      // Phase 1 — the character's reaction plays out IN the scene.
+      while (i < items.length && worldOf(items[i]) === 'scene') {
+        const m = items[i];
+        if (state.mode !== 'scene') { state.mode = 'scene'; state.inputTarget = 'character'; }
+        hideTyping();
+        if (m.speaker === 'character' && m.kind === 'dialogue') {
+          showTyping(); await wait(typingTime(m.text)); hideTyping();
+        } else {
+          await wait(reducedMotion() ? 80 : 280);
+        }
+        if (dead()) return;
+        m._enter = true;
+        state.messages.push(m);
+        if (!state.hasEnteredScene) state.hasEnteredScene = true;
+        followStage = true;            // a new scene line — follow it down
+        render();
+        await wait(reducedMotion() ? 80 : 340);
+        if (dead()) return;
+        i++;
+      }
+
+      // Phase 2 — (V1 scene path only) a scene line just drew its reaction. Give
+      // the learner time to READ it: show "Analyzing…" briefly, then offer the
+      // debrief as a choice. V2 never enters a scene, so this never fires there —
+      // the coach's reply (including the final follow-up) always lands INLINE
+      // below (Phase 3), then the results CTA appears.
+      const intoDebrief = (i < items.length) && state.hasEnteredScene && state.mode === 'scene';
+      if (intoDebrief) {
+        state.analyzing = true;
+        render();                                    // input bar: "Analyzing your response…"
+        announce(state.complete ? 'Wrapping up your practice.' : 'Analyzing your response.');
+        await wait(reducedMotion() ? 500 : 1600);
+        if (dead()) return;
+        state.analyzing = false;
+        state.pendingDebrief = items.slice(i);       // queue the debrief; don't reveal it yet
+        state.awaitingDebrief = true;
+        // If this debrief is a coach-led hand-off BACK into the scene (a scene-
+        // mode, non-final turn — e.g. "let's check in with Marshall now"), arm a
+        // scene-return CTA to show once the coach's line has been read.
+        state.debriefReturn = (!state.complete && turn.mode === 'scene')
+          ? { mode: turn.mode, inputTarget: turn.inputTarget, label: turn.returnLabel || null, sceneTarget: turn.sceneTarget || null, sceneSetup: turn.sceneSetup || null }
+          : null;
+        state.delivering = false;
+        render();                                    // input bar: "See what your AI coach noticed →"
+        announce('Your AI coach noticed something. Open the coach when you’re ready.');
+        return;
+      }
+
+      // Phase 3 — coach message(s) revealed inline in the sheet. This is the
+      // normal coaching reply, AND (in V2) the final follow-up to the learner's
+      // post-video answer — the coach responds here, in view, before any results.
+      let firstReveal = (i === 0);
+      while (i < items.length) {
+        const m = items[i];
+        hideTyping();
+        showTyping(); await wait(typingTime(m.text, firstReveal)); hideTyping();
+        firstReveal = false;
+        if (dead()) return;
+        m._enter = true;
+        state.messages.push(m);
+        render();
+        await wait(reducedMotion() ? 80 : 300);
+        if (dead()) return;
+        i++;
+      }
+
+      // COMPLETION (V2 / any coaching-mode finish): the coach's follow-up just
+      // landed inline above. Now surface the results scorecard — no hidden closing
+      // debrief, no "See your results" standing in for the coach's actual reply.
+      if (state.complete) {
+        state.awaitingResults = true;
+        state.delivering = false;
+        render();                                     // input bar: "View full results →"
+        announce('Your AI coach has wrapped up. View your results when ready.');
+        return;
+      }
+
+      // Finalize. If the coach is sending the learner back into the scene, dwell
+      // briefly so the send-off reads, then lift the panel.
+      // If the coach is sending the learner back into the scene, don't auto-cut
+      // over — give them a beat to read the reply, then offer it as a choice
+      // (same "learner decides when" pattern as every other transition here),
+      // rather than yanking the panel closed out from under them.
+      const resumingToScene = turn.mode === 'scene' && state.mode === 'coaching';
+      if (resumingToScene) {
+        state.pendingReturn = { mode: turn.mode, inputTarget: turn.inputTarget, sceneTarget: turn.sceneTarget || null, sceneSetup: turn.sceneSetup || null };
+        state.returnLabel = turn.returnLabel || null;
+        state.awaitingReturn = true;
+        state.delivering = false;
+        render();                                     // input bar: "Continue practicing →"
+        announce('Your AI coach is ready to send you back. Continue when you are.');
+        return;
+      }
+      state.mode = turn.mode; state.inputTarget = turn.inputTarget;
+      state.delivering = false;
+      render();
+    }
+
+    // "Continue practicing" — the learner returns to the scene on their own
+    // command, once they're done reading the coach's reply.
+    function returnToScene() {
+      if (!state.awaitingReturn || state.sending || state.delivering) return;
+      const p = state.pendingReturn;
+      state.pendingReturn = null;
+      state.awaitingReturn = false;
+      state.returnLabel = null;
+      state.mode = p.mode; state.inputTarget = p.inputTarget;
+      if (p.sceneTarget) state.sceneTarget = p.sceneTarget;   // now speaking to Marshall
+      // Paint the NEW sub-scene in the scene pane so the shift reads visually —
+      // otherwise the learner is dropped back into the (now-stale) break-room card.
+      if (p.sceneSetup) state.messages.push({ speaker: 'character', kind: 'narration', text: p.sceneSetup, _enter: true });
+      followStage = true;
+      announce(p.sceneTarget ? `Checking in with ${p.sceneTarget}.` : 'Back in the scene.');
+      render();
+      setTimeout(() => { if (!composer.disabled) composer.focus(); }, 260);
+    }
+
+    // "See what your AI coach noticed" — the learner opens the queued debrief when
+    // ready (after reading Kendra's reaction). The coach sheet RISES; the practice
+    // (with the line) stays visible, dimmed, above it.
+    async function openDebrief() {
+      if (!state.awaitingDebrief || state.sending || state.delivering) return;
+      if (state.complete) { openClosingDebrief(); return; }
+      const pending = state.pendingDebrief || [];
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;
+      state.pendingDebrief = null;
+      state.awaitingDebrief = false;
+      state.analyzing = false;
+      state.mode = 'coaching'; state.inputTarget = 'coach';
+      state.delivering = true;
+      announce('Stepped out to your AI coach.');
+      render();   // the coach sheet rises (empty); the debrief types in below
+      // Reveal the debrief ONE bubble at a time, each behind its own typing beat.
+      for (const m of pending) {
+        hideTyping();
+        showTyping(); await wait(typingTime(m.text)); hideTyping();
+        if (dead()) return;
+        m._enter = true;
+        state.messages.push(m);
+        render();
+        await wait(reducedMotion() ? 80 : 320);
+        if (dead()) return;
+      }
+      state.delivering = false;
+      // If the coach's message is a hand-off back into the scene, offer the
+      // return as its own reinforcing CTA (e.g. "Check in with Marshall →")
+      // rather than making the learner type — the coach steps them across.
+      if (state.debriefReturn) {
+        state.pendingReturn = { mode: state.debriefReturn.mode, inputTarget: state.debriefReturn.inputTarget, sceneTarget: state.debriefReturn.sceneTarget, sceneSetup: state.debriefReturn.sceneSetup };
+        state.returnLabel = state.debriefReturn.label;
+        state.debriefReturn = null;
+        state.awaitingReturn = true;
+      }
+      render();   // the coach sheet now shows the full debrief (+ a return CTA if armed)
+    }
+
+    // The FINAL debrief gets a build-up instead of an instant reveal: the coach
+    // sheet rises into a short "Analyzing… Determining…" stepper, THEN the recap
+    // message + the strengths/growth-areas report land together.
+    async function openClosingDebrief() {
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;
+      const pending = state.pendingDebrief || [];
+      state.pendingDebrief = null;
+      state.awaitingDebrief = false;
+      state.analyzing = false;
+      state.mode = 'coaching'; state.inputTarget = 'coach';
+      state.closingStepperActive = true;
+      announce('Analyzing the conversation.');
+      render();   // the coach sheet rises, showing the stepper
+      await runClosingStepper(dead);
+      if (dead()) return;
+      state.closingStepperActive = false;
+      render();   // clear the stepper so the recap can type in beneath it
+      // Reveal the recap bubbles ONE AT A TIME, each behind its own typing beat
+      // (scaled to its length) — never dropped in all at once.
+      for (const m of pending) {
+        hideTyping();
+        showTyping(); await wait(typingTime(m.text)); hideTyping();
+        if (dead()) return;
+        m._enter = true;
+        state.messages.push(m);
+        render();
+        await wait(reducedMotion() ? 80 : 320);
+        if (dead()) return;
+      }
+      state.awaitingResults = true;   // footer offers "View full results" — the report opens in its own modal
+      announce('Your AI coach has a recap. View your full results when ready.');
+      render();
+    }
+
+    let resultsReturnFocus = null;   // where focus goes back to when the modal closes
+    function openResultsModal() {
+      if (!state.awaitingResults) return;
+      state.resultsPage = 0;
+      state.resultsModalOpen = true;
+      resultsReturnFocus = document.activeElement;
+      announce('Your results: strengths.');
+      render();
+      // Move focus into the dialog (the card is its tabbable landing point).
+      document.querySelector('.results-modal-card').focus();
+    }
+    // Closing the modal doesn't just dump the resources in — the coach
+    // "introduces" them first, as its own typed-in message, the same way any
+    // other coach line arrives (see deliverTurn/deliverOpening).
+    async function closeResultsModal() {
+      if (!state.resultsModalOpen) return;
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;
+      state.resultsModalOpen = false;
+      state.awaitingResults = false;
+      state.delivering = true;
+      announce('Back to your AI coach.');
+      render();
+      const resourcesIntro = `Great work! Here are some resources for dealing with situations just like this.`;
+      showTyping(); await wait(typingTime(resourcesIntro, true)); hideTyping();
+      if (dead()) return;
+      state.messages.push({ speaker: 'coach', kind: 'coaching', _enter: true, text: resourcesIntro });
+      render();
+      await wait(reducedMotion() ? 80 : 500);
+      if (dead()) return;
+      showTyping(); await wait(reducedMotion() ? 250 : 1100); hideTyping();
+      if (dead()) return;
+      state.resultsViewed = true;   // reveals the resources message — see render()
+      state.delivering = false;
+      announce('Here are some resources.');
+      render();
+      // Restore focus out of the closed dialog — back to its opener if that
+      // control still exists, otherwise to the CTA that replaced it.
+      const rf = resultsReturnFocus;
+      resultsReturnFocus = null;
+      if (rf && rf.isConnected && rf.offsetParent !== null) rf.focus();
+      else document.getElementById('continueCtaBtn').focus();
+    }
+
+    // "Continue" — the practice's actual last step. Nothing in this prototype
+    // routes to a real next lesson, so this just settles the footer into a
+    // clear, final "done" state rather than pretending to navigate anywhere.
+    function finishPractice() {
+      if (!state.resultsViewed || state.continued) return;
+      state.continued = true;
+      announce('Practice complete.');
+      render();
+    }
+    function resultsNext() {
+      state.resultsPage = Math.min(state.resultsPage + 1, RESULTS_PAGES.length - 1);
+      announce(RESULTS_PAGES[state.resultsPage].announce);
+      render();
+    }
+    function resultsBack() {
+      state.resultsPage = Math.max(state.resultsPage - 1, 0);
+      announce(RESULTS_PAGES[state.resultsPage].announce);
+      render();
+    }
+
+    async function runClosingStepper(dead) {
+      const steps = () => [...coachPanelBody.querySelectorAll('.closing-step')];
+      for (let i = 0; i < CLOSING_STEPS.length; i++) {
+        if (dead()) return;
+        const els = steps();
+        if (els[i]) els[i].classList.add('is-active');
+        await wait(reducedMotion() ? 150 : 900);
+        if (dead()) return;
+        if (els[i]) { els[i].classList.remove('is-active'); els[i].classList.add('is-done'); }
+      }
+      await wait(reducedMotion() ? 0 : 350);
+    }
+
+    // (watchIncident() — the "Watch what happens" / re-watch handler — lives up
+    // with afterObserve(), next to the video machinery it drives.)
+
+    // "Step out to AI coach" — a learner-initiated pause (not a coach debrief).
+    function stepOut() {
+      if (state.mode !== 'scene' || state.complete || state.sending || state.delivering || state.transitioning || state.awaitingDebrief) return;
+      state.messages.push({ speaker: 'coach', kind: 'coaching', text:
+`Timeout — we can pause here as long as you need. What's on your mind before you step back in?` });
+      state.mode = 'coaching';
+      state.inputTarget = 'coach';
+      state.manualTimeout = true;
+      announce('Scene paused. Timeout with your AI coach.');
+      render();
+      setTimeout(() => composer.focus(), 40);
+    }
+
+    // "Resume the scene" — go back into the roleplay (no message added).
+    function resumeScene() {
+      if (!state.hasEnteredScene || state.complete || state.delivering || state.sending) return;
+      state.mode = 'scene';
+      state.inputTarget = 'character';
+      state.manualTimeout = false;
+      state.awaitingReturn = false; state.pendingReturn = null;   // this covers it too
+      announce('Back in the scene.');
+      render();
+    }
+
+    // "Try a different approach" — truncate back to just before this YourSceneLine
+    // and return to scene mode targeting the character (a pedagogical retry).
+    function tryDifferentApproach(absIndex) {
+      if (absIndex == null || absIndex < 0 || state.sending || state.delivering || state.transitioning) return;
+      deliverSeq++;                          // cancel any in-flight reveal
+      abortDelivery();
+      state.messages = state.messages.slice(0, absIndex);
+      state.complete = false;
+      state.mode = 'scene';
+      state.inputTarget = 'character';
+      state.manualTimeout = false;
+      state.awaitingDebrief = false; state.pendingDebrief = null; state.analyzing = false;
+      // recompute hasEnteredScene from the truncated history
+      state.hasEnteredScene = state.messages.some((m) => worldOf(m) === 'scene');
+      followStage = true;
+      announce('Rewound. Try that line again.');
+      render();
+      setTimeout(() => composer.focus(), 40);
+    }
+
+    function restart() {
+      deliverSeq++;                                       // cancel any in-flight reveal
+      abortDelivery();
+      introSeq++;   // abandon any in-flight video sequence
+      document.querySelectorAll('#stage .intro-video').forEach((v) => { try { v.pause(); v.muted = true; } catch (e) {} });  // silence a mid-play cold open
+      if (audioIntroHandle) { audioIntroHandle.stop(); audioIntroHandle = null; }  // stop any narration
+      Object.assign(state, {
+        mode: 'coaching', inputTarget: 'coach', hasEnteredScene: false,
+        started: false, messages: [], pendingOpening: initialMessages(),
+        sending: false, complete: false, report: null, manualTimeout: false,
+        transitioning: false, delivering: false, awaitingEntry: false, pendingScene: null,
+        entryPromptDismissed: false, awaitingDebrief: false, pendingDebrief: null, analyzing: false,
+        videoPlaying: false, midVideo: false, observed: false, observePrompted: false, audioIntroPlaying: false, closingStepperActive: false,
+        awaitingResults: false, resultsModalOpen: false, resultsPage: 0, resultsViewed: false, continued: false,
+        awaitingReturn: false, pendingReturn: null,
+        debriefReturn: null, returnLabel: null, sceneTarget: null,
+      });
+      app.classList.remove('was-trap');
+      followStage = true;
+      announce('Practice restarted.');
+      render();   // back to the scene anchor with an "Enter scenario" prompt
+    }
+
+    // "Chat with AI Coach" — the learner brings the coach in on their command. The
+    // sheet rises over the scene anchor and the opening prep types in, one line at
+    // a time, as if the coach is talking — never dumped in all at once.
+    async function startSession() {
+      if (state.started || state.sending || state.delivering) return;
+      state.started = true;
+      state.mode = 'coaching'; state.inputTarget = 'coach';
+      announce('Bringing in your AI coach.');
+      render();                 // the sheet rises (empty) over the scene anchor
+      await deliverOpening();   // each opening line types into the sheet, one by one
+    }
+
+    // Reveal the coach's opening prep message-by-message (typing beat between each),
+    // so the first thing the learner sees is the coach "talking," not a wall of text.
+    async function deliverOpening() {
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;     // a restart mid-stream supersedes us
+      const opening = state.pendingOpening || [];
+      state.pendingOpening = null;
+      state.delivering = true;
+      render();
+      for (let i = 0; i < opening.length; i++) {
+        const m = opening[i];
+        // First line lands fast; later lines scale to their length (see typingTime).
+        hideTyping();
+        showTyping(); await wait(typingTime(m.text, i === 0)); hideTyping();
+        if (dead()) return;
+        m._enter = true;
+        state.messages.push(m);
+        render();
+        // just a short settle so the next "thinking" doesn't start the same instant
+        if (i < opening.length - 1) await wait(reducedMotion() ? 80 : 480);
+        if (dead()) return;
+      }
+      state.delivering = false;
+      render();
+      if (!composer.disabled) composer.focus();
+    }
+
+    /* =====================================================================
+       WIRING
+       ===================================================================== */
+    function autoGrow() {
+      composer.style.height = 'auto';
+      composer.style.height = Math.min(composer.scrollHeight, 120) + 'px';
+    }
+    composer.addEventListener('input', () => { autoGrow(); sendBtn.disabled = state.sending || state.complete || !composer.value.trim(); });
+    composer.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+    });
+    sendBtn.addEventListener('click', send);
+    // pre-watch this control plays the incident clip; otherwise it lowers the sheet
+    resumeBtn.addEventListener('click', () => {
+      if (resumeBtn.dataset.action === 'begin') watchIncident();
+      else resumeScene();
+    });
+    scrim.addEventListener('click', resumeScene);     // tap the dimmed scene to resume
+
+    // Entry bar: the CTA plays the clip; "keep talking" hands the bar back to the composer.
+    enterCtaBar.addEventListener('click', watchIncident);
+    keepTalkingBtn.addEventListener('click', () => {
+      state.entryPromptDismissed = true;
+      render();
+      composer.focus();
+    });
+    // Debrief bar: open the queued coach debrief when the learner is ready.
+    debriefCtaBtn.addEventListener('click', openDebrief);
+    // Return bar: cross back into the scene on the learner's own command.
+    returnCtaBtn.addEventListener('click', returnToScene);
+    // Results bar: opens the strengths/growth-areas modal (never auto-shown).
+    resultsCtaBtn.addEventListener('click', openResultsModal);
+    // Modal nav — delegated since the footer's buttons are rebuilt every render.
+    resultsModalFoot.addEventListener('click', (e) => {
+      if (e.target.closest('#resultsNextBtn')) resultsNext();
+      else if (e.target.closest('#resultsBackBtn')) resultsBack();
+      else if (e.target.closest('#resultsContinueBtn')) closeResultsModal();
+    });
+    // The practice's actual last step, once the resources have landed.
+    continueCtaBtn.addEventListener('click', finishPractice);
+    // Start bar: "Enter scenario" plays the cold-open in the stage; the video
+    // itself is the transition into the AI coach, so there's no second tap.
+    // 'video' intro → the cold open IS the entry. 'story'/'none' → skip
+    // straight to the coach (the story variant has its own page; here the
+    // establishing card + coach opening carry the setup).
+    startCtaBtn.addEventListener('click', () =>
+      (HAS_AUDIO_INTRO ? enterAudioIntro() : HAS_VIDEO_INTRO ? enterVideoIntro() : startSession()));
+
+    // The mode toggle: tap the inactive segment to switch states (delegated, as
+    // the toggle is rebuilt on every render). Disabled segments don't fire.
+    modeIndicator.addEventListener('click', (e) => {
+      const seg = e.target.closest('.seg');
+      if (!seg || seg.disabled) return;
+      const which = seg.dataset.seg;
+      // V2: "observe" plays (or re-plays) the incident clip; "learn" is the
+      // resting mode (disabled as a target), except to open a queued debrief.
+      if (which === 'observe') { watchIncident(); return; }
+      if (which === 'learn' && state.awaitingDebrief) openDebrief();
+    });
+    document.getElementById('restartBtn').addEventListener('click', restart);
+
+    // Opening beat: anchor on the practice base ("Kendra's room") with an "Enter
+    // scenario" prompt. The cold-open video and the coach sheet both stay down
+    // until the learner chooses to begin.
+    render();
+    </script>
+</body>
+</html>

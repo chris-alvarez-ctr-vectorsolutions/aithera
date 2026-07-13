@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writer Studio — Conversation Practice</title>
+
+    <!-- Vector Web Components: Core -->
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+
+    <!-- Vector Web Components: Themes (import as plain script) -->
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+
+    <!-- Open Sans -->
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+    <!-- ====================================================================
+         WRITER STUDIO — the content writer's side of the live AI practice.
+
+         The premise: as assessment moves from multiple-choice to AI-assisted
+         conversation, the writer's job shifts from writing answer keys to
+         writing GUIDANCE — and the guardrail IS the structure. Writers never
+         touch raw prompt text. They fill structured, plain-language fields
+         (scenario, reaction map, assessment dimensions, the gate…) and the
+         shared compiler (js/scenario.js) assembles the system prompt around
+         locked, safety-critical engine sections they can see but not break.
+
+         Three panes:
+           LEFT    section nav with lint status dots
+           CENTER  the authoring form (writer-owned fields + locked engine)
+           RIGHT   inspector tabs — Compiled prompt / Guardrails / Playtest
+
+         Publishing writes the scenario to localStorage; the learner-facing
+         prototype (action-practice-live.html) picks it up on reload in this
+         same browser. (GitHub Pages has no backend — localStorage is the
+         honest static-hosting handoff. A shared backend would swap in here.)
+         ==================================================================== -->
+    <style>
+      :root {
+        color-scheme: light dark;
+
+        /* Same coaching-world palette as the live prototype, so the two
+           pages read as one product family. */
+        --bg:          #f5f7fb;
+        --surface:     #ffffff;
+        --surface-2:   #eef1f7;
+        --ink:         #1a2030;
+        --ink-soft:    #5a6379;
+        /* WCAG AA: #8b94a8 is ~3:1 on white — below the 4.5:1 floor for the
+           small text this tier is used on. #626b80 is 5.3:1 on white, 4.7:1
+           on the tinted card surface. */
+        --ink-faint:   #626b80;
+        --line:        #e3e7f0;
+        --accent:      #4b63e6;
+        --accent-strong:#3a4fce;
+        --accent-soft: #eef1fe;
+        --on-accent:   #ffffff;
+        /* Every editable surface shares this fill so "where do I type" is
+           scannable at a glance — read-only guidance stays on card white. */
+        --field-bg:    #f2f5fc;
+
+        /* Lint severities */
+        --err:   #d64550;
+        --err-soft: rgba(214,69,80,.12);
+        --warn:  #c98a1b;
+        --warn-soft: rgba(201,138,27,.14);
+        --info:  #5a6379;
+        --info-soft: rgba(90,99,121,.12);
+        --ok:    #2c9a6b;
+        --ok-soft: rgba(44,154,107,.12);
+
+        /* Playtest bubbles echo the live page's two worlds */
+        --pt-char:      #7a3ff2;
+        --pt-char-soft: rgba(122,63,242,.10);
+        --pt-you:       #b97a17;
+        --pt-you-soft:  rgba(241,179,74,.16);
+
+        --radius:    14px;
+        --radius-sm: 9px;
+        --shadow-sm: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.10);
+        --shadow-md: 0 6px 18px rgba(16,24,40,.12), 0 2px 6px rgba(16,24,40,.07);
+        --topbar-h: 56px;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg:          #0c0f17;
+          --surface:     #161b27;
+          --surface-2:   #1e2433;
+          --ink:         #e9ecf4;
+          --ink-soft:    #9aa3b8;
+          /* WCAG AA: #6b7488 measured 3.3-3.7:1 on these surfaces — below the
+             4.5:1 floor for the small text this tier is used on. #8b94a8 is
+             5.1:1 on the card surface, 6.2:1 on the page background. */
+          --ink-faint:   #8b94a8;
+          --line:        #29303f;
+          --accent:      #8092ff;
+          --accent-strong:#9aa8ff;
+          --accent-soft: #1b2236;
+          --on-accent:   #0c0f17;
+          --field-bg:    #202a3e;
+          --warn:  #e0a33c;
+          --err:   #ef6d77;
+          --ok:    #4fbd8c;
+          --info:  #9aa3b8;
+          --pt-char: #b18cff;
+          --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+          --shadow-md: 0 6px 18px rgba(0,0,0,.45);
+
+          /* Vector web components (Material-based theme) never learn about
+             this page's dark palette on their own — their defaults are
+             black-on-transparent, which measured 1.22:1 on these surfaces
+             (labels, helper text, typed values, placeholders, checkbox
+             labels were all effectively invisible). Map the component
+             theme's text/line/focus tokens onto the page palette. */
+          --material-body-text-color:      var(--ink);
+          --material-secondary-text-color: var(--ink-soft);
+          --material-disabled-text-color:  var(--ink-faint);
+          --material-divider-color:        var(--line);
+          --material-primary-color:        var(--accent);
+          --material-primary-text-color:   var(--accent);
+          --material-background-color:     var(--surface);
+          --material-secondary-background-color: var(--surface-2);
+          /* Same mapping for Lumo-themed components, if any load. */
+          --lumo-body-text-color:      var(--ink);
+          --lumo-header-text-color:    var(--ink);
+          --lumo-secondary-text-color: var(--ink-soft);
+          --lumo-tertiary-text-color:  var(--ink-faint);
+          --lumo-primary-color:        var(--accent);
+          --lumo-base-color:           var(--surface);
+        }
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        font-family: 'Open Sans', system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        font-size: 14px;
+        line-height: 1.55;
+        /* App shell: fixed chrome, only the center form scrolls. */
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      /* ===== Top bar ===================================================== */
+      .topbar {
+        flex: 0 0 auto; z-index: 30;
+        height: var(--topbar-h);
+        display: flex; align-items: center; gap: 12px;
+        padding: 0 18px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--line);
+      }
+      .topbar .brand {
+        display: inline-flex; align-items: center; gap: 8px;
+        font-weight: 700; font-size: 15px; white-space: nowrap;
+      }
+      .topbar .brand .logo {
+        width: 28px; height: 28px; border-radius: 8px;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: var(--accent); color: var(--on-accent); font-size: 13px;
+      }
+      .topbar .sub {
+        color: var(--ink-faint); font-size: 12.5px; white-space: nowrap;
+        border-left: 1px solid var(--line); padding-left: 12px;
+      }
+      .topbar .spacer { flex: 1; }
+      .save-status { color: var(--ink-faint); font-size: 12.5px; white-space: nowrap; }
+
+      /* —— Right-aligned utility toolbar (Library / Reset / Export) —— */
+      .toolbar { display: inline-flex; align-items: center; gap: 6px; }
+      .tbtn {
+        display: inline-flex; align-items: center; gap: 7px;
+        height: 34px; padding: 0 12px;
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        color: var(--ink-soft); font: inherit; font-size: 13px; font-weight: 600;
+        white-space: nowrap; cursor: pointer;
+        transition: background .12s, border-color .12s, color .12s;
+      }
+      .tbtn .fa-solid { font-size: 12px; }
+      .tbtn:hover { background: var(--surface); border-color: var(--accent); color: var(--accent); }
+      .tbtn:active { background: var(--accent-soft); }
+      .tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+      /* —— Scenario library popover (topbar) —— */
+      .libwrap { position: relative; }
+      .libpanel {
+        position: absolute; top: calc(100% + 6px); right: 0; z-index: 60;
+        min-width: 300px; max-width: 360px; max-height: 60vh; overflow: auto;
+        background: var(--surface); border: 1px solid var(--line);
+        border-radius: var(--radius-sm); box-shadow: var(--shadow-md); padding: 8px;
+      }
+      .libpanel .libhead { padding: 4px 10px 6px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+      .libpanel .librow { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 7px; }
+      .libpanel .librow:hover { background: var(--surface-2); }
+      .libpanel .librow .meta { flex: 1; min-width: 0; text-align: left; background: none; border: 0; cursor: pointer; color: var(--ink); font: inherit; padding: 0; }
+      .libpanel .librow .meta .t { display: block; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .libpanel .librow .meta .d { display: block; font-size: 11.5px; color: var(--ink-faint); }
+      .libpanel .librow .rm { background: none; border: 0; color: var(--ink-faint); cursor: pointer; padding: 6px; border-radius: 6px; }
+      .libpanel .librow .rm:hover { color: var(--err); background: var(--err-soft); }
+      .libpanel .libsave { display: flex; width: 100%; align-items: center; gap: 8px; margin-top: 6px; padding: 9px 10px; border: 1px dashed var(--line); border-radius: 7px; background: none; color: var(--accent); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+      .libpanel .libsave:hover { background: var(--accent-soft); border-color: var(--accent); }
+      .libpanel .libempty { padding: 10px; font-size: 12.5px; color: var(--ink-soft); }
+      .save-status .fa-circle-check { color: var(--ok); }
+      /* Learner-preview button — lives in the status bar next to Publish */
+      .preview-link {
+        display: inline-flex; align-items: center; gap: 7px;
+        height: 34px; padding: 0 13px; box-sizing: border-box;
+        border: 1px solid var(--accent); border-radius: var(--radius-sm);
+        color: var(--accent); text-decoration: none; font-weight: 600; font-size: 13px;
+        white-space: nowrap; background: var(--surface);
+        transition: background .12s;
+      }
+      .preview-link:hover { background: var(--accent-soft); }
+
+      /* Published-state strip under the top bar — also the publish action bar */
+      .pubstrip {
+        flex: 0 0 auto;
+        display: flex; align-items: center; gap: 8px;
+        padding: 8px 18px;
+        font-size: 12.5px; color: var(--ink-soft);
+        background: var(--surface-2);
+        border-bottom: 1px solid var(--line);
+      }
+      .pubstrip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint); flex: 0 0 auto; }
+      .pubstrip.is-live .dot { background: var(--ok); }
+      .pubstrip.is-stale .dot { background: var(--warn); }
+      .pubstrip .unpub {
+        background: none; border: none; cursor: pointer;
+        color: var(--ink-faint); font: inherit; font-size: 12.5px; text-decoration: underline;
+      }
+      .pubstrip .unpub:hover { color: var(--err); }
+      /* Right-aligned actions: Learner preview + Publish */
+      .pubstrip .pubactions {
+        margin-left: auto; display: inline-flex; align-items: center; gap: 8px;
+      }
+
+      /* ===== Three-pane layout =========================================== */
+      .cols {
+        flex: 1 1 auto; min-height: 0;   /* fill remaining height below the chrome */
+        display: grid;
+        grid-template-columns: 218px minmax(430px, 1fr) minmax(430px, 44%);
+        gap: 0;
+        /* columns stretch to full height; each pane manages its own scroll */
+      }
+
+      /* Left: section nav — its own scroll region, no page-scroll coupling */
+      .secnav {
+        min-height: 0; overflow-y: auto;
+        padding: 18px 10px 18px 14px;
+      }
+      .secnav .head {
+        font-size: 11px; font-weight: 700; letter-spacing: .08em;
+        text-transform: uppercase; color: var(--ink-faint);
+        padding: 0 10px 8px;
+      }
+      .secnav button {
+        display: flex; align-items: center; gap: 8px; width: 100%;
+        background: none; border: none; cursor: pointer;
+        font: inherit; font-size: 13px; color: var(--ink-soft); text-align: left;
+        padding: 7px 10px; border-radius: var(--radius-sm);
+      }
+      .secnav button:hover { background: var(--surface); color: var(--ink); }
+      .secnav button.is-active { background: var(--accent-soft); color: var(--accent-strong); font-weight: 600; }
+      .secnav .status { margin-left: auto; font-size: 9px; }
+      .secnav .status.err  { color: var(--err); }
+      .secnav .status.warn { color: var(--warn); }
+      .secnav .status.ok   { color: var(--ok); }
+      .secnav .locknote { color: var(--ink-faint); font-size: 11px; }
+
+      /* Center: the form — the ONLY scrolling region in the app shell */
+      .form {
+        min-width: 0; min-height: 0; overflow-y: auto;
+        padding: 18px 8px 80px 8px;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-sm);
+        padding: 18px 20px 20px;
+        margin: 0 0 16px;
+        scroll-margin-top: 14px;
+      }
+      .card h2 {
+        margin: 0; font-size: 15.5px; font-weight: 700;
+        display: flex; align-items: center; gap: 9px;
+      }
+      .card h2 .fa-solid, .card h2 .fa-regular { color: var(--accent); font-size: 13px; width: 18px; text-align: center; }
+      .card .lead {
+        margin: 6px 0 0; color: var(--ink-soft); font-size: 13px; max-width: 62ch;
+      }
+      /* The "you used to write MCQs" bridge — the coaching layer of the
+         tool. Collapsed by default so each section leads with its fields;
+         the summary line says what's inside, and nothing is lost — it's a
+         click away. This is the READ layer; it stays on plain card white. */
+      details.bridge {
+        margin: 10px 0 2px; max-width: 62ch;
+        border: 1px solid var(--line); border-radius: var(--radius-sm);
+      }
+      details.bridge summary {
+        display: flex; align-items: center; gap: 8px;
+        padding: 8px 12px; cursor: pointer; list-style: none;
+        font-size: 12px; font-weight: 600; color: var(--ink-soft);
+      }
+      details.bridge summary::-webkit-details-marker { display: none; }
+      details.bridge summary .fa-solid { color: var(--ink-faint); font-size: 11px; width: 14px; text-align: center; }
+      details.bridge summary::after {
+        content: '\f078'; /* chevron-down */
+        font-family: 'Font Awesome 6 Free'; font-weight: 900; font-size: 9px;
+        margin-left: auto; color: var(--ink-faint);
+        transition: transform .15s ease;
+      }
+      details.bridge[open] summary::after { transform: rotate(180deg); }
+      details.bridge .bridge-body {
+        padding: 0 12px 10px 34px;
+        color: var(--ink-soft); font-size: 12.5px;
+      }
+      details.bridge .bridge-body b { color: var(--ink); }
+
+      /* Short must-read note that sits with the fields (not collapsible). */
+      .fieldnote {
+        display: flex; gap: 9px; align-items: flex-start;
+        color: var(--ink-soft); font-size: 12.5px; max-width: 62ch;
+      }
+      .fieldnote .fa-solid { color: var(--ink-faint); margin-top: 2px; flex: 0 0 auto; }
+      .fieldnote b { color: var(--ink); }
+
+      /* Divider between the read zone (title, lead, guidance) and the edit
+         zone (fields) inside every section card. */
+      .fields {
+        display: grid; gap: 14px; margin-top: 14px;
+        padding-top: 14px; border-top: 1px solid var(--line);
+      }
+      .fields .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      @media (max-width: 1100px) { .fields .row2 { grid-template-columns: 1fr; } }
+
+      vaadin-text-field, vaadin-text-area { width: 100%; }
+
+      /* ---- Read vs. edit ------------------------------------------------
+         The form mixes a lot of prose (section leads, craft guidance) with
+         the fields writers actually fill in. Three cues keep them apart:
+           1. every input surface gets the shared --field-bg fill,
+           2. field labels are the darkest, boldest text in the fields zone,
+           3. helper text drops to the faint tier below the label.
+         Guidance prose lives ABOVE the .fields divider on plain card white. */
+      vaadin-text-field::part(input-field),
+      vaadin-text-area::part(input-field) {
+        /* !important: the component theme sets its own !important background
+           inside the shadow root, which outranks a normal ::part rule. */
+        background: var(--field-bg) !important;
+        border-radius: 8px;
+      }
+      vaadin-text-field::part(label),
+      vaadin-text-area::part(label) {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      vaadin-text-field::part(helper-text),
+      vaadin-text-area::part(helper-text) {
+        color: var(--ink-faint);
+        font-size: 11.5px;
+      }
+
+      /* Dynamic list rows (dimensions / reactions / misconceptions) */
+      .rows { display: grid; gap: 10px; margin-top: 14px; }
+      .rowcard {
+        border: 1px solid var(--line); border-radius: var(--radius-sm);
+        padding: 12px 14px 14px; background: var(--surface);
+        display: grid; gap: 10px; position: relative;
+      }
+      .rowcard .rowhead {
+        display: flex; align-items: center; gap: 8px;
+        font-size: 11.5px; font-weight: 700; letter-spacing: .06em;
+        text-transform: uppercase; color: var(--ink-faint);
+      }
+      .rowcard .rowhead .del {
+        margin-left: auto; background: none; border: none; cursor: pointer;
+        color: var(--ink-faint); font-size: 13px; padding: 4px 6px; border-radius: 6px;
+      }
+      .rowcard .rowhead .del:hover { color: var(--err); background: var(--err-soft); }
+      .addrow {
+        justify-self: start;
+        display: inline-flex; align-items: center; gap: 7px;
+        background: none; border: 1px dashed var(--line); cursor: pointer;
+        color: var(--accent); font: inherit; font-size: 13px; font-weight: 600;
+        padding: 8px 14px; border-radius: var(--radius-sm);
+      }
+      .addrow:hover { background: var(--accent-soft); border-color: var(--accent); }
+
+      /* Locked engine section — read-only, so it sits on the gray surface
+         tier instead of card white (no accent bars; the fill IS the cue). */
+      .locked .card h2 .fa-solid { color: var(--ink-faint); }
+      .lockcard { background: var(--surface-2); }
+      .lockcard .lockhead {
+        display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 13.5px;
+      }
+      .lockcard .lockhead .fa-lock { color: var(--ink-faint); font-size: 12px; }
+      .lockcard .note { color: var(--ink-soft); font-size: 12.5px; margin: 4px 0 8px; max-width: 62ch; }
+      .lockcard details { border-top: 1px dashed var(--line); padding-top: 8px; }
+      .lockcard summary { cursor: pointer; color: var(--accent); font-size: 12.5px; font-weight: 600; }
+      .lockcard pre {
+        white-space: pre-wrap; font-size: 11.5px; line-height: 1.5;
+        color: var(--ink-soft); background: var(--surface);
+        padding: 10px 12px; border-radius: var(--radius-sm); margin: 8px 0 0;
+      }
+
+      /* ===== Right: inspector — fills the grid cell, tabs scroll internally = */
+      .inspector {
+        min-width: 0; min-height: 0;
+        display: flex; flex-direction: column;
+        border-left: 1px solid var(--line);
+        background: var(--surface);
+      }
+      .inspector vaadin-tabs { flex: 0 0 auto; }
+      .tabbody { flex: 1; overflow: auto; padding: 14px 16px 18px; display: none; min-height: 0; }
+      .tabbody.is-active { display: block; }
+      .tabbody.pt.is-active { display: flex; flex-direction: column; padding: 0; }
+
+      /* Compiled prompt tab */
+      .promptmeta {
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        margin-bottom: 10px; color: var(--ink-soft); font-size: 12.5px;
+      }
+      .promptmeta .pill {
+        background: var(--surface-2); border-radius: 999px; padding: 3px 10px;
+        font-size: 11.5px; font-weight: 600;
+      }
+      .promptmeta .copy {
+        margin-left: auto; background: none; border: 1px solid var(--line); cursor: pointer;
+        color: var(--ink-soft); font: inherit; font-size: 12px; font-weight: 600;
+        padding: 5px 10px; border-radius: var(--radius-sm);
+        display: inline-flex; align-items: center; gap: 6px;
+      }
+      .promptmeta .copy:hover { color: var(--accent); border-color: var(--accent); }
+      .promptview {
+        white-space: pre-wrap; word-break: break-word;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11.5px; line-height: 1.55;
+        background: var(--surface-2); border-radius: var(--radius-sm);
+        padding: 12px 14px; margin: 0;
+        color: var(--ink-soft);
+      }
+      .promptview .wr { color: var(--ink); background: var(--accent-soft); border-radius: 3px; padding: 0 2px; }
+      .promptlegend { color: var(--ink-faint); font-size: 11.5px; margin: 8px 0 0; }
+      .promptlegend .wr { color: var(--ink); background: var(--accent-soft); border-radius: 3px; padding: 0 3px; }
+
+      /* Guardrails (lint) tab */
+      .lintsummary { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+      .lintsummary .pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        border-radius: 999px; padding: 4px 11px; font-size: 12px; font-weight: 700;
+      }
+      .pill.err  { background: var(--err-soft);  color: var(--err); }
+      .pill.warn { background: var(--warn-soft); color: var(--warn); }
+      .pill.info { background: var(--info-soft); color: var(--info); }
+      .pill.ok   { background: var(--ok-soft);   color: var(--ok); }
+      .lint {
+        display: flex; gap: 10px; align-items: flex-start;
+        border: 1px solid var(--line); border-radius: var(--radius-sm);
+        padding: 10px 12px; margin-bottom: 8px; cursor: pointer;
+        background: var(--surface);
+      }
+      .lint:hover { border-color: var(--accent); }
+      .lint .icon { margin-top: 2px; font-size: 13px; flex: 0 0 auto; }
+      .lint.err .icon  { color: var(--err); }
+      .lint.warn .icon { color: var(--warn); }
+      .lint.info .icon { color: var(--info); }
+      .lint .msg { font-size: 12.5px; color: var(--ink); }
+      .lint .why { font-size: 11.5px; color: var(--ink-faint); margin-top: 2px; }
+      .lint .sec { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); margin-top: 4px; }
+      .lintclean { text-align: left; color: var(--ink-soft); font-size: 13px; padding: 14px 4px; }
+      .lintclean .fa-solid { color: var(--ok); margin-right: 8px; }
+
+      /* Playtest tab */
+      .pt-setup {
+        padding: 12px 16px; border-bottom: 1px solid var(--line);
+        display: grid; gap: 8px; background: var(--surface);
+      }
+      .pt-setup .hint { color: var(--ink-faint); font-size: 11.5px; }
+      .pt-log { flex: 1; overflow: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+      .pt-msg { max-width: 92%; }
+      .pt-msg .who {
+        font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+        color: var(--ink-faint); margin: 0 0 3px 2px; display: flex; align-items: center; gap: 6px;
+      }
+      .pt-msg .who .emo {
+        text-transform: none; letter-spacing: 0; font-weight: 600;
+        background: var(--pt-char-soft); color: var(--pt-char);
+        border-radius: 999px; padding: 1px 8px; font-size: 10.5px;
+      }
+      .pt-msg .bubble {
+        border-radius: 12px; padding: 9px 12px; font-size: 13px; white-space: pre-wrap;
+        background: var(--surface-2); color: var(--ink);
+      }
+      .pt-msg.coach .bubble { background: var(--accent-soft); }
+      .pt-msg.coach .who { color: var(--accent); }
+      .pt-msg.character .bubble { background: var(--pt-char-soft); }
+      .pt-msg.character .who { color: var(--pt-char); }
+      .pt-msg.narration .bubble { background: none; border: 1px dashed var(--line); color: var(--ink-soft); font-style: italic; }
+      .pt-msg.you { align-self: flex-end; }
+      .pt-msg.you .bubble { background: var(--pt-you-soft); }
+      .pt-msg.you .who { color: var(--pt-you); justify-content: flex-end; margin-right: 2px; }
+      .pt-msg.error .bubble { background: var(--err-soft); color: var(--err); font-size: 12px; }
+      .pt-msg .raw {
+        margin-top: 6px; font-family: ui-monospace, Menlo, monospace; font-size: 10.5px;
+        white-space: pre-wrap; word-break: break-word; color: var(--ink-faint);
+        max-height: 140px; overflow: auto;
+      }
+      .pt-report {
+        border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px;
+        font-size: 12.5px; background: var(--surface);
+      }
+      .pt-report h4 { margin: 6px 0 2px; font-size: 12px; }
+      .pt-report .ttl { font-weight: 700; }
+      .pt-typing { color: var(--ink-faint); font-size: 12px; font-style: italic; }
+      .pt-foot { border-top: 1px solid var(--line); padding: 10px 16px 14px; background: var(--surface); }
+      .pt-presets { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+      .pt-presets .label { font-size: 11px; color: var(--ink-faint); align-self: center; margin-right: 2px; }
+      .pt-presets button {
+        background: var(--surface-2); border: 1px solid var(--line); cursor: pointer;
+        font: inherit; font-size: 11.5px; font-weight: 600; color: var(--ink-soft);
+        padding: 4px 10px; border-radius: 999px;
+      }
+      .pt-presets button:hover { color: var(--accent); border-color: var(--accent); }
+      .pt-inputrow { display: flex; gap: 8px; align-items: flex-end; }
+      .pt-inputrow vaadin-text-area { flex: 1; }
+      .pt-target { font-size: 11.5px; color: var(--ink-faint); margin: 0 0 6px 2px; }
+      .pt-target b { color: var(--ink-soft); }
+      .pt-offline {
+        margin: 14px 16px; padding: 12px 14px; border: 1px dashed var(--line);
+        border-radius: var(--radius-sm); color: var(--ink-soft); font-size: 12.5px;
+      }
+
+      /* Toast */
+      .toast {
+        position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(16px);
+        background: var(--ink); color: var(--bg);
+        border-radius: 999px; padding: 10px 18px; font-size: 13px; font-weight: 600;
+        box-shadow: var(--shadow-md); opacity: 0; pointer-events: none;
+        transition: opacity .2s, transform .2s; z-index: 60;
+      }
+      .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+      /* Narrow screens: drop the app-shell, let the whole document scroll
+         and stack the inspector below the form. */
+      @media (max-width: 1080px) {
+        body { height: auto; display: block; overflow: visible; }
+        .cols { grid-template-columns: 1fr; }
+        .secnav { display: none; }
+        .form { overflow: visible; min-height: 0; }
+        .inspector { height: 70vh; border-left: none; border-top: 1px solid var(--line); }
+        .topbar .sub { display: none; }
+      }
+
+      /* Inline learner preview for the audio/reading context modality. The
+         SceneContext card is dark (it's the learner page), so we frame it on a
+         dark "device" panel that reads as a preview, whatever the studio theme. */
+      .ctx-preview { margin-top: 14px; }
+      .ctx-preview-bar { display: flex; }
+      .ctx-preview-btn {
+        display: inline-flex; align-items: center; gap: 8px;
+        border: 1px solid var(--line); border-radius: 999px;
+        background: var(--accent-soft); color: var(--accent);
+        font-size: 13px; font-weight: 600; padding: 8px 16px; cursor: pointer;
+      }
+      .ctx-preview-btn:hover { filter: brightness(1.03); }
+      .ctx-preview-stage {
+        margin-top: 12px; padding: 24px 18px;
+        background: #0b1220; border: 1px solid var(--line); border-radius: 14px;
+        background-image: radial-gradient(900px 400px at 80% -20%, rgba(176,123,255,0.14), transparent 60%);
+      }
+      .ctx-preview-note {
+        margin: 0; color: #9aa3b8; font-size: 14px; display: flex; align-items: center; gap: 8px;
+      }
+    </style>
+</head>
+<body>
+
+  <!-- ===== Top bar ====================================================== -->
+  <header class="topbar">
+    <span class="brand"><span class="logo"><i class="fa-solid fa-pen-nib"></i></span> Writer Studio</span>
+    <span class="sub" id="subTitle">Conversation practice</span>
+    <span class="spacer"></span>
+    <span class="save-status" id="saveStatus"></span>
+    <!-- Right-aligned utility toolbar -->
+    <div class="toolbar">
+      <span class="libwrap">
+        <button class="tbtn" id="libraryBtn" aria-haspopup="true" aria-expanded="false"><i class="fa-solid fa-folder-open"></i> Library <i class="fa-solid fa-chevron-down" style="font-size:9px;opacity:.6"></i></button>
+        <div class="libpanel" id="libPanel" hidden role="menu" aria-label="Scenario library"><!-- built by JS --></div>
+      </span>
+      <button class="tbtn" id="resetBtn"><i class="fa-solid fa-clock-rotate-left"></i> Reset to shipped</button>
+      <button class="tbtn" id="importBtn"><i class="fa-solid fa-file-import"></i> Import JSON</button>
+      <button class="tbtn" id="exportBtn"><i class="fa-solid fa-file-export"></i> Export JSON</button>
+      <!-- hidden picker the Import button triggers -->
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+  </header>
+
+  <!-- Published-state strip — also carries the publish + preview actions -->
+  <div class="pubstrip" id="pubStrip">
+    <span class="dot"></span><span id="pubText">Not published yet — the learner prototype is running the shipped scenario.</span>
+    <button class="unpub" id="unpublishBtn" hidden>Unpublish (revert prototype to shipped)</button>
+    <div class="pubactions">
+      <a class="preview-link" id="previewLink" href="action-practice-live.html" target="_blank" rel="noopener">
+        <i class="fa-solid fa-arrow-up-right-from-square"></i> Learner preview
+      </a>
+      <vaadin-button theme="primary" id="publishBtn"><i class="fa-solid fa-paper-plane" slot="prefix"></i> Publish to prototype</vaadin-button>
+    </div>
+  </div>
+
+  <div class="cols">
+
+    <!-- ===== Left: section nav (built by JS) ============================ -->
+    <nav class="secnav" id="secNav" aria-label="Scenario sections"></nav>
+
+    <!-- ===== Center: the authoring form (built by JS) =================== -->
+    <main class="form" id="form"></main>
+
+    <!-- ===== Right: inspector =========================================== -->
+    <aside class="inspector" aria-label="Inspector">
+      <vaadin-tabs id="inspectorTabs">
+        <vaadin-tab><i class="fa-solid fa-file-code" style="margin-right:7px"></i> Compiled prompt</vaadin-tab>
+        <vaadin-tab id="lintTab"><i class="fa-solid fa-shield-halved" style="margin-right:7px"></i> Guardrails</vaadin-tab>
+        <vaadin-tab><i class="fa-solid fa-vial" style="margin-right:7px"></i> Playtest</vaadin-tab>
+      </vaadin-tabs>
+
+      <div class="tabbody is-active" id="tabPrompt">
+        <div class="promptmeta">
+          <span class="pill" id="promptChars">— chars</span>
+          <span class="pill" id="promptTokens">— tokens (est.)</span>
+          <button class="copy" id="copyPromptBtn"><i class="fa-regular fa-copy"></i> Copy</button>
+        </div>
+        <pre class="promptview" id="promptView"></pre>
+        <p class="promptlegend"><span class="wr">Highlighted text</span> came from your fields; everything else is the locked engine. This exact text is what the AI runs on — reading it is how you learn what your guidance turns into.</p>
+      </div>
+
+      <div class="tabbody" id="tabLints"></div>
+
+      <div class="tabbody pt" id="tabPlaytest"></div>
+    </aside>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <!-- Reusable context-setter (narrated audio / reading). Used by the Opening
+       & intro section's inline learner preview; harmless if a type never asks. -->
+  <script src="js/scene-context.js?v=1"></script>
+  <!-- Generic studio engine: type registry + per-type storage. Must load
+       BEFORE any type module so registration has somewhere to land. -->
+  <script src="js/studio-engine.js?v=1"></script>
+  <!-- Scenario types. Each registers itself into AitheraStudio.
+       action-practice also keeps window.AitheraScenario for the live pages. -->
+  <script src="js/scenario.js?v=4"></script>
+  <script src="js/scenario-types/teach-back.js?v=1"></script>
+
+  <script>
+  /* =======================================================================
+     WRITER STUDIO — app logic (vanilla, no framework)
+     ======================================================================= */
+  'use strict';
+
+  /* ---- which scenario type are we editing? ------------------------------
+     The studio is generic: a scenario TYPE (registered into AitheraStudio by
+     js/scenario.js, js/scenario-types/*.js) supplies the schema, the form
+     sections, the compiler, the lints and the playtest. ?type= picks one;
+     absent/unknown falls back to action-practice so old bookmarks keep
+     working. Everything below talks to `type`, never to one pedagogy. */
+  const TYPE_ID = new URLSearchParams(location.search).get('type');
+  const type = window.AitheraStudio.get(TYPE_ID) || window.AitheraStudio.get('action-practice');
+
+  /* ---- draft state ------------------------------------------------------ */
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+
+  // Merge a stored draft over the type's shipped default (the type owns the
+  // rules; this is just a thin call so old call-sites read the same).
+  function mergeScenario(draft) { return type.merge(draft); }
+
+  let scenario = (() => {
+    try { return mergeScenario(JSON.parse(localStorage.getItem(type.store.keys.draft))); }
+    catch (e) { return type.normalize(clone(type.DEFAULT)); }
+  })();
+
+  /* ---- tiny helpers ------------------------------------------------------ */
+  const $  = (sel, root) => (root || document).querySelector(sel);
+  const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  function getByPath(obj, path) {
+    return path.split('.').reduce((o, k) => (o == null ? o : o[k]), obj);
+  }
+  function setByPath(obj, path, value) {
+    const keys = path.split('.');
+    const last = keys.pop();
+    const target = keys.reduce((o, k) => o[k], obj);
+    target[last] = value;
+  }
+
+  let toastTimer;
+  function toast(msg) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+  }
+
+  /* =======================================================================
+     FORM DEFINITION lives in the TYPE now (type.sections + type.renderFields).
+     The shell only provides the DOM field-builder helpers below and hands
+     them to the type as `studioApi` so a type can render its inputs without
+     re-implementing the plumbing.
+     ======================================================================= */
+
+  /* Per-section field renderers (generic — used by every type) ------------ */
+  function tf(path, label, opts = {}) {
+    const el = document.createElement(opts.area ? 'vaadin-text-area' : 'vaadin-text-field');
+    el.setAttribute('theme', 'outlined');
+    el.label = label;
+    if (opts.helper) el.helperText = opts.helper;
+    if (opts.placeholder) el.placeholder = opts.placeholder;
+    if (opts.minRows) el.minRows = opts.minRows;
+    el.value = String(getByPath(scenario, path) ?? '');
+    el.dataset.path = path;
+    el.addEventListener('input', onField);
+    el.addEventListener('change', onField);
+    return el;
+  }
+
+  /* Collapsed guidance disclosure — the READ layer. The summary line names
+     what's inside; the body is a click away instead of pushing the fields
+     down the page. */
+  function guidance(summaryText, icon, bodyHTML) {
+    const d = document.createElement('details');
+    d.className = 'bridge';
+    d.innerHTML = `<summary><i class="fa-solid ${esc(icon)}" aria-hidden="true"></i>${esc(summaryText)}</summary>
+      <div class="bridge-body">${bodyHTML}</div>`;
+    return d;
+  }
+
+  // makeItem() returns the blank row a type wants when "Add" is clicked, so
+  // this helper no longer needs to know any type's list shapes.
+  function rowsBlock(listPath, renderRow, addLabel, makeItem) {
+    const wrap = document.createElement('div');
+    wrap.className = 'rows';
+    wrap.dataset.list = listPath;
+    const render = () => {
+      wrap.innerHTML = '';
+      const list = getByPath(scenario, listPath);
+      list.forEach((item, i) => wrap.appendChild(renderRow(item, i, () => {
+        list.splice(i, 1);
+        render();
+        scheduleUpdate();
+      })));
+      const add = document.createElement('button');
+      add.className = 'addrow';
+      add.innerHTML = `<i class="fa-solid fa-plus"></i> ${esc(addLabel)}`;
+      add.addEventListener('click', () => {
+        list.push(makeItem ? makeItem() : {});
+        render();
+        scheduleUpdate();
+      });
+      wrap.appendChild(add);
+    };
+    render();
+    return wrap;
+  }
+
+  function rowCard(title, onDelete, ...fields) {
+    const card = document.createElement('div');
+    card.className = 'rowcard';
+    const head = document.createElement('div');
+    head.className = 'rowhead';
+    head.innerHTML = `<span>${esc(title)}</span>`;
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.title = 'Remove';
+    del.setAttribute('aria-label', `Remove ${title}`);   // icon-only button needs a real name
+    del.innerHTML = '<i class="fa-solid fa-trash-can" aria-hidden="true"></i>';
+    del.addEventListener('click', onDelete);
+    head.appendChild(del);
+    card.appendChild(head);
+    fields.forEach((f) => card.appendChild(f));
+    return card;
+  }
+
+  /* The helper bundle handed to type.renderFields — DOM plumbing plus live
+     access to the current draft. A type builds its inputs with these and
+     never re-implements them. */
+  const studioApi = {
+    tf, rowsBlock, rowCard, guidance, esc,
+    getScenario: () => scenario,
+    scheduleUpdate,
+  };
+
+  /* ---- build the form + nav ---------------------------------------------- */
+  function buildForm() {
+    const form = $('#form');
+    form.innerHTML = '';
+    type.sections.forEach((sec) => {
+      const card = document.createElement('section');
+      card.className = 'card' + (sec.locked ? ' locked' : '');
+      card.id = 'sec-' + sec.id;
+      card.innerHTML = `
+        <h2><i class="fa-solid ${esc(sec.icon)}"></i> ${esc(sec.title)}</h2>
+        <p class="lead">${esc(sec.lead)}</p>`;
+      if (sec.bridge) {
+        card.appendChild(guidance(sec.bridgeTitle || 'How this maps to your old craft', 'fa-graduation-cap', sec.bridge));
+      }
+      card.appendChild(type.renderFields(sec, studioApi));
+      form.appendChild(card);
+    });
+    refreshGuardrailText();
+  }
+
+  function buildNav() {
+    const nav = $('#secNav');
+    nav.innerHTML = '<div class="head">Scenario</div>';
+    type.sections.forEach((sec) => {
+      const b = document.createElement('button');
+      b.dataset.sec = sec.id;
+      b.innerHTML = `<i class="fa-solid ${esc(sec.icon)}" style="width:16px;text-align:center;color:var(--ink-faint);font-size:11.5px"></i>
+        <span>${esc(sec.title)}</span><span class="status" data-dot="${esc(sec.id)}"></span>`;
+      b.addEventListener('click', () => {
+        $('#sec-' + sec.id).scrollIntoView({ behavior: 'smooth', block: 'start' });
+        $$('.secnav button').forEach((x) => x.classList.toggle('is-active', x === b));
+      });
+      nav.appendChild(b);
+    });
+  }
+
+  function refreshGuardrailText() {
+    (type.ENGINE_SECTIONS || []).forEach((g) => {
+      const pre = $(`pre[data-guardrail="${g.id}"]`);
+      if (pre) pre.textContent = g.text(scenario);
+    });
+  }
+
+  /* ---- field change → debounced recompute -------------------------------- */
+  let updateTimer;
+  function onField(e) {
+    const host = e.currentTarget;
+    setByPath(scenario, host.dataset.path, host.value);
+    scheduleUpdate();
+  }
+  function scheduleUpdate() {
+    clearTimeout(updateTimer);
+    updateTimer = setTimeout(update, 350);
+  }
+
+  function saveDraft() {
+    localStorage.setItem(type.store.keys.draft, JSON.stringify(scenario));
+    const t = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    $('#saveStatus').innerHTML = `<i class="fa-solid fa-circle-check"></i> Draft saved ${esc(t)}`;
+  }
+
+  /* =======================================================================
+     LINTS + prompt highlighting live in the TYPE now (type.lints /
+     type.highlightStrings). The shell only renders what they return.
+     ======================================================================= */
+
+  /* ---- render lints + nav dots + publish state --------------------------- */
+  const SEVERITY_ICON = { err: 'fa-circle-xmark', warn: 'fa-triangle-exclamation', info: 'fa-circle-info' };
+  const SEVERITY_RANK = { err: 0, warn: 1, info: 2 };
+  let currentLints = [];
+
+  function renderLints() {
+    currentLints = type.lints(scenario, studioApi).sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
+    const errs = currentLints.filter((l) => l.severity === 'err').length;
+    const warns = currentLints.filter((l) => l.severity === 'warn').length;
+    const infos = currentLints.filter((l) => l.severity === 'info').length;
+
+    // Tab label count
+    $('#lintTab').innerHTML = `<i class="fa-solid fa-shield-halved" style="margin-right:7px"></i> Guardrails${errs + warns ? ` (${errs + warns})` : ''}`;
+
+    // Panel
+    const box = $('#tabLints');
+    let html = '<div class="lintsummary">';
+    html += errs ? `<span class="pill err"><i class="fa-solid fa-circle-xmark"></i> ${errs} blocking</span>` : '';
+    html += warns ? `<span class="pill warn"><i class="fa-solid fa-triangle-exclamation"></i> ${warns} warnings</span>` : '';
+    html += infos ? `<span class="pill info"><i class="fa-solid fa-circle-info"></i> ${infos} tips</span>` : '';
+    html += !currentLints.length ? `<span class="pill ok"><i class="fa-solid fa-circle-check"></i> All checks pass</span>` : '';
+    html += '</div>';
+    if (!currentLints.length) {
+      html += '<div class="lintclean"><i class="fa-solid fa-circle-check"></i>Nothing to flag. Publish when the playtest holds up.</div>';
+    } else {
+      html += currentLints.map((l, i) => {
+        const sec = type.sections.find((x) => x.id === l.section);
+        return `<div class="lint ${l.severity}" data-goto="${esc(l.section)}" role="button" tabindex="0">
+          <i class="fa-solid ${SEVERITY_ICON[l.severity]} icon"></i>
+          <div><div class="msg">${esc(l.msg)}</div>${l.why ? `<div class="why">${esc(l.why)}</div>` : ''}
+          <div class="sec">${esc(sec ? sec.title : l.section)}</div></div>
+        </div>`;
+      }).join('');
+    }
+    box.innerHTML = html;
+    $$('[data-goto]', box).forEach((n) => n.addEventListener('click', () => {
+      $('#sec-' + n.dataset.goto).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
+
+    // Nav dots: worst severity per section
+    type.sections.forEach((sec) => {
+      const dot = $(`[data-dot="${sec.id}"]`);
+      if (!dot) return;
+      const worst = currentLints.filter((l) => l.section === sec.id)
+        .sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity])[0];
+      dot.className = 'status ' + (sec.locked ? '' : worst ? (worst.severity === 'err' ? 'err' : worst.severity === 'warn' ? 'warn' : '') : 'ok');
+      dot.innerHTML = sec.locked ? '<i class="fa-solid fa-lock locknote"></i>'
+        : worst && worst.severity !== 'info' ? '<i class="fa-solid fa-circle"></i>'
+        : '<i class="fa-solid fa-circle-check"></i>';
+    });
+
+    // Publish gating
+    const btn = $('#publishBtn');
+    btn.disabled = errs > 0;
+    btn.title = errs ? `${errs} blocking issue${errs > 1 ? 's' : ''} — see Guardrails` : '';
+  }
+
+  /* ---- compiled prompt pane ----------------------------------------------
+     type.compile(scenario) returns EITHER one prompt string or an ordered
+     list of named prompts [{label, text}] (teach-back has three). When there
+     is more than one, a small sub-tab strip lets the writer switch between
+     them; a single prompt renders exactly as before with no strip. */
+  let activePromptIdx = 0;
+  let activePromptText = '';
+  // Sentinels that can't appear in real prompt text — used to defer wrapping
+  // highlighted spans until after all substring matches, so overlaps never
+  // produce nested/broken tags.
+  const WR_S = '', WR_E = '';
+
+  function renderPrompt() {
+    const out = type.compile(scenario);
+    const prompts = (typeof out === 'string') ? [{ label: 'System prompt', text: out }] : (out || []);
+    if (activePromptIdx >= prompts.length) activePromptIdx = 0;
+
+    // Sub-tab strip — only when the type compiles to more than one prompt.
+    let strip = $('#promptSubtabs');
+    if (prompts.length > 1) {
+      if (!strip) {
+        strip = document.createElement('div');
+        strip.id = 'promptSubtabs';
+        strip.className = 'prompt-subtabs';
+        strip.style.cssText = 'display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap';
+        $('#promptView').parentNode.insertBefore(strip, $('#promptView'));
+      }
+      strip.hidden = false;
+      strip.innerHTML = prompts.map((p, i) => {
+        const on = i === activePromptIdx;
+        return `<button data-pi="${i}" style="padding:4px 11px;border:1px solid var(--line);border-radius:999px;cursor:pointer;font-size:12px;${on ? 'background:#2563eb;color:#fff;border-color:#2563eb' : 'background:transparent;color:var(--ink-faint)'}">${esc(p.label)}</button>`;
+      }).join('');
+      $$('[data-pi]', strip).forEach((b) => b.addEventListener('click', () => {
+        activePromptIdx = Number(b.dataset.pi);
+        renderPrompt();
+      }));
+    } else if (strip) {
+      strip.hidden = true;
+    }
+
+    const prompt = (prompts[activePromptIdx] || { text: '' }).text || '';
+    activePromptText = prompt;
+    $('#promptChars').textContent = prompt.length.toLocaleString() + ' chars';
+    $('#promptTokens').textContent = '~' + Math.round(prompt.length / 4).toLocaleString() + ' tokens';
+
+    let html = esc(prompt);
+    (type.highlightStrings ? type.highlightStrings(scenario) : []).forEach((t) => {
+      const needle = esc(t);
+      html = html.split(needle).join(WR_S + needle + WR_E);
+    });
+    // Resolve sentinels after all replacements so overlaps can't nest tags badly.
+    html = html.split(WR_S).join('<span class="wr">').split(WR_E).join('</span>');
+    $('#promptView').innerHTML = html;
+  }
+
+  /* ---- publish state strip ------------------------------------------------ */
+  function renderPubState() {
+    const strip = $('#pubStrip');
+    const text = $('#pubText');
+    const unpub = $('#unpublishBtn');
+    const pub = type.store.loadPublished();
+    strip.classList.remove('is-live', 'is-stale');
+    if (!pub) {
+      text.textContent = 'Not published — the learner prototype is running the shipped scenario.';
+      unpub.hidden = true;
+      return;
+    }
+    unpub.hidden = false;
+    const when = pub.savedAt ? new Date(pub.savedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+    if (JSON.stringify(pub.scenario) === JSON.stringify(scenario)) {
+      strip.classList.add('is-live');
+      text.textContent = `Published ${when} — the learner prototype (in this browser) is running this exact draft.`;
+    } else {
+      strip.classList.add('is-stale');
+      text.textContent = `Published ${when}, but your draft has unpublished changes.`;
+    }
+  }
+
+  /* ---- the one update pipeline ------------------------------------------- */
+  function update() {
+    saveDraft();
+    renderPrompt();
+    renderLints();
+    renderPubState();
+    refreshGuardrailText();
+    if (playtestHandle) playtestHandle.refreshTarget();
+    // The type decides which learner page the preview link points at.
+    $('#previewLink').href = type.previewUrl(scenario);
+  }
+
+  /* =======================================================================
+     PLAYTEST — the driver lives in the type (type.playtest). The shell builds
+     it into the Playtest tab once and keeps a handle so update()/reset can
+     poke it. A type with no playtest (playtest:null) simply skips this.
+     ======================================================================= */
+  let playtestHandle = null;
+  function buildPlaytest() {
+    if (!type.playtest) return;
+    playtestHandle = type.playtest.build($('#tabPlaytest'), {
+      $, $$, esc, toast,
+      getScenario: () => scenario,
+      compile: (s) => type.compile(s),
+      fill: (t, s) => type.fill(t, s),
+      workerUrlKey: type.store.keys.workerUrl,
+    });
+  }
+
+  /* ---- inspector tabs ----------------------------------------------------
+     A type with no playtest (playtest:null) drops the Playtest tab + body, so
+     the body list is built from whatever survives. */
+  if (!type.playtest) {
+    const tabs = $('#inspectorTabs').querySelectorAll('vaadin-tab');
+    if (tabs[2]) tabs[2].remove();
+    const ptBody = $('#tabPlaytest');
+    if (ptBody) ptBody.remove();
+  }
+  $('#inspectorTabs').addEventListener('selected-changed', (e) => {
+    const i = e.detail.value;
+    [$('#tabPrompt'), $('#tabLints'), $('#tabPlaytest')].filter(Boolean)
+      .forEach((el, j) => el.classList.toggle('is-active', i === j));
+  });
+
+  /* ---- top bar actions ----------------------------------------------------- */
+  $('#publishBtn').addEventListener('click', () => {
+    renderLints();
+    if (currentLints.some((l) => l.severity === 'err')) {
+      toast('Fix the blocking issues first — see Guardrails');
+      return;
+    }
+    type.store.publish(scenario);
+    renderPubState();
+    toast('Published — reload the learner preview to run it');
+  });
+
+  $('#unpublishBtn').addEventListener('click', () => {
+    if (!confirm('Unpublish? The learner prototype goes back to the shipped scenario. Your draft here is untouched.')) return;
+    type.store.clearPublished();
+    renderPubState();
+    toast('Unpublished — prototype reverted to the shipped scenario');
+  });
+
+  $('#resetBtn').addEventListener('click', () => {
+    if (!confirm('Reset your draft to the shipped default? This discards your edits (published copies are not affected).')) return;
+    scenario = type.normalize(clone(type.DEFAULT));
+    buildForm();
+    update();
+    if (playtestHandle) playtestHandle.reset();
+    toast('Draft reset to the shipped scenario');
+  });
+
+  $('#exportBtn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(scenario, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'scenario.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast('scenario.json downloaded');
+  });
+
+  /* Import JSON — load a scenario file a colleague sent you into the editor.
+     Runs the parsed object through mergeScenario (which normalizes it), so
+     partial or older-schema files still load. Replaces the draft after a
+     confirm, exactly like loading from the library. */
+  const importFile = $('#importFile');
+  $('#importBtn').addEventListener('click', () => importFile.click());
+  importFile.addEventListener('change', () => {
+    const file = importFile.files && importFile.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let obj;
+      try {
+        obj = JSON.parse(reader.result);
+      } catch (err) {
+        toast('That file isn\'t valid JSON — nothing changed');
+        importFile.value = '';
+        return;
+      }
+      if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+        toast('That JSON isn\'t a scenario — nothing changed');
+        importFile.value = '';
+        return;
+      }
+      const incoming = mergeScenario(obj);
+      if (!confirm(`Import "${incoming.title}" into the editor? Your current draft is replaced — save it to the library first if you want to keep it.`)) {
+        importFile.value = '';
+        return;
+      }
+      scenario = incoming;
+      buildForm();
+      update();
+      if (playtestHandle) playtestHandle.reset();
+      // allow re-importing the same filename twice in a row
+      importFile.value = '';
+      toast(`Imported "${scenario.title}"`);
+    };
+    reader.onerror = () => { toast('Couldn\'t read that file'); importFile.value = ''; };
+    reader.readAsText(file);
+  });
+
+  $('#copyPromptBtn').addEventListener('click', async () => {
+    await navigator.clipboard.writeText(activePromptText);
+    toast('Compiled prompt copied');
+  });
+
+  /* ---- scenario library (topbar popover) ----------------------------------
+     Named saved scenarios in this browser. "Save current" snapshots the
+     draft under its title; loading an entry REPLACES the draft (after
+     confirm). The published slot is separate and untouched by all of this. */
+  const libBtn = $('#libraryBtn');
+  const libPanel = $('#libPanel');
+
+  function renderLibrary() {
+    const entries = type.store.listLibrary();
+    let html = '<div class="libhead">Saved scenarios (this browser)</div>';
+    if (!entries.length) {
+      html += '<div class="libempty">Nothing saved yet. "Save current" snapshots your draft so you can start another scenario without losing this one.</div>';
+    } else {
+      html += entries.map((e) => {
+        const when = e.savedAt ? new Date(e.savedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+        return `<div class="librow">
+          <button class="meta" data-load="${esc(e.id)}" title="Load into the editor"><span class="t">${esc(e.title)}</span><span class="d">Saved ${esc(when)}</span></button>
+          <button class="rm" data-remove="${esc(e.id)}" aria-label="Delete ${esc(e.title)} from library"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>
+        </div>`;
+      }).join('');
+    }
+    html += `<button class="libsave" id="libSaveBtn"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save current draft as a new entry</button>`;
+    libPanel.innerHTML = html;
+
+    $('#libSaveBtn', libPanel).addEventListener('click', () => {
+      type.store.saveToLibrary(clone(scenario));
+      renderLibrary();
+      toast(`Saved "${scenario.title}" to the library`);
+    });
+    $$('[data-load]', libPanel).forEach((b) => b.addEventListener('click', () => {
+      const s = type.store.loadFromLibrary(b.dataset.load);
+      if (!s) { toast('That entry could not be loaded'); return; }
+      if (!confirm(`Load "${s.title}" into the editor? Your current draft is replaced — save it to the library first if you want to keep it.`)) return;
+      scenario = mergeScenario(s);
+      buildForm();
+      update();
+      if (playtestHandle) playtestHandle.reset();
+      closeLibrary();
+      toast(`Loaded "${s.title}"`);
+    }));
+    $$('[data-remove]', libPanel).forEach((b) => b.addEventListener('click', () => {
+      if (!confirm('Delete this saved scenario? This can\'t be undone.')) return;
+      type.store.removeFromLibrary(b.dataset.remove);
+      renderLibrary();
+    }));
+  }
+
+  function openLibrary() {
+    renderLibrary();
+    libPanel.hidden = false;
+    libBtn.setAttribute('aria-expanded', 'true');
+  }
+  function closeLibrary() {
+    libPanel.hidden = true;
+    libBtn.setAttribute('aria-expanded', 'false');
+  }
+  libBtn.addEventListener('click', () => (libPanel.hidden ? openLibrary() : closeLibrary()));
+  document.addEventListener('click', (e) => {
+    if (!libPanel.hidden && !e.composedPath().includes(libPanel) && !e.composedPath().includes(libBtn)) closeLibrary();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !libPanel.hidden) closeLibrary(); });
+
+  /* ---- scroll spy: keep the nav highlighting the visible section ---------- */
+  const spy = new IntersectionObserver((entries) => {
+    entries.forEach((en) => {
+      if (en.isIntersecting) {
+        $$('.secnav button').forEach((b) =>
+          b.classList.toggle('is-active', b.dataset.sec === en.target.id.replace('sec-', '')));
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+
+  /* ---- type label + switcher ----------------------------------------------
+     The sub-title names the pedagogy being edited. When more than one type is
+     registered, a small dropdown switches between them (each type has its own
+     draft/published/library, so switching just reloads with ?type=). */
+  (function initTypeSwitcher() {
+    const sub = $('#subTitle');
+    if (sub) sub.textContent = type.label;
+    const types = window.AitheraStudio.list();
+    if (types.length < 2 || !sub) return;
+    const sel = document.createElement('select');
+    sel.id = 'typeSwitcher';
+    sel.setAttribute('aria-label', 'Scenario type');
+    sel.style.cssText = 'margin-left:12px;font-size:13px;padding:4px 8px;border-radius:7px;border:1px solid var(--line);background:transparent;color:inherit;cursor:pointer';
+    types.forEach((t) => {
+      const o = document.createElement('option');
+      o.value = t.id; o.textContent = t.label;
+      if (t.id === type.id) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', () => { location.search = '?type=' + encodeURIComponent(sel.value); });
+    sub.after(sel);
+  })();
+
+  /* ---- boot ---------------------------------------------------------------- */
+  buildNav();
+  buildForm();
+  buildPlaytest();
+  update();
+  $$('.form .card').forEach((c) => spy.observe(c));
+  </script>
+</body>
+</html>

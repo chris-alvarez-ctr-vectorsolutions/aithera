@@ -38,6 +38,13 @@
 (function () {
   'use strict';
 
+  // Product dashboards never take comments. dashboard.js runs before toolbox.js
+  // (plain <script>s execute in document order) and only ever loads on dashboard
+  // pages, so setting this here turns the comment widget OFF for every product
+  // dashboard — current and future — without touching the per-product shells.
+  window.TOOLBOX = window.TOOLBOX || {};
+  window.TOOLBOX.comments = false;
+
   // ----------------------------------------------------------------------
   // Inject the head resources this dashboard needs (so the shell can stay
   // minimal and identical across products).

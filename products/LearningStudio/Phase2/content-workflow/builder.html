@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Build Content — Learning Studio</title>
+
+  <!-- Vector Web Components -->
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      height: 100%; margin: 0; padding: 0; overflow: hidden;
+      font-family: 'Open Sans', system-ui, sans-serif;
+      color: var(--lumo-body-text-color, #1a1a1a);
+      background: #f4f5f7;
+    }
+
+    /* ---- App shell ---- */
+    .app { display: flex; flex-direction: column; height: 100vh; }
+
+    .topbar {
+      height: 56px; flex: 0 0 56px; display: flex; align-items: center; gap: 12px;
+      padding: 0 20px; background: #fff; border-bottom: 1px solid var(--lumo-contrast-10pct, #ebebeb); z-index: 10;
+    }
+    .topbar .back { color: #6b7280; text-decoration: none; font-size: 14px; display: flex; align-items: center; gap: 7px; }
+    .topbar .back:hover { color: #1a1a1a; }
+    .topbar .divider { width: 1px; height: 22px; background: #e0e2e6; }
+    .topbar .ctx { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+    .topbar .ctx .pill {
+      font-size: 12px; font-weight: 700; padding: 4px 11px; border-radius: 20px;
+      background: rgba(22,118,243,.1); color: var(--lumo-primary-color, #1676f3); display: flex; align-items: center; gap: 6px;
+    }
+    .topbar .ctx .pill.path { background: #eef0f3; color: #4b5563; }
+    .topbar .spacer { flex: 1; }
+
+    /* ---- Two-pane body ---- */
+    .body { flex: 1; display: flex; min-height: 0; }
+
+    /* ===== Chat pane (left) ===== */
+    .chat { flex: 1 1 50%; display: flex; flex-direction: column; min-width: 0; background: #f7f8fa; }
+    .chat-scroll { flex: 1; overflow-y: auto; padding: 24px 28px; }
+    .chat-inner { max-width: 620px; margin: 0 auto; }
+
+    .msg { display: flex; gap: 12px; margin-bottom: 20px; align-items: flex-start; }
+    .msg .avatar {
+      flex: 0 0 32px; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+      font-size: 14px; color: #fff;
+    }
+    .msg.ai .avatar { background: linear-gradient(135deg, #1676f3, #7c3aed); }
+    .msg.user { flex-direction: row-reverse; }
+    .msg.user .avatar { background: #cbd2dc; color: #4b5563; }
+    .bubble {
+      background: #fff; border: 1px solid #eceef1; border-radius: 14px; padding: 12px 15px;
+      font-size: 14px; line-height: 1.55; max-width: 82%;
+    }
+    .msg.ai .bubble { border-top-left-radius: 4px; }
+    .msg.user .bubble { background: var(--lumo-primary-color, #1676f3); color: #fff; border-color: transparent; border-top-right-radius: 4px; }
+    .bubble .hint { display: block; margin-top: 6px; font-size: 12px; color: #8a93a0; font-style: italic; }
+
+    /* typing indicator */
+    .typing { display: inline-flex; gap: 4px; padding: 4px 0; }
+    .typing span { width: 7px; height: 7px; border-radius: 50%; background: #b8c0cc; animation: blink 1.2s infinite; }
+    .typing span:nth-child(2){ animation-delay: .2s; } .typing span:nth-child(3){ animation-delay: .4s; }
+    @keyframes blink { 0%,60%,100%{opacity:.3;transform:translateY(0)} 30%{opacity:1;transform:translateY(-3px)} }
+
+    /* quick replies */
+    .quick { display: flex; flex-wrap: wrap; gap: 8px; margin: -6px 0 8px 44px; }
+    .quick button {
+      font: inherit; font-size: 13px; cursor: pointer; padding: 7px 14px; border-radius: 20px;
+      border: 1.5px solid var(--lumo-primary-color, #1676f3); background: #fff; color: var(--lumo-primary-color, #1676f3);
+      transition: background .12s, color .12s;
+    }
+    .quick button:hover { background: var(--lumo-primary-color, #1676f3); color: #fff; }
+
+    /* upload zone (template/combined paths) */
+    .dropzone {
+      margin: -6px 0 8px 44px; border: 2px dashed #c3ccd8; border-radius: 12px; padding: 22px;
+      text-align: center; color: #6b7280; background: #fff; cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .dropzone:hover { border-color: var(--lumo-primary-color, #1676f3); background: #f5f9ff; }
+    .dropzone i { font-size: 24px; color: var(--lumo-primary-color, #1676f3); display: block; margin-bottom: 8px; }
+    .dropzone .big { font-size: 14px; font-weight: 600; color: #374151; }
+    .dropzone .small { font-size: 12px; margin-top: 3px; }
+
+    /* composer */
+    .composer { flex: 0 0 auto; border-top: 1px solid #e6e8ec; background: #fff; padding: 14px 28px; }
+    .composer-inner { max-width: 620px; margin: 0 auto; display: flex; gap: 10px; align-items: flex-end; }
+    .composer textarea {
+      flex: 1; resize: none; border: 1.5px solid #d5d9e0; border-radius: 12px; padding: 11px 14px;
+      font: inherit; font-size: 14px; line-height: 1.4; max-height: 120px; outline: none;
+    }
+    .composer textarea:focus { border-color: var(--lumo-primary-color, #1676f3); }
+    .composer .send {
+      flex: 0 0 auto; width: 42px; height: 42px; border-radius: 12px; border: none; cursor: pointer;
+      background: var(--lumo-primary-color, #1676f3); color: #fff; font-size: 16px;
+    }
+    .composer .send:disabled { background: #c3ccd8; cursor: not-allowed; }
+
+    /* ===== Prompt pane (right) ===== */
+    .prompt-pane {
+      flex: 1 1 50%; min-width: 380px; max-width: 560px; background: #fff;
+      border-left: 1px solid var(--lumo-contrast-10pct, #ebebeb); display: flex; flex-direction: column;
+    }
+    .pp-head { flex: 0 0 auto; padding: 18px 22px 14px; border-bottom: 1px solid #f0f1f3; }
+    .pp-head .title { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; }
+    .pp-head .title i { color: var(--lumo-primary-color, #1676f3); }
+    .pp-head .sub { font-size: 12.5px; color: #6b7280; margin-top: 4px; }
+    .pp-progress { margin-top: 12px; height: 6px; border-radius: 4px; background: #eef0f3; overflow: hidden; }
+    .pp-progress .fill { height: 100%; width: 0; background: linear-gradient(90deg,#1676f3,#7c3aed); transition: width .4s; }
+    .pp-progress-lbl { font-size: 11.5px; color: #8a93a0; margin-top: 6px; }
+
+    .pp-scroll { flex: 1; overflow-y: auto; padding: 18px 22px; }
+
+    /* structured fields */
+    .field { margin-bottom: 16px; }
+    .field .flabel {
+      font-size: 11px; text-transform: uppercase; letter-spacing: .6px; font-weight: 700; color: #8a93a0;
+      display: flex; align-items: center; gap: 7px; margin-bottom: 7px;
+    }
+    .field .flabel .lock { margin-left: auto; font-size: 11px; color: #b8c0cc; cursor: pointer; }
+    .field .flabel .lock.locked { color: var(--lumo-primary-color, #1676f3); }
+    .field .fval {
+      font-size: 13.5px; line-height: 1.5; color: #374151;
+      border: 1px solid #eceef1; border-radius: 10px; padding: 10px 12px; background: #fbfcfd;
+      min-height: 40px; display: flex; align-items: center; transition: border-color .2s, background .2s;
+    }
+    .field .fval.empty { color: #b0b7c1; font-style: italic; background: #fafbfc; }
+    .field.just-filled .fval { border-color: var(--lumo-primary-color, #1676f3); background: #f0f6ff; animation: pop .5s; }
+    @keyframes pop { 0%{transform:scale(.98)} 50%{transform:scale(1.01)} 100%{transform:scale(1)} }
+
+    /* chips (for multi-value fields like sources / techniques) */
+    .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+    .chip {
+      font-size: 12.5px; padding: 5px 11px; border-radius: 8px; background: #eef0f3; color: #374151;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .chip i { font-size: 11px; color: #8a93a0; }
+    .chip.source { background: #eef6ee; color: #2f6b3a; }
+    .chip.source i { color: #4b9e58; }
+
+    /* compiled prompt preview */
+    .compiled {
+      margin-top: 8px; border: 1px solid #e6e8ec; border-radius: 12px; overflow: hidden; background: #0f172a;
+    }
+    .compiled-head {
+      display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: #1e293b; color: #cbd5e1;
+      font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+    }
+    .compiled-head .copy { margin-left: auto; cursor: pointer; color: #94a3b8; font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 12px; }
+    .compiled-head .copy:hover { color: #fff; }
+    .compiled-body {
+      padding: 14px 16px; font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 12.5px;
+      line-height: 1.65; color: #e2e8f0; white-space: pre-wrap; max-height: 260px; overflow-y: auto;
+    }
+    .compiled-body .tok { color: #7dd3fc; }
+    .compiled-body .ph { color: #64748b; font-style: italic; }
+    .compiled-body .new { background: rgba(125,211,252,.18); border-radius: 3px; }
+
+    /* generate footer */
+    .pp-foot { flex: 0 0 auto; padding: 14px 22px; border-top: 1px solid #f0f1f3; }
+    .gen-note { font-size: 12px; color: #b45309; margin-bottom: 9px; display: flex; align-items: center; gap: 7px; }
+    .gen-note.ready { color: #2f6b3a; }
+    vaadin-button.full { width: 100%; }
+
+    section.pp-section-title {
+      font-size: 11px; text-transform: uppercase; letter-spacing: .6px; font-weight: 700; color: #b0b7c1;
+      margin: 4px 0 12px; display: block;
+    }
+
+    @media (max-width: 900px) {
+      .prompt-pane { display: none; } /* chat-first on narrow screens; prompt panel is the co-star on desktop */
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Top bar -->
+    <div class="topbar">
+      <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> Content type</a>
+      <span class="divider"></span>
+      <div class="ctx">
+        <span class="pill" id="typePill"><i class="fa-solid fa-graduation-cap"></i> Course</span>
+        <span class="pill path" id="pathPill"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-guided</span>
+      </div>
+      <span class="spacer"></span>
+      <vaadin-button theme="tertiary" id="restartBtn"><i class="fa-solid fa-rotate-left" style="margin-right:6px"></i>Start over</vaadin-button>
+    </div>
+
+    <div class="body">
+      <!-- ============ CHAT PANE ============ -->
+      <div class="chat">
+        <div class="chat-scroll" id="chatScroll">
+          <div class="chat-inner" id="chatInner"></div>
+        </div>
+        <div class="composer">
+          <div class="composer-inner">
+            <textarea id="input" rows="1" placeholder="Type your answer…"></textarea>
+            <button class="send" id="sendBtn"><i class="fa-solid fa-arrow-up"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ PROMPT PANE ============ -->
+      <aside class="prompt-pane">
+        <div class="pp-head">
+          <div class="title"><i class="fa-solid fa-wand-magic-sparkles"></i> Live prompt</div>
+          <div class="sub">Fills in as we talk. This is exactly what gets sent to the content engine.</div>
+          <div class="pp-progress"><div class="fill" id="progFill"></div></div>
+          <div class="pp-progress-lbl" id="progLbl">0 of 6 details captured</div>
+        </div>
+
+        <div class="pp-scroll">
+          <section class="pp-section-title">Details</section>
+          <div id="fields"></div>
+
+          <section class="pp-section-title" style="margin-top:20px">Compiled prompt</section>
+          <div class="compiled">
+            <div class="compiled-head">
+              <i class="fa-solid fa-terminal"></i> engine input
+              <span class="copy" id="copyBtn"><i class="fa-regular fa-copy"></i> copy</span>
+            </div>
+            <div class="compiled-body" id="compiled"></div>
+          </div>
+        </div>
+
+        <div class="pp-foot">
+          <div class="gen-note" id="genNote"><i class="fa-solid fa-circle-info"></i> <span id="genNoteText">Complete a few more details to generate</span></div>
+          <vaadin-button theme="primary" class="full" id="genBtn" disabled>
+            <i class="fa-solid fa-bolt" style="margin-right:7px"></i><span id="genBtnLabel">Generate content</span>
+          </vaadin-button>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    /* ============================================================
+       CONFIG — content types & paths (mirror of index.html)
+       ============================================================ */
+    const TYPE_META = {
+      course:     { name: 'Course',            icon: 'fa-graduation-cap' },
+      activity:   { name: 'Learning Activity', icon: 'fa-list-check' },
+      simulation: { name: 'Simulation',        icon: 'fa-vr-cardboard' },
+      scenario:   { name: 'Scenario',          icon: 'fa-comments' },
+    };
+    const PATH_META = {
+      ai:       { name: 'AI-guided',            icon: 'fa-wand-magic-sparkles' },
+      template: { name: 'From template',        icon: 'fa-file-arrow-up' },
+      combined: { name: 'Combined',             icon: 'fa-layer-group' },
+    };
+
+    const params = new URLSearchParams(location.search);
+    const TYPE = TYPE_META[params.get('type')] ? params.get('type') : 'course';
+    const PATH = PATH_META[params.get('path')] ? params.get('path') : 'ai';
+    const usesTemplate = (PATH === 'template' || PATH === 'combined');
+    // A template may already have been added on the intro screen (?template=NAME).
+    const presetTemplate = params.get('template') || null;
+
+    /* ============================================================
+       PROMPT MODEL — the structured fields that build the prompt.
+       `required` fields gate the Generate button.
+       ============================================================ */
+    const STATE = {
+      topic:     { label: 'Topic / title',    icon: 'fa-bullseye',     required: true,  value: null, locked: false },
+      audience:  { label: 'Audience',         icon: 'fa-users',        required: true,  value: null, locked: false },
+      objective: { label: 'Learning objective', icon: 'fa-flag-checkered', required: true, value: null, locked: false },
+      tone:      { label: 'Tone',             icon: 'fa-comment-dots', required: false, value: null, locked: false },
+      length:    { label: 'Length / depth',   icon: 'fa-ruler',        required: false, value: null, locked: false },
+      sources:   { label: 'Sources',          icon: 'fa-file-lines',   required: false, value: [],   locked: false, multi: true },
+      structure: { label: 'Structure',        icon: 'fa-sitemap',      required: false, value: null, locked: false },
+    };
+
+    /* ============================================================
+       CONVERSATION SCRIPT — a guided extraction flow.
+       Each step: what AI says, how the user answers (quick chips /
+       free text / upload), and which STATE field it fills.
+       AI "infers-and-confirms" rather than interrogating.
+       ============================================================ */
+    const typeName = TYPE_META[TYPE].name.toLowerCase();
+
+    const SCRIPT = [];
+
+    // If a template was already added on the intro screen, seed it up front —
+    // don't ask the user to upload it again.
+    if (presetTemplate) {
+      STATE.structure.value = `Follows template "${presetTemplate}"`;
+      STATE.sources.value.push(presetTemplate);
+    }
+
+    // Opening differs by starting point
+    if (presetTemplate) {
+      // Template already in hand — acknowledge it and jump straight to the topic.
+      SCRIPT.push({
+        ai: `Nice — I've got **${presetTemplate}** as your starting structure, so we'll fill it in together. First, what's this ${typeName} about? A sentence is plenty.`,
+        placeholder: 'e.g. Workplace harassment prevention for new managers',
+        fill: (txt) => { STATE.topic.value = txt.replace(/\.$/, ''); }
+      });
+    } else if (usesTemplate) {
+      // Template path but nothing pre-loaded — offer the upload here.
+      SCRIPT.push({
+        ai: `Let's build your ${typeName}. Since you're starting from a template, drop it in below — I'll use its structure as the skeleton and we'll fill each part together.`,
+        upload: true,
+        fill: (fileName) => {
+          STATE.structure.value = `Follows uploaded template "${fileName}"`;
+          STATE.sources.value.push(fileName);
+        }
+      });
+      SCRIPT.push({
+        ai: `Got the template. Now — what's this ${typeName} about? A sentence is plenty.`,
+        placeholder: 'e.g. Workplace harassment prevention for new managers',
+        fill: (txt) => { STATE.topic.value = txt.replace(/\.$/, ''); }
+      });
+    } else {
+      SCRIPT.push({
+        ai: `Let's build your ${typeName}. In a sentence or two — what's it about? Don't overthink it; I'll shape it into something structured as we go.`,
+        placeholder: 'e.g. Workplace harassment prevention for new managers',
+        fill: (txt) => { STATE.topic.value = txt.replace(/\.$/, ''); }
+      });
+    }
+
+    SCRIPT.push({
+      ai: `Who's it for? I'll assume general staff unless you tell me otherwise.`,
+      quick: ['New managers', 'Frontline staff', 'All employees', 'Executives'],
+      placeholder: 'Describe the audience…',
+      fill: (txt) => { STATE.audience.value = txt; }
+    });
+
+    SCRIPT.push({
+      ai: (s) => `Here's what I think the goal is — tell me if I'm off:\n\n"By the end, learners can recognize and respond appropriately to ${s.topic.value || 'the situation'}."`,
+      hint: 'I inferred this — edit it or accept.',
+      quick: ['Looks good', 'Let me refine it'],
+      placeholder: 'Reword the objective…',
+      fill: (txt) => {
+        STATE.objective.value = (txt === 'Looks good')
+          ? `Recognize and respond appropriately to ${STATE.topic.value || 'the situation'}`
+          : txt;
+      }
+    });
+
+    SCRIPT.push({
+      ai: `What tone fits your audience? I'd lean conversational for this group.`,
+      quick: ['Conversational', 'Professional', 'Direct', 'Empathetic'],
+      placeholder: 'Describe the tone…',
+      fill: (txt) => { STATE.tone.value = txt; }
+    });
+
+    SCRIPT.push({
+      ai: (TYPE === 'course')
+        ? `Roughly how long? Most courses like this run 15–20 minutes — I'll target that unless you'd prefer shorter or longer.`
+        : `How deep should this go? I'll aim for a focused, single-sitting piece by default.`,
+      quick: (TYPE === 'course')
+        ? ['~10 min', '15–20 min', '30+ min']
+        : ['Quick / single concept', 'Standard', 'In-depth'],
+      placeholder: 'Specify length or depth…',
+      fill: (txt) => { STATE.length.value = txt; }
+    });
+
+    // Sources — only prompt to add more if not template (template already added one)
+    SCRIPT.push({
+      ai: `Any source material I should ground this in — a policy, regulation, or existing doc? You can add one now or skip.`,
+      upload: true, skippable: true,
+      fill: (fileName) => { if (fileName) STATE.sources.value.push(fileName); }
+    });
+
+    SCRIPT.push({
+      ai: `That's everything I need for a strong first pass. Review the prompt on the right — lock any details you want fixed, edit anything that's off, then hit **Generate**. I've drafted a structure you can adjust after.`,
+      final: true,
+      fill: () => {
+        if (!STATE.structure.value) {
+          STATE.structure.value = (TYPE === 'course')
+            ? 'Intro → 3 core sections → knowledge checks → summary'
+            : 'Setup → decision point(s) → feedback → takeaway';
+        }
+      }
+    });
+
+    /* ============================================================
+       RENDER — top bar context
+       ============================================================ */
+    document.getElementById('typePill').innerHTML =
+      `<i class="fa-solid ${TYPE_META[TYPE].icon}"></i> ${TYPE_META[TYPE].name}`;
+    document.getElementById('pathPill').innerHTML =
+      `<i class="fa-solid ${PATH_META[PATH].icon}"></i> ${PATH_META[PATH].name}`;
+
+    /* ============================================================
+       CHAT ENGINE
+       ============================================================ */
+    let step = 0;
+    const chatInner = document.getElementById('chatInner');
+    const chatScroll = document.getElementById('chatScroll');
+    const input = document.getElementById('input');
+    const sendBtn = document.getElementById('sendBtn');
+
+    function scrollBottom() { chatScroll.scrollTop = chatScroll.scrollHeight; }
+
+    function addUserMsg(text) {
+      const el = document.createElement('div');
+      el.className = 'msg user';
+      el.innerHTML = `<div class="avatar"><i class="fa-solid fa-user"></i></div><div class="bubble">${escapeHtml(text)}</div>`;
+      chatInner.appendChild(el);
+      scrollBottom();
+    }
+
+    function addAiMsg(text, hint) {
+      const el = document.createElement('div');
+      el.className = 'msg ai';
+      const html = escapeHtml(text).replace(/\n/g, '<br>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      el.innerHTML = `<div class="avatar"><i class="fa-solid fa-sparkles"></i></div>
+        <div class="bubble">${html}${hint ? `<span class="hint">${escapeHtml(hint)}</span>` : ''}</div>`;
+      chatInner.appendChild(el);
+      scrollBottom();
+      return el;
+    }
+
+    function showTyping() {
+      const el = document.createElement('div');
+      el.className = 'msg ai';
+      el.id = 'typingRow';
+      el.innerHTML = `<div class="avatar"><i class="fa-solid fa-sparkles"></i></div>
+        <div class="bubble"><span class="typing"><span></span><span></span><span></span></span></div>`;
+      chatInner.appendChild(el);
+      scrollBottom();
+    }
+    function hideTyping() { const t = document.getElementById('typingRow'); if (t) t.remove(); }
+
+    // Present the current step (AI message + affordances)
+    function presentStep() {
+      const s = SCRIPT[step];
+      if (!s) return;
+      showTyping();
+      setTimeout(() => {
+        hideTyping();
+        const text = (typeof s.ai === 'function') ? s.ai(STATE) : s.ai;
+        addAiMsg(text, s.hint);
+
+        // Quick replies
+        if (s.quick) {
+          const q = document.createElement('div');
+          q.className = 'quick';
+          s.quick.forEach(label => {
+            const b = document.createElement('button');
+            b.textContent = label;
+            b.addEventListener('click', () => { q.remove(); handleAnswer(label); });
+            q.appendChild(b);
+          });
+          chatInner.appendChild(q);
+        }
+
+        // Upload zone
+        if (s.upload) {
+          const dz = document.createElement('div');
+          dz.className = 'dropzone';
+          dz.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i>
+            <div class="big">Drop a file or click to upload</div>
+            <div class="small">PDF, DOCX, PPTX — or ${s.skippable ? 'skip this step' : 'a template file'}</div>`;
+          dz.addEventListener('click', () => simulateUpload(dz, s));
+          chatInner.appendChild(dz);
+          if (s.skippable) {
+            const skip = document.createElement('div');
+            skip.className = 'quick';
+            const b = document.createElement('button');
+            b.textContent = 'Skip — no sources';
+            b.addEventListener('click', () => { dz.remove(); skip.remove(); handleAnswer('(no source added)', null); });
+            skip.appendChild(b);
+            chatInner.appendChild(skip);
+          }
+        }
+
+        // placeholder for the composer
+        input.placeholder = s.placeholder || 'Type your answer…';
+        input.disabled = !!(s.final);
+        sendBtn.disabled = !!(s.final);
+        scrollBottom();
+      }, 650);
+    }
+
+    // Fake an upload with a plausible filename
+    function simulateUpload(dz, s) {
+      const names = usesTemplate && s === SCRIPT[0]
+        ? ['Course-Template-Standard.docx', 'LO-Blueprint-v3.docx']
+        : ['Harassment-Policy-2026.pdf', 'OSHA-1910-Excerpt.pdf', 'Brand-Voice-Guide.pdf'];
+      const file = names[Math.min(step, names.length - 1)];
+      dz.innerHTML = `<i class="fa-solid fa-circle-check" style="color:#4b9e58"></i>
+        <div class="big">${file}</div>
+        <div class="small">Analyzed · ready to reference</div>`;
+      dz.style.borderColor = '#4b9e58';
+      dz.style.cursor = 'default';
+      dz.onclick = null;
+      setTimeout(() => handleAnswer(`Uploaded ${file}`, file), 500);
+    }
+
+    // Handle a completed answer for the current step
+    function handleAnswer(displayText, fileArg) {
+      const s = SCRIPT[step];
+      // remove any lingering quick-reply / dropzone rows for this step
+      chatInner.querySelectorAll('.quick, .dropzone').forEach(n => n.remove());
+
+      addUserMsg(displayText);
+
+      // fill the model
+      if (s.fill) {
+        if (s.upload) s.fill(fileArg);
+        else s.fill(displayText);
+      }
+      renderPrompt(true);
+
+      step++;
+      if (step < SCRIPT.length) {
+        presentStep();
+      }
+    }
+
+    // Composer submit
+    function submitInput() {
+      const val = input.value.trim();
+      if (!val || sendBtn.disabled) return;
+      input.value = '';
+      autoGrow();
+      handleAnswer(val);
+    }
+    sendBtn.addEventListener('click', submitInput);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitInput(); }
+    });
+    function autoGrow() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px'; }
+    input.addEventListener('input', autoGrow);
+
+    /* ============================================================
+       PROMPT PANE RENDER (structured fields + compiled prompt)
+       ============================================================ */
+    const fieldsEl = document.getElementById('fields');
+    let lastFilledKey = null;
+
+    function renderPrompt(markNew) {
+      // find which field changed most recently (for highlight)
+      fieldsEl.innerHTML = '';
+      Object.entries(STATE).forEach(([key, f]) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'field';
+        const filled = f.multi ? (f.value && f.value.length) : !!f.value;
+
+        let valHtml;
+        if (f.multi) {
+          valHtml = filled
+            ? `<div class="chips">${f.value.map(v => `<span class="chip source"><i class="fa-solid fa-file-lines"></i>${escapeHtml(v)}</span>`).join('')}</div>`
+            : `<span>No sources added</span>`;
+        } else {
+          valHtml = filled ? escapeHtml(f.value) : `<span>Not captured yet</span>`;
+        }
+
+        wrap.innerHTML = `
+          <div class="flabel">
+            <i class="fa-solid ${f.icon}"></i> ${f.label}${f.required ? ' <span style="color:#db2777">*</span>' : ''}
+            <span class="lock ${f.locked ? 'locked' : ''}" data-key="${key}" title="Lock this value">
+              <i class="fa-solid ${f.locked ? 'fa-lock' : 'fa-lock-open'}"></i>
+            </span>
+          </div>
+          <div class="fval ${filled ? '' : 'empty'}">${valHtml}</div>`;
+        fieldsEl.appendChild(wrap);
+
+        // highlight the freshly filled field
+        if (markNew && filled && key === lastFilledKeyGuess()) {
+          wrap.classList.add('just-filled');
+          setTimeout(() => wrap.classList.remove('just-filled'), 800);
+        }
+      });
+
+      // lock toggles
+      fieldsEl.querySelectorAll('.lock').forEach(l => {
+        l.addEventListener('click', () => {
+          const k = l.dataset.key;
+          STATE[k].locked = !STATE[k].locked;
+          renderPrompt(false);
+        });
+      });
+
+      renderCompiled();
+      renderProgress();
+    }
+
+    // crude "most recently meaningful" detection based on script order
+    function lastFilledKeyGuess() {
+      const order = ['topic','audience','objective','tone','length','sources','structure'];
+      let last = null;
+      order.forEach(k => {
+        const f = STATE[k];
+        const filled = f.multi ? (f.value && f.value.length) : !!f.value;
+        if (filled) last = k;
+      });
+      return last;
+    }
+
+    function renderCompiled() {
+      const s = STATE;
+      const ph = (t) => `<span class="ph">[${t}]</span>`;
+      const val = (f, t) => {
+        const filled = f.multi ? (f.value && f.value.length) : !!f.value;
+        if (!filled) return ph(t);
+        return `<span class="tok">${escapeHtml(f.multi ? f.value.join(', ') : f.value)}</span>`;
+      };
+
+      const lines = [
+        `Create a <span class="tok">${TYPE_META[TYPE].name}</span> titled ${val(s.topic, 'topic')}.`,
+        ``,
+        `Audience: ${val(s.audience, 'who is this for')}.`,
+        `Objective: ${val(s.objective, 'what learners should be able to do')}.`,
+        `Tone: ${val(s.tone, 'tone')}.`,
+        `Length / depth: ${val(s.length, 'target length')}.`,
+        `Structure: ${val(s.structure, 'structure')}.`,
+        (s.sources.value && s.sources.value.length)
+          ? `Ground the content in these sources: ${val(s.sources, 'sources')}.`
+          : `Sources: ${ph('none provided — use general knowledge')}.`,
+      ];
+      document.getElementById('compiled').innerHTML = lines.join('\n');
+    }
+
+    function renderProgress() {
+      const req = Object.values(STATE).filter(f => f.required);
+      const total = 6; // topic, audience, objective + 3 nice-to-haves shown in the label
+      const filledCount = Object.values(STATE).filter(f =>
+        f.multi ? (f.value && f.value.length) : !!f.value).length;
+      const reqFilled = req.filter(f => !!f.value).length;
+
+      const pct = Math.min(100, Math.round((filledCount / 6) * 100));
+      document.getElementById('progFill').style.width = pct + '%';
+      document.getElementById('progLbl').textContent = `${filledCount} of ${Object.keys(STATE).length} details captured`;
+
+      // Generate gating
+      const missing = req.filter(f => !f.value).map(f => f.label.toLowerCase());
+      const genBtn = document.getElementById('genBtn');
+      const note = document.getElementById('genNote');
+      const noteText = document.getElementById('genNoteText');
+      const label = document.getElementById('genBtnLabel');
+
+      if (missing.length === 0) {
+        genBtn.disabled = false;
+        note.classList.add('ready');
+        note.querySelector('i').className = 'fa-solid fa-circle-check';
+        noteText.textContent = 'All required details captured — ready to generate';
+        label.textContent = `Generate ${TYPE_META[TYPE].name.toLowerCase()}`;
+      } else {
+        genBtn.disabled = true;
+        note.classList.remove('ready');
+        note.querySelector('i').className = 'fa-solid fa-circle-info';
+        noteText.textContent = `Still need: ${missing.join(', ')}`;
+        label.textContent = `Generate (${missing.length} detail${missing.length>1?'s':''} missing)`;
+      }
+    }
+
+    /* ============================================================
+       FOOTER ACTIONS
+       ============================================================ */
+    document.getElementById('copyBtn').addEventListener('click', function () {
+      const text = document.getElementById('compiled').innerText;
+      navigator.clipboard?.writeText(text);
+      this.innerHTML = '<i class="fa-solid fa-check"></i> copied';
+      setTimeout(() => this.innerHTML = '<i class="fa-regular fa-copy"></i> copy', 1400);
+    });
+
+    document.getElementById('genBtn').addEventListener('click', () => {
+      const b = document.getElementById('genBtn');
+      b.innerHTML = '<vwc-spinner size="small" style="margin-right:8px"></vwc-spinner> Generating…';
+      b.disabled = true;
+      setTimeout(() => {
+        alert('▶ Generation would start here.\n\nThe compiled prompt is handed to the content engine. This is the boundary of the planning workflow — everything after Generate (scenes, media, review) is downstream.');
+        b.innerHTML = '<i class="fa-solid fa-bolt" style="margin-right:7px"></i>Generate ' + TYPE_META[TYPE].name.toLowerCase();
+        b.disabled = false;
+      }, 1600);
+    });
+
+    document.getElementById('restartBtn').addEventListener('click', () => {
+      if (confirm('Start over? This clears the conversation and prompt.')) location.href = 'index.html';
+    });
+
+    /* ============================================================
+       UTIL
+       ============================================================ */
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    /* ============================================================
+       BOOT
+       ============================================================ */
+    renderPrompt(false);
+    presentStep();
+  </script>
+</body>
+</html>

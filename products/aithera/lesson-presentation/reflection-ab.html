@@ -21,7 +21,7 @@
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
 
     <!-- Shared lesson shell (frame, tokens, chat-msg styles) -->
-    <link rel="stylesheet" href="css/lesson.css?v=17" />
+    <link rel="stylesheet" href="css/lesson.css?v=19" />
 
     <!-- ====================================================================
          Page-scoped styles. Everything unique to this A/B experiment lives
@@ -32,6 +32,13 @@
          ==================================================================== -->
     <style>
       :root { --harness-h: 46px; }
+
+      /* Visually-hidden but screen-reader available (page h1, live region) */
+      .sr-only {
+        position: absolute; width: 1px; height: 1px;
+        padding: 0; margin: -1px; overflow: hidden;
+        clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+      }
 
       /* The internal test harness sits ABOVE the lesson header. Nudge the
          fixed header down by its height and pad the shell to match, so the
@@ -245,7 +252,10 @@
         font: inherit; font-size: 14px; color: var(--ink);
         outline: none;
       }
-      .cs-composer textarea:focus { border-color: var(--accent); }
+      .cs-composer textarea:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);   /* visible focus, not just a hue shift */
+      }
       .cs-composer textarea:disabled { background: var(--canvas); opacity: .7; }
       .cs-send {
         flex-shrink: 0;
@@ -413,7 +423,8 @@
         opacity: 0; pointer-events: none;
         transition: opacity .15s ease;
       }
-      .nav-tip:hover .tip.locked { opacity: 1; }
+      .nav-tip:hover .tip.locked,
+      .nav-tip:focus-within .tip.locked { opacity: 1; }   /* keyboard users get the tip too */
 
       /* ---- step-cleared overlay ----------------------------------------- */
       .step-cleared {
@@ -462,6 +473,10 @@
         <span class="ai-chip demo" id="aiChip">Demo AI</span>
         <button type="button" class="exp-reset" id="resetBtn"><i class="fa-solid fa-rotate-right"></i> Reset</button>
     </div>
+
+    <!-- Page name for screen readers (the visual design carries it in the
+         breadcrumb; the only visible heading lives inside the completion overlay) -->
+    <h1 class="sr-only">Why Do Some Students Drink? — video reflection</h1>
 
     <!-- ===== Fixed header: course > lesson + progress ===================== -->
     <header class="lesson-header">
@@ -512,8 +527,8 @@
         <div class="lesson-nav">
             <vaadin-button theme="secondary" id="backBtn">Back</vaadin-button>
             <span class="nav-tip" id="navTip">
-                <span class="tip locked">Finish your reflection to continue</span>
-                <vaadin-button theme="primary" id="continueBtn" disabled>Continue</vaadin-button>
+                <span class="tip locked" id="navTipText">Finish your reflection to continue</span>
+                <vaadin-button theme="primary" id="continueBtn" aria-describedby="navTipText" disabled>Continue</vaadin-button>
             </span>
         </div>
     </footer>
@@ -535,9 +550,9 @@
     </div>
 
     <!-- ===== Step-cleared overlay ========================================= -->
-    <div class="step-cleared" id="stepCleared" hidden>
+    <div class="step-cleared" id="stepCleared" role="dialog" aria-labelledby="stepClearedTitle" hidden>
         <span class="orb-mark mark"><i class="fa-solid fa-check"></i></span>
-        <h2>Step 4 cleared</h2>
+        <h2 id="stepClearedTitle" tabindex="-1">Step 4 cleared</h2>
         <p>In the live course, Step 5 of 9 would load here. This is the end of the prototype.</p>
         <button class="restart" id="restartBtn" type="button"><i class="fa-solid fa-rotate-right"></i> Restart demo</button>
     </div>
@@ -546,7 +561,7 @@
     <span aria-live="polite" class="sr-only" id="liveRegion"
           style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;"></span>
 
-    <script src="js/lesson.js?v=2"></script>
+    <script src="js/lesson.js?v=5"></script>
     <script>
     /* ========================================================================
        Reflection A/B — two presentations of ONE post-video reflection gate.
@@ -750,6 +765,7 @@ Respond with ONLY a JSON object, no markdown fences:
         if (loading) {
           const typing = document.createElement('div');
           typing.className = 'chat-typing';
+          typing.setAttribute('aria-hidden', 'true');   // decorative dots — keep out of the live thread
           typing.innerHTML = '<span></span><span></span><span></span>';
           t.appendChild(typing);
         }
@@ -858,6 +874,15 @@ Respond with ONLY a JSON object, no markdown fences:
         else modalCard.appendChild(surface);
       }
 
+      // Page chrome that sits behind the variant-A modal / the cleared overlay.
+      // (The A/B harness strip is review scaffolding and stays reachable.)
+      const pageRegions = () =>
+        ['.lesson-header', '.lesson-shell', '.lesson-footer']
+          .map((sel) => document.querySelector(sel)).filter(Boolean);
+      function setPageInert(on) {
+        pageRegions().forEach((el) => el.toggleAttribute('inert', on));
+      }
+
       function openHelper() {
         open = true;
         if (variant === 'B') {
@@ -866,6 +891,7 @@ Respond with ONLY a JSON object, no markdown fences:
         } else {
           mountSurface();
           scrimModal.hidden = false;
+          setPageInert(true);   // the modal blocks the page — keep AT/keyboard inside it
         }
         refreshOrb();
         focusInput();
@@ -876,6 +902,7 @@ Respond with ONLY a JSON object, no markdown fences:
         open = false;
         dockPanel.classList.add('is-closed');
         refreshOrb();
+        orb.focus();                  // hand focus back to the control that reopens it
       }
 
       function flashOrb() {
@@ -948,6 +975,10 @@ Respond with ONLY a JSON object, no markdown fences:
       function handleContinue() {
         if (!sufficient) return;
         stepCleared.hidden = false;
+        // the overlay covers everything — inert the page AND the helper surfaces
+        setPageInert(true);
+        [orb, dockPanel, scrimModal].forEach((el) => el.setAttribute('inert', ''));
+        document.getElementById('stepClearedTitle').focus();
       }
 
       // ====== reset / variant switch ======
@@ -971,6 +1002,10 @@ Respond with ONLY a JSON object, no markdown fences:
         scrimModal.hidden = true;
         modalCard.replaceChildren();
         stepCleared.hidden = true;
+
+        // lift any inert left by the modal / cleared overlay
+        setPageInert(false);
+        [orb, dockPanel, scrimModal].forEach((el) => el.removeAttribute('inert'));
 
         // footer + caption
         stageCaption.textContent = 'Press play to begin.';
@@ -1007,6 +1042,25 @@ Respond with ONLY a JSON object, no markdown fences:
       // ESC collapses the panel in B (A stays — it's the blocking control)
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && variant === 'B' && open) closePanel();
+      });
+
+      // Variant A's blocking modal: keep Tab cycling inside the modal card
+      // while it's up (it's non-dismissable by design, so no Escape here).
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Tab' || scrimModal.hidden || !stepCleared.hidden) return;
+        const focusables = Array.from(
+          modalCard.querySelectorAll('button, textarea, input, select, [href], [tabindex]:not([tabindex="-1"])')
+        ).filter((n) => !n.disabled && n.offsetParent !== null);
+        if (!focusables.length) return;
+        const first = focusables[0];
+        const last  = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault(); last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault(); first.focus();
+        } else if (!modalCard.contains(document.activeElement)) {
+          e.preventDefault(); first.focus();   // focus escaped somehow — pull it back in
+        }
       });
 
       // ----- boot -----

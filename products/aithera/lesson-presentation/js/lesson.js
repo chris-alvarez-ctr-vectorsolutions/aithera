@@ -74,9 +74,11 @@
       onclick: submit,
     }, el('i', { class: 'fa-solid fa-paper-plane' }));
 
+    // Non-modal side panel: the lesson stays usable while it's open, so it is
+    // deliberately NOT role="dialog" (no trap). While closed it sits offscreen
+    // via transform — `inert` keeps its controls out of the tab order then.
     panel = el('aside', {
       class: 'lesson-chat',
-      role: 'dialog',
       'aria-label': 'Ask about this term',
       'aria-hidden': 'true',
     }, [
@@ -94,6 +96,7 @@
       el('div', { class: 'chat-composer' }, [textarea, sendBtn]),
     ]);
 
+    panel.inert = true;
     document.body.appendChild(panel);
   }
 
@@ -130,7 +133,9 @@
   }
 
   function showTyping() {
-    const t = el('div', { class: 'chat-typing' }, [
+    // aria-hidden keeps the empty dots from triggering blank announcements
+    // in the aria-live thread.
+    const t = el('div', { class: 'chat-typing', 'aria-hidden': 'true' }, [
       el('span'), el('span'), el('span'),
     ]);
     threadEl.appendChild(t);
@@ -181,10 +186,14 @@
     ask(val);
   }
 
+  let chatLastFocused = null;
+
   chat.open = function () {
     if (!panel) return;
     if (!seeded) seed();
+    chatLastFocused = document.activeElement;
     panel.classList.add('open');
+    panel.inert = false;
     panel.setAttribute('aria-hidden', 'false');
     document.querySelector('.lesson-shell')?.classList.add('chat-open');
     document.body.classList.add('chat-open');
@@ -194,9 +203,14 @@
   chat.close = function () {
     if (!panel) return;
     panel.classList.remove('open');
+    panel.inert = true;
     panel.setAttribute('aria-hidden', 'true');
     document.querySelector('.lesson-shell')?.classList.remove('chat-open');
     document.body.classList.remove('chat-open');
+    // Return focus to whatever opened the panel (e.g. the "Ask about this" button).
+    if (chatLastFocused && chatLastFocused.focus && document.contains(chatLastFocused)) {
+      chatLastFocused.focus();
+    }
   };
 
   chat.toggle = function () {
@@ -251,7 +265,26 @@
       onclick: (e) => { if (e.target === backdrop) modal.close(); },
     }, dialog);
 
+    // While closed the backdrop is only visually hidden (opacity 0) — `inert`
+    // keeps its buttons out of the tab order until it opens.
+    backdrop.inert = true;
     document.body.appendChild(backdrop);
+
+    // Focus trap: while the modal is open, Tab cycles within the dialog.
+    backdrop.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab' || !backdrop.classList.contains('open')) return;
+      const focusables = dialog.querySelectorAll(
+        'button, vaadin-button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      }
+    });
   }
 
   modal.open = function (opts) {
@@ -273,18 +306,59 @@
 
     lastFocused = document.activeElement;
     backdrop.classList.add('open');
+    backdrop.inert = false;
     window.setTimeout(() => modalCtaEl && modalCtaEl.focus(), 60);
   };
 
   modal.close = function () {
     if (!backdrop) return;
     backdrop.classList.remove('open');
+    backdrop.inert = true;
     if (lastFocused && lastFocused.focus) lastFocused.focus();
   };
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && backdrop && backdrop.classList.contains('open')) modal.close();
   });
+
+  /* ======================================================================
+     Radio-group keyboard pattern — call on a container holding
+     role="radio" buttons that already select on click. Adds the behavior
+     the announced semantics promise: one tab stop (roving tabindex) and
+     Arrow/Home/End to move + select.
+
+       Lesson.radiogroup(containerEl)
+     ====================================================================== */
+  Lesson.radiogroup = function (group) {
+    if (!group) return;
+    const radios = () => Array.from(group.querySelectorAll('[role="radio"]'));
+
+    function roving() {
+      const list = radios();
+      const checked = list.find((r) => r.getAttribute('aria-checked') === 'true');
+      list.forEach((r) => { r.tabIndex = r === (checked || list[0]) ? 0 : -1; });
+    }
+
+    group.addEventListener('keydown', (e) => {
+      const list = radios();
+      const i = list.indexOf(document.activeElement);
+      if (i === -1) return;
+      let next = null;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = list[(i + 1) % list.length];
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = list[(i - 1 + list.length) % list.length];
+      else if (e.key === 'Home') next = list[0];
+      else if (e.key === 'End') next = list[list.length - 1];
+      if (!next) return;
+      e.preventDefault();
+      next.click();      // select through the page's existing handler
+      next.focus();
+      roving();
+    });
+
+    // Keep the roving tabindex in sync with pointer selection too.
+    group.addEventListener('click', () => window.setTimeout(roving, 0));
+    roving();
+  };
 
   /* ======================================================================
      Scroll cue — a shell-level affordance for content that outgrows the

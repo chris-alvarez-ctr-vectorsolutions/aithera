@@ -21,7 +21,7 @@
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
 
     <!-- Shared lesson shell (frame, tokens, chat-msg styles) -->
-    <link rel="stylesheet" href="css/lesson.css?v=17" />
+    <link rel="stylesheet" href="css/lesson.css?v=19" />
 
     <!-- ====================================================================
          Page-scoped styles. Everything unique to this experiment lives here:
@@ -340,12 +340,12 @@
         flex-shrink: 0;
         width: 44px; height: 44px;
         border: 0; border-radius: 999px;
-        background: var(--accent); color: #fff;
+        background: var(--accent-strong); color: #fff;   /* strong for 4.5:1 with white */
         font-size: 16px; cursor: pointer;
         display: flex; align-items: center; justify-content: center;
-        transition: background .15s ease;
+        transition: filter .15s ease;
       }
-      .cs-send:hover:not(:disabled) { background: var(--accent-strong); }
+      .cs-send:hover:not(:disabled) { filter: brightness(1.12); }
       .cs-send:disabled { opacity: .4; cursor: default; }
 
       /* a quiet hint shown in the foot while the answer is the slider, not chat */
@@ -364,11 +364,11 @@
         appearance: none; border: 0; cursor: pointer;
         border-radius: 12px;
         padding: 12px 14px;
-        background: var(--accent); color: #fff;
+        background: var(--accent-strong); color: #fff;   /* strong for 4.5:1 with white */
         font: inherit; font-size: 15px; font-weight: 600;
-        transition: background .15s ease, transform .1s ease;
+        transition: filter .15s ease, transform .1s ease;
       }
-      .cs-cta:hover { background: var(--accent-strong); }
+      .cs-cta:hover { filter: brightness(1.12); }
       .cs-cta:active { transform: scale(.98); }
       .cs-cta i { font-size: 14px; }
 
@@ -425,11 +425,11 @@
         appearance: none; border: 0; cursor: pointer;
         border-radius: 10px;
         padding: 8px 14px;
-        background: var(--accent); color: #fff;
+        background: var(--accent-strong); color: #fff;   /* strong for 4.5:1 with white */
         font: inherit; font-size: 14px; font-weight: 600;
-        transition: background .15s ease;
+        transition: filter .15s ease;
       }
-      .cs-done-cta:hover { background: var(--accent-strong); }
+      .cs-done-cta:hover { filter: brightness(1.12); }
 
       /* ---- locked-continue tooltip in the footer ------------------------ */
       .nav-tip { position: relative; display: inline-flex; }
@@ -444,7 +444,8 @@
         opacity: 0; pointer-events: none;
         transition: opacity .15s ease;
       }
-      .nav-tip:hover .tip.locked { opacity: 1; }
+      .nav-tip:hover .tip.locked,
+      .nav-tip:focus-within .tip.locked { opacity: 1; }
 
       /* ---- step-cleared overlay ----------------------------------------- */
       .step-cleared {
@@ -554,8 +555,8 @@
         <div class="lesson-nav">
             <vaadin-button theme="secondary" id="backBtn">Back</vaadin-button>
             <span class="nav-tip" id="navTip">
-                <span class="tip locked">Finish with your coach to continue</span>
-                <vaadin-button theme="primary" id="continueBtn" disabled>Continue</vaadin-button>
+                <span class="tip locked" id="continueTip">Finish with your coach to continue</span>
+                <vaadin-button theme="primary" id="continueBtn" aria-describedby="continueTip" disabled>Continue</vaadin-button>
             </span>
         </div>
     </footer>
@@ -567,13 +568,14 @@
         <span class="orb-dot" id="orbDot" hidden></span>
     </button>
 
-    <!-- Mount point for the docked coach panel -->
-    <div class="dock-panel is-closed" id="dockPanel" role="dialog" aria-label="AI Coach"></div>
+    <!-- Mount point for the docked coach panel (non-modal by design, so it's
+         a labelled region rather than a dialog; inert while closed) -->
+    <div class="dock-panel is-closed" id="dockPanel" role="region" aria-label="AI Coach" inert></div>
 
     <!-- ===== Step-cleared overlay ========================================= -->
-    <div class="step-cleared" id="stepCleared" hidden>
+    <div class="step-cleared" id="stepCleared" hidden role="dialog" aria-modal="true" aria-labelledby="stepClearedTitle">
         <span class="orb-mark mark"><i class="fa-solid fa-check"></i></span>
-        <h2>Step 8 cleared</h2>
+        <h2 id="stepClearedTitle" tabindex="-1">Step 8 cleared</h2>
         <p>In the live course, the final step would load here. This is the end of the prototype.</p>
         <button class="restart" id="restartBtn" type="button"><i class="fa-solid fa-rotate-right"></i> Restart demo</button>
     </div>
@@ -582,7 +584,7 @@
     <span aria-live="polite" class="sr-only" id="liveRegion"
           style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;"></span>
 
-    <script src="js/lesson.js?v=2"></script>
+    <script src="js/lesson.js?v=5"></script>
     <script>
     /* ========================================================================
        Confidence Check — a hybrid "interaction + coach" wrap-up.
@@ -700,6 +702,15 @@ Respond with ONLY a JSON object, no markdown fences:
       const dockPanel  = document.getElementById('dockPanel');
       const stepCleared= document.getElementById('stepCleared');
       const restartBtn = document.getElementById('restartBtn');
+
+      // Everything behind the step-cleared overlay, made inert while it's up.
+      const pageChrome = [
+        document.querySelector('.lesson-header'),
+        document.querySelector('.lesson-shell'),
+        document.querySelector('.lesson-footer'),
+        orb,
+        dockPanel,
+      ];
 
       const reduceMotion = window.matchMedia &&
         window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -990,6 +1001,7 @@ Respond with ONLY a JSON object, no markdown fences:
         phase = 'done';
         continueBtn.disabled = false;
         navTip.querySelector('.tip').classList.remove('locked');
+        continueBtn.removeAttribute('aria-describedby');   // the lock hint no longer applies
         instructions.textContent = 'Nicely done — select Continue to finish.';
         if (live) live.textContent = "Reflection complete. You can now continue.";
         refreshOrb();
@@ -1012,6 +1024,7 @@ Respond with ONLY a JSON object, no markdown fences:
         dockPanel.appendChild(surface);
         buildSurface();
         dockPanel.classList.remove('is-closed');
+        dockPanel.removeAttribute('inert');
         refreshOrb();
         if (phase === 'discuss') focusInput();
       }
@@ -1019,7 +1032,9 @@ Respond with ONLY a JSON object, no markdown fences:
       function closePanel() {
         open = false;
         dockPanel.classList.add('is-closed');
+        dockPanel.setAttribute('inert', '');   // unreachable while visually closed
         refreshOrb();
+        orb.focus();                           // hand focus back to the orb button
       }
 
       function flashOrb() {
@@ -1048,6 +1063,11 @@ Respond with ONLY a JSON object, no markdown fences:
       function handleContinue() {
         if (phase !== 'done') return;
         stepCleared.hidden = false;
+        // The overlay is modal: everything behind it goes inert, and focus
+        // moves to its heading.
+        pageChrome.forEach((el) => el && el.setAttribute('inert', ''));
+        const title = document.getElementById('stepClearedTitle');
+        if (title) title.focus();
       }
 
       // ====== the opening beat: coach first, then reveal the slider ======
@@ -1088,6 +1108,7 @@ Respond with ONLY a JSON object, no markdown fences:
         instructions.textContent = 'Drag the slider to set how confident you feel.';
         if (live) live.textContent = 'A confidence slider is now on the page. Set your level, then share it with your coach.';
         closePanel();
+        range.focus();   // the slider is the next step — send focus there, not the orb
         Lesson.scrollCue && Lesson.scrollCue.refresh();
       }
 
@@ -1105,12 +1126,15 @@ Respond with ONLY a JSON object, no markdown fences:
         shareBtn.disabled = true;
         paintRange();
 
+        pageChrome.forEach((el) => el && el.removeAttribute('inert'));
         dockPanel.classList.add('is-closed');
+        dockPanel.setAttribute('inert', '');   // closed again until the coach opens it
         dockPanel.replaceChildren();
         stepCleared.hidden = true;
 
         continueBtn.disabled = true;
         navTip.querySelector('.tip').classList.add('locked');
+        continueBtn.setAttribute('aria-describedby', 'continueTip');
         instructions.textContent = 'Your coach is introducing this step…';
 
         refreshOrb();
