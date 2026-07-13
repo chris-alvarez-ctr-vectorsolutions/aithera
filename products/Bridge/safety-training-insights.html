@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bridge — Safety Training Insights</title>
+
+  <!--
+    Browser preview for SafetyTrainingInsights.jsx
+    ------------------------------------------------------------------
+    The .jsx file is the single source of truth (drop it into any React
+    sandbox / artifact). This page is only a thin loader so the same file
+    renders in a browser for screenshots and shows up in the dashboard.
+
+    It: loads Tailwind (Play CDN) + React/recharts/lucide (esm.sh via an
+    import map), fetches the .jsx, transpiles it in-browser with Babel,
+    and mounts the default export.
+
+    ⚠ Must be served over http:// (e.g. Live Server) — opening the file
+      directly (file://) will fail the fetch. Requires internet (CDNs).
+  -->
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@18.2.0",
+      "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
+      "react-dom": "https://esm.sh/react-dom@18.2.0",
+      "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+      "recharts": "https://esm.sh/recharts@2.12.7?deps=react@18.2.0,react-dom@18.2.0",
+      "lucide-react": "https://esm.sh/lucide-react@0.408.0?deps=react@18.2.0"
+    }
+  }
+  </script>
+
+  <style>
+    html, body { background: #f8fafc; }
+    #loading, #error {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      max-width: 32rem; margin: 12vh auto; padding: 0 1.5rem; color: #475569;
+    }
+    #error { display: none; }
+    #error code { background: #0f172a; color: #e2e8f0; padding: .15rem .4rem; border-radius: .3rem; font-size: .85em; }
+    .spin { display:inline-block; width:1rem; height:1rem; border:2px solid #cbd5e1; border-top-color:#2563eb; border-radius:50%; animation: s 0.7s linear infinite; vertical-align:-2px; }
+    @keyframes s { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <div id="loading"><span class="spin"></span>&nbsp; Loading Safety Training Insights…</div>
+  <div id="error">
+    <h2 style="color:#0f172a;margin:0 0 .5rem;">Couldn't load the prototype</h2>
+    <p>This page fetches <code>SafetyTrainingInsights.jsx</code> and transpiles it in the browser, so it must be
+       <strong>served over http</strong> (e.g. VS Code Live Server) with an internet connection — not opened as a
+       <code>file://</code>.</p>
+    <p style="font-size:.85rem;color:#94a3b8;" id="error-detail"></p>
+  </div>
+
+  <script type="module">
+    const show = (id) => { const el = document.getElementById(id); if (el) el.style.display = "block"; };
+    const hide = (id) => { const el = document.getElementById(id); if (el) el.style.display = "none"; };
+
+    try {
+      // 1. Pull in the single-source-of-truth component file.
+      const res = await fetch("./SafetyTrainingInsights.jsx");
+      if (!res.ok) throw new Error("fetch " + res.status + " " + res.statusText);
+      const source = await res.text();
+
+      // 2. Transpile JSX -> JS, keeping ES module imports intact (classic runtime).
+      const { code } = Babel.transform(source, {
+        presets: [["react", { runtime: "classic" }]],
+        filename: "SafetyTrainingInsights.jsx",
+        sourceMaps: false,
+      });
+
+      // 3. Load the transpiled module. Bare imports (react/recharts/lucide-react)
+      //    resolve through the import map above.
+      const blobUrl = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
+      const mod = await import(blobUrl);
+
+      // 4. Mount.
+      const React = await import("react");
+      const { createRoot } = await import("react-dom/client");
+      hide("loading");
+      createRoot(document.getElementById("root")).render(React.createElement(mod.default));
+    } catch (err) {
+      console.error(err);
+      hide("loading");
+      show("error");
+      const d = document.getElementById("error-detail");
+      if (d) d.textContent = String(err && err.message ? err.message : err);
+    }
+  </script>
+</body>
+</html>
