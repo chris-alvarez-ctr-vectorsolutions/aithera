@@ -171,23 +171,48 @@ console.log(`Namespace: ${NS}`);
 console.log(`Match:     "${fromFrag}"  ->  "${toFrag}"  (in decoded page URLs)`);
 console.log(`Mode:      ${APPLY ? 'APPLY (writing)' : 'DRY RUN (no writes — add --apply to copy)'}\n`);
 
-// ---- 1) copy pins:/settings: keys -----------------------------------------
+// ---- 1) relink pins:/settings: keys ---------------------------------------
+// pins: are MERGED (union by pin id) into the destination so we never drop a
+// comment that was made on the renamed page after the move — and re-running is
+// idempotent. settings: are copied only when the destination has none.
+function readArr(value) { try { const a = JSON.parse(value); return Array.isArray(a) ? a : []; } catch { return []; } }
+function unionPins(destPins, srcPins) {
+  const byId = new Map();
+  for (const p of destPins) if (p && p.id) byId.set(p.id, p);          // destination wins on id clash
+  let added = 0;
+  for (const p of srcPins) if (p && p.id && !byId.has(p.id)) { byId.set(p.id, p); added++; }
+  return { merged: [...byId.values()], added };
+}
+
 const matches = allKeys.map(rewriteKey).filter(Boolean);
-let copied = 0, skipped = 0;
+let copied = 0, merged = 0, skipped = 0;
 if (!matches.length) {
   console.log('No pins:/settings: keys matched. (Check --from against the OLD path — try --inspect.)\n');
 } else {
-  console.log(`Comment/settings keys to copy (${matches.length}):`);
+  console.log(`Keys to relink (${matches.length}):`);
   for (const m of matches) {
     console.log(`• [${m.prefix.replace(':', '')}] ${m.oldUrl}\n    -> ${m.newUrl}`);
-    if (!APPLY) { console.log('    (dry run)'); continue; }
-    const value = kvGet(m.oldKey);
-    let existing = null;
-    try { existing = kvGet(m.newKey); } catch { existing = null; }
-    const t = (existing || '').trim();
-    if (t && t !== '[]' && t !== 'null') { console.log('    SKIPPED — destination already has data.'); skipped++; continue; }
-    kvPut(m.newKey, value);
-    console.log('    copied ✓'); copied++;
+    const srcVal = kvGet(m.oldKey);
+    let destVal = null;
+    try { destVal = kvGet(m.newKey); } catch { destVal = null; }
+    const destHas = (destVal || '').trim() && (destVal || '').trim() !== '[]' && (destVal || '').trim() !== 'null';
+
+    if (m.prefix === 'settings:') {
+      if (destHas) { console.log(`    ${APPLY ? 'skipped' : 'would skip'} — destination already has settings.`); skipped++; }
+      else { if (APPLY) { kvPut(m.newKey, srcVal); console.log('    copied ✓'); } else console.log('    would copy'); copied++; }
+      continue;
+    }
+
+    // pins: — union by id (never destructive)
+    const { merged: mergedArr, added } = unionPins(readArr(destVal), readArr(srcVal));
+    const destCount = readArr(destVal).length;
+    if (added === 0) {
+      console.log(`    ${APPLY ? 'nothing to add' : 'would add 0'} — all ${readArr(srcVal).length} old comment(s) already present.`);
+      continue;
+    }
+    if (APPLY) { kvPut(m.newKey, JSON.stringify(mergedArr)); console.log(`    merged ✓ (+${added}, dest had ${destCount} → ${mergedArr.length} total)`); }
+    else console.log(`    would merge +${added} (dest has ${destCount} → ${mergedArr.length} total)`);
+    merged++;
   }
   console.log('');
 }
@@ -221,8 +246,8 @@ if (DO_LOG) {
 
 // ---- summary ---------------------------------------------------------------
 if (APPLY) {
-  console.log(`Done. Comments copied: ${copied} (skipped ${skipped}). Log links updated: ${logWritten}.`);
+  console.log(`Done. Comment pages merged: ${merged}, settings copied: ${copied} (skipped ${skipped}). Log links updated: ${logWritten}.`);
   console.log('Original comment keys left in place as backup. Reload the renamed mock on GitHub Pages.');
 } else {
-  console.log(`Dry run complete — would copy ${matches.length} comment/settings key(s) and repoint ${logHits} log link(s). Re-run with --apply.`);
+  console.log(`Dry run complete — ${merged} comment page(s) would gain merged comments, ${copied} settings key(s) copied, ${logHits} log link(s) repointed. Re-run with --apply.`);
 }

@@ -190,7 +190,8 @@ All pins for a page are stored together in **one** KV value (`pins:<encoded-page
    ```
 
    `--from`/`--to` are the old/new path fragments (bare folder name, or `Scheduling/versioning test` for a more precise match). Spaces are handled automatically. The script:
-   - **copies `pins:` and `settings:` keys** to the new path (matches *every* page under the folder — so all versions, `ver1`/`ver2`/…, are relinked in one run), **leaves the originals in place** as a backup, and won't overwrite a destination that already has comments;
+   - **merges `pins:` into the new path** (matches *every* page under the folder — all versions, `ver1`/`ver2`/…, in one run). The merge is a **union by pin id**, so a comment made on the renamed page *after* the move is kept alongside the restored originals — nothing is ever overwritten or lost, and re-running is idempotent. Originals are **left in place** as a backup.
+   - **copies `settings:` keys** only when the destination has none (won't clobber existing per-page settings).
    - **rewrites the `url` inside matching `log:` entries in place** so the activity-log (`log.html`) links point at the renamed page instead of the dead one (TTL refreshed to 90 days).
 
    Use `--inspect` first if a comment (e.g. a specific version's) doesn't come back — it prints each `pins:` key's decoded page URL and active-comment count, so you can see whether that version's comments live under the old or new path. Reload the renamed mock on GitHub Pages afterward. See `designtoolbox/scripts/relink-comments.js` for full options (`--no-log`, `--no-settings`, `--namespace-id`).
