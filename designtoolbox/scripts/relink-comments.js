@@ -106,7 +106,7 @@ function kvPut(key, value, ttl) {
   const tmp = path.join(os.tmpdir(), 'relink-' + Buffer.from(key).toString('hex').slice(0, 24) + '.json');
   fs.writeFileSync(tmp, value);
   try {
-    const extra = ttl ? ['--expiration-ttl', String(ttl)] : [];
+    const extra = ttl ? ['--ttl', String(ttl)] : [];
     wrangler(['kv', 'key', 'put', key, '--path', tmp, ...extra]);
   } finally { try { fs.unlinkSync(tmp); } catch {} }
 }
@@ -218,36 +218,61 @@ if (!matches.length) {
 }
 
 // ---- 2) rewrite log: link URLs in place -----------------------------------
-let logHits = 0, logWritten = 0;
-if (DO_LOG) {
-  const logKeys = allKeys.filter((k) => k.startsWith('log:'));
-  const pending = [];
-  for (const key of logKeys) {
-    let evt;
-    try { evt = JSON.parse(kvGet(key)); } catch { continue; }
-    if (!evt || typeof evt.url !== 'string' || !evt.url.includes(fromFrag)) continue;
-    pending.push({ key, evt, newUrl: evt.url.split(fromFrag).join(toFrag) });
+// The activity log can hold hundreds of entries; GET-ing every one via wrangler
+// is painfully slow. Instead we fetch them all in ONE call from the Worker's
+// public /log endpoint (no auth), find the matching timestamps, and only touch
+// the handful of log: keys that actually need repointing.
+const WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
+async function matchingLogTimestamps() {
+  const res = await fetch(`${WORKER_URL}/log?limit=2000`);
+  const events = await res.json();
+  const ts = new Set();
+  for (const e of (Array.isArray(events) ? events : [])) {
+    if (e && typeof e.url === 'string' && e.url.includes(fromFrag) && e.ts) ts.add(e.ts);
   }
-  logHits = pending.length;
-  if (pending.length) {
-    console.log(`Activity-log links to repoint (${pending.length}):`);
-    for (const p of pending) {
-      console.log(`• ${p.key}\n    ${p.evt.url}\n    -> ${p.newUrl}`);
-      if (!APPLY) { console.log('    (dry run)'); continue; }
-      p.evt.url = p.newUrl;
-      kvPut(p.key, JSON.stringify(p.evt), LOG_TTL);
-      console.log('    updated ✓'); logWritten++;
-    }
-    console.log('');
-  } else {
-    console.log('Activity-log: no link URLs matched.\n');
-  }
+  return ts;
 }
+// A log key is `log:<iso-ts>:<rand>`; the ISO ts itself contains colons, so the
+// rand is everything after the LAST colon and the ts is everything before it.
+function tsOfLogKey(key) { const b = key.slice('log:'.length); const i = b.lastIndexOf(':'); return i === -1 ? b : b.slice(0, i); }
 
-// ---- summary ---------------------------------------------------------------
-if (APPLY) {
-  console.log(`Done. Comment pages merged: ${merged}, settings copied: ${copied} (skipped ${skipped}). Log links updated: ${logWritten}.`);
-  console.log('Original comment keys left in place as backup. Reload the renamed mock on GitHub Pages.');
-} else {
-  console.log(`Dry run complete — ${merged} comment page(s) would gain merged comments, ${copied} settings key(s) copied, ${logHits} log link(s) repointed. Re-run with --apply.`);
-}
+// The log step needs await (fetch), so run it + the summary inside an async IIFE
+// (this file is CommonJS, so top-level await isn't available).
+(async () => {
+  let logHits = 0, logWritten = 0;
+  if (DO_LOG) {
+    let matchTs;
+    try { matchTs = await matchingLogTimestamps(); }
+    catch { matchTs = null; } // endpoint unreachable — fall back to scanning every log key
+    const logKeys = allKeys.filter((k) => k.startsWith('log:') && (matchTs ? matchTs.has(tsOfLogKey(k)) : true));
+    const pending = [];
+    for (const key of logKeys) {
+      let evt;
+      try { evt = JSON.parse(kvGet(key)); } catch { continue; }
+      if (!evt || typeof evt.url !== 'string' || !evt.url.includes(fromFrag)) continue;
+      pending.push({ key, evt, newUrl: evt.url.split(fromFrag).join(toFrag) });
+    }
+    logHits = pending.length;
+    if (pending.length) {
+      console.log(`Activity-log links to repoint (${pending.length}):`);
+      for (const p of pending) {
+        console.log(`• ${p.key}\n    ${p.evt.url}\n    -> ${p.newUrl}`);
+        if (!APPLY) { console.log('    (dry run)'); continue; }
+        p.evt.url = p.newUrl;
+        kvPut(p.key, JSON.stringify(p.evt), LOG_TTL);
+        console.log('    updated ✓'); logWritten++;
+      }
+      console.log('');
+    } else {
+      console.log('Activity-log: no link URLs matched.\n');
+    }
+  }
+
+  // ---- summary -------------------------------------------------------------
+  if (APPLY) {
+    console.log(`Done. Comment pages merged: ${merged}, settings copied: ${copied} (skipped ${skipped}). Log links updated: ${logWritten}.`);
+    console.log('Original comment keys left in place as backup. Reload the renamed mock on GitHub Pages.');
+  } else {
+    console.log(`Dry run complete — ${merged} comment page(s) would gain merged comments, ${copied} settings key(s) copied, ${logHits} log link(s) repointed. Re-run with --apply.`);
+  }
+})();
