@@ -165,6 +165,28 @@ All pins for a page are stored together in **one** KV value (`pins:<encoded-page
 
 > KV's minimum TTL is 60s, so the undo record lives for 60s but the Worker enforces the logical 10s window via `undoExpiresAt`. Undo requests after the 10s window return 409 even though the key still exists.
 
+## ⚠️ Renaming or moving a mock orphans its comments
+
+**Comments are keyed by the page URL, not the file.** The KV key is `pins:<encodeURIComponent(pageUrl)>`, where `pageUrl` is rebuilt from the `/products/...` path (`canonicalPageUrl()` in `feedback-widget.js`). So if you **rename or move a mock folder** — or a versioned `verN/verN.html` file — every page under it gets a **new** key, and the existing comments stay behind under the **old** key. They aren't deleted, just unreachable: the widget now looks up the new path and finds nothing.
+
+**A space in a folder name makes it worse.** The browser encodes the space as `%20` in the URL, so the old key contains `versioning%2520test` (the `%20`, itself re-encoded by `encodeURIComponent`). That stray `%` is the tell-tale sign of a space-folder rename.
+
+**Two ways to avoid the pain:**
+
+1. **Prefer hyphens over spaces** in new mock/feature folder names (`versioning-test`, not `versioning test`). No spaces → no `%20` → cleaner keys and URLs. (This is also why the loader/versioned-folder convention uses hyphenated names.)
+2. **After any rename/move, re-link the comments** with the helper script — it copies the pins from the old key to the new one so they reappear on the renamed page:
+
+   ```sh
+   cd designtoolbox/worker      # so wrangler picks up wrangler.toml (KV namespace id)
+   wrangler login               # one-time auth; the script shells out to wrangler
+   # dry run first — prints exactly what it would copy, writes nothing:
+   node ../scripts/relink-comments.js --from "versioning test" --to "versioning-test"
+   # then actually copy:
+   node ../scripts/relink-comments.js --from "versioning test" --to "versioning-test" --apply
+   ```
+
+   `--from`/`--to` are the old/new path fragments (bare folder name, or `Scheduling/versioning test` for a more precise match). Spaces are handled automatically. It copies both `pins:` and `settings:` keys, **leaves the originals in place** as a backup, and won't overwrite a destination that already has comments. Reload the renamed mock on GitHub Pages and the comments are back. See `designtoolbox/scripts/relink-comments.js` for full options.
+
 ## Worker API
 
 | Method | Path | Body | Notes |
