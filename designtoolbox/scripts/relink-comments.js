@@ -225,9 +225,11 @@ if (!matches.length) {
 const WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
 async function matchingLogTimestamps() {
   const res = await fetch(`${WORKER_URL}/log?limit=2000`);
-  const events = await res.json();
+  const data = await res.json();
+  // The /log endpoint returns { events: [...], total }, not a bare array.
+  const events = Array.isArray(data) ? data : (data && Array.isArray(data.events) ? data.events : []);
   const ts = new Set();
-  for (const e of (Array.isArray(events) ? events : [])) {
+  for (const e of events) {
     if (e && typeof e.url === 'string' && e.url.includes(fromFrag) && e.ts) ts.add(e.ts);
   }
   return ts;
