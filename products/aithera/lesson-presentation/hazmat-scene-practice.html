@@ -1065,6 +1065,14 @@
     <script src="js/sim-debrief.js?v=1"></script>
     <script src="js/sim-chat-history.js?v=4"></script>
 
+    <!-- Writer Studio bridge — lets "Publish to prototype" round-trip:
+         studio-engine + the Observe/React type register into window.AitheraStudio
+         (observe-react.js also needs window.AitheraScenario from scenario.js).
+         When nothing is published the inline scenario below is used unchanged. -->
+    <script src="js/studio-engine.js?v=1"></script>
+    <script src="js/scenario.js?v=8"></script>
+    <script src="js/scenario-types/observe-react.js?v=3"></script>
+
     <script>
     /* =====================================================================
        HAZMAT SCENE SIZE-UP — engine + render-by-state (vanilla, no framework)
@@ -1083,8 +1091,55 @@
        simulator page. The scripted five-beat responder below remains the
        no-network fallback (set live:false on the engine to force it). */
 
+    /* =====================================================================
+       WRITER STUDIO BRIDGE — "Publish to prototype" round-trip.
+       If an Observe/React scenario has been published from Writer Studio
+       (a localStorage slot), adapt it into this page's inline data shapes.
+       When nothing is published — the public default — PUBLISHED stays null
+       and every inline value below is used, behaviorally unchanged.
+       ===================================================================== */
+    function fromPublishedObserveReact(s) {
+      const compile = window.AitheraStudio.get('observe-react').compile;
+      // SEGMENT_OPENERS is keyed by the 0-based index of the segment JUST
+      // watched. A studio opener's `segment` is 1-based "on return from
+      // segment N", so the page key is N-1 (segment 1 is the cold open, whose
+      // return is the opening question — it has no opener).
+      const openers = {};
+      (s.openers || []).forEach((o) => {
+        const n = Number(o && o.segment);
+        const line = String((o && o.line) || '').trim();
+        if (n >= 2 && line) openers[n - 1] = [{ speaker: 'coach', kind: 'coaching', text: line }];
+      });
+      const dims = (s.dimensions || []).filter((d) => d && (d.name || d.strong || d.weak));
+      const resItems = (((s.resources || {}).items) || [])
+        .filter((r) => r && (r.title || r.body))
+        .map((r) => ({ icon: 'fa-circle-info', title: r.title || '', body: r.body || '' }));
+      return {
+        title: s.title || 'Observe / React',
+        system: compile(s),                                   // → SYSTEM_PROMPT
+        scenes: (s.segments || [])                            // → OBSERVE_SCENES
+          .filter((sc) => sc && (sc.src || sc.caption || sc.label))
+          .map((sc) => ({ src: sc.src || '', label: sc.label || '', text: sc.caption || '' })),
+        openers,                                              // → SEGMENT_OPENERS
+        opening: s.openingQuestion || '',                     // → initialMessages()
+        // Section-3 close: resources → CHECKLIST; the rubric's two poles →
+        // the static strengths/growth pages; playbook → the playbook page.
+        checklist: { lead: (s.resources || {}).lead || '', items: resItems },
+        strengths: dims.map((d) => ({ icon: 'fa-star', title: d.name || '', body: d.strong || '' })),
+        growth: dims.map((d) => ({ icon: 'fa-seedling', title: d.name || '', body: d.weak || '' })),
+        playbook: (s.playbook || []).filter((p) => p && (p.title || p.body))
+          .map((p) => ({ title: p.title || '', body: p.body || '' })),
+      };
+    }
+    let PUBLISHED = null;
+    try {
+      const t = window.AitheraStudio && AitheraStudio.get && AitheraStudio.get('observe-react');
+      const pub = t && t.store && t.store.loadPublished();
+      if (pub && pub.scenario) PUBLISHED = fromPublishedObserveReact(pub.scenario);
+    } catch (e) { PUBLISHED = null; }   // any failure → inline fallback
+
     const SCENARIO = {
-      title: 'Hazmat Scene Size-Up: I-65 Tanker Rollover',
+      title: PUBLISHED ? PUBLISHED.title : 'Hazmat Scene Size-Up: I-65 Tanker Rollover',
     };
 
     /* The Observe scene — told in THREE segments, each its own clip, each
@@ -1099,7 +1154,7 @@
        it as a "what not to do": live traffic never cleared in segment 1, a
        firefighter close enough to touch the tank in segment 2. Segment 3
        (no footage yet) narrates the compliant version for contrast. */
-    const OBSERVE_SCENES = [
+    const OBSERVE_SCENES_INLINE = [
       // Captions are paced to ~10s clips — the video's own end is what hands
       // control back, so keep each segment's text readable inside its runtime,
       // and write it to what's actually ON SCREEN in that clip.
@@ -1124,7 +1179,7 @@
     /* The coach's opener after each RETURN to Observe (segments 2 and 3) —
        reacting to what just played, then probing the next beat. Indexed by
        the segment that was just watched. */
-    const SEGMENT_OPENERS = {
+    const SEGMENT_OPENERS_INLINE = {
       1: [
         { speaker: 'coach', kind: 'coaching', text:
 `Sit with that one for a second before we analyze anything. How did that video make you feel — was that distance reasonable?` },
@@ -1135,7 +1190,11 @@
       ],
     };
 
-    let SYSTEM_PROMPT = `You run an AI scene-analysis coaching module for hazmat first-responder training, built as a "what not to do" study. The learner ("you") is REVIEWING footage of a real scene that was NOT run by the book, in three video segments: (1) a drone overview of an overturned cargo tanker across I-65 — placard red diamond, UN 1993, Class 3 Flammable Liquid — with live traffic STILL MOVING on both sides of the wreck, just feet away (the compliance failure the learner should spot), (2) helmet-cam footage of the first firefighter in, walking right up to the leaking tank — close enough to touch it, in structural gear, not on air (the discomfort this footage produces is itself the lesson), (3) a narrated version of the same scene run correctly (traffic stopped and diverted, crews staged upwind at distance, HazMat rolling). Between segments, an AI COACH probes the learner one beat at a time and never gives a verdict up front — ask, then validate/correct after they answer.
+    // Prefer the published scenario's footage/openers; else the inline ones.
+    const OBSERVE_SCENES  = PUBLISHED ? PUBLISHED.scenes  : OBSERVE_SCENES_INLINE;
+    const SEGMENT_OPENERS = PUBLISHED ? PUBLISHED.openers : SEGMENT_OPENERS_INLINE;
+
+    const SYSTEM_PROMPT_INLINE = `You run an AI scene-analysis coaching module for hazmat first-responder training, built as a "what not to do" study. The learner ("you") is REVIEWING footage of a real scene that was NOT run by the book, in three video segments: (1) a drone overview of an overturned cargo tanker across I-65 — placard red diamond, UN 1993, Class 3 Flammable Liquid — with live traffic STILL MOVING on both sides of the wreck, just feet away (the compliance failure the learner should spot), (2) helmet-cam footage of the first firefighter in, walking right up to the leaking tank — close enough to touch it, in structural gear, not on air (the discomfort this footage produces is itself the lesson), (3) a narrated version of the same scene run correctly (traffic stopped and diverted, crews staged upwind at distance, HazMat rolling). Between segments, an AI COACH probes the learner one beat at a time and never gives a verdict up front — ask, then validate/correct after they answer.
 
 Return ONLY JSON: {"turn":[{"speaker":"coach"|"you","kind":"coaching","text":"..."}],"observeNext":true|false,"complete":true|false}
 observeNext and complete are TOP-LEVEL fields of the response object — never fields on turn[] items. Include BOTH on EVERY response (false when not applicable). observeNext:true belongs on exactly the response whose final coach message sends the learner to the next segment — never close a chapter in words without setting it, and never set it mid-beat.
@@ -1147,10 +1206,14 @@ Chapter structure — set observeNext:true on the turn that CLOSES a chapter, wh
 
 Keep each coach message to 2-4 sentences. Never shame the crew in the footage — frame it as "this is how scenes actually go wrong, and your job is to notice." Never introduce a character or roleplay — this is always a two-person conversation between the learner and the coach about what they observed.`;
 
+    // SYSTEM_PROMPT stays `let` — the Section-1 coupler appends addenda to it.
+    let SYSTEM_PROMPT = PUBLISHED ? PUBLISHED.system : SYSTEM_PROMPT_INLINE;
+
     /* ---- STATE -------------------------------------------------------- */
+    const OPENING_TEXT = PUBLISHED ? PUBLISHED.opening :
+`What you just watched is how this scene actually unfolded — and parts of it should bother you. We'll get to that. First, the basics: what did you see on the tank's placard?`;
     const initialMessages = () => ([
-      { speaker: 'coach', kind: 'coaching', text:
-`What you just watched is how this scene actually unfolded — and parts of it should bother you. We'll get to that. First, the basics: what did you see on the tank's placard?` },
+      { speaker: 'coach', kind: 'coaching', text: OPENING_TEXT },
     ]);
 
     const state = {
@@ -1414,7 +1477,7 @@ Nothing about that tank got safer today. The difference is you'd have kept every
     /* ---- the closing checklist, presented AS a coach message — built by
        the SHARED Section-3 debrief (js/sim-debrief.js). Hazmat's takeaways
        are field references, so each carries its own icon. ---- */
-    const CHECKLIST = {
+    const CHECKLIST_INLINE = {
       lead: `Reading the scene safely is the first job on any hazmat call — here's what to keep within reach for the next one:`,
       items: [
         { icon: 'fa-book', title: 'The Emergency Response Guidebook (ERG)', body: `Your fastest path from a placard number to a real isolation distance and initial response guide.` },
@@ -1422,6 +1485,7 @@ Nothing about that tank got safer today. The difference is you'd have kept every
         { icon: 'fa-phone-volume', title: 'Your regional HazMat team', body: `Call early — they'd rather roll and stand down than arrive to a scene that's already gotten worse.` },
       ],
     };
+    const CHECKLIST = PUBLISHED ? PUBLISHED.checklist : CHECKLIST_INLINE;
     const checklistNode = () => SimDebrief.resourcesNode({
       lead: CHECKLIST.lead,
       items: CHECKLIST.items,
@@ -1430,16 +1494,19 @@ Nothing about that tank got safer today. The difference is you'd have kept every
 
     /* ---- the closing summary: stepper + strengths/growth report ------- */
     const CLOSING_STEPS = ['Analyzing your size-up…', 'Determining strengths…', 'Determining growth areas…'];
-    const CLOSING_STRENGTHS = [
+    const CLOSING_STRENGTHS_INLINE = [
       { icon: 'fa-eye', title: 'You read the placard first', body: `1993, Class 3 — you pulled the one data point that unlocks everything else before anything distracted you.` },
       { icon: 'fa-car', title: 'You spotted the non-compliant scene', body: `The live traffic inside the isolation zone jumped out at you — the thing the crew on scene never fixed.` },
       { icon: 'fa-heart-pulse', title: 'You trusted the discomfort', body: `The helmet-cam footage felt wrong to you, and you turned that feeling into concrete corrections instead of talking yourself out of it.` },
       { icon: 'fa-list-check', title: 'You knew what right looks like', body: `Staging, distance, the road closure, the calls — your version of the scene had the pieces in the right order.` },
     ];
-    const CLOSING_GROWTH = [
+    const CLOSING_GROWTH_INLINE = [
       { icon: 'fa-book', title: 'Put numbers on your instincts', body: `"Too close" is the right instinct — Guide 128's 150-foot initial isolation is the number that backs it up. Get to the ERG the moment you have a UN number.` },
       { icon: 'fa-phone', title: `Call for help before you're asked`, body: `HazMat, law enforcement, command — those calls happen in parallel with your size-up, not after it.` },
     ];
+    // Published: the rubric's two poles become the static strengths/growth.
+    const CLOSING_STRENGTHS = PUBLISHED ? PUBLISHED.strengths : CLOSING_STRENGTHS_INLINE;
+    const CLOSING_GROWTH    = PUBLISHED ? PUBLISHED.growth    : CLOSING_GROWTH_INLINE;
 
     /* The debrief itself is the SHARED Section-3 flow (js/sim-debrief.js).
        Hazmat's results are AUTHORED (source:'static') — the fallback lists
@@ -1449,7 +1516,9 @@ Nothing about that tank got safer today. The difference is you'd have kept every
       report: () => null,                        // static debrief — always the authored lists
       fallbackStrengths: CLOSING_STRENGTHS,
       fallbackGrowth: CLOSING_GROWTH,
-      playbook: [],
+      // Inline: no playbook page (the checklist coach-message is the takeaway).
+      // Published: the authored playbook compile() promises renders as a page.
+      playbook: PUBLISHED ? PUBLISHED.playbook : [],
     });
     const DEBRIEF = SimDebrief.makeFlow({
       state,

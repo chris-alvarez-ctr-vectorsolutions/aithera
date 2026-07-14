@@ -1283,7 +1283,14 @@
     </div>
 
     <!-- Kendra engine: the locked output contract + fill() helper we reuse -->
-    <script src="js/scenario.js?v=4"></script>
+    <script src="js/scenario.js?v=8"></script>
+    <!-- Writer Studio engine + the Guided Arc type: let this page consume a
+         scenario PUBLISHED from Writer Studio. Order matters — studio-engine and
+         the type register into window.AitheraStudio, and guided-arc.js reads
+         window.AitheraScenario (from scenario.js above) at load. When nothing is
+         published the page falls back to the inline scenario below, unchanged. -->
+    <script src="js/studio-engine.js?v=1"></script>
+    <script src="js/scenario-types/guided-arc.js?v=3"></script>
     <!-- Reusable context-setter (narrated audio / reading) for the opening scene -->
     <script src="js/scene-context.js?v=1"></script>
     <!-- Shared simulator framework — one implementation under every mode:
@@ -1330,7 +1337,114 @@
        Kendra roleplay loop the Studio's action-practice type models. We reuse
        the Kendra SHELL + rendering engine here and supply Marshall's content
        and system prompt from that module. */
-    const ACTIVE_SCENARIO = MarshallScenarioV2.SCENARIO;
+    /* ---- PUBLISHED-SCENARIO ADAPTER (Guided Arc round-trip) -----------
+       If a scenario has been PUBLISHED from Writer Studio's Guided Arc type,
+       consume it; otherwise fall back to the inline MarshallScenarioV2 above.
+       fromPublishedGuidedArc() maps the studio's beats-based shape into the
+       { SCENARIO, SYSTEM_PROMPT } shape this page already renders. The whole
+       published path is wrapped in try/catch below so ANY error falls back to
+       the inline scenario — the public site has nothing published, so the
+       inline path stays the default and byte-for-byte unchanged. */
+    function fromPublishedGuidedArc(gs) {
+      const type = AitheraStudio.get('guided-arc');
+      const F = (t) => type.fill(t, gs);                 // resolve {{learner}}/{{character}} (idempotent)
+      const SYSTEM_PROMPT = type.compile(gs);            // ONE system-prompt string (context handoff folded in)
+
+      const beats = (gs.beats || []).filter((b) => b && b.kind);
+      const reflect = beats.find((b) => b.kind === 'reflect');
+      const check   = beats.find((b) => b.kind === 'knowledge-check');
+      const decide  = beats.find((b) => b.kind === 'decide');
+
+      /* The beats schema has no distinct pre-video action-pivot line, but this
+         page injects one as locked.scene right before playing the incident
+         video. Synthesize a short, neutral coach hand-off so that beat still
+         has text to deliver. (Reuses the inline page's pivot wording, trimmed
+         of scenario-specific detail so it works for any published scenario.) */
+      const ACTION_PIVOT = 'That’s exactly where you come in. Watch what happens — then we’ll talk it through.';
+
+      const intro = gs.intro || {};
+      const decideMedia = (decide && decide.media) || {};
+
+      const SCENARIO = {
+        v: 2,
+        title: F(gs.title || ''),
+        course: F(gs.course || ''),
+        learnerName: gs.learnerName || 'you',
+        characterName: gs.characterName || 'the character',
+        elevatedStakes: gs.elevatedStakes === true,
+
+        establishing: {
+          eyebrow: F((gs.establishing || {}).eyebrow || ''),
+          title:   F((gs.establishing || {}).title || ''),
+          sub:     F((gs.establishing || {}).sub || ''),
+        },
+        // Chrome the V2 (coach-only) path barely uses; neutral, matches inline.
+        sceneInputPlaceholder: 'What do you do — or say — in the moment…',
+        sceneLineCaption: 'You — in the moment',
+
+        // LOCKED opening (grey): the reflect beat's prompt, seeded after intro.
+        opening: reflect ? [F(reflect.prompt)] : [],
+
+        // LOCKED mid-arc beats the page injects verbatim:
+        //  - legal:   the knowledge-check prompt (Title VII question)
+        //  - scene:   the synthesized action-pivot (then the incident video plays)
+        //  - observe: the decide beat's post-video reflection prompt
+        locked: {
+          legal:   check  ? [{ speaker: 'coach', kind: 'coaching', text: F(check.prompt) }] : [],
+          scene:   [{ speaker: 'coach', kind: 'coaching', text: ACTION_PIVOT }],
+          observe: decide ? [{ speaker: 'coach', kind: 'coaching', text: F(decide.prompt) }] : [],
+        },
+
+        playbook: (gs.playbook || []).map((p) => ({ title: F((p || {}).title || ''), body: F((p || {}).body || '') })),
+        resources: {
+          lead: F((gs.resources || {}).lead || ''),
+          items: ((gs.resources || {}).items || []).map((r) => ({ title: F((r || {}).title || ''), body: F((r || {}).body || '') })),
+        },
+
+        // CONTEXT MODALITY — passthrough of the intro. Sounded clips keep an
+        // empty overlay caption (matching the inline scenario's behavior).
+        intro: {
+          type: intro.type || 'none',
+          video: {
+            sound: (intro.video || {}).sound !== false,
+            scenes: (((intro.video || {}).scenes) || [])
+              .filter((s) => s && s.src)
+              .map((s) => ({ src: s.src, caption: '' })),
+          },
+          audio: {
+            eyebrow: F((intro.audio || {}).eyebrow || ''),
+            title:   F((intro.audio || {}).title || ''),
+            text:    F((intro.audio || {}).text || ''),
+          },
+          story: {},
+        },
+
+        // THE INCIDENT VIDEO = the decide beat's media. Plays with sound and no
+        // overlay caption — the media caption is the coach's grounding, already
+        // carried into SYSTEM_PROMPT by compile(), not shown to the learner.
+        incident: {
+          sound: true,
+          scenes: decideMedia.src ? [{ src: decideMedia.src, caption: '' }] : [],
+        },
+      };
+
+      return { SCENARIO, SYSTEM_PROMPT };
+    }
+
+    /* Load-or-fallback: try the published Guided Arc slot; ANY failure (or no
+       published scenario) falls back to the inline MarshallScenarioV2. */
+    let MARSHALL_SOURCE = MarshallScenarioV2;   // default: the inline scenario
+    try {
+      const pub = window.AitheraStudio
+        && AitheraStudio.get('guided-arc')
+        && AitheraStudio.get('guided-arc').store.loadPublished();
+      if (pub && pub.scenario) MARSHALL_SOURCE = fromPublishedGuidedArc(pub.scenario);
+    } catch (e) {
+      console.warn('Published Guided Arc scenario failed to load — using inline scenario.', e);
+      MARSHALL_SOURCE = MarshallScenarioV2;
+    }
+
+    const ACTIVE_SCENARIO = MARSHALL_SOURCE.SCENARIO;
     const SCENARIO = {
       learner: ACTIVE_SCENARIO.learnerName,
       character: ACTIVE_SCENARIO.characterName,
@@ -1390,7 +1504,7 @@
        break-room outcomes, the legal/empathy calibration, and the guaranteed
        nine-component close all live there.
        ===================================================================== */
-    let SYSTEM_PROMPT = MarshallScenarioV2.SYSTEM_PROMPT;   // let: the Section-1 coupler may append context addenda
+    let SYSTEM_PROMPT = MARSHALL_SOURCE.SYSTEM_PROMPT;   // let: the Section-1 coupler may append context addenda
 
     /* ---- STATE -------------------------------------------------------- */
     /* The coach's opening beat is SEEDED (not model-generated) so every
