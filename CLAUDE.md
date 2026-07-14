@@ -11,24 +11,12 @@ This project is used by the **UX team** to generate quick HTML/CSS prototypes fo
 - **Skill Level**: Team understands HTML/CSS but may not be familiar with advanced build tools or modern JavaScript frameworks
 
 ## Quick Reference
-- **Component Reference**: See @context/core/v1.22.2/CONTEXT.md for the component index; each component links to its own detailed CONTEXT.md under that directory
-- **Component Lookup**: Use the reference file for quick offline access to component tags and attributes
-
-Claude will:
-1. Fetch the latest component list from Storybook
-2. Extract current component tags from the CDN
-3. Query component props and attributes
-4. Update the reference file with new information
-
-**Last Updated:** The reference file shows its last update date at the bottom
+- **Component Reference**: The local `context/` directory caches CONTEXT.md files from the CDN. Check there first; if the version you need isn't present, fetch it directly from the CDN (see lookup pattern below).
+- **CDN base**: `https://cdn.vsp-prod.com/web-components/@vector-web-components/`
 
 ## Vector Web Components
 
-**CRITICAL: Always use Vector web components from Storybook when designing UX or creating prototypes.**
-
-This project has access to the Vector Web Components library via Storybook MCP server:
-- **Storybook URL**: https://cdn.staging.vsp-nonprod.com/web-components/@vector-web-components/storybook/latest/index.html
-- The MCP connection always uses the latest version automatically
+**CRITICAL: Always use Vector web components when designing UX or creating prototypes.**
 
 ### Available Packages
 
@@ -65,28 +53,42 @@ Design assets including:
 
 ### Using Vector Components
 
-#### 1. Check Component Reference First
-**Quick Lookup Process:**
-1. Check `context/core/v1.22.2/CONTEXT.md` for the component index, then follow the link to the specific component's CONTEXT.md for full props and usage
-2. Use Storybook MCP tools for detailed component information if needed:
-   - `mcp__storybook__getComponentList` - List all available components
-   - `mcp__storybook__getComponentsProps` - Get props/attributes for specific components
+#### 1. Resolve the component version and fetch context
 
-The reference file provides faster lookup for common components and usage patterns.
+**When working on an existing mock:**
+1. Read the mock's `index.html` and extract the core and themes versions from its CDN `<script>` tags:
+   ```html
+   <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/<ver>/core.iife.js"></script>
+   <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/<ver>/styles.js"></script>
+   ```
+2. Check whether `context/core/<ver>/CONTEXT.md` and `context/themes/<ver>/CONTEXT.md` already exist locally. If they do, use them.
+3. If not present locally, fetch them from the CDN:
+   - `https://cdn.vsp-prod.com/web-components/@vector-web-components/core/<ver>/CONTEXT.md`
+   - `https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/<ver>/CONTEXT.md`
+
+**When creating a new mock** (or when no mock exists yet), use the version from `base-template/index.html` the same way.
+
+**Minimum version fallback:** CONTEXT.md files were not published before certain library versions. If the version in the mock is older than the minimum, fall back to the minimum and note it.
+
+| Package | Minimum version with CONTEXT.md |
+|---|---|
+| `@vector-web-components/core` | `v1.22.1` |
+| `@vector-web-components/themes` | `v1.9.3` |
+
+**NEVER use component tag names, props, or token values from memory.** Always quote them from a fetched or locally-cached CONTEXT.md. Confidently wrong values are worse than admitting uncertainty.
 
 #### 2. Component Integration
 - Web components use **Vaadin** custom element tags (e.g., `<vaadin-text-area>`, `<vaadin-button>`)
 - Components work directly in HTML without build tools
 - Most Vector components use either `vaadin-` or `vwc-` prefix
-- Set attributes and properties as documented in the component's CONTEXT.md (linked from `context/core/v1.22.2/CONTEXT.md`)
+- Set attributes and properties as documented in the fetched CONTEXT.md for the version in use
 
 **IMPORTANT:**
-- **Always refer to `context/core/v1.22.2/CONTEXT.md`** for correct component tag names
-- **NEVER fabricate or assume component tag names**
-- If a component is not in the reference file, check Storybook or ask the user
+- **Always verify component tag names against the fetched CONTEXT.md** — never fabricate or assume them
+- If a tag or prop cannot be confirmed from the fetched CONTEXT.md, flag it as unverified rather than guessing
 - Do NOT use placeholder names like `<vector-component>` or `<vsp-component>` in code
 
-**Quick Component Tag Reference:**
+**Quick Component Tag Reference** (verify in CONTEXT.md before use):
 - Form Controls: `vaadin-text-field`, `vaadin-text-area`, `vaadin-password-field`, `vaadin-number-field`, `vaadin-checkbox`, `vaadin-radio-button`, `vaadin-select`, `vaadin-date-picker`
 - Buttons: `vaadin-button`
 - Layout: `vwc-card`, `vaadin-details`, `vaadin-accordion`, `vaadin-tabs`
@@ -94,7 +96,7 @@ The reference file provides faster lookup for common components and usage patter
 - Data Display: `vwc-icon`, `vwc-badge`, `vaadin-progress-bar`, `vwc-spinner`
 - Other: `vwc-switch`, `vwc-divider`, `vwc-headline`
 
-For the complete list with props and examples, see `context/core/v1.22.2/CONTEXT.md`
+For the complete list with props and examples, fetch the CONTEXT.md for the version in use (see lookup pattern above).
 
 #### 3. For a NEW mock
 
@@ -182,11 +184,11 @@ Commit the new files, then give the designer the dev build's **GitHub Pages URL*
 
 ### Style Guidelines
 
-Use `context/themes/v1.9.2/CONTEXT.md` as the reference for design tokens and theming provided from the themes bundle in styles.js.
+Use the themes CONTEXT.md for the version in use (see CDN lookup pattern above) as the reference for design tokens and theming. Always quote token values from the fetched file — never recall them from memory.
 
 #### Colors (Styleguide/Colors)
 - Use semantic color tokens from Vector theme rather than specific color hex values
-- Check Storybook for primary, secondary, accent, neutral colors
+- Token values live in the themes CONTEXT.md for the version in use — fetch it to look up exact values
 - Follow accessibility guidelines for contrast ratios
 
 #### Typography (Styleguide/Typography)
