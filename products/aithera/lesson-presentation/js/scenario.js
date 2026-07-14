@@ -90,7 +90,9 @@
     ],
 
     // THE GATE — what must happen before the scene may resolve positively.
+    // mode: 'hard' blocks until the required move; 'soft' nudges then advances.
     gate: {
+      mode: 'hard',
       requirement: 'the learner moves to connect {{character}} to real help — an RA, campus counseling, a trusted adult, or the 988 Suicide & Crisis Lifeline',
       notSuccess: 'A warm heart-to-heart alone is NOT success; {{learner}} is not the one who fixes this.',
       teach: 'notice → reach out → listen → connect',
@@ -110,6 +112,13 @@
       condition: 'the learner has passed the gate AND offered a small shared step',
       resolutionExample: '...Okay. If you come with me. Just to talk to someone. Once.',
     },
+
+    // CONTEXT SOURCE — 'in-scenario' (an intro modality sets the scene) or
+    // 'previous-lo' (context is inherited from the learning object that ran
+    // right before; previousLO metadata feeds the intro handoff). Platform-
+    // level, shared across every mode.
+    contextSource: 'in-scenario',
+    previousLO: { title: '', covered: '', handoff: '' },
 
     // ELEVATED STAKES — wellbeing/crisis-adjacent scenario. When true, the
     // locked crisis floor (988) is appended to the resources the learner sees,
@@ -151,6 +160,10 @@
 
     // The coach's opening prep question (already on screen when the AI joins).
     openingQuestion: 'Before you decide what to do — take a moment. What\'s going through your head right now? What makes you nervous about approaching this?',
+
+    // OPENING REFLECTION FOCUS — ideas the coach draws out in-context before the
+    // scene. Non-blocking: surfaced if the learner misses them, never a gate.
+    reflectionFocus: ['names the root cause (grief / loss)', 'names the safety risk (pills + alcohol)'],
 
     // THE INTRO MODULE — how the scene is set before the practice begins.
     // type picks the experience; both sub-blocks stay authored so a writer
@@ -245,6 +258,28 @@
   const COUNT_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
   const countWord = (n) => COUNT_WORDS[n] || String(n);
 
+  /* ---- context handoff (shared across every mode) -----------------------
+     Platform-level: when a scenario declares its context is INHERITED from the
+     learning object that ran right before it (contextSource === 'previous-lo'),
+     every mode's compile() folds in this handoff so the AI's intro bridges the
+     seam instead of re-establishing the scene. In production the previousLO
+     metadata is pulled from the LO graph; in the studio the author enters it.
+     Exported on window.AitheraScenario so guided-arc / observe-react /
+     teach-back reuse the exact same wording. */
+  function contextHandoff(s) {
+    if (!s || (s.contextSource || 'in-scenario') !== 'previous-lo') return '';
+    const p = s.previousLO || {};
+    const title = fill(p.title, s).trim();
+    const covered = fill(p.covered, s).trim();
+    const handoff = fill(p.handoff, s).trim();
+    if (!title && !covered && !handoff) return '';
+    return 'CONTEXT HANDOFF — the learner arrives directly from a previous learning object' +
+      (title ? ` ("${title}")` : '') + '.' +
+      (covered ? ` It covered: ${covered}.` : '') +
+      (handoff ? ` They land here having just ${handoff}.` : '') +
+      ' Open by BRIDGING that transition — acknowledge where they just were and pick up the thread; do NOT re-establish the context from scratch or re-teach what they have already covered.';
+  }
+
   /* =======================================================================
      ENGINE SECTIONS — locked guardrails. The studio shows these read-only;
      writers can see the machinery but never edit or break it. Each entry is
@@ -309,6 +344,16 @@
     // Engine mechanics with writer pacing knobs + opening image.
     parts.push(`THE LOOP — the coach opens with 1-2 short reflection beats (the opening question is already on screen), then invites the learner into the scene. The FIRST turn that moves to the scene MUST end with a character narration message that physically establishes the room (what ${L} sees walking in — e.g. ${fill(s.openingImage, s)}) so the learner never steps into an empty stage. From there, interleave: learner speaks a line in the scene → ${C} reacts (narration + dialogue) AND the coach debriefs in the SAME turn → the learner answers the coach → the coach sends them back in (mode:"scene"). Aim for roughly ${s.pacing.sceneLines} spoken scene lines total — this is a ${s.pacing.duration} practice, not an open-ended chat.`);
 
+    // Writer: opening reflection focus (non-blocking — drawn out in-context).
+    const focus = (s.reflectionFocus || []).map((f) => fill(f, s).trim()).filter(Boolean);
+    if (focus.length) {
+      parts.push(`OPENING REFLECTION — in your first 1-2 coaching beats, draw out these points if the learner doesn't raise them, WITHOUT blocking (this never gates): ${focus.map((f) => `"${f}"`).join('; ')}. Then move into the scene regardless of their answer.`);
+    }
+
+    // Context handoff — when the scene is inherited from a previous LO.
+    const handoff = contextHandoff(s);
+    if (handoff) parts.push(handoff);
+
     // Writer: assessment dimensions inside the engine's scoring rule.
     parts.push(
       `SILENT ASSESSMENT — score every scene line the learner speaks on ${countWord(dims.length)} dimensions (never show scores or dimension names to the learner):\n` +
@@ -345,8 +390,13 @@
       );
     }
 
-    // Writer gate criteria inside the engine's nudge-cap mechanics.
-    parts.push(`THE GATE — HARD REQUIREMENT: the scene cannot resolve positively until ${fill(s.gate.requirement, s)}. ${fill(s.gate.notSuccess, s)} Teach ${fill(s.gate.teach, s)}. If the learner stalls at this beat, the coach nudges AT MOST TWICE (first open — "${fill(s.gate.nudgeOpen, s)}"; then concrete — "${fill(s.gate.nudgeConcrete, s)}"). After two nudges, accept even "${fill(s.gate.fallback, s)}" and let the practice move forward — never trap the learner in a loop. If they passed the gate only with help, say so honestly (and reflect it in the report's growth areas).`);
+    // Writer gate criteria inside the engine's nudge-cap mechanics. Hard vs
+    // soft is the author's choice per scenario.
+    if ((s.gate.mode || 'hard') === 'soft') {
+      parts.push(`THE GATE (soft) — no hard block: the scene advances once the learner has engaged. Still aim them toward ${fill(s.gate.requirement, s)}. ${fill(s.gate.notSuccess, s)} Teach ${fill(s.gate.teach, s)}. If they stall, nudge AT MOST TWICE (first open — "${fill(s.gate.nudgeOpen, s)}"; then concrete — "${fill(s.gate.nudgeConcrete, s)}"), then move forward regardless. If the required move never came, say so honestly in the report's growth areas.`);
+    } else {
+      parts.push(`THE GATE — HARD REQUIREMENT: the scene cannot resolve positively until ${fill(s.gate.requirement, s)}. ${fill(s.gate.notSuccess, s)} Teach ${fill(s.gate.teach, s)}. If the learner stalls at this beat, the coach nudges AT MOST TWICE (first open — "${fill(s.gate.nudgeOpen, s)}"; then concrete — "${fill(s.gate.nudgeConcrete, s)}"). After two nudges, accept even "${fill(s.gate.fallback, s)}" and let the practice move forward — never trap the learner in a loop. If they passed the gate only with help, say so honestly (and reflect it in the report's growth areas).`);
+    }
 
     // Engine: off-script handling + learner safety.
     parts.push(ENGINE_SECTIONS[1].text(s));
@@ -387,6 +437,10 @@
     const clone = (o) => JSON.parse(JSON.stringify(o));
     const out = { ...s };
     if (typeof out.elevatedStakes !== 'boolean') out.elevatedStakes = DEFAULT_SCENARIO.elevatedStakes;
+    if (out.contextSource !== 'previous-lo') out.contextSource = 'in-scenario';
+    if (!out.previousLO || typeof out.previousLO !== 'object') out.previousLO = { title: '', covered: '', handoff: '' };
+    if (!Array.isArray(out.reflectionFocus)) out.reflectionFocus = clone(DEFAULT_SCENARIO.reflectionFocus);
+    if (out.gate && !['hard', 'soft'].includes(out.gate.mode)) out.gate.mode = 'hard';
     if (!Array.isArray(out.playbook)) out.playbook = clone(DEFAULT_SCENARIO.playbook);
     if (!out.resources || !Array.isArray(out.resources.items)) out.resources = clone(DEFAULT_SCENARIO.resources);
     if (!Array.isArray(out.references)) out.references = [];
@@ -477,6 +531,7 @@
     CRISIS_FLOOR,
     REF_BUDGET,
     fill,
+    contextHandoff,
     compilePrompt,
     isValidScenario,
     normalize,
@@ -536,6 +591,10 @@
     push(s.gate.requirement); push(s.gate.notSuccess); push(s.gate.teach);
     push(s.gate.nudgeOpen); push(s.gate.nudgeConcrete); push(s.gate.fallback);
     push(s.completion.condition); push(s.completion.resolutionExample);
+    if ((s.contextSource || 'in-scenario') === 'previous-lo' && s.previousLO) {
+      push(s.previousLO.title); push(s.previousLO.covered); push(s.previousLO.handoff);
+    }
+    (s.reflectionFocus || []).forEach(push);
     (s.dimensions || []).forEach((d) => { push(d.name); push(d.strong); push(d.weak); });
     (s.reactions || []).forEach((r) => { push(r.when); push(r.then); });
     (s.misconceptions || []).forEach((m) => { push(m.belief); push(m.consequence); });
@@ -559,10 +618,9 @@
     if (empty(s.characterName)) add('err', 'basics', 'Name the character.');
     if (empty(s.courseContext)) add('warn', 'basics', 'Course context is empty.', 'Without it the AI has to guess the course\'s register and audience.');
 
-    // Setup
-    if (empty(s.setup)) add('err', 'setup', 'The scenario setup is empty — the AI has no situation to play.');
-    else if (s.setup.trim().length < 200) add('warn', 'setup', 'The setup is very short.', 'The AI improvises around gaps. Give it the history, the evidence the learner has seen, and who the character is underneath.');
-    if (empty(s.openingImage)) add('warn', 'setup', 'No opening image — the learner may step into an empty stage.', 'The scene\'s first narration paints this picture.');
+    // Character card (situation + reactions + style)
+    if (empty(s.setup)) add('err', 'character', 'The situation is empty — the AI has no scene to play.');
+    else if (s.setup.trim().length < 200) add('warn', 'character', 'The situation is very short.', 'The AI improvises around gaps. Give it the history, the evidence the learner has seen, and who the character is underneath.');
 
     // Dimensions
     const dims = (s.dimensions || []).filter((d) => !empty(d.name) || !empty(d.strong) || !empty(d.weak));
@@ -576,13 +634,12 @@
       if (!empty(d.strong) && !/["“]/.test(d.strong + d.weak)) add('info', 'dimensions', `Dimension ${label} has no quoted example line.`, 'A short quoted example ("I\'ll go with you") anchors the AI far better than description alone.');
     });
 
-    // Realism
     const reacts = (s.reactions || []).filter((r) => !empty(r.when) || !empty(r.then));
-    if (!reacts.length) add('err', 'realism', 'The reaction map is empty — the character won\'t respond consistently.');
+    if (!reacts.length) add('err', 'character', 'The reaction map is empty — the character won\'t respond consistently.');
     reacts.forEach((r, i) => {
-      if (empty(r.when) || empty(r.then)) add('warn', 'realism', `Reaction #${i + 1} is incomplete.`, 'Each row needs both the learner\'s move and the character\'s response.');
+      if (empty(r.when) || empty(r.then)) add('warn', 'character', `Reaction #${i + 1} is incomplete.`, 'Each row needs both the learner\'s move and the character\'s response.');
     });
-    if (empty(s.styleNotes)) add('warn', 'realism', 'No style rules for the character.', 'These stop melodrama and therapy-speak — the two ways AI characters most often break.');
+    if (empty(s.styleNotes)) add('warn', 'character', 'No style rules for the character.', 'These stop melodrama and therapy-speak — the two ways AI characters most often break.');
 
     // Misconceptions
     (s.misconceptions || []).forEach((m, i) => {
@@ -643,6 +700,7 @@
     // Opening & intro
     if (empty(s.openingQuestion)) add('err', 'opening', 'Write the coach\'s opening question.');
     else if (!/\?\s*$/.test(s.openingQuestion.trim())) add('info', 'opening', 'The opening line isn\'t a question.', 'An opening question invites reflection before the learner commits to a move.');
+    if (empty(s.openingImage)) add('warn', 'opening', 'No opening image — the learner may step into an empty stage.', 'The scene\'s first narration paints this picture.');
 
     const intro = s.intro || {};
     if (intro.type === 'video') {
@@ -692,51 +750,62 @@
      (H.tf / H.rowsBlock / H.rowCard / H.guidance / H.esc / H.scheduleUpdate)
      and the live draft via H.getScenario(). CRISIS_FLOOR / ENGINE_SECTIONS
      are read straight from this module's scope. */
+  /* Sections are ordered so the three-section spine reads top-to-bottom:
+     Setup → ① Scenario Context → ② Interaction → ③ Debrief → Reference.
+     Each carries a `group` (which spine band it sits under) and, on the
+     Interaction/Debrief sections, a `stage` chip naming the loop step it maps
+     to (ENTER · ACT · REACT · COACH · GATE · EXIT · TAKEAWAYS). Section `id`s
+     are unchanged — the lints and renderers key off them. */
   const AP_SECTIONS = [
-    { id: 'basics', icon: 'fa-id-card', title: 'Basics',
-      lead: 'Who is in this practice, and how long it should run.' },
-    { id: 'setup', icon: 'fa-clapperboard', title: 'Scenario setup',
-      lead: 'The situation as it stands when the learner walks in. The AI treats every detail here as true, so write only what you want it to build on.',
-      bridgeTitle: 'From your old craft: this is the question stem',
-      bridge: 'Except the AI can improvise around it, so contradictions and loose ends become bugs, not flavor. Use <b>{{learner}}</b> and <b>{{character}}</b> instead of literal names so renames propagate everywhere.' },
-    { id: 'dimensions', icon: 'fa-scale-balanced', title: 'Assessment dimensions',
-      lead: 'What every learner line is silently scored on. The character\'s reaction and the coach\'s debrief are both driven by these — they are the whole answer key.',
-      bridgeTitle: 'From your old craft: right answers and distractors',
-      bridge: 'In multiple choice you wrote one right answer and three wrong ones. Here, "what strong looks like" is the right answer and <b>"what weak looks like" is your distractors</b> — describe the tempting mistakes, and the AI recognizes them in anything a learner types.' },
-    { id: 'realism', icon: 'fa-masks-theater', title: 'Character realism',
-      lead: 'The reaction map: if the learner\'s line does X, the character does Y. This is what makes the character feel like a person instead of a quiz.',
+    { id: 'basics', group: 'meta', icon: 'fa-id-card', title: 'Basics',
+      lead: 'Who’s in this practice, and how long it runs.' },
+
+    // ① Scenario Context — the intro modality + the opening reflection.
+    { id: 'opening', group: 'context', icon: 'fa-film', title: 'Intro & opening',
+      lead: 'The intro modality that sets the scene, plus the coach’s opening reflection.',
+      bridgeTitle: 'One practice, several doors in',
+      bridge: 'Video / audio / reading / story / none all feed the SAME loop — author each once; every variant page uses its piece.' },
+
+    // ② Interaction — ACT a line → the character REACTs → the coach reads &
+    // nudges → a GATE holds or advances → completion EXITs to the debrief.
+    { id: 'character', group: 'interaction', stage: 'REACT', icon: 'fa-masks-theater', title: 'Character card',
+      lead: 'Who the character is — the one artifact that drives every REACT: their situation, how they react, and how they talk.',
       bridgeTitle: 'From your old craft: this replaces per-answer feedback',
-      bridge: 'Instead of "Incorrect — try again," the character\'s believable reaction <b>is</b> the feedback, and the coach names the lesson afterward.' },
-    { id: 'misconceptions', icon: 'fa-lightbulb', title: 'Misconceptions',
-      lead: 'Wrong beliefs the practice should surface and disprove. The scene demonstrates the consequence first; the coach names it gently afterward.',
-      bridgeTitle: 'From your old craft: the beliefs behind your distractors',
-      bridge: 'These are the beliefs your best distractors used to encode. State each one with its real consequence so the scene can play it out.' },
-    { id: 'gate', icon: 'fa-flag-checkered', title: 'The gate',
-      lead: 'The hard requirement: what must happen before the scene is allowed to resolve positively. Without a gate, warm-but-empty conversations "win."',
-      bridgeTitle: 'From your old craft: this is the passing criterion',
-      bridge: 'Name an observable action — something you could point at in a transcript — not a feeling.' },
-    { id: 'voice', icon: 'fa-comment-dots', title: 'Coach voice',
-      lead: 'Who the coach is and how they talk. The coach probes and reflects — it never grades out loud and never lectures.' },
-    { id: 'completion', icon: 'fa-medal', title: 'Completion',
-      lead: 'When the practice counts as done, and how the resolution should play. The final report (strengths and growth areas) is generated from what the learner actually said.' },
-    { id: 'playbook', icon: 'fa-list-check', title: 'The playbook',
-      lead: 'The expert-validated components EVERY learner leaves with, identically, however their conversation went. The page delivers this after the personal report — guaranteed, never AI-generated.',
+      bridge: 'The character’s believable reaction <b>is</b> the feedback; the coach names the lesson after.' },
+    { id: 'dimensions', group: 'interaction', stage: 'COACH', icon: 'fa-scale-balanced', title: 'Assessment dimensions',
+      lead: '2–4 things each line is silently scored on — they steer the character and aim the coach. Never shown to the learner.',
+      bridgeTitle: 'From your old craft: right answers and distractors',
+      bridge: '“Strong” is the right answer; <b>“weak” is your distractors</b> — name the tempting mistakes and the AI spots them in free text.' },
+    { id: 'misconceptions', group: 'interaction', stage: 'COACH', icon: 'fa-lightbulb', title: 'Misconceptions',
+      lead: 'Wrong beliefs to surface and disprove — the scene plays the consequence, the coach names it.' },
+    { id: 'voice', group: 'interaction', stage: 'COACH', icon: 'fa-comment-dots', title: 'Coach voice',
+      lead: 'Who the coach is and how it sounds. It probes and reflects — never grades out loud.' },
+    { id: 'gate', group: 'interaction', stage: 'GATE', icon: 'fa-flag-checkered', title: 'The gate',
+      lead: 'The move the scene won’t resolve without. Hard blocks until it happens; soft nudges, then advances.',
+      bridgeTitle: 'From your old craft: the passing criterion',
+      bridge: 'Name an observable action you could point at in a transcript — not a feeling.' },
+    { id: 'completion', group: 'interaction', stage: 'EXIT', icon: 'fa-flag-checkered', title: 'Completion & handoff',
+      lead: 'What ends the loop and hands to the debrief. The results ride this final turn.' },
+
+    // ③ Debrief & Close — scored against your dimensions, then the takeaways.
+    { id: 'evaluation', group: 'debrief', icon: 'fa-clipboard-check', title: 'How results are scored',
+      lead: 'A separate engine scores the session against your Assessment dimensions and returns strengths + growth.' },
+    { id: 'playbook', group: 'debrief', stage: 'TAKEAWAYS', icon: 'fa-list-check', title: 'Playbook',
+      lead: 'Guaranteed takeaways every learner leaves with — identical for all, never AI-generated.',
       bridgeTitle: 'From your old craft: your SME-validated teaching points',
-      bridge: 'These are a course\'s <i>content elements</i>. The conversation personalizes; the playbook standardizes — that pairing is what makes completion mean consistent coverage.' },
-    { id: 'resources', icon: 'fa-hand-holding-medical', title: 'Resources',
-      lead: 'Where the character could really go — shown by the coach after the results. Make these real for the scenario\'s world: a campus counseling center here, an EAP or safety officer in a workplace course.',
+      bridge: 'The conversation personalizes; the playbook standardizes — that pairing makes completion mean consistent coverage.' },
+    { id: 'resources', group: 'debrief', stage: 'TAKEAWAYS', icon: 'fa-hand-holding-medical', title: 'Resources',
+      lead: 'Where the character could really go — real for this world (campus counseling, an EAP, a safety officer…).',
       bridgeTitle: 'The locked crisis floor',
-      bridge: 'When a scenario is flagged <b>elevated stakes</b> (wellbeing, substance, crisis-adjacent), the 988 crisis line is appended after your resources automatically. You author everything above it; you can\'t remove it.' },
-    { id: 'references', icon: 'fa-file-shield', title: 'Reference material',
-      lead: 'Paste excerpts from the policies, guidelines, or standards this practice must follow. The AI treats them as authoritative facts — where a reference disagrees with its general knowledge, the reference wins.',
+      bridge: 'Flag <b>elevated stakes</b> and the 988 line is appended after your resources automatically — you can’t remove it.' },
+
+    // Reference & guardrails.
+    { id: 'references', group: 'reference', icon: 'fa-file-shield', title: 'Reference material',
+      lead: 'Paste policy/standard excerpts the AI must treat as authoritative — where they conflict with its knowledge, they win.',
       bridgeTitle: 'Why paste text instead of linking',
-      bridge: 'The AI cannot open a URL. Curated excerpts beat document dumps — every turn re-sends everything here, and locked grounding rules make pasted text <i>data, not instructions</i>, so a document can\'t rewrite the practice\'s rules.' },
-    { id: 'opening', icon: 'fa-film', title: 'Opening & intro',
-      lead: 'The coach\'s first question, and how the scene is set before the practice: a video cold open, a written story the learner highlights, or nothing at all. Switching type keeps your work in the other types.',
-      bridgeTitle: 'Same practice, three doors in',
-      bridge: 'The video, story, and no-intro experiments are the SAME conversation practice — only this intro module differs. Author it once here and each variant page uses its piece.' },
-    { id: 'guardrails', icon: 'fa-lock', title: 'System guardrails', locked: true,
-      lead: 'These sections ship inside every scenario and cannot be edited: they are what makes the experience safe to hand to an AI. You can read exactly what they say.' },
+      bridge: 'The AI can’t open a URL. Locked grounding rules make pasted text <i>data, not instructions</i>.' },
+    { id: 'guardrails', group: 'reference', icon: 'fa-lock', title: 'System guardrails', locked: true,
+      lead: 'The LOCKED engine that keeps the experience safe to hand to an AI — read-only.' },
   ];
 
   function apRenderFields(sec, H) {
@@ -763,13 +832,20 @@
       );
     }
 
-    if (sec.id === 'setup') {
+    if (sec.id === 'character') {
+      // The character card = situation + reaction map + style, as one artifact.
       box.append(
         tf('setup', 'The situation', { area: true, minRows: 6,
           helper: 'Who {{character}} is, what has happened, and what is true right now. End with who they are underneath it — it steers the AI away from playing a caricature.' }),
-        tf('openingImage', 'What the learner sees walking in', {
-          helper: 'The physical opening image, e.g. "{{character}} under the covers, bottles on the nightstand, blinds down". The scene\'s first narration must paint this.' }),
       );
+      box.append(rowsBlock('reactions', (r, i, onDel) => rowCard(
+        `If the learner is… ${i + 1}`, onDel,
+        tf(`reactions.${i}.when`, 'When the learner\'s line is…', { placeholder: 'e.g. Confrontational or judging' }),
+        tf(`reactions.${i}.then`, '…the character reacts', { area: true, minRows: 2,
+          helper: 'Observable behavior, in steps. Short real dialogue beats therapy-speak.' }),
+      ), 'Add reaction', () => ({ when: '', then: '' })));
+      box.append(tf('styleNotes', 'Style rules for the character', { area: true, minRows: 2,
+        helper: 'The lines the AI must never cross while playing them — e.g. never capitulates in one line, never melts down theatrically.' }));
     }
 
     if (sec.id === 'dimensions') {
@@ -783,15 +859,22 @@
       ), 'Add dimension', () => ({ name: '', strong: '', weak: '' })));
     }
 
-    if (sec.id === 'realism') {
-      box.append(rowsBlock('reactions', (r, i, onDel) => rowCard(
-        `If the learner is… ${i + 1}`, onDel,
-        tf(`reactions.${i}.when`, 'When the learner\'s line is…', { placeholder: 'e.g. Confrontational or judging' }),
-        tf(`reactions.${i}.then`, '…the character reacts', { area: true, minRows: 2,
-          helper: 'Observable behavior, in steps. Short real dialogue beats therapy-speak.' }),
-      ), 'Add reaction', () => ({ when: '', then: '' })));
-      box.append(tf('styleNotes', 'Style rules for the character', { area: true, minRows: 2,
-        helper: 'The lines the AI must never cross while playing them — e.g. never capitulates in one line, never melts down theatrically.' }));
+    if (sec.id === 'evaluation') {
+      // Read-only echo: results are scored against the dimensions authored in
+      // ② Interaction, by a separate engine (not the in-scene coach).
+      const dims = (s.dimensions || []).filter((d) => d && (d.name || d.strong || d.weak));
+      const card = document.createElement('div');
+      card.className = 'rowcard lockcard';
+      const rows = dims.length
+        ? dims.map((d) => `<li>${esc(fill(d.name, s) || '(unnamed dimension)')}</li>`).join('')
+        : '<li>No dimensions yet — add them under <b>② Interaction · Assessment dimensions</b>.</li>';
+      card.innerHTML = `
+        <div class="lockhead"><i class="fa-solid fa-clipboard-check"></i> Scored against your assessment dimensions</div>
+        <div class="note">A separate evaluation engine — not the in-scene coach — scores the session and returns the learner's results: up to <b>3 strengths</b> and <b>2 growth areas</b>, each quoting the learner's own words.</div>
+        <ul style="margin:8px 0 0;padding-left:18px;color:var(--ink-soft);font-size:12.5px">${rows}</ul>`;
+      box.append(card);
+      box.append(guidance('Why evaluation is separate', 'fa-scale-balanced',
+        'The in-scene coach guides <i>during</i> practice; an independent engine judges the <i>result</i> against your dimensions — so assessment stays objective and consistent across every mode.'));
     }
 
     if (sec.id === 'misconceptions') {
@@ -803,6 +886,21 @@
     }
 
     if (sec.id === 'gate') {
+      // Hard vs soft is the author's choice per scenario (spec §Gate).
+      const modeRg = document.createElement('vaadin-radio-group');
+      modeRg.label = 'Gate type';
+      [['hard', 'Hard — the scene can\'t resolve until the required move happens'],
+       ['soft', 'Soft — nudge, then always advance']].forEach(([v, l]) => {
+        const rb = document.createElement('vaadin-radio-button');
+        rb.value = v; rb.label = l;
+        modeRg.appendChild(rb);
+      });
+      modeRg.value = s.gate.mode || 'hard';
+      const onGateMode = () => { s.gate.mode = modeRg.value || 'hard'; scheduleUpdate(); };
+      modeRg.addEventListener('value-changed', onGateMode);
+      modeRg.addEventListener('change', onGateMode);
+      box.append(modeRg);
+
       const r = document.createElement('div'); r.className = 'row2';
       r.append(
         tf('gate.nudgeOpen', 'First nudge (open)', { helper: 'If the learner stalls, the coach asks this first.' }),
@@ -895,6 +993,16 @@
     if (sec.id === 'opening') {
       box.append(tf('openingQuestion', 'The coach\'s opening question', { area: true, minRows: 2,
         helper: 'On screen before the AI\'s first turn. It should invite reflection, not test.' }));
+      box.append(rowsBlock('reflectionFocus', (v, i, onDel) => rowCard(
+        `Focus idea ${i + 1}`, onDel,
+        tf(`reflectionFocus.${i}`, 'An idea the coach should draw out', { placeholder: 'e.g. names the root cause' }),
+      ), 'Add focus idea', () => ''));
+      const rNote = document.createElement('div');
+      rNote.className = 'fieldnote';
+      rNote.innerHTML = '<i class="fa-solid fa-circle-info"></i><span>The reflection is drawn out <b>in-context and never gates</b> — practice begins regardless of the answer.</span>';
+      box.append(rNote);
+      box.append(tf('openingImage', 'What the learner sees walking in', {
+        helper: 'The physical opening image, e.g. "{{character}} under the covers, bottles on the nightstand, blinds down". The scene\'s first narration must paint this.' }));
 
       // —— Intro type picker + per-type fields ——
       const rg = document.createElement('vaadin-radio-group');
@@ -995,7 +1103,7 @@
           // Short and actionable, so it stays visible rather than collapsing.
           const note = document.createElement('div');
           note.className = 'fieldnote';
-          note.innerHTML = '<i class="fa-solid fa-forward"></i><span>The learner lands straight on the establishing card and the coach\'s opening carries the backstory — make sure <b>Scenario setup</b> covers everything they\'d otherwise learn from an intro.</span>';
+          note.innerHTML = '<i class="fa-solid fa-forward"></i><span>The learner lands straight on the establishing card and the coach\'s opening carries the backstory — make sure the <b>Character card → The situation</b> covers everything they\'d otherwise learn from an intro.</span>';
           introBody.appendChild(note);
         }
       };
@@ -1009,7 +1117,10 @@
       rg.addEventListener('value-changed', onType);
       rg.addEventListener('change', onType);
       renderIntroBody();
-      box.append(rg, introBody);
+      // Lead the Context section with "how the scene is set" — the top-level
+      // choice that gates everything below it — then the opening/reflection.
+      box.prepend(introBody);
+      box.prepend(rg);
     }
 
     if (sec.id === 'guardrails') {
@@ -1233,10 +1344,42 @@
     return { reset: ptReset, refreshTarget: renderPlaytestTarget };
   }
 
+  /* ---- blank template (Start fresh) ------------------------------------
+     A valid-shaped but empty scenario for authoring a NEW practice from
+     scratch. Required lists carry ONE blank row so normalize() doesn't
+     back-fill them with the shipped Kendra content. */
+  function apBlank() {
+    return {
+      v: 1,
+      title: '', learnerName: 'Learner', characterName: '', courseContext: '',
+      contextSource: 'in-scenario', previousLO: { title: '', covered: '', handoff: '' },
+      setup: '', openingImage: '',
+      openingQuestion: '', reflectionFocus: [''],
+      pacing: { sceneLines: '4-6', duration: '10-minute' },
+      dimensions: [{ name: '', strong: '', weak: '' }],
+      reactions: [{ when: '', then: '' }],
+      styleNotes: '',
+      misconceptions: [],
+      gate: { mode: 'hard', requirement: '', notSuccess: '', teach: '', nudgeOpen: '', nudgeConcrete: '', fallback: '' },
+      coachVoice: { persona: '', guidance: '' },
+      completion: { condition: '', resolutionExample: '' },
+      elevatedStakes: false,
+      playbook: [],
+      resources: { lead: '', items: [] },
+      references: [],
+      intro: {
+        type: 'none',
+        video: { scenes: [{ src: '', caption: '' }] },
+        story: { kicker: '', headline: '', instruction: '', paragraphs: [''], keyMoments: [{ phrase: '', label: '' }] },
+        audio: { eyebrow: '', title: '', text: '' },
+      },
+    };
+  }
+
   /* ---- the type object -------------------------------------------------- */
   const actionPracticeType = {
     id: 'action-practice',
-    label: 'Conversation practice',
+    label: 'Roleplay',
     icon: 'fa-comments',
     DEFAULT: DEFAULT_SCENARIO,
     ENGINE_SECTIONS,
@@ -1247,6 +1390,7 @@
     isValid: isValidScenario,
     compile: compilePrompt,
     merge: apMerge,
+    blank: apBlank,
     sections: AP_SECTIONS,
     renderFields: apRenderFields,
     lints: apLints,
