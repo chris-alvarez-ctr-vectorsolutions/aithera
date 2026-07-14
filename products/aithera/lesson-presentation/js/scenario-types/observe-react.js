@@ -448,7 +448,7 @@
   /* ---- form: sections + field renderers ---------------------------------
      Ordered on the three-section spine, matching scenario.js / teach-back.js.
      There's no roleplay here, so Interaction is: the footage the learner
-     reviews (ACT), the coach openers on return (REACT), the rubric the coach
+     reviews (ENGAGE), the coach openers on return (REACT), the rubric the coach
      probes against (COACH), the synthesis gate (GATE), and completion (EXIT).
      Section `id`s are what the lints key off. */
   const sections = [
@@ -463,7 +463,7 @@
 
     // ② Interaction — review a segment, the coach probes the rubric, the gate
     // holds, exit on completion. No character, no roleplay.
-    { id: 'segments', group: 'interaction', stage: 'ACT', icon: 'fa-film', title: 'The footage',
+    { id: 'segments', group: 'interaction', stage: 'ENGAGE', icon: 'fa-film', title: 'The footage',
       lead: 'The segments the learner reviews, in order — each with a caption read over it.',
       bridgeTitle: 'One clip, one beat',
       bridge: 'Each segment is followed by a React chapter before the next plays — the scene keeps developing, so returning to Observe is new footage, not a rewatch. Videos are plain files in <code>products/aithera/assets/videos/</code>; paste a relative path or full URL.' },

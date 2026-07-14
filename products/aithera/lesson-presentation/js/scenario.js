@@ -754,7 +754,7 @@
      Setup → ① Scenario Context → ② Interaction → ③ Debrief → Reference.
      Each carries a `group` (which spine band it sits under) and, on the
      Interaction/Debrief sections, a `stage` chip naming the loop step it maps
-     to (ENTER · ACT · REACT · COACH · GATE · EXIT · TAKEAWAYS). Section `id`s
+     to (ENTER · ENGAGE · REACT · COACH · GATE · EXIT · TAKEAWAYS). Section `id`s
      are unchanged — the lints and renderers key off them. */
   const AP_SECTIONS = [
     { id: 'basics', group: 'meta', icon: 'fa-id-card', title: 'Basics',
@@ -766,7 +766,7 @@
       bridgeTitle: 'One practice, several doors in',
       bridge: 'Video / audio / reading / story / none all feed the SAME loop — author each once; every variant page uses its piece.' },
 
-    // ② Interaction — ACT a line → the character REACTs → the coach reads &
+    // ② Interaction — ENGAGE (a line) → the character REACTs → the coach reads &
     // nudges → a GATE holds or advances → completion EXITs to the debrief.
     { id: 'character', group: 'interaction', stage: 'REACT', icon: 'fa-masks-theater', title: 'Character card',
       lead: 'Who the character is — the one artifact that drives every REACT: their situation, how they react, and how they talk.',

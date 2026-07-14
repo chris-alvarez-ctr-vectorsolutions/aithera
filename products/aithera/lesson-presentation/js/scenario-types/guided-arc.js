@@ -573,7 +573,7 @@ Include a "report" on that final turn:
 
     // ② Interaction — the authored beat sequence, the coach's voice, the gate,
     // and the completion that exits to the debrief.
-    { id: 'beats', group: 'interaction', stage: 'ACT', icon: 'fa-diagram-project', title: 'The beats',
+    { id: 'beats', group: 'interaction', stage: 'ENGAGE', icon: 'fa-diagram-project', title: 'The beats',
       lead: 'The authored sequence the arc walks, in order. Each beat is a reflection, a knowledge check, or a decision — its prompt is delivered VERBATIM. This is the heart of the mode.',
       bridgeTitle: 'Three primitives, one sequence',
       bridge: 'A <b>reflect</b> beat is open coaching (no right answer; <i>focus</i> lists ideas to draw out). A <b>knowledge-check</b> beat has a correct <i>answer</i> the coach states plainly. A <b>decide</b> beat plays optional <i>media</i> the learner observes, then asks them to decide. Reorder or add beats freely.' },
