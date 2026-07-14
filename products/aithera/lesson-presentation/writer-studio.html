@@ -21,25 +21,40 @@
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
 
     <!-- ====================================================================
-         WRITER STUDIO — the content writer's side of the live AI practice.
+         WRITER STUDIO — the content writer's side of the Scenario Simulator.
 
          The premise: as assessment moves from multiple-choice to AI-assisted
          conversation, the writer's job shifts from writing answer keys to
          writing GUIDANCE — and the guardrail IS the structure. Writers never
-         touch raw prompt text. They fill structured, plain-language fields
-         (scenario, reaction map, assessment dimensions, the gate…) and the
-         shared compiler (js/scenario.js) assembles the system prompt around
-         locked, safety-critical engine sections they can see but not break.
+         touch raw prompt text. They fill structured, plain-language fields and
+         a per-type compiler assembles the system prompt around locked,
+         safety-critical engine sections they can see but not break.
+
+         ONE FRAMEWORK, THREE SECTIONS (the shared spine of every scenario,
+         mirroring the live runtime — js/sim-context.js / sim-core.js /
+         sim-debrief.js):
+           ①  Scenario Context   — the swappable intro modality (video / audio
+                                    / reading / story / none) that sets the scene
+           ②  Interaction        — the live loop: ENTER → ACT · REACT · COACH ·
+                                    GATE → EXIT. This is where the difficulty
+                                    lives; the MODE only reshapes THIS section.
+           ③  Debrief & Close     — Analyze → Results → Takeaways (the guaranteed,
+                                    writer-authored playbook + resources).
+
+         The MODE (a registered scenario TYPE) picks the Section-2 shape:
+           Roleplay · Guided Arc · Observe / React · Teach-Back.
+         The studio shell is mode-agnostic; each type supplies its own sections,
+         compiler, lints and playtest and hangs them on the three-section spine.
 
          Three panes:
-           LEFT    section nav with lint status dots
+           LEFT    section nav grouped by the three sections, with lint dots
            CENTER  the authoring form (writer-owned fields + locked engine)
            RIGHT   inspector tabs — Compiled prompt / Guardrails / Playtest
 
-         Publishing writes the scenario to localStorage; the learner-facing
-         prototype (action-practice-live.html) picks it up on reload in this
-         same browser. (GitHub Pages has no backend — localStorage is the
-         honest static-hosting handoff. A shared backend would swap in here.)
+         Publishing writes the scenario to localStorage; the matching learner
+         page picks it up on reload in this same browser. (GitHub Pages has no
+         backend — localStorage is the honest static-hosting handoff. A shared
+         backend would swap in here.)
          ==================================================================== -->
     <style>
       :root {
@@ -252,7 +267,13 @@
         display: grid;
         grid-template-columns: 218px minmax(430px, 1fr) minmax(430px, 44%);
         gap: 0;
+        transition: grid-template-columns .22s ease;
         /* columns stretch to full height; each pane manages its own scroll */
+      }
+      /* Inspector collapsed → the panel shrinks to a slim rail and the form
+         takes the reclaimed width. */
+      .cols.insp-collapsed {
+        grid-template-columns: 218px minmax(430px, 1fr) 48px;
       }
 
       /* Left: section nav — its own scroll region, no page-scroll coupling */
@@ -265,6 +286,16 @@
         text-transform: uppercase; color: var(--ink-faint);
         padding: 0 10px 8px;
       }
+      /* Section-spine group header in the nav (① Scenario Context, etc.). */
+      .secnav .group-head {
+        display: flex; align-items: baseline; gap: 6px;
+        padding: 14px 10px 6px; margin-top: 6px;
+        border-top: 1px solid var(--line);
+        font-size: 11px; font-weight: 700; letter-spacing: .06em;
+        text-transform: uppercase; color: var(--ink-faint);
+      }
+      .secnav .group-head:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+      .secnav .group-head .badge { color: var(--accent); font-size: 12px; }
       .secnav button {
         display: flex; align-items: center; gap: 8px; width: 100%;
         background: none; border: none; cursor: pointer;
@@ -284,6 +315,15 @@
         min-width: 0; min-height: 0; overflow-y: auto;
         padding: 18px 8px 80px 8px;
       }
+      /* Hold the authoring column at a comfortable form width — even when the
+         inspector is collapsed and the pane is very wide, fields shouldn't
+         sprawl across 1500px. Left-aligned under the phase header. */
+      .form > .card,
+      .form > .group-band,
+      .form > .phase-header,
+      .form > .mode-choose,
+      .form > .sub-band,
+      .form > .phase-foot { max-width: 900px; }
       .card {
         background: var(--surface);
         border: 1px solid var(--line);
@@ -301,6 +341,162 @@
       .card .lead {
         margin: 6px 0 0; color: var(--ink-soft); font-size: 13px; max-width: 62ch;
       }
+      /* Engine-stage chip in a section header (ENTER / ACT / REACT / COACH /
+         GATE / EXIT) — the warm title carries meaning, this names the loop
+         stage it maps to so studio ↔ code ↔ guide share one vocabulary. */
+      .card h2 .stage {
+        margin-left: 2px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 10px; font-weight: 700; letter-spacing: .1em;
+        color: var(--accent); background: var(--accent-soft);
+        padding: 3px 8px; border-radius: 999px; align-self: center;
+      }
+      /* Section-spine band that opens each of the three sections in the form. */
+      .group-band {
+        max-width: 62ch; margin: 8px 2px 14px; padding: 0 0 2px;
+        scroll-margin-top: 14px;
+      }
+      .group-band .gb-title {
+        display: flex; align-items: baseline; gap: 9px;
+        font-size: 16px; font-weight: 800; letter-spacing: -.01em; color: var(--ink);
+      }
+      .group-band .gb-title .badge {
+        color: var(--accent); font-size: 17px; font-weight: 800;
+      }
+      .group-band .gb-sub {
+        margin: 3px 0 0 0; color: var(--ink-faint); font-size: 12.5px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .02em;
+      }
+
+      /* ===== Phase stepper (left rail) ================================== */
+      /* Selectors are scoped under .secnav so they outrank the generic
+         `.secnav button` base rules for the phase-step buttons. */
+      .secnav .phase-steps { display: flex; flex-direction: column; gap: 2px; }
+      .secnav .phase-step {
+        display: flex; align-items: center; gap: 11px; width: 100%;
+        background: none; border: none; cursor: pointer; text-align: left; font: inherit;
+        padding: 11px 10px; border-radius: var(--radius-sm); color: var(--ink-soft);
+      }
+      .secnav .phase-step:hover { background: var(--surface); color: var(--ink); }
+      .secnav .phase-step.is-active { background: var(--accent-soft); }
+      .secnav .phase-step .pnum {
+        flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%;
+        display: grid; place-items: center; font-size: 12px; font-weight: 800;
+        background: var(--surface-2); color: var(--ink-faint);
+      }
+      .secnav .phase-step.is-active .pnum { background: var(--accent); color: var(--on-accent); }
+      .secnav .phase-step .pt { flex: 1; min-width: 0; }
+      .secnav .phase-step .ptt { display: block; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+      .secnav .phase-step.is-active .ptt { color: var(--accent-strong); }
+      .secnav .phase-step .pdesc { display: block; font-size: 11px; color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .secnav .phase-step .pstatus { margin-left: auto; font-size: 9px; }
+      .secnav .phase-step .pstatus.err  { color: var(--err); }
+      .secnav .phase-step .pstatus.warn { color: var(--warn); }
+      /* the active phase's sections, indented under it */
+      .secnav .phase-sections {
+        display: flex; flex-direction: column; gap: 1px;
+        margin: 2px 0 8px 22px; padding-left: 8px;
+        border-left: 2px solid var(--line);
+      }
+
+      /* ===== Phase header + mode chooser + footer (in the form) ========= */
+      .phase-header { max-width: 62ch; margin: 2px 2px 20px; }
+      .phase-header .ph-eyebrow {
+        font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+        color: var(--ink-faint); margin: 0;
+      }
+      .phase-header h1 {
+        font-size: 23px; font-weight: 800; letter-spacing: -.015em; margin: 6px 0 0;
+        display: flex; align-items: center; gap: 10px; color: var(--ink);
+      }
+      .phase-header h1 .badge { color: var(--accent); }
+      .phase-header p { margin: 5px 0 0; color: var(--ink-soft); font-size: 13px; }
+
+      .mode-choose { margin: 0 0 22px; }
+      .mode-choose .mc-head {
+        font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+        color: var(--ink-faint); margin: 0 0 10px;
+      }
+      .mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      @media (max-width: 1240px) { .mode-grid { grid-template-columns: 1fr; } }
+      .mode-card {
+        display: flex; gap: 12px; align-items: flex-start; text-align: left;
+        border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface);
+        padding: 13px 14px; cursor: pointer; font: inherit; color: var(--ink);
+        transition: border-color .12s, background .12s, box-shadow .12s;
+      }
+      .mode-card:hover { border-color: var(--accent); }
+      .mode-card.is-active { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+      .mode-card .mci {
+        flex: 0 0 auto; width: 32px; height: 32px; border-radius: 8px;
+        display: grid; place-items: center; background: var(--surface-2); color: var(--accent); font-size: 14px;
+      }
+      .mode-card.is-active .mci { background: var(--accent); color: var(--on-accent); }
+      .mode-card .mcb { min-width: 0; }
+      .mode-card .mcn { display: block; font-size: 14px; font-weight: 700; }
+      .mode-card .mcd { display: block; font-size: 12px; color: var(--ink-faint); margin-top: 2px; line-height: 1.4; }
+      .mode-card .mck { margin-left: auto; color: var(--accent); font-size: 14px; align-self: center; }
+
+      .sub-band {
+        max-width: 62ch; margin: 8px 2px 12px; display: flex; align-items: center; gap: 10px;
+        font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint);
+      }
+      .sub-band::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+      .phase-foot {
+        display: flex; align-items: center; gap: 12px;
+        margin: 10px 2px 0; padding-top: 18px; border-top: 1px solid var(--line);
+      }
+      .phase-foot .spacer { flex: 1; }
+      .pf-btn {
+        display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px;
+        border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--surface);
+        color: var(--ink-soft); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+        transition: border-color .12s, color .12s, filter .12s;
+      }
+      .pf-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+      .pf-btn:disabled { opacity: .4; cursor: default; }
+      .pf-btn.next { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+      .pf-btn.next:hover:not(:disabled) { filter: brightness(1.06); color: var(--on-accent); }
+
+      /* ===== Inspector collapse ========================================= */
+      .insp-bar {
+        flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
+        height: 38px; padding: 0 10px 0 14px;
+        border-bottom: 1px solid var(--line); background: var(--surface);
+      }
+      .insp-bar-title {
+        font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+        color: var(--ink-faint); display: inline-flex; align-items: center; gap: 7px;
+      }
+      .insp-bar-title .fa-solid { color: var(--ink-faint); font-size: 11px; }
+      .insp-toggle {
+        margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+        background: none; border: 1px solid var(--line); border-radius: var(--radius-sm);
+        color: var(--ink-soft); font: inherit; font-size: 12px; font-weight: 600;
+        padding: 5px 10px; cursor: pointer;
+      }
+      .insp-toggle:hover { border-color: var(--accent); color: var(--accent); }
+      .insp-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+      .insp-main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+      .insp-rail { display: none; }
+
+      /* Collapsed: hide the working area, show the reopen rail. */
+      .cols.insp-collapsed .insp-bar,
+      .cols.insp-collapsed .insp-main { display: none; }
+      .cols.insp-collapsed .insp-rail {
+        display: flex; flex-direction: column; align-items: center; gap: 16px;
+        width: 100%; height: 100%; padding: 14px 0;
+        border: none; background: var(--surface); color: var(--ink-soft); cursor: pointer;
+      }
+      .cols.insp-collapsed .insp-rail:hover { color: var(--accent); }
+      .cols.insp-collapsed .insp-rail:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+      .insp-rail .fa-angles-left { font-size: 13px; }
+      .insp-rail-txt {
+        writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap;
+        font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+        color: var(--ink-faint);
+      }
+      .cols.insp-collapsed .insp-rail:hover .insp-rail-txt { color: var(--accent); }
       /* The "you used to write MCQs" bridge — the coaching layer of the
          tool. Collapsed by default so each section leads with its fields;
          the summary line says what's inside, and nothing is lost — it's a
@@ -562,6 +758,14 @@
         .form { overflow: visible; min-height: 0; }
         .inspector { height: 70vh; border-left: none; border-top: 1px solid var(--line); }
         .topbar .sub { display: none; }
+        /* Stacked layout: collapse just hides the body; the rail is a short
+           horizontal bar rather than a full-height vertical strip. */
+        .cols.insp-collapsed { grid-template-columns: 1fr; }
+        .cols.insp-collapsed .inspector { height: auto; }
+        .cols.insp-collapsed .insp-rail {
+          flex-direction: row; height: auto; padding: 12px; gap: 10px; justify-content: center;
+        }
+        .cols.insp-collapsed .insp-rail-txt { writing-mode: horizontal-tb; transform: none; }
       }
 
       /* Inline learner preview for the audio/reading context modality. The
@@ -600,6 +804,7 @@
         <button class="tbtn" id="libraryBtn" aria-haspopup="true" aria-expanded="false"><i class="fa-solid fa-folder-open"></i> Library <i class="fa-solid fa-chevron-down" style="font-size:9px;opacity:.6"></i></button>
         <div class="libpanel" id="libPanel" hidden role="menu" aria-label="Scenario library"><!-- built by JS --></div>
       </span>
+      <button class="tbtn" id="freshBtn"><i class="fa-solid fa-file-circle-plus"></i> Start fresh</button>
       <button class="tbtn" id="resetBtn"><i class="fa-solid fa-clock-rotate-left"></i> Reset to shipped</button>
       <button class="tbtn" id="importBtn"><i class="fa-solid fa-file-import"></i> Import JSON</button>
       <button class="tbtn" id="exportBtn"><i class="fa-solid fa-file-export"></i> Export JSON</button>
@@ -628,27 +833,43 @@
     <!-- ===== Center: the authoring form (built by JS) =================== -->
     <main class="form" id="form"></main>
 
-    <!-- ===== Right: inspector =========================================== -->
-    <aside class="inspector" aria-label="Inspector">
-      <vaadin-tabs id="inspectorTabs">
-        <vaadin-tab><i class="fa-solid fa-file-code" style="margin-right:7px"></i> Compiled prompt</vaadin-tab>
-        <vaadin-tab id="lintTab"><i class="fa-solid fa-shield-halved" style="margin-right:7px"></i> Guardrails</vaadin-tab>
-        <vaadin-tab><i class="fa-solid fa-vial" style="margin-right:7px"></i> Playtest</vaadin-tab>
-      </vaadin-tabs>
-
-      <div class="tabbody is-active" id="tabPrompt">
-        <div class="promptmeta">
-          <span class="pill" id="promptChars">— chars</span>
-          <span class="pill" id="promptTokens">— tokens (est.)</span>
-          <button class="copy" id="copyPromptBtn"><i class="fa-regular fa-copy"></i> Copy</button>
-        </div>
-        <pre class="promptview" id="promptView"></pre>
-        <p class="promptlegend"><span class="wr">Highlighted text</span> came from your fields; everything else is the locked engine. This exact text is what the AI runs on — reading it is how you learn what your guidance turns into.</p>
+    <!-- ===== Right: inspector (collapsible) ============================= -->
+    <aside class="inspector" id="inspector" aria-label="Inspector panel">
+      <!-- Header strip: panel title + collapse control -->
+      <div class="insp-bar">
+        <span class="insp-bar-title"><i class="fa-solid fa-flask"></i> Inspector</span>
+        <button class="insp-toggle" id="inspToggle" title="Hide panel" aria-label="Hide inspector panel" aria-expanded="true" aria-controls="inspector">
+          Hide <i class="fa-solid fa-angles-right"></i>
+        </button>
       </div>
 
-      <div class="tabbody" id="tabLints"></div>
+      <div class="insp-main">
+        <vaadin-tabs id="inspectorTabs">
+          <vaadin-tab><i class="fa-solid fa-file-code" style="margin-right:7px"></i> Compiled prompt</vaadin-tab>
+          <vaadin-tab id="lintTab"><i class="fa-solid fa-shield-halved" style="margin-right:7px"></i> Guardrails</vaadin-tab>
+          <vaadin-tab><i class="fa-solid fa-vial" style="margin-right:7px"></i> Playtest</vaadin-tab>
+        </vaadin-tabs>
 
-      <div class="tabbody pt" id="tabPlaytest"></div>
+        <div class="tabbody is-active" id="tabPrompt">
+          <div class="promptmeta">
+            <span class="pill" id="promptChars">— chars</span>
+            <span class="pill" id="promptTokens">— tokens (est.)</span>
+            <button class="copy" id="copyPromptBtn"><i class="fa-regular fa-copy"></i> Copy</button>
+          </div>
+          <pre class="promptview" id="promptView"></pre>
+          <p class="promptlegend"><span class="wr">Highlighted text</span> is <b>DYNAMIC</b> — compiled from your fields, the guidance the AI performs. Everything else is the <b>LOCKED</b> engine: the same beats the live page owns and injects verbatim. This exact text is what the AI runs on — reading it is how you learn what your guidance turns into.</p>
+        </div>
+
+        <div class="tabbody" id="tabLints"></div>
+
+        <div class="tabbody pt" id="tabPlaytest"></div>
+      </div>
+
+      <!-- Reopen rail — shown only while collapsed; click anywhere to expand -->
+      <button class="insp-rail" id="inspRail" title="Show panel" aria-label="Show inspector panel">
+        <i class="fa-solid fa-angles-left"></i>
+        <span class="insp-rail-txt">Inspector · Prompt · Guardrails · Playtest</span>
+      </button>
     </aside>
   </div>
 
@@ -660,10 +881,13 @@
   <!-- Generic studio engine: type registry + per-type storage. Must load
        BEFORE any type module so registration has somewhere to land. -->
   <script src="js/studio-engine.js?v=1"></script>
-  <!-- Scenario types. Each registers itself into AitheraStudio.
+  <!-- Scenario types (MODES). Each registers itself into AitheraStudio; the
+       registration order below is the order they appear in the mode picker.
        action-practice also keeps window.AitheraScenario for the live pages. -->
-  <script src="js/scenario.js?v=4"></script>
-  <script src="js/scenario-types/teach-back.js?v=1"></script>
+  <script src="js/scenario.js?v=8"></script>
+  <script src="js/scenario-types/guided-arc.js?v=3"></script>
+  <script src="js/scenario-types/observe-react.js?v=3"></script>
+  <script src="js/scenario-types/teach-back.js?v=4"></script>
 
   <script>
   /* =======================================================================
@@ -804,40 +1028,296 @@
     scheduleUpdate,
   };
 
-  /* ---- build the form + nav ---------------------------------------------- */
+  /* ---- the three-section spine, presented as PHASES ----------------------
+     Authors work one phase at a time (a stepper they can also jump around),
+     so a phase-level decision (which context modality? which core
+     interaction?) is presented at its own altitude instead of buried in one
+     long scroll. Each section declares its `group`; groups map onto the three
+     phases below. Basics (meta) rides in with Context; reference material and
+     the locked engine ride out with the Debrief. */
+  const groupOf = (sec) => sec.group || 'meta';
+
+  /* The author's flow is a "Start" pre-flight (choose the interaction + the
+     basics — the decisions that shape everything) followed by the three phases
+     that mirror the LEARNER's experience. A phase only appears if the current
+     mode actually uses it (Start always does), so e.g. Teach-Back — which has
+     no intro modality — shows Start → ② Interaction → ③ Debrief, skipping ①. */
+  const ALL_PHASES = [
+    { id: 'start',       icon: 'fa-wand-magic-sparkles', title: 'Start',            rail: 'Interaction + basics',
+      eyebrow: 'First — what are you building?',
+      sub: 'Choose the core interaction, then the basics. This shapes every field that follows.',
+      groups: ['meta'], isStart: true },
+    { id: 'context',     badge: '①', title: 'Scenario Context', rail: 'How the scene is set',
+      eyebrow: 'The learner’s opening',
+      sub: 'How the scene is set before the interaction begins — the intro modality.',
+      groups: ['context'] },
+    { id: 'interaction', badge: '②', title: 'Interaction',      rail: 'The core loop',
+      eyebrow: 'The learner’s core loop',
+      sub: 'ENTER → (ACT · REACT · COACH) ×N ↺ GATE → EXIT.',
+      groups: ['interaction'] },
+    { id: 'debrief',     badge: '③', title: 'Debrief & Close',  rail: 'Results & takeaways',
+      eyebrow: 'The learner’s close',
+      sub: 'Results and the guaranteed takeaways — plus reference material and the locked engine.',
+      groups: ['debrief', 'reference'] },
+  ];
+  // Platform-level context fields live on the scenario; the shell owns their
+  // authoring UI (the Start step) and defaults them so every mode inherits them.
+  function ensureCtx() {
+    if (scenario.contextSource !== 'previous-lo') scenario.contextSource = 'in-scenario';
+    if (!scenario.previousLO || typeof scenario.previousLO !== 'object') scenario.previousLO = { title: '', covered: '', handoff: '' };
+  }
+
+  // A phase shows only if this mode uses it (Start always shows). The Context
+  // phase also drops out when the context is INHERITED from a previous LO —
+  // there's nothing to author here, the handoff happens in Start.
+  function computePhases() {
+    return ALL_PHASES.filter((p) => {
+      if (p.isStart) return true;
+      if (p.id === 'context' && scenario.contextSource === 'previous-lo') return false;
+      return type.sections.some((s) => p.groups.includes(groupOf(s)));
+    });
+  }
+  let PHASES = computePhases();
+  // Secondary groups inside a phase get a light labeled divider; the phase's
+  // lead group does not (the phase header already names it).
+  const SUBBANDS = { reference: 'Reference & guardrails' };
+  // One-line descriptor per mode, shown on the Interaction phase's chooser.
+  const MODE_BLURB = {
+    'action-practice': 'Rehearse a hard conversation with a simulated person.',
+    'guided-arc':      'Walk a scripted arc, observe a moment, then reflect.',
+    'observe-react':   'Review footage one beat at a time with a coach.',
+    'teach-back':      'Explain the required topics back from memory.',
+  };
+  const PHASE_KEY = 'aithera.writerStudio.phase';
+
+  // -1 when this section's phase isn't currently shown (e.g. a context section
+  // while context is inherited) — such sections render in NO phase, rather than
+  // falling back into Start.
+  const phaseIndexOf = (sec) => PHASES.findIndex((p) => p.groups.includes(groupOf(sec)));
+  const sectionsInPhase = (i) => type.sections.filter((sec) => phaseIndexOf(sec) === i);
+
+  // Which phase opens first — restored across a mode switch (which reloads the
+  // page), so choosing a new interaction lands the author back on Interaction.
+  let activePhase = (() => {
+    const idx = PHASES.findIndex((p) => p.id === sessionStorage.getItem(PHASE_KEY));
+    return idx >= 0 ? idx : 0;
+  })();
+
+  function setPhase(i) {
+    if (i < 0 || i >= PHASES.length) return;
+    activePhase = i;
+    sessionStorage.setItem(PHASE_KEY, PHASES[i].id);
+    buildNav();
+    buildForm();
+    const form = $('#form');
+    if (form) form.scrollTop = 0;
+    renderLints();
+  }
+
+  /* ---- the Interaction phase's core-interaction chooser ------------------ */
+  function buildModeChooser() {
+    const wrap = document.createElement('div');
+    wrap.className = 'mode-choose';
+    wrap.innerHTML = '<p class="mc-head">Choose the core interaction</p>';
+    const grid = document.createElement('div');
+    grid.className = 'mode-grid';
+    window.AitheraStudio.list().forEach((t) => {
+      const card = document.createElement('button');
+      card.className = 'mode-card' + (t.id === type.id ? ' is-active' : '');
+      card.innerHTML =
+        `<span class="mci"><i class="fa-solid ${esc(t.icon || 'fa-cube')}"></i></span>` +
+        `<span class="mcb"><span class="mcn">${esc(t.label)}</span><span class="mcd">${esc(MODE_BLURB[t.id] || '')}</span></span>` +
+        (t.id === type.id ? '<span class="mck"><i class="fa-solid fa-circle-check"></i></span>' : '');
+      card.addEventListener('click', () => chooseMode(t.id));
+      grid.appendChild(card);
+    });
+    wrap.appendChild(grid);
+    return wrap;
+  }
+
+  function chooseMode(id) {
+    if (id === type.id) return;
+    const t = window.AitheraStudio.get(id);
+    if (!t) return;
+    // Each mode is its own scenario draft — switching is an explicit, saved
+    // choice, not a silent reset. Land back on the Interaction phase after the
+    // reload so the author sees the new interaction's fields immediately.
+    if (!confirm(`Switch the core interaction to “${t.label}”?\n\nYour “${type.label}” draft stays saved. This opens ${t.label}’s own scenario.`)) return;
+    sessionStorage.setItem(PHASE_KEY, 'start');
+    location.search = '?type=' + encodeURIComponent(id);
+  }
+
+  /* ---- the Start step's context-source control ---------------------------
+     Universal, up-front decision: is the learner's context set inside this
+     scenario (an intro modality) or inherited from the previous learning
+     object? Choosing 'previous-lo' reveals the handoff metadata and drops the
+     ① Scenario Context phase (there's nothing to author there). */
+  function buildContextSource() {
+    ensureCtx();
+    const card = document.createElement('section');
+    card.className = 'card';
+    card.id = 'sec-contextsource';
+    card.innerHTML =
+      '<h2><i class="fa-solid fa-diagram-predecessor"></i> How is the context set?</h2>' +
+      '<p class="lead">Where the learner’s context comes from before this scenario begins.</p>';
+    const box = document.createElement('div');
+    box.className = 'fields';
+    const rg = document.createElement('vaadin-radio-group');
+    rg.setAttribute('theme', 'vertical');
+    [['in-scenario', 'Set it in this scenario — pick a video / audio / reading / story intro (or none) in the next step'],
+     ['previous-lo', 'Use the previous learning object — inherit context and hand off from whatever ran right before']]
+      .forEach(([v, l]) => { const rb = document.createElement('vaadin-radio-button'); rb.value = v; rb.label = l; rg.appendChild(rb); });
+    rg.value = scenario.contextSource || 'in-scenario';
+    const detail = document.createElement('div');
+    const renderDetail = () => {
+      detail.innerHTML = '';
+      if ((scenario.contextSource || 'in-scenario') === 'previous-lo') {
+        const note = document.createElement('div');
+        note.className = 'fieldnote';
+        note.innerHTML = '<i class="fa-solid fa-diagram-project"></i><span>In production this is pulled from the learning-object graph automatically. Enter it here so the AI can hand off cleanly — the <b>① Scenario Context</b> step is skipped.</span>';
+        detail.append(note,
+          tf('previousLO.title', 'Previous learning object', { helper: 'What the learner just completed, by name.' }),
+          tf('previousLO.covered', 'What it covered', { area: true, minRows: 2, helper: 'What the learner arrives already knowing — so the coach doesn’t re-teach it.' }),
+          tf('previousLO.handoff', 'How it hands off', { area: true, minRows: 2, helper: 'The state they land in — what they just did or produced, and the thread this scenario picks up.' }));
+      } else {
+        const note = document.createElement('div');
+        note.className = 'fieldnote';
+        note.innerHTML = '<i class="fa-solid fa-arrow-right"></i><span>Next step — <b>① Scenario Context</b> — is where you choose how the scene is set.</span>';
+        detail.append(note);
+      }
+    };
+    const onSrc = () => {
+      const v = rg.value || 'in-scenario';
+      if (v === scenario.contextSource) return;   // ignore no-op / spurious fires
+      scenario.contextSource = v;
+      renderDetail();             // swap the previousLO fields in place
+      PHASES = computePhases();   // the ① Context phase appears/disappears
+      buildNav();                 // refresh the stepper
+      // Update the Next label WITHOUT calling buildForm() — rebuilding the form
+      // would re-create THIS radio-group and set its .value, which re-fires
+      // value-changed → onSrc → rebuild → infinite recursion (a Vaadin
+      // _valueToNodeAttribute stack overflow). Patch the label in place instead.
+      const nextBtn = $('.phase-foot .pf-btn.next');
+      if (nextBtn && activePhase < PHASES.length - 1) {
+        nextBtn.innerHTML = `Next: ${esc(PHASES[activePhase + 1].title)} <i class="fa-solid fa-arrow-right"></i>`;
+      }
+      scheduleUpdate();
+    };
+    rg.addEventListener('value-changed', onSrc);
+    rg.addEventListener('change', onSrc);
+    renderDetail();
+    box.append(rg, detail);
+    card.append(box);
+    return card;
+  }
+
+  /* ---- build the form + nav (one phase at a time) ------------------------ */
   function buildForm() {
     const form = $('#form');
     form.innerHTML = '';
-    type.sections.forEach((sec) => {
+    ensureCtx();
+    const p = PHASES[activePhase];
+
+    const header = document.createElement('div');
+    header.className = 'phase-header';
+    header.innerHTML =
+      `<p class="ph-eyebrow">${esc(p.eyebrow || '')}</p>` +
+      `<h1><span class="badge">${p.badge || `<i class="fa-solid ${esc(p.icon || 'fa-play')}"></i>`}</span> ${esc(p.title)}</h1>` +
+      `<p>${esc(p.sub)}</p>`;
+    form.appendChild(header);
+
+    // The Start step leads with the core-interaction choice (it shapes the rest).
+    if (p.isStart) form.appendChild(buildModeChooser());
+
+    let lastGroup = null;
+    sectionsInPhase(activePhase).forEach((sec) => {
+      const g = groupOf(sec);
+      if (g !== lastGroup && SUBBANDS[g]) {
+        const sb = document.createElement('div');
+        sb.className = 'sub-band';
+        sb.textContent = SUBBANDS[g];
+        form.appendChild(sb);
+      }
+      lastGroup = g;
+
       const card = document.createElement('section');
       card.className = 'card' + (sec.locked ? ' locked' : '');
       card.id = 'sec-' + sec.id;
       card.innerHTML = `
-        <h2><i class="fa-solid ${esc(sec.icon)}"></i> ${esc(sec.title)}</h2>
+        <h2><i class="fa-solid ${esc(sec.icon)}"></i> ${esc(sec.title)}${sec.stage ? `<span class="stage">${esc(sec.stage)}</span>` : ''}</h2>
         <p class="lead">${esc(sec.lead)}</p>`;
       if (sec.bridge) {
         card.appendChild(guidance(sec.bridgeTitle || 'How this maps to your old craft', 'fa-graduation-cap', sec.bridge));
       }
       card.appendChild(type.renderFields(sec, studioApi));
       form.appendChild(card);
+      spy.observe(card);
     });
+
+    // The Start step closes with the context-source decision — it bridges into
+    // the ① Context phase, or (for 'previous-lo') replaces it.
+    if (p.isStart) form.appendChild(buildContextSource());
+
+    // Back / Next footer — the natural forward path (jumping is via the rail).
+    const foot = document.createElement('div');
+    foot.className = 'phase-foot';
+    const back = document.createElement('button');
+    back.className = 'pf-btn';
+    back.innerHTML = '<i class="fa-solid fa-arrow-left"></i> Back';
+    back.disabled = activePhase === 0;
+    back.addEventListener('click', () => setPhase(activePhase - 1));
+    const spacer = document.createElement('span');
+    spacer.className = 'spacer';
+    const next = document.createElement('button');
+    next.className = 'pf-btn next';
+    if (activePhase < PHASES.length - 1) {
+      next.innerHTML = `Next: ${esc(PHASES[activePhase + 1].title)} <i class="fa-solid fa-arrow-right"></i>`;
+      next.addEventListener('click', () => setPhase(activePhase + 1));
+    } else {
+      next.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Ready to publish';
+      next.addEventListener('click', () => { const b = $('#publishBtn'); if (b) b.focus(); });
+    }
+    foot.append(back, spacer, next);
+    form.appendChild(foot);
+
     refreshGuardrailText();
   }
 
   function buildNav() {
     const nav = $('#secNav');
-    nav.innerHTML = '<div class="head">Scenario</div>';
-    type.sections.forEach((sec) => {
-      const b = document.createElement('button');
-      b.dataset.sec = sec.id;
-      b.innerHTML = `<i class="fa-solid ${esc(sec.icon)}" style="width:16px;text-align:center;color:var(--ink-faint);font-size:11.5px"></i>
-        <span>${esc(sec.title)}</span><span class="status" data-dot="${esc(sec.id)}"></span>`;
-      b.addEventListener('click', () => {
-        $('#sec-' + sec.id).scrollIntoView({ behavior: 'smooth', block: 'start' });
-        $$('.secnav button').forEach((x) => x.classList.toggle('is-active', x === b));
-      });
-      nav.appendChild(b);
+    nav.innerHTML = '';
+    const steps = document.createElement('div');
+    steps.className = 'phase-steps';
+    PHASES.forEach((p, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'phase-step' + (i === activePhase ? ' is-active' : '');
+      btn.dataset.phase = String(i);
+      btn.innerHTML =
+        `<span class="pnum">${p.isStart ? `<i class="fa-solid ${esc(p.icon || 'fa-play')}"></i>` : p.badge}</span>` +
+        `<span class="pt"><span class="ptt">${esc(p.title)}</span><span class="pdesc">${esc(p.rail)}</span></span>` +
+        `<span class="pstatus" data-phasedot="${p.id}"></span>`;
+      btn.addEventListener('click', () => setPhase(i));
+      steps.appendChild(btn);
+
+      if (i === activePhase) {
+        const sub = document.createElement('div');
+        sub.className = 'phase-sections';
+        sectionsInPhase(i).forEach((sec) => {
+          const b = document.createElement('button');
+          b.dataset.sec = sec.id;
+          b.innerHTML = `<i class="fa-solid ${esc(sec.icon)}" style="width:16px;text-align:center;color:var(--ink-faint);font-size:11.5px"></i>
+            <span>${esc(sec.title)}</span><span class="status" data-dot="${esc(sec.id)}"></span>`;
+          b.addEventListener('click', () => {
+            const el = $('#sec-' + sec.id);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            $$('.phase-sections button').forEach((x) => x.classList.toggle('is-active', x === b));
+          });
+          sub.appendChild(b);
+        });
+        steps.appendChild(sub);
+      }
     });
+    nav.appendChild(steps);
   }
 
   function refreshGuardrailText() {
@@ -919,6 +1399,19 @@
       dot.innerHTML = sec.locked ? '<i class="fa-solid fa-lock locknote"></i>'
         : worst && worst.severity !== 'info' ? '<i class="fa-solid fa-circle"></i>'
         : '<i class="fa-solid fa-circle-check"></i>';
+    });
+
+    // Phase-step aggregate dots: the worst non-info severity in each phase, so
+    // a collapsed phase still signals it has a blocking issue or a warning.
+    PHASES.forEach((p, i) => {
+      const dot = $(`[data-phasedot="${p.id}"]`);
+      if (!dot) return;
+      const ids = sectionsInPhase(i).map((s) => s.id);
+      const worst = currentLints.filter((l) => ids.includes(l.section))
+        .sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity])[0];
+      const sev = worst && worst.severity !== 'info' ? worst.severity : '';
+      dot.className = 'pstatus ' + sev;
+      dot.innerHTML = sev ? '<i class="fa-solid fa-circle"></i>' : '';
     });
 
     // Publish gating
@@ -1071,10 +1564,24 @@
   $('#resetBtn').addEventListener('click', () => {
     if (!confirm('Reset your draft to the shipped default? This discards your edits (published copies are not affected).')) return;
     scenario = type.normalize(clone(type.DEFAULT));
-    buildForm();
-    update();
     if (playtestHandle) playtestHandle.reset();
+    setPhase(0);
+    update();
     toast('Draft reset to the shipped scenario');
+  });
+
+  /* Start fresh — a blank canvas for authoring a NEW scenario in this mode.
+     Non-destructive: the published copy and the library are untouched (this
+     only replaces the working draft), so it's the safe "author a new course"
+     entry point. Each type supplies a blank template; older types fall back
+     to an emptied default. */
+  $('#freshBtn').addEventListener('click', () => {
+    if (!confirm('Start a brand-new scenario in this mode?\n\nThis clears every field so you can author from scratch. Your published copy and saved library entries are untouched — Export first if you want to keep the current draft.')) return;
+    scenario = type.normalize(type.blank ? type.blank() : clone(type.DEFAULT));
+    if (playtestHandle) playtestHandle.reset();
+    setPhase(0);
+    update();
+    toast('Fresh scenario — fill it in from the top');
   });
 
   $('#exportBtn').addEventListener('click', () => {
@@ -1199,7 +1706,7 @@
   const spy = new IntersectionObserver((entries) => {
     entries.forEach((en) => {
       if (en.isIntersecting) {
-        $$('.secnav button').forEach((b) =>
+        $$('.phase-sections button').forEach((b) =>
           b.classList.toggle('is-active', b.dataset.sec === en.target.id.replace('sec-', '')));
       }
     });
@@ -1209,23 +1716,29 @@
      The sub-title names the pedagogy being edited. When more than one type is
      registered, a small dropdown switches between them (each type has its own
      draft/published/library, so switching just reloads with ?type=). */
-  (function initTypeSwitcher() {
+  (function initModeLabel() {
+    // The sub-title just orients the author; the interactive mode CHOICE now
+    // lives inside the Interaction phase (buildModeChooser), so a phase-level
+    // decision sits with the other phase-level decisions.
     const sub = $('#subTitle');
-    if (sub) sub.textContent = type.label;
-    const types = window.AitheraStudio.list();
-    if (types.length < 2 || !sub) return;
-    const sel = document.createElement('select');
-    sel.id = 'typeSwitcher';
-    sel.setAttribute('aria-label', 'Scenario type');
-    sel.style.cssText = 'margin-left:12px;font-size:13px;padding:4px 8px;border-radius:7px;border:1px solid var(--line);background:transparent;color:inherit;cursor:pointer';
-    types.forEach((t) => {
-      const o = document.createElement('option');
-      o.value = t.id; o.textContent = t.label;
-      if (t.id === type.id) o.selected = true;
-      sel.appendChild(o);
-    });
-    sel.addEventListener('change', () => { location.search = '?type=' + encodeURIComponent(sel.value); });
-    sub.after(sel);
+    if (sub) sub.textContent = 'Scenario Simulator · ' + type.label;
+  })();
+
+  /* ---- inspector collapse ------------------------------------------------
+     The prompt/guardrails/playtest panel is powerful but space-hungry, so it
+     collapses to a slim rail. The choice is remembered across sessions. */
+  (function initInspectorToggle() {
+    const cols = $('.cols');
+    const KEY = 'aithera.writerStudio.inspector';
+    const setCollapsed = (collapsed) => {
+      cols.classList.toggle('insp-collapsed', collapsed);
+      const t = $('#inspToggle');
+      if (t) t.setAttribute('aria-expanded', String(!collapsed));
+      localStorage.setItem(KEY, collapsed ? 'collapsed' : 'open');
+    };
+    if (localStorage.getItem(KEY) === 'collapsed') setCollapsed(true);
+    $('#inspToggle').addEventListener('click', () => setCollapsed(true));
+    $('#inspRail').addEventListener('click', () => setCollapsed(false));
   })();
 
   /* ---- boot ---------------------------------------------------------------- */
@@ -1233,7 +1746,6 @@
   buildForm();
   buildPlaytest();
   update();
-  $$('.form .card').forEach((c) => spy.observe(c));
   </script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Action Practice — Conversation Coach (Live AI)</title>
+    <title>Action Practice — Conversation Coach (Live AI · V3)</title>
 
     <!-- Vector Web Components: Core -->
     <script type="module"
@@ -1334,7 +1334,7 @@
       character: ACTIVE_SCENARIO.characterName,
       title: ACTIVE_SCENARIO.title,
     };
-    document.getElementById('scenarioName').textContent = SCENARIO.title;
+    document.getElementById('scenarioName').textContent = SCENARIO.title + ' · V3';
     document.getElementById('pageTitle').textContent = 'Practice scenario: ' + SCENARIO.title;
 
     // When a writer-published scenario is active, say so in the top bar and
@@ -1390,7 +1390,28 @@
        off-script input, learner safety) are locked inside the compiler.
        The scripted demo engine below emulates the same contract.
        ===================================================================== */
-    let SYSTEM_PROMPT = AitheraScenario.compilePrompt(ACTIVE_SCENARIO);   // let: the Section-1 coupler may append context addenda
+
+    /* V3 — REFLECTION MUST SURFACE TWO THINGS (in-context; NOT a gate/screen).
+       The one substantive change from the v3 outline, expressed the way THIS
+       prototype already works: Learn is overlaid on the live conversation, so
+       we sharpen the coach's ordinary reflection probing rather than adding a
+       walled-off mode, a locked transition, or a hard content gate. Appended
+       to the compiled prompt so js/scenario.js (and the v1 page) stay untouched.
+       Skipped when a Writer-Studio scenario is running — that keeps its own coaching. */
+    const V3_REFLECTION_DIRECTIVE =
+`V3 — DURING THE OPENING REFLECTION, MAKE SURE THE LEARNER GRAPPLES WITH TWO THINGS (in their own words), before they step into the scene:
+  1) ROOT CAUSE = GRIEF. Kendra's drinking and withdrawal trace back to losing her Nona — this is grief, not a character flaw or a discipline problem.
+  2) SAFETY RISK = PHYSICAL & URGENT. Mixing alcohol with her prescription pills can be life-threatening — not just a wellness concern.
+Read their reflection for whether each is present (named or clearly implied):
+  - If BOTH are already there, do NOT force an extra question — affirm what they saw and move into the scene.
+  - If EITHER is missing, fold ONE natural, curious probe into your normal coaching that draws out the missing piece(s) — e.g. "Something shifted for her months ago, around when she lost her Nona — and there are pills next to the drinking. What do you make of those two together?" Keep it in your own coach voice; never lecture, never read it as a scripted/locked line, and never block the experience behind it. Ask at most once, then continue into the scene regardless of their answer — no loops.
+This lives INSIDE the ordinary reflection coaching (Learn overlaid on the conversation). It does NOT add a separate mode, screen, or transition beat.`;
+
+    let SYSTEM_PROMPT = AitheraScenario.compilePrompt(ACTIVE_SCENARIO);
+    if (!PUBLISHED) SYSTEM_PROMPT += '\n\n' + V3_REFLECTION_DIRECTIVE;
+    // Re-assert the output contract as the FINAL instruction so the appended
+    // guidance above never displaces "return JSON only" as the last thing read.
+    SYSTEM_PROMPT += '\n\nREMINDER: Return ONLY the JSON object from the OUTPUT CONTRACT — start with { and end with }, no prose, no markdown fences.';
 
     /* ---- STATE -------------------------------------------------------- */
     const initialMessages = () => ([
@@ -1457,6 +1478,13 @@
     // "get her some support" or "talk to somebody") shouldn't get stuck looping.
     const ESCALATION_RE = /\b(ra|resident assistant|counsel\w*|therap\w*|hotline|988|crisis|adult|professional|help\s?line|health\s?center|clinic|doctor|nurse|dean|advisor|adviser|hall\s?director|hall\s?staff|psych\w*|wellness|someone|somebody|trained|trusted|specialist|expert|staff|support (group|system|line)?|resource|service|program|reach out|connect (her|them)|get (her )?help|title\s?ix|parent)\b/i;
 
+    // V3 — light content detection for the reflection: has the learner named the
+    // GRIEF root cause, and the alcohol+PILL safety risk? (The live prompt does
+    // this with real comprehension; the scripted demo approximates it so both
+    // paths behave the same. Broad on purpose — natural paraphrases must pass.)
+    const GRIEF_RE = /\b(grief|grieving|griev\w*|mourn\w*|loss|lost|losing|nona|grandmoth\w*|grandma|granny|died|death|passed(\s+away)?|funeral)\b/i;
+    const RISK_RE  = /\b(pill|pills|prescription|medication|meds|mix\w*|combin\w*|overdose|dangerous|danger|deadly|fatal|life[-\s]?threat\w*|interact\w*|toxic|substances?|drugs?)\b/i;
+
     function countSceneLines(msgs) {
       return msgs.filter((m) => m.speaker === 'you' && m.kind === 'dialogue').length;
     }
@@ -1505,10 +1533,26 @@
       if (last && last.kind === 'coaching') {
         // (a) still prepping, before the scene
         if (!entered) {
-          if (preSceneCoachReplies(msgs) <= 1) {
+          // V3: before stepping in, make sure BOTH the grief root cause AND the
+          // alcohol+pill safety risk have surfaced. If one's missing, ONE natural
+          // probe draws it out — capped at a single extra beat so it never loops.
+          // If both are already named, skip the probe and go straight in (matches
+          // the outline: "don't linger — this learner is ready").
+          const said = msgs.filter((m) => m.speaker === 'you' && m.kind === 'coaching')
+            .map((m) => m.text || '').join(' ');
+          const namedGrief = GRIEF_RE.test(said);
+          const namedRisk  = RISK_RE.test(said);
+          if (preSceneCoachReplies(msgs) <= 1 && (!namedGrief || !namedRisk)) {
+            let probe;
+            if (!namedGrief && !namedRisk) {
+              probe = `Before we step in, sit with two things for a second. Something shifted for her months ago — around when she lost her Nona. And there are pills in that drawer, sitting right next to the drinking. What do you make of those two together?`;
+            } else if (!namedGrief) {
+              probe = `One thing before we go in: this didn't come out of nowhere. Something changed for her back in the fall, when her Nona died. How much of what you're seeing do you think traces back to that loss?`;
+            } else {
+              probe = `One thing I don't want to skip: it isn't only how much she's drinking — it's the pills in her drawer alongside it. Mixing those with alcohol is its own kind of danger, not just a rough patch. Does that change how urgent this feels?`;
+            }
             return {
-              turn: [{ speaker: 'coach', kind: 'coaching', text:
-`That's worth naming — that fear is real, and it's exactly why you're the right person to try. One more before we go in: what do you actually want this conversation to do? Not fix everything — just the one thing you hope is true when you leave the room.` }],
+              turn: [{ speaker: 'coach', kind: 'coaching', text: probe }],
               mode: 'coaching', inputTarget: 'coach',
             };
           }
@@ -1621,11 +1665,8 @@ You didn't carry this alone, and you didn't ask her to either.` },
        (with trailing-kind inference) + a final-turn report. JSON repair, the
        strict parse → retry-once → safe-fallback cycle, and the JSON-history
        serializer are the ONE shared implementation every simulator page
-       uses — this upgrade also replaces V1's old prose-history serializer,
-       which was the main cause of parse-failure loops. */
-    const TURN_PARSER = SimCore.makeTurnParser({
-      fallbackText: `Let's stay with that for a second. What feels hardest about saying it out loud?`,
-    });
+       uses — nothing engine-shaped lives in this file anymore. */
+    const TURN_PARSER = SimCore.makeTurnParser({});          // roleplay defaults
     const TURN_ENGINE = SimCore.makeTurnEngine({
       system: () => SYSTEM_PROMPT,   // a fn so Section-1 coupler addenda are honored
       maxTokens: 1600,
@@ -2085,7 +2126,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
     // Escape closes the results modal while it's open (checked before the
     // coach-sheet trap below, which is inert-blocked anyway while it's up).
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && state.resultsModalOpen) {
+      if (e.key === 'Escape' && state.resultsModalOpen) {   // note: closes via the shared debrief
         e.preventDefault();
         DEBRIEF.closeResults();
       }
@@ -2611,7 +2652,10 @@ You didn't carry this alone, and you didn't ask her to either.` },
       // Section 1 → Section 2, standardized: whatever intro modality ran
       // (video / audio / reading / none), it arrives here as ONE normalized
       // ContextRecord (js/sim-context.js). Addenda inform the model; seeds
-      // land on the transcript ahead of the coach's opening.
+      // land on the transcript ahead of the coach's opening. This page's
+      // intros are watch-only, so the record is typically empty — but the
+      // coupler is the same one artifact-producing intros (story highlights)
+      // flow through.
       SimContext.apply(context, {
         appendSystem: (t) => { SYSTEM_PROMPT += '\n\n' + t; },
         seed: (msgs) => { state.pendingOpening = [...msgs, ...(state.pendingOpening || [])]; },
