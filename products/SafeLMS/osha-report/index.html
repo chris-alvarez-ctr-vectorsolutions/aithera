@@ -509,21 +509,21 @@
   .dash-tab.active { color: var(--blue-accent); border-bottom-color: var(--blue-accent); font-weight: 700; }
 
   /* ============================================================
-     ACTION-NEEDED CARDS — replace the "Top 5 courses" bar chart.
-     Each card = a count of learners in an actionable group; click
-     opens a course-filterable bulk-action modal.
+     ACTION-NEEDED CARDS — a read-out of how many learners fall in
+     each actionable bucket. They are NOT quick filters; use the
+     Action Needed filter to focus the table, or Email Learners to
+     message everyone in a bucket.
      ============================================================ */
+  /* Info icon beside the "Action Needed" heading */
+  .ac-info { color: var(--muted-2); font-size: 13px; margin-left: 6px; cursor: help; vertical-align: baseline; }
+  .ac-info:hover { color: var(--blue-primary); }
   /* Cards stacked as rows beside the pie (icon · count/label · CTA) */
   .action-cards { display: flex; flex-direction: column; gap: 10px; }
   .action-card {
     display: flex; align-items: center; gap: 13px; text-align: left; width: 100%; flex: 0 0 auto;
     background: #fff; border: 1px solid var(--hair); border-radius: 10px; padding: 12px 14px;
-    cursor: pointer; font-family: inherit; transition: border-color .12s, box-shadow .12s, transform .05s;
+    font-family: inherit;
   }
-  .action-card:hover { border-color: var(--blue-primary); box-shadow: 0 2px 10px rgba(16,24,40,.10); }
-  .action-card:active { transform: translateY(1px); }
-  /* Active quick-filter state — the card whose action group the table is currently filtered to. */
-  .action-card.active { border-color: var(--blue-primary); box-shadow: 0 0 0 1px var(--blue-primary) inset; background: #f5f8ff; }
   .action-card .ac-ico { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; font-size: 19px; flex-shrink: 0; }
   .action-card .ac-body { flex: 1; min-width: 0; }
   .action-card .ac-count { font-size: 26px; font-weight: 800; color: var(--ink); line-height: 1.05; }
@@ -771,7 +771,11 @@
 
             <!-- Action-needed counts, beside the chart -->
             <div class="chart-col chart-col-bar">
-              <div class="chart-section-title">Action Needed</div>
+              <div class="chart-section-title">
+                Action Needed
+                <i class="fa-regular fa-circle-question ac-info" tabindex="0"
+                   title="These are counts only. Use the Action Needed filter to view just the learners in a bucket, or Email Learners to message everyone in it."></i>
+              </div>
               <div class="action-cards" id="actionCards"><!-- rendered by JS --></div>
             </div>
           </div>
@@ -864,6 +868,19 @@
         </div>
 
         <div class="filter-panel-body">
+          <!-- Action Needed — moved to the top; this is the only way to focus the table on an
+               actionable bucket now that the Action-Needed cards no longer act as quick filters. -->
+          <div class="filter-section">
+            <label class="filter-label">Action Needed</label>
+            <div class="filter-checkboxes" id="actionChecks">
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="intervene"></vaadin-checkbox><span>Not started — needs intervention</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="nudge"></vaadin-checkbox><span>Behind pace — needs a nudge</span></label>
+              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="retry"></vaadin-checkbox><span>Failed — needs a retry</span></label>
+            </div>
+          </div>
+
+          <div class="filter-divider"></div>
+
           <!-- Date Range -->
           <div class="filter-section">
             <label class="filter-label">Date Range</label>
@@ -913,18 +930,6 @@
               <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="in-progress"></vaadin-checkbox><span>In Progress</span></label>
               <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="not-started"></vaadin-checkbox><span>Not Started</span></label>
               <label class="filter-check-row"><vaadin-checkbox theme="small" data-status="failed"></vaadin-checkbox><span>Failed</span></label>
-            </div>
-          </div>
-
-          <div class="filter-divider"></div>
-
-          <!-- Action Needed — mirrors the Action-Needed cards above the table -->
-          <div class="filter-section">
-            <label class="filter-label">Action Needed</label>
-            <div class="filter-checkboxes" id="actionChecks">
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="intervene"></vaadin-checkbox><span>Not started — needs intervention</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="nudge"></vaadin-checkbox><span>Behind pace — needs a nudge</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="retry"></vaadin-checkbox><span>Failed — needs a retry</span></label>
             </div>
           </div>
 
@@ -1300,6 +1305,16 @@
     expiringOnly: false,
     nearLimitOnly: false,
   };
+  // The panel edits a DRAFT copy; nothing takes effect until "Apply Filters" is clicked.
+  const cloneFilters = f => ({ statuses: new Set(f.statuses), courses: new Set(f.courses), actions: new Set(f.actions), expiringOnly: f.expiringOnly, nearLimitOnly: f.nearLimitOnly });
+  let draft = cloneFilters(filters);
+  function commitDraft() {
+    filters.statuses = new Set(draft.statuses);
+    filters.courses = new Set(draft.courses);
+    filters.actions = new Set(draft.actions);
+    filters.expiringOnly = draft.expiringOnly;
+    filters.nearLimitOnly = draft.nearLimitOnly;
+  }
   // "Base" filters — course · status · expiring · near-limit. These scope both the table
   // and the Action-Needed cards (the cards intentionally ignore the action-needed quick filter
   // so their counts stay meaningful).
@@ -1348,18 +1363,17 @@
   function applyStatusFilter() { applyFilters(); }
   function syncSearch() { applyFilters(); }
 
+  // Panel checkboxes only edit the DRAFT — no live apply. Committed on Apply Filters.
   document.querySelectorAll('#statusChecks vaadin-checkbox').forEach(cb => {
     cb.addEventListener('change', () => {
       const s = cb.dataset.status;
-      cb.checked ? filters.statuses.add(s) : filters.statuses.delete(s);
-      applyFilters();
+      cb.checked ? draft.statuses.add(s) : draft.statuses.delete(s);
     });
   });
   document.querySelectorAll('#actionChecks vaadin-checkbox').forEach(cb => {
     cb.addEventListener('change', () => {
       const a = cb.dataset.action;
-      cb.checked ? filters.actions.add(a) : filters.actions.delete(a);
-      applyFilters();
+      cb.checked ? draft.actions.add(a) : draft.actions.delete(a);
     });
   });
   // OSHA Courses — inline checkbox multiselect, built from the data.
@@ -1369,12 +1383,12 @@
   courseChecks.querySelectorAll('vaadin-checkbox').forEach(cb => {
     cb.addEventListener('change', () => {
       const c = cb.dataset.course;
-      cb.checked ? filters.courses.add(c) : filters.courses.delete(c);
-      applyFilters();
+      cb.checked ? draft.courses.add(c) : draft.courses.delete(c);
     });
   });
-  document.getElementById('chk-expiring').addEventListener('change', e => { filters.expiringOnly = e.target.checked; applyFilters(); });
-  document.getElementById('chk-failed-limit').addEventListener('change', e => { filters.nearLimitOnly = e.target.checked; applyFilters(); });
+  document.getElementById('chk-expiring').addEventListener('change', e => { draft.expiringOnly = e.target.checked; });
+  document.getElementById('chk-failed-limit').addEventListener('change', e => { draft.nearLimitOnly = e.target.checked; });
+  // The table search box is separate from the panel filters and still applies live.
   searchInput.addEventListener('input', applyFilters);
 
   /* ═══════════════ Filter scope sentence + applied-filter chips ═══════════════ */
@@ -1392,16 +1406,21 @@
     if (filters.nearLimitOnly) n++;
     return n;
   }
+  // The panel checkboxes reflect the DRAFT (what you're editing), not the applied filters.
   function syncStatusChecks() {
-    document.querySelectorAll('#statusChecks vaadin-checkbox').forEach(cb => { cb.checked = filters.statuses.has(cb.dataset.status); });
+    document.querySelectorAll('#statusChecks vaadin-checkbox').forEach(cb => { cb.checked = draft.statuses.has(cb.dataset.status); });
   }
   function syncActionChecks() {
-    document.querySelectorAll('#actionChecks vaadin-checkbox').forEach(cb => { cb.checked = filters.actions.has(cb.dataset.action); });
+    document.querySelectorAll('#actionChecks vaadin-checkbox').forEach(cb => { cb.checked = draft.actions.has(cb.dataset.action); });
   }
   function syncCourseChecks() {
-    document.querySelectorAll('#courseChecks vaadin-checkbox').forEach(cb => { cb.checked = filters.courses.has(cb.dataset.course); });
+    document.querySelectorAll('#courseChecks vaadin-checkbox').forEach(cb => { cb.checked = draft.courses.has(cb.dataset.course); });
   }
-  function syncPanelChips() { syncCourseChecks(); }
+  function syncAllChecks() {
+    syncStatusChecks(); syncActionChecks(); syncCourseChecks();
+    const ce = document.getElementById('chk-expiring'); if (ce) ce.checked = draft.expiringOnly;
+    const cf = document.getElementById('chk-failed-limit'); if (cf) cf.checked = draft.nearLimitOnly;
+  }
   // One removable chip per active filter, rendered after the "Filtered to:" lead-in.
   function renderAppliedChips() {
     if (!appliedFilters) return;
@@ -1419,7 +1438,9 @@
       const chip = document.createElement('span');
       chip.className = 'filter-chip';
       chip.innerHTML = `${c.k ? `<span class="fc-k">${c.k}:</span>` : ''}<span>${c.label}</span><button class="filter-chip-remove" aria-label="Remove ${c.label}"><i class="fa-solid fa-xmark"></i></button>`;
-      chip.querySelector('.filter-chip-remove').addEventListener('click', () => { c.remove(); applyFilters(); });
+      // Removing a chip acts on the applied filters immediately; keep the draft in step so the
+      // panel checkboxes reflect it if it's open.
+      chip.querySelector('.filter-chip-remove').addEventListener('click', () => { c.remove(); draft = cloneFilters(filters); syncAllChecks(); applyFilters(); });
       appliedFilters.appendChild(chip);
     });
   }
@@ -1433,12 +1454,9 @@
     filters.statuses.clear();
     filters.courses.clear(); filters.actions.clear();
     filters.expiringOnly = false; filters.nearLimitOnly = false;
+    draft = cloneFilters(filters);
     searchInput.value = '';
-    syncStatusChecks();
-    syncActionChecks();
-    syncCourseChecks();
-    const ce = document.getElementById('chk-expiring'); if (ce) ce.checked = false;
-    const cf = document.getElementById('chk-failed-limit'); if (cf) cf.checked = false;
+    syncAllChecks();
     applyFilters();
   }
   filtersClearBtn.addEventListener('click', clearAllFilters);
@@ -1662,14 +1680,21 @@
   // The table always holds its width and scrolls horizontally with a frozen Action column
   // (see CSS), so opening the panel just narrows the content area — no extra table state to flip.
   function closePanel() { filterPanel.classList.add('collapsed'); }
-  function openPanel()  { filterPanel.classList.remove('collapsed'); }
-  document.getElementById('closePanelBtn').addEventListener('click', closePanel);
+  function openPanel()  {
+    // Start editing from the currently applied filters; discard any earlier un-applied edits.
+    draft = cloneFilters(filters);
+    syncAllChecks();
+    filterPanel.classList.remove('collapsed');
+  }
+  document.getElementById('closePanelBtn').addEventListener('click', closePanel);   // X = discard draft
   filterInlineToggle.addEventListener('click', openPanel);
   /* Filters start closed on the report. */
   closePanel();
 
-  /* Apply Filters — just close the panel (filters apply live as checkboxes change). */
+  /* Apply Filters — commit the draft, refresh the report, and close the panel. */
   document.getElementById('applyFiltersBtn').addEventListener('click', () => {
+    commitDraft();
+    applyFilters();
     closePanel();
   });
 
@@ -1733,8 +1758,8 @@
     retry:     r => r.status === 'failed',
   };
   function renderActionCards() {
-    // Cards ignore the action-needed quick filter (cardScopeLearners) so their counts stay
-    // stable when a card is used as a quick filter.
+    // Cards are a read-out only (NOT a quick filter). Counts reflect the course/status/etc.
+    // base scope so they stay meaningful.
     const data = cardScopeLearners();
     // Every card is "N of the total number of students" — same denominator across all three.
     const total = data.length;
@@ -1744,32 +1769,21 @@
       { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: total, label: 'Failed the assessment — needs a retry' },
     ];
     const wrap = document.getElementById('actionCards');
-    // Clicking the card BODY applies that group as a quick filter (shows a Filtered-to chip);
-    // the "Email Learners" button opens the Email Learners page for everyone in that group.
+    // Cards no longer filter the table. Only the "Email Learners" button is interactive, and
+    // it's hidden when a bucket has zero learners (nobody to email).
     wrap.innerHTML = cards.map(c => `
-      <div class="action-card${filters.actions.has(c.type) ? ' active' : ''}" data-action="${c.type}" role="button" tabindex="0">
+      <div class="action-card" data-action="${c.type}">
         <span class="ac-ico ${c.cls}"><i class="fa-solid ${c.icon}"></i></span>
         <span class="ac-body">
           <span class="ac-count">${c.count} <span class="ac-of">of ${c.of}</span></span>
           <span class="ac-label">${c.label}</span>
         </span>
-        <vaadin-button theme="secondary small" class="ac-take"><i class="fa-solid fa-envelope" slot="prefix"></i>Email Learners</vaadin-button>
+        ${c.count > 0 ? `<vaadin-button theme="secondary small" class="ac-take"><i class="fa-solid fa-envelope" slot="prefix"></i>Email Learners</vaadin-button>` : ''}
       </div>`).join('');
-    wrap.querySelectorAll('.action-card').forEach(card => {
-      const type = card.dataset.action;
-      const takeBtn = card.querySelector('.ac-take');
-      takeBtn.addEventListener('click', e => { e.stopPropagation(); openActionGroup(type); });
-      const quickFilter = () => toggleActionQuickFilter(type);
-      card.addEventListener('click', quickFilter);
-      card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); quickFilter(); } });
+    wrap.querySelectorAll('.ac-take').forEach(btn => {
+      const type = btn.closest('.action-card').dataset.action;
+      btn.addEventListener('click', () => openActionGroup(type));
     });
-  }
-  // Card-body click → focus the table on that action group. Clicking the active card again clears it.
-  function toggleActionQuickFilter(type) {
-    if (filters.actions.size === 1 && filters.actions.has(type)) filters.actions.delete(type);
-    else { filters.actions.clear(); filters.actions.add(type); }
-    syncActionChecks();
-    applyFilters();
   }
 
   /* ═══════════════ Overview chart — Status Distribution (pie) ═══════════════ */
