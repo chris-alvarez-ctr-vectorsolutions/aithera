@@ -1451,8 +1451,8 @@
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
     <script src="js/sim-core.js?v=1"></script>
     <script src="js/sim-context.js?v=1"></script>
-    <script src="js/sim-debrief.js?v=1"></script>
-    <script src="js/sim-chat-history.js?v=4"></script>
+    <script src="js/sim-debrief.js?v=2"></script>
+    <script src="js/sim-chat-history.js?v=5"></script>
     <script>
     /* =====================================================================
        ACTION PRACTICE — engine + render-by-state (vanilla, no framework)
@@ -2176,10 +2176,9 @@ You didn't carry this alone, and you didn't ask her to either.` },
       coachPanel.setAttribute('aria-hidden', coachUp ? 'false' : 'true');
       if (coachUp) {
         coachPanelBody.innerHTML = '';
-        if (state.closingStepperActive) {
-          // the closing summary "builds" — no messages behind it yet
-          coachPanelBody.appendChild(DEBRIEF.stepperNode());
-        } else {
+        {
+          // The closing recap shows here like any other coach line — the
+          // loading beats live in the CTA slot below (see showAnalyzing).
           const coachingRun = trailingRun(messages, 'coaching');
           coachingRun.forEach((m) => coachPanelBody.appendChild(
             m.kind === 'highlights' ? youHighlightsNode(m) : (m.speaker === 'you' ? youCoachNode(m) : coachNode(m))));
@@ -2204,7 +2203,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
       // itself keeps showing on the stage behind the coach sheet afterward.
       const showStoryCta    = state.enteredScenario && !state.storyDone;
       const showEntry      = state.awaitingEntry && !hasEnteredScene && !state.entryPromptDismissed && !state.delivering;
-      const showAnalyzing  = state.analyzing;
+      const showAnalyzing  = state.analyzing || state.closingStepperActive;
       const showDebrief    = state.awaitingDebrief && !state.analyzing && !state.delivering;
       // The coach has replied and is ready to send the learner back into the
       // scene, but waits for this tap rather than auto-transitioning.
@@ -2229,7 +2228,9 @@ You didn't carry this alone, and you didn't ask her to either.` },
       inputMain.hidden      = showLanding || showStoryCta || showEntry || showAnalyzing || showDebrief || showReturn || showResults || showContinue || showDone;
       storyCtaBtn.disabled  = state.highlights.length === 0;
       if (showAnalyzing) {
-        inputAnalyzing.lastChild.textContent = complete ? 'Wrapping up your practice…' : 'Analyzing your response…';
+        inputAnalyzing.lastChild.textContent = state.closingStepperActive
+          ? DEBRIEF.closingLabel()
+          : (complete ? 'Wrapping up your practice…' : 'Analyzing your response…');
       }
       if (showDebrief) {
         debriefCtaBtn.innerHTML = complete

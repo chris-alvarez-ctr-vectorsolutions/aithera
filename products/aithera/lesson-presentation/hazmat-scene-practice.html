@@ -1035,6 +1035,12 @@
             <i class="fa-solid fa-chalkboard-user"></i> See your results <i class="fa-solid fa-arrow-right arrow"></i>
           </button>
         </div>
+        <!-- Closing loader: the "Analyzing… Determining…" beats cycle HERE
+             (where "View full results" lands), not stacked over the chat. -->
+        <div class="input-analyzing" id="inputAnalyzing" hidden>
+          <span class="dots"><span></span><span></span><span></span></span>
+          Analyzing…
+        </div>
         <!-- Results CTA: shown once the closing recap has landed. -->
         <div class="input-entry" id="inputResults" hidden>
           <button class="debrief-cta" id="resultsCtaBtn">
@@ -1075,8 +1081,8 @@
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
     <script src="js/sim-core.js?v=1"></script>
     <script src="js/sim-context.js?v=1"></script>
-    <script src="js/sim-debrief.js?v=1"></script>
-    <script src="js/sim-chat-history.js?v=4"></script>
+    <script src="js/sim-debrief.js?v=2"></script>
+    <script src="js/sim-chat-history.js?v=5"></script>
 
     <!-- Writer Studio bridge — lets "Publish to prototype" round-trip:
          studio-engine + the Observe/React type register into window.AitheraStudio
@@ -1391,6 +1397,7 @@ Nothing about that tank got safer today. The difference is you'd have kept every
     const liveRegion     = document.getElementById('liveRegion');
     const inputResults   = document.getElementById('inputResults');
     const resultsCtaBtn  = document.getElementById('resultsCtaBtn');
+    const inputAnalyzing = document.getElementById('inputAnalyzing');
     // (the results modal's elements are owned by the shared debrief —
     //  SimDebrief.ensureModal() adopts the markup above)
     const inputContinue  = document.getElementById('inputContinue');
@@ -1621,9 +1628,9 @@ Nothing about that tank got safer today. The difference is you'd have kept every
       coachPanel.setAttribute('aria-hidden', coachUp ? 'false' : 'true');
       if (coachUp) {
         coachPanelBody.innerHTML = '';
-        if (state.closingStepperActive) {
-          coachPanelBody.appendChild(DEBRIEF.stepperNode());
-        } else {
+        {
+          // The recap stays visible here; the loading beats run in the CTA
+          // slot below (see showClosing), not stacked over the conversation.
           messages.forEach((m) => coachPanelBody.appendChild(m.speaker === 'you' ? youCoachNode(m) : coachNode(m)));
           if (complete && !state.delivering && state.resultsViewed) coachPanelBody.appendChild(checklistNode());
         }
@@ -1645,6 +1652,9 @@ Nothing about that tank got safer today. The difference is you'd have kept every
       const showObserveNext = state.awaitingObserve && !state.videoLive && !state.delivering && !showReturn;
       const showRecap    = complete && !state.delivering && !state.closingStepperActive && !state.awaitingResults && !state.resultsViewed && !showReturn;
       const showResultsCta = state.awaitingResults && !state.resultsModalOpen && !showReturn;
+      // The closing "Analyzing… Determining…" beats cycle in the CTA slot
+      // (where "View full results" lands), replacing the composer meanwhile.
+      const showClosing  = state.closingStepperActive;
       const showContinue = complete && state.resultsViewed && !state.delivering && !state.continued && !showReturn;
       const showDone      = state.continued && !showReturn;
       inputStart.hidden    = !showStart;
@@ -1652,10 +1662,12 @@ Nothing about that tank got safer today. The difference is you'd have kept every
       inputReturn.hidden   = !showReturn;
       inputObserve.hidden  = !showObserveNext;
       inputRecap.hidden    = !showRecap;
+      inputAnalyzing.hidden = !showClosing;
       inputResults.hidden  = !showResultsCta;
       inputContinue.hidden = !showContinue;
       inputDone.hidden      = !showDone;
-      inputMain.hidden = showStart || showWatching || showReturn || showObserveNext || showRecap || showResultsCta || showContinue || showDone;
+      if (showClosing) inputAnalyzing.lastChild.textContent = DEBRIEF.closingLabel();
+      inputMain.hidden = showStart || showWatching || showReturn || showObserveNext || showRecap || showClosing || showResultsCta || showContinue || showDone;
 
       composer.disabled = complete || state.sending || state.delivering || state.awaitingObserve || !state.started;
       sendBtn.disabled = composer.disabled || !composer.value.trim();

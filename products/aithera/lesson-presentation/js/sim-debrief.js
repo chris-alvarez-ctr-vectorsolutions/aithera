@@ -155,6 +155,25 @@
     await Core.wait(Core.reducedMotion() ? 0 : 350);
   }
 
+  // The compact close loader: same three beats as the stepper, but cycled as a
+  // single line down where the CTA lands (not stacked in the chat body). It
+  // owns no DOM — the page shows its own one-line "…" indicator and reads the
+  // current label off the flow; this just advances the beat via `onStep(i)`
+  // (which re-renders) and, for source:'call', absorbs the fetch latency.
+  async function runClosingLoader({ steps, dead, parallel, onStep, stepMs }) {
+    const labels = steps || STEPS;
+    const isDead = dead || (() => false);
+    const beat = Core.reducedMotion() ? 150 : (stepMs || 900);
+    for (let i = 0; i < labels.length; i++) {
+      if (isDead()) return;
+      if (onStep) onStep(i);
+      await Core.wait(beat);
+    }
+    if (isDead()) return;
+    if (parallel) await parallel;
+    await Core.wait(Core.reducedMotion() ? 0 : 250);
+  }
+
   function reportListNode(cls, icon, heading, items) {
     return el('div', `report-section ${cls}`, `
       <h3><i class="fa-solid ${icon}"></i> ${esc(heading)}</h3>
@@ -416,25 +435,41 @@
       else if (c.ui.focusFallback) c.ui.focusFallback();
     }
 
-    // The FINAL debrief gets a build-up instead of an instant reveal: the
-    // sheet rises into the stepper, THEN the recap (+ report availability).
+    // The FINAL debrief: the coach's recap lands in the sheet as the last chat
+    // message right away — no stepper covering the conversation. The loading
+    // beats move DOWN to the CTA slot (a compact one-line "…" the page shows in
+    // place of the composer), cycling the same labels; when they finish, that
+    // same slot swaps to the "View full results" CTA. So the analysis reads as
+    // "the coach said its piece, now it's tallying your results" rather than a
+    // spinner interrupting mid-conversation.
     async function openClosing(pendingMessages) {
       const dead = c.seq ? c.seq.guard() : (() => false);
       const pending = pendingMessages || [];
-      c.state.closingStepperActive = true;
+      pending.forEach((m) => c.ui.pushMessage(m));   // recap shows FIRST
+      c.state.closingStep = 0;
+      c.state.closingStepperActive = true;   // page shows the loader in the CTA slot
       c.ui.announce('Analyzing the conversation.');
-      c.ui.render();   // the coach sheet rises, showing the stepper
-      // source:'call' — fire the closing call now; the stepper absorbs it.
+      c.ui.render();
+      // source:'call' — fire the closing call now; the loader absorbs it.
       const parallel = (c.results && c.results.source === 'call' && c.results.fetch)
         ? c.results.fetch().then((r) => { if (c.results.store) c.results.store(r); })
         : null;
-      await runStepper({ container: c.ui.stepperContainer(), steps: c.steps, dead, parallel });
+      await runClosingLoader({
+        steps: c.steps, dead, parallel,
+        onStep: (i) => { c.state.closingStep = i; c.ui.render(); },
+      });
       if (dead()) return;
       c.state.closingStepperActive = false;
-      pending.forEach((m) => c.ui.pushMessage(m));
-      c.state.awaitingResults = true;   // footer offers "View full results"
+      c.state.awaitingResults = true;   // the loader's slot now offers "View full results"
       c.ui.announce('Your AI coach has a recap. View your full results when ready.');
       c.ui.render();
+    }
+
+    // The label for the current loader beat — the page paints it into its
+    // one-line CTA-slot indicator while closingStepperActive.
+    function closingLabel() {
+      const labels = c.steps || STEPS;
+      return labels[c.state.closingStep || 0] || labels[0];
     }
 
     function next() {
@@ -473,7 +508,7 @@
       else if (e.target.closest('#resultsContinueBtn')) closeResults();
     });
 
-    return { openClosing, openResults, closeResults, next, back, finish, render, stepperNode: () => stepperNode(c.steps) };
+    return { openClosing, openResults, closeResults, next, back, finish, render, closingLabel, stepperNode: () => stepperNode(c.steps) };
   }
 
   injectStyles();
@@ -484,6 +519,7 @@
     withIcons,
     stepperNode,
     runStepper,
+    runClosingLoader,
     reportListNode,
     resourcesNode,
     reportPages,

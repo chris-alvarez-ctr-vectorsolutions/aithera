@@ -1312,8 +1312,8 @@
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
     <script src="js/sim-core.js?v=1"></script>
     <script src="js/sim-context.js?v=1"></script>
-    <script src="js/sim-debrief.js?v=1"></script>
-    <script src="js/sim-chat-history.js?v=4"></script>
+    <script src="js/sim-debrief.js?v=2"></script>
+    <script src="js/sim-chat-history.js?v=5"></script>
     <!-- The Marshall scenario (V2 — video turn): content + compiled system prompt -->
     <script src="js/marshall-scenario-v2.js?v=4"></script>
 
@@ -1913,10 +1913,9 @@
       coachPanel.setAttribute('aria-hidden', coachUp ? 'false' : 'true');
       if (coachUp) {
         coachPanelBody.innerHTML = '';
-        if (state.closingStepperActive) {
-          // the closing summary "builds" — no messages behind it yet
-          coachPanelBody.appendChild(DEBRIEF.stepperNode());
-        } else {
+        {
+          // The closing recap shows here like any other coach line — the
+          // loading beats live in the CTA slot below (see showAnalyzing).
           const coachingRun = trailingRun(messages, 'coaching');
           coachingRun.forEach((m) => coachPanelBody.appendChild(m.speaker === 'you' ? youCoachNode(m) : coachNode(m)));
           // The full strengths/growth-areas report lives in its own modal (see
@@ -1935,7 +1934,7 @@
       // start CTA (bring the coach in) · entry CTA (step in) · "Analyzing…"/"Watching…" beats · debrief CTA
       const showStart     = !state.started && !complete && !state.videoPlaying && !state.audioIntroPlaying;
       const showEntry     = state.awaitingEntry && !hasEnteredScene && !state.entryPromptDismissed && !state.delivering;
-      const showAnalyzing = state.analyzing;
+      const showAnalyzing = state.analyzing || state.closingStepperActive;
       // videoPlaying stays true after the clips end too (it lingers as the
       // blurred coach-prep backdrop — see the render() guard above), so this
       // needs its own check rather than just mirroring state.videoPlaying.
@@ -1965,7 +1964,9 @@
       inputDone.hidden      = !showDone;
       inputMain.hidden      = showStart || showEntry || showAnalyzing || showWatching || showDebrief || showReturn || showResults || showContinue || showDone;
       if (showAnalyzing) {
-        inputAnalyzing.lastChild.textContent = complete ? 'Wrapping up your practice…' : 'Analyzing your response…';
+        inputAnalyzing.lastChild.textContent = state.closingStepperActive
+          ? DEBRIEF.closingLabel()
+          : (complete ? 'Wrapping up your practice…' : 'Analyzing your response…');
       }
       if (showWatching) {
         inputWatching.lastChild.textContent = state.audioIntroPlaying ? 'Setting the scene — listen or read, then continue' : 'Watching the scene…';

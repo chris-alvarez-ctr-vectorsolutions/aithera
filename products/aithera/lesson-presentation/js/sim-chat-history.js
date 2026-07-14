@@ -172,6 +172,16 @@
         else if (m.speaker === 'you') view.appendChild(sceneNode(m, labels.you + ' · in the scene'));
         else view.appendChild(sceneNode(m, charName(m)));
       }
+      // The coach's "typing" dots live in .coach-panel-body, which is hidden
+      // while this view is open — so mirror any live indicator into the view
+      // (theme-consistent: it reuses the page's own .typing markup). The body
+      // MutationObserver re-renders on every add/remove, keeping this in sync.
+      const liveTyping = body && body.querySelector('.typing');
+      if (liveTyping) {
+        const dots = liveTyping.cloneNode(true);
+        dots.removeAttribute('id');   // never duplicate #typingNode
+        view.appendChild(dots);
+      }
     }
 
     function setBtn() {
@@ -184,17 +194,31 @@
         : 'Show the full conversation so far');
     }
 
-    /* geometry: from just below the top bar to the input bar (the panel's
-       own bottom offset, which every page keeps synced) */
+    /* geometry: from just below the top chrome to the input bar (the panel's
+       own bottom offset, which every page keeps synced). The top edge must
+       clear EVERY bar stacked above the panel — not just the top bar, but the
+       Learn/Observe mode bar, which paints above the panel (higher z-index).
+       Miss it and the newest lines slide up behind that bar. */
+    function topBoundary() {
+      if (cfg.topOffset != null) {
+        return typeof cfg.topOffset === 'function' ? cfg.topOffset() : cfg.topOffset;
+      }
+      // the bottom-most edge of any visible top chrome (top bar + mode bar)
+      let bottom = 0;
+      for (const sel of ['.topbar', '.mode-indicator']) {
+        const n = document.querySelector(sel);
+        if (!n || n.offsetParent === null) continue;   // absent or collapsed/hidden
+        const b = n.getBoundingClientRect().bottom;
+        if (b > bottom) bottom = b;
+      }
+      return (bottom || 56) + 8;   // small breathing gap below the chrome
+    }
     function applyGeometry() {
       if (!open) return;
-      const topbar = document.querySelector('.topbar');
-      const topOffset = (cfg.topOffset != null ? cfg.topOffset
-        : (topbar ? topbar.offsetHeight + 8 : 64));
-      const bottom = parseFloat(getComputedStyle(panel).bottom) || 0;
+      const panelBottom = parseFloat(getComputedStyle(panel).bottom) || 0;
       const vh = (window.visualViewport && window.visualViewport.height)
         || window.innerHeight || document.documentElement.clientHeight || 0;
-      const h = Math.max(220, vh - topOffset - bottom);
+      const h = Math.max(220, vh - topBoundary() - panelBottom);
       panel.style.maxHeight = h + 'px';
       panel.style.minHeight = h + 'px';
     }

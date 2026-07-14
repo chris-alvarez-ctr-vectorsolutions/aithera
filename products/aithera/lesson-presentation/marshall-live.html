@@ -1307,8 +1307,8 @@
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
     <script src="js/sim-core.js?v=1"></script>
     <script src="js/sim-context.js?v=1"></script>
-    <script src="js/sim-debrief.js?v=1"></script>
-    <script src="js/sim-chat-history.js?v=4"></script>
+    <script src="js/sim-debrief.js?v=2"></script>
+    <script src="js/sim-chat-history.js?v=5"></script>
     <!-- The Marshall scenario: content + compiled system prompt (this page) -->
     <script src="js/marshall-scenario.js?v=7"></script>
 
@@ -1776,21 +1776,19 @@
       coachPanel.setAttribute('aria-hidden', coachUp ? 'false' : 'true');
       if (coachUp) {
         coachPanelBody.innerHTML = '';
-        if (state.closingStepperActive) {
-          // the closing summary "builds" — no messages behind it yet
-          coachPanelBody.appendChild(DEBRIEF.stepperNode());
-        } else {
-          const coachingRun = trailingRun(messages, 'coaching');
-          coachingRun.forEach((m) => coachPanelBody.appendChild(m.speaker === 'you' ? youCoachNode(m) : coachNode(m)));
-          // The full strengths/growth-areas report lives in its own modal (see
-          // resultsModal below) — opened only when the learner taps "View full
-          // results" in the footer, never dumped in here. Resources are the
-          // one thing that still shows inline, and only once they've been
-          // through that report, so the coach panel reads as ONE thing at a
-          // time landing, not everything at once.
-          if (complete && !state.delivering && state.resultsViewed) {
-            coachPanelBody.appendChild(resourcesNode());
-          }
+        // The closing recap shows here like any other coach line — the loading
+        // beats live in the CTA slot below (see showAnalyzing), not stacked
+        // over the conversation.
+        const coachingRun = trailingRun(messages, 'coaching');
+        coachingRun.forEach((m) => coachPanelBody.appendChild(m.speaker === 'you' ? youCoachNode(m) : coachNode(m)));
+        // The full strengths/growth-areas report lives in its own modal (see
+        // resultsModal below) — opened only when the learner taps "View full
+        // results" in the footer, never dumped in here. Resources are the
+        // one thing that still shows inline, and only once they've been
+        // through that report, so the coach panel reads as ONE thing at a
+        // time landing, not everything at once.
+        if (complete && !state.delivering && state.resultsViewed) {
+          coachPanelBody.appendChild(resourcesNode());
         }
       }
 
@@ -1798,7 +1796,9 @@
       // start CTA (bring the coach in) · entry CTA (step in) · "Analyzing…"/"Watching…" beats · debrief CTA
       const showStart     = !state.started && !complete && !state.videoPlaying && !state.audioIntroPlaying;
       const showEntry     = state.awaitingEntry && !hasEnteredScene && !state.entryPromptDismissed && !state.delivering;
-      const showAnalyzing = state.analyzing;
+      // The closing "Analyzing… Determining…" beats now cycle in THIS slot
+      // (where "View full results" will land), not stacked in the chat body.
+      const showAnalyzing = state.analyzing || state.closingStepperActive;
       // videoPlaying stays true after the clips end too (it lingers as the
       // blurred coach-prep backdrop — see the render() guard above), so this
       // needs its own check rather than just mirroring state.videoPlaying.
@@ -1826,7 +1826,9 @@
       inputDone.hidden      = !showDone;
       inputMain.hidden      = showStart || showEntry || showAnalyzing || showWatching || showDebrief || showReturn || showResults || showContinue || showDone;
       if (showAnalyzing) {
-        inputAnalyzing.lastChild.textContent = complete ? 'Wrapping up your practice…' : 'Analyzing your response…';
+        inputAnalyzing.lastChild.textContent = state.closingStepperActive
+          ? DEBRIEF.closingLabel()
+          : (complete ? 'Wrapping up your practice…' : 'Analyzing your response…');
       }
       if (showWatching) {
         inputWatching.lastChild.textContent = state.audioIntroPlaying ? 'Setting the scene — listen or read, then continue' : 'Watching the scene…';
