@@ -427,6 +427,21 @@
   .cert-link:hover { text-decoration: underline; }
   .cert-link i { color: #15803d; }
 
+  /* ── Multi-select (STRETCH) — row checkboxes, select-all, bulk "Email selected" bar ── */
+  .report-table th.col-expand { width: 36px; padding: 0; vertical-align: middle; }
+  .sel-cell { width: 36px; }
+  /* Align the select-all checkbox with the per-row checkboxes (row cells pad 9px left). */
+  th.col-expand vaadin-checkbox { margin-left: 9px; }
+  .report-table .data-row.row-selected td { background: #eff6ff; }
+  .report-table .data-row.row-selected:hover td { background: #e0ebff; }
+  .report-table .data-row.row-selected td.cell-actions { background: #eff6ff; }
+  .report-table .data-row.row-selected:hover td.cell-actions { background: #e0ebff; }
+  .bulk-bar { display: none; align-items: center; gap: 12px; padding: 10px 16px; background: #eff6ff; border-bottom: 1px solid var(--hair); }
+  .bulk-bar.show { display: flex; }
+  .bulk-count { font-size: 15px; font-weight: 700; color: var(--blue-dark); }
+  .bulk-stretch-tag { font-size: 11px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 999px; padding: 2px 8px; }
+  .bulk-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
   /* Bulk-step recipient list */
   .recip-list { border: 1px solid var(--hair); border-radius: 10px; max-height: 210px; overflow: auto; margin-bottom: 16px; }
   .recip-list .recip { margin: 0; border: 0; border-bottom: 1px solid var(--hair-2); border-radius: 0; }
@@ -809,11 +824,24 @@
             </div>
           </div>
 
+          <!-- STRETCH (want, not a must-have) — multi-select recipients. The primary path is
+               the filter-based "Email Learners" above; this bulk bar + the row checkboxes are
+               the optional multi-select. Flag as a stretch at dev handoff. -->
+          <div class="bulk-bar" id="bulkBar">
+            <span class="bulk-count" id="bulkCount">0 selected</span>
+            <span class="bulk-stretch-tag">Stretch · multi-select</span>
+            <div class="bulk-actions">
+              <vaadin-button theme="primary small" id="bulkActionBtn"><i class="fa-solid fa-envelope" slot="prefix"></i> Email selected</vaadin-button>
+              <vaadin-button theme="tertiary small" id="bulkClearBtn">Clear</vaadin-button>
+            </div>
+          </div>
+
           <div class="report-table-wrap">
             <table class="report-table" id="qualTable">
               <thead>
                 <tr id="headRow">
-                  <!-- STRETCH: multi-select recipients (per-row + select-all checkboxes) go here -->
+                  <!-- STRETCH (want, not a must-have): select-all for the multi-select path -->
+                  <th class="col-expand"><vaadin-checkbox id="selectAll" aria-label="Select all visible learners"></vaadin-checkbox></th>
                   <!-- data-column headers rendered by JS from the column model (order + visibility) -->
                 </tr>
               </thead>
@@ -997,13 +1025,13 @@
       { name:'Nair, Priya',     ext:'pnair391',    status:'in-progress', mods:1,  pct:5,   time:'0h 20m', last:'41 days ago', exp:'05/14/2026', expSoon:true, behind:true },
       { name:'Carter, Liam',    ext:'lcarter612',  status:'in-progress', mods:6,  pct:64,  time:'3h 05m', last:'2 days ago',  exp:'10/15/2026' },
       { name:'Lin, Grace',      ext:'glin201',     status:'passed',      mods:10, pct:100, time:'4h 30m', last:'04/18/2026',  exp:'04/18/2027' },
-      { name:'Sullivan, Brett', ext:'bsull099',    status:'failed',      mods:10, pct:100, time:'4h 10m', last:'04/29/2026',  exp:'—', failDate:'04/29/2026', attempts:3 },
+      { name:'Sullivan, Brett', ext:'bsull099',    status:'failed',      mods:9,  pct:92,  time:'4h 10m', last:'04/29/2026',  exp:'—', failDate:'04/29/2026', attempts:3 },
       { name:'Adams, Olivia',   ext:'oadams118',   status:'passed',      mods:10, pct:100, time:'4h 05m', last:'04/10/2026',  exp:'04/10/2027' },
       { name:'Bauer, Eli',      ext:'ebauer773',   status:'in-progress', mods:3,  pct:28,  time:'1h 35m', last:'9 days ago',  exp:'08/20/2026' },
       { name:'Coleman, Tara',   ext:'tcoleman240', status:'in-progress', mods:2,  pct:18,  time:'0h 55m', last:'30 days ago', exp:'06/28/2026', expSoon:true, behind:true },
       { name:'Diaz, Hugo',      ext:'hdiaz556',    status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'07/05/2026' },
       { name:'Ellison, Mara',   ext:'mellison803', status:'passed',      mods:10, pct:100, time:'3h 50m', last:'03/22/2026',  exp:'03/22/2027' },
-      { name:'Farris, Quinn',   ext:'qfarris417',  status:'failed',      mods:10, pct:100, time:'4h 20m', last:'05/12/2026',  exp:'—', attempts:1 },
+      { name:'Farris, Quinn',   ext:'qfarris417',  status:'failed',      mods:9,  pct:95,  time:'4h 20m', last:'05/12/2026',  exp:'—', attempts:1 },
       { name:'Gibson, Noel',    ext:'ngibson629',  status:'in-progress', mods:7,  pct:70,  time:'3h 15m', last:'Yesterday',   exp:'11/20/2026' },
       { name:'Hoffman, Dana',   ext:'dhoffman361', status:'in-progress', mods:1,  pct:8,   time:'0h 25m', last:'22 days ago', exp:'09/10/2026', behind:true },
       { name:'Iqbal, Sana',     ext:'siqbal905',   status:'passed',      mods:10, pct:100, time:'4h 00m', last:'04/28/2026',  exp:'04/28/2027' },
@@ -1017,28 +1045,28 @@
       { name:'Mendez, Carlos',  ext:'cmendez507',  status:'passed',      mods:10, pct:100, time:'6h 15m', last:'03/30/2026',  exp:'03/30/2027' },
       { name:'Allen, Brooke',   ext:'ballen294',   status:'passed',      mods:10, pct:100, time:'6h 00m', last:'03/15/2026',  exp:'03/15/2027' },
       { name:'Bishop, Dane',    ext:'dbishop681',  status:'in-progress', mods:6,  pct:58,  time:'4h 10m', last:'3 days ago',  exp:'10/12/2026' },
-      { name:'Choi, Min',       ext:'mchoi735',    status:'failed',      mods:10, pct:100, time:'5h 50m', last:'05/01/2026',  exp:'—', failDate:'05/01/2026', attempts:3 },
+      { name:'Choi, Min',       ext:'mchoi735',    status:'failed',      mods:9,  pct:90,  time:'5h 50m', last:'05/01/2026',  exp:'—', failDate:'05/01/2026', attempts:3 },
       { name:'Duarte, Lena',    ext:'lduarte162',  status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'06/26/2026', expSoon:true },
       { name:'Eaton, Russ',     ext:'reaton408',   status:'in-progress', mods:2,  pct:16,  time:'1h 20m', last:'27 days ago', exp:'09/18/2026', behind:true },
       { name:'Fenn, Gail',      ext:'gfenn557',    status:'passed',      mods:10, pct:100, time:'6h 30m', last:'04/02/2026',  exp:'04/02/2027' },
       { name:'Greer, Paul',     ext:'pgreer820',   status:'in-progress', mods:8,  pct:78,  time:'5h 05m', last:'Today',       exp:'11/15/2026' },
       { name:'Hsu, Wendy',      ext:'whsu346',     status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'08/01/2026' },
       { name:'Irwin, Blake',    ext:'birwin914',   status:'in-progress', mods:3,  pct:26,  time:'2h 00m', last:'19 days ago', exp:'09/05/2026', behind:true },
-      { name:'Jacobs, Nina',    ext:'njacobs503',  status:'failed',      mods:10, pct:100, time:'5h 40m', last:'05/09/2026',  exp:'—', attempts:1 },
+      { name:'Jacobs, Nina',    ext:'njacobs503',  status:'failed',      mods:9,  pct:94,  time:'5h 40m', last:'05/09/2026',  exp:'—', attempts:1 },
       { name:'Kim, Sora',       ext:'skim671',     status:'passed',      mods:10, pct:100, time:'6h 10m', last:'04/20/2026',  exp:'04/20/2027' },
       { name:'Lowe, Trent',     ext:'tlowe238',    status:'in-progress', mods:5,  pct:46,  time:'3h 30m', last:'6 days ago',  exp:'10/22/2026' },
     ]},
     { id:'g3', course:'OSHA 30-Hour Construction', expanded:false, rows:[
       { name:'Brooks, Devon',   ext:'dbrooks662',  status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'05/20/2026', expSoon:true },
       { name:'Patel, Noah',     ext:'npatel743',   status:'in-progress', mods:8,  pct:81,  time:'2h 05m', last:'Today',       exp:'10/22/2026' },
-      { name:'Foster, Hannah',  ext:'hfoster915',  status:'failed',      mods:10, pct:100, time:'1h 50m', last:'05/03/2026',  exp:'—', attempts:2 },
+      { name:'Foster, Hannah',  ext:'hfoster915',  status:'failed',      mods:9,  pct:88,  time:'1h 50m', last:'05/03/2026',  exp:'—', attempts:2 },
       { name:'Rahman, Aisha',   ext:'arahman288',  status:'passed',      mods:10, pct:100, time:'1h 40m', last:'05/06/2026',  exp:'05/06/2027' },
       { name:'Abbott, Cleo',    ext:'cabbott190',  status:'passed',      mods:10, pct:100, time:'1h 45m', last:'04/12/2026',  exp:'04/12/2027' },
       { name:'Burke, Mia',      ext:'mburke427',   status:'in-progress', mods:6,  pct:61,  time:'1h 20m', last:'2 days ago',  exp:'10/30/2026' },
       { name:'Cho, Ravi',       ext:'rcho815',     status:'in-progress', mods:1,  pct:9,   time:'0h 15m', last:'25 days ago', exp:'06/29/2026', expSoon:true, behind:true },
       { name:'Doyle, Faye',     ext:'fdoyle362',   status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'07/10/2026' },
       { name:'Engel, Mark',     ext:'mengel578',   status:'passed',      mods:10, pct:100, time:'1h 35m', last:'03/28/2026',  exp:'03/28/2027' },
-      { name:'Frost, Lena',     ext:'lfrost931',   status:'failed',      mods:10, pct:100, time:'1h 55m', last:'05/05/2026',  exp:'—', failDate:'05/05/2026', attempts:3 },
+      { name:'Frost, Lena',     ext:'lfrost931',   status:'failed',      mods:9,  pct:91,  time:'1h 55m', last:'05/05/2026',  exp:'—', failDate:'05/05/2026', attempts:3 },
       { name:'Glass, Omar',     ext:'oglass246',   status:'in-progress', mods:7,  pct:72,  time:'1h 30m', last:'Yesterday',   exp:'11/08/2026' },
       { name:'Hahn, Iris',      ext:'ihahn703',    status:'in-progress', mods:2,  pct:19,  time:'0h 40m', last:'21 days ago', exp:'09/14/2026', behind:true },
       { name:'Ito, Ken',        ext:'kito459',     status:'passed',      mods:10, pct:100, time:'1h 40m', last:'04/25/2026',  exp:'04/25/2027' },
@@ -1062,6 +1090,7 @@
   const BULK_ORDER = ['intervene','nudge','retry'];
 
   const rowKey = (gid, ext) => gid + '::' + ext;
+  const selectedRows = new Set();   // STRETCH multi-select — keys: "groupId::ext"
 
   // Flat row list — every learner across all courses. Course is a column (not a grouping drawer).
   const rows = GROUPS.flatMap(g => g.rows.map(r => ({ r, course: g.course, gid: g.id })));
@@ -1121,20 +1150,23 @@
 
   function dataRowHTML(r, course, gid) {
     const key = rowKey(gid, r.ext);
+    const sel = selectedRows.has(key);
     const cells = visibleColumns().map(c => {
       const cls = c.cellClass ? ` class="${c.cellClass}"` : '';
       return `<td${cls}>${c.render(r, course, gid)}</td>`;
     }).join('');
+    // STRETCH (want, not must-have): leading per-row select checkbox for the multi-select path.
     return `
-      <tr class="data-row" data-group="${gid}" data-ext="${r.ext}" data-key="${key}" data-status="${r.status}">
+      <tr class="data-row${sel ? ' row-selected' : ''}" data-group="${gid}" data-ext="${r.ext}" data-key="${key}" data-status="${r.status}">
+        <td class="sel-cell"><vaadin-checkbox class="row-sel" data-group="${gid}" data-ext="${r.ext}"${sel ? ' checked' : ''} aria-label="Select ${r.name}"></vaadin-checkbox></td>
         ${cells}
       </tr>`;
   }
 
-  // Rebuild the data-column headers from the model (no leading select-checkbox column anymore).
+  // Rebuild the data-column headers from the model (the leading select-all th stays in place).
   function renderHead() {
     const row = document.getElementById('headRow');
-    while (row.children.length > 0) row.removeChild(row.lastChild);
+    while (row.children.length > 1) row.removeChild(row.lastChild);
     visibleColumns().forEach(c => {
       const th = document.createElement('th');
       if (c.sortable) { th.classList.add('sortable-th'); th.dataset.sort = c.key; }
@@ -1349,6 +1381,7 @@
     // Course (and the other panel filters) scope the WHOLE page — refresh the charts too.
     if (typeof renderActionCards === 'function') renderActionCards();
     if (typeof renderOverviewCharts === 'function') renderOverviewCharts();
+    if (typeof updateBulkBar === 'function') updateBulkBar();   // STRETCH multi-select
   }
   // Learners passing the applied filters (NOT the search box) — the data source for the pie.
   function scopedWrappers() { return rows.filter(passesFilters); }
@@ -1548,13 +1581,69 @@
     toast.opened = true;
   }
 
-  /* ═══════════════ Email the currently-filtered set (no row selection — MVP) ═══════════════ */
+  /* ═══════════════ Email the currently-filtered set (primary path) ═══════════════ */
   // #5/#6: "Email Learners" is always available and targets whoever the table is currently
   // filtered to — the FULL applied filter state (course + status + action + expiring/near-limit).
   // The transient search box is not part of the recipient set.
   document.getElementById('emailFilteredBtn').addEventListener('click', () => {
     const items = scopedWrappers().map(x => ({ r: x.r, course: x.course }));
     showEmailPage(items, emailContent('generic', null));
+  });
+
+  /* ═══════════════ Multi-select (STRETCH — want, not must-have) ═══════════════ */
+  // Per-row + select-all checkboxes let an admin hand-pick recipients as an alternative to the
+  // filter-based path above. Flag as a stretch at dev handoff; the primary path is filter-based.
+  const selectAll = document.getElementById('selectAll');
+  const bulkBar = document.getElementById('bulkBar');
+  const bulkCount = document.getElementById('bulkCount');
+  function getRow(key) {
+    const [gid, ext] = key.split('::');
+    const g = GROUPS.find(x => x.id === gid);
+    const r = g && g.rows.find(x => x.ext === ext);
+    return r ? { r, g } : null;
+  }
+  function visibleDataRows() {
+    return Array.from(tbody.querySelectorAll('.data-row')).filter(tr => tr.style.display !== 'none');
+  }
+  function updateBulkBar() {
+    const n = selectedRows.size;
+    bulkBar.classList.toggle('show', n > 0);
+    if (n > 0) bulkCount.textContent = `${n} learner${n > 1 ? 's' : ''} selected`;
+    const vis = visibleDataRows();
+    const selVis = vis.filter(tr => selectedRows.has(rowKey(tr.dataset.group, tr.dataset.ext))).length;
+    if (selectAll) {
+      selectAll.checked = vis.length > 0 && selVis === vis.length;
+      selectAll.indeterminate = selVis > 0 && selVis < vis.length;
+    }
+  }
+  tbody.addEventListener('change', e => {
+    const cb = e.target.closest('.row-sel');
+    if (!cb) return;
+    cb.closest('tr').classList.toggle('row-selected', cb.checked);
+    cb.checked ? selectedRows.add(rowKey(cb.dataset.group, cb.dataset.ext)) : selectedRows.delete(rowKey(cb.dataset.group, cb.dataset.ext));
+    updateBulkBar();
+  });
+  // Select-all applies to the currently visible (filtered) rows. This whole-page select-all is
+  // the riskiest piece of the stretch — call it out at dev handoff.
+  selectAll.addEventListener('change', () => {
+    const want = selectAll.checked;
+    visibleDataRows().forEach(tr => {
+      const key = rowKey(tr.dataset.group, tr.dataset.ext);
+      want ? selectedRows.add(key) : selectedRows.delete(key);
+      tr.classList.toggle('row-selected', want);
+      const cb = tr.querySelector('.row-sel');
+      if (cb) cb.checked = want;
+    });
+    updateBulkBar();
+  });
+  document.getElementById('bulkClearBtn').addEventListener('click', () => {
+    selectedRows.clear(); renderTable();
+  });
+  // "Email selected" → same count-only Email Learners page, scoped to the picked learners.
+  document.getElementById('bulkActionBtn').addEventListener('click', () => {
+    const items = [...selectedRows].map(getRow).filter(Boolean).map(({ r, g }) => ({ r, course: g.course }));
+    if (!items.length) return;
+    showEmailPage(items, emailContent('generic', null), { fromSelection: true });
   });
 
   /* ═══════════════ Email Learners page (a separate LMS page, not a modal) ═══════════════ */
@@ -1571,9 +1660,9 @@
   const emailTplBody = document.getElementById('emailTplBody');
   let emailCtx = null;   // { recipients }
 
-  function showEmailPage(recipients, content) {
+  function showEmailPage(recipients, content, opts = {}) {
     recipients = recipients || [];
-    emailCtx = { recipients };
+    emailCtx = { recipients, fromSelection: !!opts.fromSelection };
     const n = recipients.length;
     emailRecipCount.textContent = n;
     document.querySelector('#emailPage .ers-word').textContent = n === 1 ? 'learner' : 'learners';
@@ -1616,8 +1705,11 @@
   document.getElementById('emailSend').addEventListener('click', () => {
     if (!emailCtx) return;
     const n = emailCtx.recipients.length;
+    const fromSelection = emailCtx.fromSelection;
     closeEmailPage();
     showToast(`Email sent to ${n} learner${n === 1 ? '' : 's'}`);
+    // Emailing a hand-picked selection consumes it (STRETCH path).
+    if (fromSelection) { selectedRows.clear(); renderTable(); }
   });
 
   /* ═══════════════ Filter panel open/close (ported from V1) ═══════════════ */
