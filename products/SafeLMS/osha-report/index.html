@@ -439,7 +439,7 @@
   .cert-link:hover { text-decoration: underline; }
   .cert-link i { color: #15803d; }
 
-  /* ── Multi-select (STRETCH) — row checkboxes, select-all, bulk "Email selected" bar ── */
+  /* ── Multi-select (STRETCH) — row checkboxes + select-all highlight rows; no bulk bar ── */
   .report-table th.col-expand { width: 36px; padding: 0; vertical-align: middle; }
   .sel-cell { width: 36px; }
   /* Align the select-all checkbox with the per-row checkboxes (row cells pad 9px left). */
@@ -448,11 +448,6 @@
   .report-table .data-row.row-selected:hover td { background: #e0ebff; }
   .report-table .data-row.row-selected td.cell-actions { background: #eff6ff; }
   .report-table .data-row.row-selected:hover td.cell-actions { background: #e0ebff; }
-  .bulk-bar { display: none; align-items: center; gap: 12px; padding: 10px 16px; background: #eff6ff; border-bottom: 1px solid var(--hair); }
-  .bulk-bar.show { display: flex; }
-  .bulk-count { font-size: 15px; font-weight: 700; color: var(--blue-dark); }
-  .bulk-stretch-tag { font-size: 11px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 999px; padding: 2px 8px; }
-  .bulk-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 
   /* Bulk-step recipient list */
   .recip-list { border: 1px solid var(--hair); border-radius: 10px; max-height: 210px; overflow: auto; margin-bottom: 16px; }
@@ -844,18 +839,11 @@
             </div>
           </div>
 
-          <!-- STRETCH (want, not a must-have) — multi-select recipients. The primary path is
-               the filter-based "Email Learners" above; this bulk bar + the row checkboxes are
-               the optional multi-select. Flag as a stretch at dev handoff. -->
-          <div class="bulk-bar" id="bulkBar">
-            <span class="bulk-count" id="bulkCount">0 selected</span>
-            <span class="bulk-stretch-tag">Stretch · multi-select</span>
-            <div class="bulk-actions">
-              <vaadin-button theme="primary small" id="bulkActionBtn"><i aria-hidden="true" class="fa-solid fa-envelope" slot="prefix"></i> Email selected</vaadin-button>
-              <vaadin-button theme="tertiary small" id="bulkClearBtn">Clear</vaadin-button>
-            </div>
-          </div>
-
+          <!-- DEV NOTE — STRETCH (want, not a must-have): row checkboxes + select-all let an
+               admin hand-pick recipients. There is intentionally NO separate bulk-action bar:
+               checking rows highlights them, and the toolbar "Email Learners" button emails the
+               checked rows (or the full filtered set when nothing is checked). Flag the whole
+               multi-select path as a stretch at dev handoff — this note is for devs, not the UI. -->
           <div class="report-table-wrap">
             <table class="report-table" id="qualTable">
               <thead>
@@ -1402,7 +1390,7 @@
     // Course (and the other panel filters) scope the WHOLE page — refresh the charts too.
     if (typeof renderActionCards === 'function') renderActionCards();
     if (typeof renderOverviewCharts === 'function') renderOverviewCharts();
-    if (typeof updateBulkBar === 'function') updateBulkBar();   // STRETCH multi-select
+    if (typeof updateSelectAll === 'function') updateSelectAll();   // STRETCH multi-select
   }
   // Learners passing the applied filters (NOT the search box) — the data source for the pie.
   function scopedWrappers() { return rows.filter(passesFilters); }
@@ -1602,11 +1590,17 @@
     toast.opened = true;
   }
 
-  /* ═══════════════ Email the currently-filtered set (primary path) ═══════════════ */
-  // #5/#6: "Email Learners" is always available and targets whoever the table is currently
-  // filtered to — the FULL applied filter state (course + status + action + expiring/near-limit).
-  // The transient search box is not part of the recipient set.
+  /* ═══════════════ Email Learners (single email action) ═══════════════ */
+  // #5/#6: "Email Learners" is always available. If the admin has hand-picked rows via the
+  // checkboxes (STRETCH multi-select), it emails just those; otherwise it targets whoever the
+  // table is currently filtered to — the FULL applied filter state (course + status + action +
+  // expiring/near-limit). The transient search box is not part of the recipient set.
   document.getElementById('emailFilteredBtn').addEventListener('click', () => {
+    if (selectedRows.size > 0) {
+      const picked = [...selectedRows].map(getRow).filter(Boolean).map(({ r, g }) => ({ r, course: g.course }));
+      showEmailPage(picked, emailContent('generic', null), { fromSelection: true });
+      return;
+    }
     const items = scopedWrappers().map(x => ({ r: x.r, course: x.course }));
     showEmailPage(items, emailContent('generic', null));
   });
@@ -1615,8 +1609,6 @@
   // Per-row + select-all checkboxes let an admin hand-pick recipients as an alternative to the
   // filter-based path above. Flag as a stretch at dev handoff; the primary path is filter-based.
   const selectAll = document.getElementById('selectAll');
-  const bulkBar = document.getElementById('bulkBar');
-  const bulkCount = document.getElementById('bulkCount');
   function getRow(key) {
     const [gid, ext] = key.split('::');
     const g = GROUPS.find(x => x.id === gid);
@@ -1626,10 +1618,8 @@
   function visibleDataRows() {
     return Array.from(tbody.querySelectorAll('.data-row')).filter(tr => tr.style.display !== 'none');
   }
-  function updateBulkBar() {
-    const n = selectedRows.size;
-    bulkBar.classList.toggle('show', n > 0);
-    if (n > 0) bulkCount.textContent = `${n} learner${n > 1 ? 's' : ''} selected`;
+  // Keeps the header select-all in sync (checked / indeterminate) with the visible rows.
+  function updateSelectAll() {
     const vis = visibleDataRows();
     const selVis = vis.filter(tr => selectedRows.has(rowKey(tr.dataset.group, tr.dataset.ext))).length;
     if (selectAll) {
@@ -1637,12 +1627,14 @@
       selectAll.indeterminate = selVis > 0 && selVis < vis.length;
     }
   }
+  // Checking a row highlights it (.row-selected) and adds it to the recipient set; the toolbar
+  // "Email Learners" button emails whatever is checked. No separate bulk-action bar.
   tbody.addEventListener('change', e => {
     const cb = e.target.closest('.row-sel');
     if (!cb) return;
     cb.closest('tr').classList.toggle('row-selected', cb.checked);
     cb.checked ? selectedRows.add(rowKey(cb.dataset.group, cb.dataset.ext)) : selectedRows.delete(rowKey(cb.dataset.group, cb.dataset.ext));
-    updateBulkBar();
+    updateSelectAll();
   });
   // Select-all applies to the currently visible (filtered) rows. This whole-page select-all is
   // the riskiest piece of the stretch — call it out at dev handoff.
@@ -1655,16 +1647,7 @@
       const cb = tr.querySelector('.row-sel');
       if (cb) cb.checked = want;
     });
-    updateBulkBar();
-  });
-  document.getElementById('bulkClearBtn').addEventListener('click', () => {
-    selectedRows.clear(); renderTable();
-  });
-  // "Email selected" → same count-only Email Learners page, scoped to the picked learners.
-  document.getElementById('bulkActionBtn').addEventListener('click', () => {
-    const items = [...selectedRows].map(getRow).filter(Boolean).map(({ r, g }) => ({ r, course: g.course }));
-    if (!items.length) return;
-    showEmailPage(items, emailContent('generic', null), { fromSelection: true });
+    updateSelectAll();
   });
 
   /* ═══════════════ Email Learners page (a separate LMS page, not a modal) ═══════════════ */
