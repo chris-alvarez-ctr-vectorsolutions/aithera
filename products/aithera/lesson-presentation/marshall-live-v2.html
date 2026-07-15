@@ -1303,7 +1303,7 @@
          window.AitheraScenario (from scenario.js above) at load. When nothing is
          published the page falls back to the inline scenario below, unchanged. -->
     <script src="js/studio-engine.js?v=1"></script>
-    <script src="js/scenario-types/guided-arc.js?v=4"></script>
+    <script src="js/scenario-types/guided-arc.js?v=5"></script>
     <!-- Reusable context-setter (narrated audio / reading) for the opening scene -->
     <script src="js/scene-context.js?v=1"></script>
     <!-- Shared simulator framework — one implementation under every mode:
@@ -1361,12 +1361,6 @@
     function fromPublishedGuidedArc(gs) {
       const type = AitheraStudio.get('guided-arc');
       const F = (t) => type.fill(t, gs);                 // resolve {{learner}}/{{character}} (idempotent)
-      const SYSTEM_PROMPT = type.compile(gs);            // ONE system-prompt string (context handoff folded in)
-
-      const beats = (gs.beats || []).filter((b) => b && b.kind);
-      const reflect = beats.find((b) => b.kind === 'reflect');
-      const check   = beats.find((b) => b.kind === 'knowledge-check');
-      const decide  = beats.find((b) => b.kind === 'decide');
 
       /* The beats schema has no distinct pre-video action-pivot line, but this
          page injects one as locked.scene right before playing the incident
@@ -1374,6 +1368,22 @@
          has text to deliver. (Reuses the inline page's pivot wording, trimmed
          of scenario-specific detail so it works for any published scenario.) */
       const ACTION_PIVOT = 'That’s exactly where you come in. Watch what happens — then we’ll talk it through.';
+
+      /* This page ALWAYS shows a pivot before the incident video, so the decide
+         beat is effectively an authored ("set") hand-off. Work on a CLONE and,
+         if the author left the decide beat's hand-off blank, seed the synthesized
+         pivot BEFORE compiling — so the system prompt and the app agree (the
+         coach writes no bridge into a beat the app introduces verbatim). */
+      const gsc = JSON.parse(JSON.stringify(gs));
+      (gsc.beats || []).forEach((b) => {
+        if (b && b.kind === 'decide' && !String(b.handoff || '').trim()) b.handoff = ACTION_PIVOT;
+      });
+      const SYSTEM_PROMPT = type.compile(gsc);           // ONE system-prompt string (context handoff folded in)
+
+      const beats = (gsc.beats || []).filter((b) => b && b.kind);
+      const reflect = beats.find((b) => b.kind === 'reflect');
+      const check   = beats.find((b) => b.kind === 'knowledge-check');
+      const decide  = beats.find((b) => b.kind === 'decide');
 
       const intro = gs.intro || {};
       const decideMedia = (decide && decide.media) || {};
@@ -1398,13 +1408,17 @@
         // LOCKED opening (grey): the reflect beat's prompt, seeded after intro.
         opening: reflect ? [F(reflect.prompt)] : [],
 
-        // LOCKED mid-arc beats the page injects verbatim:
-        //  - legal:   the knowledge-check prompt (Title VII question)
-        //  - scene:   the synthesized action-pivot (then the incident video plays)
+        // LOCKED mid-arc beats the page injects verbatim. An authored beat
+        // hand-off (if any) is delivered as its own bubble right BEFORE the prompt:
+        //  - legal:   [optional knowledge-check hand-off,] the Title VII question
+        //  - scene:   the action-pivot (authored on the decide beat, else synthesized)
         //  - observe: the decide beat's post-video reflection prompt
         locked: {
-          legal:   check  ? [{ speaker: 'coach', kind: 'coaching', text: F(check.prompt) }] : [],
-          scene:   [{ speaker: 'coach', kind: 'coaching', text: ACTION_PIVOT }],
+          legal: check ? [
+            ...(String(check.handoff || '').trim() ? [{ speaker: 'coach', kind: 'coaching', text: F(check.handoff) }] : []),
+            { speaker: 'coach', kind: 'coaching', text: F(check.prompt) },
+          ] : [],
+          scene:   [{ speaker: 'coach', kind: 'coaching', text: F((decide && decide.handoff) || ACTION_PIVOT) }],
           observe: decide ? [{ speaker: 'coach', kind: 'coaching', text: F(decide.prompt) }] : [],
         },
 
