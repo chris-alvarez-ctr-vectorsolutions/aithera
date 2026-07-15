@@ -1207,7 +1207,20 @@
       if (pt.sending || pt.complete || !text.trim()) return;
       localStorage.setItem(workerUrlKey, workerUrl);
 
-      pt.msgs.push({ speaker: 'you', kind: pt.inputTarget === 'character' ? 'dialogue' : 'coaching', text: text.trim() });
+      const sceneTurn = pt.inputTarget === 'character';
+      const youMsg = { speaker: 'you', kind: sceneTurn ? 'dialogue' : 'coaching', text: text.trim() };
+      pt.msgs.push(youMsg);
+      // Scene moves are split for DISPLAY into what the learner DOES (an action
+      // line) and what they SAY (a bubble), mirroring the live page. The split
+      // runs concurrently with the reaction turn; a loader stands in until it
+      // resolves, and the raw text still goes to the model verbatim below.
+      if (sceneTurn && window.AitheraSayDoSplit) {
+        youMsg._pending = true;
+        window.AitheraSayDoSplit.splitMove(youMsg.text, { workerUrl })
+          .then((beats) => { youMsg._display = beats; })
+          .catch(() => {})
+          .finally(() => { youMsg._pending = false; renderPlaytest(); });
+      }
       pt.sending = true;
       renderPlaytest();
 
@@ -1302,6 +1315,28 @@
           e.innerHTML = `<div class="who">Heads up</div><div class="bubble">${esc(m.text)}${why}</div>`;
           log.appendChild(e); return;
         }
+        // Learner SCENE move — split into an action line (what they do) and a
+        // speech bubble (what they say). While the split resolves, a loader
+        // stands in so the move renders once, not raw-then-split.
+        if (m.speaker === 'you' && (m._pending || m._display)) {
+          if (m._pending) {
+            const p = document.createElement('div'); p.className = 'pt-msg you';
+            p.innerHTML = `<div class="who">Learner</div><div class="bubble pt-splitting">splitting say/do<span></span><span></span><span></span></div>`;
+            log.appendChild(p); return;
+          }
+          const disp = m._display;
+          disp.filter((b) => b.kind === 'narration').forEach((b) => {
+            const n = document.createElement('div'); n.className = 'pt-you-narration';
+            n.textContent = b.text; log.appendChild(n);
+          });
+          const speech = disp.filter((b) => b.kind === 'dialogue');
+          if (speech.length) {
+            const sp = document.createElement('div'); sp.className = 'pt-msg you';
+            sp.innerHTML = `<div class="who">Learner</div>` + speech.map((b) => `<div class="bubble">${esc(b.text)}</div>`).join('');
+            log.appendChild(sp);
+          }
+          return;
+        }
         const d = document.createElement('div');
         const world = m.kind === 'narration' ? 'narration' : m.speaker;
         d.className = 'pt-msg ' + world;
@@ -1321,6 +1356,10 @@
       }
       log.scrollTop = log.scrollHeight;
       renderPlaytestTarget();
+      // Stress-test quick-fills only make sense once the learner is acting in
+      // the scene — hide the row during coaching and after completion.
+      const presetRow = $('#ptPresets');
+      if (presetRow) presetRow.style.display = (pt.mode === 'scene' && !pt.complete) ? '' : 'none';
       const send = $('#ptSendBtn');
       if (send) send.disabled = pt.sending || pt.complete;
     }

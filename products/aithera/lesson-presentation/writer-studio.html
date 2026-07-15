@@ -718,6 +718,42 @@
       .pt-why > summary { cursor: pointer; font-size: 11px; opacity: 0.85; }
       .pt-why > summary:hover { opacity: 1; }
       .pt-why > p { margin: 6px 0 0; font-size: 11.5px; line-height: 1.45; }
+      /* Learner scene move: the ACTION (what they do) as a centered stage line,
+         distinct from their SPEECH (the amber "You" bubble). */
+      .pt-you-narration {
+        align-self: center; text-align: center; font-style: italic;
+        color: var(--pt-you); font-size: 12.5px; line-height: 1.5;
+        max-width: 46ch; margin: 4px auto 0; opacity: .95;
+      }
+      .pt-splitting { display: inline-flex; align-items: center; gap: 6px; font-style: italic; opacity: .8; }
+      .pt-splitting span { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: pt-split-blink 1s infinite; }
+      .pt-splitting span:nth-child(2) { animation-delay: .15s; }
+      .pt-splitting span:nth-child(3) { animation-delay: .3s; }
+      @keyframes pt-split-blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+
+      /* ===== Say/Do Split sandbox tab ===================================== */
+      .split-pad { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+      .split-intro { font-size: 12.5px; line-height: 1.5; color: var(--ink-soft); margin: 0; max-width: 62ch; }
+      .split-actions { display: flex; align-items: center; gap: 10px; }
+      .split-samples { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+      .split-samples .label { font-size: 11px; color: var(--ink-faint); }
+      .split-sample { font-size: 11.5px; padding: 4px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink-soft); cursor: pointer; }
+      .split-sample:hover { border-color: var(--accent); color: var(--ink); }
+      .split-results { display: flex; flex-direction: column; gap: 10px; }
+      .split-card { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); overflow: hidden; }
+      .split-card-h { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); padding: 8px 12px; border-bottom: 1px solid var(--line); }
+      .split-beat { display: flex; align-items: baseline; gap: 10px; padding: 8px 12px; font-size: 13px; }
+      .split-beat + .split-beat { border-top: 1px dashed var(--line); }
+      .split-lbl { flex: 0 0 30px; font-size: 10px; font-weight: 700; letter-spacing: .05em; }
+      .split-beat.do .split-lbl, .split-beat.do .split-txt { color: var(--pt-you); }
+      .split-beat.do .split-txt { font-style: italic; }
+      .split-beat.say .split-lbl { color: var(--accent); }
+      .split-txt { line-height: 1.5; }
+      .split-empty { padding: 8px 12px; font-size: 12px; color: var(--ink-faint); font-style: italic; }
+      .split-loading { display: inline-flex; gap: 6px; padding: 12px; }
+      .split-loading span { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-faint); animation: pt-split-blink 1s infinite; }
+      .split-loading span:nth-child(2) { animation-delay: .15s; }
+      .split-loading span:nth-child(3) { animation-delay: .3s; }
       .pt-report {
         border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px;
         font-size: 12.5px; background: var(--surface);
@@ -852,6 +888,7 @@
           <vaadin-tab><i class="fa-solid fa-file-code" style="margin-right:7px"></i> Compiled prompt</vaadin-tab>
           <vaadin-tab id="lintTab"><i class="fa-solid fa-shield-halved" style="margin-right:7px"></i> Guardrails</vaadin-tab>
           <vaadin-tab><i class="fa-solid fa-vial" style="margin-right:7px"></i> Playtest</vaadin-tab>
+          <vaadin-tab id="splitTab"><i class="fa-solid fa-scissors" style="margin-right:7px"></i> Say/Do Split</vaadin-tab>
         </vaadin-tabs>
 
         <div class="tabbody is-active" id="tabPrompt">
@@ -867,6 +904,8 @@
         <div class="tabbody" id="tabLints"></div>
 
         <div class="tabbody pt" id="tabPlaytest"></div>
+
+        <div class="tabbody" id="tabSplit"></div>
       </div>
 
       <!-- Reopen rail — shown only while collapsed; click anywhere to expand -->
@@ -885,11 +924,14 @@
   <!-- Generic studio engine: type registry + per-type storage. Must load
        BEFORE any type module so registration has somewhere to land. -->
   <script src="js/studio-engine.js?v=1"></script>
+  <!-- Learner scene-move say/do splitter (window.AitheraSayDoSplit). Used by the
+       playtest scene turns and the Say/Do Split sandbox tab. -->
+  <script src="js/say-do-split.js?v=1"></script>
   <!-- Scenario types (MODES). Each registers itself into AitheraStudio; the
        registration order below is the order they appear in the mode picker.
        action-practice also keeps window.AitheraScenario for the live pages. -->
-  <script src="js/scenario.js?v=10"></script>
-  <script src="js/scenario-types/guided-arc.js?v=10"></script>
+  <script src="js/scenario.js?v=12"></script>
+  <script src="js/scenario-types/guided-arc.js?v=12"></script>
   <script src="js/scenario-types/observe-react.js?v=4"></script>
   <script src="js/scenario-types/teach-back.js?v=5"></script>
 
@@ -1531,6 +1573,66 @@
     });
   }
 
+  /* ---- Say/Do Split sandbox ----------------------------------------------
+     A standalone tester for the scene-move splitter (js/say-do-split.js): type
+     a move as a learner would and see it split into what they DO (an action
+     line) and what they SAY (a bubble). Shows the instant deterministic pass
+     and the fast-model AI pass side by side, so the split can be tuned in
+     isolation without running a whole playtest conversation. Reuses the
+     Playtest tab's worker URL for the AI call. */
+  const SPLIT_DEFAULT_WORKER = 'https://aithera-action-proxy.vector-aithera.workers.dev';
+  const SPLIT_SAMPLES = [
+    'I step in beside them and say "knock it off"',
+    "I'd tell him to drop it and then check on her after",
+    'knock it off',
+    'I look over at her',
+    "I'd calmly ask him to please stop",
+  ];
+  function buildSplitSandbox() {
+    const box = $('#tabSplit');
+    if (!box) return;
+    if (!window.AitheraSayDoSplit) { box.innerHTML = '<p class="split-intro">Split module not loaded.</p>'; return; }
+    const SDS = window.AitheraSayDoSplit;
+    box.innerHTML = `
+      <div class="split-pad">
+        <p class="split-intro">See how a learner's scene move splits into what they <b>do</b> (a centered action line) and what they <b>say</b> (the amber bubble) — the same split the live page and playtest scene turns use. The <b>instant</b> pass is deterministic; the <b>AI</b> pass uses the fast model via the Playtest worker.</p>
+        <vaadin-text-area theme="outlined" id="splitInput" label="A move, the way a learner would type it" min-rows="2" placeholder="e.g. I step in beside them and say &quot;knock it off&quot;"></vaadin-text-area>
+        <div class="split-actions">
+          <vaadin-button theme="primary" id="splitRunBtn"><i class="fa-solid fa-scissors" style="margin-right:6px"></i> Split it</vaadin-button>
+        </div>
+        <div class="split-samples" id="splitSamples"><span class="label">Try:</span></div>
+        <div class="split-results" id="splitResults"></div>
+      </div>`;
+    const input = $('#splitInput');
+    const results = $('#splitResults');
+    const beatsHtml = (beats) => (!beats || !beats.length)
+      ? '<div class="split-empty">— nothing —</div>'
+      : beats.map((b) => `<div class="split-beat ${b.kind === 'narration' ? 'do' : 'say'}"><span class="split-lbl">${b.kind === 'narration' ? 'DO' : 'SAY'}</span><span class="split-txt">${esc(b.text)}</span></div>`).join('');
+    const card = (title, inner) => `<div class="split-card"><div class="split-card-h">${esc(title)}</div>${inner}</div>`;
+    const run = async () => {
+      const text = (input.value || '').trim();
+      if (!text) { toast('Type a move to split'); return; }
+      const det = SDS.splitSceneInput(text);
+      results.innerHTML = card('Instant · deterministic', beatsHtml(det)) + card('AI · fast model', '<div class="split-loading"><span></span><span></span><span></span></div>');
+      const workerUrl = (($('#ptWorkerUrl') && $('#ptWorkerUrl').value) || SPLIT_DEFAULT_WORKER).trim();
+      let ai, failed = false;
+      try { ai = await SDS.splitSceneInputAI(text, { workerUrl }); } catch (e) { failed = true; }
+      const aiInner = failed
+        ? '<div class="split-empty">AI split failed — check the Playtest worker URL. Deterministic pass still applies.</div>'
+        : beatsHtml(ai || SDS.splitSceneInput(text));
+      results.innerHTML = card('Instant · deterministic', beatsHtml(det)) + card('AI · fast model', aiInner);
+    };
+    $('#splitRunBtn').addEventListener('click', run);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); run(); } });
+    const samples = $('#splitSamples');
+    SPLIT_SAMPLES.forEach((t) => {
+      const b = document.createElement('button');
+      b.className = 'split-sample'; b.textContent = t;
+      b.addEventListener('click', () => { input.value = t; input.focus(); });
+      samples.appendChild(b);
+    });
+  }
+
   /* ---- inspector tabs ----------------------------------------------------
      A type with no playtest (playtest:null) drops the Playtest tab + body, so
      the body list is built from whatever survives. */
@@ -1542,7 +1644,7 @@
   }
   $('#inspectorTabs').addEventListener('selected-changed', (e) => {
     const i = e.detail.value;
-    [$('#tabPrompt'), $('#tabLints'), $('#tabPlaytest')].filter(Boolean)
+    [$('#tabPrompt'), $('#tabLints'), $('#tabPlaytest'), $('#tabSplit')].filter(Boolean)
       .forEach((el, j) => el.classList.toggle('is-active', i === j));
   });
 
@@ -1749,6 +1851,7 @@
   buildNav();
   buildForm();
   buildPlaytest();
+  buildSplitSandbox();
   update();
   </script>
 </body>
