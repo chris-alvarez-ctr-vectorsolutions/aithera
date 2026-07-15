@@ -1886,16 +1886,62 @@
       messages.forEach((m) => { if (m._enter) m._enter = false; });
 
       manageFocus(trap);
+      // Coach thread: grow the sheet smoothly (tweenCoachHeight pins the newest
+      // bubble to the bottom itself); once maxed out, glide the scroll to the new
+      // bottom instead of snapping — instant fallback when motion is reduced or the
+      // tab is backgrounded (where smooth scroll silently no-ops).
+      if (coachUp) {
+        if (!tweenCoachHeight()) {
+          const canGlide = !reducedMotion() && document.visibilityState === 'visible';
+          if (canGlide) coachPanelBody.scrollTo({ top: coachPanelBody.scrollHeight, behavior: 'smooth' });
+          else coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
+        }
+      } else {
+        lastCoachH = null;
+      }
+      // The scene stage follows only when fresh scene content arrived.
       requestAnimationFrame(() => {
-        // follow the practice to the bottom ONLY when fresh scene content arrived;
-        // otherwise hold position so a Learn/Practice toggle never jumps the scene
         if (followStage) { stage.scrollTop = stage.scrollHeight; followStage = false; }
         else { stage.scrollTop = prevStageScroll; }
-        coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
       });
     }
     // set true right before a render that appends scene content, so it follows down
     let followStage = false;
+
+    /* —— Grow the coach sheet SMOOTHLY ————————————————————————————————————
+       The sheet is bottom-anchored (it sits on the input bar), so its height
+       grows UPWARD. New content used to snap to its new height in one frame —
+       the sheet jumped taller and the thread jumped up at once. Instead we TWEEN
+       the height from the last painted value to the new one and pin the thread to
+       the bottom every frame: the newest bubble holds its place (fading in where
+       it sits) while the sheet unfurls above it and earlier lines ease into view.
+       Once the sheet hits its max height it stops growing and the body scrolls
+       (render()/showTyping() glide that scroll). Returns true if it animated. */
+    let lastCoachH = null;      // sheet height we last painted, = the tween's start point
+    let coachGrowRAF = 0;       // in-flight grow, so a fresh one can cancel it
+    function tweenCoachHeight() {
+      if (!app.classList.contains('coach-up')) { lastCoachH = null; return false; }
+      if (coachGrowRAF) { cancelAnimationFrame(coachGrowRAF); coachGrowRAF = 0; }
+      coachPanel.style.height = '';                     // measure the NATURAL height, not a mid-tween value
+      const target = coachPanel.offsetHeight;           // forces layout → true post-render height
+      const from = lastCoachH;
+      lastCoachH = target;
+      if (from == null || reducedMotion() || Math.abs(target - from) < 2) return false;
+      coachPanelBody.scrollTop = coachPanelBody.scrollHeight;   // pin the newest bubble NOW, before the tween
+      const dur = 300;
+      const ease = (t) => 1 - Math.pow(1 - t, 3);       // easeOutCubic
+      let t0 = null;
+      const step = (ts) => {
+        if (t0 == null) t0 = ts;
+        const p = Math.min(1, (ts - t0) / dur);
+        coachPanel.style.height = (from + (target - from) * ease(p)) + 'px';
+        coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
+        if (p < 1) { coachGrowRAF = requestAnimationFrame(step); }
+        else { coachGrowRAF = 0; coachPanel.style.height = ''; }   // release back to auto
+      };
+      coachGrowRAF = requestAnimationFrame(step);
+      return true;
+    }
 
     /* ---- typing indicator (in the right world) ------------------------ */
     function showTyping() {
@@ -1906,9 +1952,12 @@
       // coach lines type in the sheet (prep AND debriefs); scene lines type in the practice
       if (coachUp) { typingHost = coachPanelBody; coachPanelBody.appendChild(node); }
       else { typingHost = stageInner; stageInner.appendChild(node); }
-      requestAnimationFrame(() => {
-        (typingHost === coachPanelBody ? coachPanelBody : stage).scrollTop = 1e9;
-      });
+      if (typingHost === coachPanelBody) {
+        // the dots grow the sheet too — tween it (which pins the thread); pin instantly if already maxed
+        if (!tweenCoachHeight()) coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
+      } else {
+        requestAnimationFrame(() => { stage.scrollTop = 1e9; });
+      }
     }
     function hideTyping() {
       const t = document.getElementById('typingNode');
