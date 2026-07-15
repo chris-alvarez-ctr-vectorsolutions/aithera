@@ -155,8 +155,8 @@
       {
         id: 'empathy',
         label: 'The Person',
-        signpost: 'Now let’s set the law aside and make this human. Back to you — let’s keep practicing.',
-        prompt: 'Now that we’ve established what this is legally, let’s shift perspective. Set the legal framework aside for a moment and think about Marshall as a person. What do you think this situation is doing to him professionally and personally? How could this affect others in your workplace?',
+        signpost: 'Now let’s set the law aside and make this human.',
+        prompt: 'Think about Marshall as a person. What do you think this situation is doing to him — professionally and personally? And how could it affect others in your workplace?',
         hasRightAnswer: false,
         talkItThrough: 'Let’s pause and pull this together.',
         probeExample: 'After those images went public, are you sure it just rolls off him?',
@@ -413,6 +413,7 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
       'Reflection feedback is calibration ONLY — acknowledge, never evaluate.',
       'In PRACTICE, hold your teaching (one probe max) until the learner commits; teach only in LEARN.',
       'A PRACTICE probe MUST end with a question that hands the turn back — never a lone statement — and carry "action":"probe". You get at most ONE per phase; the app enforces it (the [SYSTEM STATE] line says when it is spent) and forces you to teach after.',
+      'NEVER ask the learner a question AND advance in the same turn. If your turn ends on a question, it is a "probe" — set action:"probe" and STOP so they can answer; do not also "teach"/advance. Only a landing turn with no dangling question advances.',
       'A phase flagged with a right answer must be delivered clearly — do not hedge. An open phase deepens, it doesn’t grade.',
       'Open each teaching turn with the exact "talk it through" line for that phase.',
       'Never write, quote, or paraphrase a LOCKED beat — the app owns those.',

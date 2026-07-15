@@ -1361,7 +1361,7 @@
          guided-arc scenario the Studio published (falls back to the type's
          DEFAULT — the Marshall reference build — when nothing is published). -->
     <script src="js/studio-engine.js?v=1"></script>
-    <script src="js/scenario-types/guided-arc.js?v=6"></script>
+    <script src="js/scenario-types/guided-arc.js?v=7"></script>
 
     <script>
     /* =====================================================================
@@ -2602,6 +2602,8 @@
       const LOCKED = ACTIVE_SCENARIO.locked || {};
       const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40);
       const coachBubbles = (turn.turn || []).filter((m) => m.speaker === 'coach' && String(m.text || '').trim());
+      const lastCoach = coachBubbles[coachBubbles.length - 1];
+      const dangling = !!lastCoach && /\?\s*$/.test(String(lastCoach.text).trim());  // the turn hands a QUESTION back to the learner
       let intent = turn.action;
       if (!intent) {
         const cur = phases[state.phaseIdx] || {};
@@ -2628,6 +2630,11 @@
       }
       // working phase state.phaseIdx
       if (intent === 'redirect') { turn.deliver = null; return; }      // stay, don't burn the probe
+      // Never advance past a question the learner hasn't answered: a turn that ends
+      // on a question IS a probe, whatever the model labeled it — stay so they can
+      // reply (and the app won't append the next hand-off over it). Once the probe
+      // is already spent we fall through and advance, so this can't stall.
+      if (dangling && !state.probeUsed) { turn.deliver = null; state.probeUsed = true; return; }
       if (intent === 'probe' && !state.probeUsed) { turn.deliver = null; state.probeUsed = true; return; }
       advance(state.phaseIdx + 1);            // teach, or a 2nd probe (cap) → next hand-off
     }
