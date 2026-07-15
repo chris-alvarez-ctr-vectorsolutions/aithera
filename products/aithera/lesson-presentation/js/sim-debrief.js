@@ -445,7 +445,25 @@
     async function openClosing(pendingMessages) {
       const dead = c.seq ? c.seq.guard() : (() => false);
       const pending = pendingMessages || [];
-      pending.forEach((m) => c.ui.pushMessage(m));   // recap shows FIRST
+      // The wrap-up types in one bubble at a time, with a typing indicator before
+      // each coach line — the same rhythm as the live conversation, not a silent
+      // dump. Non-coach items (rare) just push instantly.
+      c.state.delivering = true;
+      let firstClose = true;
+      for (const m of pending) {
+        if (m && m.speaker === 'coach') {
+          c.ui.showTyping();
+          await Core.wait(Core.typingTime ? Core.typingTime(m.text, firstClose) : (Core.reducedMotion() ? 250 : 700));
+          c.ui.hideTyping();
+          if (dead()) return;
+        }
+        c.ui.pushMessage(m);
+        c.ui.render();
+        await Core.wait(Core.reducedMotion() ? 60 : 460);
+        if (dead()) return;
+        firstClose = false;
+      }
+      c.state.delivering = false;
       c.state.closingStep = 0;
       c.state.closingStepperActive = true;   // page shows the loader in the CTA slot
       c.ui.announce('Analyzing the conversation.');
