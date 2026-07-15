@@ -308,11 +308,11 @@
      .report-table-wrap scrolls horizontally rather than squishing/overlapping the columns,
      and freeze the Action column as a fixed pane pinned to the right edge. This is always on:
      when the table already fits, the frozen pane simply sits flush at the right edge. */
-  /* min-width is generous enough that every column — including the added date columns and the
-     widest header labels ("Complete Date", "Last Accessed", "Failed Attempts") — keeps its
-     label on ONE line. When the area is narrower than this, .report-table-wrap scrolls
-     horizontally instead of squishing headers onto two rows. */
-  .report-table { min-width: 1850px; }
+  /* min-width equals the sum of the (tight) per-column pixel widths for the default-visible set,
+     so the table holds its natural width without stretching columns back out into dead space.
+     When the area is narrower than this the .report-table-wrap scrolls horizontally, with data
+     packed right up to the frozen Action pane so the scroll affordance reads clearly. */
+  .report-table { min-width: 1500px; }
   .report-table th.col-action,
   .report-table td.cell-actions {
     position: sticky; right: 0; z-index: 2;
@@ -1122,42 +1122,46 @@
   // render(r, course, gid) → cell HTML. `required` columns can't be hidden (but can still be reordered).
   // Column order: identity → current state → the assignment timeline (chronological)
   // → exceptions → action. `hidden:true` = hidden by default (toggle in Manage columns).
+  // Widths are tuned tight to each column's content (dates hold "04/18/2026", not much more)
+  // and the header labels are kept short, so the columns pack densely and real data runs right
+  // up to the frozen Action pane — that makes the horizontal scroll obvious instead of leaving
+  // a dead gap. The sum drives .report-table min-width (see CSS).
   const COLUMNS = [
     // ── Identity ──
-    { key:'learner',  label:'Learner',          width:'11%', sortable:true, required:true, cellClass:'l-name',
+    { key:'learner',  label:'Learner',          width:'160px', sortable:true, required:true, cellClass:'l-name',
       render:(r) => r.name },
-    { key:'username', label:'Username',         width:'9%',  sortable:true, cellClass:'l-uname', hidden:true,
+    { key:'username', label:'Username',         width:'120px', sortable:true, cellClass:'l-uname', hidden:true,
       render:(r) => r.ext },
-    { key:'course',   label:'Course',           width:'13%', sortable:true,
+    { key:'course',   label:'Course',           width:'175px', sortable:true,
       render:(r, course) => `<span class="course-cell">${course}</span>` },
     // ── Current state ──
-    { key:'status',   label:'Status',           width:'8%',  sortable:true,
+    { key:'status',   label:'Status',           width:'115px', sortable:true,
       render:(r) => `<span class="status-badge ${r.status}">${STATUS_LABEL[r.status]}</span>` },
-    { key:'mods',     label:'Progress',         width:'9%',  sortable:true,
+    { key:'mods',     label:'Progress',         width:'125px', sortable:true,
       render:(r, course, gid) => modCellHTML(r, gid) },
-    // ── Assignment timeline (Start → Due → Complete → Last Accessed → Time Spent) ──
-    { key:'start',    label:'Start Date',       width:'9%',  sortable:true, cellClass:'nowrap', headClass:'nowrap',
+    // ── Assignment timeline (Started → Due → Completed → Last Access → Time Spent) ──
+    { key:'start',    label:'Started',          width:'110px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
       render:(r) => dateCell(courseDates(r).start) },
-    { key:'due',      label:'Due Date',         width:'9%',  sortable:true, cellClass:'nowrap', headClass:'nowrap',
+    { key:'due',      label:'Due',              width:'95px',  sortable:true, cellClass:'nowrap', headClass:'nowrap',
       render:(r) => dateCell(courseDates(r).due) },
-    { key:'complete', label:'Complete Date',    width:'9%',  sortable:true, cellClass:'nowrap', headClass:'nowrap',
+    { key:'complete', label:'Completed',        width:'130px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
       render:(r) => dateCell(courseDates(r).complete) },
-    { key:'last',     label:'Last Accessed',    width:'9%',  sortable:true,
+    { key:'last',     label:'Last Access',      width:'140px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
       render:(r) => r.last === 'Never' ? '<span class="never">Never</span>' : r.last },
-    { key:'time',     label:'Time Spent',       width:'8%',  sortable:true, cellClass:'nowrap', headClass:'nowrap', hidden:true,
+    { key:'time',     label:'Time Spent',       width:'115px', sortable:true, cellClass:'nowrap', headClass:'nowrap', hidden:true,
       render:(r) => r.time },
     // ── Exceptions ──
-    { key:'exp',      label:'Expiration',       width:'9%',  sortable:true,
+    { key:'exp',      label:'Expires',          width:'115px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
       render:(r) => r.exp === '—' ? '—' : `<span class="${r.expSoon ? 'exp-soon' : ''}">${r.exp}</span>` },
     // Failed Attempts — ClickSafety reports failed attempts (out of the 3 allowed).
-    { key:'attempts', label:'Failed Attempts',  width:'9%',  sortable:true,
+    { key:'attempts', label:'Attempts',         width:'115px', sortable:true, headClass:'nowrap',
       render:(r) => (r.status === 'failed') ? `<span class="fr-attempt">${r.attempts || 1}/3</span>` : '<span class="muted-cell">—</span>' },
     // Failure Date — we only receive this from ClickSafety once a learner has failed all 3
     // attempts, so it is populated only when Failed Attempts = 3/3.
-    { key:'failed',   label:'Failure Date (3/3)', width:'10%', sortable:true, hidden:true,
+    { key:'failed',   label:'Failed (3/3)',     width:'130px', sortable:true, cellClass:'nowrap', headClass:'nowrap', hidden:true,
       render:(r) => (r.status === 'failed' && r.attempts === 3 && r.failDate) ? `<span class="fr-fail">${r.failDate}</span>` : '<span class="muted-cell">—</span>' },
     // ── Action (always last, right-aligned) ──
-    { key:'action',   label:'', menuLabel:'Action / Certificate', width:'12%', required:true, align:'right', cellClass:'cell-actions',
+    { key:'action',   label:'', menuLabel:'Action / Certificate', width:'180px', required:true, align:'right', cellClass:'cell-actions',
       render:(r, course, gid) => actionCellHTML(r, gid) },
   ];
   const colByKey = Object.fromEntries(COLUMNS.map(c => [c.key, c]));
