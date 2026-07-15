@@ -1091,11 +1091,13 @@
       .app[data-target="character"] .send-btn:hover { filter: brightness(1.06); background: var(--s-you); }
       .app[data-target="character"] .input-foot { color: var(--s-ink-faint); }
 
-      /* Typing indicator (in stage or panel) */
+      /* Typing / working indicator (in stage or panel). Takes an optional label —
+         e.g. "Updating the scene…" — so a live-model wait never reads as frozen. */
       .typing {
         align-self: flex-start;
         display: inline-flex;
-        gap: 5px;
+        align-items: center;
+        gap: 9px;
         padding: 13px 15px;
         border-radius: 14px;
         background: var(--c-surface);
@@ -1104,18 +1106,41 @@
         animation: typing-in .3s var(--ease) both;   /* fade/rise in softly, not a pop */
       }
       @keyframes typing-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-      @media (prefers-reduced-motion: reduce) { .typing { animation: none; } }
+      @media (prefers-reduced-motion: reduce) { .typing, .you-loading { animation: none; } }
       .typing.scene { background: var(--s-surface); border-color: var(--s-line); }
-      .typing span {
+      .typing .tdots { display: inline-flex; gap: 5px; }
+      .typing .tdots span {
         width: 7px; height: 7px;
         border-radius: 50%;
         background: var(--c-ink-faint);
         animation: bob 1.2s infinite ease-in-out;
       }
-      .typing.scene span { background: var(--s-ink-faint); }
-      .typing span:nth-child(2) { animation-delay: .15s; }
-      .typing span:nth-child(3) { animation-delay: .3s; }
+      .typing.scene .tdots span { background: var(--s-ink-faint); }
+      .typing .tdots span:nth-child(2) { animation-delay: .15s; }
+      .typing .tdots span:nth-child(3) { animation-delay: .3s; }
+      .typing .tlabel { font-size: 13px; font-weight: 600; color: var(--s-ink-soft); letter-spacing: .01em; }
       @keyframes bob { 0%,60%,100% { transform: translateY(0); opacity:.5; } 30% { transform: translateY(-5px); opacity:1; } }
+
+      /* Learner's move "considering…" loader — stands in for their scene line while
+         the say/do split resolves, so the move renders ONCE (never raw-then-split). */
+      .you-loading {
+        align-self: flex-end;
+        display: inline-flex;
+        gap: 5px;
+        align-items: center;
+        padding: 12px 15px;
+        border-radius: 16px 16px 4px 16px;
+        background: var(--s-you-soft);
+        border: 1px solid var(--s-you);
+        animation: typing-in .3s var(--ease) both;
+      }
+      .you-loading span {
+        width: 7px; height: 7px; border-radius: 50%;
+        background: var(--s-you);
+        animation: bob 1.2s infinite ease-in-out;
+      }
+      .you-loading span:nth-child(2) { animation-delay: .15s; }
+      .you-loading span:nth-child(3) { animation-delay: .3s; }
 
       /* —— Content enter animation (fade + slight rise; runs once per node) —— */
       .coach-msg.enter, .you-coach.enter, .char-line.enter,
@@ -1361,7 +1386,7 @@
          guided-arc scenario the Studio published (falls back to the type's
          DEFAULT — the Marshall reference build — when nothing is published). -->
     <script src="js/studio-engine.js?v=1"></script>
-    <script src="js/scenario-types/guided-arc.js?v=7"></script>
+    <script src="js/scenario-types/guided-arc.js?v=9"></script>
 
     <script>
     /* =====================================================================
@@ -1736,7 +1761,11 @@
        stage line and speech as the "You" bubble. The learner's RAW text still
        goes to the reaction model verbatim — this only refines the DISPLAY, and on
        any failure the line stays as the learner typed it, so input is never lost. */
-    const SPLIT_SYSTEM = 'You split a bystander\'s move in a workplace scene into what they DO and what they SAY, for display. ALWAYS return ONLY a JSON object — start with { and end with } — never ask a question, never explain, never refuse, even if the move is short or ambiguous. Shape: {"action":"...","speech":"..."}.\n- "action": what they physically do (step, look, turn, stand, check on someone), rewritten in SECOND person ("You step in beside Marshall"). Use "" if they only speak.\n- "speech": the words they say out loud. If they already quoted themselves, use those words VERBATIM. If they only DESCRIBED what they would say ("I\'d tell Jake to shut up", "tell him to knock it off"), TRANSPOSE it into the plainest first-person line they would actually speak in the moment — keep their exact tone, directness, and content.\n- TRANSPOSE, NEVER IMPROVE: do not soften, sharpen, add courtesy or tact, clean up, or make them sound more articulate than they wrote. Match their register — blunt stays blunt, rude stays rude. Never invent words for a purely physical action, and never add content they did not express. Use "" if they only act.\n- A speech verb (tell/say/ask/warn/snap/yell) signals SAY → transpose it to speech. Only truly physical, non-verbal moves are action.\nExamples:\n"step between them" -> {"action":"You step between them","speech":""}\n"knock it off Jake" -> {"action":"","speech":"Knock it off, Jake"}\n"I\'d tell Jake to shut up" -> {"action":"","speech":"Shut up, Jake"}\n"tell Jake to drop it and then check on Marshall after" -> {"action":"You turn to check on Marshall after","speech":"Drop it, Jake"}\n"I\'d calmly ask him to please stop" -> {"action":"","speech":"Please stop"}\n"I look at Jake and say cut it out" -> {"action":"You look at Jake","speech":"Cut it out"}';
+    /* The say/do split system prompt — a small, scenario-NEUTRAL splitter shared by
+       every Guided Arc scene (the author toggles it via scene.sayDoSplit, and names
+       the people via scene.characters; the splitter itself needs no scenario detail).
+       Kept static so the FAST-model call stays cache-friendly. */
+    const SPLIT_SYSTEM = 'You split a person\'s move in a live role-play scene into what they DO and what they SAY, for display. ALWAYS return ONLY a JSON object — start with { and end with } — never ask a question, never explain, never refuse, even if the move is short or ambiguous. Shape: {"action":"...","speech":"..."}.\n- "action": what they physically do (step, look, turn, stand, move toward someone), rewritten in SECOND person ("You step in beside them"). Use "" if they only speak.\n- "speech": the words they say out loud. If they already quoted themselves, use those words VERBATIM. If they only DESCRIBED what they would say ("I\'d tell him to knock it off", "ask her to stop"), TRANSPOSE it into the plainest first-person line they would actually speak in the moment — keep their exact tone, directness, and content.\n- TRANSPOSE, NEVER IMPROVE: do not soften, sharpen, add courtesy or tact, clean up, or make them sound more articulate than they wrote. Match their register — blunt stays blunt, rude stays rude. Never invent words for a purely physical action, and never add content they did not express. Use "" if they only act.\n- A speech verb (tell/say/ask/warn/snap/yell) signals SAY → transpose it to speech. Only truly physical, non-verbal moves are action.\nExamples:\n"step between them" -> {"action":"You step between them","speech":""}\n"knock it off" -> {"action":"","speech":"Knock it off"}\n"I\'d tell him to shut up" -> {"action":"","speech":"Shut up"}\n"tell him to drop it and then check on her after" -> {"action":"You turn to check on her after","speech":"Drop it"}\n"I\'d calmly ask him to please stop" -> {"action":"","speech":"Please stop"}\n"I look over and say cut it out" -> {"action":"You look over","speech":"Cut it out"}';
     async function splitSceneInputAI(text) {
       const raw = await SimCore.callModel({
         model: SimCore.MODELS.FAST,
@@ -1752,11 +1781,17 @@
       if (speech) beats.push({ kind: 'dialogue', text: speech });
       return beats.length ? beats : null;
     }
-    async function refineYouDisplay(msg) {
-      try {
-        const beats = await splitSceneInputAI(msg.text);
-        if (beats && msg) { msg._display = beats; render(); }
-      } catch (e) { /* keep the instant single-bubble display — input never lost */ }
+    /* Resolve the learner's scene move for display ONCE: try the fast AI split
+       (what they DO vs SAY), fall back to the deterministic local split, and never
+       lose their words. Awaited by send() while a "considering…" loader stands in,
+       so the finished move renders a single time — no raw-text-then-re-split flash. */
+    async function finalizeYouDisplay(msg) {
+      let beats = null;
+      try { beats = await splitSceneInputAI(msg.text); } catch (e) { /* fall through */ }
+      if (!beats || !beats.length) beats = splitSceneInput(msg.text);   // deterministic fallback
+      msg._display = (beats && beats.length) ? beats : [{ kind: 'dialogue', text: msg.text }];
+      msg._pending = false;
+      msg._enter = true;   // re-arm so the resolved move fades in as it replaces the loader
     }
 
     function coachNode(m) {
@@ -1799,6 +1834,15 @@
        "You" bubble. Driven by m._display (set in send() via splitSceneInput);
        falls back to one bubble for older/plain messages. One retry per turn. */
     function appendYouBeats(card, m, absIndex, interactive) {
+      // While the say/do split is still resolving, stand in with a "considering…"
+      // loader on the You side — the move then renders ONCE (never raw-then-split).
+      if (m._pending) {
+        const wrap = el('div', 'you-scene' + ec(m));
+        wrap.appendChild(el('div', 'cap', `<i class="fa-solid fa-quote-right"></i> ${esc(ACTIVE_SCENARIO.sceneLineCaption || 'You')}`));
+        wrap.appendChild(el('div', 'you-loading', '<span></span><span></span><span></span>'));
+        card.appendChild(wrap);
+        return;
+      }
       const disp = (Array.isArray(m._display) && m._display.length)
         ? m._display
         : [{ kind: (m.kind === 'narration' ? 'narration' : 'dialogue'), text: m.text }];
@@ -2268,10 +2312,12 @@
     }
 
     /* ---- typing indicator (in the right world) ------------------------ */
-    function showTyping() {
+    function showTyping(label) {
       hideTyping();
       const coachUp = state.mode === 'coaching';
-      const node = el('div', 'typing' + (coachUp ? '' : ' scene'), '<span></span><span></span><span></span>');
+      const dots = '<span class="tdots"><span></span><span></span><span></span></span>';
+      const lbl = label ? `<span class="tlabel">${esc(label)}</span>` : '';
+      const node = el('div', 'typing' + (coachUp ? '' : ' scene'), dots + lbl);
       node.id = 'typingNode';
       // coach lines type in the sheet (prep AND debriefs); scene lines type in the practice
       if (coachUp) {
@@ -2629,14 +2675,18 @@
         return;
       }
       // working phase state.phaseIdx
-      if (intent === 'redirect') { turn.deliver = null; return; }      // stay, don't burn the probe
-      // Never advance past a question the learner hasn't answered: a turn that ends
-      // on a question IS a probe, whatever the model labeled it — stay so they can
-      // reply (and the app won't append the next hand-off over it). Once the probe
-      // is already spent we fall through and advance, so this can't stall.
-      if (dangling && !state.probeUsed) { turn.deliver = null; state.probeUsed = true; return; }
-      if (intent === 'probe' && !state.probeUsed) { turn.deliver = null; state.probeUsed = true; return; }
-      advance(state.phaseIdx + 1);            // teach, or a 2nd probe (cap) → next hand-off
+      //
+      // The learner must ALWAYS end a turn facing a question — either the coach's
+      // own (we stay) or the next locked prompt (we advance). So "stay" is gated on
+      // there actually BEING a question, not on the model's self-label: a turn that
+      // ends on a question is a probe → stay so they can answer; anything else (a
+      // teach, or a bare acknowledgment that forgot to ask/teach) → advance to the
+      // next hand-off. Off-script is the one exception: we hold so a disengaged
+      // learner isn't carried forward. Once the one probe is spent, even a question
+      // falls through to advance — so neither a stall nor a probe loop is possible.
+      if (intent === 'redirect') { turn.deliver = null; return; }      // off-script → re-ask, stay
+      if (dangling && !state.probeUsed) { turn.deliver = null; state.probeUsed = true; return; }  // a real probe (poses a question)
+      advance(state.phaseIdx + 1);            // teach, bare acknowledgment, imperative, or spent probe → next hand-off
     }
 
     /* Append the LOCKED (app-owned) beat the model asked for via turn.deliver.
@@ -2684,20 +2734,17 @@
       const text = composer.value.trim();
       if (!text || state.sending || state.complete || state.transitioning) return;
 
+      let youMsg = null;
       if (state.mode === 'scene') {
-        // Split what they DO from what they SAY for display; the model still gets
-        // the raw text verbatim (via .text). _display drives the rendered beats.
-        const det = SCENE_SAYDO ? splitSceneInput(text) : null;
-        const youMsg = { speaker: 'you', kind: 'dialogue', text, _enter: true, _display: det };
+        // The learner's move renders SPLIT (what they DO vs what they SAY). While
+        // that split resolves we stand in a "considering…" loader and render the
+        // move ONCE — never the raw text flashed then re-split. The reaction model
+        // still receives the raw text verbatim (via .text).
+        youMsg = { speaker: 'you', kind: 'dialogue', text, _enter: true };
+        if (SCENE_SAYDO) youMsg._pending = true;
+        else youMsg._display = [{ kind: 'dialogue', text }];
         state.messages.push(youMsg);
         followStage = true;   // new scene content — follow it down
-        // When the scene declares sayDoSplit, refine the split with the fast AI —
-        // it reliably separates what they SAY (→ bubble) from what they DO (→
-        // narration), even for "I look at him and say knock it off" input the
-        // deterministic pass would otherwise mash into one line. Non-blocking; raw
-        // text still goes to the reaction model, and on failure the instant display
-        // stays. Skipped when the scene opts out of the split.
-        if (SCENE_SAYDO) refineYouDisplay(youMsg);
       } else {
         state.messages.push({ speaker: 'you', kind: 'coaching', text, _enter: true });
       }
@@ -2705,18 +2752,23 @@
       autoGrow();
 
       state.sending = true;
-      render();          // shows the learner's line (faded in) and locks input
-      showTyping();      // the AI is composing — covers the model round-trip
+      render();          // shows the learner's line (or the loader) and locks input
 
-      let turn;
-      try { turn = await getTurn(state.messages); }
-      catch (err) {
-        turn = { turn: [{ speaker: 'coach', kind: 'coaching', text:
-          'Something hiccuped reaching the AI coach. Take a breath and try that again.' }], mode: 'coaching', inputTarget: 'coach' };
-        // Mirror the failure into the polite live region — the coach sheet may
-        // be aria-hidden when this lands, so announce it explicitly.
+      // Kick the reaction off NOW so it composes while we resolve the learner's own
+      // move — both read the same raw text. Failures resolve to a graceful turn.
+      const turnP = getTurn(state.messages).catch(() => {
         announce('Something hiccuped reaching the AI coach. Take a breath and try that again.');
-      }
+        return { turn: [{ speaker: 'coach', kind: 'coaching', text:
+          'Something hiccuped reaching the AI coach. Take a breath and try that again.' }], mode: 'coaching', inputTarget: 'coach' };
+      });
+
+      // Resolve + render the learner's OWN move first (loader → split, one render).
+      if (youMsg && youMsg._pending) { await finalizeYouDisplay(youMsg); render(); }
+
+      // The wait for the scene/coach reply now carries a visible indicator.
+      showTyping(state.mode === 'scene' ? 'Updating the scene…' : '');
+
+      const turn = await turnP;
 
       // LOCKED (grey) beats: the model only writes the dynamic feedback, then
       // asks us to show the next app-owned beat via turn.deliver. We append that

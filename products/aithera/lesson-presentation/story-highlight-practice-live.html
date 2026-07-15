@@ -1104,6 +1104,9 @@
       .typing.scene span { background: var(--s-ink-faint); }
       .typing span:nth-child(2) { animation-delay: .15s; }
       .typing span:nth-child(3) { animation-delay: .3s; }
+      .typing { align-items: center; }   /* keep the dots + optional label centered */
+      /* an optional label (e.g. "Updating the scene…") so a live-model wait never reads as frozen */
+      .typing span.tlabel { width: auto; height: auto; border-radius: 0; background: none; animation: none; font-size: 13px; font-weight: 600; color: var(--s-ink-soft); letter-spacing: .01em; }
       @keyframes bob { 0%,60%,100% { transform: translateY(0); opacity:.5; } 30% { transform: translateY(-5px); opacity:1; } }
 
       /* —— Content enter animation (fade + slight rise; runs once per node) —— */
@@ -2350,10 +2353,11 @@ You didn't carry this alone, and you didn't ask her to either.` },
     }
 
     /* ---- typing indicator (in the right world) ------------------------ */
-    function showTyping() {
+    function showTyping(label) {
       hideTyping();
       const coachUp = state.mode === 'coaching';
-      const node = el('div', 'typing' + (coachUp ? '' : ' scene'), '<span></span><span></span><span></span>');
+      const dots = '<span></span><span></span><span></span>';
+      const node = el('div', 'typing' + (coachUp ? '' : ' scene'), dots + (label ? '<span class="tlabel">' + esc(label) + '</span>' : ''));
       node.id = 'typingNode';
       // coach lines type in the sheet (prep AND debriefs); scene lines type in the practice
       if (coachUp) { typingHost = coachPanelBody; coachPanelBody.appendChild(node); }
@@ -2613,7 +2617,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
 
       state.sending = true;
       render();          // shows the learner's line (faded in) and locks input
-      showTyping();      // the AI is composing — covers the model round-trip
+      showTyping(state.mode === 'scene' ? 'Updating the scene…' : '');      // the AI is composing — covers the model round-trip
 
       let turn;
       try { turn = await getTurn(state.messages); }

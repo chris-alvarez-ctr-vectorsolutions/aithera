@@ -414,6 +414,7 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
       'In PRACTICE, hold your teaching (one probe max) until the learner commits; teach only in LEARN.',
       'A PRACTICE probe MUST end with a question that hands the turn back — never a lone statement — and carry "action":"probe". You get at most ONE per phase; the app enforces it (the [SYSTEM STATE] line says when it is spent) and forces you to teach after.',
       'NEVER ask the learner a question AND advance in the same turn. If your turn ends on a question, it is a "probe" — set action:"probe" and STOP so they can answer; do not also "teach"/advance. Only a landing turn with no dangling question advances.',
+      'NEVER end a coaching turn on a bare acknowledgment. When the learner answers you either (a) PROBE — end on a clear question — or (b) TEACH — open with the exact "talk it through" line and land the point in the SAME turn. A one-liner that agrees but neither asks nor teaches leaves the learner with nothing to do — do not send it. When their answer is already good, acknowledge in one clause and move straight into the teach.',
       'A phase flagged with a right answer must be delivered clearly — do not hedge. An open phase deepens, it doesn’t grade.',
       'Open each teaching turn with the exact "talk it through" line for that phase.',
       'Never write, quote, or paraphrase a LOCKED beat — the app owns those.',
@@ -666,6 +667,8 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
       if (empty(sc.pivot)) add('warn', 'scene', 'The scene has no action pivot.', 'The verbatim coach line that hands the learner into the scene.');
       if (!arr(sc.setup).length) add('err', 'scene', 'The scene has no setup beats.', 'The learner needs the moment to react to — at least a narration beat and the ask.');
       if (!arr(sc.outcomes).filter((o) => !empty(o.tier)).length) add('warn', 'scene', 'The scene has no outcome tiers.', 'The calibrated consequence narration is what makes the action feel real.');
+      if (!arr(sc.characters).filter((c) => !empty(c)).length) add('info', 'scene', 'No characters named for the coach to voice.', 'The coach voices the scene\'s other people — name them so it knows who speaks (the first is the default speaker).');
+      if (!arr(sc.actionCalibration).filter((t) => !empty(t.tier)).length) add('info', 'scene', 'The scene has no action-calibration tiers.', 'Tiers tell the coach how to read the learner\'s first move and pick the matching outcome.');
       if (empty((sc.debrief || {}).talkItThrough)) add('info', 'scene', 'No scene-debrief "talk it through" line.', 'The verbatim opener of the post-scene teaching turn.');
     }
 
@@ -837,6 +840,7 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
           tf(`phases.${i}.talkItThrough`, '"Talk it through" line (coach speaks this verbatim to open teaching)', { area: true, minRows: 2 }),
           tf(`phases.${i}.probeExample`, 'Example Socratic probe (optional)', { area: true, minRows: 2, helper: 'A model of the ONE probe the coach may use in Practice.' }),
           tf(`phases.${i}.throughLine`, 'Through-line (right-answer phases — what every learner must hear)', { area: true, minRows: 2 }),
+          tf(`phases.${i}.endNote`, 'Where the teaching lands (optional)', { area: true, minRows: 2, helper: 'A closing instruction for this phase\'s teach turn — e.g. "END on the bystander bridge." Steers where the coach leaves the learner before the next hand-off.' }),
           rowsBlock(`phases.${i}.calibration`, (t, j, onDelT) => rowCard(`Tier ${j + 1}`, onDelT,
             tf(`phases.${i}.calibration.${j}.tier`, 'Tier name', { placeholder: 'UNTHOUGHTFUL / NEUTRAL / STRONG' }),
             tf(`phases.${i}.calibration.${j}.guidance`, 'How to meet this answer', { area: true, minRows: 3 }),
@@ -853,10 +857,49 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
       const renderScene = () => {
         body.innerHTML = '';
         if (!(s.scene && typeof s.scene === 'object')) return;
+        // Characters the coach VOICES in the scene (comma-separated). Compiled into
+        // the mode spine + scene beat rules so the coach knows who to speak as; the
+        // first name is the default speaker. Array-of-strings → one friendly field.
+        const charField = document.createElement('vaadin-text-field');
+        charField.setAttribute('theme', 'outlined');
+        charField.label = 'Characters the coach voices (comma-separated)';
+        charField.helperText = 'Who the coach speaks as in the scene — e.g. "Jake, Marshall". The first name is the default speaker. Leave blank for a scene with no named people.';
+        charField.value = arr(s.scene.characters).join(', ');
+        const onChars = () => { s.scene.characters = String(charField.value || '').split(',').map((x) => x.trim()).filter(Boolean); scheduleUpdate(); };
+        charField.addEventListener('input', onChars);
+        charField.addEventListener('change', onChars);
+
+        // How many learner moves before the debrief (min 2). Purely prompt-fed —
+        // the scene ends when the model completes, so this steers the arc, not a counter.
+        const countField = document.createElement('vaadin-number-field');
+        countField.setAttribute('theme', 'outlined');
+        countField.label = 'Learner actions before the debrief';
+        countField.helperText = 'How many moves the learner makes (minimum 2): the first reacts to the scene, the last resolves it and hands to the debrief.';
+        countField.min = 2; countField.step = 1;
+        countField.value = String(Math.max(2, s.scene.actionCount || 2));
+        const onCount = () => { const n = parseInt(countField.value, 10); s.scene.actionCount = (Number.isFinite(n) && n >= 2) ? n : 2; scheduleUpdate(); };
+        countField.addEventListener('input', onCount);
+        countField.addEventListener('change', onCount);
+
+        // Toggle the DO/SAY split — the signature v3 mechanic. Off → the learner's
+        // move renders as one bubble, verbatim, with no narration/speech separation.
+        const split = document.createElement('vaadin-checkbox');
+        split.label = 'Split the learner\'s move into DO (narration) + SAY (spoken bubble)';
+        split.checked = s.scene.sayDoSplit !== false;
+        const onSplit = () => { s.scene.sayDoSplit = !!split.checked; scheduleUpdate(); };
+        split.addEventListener('change', onSplit); split.addEventListener('checked-changed', onSplit);
+
+        const composerRow = document.createElement('div'); composerRow.className = 'row2';
+        composerRow.append(
+          tf('scene.inputPlaceholder', 'Composer placeholder', { placeholder: 'What do you do or say?', helper: 'The greyed prompt in the learner\'s input while they\'re in the scene.' }),
+          tf('scene.lineCaption', 'Caption on the learner\'s move', { placeholder: 'You', helper: 'The small label over the learner\'s scene bubble.' }),
+        );
+
         body.append(
           guidance('The learner acts; the scene reacts', 'fa-masks-theater',
             'The composer asks "what do you do?" — input is split into a DO (narration) and SAY (bubble) channel. The coach voices the characters and narrates the calibrated consequence, then debriefs after the last action.'),
           tf('scene.place', 'Where the scene happens', { placeholder: 'break room' }),
+          charField,
           tf('scene.pivot', 'Action pivot (verbatim coach line into the scene)', { area: true, minRows: 2 }),
           guidance('Setup beats — the moment the learner walks into', 'fa-clapperboard',
             'The locked beats shown as the learner steps in: usually a narration beat, the character\'s line, then the "what do you do?" ask. Speaker is <b>character</b>; kind is <b>narration</b> or <b>dialogue</b> (name the speaker for dialogue).'),
@@ -865,6 +908,11 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
             tf(`scene.setup.${i}.name`, 'Speaker name (dialogue only)', { placeholder: 'Jake' }),
             tf(`scene.setup.${i}.text`, 'The beat text (verbatim)', { area: true, minRows: 2 }),
           ), 'Add setup beat', () => ({ speaker: 'character', kind: 'narration', text: '' })),
+          guidance('How the learner acts — the composer', 'fa-keyboard',
+            'The learner types a free move each turn. Keep the DO/SAY <b>split</b> on for the signature v3 feel, or turn it off for a single verbatim bubble. Set how many moves the scene runs before it debriefs.'),
+          composerRow,
+          split,
+          countField,
           tf('scene.escalationGuidance', 'What happens between the actions (the escalation)', { area: true, minRows: 3, helper: 'How the scene pushes back after the first action.' }),
           guidance('Outcomes — the calibrated consequence narration', 'fa-bolt',
             'Per tier, how the learner\'s action lands. This is the emphasized consequence beat that makes the choice feel real.'),
@@ -872,6 +920,13 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
             tf(`scene.outcomes.${i}.tier`, 'Tier name', { placeholder: 'UNTHOUGHTFUL / NEUTRAL / STRONG' }),
             tf(`scene.outcomes.${i}.narration`, 'How it lands (narration)', { area: true, minRows: 2 }),
           ), 'Add outcome tier', () => ({ tier: '', narration: '' })),
+          guidance('Action calibration — how the coach READS the first move', 'fa-gauge',
+            'Per tier, what a weak / middling / strong first action looks like, so the coach picks the matching outcome above. Mirrors the phase calibration tiers.'),
+          rowsBlock('scene.actionCalibration', (t, i, onDel) => rowCard(`Tier ${i + 1}`, onDel,
+            tf(`scene.actionCalibration.${i}.tier`, 'Tier name', { placeholder: 'UNTHOUGHTFUL / NEUTRAL / STRONG' }),
+            tf(`scene.actionCalibration.${i}.guidance`, 'What this move looks like', { area: true, minRows: 2 }),
+          ), 'Add action tier', () => ({ tier: '', guidance: '' })),
+          tf('scene.silenceNote', 'Note on silence / non-action (optional)', { area: true, minRows: 2, helper: 'How to read a learner who does nothing — e.g. "Silence is never neutral." Folded into the action calibration.' }),
           tf('scene.beat2Guidance', 'Second-action guidance (under pressure)', { area: true, minRows: 2 }),
           tf('scene.debrief.talkItThrough', 'Debrief "talk it through" line (verbatim)', { area: true, minRows: 2 }),
           tf('scene.debrief.points', 'Debrief content', { area: true, minRows: 4, helper: 'What the post-scene coaching lands.' }),
