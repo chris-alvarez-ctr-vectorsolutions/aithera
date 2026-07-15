@@ -1,6 +1,9 @@
 /* =========================================================================
    THE MARSHALL SCENARIO — V3 (RECONCILED) — content + compiled system prompt
-   Loaded by marshall-live-v3.html (the Live-AI page), AFTER js/scenario.js.
+   ARCHIVAL / VALIDATION ORACLE ONLY — no longer loaded by any page (its old
+   host marshall-live-v3.html was retired; the shipped build is the Studio-
+   authored guided-arc.js DEFAULT, run by guided-arc-live.html). Kept because
+   guided-arc.js's compile(DEFAULT) is validated to reproduce this SYSTEM_PROMPT.
 
    WHAT THIS IS: the reconciliation cut. It drives V1's role-play engine (coach
    lead-up → live scene → coach debrief) but restructures the whole thing around

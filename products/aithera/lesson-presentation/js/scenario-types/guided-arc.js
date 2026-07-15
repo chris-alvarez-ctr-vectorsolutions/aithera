@@ -1,8 +1,8 @@
 /* =========================================================================
    WRITER-STUDIO SCENARIO TYPE — guided-arc ("Guided Arc") — V3 SCHEMA
    An authored, PHASED coaching arc with a live coach throughout, ending in an
-   OPTIONAL live "action console" scene. This is the schema the Marshall v3
-   reference build (marshall-live-v3.html) demonstrates, made authorable.
+   OPTIONAL live "action console" scene. This is the schema behind the Marshall
+   build — authored in the Studio, run by the generic guided-arc-live.html.
 
    THE ARC an author composes:
      · reflection      — a non-evaluated warm-up. Its `prompt` is locked/verbatim;
