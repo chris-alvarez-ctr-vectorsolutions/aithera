@@ -1305,7 +1305,7 @@
          sim-core     the AI turn engine (proxy, models, JSON repair, retry, pacing)
          sim-context  the Section-1 → Section-2 coupler (ContextRecord)
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
-    <script src="js/sim-core.js?v=1"></script>
+    <script src="js/sim-core.js?v=2"></script>
     <script src="js/sim-context.js?v=1"></script>
     <script src="js/sim-debrief.js?v=5"></script>
     <script src="js/sim-chat-history.js?v=5"></script>
@@ -1908,37 +1908,43 @@
     // set true right before a render that appends scene content, so it follows down
     let followStage = false;
 
-    /* —— Grow the coach sheet SMOOTHLY ————————————————————————————————————
-       The sheet is bottom-anchored (it sits on the input bar), so its height
-       grows UPWARD. New content used to snap to its new height in one frame —
-       the sheet jumped taller and the thread jumped up at once. Instead we TWEEN
-       the height from the last painted value to the new one and pin the thread to
-       the bottom every frame: the newest bubble holds its place (fading in where
-       it sits) while the sheet unfurls above it and earlier lines ease into view.
-       Once the sheet hits its max height it stops growing and the body scrolls
-       (render()/showTyping() glide that scroll). Returns true if it animated. */
-    let lastCoachH = null;      // sheet height we last painted, = the tween's start point
-    let coachGrowRAF = 0;       // in-flight grow, so a fresh one can cancel it
+    /* —— Raise the coach sheet as ONE piece ————————————————————————————————
+       The sheet is bottom-anchored (it sits on the input bar). New content used
+       to snap the sheet taller and PIN the newest bubble to the bottom while the
+       height tweened — so only the header (riding the top edge) visibly moved,
+       arriving ~300ms late and reading as out-of-sync with the thread. Instead we
+       now lay the sheet out at its final height immediately, then ease the WHOLE
+       sheet — header + thread together — up into place from a dropped start: we
+       translateY it down by exactly how much it grew (the extra height tucks
+       behind the input bar, and the header lands where the shorter sheet's top
+       was), then animate that transform back to 0. Header and messages share one
+       motion, so nothing lags. Once the sheet is at its max height it stops
+       growing and the body scrolls (render()/showTyping() glide that scroll).
+       Returns true if it animated. */
+    let lastCoachH = null;      // sheet height we last painted, = the rise's start point
+    let coachGrowRAF = 0;       // in-flight rise, so a fresh one can cancel it
     function tweenCoachHeight() {
       if (!app.classList.contains('coach-up')) { lastCoachH = null; return false; }
       if (coachGrowRAF) { cancelAnimationFrame(coachGrowRAF); coachGrowRAF = 0; }
-      coachPanel.style.height = '';                     // measure the NATURAL height, not a mid-tween value
+      coachPanel.style.transition = 'none';             // we drive the transform ourselves this beat
+      coachPanel.style.transform = '';                  // sit at the resting position to measure
       const target = coachPanel.offsetHeight;           // forces layout → true post-render height
       const from = lastCoachH;
       lastCoachH = target;
-      if (from == null || reducedMotion() || Math.abs(target - from) < 2) return false;
-      coachPanelBody.scrollTop = coachPanelBody.scrollHeight;   // pin the newest bubble NOW, before the tween
+      coachPanelBody.scrollTop = coachPanelBody.scrollHeight;   // newest bubble to the bottom (layout is final now)
+      if (from == null || reducedMotion() || Math.abs(target - from) < 2) { coachPanel.style.transition = ''; return false; }
+      const delta = target - from;                      // how much taller we grew = how far to rise
       const dur = 300;
       const ease = (t) => 1 - Math.pow(1 - t, 3);       // easeOutCubic
       let t0 = null;
       const step = (ts) => {
         if (t0 == null) t0 = ts;
         const p = Math.min(1, (ts - t0) / dur);
-        coachPanel.style.height = (from + (target - from) * ease(p)) + 'px';
-        coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
+        coachPanel.style.transform = 'translateY(' + (delta * (1 - ease(p))) + 'px)';   // header + thread, one block
         if (p < 1) { coachGrowRAF = requestAnimationFrame(step); }
-        else { coachGrowRAF = 0; coachPanel.style.height = ''; }   // release back to auto
+        else { coachGrowRAF = 0; coachPanel.style.transform = ''; coachPanel.style.transition = ''; }  // release to CSS
       };
+      coachPanel.style.transform = 'translateY(' + delta + 'px)';   // start dropped, synchronously
       coachGrowRAF = requestAnimationFrame(step);
       return true;
     }
@@ -2337,14 +2343,19 @@
       if (willEnter) {
         state.delivering = true;
         const coachingItems = items.filter((m) => worldOf(m) === 'coaching');
-        for (const m of coachingItems) {
+        for (let ci = 0; ci < coachingItems.length; ci++) {
+          const m = coachingItems[ci];
+          const prev = ci > 0 ? coachingItems[ci - 1] : null;
           hideTyping();
-          showTyping(); await wait(reducedMotion() ? 250 : 780); hideTyping();
+          // Dots scaled to the PREVIOUS line's length (thinkingTime) rather than a
+          // flat beat — so a burst of coach messages leaves the learner room to
+          // start reading each one before the next composes.
+          showTyping(); await wait(thinkingTime(prev ? prev.text : '')); hideTyping();
           if (dead()) return;
           m._enter = true;
           state.messages.push(m);
           render();
-          await wait(reducedMotion() ? 80 : 300);
+          if (ci < coachingItems.length - 1) await wait(reducedMotion() ? 80 : 300);
           if (dead()) return;
         }
         state.pendingScene = items.filter((m) => worldOf(m) === 'scene');
@@ -2419,17 +2430,21 @@
 
       // Phase 3 — coach message(s) revealed in the sheet when we're ALREADY coaching
       // (a send-back reply, an escalation redirect, or a manual-timeout answer).
+      let prevText = (i > 0 && items[i - 1]) ? (items[i - 1].text || '') : '';
       while (i < items.length) {
         const m = items[i];
         hideTyping();
-        showTyping(); await wait(reducedMotion() ? 250 : 780); hideTyping();
+        // Dots scaled to what was just shown (thinkingTime) instead of a flat beat,
+        // so consecutive coach lines give the learner room to start reading.
+        showTyping(); await wait(thinkingTime(prevText)); hideTyping();
         if (dead()) return;
         m._enter = true;
         state.messages.push(m);
         render();
-        await wait(reducedMotion() ? 80 : 300);
-        if (dead()) return;
+        prevText = m.text || '';
         i++;
+        if (i < items.length) await wait(reducedMotion() ? 80 : 300);
+        if (dead()) return;
       }
 
       // Finalize. If the coach is sending the learner back into the scene, dwell

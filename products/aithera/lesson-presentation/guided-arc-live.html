@@ -1353,7 +1353,7 @@
          sim-core     the AI turn engine (proxy, models, JSON repair, retry, pacing)
          sim-context  the Section-1 → Section-2 coupler (ContextRecord)
          sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
-    <script src="js/sim-core.js?v=1"></script>
+    <script src="js/sim-core.js?v=2"></script>
     <script src="js/sim-context.js?v=1"></script>
     <script src="js/sim-debrief.js?v=5"></script>
     <script src="js/sim-chat-history.js?v=5"></script>
@@ -1361,7 +1361,7 @@
          guided-arc scenario the Studio published (falls back to the type's
          DEFAULT — the Marshall reference build — when nothing is published). -->
     <script src="js/studio-engine.js?v=1"></script>
-    <script src="js/scenario-types/guided-arc.js?v=5"></script>
+    <script src="js/scenario-types/guided-arc.js?v=6"></script>
 
     <script>
     /* =====================================================================
@@ -1512,6 +1512,10 @@
       debriefReturn: null,      // if the debrief the learner is about to open is a coach-led transition BACK into the scene (e.g. "check in with Marshall"), the return context to arm once it's read
       returnLabel: null,        // custom label for the scene-return CTA (e.g. "Check in with Marshall")
       sceneTarget: null,        // who the learner is speaking to in the scene now (e.g. "Marshall") — drives the composer placeholder
+      // —— PHASE ENGINE (app-owned; the model no longer counts turns or picks the
+      // next hand-off) ——————————————————————————————————————————————————————
+      phaseIdx: -1,             // -1 = reflection warm-up; 0..N-1 = working phases[phaseIdx]; >=N = past the phases (scene / close)
+      probeUsed: false,         // has the coach spent its ONE Socratic probe in the current phase? (reset on every advance)
     };
 
     /* ---- helpers: classify + group ------------------------------------ */
@@ -1551,12 +1555,42 @@
       name: true,
       sceneHints: true,
       deliver: (id) => Boolean((ACTIVE_SCENARIO.locked || {})[id]),
+      action: true,                  // "probe" | "teach" intent — the app owns advancement
     });
+
+    /* The per-turn [SYSTEM STATE] line (Prompt Architecture #2): the app is the
+       source of truth for WHICH phase is live and whether the coach has already
+       spent its one probe — the model can't reliably count turns over a rolling
+       window. We append this to the (otherwise static, cache-friendly) system
+       prompt every call so the model reads its state instead of inferring it. */
+    function phaseStateBlock() {
+      const phases = Array.isArray(ACTIVE_SCENARIO.phases) ? ACTIVE_SCENARIO.phases : [];
+      if (!phases.length || state.complete) return '';
+      if (state.hasEnteredScene || state.phaseIdx >= phases.length) {
+        return '\n\n[SYSTEM STATE — you are past the Learn↔Practice phases; follow THE SCENE / COMPLETION rules.]';
+      }
+      if (state.phaseIdx < 0) {
+        return '\n\n[SYSTEM STATE — Reflection warm-up. Calibrate only (do NOT evaluate); set "action":"teach". The app then opens Phase 1.]';
+      }
+      const p = phases[state.phaseIdx] || {};
+      const label = GA_TYPE ? GA_TYPE.fill(p.label || p.id || ('Phase ' + (state.phaseIdx + 1)), ACTIVE_SCENARIO) : (p.label || p.id);
+      const used = state.probeUsed;
+      return '\n\n[SYSTEM STATE — Phase ' + (state.phaseIdx + 1) + '/' + phases.length + ': ' + label
+        + '. Probe used this phase: ' + (used ? 'YES' : 'no') + '.'
+        + (used
+            ? ' You have already spent your one probe — you MUST set "action":"teach" now (open with the verbatim talk-it-through line). Do NOT probe again.'
+            : ' You may set "action":"probe" (ONE short question) or "action":"teach". The app advances to the next hand-off on "teach" — you do not choose it.')
+        + ']';
+    }
+
     const TURN_ENGINE = SimCore.makeTurnEngine({
-      system: () => SYSTEM_PROMPT,   // a fn so Section-1 coupler addenda are honored
+      // static compiled arc + the coupler's context addenda + the per-turn state
+      // line. The big arc stays byte-identical across turns (prompt cache stays
+      // warm); only the short [SYSTEM STATE] tail changes.
+      system: () => SYSTEM_PROMPT + phaseStateBlock(),
       maxTokens: 1600,
       parser: TURN_PARSER,
-      history: SimCore.turnHistory({ name: true }),
+      history: SimCore.turnHistory({ name: true, owner: true }),
       scripted: scriptedTurn,        // "coach unreachable" stub — this arc is live end to end
     });
     const getTurn = TURN_ENGINE.getTurn;
@@ -1915,43 +1949,45 @@
       if (typing && typing.parentNode === coachPanelBody) coachPanelBody.appendChild(typing);  // keep dots last
     }
 
-    /* —— Grow the coach sheet SMOOTHLY ————————————————————————————————————
-       The sheet is bottom-anchored (it sits on the input bar), so its height
-       grows UPWARD. New content used to snap it to its new height in a single
-       frame — the sheet jumped taller, the thread jumped up, and the bubble
-       faded in, all at once, so the eye had to chase it. Instead we TWEEN the
-       height from the last painted value to the new one and pin the thread to
-       the bottom on every frame: the newest bubble holds its place (fading in
-       where it sits) while the sheet unfurls above it and earlier lines ease
-       into view. Once the sheet reaches its max height it stops growing and the
-       body scrolls instead (render() glides that scroll — see below).
-       Returns true if it actually animated a height change. */
-    let lastCoachH = null;      // sheet height we last painted, = the tween's start point
-    let coachGrowRAF = 0;       // in-flight grow, so a fresh one can cancel it
+    /* —— Raise the coach sheet as ONE piece ————————————————————————————————
+       The sheet is bottom-anchored (it sits on the input bar). New content used
+       to snap the sheet taller and PIN the newest bubble to the bottom while the
+       height tweened — so only the header (riding the top edge) visibly moved,
+       arriving ~300ms late and reading as out-of-sync with the thread. Instead we
+       now lay the sheet out at its final height immediately, then ease the WHOLE
+       sheet — header + thread together — up into place from a dropped start: we
+       translateY it down by exactly how much it grew (the extra height tucks
+       behind the input bar, and the header lands where the shorter sheet's top
+       was), then animate that transform back to 0. Header and messages share one
+       motion, so nothing lags. Once the sheet is at its max height it stops
+       growing and the body scrolls instead (render() glides that scroll — see
+       below). Returns true if it actually animated. */
+    let lastCoachH = null;      // sheet height we last painted, = the rise's start point
+    let coachGrowRAF = 0;       // in-flight rise, so a fresh one can cancel it
     function tweenCoachHeight() {
       if (!app.classList.contains('coach-up')) { lastCoachH = null; return false; }
       if (coachGrowRAF) { cancelAnimationFrame(coachGrowRAF); coachGrowRAF = 0; }
-      coachPanel.style.height = '';                     // measure the NATURAL height, not a mid-tween value
+      coachPanel.style.transition = 'none';             // we drive the transform ourselves this beat
+      coachPanel.style.transform = '';                  // sit at the resting position to measure
       const target = coachPanel.offsetHeight;           // forces layout → true post-render height
       const from = lastCoachH;
       lastCoachH = target;
-      // First paint, no real change, or reduced-motion → let it be instant.
-      if (from == null || reducedMotion() || Math.abs(target - from) < 2) return false;
-      // Pin the newest bubble to the bottom ONCE, synchronously, before the tween
-      // starts — so it's anchored even if the first animation frame is delayed
-      // (or never comes, e.g. a backgrounded tab). The rAF loop then holds it there.
+      // Newest bubble to the bottom now that the sheet is laid out at final height.
       coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
+      // First paint, no real change, or reduced-motion → let it be instant.
+      if (from == null || reducedMotion() || Math.abs(target - from) < 2) { coachPanel.style.transition = ''; return false; }
+      const delta = target - from;                      // how much taller we grew = how far to rise
       const dur = 300;
       const ease = (t) => 1 - Math.pow(1 - t, 3);       // easeOutCubic — quick, settles soft
       let t0 = null;
       const step = (ts) => {
         if (t0 == null) t0 = ts;
         const p = Math.min(1, (ts - t0) / dur);
-        coachPanel.style.height = (from + (target - from) * ease(p)) + 'px';
-        coachPanelBody.scrollTop = coachPanelBody.scrollHeight;   // keep the newest bubble at the bottom edge
+        coachPanel.style.transform = 'translateY(' + (delta * (1 - ease(p))) + 'px)';   // header + thread, one block
         if (p < 1) { coachGrowRAF = requestAnimationFrame(step); }
-        else { coachGrowRAF = 0; coachPanel.style.height = ''; }  // release back to auto
+        else { coachGrowRAF = 0; coachPanel.style.transform = ''; coachPanel.style.transition = ''; }  // release to CSS
       };
+      coachPanel.style.transform = 'translateY(' + delta + 'px)';   // start dropped, synchronously
       coachGrowRAF = requestAnimationFrame(step);
       return true;
     }
@@ -2526,6 +2562,76 @@
       finishVideoIntro();
     }
 
+    /* THE PHASE ENGINE — the app owns arc progression (Prompt Architecture #2/#3).
+       The model no longer counts turns or chooses the next hand-off; it only
+       signals INTENT via turn.action ("teach" | "probe" | "redirect"). We decide,
+       deterministically, whether to advance and WHICH locked beat to show — so a
+       forgotten cue can never strand the learner, and the "one probe per phase"
+       rule is guaranteed rather than hoped for.
+
+         reflection (phaseIdx < 0): a "teach" (the calibration) opens Phase 1;
+                                    a "redirect" (off-script) re-asks, no advance.
+         working phase k:  "teach"    → advance to the next hand-off (phase k+1,
+                                        else the scene).
+                           "probe"    → stay & burn the one probe; a SECOND probe
+                                        is overridden to advance (the cap).
+                           "redirect" → stay, do NOT burn the probe (trolls never
+                                        auto-advance).
+       If the model omits action, we infer conservatively: a valid deliver or the
+       verbatim talk-it-through opener ⇒ teach; a lone question ⇒ probe; otherwise
+       advance (a multi-bubble coaching turn with no question is a teach — better
+       to progress than to stall). Scene / completed turns are left untouched.
+       We set turn.deliver ourselves; applyDeliver then appends the locked beat. */
+    function nextDeliverId(fromIdx) {
+      const LOCKED = ACTIVE_SCENARIO.locked || {};
+      const phases = Array.isArray(ACTIVE_SCENARIO.phases) ? ACTIVE_SCENARIO.phases : [];
+      for (let j = fromIdx; j < phases.length; j++) {
+        if (phases[j] && phases[j].id && LOCKED[phases[j].id]) return { id: phases[j].id, idx: j };
+      }
+      if (LOCKED.scene) return { id: 'scene', idx: phases.length };
+      return null;   // nothing left to hand off → the model owns COMPLETION
+    }
+    function runPhaseEngine(turn) {
+      const phases = Array.isArray(ACTIVE_SCENARIO.phases) ? ACTIVE_SCENARIO.phases : [];
+      // Only drive the Learn↔Practice arc: not once we're in/after the scene, not
+      // on a completing turn, and only for coaching turns.
+      if (!phases.length || turn.complete || turn.mode === 'scene'
+          || state.hasEnteredScene || state.phaseIdx >= phases.length) return;
+
+      // Intent: the model's explicit action, else a conservative inference.
+      const LOCKED = ACTIVE_SCENARIO.locked || {};
+      const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40);
+      const coachBubbles = (turn.turn || []).filter((m) => m.speaker === 'coach' && String(m.text || '').trim());
+      let intent = turn.action;
+      if (!intent) {
+        const cur = phases[state.phaseIdx] || {};
+        const opener = coachBubbles[0] ? norm(coachBubbles[0].text) : '';
+        const teachesOpener = cur.talkItThrough && norm(cur.talkItThrough) && opener.startsWith(norm(cur.talkItThrough));
+        const loneQuestion = coachBubbles.length === 1 && /\?\s*$/.test(coachBubbles[0].text.trim());
+        intent = (turn.deliver && LOCKED[turn.deliver]) || teachesOpener ? 'teach'
+               : loneQuestion ? 'probe'
+               : 'teach';   // bias to progress: a statement-only coaching turn is a teach
+      }
+
+      const advance = (fromIdx) => {
+        const nx = nextDeliverId(fromIdx);
+        if (!nx) { turn.deliver = null; state.phaseIdx = phases.length; return; }  // terminal teach → model completes
+        turn.deliver = nx.id;                 // app-authoritative (overrides any model deliver)
+        state.phaseIdx = nx.idx;              // where we're landing (phases.length for the scene)
+        state.probeUsed = false;
+      };
+
+      if (state.phaseIdx < 0) {               // reflection warm-up
+        if (intent === 'redirect') { turn.deliver = null; return; }   // off-script → re-ask, stay
+        advance(0);                            // calibration done → open Phase 1
+        return;
+      }
+      // working phase state.phaseIdx
+      if (intent === 'redirect') { turn.deliver = null; return; }      // stay, don't burn the probe
+      if (intent === 'probe' && !state.probeUsed) { turn.deliver = null; state.probeUsed = true; return; }
+      advance(state.phaseIdx + 1);            // teach, or a 2nd probe (cap) → next hand-off
+    }
+
     /* Append the LOCKED (app-owned) beat the model asked for via turn.deliver.
        The grey text lives in the scenario data (ACTIVE_SCENARIO.locked) — the
        page owns it verbatim; the model never writes it. 'scene' also flips the
@@ -2535,7 +2641,7 @@
     function applyDeliver(turn) {
       const LOCKED = ACTIVE_SCENARIO.locked;
       if (!turn || !turn.deliver || !LOCKED || !LOCKED[turn.deliver]) return;
-      const beat = LOCKED[turn.deliver].map((m) => ({ ...m }));   // fresh copies (each gets _enter)
+      const beat = LOCKED[turn.deliver].map((m) => ({ ...m, locked: true }));   // fresh copies (each gets _enter); tagged app-owned for the history serializer
       // The model is told the locked text but sometimes reproduces it anyway;
       // drop any message it wrote that matches a locked beat so the app's copy
       // is the only one (prevents a duplicated scene / pivot).
@@ -2610,6 +2716,7 @@
       // beat VERBATIM to this turn's messages so it renders right after the
       // coach's line — and, for the break-room, flip into scene mode so the
       // engine's entry handshake ("Begin practicing") fires on our locked scene.
+      runPhaseEngine(turn);         // app owns advancement + the one-probe cap (see runPhaseEngine)
       applyDeliver(turn);
 
       // Live mode signals the end of the practice on the turn itself (the demo
@@ -2658,14 +2765,19 @@
       if (willEnter) {
         state.delivering = true;
         const coachingItems = items.filter((m) => worldOf(m) === 'coaching');
-        for (const m of coachingItems) {
+        for (let ci = 0; ci < coachingItems.length; ci++) {
+          const m = coachingItems[ci];
+          const prev = ci > 0 ? coachingItems[ci - 1] : null;
           hideTyping();
-          showTyping(); await wait(reducedMotion() ? 250 : 780); hideTyping();
+          // Dots scaled to the PREVIOUS line's length (thinkingTime) rather than a
+          // flat beat — so a burst of coach messages leaves the learner room to
+          // start reading each one before the next composes.
+          showTyping(); await wait(thinkingTime(prev ? prev.text : '')); hideTyping();
           if (dead()) return;
           m._enter = true;
           state.messages.push(m);
           render();
-          await wait(reducedMotion() ? 80 : 460);
+          if (ci < coachingItems.length - 1) await wait(reducedMotion() ? 80 : 480);
           if (dead()) return;
         }
         state.pendingScene = items.filter((m) => worldOf(m) === 'scene');
@@ -2725,17 +2837,21 @@
 
       // Phase 3 — coach message(s) revealed in the sheet when we're ALREADY coaching
       // (a send-back reply, an escalation redirect, or a manual-timeout answer).
+      let prevText = (i > 0 && items[i - 1]) ? (items[i - 1].text || '') : '';
       while (i < items.length) {
         const m = items[i];
         hideTyping();
-        showTyping(); await wait(reducedMotion() ? 250 : 780); hideTyping();
+        // Dots scaled to what was just shown (thinkingTime) instead of a flat beat,
+        // so consecutive coach lines give the learner room to start reading.
+        showTyping(); await wait(thinkingTime(prevText)); hideTyping();
         if (dead()) return;
         m._enter = true;
         state.messages.push(m);
         render();
-        await wait(reducedMotion() ? 80 : 460);
-        if (dead()) return;
+        prevText = m.text || '';
         i++;
+        if (i < items.length) await wait(reducedMotion() ? 80 : 480);
+        if (dead()) return;
       }
 
       // Finalize. If the coach is sending the learner back into the scene, dwell
@@ -2894,6 +3010,7 @@
         awaitingResults: false, resultsModalOpen: false, resultsPage: 0, resultsViewed: false, continued: false,
         awaitingReturn: false, pendingReturn: null,
         debriefReturn: null, returnLabel: null, sceneTarget: null,
+        phaseIdx: -1, probeUsed: false,   // reset the app-owned phase engine
       });
       app.classList.remove('was-trap');
       followStage = true;

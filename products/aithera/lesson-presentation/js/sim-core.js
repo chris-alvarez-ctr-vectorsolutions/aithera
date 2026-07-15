@@ -163,6 +163,7 @@
       complete: true,        // accept a final complete:true flag (all modes end somehow)
       report: REPORT_CAPS,
       deliver: null,
+      action: false,         // accept "probe"|"teach" intent (guided arc phase engine)
       sceneHints: false,
       observeNext: null,
       fallbackText: FALLBACK_TEXT,
@@ -224,6 +225,20 @@
           if (typeof obj.deliver === 'string' && o.deliver(obj.deliver)) out.deliver = obj.deliver;
         }
 
+        if (o.action) {
+          // "action" is the coach's INTENT for a coaching turn:
+          //   "teach"    — land the point; the app then advances to the next hand-off
+          //   "probe"    — ONE Socratic question; stay in the phase (burns the probe)
+          //   "redirect" — off-script/troll input; stay and re-ask (does NOT burn it)
+          // The app, not the model, owns WHEN to advance and WHICH locked beat to
+          // show; action just tells it what the model meant. Item-level flags
+          // hoist here too (a model sometimes puts it on the last bubble).
+          const OK = { probe: 1, teach: 1, redirect: 1 };
+          const itemAction = obj.turn.map((m) => m && m.action).find((a) => OK[a]);
+          const a = OK[obj.action] ? obj.action : itemAction;
+          if (a) out.action = a;
+        }
+
         if (o.sceneHints) {
           // A coach-led scene transition may relabel the return CTA, name who
           // the learner will speak to next, and paint the new sub-scene.
@@ -265,7 +280,7 @@
   // sees its own history as JSON and keeps producing JSON. (App-injected
   // LOCKED beats sit in these turns too — they're part of what was said.)
   function turnHistory(opts) {
-    const o = Object.assign({ emotionalState: true, name: false }, opts || {});
+    const o = Object.assign({ emotionalState: true, name: false, owner: false }, opts || {});
     return function toApiMessages(msgs) {
       const out = [];
       let group = [];
@@ -276,6 +291,10 @@
           ...(o.name && m.speaker === 'character' && m.name ? { name: m.name } : {}),
           ...(o.emotionalState && m.speaker === 'character' && m.emotionalState
             ? { emotionalState: m.emotionalState } : {}),
+          // Tag app-injected (LOCKED, verbatim) beats so the model can tell its
+          // own dynamic lines from the app-owned hand-offs in its history — and
+          // so it never re-quotes or paraphrases them (see the prompt's note).
+          ...(o.owner && m.locked ? { owner: 'app' } : {}),
         }));
         out.push({ role: 'assistant', content: JSON.stringify({ turn }) });
         group = [];
