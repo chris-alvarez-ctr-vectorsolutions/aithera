@@ -572,6 +572,7 @@ document.addEventListener('click', (e) => {
 // ================================================================
 
 const selectSavedViewDialog = document.getElementById('selectSavedViewDialog');
+selectSavedViewDialog.overlayClass = 'select-saved-view-overlay';   // fixed-size overlay (no resize on select)
 
 const SAVED_VIEWS = [
     {
@@ -648,8 +649,8 @@ let selectedSavedViewId = null;
 
 selectSavedViewDialog.renderer = (root) => {
     if (root.firstChild) return;
-    /* Fixed width so switching views never resizes the dialog */
-    root.style.width = '800px';
+    /* Overlay width is fixed via the .select-saved-view-overlay class; fill it. */
+    root.style.width = '100%';
     root.style.maxWidth = '100%';
     root.style.boxSizing = 'border-box';
 

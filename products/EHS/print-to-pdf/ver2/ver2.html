@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Print to PDF customization (V1) | Vector EHS</title>
+    <title>Print to PDF customization (V2) | Vector EHS</title>
     <script
     type="module"
     src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
@@ -33,6 +33,8 @@
            full-screen print-customization overlay: live paginated PDF
            preview on the left, selection panel on the right (the pattern
            used by modern print editors such as the browser print dialog).
+           V2: signatures and corrective actions are sections in the tree,
+           expandable to per-signature / per-action checkboxes (no switches).
            ════════════════════════════════════════════════════════════════ */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -716,24 +718,6 @@
 
                 <div class="panel-divider"></div>
 
-                <div class="panel-group-label">Report content</div>
-                <div class="opt-row">
-                    <div class="opt-text">
-                        <div class="opt-title">Signatures</div>
-                        <div class="opt-sub">2 signature blocks on this form</div>
-                    </div>
-                    <button class="switch" id="swSignatures" role="switch" aria-checked="true" aria-label="Include signatures"><span class="knob"></span></button>
-                </div>
-                <div class="opt-row">
-                    <div class="opt-text">
-                        <div class="opt-title">Corrective actions</div>
-                        <div class="opt-sub">3 corrective actions linked to this report</div>
-                    </div>
-                    <button class="switch" id="swCas" role="switch" aria-checked="true" aria-label="Include corrective actions"><span class="knob"></span></button>
-                </div>
-
-                <div class="panel-divider"></div>
-
                 <div class="panel-group-label">Formatting</div>
                 <div class="setup-row">
                     <span class="setup-label" id="densityLabel">Density</span>
@@ -869,6 +853,21 @@ const SECTIONS = [
         ]
     },
     {
+        id: 'cas', label: 'Corrective actions', count: '3 actions',
+        fields: [
+            { id: 'CA-04121', label: 'CA-04121 · Exit door staging' },
+            { id: 'CA-04122', label: 'CA-04122 · Aisle D overstack' },
+            { id: 'CA-04123', label: 'CA-04123 · Forklift daily checks' }
+        ]
+    },
+    {
+        id: 'signatures', label: 'Signatures', count: '2 signatures',
+        fields: [
+            { id: 'inspector', label: 'Inspector · Dana Whitfield' },
+            { id: 'reviewer',  label: 'Reviewer · Marcus Otero' }
+        ]
+    },
+    {
         id: 'history', label: 'History', count: '5 entries',
         fields: []
     }
@@ -933,16 +932,15 @@ const HISTORY = [
    Print selection state (FR-1/2/3/4/7) — everything on by default (A-1)
    ════════════════════════════════════════════════════════════════════ */
 function defaultState() {
-    const fields = {};
+    const sections = {}, fields = {};
     SECTIONS.forEach(sec => {
+        sections[sec.id] = true;
         fields[sec.id] = {};
         sec.fields.forEach(f => { fields[sec.id][f.id] = true; });
     });
     return {
-        sections: { basic: true, details: true, checklist: true, history: true },
+        sections,
         fields,
-        signatures: true,
-        cas: true,
         paper: 'letter',
         orient: 'portrait',
         format: { density: 'comfortable', columns: 2, sectionBreaks: false, keepTogether: true }
@@ -950,7 +948,7 @@ function defaultState() {
 }
 let state = defaultState();
 const DEFAULT_JSON = JSON.stringify(defaultState());
-const PREFS_KEY = 'ehs-print-prefs:facility-safety-inspection';
+const PREFS_KEY = 'ehs-print-prefs:facility-safety-inspection:v2';
 
 /* ── tiny helpers ── */
 const $ = (sel, root) => (root || document).querySelector(sel);
@@ -1255,16 +1253,27 @@ function syncTreeVisuals() {
     updateSummary();
 }
 
-/* Exclusion summary + reset affordance */
+/* Exclusion summary + reset affordance — signatures and corrective actions
+   get their own wording so "2 signatures" never reads as generic fields */
 function updateSummary() {
     const parts = [];
-    const secsOff = SECTIONS.filter(s => !state.sections[s.id]).length;
-    let fieldsOff = 0;
-    SECTIONS.forEach(s => { if (state.sections[s.id]) s.fields.forEach(f => { if (!state.fields[s.id][f.id]) fieldsOff++; }); });
-    if (secsOff) parts.push(secsOff + (secsOff === 1 ? ' section' : ' sections'));
+    const coreOff = ['basic', 'details', 'checklist', 'history'].filter(id => !state.sections[id]).length;
+    if (coreOff) parts.push(coreOff + (coreOff === 1 ? ' section' : ' sections'));
+    let fieldsOff = 0, sigsOff = 0, casOff = 0;
+    SECTIONS.forEach(s => {
+        if (!state.sections[s.id]) return;
+        s.fields.forEach(f => {
+            if (state.fields[s.id][f.id]) return;
+            if (s.id === 'signatures') sigsOff++;
+            else if (s.id === 'cas') casOff++;
+            else fieldsOff++;
+        });
+    });
     if (fieldsOff) parts.push(fieldsOff + (fieldsOff === 1 ? ' field' : ' fields'));
-    if (!state.signatures) parts.push('signatures');
-    if (!state.cas) parts.push('corrective actions');
+    if (!state.sections.signatures) parts.push('signatures');
+    else if (sigsOff) parts.push(sigsOff + (sigsOff === 1 ? ' signature' : ' signatures'));
+    if (!state.sections.cas) parts.push('corrective actions');
+    else if (casOff) parts.push(casOff + (casOff === 1 ? ' corrective action' : ' corrective actions'));
 
     const target = $('#summaryText');
     if (!parts.length) {
@@ -1434,7 +1443,7 @@ function buildPrintBlocks() {
                 if (opts.comments && item.comment) {
                     inner += `<div class="pd-item-comment"><b>Comment:</b> ${esc(item.comment)}</div>`;
                 }
-                if (state.cas && item.ca) {
+                if (item.ca && state.sections.cas && state.fields.cas[item.ca]) {
                     inner += `<div class="pd-item-ca"><i class="fa-solid fa-arrow-rotate-right"></i> Corrective action ${item.ca}</div>`;
                 }
                 const withPhotos = opts.photos && item.photos;
@@ -1459,37 +1468,45 @@ function buildPrintBlocks() {
         }
     }
 
-    // Corrective actions (FR-4) — one block; omitted entirely when hidden (AC-4.2)
-    if (state.cas) {
+    // Corrective actions (FR-4) — whole section or individual actions can be
+    // excluded; an excluded action leaves the table and the item cross-refs
+    if (state.sections.cas) {
         pushTitle('Corrective actions');
-        push(el('div', '', `
-            <table class="pd-table">
-                <thead><tr><th style="width: 62px;">ID</th><th>Description</th><th style="width: 66px;">Assigned to</th><th style="width: 62px;">Due date</th><th style="width: 52px;">Priority</th><th style="width: 68px;">Status</th></tr></thead>
-                <tbody>${CAS.map(ca => `
-                    <tr>
-                        <td>${ca.id}</td>
-                        <td>${esc(ca.desc)}</td>
-                        <td>${esc(ca.who)}</td>
-                        <td>${ca.due}</td>
-                        <td class="pd-ca-pri ${ca.pri === 'High' ? 'high' : 'med'}">${ca.pri}</td>
-                        <td>${ca.status}</td>
-                    </tr>`).join('')}</tbody>
-            </table>`));
+        const includedCas = CAS.filter(ca => state.fields.cas[ca.id]);
+        if (includedCas.length) {
+            push(el('div', '', `
+                <table class="pd-table">
+                    <thead><tr><th style="width: 62px;">ID</th><th>Description</th><th style="width: 66px;">Assigned to</th><th style="width: 62px;">Due date</th><th style="width: 52px;">Priority</th><th style="width: 68px;">Status</th></tr></thead>
+                    <tbody>${includedCas.map(ca => `
+                        <tr>
+                            <td>${ca.id}</td>
+                            <td>${esc(ca.desc)}</td>
+                            <td>${esc(ca.who)}</td>
+                            <td>${ca.due}</td>
+                            <td class="pd-ca-pri ${ca.pri === 'High' ? 'high' : 'med'}">${ca.pri}</td>
+                            <td>${ca.status}</td>
+                        </tr>`).join('')}</tbody>
+                </table>`));
+        }
     }
 
-    // Signatures (FR-3) — no placeholder renders when excluded (AC-3.1)
-    if (state.signatures) {
+    // Signatures (FR-3) — whole section or individual signature blocks;
+    // nothing renders for an excluded signature, not even a placeholder (AC-3.1)
+    if (state.sections.signatures) {
         pushTitle('Signatures');
-        push(el('div', 'pd-sig-grid', SIGNATURES.map(s => `
-            <div class="pd-sig">
-                <div class="pd-sig-role">${s.role}</div>
-                ${s.signed ? `<div class="pd-sig-script">${esc(s.name)}</div>` : `<div class="pd-sig-pending">Awaiting signature</div>`}
-                <div class="pd-sig-line">
-                    <div class="pd-sig-name">${esc(s.name)}</div>
-                    <div class="pd-sig-title">${esc(s.title)}</div>
-                </div>
-                <div class="pd-sig-date">${esc(s.date)}</div>
-            </div>`).join('')));
+        const includedSigs = SIGNATURES.filter(s => state.fields.signatures[s.role.toLowerCase()]);
+        if (includedSigs.length) {
+            push(el('div', 'pd-sig-grid', includedSigs.map(s => `
+                <div class="pd-sig">
+                    <div class="pd-sig-role">${s.role}</div>
+                    ${s.signed ? `<div class="pd-sig-script">${esc(s.name)}</div>` : `<div class="pd-sig-pending">Awaiting signature</div>`}
+                    <div class="pd-sig-line">
+                        <div class="pd-sig-name">${esc(s.name)}</div>
+                        <div class="pd-sig-title">${esc(s.title)}</div>
+                    </div>
+                    <div class="pd-sig-date">${esc(s.date)}</div>
+                </div>`).join('')));
+        }
     }
 
     // History (AC-1.1 — selectable like any other section)
@@ -1509,8 +1526,7 @@ function buildPrintBlocks() {
     }
 
     // Nothing selected at all
-    const nothing = !state.sections.basic && !state.sections.details && !state.sections.checklist
-        && !state.sections.history && !state.signatures && !state.cas;
+    const nothing = SECTIONS.every(s => !state.sections[s.id]);
     if (nothing) {
         push(el('div', 'pd-empty', 'No content is selected. Choose sections in the panel to include them in the PDF.'));
     }
@@ -1666,8 +1682,6 @@ function loadPrefs() {
     Object.keys(d.fields).forEach(sec => Object.keys(d.fields[sec]).forEach(f => {
         if (typeof s.fields?.[sec]?.[f] === 'boolean') d.fields[sec][f] = s.fields[sec][f];
     }));
-    if (typeof s.signatures === 'boolean') d.signatures = s.signatures;
-    if (typeof s.cas === 'boolean') d.cas = s.cas;
     if (s.paper in PAPERS) d.paper = s.paper;
     if (s.orient === 'portrait' || s.orient === 'landscape') d.orient = s.orient;
     if (s.format) {
@@ -1692,7 +1706,6 @@ function loadPrefs() {
 function resetToDefaults() {
     state = defaultState();
     $('#restoreBanner').classList.remove('show');
-    syncSwitches();
     syncPageSetup();
     syncFormat();
     syncTreeVisuals();
@@ -1702,10 +1715,6 @@ function resetToDefaults() {
 /* ════════════════════════════════════════════════════════════════════
    Switches, page setup, open/close, print flow
    ════════════════════════════════════════════════════════════════════ */
-function syncSwitches() {
-    $('#swSignatures').setAttribute('aria-checked', String(state.signatures));
-    $('#swCas').setAttribute('aria-checked', String(state.cas));
-}
 function syncPageSetup() {
     $('#paperSelect').value = state.paper;
     $('#orientPortrait').classList.toggle('on', state.orient === 'portrait');
@@ -1752,7 +1761,6 @@ function boot() {
     renderWebForm();
     loadPrefs();
     renderTree();
-    syncSwitches();
     syncPageSetup();
     syncFormat();
     rebuildPreview();
@@ -1764,16 +1772,6 @@ function boot() {
     $('#btnCancel').addEventListener('click', closePrint);
     document.addEventListener('keydown', e => {
         if (e.key === 'Escape' && $('#printOverlay').classList.contains('open')) closePrint();
-    });
-
-    // Switches
-    $('#swSignatures').addEventListener('click', () => {
-        state.signatures = !state.signatures;
-        syncSwitches(); updateSummary(); onSelectionChanged();
-    });
-    $('#swCas').addEventListener('click', () => {
-        state.cas = !state.cas;
-        syncSwitches(); updateSummary(); onSelectionChanged();
     });
 
     // Page setup
