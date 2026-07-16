@@ -20,6 +20,19 @@
     <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
 
+    <!-- Course-delivery frame (production Vector Training chrome) -->
+    <link rel="stylesheet" href="css/frame.css?v=4" />
+    <style>
+      /* Frame integration for this full-viewport app shell: the frame is embedded
+         as the first flex child of .app (see the window.LESSON_FRAME config near
+         the end of the page), so the app's own top bar would just duplicate it —
+         hide it and let its Restart button ride the frame's actions slot. The
+         fixed .scrim must also start BELOW the frame so it dims only the stage. */
+      .topbar { display: none !important; }
+      .app .scrim { inset: var(--header-h) 0 0 0; }
+    </style>
+
+
     <!-- ====================================================================
          ACTION PRACTICE — rebuilt conversation-practice module.
 
@@ -2089,10 +2102,9 @@ You didn't carry this alone, and you didn't ask her to either.` },
       coachPanel.setAttribute('aria-hidden', coachUp ? 'false' : 'true');
       if (coachUp) {
         coachPanelBody.innerHTML = '';
-        if (state.closingStepperActive) {
-          // the closing summary "builds" — no messages behind it yet
-          coachPanelBody.appendChild(closingStepperNode());
-        } else {
+        {
+          // The closing recap shows here like any other coach line — the
+          // loading beats live in the CTA slot below (see showAnalyzing).
           const coachingRun = trailingRun(messages, 'coaching');
           coachingRun.forEach((m) => coachPanelBody.appendChild(m.speaker === 'you' ? youCoachNode(m) : coachNode(m)));
           // The full strengths/growth-areas report lives in its own modal (see
@@ -2111,7 +2123,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
       // start CTA (bring the coach in) · entry CTA (step in) · "Analyzing…"/"Watching…" beats · debrief CTA
       const showStart     = !state.started && !complete && !state.videoPlaying;
       const showEntry     = state.awaitingEntry && !hasEnteredScene && !state.entryPromptDismissed && !state.delivering;
-      const showAnalyzing = state.analyzing;
+      const showAnalyzing = state.analyzing || state.closingStepperActive;
       // videoPlaying stays true after the clips end too (it lingers as the
       // blurred coach-prep backdrop — see the render() guard above), so this
       // needs its own check rather than just mirroring state.videoPlaying.
@@ -2139,7 +2151,9 @@ You didn't carry this alone, and you didn't ask her to either.` },
       inputDone.hidden      = !showDone;
       inputMain.hidden      = showStart || showEntry || showAnalyzing || showWatching || showDebrief || showReturn || showResults || showContinue || showDone;
       if (showAnalyzing) {
-        inputAnalyzing.lastChild.textContent = complete ? 'Wrapping up your practice…' : 'Analyzing your response…';
+        inputAnalyzing.lastChild.textContent = state.closingStepperActive
+          ? CLOSING_STEPS[state.closingStep || 0]
+          : (complete ? 'Wrapping up your practice…' : 'Analyzing your response…');
       }
       if (showDebrief) {
         debriefCtaBtn.innerHTML = complete
@@ -2198,16 +2212,62 @@ You didn't carry this alone, and you didn't ask her to either.` },
       messages.forEach((m) => { if (m._enter) m._enter = false; });
 
       manageFocus(trap);
+      // Coach thread: grow the sheet smoothly (tweenCoachHeight pins the newest
+      // bubble to the bottom itself); once maxed out, glide the scroll to the new
+      // bottom instead of snapping — instant fallback when motion is reduced or the
+      // tab is backgrounded (where smooth scroll silently no-ops).
+      if (coachUp) {
+        if (!tweenCoachHeight()) {
+          const canGlide = !reducedMotion() && document.visibilityState === 'visible';
+          if (canGlide) coachPanelBody.scrollTo({ top: coachPanelBody.scrollHeight, behavior: 'smooth' });
+          else coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
+        }
+      } else {
+        lastCoachH = null;
+      }
+      // The scene stage follows only when fresh scene content arrived.
       requestAnimationFrame(() => {
-        // follow the practice to the bottom ONLY when fresh scene content arrived;
-        // otherwise hold position so a Learn/Practice toggle never jumps the scene
         if (followStage) { stage.scrollTop = stage.scrollHeight; followStage = false; }
         else { stage.scrollTop = prevStageScroll; }
-        coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
       });
     }
     // set true right before a render that appends scene content, so it follows down
     let followStage = false;
+
+    /* —— Grow the coach sheet SMOOTHLY ————————————————————————————————————
+       The sheet is bottom-anchored (it sits on the input bar), so its height
+       grows UPWARD. New content used to snap to its new height in one frame —
+       the sheet jumped taller and the thread jumped up at once. Instead we TWEEN
+       the height from the last painted value to the new one and pin the thread to
+       the bottom every frame: the newest bubble holds its place (fading in where
+       it sits) while the sheet unfurls above it and earlier lines ease into view.
+       Once the sheet hits its max height it stops growing and the body scrolls
+       (render()/showTyping() glide that scroll). Returns true if it animated. */
+    let lastCoachH = null;      // sheet height we last painted, = the tween's start point
+    let coachGrowRAF = 0;       // in-flight grow, so a fresh one can cancel it
+    function tweenCoachHeight() {
+      if (!app.classList.contains('coach-up')) { lastCoachH = null; return false; }
+      if (coachGrowRAF) { cancelAnimationFrame(coachGrowRAF); coachGrowRAF = 0; }
+      coachPanel.style.height = '';                     // measure the NATURAL height, not a mid-tween value
+      const target = coachPanel.offsetHeight;           // forces layout → true post-render height
+      const from = lastCoachH;
+      lastCoachH = target;
+      if (from == null || reducedMotion() || Math.abs(target - from) < 2) return false;
+      coachPanelBody.scrollTop = coachPanelBody.scrollHeight;   // pin the newest bubble NOW, before the tween
+      const dur = 300;
+      const ease = (t) => 1 - Math.pow(1 - t, 3);       // easeOutCubic
+      let t0 = null;
+      const step = (ts) => {
+        if (t0 == null) t0 = ts;
+        const p = Math.min(1, (ts - t0) / dur);
+        coachPanel.style.height = (from + (target - from) * ease(p)) + 'px';
+        coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
+        if (p < 1) { coachGrowRAF = requestAnimationFrame(step); }
+        else { coachGrowRAF = 0; coachPanel.style.height = ''; }   // release back to auto
+      };
+      coachGrowRAF = requestAnimationFrame(step);
+      return true;
+    }
 
     /* ---- typing indicator (in the right world) ------------------------ */
     function showTyping() {
@@ -2218,9 +2278,12 @@ You didn't carry this alone, and you didn't ask her to either.` },
       // coach lines type in the sheet (prep AND debriefs); scene lines type in the practice
       if (coachUp) { typingHost = coachPanelBody; coachPanelBody.appendChild(node); }
       else { typingHost = stageInner; stageInner.appendChild(node); }
-      requestAnimationFrame(() => {
-        (typingHost === coachPanelBody ? coachPanelBody : stage).scrollTop = 1e9;
-      });
+      if (typingHost === coachPanelBody) {
+        // the dots grow the sheet too — tween it (which pins the thread); pin instantly if already maxed
+        if (!tweenCoachHeight()) coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
+      } else {
+        requestAnimationFrame(() => { stage.scrollTop = 1e9; });
+      }
     }
     function hideTyping() {
       const t = document.getElementById('typingNode');
@@ -2659,16 +2722,19 @@ You didn't carry this alone, and you didn't ask her to either.` },
       state.awaitingDebrief = false;
       state.analyzing = false;
       state.mode = 'coaching'; state.inputTarget = 'coach';
+      // The recap lands FIRST, as the last chat message — the loading beats
+      // then cycle down in the CTA slot (not stacked over the conversation).
+      pending.forEach((m) => { m._enter = true; state.messages.push(m); });
+      state.closingStep = 0;
       state.closingStepperActive = true;
       announce('Analyzing the conversation.');
-      render();   // the coach sheet rises, showing the stepper
+      render();
       await runClosingStepper(dead);
       if (dead()) return;
       state.closingStepperActive = false;
-      pending.forEach((m) => { m._enter = true; state.messages.push(m); });
-      state.awaitingResults = true;   // footer offers "View full results" — the report opens in its own modal
+      state.awaitingResults = true;   // the loader's slot now offers "View full results"
       announce('Your AI coach has a recap. View your full results when ready.');
-      render();   // just the recap message for now
+      render();
     }
 
     function openResultsModal() {
@@ -2733,16 +2799,16 @@ You didn't carry this alone, and you didn't ask her to either.` },
     }
 
     async function runClosingStepper(dead) {
-      const steps = () => [...coachPanelBody.querySelectorAll('.closing-step')];
+      // Cycle the same beats as a single line in the CTA slot (see render's
+      // showAnalyzing), advancing state.closingStep and re-rendering each beat.
       for (let i = 0; i < CLOSING_STEPS.length; i++) {
         if (dead()) return;
-        const els = steps();
-        if (els[i]) els[i].classList.add('is-active');
+        state.closingStep = i;
+        render();
         await wait(reducedMotion() ? 150 : 900);
-        if (dead()) return;
-        if (els[i]) { els[i].classList.remove('is-active'); els[i].classList.add('is-done'); }
       }
-      await wait(reducedMotion() ? 0 : 350);
+      if (dead()) return;
+      await wait(reducedMotion() ? 0 : 250);
     }
 
     // "Step into the scene" — the learner crosses on their command. The coach
@@ -2934,6 +3000,25 @@ You didn't carry this alone, and you didn't ask her to either.` },
     // scenario" prompt. The cold-open video and the coach sheet both stay down
     // until the learner chooses to begin.
     render();
+    </script>
+    <!-- ===== Course-delivery frame ===================================== -->
+    <script>
+      // Embed into the app shell; course/lesson auto-derive from #scenarioName.
+      window.LESSON_FRAME = { mount: '#app' };
+    </script>
+    <script src="js/frame.js?v=3"></script>
+    <script>
+      // Relocate the app's Restart control onto the frame's actions slot; moving
+      // the node preserves its click handler (attached above by element id).
+      (function () {
+        function relocate() {
+          var slot = document.querySelector('.vt-frame .vt-actions');
+          var btn  = document.getElementById('restartBtn');
+          if (slot && btn) slot.appendChild(btn);
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', relocate);
+        else relocate();
+      })();
     </script>
 </body>
 </html>

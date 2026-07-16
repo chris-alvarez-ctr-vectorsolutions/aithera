@@ -320,156 +320,180 @@
             color: #fff;
         }
         vaadin-button.live-cta[hidden] { display: none; }
+
+        /* -------------------------------------------------------------------
+           Scenario Simulator — schema cards + launcher modal
+           The four cards in the Scenario Simulator section are BUTTONS (not
+           links): clicking one opens the launcher modal (#simModal) where the
+           learner picks a version — and, for Conversation Simulation, the intro
+           context — before launching. Cards + modal are rendered from the
+           SIM_SCHEMAS array in the script at the end of <body>.
+           ------------------------------------------------------------------- */
+        button.card {
+            font: inherit;
+            text-align: left;
+            width: 100%;
+            cursor: pointer;
+        }
+        /* Example-scenario subtitle under a schema card's title. */
+        .card .sim-example {
+            display: block;
+            margin-top: 3px;
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        /* Example line under the launcher modal's title. */
+        .lesson-modal-eyebrow {
+            margin: 3px 0 0;
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        /* Launch picker: an optional context segmented control + a version list. */
+        .launch-panel {
+            margin-top: 4px;
+            padding-top: 16px;
+            border-top: 1px solid #eef0f2;
+        }
+        .launch-group + .launch-group { margin-top: 18px; }
+        .launch-label {
+            margin: 0 0 8px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            color: #9ca3af;
+        }
+
+        /* Context choice (Conversation Simulation only): pill segmented control. */
+        .ctx-seg { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+        .ctx-seg button {
+            font: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 7px 13px;
+            border-radius: 999px;
+            border: 1px solid #d5d9df;
+            background: #fff;
+            color: #374151;
+            cursor: pointer;
+        }
+        .ctx-seg button:hover { border-color: #0f9e8e; color: #0b7d70; }
+        .ctx-seg button.is-active { background: #e6f5f3; border-color: #0f9e8e; color: #0b7d70; }
+
+        /* Version options: radio-style rows; the whole row is clickable. */
+        .ver-list { display: grid; gap: 8px; }
+        .ver-opt {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            width: 100%;
+            font: inherit;
+            text-align: left;
+            padding: 11px 13px;
+            border-radius: 10px;
+            border: 1px solid #d5d9df;
+            background: #fff;
+            color: #1f2937;
+            cursor: pointer;
+        }
+        .ver-opt:hover { border-color: #0f9e8e; }
+        .ver-opt.is-selected { border-color: #0f9e8e; background: #f2fbfa; box-shadow: inset 0 0 0 1px #0f9e8e; }
+        .ver-opt[disabled] { opacity: .55; cursor: default; }
+        .ver-opt[disabled]:hover { border-color: #d5d9df; }
+        .ver-radio {
+            flex: 0 0 auto;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid #c4c9d2;
+            display: grid;
+            place-items: center;
+        }
+        .ver-opt.is-selected .ver-radio { border-color: #0f9e8e; }
+        .ver-opt.is-selected .ver-radio::after {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #0f9e8e;
+        }
+        /* Version identifier chip (V1/V2/V3) — leads each option so every row
+           is numbered, not just the ones whose label mentioned a version. */
+        .ver-num {
+            flex: 0 0 auto;
+            min-width: 30px;
+            text-align: center;
+            padding: 2px 7px;
+            border-radius: 6px;
+            background: #eef0f2;
+            color: #374151;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .02em;
+        }
+        .ver-opt.is-selected .ver-num { background: #d9f0ec; color: #0b7d70; }
+        .ver-name { flex: 1 1 auto; font-size: 14px; font-weight: 600; }
+        .ver-tags { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; }
+        .ver-badge {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: .03em;
+            text-transform: uppercase;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: #eef0f2;
+            color: #6b7280;
+        }
+        .ver-badge.latest { background: #e6f5f3; color: #0b7d70; }
+        .ver-badge.planned { background: #f4f0ff; color: #7c3aed; }
+        .ver-opt .live-flag { padding: 2px 7px; font-size: 10px; }
+
+        /* Launch CTA turns to the Live AI gradient when a live version is picked. */
+        vaadin-button#simModalLaunch[disabled] { opacity: .5; }
     </style>
 </head>
 <body>
     <main>
         <h1 class="page-title">Lesson Presentation Experiments</h1>
         <p class="page-intro">New ways to present lesson content and check understanding — each one still fits inside the same lesson experience learners already know.</p>
-        <p class="page-intro">Experiments marked <span class="live-flag"><i class="fa-solid fa-wand-magic-sparkles"></i>Live AI</span> can also be launched on a real model (Claude) instead of the scripted demo engine — look for the launch option in the experiment's details.</p>
+        <p class="page-intro">Builds marked <span class="live-flag"><i class="fa-solid fa-wand-magic-sparkles"></i>Live AI</span> run on a real model (Claude) rather than the scripted demo engine. In the Scenario Simulator, open a card and choose a version in the launcher — the Live AI cut is preselected wherever one exists.</p>
 
         <!-- Jump nav: one pill per section below; counts filled in by script. -->
         <nav class="section-nav" aria-label="Jump to section">
-            <a href="#conversation-simulation">Conversation Simulation</a>
-            <a href="#bystander-intervention">Bystander Intervention</a>
-            <a href="#teach-back">Teach-Back</a>
-            <a href="#scene-analysis">Scene Analysis</a>
+            <a href="#scenario-simulator">Scenario Simulator</a>
             <a href="#video-reflection">Video Reflection</a>
             <a href="#basic-interactions">Basic Interactions</a>
             <a href="#custom-code">Custom Code</a>
         </nav>
 
-        <!-- ===== Conversation Simulation — same Kendra scene, three intros ===
-             One card per way into the scene. A variant that runs on a real
-             model is NOT a separate card: give the card data-live-href
-             (pointing at the live page) + a .live-flag on the thumb + a
-             hidden .desc-live blurb, and the details modal grows a
-             "Launch with Live AI" CTA. data-live-planned (no href) renders
-             a "planned" note in the modal instead. The same attributes work
-             on any card in any section as more live variants get built. -->
-        <section class="section" id="conversation-simulation">
+        <!-- ===== Scenario Simulator — the four schema shapes =================
+             Every card here is one SHAPE of the same live-AI simulator engine
+             (a coach in a bottom sheet, the Learn/Practice rhythm). ONE card per
+             schema; the example scenario is the subtitle. Clicking a card opens
+             the LAUNCHER modal (#simModal), where the learner picks the version
+             — and, for Conversation Simulation, the intro context — before
+             launching. Cards + launcher are rendered from the SIM_SCHEMAS array
+             in the script at the end of <body>: add a version THERE, not as a
+             new card. -->
+        <section class="section" id="scenario-simulator">
             <div class="section-head">
-                <h2 class="section-title">Conversation Simulation</h2>
-                <span class="section-note">Same AI conversation-practice scene, three different ways into it</span>
+                <h2 class="section-title">Scenario Simulator</h2>
+                <span class="section-note">One live-AI engine, four shapes — pick the version (and intro) when you launch</span>
             </div>
-            <ul class="cards compare">
-                <li>
-                    <a class="card" href="action-practice.html" data-live-href="action-practice-live.html">
-                        <img class="thumb" src="thumbnails/action-practice.png" alt="Action Practice — With video Intro preview" loading="lazy">
-                        <span class="live-flag"><i class="fa-solid fa-wand-magic-sparkles"></i>Live AI</span>
-                        <span class="card-body">
-                        <span class="title">With video Intro</span>
-                        <span class="desc">The learner practices a hard real-life conversation — checking in on a friend, Kendra, who's showing signs of a drinking problem. A short video sets the emotional scene, then an AI coach preps the learner before each line and reacts afterward, while an AI-played Kendra responds in character. The learner can always retry a line that didn't land, and the practice isn't considered a success until they take the one action that matters: connecting Kendra to real help.</span>
-                        <span class="desc-live">Same scene, same flow — but the coach and Kendra are played by a real LLM (Claude) through a Cloudflare Worker proxy instead of the scripted demo engine. The conversation is real, so the coach reacts to what the learner actually says, and off-script input (garbage text, curveballs, tough questions) gets a real response.</span>
-                        </span>
-                    </a>
-                </li>
-                <li>
-                    <a class="card" href="story-highlight-practice.html" data-live-href="story-highlight-practice-live.html">
-                        <img class="thumb" src="thumbnails/story-highlight-practice.png" alt="Story Highlight Practice — With story intro preview" loading="lazy">
-                        <span class="live-flag"><i class="fa-solid fa-wand-magic-sparkles"></i>Live AI</span>
-                        <span class="card-body">
-                        <span class="title">With story intro</span>
-                        <span class="desc">The same Kendra conversation practice, but the scene is set with a short story instead of a video: the learner reads Kendra's backstory and highlights whatever stands out to them, like highlighting a printed page. The AI coach then reacts to what the learner did (and didn't) notice before the practice conversation begins.</span>
-                        <span class="desc-live">The story-intro variant hooked to a real LLM and the Writer Studio: the story the learner reads, the key-moments answer key, and everything about the conversation are writer-authored scenario content — and the coach's opening reaction to what the learner highlighted (and missed) is generated live by Claude, judged against the writer's answer key.</span>
-                        </span>
-                    </a>
-                </li>
-                <li>
-                    <a class="card" href="direct-practice.html" data-live-planned>
-                        <img class="thumb" src="thumbnails/direct-practice.png" alt="Direct Practice — No intro preview" loading="lazy">
-                        <span class="card-body">
-                        <span class="title">No intro</span>
-                        <span class="desc">The same Kendra conversation practice with no video or reading activity to set the scene at all: the learner lands straight on the establishing card, and the AI coach's opening prep carries the backstory as part of the normal coaching beat. Straight into Learn/Practice mode and the closing summary, with nothing to sit through first.</span>
-                        </span>
-                    </a>
-                </li>
-            </ul>
-            <!-- Companion tool, not an experiment — a plain link, no card. -->
+            <!-- Filled in by the SIM_SCHEMAS renderer below. -->
+            <ul class="cards compare" id="simCards"></ul>
+
+            <!-- Companion tools + specs for the whole simulator family. -->
             <p class="section-tool">
                 <i class="fa-solid fa-pen-nib" aria-hidden="true"></i>
-                <span><a href="writer-studio.html">Writer Studio</a> — the authoring tool behind these practices. Content writers fill structured, plain-language fields (the scenario, assessment dimensions, the character's reaction map, the success gate) and publish straight to the Live AI variants above. New to it? <a href="writer-studio-guide.html">Learn more&nbsp;&rsaquo;</a></span>
+                <span><a href="writer-studio.html">Writer Studio</a> — the authoring tool behind these simulations. Content writers fill structured, plain-language fields (the scenario, assessment dimensions, the character's reaction map, the success gate) and publish straight to the Live AI variants. New to it? <a href="writer-studio-guide.html">Learn more&nbsp;&rsaquo;</a></span>
             </p>
-        </section>
-
-        <!-- ===== Conversation Simulation — Bystander Intervention (Marshall) ===
-             A SECOND scenario built on the same Live-AI conversation engine as
-             the Kendra practices, but a different pedagogy: a coaching arc
-             (reflect → legal → break-room scene → closing) authored from the
-             Content Design LO. Two cuts: the original (text break-room beats) and
-             V2 (the incident SHOWN as one video turn, then feedback/scoring).
-             Live-only — the cards open the marshall-live*.html pages directly. -->
-        <section class="section" id="bystander-intervention">
-            <div class="section-head">
-                <h2 class="section-title">Bystander Intervention</h2>
-                <span class="section-note">The same Live-AI coaching engine, a different arc — a harassment scenario built from Content Design's learning object, in two cuts</span>
-            </div>
-            <ul class="cards compare">
-                <li>
-                    <a class="card" href="marshall-live.html" data-live-href="marshall-live.html" data-live-only>
-                        <img class="thumb" src="thumbnails/marshall-live.svg" alt="The Marshall Scenario — Live AI bystander-intervention practice preview" loading="lazy">
-                        <span class="live-flag"><i class="fa-solid fa-wand-magic-sparkles"></i>Live AI</span>
-                        <span class="card-body">
-                        <span class="title">The Marshall Scenario</span>
-                        <span class="desc">A sex-based-harassment and bystander-intervention coaching chat, anchored on the same Live-AI engine as the Kendra practices and running on real Claude through the same Cloudflare Worker proxy. An "advancing scenario": scripted context scenes with a live AI conversation in between, where the learning happens. It opens with a short dramatized video of the situation (the same "with video" cold-open player as the Kendra practice); then the coach steps in. A warm AI coach walks the learner through the arc — a gut-reaction reflection, the Title VII legal question (which has a right answer the coach delivers clearly), the human/team impact, and then one live break-room moment where Jake makes a "Marsha" crack and the learner has to act. Whatever they do, the scene plays out a tailored outcome and the coach debriefs. Every learner closes on the same SME-validated toolkit — the nine ideal-response components and the Pick an Action · Offer Support · Consider Escalating framework — regardless of the path they took.</span>
-                        </span>
-                    </a>
-                </li>
-                <li>
-                    <a class="card" href="marshall-live-v2.html" data-live-href="marshall-live-v2.html" data-live-only>
-                        <img class="thumb" src="thumbnails/marshall-live.svg" alt="The Marshall Scenario V2 — a video-turn cut of the bystander-intervention practice" loading="lazy">
-                        <span class="live-flag"><i class="fa-solid fa-wand-magic-sparkles"></i>Live AI</span>
-                        <span class="card-body">
-                        <span class="title">The Marshall Scenario (V2 — video turn)</span>
-                        <span class="desc">A leaner, more observational cut of the Marshall scenario — the same warm AI coach and Title VII lead-up, but the break-room incident is now SHOWN as a short dramatized video (Jake strolling up to Marshall's desk with his coffee) rather than narrated in text. Mirroring the hazmat scene-practice pattern: keep the context video at the start, then ONE video turn — the learner watches the moment, decides what they'd do, and the coach follows up once with a tailored outcome and the full Pick an Action · Offer Support · Consider Escalating frame before moving straight to feedback and scoring. The desk check-in and escalation are taught in that single follow-up and reinforced in the same nine-component close.</span>
-                        </span>
-                    </a>
-                </li>
-            </ul>
-        </section>
-
-        <!-- ===== Teach-Back — hybrid of Basic Interactions + AI conversation ===
-             A new learning-object shape: the learner is asked to TEACH the course
-             back. A coach chat frames it, then the learner speaks or types to fill
-             in 10 topic slots, and closes on an N/10 score. Runs on a real model
-             from the start, so it carries the Live AI flag. -->
-        <section class="section" id="teach-back">
-            <div class="section-head">
-                <h2 class="section-title">Teach-Back</h2>
-                <span class="section-note">Basic-interaction shell meets the AI simulator — the learner teaches the course back</span>
-            </div>
-            <ul class="cards compare">
-                <li>
-                    <a class="card" href="teach-back.html" data-live-href="teach-back.html">
-                        <img class="thumb" src="thumbnails/teach-back.png" alt="Teach Me — HazCom teach-back preview" loading="lazy">
-                        <span class="live-flag"><i class="fa-solid fa-wand-magic-sparkles"></i>Live AI</span>
-                        <span class="card-body">
-                        <span class="title">Teach Me — HazCom Teach-Back</span>
-                        <span class="desc">After finishing the Hazard Communication course, the learner flips roles and teaches it back. A "Teach me" title screen leads into a short coach chat, then an intro card frames the task and lets the learner pick Talk or Type. In Teach mode, 10 numbered topic slots fill in — each with its correct wording — as the learner explains it out loud or by typing. If a submission doesn't land a new topic, a gentle hint nudges them on; if they go quiet or tap Done early, the coach returns with a category-level clue. It closes the way the conversation simulator does — the coach hands off to a final score — but instead of strengths/weaknesses it shows a simple N/10, a short note, and the CTA for the next activity.</span>
-                        <span class="desc-live">The coach's calibration chat, the live grading that decides which slots to fill from what the learner actually says, the stuck-hints, and the closing feedback are all generated by real Claude through the same Cloudflare Worker proxy the other Live AI experiments use. Grading runs on a fast model (Haiku) so a correct answer lands in about a second. Voice input uses the browser's built-in speech recognition, with typing as an always-available fallback.</span>
-                        </span>
-                    </a>
-                </li>
-            </ul>
-        </section>
-
-        <!-- ===== Scene Analysis — Observe/React flavor of the same module === -->
-        <section class="section" id="scene-analysis">
-            <div class="section-head">
-                <h2 class="section-title">Scene Analysis Simulation</h2>
-                <span class="section-note">Same coach-in-a-bottom-sheet module, with the conversation replaced by a scene to read</span>
-            </div>
-            <ul class="cards compare">
-                <li>
-                    <a class="card" href="hazmat-scene-practice.html">
-                        <img class="thumb" src="thumbnails/hazmat-scene-practice.png" alt="Hazmat Scene Size-Up preview" loading="lazy">
-                        <span class="card-body">
-                        <span class="title">Observe / React: Hazmat Size-Up</span>
-                        <span class="desc">Instead of a conversation, the learner practices reading a hazmat scene — framed as a "what not to do" study of footage from a badly-run call. A full-screen drone shot (Observe) shows an overturned tanker with live traffic never cleared from either side; the AI coach (React) probes whether the learner spots it. Then helmet-cam footage rides along with a firefighter who walks right up to the leaking tank — and the coach's first question is "how did that make you feel?", validating the learner's discomfort as trained instinct before asking what should've been done. A final chapter narrates the compliant version, and the learner closes by running their own first moves. Three watch-then-react chapters, same Learn/Practice shape as the conversation simulator, relabeled Observe/React.</span>
-                        </span>
-                    </a>
-                </li>
-            </ul>
+            <p class="section-tool">
+                <i class="fa-solid fa-file-lines" aria-hidden="true"></i>
+                <span>Build &amp; authoring specs — the <a href="scenario-simulator-build-spec.html">end-to-end flow</a>, and a deep dive on <a href="scenario-simulator-interaction-layer.html">the interaction layer</a> (its six phases, the modes, and the prompts each needs). For product &amp; engineering.</span>
+            </p>
         </section>
 
         <!-- ===== Video Reflection — A/B of the same reflection gate ======== -->
@@ -627,6 +651,34 @@
         </div>
     </div>
 
+    <!-- Launcher modal for the Scenario Simulator cards. Description + a picker:
+         the version (every schema) and, for Conversation Simulation, the intro
+         context. Body + footer are rendered from SIM_SCHEMAS by the script below. -->
+    <div class="lesson-modal-backdrop" id="simModal" inert>
+        <div class="lesson-modal" role="dialog" aria-modal="true" aria-labelledby="simModalTitle">
+            <header class="lesson-modal-head">
+                <span class="lesson-modal-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                <div style="flex:1 1 auto;">
+                    <h2 class="lesson-modal-title" id="simModalTitle"></h2>
+                    <p class="lesson-modal-eyebrow" id="simModalExample"></p>
+                </div>
+                <button class="lesson-modal-close" id="simModalClose" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </header>
+            <div class="lesson-modal-body" id="simModalBody"></div>
+            <footer class="lesson-modal-foot">
+                <!-- Shown only when the selected version is Studio-authorable;
+                     deep-links to Writer Studio for the schema's type. -->
+                <vaadin-button theme="tertiary" id="simModalEdit" hidden>
+                    <i class="fa-solid fa-pen-nib" slot="prefix"></i>
+                    Edit in Writer Studio
+                </vaadin-button>
+                <vaadin-button theme="primary" id="simModalLaunch">Launch</vaadin-button>
+            </footer>
+        </div>
+    </div>
+
     <script>
     /* Details-on-demand: each card shows only its thumbnail + title; the full
        description lives in the card's hidden .desc. Clicking the card opens
@@ -775,6 +827,307 @@
     </script>
 
     <script>
+    /* ===================================================================
+       Scenario Simulator — schema cards + launcher modal
+       -------------------------------------------------------------------
+       SIM_SCHEMAS is the single source of truth for the four simulator
+       shapes. Each schema renders one card; clicking it opens the launcher
+       modal, where the learner picks a VERSION and (for Conversation
+       Simulation) an intro CONTEXT before launching.
+
+       A schema is EITHER:
+         • single-axis  → `versions: [ ... ]`
+         • two-axis      → `contexts: [ { id, label, versions: [ ... ] } ]`
+                           (the version list depends on the chosen context)
+
+       A version = { label, href, latest?, live?, planned?, note? }
+         • latest   — preselected, gets a "Latest" badge
+         • live     — shows the Live AI flag; launch CTA turns gradient
+         • planned  — not built yet: shown disabled, not launchable
+       Add a new build by adding a version entry here — never a new card. */
+    const SIM_SCHEMAS = [
+        {
+            id: 'conversation-simulation',
+            title: 'Conversation Simulation',
+            example: 'Example: Kendra — checking in on a friend',
+            thumb: 'thumbnails/action-practice.png',
+            studioType: 'action-practice',
+            desc: [
+                "The learner practices a hard real-life conversation — checking in on a friend, Kendra, who's showing signs of a drinking problem. An AI coach preps the learner before each line and reacts afterward, while an AI-played Kendra responds in character. The learner can retry any line, and it isn't a success until they take the one action that matters: connecting Kendra to real help.",
+                "The scene can be set three ways — a short video, a story the learner highlights, or no intro at all. Each context can run on the scripted demo engine or live on a real model (Claude).",
+            ],
+            contexts: [
+                { id: 'video', label: 'Video intro', versions: [
+                    { version: 'V3', label: 'Live AI — updated coaching', href: 'action-practice-live-v3.html', latest: true, live: true, authorable: true },
+                    { version: 'V2', label: 'Live AI', href: 'action-practice-live.html', live: true },
+                    { version: 'V1', label: 'Scripted demo', href: 'action-practice.html' },
+                ]},
+                { id: 'story', label: 'Story + highlight', versions: [
+                    { version: 'V2', label: 'Live AI', href: 'story-highlight-practice-live.html', latest: true, live: true, authorable: true },
+                    { version: 'V1', label: 'Scripted demo', href: 'story-highlight-practice.html' },
+                ]},
+                { id: 'none', label: 'No intro', versions: [
+                    { version: 'V1', label: 'Scripted demo', href: 'direct-practice.html', latest: true },
+                    { version: 'V2', label: 'Live AI', planned: true, live: true },
+                ]},
+            ],
+        },
+        {
+            id: 'guided-arc',
+            title: 'Guided Arc',
+            example: 'Example: Marshall — bystander intervention',
+            thumb: 'thumbnails/marshall-live.svg',
+            studioType: 'guided-arc',
+            desc: [
+                "A coached, multi-phase arc built from a Content Design learning object — here, the Marshall sex-based-harassment and bystander-intervention scenario, running live on Claude. A warm AI coach walks the learner through a gut-reaction reflection, the Title VII legal question, the human and team impact, and a live break-room moment where the learner has to act. Whatever they do, the scene plays out a tailored outcome and the coach debriefs.",
+                "Every learner closes on the same SME-validated toolkit — the nine ideal-response components and the Pick an Action · Offer Support · Consider Escalating framework — regardless of the path they took.",
+            ],
+            // V3 launches the GENERIC Guided Arc engine (guided-arc-live.html),
+            // which runs whatever the Studio published and defaults to the
+            // Marshall build — so the latest cut is Studio-authorable.
+            // ⚠ SOURCE OF TRUTH: edit Guided Arc content in Writer Studio (or the
+            // guided-arc.js DEFAULT). The old hand-coded marshall-scenario-v3.js
+            // remains only as the frozen validation oracle (compile(DEFAULT)
+            // reproduces its prompt); it is not loaded by any launched page.
+            versions: [
+                { version: 'V3', label: 'Reconciled — Learn ⟷ Practice', href: 'guided-arc-live.html', latest: true, live: true, authorable: true },
+                { version: 'V2', label: 'Video turn', href: 'marshall-live-v2.html', live: true },
+                { version: 'V1', label: 'Original', href: 'marshall-live.html', live: true },
+            ],
+        },
+        {
+            id: 'teach-back',
+            title: 'Teach-Back',
+            example: 'Example: HazCom — teach the course back',
+            thumb: 'thumbnails/teach-back.png',
+            studioType: 'teach-back',
+            desc: [
+                "After finishing a course — here, Hazard Communication — the learner flips roles and teaches it back. A short coach chat frames the task, then the learner speaks or types to fill 10 numbered topic slots, each with its correct wording. Gentle hints nudge them when a submission doesn't land a new topic or they go quiet. It closes like the conversation simulator, but with a simple N/10 score instead of strengths and weaknesses.",
+                "Grading runs live on a fast model (Haiku) so a correct answer lands in about a second. Voice input uses the browser's built-in speech recognition, with typing always available as a fallback.",
+            ],
+            versions: [
+                { version: 'V1', label: 'Live AI', href: 'teach-back.html', latest: true, live: true, authorable: true },
+            ],
+        },
+        {
+            id: 'scene-analysis',
+            title: 'Scene Analysis',
+            example: 'Example: Hazmat — observe & react',
+            thumb: 'thumbnails/hazmat-scene-practice.png',
+            studioType: 'observe-react',
+            desc: [
+                "The observe/react shape of the same coach module — instead of a conversation, the learner reads a scene. Here, a “what not to do” study of a badly-run hazmat call: a drone shot of an overturned tanker with traffic never cleared, then helmet-cam footage riding along with a firefighter who walks right up to the leaking tank. The coach probes what the learner notices and validates their discomfort as trained instinct before asking what should have been done.",
+                "Three watch-then-react chapters, the same Learn/Practice shape as the conversation simulator, relabeled Observe/React.",
+            ],
+            versions: [
+                { version: 'V1', label: 'Observe / React', href: 'hazmat-scene-practice.html', latest: true, authorable: true },
+            ],
+        },
+    ];
+
+    (function () {
+        // ---- helpers -------------------------------------------------------
+        // Every version list a schema can offer (flattened across contexts).
+        const allVersions = (s) => s.contexts ? s.contexts.flatMap(c => c.versions) : s.versions;
+        // Does the schema have any live build? (drives the card's Live AI flag)
+        const hasLive = (s) => allVersions(s).some(v => v.live && !v.planned);
+        // Index of the default (latest) version within a list.
+        const defaultIdx = (versions) => {
+            const i = versions.findIndex(v => v.latest);
+            return i >= 0 ? i : 0;
+        };
+        // The schema's overall recommended build — used for the "Updated" stamp.
+        const latestHref = (s) => {
+            const list = s.contexts ? s.contexts[0].versions : s.versions;
+            const v = list[defaultIdx(list)];
+            return v && v.href ? v.href : '';
+        };
+        const LIVE_FLAG = '<span class="live-flag"><i class="fa-solid fa-wand-magic-sparkles"></i>Live AI</span>';
+
+        // ---- render the four cards ----------------------------------------
+        const wrap = document.getElementById('simCards');
+        SIM_SCHEMAS.forEach((s) => {
+            const li = document.createElement('li');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'card schema-card';
+            btn.dataset.schema = s.id;
+            const lh = latestHref(s);
+            if (lh) btn.dataset.latest = lh;
+            btn.setAttribute('aria-haspopup', 'dialog');
+            btn.innerHTML =
+                `<img class="thumb" src="${s.thumb}" alt="${s.title} — ${s.example}" loading="lazy">` +
+                (hasLive(s) ? LIVE_FLAG : '') +
+                `<span class="card-body">` +
+                    `<span class="title">${s.title}</span>` +
+                    `<span class="sim-example">${s.example}</span>` +
+                `</span>`;
+            btn.addEventListener('click', () => openFor(s));
+            li.appendChild(btn);
+            wrap.appendChild(li);
+        });
+
+        // ---- launcher modal -----------------------------------------------
+        const backdrop = document.getElementById('simModal');
+        const dialog = backdrop.querySelector('.lesson-modal');
+        const titleEl = document.getElementById('simModalTitle');
+        const exampleEl = document.getElementById('simModalExample');
+        const bodyEl = document.getElementById('simModalBody');
+        const launchEl = document.getElementById('simModalLaunch');
+        const editEl = document.getElementById('simModalEdit');
+        const closeEl = document.getElementById('simModalClose');
+        const STUDIO_HREF = 'writer-studio.html?type=';
+
+        let current = null;   // current schema
+        let ctxIdx = 0;       // chosen context (two-axis schemas)
+        let verIdx = 0;       // chosen version within the active list
+        let lastFocused = null;
+
+        // The version list currently in play (depends on the chosen context).
+        const activeList = () => current.contexts ? current.contexts[ctxIdx].versions : current.versions;
+
+        function openFor(schema) {
+            current = schema;
+            ctxIdx = 0;
+            verIdx = defaultIdx(activeList());
+
+            titleEl.textContent = schema.title;
+            exampleEl.textContent = schema.example;
+            renderBody();
+
+            lastFocused = document.activeElement;
+            backdrop.classList.add('open');
+            backdrop.inert = false;
+            window.setTimeout(() => launchEl.focus(), 60);
+        }
+
+        function renderBody() {
+            bodyEl.replaceChildren();
+
+            // Description paragraphs
+            current.desc.forEach((para) => {
+                const p = document.createElement('p');
+                p.textContent = para;
+                bodyEl.appendChild(p);
+            });
+
+            const panel = document.createElement('div');
+            panel.className = 'launch-panel';
+
+            // Context picker (two-axis schemas only)
+            if (current.contexts) {
+                const group = document.createElement('div');
+                group.className = 'launch-group';
+                group.innerHTML = '<p class="launch-label">Set the scene with</p>';
+                const seg = document.createElement('div');
+                seg.className = 'ctx-seg';
+                current.contexts.forEach((c, i) => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.textContent = c.label;
+                    b.className = i === ctxIdx ? 'is-active' : '';
+                    b.addEventListener('click', () => {
+                        ctxIdx = i;
+                        verIdx = defaultIdx(activeList());
+                        renderBody();
+                    });
+                    seg.appendChild(b);
+                });
+                group.appendChild(seg);
+                panel.appendChild(group);
+            }
+
+            // Version picker — hidden when there's a single build and no contexts
+            const list = activeList();
+            const showVersions = current.contexts || list.length > 1;
+            if (showVersions) {
+                const group = document.createElement('div');
+                group.className = 'launch-group';
+                group.innerHTML = '<p class="launch-label">Version</p>';
+                const vl = document.createElement('div');
+                vl.className = 'ver-list';
+                list.forEach((v, i) => {
+                    const opt = document.createElement('button');
+                    opt.type = 'button';
+                    opt.className = 'ver-opt' + (i === verIdx ? ' is-selected' : '');
+                    if (v.planned) opt.disabled = true;
+                    const tags =
+                        (v.latest ? '<span class="ver-badge latest">Latest</span>' : '') +
+                        (v.live && !v.planned ? LIVE_FLAG : '') +
+                        (v.planned ? '<span class="ver-badge planned">Planned</span>' : '');
+                    opt.innerHTML =
+                        `<span class="ver-radio"></span>` +
+                        (v.version ? `<span class="ver-num">${v.version}</span>` : '') +
+                        `<span class="ver-name">${v.label}</span>` +
+                        `<span class="ver-tags">${tags}</span>`;
+                    if (!v.planned) {
+                        opt.addEventListener('click', () => {
+                            verIdx = i;
+                            renderBody();
+                        });
+                    }
+                    vl.appendChild(opt);
+                });
+                group.appendChild(vl);
+                panel.appendChild(group);
+            }
+
+            bodyEl.appendChild(panel);
+            syncLaunch();
+        }
+
+        // Keep the footer CTAs in sync with the selected version.
+        function syncLaunch() {
+            const v = activeList()[verIdx];
+            const launchable = v && v.href && !v.planned;
+            launchEl.disabled = !launchable;
+            launchEl.classList.toggle('live-cta', !!(launchable && v.live));
+            launchEl.textContent = launchable ? 'Launch' : 'Not available yet';
+            // "Edit in Writer Studio" shows only when the picked version is
+            // Studio-authorable and its schema declares a Studio type.
+            editEl.hidden = !(v && v.authorable && current.studioType);
+        }
+
+        function close() {
+            backdrop.classList.remove('open');
+            backdrop.inert = true;
+            if (lastFocused && lastFocused.focus) lastFocused.focus();
+        }
+
+        launchEl.addEventListener('click', () => {
+            const v = activeList()[verIdx];
+            if (v && v.href && !v.planned) window.location.href = v.href;
+        });
+        editEl.addEventListener('click', () => {
+            if (current && current.studioType) {
+                window.location.href = STUDIO_HREF + encodeURIComponent(current.studioType);
+            }
+        });
+        closeEl.addEventListener('click', close);
+        backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && backdrop.classList.contains('open')) close();
+        });
+
+        // Focus trap (same pattern as the details modal above).
+        backdrop.addEventListener('keydown', (e) => {
+            if (e.key !== 'Tab' || !backdrop.classList.contains('open')) return;
+            const focusables = Array.from(
+                dialog.querySelectorAll('button, vaadin-button, [href]')
+            ).filter((el) => !el.hidden && !el.disabled);
+            if (!focusables.length) return;
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault(); last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault(); first.focus();
+            }
+        });
+    })();
+    </script>
+
+    <script>
     /* "Updated <date>" stamps — one per card, from updated.json.
        That file is regenerated by CI on every push (scripts/build-updated-stamps.js),
        so the date reflects when each experiment file last actually CHANGED.
@@ -787,8 +1140,12 @@
         .then((data) => {
             if (!data || !data.files) return;
             const now = Date.now();
-            document.querySelectorAll('a.card[href]').forEach((a) => {
-                const iso = data.files[a.getAttribute('href')];
+            // Static cards key off their own href; the Scenario Simulator's schema
+            // cards are buttons with no href, so they key off data-latest (their
+            // recommended/latest build) instead.
+            document.querySelectorAll('a.card[href], button.schema-card[data-latest]').forEach((card) => {
+                const key = card.getAttribute('href') || card.getAttribute('data-latest');
+                const iso = data.files[key];
                 if (!iso) return;
                 const d = new Date(iso);
                 if (isNaN(d)) return;
@@ -798,7 +1155,7 @@
                 if (now - d.getTime() < 3 * 24 * 60 * 60 * 1000) stamp.classList.add('is-recent');
                 stamp.innerHTML = '<i class="fa-regular fa-clock"></i>Updated ' +
                     d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                (a.querySelector('.card-body') || a).appendChild(stamp);
+                (card.querySelector('.card-body') || card).appendChild(stamp);
             });
         })
         .catch(() => { /* no stamps offline — cards are fine without them */ });

@@ -149,7 +149,6 @@
       <section class="panel">
         <div class="table-head">
           <h3 style="margin:0">Records</h3>
-          <vaadin-button theme="tertiary">Filter <i class="fa-solid fa-sliders"></i></vaadin-button>
         </div>
         <table>
           <thead>
@@ -166,6 +165,58 @@
       </section>
     </main>
   </div>
+
+  <!-- ──────────────────────────────────────────────────────────────────────
+       Flow Map state driver — REVIEW / HANDOFF TOOLING ONLY (not the product).
+       Drives the wireframe into each sidebar section so the Design Toolbox flow
+       map can render a live thumbnail and click-to-open each node. -->
+  <script>
+    // Sidebar sections in DOM order, keyed to flow-map node ids/state.
+    var FM_IDS    = ['dashboard', 'schedule', 'people', 'reports', 'settings'];
+    var FM_LABELS = ['Dashboard', 'Schedule', 'People', 'Reports', 'Settings'];
+    var FM_TITLE  = 'Version 2 Testing — Dark Mode';
+
+    function applyFlowState(id, opts) {
+      opts = opts || {};
+      var idx = FM_IDS.indexOf(id);
+      if (idx < 0) idx = 0;
+      var items = document.querySelectorAll('.sidebar .nav-item');
+      items.forEach(function (el, i) { el.classList.toggle('active', i === idx); });
+      var title = document.querySelector('.page-title');
+      if (title) title.textContent = FM_TITLE + ' — ' + FM_LABELS[idx];
+      if (!opts.instant) window.scrollTo(0, 0);
+    }
+    window.applyFlowState = applyFlowState;
+
+    // Hash boot: honor a flow-map deep link (#fm=<state>) on load and on change.
+    function bootFromHash() {
+      var m = (location.hash || '').match(/fm=([\w-]+)/);
+      if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (_) {} }
+    }
+    bootFromHash();
+    window.addEventListener('hashchange', bootFromHash);
+
+    window.TOOLBOX_CONFIG = {
+      flowMap: {
+        title: 'Versioning Test (V2) — Flow Map',
+        applyState: 'applyFlowState',
+        canvas: { w: 660, h: 1000 },
+        nodes: [
+          { id: 'dashboard', entry: true, x: 40,  y: 380, step: 'Entry', name: 'Dashboard', state: 'dashboard', match: ['Dashboard'], desc: 'Landing view: stat cards, overview chart, recent-activity list, and the Records table. The four sidebar sections branch off here.' },
+          { id: 'schedule',  x: 360, y: 20,  step: 'Nav', name: 'Schedule', state: 'schedule', match: ['Schedule'], desc: 'Schedule section (nav item active). Wireframe body is shared placeholder content.' },
+          { id: 'people',    x: 360, y: 260, step: 'Nav', name: 'People',   state: 'people',   match: ['People'],   desc: 'People section (nav item active).' },
+          { id: 'reports',   x: 360, y: 500, step: 'Nav', name: 'Reports',  state: 'reports',  match: ['Reports'],  desc: 'Reports section (nav item active).' },
+          { id: 'settings',  x: 360, y: 740, step: 'Nav', name: 'Settings', state: 'settings', match: ['Settings'], desc: 'Settings section (nav item active).' }
+        ],
+        edges: [
+          ['dashboard', 'schedule', 'branch'],
+          ['dashboard', 'people',   'branch'],
+          ['dashboard', 'reports',  'branch'],
+          ['dashboard', 'settings', 'branch']
+        ]
+      }
+    };
+  </script>
 
   <!-- Design Toolbox (review/handoff tooling — not part of the product).
        Adds the comment widget + flow-map dock; the loader merges the V1/V2

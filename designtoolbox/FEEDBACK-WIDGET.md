@@ -121,7 +121,7 @@ Browsers may cache the widget aggressively. If teammates aren't seeing the updat
 - **Drag to re-pin**: drag a dot onto another element either (a) in comment mode, or (b) while that pin's detail panel is open. The element under the cursor is outlined as you drag; on drop the pin re-anchors — its `selector`, `elementText`, `elementHtml`, `dataFile`/`dataLine`, and offset are recaptured immediately (so the "Open in VS Code" button points at the new element). The screenshot is recaptured asynchronously in the background and PATCHed back once html2canvas finishes — the drop confirmation isn't blocked on it, and the panel auto-refreshes when the new image lands. If the user drags the same pin again before the previous capture completes, the stale capture is discarded. If the panel was open during the drag, it re-renders against the new anchor.
 - **Open in VS Code**: a "📂 Open in VS Code" button appears in the panel's action row whenever the pinned element has `data-file` + `data-line` attributes (added by `scripts/annotate-source.py`, documented in [`SOURCE-INSPECTOR.md`](../SOURCE-INSPECTOR.md)). Clicking it opens the exact line in your local VS Code via the `vscode://file/<abs>:<line>` URL handler. The first click prompts you for your local repo-root path (e.g. `/Users/you/code/ux-mockups`) — that's saved in `localStorage` (`cw-repo-root`) per browser so you only do it once. To reset it: `localStorage.removeItem("cw-repo-root")`.
   - **Static-HTML mockups** are fully supported once annotated. Re-run the annotation script after edits when line numbers drift.
-  - **React/SPA-style mockups** (anything that renders the UI from JSX inside `<script type="text/babel">`, e.g. `Scheduling/Rules engine only/`) have only their static shell annotated — the runtime React elements aren't tagged. For those, the VS Code button (when present) points at the shell line and you'll need to navigate to the actual JSX from there.
+  - **React/SPA-style mockups** (anything that renders the UI from JSX inside `<script type="text/babel">`, e.g. `Scheduling/rules-engine-only/`) have only their static shell annotated — the runtime React elements aren't tagged. For those, the VS Code button (when present) points at the shell line and you'll need to navigate to the actual JSX from there.
 - **Done pins** render muted with a checkmark and stay visible until the next page refresh.
 - **Deleted pins** are soft-deleted (`deleted: true` in KV) and never shown.
 - **Comment navigator**: a single hub in the bottom-left corner shows the **total number of comments** on the page and lets you review every one without hunting. A Prev/Next stepper (`‹ 3 / 12 ›`) jumps to each comment in turn — scrolling to it, switching to its screen/state if needed, and opening its panel — and an expandable list groups every comment by where it lives: **On this screen**, **On other screens** (a different screen, version, tab, or toggle of a single-file mock), and **Not found** (the anchored element no longer exists). The hub is purely client-side over the already-loaded comments, so navigating adds no Cloudflare reads, writes, or lists. The count reflects open comments (resolved/done ones drop off), and respects visitor mode.
@@ -164,6 +164,39 @@ All pins for a page are stored together in **one** KV value (`pins:<encoded-page
 ```
 
 > KV's minimum TTL is 60s, so the undo record lives for 60s but the Worker enforces the logical 10s window via `undoExpiresAt`. Undo requests after the 10s window return 409 even though the key still exists.
+
+## ⚠️ Renaming or moving a mock orphans its comments
+
+**Comments are keyed by the page URL, not the file.** The KV key is `pins:<encodeURIComponent(pageUrl)>`, where `pageUrl` is rebuilt from the `/products/...` path (`canonicalPageUrl()` in `feedback-widget.js`). So if you **rename or move a mock folder** — or a versioned `verN/index.html` file — every page under it gets a **new** key, and the existing comments stay behind under the **old** key. They aren't deleted, just unreachable: the widget now looks up the new path and finds nothing.
+
+**A space in a folder name makes it worse.** The browser encodes the space as `%20` in the URL, so the old key contains `versioning%2520test` (the `%20`, itself re-encoded by `encodeURIComponent`). That stray `%` is the tell-tale sign of a space-folder rename.
+
+**This is now handled automatically on push.** The `.github/workflows/relink-comments.yml` workflow watches `products/**`; when a push **renames** a mock folder/file, it runs the relink for you (comments + log links). It's cheap on the KV write budget: `ci-relink-renames.js` checks git for a rename *first* (a local diff — no KV), and only touches KV when there actually is one, so ordinary pushes cost **zero** KV ops. Requires a `CLOUDFLARE_API_TOKEN` repo secret (Workers KV **edit** scope). If the secret is missing the workflow simply fails loudly — the manual steps below still work.
+
+**Even so, two things still help:**
+
+1. **Prefer hyphens over spaces** in new mock/feature folder names (`versioning-test`, not `versioning test`). No spaces → no `%20` → cleaner keys and URLs. (This is also why the loader/versioned-folder convention uses hyphenated names.)
+2. **To re-link manually** (local runs, or if CI is unavailable) — the helper script copies the pins from the old key to the new one AND repoints the activity-log links, so both reappear on the renamed page:
+
+   ```sh
+   cd designtoolbox/worker      # so wrangler picks up wrangler.toml (KV namespace id)
+   wrangler login               # one-time auth; the script shells out to wrangler
+
+   # (optional) see what's in KV for a folder — old vs new path, per-version comment counts:
+   node ../scripts/relink-comments.js --inspect "versioning"
+
+   # dry run first — prints exactly what it would copy/repoint, writes nothing:
+   node ../scripts/relink-comments.js --from "versioning test" --to "versioning-test"
+   # then actually do it:
+   node ../scripts/relink-comments.js --from "versioning test" --to "versioning-test" --apply
+   ```
+
+   `--from`/`--to` are the old/new path fragments (bare folder name, or `Scheduling/versioning test` for a more precise match). Spaces are handled automatically. The script:
+   - **merges `pins:` into the new path** (matches *every* page under the folder — all versions, `ver1`/`ver2`/…, in one run). The merge is a **union by pin id**, so a comment made on the renamed page *after* the move is kept alongside the restored originals — nothing is ever overwritten or lost, and re-running is idempotent. Originals are **left in place** as a backup.
+   - **copies `settings:` keys** only when the destination has none (won't clobber existing per-page settings).
+   - **rewrites the `url` inside matching `log:` entries in place** so the activity-log (`log.html`) links point at the renamed page instead of the dead one (TTL refreshed to 90 days).
+
+   Use `--inspect` first if a comment (e.g. a specific version's) doesn't come back — it prints each `pins:` key's decoded page URL and active-comment count, so you can see whether that version's comments live under the old or new path. Reload the renamed mock on GitHub Pages afterward. See `designtoolbox/scripts/relink-comments.js` for full options (`--no-log`, `--no-settings`, `--namespace-id`).
 
 ## Worker API
 

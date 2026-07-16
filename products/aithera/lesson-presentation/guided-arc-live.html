@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Action Practice — Conversation Coach (Live AI)</title>
+    <title>Guided Arc — Conversation Coach (Live AI)</title>
 
     <!-- Vector Web Components: Core -->
     <script type="module"
@@ -23,15 +23,17 @@
     <!-- Course-delivery frame (production Vector Training chrome) -->
     <link rel="stylesheet" href="css/frame.css?v=4" />
     <style>
-      /* Frame integration for this full-viewport app shell: the frame is embedded
-         as the first flex child of .app (see the window.LESSON_FRAME config near
-         the end of the page), so the app's own top bar would just duplicate it —
-         hide it and let its Restart button ride the frame's actions slot. The
-         fixed .scrim must also start BELOW the frame so it dims only the stage. */
+      /* Frame integration for this full-viewport app shell:
+         the frame is embedded as the first flex child of .app (see the
+         window.LESSON_FRAME config near </body>), so the app's own slim
+         .topbar would just duplicate it — hide it and let its Restart button
+         ride the frame's actions slot instead. The fixed .scrim must also start
+         BELOW the frame so it dims only the practice stage, not the brand bar. */
       .topbar { display: none !important; }
+      /* .app .scrim beats the app's own `.scrim { inset: var(--topbar-h)… }`
+         (which loads later) so the scrim dims only the stage, not the brand band. */
       .app .scrim { inset: var(--header-h) 0 0 0; }
     </style>
-
 
     <!-- ====================================================================
          ACTION PRACTICE — rebuilt conversation-practice module.
@@ -729,6 +731,24 @@
         margin: 2px auto;
         padding: 4px 8px;
       }
+      /* CONSEQUENCE tier — the narration beat that lands right after the learner
+         acts is the payoff ("here's what your choice did"). It gets its own
+         weight: larger, brighter, more air, and a slow settle-in from slightly
+         oversized, with a faint warm lift (no neon — gravity, not sparkle). */
+      .scene-narration.consequence {
+        font-style: normal;
+        color: var(--s-ink);
+        font-size: 19px;
+        line-height: 1.5;
+        font-weight: 500;
+        max-width: 44ch;
+        margin: 18px auto;
+        padding: 8px 10px;
+        text-shadow: 0 0 24px rgba(255, 214, 168, .14);
+      }
+      .scene-narration.consequence.enter { animation: consequence-land .95s cubic-bezier(.2,.7,.2,1) both; }
+      @keyframes consequence-land { from { transform: translateY(10px) scale(1.04); } to { transform: none; } }
+      @media (prefers-reduced-motion: reduce) { .scene-narration.consequence.enter { animation: none; } }
 
       /* Your scene line: caption + mic icon; amber "spoken" bubble; retry control */
       .you-scene { display: flex; flex-direction: column; align-items: flex-end; max-width: 78%; margin-left: auto; }
@@ -771,6 +791,32 @@
       }
       .you-scene .retry:hover { border-color: var(--s-you); color: var(--s-you); background: var(--s-you-soft); }
       .you-scene .retry i { font-size: 11px; }
+
+      /* The learner's ACTION (what they do, not what they say) — a centered,
+         accent-tinted stage direction, distinct from world narration (muted
+         white) and their spoken lines (the amber bubble). */
+      .you-narration {
+        font-style: italic;
+        color: var(--s-you);
+        opacity: .95;
+        font-size: 14px;
+        line-height: 1.6;
+        text-align: center;
+        max-width: 52ch;
+        margin: 8px auto 2px;
+        padding: 2px 8px;
+      }
+      .you-narration-actions { display: flex; justify-content: flex-end; margin-top: 4px; }
+
+      /* Word-by-word reveal for NARRATION — mimics the line being "read" as it
+         lands (placeholder for real TTS later). Each word fades+de-blurs on a
+         short stagger; gated to the freshly-delivered render only. */
+      .rvl { opacity: 0; animation: rvl-in .34s var(--ease) forwards; }
+      @keyframes rvl-in { from { opacity: 0; filter: blur(3px); } to { opacity: 1; filter: none; } }
+      @media (prefers-reduced-motion: reduce) { .rvl { animation: none; opacity: 1; } }
+
+      /* Scene-mode send button reads as an action CTA ("Respond"), not a chat arrow. */
+      .send-btn.is-respond { width: auto; padding: 0 16px; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; white-space: nowrap; }
 
       /* ===================================================================
          8. THE AI COACH LAYER  — one consistent bottom sheet that rises over
@@ -868,6 +914,7 @@
         flex: 1 1 auto;
         min-height: 0;
         overflow-y: auto;
+        overflow-anchor: none;   /* don't let the browser pin scroll to old content when new bubbles append — we follow the bottom ourselves */
         padding: 16px 16px 22px;
         display: flex;
         flex-direction: column;
@@ -1044,32 +1091,60 @@
       .app[data-target="character"] .send-btn:hover { filter: brightness(1.06); background: var(--s-you); }
       .app[data-target="character"] .input-foot { color: var(--s-ink-faint); }
 
-      /* Typing indicator (in stage or panel) */
+      /* Typing / working indicator (in stage or panel). Takes an optional label —
+         e.g. "Updating the scene…" — so a live-model wait never reads as frozen. */
       .typing {
         align-self: flex-start;
         display: inline-flex;
-        gap: 5px;
+        align-items: center;
+        gap: 9px;
         padding: 13px 15px;
         border-radius: 14px;
         background: var(--c-surface);
         border: 1px solid var(--c-line);
         box-shadow: var(--shadow-sm);
+        animation: typing-in .3s var(--ease) both;   /* fade/rise in softly, not a pop */
       }
+      @keyframes typing-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+      @media (prefers-reduced-motion: reduce) { .typing, .you-loading { animation: none; } }
       .typing.scene { background: var(--s-surface); border-color: var(--s-line); }
-      .typing span {
+      .typing .tdots { display: inline-flex; gap: 5px; }
+      .typing .tdots span {
         width: 7px; height: 7px;
         border-radius: 50%;
         background: var(--c-ink-faint);
         animation: bob 1.2s infinite ease-in-out;
       }
-      .typing.scene span { background: var(--s-ink-faint); }
-      .typing span:nth-child(2) { animation-delay: .15s; }
-      .typing span:nth-child(3) { animation-delay: .3s; }
+      .typing.scene .tdots span { background: var(--s-ink-faint); }
+      .typing .tdots span:nth-child(2) { animation-delay: .15s; }
+      .typing .tdots span:nth-child(3) { animation-delay: .3s; }
+      .typing .tlabel { font-size: 13px; font-weight: 600; color: var(--s-ink-soft); letter-spacing: .01em; }
       @keyframes bob { 0%,60%,100% { transform: translateY(0); opacity:.5; } 30% { transform: translateY(-5px); opacity:1; } }
+
+      /* Learner's move "considering…" loader — stands in for their scene line while
+         the say/do split resolves, so the move renders ONCE (never raw-then-split). */
+      .you-loading {
+        align-self: flex-end;
+        display: inline-flex;
+        gap: 5px;
+        align-items: center;
+        padding: 12px 15px;
+        border-radius: 16px 16px 4px 16px;
+        background: var(--s-you-soft);
+        border: 1px solid var(--s-you);
+        animation: typing-in .3s var(--ease) both;
+      }
+      .you-loading span {
+        width: 7px; height: 7px; border-radius: 50%;
+        background: var(--s-you);
+        animation: bob 1.2s infinite ease-in-out;
+      }
+      .you-loading span:nth-child(2) { animation-delay: .15s; }
+      .you-loading span:nth-child(3) { animation-delay: .3s; }
 
       /* —— Content enter animation (fade + slight rise; runs once per node) —— */
       .coach-msg.enter, .you-coach.enter, .char-line.enter,
-      .scene-narration.enter, .you-scene.enter {
+      .you-narration.enter, .you-scene.enter {
         animation: msg-enter .34s var(--ease) both;
       }
       @keyframes msg-enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
@@ -1161,14 +1236,14 @@
     <div class="app" id="app" data-mode="coaching" data-target="coach" data-entered="false">
 
       <!-- Page name for screen readers (the visible title lives in the top bar) -->
-      <h1 class="sr-only" id="pageTitle">Practice scenario: Intervening for a Friend: The Kendra Situation</h1>
+      <h1 class="sr-only" id="pageTitle">Practice scenario: Bystander Intervention: The Marshall Scenario</h1>
 
       <!-- Top bar ------------------------------------------------------- -->
       <header class="topbar">
         <span class="brand">
           <span class="badge"><i class="fa-solid fa-comments"></i> Practice chat</span>
         </span>
-        <span class="scenario" id="scenarioName">Intervening for a Friend: The Kendra Situation</span>
+        <span class="scenario" id="scenarioName">Bystander Intervention: The Marshall Scenario</span>
         <span class="spacer"></span>
         <button class="tb-btn" id="restartBtn" aria-label="Restart practice">
           <i class="fa-solid fa-rotate-left"></i><span class="label">Restart</span>
@@ -1295,9 +1370,9 @@
       </div>
     </div>
 
-    <!-- Scenario schema + prompt compiler (shared with writer-studio.html) -->
+    <!-- Kendra engine: the locked output contract + fill() helper we reuse -->
     <script src="js/scenario.js?v=12"></script>
-    <!-- Reusable context-setter (narrated audio / reading) for the intro modality -->
+    <!-- Reusable context-setter (narrated audio / reading) for the opening scene -->
     <script src="js/scene-context.js?v=1"></script>
     <!-- Shared simulator framework — one implementation under every mode:
          sim-core     the AI turn engine (proxy, models, JSON repair, retry, pacing)
@@ -1307,6 +1382,11 @@
     <script src="js/sim-context.js?v=1"></script>
     <script src="js/sim-debrief.js?v=5"></script>
     <script src="js/sim-chat-history.js?v=5"></script>
+    <!-- Writer Studio engine + the Guided Arc type: this page RUNS whatever
+         guided-arc scenario the Studio published (falls back to the type's
+         DEFAULT — the Marshall reference build — when nothing is published). -->
+    <script src="js/studio-engine.js?v=1"></script>
+    <script src="js/scenario-types/guided-arc.js?v=12"></script>
 
     <script>
     /* =====================================================================
@@ -1327,21 +1407,55 @@
          kind==='dialogue' | 'narration'    → scene world  (CharacterLine / YourSceneLine / narration)
        ===================================================================== */
 
-    /* ---- LIVE vs DEMO ------------------------------------------------- */
-    /* Model plumbing is SHARED (js/sim-core.js): one proxy Worker, one model
-       registry, one JSON repair + retry-once turn cycle, one set of pacing
-       constants. This page declares only WHICH contract it speaks — the
-       roleplay turn parser, created with the engine further down — and keeps
-       a scripted demo responder as the no-network fallback. */
+    /* ---- LIVE ---------------------------------------------------------
+       This page runs LIVE against real Claude through the shared proxy
+       Worker (js/sim-core.js owns the URL, the model registry, JSON repair
+       and the retry-once turn cycle). Unlike the Kendra practice pages there
+       is no scripted demo fallback for Marshall — the coaching arc is
+       model-driven end to end; offline it shows a "coach unreachable" stub. */
 
-    /* ---- SCENARIO DATA -------------------------------------------------
-       All writer-authored content (names, setup, rubric, reaction map, gate,
-       captions) lives in a structured scenario object — see js/scenario.js.
-       The Writer Studio (writer-studio.html) can publish a revised scenario
-       to this browser's localStorage; if one exists we run it, otherwise we
-       run the shipped Kendra default. */
-    const PUBLISHED = AitheraScenario.loadPublished();
-    const ACTIVE_SCENARIO = PUBLISHED ? PUBLISHED.scenario : AitheraScenario.DEFAULT_SCENARIO;
+    /* ---- SCENARIO DATA (data-driven from Writer Studio) ----------------
+       This is the GENERIC Guided Arc live engine. It runs whatever guided-arc
+       scenario the Studio published (aithera.scenario.published.guided-arc.v1);
+       with nothing published it plays the type's DEFAULT — the Marshall v3
+       reference build — so the page is never empty. The Studio's v3 schema
+       (reflection + phases[] + optional scene) is adapted here into the shape
+       this Kendra-derived shell already consumes: `opening` (seeded coach
+       messages) + `locked` (a map of app-owned beats keyed by phase id + "scene",
+       which applyDeliver/the deliver-whitelist read generically). The compiled
+       SYSTEM_PROMPT comes straight from the type's compile(). */
+    const GA_TYPE = window.AitheraStudio && AitheraStudio.get('guided-arc');
+    function fromPublishedGuidedArc(raw) {
+      const g = GA_TYPE.normalize(raw);
+      const fillT = (t) => GA_TYPE.fill(t, g);
+      const locked = {};
+      (g.phases || []).forEach((p) => {
+        if (!p || !p.id) return;
+        locked[p.id] = [
+          String(p.signpost || '').trim() ? { speaker: 'coach', kind: 'coaching', text: fillT(p.signpost) } : null,
+          { speaker: 'coach', kind: 'coaching', text: fillT(p.prompt) },
+        ].filter(Boolean);
+      });
+      if (g.scene && typeof g.scene === 'object') {
+        locked.scene = [{ speaker: 'coach', kind: 'coaching', text: fillT(g.scene.pivot) }]
+          .concat((g.scene.setup || []).map((b) => {
+            const beat = { speaker: b.speaker || 'character', kind: b.kind || 'narration', text: fillT(b.text) };
+            if (b.name) beat.name = fillT(b.name);
+            return beat;
+          }));
+      }
+      return Object.assign({}, g, {
+        opening: [(g.reflection || {}).prompt].filter((t) => String(t || '').trim()).map(fillT),
+        locked,
+        sceneInputPlaceholder: g.scene ? fillT(g.scene.inputPlaceholder || 'What do you do or say?') : 'What do you do or say?',
+        sceneLineCaption: g.scene ? (g.scene.lineCaption || 'You') : 'You',
+      });
+    }
+    const GA_PUBLISHED = GA_TYPE && GA_TYPE.store.loadPublished();
+    const GA_SOURCE = (GA_PUBLISHED && GA_PUBLISHED.scenario) ? GA_PUBLISHED.scenario : (GA_TYPE ? GA_TYPE.DEFAULT : {});
+    const ACTIVE_SCENARIO = fromPublishedGuidedArc(GA_SOURCE);
+    // Whether the scene splits the learner's input into DO (narration) + SAY (bubble).
+    const SCENE_SAYDO = !!(ACTIVE_SCENARIO.scene && ACTIVE_SCENARIO.scene.sayDoSplit !== false);
     const SCENARIO = {
       learner: ACTIVE_SCENARIO.learnerName,
       character: ACTIVE_SCENARIO.characterName,
@@ -1350,31 +1464,8 @@
     document.getElementById('scenarioName').textContent = SCENARIO.title;
     document.getElementById('pageTitle').textContent = 'Practice scenario: ' + SCENARIO.title;
 
-    // When a writer-published scenario is active, say so in the top bar and
-    // offer a one-click revert to the shipped scenario (the writer's copy
-    // stays safe in the Studio's own draft).
-    if (PUBLISHED) {
-      const writerChip = document.createElement('button');
-      writerChip.className = 'tb-btn';
-      writerChip.innerHTML = '<i class="fa-solid fa-pen-nib"></i><span class="label">Writer scenario</span>';
-      writerChip.title = 'Running a scenario published from the Writer Studio'
-        + (PUBLISHED.savedAt ? ' on ' + new Date(PUBLISHED.savedAt).toLocaleString() : '')
-        + '. Click to revert to the shipped scenario.';
-      writerChip.addEventListener('click', () => {
-        if (confirm('Revert to the shipped scenario? The published version stays available in the Writer Studio.')) {
-          AitheraScenario.clearPublished();
-          location.reload();
-        }
-      });
-      document.querySelector('.topbar .spacer').after(writerChip);
-    }
-
-    /* The cold-open video sequence — writer-authored scenes (any count),
-       played back-to-back, narrated via caption text instead of audio. Each
-       scene is a video URL (a repo asset under products/aithera/assets/videos/
-       served by GitHub Pages, or any absolute URL) + its caption. A scenario
-       whose intro.type is 'story' or 'none' has no cold open on THIS page —
-       the begin button goes straight to the establishing card + coach. */
+    /* Cold-open VIDEO (the Kendra "with video" player). Marshall sets its
+       context with one dramatized clip that has its own audio (video.sound). */
     const HAS_VIDEO_INTRO = ACTIVE_SCENARIO.intro.type === 'video'
       && (ACTIVE_SCENARIO.intro.video.scenes || []).some((s) => s && s.src);
     const INTRO_SCENES = !HAS_VIDEO_INTRO ? [] :
@@ -1384,35 +1475,35 @@
           src: AitheraScenario.fill(s.src, ACTIVE_SCENARIO),
           text: AitheraScenario.fill(s.caption || '', ACTIVE_SCENARIO),
         }));
+    // Whether the cold-open clip plays with its own sound (vs muted + captions).
+    const INTRO_VIDEO_SOUND = !!(ACTIVE_SCENARIO.intro.video && ACTIVE_SCENARIO.intro.video.sound);
 
-    /* AUDIO / READING context modality (see js/scene-context.js) — an
-       alternative cold open to video: the setup is narrated (or read) with
-       per-word highlighting, then the coach's opening question appears. */
+    /* AUDIO / READING context modality — the opening "scene" is narrated (or
+       read) instead of delivered as coach chat text. When it finishes, the
+       coach appears with the reflection prompt (see enterAudioIntro below). */
     const HAS_AUDIO_INTRO = (ACTIVE_SCENARIO.intro.type === 'audio' || ACTIVE_SCENARIO.intro.type === 'reading')
-      && !!(ACTIVE_SCENARIO.intro.audio && ACTIVE_SCENARIO.intro.audio.text) && !!window.SceneContext;
+      && !!(ACTIVE_SCENARIO.intro.audio && ACTIVE_SCENARIO.intro.audio.text);
     const AUDIO_INTRO = ACTIVE_SCENARIO.intro.audio || {};
     const AUDIO_INTRO_MODALITY = ACTIVE_SCENARIO.intro.type === 'reading' ? 'reading' : 'audio';
 
     /* =====================================================================
-       THE SYSTEM PROMPT (live mode) — compiled, not hand-written.
-       Everything about how the coach teaches and how the character behaves
-       is structured scenario data assembled by AitheraScenario.compilePrompt
-       (js/scenario.js). Content writers edit and publish it in the Writer
-       Studio (writer-studio.html); this page picks the published scenario up
-       on reload. The safety-critical engine sections (output contract,
-       off-script input, learner safety) are locked inside the compiler.
-       The scripted demo engine below emulates the same contract.
+       THE SYSTEM PROMPT (live) — the conversation arc, guardrails, and
+       conversation guiding for the Marshall experience. Authored from the
+       Content Design LO + POC deck in js/marshall-scenario.js, it drives the
+       same strict JSON turn contract the Kendra engine renders. The
+       break-room outcomes, the legal/empathy calibration, and the guaranteed
+       nine-component close all live there.
        ===================================================================== */
-    let SYSTEM_PROMPT = AitheraScenario.compilePrompt(ACTIVE_SCENARIO);   // let: the Section-1 coupler may append context addenda
+    let SYSTEM_PROMPT = GA_TYPE ? GA_TYPE.compile(GA_TYPE.normalize(GA_SOURCE)) : '';   // let: the Section-1 coupler may append context addenda
 
     /* ---- STATE -------------------------------------------------------- */
-    const initialMessages = () => ([
-      // The backstory (roommate/Nona, the bottles, the pills, what's at stake)
-      // is now carried by the cold-open video — the coach picks up from there
-      // instead of re-narrating it in message form.
-      { speaker: 'coach', kind: 'coaching',
-        text: AitheraScenario.fill(ACTIVE_SCENARIO.openingQuestion, ACTIVE_SCENARIO) },
-    ]);
+    /* The coach's opening beat is SEEDED (not model-generated) so every
+       learner meets the same SME-authored framing: the situation, then the
+       non-evaluated reflection prompt. The learner's first reply kicks off
+       Phase 1. */
+    const initialMessages = () => ACTIVE_SCENARIO.opening.map((text) => (
+      { speaker: 'coach', kind: 'coaching', text }
+    ));
 
     const state = {
       mode: 'coaching',          // 'coaching' | 'scene'
@@ -1442,7 +1533,14 @@
       resultsViewed: false,     // learner has been through the modal (unlocks the resources message)
       continued: false,         // learner tapped the final "Continue" — the practice is fully settled
       awaitingReturn: false,    // the coach is ready to send the learner back into the scene; waiting for them to choose
-      pendingReturn: null,      // { mode, inputTarget } to apply once they do
+      pendingReturn: null,      // { mode, inputTarget, sceneTarget } to apply once they do
+      debriefReturn: null,      // if the debrief the learner is about to open is a coach-led transition BACK into the scene (e.g. "check in with Marshall"), the return context to arm once it's read
+      returnLabel: null,        // custom label for the scene-return CTA (e.g. "Check in with Marshall")
+      sceneTarget: null,        // who the learner is speaking to in the scene now (e.g. "Marshall") — drives the composer placeholder
+      // —— PHASE ENGINE (app-owned; the model no longer counts turns or picks the
+      // next hand-off) ——————————————————————————————————————————————————————
+      phaseIdx: -1,             // -1 = reflection warm-up; 0..N-1 = working phases[phaseIdx]; >=N = past the phases (scene / close)
+      probeUsed: false,         // has the coach spent its ONE Socratic probe in the current phase? (reset on every advance)
     };
 
     /* ---- helpers: classify + group ------------------------------------ */
@@ -1456,195 +1554,69 @@
     }
 
     /* =====================================================================
-       DEMO ENGINE — scripted responder that mirrors the real loop and CANNOT
-       "succeed" until the learner moves to connect Kendra to real help.
-
-       Keyed off the conversation history (robust to retries / truncation):
-         - last learner message kind (coaching reply vs scene line)
-         - number of scene lines spoken
-         - whether the learner has named real help during the escalation beat
+       NO DEMO ENGINE — Marshall runs LIVE only (see WORKER_URL above). The
+       five-phase coaching arc is model-driven end to end, so there is no
+       scripted fallback to maintain. This stub exists solely so getTurn's
+       demo branch stays defined; if the Worker is ever unset, it surfaces a
+       plain notice rather than pretending to run the arc offline.
        ===================================================================== */
-    // Broad on purpose — this is a scripted gate, not real NLP, so it needs to
-    // accept any reasonable phrasing of "point her to outside help," not just
-    // the exact words the coach used. A learner naturally paraphrasing (e.g.
-    // "get her some support" or "talk to somebody") shouldn't get stuck looping.
-    const ESCALATION_RE = /\b(ra|resident assistant|counsel\w*|therap\w*|hotline|988|crisis|adult|professional|help\s?line|health\s?center|clinic|doctor|nurse|dean|advisor|adviser|hall\s?director|hall\s?staff|psych\w*|wellness|someone|somebody|trained|trusted|specialist|expert|staff|support (group|system|line)?|resource|service|program|reach out|connect (her|them)|get (her )?help|title\s?ix|parent)\b/i;
-
-    function countSceneLines(msgs) {
-      return msgs.filter((m) => m.speaker === 'you' && m.kind === 'dialogue').length;
-    }
-    function preSceneCoachReplies(msgs) {
-      let n = 0;
-      for (const m of msgs) {
-        if (worldOf(m) === 'scene') break;
-        if (m.speaker === 'you' && m.kind === 'coaching') n++;
-      }
-      return n;
-    }
-    function lastLearner(msgs) {
-      for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].speaker === 'you') return msgs[i];
-      return null;
-    }
-    // How many times the learner has already replied at the CURRENT escalation
-    // gate without naming real help — walks back from the end, counting
-    // learner coaching replies, until it hits the scene line that opened this
-    // debrief. Caps the gate at a couple of nudges (below) so a learner who's
-    // genuinely stuck (or just testing with junk input) never hard-deadlocks.
-    function escalationAttempts(msgs) {
-      let n = 0;
-      for (let i = msgs.length - 1; i >= 0; i--) {
-        if (msgs[i].speaker === 'you' && msgs[i].kind === 'coaching') { n++; continue; }
-        if (worldOf(msgs[i]) === 'scene') break;
-      }
-      return n;
-    }
-
-    function scriptedTurn(msgs) {
-      const last = lastLearner(msgs);
-      const entered = msgs.some((m) => worldOf(m) === 'scene');
-      const sceneLines = countSceneLines(msgs);
-
-      // --- Manual timeout: learner stepped out to ask the coach a question.
-      //     Keep it supportive and OFF the main script; resume returns to scene.
-      if (state.manualTimeout && last && last.kind === 'coaching') {
-        return {
-          turn: [{ speaker: 'coach', kind: 'coaching', text:
-`Good question to pause on. Whatever you decide, your only jobs in there are to stay, to listen, and to gently point her toward real help — you don't have to have the perfect words. When you're ready, step back in.` }],
-          mode: 'coaching', inputTarget: 'coach',
-        };
-      }
-
-      // --- Coaching replies (learner talking WITH the coach) -------------
-      if (last && last.kind === 'coaching') {
-        // (a) still prepping, before the scene
-        if (!entered) {
-          if (preSceneCoachReplies(msgs) <= 1) {
-            return {
-              turn: [{ speaker: 'coach', kind: 'coaching', text:
-`That's worth naming — that fear is real, and it's exactly why you're the right person to try. One more before we go in: what do you actually want this conversation to do? Not fix everything — just the one thing you hope is true when you leave the room.` }],
-              mode: 'coaching', inputTarget: 'coach',
-            };
-          }
-          // enter the scene
-          return {
-            turn: [
-              { speaker: 'coach', kind: 'coaching', text:
-`You're as ready as you'll be — there's no script for this, and that's okay. Lead with the version of you she already trusts. Step into the scene whenever you're ready.` },
-              { speaker: 'character', kind: 'narration', text:
-`You ease the door open. Kendra's curled under the covers, turned to the wall. Two empty bottles on the nightstand. The blinds are still down at 4pm.` },
-            ],
-            mode: 'scene', inputTarget: 'character',
-          };
-        }
-
-        // (b) responding to a debrief → send the learner back into the scene.
-        //     The ESCALATION GATE (after Kendra's "too much" admission) is the
-        //     exception: it will NOT let the scene continue until the learner
-        //     names connecting her to real help.
-        if (sceneLines === 2) {
-          if (last.text && ESCALATION_RE.test(last.text)) {
-            return {
-              turn: [{ speaker: 'coach', kind: 'coaching', text:
-`Yes — that's the move. Connecting her to someone trained isn't handing her off; it's widening her circle so she isn't leaning on one 20-year-old. Offer it as "us," not a referral — say it to her, gently.` }],
-              mode: 'scene', inputTarget: 'character',
-            };
-          }
-          const attempts = escalationAttempts(msgs);
-          // Don't hard-deadlock here — a learner who's genuinely stuck (or
-          // just poking at the demo) still needs a way through. One nudge,
-          // one more concrete nudge, then accept it and move the practice on.
-          if (attempts >= 2) {
-            return {
-              turn: [{ speaker: 'coach', kind: 'coaching', text:
-`That's okay — you don't need the exact name right now. Even deciding "someone besides just me" is the move. Tell her you want to loop someone else in.` }],
-              mode: 'scene', inputTarget: 'character',
-            };
-          }
-          return {
-            turn: [{ speaker: 'coach', kind: 'coaching', text: attempts === 0
-              ? `I hear how much you want to be the one she leans on — and you can be part of this. But pills mixed with alcohol is past what a roommate can hold alone. Think bigger than tonight: an RA, the campus counseling center, a trusted adult. Who could you connect her to?`
-              : `Let's make it concrete — just name ONE kind of person or place: a counselor, an RA, a trusted adult, even the 988 line. Who comes to mind?` }],
-            mode: 'coaching', inputTarget: 'coach',   // loop here until they name help (max two nudges)
-          };
-        }
-        // any other debrief reply → back into the scene
-        const sendBack = sceneLines >= 3
-          ? `Good — make the first step small, and make it something you'll do *with* her rather than hand to her. Say it to her.`
-          : `That's a kind instinct — lead with exactly that. Say it to her, and don't rush to fill the silence afterward.`;
-        return {
-          turn: [{ speaker: 'coach', kind: 'coaching', text: sendBack }],
-          mode: 'scene', inputTarget: 'character',
-        };
-      }
-
-      // --- Scene lines (learner speaking IN the roleplay) ---------------
-      //     Each scene line draws Kendra's reaction AND the coach's debrief in
-      //     ONE turn, then pauses into coaching (the "Timeout" beat).
-      if (sceneLines === 1) {
-        return {
-          turn: [
-            { speaker: 'character', kind: 'narration', text: `She doesn't turn over. The blanket barely shifts.` },
-            { speaker: 'character', kind: 'dialogue', text: `I'm fine, Jay. Just tired.`, emotionalState: 'guarded' },
-            { speaker: 'coach', kind: 'coaching', text:
-`She gave you the deflection you probably expected — "fine" is a wall, not an answer. But notice what she didn't do: she didn't tell you to leave. You don't have to crack this open in one line. What do you want to say next?` },
-          ],
-          mode: 'coaching', inputTarget: 'coach',
-        };
-      }
-      if (sceneLines === 2) {
-        return {
-          turn: [
-            { speaker: 'character', kind: 'narration', text: `A long pause. When she answers, her voice is thin — close to breaking.` },
-            { speaker: 'character', kind: 'dialogue', text: `…I don't know. Everything just feels like too much. All of it. And I'm so tired of people asking if I'm okay.`, emotionalState: 'raw' },
-            { speaker: 'coach', kind: 'coaching', text:
-`That's her letting you in — and it happened because you stayed instead of pushing. Now the hard part: a caring talk from a friend isn't enough on its own, not with alcohol and pills in the mix. Who could you connect her to — someone whose job is exactly this?` },
-          ],
-          mode: 'coaching', inputTarget: 'coach',   // → escalation gate on the next reply
-        };
-      }
-      if (sceneLines === 3) {
-        return {
-          turn: [
-            { speaker: 'character', kind: 'narration', text: `She finally rolls over. Eyes red, jaw tight.` },
-            { speaker: 'character', kind: 'dialogue', text: `I'm not going to be somebody's case file, Jay.`, emotionalState: 'scared' },
-            { speaker: 'coach', kind: 'coaching', text:
-`She's scared, not refusing — "case file" means she's bracing to be handed off and judged. Don't argue her into it. Make the first step small, and make it shared. What can you offer so she isn't doing this alone?` },
-          ],
-          mode: 'coaching', inputTarget: 'coach',
-        };
-      }
-      // sceneLines >= 4 — learner offered to go WITH her → she relents a crack,
-      // then the coach closes with concrete resources and the practice completes.
-      state.complete = true;
+    function scriptedTurn() {
       return {
-        turn: [
-          { speaker: 'character', kind: 'narration', text: `A long breath. Something in her shoulders loosens, just slightly.` },
-          { speaker: 'character', kind: 'dialogue', text: `…Okay. If you come with me. Just to talk to someone. Once.`, emotionalState: 'fragile relief' },
-          { speaker: 'coach', kind: 'coaching', text:
-`That's the whole skill, right there. You noticed. You reached out. You stayed and listened instead of fixing. And you connected her to real help — without trying to be her therapist.
-
-You didn't carry this alone, and you didn't ask her to either.` },
-        ],
+        turn: [{ speaker: 'coach', kind: 'coaching', text:
+          'This scenario runs on a live AI coach, which isn’t reachable right now. Please try again in a moment.' }],
         mode: 'coaching', inputTarget: 'coach',
       };
     }
 
     /* ---- LIVE path — the shared turn engine (js/sim-core.js) ---------- */
-    /* This page speaks the ROLEPLAY contract: turn[] + mode/inputTarget
-       (with trailing-kind inference) + a final-turn report. JSON repair, the
-       strict parse → retry-once → safe-fallback cycle, and the JSON-history
-       serializer are the ONE shared implementation every simulator page
-       uses — this upgrade also replaces V1's old prose-history serializer,
-       which was the main cause of parse-failure loops. */
+    /* This page speaks the GUIDED-ARC contract: the roleplay turn shape PLUS
+       "deliver" (a whitelisted LOCKED beat id the model may cue — see
+       applyDeliver), per-message character names (a second in-scene voice
+       like "Marshall"), and scene-transition hints (returnLabel /
+       sceneTarget / sceneSetup). JSON repair, strict parse → retry-once →
+       safe fallback, and the JSON-history serializer are the ONE shared
+       implementation every simulator page uses. */
     const TURN_PARSER = SimCore.makeTurnParser({
-      fallbackText: `Let's stay with that for a second. What feels hardest about saying it out loud?`,
+      name: true,
+      sceneHints: true,
+      deliver: (id) => Boolean((ACTIVE_SCENARIO.locked || {})[id]),
+      action: true,                  // "probe" | "teach" intent — the app owns advancement
     });
+
+    /* The per-turn [SYSTEM STATE] line (Prompt Architecture #2): the app is the
+       source of truth for WHICH phase is live and whether the coach has already
+       spent its one probe — the model can't reliably count turns over a rolling
+       window. We append this to the (otherwise static, cache-friendly) system
+       prompt every call so the model reads its state instead of inferring it. */
+    function phaseStateBlock() {
+      const phases = Array.isArray(ACTIVE_SCENARIO.phases) ? ACTIVE_SCENARIO.phases : [];
+      if (!phases.length || state.complete) return '';
+      if (state.hasEnteredScene || state.phaseIdx >= phases.length) {
+        return '\n\n[SYSTEM STATE — you are past the Learn↔Practice phases; follow THE SCENE / COMPLETION rules.]';
+      }
+      if (state.phaseIdx < 0) {
+        return '\n\n[SYSTEM STATE — Reflection warm-up. Calibrate only (do NOT evaluate); set "action":"teach". The app then opens Phase 1.]';
+      }
+      const p = phases[state.phaseIdx] || {};
+      const label = GA_TYPE ? GA_TYPE.fill(p.label || p.id || ('Phase ' + (state.phaseIdx + 1)), ACTIVE_SCENARIO) : (p.label || p.id);
+      const used = state.probeUsed;
+      return '\n\n[SYSTEM STATE — Phase ' + (state.phaseIdx + 1) + '/' + phases.length + ': ' + label
+        + '. Probe used this phase: ' + (used ? 'YES' : 'no') + '.'
+        + (used
+            ? ' You have already spent your one probe — you MUST set "action":"teach" now (open with the verbatim talk-it-through line). Do NOT probe again.'
+            : ' You may set "action":"probe" (ONE short question) or "action":"teach". The app advances to the next hand-off on "teach" — you do not choose it.')
+        + ']';
+    }
+
     const TURN_ENGINE = SimCore.makeTurnEngine({
-      system: () => SYSTEM_PROMPT,   // a fn so Section-1 coupler addenda are honored
+      // static compiled arc + the coupler's context addenda + the per-turn state
+      // line. The big arc stays byte-identical across turns (prompt cache stays
+      // warm); only the short [SYSTEM STATE] tail changes.
+      system: () => SYSTEM_PROMPT + phaseStateBlock(),
       maxTokens: 1600,
       parser: TURN_PARSER,
-      history: SimCore.turnHistory(),
-      scripted: scriptedTurn,        // the demo responder above, when no Worker
+      history: SimCore.turnHistory({ name: true, owner: true }),
+      scripted: scriptedTurn,        // "coach unreachable" stub — this arc is live end to end
     });
     const getTurn = TURN_ENGINE.getTurn;
 
@@ -1700,7 +1672,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
     function videoNode() {
       const wrap = el('div', 'scene-video');
       const videos = INTRO_SCENES.map((s, i) =>
-        `<video class="intro-video" data-idx="${i}" muted playsinline preload="auto" src="${esc(s.src)}" aria-label="Scene-setting video, part ${i + 1} of ${INTRO_SCENES.length}"></video>`
+        `<video class="intro-video" data-idx="${i}" ${INTRO_VIDEO_SOUND ? '' : 'muted'} playsinline preload="auto" src="${esc(s.src)}" aria-label="Scene-setting video, part ${i + 1} of ${INTRO_SCENES.length}"></video>`
       ).join('');
       wrap.innerHTML = videos +
         `<div class="intro-caption-wrap"><p class="intro-caption" id="introCaption" aria-live="polite"></p></div>
@@ -1721,6 +1693,107 @@ You didn't carry this alone, and you didn't ask her to either.` },
        A transient `_enter` flag (set when a message is freshly delivered) adds
        the .enter class so the node fades in once; render() clears the flag. */
     const ec = (m) => (m && m._enter ? ' enter' : '');
+
+    /* Word-by-word reveal HTML for a NARRATION line — each word fades/de-blurs
+       on a short stagger so the line reads as if it's being narrated. Only used
+       on the freshly-delivered render (m._enter); plain text otherwise, so a
+       re-render doesn't replay it. */
+    function revealHTML(text) {
+      let i = 0;
+      return esc(text).split(/(\s+)/).map((tok) => {
+        if (!tok || /^\s+$/.test(tok)) return tok;
+        const d = Math.min(i * 28, 480); i++;   // brisk cascade, finishes within the settle window
+        return `<span class="rvl" style="animation-delay:${d}ms">${tok}</span>`;
+      }).join('');
+    }
+    const narrationHTML = (m) => (m && m._enter ? revealHTML(m.text) : esc(m.text));
+
+    /* Restage a first-person action into the second-person cinematic voice
+       ("I step in beside Marshall" → "You step in beside Marshall"). Pure
+       pronoun/verb transform — it never rewrites content, so there's no
+       distortion (and no LLM round-trip). Applied ONLY to the learner's action
+       narration; their spoken words (in quotes) are always kept verbatim. */
+    function toSecondPerson(text) {
+      let s = String(text || '').trim();
+      const rules = [
+        [/\bI['’]m\b/gi, "you're"],
+        [/\bI am\b/g, 'you are'],
+        [/\bI was\b/g, 'you were'],
+        [/\bI['’]d\b/gi, "you'd"],
+        [/\bI['’]ll\b/gi, "you'll"],
+        [/\bI['’]ve\b/gi, "you've"],
+        [/\bI\b/g, 'you'],
+        [/\bmyself\b/gi, 'yourself'],
+        [/\bmine\b/gi, 'yours'],
+        [/\bMy\b/g, 'Your'], [/\bmy\b/g, 'your'],
+        [/\bMe\b/g, 'You'], [/\bme\b/g, 'you'],
+      ];
+      rules.forEach(([re, rep]) => { s = s.replace(re, rep); });
+      // capitalize the first letter of each sentence (e.g. "you step" → "You step")
+      return s.replace(/(^|[.!?]\s+)([a-z])/g, (m, p, c) => p + c.toUpperCase());
+    }
+
+    /* Split a learner's scene input into ACTION (what they do → narration) and
+       SPEECH (what they say → a bubble). Rule the placeholder teaches: anything
+       in "quotes" is spoken aloud; a line starting with "I …" is an action;
+       otherwise a bare line is treated as speech. The raw text still goes to the
+       model verbatim (this only drives DISPLAY, via the message's _display). */
+    function splitSceneInput(raw) {
+      const t = String(raw || '').trim();
+      const quoteRe = /[“”][^“”]*[“”]|"[^"]*"|'[^']*'/g;
+      const found = t.match(quoteRe);
+      if (found && found.length) {
+        const speech = found.map((q) => q.replace(/^[\s"'“”]+|[\s"'“”]+$/g, '').trim()).filter(Boolean);
+        let action = t.replace(quoteRe, ' ').replace(/\s{2,}/g, ' ').trim();
+        // drop a dangling speech connector ("… and say", "… tells him:", "…:")
+        action = action.replace(/[,:—-]*\s*(and|then|,)?\s*(says?|said|yells?|shouts?|adds?|tells?\s+\w+)\s*[:,]?\s*$/i, '').replace(/[\s,:—-]+$/, '').trim();
+        const beats = [];
+        if (action && /[a-z0-9]/i.test(action)) beats.push({ kind: 'narration', text: toSecondPerson(action) });
+        speech.forEach((s) => beats.push({ kind: 'dialogue', text: s }));
+        return beats.length ? beats : [{ kind: 'dialogue', text: t }];
+      }
+      if (/^(i |i'd |i would |i'll |i'm |i am |i just )/i.test(t)) return [{ kind: 'narration', text: toSecondPerson(t) }];
+      return [{ kind: 'dialogue', text: t }];
+    }
+
+    /* AI split — the reliable path for free-form input (no quotes needed). A fast
+       Haiku call returns {action, speech}; we render action as a second-person
+       stage line and speech as the "You" bubble. The learner's RAW text still
+       goes to the reaction model verbatim — this only refines the DISPLAY, and on
+       any failure the line stays as the learner typed it, so input is never lost. */
+    /* The say/do split system prompt — a small, scenario-NEUTRAL splitter shared by
+       every Guided Arc scene (the author toggles it via scene.sayDoSplit, and names
+       the people via scene.characters; the splitter itself needs no scenario detail).
+       Kept static so the FAST-model call stays cache-friendly. */
+    const SPLIT_SYSTEM = 'You split a person\'s move in a live role-play scene into what they DO and what they SAY, for display. ALWAYS return ONLY a JSON object — start with { and end with } — never ask a question, never explain, never refuse, even if the move is short or ambiguous. Shape: {"action":"...","speech":"..."}.\n- "action": what they physically do (step, look, turn, stand, move toward someone), rewritten in SECOND person ("You step in beside them"). Use "" if they only speak.\n- "speech": the words they say out loud. If they already quoted themselves, use those words VERBATIM. If they only DESCRIBED what they would say ("I\'d tell him to knock it off", "ask her to stop"), TRANSPOSE it into the plainest first-person line they would actually speak in the moment — keep their exact tone, directness, and content.\n- TRANSPOSE, NEVER IMPROVE: do not soften, sharpen, add courtesy or tact, clean up, or make them sound more articulate than they wrote. Match their register — blunt stays blunt, rude stays rude. Never invent words for a purely physical action, and never add content they did not express. Use "" if they only act.\n- A speech verb (tell/say/ask/warn/snap/yell) signals SAY → transpose it to speech. Only truly physical, non-verbal moves are action.\nExamples:\n"step between them" -> {"action":"You step between them","speech":""}\n"knock it off" -> {"action":"","speech":"Knock it off"}\n"I\'d tell him to shut up" -> {"action":"","speech":"Shut up"}\n"tell him to drop it and then check on her after" -> {"action":"You turn to check on her after","speech":"Drop it"}\n"I\'d calmly ask him to please stop" -> {"action":"","speech":"Please stop"}\n"I look over and say cut it out" -> {"action":"You look over","speech":"Cut it out"}';
+    async function splitSceneInputAI(text) {
+      const raw = await SimCore.callModel({
+        model: SimCore.MODELS.FAST,
+        maxTokens: 200,
+        system: SPLIT_SYSTEM,
+        messages: [{ role: 'user', content: String(text || '') }],
+      });
+      const obj = SimCore.parseJson(raw) || {};
+      const action = String(obj.action || '').trim();
+      const speech = String(obj.speech || '').trim();
+      const beats = [];
+      if (action) beats.push({ kind: 'narration', text: action });
+      if (speech) beats.push({ kind: 'dialogue', text: speech });
+      return beats.length ? beats : null;
+    }
+    /* Resolve the learner's scene move for display ONCE: try the fast AI split
+       (what they DO vs SAY), fall back to the deterministic local split, and never
+       lose their words. Awaited by send() while a "considering…" loader stands in,
+       so the finished move renders a single time — no raw-text-then-re-split flash. */
+    async function finalizeYouDisplay(msg) {
+      let beats = null;
+      try { beats = await splitSceneInputAI(msg.text); } catch (e) { /* fall through */ }
+      if (!beats || !beats.length) beats = splitSceneInput(msg.text);   // deterministic fallback
+      msg._display = (beats && beats.length) ? beats : [{ kind: 'dialogue', text: msg.text }];
+      msg._pending = false;
+      msg._enter = true;   // re-arm so the resolved move fades in as it replaces the loader
+    }
+
     function coachNode(m) {
       const wrap = el('div', 'coach-msg' + ec(m));
       wrap.appendChild(el('div', 'coach-avatar', '<i class="fa-solid fa-chalkboard-user"></i>'));
@@ -1736,30 +1809,66 @@ You didn't carry this alone, and you didn't ask her to either.` },
       wrap.appendChild(el('div', 'bubble', esc(m.text)));
       return wrap;
     }
-    function charNode(m) {
-      // narration-only line (no dialogue) → quiet centered scene-setting text
-      if (m.kind === 'narration') return el('div', 'scene-narration' + ec(m), esc(m.text));
+    function charNode(m, isConsequence) {
+      // narration-only line (no dialogue) → quiet centered scene-setting text.
+      // The outcome narration that lands right after the learner acts is the
+      // CONSEQUENCE tier (larger, spotlit) — flagged by the caller.
+      if (m.kind === 'narration') return el('div', 'scene-narration' + (isConsequence ? ' consequence' : '') + ec(m), narrationHTML(m));
       const wrap = el('div', 'char-line' + ec(m));
-      wrap.appendChild(el('div', 'char-avatar', esc(SCENARIO.character.charAt(0))));
+      // Per-message speaker (m.name) so a second in-scene character (Marshall)
+      // is labeled correctly; falls back to the scenario's default character.
+      const speaker = m.name || SCENARIO.character;
+      wrap.appendChild(el('div', 'char-avatar', esc(speaker.charAt(0))));
       const body = el('div', 'char-body');
       const head = el('div', 'char-head');
-      head.appendChild(el('span', 'char-name', esc(SCENARIO.character)));
-      if (m.emotionalState) head.appendChild(el('span', 'char-state', esc(m.emotionalState)));
+      head.appendChild(el('span', 'char-name', esc(speaker)));
+      // emotionalState is intentionally NOT rendered as a chip in this scenario —
+      // the emotion lives in the words + narration, not a clinical label.
       body.appendChild(head);
       body.appendChild(el('div', 'char-bubble', esc(m.text)));
       wrap.appendChild(body);
       return wrap;
     }
-    function youSceneNode(m, absIndex, interactive) {
-      const wrap = el('div', 'you-scene' + ec(m));
-      wrap.appendChild(el('div', 'cap', `<i class="fa-solid fa-microphone"></i> You — said to ${esc(SCENARIO.character)}`));
-      wrap.appendChild(el('div', 'bubble', esc(m.text)));
-      if (interactive && !state.complete) {
-        const retry = el('button', 'retry', '<i class="fa-solid fa-arrows-rotate"></i> Try a different approach');
-        retry.addEventListener('click', () => tryDifferentApproach(absIndex));
-        wrap.appendChild(retry);
+    /* Render the learner's scene contribution, SPLIT: what they DO renders as a
+       centered action line (you-narration); what they SAY renders in the amber
+       "You" bubble. Driven by m._display (set in send() via splitSceneInput);
+       falls back to one bubble for older/plain messages. One retry per turn. */
+    function appendYouBeats(card, m, absIndex, interactive) {
+      // While the say/do split is still resolving, stand in with a "considering…"
+      // loader on the You side — the move then renders ONCE (never raw-then-split).
+      if (m._pending) {
+        const wrap = el('div', 'you-scene' + ec(m));
+        wrap.appendChild(el('div', 'cap', `<i class="fa-solid fa-quote-right"></i> ${esc(ACTIVE_SCENARIO.sceneLineCaption || 'You')}`));
+        wrap.appendChild(el('div', 'you-loading', '<span></span><span></span><span></span>'));
+        card.appendChild(wrap);
+        return;
       }
-      return wrap;
+      const disp = (Array.isArray(m._display) && m._display.length)
+        ? m._display
+        : [{ kind: (m.kind === 'narration' ? 'narration' : 'dialogue'), text: m.text }];
+      const showRetry = interactive && !state.complete;
+      const retryNode = () => {
+        const r = el('button', 'retry', '<i class="fa-solid fa-arrows-rotate"></i> Try a different approach');
+        r.addEventListener('click', () => tryDifferentApproach(absIndex));
+        return r;
+      };
+      // ACTION lines first (centered), in order.
+      disp.filter((b) => b.kind === 'narration').forEach((b) => {
+        card.appendChild(el('div', 'you-narration' + ec(m), esc(b.text)));
+      });
+      // SPEECH lines grouped under one "You" bubble stack (retry lives here).
+      const speech = disp.filter((b) => b.kind === 'dialogue');
+      if (speech.length) {
+        const wrap = el('div', 'you-scene' + ec(m));
+        wrap.appendChild(el('div', 'cap', `<i class="fa-solid fa-quote-right"></i> ${esc(ACTIVE_SCENARIO.sceneLineCaption || 'You')}`));
+        speech.forEach((b) => wrap.appendChild(el('div', 'bubble', esc(b.text))));
+        if (showRetry) wrap.appendChild(retryNode());
+        card.appendChild(wrap);
+      } else if (showRetry) {
+        const holder = el('div', 'you-narration-actions');
+        holder.appendChild(retryNode());
+        card.appendChild(holder);
+      }
     }
     // narration that belongs to a character line WITH dialogue is rendered inside
     // the card as italic lead-in; we handle that by emitting it as its own node.
@@ -1771,10 +1880,19 @@ You didn't carry this alone, and you didn't ask her to either.` },
     function sceneCardAll(msgs, interactive) {
       const card = el('div', 'stage-card');
       card.appendChild(el('div', 'scene-tag', '<i class="fa-solid fa-circle"></i> Scene'));
+      // Track the previous scene speaker so the FIRST narration after a learner
+      // action renders as the emphasized CONSEQUENCE tier (the outcome of what
+      // they just did) — ambient scene-setting narration stays quiet.
+      let prevSceneSpeaker = null;
       msgs.forEach((m, idx) => {
         if (worldOf(m) !== 'scene') return;
-        if (m.speaker === 'character') card.appendChild(charNode(m));
-        else if (m.speaker === 'you') card.appendChild(youSceneNode(m, idx, interactive));
+        if (m.speaker === 'character') {
+          const isConsequence = m.kind === 'narration' && prevSceneSpeaker === 'you';
+          card.appendChild(charNode(m, isConsequence));
+        } else if (m.speaker === 'you') {
+          appendYouBeats(card, m, idx, interactive);
+        }
+        prevSceneSpeaker = m.speaker;
       });
       return card;
     }
@@ -1782,9 +1900,9 @@ You didn't carry this alone, and you didn't ask her to either.` },
     /* ---- the resources card, presented AS a coach message (same avatar +
        label + bubble as every other coach line) rather than a separate boxed
        widget — it's the coach sharing something, not a bolted-on component. -- */
-    /* Writer-authored resources (scenario.resources) + the LOCKED crisis
-       floor — appended inside the shared builder, so no page can forget it.
-       Icons are cycled from the shared pool. */
+    /* ---- the resources card, presented AS a coach message — built by the
+       SHARED Section-3 debrief (js/sim-debrief.js). Marshall's resources are
+       HR/policy/EEOC; elevatedStakes is false so no crisis floor is added. */
     const fillTxt = (t) => AitheraScenario.fill(t, ACTIVE_SCENARIO);
     const resourcesNode = () => SimDebrief.resourcesNode({
       lead: ACTIVE_SCENARIO.resources.lead,
@@ -1793,33 +1911,37 @@ You didn't carry this alone, and you didn't ask her to either.` },
       fill: fillTxt,
     });
 
-    /* ---- the closing summary — the SHARED Section-3 debrief -----------
-       (js/sim-debrief.js). This page supplies only CONTENT — the demo
-       fallback lists, the writer-authored playbook + resources — plus its
-       render/announce/typing hooks. The stepper, the results modal, the
-       page sequencing and the exit are the one shared implementation. */
-    // Demo fallback lists. In live mode the model writes the strengths and
-    // growth areas from what the learner actually said (state.report).
+    /* ---- the closing summary — the SHARED Section-3 debrief ------------
+       (js/sim-debrief.js). This page supplies only CONTENT — the safety-net
+       lists below and the guaranteed nine-component playbook — plus hooks. */
+    // Safety-net lists, shown only if a live turn ever arrives WITHOUT a
+    // report. In normal operation the model writes strengths and growth areas
+    // from what the learner actually said (state.report).
+    // Generic safety-net lists — shown ONLY if a live turn ever arrives without a
+    // report (in normal operation the model writes strengths/growth from what the
+    // learner actually said). Kept scenario-neutral so any Guided Arc can use them.
     const CLOSING_STRENGTHS = [
-      { icon: 'fa-ear-listen', title: 'You stayed instead of pushing', body: `When Kendra deflected with "I'm fine," you didn't press — that's why she let you back in a few lines later.` },
-      { icon: 'fa-share-nodes', title: 'You named real help, not just feelings', body: `Once the coach asked who you could connect her to, you named someone trained — not just "I'm here for you."` },
-      { icon: 'fa-handshake', title: 'You made it concrete and shared', body: `Offering to go WITH her, not just telling her to get help, is what actually got her to say yes.` },
+      { icon: 'fa-circle-check', title: 'You engaged the questions', body: `You worked the reasoning through rather than brushing past it.` },
+      { icon: 'fa-comments', title: 'You thought it through out loud', body: `You committed to a real answer at each step, which is where the learning lands.` },
     ];
     const CLOSING_GROWTH = [
-      { icon: 'fa-clock', title: 'Naming help took a nudge', body: `The coach had to ask "who could you connect her to?" before you named someone — getting there a beat sooner keeps the momentum she gave you.` },
-      { icon: 'fa-shield-heart', title: 'Watch for the "case file" fear', body: `When Kendra said she didn't want to be "somebody's case file," that's a fear of being handed off — naming that you're not stepping back, just adding support, defuses it fastest.` },
+      { icon: 'fa-arrow-trend-up', title: 'Keep going a step further', body: `Push past the first read — the strongest responses name the impact and the concrete next move.` },
     ];
 
     /* Pages: strengths → growth areas → the playbook. The playbook is the
        expert-validated toolkit every learner leaves with, IDENTICAL for
-       everyone regardless of how their conversation went — writer-authored
-       content; the shared debrief guarantees it renders on completion,
-       never model-generated. */
+       everyone regardless of path — writer-authored (nine components); the
+       shared debrief guarantees it renders on completion, never generated.
+       Marshall keeps its own playbook icon set (legal/workplace themed). */
+    const PLAYBOOK_ICONS = ['fa-scale-balanced', 'fa-building-shield', 'fa-people-group', 'fa-crosshairs', 'fa-weight-hanging', 'fa-file-lines', 'fa-hand', 'fa-hand-holding-heart', 'fa-flag'];
     const DEBRIEF_PAGES = SimDebrief.reportPages({
       report: () => state.report,                 // read at open time — it rides the final turn
       fallbackStrengths: CLOSING_STRENGTHS,
       fallbackGrowth: CLOSING_GROWTH,
-      playbook: (ACTIVE_SCENARIO.playbook || []).map((p) => ({ title: fillTxt(p.title || ''), body: fillTxt(p.body || '') })),
+      playbook: (ACTIVE_SCENARIO.playbook || []).map((p, i) => ({
+        icon: PLAYBOOK_ICONS[i % PLAYBOOK_ICONS.length],
+        title: fillTxt(p.title || ''), body: fillTxt(p.body || ''),
+      })),
     });
     const DEBRIEF = SimDebrief.makeFlow({
       state,
@@ -1843,11 +1965,86 @@ You didn't carry this alone, and you didn't ask her to either.` },
        ===================================================================== */
     let typingHost = null;     // where the typing indicator currently lives
 
+    /* Render the coach sheet INCREMENTALLY instead of wiping + rebuilding its
+       innerHTML every render (which reset scrollTop to 0, so every new bubble
+       slammed the thread from the top). Each coach message keeps ONE node, cached
+       by message identity; a render just appends the new ones and drops stale
+       ones — the typing indicator and resources card are left in place. Scroll
+       position is preserved, so following the thread is a small, gentle move. */
+    const coachNodeMap = new WeakMap();
+    function reconcileCoachBody(run) {
+      const desired = run.map((m) => {
+        let node = coachNodeMap.get(m);
+        if (!node) {
+          node = (m.speaker === 'you') ? youCoachNode(m) : coachNode(m);
+          node.dataset.coachMsg = '1';
+          coachNodeMap.set(m, node);
+        }
+        return node;
+      });
+      const keep = new Set(desired);
+      Array.from(coachPanelBody.children).forEach((child) => {
+        if (child.dataset && child.dataset.coachMsg === '1' && !keep.has(child)) child.remove();
+      });
+      const typing = document.getElementById('typingNode');
+      desired.forEach((node) => {
+        if (node.parentNode !== coachPanelBody) coachPanelBody.insertBefore(node, typing || null);
+      });
+      if (typing && typing.parentNode === coachPanelBody) coachPanelBody.appendChild(typing);  // keep dots last
+    }
+
+    /* —— Raise the coach sheet as ONE piece ————————————————————————————————
+       The sheet is bottom-anchored (it sits on the input bar). New content used
+       to snap the sheet taller and PIN the newest bubble to the bottom while the
+       height tweened — so only the header (riding the top edge) visibly moved,
+       arriving ~300ms late and reading as out-of-sync with the thread. Instead we
+       now lay the sheet out at its final height immediately, then ease the WHOLE
+       sheet — header + thread together — up into place from a dropped start: we
+       translateY it down by exactly how much it grew (the extra height tucks
+       behind the input bar, and the header lands where the shorter sheet's top
+       was), then animate that transform back to 0. Header and messages share one
+       motion, so nothing lags. Once the sheet is at its max height it stops
+       growing and the body scrolls instead (render() glides that scroll — see
+       below). Returns true if it actually animated. */
+    let lastCoachH = null;      // sheet height we last painted, = the rise's start point
+    let coachGrowRAF = 0;       // in-flight rise, so a fresh one can cancel it
+    function tweenCoachHeight() {
+      if (!app.classList.contains('coach-up')) { lastCoachH = null; return false; }
+      if (coachGrowRAF) { cancelAnimationFrame(coachGrowRAF); coachGrowRAF = 0; }
+      coachPanel.style.transition = 'none';             // we drive the transform ourselves this beat
+      coachPanel.style.transform = '';                  // sit at the resting position to measure
+      const target = coachPanel.offsetHeight;           // forces layout → true post-render height
+      const from = lastCoachH;
+      lastCoachH = target;
+      // Newest bubble to the bottom now that the sheet is laid out at final height.
+      coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
+      // First paint, no real change, or reduced-motion → let it be instant.
+      if (from == null || reducedMotion() || Math.abs(target - from) < 2) { coachPanel.style.transition = ''; return false; }
+      const delta = target - from;                      // how much taller we grew = how far to rise
+      const dur = 300;
+      const ease = (t) => 1 - Math.pow(1 - t, 3);       // easeOutCubic — quick, settles soft
+      let t0 = null;
+      const step = (ts) => {
+        if (t0 == null) t0 = ts;
+        const p = Math.min(1, (ts - t0) / dur);
+        coachPanel.style.transform = 'translateY(' + (delta * (1 - ease(p))) + 'px)';   // header + thread, one block
+        if (p < 1) { coachGrowRAF = requestAnimationFrame(step); }
+        else { coachGrowRAF = 0; coachPanel.style.transform = ''; coachPanel.style.transition = ''; }  // release to CSS
+      };
+      coachPanel.style.transform = 'translateY(' + delta + 'px)';   // start dropped, synchronously
+      coachGrowRAF = requestAnimationFrame(step);
+      return true;
+    }
+
     function render() {
       const { mode, inputTarget, hasEnteredScene, messages, complete } = state;
       // remember where the practice is scrolled so toggling Learn/Practice never
       // jumps it — we only follow to the bottom when new scene content arrives.
       const prevStageScroll = stage.scrollTop;
+      // Was the coach sheet already at/near the bottom before this render? Only
+      // then do we follow new content down — if the learner scrolled up to read,
+      // leave them there instead of yanking the thread.
+      const coachNearBottom = (coachPanelBody.scrollHeight - coachPanelBody.scrollTop - coachPanelBody.clientHeight) < 80;
       // the AI Coach sheet is up whenever we're learning — but ONLY after the learner
       // has chosen to begin (we anchor on the scene first; the sheet never auto-opens)
       const coachUp = mode === 'coaching' && state.started;
@@ -1907,14 +2104,16 @@ You didn't carry this alone, and you didn't ask her to either.` },
       // establishing card, which read as a flash mid-transition. The real
       // swap to the establishing/scene card happens once enterScene() turns
       // videoPlaying off for good.
+      // Same "mount once" guard for the narrated/reading context: re-renders for
+      // other reasons (the coach sheet rising) must not tear down a playing card.
       const videoAlreadyMounted = state.videoPlaying && stageInner.querySelector('.scene-video');
       const audioAlreadyMounted = state.audioIntroPlaying && stageInner.querySelector('.sc-wrap');
       if (!videoAlreadyMounted && !audioAlreadyMounted) {
         stageInner.innerHTML = '';
-        if (state.audioIntroPlaying) {
-          mountAudioIntro(stageInner);
-        } else if (state.videoPlaying) {
+        if (state.videoPlaying) {
           stageInner.appendChild(videoNode());
+        } else if (state.audioIntroPlaying) {
+          mountAudioIntro(stageInner);
         } else if (hasEnteredScene) {
           // Retry controls render whenever the scene is live (not complete / mid-reveal),
           // REGARDLESS of mode — the stage is inert while the coach sheet is up, so they
@@ -1924,11 +2123,12 @@ You didn't carry this alone, and you didn't ask her to either.` },
           // resources live in the coach sheet (the practice never shows them)
         } else {
           const est = el('div', 'establishing');
+          const estab = ACTIVE_SCENARIO.establishing || {};
           est.innerHTML =
-            `<div class="est-eyebrow">The scene</div>
-             <h2 class="est-title">Kendra’s room</h2>
-             <p class="est-sub">Kendra’s been drinking alone since she lost her Nona. You’re about to check on her.</p>
-             <div class="est-with">with <b>${esc(SCENARIO.character)}</b></div>`;
+            `<div class="est-eyebrow">${esc(estab.eyebrow || 'The scenario')}</div>
+             <h2 class="est-title">${esc(estab.title || SCENARIO.title)}</h2>
+             <p class="est-sub">${esc(estab.sub || '')}</p>
+             ${ACTIVE_SCENARIO.course ? `<div class="est-with">${esc(ACTIVE_SCENARIO.course)}</div>` : ''}`;
           stageInner.appendChild(est);
         }
       }
@@ -1937,28 +2137,26 @@ You didn't carry this alone, and you didn't ask her to either.` },
       coachPanel.toggleAttribute('inert', !coachUp);
       coachPanel.setAttribute('aria-hidden', coachUp ? 'false' : 'true');
       if (coachUp) {
-        coachPanelBody.innerHTML = '';
-        {
-          // The closing recap shows here like any other coach line — the
-          // loading beats live in the CTA slot below (see showAnalyzing).
-          const coachingRun = trailingRun(messages, 'coaching');
-          coachingRun.forEach((m) => coachPanelBody.appendChild(m.speaker === 'you' ? youCoachNode(m) : coachNode(m)));
-          // The full strengths/growth-areas report lives in its own modal (see
-          // resultsModal below) — opened only when the learner taps "View full
-          // results" in the footer, never dumped in here. Resources are the
-          // one thing that still shows inline, and only once they've been
-          // through that report, so the coach panel reads as ONE thing at a
-          // time landing, not everything at once.
-          if (complete && !state.delivering && state.resultsViewed) {
-            coachPanelBody.appendChild(resourcesNode());
-          }
-        }
+        // Incremental — preserves scroll (see reconcileCoachBody). The closing
+        // recap shows here like any other coach line; loading beats live in the
+        // CTA slot below (see showAnalyzing), not stacked over the conversation.
+        reconcileCoachBody(trailingRun(messages, 'coaching'));
+        // The full strengths/growth-areas report lives in its own modal — opened
+        // only when the learner taps "View full results", never dumped here.
+        // Resources are the one thing that shows inline, and only once they've
+        // been through that report. Managed by id so the reconcile leaves it be.
+        const showRes = complete && !state.delivering && state.resultsViewed;
+        let resNode = document.getElementById('coachResources');
+        if (showRes && !resNode) { resNode = resourcesNode(); resNode.id = 'coachResources'; coachPanelBody.appendChild(resNode); }
+        else if (!showRes && resNode) { resNode.remove(); }
       }
 
       /* —— Input bar — the composer, OR a CTA/indicator that takes its place —— */
       // start CTA (bring the coach in) · entry CTA (step in) · "Analyzing…"/"Watching…" beats · debrief CTA
       const showStart     = !state.started && !complete && !state.videoPlaying && !state.audioIntroPlaying;
       const showEntry     = state.awaitingEntry && !hasEnteredScene && !state.entryPromptDismissed && !state.delivering;
+      // The closing "Analyzing… Determining…" beats now cycle in THIS slot
+      // (where "View full results" will land), not stacked in the chat body.
       const showAnalyzing = state.analyzing || state.closingStepperActive;
       // videoPlaying stays true after the clips end too (it lingers as the
       // blurred coach-prep backdrop — see the render() guard above), so this
@@ -1999,13 +2197,27 @@ You didn't carry this alone, and you didn't ask her to either.` },
           ? '<i class="fa-solid fa-chalkboard-user"></i> See your results <i class="fa-solid fa-arrow-right arrow"></i>'
           : '<i class="fa-solid fa-chalkboard-user"></i> See AI Coach feedback <i class="fa-solid fa-arrow-right arrow"></i>';
       }
+      if (showReturn) {
+        // A coach-led hand-off can name its own CTA (e.g. "Check in with Marshall").
+        const rl = state.returnLabel || 'Continue practicing';
+        returnCtaBtn.innerHTML = `<i class="fa-solid fa-door-open"></i> ${esc(rl)} <i class="fa-solid fa-arrow-right arrow"></i>`;
+      }
 
       if (inputTarget === 'character') {
-        composer.placeholder = `Say this to ${SCENARIO.character}…`;
-        inputIcon.className = 'fa-solid fa-microphone lead-icon';
+        // Phase 3 is an ACTION console — the composer asks what the learner DOES,
+        // not just what they say. Action icon, action-first placeholder.
+        composer.placeholder = state.sceneTarget ? `Say something to ${state.sceneTarget}…`
+          : (ACTIVE_SCENARIO.sceneInputPlaceholder || `Say this to ${SCENARIO.character}…`);
+        inputIcon.className = 'fa-solid fa-hand lead-icon';
+        sendBtn.classList.add('is-respond');
+        sendBtn.setAttribute('aria-label', 'Respond');
+        sendBtn.innerHTML = 'Respond <i class="fa-solid fa-arrow-right"></i>';
       } else {
         composer.placeholder = 'Type your response…';
         inputIcon.className = 'fa-solid fa-comment lead-icon';
+        sendBtn.classList.remove('is-respond');
+        sendBtn.setAttribute('aria-label', 'Send');
+        sendBtn.innerHTML = '<i class="fa-solid fa-arrow-up"></i>';
       }
 
       composer.disabled = complete || state.transitioning || state.sending || state.delivering || !state.started;
@@ -2037,16 +2249,19 @@ You didn't carry this alone, and you didn't ask her to either.` },
       // line scrolls into the VISIBLE peek above the sheet (not behind it)
       stageInner.style.paddingBottom = (coachUp && hasEnteredScene) ? (coachPanel.offsetHeight + 20) + 'px' : '';
 
-      // a freshly-delivered message animates in exactly once
-      messages.forEach((m) => { if (m._enter) m._enter = false; });
-
-      manageFocus(trap);
-      // Coach thread: grow the sheet smoothly (tweenCoachHeight pins the newest
-      // bubble to the bottom itself); once maxed out, glide the scroll to the new
-      // bottom instead of snapping — instant fallback when motion is reduced or the
-      // tab is backgrounded (where smooth scroll silently no-ops).
+      // Follow the coach thread to the bottom — but SMOOTHLY, not in a snap.
+      // If the sheet's height changed, tweenCoachHeight() animates the growth and
+      // pins the thread to the bottom itself on every frame (the newest bubble
+      // stays put while the sheet unfurls). If the sheet is already at full height,
+      // glide the body's scroll down to the new bottom instead of jumping it.
+      // Either way, only follow when a reveal is delivering or we were already near
+      // the bottom; if the learner scrolled up to re-read, leave them be.
       if (coachUp) {
-        if (!tweenCoachHeight()) {
+        const grew = tweenCoachHeight();
+        if (!grew && (coachNearBottom || state.delivering)) {
+          // Smooth-glide the thread to the new bottom — but only when it can
+          // actually animate. Reduced-motion and backgrounded tabs (where smooth
+          // scroll silently no-ops) fall back to an instant, guaranteed pin.
           const canGlide = !reducedMotion() && document.visibilityState === 'visible';
           if (canGlide) coachPanelBody.scrollTo({ top: coachPanelBody.scrollHeight, behavior: 'smooth' });
           else coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
@@ -2054,63 +2269,64 @@ You didn't carry this alone, and you didn't ask her to either.` },
       } else {
         lastCoachH = null;
       }
-      // The scene stage follows only when fresh scene content arrived.
-      requestAnimationFrame(() => {
-        if (followStage) { stage.scrollTop = stage.scrollHeight; followStage = false; }
-        else { stage.scrollTop = prevStageScroll; }
-      });
+
+      // The SCENE stage follows the same synchronous pin (the rAF version jumped:
+      // it scrolled to the new bottom a frame AFTER the wipe/rebuild reset it to 0,
+      // so you saw the thread drop down and then the beat slide up). Follow to the
+      // bottom only when fresh scene content just arrived; otherwise hold position
+      // so a Learn/Practice toggle never moves the scene.
+      if (followStage) { stage.scrollTop = stage.scrollHeight; followStage = false; }
+      else { stage.scrollTop = prevStageScroll; }
+
+      // a freshly-delivered message animates in exactly once
+      messages.forEach((m) => { if (m._enter) m._enter = false; });
+
+      manageFocus(trap);
     }
     // set true right before a render that appends scene content, so it follows down
     let followStage = false;
 
-    /* —— Grow the coach sheet SMOOTHLY ————————————————————————————————————
-       The sheet is bottom-anchored (it sits on the input bar), so its height
-       grows UPWARD. New content used to snap to its new height in one frame —
-       the sheet jumped taller and the thread jumped up at once. Instead we TWEEN
-       the height from the last painted value to the new one and pin the thread to
-       the bottom every frame: the newest bubble holds its place (fading in where
-       it sits) while the sheet unfurls above it and earlier lines ease into view.
-       Once the sheet hits its max height it stops growing and the body scrolls
-       (render()/showTyping() glide that scroll). Returns true if it animated. */
-    let lastCoachH = null;      // sheet height we last painted, = the tween's start point
-    let coachGrowRAF = 0;       // in-flight grow, so a fresh one can cancel it
-    function tweenCoachHeight() {
-      if (!app.classList.contains('coach-up')) { lastCoachH = null; return false; }
-      if (coachGrowRAF) { cancelAnimationFrame(coachGrowRAF); coachGrowRAF = 0; }
-      coachPanel.style.height = '';                     // measure the NATURAL height, not a mid-tween value
-      const target = coachPanel.offsetHeight;           // forces layout → true post-render height
-      const from = lastCoachH;
-      lastCoachH = target;
-      if (from == null || reducedMotion() || Math.abs(target - from) < 2) return false;
-      coachPanelBody.scrollTop = coachPanelBody.scrollHeight;   // pin the newest bubble NOW, before the tween
-      const dur = 300;
-      const ease = (t) => 1 - Math.pow(1 - t, 3);       // easeOutCubic
-      let t0 = null;
-      const step = (ts) => {
-        if (t0 == null) t0 = ts;
-        const p = Math.min(1, (ts - t0) / dur);
-        coachPanel.style.height = (from + (target - from) * ease(p)) + 'px';
-        coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
-        if (p < 1) { coachGrowRAF = requestAnimationFrame(step); }
-        else { coachGrowRAF = 0; coachPanel.style.height = ''; }   // release back to auto
-      };
-      coachGrowRAF = requestAnimationFrame(step);
-      return true;
+    /* Reveal a run of SCENE beats one at a time with deliberate offsets — a breath
+       of air before narration/context lands, a typing indicator before a spoken
+       line — then a settle so each beat is read before the next. Shared by the
+       break-room setup (enterScene) and every in-scene reaction (deliverTurn) so
+       they feel identical. `dead` is an optional stale-guard from the caller. */
+    async function revealScene(items, dead) {
+      for (const m of items) {
+        if (state.mode !== 'scene') { state.mode = 'scene'; state.inputTarget = 'character'; }
+        hideTyping();
+        if (m.speaker === 'character' && m.kind === 'dialogue') {
+          showTyping(); await wait(reducedMotion() ? 300 : 950); hideTyping();   // spoken line arrives behind the dots
+        } else {
+          await wait(reducedMotion() ? 140 : 650);   // a breath before narration/context lands
+        }
+        if (dead && dead()) return;
+        m._enter = true;
+        if (!state.hasEnteredScene) state.hasEnteredScene = true;
+        followStage = true;
+        state.messages.push(m);
+        render();
+        await wait(reducedMotion() ? 140 : 700);      // settle so it reads before the next beat
+        if (dead && dead()) return;
+      }
     }
 
     /* ---- typing indicator (in the right world) ------------------------ */
-    function showTyping() {
+    function showTyping(label) {
       hideTyping();
       const coachUp = state.mode === 'coaching';
-      const node = el('div', 'typing' + (coachUp ? '' : ' scene'), '<span></span><span></span><span></span>');
+      const dots = '<span class="tdots"><span></span><span></span><span></span></span>';
+      const lbl = label ? `<span class="tlabel">${esc(label)}</span>` : '';
+      const node = el('div', 'typing' + (coachUp ? '' : ' scene'), dots + lbl);
       node.id = 'typingNode';
       // coach lines type in the sheet (prep AND debriefs); scene lines type in the practice
-      if (coachUp) { typingHost = coachPanelBody; coachPanelBody.appendChild(node); }
-      else { typingHost = stageInner; stageInner.appendChild(node); }
-      if (typingHost === coachPanelBody) {
-        // the dots grow the sheet too — tween it (which pins the thread); pin instantly if already maxed
+      if (coachUp) {
+        typingHost = coachPanelBody; coachPanelBody.appendChild(node);
+        // The dots grow the sheet too — tween that growth (which pins the thread
+        // itself). Only pin instantly when the sheet's already maxed out (no grow).
         if (!tweenCoachHeight()) coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
       } else {
+        typingHost = stageInner; stageInner.appendChild(node);
         requestAnimationFrame(() => { stage.scrollTop = 1e9; });
       }
     }
@@ -2222,11 +2438,25 @@ You didn't carry this alone, and you didn't ask her to either.` },
       return new Promise((resolve) => {
         let done = false;
         const finish = () => { if (done) return; done = true; cleanup(); resolve(); };
-        function cleanup() { videoEl.removeEventListener('ended', finish); videoEl.removeEventListener('error', finish); }
+        function cleanup() { videoEl.removeEventListener('ended', finish); videoEl.removeEventListener('error', finish); clearInterval(watch); }
+        // If the element already errored (e.g. the 'error' fired while play() was
+        // rejecting, before we attached), don't wait — move on to the coach.
+        if (videoEl.error) { resolve(); return; }
         videoEl.addEventListener('ended', finish);
         videoEl.addEventListener('error', finish);
-        // Safety net so a missing/slow asset can't trap the learner on a black screen.
-        setTimeout(() => { if (mySeq === introSeq) finish(); }, 12000);
+        // Safety net is a STALL watchdog, not a fixed cap — so a long clip plays
+        // fully, but a missing/frozen asset (or an abandoned sequence) still can't
+        // trap the learner. Finish only if the sequence was superseded, or
+        // playback made no progress for ~10s while trying to play (not merely
+        // paused by the learner).
+        let last = -1, stalls = 0;
+        const watch = setInterval(() => {
+          if (mySeq !== introSeq || videoEl.error) { finish(); return; }
+          const t = videoEl.currentTime || 0;
+          if (t > last + 0.25) { last = t; stalls = 0; return; }
+          if (!videoEl.paused && !videoEl.ended) stalls++;
+          if (stalls >= 5) finish();
+        }, 2000);
       });
     }
 
@@ -2271,13 +2501,18 @@ You didn't carry this alone, and you didn't ask her to either.` },
       // the video's frozen final frame (now blurred/dimmed), not the
       // establishing card. See the render() guard above for why that avoids
       // a flash back to "Kendra's room" mid-transition.
+      // Freeze + silence the clip so a not-yet-ended (or sound-on) video can't
+      // keep playing audio under the coaching that follows.
+      document.querySelectorAll('#stage .intro-video').forEach((v) => { try { v.pause(); v.muted = true; } catch (e) {} });
       await wait(reducedMotion() ? 0 : 250);   // a short breath, not a second decision point
-      // the video IS the transition — hand Section 2 its ContextRecord
-      CONTEXT.done({ modality: 'video' });
+      CONTEXT.done({ modality: 'video' });   // the video IS the transition — the coupler hands off
     }
 
-    /* AUDIO / READING intro — mirrors the video cold open: it takes over the
-       stage, and when the learner continues it hands off to the coach. */
+    /* =====================================================================
+       AUDIO / READING INTRO — the context modality (see scene-context.js).
+       Mirrors the video cold-open: it takes over the stage, and when the
+       learner continues it hands straight off to the coach's reflection prompt.
+       ===================================================================== */
     let audioIntroHandle = null;
     function mountAudioIntro(host) {
       if (audioIntroHandle) { audioIntroHandle.stop(); audioIntroHandle = null; }
@@ -2293,14 +2528,14 @@ You didn't carry this alone, and you didn't ask her to either.` },
     function enterAudioIntro() {
       if (state.audioIntroPlaying || state.started || state.delivering) return;
       state.audioIntroPlaying = true;
-      render();
+      render();              // mounts the narrated/reading card in the stage
       announce(AUDIO_INTRO_MODALITY === 'reading' ? 'Read the scene, then continue.' : 'Setting the scene. Listen or read along, then continue.');
     }
     function finishAudioIntro() {
       if (!state.audioIntroPlaying) return;
       if (audioIntroHandle) { audioIntroHandle.stop(); audioIntroHandle = null; }
-      state.audioIntroPlaying = false;
-      CONTEXT.done({ modality: AUDIO_INTRO_MODALITY });
+      state.audioIntroPlaying = false;   // the context's job is done — the coach takes the stage
+      CONTEXT.done({ modality: AUDIO_INTRO_MODALITY });   // → startSession(record)
     }
 
     async function runIntroSequence(mySeq) {
@@ -2373,6 +2608,125 @@ You didn't carry this alone, and you didn't ask her to either.` },
       finishVideoIntro();
     }
 
+    /* THE PHASE ENGINE — the app owns arc progression (Prompt Architecture #2/#3).
+       The model no longer counts turns or chooses the next hand-off; it only
+       signals INTENT via turn.action ("teach" | "probe" | "redirect"). We decide,
+       deterministically, whether to advance and WHICH locked beat to show — so a
+       forgotten cue can never strand the learner, and the "one probe per phase"
+       rule is guaranteed rather than hoped for.
+
+         reflection (phaseIdx < 0): a "teach" (the calibration) opens Phase 1;
+                                    a "redirect" (off-script) re-asks, no advance.
+         working phase k:  "teach"    → advance to the next hand-off (phase k+1,
+                                        else the scene).
+                           "probe"    → stay & burn the one probe; a SECOND probe
+                                        is overridden to advance (the cap).
+                           "redirect" → stay, do NOT burn the probe (trolls never
+                                        auto-advance).
+       If the model omits action, we infer conservatively: a valid deliver or the
+       verbatim talk-it-through opener ⇒ teach; a lone question ⇒ probe; otherwise
+       advance (a multi-bubble coaching turn with no question is a teach — better
+       to progress than to stall). Scene / completed turns are left untouched.
+       We set turn.deliver ourselves; applyDeliver then appends the locked beat. */
+    function nextDeliverId(fromIdx) {
+      const LOCKED = ACTIVE_SCENARIO.locked || {};
+      const phases = Array.isArray(ACTIVE_SCENARIO.phases) ? ACTIVE_SCENARIO.phases : [];
+      for (let j = fromIdx; j < phases.length; j++) {
+        if (phases[j] && phases[j].id && LOCKED[phases[j].id]) return { id: phases[j].id, idx: j };
+      }
+      if (LOCKED.scene) return { id: 'scene', idx: phases.length };
+      return null;   // nothing left to hand off → the model owns COMPLETION
+    }
+    function runPhaseEngine(turn) {
+      const phases = Array.isArray(ACTIVE_SCENARIO.phases) ? ACTIVE_SCENARIO.phases : [];
+      // Only drive the Learn↔Practice arc: not once we're in/after the scene, not
+      // on a completing turn, and only for coaching turns.
+      if (!phases.length || turn.complete || turn.mode === 'scene'
+          || state.hasEnteredScene || state.phaseIdx >= phases.length) return;
+
+      // Intent: the model's explicit action, else a conservative inference.
+      const LOCKED = ACTIVE_SCENARIO.locked || {};
+      const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40);
+      const coachBubbles = (turn.turn || []).filter((m) => m.speaker === 'coach' && String(m.text || '').trim());
+      const lastCoach = coachBubbles[coachBubbles.length - 1];
+      const dangling = !!lastCoach && /\?\s*$/.test(String(lastCoach.text).trim());  // the turn hands a QUESTION back to the learner
+      let intent = turn.action;
+      if (!intent) {
+        const cur = phases[state.phaseIdx] || {};
+        const opener = coachBubbles[0] ? norm(coachBubbles[0].text) : '';
+        const teachesOpener = cur.talkItThrough && norm(cur.talkItThrough) && opener.startsWith(norm(cur.talkItThrough));
+        const loneQuestion = coachBubbles.length === 1 && /\?\s*$/.test(coachBubbles[0].text.trim());
+        intent = (turn.deliver && LOCKED[turn.deliver]) || teachesOpener ? 'teach'
+               : loneQuestion ? 'probe'
+               : 'teach';   // bias to progress: a statement-only coaching turn is a teach
+      }
+
+      const advance = (fromIdx) => {
+        const nx = nextDeliverId(fromIdx);
+        if (!nx) { turn.deliver = null; state.phaseIdx = phases.length; return; }  // terminal teach → model completes
+        turn.deliver = nx.id;                 // app-authoritative (overrides any model deliver)
+        state.phaseIdx = nx.idx;              // where we're landing (phases.length for the scene)
+        state.probeUsed = false;
+      };
+
+      if (state.phaseIdx < 0) {               // reflection warm-up
+        if (intent === 'redirect') { turn.deliver = null; return; }   // off-script → re-ask, stay
+        advance(0);                            // calibration done → open Phase 1
+        return;
+      }
+      // working phase state.phaseIdx
+      //
+      // The learner must ALWAYS end a turn facing a question — either the coach's
+      // own (we stay) or the next locked prompt (we advance). So "stay" is gated on
+      // there actually BEING a question, not on the model's self-label: a turn that
+      // ends on a question is a probe → stay so they can answer; anything else (a
+      // teach, or a bare acknowledgment that forgot to ask/teach) → advance to the
+      // next hand-off. Off-script is the one exception: we hold so a disengaged
+      // learner isn't carried forward. Once the one probe is spent, even a question
+      // falls through to advance — so neither a stall nor a probe loop is possible.
+      if (intent === 'redirect') { turn.deliver = null; return; }      // off-script → re-ask, stay
+      if (dangling && !state.probeUsed) { turn.deliver = null; state.probeUsed = true; return; }  // a real probe (poses a question)
+      advance(state.phaseIdx + 1);            // teach, bare acknowledgment, imperative, or spent probe → next hand-off
+    }
+
+    /* Append the LOCKED (app-owned) beat the model asked for via turn.deliver.
+       The grey text lives in the scenario data (ACTIVE_SCENARIO.locked) — the
+       page owns it verbatim; the model never writes it. 'scene' also flips the
+       turn into scene mode so deliverTurn's willEnter handshake presents our
+       locked break-room as "Begin practicing". No-op for scenarios without a
+       .locked map (the Kendra pages), so this stays inert there. */
+    function applyDeliver(turn) {
+      const LOCKED = ACTIVE_SCENARIO.locked;
+      if (!turn || !turn.deliver || !LOCKED || !LOCKED[turn.deliver]) return;
+      const beat = LOCKED[turn.deliver].map((m) => ({ ...m, locked: true }));   // fresh copies (each gets _enter); tagged app-owned for the history serializer
+      // The model is told the locked text but sometimes reproduces it anyway;
+      // drop any message it wrote that matches a locked beat so the app's copy
+      // is the only one (prevents a duplicated scene / pivot).
+      const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40);
+      const lockedKeys = new Set(beat.map((m) => norm(m.text)));
+      turn.turn = (turn.turn || []).filter((m) => !lockedKeys.has(norm(m.text)));
+
+      // The locked ACTION PIVOT is the ONLY hand-off into the break room. Models
+      // sometimes tack a preview onto the empathy feedback ("let's put you in the
+      // room"), which then doubles the locked pivot. Deterministically strip any
+      // such preview SENTENCE from the trailing run of coach bubbles (keeping the
+      // rest of each bubble), then drop a bubble left empty — so a preview can
+      // never reach the screen even if the prompt fails to suppress it.
+      if (turn.deliver === 'scene') {
+        const PREVIEW = /\b(put you in|into the (room|scene|break\s?room)|step in(to)?|into practice|let'?s (practice|keep going|head in)|in the room|back (to|into) the scene|ready to (practice|go|step))\b/i;
+        for (let i = turn.turn.length - 1; i >= 0 && turn.turn[i].speaker === 'coach'; i--) {
+          turn.turn[i].text = String(turn.turn[i].text || '')
+            .split(/(?<=[.!?])\s+/)               // into sentences
+            .filter((s) => !PREVIEW.test(s))      // drop any that preview the pivot
+            .join(' ').replace(/\s{2,}/g, ' ').trim();
+        }
+        turn.turn = turn.turn.filter((m) => String(m.text || '').trim().length);
+      }
+
+      turn.turn = turn.turn.concat(beat);
+      if (turn.deliver === 'scene') { turn.mode = 'scene'; turn.inputTarget = 'character'; }
+    }
+
     /* =====================================================================
        ACTIONS
        ===================================================================== */
@@ -2380,25 +2734,49 @@ You didn't carry this alone, and you didn't ask her to either.` },
       const text = composer.value.trim();
       if (!text || state.sending || state.complete || state.transitioning) return;
 
-      const kind = state.mode === 'scene' ? 'dialogue' : 'coaching';
-      state.messages.push({ speaker: 'you', kind, text, _enter: true });
-      if (kind === 'dialogue') followStage = true;   // a spoken line — follow the scene down
+      let youMsg = null;
+      if (state.mode === 'scene') {
+        // The learner's move renders SPLIT (what they DO vs what they SAY). While
+        // that split resolves we stand in a "considering…" loader and render the
+        // move ONCE — never the raw text flashed then re-split. The reaction model
+        // still receives the raw text verbatim (via .text).
+        youMsg = { speaker: 'you', kind: 'dialogue', text, _enter: true };
+        if (SCENE_SAYDO) youMsg._pending = true;
+        else youMsg._display = [{ kind: 'dialogue', text }];
+        state.messages.push(youMsg);
+        followStage = true;   // new scene content — follow it down
+      } else {
+        state.messages.push({ speaker: 'you', kind: 'coaching', text, _enter: true });
+      }
       composer.value = '';
       autoGrow();
 
       state.sending = true;
-      render();          // shows the learner's line (faded in) and locks input
-      showTyping();      // the AI is composing — covers the model round-trip
+      render();          // shows the learner's line (or the loader) and locks input
 
-      let turn;
-      try { turn = await getTurn(state.messages); }
-      catch (err) {
-        turn = { turn: [{ speaker: 'coach', kind: 'coaching', text:
-          'Something hiccuped reaching the AI coach. Take a breath and try that again.' }], mode: 'coaching', inputTarget: 'coach' };
-        // Mirror the failure into the polite live region — the coach sheet may
-        // be aria-hidden when this lands, so announce it explicitly.
+      // Kick the reaction off NOW so it composes while we resolve the learner's own
+      // move — both read the same raw text. Failures resolve to a graceful turn.
+      const turnP = getTurn(state.messages).catch(() => {
         announce('Something hiccuped reaching the AI coach. Take a breath and try that again.');
-      }
+        return { turn: [{ speaker: 'coach', kind: 'coaching', text:
+          'Something hiccuped reaching the AI coach. Take a breath and try that again.' }], mode: 'coaching', inputTarget: 'coach' };
+      });
+
+      // Resolve + render the learner's OWN move first (loader → split, one render).
+      if (youMsg && youMsg._pending) { await finalizeYouDisplay(youMsg); render(); }
+
+      // The wait for the scene/coach reply now carries a visible indicator.
+      showTyping(state.mode === 'scene' ? 'Updating the scene…' : '');
+
+      const turn = await turnP;
+
+      // LOCKED (grey) beats: the model only writes the dynamic feedback, then
+      // asks us to show the next app-owned beat via turn.deliver. We append that
+      // beat VERBATIM to this turn's messages so it renders right after the
+      // coach's line — and, for the break-room, flip into scene mode so the
+      // engine's entry handshake ("Begin practicing") fires on our locked scene.
+      runPhaseEngine(turn);         // app owns advancement + the one-probe cap (see runPhaseEngine)
+      applyDeliver(turn);
 
       // Live mode signals the end of the practice on the turn itself (the demo
       // engine sets state.complete directly). The report feeds the results modal.
@@ -2446,14 +2824,19 @@ You didn't carry this alone, and you didn't ask her to either.` },
       if (willEnter) {
         state.delivering = true;
         const coachingItems = items.filter((m) => worldOf(m) === 'coaching');
-        for (const m of coachingItems) {
+        for (let ci = 0; ci < coachingItems.length; ci++) {
+          const m = coachingItems[ci];
+          const prev = ci > 0 ? coachingItems[ci - 1] : null;
           hideTyping();
-          showTyping(); await wait(reducedMotion() ? 250 : 780); hideTyping();
+          // Dots scaled to the PREVIOUS line's length (thinkingTime) rather than a
+          // flat beat — so a burst of coach messages leaves the learner room to
+          // start reading each one before the next composes.
+          showTyping(); await wait(thinkingTime(prev ? prev.text : '')); hideTyping();
           if (dead()) return;
           m._enter = true;
           state.messages.push(m);
           render();
-          await wait(reducedMotion() ? 80 : 300);
+          if (ci < coachingItems.length - 1) await wait(reducedMotion() ? 80 : 480);
           if (dead()) return;
         }
         state.pendingScene = items.filter((m) => worldOf(m) === 'scene');
@@ -2475,31 +2858,21 @@ You didn't carry this alone, and you didn't ask her to either.` },
       state.delivering = true;
       let i = 0;
 
-      // Phase 1 — the character's reaction plays out IN the scene.
-      while (i < items.length && worldOf(items[i]) === 'scene') {
-        const m = items[i];
-        if (state.mode !== 'scene') { state.mode = 'scene'; state.inputTarget = 'character'; }
-        hideTyping();
-        if (m.speaker === 'character' && m.kind === 'dialogue') {
-          showTyping(); await wait(reducedMotion() ? 250 : 850); hideTyping();
-        } else {
-          await wait(reducedMotion() ? 80 : 280);
-        }
-        if (dead()) return;
-        m._enter = true;
-        state.messages.push(m);
-        if (!state.hasEnteredScene) state.hasEnteredScene = true;
-        followStage = true;            // a new scene line — follow it down
-        render();
-        await wait(reducedMotion() ? 80 : 340);
-        if (dead()) return;
-        i++;
-      }
+      // Phase 1 — the scene's reaction plays out IN the stage, one beat at a time
+      // (shared pacing via revealScene, same as the setup).
+      const leadScene = [];
+      while (i < items.length && worldOf(items[i]) === 'scene') { leadScene.push(items[i]); i++; }
+      if (leadScene.length) { await revealScene(leadScene, dead); if (dead()) return; }
 
       // Phase 2 — a scene line just drew its reaction. Do NOT auto-open the coach.
       // Give the learner time to READ Kendra's reaction: show "Analyzing…" briefly
       // in the input bar, then offer the debrief as a choice they open when ready.
-      const intoDebrief = (i < items.length) && state.mode === 'scene' && state.hasEnteredScene;
+      // Queue the coaching items as a "debrief" (gated behind a tap) either when
+      // a scene line just drew its reaction, OR on the FINAL turn — so a
+      // completion delivered in coaching (Beat C ends with a coach recap, not a
+      // scene beat) still routes through the closing build-up + results.
+      const intoDebrief = (i < items.length) && state.hasEnteredScene
+        && (state.mode === 'scene' || state.complete);
       if (intoDebrief) {
         state.analyzing = true;
         render();                                    // input bar: "Analyzing your response…"
@@ -2509,6 +2882,12 @@ You didn't carry this alone, and you didn't ask her to either.` },
         state.analyzing = false;
         state.pendingDebrief = items.slice(i);       // queue the debrief; don't reveal it yet
         state.awaitingDebrief = true;
+        // If this debrief is a coach-led hand-off BACK into the scene (a scene-
+        // mode, non-final turn — e.g. "let's check in with Marshall now"), arm a
+        // scene-return CTA to show once the coach's line has been read.
+        state.debriefReturn = (!state.complete && turn.mode === 'scene')
+          ? { mode: turn.mode, inputTarget: turn.inputTarget, label: turn.returnLabel || null, sceneTarget: turn.sceneTarget || null, sceneSetup: turn.sceneSetup || null }
+          : null;
         state.delivering = false;
         render();                                    // input bar: "See what your AI coach noticed →"
         announce('Your AI coach noticed something. Open the coach when you’re ready.');
@@ -2517,17 +2896,21 @@ You didn't carry this alone, and you didn't ask her to either.` },
 
       // Phase 3 — coach message(s) revealed in the sheet when we're ALREADY coaching
       // (a send-back reply, an escalation redirect, or a manual-timeout answer).
+      let prevText = (i > 0 && items[i - 1]) ? (items[i - 1].text || '') : '';
       while (i < items.length) {
         const m = items[i];
         hideTyping();
-        showTyping(); await wait(reducedMotion() ? 250 : 780); hideTyping();
+        // Dots scaled to what was just shown (thinkingTime) instead of a flat beat,
+        // so consecutive coach lines give the learner room to start reading.
+        showTyping(); await wait(thinkingTime(prevText)); hideTyping();
         if (dead()) return;
         m._enter = true;
         state.messages.push(m);
         render();
-        await wait(reducedMotion() ? 80 : 300);
-        if (dead()) return;
+        prevText = m.text || '';
         i++;
+        if (i < items.length) await wait(reducedMotion() ? 80 : 480);
+        if (dead()) return;
       }
 
       // Finalize. If the coach is sending the learner back into the scene, dwell
@@ -2538,7 +2921,8 @@ You didn't carry this alone, and you didn't ask her to either.` },
       // rather than yanking the panel closed out from under them.
       const resumingToScene = turn.mode === 'scene' && state.mode === 'coaching';
       if (resumingToScene) {
-        state.pendingReturn = { mode: turn.mode, inputTarget: turn.inputTarget };
+        state.pendingReturn = { mode: turn.mode, inputTarget: turn.inputTarget, sceneTarget: turn.sceneTarget || null, sceneSetup: turn.sceneSetup || null };
+        state.returnLabel = turn.returnLabel || null;
         state.awaitingReturn = true;
         state.delivering = false;
         render();                                     // input bar: "Continue practicing →"
@@ -2557,18 +2941,21 @@ You didn't carry this alone, and you didn't ask her to either.` },
       const p = state.pendingReturn;
       state.pendingReturn = null;
       state.awaitingReturn = false;
+      state.returnLabel = null;
       state.mode = p.mode; state.inputTarget = p.inputTarget;
+      if (p.sceneTarget) state.sceneTarget = p.sceneTarget;   // now speaking to Marshall
+      // Paint the NEW sub-scene in the scene pane so the shift reads visually —
+      // otherwise the learner is dropped back into the (now-stale) break-room card.
+      if (p.sceneSetup) state.messages.push({ speaker: 'character', kind: 'narration', text: p.sceneSetup, _enter: true });
       followStage = true;
-      announce('Back in the scene.');
+      announce(p.sceneTarget ? `Checking in with ${p.sceneTarget}.` : 'Back in the scene.');
       render();
       setTimeout(() => { if (!composer.disabled) composer.focus(); }, 260);
     }
 
     // "See what your AI coach noticed" — the learner opens the queued debrief when
     // ready (after reading Kendra's reaction). The coach sheet RISES; the practice
-    // (with the line) stays visible, dimmed, above it. Mid-practice debriefs stay
-    // page-owned (Section-2 coaching); the FINAL one hands off to the SHARED
-    // Section-3 debrief — stepper build-up, results modal, resources, exit.
+    // (with the line) stays visible, dimmed, above it.
     function openDebrief() {
       if (!state.awaitingDebrief || state.sending || state.delivering) return;
       const pending = state.pendingDebrief || [];
@@ -2576,28 +2963,49 @@ You didn't carry this alone, and you didn't ask her to either.` },
       state.awaitingDebrief = false;
       state.analyzing = false;
       state.mode = 'coaching'; state.inputTarget = 'coach';
-      if (state.complete) { DEBRIEF.openClosing(pending); return; }
+      if (state.complete) { DEBRIEF.openClosing(pending); return; }   // final → the SHARED Section-3 debrief
       pending.forEach((m) => { m._enter = true; state.messages.push(m); });
+      // If the coach's message is a hand-off back into the scene, offer the
+      // return as its own reinforcing CTA (e.g. "Check in with Marshall →")
+      // rather than making the learner type — the coach steps them across.
+      if (state.debriefReturn) {
+        state.pendingReturn = { mode: state.debriefReturn.mode, inputTarget: state.debriefReturn.inputTarget, sceneTarget: state.debriefReturn.sceneTarget, sceneSetup: state.debriefReturn.sceneSetup };
+        state.returnLabel = state.debriefReturn.label;
+        state.debriefReturn = null;
+        state.awaitingReturn = true;
+      }
       announce('Stepped out to your AI coach.');
-      render();   // the coach sheet rises with the debrief
+      render();   // the coach sheet rises with the debrief (+ a return CTA if armed)
     }
+
+    /* The FINAL debrief — stepper build-up, results modal paging, the
+       resources hand-back and the exit — is the SHARED Section-3 flow
+       (DEBRIEF, js/sim-debrief.js). Nothing close-shaped lives here anymore. */
 
     // "Step into the scene" — the learner crosses on their command. The coach
     // sheet LOWERS to reveal the live practice; the first scene line fades in.
     // (Same motion as every Learn→Practice switch — no special-case screen.)
-    function enterScene() {
+    async function enterScene() {
       if (!state.awaitingEntry || state.hasEnteredScene || state.sending || state.delivering) return;
-      (state.pendingScene || []).forEach((m) => { m._enter = true; state.messages.push(m); });
+      const beats = (state.pendingScene || []).slice();
       state.pendingScene = null;
       state.awaitingEntry = false;
       state.entryPromptDismissed = false;
       state.hasEnteredScene = true;
       state.videoPlaying = false;   // the cold-open's job is done — swap its frozen frame for the real scene
       state.mode = 'scene'; state.inputTarget = 'character';
-      followStage = true;   // reveal the first scene line at the bottom
-      announce(`You step into the scene with ${SCENARIO.character}.`);
-      render();   // coach sheet lowers; the live scene is revealed beneath it
-      setTimeout(() => { if (!composer.disabled) composer.focus(); }, 260);
+      state.delivering = true;
+      announce('You step into the moment.');
+      render();   // coach sheet lowers; the (empty) live scene is revealed beneath it
+      // Reveal the break-room setup one beat at a time (narration → Jake behind a
+      // typing indicator → the "what do you do?" cue), not all at once.
+      const myseq = ++deliverSeq;
+      const dead = () => myseq !== deliverSeq;
+      await revealScene(beats, dead);
+      if (dead()) return;
+      state.delivering = false;
+      render();
+      setTimeout(() => { if (!composer.disabled) composer.focus(); }, 200);
     }
 
     // "Step out to AI coach" — a learner-initiated pause (not a coach debrief).
@@ -2648,6 +3056,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
       deliverSeq++;                                       // cancel any in-flight reveal
       abortDelivery();
       introSeq++;   // abandon any in-flight video sequence
+      document.querySelectorAll('#stage .intro-video').forEach((v) => { try { v.pause(); v.muted = true; } catch (e) {} });  // silence a mid-play cold open
       if (audioIntroHandle) { audioIntroHandle.stop(); audioIntroHandle = null; }  // stop any narration
       CONTEXT.reset();   // re-arm the Section-1 coupler for a fresh run
       Object.assign(state, {
@@ -2659,6 +3068,8 @@ You didn't carry this alone, and you didn't ask her to either.` },
         videoPlaying: false, audioIntroPlaying: false, closingStepperActive: false,
         awaitingResults: false, resultsModalOpen: false, resultsPage: 0, resultsViewed: false, continued: false,
         awaitingReturn: false, pendingReturn: null,
+        debriefReturn: null, returnLabel: null, sceneTarget: null,
+        phaseIdx: -1, probeUsed: false,   // reset the app-owned phase engine
       });
       app.classList.remove('was-trap');
       followStage = true;
@@ -2671,10 +3082,9 @@ You didn't carry this alone, and you didn't ask her to either.` },
     // a time, as if the coach is talking — never dumped in all at once.
     async function startSession(context) {
       if (state.started || state.sending || state.delivering) return;
-      // Section 1 → Section 2, standardized: whatever intro modality ran
-      // (video / audio / reading / none), it arrives here as ONE normalized
-      // ContextRecord (js/sim-context.js). Addenda inform the model; seeds
-      // land on the transcript ahead of the coach's opening.
+      // Section 1 → Section 2, standardized: whatever intro modality ran, it
+      // arrives here as ONE normalized ContextRecord (js/sim-context.js) —
+      // the same coupler every simulator page flows through.
       SimContext.apply(context, {
         appendSystem: (t) => { SYSTEM_PROMPT += '\n\n' + t; },
         seed: (msgs) => { state.pendingOpening = [...msgs, ...(state.pendingOpening || [])]; },
@@ -2802,23 +3212,31 @@ You didn't carry this alone, and you didn't ask her to either.` },
     // until the learner chooses to begin.
     render();
     </script>
+
     <!-- ===== Course-delivery frame ===================================== -->
+    <!-- Embedded into the .app flex column (not a fixed overlay), so it sits
+         above the practice stage without fighting the app's fixed panels. No
+         progress bar (this is a conversational sim, not a stepped lesson). -->
     <script>
       // Embed into the app shell; course/lesson auto-derive from #scenarioName.
       window.LESSON_FRAME = { mount: '#app' };
     </script>
     <script src="js/frame.js?v=3"></script>
     <script>
-      // Relocate the app's Restart control onto the frame's actions slot; moving
-      // the node preserves its click handler (attached above by element id).
+      // Relocate the app's Restart control onto the frame's actions slot so it
+      // rides the frame instead of a second bar. Moving the node preserves its
+      // click handler (attached above by element id).
       (function () {
         function relocate() {
           var slot = document.querySelector('.vt-frame .vt-actions');
           var btn  = document.getElementById('restartBtn');
           if (slot && btn) slot.appendChild(btn);
         }
-        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', relocate);
-        else relocate();
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', relocate);
+        } else {
+          relocate();
+        }
       })();
     </script>
 </body>

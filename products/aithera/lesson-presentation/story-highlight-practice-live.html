@@ -20,6 +20,19 @@
     <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
 
+    <!-- Course-delivery frame (production Vector Training chrome) -->
+    <link rel="stylesheet" href="css/frame.css?v=4" />
+    <style>
+      /* Frame integration for this full-viewport app shell: the frame is embedded
+         as the first flex child of .app (see the window.LESSON_FRAME config near
+         the end of the page), so the app's own top bar would just duplicate it —
+         hide it and let its Restart button ride the frame's actions slot. The
+         fixed .scrim must also start BELOW the frame so it dims only the stage. */
+      .topbar { display: none !important; }
+      .app .scrim { inset: var(--header-h) 0 0 0; }
+    </style>
+
+
     <!-- ====================================================================
          STORY HIGHLIGHT PRACTICE — a variant of Action Practice that sets the
          scene with a short READ + HIGHLIGHT beat instead of a cold-open video:
@@ -1091,6 +1104,9 @@
       .typing.scene span { background: var(--s-ink-faint); }
       .typing span:nth-child(2) { animation-delay: .15s; }
       .typing span:nth-child(3) { animation-delay: .3s; }
+      .typing { align-items: center; }   /* keep the dots + optional label centered */
+      /* an optional label (e.g. "Updating the scene…") so a live-model wait never reads as frozen */
+      .typing span.tlabel { width: auto; height: auto; border-radius: 0; background: none; animation: none; font-size: 13px; font-weight: 600; color: var(--s-ink-soft); letter-spacing: .01em; }
       @keyframes bob { 0%,60%,100% { transform: translateY(0); opacity:.5; } 30% { transform: translateY(-5px); opacity:1; } }
 
       /* —— Content enter animation (fade + slight rise; runs once per node) —— */
@@ -1179,184 +1195,11 @@
          10. COMPLETION / RESOURCES  (shown at the end, as a coach message —
              see resourcesNode() — not a separate boxed widget)
          =================================================================== */
-      /* A coach message that's a bit richer than plain text (a short list)
-         gets a little more room than the usual 78% text bubbles. */
-      .coach-msg.wide-msg { max-width: 92%; }
-      /* .coach-bubble sets white-space: pre-wrap for plain escaped coach text
-         (so \n\n paragraph breaks render); this bubble holds real markup
-         instead, so pre-wrap would render the template literal's own
-         indentation/newlines as visible blank space. */
-      .resources-bubble { white-space: normal; }
-      .resources-lead { margin: 0 0 12px; }
-      .res-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-      .res-list li {
-        display: flex;
-        gap: 11px;
-        align-items: flex-start;
-        font-size: 14px;
-        line-height: 1.5;
-        color: var(--c-ink);
-      }
-      .res-list li i {
-        flex: 0 0 auto;
-        width: 30px; height: 30px;
-        display: grid; place-items: center;
-        border-radius: 8px;
-        background: var(--c-accent-soft);
-        color: var(--c-accent-strong);
-        font-size: 13px;
-        margin-top: 1px;
-      }
-      .res-list li b { display: block; }
-      .res-list li span { color: var(--c-ink-soft); font-size: 13px; }
-
-      /* —— Closing stepper — "Analyzing conversation… determining strengths…
-         determining growth areas…", shown in the coach sheet while the closing
-         summary "builds" after the learner taps to see their results. Replaces
-         the coach sheet's messages briefly; never appears for mid-practice
-         debriefs, only the final one. —— */
-      .closing-stepper {
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-        padding: 8px 2px;
-      }
-      .closing-step {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--c-ink-faint);
-        transition: color .25s var(--ease);
-      }
-      .closing-step .mark {
-        flex: 0 0 auto;
-        width: 22px; height: 22px;
-        border-radius: 50%;
-        border: 2px solid var(--c-line);
-        display: grid;
-        place-items: center;
-        font-size: 10px;
-        color: transparent;
-        transition: border-color .25s var(--ease), background .25s var(--ease), color .25s var(--ease);
-      }
-      .closing-step.is-active { color: var(--c-ink); }
-      .closing-step.is-active .mark {
-        border-color: var(--c-accent);
-        animation: stepPulse 1.1s ease-in-out infinite;
-      }
-      @keyframes stepPulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
-      .closing-step.is-done { color: var(--c-ink-soft); }
-      .closing-step.is-done .mark {
-        border-color: var(--c-accent);
-        background: var(--c-accent);
-        color: #fff;
-      }
-
-      /* —— Closing report — strengths / growth areas as a distinct, non-chat
-         read: short scannable items, not paragraphs, so it doesn't read like
-         the wall-of-text stakeholder draft. Lives INSIDE the results modal
-         below, one section per page — the modal card is the container, so no
-         extra box/border here. —— */
-      .report-section h3 {
-        margin: 0 0 12px;
-        font-size: 16px;
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        color: var(--c-ink);
-      }
-      .report-section h3 i { color: var(--accent-color, #16a34a); }
-      .report-section.growth { --accent-color: #d97706; }
-      .report-section.playbook { --accent-color: #2563eb; }
-
-      /* —— Results modal — strengths and growth areas, one page at a time,
-         opened only when the learner taps "View full results" (never
-         auto-shown). Deliberately linear: Next → Back/Continue, no stray
-         dismiss affordance, so there's exactly one clear way through it. —— */
-      .results-modal {
-        position: fixed;
-        inset: 0;
-        z-index: 90;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-        background: rgba(0,0,0,.55);
-      }
-      .results-modal[hidden] { display: none; }
-      .results-modal-card {
-        width: 100%;
-        max-width: 560px;
-        max-height: 85vh;
-        display: flex;
-        flex-direction: column;
-        background: var(--c-bg);
-        border: 1px solid var(--c-line);
-        border-radius: var(--radius);
-        box-shadow: var(--shadow-lg);
-        overflow: hidden;
-      }
-      .results-modal-head {
-        flex: 0 0 auto;
-        padding: 16px 20px 13px;
-        border-bottom: 1px solid var(--c-line);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-      }
-      .results-modal-eyebrow {
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: .08em;
-        text-transform: uppercase;
-        color: var(--c-ink-faint);
-      }
-      .results-modal-dots { display: flex; gap: 6px; }
-      .results-modal-dots span {
-        width: 7px; height: 7px;
-        border-radius: 50%;
-        background: var(--c-line);
-        transition: background .2s var(--ease);
-      }
-      .results-modal-dots span.is-active { background: var(--c-accent); }
-      .results-modal-body {
-        flex: 1 1 auto;
-        overflow-y: auto;
-        padding: 20px;
-      }
-      .results-modal-foot {
-        flex: 0 0 auto;
-        padding: 14px 20px 18px;
-        border-top: 1px solid var(--c-line);
-        display: flex;
-        justify-content: space-between;
-        gap: 10px;
-      }
-      .results-nav-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 9px;
-        padding: 10px 16px;
-        border-radius: 10px;
-        border: 1px solid var(--c-line);
-        background: var(--c-surface);
-        color: var(--c-ink);
-        font: inherit;
-        font-size: 14px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: background .15s var(--ease), border-color .15s var(--ease);
-      }
-      .results-nav-btn:hover { border-color: var(--c-accent); }
-      .results-nav-btn.primary {
-        margin-left: auto;
-        background: var(--c-accent);
-        border-color: transparent;
-        color: var(--c-on-accent);
-      }
-      .results-nav-btn.primary:hover { background: var(--c-accent-strong); }
+      /* The debrief presentation — resources bubble, closing stepper, report
+         sections, results modal, score ring — is styled by the SHARED
+         Section-3 module (js/sim-debrief.js injects one canonical stylesheet)
+         so the close renders identically on every simulator page. Theme
+         colors still resolve from this page's CSS variables above. */
 
       /* ===================================================================
          11. HIGHLIGHT INTRO MODAL — a one-time, plain-language explainer of
@@ -1604,7 +1447,15 @@
       </div>
     </div>
 
-    <script src="js/scenario.js"></script>
+    <script src="js/scenario.js?v=12"></script>
+    <!-- Shared simulator framework — one implementation under every mode:
+         sim-core     the AI turn engine (proxy, models, JSON repair, retry, pacing)
+         sim-context  the Section-1 → Section-2 coupler (ContextRecord)
+         sim-debrief  the Section-3 close (stepper, results modal, playbook, resources) -->
+    <script src="js/sim-core.js?v=2"></script>
+    <script src="js/sim-context.js?v=1"></script>
+    <script src="js/sim-debrief.js?v=5"></script>
+    <script src="js/sim-chat-history.js?v=5"></script>
     <script>
     /* =====================================================================
        ACTION PRACTICE — engine + render-by-state (vanilla, no framework)
@@ -1625,9 +1476,11 @@
     /* This is the LIVE cut: WORKER_URL points at the Cloudflare proxy that
        injects the API key (see worker/README.md). Clear it to fall back to
        the scripted demo responder. */
-    const WORKER_URL = 'https://aithera-action-proxy.vector-aithera.workers.dev';  // see worker/README.md
-    const MODEL = 'claude-opus-4-8';
-    const IS_LIVE = Boolean(WORKER_URL);
+    /* Model plumbing is SHARED (js/sim-core.js): one proxy Worker, one model
+       registry, one JSON repair + retry-once turn cycle, one set of pacing
+       constants. This page declares only WHICH contract it speaks — the
+       roleplay turn parser, created with the engine further down — and keeps
+       a scripted demo responder as the no-network fallback. */
 
     /* ---- SCENARIO DATA -------------------------------------------------
        All writer-authored content — including the story the learner reads
@@ -1698,7 +1551,7 @@
        scenario the Writer Studio edits, plus this page's story-intro
        addendum: the model's first message must react to what the learner
        actually highlighted, judged against the key-moments answer key. */
-    const SYSTEM_PROMPT = AitheraScenario.compilePrompt(ACTIVE_SCENARIO) + `
+    let SYSTEM_PROMPT = AitheraScenario.compilePrompt(ACTIVE_SCENARIO) + `
 
 STORY INTRO (this variant) — before this conversation, the learner read the backstory below and highlighted the passages they judged most significant. The conversation transcript OPENS with their highlights ("Highlighted: ..."). This replaces the on-screen opening question described above — your FIRST message reacts to their specific highlights instead:
 - Judge their highlights against the KEY MOMENTS answer key below. Name what they caught (use the key-moment labels, warmly), surface AT MOST ONE key moment they missed and why it matters tonight, and end with a question that moves them toward the scene ("what worries you most?" / "why do you think that one matters?").
@@ -1964,102 +1817,23 @@ You didn't carry this alone, and you didn't ask her to either.` },
       };
     }
 
-    /* ---- LIVE path ---------------------------------------------------- */
-    // Validate one report list from the model: keep only well-shaped items.
-    function cleanReportItems(items, max) {
-      if (!Array.isArray(items)) return [];
-      return items
-        .filter((it) => it && typeof it.title === 'string' && typeof it.body === 'string')
-        .slice(0, max)
-        .map((it) => ({ title: it.title, body: it.body }));
-    }
-    // Repair the two ways models most often break "JSON only" output:
-    //  1. prose around the object → slice from the first '{' to the last '}'
-    //  2. raw line breaks INSIDE string values (illegal JSON) → walk the chars
-    //     tracking whether we're inside a string, and escape them there only.
-    function repairJson(raw) {
-      let s = String(raw).replace(/```json|```/g, '').trim();
-      const a = s.indexOf('{'), b = s.lastIndexOf('}');
-      if (a >= 0 && b > a) s = s.slice(a, b + 1);
-      let out = '', inStr = false, escaped = false;
-      for (const ch of s) {
-        if (inStr && !escaped && (ch === '\n' || ch === '\r' || ch === '\t')) {
-          out += ch === '\n' ? '\\n' : ch === '\r' ? '\\r' : '\\t';
-          continue;
-        }
-        out += ch;
-        if (escaped) { escaped = false; continue; }
-        if (ch === '\\') { escaped = true; continue; }
-        if (ch === '"') inStr = !inStr;
-      }
-      return out;
-    }
-    function parseTurn(raw) {
-      try {
-        const obj = JSON.parse(repairJson(raw));
-        if (!obj || !Array.isArray(obj.turn)) throw new Error('shape');
-        const report = obj.report ? {
-          strengths: cleanReportItems(obj.report.strengths, 3),
-          growthAreas: cleanReportItems(obj.report.growthAreas, 2),
-        } : null;
-        return {
-          turn: obj.turn
-            .filter((m) => m && m.speaker && m.kind && typeof m.text === 'string')
-            .map((m) => ({
-              speaker: m.speaker, kind: m.kind, text: m.text,
-              ...(m.speaker === 'character' && m.emotionalState ? { emotionalState: m.emotionalState } : {}),
-            })),
-          mode: obj.mode === 'scene' ? 'scene' : 'coaching',
-          inputTarget: obj.inputTarget === 'character' ? 'character' : 'coach',
-          complete: obj.complete === true,
-          ...(report && (report.strengths.length || report.growthAreas.length) ? { report } : {}),
-        };
-      } catch (e) {
-        // graceful fallback — keep the loop alive without crashing the UI
-        return {
-          turn: [{ speaker: 'coach', kind: 'coaching', text:
-`Let's stay with that for a second. What feels hardest about saying it out loud?` }],
-          mode: 'coaching', inputTarget: 'coach',
-        };
-      }
-    }
-
-    // Map our multi-speaker history into a user/assistant transcript for the API.
-    function toApiMessages(msgs) {
-      const out = [];
-      let buf = [];
-      const flush = (role) => { if (buf.length) { out.push({ role, content: buf.join('\n') }); buf = []; } };
-      for (const m of msgs) {
-        if (m.speaker === 'you') { flush('assistant'); out.push({ role: 'user', content: m.text }); }
-        else {
-          const tag = m.speaker === 'character'
-            ? `${SCENARIO.character}${m.emotionalState ? ' (' + m.emotionalState + ')' : ''}${m.kind === 'narration' ? ' [narration]' : ''}`
-            : 'Coach';
-          buf.push(`${tag}: ${m.text}`);
-        }
-      }
-      flush('assistant');
-      if (out.length && out[0].role === 'assistant') out.unshift({ role: 'user', content: '(begin)' });
-      return out;
-    }
-
-    async function liveTurn(msgs) {
-      const res = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: MODEL, max_tokens: 1600, system: SYSTEM_PROMPT, messages: toApiMessages(msgs) }),
-      });
-      if (!res.ok) throw new Error('Worker HTTP ' + res.status);
-      const data = await res.json();
-      const raw = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
-      return parseTurn(raw);
-    }
-
-    // Unified responder (adds a natural delay in demo so it feels like a round-trip)
-    function getTurn(msgs) {
-      if (IS_LIVE) return liveTurn(msgs);
-      return new Promise((resolve) => setTimeout(() => resolve(scriptedTurn(msgs)), 600 + Math.random() * 500));
-    }
+    /* ---- LIVE path — the shared turn engine (js/sim-core.js) ---------- */
+    /* This page speaks the ROLEPLAY contract: turn[] + mode/inputTarget
+       (with trailing-kind inference) + a final-turn report. JSON repair, the
+       strict parse → retry-once → safe-fallback cycle, and the JSON-history
+       serializer are the ONE shared implementation every simulator page
+       uses — this upgrade also replaces the old prose-history serializer. */
+    const TURN_PARSER = SimCore.makeTurnParser({
+      fallbackText: `Let's stay with that for a second. What feels hardest about saying it out loud?`,
+    });
+    const TURN_ENGINE = SimCore.makeTurnEngine({
+      system: () => SYSTEM_PROMPT,   // a fn so Section-1 coupler addenda are honored
+      maxTokens: 1600,
+      parser: TURN_PARSER,
+      history: SimCore.turnHistory(),
+      scripted: scriptedTurn,        // the demo responder above, when no Worker
+    });
+    const getTurn = TURN_ENGINE.getTurn;
 
     /* =====================================================================
        DOM REFS + tiny element helper
@@ -2096,10 +1870,8 @@ You didn't carry this alone, and you didn't ask her to either.` },
     const inputContinue = document.getElementById('inputContinue');
     const continueCtaBtn= document.getElementById('continueCtaBtn');
     const inputDone      = document.getElementById('inputDone');
-    const resultsModal    = document.getElementById('resultsModal');
-    const resultsModalBody= document.getElementById('resultsModalBody');
-    const resultsModalFoot= document.getElementById('resultsModalFoot');
-    const resultsDots     = document.getElementById('resultsDots');
+    // (the results modal's elements are owned by the shared debrief —
+    //  SimDebrief.ensureModal() adopts the markup below)
     const introModal       = document.getElementById('introModal');
     const introModalBody   = document.getElementById('introModalBody');
     const introModalCtaBtn = document.getElementById('introModalCtaBtn');
@@ -2260,28 +2032,14 @@ You didn't carry this alone, and you didn't ask her to either.` },
     /* Writer-authored resources (scenario.resources) + the LOCKED crisis
        floor: elevated-stakes scenarios always end with 988, whatever else
        the writer authored. Icons are page-side, cycled from a pool. */
-    const RESOURCE_ICONS = ['fa-user-nurse', 'fa-building-shield', 'fa-hand-holding-heart', 'fa-people-group'];
-    function resourcesNode() {
-      const wrap = el('div', 'coach-msg wide-msg');
-      wrap.appendChild(el('div', 'coach-avatar', '<i class="fa-solid fa-chalkboard-user"></i>'));
-      const body = el('div', 'coach-body');
-      body.appendChild(el('div', 'coach-label', 'AI Coach'));
-      const bubble = el('div', 'coach-bubble resources-bubble');
-      const items = (ACTIVE_SCENARIO.resources.items || [])
-        .filter((r) => r && (r.title || r.body))
-        .map((r, i) => ({ icon: RESOURCE_ICONS[i % RESOURCE_ICONS.length], title: fillTxt(r.title), body: fillTxt(r.body) }));
-      if (ACTIVE_SCENARIO.elevatedStakes) {
-        items.push({ icon: 'fa-phone-volume', ...AitheraScenario.CRISIS_FLOOR });
-      }
-      bubble.innerHTML = `
-        <p class="resources-lead">${esc(fillTxt(ACTIVE_SCENARIO.resources.lead))}</p>
-        <ul class="res-list">
-          ${items.map((r) => `<li><i class="fa-solid ${r.icon}"></i><div><b>${esc(r.title)}</b><span>${esc(r.body)}</span></div></li>`).join('')}
-        </ul>`;
-      body.appendChild(bubble);
-      wrap.appendChild(body);
-      return wrap;
-    }
+    /* Writer-authored resources + the LOCKED crisis floor — appended inside
+       the shared builder (js/sim-debrief.js), so no page can forget it. */
+    const resourcesNode = () => SimDebrief.resourcesNode({
+      lead: ACTIVE_SCENARIO.resources.lead,
+      items: ACTIVE_SCENARIO.resources.items,
+      crisisFloor: ACTIVE_SCENARIO.elevatedStakes ? AitheraScenario.CRISIS_FLOOR : null,
+      fill: fillTxt,
+    });
 
     /* ---- the closing summary: stepper + strengths/growth report ------- */
     const CLOSING_STEPS = ['Analyzing conversation…', 'Determining strengths…', 'Determining growth areas…'];
@@ -2295,49 +2053,31 @@ You didn't carry this alone, and you didn't ask her to either.` },
       { icon: 'fa-shield-heart', title: 'Watch for the "case file" fear', body: `When Kendra said she didn't want to be "somebody's case file," that's a fear of being handed off — naming that you're not stepping back, just adding support, defuses it fastest.` },
     ];
 
-    function closingStepperNode() {
-      const wrap = el('div', 'closing-stepper');
-      wrap.innerHTML = CLOSING_STEPS
-        .map((label) => `<div class="closing-step"><span class="mark"><i class="fa-solid fa-check"></i></span>${esc(label)}</div>`)
-        .join('');
-      return wrap;
-    }
-
-    function reportListNode(cls, icon, heading, items) {
-      const wrap = el('div', `report-section ${cls}`);
-      wrap.innerHTML = `
-        <h3><i class="fa-solid ${icon}"></i> ${esc(heading)}</h3>
-        <ul class="res-list">
-          ${items.map((it) => `<li><i class="fa-solid ${it.icon}"></i><div><b>${esc(it.title)}</b><span>${esc(it.body)}</span></div></li>`).join('')}
-        </ul>`;
-      return wrap;
-    }
-    // Icons are assigned page-side (cycled from a pool) so the model only has
-    // to write titles + bodies — it never picks Font Awesome class names.
-    const STRENGTH_ICONS = ['fa-ear-listen', 'fa-share-nodes', 'fa-handshake'];
-    const GROWTH_ICONS = ['fa-clock', 'fa-shield-heart'];
-    const withIcons = (items, icons) => items.map((it, i) => ({ ...it, icon: icons[i % icons.length] }));
-
-    const strengthsNode = () => reportListNode('strengths', 'fa-star', 'Strengths',
-      (state.report && state.report.strengths.length) ? withIcons(state.report.strengths, STRENGTH_ICONS) : CLOSING_STRENGTHS);
-    const growthAreasNode = () => reportListNode('growth', 'fa-seedling', 'Growth areas',
-      (state.report && state.report.growthAreas.length) ? withIcons(state.report.growthAreas, GROWTH_ICONS) : CLOSING_GROWTH);
-
-    /* The playbook — the expert-validated toolkit every learner leaves with,
-       IDENTICAL for everyone regardless of how their conversation went. The
-       CONTENT is writer-authored (scenario.playbook); the GUARANTEE is the
-       page's: rendered here on completion, never model-generated. */
-    const PLAYBOOK_ICONS = ['fa-heart', 'fa-cloud-rain', 'fa-eye', 'fa-map-location-dot', 'fa-people-arrows', 'fa-hand-holding-heart', 'fa-triangle-exclamation'];
-    const CLOSING_PLAYBOOK = (ACTIVE_SCENARIO.playbook || [])
-      .filter((p) => p && (p.title || p.body))
-      .map((p, i) => ({ icon: PLAYBOOK_ICONS[i % PLAYBOOK_ICONS.length], title: fillTxt(p.title), body: fillTxt(p.body) }));
-    const playbookNode = () => reportListNode('playbook', 'fa-list-check', 'The approach that works', CLOSING_PLAYBOOK);
-    const RESULTS_PAGES = [
-      { node: strengthsNode, announce: 'Your results: strengths.' },
-      { node: growthAreasNode, announce: 'Your results: growth areas.' },
-      // A scenario with no playbook simply has a two-page report.
-      ...(CLOSING_PLAYBOOK.length ? [{ node: playbookNode, announce: 'Your results: the approach that works.' }] : []),
-    ];
+    /* Pages: strengths → growth areas → the playbook (the expert-validated
+       toolkit every learner leaves with, IDENTICAL for everyone — writer-
+       authored; the SHARED debrief guarantees it renders on completion). */
+    const DEBRIEF_PAGES = SimDebrief.reportPages({
+      report: () => state.report,                 // read at open time — it rides the final turn
+      fallbackStrengths: CLOSING_STRENGTHS,
+      fallbackGrowth: CLOSING_GROWTH,
+      playbook: (ACTIVE_SCENARIO.playbook || []).map((p) => ({ title: fillTxt(p.title || ''), body: fillTxt(p.body || '') })),
+    });
+    const DEBRIEF = SimDebrief.makeFlow({
+      state,
+      appEl: app,
+      refs: SimDebrief.ensureModal(),             // adopts the #resultsModal markup below
+      steps: SimDebrief.STEPS,
+      pages: DEBRIEF_PAGES,
+      results: { source: 'final-turn' },          // the report rode the complete:true turn
+      seq: { guard: () => { const my = ++deliverSeq; return () => my !== deliverSeq; } },
+      ui: {
+        render, announce, showTyping, hideTyping,
+        stepperContainer: () => coachPanelBody,
+        pushMessage: (m) => { m._enter = true; state.messages.push(m); },
+        pushCoachLine: (text) => state.messages.push({ speaker: 'coach', kind: 'coaching', _enter: true, text }),
+        focusFallback: () => continueCtaBtn.focus(),
+      },
+    });
 
     /* =====================================================================
        RENDER  — paint everything from state
@@ -2439,10 +2179,9 @@ You didn't carry this alone, and you didn't ask her to either.` },
       coachPanel.setAttribute('aria-hidden', coachUp ? 'false' : 'true');
       if (coachUp) {
         coachPanelBody.innerHTML = '';
-        if (state.closingStepperActive) {
-          // the closing summary "builds" — no messages behind it yet
-          coachPanelBody.appendChild(closingStepperNode());
-        } else {
+        {
+          // The closing recap shows here like any other coach line — the
+          // loading beats live in the CTA slot below (see showAnalyzing).
           const coachingRun = trailingRun(messages, 'coaching');
           coachingRun.forEach((m) => coachPanelBody.appendChild(
             m.kind === 'highlights' ? youHighlightsNode(m) : (m.speaker === 'you' ? youCoachNode(m) : coachNode(m))));
@@ -2467,7 +2206,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
       // itself keeps showing on the stage behind the coach sheet afterward.
       const showStoryCta    = state.enteredScenario && !state.storyDone;
       const showEntry      = state.awaitingEntry && !hasEnteredScene && !state.entryPromptDismissed && !state.delivering;
-      const showAnalyzing  = state.analyzing;
+      const showAnalyzing  = state.analyzing || state.closingStepperActive;
       const showDebrief    = state.awaitingDebrief && !state.analyzing && !state.delivering;
       // The coach has replied and is ready to send the learner back into the
       // scene, but waits for this tap rather than auto-transitioning.
@@ -2492,7 +2231,9 @@ You didn't carry this alone, and you didn't ask her to either.` },
       inputMain.hidden      = showLanding || showStoryCta || showEntry || showAnalyzing || showDebrief || showReturn || showResults || showContinue || showDone;
       storyCtaBtn.disabled  = state.highlights.length === 0;
       if (showAnalyzing) {
-        inputAnalyzing.lastChild.textContent = complete ? 'Wrapping up your practice…' : 'Analyzing your response…';
+        inputAnalyzing.lastChild.textContent = state.closingStepperActive
+          ? DEBRIEF.closingLabel()
+          : (complete ? 'Wrapping up your practice…' : 'Analyzing your response…');
       }
       if (showDebrief) {
         debriefCtaBtn.innerHTML = complete
@@ -2526,28 +2267,12 @@ You didn't carry this alone, and you didn't ask her to either.` },
         ? 'Practice complete — press Restart to run it again.'
         : 'Enter to send · Shift+Enter for a new line';
 
-      /* —— Results modal — strengths (page 0) or growth areas (page 1), one at
-         a time. .app goes inert while this (or the intro modal below) is open
-         (they're siblings, so the modal itself is unaffected) so background
-         content can't be tabbed into. —— */
-      resultsModal.hidden = !state.resultsModalOpen;
+      /* —— Results modal — painted by the shared debrief (one renderer for
+         every simulator page, so pages/dots/nav labels never drift). —— */
+      DEBRIEF.render();
+      // This page ALSO has the one-time story-intro modal — keep .app inert
+      // while EITHER dialog is up (the shared renderer only knows its own).
       app.toggleAttribute('inert', state.resultsModalOpen || state.introModalOpen);
-      if (state.resultsModalOpen) {
-        resultsModalBody.innerHTML = '';
-        resultsModalBody.appendChild(RESULTS_PAGES[state.resultsPage].node());
-        resultsModalBody.scrollTop = 0;
-        [...resultsDots.children].forEach((d, i) => {
-          d.hidden = i >= RESULTS_PAGES.length;   // scenario may have fewer report pages
-          d.classList.toggle('is-active', i === state.resultsPage);
-        });
-        const NEXT_LABELS = ['Next: Growth areas', 'Next: The approach that works'];
-        const backBtn = state.resultsPage > 0
-          ? `<button class="results-nav-btn" id="resultsBackBtn"><i class="fa-solid fa-arrow-left"></i> Back</button>` : `<span></span>`;
-        const fwdBtn = state.resultsPage < RESULTS_PAGES.length - 1
-          ? `<button class="results-nav-btn primary" id="resultsNextBtn">${NEXT_LABELS[state.resultsPage]} <i class="fa-solid fa-arrow-right"></i></button>`
-          : `<button class="results-nav-btn primary" id="resultsContinueBtn">Continue <i class="fa-solid fa-arrow-right"></i></button>`;
-        resultsModalFoot.innerHTML = backBtn + fwdBtn;
-      }
 
       /* —— Highlight intro modal — a one-time explainer, opened by
          openStoryIntro() the moment the story page lands (see enterScenario). —— */
@@ -2564,29 +2289,85 @@ You didn't carry this alone, and you didn't ask her to either.` },
       messages.forEach((m) => { if (m._enter) m._enter = false; });
 
       manageFocus(trap);
+      // Coach thread: grow the sheet smoothly (tweenCoachHeight pins the newest
+      // bubble to the bottom itself); once maxed out, glide the scroll to the new
+      // bottom instead of snapping — instant fallback when motion is reduced or the
+      // tab is backgrounded (where smooth scroll silently no-ops).
+      if (coachUp) {
+        if (!tweenCoachHeight()) {
+          const canGlide = !reducedMotion() && document.visibilityState === 'visible';
+          if (canGlide) coachPanelBody.scrollTo({ top: coachPanelBody.scrollHeight, behavior: 'smooth' });
+          else coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
+        }
+      } else {
+        lastCoachH = null;
+      }
+      // The scene stage follows only when fresh scene content arrived.
       requestAnimationFrame(() => {
-        // follow the practice to the bottom ONLY when fresh scene content arrived;
-        // otherwise hold position so a Learn/Practice toggle never jumps the scene
         if (followStage) { stage.scrollTop = stage.scrollHeight; followStage = false; }
         else { stage.scrollTop = prevStageScroll; }
-        coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
       });
     }
     // set true right before a render that appends scene content, so it follows down
     let followStage = false;
 
+    /* —— Raise the coach sheet as ONE piece ————————————————————————————————
+       The sheet is bottom-anchored (it sits on the input bar). New content used
+       to snap the sheet taller and PIN the newest bubble to the bottom while the
+       height tweened — so only the header (riding the top edge) visibly moved,
+       arriving ~300ms late and reading as out-of-sync with the thread. Instead we
+       now lay the sheet out at its final height immediately, then ease the WHOLE
+       sheet — header + thread together — up into place from a dropped start: we
+       translateY it down by exactly how much it grew (the extra height tucks
+       behind the input bar, and the header lands where the shorter sheet's top
+       was), then animate that transform back to 0. Header and messages share one
+       motion, so nothing lags. Once the sheet is at its max height it stops
+       growing and the body scrolls (render()/showTyping() glide that scroll).
+       Returns true if it animated. */
+    let lastCoachH = null;      // sheet height we last painted, = the rise's start point
+    let coachGrowRAF = 0;       // in-flight rise, so a fresh one can cancel it
+    function tweenCoachHeight() {
+      if (!app.classList.contains('coach-up')) { lastCoachH = null; return false; }
+      if (coachGrowRAF) { cancelAnimationFrame(coachGrowRAF); coachGrowRAF = 0; }
+      coachPanel.style.transition = 'none';             // we drive the transform ourselves this beat
+      coachPanel.style.transform = '';                  // sit at the resting position to measure
+      const target = coachPanel.offsetHeight;           // forces layout → true post-render height
+      const from = lastCoachH;
+      lastCoachH = target;
+      coachPanelBody.scrollTop = coachPanelBody.scrollHeight;   // newest bubble to the bottom (layout is final now)
+      if (from == null || reducedMotion() || Math.abs(target - from) < 2) { coachPanel.style.transition = ''; return false; }
+      const delta = target - from;                      // how much taller we grew = how far to rise
+      const dur = 300;
+      const ease = (t) => 1 - Math.pow(1 - t, 3);       // easeOutCubic
+      let t0 = null;
+      const step = (ts) => {
+        if (t0 == null) t0 = ts;
+        const p = Math.min(1, (ts - t0) / dur);
+        coachPanel.style.transform = 'translateY(' + (delta * (1 - ease(p))) + 'px)';   // header + thread, one block
+        if (p < 1) { coachGrowRAF = requestAnimationFrame(step); }
+        else { coachGrowRAF = 0; coachPanel.style.transform = ''; coachPanel.style.transition = ''; }  // release to CSS
+      };
+      coachPanel.style.transform = 'translateY(' + delta + 'px)';   // start dropped, synchronously
+      coachGrowRAF = requestAnimationFrame(step);
+      return true;
+    }
+
     /* ---- typing indicator (in the right world) ------------------------ */
-    function showTyping() {
+    function showTyping(label) {
       hideTyping();
       const coachUp = state.mode === 'coaching';
-      const node = el('div', 'typing' + (coachUp ? '' : ' scene'), '<span></span><span></span><span></span>');
+      const dots = '<span></span><span></span><span></span>';
+      const node = el('div', 'typing' + (coachUp ? '' : ' scene'), dots + (label ? '<span class="tlabel">' + esc(label) + '</span>' : ''));
       node.id = 'typingNode';
       // coach lines type in the sheet (prep AND debriefs); scene lines type in the practice
       if (coachUp) { typingHost = coachPanelBody; coachPanelBody.appendChild(node); }
       else { typingHost = stageInner; stageInner.appendChild(node); }
-      requestAnimationFrame(() => {
-        (typingHost === coachPanelBody ? coachPanelBody : stage).scrollTop = 1e9;
-      });
+      if (typingHost === coachPanelBody) {
+        // the dots grow the sheet too — tween it (which pins the thread); pin instantly if already maxed
+        if (!tweenCoachHeight()) coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
+      } else {
+        requestAnimationFrame(() => { stage.scrollTop = 1e9; });
+      }
     }
     function hideTyping() {
       const t = document.getElementById('typingNode');
@@ -2796,6 +2577,20 @@ You didn't carry this alone, and you didn't ask her to either.` },
     // "Bringing in your AI coach…") which is itself the transition into the
     // coach's opening reaction, delivered in the standard AI Coach panel —
     // no second tap required.
+    /* THIS page is why the Section-1 coupler exists: the story intro is one
+       the learner ACTS IN, so its ContextRecord carries artifacts — the
+       highlights they chose — plus their recap as a seed message and an
+       autoFirstTurn flag (the coach must react to the highlights immediately
+       instead of waiting for input). Watch-only intros hand over an empty
+       record through the exact same pipe. */
+    const CONTEXT = SimContext.create({ onDone: startSession });
+    const storyRecord = () => ({
+      modality: 'story',
+      artifacts: { highlights: state.highlights.slice() },
+      seedMessages: [highlightsRecapMessage()],
+      autoFirstTurn: true,
+    });
+
     async function finishStory() {
       if (state.storyDone || state.highlights.length === 0) return;
       state.storyDone = true;
@@ -2804,7 +2599,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
       render();
       await wait(reducedMotion() ? 0 : 700);
       state.transitioning = false;
-      startSession();
+      CONTEXT.done(storyRecord());
     }
 
     /* =====================================================================
@@ -2822,7 +2617,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
 
       state.sending = true;
       render();          // shows the learner's line (faded in) and locks input
-      showTyping();      // the AI is composing — covers the model round-trip
+      showTyping(state.mode === 'scene' ? 'Updating the scene…' : '');      // the AI is composing — covers the model round-trip
 
       let turn;
       try { turn = await getTurn(state.messages); }
@@ -2851,17 +2646,11 @@ You didn't carry this alone, and you didn't ask her to either.` },
        "Analyzing response…" leads into the coaching layer with the scene line
        animating across — so coaching and scene stay two distinct moments that
        are visually connected. */
-    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-    const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    // How long the coach "thinks" (typing dots) before a message. This is the MAIN
-    // beat: the dots tell the learner more is coming, so they read the message that's
-    // already on screen while the next one composes. We therefore scale the thinking
-    // time to the PREVIOUS message's length — that's what's being read right now. The
-    // very first line has nothing to read yet, so it gets a short opening beat.
-    const thinkingTime = (prevText) =>
-      reducedMotion() ? 250
-      : prevText ? Math.min(3800, 1000 + String(prevText).length * 15)
-                 : 950;
+    // Shared pacing (js/sim-core.js): wait/reducedMotion plus thinkingTime —
+    // the coach "thinks" long enough for the learner to read the PREVIOUS
+    // message; the very first line gets a short opening beat. One rhythm
+    // across every simulator page.
+    const { wait, reducedMotion, thinkingTime } = SimCore;
 
     // a token so a Restart (or new send) mid-reveal cleanly cancels the old one
     let deliverSeq = 0;
@@ -2883,14 +2672,19 @@ You didn't carry this alone, and you didn't ask her to either.` },
       if (willEnter) {
         state.delivering = true;
         const coachingItems = items.filter((m) => worldOf(m) === 'coaching');
-        for (const m of coachingItems) {
+        for (let ci = 0; ci < coachingItems.length; ci++) {
+          const m = coachingItems[ci];
+          const prev = ci > 0 ? coachingItems[ci - 1] : null;
           hideTyping();
-          showTyping(); await wait(reducedMotion() ? 250 : 780); hideTyping();
+          // Dots scaled to the PREVIOUS line's length (thinkingTime) rather than a
+          // flat beat — so a burst of coach messages leaves the learner room to
+          // start reading each one before the next composes.
+          showTyping(); await wait(thinkingTime(prev ? prev.text : '')); hideTyping();
           if (dead()) return;
           m._enter = true;
           state.messages.push(m);
           render();
-          await wait(reducedMotion() ? 80 : 300);
+          if (ci < coachingItems.length - 1) await wait(reducedMotion() ? 80 : 300);
           if (dead()) return;
         }
         state.pendingScene = items.filter((m) => worldOf(m) === 'scene');
@@ -2952,17 +2746,21 @@ You didn't carry this alone, and you didn't ask her to either.` },
 
       // Phase 3 — coach message(s) revealed in the sheet when we're ALREADY coaching
       // (a send-back reply, an escalation redirect, or a manual-timeout answer).
+      let prevText = (i > 0 && items[i - 1]) ? (items[i - 1].text || '') : '';
       while (i < items.length) {
         const m = items[i];
         hideTyping();
-        showTyping(); await wait(reducedMotion() ? 250 : 780); hideTyping();
+        // Dots scaled to what was just shown (thinkingTime) instead of a flat beat,
+        // so consecutive coach lines give the learner room to start reading.
+        showTyping(); await wait(thinkingTime(prevText)); hideTyping();
         if (dead()) return;
         m._enter = true;
         state.messages.push(m);
         render();
-        await wait(reducedMotion() ? 80 : 300);
-        if (dead()) return;
+        prevText = m.text || '';
         i++;
+        if (i < items.length) await wait(reducedMotion() ? 80 : 300);
+        if (dead()) return;
       }
 
       // Finalize. If the coach is sending the learner back into the scene, don't
@@ -3000,126 +2798,20 @@ You didn't carry this alone, and you didn't ask her to either.` },
     // "See what your AI coach noticed" — the learner opens the queued debrief when
     // ready (after reading Kendra's reaction). The coach sheet RISES; the practice
     // (with the line) stays visible, dimmed, above it.
+    // Mid-practice debriefs stay page-owned (Section-2 coaching); the FINAL
+    // one hands off to the SHARED Section-3 debrief — stepper build-up,
+    // results modal, resources, exit (DEBRIEF, js/sim-debrief.js).
     function openDebrief() {
       if (!state.awaitingDebrief || state.sending || state.delivering) return;
-      if (state.complete) { openClosingDebrief(); return; }
-      (state.pendingDebrief || []).forEach((m) => { m._enter = true; state.messages.push(m); });
-      state.pendingDebrief = null;
-      state.awaitingDebrief = false;
-      state.analyzing = false;
-      state.mode = 'coaching'; state.inputTarget = 'coach';
-      announce('Stepped out to your AI coach.');
-      render();   // the coach sheet rises with the debrief
-    }
-
-    // The FINAL debrief gets a build-up instead of an instant reveal: the coach
-    // sheet rises into a short "Analyzing… Determining…" stepper, THEN the recap
-    // message + the strengths/growth-areas report land together.
-    async function openClosingDebrief() {
-      const myseq = ++deliverSeq;
-      const dead = () => myseq !== deliverSeq;
       const pending = state.pendingDebrief || [];
       state.pendingDebrief = null;
       state.awaitingDebrief = false;
       state.analyzing = false;
       state.mode = 'coaching'; state.inputTarget = 'coach';
-      state.closingStepperActive = true;
-      announce('Analyzing the conversation.');
-      render();   // the coach sheet rises, showing the stepper
-      await runClosingStepper(dead);
-      if (dead()) return;
-      state.closingStepperActive = false;
+      if (state.complete) { DEBRIEF.openClosing(pending); return; }
       pending.forEach((m) => { m._enter = true; state.messages.push(m); });
-      state.awaitingResults = true;   // footer offers "View full results" — the report opens in its own modal
-      announce('Your AI coach has a recap. View your full results when ready.');
-      render();   // just the recap message for now
-    }
-
-    // The modal's footer is rebuilt on every render, so focus lands via a
-    // fresh query — same delayed-focus pattern the intro modal's CTA uses.
-    let resultsOpenerFocus = null;
-    function focusResultsPrimary() {
-      setTimeout(() => {
-        const btn = resultsModalFoot.querySelector('.results-nav-btn.primary');
-        if (btn) btn.focus();
-      }, 30);
-    }
-    function openResultsModal() {
-      if (!state.awaitingResults) return;
-      state.resultsPage = 0;
-      state.resultsModalOpen = true;
-      resultsOpenerFocus = document.activeElement;   // restored on close
-      announce('Your results: strengths.');
-      render();
-      focusResultsPrimary();
-    }
-    // Closing the modal doesn't just dump the resources in — the coach
-    // "introduces" them first, as its own typed-in message, the same way any
-    // other coach line arrives (see deliverTurn/deliverOpening).
-    async function closeResultsModal() {
-      const myseq = ++deliverSeq;
-      const dead = () => myseq !== deliverSeq;
-      state.resultsModalOpen = false;
-      state.awaitingResults = false;
-      state.delivering = true;
-      announce('Back to your AI coach.');
-      render();
-      // Restore focus out of the (now-hidden) modal. The CTA that opened it
-      // has already left the footer, so fall back to the coach panel the
-      // learner is returned to.
-      setTimeout(() => {
-        if (resultsOpenerFocus && resultsOpenerFocus.offsetParent !== null) resultsOpenerFocus.focus();
-        else { coachPanel.setAttribute('tabindex', '-1'); coachPanel.focus(); }
-        resultsOpenerFocus = null;
-      }, 30);
-      showTyping(); await wait(reducedMotion() ? 250 : 900); hideTyping();
-      if (dead()) return;
-      state.messages.push({ speaker: 'coach', kind: 'coaching', _enter: true, text:
-        `Great work! Here are some resources for dealing with situations just like this.` });
-      render();
-      await wait(reducedMotion() ? 80 : 500);
-      if (dead()) return;
-      showTyping(); await wait(reducedMotion() ? 250 : 900); hideTyping();
-      if (dead()) return;
-      state.resultsViewed = true;   // reveals the resources message — see render()
-      state.delivering = false;
-      announce('Here are some resources.');
-      render();
-    }
-
-    // "Continue" — the practice's actual last step. Nothing in this prototype
-    // routes to a real next lesson, so this just settles the footer into a
-    // clear, final "done" state rather than pretending to navigate anywhere.
-    function finishPractice() {
-      if (!state.resultsViewed || state.continued) return;
-      state.continued = true;
-      announce('Practice complete.');
-      render();
-    }
-    function resultsNext() {
-      state.resultsPage = Math.min(state.resultsPage + 1, RESULTS_PAGES.length - 1);
-      announce(RESULTS_PAGES[state.resultsPage].announce);
-      render();
-      focusResultsPrimary();   // the footer was rebuilt — don't drop focus to body
-    }
-    function resultsBack() {
-      state.resultsPage = Math.max(state.resultsPage - 1, 0);
-      announce(RESULTS_PAGES[state.resultsPage].announce);
-      render();
-      focusResultsPrimary();
-    }
-
-    async function runClosingStepper(dead) {
-      const steps = () => [...coachPanelBody.querySelectorAll('.closing-step')];
-      for (let i = 0; i < CLOSING_STEPS.length; i++) {
-        if (dead()) return;
-        const els = steps();
-        if (els[i]) els[i].classList.add('is-active');
-        await wait(reducedMotion() ? 150 : 900);
-        if (dead()) return;
-        if (els[i]) { els[i].classList.remove('is-active'); els[i].classList.add('is-done'); }
-      }
-      await wait(reducedMotion() ? 0 : 350);
+      announce('Stepped out to your AI coach.');
+      render();   // the coach sheet rises with the debrief
     }
 
     // "Step into the scene" — the learner crosses on their command. The coach
@@ -3186,6 +2878,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
     function restart() {
       deliverSeq++;                                       // cancel any in-flight reveal
       abortDelivery();
+      CONTEXT.reset();   // re-arm the Section-1 coupler for a fresh run
       Object.assign(state, {
         mode: 'coaching', inputTarget: 'coach', hasEnteredScene: false,
         started: false, messages: [], pendingOpening: null,
@@ -3222,16 +2915,22 @@ You didn't carry this alone, and you didn't ask her to either.` },
     // "Show my coach what I highlighted" hands off here: the coach opens with a
     // reaction built from the learner's highlight set, then the sheet rises over
     // the scene anchor and types it in, same as every other coach reveal.
-    async function startSession() {
+    async function startSession(context) {
       if (state.started || state.sending || state.delivering) return;
+      // Section 1 → Section 2, standardized: the story's ContextRecord seeds
+      // the learner's highlight recap onto the transcript and (via
+      // autoFirstTurn) asks for an immediate model turn — the coach reacts
+      // to what they actually chose, judged against the key-moments answer
+      // key in the system prompt.
+      const coupler = SimContext.apply(context, {
+        appendSystem: (t) => { SYSTEM_PROMPT += '\n\n' + t; },
+        seed: (msgs) => { state.pendingOpening = [...msgs, ...(state.pendingOpening || [])]; },
+      });
       state.started = true;
       state.mode = 'coaching'; state.inputTarget = 'coach';
 
-      // LIVE: the learner's recap lands first, then the MODEL reacts to their
-      // actual highlights (judged against the key-moments answer key in the
-      // system prompt) — a real read, not the scripted template below.
-      if (IS_LIVE) {
-        state.pendingOpening = [highlightsRecapMessage()];
+      // LIVE + artifacts: the recap lands first, then the MODEL's real read.
+      if (coupler.fireFirstTurn && TURN_ENGINE.live) {
         announce('Bringing in your AI coach.');
         render();
         await deliverOpening();
@@ -3253,10 +2952,10 @@ You didn't carry this alone, and you didn't ask her to either.` },
         return;
       }
 
-      state.pendingOpening = [
-        highlightsRecapMessage(),
-        { speaker: 'coach', kind: 'coaching', text: buildHighlightOpening() },
-      ];
+      // DEMO (no live engine): the scripted reaction, built from the
+      // highlight overlap, follows the seeded recap.
+      state.pendingOpening = [...(state.pendingOpening || []),
+        { speaker: 'coach', kind: 'coaching', text: buildHighlightOpening() }];
       announce('Bringing in your AI coach.');
       render();                 // the sheet rises (empty) over the scene anchor
       await deliverOpening();   // each opening line types into the sheet, one by one
@@ -3328,15 +3027,26 @@ You didn't carry this alone, and you didn't ask her to either.` },
     // Return bar: cross back into the scene on the learner's own command.
     returnCtaBtn.addEventListener('click', returnToScene);
     // Results bar: opens the strengths/growth-areas modal (never auto-shown).
-    resultsCtaBtn.addEventListener('click', openResultsModal);
-    // Modal nav — delegated since the footer's buttons are rebuilt every render.
-    resultsModalFoot.addEventListener('click', (e) => {
-      if (e.target.closest('#resultsNextBtn')) resultsNext();
-      else if (e.target.closest('#resultsBackBtn')) resultsBack();
-      else if (e.target.closest('#resultsContinueBtn')) closeResultsModal();
-    });
+    // Results bar: opens the shared debrief's results modal (never auto-shown).
+    // Modal-footer nav is delegated INSIDE the shared debrief (makeFlow).
+    resultsCtaBtn.addEventListener('click', DEBRIEF.openResults);
     // The practice's actual last step, once the resources have landed.
-    continueCtaBtn.addEventListener('click', finishPractice);
+    continueCtaBtn.addEventListener('click', DEBRIEF.finish);
+
+    // "Full conversation" — the SHARED coach-sheet expander
+    // (js/sim-chat-history.js): a pill in the panel head grows the sheet to
+    // nearly full screen height and overlays the complete transcript —
+    // earlier coaching exchanges AND the scene context — in one consistent
+    // treatment; "Latest only" (or Escape, or the sheet lowering) collapses
+    // it back to the focused view every page opens with.
+    SimChatHistory.attach({
+      panel: coachPanel,
+      body: coachPanelBody,
+      messages: () => state.messages,
+      characterName: (m) => m.name || SCENARIO.character,
+      announce,
+    });
+
     // Highlight intro modal: "Got it" is the only way through it.
     introModalCtaBtn.addEventListener('click', closeStoryIntro);
     // Story page: free-range highlighting. mouseup/touchend turn whatever the
@@ -3378,7 +3088,7 @@ You didn't carry this alone, and you didn't ask her to either.` },
       const seg = e.target.closest('.seg');
       if (!seg || seg.disabled) return;
       const which = seg.dataset.seg;
-      if (which === 'coaching' && !state.started) { startSession(); return; }  // begin
+      if (which === 'coaching' && !state.started) { CONTEXT.done(storyRecord()); return; }  // begin (with whatever they highlighted)
       if (which === state.mode) return;               // already active
       if (which === 'coaching') {                     // → the coach layer
         if (state.awaitingDebrief) openDebrief();      // open the queued debrief
@@ -3393,6 +3103,25 @@ You didn't carry this alone, and you didn't ask her to either.` },
     // Opening beat: the landing card anchors the scene. The story page (and
     // everything after it) waits for the learner to tap "Read the background story."
     render();
+    </script>
+    <!-- ===== Course-delivery frame ===================================== -->
+    <script>
+      // Embed into the app shell; course/lesson auto-derive from #scenarioName.
+      window.LESSON_FRAME = { mount: '#app' };
+    </script>
+    <script src="js/frame.js?v=3"></script>
+    <script>
+      // Relocate the app's Restart control onto the frame's actions slot; moving
+      // the node preserves its click handler (attached above by element id).
+      (function () {
+        function relocate() {
+          var slot = document.querySelector('.vt-frame .vt-actions');
+          var btn  = document.getElementById('restartBtn');
+          if (slot && btn) slot.appendChild(btn);
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', relocate);
+        else relocate();
+      })();
     </script>
 </body>
 </html>

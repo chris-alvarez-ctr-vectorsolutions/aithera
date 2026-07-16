@@ -108,9 +108,12 @@
      ======================================================================= */
   function calibratePrompt(s) {
     const n = (s.topics || []).length;
+    // Context handoff — when the scene is inherited from a previous LO. The
+    // calibration chat is Teach-Back's opening, so it bridges the seam here.
+    const handoff = (window.AitheraScenario && window.AitheraScenario.contextHandoff) ? window.AitheraScenario.contextHandoff(s) : '';
     return `You are a warm, knowledgeable workplace-safety coach running a short "teach-back" exercise. The learner has just finished ${s.subject}. In a moment they'll be shown ${n} blurred topic tiles and asked to teach each one back — speaking or typing — and each tile comes into focus as they cover it.
 
-${s.calibrate.coachGuidance}
+${handoff ? handoff + '\n\n' : ''}${s.calibrate.coachGuidance}
 
 Return STRICT JSON ONLY, no markdown, no code fences:
 {"text": "your reply (2-3 sentences)", "ready": true}
@@ -160,6 +163,9 @@ Return STRICT JSON ONLY, no markdown, no code fences:
     const out = [];
     const push = (v) => { const t = String(v ?? '').trim(); if (t.length > 2) out.push(t); };
     push(s.subject);
+    if ((s.contextSource || 'in-scenario') === 'previous-lo' && s.previousLO) {
+      push(s.previousLO.title); push(s.previousLO.covered); push(s.previousLO.handoff);
+    }
     push(s.calibrate.openingQuestion); push(s.calibrate.coachGuidance);
     push(s.grade.rules); push(s.close.guidance);
     (s.topics || []).forEach((t) => { push(t.full); push(t.synonyms); push(t.short); });
@@ -181,7 +187,24 @@ Return STRICT JSON ONLY, no markdown, no code fences:
     out.calibrate = { ...clone(DEFAULT.calibrate), ...(out.calibrate || {}) };
     out.grade = { ...clone(DEFAULT.grade), ...(out.grade || {}) };
     out.close = { ...clone(DEFAULT.close), ...(out.close || {}) };
+
+    // Platform-level context handoff — preserve/default so a save/load round-trip
+    // keeps the fields the shell authors (the shell owns the UI; we just persist).
+    if (out.contextSource !== 'previous-lo') out.contextSource = 'in-scenario';
+    if (!out.previousLO || typeof out.previousLO !== 'object') out.previousLO = { title: '', covered: '', handoff: '' };
+
     return out;
+  }
+  // Blank template for "Start fresh" — one empty topic row so normalize()
+  // doesn't back-fill the shipped HazCom topics.
+  function blank() {
+    return {
+      v: 1, type: 'teach-back', title: '', subject: '',
+      topics: [{ short: '', full: '', synonyms: '' }],
+      calibrate: { openingQuestion: '', coachGuidance: '' },
+      grade: { rules: '' },
+      close: { guidance: '' },
+    };
   }
   function merge(draft) {
     const base = clone(DEFAULT);
@@ -224,20 +247,31 @@ Return STRICT JSON ONLY, no markdown, no code fences:
   }
 
   /* ---- form: sections + field renderers --------------------------------- */
+  /* Ordered on the three-section spine. Teach-Back has no Section-1 context
+     modality — its calibration chat IS the ENTER of the loop — so it opens
+     straight into ② Interaction. The `stage` chip names the loop step each
+     section maps to; section `id`s are unchanged (the lints key off them). */
   const sections = [
-    { id: 'basics', icon: 'fa-id-card', title: 'Basics',
+    { id: 'basics', group: 'meta', icon: 'fa-id-card', title: 'Basics',
       lead: 'What this teach-back is called and the course it follows.' },
-    { id: 'topics', icon: 'fa-list-check', title: 'Required topics',
-      lead: 'The topics the learner must teach back from memory. Each becomes a blurred tile that comes into focus as they cover it — and the grader credits coverage against these.',
+
+    // ② Interaction — the loop for Teach-Back: a warm-up (ENTER), the learner
+    // teaches each topic from memory (ENGAGE), and a live grader focuses tiles and
+    // nudges toward gaps (REACT). The score IS the point here — no hidden rubric.
+    { id: 'calibrate', group: 'interaction', stage: 'ENTER', icon: 'fa-comment-dots', title: 'Calibration chat',
+      lead: 'The no-scoring warm-up before the tiles appear — how the learner enters the loop.' },
+    { id: 'topics', group: 'interaction', stage: 'ENGAGE', icon: 'fa-list-check', title: 'Required topics',
+      lead: 'What the learner teaches back — each a tile that resolves as they cover it, and the answer key the grader credits against.',
       bridgeTitle: 'From your old craft: the checklist a complete program must cover',
-      bridge: '<b>short</b> labels the tile and the results list. <b>full</b> is what the AI grades against — write it as the complete idea. <b>synonyms</b> are the plain-language phrasings you\'ll accept, so a learner who says it in their own words still gets credit.' },
-    { id: 'calibrate', icon: 'fa-comment-dots', title: 'Calibration chat',
-      lead: 'The short, no-scoring warm-up before the tiles appear. The opening question is on screen already; the guidance tells the coach how to run that chat.' },
-    { id: 'grade', icon: 'fa-scale-balanced', title: 'Grading rules',
-      lead: 'How the live grader decides a topic is covered. The topic list is added automatically — write the judgment calls here.' },
-    { id: 'close', icon: 'fa-medal', title: 'Closing feedback',
-      lead: 'How the coach writes the results message. Scores are shown by design here — the guidance keeps the tone warm and non-punitive.' },
-    { id: 'guardrails', icon: 'fa-lock', title: 'System guardrails', locked: true,
+      bridge: '<b>short</b> labels the tile. <b>full</b> is what the AI grades against. <b>synonyms</b> are the phrasings you\'ll accept, so a learner who says it their own way still gets credit.' },
+    { id: 'grade', group: 'interaction', stage: 'REACT', icon: 'fa-scale-balanced', title: 'Grading rules',
+      lead: 'How the grader decides a topic is covered and steers the nudge to the biggest gap. The topic list is added for you.' },
+
+    // ③ Debrief & Close — the results message. Here the score is shown by design.
+    { id: 'close', group: 'debrief', stage: 'RESULTS', icon: 'fa-medal', title: 'Closing feedback',
+      lead: 'How the coach writes the results message — the score is shown by design; keep it warm and non-punitive.' },
+
+    { id: 'guardrails', group: 'reference', icon: 'fa-lock', title: 'System guardrails', locked: true,
       lead: 'The strict JSON shapes each model call must return. You can read them; you can\'t break them.' },
   ];
 
@@ -303,7 +337,7 @@ Return STRICT JSON ONLY, no markdown, no code fences:
   /* ---- the type object -------------------------------------------------- */
   const teachBackType = {
     id: 'teach-back',
-    label: 'Teach-back',
+    label: 'Teach-Back',
     icon: 'fa-chalkboard-user',
     DEFAULT,
     ENGINE_SECTIONS,
@@ -311,6 +345,7 @@ Return STRICT JSON ONLY, no markdown, no code fences:
     normalize,
     isValid,
     merge,
+    blank,
     compile,
     // exposed so the live page (teach-back.html) can build each prompt directly
     calibratePrompt,
