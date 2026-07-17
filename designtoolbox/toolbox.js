@@ -163,20 +163,51 @@
       if (toggle && toggle.parentNode !== dock) dock.appendChild(toggle);
       return dock;
     }
-    window.ToolboxDock = {
-      get: getDock,
-      // Append a launcher to the dock (before the collapse chevron), with a
-      // divider before it if the dock already holds a launcher. Returns the dock.
-      add: function (node) {
-        var dock = getDock();
-        var toggle = dock.querySelector('.tbx-collapse-btn');
-        var hasLaunchers = dock.querySelector(':scope > :not(.tbx-collapse-btn):not(.tbx-dock-sep)') != null;
-        if (hasLaunchers) {
+    // Canonical left-to-right order of the dock's launchers. The loader's
+    // version group is always leftmost, then the comment widget, then the flow
+    // map. This is derived from each launcher's identity — NOT its arrival
+    // order — because the three docking calls (loader's adoptIntoDock, the
+    // comment widget, the flow map) race each other and would otherwise land in
+    // a nondeterministic order (the pill looked different on first load vs.
+    // after a version switch/refresh). A fixed order keeps it stable.
+    function orderOf(node) {
+      if (!node || node.nodeType !== 1) return 50;
+      if (node.id === 'loader-version-group') return 0;   // VERSION buttons — leftmost
+      var cl = node.classList;
+      if (cl && cl.contains('cw-bubble')) return 10;       // comment widget
+      if (cl && cl.contains('fm-launch')) return 20;        // flow map
+      return 15;                                            // anything else
+    }
+    // Re-sort the dock into canonical order and rebuild the dividers between
+    // launchers, always keeping the collapse chevron last. Idempotent, so it's
+    // safe to run after every add() regardless of who won the race.
+    function reflow(dock) {
+      var toggle = dock.querySelector('.tbx-collapse-btn');
+      var launchers = [];
+      Array.prototype.slice.call(dock.children).forEach(function (c) {
+        if (c === toggle) return;
+        if (c.classList && c.classList.contains('tbx-dock-sep')) { c.remove(); return; }
+        launchers.push(c);
+      });
+      launchers.sort(function (a, b) { return orderOf(a) - orderOf(b); });
+      launchers.forEach(function (node, i) {
+        if (i > 0) {
           var sep = document.createElement('span');
           sep.className = 'tbx-dock-sep';
-          dock.insertBefore(sep, toggle || null);
+          dock.appendChild(sep);
         }
-        dock.insertBefore(node, toggle || null);
+        dock.appendChild(node);
+      });
+      if (toggle) dock.appendChild(toggle);   // chevron stays at the far right
+    }
+    window.ToolboxDock = {
+      get: getDock,
+      // Add a launcher to the dock, then reflow so it settles into the canonical
+      // order (see orderOf) with dividers rebuilt — independent of arrival order.
+      add: function (node) {
+        var dock = getDock();
+        dock.appendChild(node);
+        reflow(dock);
         return dock;
       },
     };

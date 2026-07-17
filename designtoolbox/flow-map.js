@@ -101,6 +101,14 @@
 .fm-title h2{font-size:17px;font-weight:700;margin:0;}\
 .fm-title .tag{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#b9b2ff;border:1px solid rgba(124,92,255,.5);border-radius:4px;padding:2px 7px;}\
 .fm-hint{font-size:12.5px;color:#8b90b5;max-width:46ch;text-align:center;}\
+/* "No dev notes yet" banner — shown under the header only when DEV-NOTES.md is\
+   missing or empty. It also hides the normal hint and the per-step buttons. */\
+.fm-nonotes{display:none;align-items:center;justify-content:center;gap:9px;flex:none;padding:9px 24px;background:rgba(124,92,255,.10);border-bottom:1px solid rgba(124,92,255,.22);color:#c9c2ff;font-size:12.5px;font-family:"Open Sans",system-ui,sans-serif;line-height:1.4;}\
+.fm-nonotes svg{width:15px;height:15px;flex:none;}\
+.fm-nonotes code{background:rgba(255,255,255,.10);border-radius:4px;padding:1px 5px;color:#e2defc;font-size:11.5px;}\
+.fm-nonotes-on .fm-nonotes{display:flex;}\
+.fm-nonotes-on .fm-hint{display:none;}\
+.fm-add-note-hidden .fm-add-note{display:none;}\
 .fm-tools{display:flex;align-items:center;gap:8px;}\
 .fm-tbtn{width:34px;height:34px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.04);color:#d6d9f0;border-radius:8px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;justify-content:center;}\
 .fm-tbtn:hover{background:rgba(255,255,255,.12);}\
@@ -208,16 +216,25 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
   }
 
   var fetchedNotes = false;
+  var notesExist = false;   // true once DEV-NOTES.md is found with ≥1 note
+  // Reflect whether any dev notes exist: when none, show the "no dev notes yet"
+  // banner at the top and keep the per-step "Dev notes" buttons hidden.
+  function applyNotesState() {
+    if (!overlay) return;
+    overlay.classList.toggle('fm-add-note-hidden', !notesExist);
+    overlay.classList.toggle('fm-nonotes-on', !notesExist);
+  }
   function fetchNotes() {
     return fetch(NOTES_URL, { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.text() : ''; })
       .then(function (md) {
-        if (!md) return;
-        anns = parseNotes(md);
+        anns = md ? parseNotes(md) : {};
+        notesExist = Object.keys(anns).some(function (k) { return anns[k] && anns[k].length; });
+        applyNotesState();
         refreshBadges();
         if (drawer && drawer.classList.contains('open')) renderDrawer();
       })
-      .catch(function () { /* no DEV-NOTES.md (or local file:// CORS) — notes stay empty */ });
+      .catch(function () { notesExist = false; applyNotesState(); /* no DEV-NOTES.md (or local file:// CORS) — notes stay empty */ });
   }
 
   // ---- comment counts (from comment-widget pins) ---------------------------
@@ -321,7 +338,10 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
   }
 
   function build() {
-    overlay = el('div', 'fm-overlay');
+    // Default to hiding the per-step "Dev notes" buttons until we've confirmed
+    // DEV-NOTES.md actually has notes (applyNotesState flips this after fetch),
+    // so the buttons never flash in on a mock that has no dev notes yet.
+    overlay = el('div', 'fm-overlay fm-add-note-hidden');
     overlay.innerHTML =
       '<div class="fm-top">' +
         '<div class="fm-title"><span class="dot"></span><h2>' + CFG.title + '</h2><span class="tag">Dev tool</span></div>' +
@@ -333,6 +353,7 @@ html.fm-open .cw-pins,html.fm-open .cw-nav,html.fm-open .cw-panel,html.fm-open .
           '<button class="fm-tbtn" data-close="1" title="Close" style="margin-left:6px;">' + ICON_X + '</button>' +
         '</div>' +
       '</div>' +
+      '<div class="fm-nonotes">' + ICON_NOTE + '<span>No dev notes yet — add them to <code>DEV-NOTES.md</code> next to this mock and they’ll appear on each step.</span></div>' +
       '<div class="fm-view"><div class="fm-canvas"><svg class="fm-edges"></svg></div></div>';
     document.body.appendChild(overlay);
 
