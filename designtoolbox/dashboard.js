@@ -149,20 +149,97 @@
   const productMatch = window.location.pathname.match(/\/products\/([^/]+)\/dashboard/i);
   const PRODUCT = productMatch ? decodeURIComponent(productMatch[1]) : 'SafeLMS';
 
-  // Per-product theme. Add an entry here to enroll a new product.
+  // Per-product theme, keyed by the product folder name (as it appears in the
+  // URL). `label` is the display name shown in the header; `emoji` sits in the
+  // product pill; the accent + gradient trio color the whole page. To enroll a
+  // new product, add it to products.json and drop an entry here.
   const PRODUCT_THEMES = {
+    'aithera': {
+      label: 'Aithera', emoji: '🧠',
+      accent: '#ea6a2c', accentSoft: '#ffe8db', accentDeep: '#b64a17',
+      accentGlow: 'rgba(255, 122, 61, 0.18)',
+      gradStart: '#ff8a4c', gradMid: '#f9640e', gradEnd: '#db2777',
+    },
+    'Bridge': {
+      label: 'Bridge', emoji: '🌉',
+      accent: '#ea580c', accentSoft: '#ffedd5', accentDeep: '#9a3412',
+      accentGlow: 'rgba(249, 115, 22, 0.18)',
+      gradStart: '#fb923c', gradMid: '#f97316', gradEnd: '#e11d48',
+    },
+    'check-it': {
+      label: 'Check It', emoji: '✅',
+      accent: '#0d9488', accentSoft: '#ccfbf1', accentDeep: '#115e59',
+      accentGlow: 'rgba(13, 148, 136, 0.18)',
+      gradStart: '#2dd4bf', gradMid: '#0d9488', gradEnd: '#0ea5e9',
+    },
+    'Convergence': {
+      label: 'Convergence', emoji: '🔀',
+      accent: '#6366f1', accentSoft: '#e0e7ff', accentDeep: '#4338ca',
+      accentGlow: 'rgba(99, 102, 241, 0.18)',
+      gradStart: '#6366f1', gradMid: '#8b5cf6', gradEnd: '#d946ef',
+    },
+    'design-system': {
+      label: 'Design System', emoji: '🎨',
+      accent: '#475569', accentSoft: '#f1f5f9', accentDeep: '#1e293b',
+      accentGlow: 'rgba(100, 116, 139, 0.16)',
+      gradStart: '#64748b', gradMid: '#475569', gradEnd: '#0ea5e9',
+    },
+    'EHS': {
+      label: 'EHS', emoji: '🦺',
+      accent: '#dc2626', accentSoft: '#fee2e2', accentDeep: '#991b1b',
+      accentGlow: 'rgba(239, 68, 68, 0.18)',
+      gradStart: '#f87171', gradMid: '#ef4444', gradEnd: '#f97316',
+    },
+    'Evaluations': {
+      label: 'Evaluations', emoji: '📋',
+      accent: '#059669', accentSoft: '#d1fae5', accentDeep: '#065f46',
+      accentGlow: 'rgba(16, 185, 129, 0.18)',
+      gradStart: '#34d399', gradMid: '#10b981', gradEnd: '#0ea5e9',
+    },
+    'Keystone-Tenants': {
+      label: 'Keystone Tenants', emoji: '🏢',
+      accent: '#db2777', accentSoft: '#fce7f3', accentDeep: '#9d174d',
+      accentGlow: 'rgba(236, 72, 153, 0.18)',
+      gradStart: '#f472b6', gradMid: '#ec4899', gradEnd: '#8b5cf6',
+    },
+    'LearningStudio': {
+      label: 'LearningStudio', emoji: '📐',
+      accent: '#0d9488', accentSoft: '#ccfbf1', accentDeep: '#0f766e',
+      accentGlow: 'rgba(20, 184, 166, 0.18)',
+      gradStart: '#2dd4bf', gradMid: '#14b8a6', gradEnd: '#6366f1',
+    },
+    'Pathways': {
+      label: 'Pathways', emoji: '🧭',
+      accent: '#16a34a', accentSoft: '#dcfce7', accentDeep: '#166534',
+      accentGlow: 'rgba(34, 197, 94, 0.18)',
+      gradStart: '#4ade80', gradMid: '#22c55e', gradEnd: '#14b8a6',
+    },
     'SafeLMS': {
-      emoji: '🛡️',
+      label: 'SafeLMS', emoji: '🛡️',
       accent: '#4338ca', accentSoft: '#e0e7ff', accentDeep: '#3730a3',
       accentGlow: 'rgba(99, 102, 241, 0.18)',
       gradStart: '#6366f1', gradMid: '#8b5cf6', gradEnd: '#ec4899',
     },
     'Scheduling': {
-      emoji: '📅',
+      label: 'Scheduling', emoji: '📅',
       accent: '#15803d', accentSoft: '#dcfce7', accentDeep: '#14532d',
       accentGlow: 'rgba(16, 185, 129, 0.18)',
       gradStart: '#10b981', gradMid: '#14b8a6', gradEnd: '#0284c7',
     },
+    'target-solutions': {
+      label: 'Target Solutions', emoji: '🎯',
+      accent: '#475569', accentSoft: '#f1f5f9', accentDeep: '#1e293b',
+      accentGlow: 'rgba(148, 163, 184, 0.16)',
+      gradStart: '#94a3b8', gradMid: '#64748b', gradEnd: '#475569',
+    },
+  };
+
+  // Fallback for any product without an explicit theme — keeps the page styled.
+  const FALLBACK_THEME = {
+    label: PRODUCT, emoji: '🧩',
+    accent: '#4338ca', accentSoft: '#e0e7ff', accentDeep: '#3730a3',
+    accentGlow: 'rgba(99, 102, 241, 0.18)',
+    gradStart: '#6366f1', gradMid: '#8b5cf6', gradEnd: '#ec4899',
   };
 
   // ----------------------------------------------------------------------
@@ -280,20 +357,38 @@
     const jiraBase = (meta.jiraBaseUrl || '').trim();
     const jiraBaseNorm = jiraBase ? (jiraBase.endsWith('/') ? jiraBase : jiraBase + '/') : '';
 
+    const productEnc = encodeURIComponent(PRODUCT);
+
     return Object.keys(meta.mocks).map(key => {
-      const parts = key.split('/');
-      const folder = parts[parts.length - 1];
-      const parent = parts.length > 1 ? parts.slice(0, -1).join('/') : null;
       const m = meta.mocks[key] || {};
+
+      // Three mock shapes share this dashboard:
+      //   "."             → the product root (products/<Product>/index.html)
+      //   "path/foo.html" → a standalone-file mock (the .html IS the prototype)
+      //   "foo" / "a/b"   → a folder mock (folder/index.html is the prototype)
+      const isRoot = key === '.';
+      const isFile = key.endsWith('.html');
+
+      const parts = key.split('/');
+      const lastSeg = parts[parts.length - 1];
+      const folder = isRoot ? PRODUCT : (isFile ? lastSeg.replace(/\.html$/i, '') : lastSeg);
+      const parent = isRoot ? null : (parts.length > 1 ? parts.slice(0, -1).join('/') : null);
       const auto = humanize(folder);
 
-      const relEnc = key.split('/').map(encodeURIComponent).join('/');
-      const productEnc = encodeURIComponent(PRODUCT);
+      // The Pages/GitHub path to the actual prototype file.
+      const relEnc = isRoot ? '' : key.split('/').map(encodeURIComponent).join('/');
+      const base = relEnc ? `${productEnc}/${relEnc}` : productEnc;
+      // File mocks point straight at the file; root/folder mocks at the folder
+      // (Pages serves its index.html).
+      const pagesUrl = isFile ? `${PAGES_BASE}/${base}` : `${PAGES_BASE}/${base}/`;
+      const blobUrl = isFile ? `${REPO_BASE}/${base}` : `${REPO_BASE}/${base}/index.html`;
 
       const ticket = m.ticket || auto.ticket;
       const ticketUrl = m.ticketUrl || (ticket && jiraBaseNorm ? jiraBaseNorm + ticket : null);
 
-      const devHandoff = !!m.devHandoff;
+      // Dev handoff only applies to folder/root mocks (a folder that can hold a
+      // dev_handoff.html); file mocks never carry one.
+      const devHandoff = !isFile && !!m.devHandoff;
       const devFile = (typeof m.devHandoff === 'string' && m.devHandoff.trim()) ? m.devHandoff.trim() : 'dev_handoff.html';
       const devFileEnc = devFile.split('/').map(encodeURIComponent).join('/');
 
@@ -306,17 +401,17 @@
         ticketUrl,
         description: m.description || describe(folder, parent),
         status: m.status || (devHandoff ? 'ready-for-dev' : DEFAULT_STATUS),
-        blobUrl: `${REPO_BASE}/${productEnc}/${relEnc}/index.html`,
-        pagesUrl: `${PAGES_BASE}/${productEnc}/${relEnc}/`,
+        blobUrl,
+        pagesUrl,
         devHandoff,
-        devBlobUrl: devHandoff ? `${REPO_BASE}/${productEnc}/${relEnc}/${devFileEnc}` : null,
-        devPagesUrl: devHandoff ? `${PAGES_BASE}/${productEnc}/${relEnc}/${devFileEnc}` : null,
+        devBlobUrl: devHandoff ? `${REPO_BASE}/${base}/${devFileEnc}` : null,
+        devPagesUrl: devHandoff ? `${PAGES_BASE}/${base}/${devFileEnc}` : null,
         extraLinks: Array.isArray(m.extraLinks) ? m.extraLinks.map(l => {
           const fileEnc = String(l.file || '').split('/').map(encodeURIComponent).join('/');
           return {
             label: l.label || l.file,
-            pagesUrl: `${PAGES_BASE}/${productEnc}/${relEnc}/${fileEnc}`,
-            blobUrl: `${REPO_BASE}/${productEnc}/${relEnc}/${fileEnc}`,
+            pagesUrl: `${PAGES_BASE}/${base}/${fileEnc}`,
+            blobUrl: `${REPO_BASE}/${base}/${fileEnc}`,
           };
         }) : [],
       };
@@ -640,7 +735,11 @@
 
     all.forEach(entry => {
       const p = entry && entry.path ? String(entry.path) : '';
-      const owner = byDepth.find(m => p === m.relKey || p.startsWith(m.relKey + '/'));
+      const owner = byDepth.find(m => {
+        if (m.relKey === '.') return p === 'index.html';        // product-root mock
+        if (m.relKey.endsWith('.html')) return p === m.relKey;   // standalone-file mock
+        return p === m.relKey || p.startsWith(m.relKey + '/');   // folder mock
+      });
       if (owner) owner.changes.push(entry);
     });
 
@@ -744,7 +843,8 @@
     document.body.insertAdjacentHTML('afterbegin', MARKUP);
 
     // Apply theme
-    const theme = PRODUCT_THEMES[PRODUCT] || PRODUCT_THEMES['SafeLMS'];
+    const theme = PRODUCT_THEMES[PRODUCT] || FALLBACK_THEME;
+    const displayName = theme.label || PRODUCT;
     const root = document.documentElement;
     root.style.setProperty('--accent', theme.accent);
     root.style.setProperty('--accent-soft', theme.accentSoft);
@@ -754,8 +854,8 @@
     root.style.setProperty('--gradient-mid', theme.gradMid);
     root.style.setProperty('--gradient-end', theme.gradEnd);
 
-    document.title = `${PRODUCT} — Prototype Index`;
-    byId('productName').textContent = PRODUCT;
+    document.title = `${displayName} — Prototype Index`;
+    byId('productName').textContent = displayName;
     byId('productEmoji').textContent = theme.emoji;
 
     // Retry button
