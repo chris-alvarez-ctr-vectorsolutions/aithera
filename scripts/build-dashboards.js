@@ -35,7 +35,10 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 // Products that use the shared product dashboard. Add a slug here to enroll one.
 const ENROLLED = ['SafeLMS', 'Scheduling'];
 
-const MAX_RECENT = 20;
+// Each dashboard card now shows its OWN commit log, so we keep a deeper history
+// than the old single bottom-of-page list needed — enough that every mock has a
+// meaningful per-card log. The card UI caps how many it shows at once.
+const MAX_RECENT = 300;
 
 // ---------------------------------------------------------------------------
 // Filesystem discovery
@@ -99,8 +102,8 @@ function gitRecentChanges(productSlug) {
     out = execFileSync('git', [
       'log',
       '--no-merges',
-      '-n', '80',
-      '--date=short',
+      '-n', '400',
+      '--date=iso-strict',
       `--pretty=format:${SEP_REC}%ad${SEP_FLD}%s`,
       '--name-only',
       '--', `products/${productSlug}`,

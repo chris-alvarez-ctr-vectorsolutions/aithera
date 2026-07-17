@@ -22,7 +22,8 @@
    `meta.json` is regenerated automatically on push by
    `scripts/build-dashboards.js` (see `.github/workflows/dashboards.yml`) — new
    mock folders appear, deleted ones disappear, dev-handoff files are detected,
-   and the recent-activity log is rebuilt from git. Nobody hand-maintains it.
+   and each card's activity log is rebuilt from git (commit date + time + subject,
+   grouped onto the card whose folder the commit touched). Nobody hand-maintains it.
 
    To theme a new product, add an entry to PRODUCT_THEMES below.
 
@@ -89,16 +90,9 @@
           Every in-progress prototype, one click away. Bookmark this page — it stays in sync as the design team ships new work.
         </p>
         <div class="meta-bar">
-          <span id="stats"></span>
-          <span class="dot-sep">·</span>
           <span class="live-indicator"><span class="live-dot"></span> Auto-updated on every push</span>
           <span class="dot-sep">·</span>
           <span id="lastUpdated"></span>
-        </div>
-        <div class="share-bar" id="shareBar">
-          <span class="share-label"><i class="fa-solid fa-share-nodes"></i> Share this dashboard</span>
-          <a class="share-url" id="shareUrl" href="#" target="_blank" rel="noopener" title="Published GitHub Pages link for this dashboard"></a>
-          <button class="copy-btn share-copy" id="shareCopy" type="button" data-copy=""><i class="fa-regular fa-copy"></i> Copy link</button>
         </div>
       </div>
     </header>
@@ -112,6 +106,10 @@
         </button>
       </div>
       <div class="filter-chips" id="filterChips" role="group" aria-label="Filter by status"></div>
+      <div class="view-switcher" id="viewSwitcher" role="group" aria-label="Switch layout">
+        <button class="view-toggle" type="button" data-view="card" title="Card view" aria-label="Card view" aria-pressed="true"><i class="fa-solid fa-table-cells-large"></i></button>
+        <button class="view-toggle" type="button" data-view="list" title="List view" aria-label="List view" aria-pressed="false"><i class="fa-solid fa-list"></i></button>
+      </div>
     </div>
 
     <main class="content">
@@ -135,13 +133,6 @@
         <p id="emptyMessage"></p>
       </div>
     </main>
-
-    <section class="activity-section" id="activitySection" hidden>
-      <div class="activity-inner">
-        <h2 class="activity-title"><i class="fa-solid fa-clock-rotate-left"></i> Recent activity</h2>
-        <ul class="activity-list" id="activityList"></ul>
-      </div>
-    </section>
 
     <footer class="page-footer">
       This index is driven by <code>dashboard/meta.json</code>, which is regenerated automatically on every push — no manual upkeep.
@@ -231,11 +222,19 @@
   const DEFAULT_STATUS = 'in-progress';
   const STATUS_ORDER = ['ready-for-dev', 'ready', 'review', 'in-progress', 'concept', 'archived'];
 
+  const VIEW_KEY = 'designlab-view';
   const state = {
     allMocks: [],
     search: '',
     statuses: new Set(),
+    view: readStoredView(), // 'card' | 'list' — persisted per browser
   };
+
+  function readStoredView() {
+    try {
+      return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'card';
+    } catch { return 'card'; }
+  }
 
   // ----------------------------------------------------------------------
   // Data fetch — meta.json is the single source of truth
@@ -243,7 +242,6 @@
   async function loadMocks() {
     byId('errorState').hidden = true;
     byId('emptyState').hidden = true;
-    byId('activitySection').hidden = true;
     byId('toolbar').hidden = true;
     byId('contentRoot').innerHTML = '';
     byId('loadingState').hidden = false;
@@ -257,23 +255,21 @@
       }
 
       state.allMocks = computeMocks(meta);
+      attachChanges(state.allMocks, meta);
 
       if (state.allMocks.length === 0) {
         byId('loadingState').hidden = true;
         byId('emptyMessage').textContent =
           `No prototype folders found under products/${PRODUCT}/ yet — add a mock folder with an index.html and it'll appear here on the next push.`;
         byId('emptyState').hidden = false;
-        renderActivity(meta);
         updateLastFetched();
         return;
       }
 
       byId('loadingState').hidden = true;
-      renderStats();
       renderFilterChips();
       byId('toolbar').hidden = false;
       applyFiltersAndRender();
-      renderActivity(meta);
       updateLastFetched();
     } catch (err) {
       showError(err);
@@ -328,19 +324,8 @@
   }
 
   // ----------------------------------------------------------------------
-  // Stats + toolbar
+  // Toolbar
   // ----------------------------------------------------------------------
-  function renderStats() {
-    const total = state.allMocks.length;
-    const counts = {};
-    state.allMocks.forEach(m => { counts[m.status] = (counts[m.status] || 0) + 1; });
-    const summary = STATUS_ORDER.filter(s => counts[s]).map(s => `${counts[s]} ${STATUS_LABELS[s]}`).join(' · ');
-    byId('stats').innerHTML = [
-      `<i class="fa-solid fa-folder-open" style="margin-right: 5px;"></i>${total} prototype${total !== 1 ? 's' : ''}`,
-      summary,
-    ].filter(Boolean).join(' · ');
-  }
-
   function renderFilterChips() {
     const counts = {};
     state.allMocks.forEach(m => { counts[m.status] = (counts[m.status] || 0) + 1; });
@@ -392,6 +377,12 @@
 
     if (filtered.length === 0) { renderNoResults(); return; }
 
+    // Same filtered set, two layouts — the view switcher just picks the renderer.
+    if (state.view === 'list') renderListView(filtered, root);
+    else renderCardView(filtered, root);
+  }
+
+  function renderCardView(filtered, root) {
     const grouped = {};
     filtered.forEach(m => { (grouped[m.status] = grouped[m.status] || []).push(m); });
 
@@ -407,6 +398,63 @@
       wrap.appendChild(grid);
       root.appendChild(wrap);
     });
+  }
+
+  // Compact table layout mirroring the top-level product index list. Rows are
+  // ordered by status (same order as the card sections) then title, so the
+  // status filter reads naturally top-to-bottom.
+  function renderListView(filtered, root) {
+    const rows = [...filtered].sort((a, b) => {
+      const sa = STATUS_ORDER.indexOf(a.status), sb = STATUS_ORDER.indexOf(b.status);
+      if (sa !== sb) return sa - sb;
+      return a.title.localeCompare(b.title);
+    });
+
+    const wrap = document.createElement('div');
+    wrap.className = 'proto-table-wrap';
+    wrap.innerHTML = `
+      <table class="proto-table">
+        <thead>
+          <tr>
+            <th>Prototype</th>
+            <th class="col-status">Status</th>
+            <th class="col-jira">Jira</th>
+            <th class="col-date">Last updated</th>
+          </tr>
+        </thead>
+        <tbody>${rows.map(listRow).join('')}</tbody>
+      </table>`;
+    root.appendChild(wrap);
+  }
+
+  function listRow(mock) {
+    const statusLabel = STATUS_LABELS[mock.status] || STATUS_LABELS[DEFAULT_STATUS];
+    const href = mock.devHandoff ? mock.devPagesUrl : mock.pagesUrl;
+
+    // Plain-text Jira link when a ticket is set; blank cell when it isn't.
+    const jiraCell = (mock.ticket && mock.ticketUrl)
+      ? `<a class="jira-plain" href="${escapeHtml(mock.ticketUrl)}" target="_blank" rel="noopener">${escapeHtml(mock.ticket)}</a>`
+      : mock.ticket
+        ? `<span class="jira-plain">${escapeHtml(mock.ticket)}</span>`
+        : '';
+
+    const updated = mock.lastUpdated ? escapeHtml(formatDateTime(mock.lastUpdated)) : '—';
+
+    return `
+          <tr class="proto-row">
+            <td>
+              <a class="proto-name" href="${href}" target="_blank" rel="noopener">
+                <i class="fa-regular fa-file-lines file-icon"></i>
+                <span>${escapeHtml(mock.title)}</span>
+                ${recencyTag(mock)}
+                ${mock.devHandoff ? '<span class="proto-dev-tag">Dev</span>' : ''}
+                <i class="fa-solid fa-arrow-up-right-from-square ext-icon"></i>
+              </a>
+            </td>
+            <td><span class="status-badge" data-status="${escapeHtml(mock.status)}"><span class="status-dot"></span>${escapeHtml(statusLabel)}</span></td>
+            <td>${jiraCell}</td>
+            <td class="date-cell">${updated}</td>
+          </tr>`;
   }
 
   function renderNoResults() {
@@ -458,6 +506,8 @@
       ticketHtml = `<a class="ticket-badge ticket-badge--link" href="${escapeHtml(ticketUrl)}" target="_blank" rel="noopener" title="Open ${escapeHtml(ticket)} in Jira">${escapeHtml(ticket)}<i class="fa-solid fa-arrow-up-right-from-square ticket-link-icon"></i></a>`;
     } else if (ticket) {
       ticketHtml = `<span class="ticket-badge">${escapeHtml(ticket)}</span>`;
+    } else {
+      ticketHtml = `<span class="ticket-badge ticket-badge--missing" title="No Jira ticket is linked to this prototype yet"><i class="fa-solid fa-triangle-exclamation"></i> Jira link needed</span>`;
     }
 
     const designRows = `
@@ -503,6 +553,40 @@
           <i class="fa-solid fa-arrow-up-right-from-square"></i>
         </a>`;
 
+    // "Last updated" line — absolute date + time — shown beneath the status pill.
+    const updatedHtml = mock.lastUpdated
+      ? `<span class="card-updated" title="Most recent change to this prototype"><i class="fa-regular fa-clock"></i> ${escapeHtml(formatDateTime(mock.lastUpdated))}</span>`
+      : '';
+
+    // Per-card log: this prototype's own commit history, collapsed by default.
+    // The first LOG_SHOWN rows show immediately; any older ones render hidden and
+    // are revealed in place by the "+N earlier changes" toggle button.
+    const changes = mock.changes || [];
+    const LOG_SHOWN = 6;
+    const logRow = entry => `
+          <li class="log-item">
+            <span class="log-date">${escapeHtml(formatDate(entry.date))}</span>
+            <span class="log-summary">${escapeHtml(entry.summary || '')}</span>
+          </li>`;
+    const shownRows = changes.slice(0, LOG_SHOWN).map(logRow).join('');
+    const hiddenCount = Math.max(0, changes.length - LOG_SHOWN);
+    const hiddenRows = hiddenCount
+      ? `<li class="log-extra" hidden>
+          <ul class="log-list">${changes.slice(LOG_SHOWN).map(logRow).join('')}
+          </ul>
+        </li>
+        <li><button type="button" class="log-more" aria-expanded="false"
+          data-more="+ ${hiddenCount} earlier change${hiddenCount !== 1 ? 's' : ''}"
+          data-less="Show fewer">+ ${hiddenCount} earlier change${hiddenCount !== 1 ? 's' : ''}</button></li>`
+      : '';
+    const logHtml = changes.length
+      ? `<details class="card-log">
+          <summary><i class="fa-solid fa-clock-rotate-left"></i> Log <span class="log-count">${changes.length}</span><i class="fa-solid fa-chevron-right log-chevron"></i></summary>
+          <ul class="log-list">${shownRows}${hiddenRows}
+          </ul>
+        </details>`
+      : '';
+
     const extras = extraLinks || [];
     const extraRows = extras.map(l => `
         <div class="url-row">
@@ -516,15 +600,18 @@
         </a>`).join('');
 
     const card = document.createElement('div');
-    card.className = 'mock-card';
+    card.className = 'mock-card' + (mock.recentlyUpdated ? ' mock-card--recent' : '');
     card.style.animationDelay = `${Math.min(idx * 0.05, 0.5)}s`;
     card.innerHTML = `
       <div class="card-top">
         <div class="card-title-group">
           <h2 class="card-title">${escapeHtml(title)}</h2>
-          ${ticketHtml}
+          <div class="card-badges">${recencyTag(mock)}${ticketHtml}</div>
         </div>
-        <span class="status-badge" data-status="${escapeHtml(status)}"><span class="status-dot"></span>${escapeHtml(statusLabel)}</span>
+        <div class="card-status-group">
+          ${updatedHtml}
+          <span class="status-badge" data-status="${escapeHtml(status)}"><span class="status-dot"></span>${escapeHtml(statusLabel)}</span>
+        </div>
       </div>
       <p class="card-description">${escapeHtml(description)}</p>
       <div class="url-list">${urlListInner}${extraRows}
@@ -532,47 +619,89 @@
       <div class="card-actions">
         ${primaryBtn}${extraBtns}
       </div>
+      ${logHtml}
     `;
     return card;
   }
 
   // ----------------------------------------------------------------------
-  // Recent activity
+  // Per-mock activity log
   // ----------------------------------------------------------------------
-  function renderActivity(meta) {
-    const section = byId('activitySection');
-    const list = byId('activityList');
-    if (!meta || !Array.isArray(meta.recentChanges) || meta.recentChanges.length === 0) {
-      section.hidden = true;
-      return;
-    }
-    const entries = [...meta.recentChanges]
-      .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
-      .slice(0, 7);
+  // Assign each recentChanges entry to the mock it belongs to. Entry paths are
+  // relative to the product folder (e.g. "osha-report/index.html"); a mock's
+  // relKey is its folder path (e.g. "osha-report"). When one mock nests inside
+  // another, the entry goes to the most specific (longest matching) relKey so a
+  // change isn't double-counted on a parent card.
+  function attachChanges(mocks, meta) {
+    mocks.forEach(m => { m.changes = []; });
+    const all = Array.isArray(meta && meta.recentChanges) ? meta.recentChanges : [];
+    // Longest relKey first so the most specific mock claims the entry.
+    const byDepth = [...mocks].sort((a, b) => b.relKey.length - a.relKey.length);
 
-    list.innerHTML = entries.map(entry => `
-      <li class="activity-item">
-        <span class="activity-date">${escapeHtml(formatDate(entry.date))}</span>
-        <span class="activity-body">
-          ${entry.path ? `<span class="activity-path">${escapeHtml(entry.path)}</span>` : ''}
-          ${escapeHtml(entry.summary || '')}
-        </span>
-      </li>
-    `).join('');
-    section.hidden = false;
+    all.forEach(entry => {
+      const p = entry && entry.path ? String(entry.path) : '';
+      const owner = byDepth.find(m => p === m.relKey || p.startsWith(m.relKey + '/'));
+      if (owner) owner.changes.push(entry);
+    });
+
+    // "Recent" is measured against when the user opens the page, so the highlight
+    // is always relative to access time. A prototype whose FIRST commit is also
+    // within the window reads as brand "New"; otherwise it's an "Updated" one.
+    const now = Date.now();
+    const WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
+    mocks.forEach(m => {
+      m.changes.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      m.lastUpdated = m.changes.length ? m.changes[0].date : null;
+      const newest = parseDate(m.lastUpdated);
+      const oldest = m.changes.length ? parseDate(m.changes[m.changes.length - 1].date) : null;
+      m.recentlyUpdated = !!newest && (now - newest.getTime()) <= WINDOW_MS;
+      m.isNew = m.recentlyUpdated && !!oldest && (now - oldest.getTime()) <= WINDOW_MS;
+    });
   }
 
+  // Small "New" / "Updated" pill for a prototype changed within the last 24h.
+  function recencyTag(mock) {
+    if (!mock.recentlyUpdated) return '';
+    const kind = mock.isNew ? 'new' : 'updated';
+    const label = mock.isNew ? 'New' : 'Updated';
+    const icon = mock.isNew ? 'fa-star' : 'fa-arrow-rotate-right';
+    const when = mock.lastUpdated ? ` ${escapeHtml(formatDateTime(mock.lastUpdated))}` : '';
+    return `<span class="recency-tag recency-tag--${kind}" title="Changed in the last 24 hours —${when}"><i class="fa-solid ${icon}"></i> ${label}</span>`;
+  }
+
+  // Relative day label for the per-entry log rows ("Today", "3d ago", "Mar 4").
   function formatDate(iso) {
-    if (!iso) return '';
-    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (!m) return iso;
-    const date = new Date(+m[1], +m[2] - 1, +m[3]);
-    const now = new Date();
-    const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+    const d = parseDate(iso);
+    if (!d) return iso || '';
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const day = new Date(d); day.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((today - day) / (1000 * 60 * 60 * 24));
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    if (diffDays > 1 && diffDays < 7) return `${diffDays}d ago`;
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+
+  // Absolute date + time for the "last updated" line next to the status pill.
+  function formatDateTime(iso) {
+    const d = parseDate(iso);
+    if (!d) return '';
+    const hasTime = typeof iso === 'string' && iso.includes('T');
+    const datePart = d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+    if (!hasTime) return datePart;
+    const timePart = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    return `${datePart}, ${timePart}`;
+  }
+
+  // Accepts full ISO timestamps ("2026-07-16T14:23:45-05:00") and legacy
+  // date-only strings ("2026-07-16"); returns a Date or null.
+  function parseDate(iso) {
+    if (!iso) return null;
+    const s = String(iso);
+    const dateOnly = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (dateOnly) return new Date(+dateOnly[1], +dateOnly[2] - 1, +dateOnly[3]);
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
   }
 
   function showError(err) {
@@ -629,15 +758,6 @@
     byId('productName').textContent = PRODUCT;
     byId('productEmoji').textContent = theme.emoji;
 
-    // The published GitHub Pages link for THIS dashboard — the one to hand the
-    // team. Derived the same way the per-mock Pages links are, so it stays correct
-    // for any product enrolled later (the shared dashboard.js needs no per-product edit).
-    const dashUrl = `${PAGES_BASE}/${encodeURIComponent(PRODUCT)}/dashboard/`;
-    const shareUrl = byId('shareUrl');
-    shareUrl.textContent = dashUrl;
-    shareUrl.href = dashUrl;
-    byId('shareCopy').dataset.copy = dashUrl;
-
     // Retry button
     byId('retryBtn').addEventListener('click', loadMocks);
 
@@ -652,6 +772,19 @@
         btn.classList.add('copied');
         setTimeout(() => { btn.innerHTML = original; btn.classList.remove('copied'); }, 1500);
       });
+    });
+
+    // Per-card log "+N earlier changes" toggle (delegated) — reveals the older
+    // rows that render hidden inside the same log.
+    document.addEventListener('click', (e) => {
+      const more = e.target.closest('.log-more');
+      if (!more) return;
+      const extra = more.closest('.log-list').querySelector('.log-extra');
+      if (!extra) return;
+      const expanded = extra.hidden;
+      extra.hidden = !expanded;
+      more.setAttribute('aria-expanded', String(expanded));
+      more.textContent = expanded ? more.dataset.less : more.dataset.more;
     });
 
     // Toolbar wiring
@@ -683,7 +816,32 @@
       applyFiltersAndRender();
     });
 
+    // View switcher (card / list)
+    byId('viewSwitcher').addEventListener('click', (e) => {
+      const btn = e.target.closest('.view-toggle');
+      if (!btn) return;
+      setView(btn.dataset.view);
+    });
+    updateViewToggle();
+
     loadMocks();
+  }
+
+  function setView(view) {
+    if (view !== 'card' && view !== 'list') return;
+    if (state.view === view) return;
+    state.view = view;
+    try { localStorage.setItem(VIEW_KEY, view); } catch { /* storage may be blocked */ }
+    updateViewToggle();
+    if (state.allMocks.length) applyFiltersAndRender();
+  }
+
+  function updateViewToggle() {
+    document.querySelectorAll('.view-toggle').forEach(btn => {
+      const active = btn.dataset.view === state.view;
+      btn.setAttribute('aria-pressed', String(active));
+      btn.classList.toggle('is-active', active);
+    });
   }
 
   // ----------------------------------------------------------------------
@@ -773,7 +931,7 @@
         -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
         font-variation-settings: "opsz" 144;
       }
-      .page-subtitle { font-size: 17px; color: var(--text-soft); margin: 0; max-width: 640px; line-height: 1.6; }
+      .page-subtitle { font-size: 14px; color: var(--text-soft); margin: 0; max-width: none; line-height: 1.5; white-space: nowrap; }
 
       .meta-bar {
         margin-top: 24px; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center;
@@ -786,27 +944,6 @@
         box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); animation: live-pulse 2s ease-in-out infinite;
       }
       @keyframes live-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); } 50% { box-shadow: 0 0 0 5px rgba(16, 185, 129, 0); } }
-
-      /* "Share this dashboard" — the published Pages link for the whole dashboard,
-         shown once in the header so it's the obvious thing to copy and send the team. */
-      .share-bar {
-        margin-top: 18px; display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap;
-        background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-        border: 1px solid rgba(255, 255, 255, 0.9); border-radius: 12px; padding: 10px 12px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04); max-width: 100%;
-      }
-      .share-label {
-        display: inline-flex; align-items: center; gap: 6px; font-family: var(--display);
-        font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px;
-        color: var(--accent-deep); white-space: nowrap;
-      }
-      .share-url {
-        flex: 1 1 220px; min-width: 0; font-family: var(--mono); font-size: 12px; color: var(--text);
-        background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: none;
-        transition: border-color 0.15s ease, color 0.15s ease;
-      }
-      .share-url:hover { border-color: var(--accent); color: var(--accent); }
 
       .content { max-width: 1400px; margin: 0 auto; padding: 0 32px 64px; }
 
@@ -860,12 +997,30 @@
       .mock-card:hover { box-shadow: var(--shadow-md); transform: translateY(-3px); border-color: var(--border-strong); }
       .mock-card:hover::after { transform: scaleX(1); }
 
+      /* Recently-changed prototypes get a soft accent wash + a persistent top
+         bar so they stand out at a glance among the rest. */
+      .mock-card--recent { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-glow), var(--shadow-sm); }
+      .mock-card--recent::after { transform: scaleX(1); }
+
       .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
       .card-title-group { flex: 1; min-width: 0; }
       .card-title {
         font-family: var(--serif); font-size: 20px; font-weight: 700; margin: 0 0 6px;
         line-height: 1.25; color: var(--text); letter-spacing: -0.01em;
       }
+      .card-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+
+      /* "New" / "Updated" recency pills (last 24h). Shared base + two variants. */
+      .recency-tag {
+        display: inline-flex; align-items: center; gap: 5px; font-family: var(--display);
+        font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+        padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+      }
+      .recency-tag i { font-size: 8px; }
+      .recency-tag--new { color: #065f46; background: #d1fae5; }
+      .recency-tag--updated { color: #155e75; background: #cffafe; }
+      .recency-tag--new i { animation: recency-pulse 2s ease-in-out infinite; }
+      @keyframes recency-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
       .ticket-badge {
         display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono);
@@ -899,25 +1054,57 @@
       .status-badge[data-status="ready-for-dev"] { background: #cffafe; color: #155e75; }
       .status-badge[data-status="ready-for-dev"] .status-dot { background: #06b6d4; animation: none; }
 
-      .activity-section { max-width: 1400px; margin: 0 auto 32px; padding: 0 32px; }
-      .activity-inner { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; box-shadow: var(--shadow-sm); }
-      .activity-title {
-        font-family: var(--serif); font-size: 20px; font-weight: 700; font-style: italic; margin: 0 0 14px;
-        letter-spacing: -0.01em; color: var(--text); display: flex; align-items: center; gap: 10px;
+      /* "Last updated" line + status pill, side by side on the right of the card
+         top — timestamp to the LEFT of the pill. */
+      .card-status-group {
+        display: flex; flex-direction: row; align-items: center; gap: 10px; flex-shrink: 0;
       }
-      .activity-title i { color: var(--accent); font-size: 16px; }
-      .activity-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-      .activity-item {
-        display: grid; grid-template-columns: 92px 1fr; gap: 14px; padding: 9px 10px;
-        border-radius: 8px; font-size: 13.5px; align-items: baseline; transition: background 0.12s ease;
+      .card-updated {
+        display: inline-flex; align-items: center; gap: 5px; font-family: var(--display);
+        font-size: 11px; font-weight: 500; color: var(--text-muted); white-space: nowrap;
       }
-      .activity-item:hover { background: var(--code-bg); }
-      .activity-date { font-family: var(--display); font-weight: 600; color: var(--text-muted); font-size: 12px; white-space: nowrap; }
-      .activity-body { color: var(--text-soft); line-height: 1.5; min-width: 0; }
-      .activity-path {
-        font-family: var(--mono); font-size: 11.5px; color: var(--accent-deep); background: var(--accent-soft);
-        padding: 1px 6px; border-radius: 4px; margin-right: 6px; white-space: nowrap;
+      .card-updated i { font-size: 10px; opacity: 0.7; }
+
+      /* "Jira ticket needed" badge — shown when a mock has no ticket linked yet. */
+      .ticket-badge--missing {
+        color: #92400e; background: #fef3c7; font-family: var(--display);
+        font-size: 10.5px; font-weight: 600; letter-spacing: 0.2px;
       }
+      .ticket-badge--missing i { font-size: 9px; }
+
+      /* Per-card activity log — this prototype's own commit history, collapsed. */
+      .card-log { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+      .card-log > summary {
+        display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none;
+        font-family: var(--display); font-size: 12px; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.6px; transition: color 0.15s ease;
+      }
+      .card-log > summary::-webkit-details-marker { display: none; }
+      .card-log > summary:hover { color: var(--text); }
+      .card-log > summary > i:first-child { color: var(--accent); font-size: 12px; }
+      .log-count {
+        font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--accent-deep);
+        background: var(--accent-soft); padding: 1px 7px; border-radius: 999px; letter-spacing: 0;
+      }
+      .log-chevron { margin-left: auto; transition: transform 0.2s ease; font-size: 10px; }
+      .card-log[open] > summary .log-chevron { transform: rotate(90deg); }
+      .log-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+      .log-item {
+        display: grid; grid-template-columns: 78px 1fr; gap: 12px; padding: 6px 8px;
+        border-radius: 7px; font-size: 13px; align-items: baseline; transition: background 0.12s ease;
+      }
+      .log-item:hover { background: var(--code-bg); }
+      .log-date { font-family: var(--display); font-weight: 600; color: var(--text-muted); font-size: 11.5px; white-space: nowrap; }
+      .log-summary { color: var(--text-soft); line-height: 1.45; min-width: 0; }
+      .log-more {
+        display: inline-flex; align-items: center; margin: 4px 0 0; padding: 5px 8px;
+        border: none; background: none; cursor: pointer; border-radius: 6px;
+        font-family: var(--display); font-size: 11.5px; font-weight: 600;
+        color: var(--accent-deep); transition: background 0.12s ease, color 0.12s ease;
+      }
+      .log-more:hover { background: var(--accent-soft); color: var(--accent); }
+      .log-extra { display: block; }
+      .log-extra .log-list { margin-top: 1px; }
 
       .card-description {
         font-size: 13.5px; color: var(--text-soft); margin: 0; line-height: 1.55;
@@ -1052,6 +1239,57 @@
       .filter-chip[data-status="ready"] .chip-dot       { background: #10b981; }
       .filter-chip[data-status="archived"] .chip-dot    { background: #a1a1aa; }
       .filter-chip[data-status="ready-for-dev"] .chip-dot { background: #06b6d4; }
+
+      /* View switcher — icon buttons that flip between the card and list layouts. */
+      .view-switcher {
+        display: inline-flex; margin-left: auto; background: var(--card-bg);
+        border: 1px solid var(--border-strong); border-radius: 9px; padding: 2px; gap: 2px;
+      }
+      .view-toggle {
+        display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 30px;
+        border: none; background: none; border-radius: 7px; cursor: pointer; color: var(--text-muted);
+        font-size: 14px; transition: background 0.15s ease, color 0.15s ease;
+      }
+      .view-toggle:hover { color: var(--accent-deep); background: var(--accent-soft); }
+      .view-toggle.is-active { background: var(--accent); color: #fff; }
+      .view-toggle.is-active:hover { background: var(--accent); color: #fff; }
+
+      /* List view — compact table mirroring the top-level product index. */
+      .proto-table-wrap {
+        background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px;
+        overflow: hidden; box-shadow: var(--shadow-sm); margin-top: 8px;
+      }
+      .proto-table { width: 100%; border-collapse: collapse; }
+      .proto-table thead th {
+        text-align: left; font-family: var(--display); font-size: 11px; font-weight: 700;
+        color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em;
+        padding: 12px 18px; background: var(--code-bg); border-bottom: 1px solid var(--border);
+      }
+      .proto-table th.col-status { width: 150px; }
+      .proto-table th.col-jira { width: 170px; }
+      .proto-table th.col-date { width: 190px; }
+      .proto-table tbody tr.proto-row { border-top: 1px solid var(--border); transition: background 0.1s ease; }
+      .proto-table tbody tr.proto-row:first-child { border-top: none; }
+      .proto-table tbody tr.proto-row:hover { background: var(--accent-soft); }
+      .proto-table td { padding: 11px 18px; font-size: 13.5px; vertical-align: middle; }
+      .proto-name {
+        display: inline-flex; align-items: center; gap: 9px; color: var(--text);
+        text-decoration: none; font-family: var(--display); font-weight: 600;
+      }
+      .proto-name .file-icon { color: var(--text-muted); font-size: 13px; }
+      .proto-row:hover .proto-name { color: var(--accent-deep); }
+      .proto-row:hover .proto-name .file-icon { color: var(--accent); }
+      .proto-name .ext-icon { color: var(--text-muted); font-size: 10px; opacity: 0; transition: opacity 0.1s ease; }
+      .proto-row:hover .proto-name .ext-icon { opacity: 1; color: var(--accent); }
+      .proto-dev-tag {
+        font-family: var(--display); font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.5px; color: #155e75; background: #cffafe; padding: 1px 6px; border-radius: 4px;
+      }
+      .jira-plain {
+        font-family: var(--mono); font-size: 12px; color: var(--accent-deep); text-decoration: none;
+      }
+      a.jira-plain:hover { text-decoration: underline; }
+      .date-cell { color: var(--text-muted); font-family: var(--display); font-size: 12.5px; white-space: nowrap; }
 
       .no-results { text-align: center; padding: 56px 24px; color: var(--text-muted); }
       .no-results h3 { font-family: var(--serif); font-size: 22px; font-weight: 700; color: var(--text); margin: 14px 0 6px; }
