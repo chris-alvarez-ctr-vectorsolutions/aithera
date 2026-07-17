@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catalog | Convergence</title>
+
+  <!-- Convergence chrome (bare learner mode: topnav only) -->
+  <link rel="stylesheet" href="../../_shell/chrome.css"/>
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+
+  <style>
+    :root {
+      --vblue:#0271ce; --vblue-dark:#015ba6; --vblue-10:#0271ce1a;
+      --canvas:#f5f9fd; --ink:#1a2740; --ink-soft:#5a6b85; --ink-faint:#8a97ab; --line:#e4eaf2;
+    }
+    #cv-page { font-family:"Open Sans","Segoe UI",Arial,sans-serif; color:var(--ink); }
+
+    /* Free-scrolling page: #cv-content is the scroll container. End-of-scroll
+       buffer = --fin-fab-clearance of bottom padding so the last card row
+       scrolls clear of the Fin FAB. Scroll room only, never a visible band. */
+    #cv-content { background:var(--canvas); padding:0 0 var(--fin-fab-clearance, 84px); }
+
+    .cat { max-width:1120px; margin:0 auto; padding:28px 32px 0; }
+    .cat h1 { margin:0; font-size:23px; font-weight:800; letter-spacing:-.2px; }
+    .cat .sub { margin:4px 0 18px; font-size:13px; color:var(--ink-soft); }
+
+    /* Search + filter chips */
+    .cat-tools { display:flex; align-items:center; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
+    .cat-search { position:relative; flex:0 0 320px; }
+    .cat-search i { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--ink-faint); font-size:12px; }
+    .cat-search input { width:100%; height:38px; border:1px solid #d4dce8; border-radius:9px; padding:0 12px 0 33px; font-family:inherit; font-size:13px; outline:none; background:#fff; }
+    .cat-search input:focus { border-color:var(--vblue); box-shadow:0 0 0 3px var(--vblue-10); }
+    .cat-chip { border:1px solid #d4dce8; background:#fff; color:var(--ink-soft); font-family:inherit; font-size:12.5px; font-weight:600; padding:8px 14px; border-radius:20px; cursor:pointer; transition:all .12s; }
+    .cat-chip:hover { border-color:var(--vblue); color:var(--vblue); }
+    .cat-chip.on { background:var(--vblue); border-color:var(--vblue); color:#fff; }
+
+    /* Course grid */
+    .cat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px; }
+    .cc { background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; box-shadow:0 1px 2px rgba(28,55,90,.05); display:flex; flex-direction:column; }
+    .cc-art { height:86px; display:flex; align-items:center; justify-content:center; font-size:26px; color:#fff; }
+    .cc-body { padding:13px 15px 15px; display:flex; flex-direction:column; gap:8px; flex:1; }
+    .cc-cat { font-size:10.5px; font-weight:800; letter-spacing:.4px; color:var(--vblue); }
+    .cc-name { font-size:13.5px; font-weight:700; color:var(--ink); line-height:1.35; }
+    .cc-meta { font-size:11.5px; color:var(--ink-faint); display:flex; align-items:center; gap:10px; }
+    .cc-meta i { font-size:10.5px; margin-right:3px; }
+    .cc-foot { margin-top:auto; display:flex; align-items:center; justify-content:space-between; gap:8px; padding-top:4px; }
+    .cc-rating { font-size:11.5px; color:#c77700; font-weight:700; }
+    .cc-rating i { font-size:10.5px; }
+    .cc-btn { font-family:inherit; font-size:12px; font-weight:700; border-radius:8px; padding:7px 14px; cursor:pointer; border:1px solid var(--vblue); background:#fff; color:var(--vblue); transition:background .12s; }
+    .cc-btn:hover { background:var(--vblue-10); }
+    .cc-btn.primary { background:var(--vblue); color:#fff; }
+    .cc-btn.primary:hover { background:var(--vblue-dark); }
+  </style>
+</head>
+<body>
+
+<div id="cv-page">
+  <div class="cat">
+    <h1>Catalog</h1>
+    <p class="sub">Browse and enroll in courses offered by your organization. Placeholder data.</p>
+
+    <div class="cat-tools">
+      <div class="cat-search"><i class="fa-solid fa-magnifying-glass"></i><input type="text" placeholder="Search the catalog"/></div>
+      <button class="cat-chip on" type="button">All</button>
+      <button class="cat-chip" type="button">Safety</button>
+      <button class="cat-chip" type="button">Operations</button>
+      <button class="cat-chip" type="button">Compliance</button>
+      <button class="cat-chip" type="button">Leadership</button>
+      <button class="cat-chip" type="button">Software</button>
+    </div>
+
+    <div class="cat-grid" id="catGrid"></div>
+  </div>
+</div>
+
+<!-- Chrome: learner mode (topnav only, Catalog tab active) -->
+<script>
+  window.SHELL_CONFIG = { bare: true, tab: 'catalog' };
+</script>
+<script src="../../_shell/chrome.js"></script>
+
+<script>
+  // Placeholder catalog cards (rendered after the chrome relocates #cv-page).
+  const COURSES = [
+    ['Safety','Lockout / Tagout Essentials','fa-lock','#0271ce','45 min',4.8],
+    ['Safety','Fall Protection Basics','fa-person-falling-burst','#2b81a3','35 min',4.7],
+    ['Compliance','Hazard Communication (GHS)','fa-triangle-exclamation','#c77700','50 min',4.6],
+    ['Operations','Forklift Operation Refresher','fa-truck-ramp-box','#1f8f5f','1 hr',4.9],
+    ['Safety','Confined Space Entry','fa-door-open','#0271ce','1.5 hr',4.8],
+    ['Safety','PPE Essentials','fa-helmet-safety','#2b81a3','25 min',4.5],
+    ['Compliance','Bloodborne Pathogens','fa-droplet','#c23b3b','40 min',4.4],
+    ['Operations','Overhead Crane and Rigging','fa-arrows-up-to-line','#1f8f5f','2 hr',4.7],
+    ['Leadership','Coaching Safety Behaviors','fa-people-arrows','#6d28d9','1 hr',4.6],
+    ['Safety','Electrical Safety (NFPA 70E)','fa-bolt','#c77700','1.5 hr',4.8],
+    ['Software','Convergence for New Users','fa-display','#0271ce','30 min',4.9],
+    ['Safety','Hearing Conservation','fa-ear-listen','#2b81a3','20 min',4.3],
+    ['Compliance','RCRA Hazardous Waste','fa-recycle','#1f8f5f','1 hr',4.5],
+    ['Safety','First Aid, CPR, and AED','fa-kit-medical','#c23b3b','2 hr',4.9],
+    ['Leadership','Incident Investigation Basics','fa-magnifying-glass-chart','#6d28d9','45 min',4.6],
+    ['Safety','Hot Work and Fire Watch','fa-fire','#c77700','35 min',4.7],
+  ];
+  document.getElementById('catGrid').innerHTML = COURSES.map(([cat,name,icon,color,dur,rating], i) => `
+    <div class="cc">
+      <div class="cc-art" style="background:linear-gradient(135deg, ${color}, ${color}cc);"><i class="fa-solid ${icon}"></i></div>
+      <div class="cc-body">
+        <div class="cc-cat">${cat}</div>
+        <div class="cc-name">${name}</div>
+        <div class="cc-meta"><span><i class="fa-regular fa-clock"></i>${dur}</span><span><i class="fa-solid fa-user-group"></i>${180 + i * 37} enrolled</span></div>
+        <div class="cc-foot">
+          <span class="cc-rating"><i class="fa-solid fa-star"></i> ${rating}</span>
+          <button class="cc-btn ${i % 3 === 0 ? 'primary' : ''}" type="button">${i % 3 === 0 ? 'Enroll' : 'View'}</button>
+        </div>
+      </div>
+    </div>`).join('');
+</script>
+
+<!-- Vectoria / Intercom Fin FAB. No fixed footer here; the end-of-scroll
+     buffer on #cv-content keeps the last card row clear of the FAB. -->
+<script>window.FIN_WIDGET = { qualListHref: '../../Qualification-Builder/Manage-Qualifications.html' };</script>
+<script src="../fin-widget.js"></script>
+</body>
+</html>

@@ -32,6 +32,12 @@
 
   const CFG = window.SHELL_CONFIG || {};
   const ACTIVE = CFG.active || '';
+  // Which topnav tab is active (default: the admin experience). Learner-facing
+  // prototypes set e.g. { tab:'training' } or { tab:'catalog' }.
+  const TAB = CFG.tab || 'administration';
+  // bare:true renders the topnav ONLY (no admin sidenav, no breadcrumb bar) —
+  // for learner-facing pages like Training Plan / Catalog.
+  const BARE = !!CFG.bare;
 
   // ─── Material Design icon paths ─────────────────────────────────────────────
   const ICONS = {
@@ -134,6 +140,15 @@
     // Capture page content (everything currently in body that isn't a script/style).
     const page = document.getElementById('cv-page');
 
+    // Topnav tabs — the active one comes from CFG.tab.
+    const tabs = [
+      { id:'home',           label:'Home' },
+      { id:'training',       label:'Training' },
+      { id:'catalog',        label:'Catalog' },
+      { id:'insights',       label:'Insights <span class="badge">BETA</span>' },
+      { id:'administration', label:'Administration' },
+    ].map(t => `<a role="tab" class="tab${t.id === TAB ? ' active' : ''}" data-tab="${t.id}">${t.label}</a>`).join('\n          ');
+
     const app = document.createElement('div');
     app.className = 'app';
     app.id = 'cv-app';
@@ -142,11 +157,7 @@
         <div class="brand"><img src="${BASE}assets/vs-logo.png" alt="Vector Solutions"/></div>
         <div class="spacer"></div>
         <nav class="tabs" role="tablist">
-          <a role="tab" class="tab" data-tab="home">Home</a>
-          <a role="tab" class="tab" data-tab="training">Training</a>
-          <a role="tab" class="tab" data-tab="catalog">Catalog</a>
-          <a role="tab" class="tab" data-tab="insights">Insights <span class="badge">BETA</span></a>
-          <a role="tab" class="tab active" data-tab="administration">Administration</a>
+          ${tabs}
         </nav>
         <div class="icon-tabs">
           <div class="icon-tab" title="Select language">${svg('globe')}</div>
@@ -154,6 +165,7 @@
         </div>
       </header>
       <div class="app-body">
+        ${BARE ? '' : `
         <aside class="sidenav" id="cv-sidenav">
           <div class="sn-search-row">
             <div class="sn-search-input-wrap">
@@ -163,8 +175,9 @@
             <div class="sn-burger" id="cv-burger" title="Collapse menu">${svg('menu')}</div>
           </div>
           <div class="sidenav-list" id="cv-nav-list"></div>
-        </aside>
+        </aside>`}
         <main class="main">
+          ${BARE ? '' : `
           <div class="breadcrumb-bar" id="cv-breadcrumb">
             <div class="ContextPath">
               <span class="SelectButtonWrapper">
@@ -180,7 +193,7 @@
               <h1 class="PageActionTitle">${CFG.title || 'Administration'}</h1>
             </div>
             <button class="help-btn">${svg('help')}<span>Help</span></button>
-          </div>
+          </div>`}
           <div class="content" id="cv-content"></div>
         </main>
       </div>`;
@@ -192,8 +205,10 @@
     if (CFG.fullBleed) content.classList.add('no-pad');
     if (page) content.appendChild(page);
 
-    renderNav('');
-    wireEvents();
+    if (!BARE) {
+      renderNav('');
+      wireEvents();
+    }
   }
 
   // ─── Sidenav render ─────────────────────────────────────────────────────────
