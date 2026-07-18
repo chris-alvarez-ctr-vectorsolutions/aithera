@@ -98,18 +98,25 @@
     </header>
 
     <div class="toolbar" id="toolbar" hidden>
-      <div class="search-wrapper" id="searchWrapper">
-        <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="search" class="search-input" id="searchInput" placeholder="Search prototypes by name, description, or ticket…" autocomplete="off" spellcheck="false" />
-        <button class="search-clear" id="searchClear" type="button" aria-label="Clear search">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
+      <div class="toolbar-row">
+        <div class="search-wrapper" id="searchWrapper">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="search" class="search-input" id="searchInput" placeholder="Search prototypes by name, description, or ticket…" autocomplete="off" spellcheck="false" />
+          <button class="search-clear" id="searchClear" type="button" aria-label="Clear search">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="sort-control">
+          <i class="fa-solid fa-arrow-down-wide-short sort-icon"></i>
+          <label class="sort-label" for="sortSelect">Sort</label>
+          <select class="sort-select" id="sortSelect" aria-label="Sort prototypes"></select>
+        </div>
+        <div class="view-switcher" id="viewSwitcher" role="group" aria-label="Switch layout">
+          <button class="view-toggle" type="button" data-view="card" title="Card view" aria-label="Card view" aria-pressed="true"><i class="fa-solid fa-table-cells-large"></i></button>
+          <button class="view-toggle" type="button" data-view="list" title="List view" aria-label="List view" aria-pressed="false"><i class="fa-solid fa-list"></i></button>
+        </div>
       </div>
       <div class="filter-chips" id="filterChips" role="group" aria-label="Filter by status"></div>
-      <div class="view-switcher" id="viewSwitcher" role="group" aria-label="Switch layout">
-        <button class="view-toggle" type="button" data-view="card" title="Card view" aria-label="Card view" aria-pressed="true"><i class="fa-solid fa-table-cells-large"></i></button>
-        <button class="view-toggle" type="button" data-view="list" title="List view" aria-label="List view" aria-pressed="false"><i class="fa-solid fa-list"></i></button>
-      </div>
     </div>
 
     <main class="content">
@@ -298,19 +305,70 @@
   };
   const DEFAULT_STATUS = 'in-progress';
   const STATUS_ORDER = ['ready-for-dev', 'ready', 'review', 'in-progress', 'concept', 'archived'];
+  // Font Awesome icon per status — shown in the status pill instead of a dot.
+  const STATUS_ICONS = {
+    'concept': 'fa-lightbulb',
+    'in-progress': 'fa-pen-ruler',
+    'review': 'fa-eye',
+    'ready': 'fa-circle-check',
+    'ready-for-dev': 'fa-code',
+    'archived': 'fa-box-archive',
+  };
+  function statusIcon(status) { return STATUS_ICONS[status] || 'fa-circle'; }
 
   const VIEW_KEY = 'designlab-view';
+  const SORT_KEY = 'designlab-sort';
+  const SORTS = {
+    status:  'Status',
+    updated: 'Recently updated',
+    oldest:  'Oldest updated',
+    az:      'Name (A–Z)',
+    za:      'Name (Z–A)',
+  };
   const state = {
     allMocks: [],
     search: '',
     statuses: new Set(),
     view: readStoredView(), // 'card' | 'list' — persisted per browser
+    sort: readStoredSort(), // one of SORTS keys — persisted per browser
   };
 
   function readStoredView() {
     try {
       return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'card';
     } catch { return 'card'; }
+  }
+  function readStoredSort() {
+    try {
+      const s = localStorage.getItem(SORT_KEY);
+      return SORTS[s] ? s : 'status';
+    } catch { return 'status'; }
+  }
+
+  // Comparator for the current sort. "status" is handled by grouping in the card
+  // view, but still used as a flat comparator (status order, then name) in the
+  // list view and as the fallback tiebreaker everywhere.
+  function mockComparator(sort) {
+    const byName = (a, b) => a.title.localeCompare(b.title);
+    // Newest first / oldest first; mocks with no history sort last either way.
+    const byDate = dir => (a, b) => {
+      const av = a.lastUpdated || '', bv = b.lastUpdated || '';
+      if (!av && !bv) return byName(a, b);
+      if (!av) return 1;
+      if (!bv) return -1;
+      return av === bv ? byName(a, b) : (dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av));
+    };
+    switch (sort) {
+      case 'az': return byName;
+      case 'za': return (a, b) => byName(b, a);
+      case 'updated': return byDate('desc');
+      case 'oldest': return byDate('asc');
+      case 'status':
+      default: return (a, b) => {
+        const d = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
+        return d !== 0 ? d : byName(a, b);
+      };
+    }
   }
 
   // ----------------------------------------------------------------------
@@ -358,6 +416,9 @@
     const jiraBaseNorm = jiraBase ? (jiraBase.endsWith('/') ? jiraBase : jiraBase + '/') : '';
 
     const productEnc = encodeURIComponent(PRODUCT);
+    // GitHub "commits for this path" base — used for the per-card "full history"
+    // link. Same repo/branch as the blob links, just the commits view.
+    const COMMITS_BASE = REPO_BASE.replace('/blob/main/', '/commits/main/');
 
     return Object.keys(meta.mocks).map(key => {
       const m = meta.mocks[key] || {};
@@ -403,6 +464,9 @@
         status: m.status || (devHandoff ? 'ready-for-dev' : DEFAULT_STATUS),
         blobUrl,
         pagesUrl,
+        // Full commit history for this prototype on GitHub (the "show more" target
+        // for the per-card log). Mirrors what the inline log counts.
+        historyUrl: `${COMMITS_BASE}/${isRoot ? `${productEnc}/index.html` : base}`,
         devHandoff,
         devBlobUrl: devHandoff ? `${REPO_BASE}/${base}/${devFileEnc}` : null,
         devPagesUrl: devHandoff ? `${PAGES_BASE}/${base}/${devFileEnc}` : null,
@@ -425,17 +489,22 @@
     const counts = {};
     state.allMocks.forEach(m => { counts[m.status] = (counts[m.status] || 0) + 1; });
     const chipsEl = byId('filterChips');
+    // Show EVERY status so the team can see the full set of stages at a glance,
+    // even ones with no prototypes yet. Empty statuses render dimmed + disabled
+    // (a "0" that can't be clicked into an empty view).
     const chips = [
       { status: 'all', label: 'All', count: state.allMocks.length },
-      ...STATUS_ORDER.filter(s => counts[s]).map(s => ({ status: s, label: STATUS_LABELS[s], count: counts[s] })),
+      ...STATUS_ORDER.map(s => ({ status: s, label: STATUS_LABELS[s], count: counts[s] || 0 })),
     ];
-    chipsEl.innerHTML = chips.map(c => `
-      <button class="filter-chip" type="button" data-status="${escapeHtml(c.status)}" data-active="false">
+    chipsEl.innerHTML = chips.map(c => {
+      const empty = c.status !== 'all' && c.count === 0;
+      return `
+      <button class="filter-chip" type="button" data-status="${escapeHtml(c.status)}" data-active="false"${empty ? ' data-empty="true" disabled' : ''}>
         ${c.status !== 'all' ? '<span class="chip-dot"></span>' : ''}
         <span>${escapeHtml(c.label)}</span>
         <span class="chip-count">${c.count}</span>
-      </button>
-    `).join('');
+      </button>`;
+    }).join('');
     updateChipActiveState();
   }
 
@@ -478,6 +547,19 @@
   }
 
   function renderCardView(filtered, root) {
+    // "Status" sort keeps the grouped-by-status sections; any other sort renders
+    // one flat grid ordered by the chosen comparator.
+    if (state.sort !== 'status') {
+      const wrap = document.createElement('section');
+      wrap.className = 'section';
+      const grid = document.createElement('div');
+      grid.className = 'card-grid';
+      [...filtered].sort(mockComparator(state.sort)).forEach((m, i) => grid.appendChild(buildCard(m, i)));
+      wrap.appendChild(grid);
+      root.appendChild(wrap);
+      return;
+    }
+
     const grouped = {};
     filtered.forEach(m => { (grouped[m.status] = grouped[m.status] || []).push(m); });
 
@@ -495,15 +577,10 @@
     });
   }
 
-  // Compact table layout mirroring the top-level product index list. Rows are
-  // ordered by status (same order as the card sections) then title, so the
-  // status filter reads naturally top-to-bottom.
+  // Compact table layout mirroring the top-level product index list. Rows follow
+  // the active sort (defaulting to status order, then name).
   function renderListView(filtered, root) {
-    const rows = [...filtered].sort((a, b) => {
-      const sa = STATUS_ORDER.indexOf(a.status), sb = STATUS_ORDER.indexOf(b.status);
-      if (sa !== sb) return sa - sb;
-      return a.title.localeCompare(b.title);
-    });
+    const rows = [...filtered].sort(mockComparator(state.sort));
 
     const wrap = document.createElement('div');
     wrap.className = 'proto-table-wrap';
@@ -546,7 +623,7 @@
                 <i class="fa-solid fa-arrow-up-right-from-square ext-icon"></i>
               </a>
             </td>
-            <td><span class="status-badge" data-status="${escapeHtml(mock.status)}"><span class="status-dot"></span>${escapeHtml(statusLabel)}</span></td>
+            <td><span class="status-badge" data-status="${escapeHtml(mock.status)}"><i class="fa-solid ${statusIcon(mock.status)} status-icon"></i>${escapeHtml(statusLabel)}</span></td>
             <td>${jiraCell}</td>
             <td class="date-cell">${updated}</td>
           </tr>`;
@@ -583,7 +660,7 @@
     el.innerHTML = `
       <h2 class="section-title">${escapeHtml(label)}</h2>
       <span class="status-badge" data-status="${escapeHtml(status)}">
-        <span class="status-dot"></span>${count}
+        <i class="fa-solid ${statusIcon(status)} status-icon"></i>${count}
       </span>
     `;
     return el;
@@ -602,7 +679,7 @@
     } else if (ticket) {
       ticketHtml = `<span class="ticket-badge">${escapeHtml(ticket)}</span>`;
     } else {
-      ticketHtml = `<span class="ticket-badge ticket-badge--missing" title="No Jira ticket is linked to this prototype yet"><i class="fa-solid fa-triangle-exclamation"></i> Jira link needed</span>`;
+      ticketHtml = `<span class="ticket-badge ticket-badge--missing" title="No Jira ticket is linked to this prototype yet">Jira link needed</span>`;
     }
 
     const designRows = `
@@ -648,36 +725,49 @@
           <i class="fa-solid fa-arrow-up-right-from-square"></i>
         </a>`;
 
-    // "Last updated" line — absolute date + time — shown beneath the status pill.
+    // "Last updated" line — right-aligned. When the prototype changed within the
+    // last 24h it becomes a light-purple pill with a "New/Updated" label on the
+    // left and the timestamp on the right; otherwise it's a plain clock + time.
     const updatedHtml = mock.lastUpdated
-      ? `<span class="card-updated" title="Most recent change to this prototype"><i class="fa-regular fa-clock"></i> ${escapeHtml(formatDateTime(mock.lastUpdated))}</span>`
+      ? (mock.recentlyUpdated
+          ? `<span class="card-updated card-updated--recent" title="Changed in the last 24 hours">
+               <span class="updated-label"><span class="recency-dot"></span>${mock.isNew ? 'New' : 'Updated'}</span>
+               <span class="updated-time">${escapeHtml(formatDateTime(mock.lastUpdated))}</span>
+             </span>`
+          : `<span class="card-updated" title="Most recent change to this prototype"><i class="fa-regular fa-clock"></i> ${escapeHtml(formatDateTime(mock.lastUpdated))}</span>`)
       : '';
 
     // Per-card log: this prototype's own commit history, collapsed by default.
-    // The first LOG_SHOWN rows show immediately; any older ones render hidden and
-    // are revealed in place by the "+N earlier changes" toggle button.
+    // Capped at the 10 most recent so it never scrolls forever; anything older is
+    // one click away in the full GitHub history (opens in a new tab).
     const changes = mock.changes || [];
-    const LOG_SHOWN = 6;
+    const LOG_SHOWN = 10;
+    // Entries inside the 24h window are the recent changes — emphasize them in
+    // the same red as the LOG's notification dot so it's obvious what's new.
+    const recentCount = changes.filter(c => isWithin24h(c.date)).length;
     const logRow = entry => `
-          <li class="log-item">
+          <li class="log-item${isWithin24h(entry.date) ? ' log-item--recent' : ''}">
             <span class="log-date">${escapeHtml(formatDate(entry.date))}</span>
             <span class="log-summary">${escapeHtml(entry.summary || '')}</span>
           </li>`;
     const shownRows = changes.slice(0, LOG_SHOWN).map(logRow).join('');
     const hiddenCount = Math.max(0, changes.length - LOG_SHOWN);
-    const hiddenRows = hiddenCount
-      ? `<li class="log-extra" hidden>
-          <ul class="log-list">${changes.slice(LOG_SHOWN).map(logRow).join('')}
-          </ul>
-        </li>
-        <li><button type="button" class="log-more" aria-expanded="false"
-          data-more="+ ${hiddenCount} earlier change${hiddenCount !== 1 ? 's' : ''}"
-          data-less="Show fewer">+ ${hiddenCount} earlier change${hiddenCount !== 1 ? 's' : ''}</button></li>`
+    const moreLink = hiddenCount
+      ? `<li class="log-more-item">
+          <a class="log-more-link" href="${mock.historyUrl}" target="_blank" rel="noopener">
+            + ${hiddenCount} more — full history on GitHub <i class="fa-solid fa-arrow-up-right-from-square"></i>
+          </a>
+        </li>`
+      : '';
+    // Violet push-notification dot (no number) on the LOG label when there are
+    // changes within the last 24h — the "this was just updated" signal.
+    const logNotif = recentCount
+      ? `<span class="log-notif" title="${recentCount} change${recentCount !== 1 ? 's' : ''} in the last 24 hours"></span>`
       : '';
     const logHtml = changes.length
       ? `<details class="card-log">
-          <summary><i class="fa-solid fa-clock-rotate-left"></i> Log <span class="log-count">${changes.length}</span><i class="fa-solid fa-chevron-right log-chevron"></i></summary>
-          <ul class="log-list">${shownRows}${hiddenRows}
+          <summary><span class="log-icon-wrap"><i class="fa-solid fa-clock-rotate-left"></i>${logNotif}</span> Log <span class="log-count">${changes.length}</span><i class="fa-solid fa-chevron-right log-chevron"></i></summary>
+          <ul class="log-list">${shownRows}${moreLink}
           </ul>
         </details>`
       : '';
@@ -698,14 +788,12 @@
     card.className = 'mock-card' + (mock.recentlyUpdated ? ' mock-card--recent' : '');
     card.style.animationDelay = `${Math.min(idx * 0.05, 0.5)}s`;
     card.innerHTML = `
-      <div class="card-top">
-        <div class="card-title-group">
-          <h2 class="card-title">${escapeHtml(title)}</h2>
-          <div class="card-badges">${recencyTag(mock)}${ticketHtml}</div>
-        </div>
-        <div class="card-status-group">
-          ${updatedHtml}
-          <span class="status-badge" data-status="${escapeHtml(status)}"><span class="status-dot"></span>${escapeHtml(statusLabel)}</span>
+      <div class="card-header">
+        ${updatedHtml ? `<div class="card-meta-row">${updatedHtml}</div>` : ''}
+        <h2 class="card-title">${escapeHtml(title)}</h2>
+        <div class="card-ticket-row">
+          <div class="card-badges">${ticketHtml}</div>
+          <span class="status-badge" data-status="${escapeHtml(status)}"><i class="fa-solid ${statusIcon(status)} status-icon"></i>${escapeHtml(statusLabel)}</span>
         </div>
       </div>
       <p class="card-description">${escapeHtml(description)}</p>
@@ -758,14 +846,20 @@
     });
   }
 
-  // Small "New" / "Updated" pill for a prototype changed within the last 24h.
+  // Small inline "New" / "Updated" pill (used in the LIST view) for a prototype
+  // changed within the last 24h. Single notification-violet for both.
   function recencyTag(mock) {
     if (!mock.recentlyUpdated) return '';
-    const kind = mock.isNew ? 'new' : 'updated';
     const label = mock.isNew ? 'New' : 'Updated';
-    const icon = mock.isNew ? 'fa-star' : 'fa-arrow-rotate-right';
     const when = mock.lastUpdated ? ` ${escapeHtml(formatDateTime(mock.lastUpdated))}` : '';
-    return `<span class="recency-tag recency-tag--${kind}" title="Changed in the last 24 hours —${when}"><i class="fa-solid ${icon}"></i> ${label}</span>`;
+    return `<span class="recency-tag" title="Changed in the last 24 hours —${when}"><span class="recency-dot"></span>${label}</span>`;
+  }
+
+  // True when a change timestamp falls inside the 24h "recent" window, measured
+  // from now (page-open time).
+  function isWithin24h(iso) {
+    const d = parseDate(iso);
+    return !!d && (Date.now() - d.getTime()) <= 24 * 60 * 60 * 1000;
   }
 
   // Relative day label for the per-entry log rows ("Today", "3d ago", "Mar 4").
@@ -874,19 +968,6 @@
       });
     });
 
-    // Per-card log "+N earlier changes" toggle (delegated) — reveals the older
-    // rows that render hidden inside the same log.
-    document.addEventListener('click', (e) => {
-      const more = e.target.closest('.log-more');
-      if (!more) return;
-      const extra = more.closest('.log-list').querySelector('.log-extra');
-      if (!extra) return;
-      const expanded = extra.hidden;
-      extra.hidden = !expanded;
-      more.setAttribute('aria-expanded', String(expanded));
-      more.textContent = expanded ? more.dataset.less : more.dataset.more;
-    });
-
     // Toolbar wiring
     const searchInput = byId('searchInput');
     const searchWrapper = byId('searchWrapper');
@@ -916,6 +997,13 @@
       applyFiltersAndRender();
     });
 
+    // Sort dropdown
+    const sortSelect = byId('sortSelect');
+    sortSelect.innerHTML = Object.keys(SORTS)
+      .map(k => `<option value="${k}">${SORTS[k]}</option>`).join('');
+    sortSelect.value = state.sort;
+    sortSelect.addEventListener('change', () => setSort(sortSelect.value));
+
     // View switcher (card / list)
     byId('viewSwitcher').addEventListener('click', (e) => {
       const btn = e.target.closest('.view-toggle');
@@ -925,6 +1013,13 @@
     updateViewToggle();
 
     loadMocks();
+  }
+
+  function setSort(sort) {
+    if (!SORTS[sort] || state.sort === sort) return;
+    state.sort = sort;
+    try { localStorage.setItem(SORT_KEY, sort); } catch { /* storage may be blocked */ }
+    if (state.allMocks.length) applyFiltersAndRender();
   }
 
   function setView(view) {
@@ -967,7 +1062,6 @@
         --code-bg: #fafafa;
         --status-bg: #fef3c7;
         --status-fg: #92400e;
-        --status-dot: #f59e0b;
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
         --shadow-md: 0 10px 24px -8px rgba(0, 0, 0, 0.12), 0 4px 8px -4px rgba(0, 0, 0, 0.06);
         --shadow-lg: 0 20px 40px -12px rgba(0, 0, 0, 0.18);
@@ -1097,30 +1191,45 @@
       .mock-card:hover { box-shadow: var(--shadow-md); transform: translateY(-3px); border-color: var(--border-strong); }
       .mock-card:hover::after { transform: scaleX(1); }
 
-      /* Recently-changed prototypes get a soft accent wash + a persistent top
-         bar so they stand out at a glance among the rest. */
-      .mock-card--recent { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-glow), var(--shadow-sm); }
-      .mock-card--recent::after { transform: scaleX(1); }
+      /* Recently-changed prototypes get a subtle red outline so they're easy to
+         spot in the grid — the same notification violet as the LOG dot + hot rows. */
+      .mock-card--recent { border-color: #a78bfa; box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.15), var(--shadow-sm); }
 
-      .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-      .card-title-group { flex: 1; min-width: 0; }
+      /* Card header stacks in three tight rows: meta (time + status), then the
+         title on its own full-width row (room for long titles), then the Jira
+         ticket. Kept as one flex child so the card's gap only separates the
+         header from the body — the rows themselves sit close together. */
+      .card-header { display: block; }
+      /* Timestamp sits on the right of its own row (whether or not it's recent). */
+      .card-meta-row {
+        display: flex; justify-content: flex-end; align-items: center; margin-bottom: 4px;
+      }
       .card-title {
-        font-family: var(--serif); font-size: 20px; font-weight: 700; margin: 0 0 6px;
+        font-family: var(--serif); font-size: 20px; font-weight: 700; margin: 0;
         line-height: 1.25; color: var(--text); letter-spacing: -0.01em;
       }
-      .card-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+      /* Jira ticket on the left, status pill pushed to the far right. */
+      .card-ticket-row {
+        display: flex; justify-content: space-between; align-items: center; gap: 12px;
+        margin-top: 6px;
+      }
+      .card-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 
-      /* "New" / "Updated" recency pills (last 24h). Shared base + two variants. */
+      /* Recency label — deliberately NOT a filled pill, so it doesn't read as a
+         workflow status. Just the pulsing violet dot + uppercase text. */
       .recency-tag {
         display: inline-flex; align-items: center; gap: 5px; font-family: var(--display);
         font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
-        padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+        white-space: nowrap; color: #6d28d9;
       }
-      .recency-tag i { font-size: 8px; }
-      .recency-tag--new { color: #065f46; background: #d1fae5; }
-      .recency-tag--updated { color: #155e75; background: #cffafe; }
-      .recency-tag--new i { animation: recency-pulse 2s ease-in-out infinite; }
-      @keyframes recency-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+      .recency-dot {
+        width: 7px; height: 7px; border-radius: 50%; background: #7c3aed; flex-shrink: 0;
+        box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.5); animation: notif-pulse 2s ease-in-out infinite;
+      }
+      @keyframes notif-pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.5); }
+        50% { box-shadow: 0 0 0 4px rgba(124, 58, 237, 0); }
+      }
 
       .ticket-badge {
         display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono);
@@ -1138,39 +1247,39 @@
         padding: 5px 11px; border-radius: 999px; font-family: var(--display); font-size: 11px; font-weight: 600;
         white-space: nowrap; flex-shrink: 0;
       }
-      .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--status-dot); animation: status-pulse 2.4s ease-in-out infinite; }
-      @keyframes status-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); } 50% { box-shadow: 0 0 0 5px rgba(245, 158, 11, 0); } }
+      /* Status icon (Font Awesome) — inherits the pill's text color per status. */
+      .status-icon { font-size: 10px; }
 
-      .status-badge[data-status="concept"]     { background: #e0e7ff; color: #3730a3; }
-      .status-badge[data-status="concept"] .status-dot     { background: #6366f1; }
-      .status-badge[data-status="in-progress"] { background: #fef3c7; color: #92400e; }
-      .status-badge[data-status="in-progress"] .status-dot { background: #f59e0b; }
-      .status-badge[data-status="review"]      { background: #dbeafe; color: #1e40af; }
-      .status-badge[data-status="review"] .status-dot      { background: #3b82f6; }
-      .status-badge[data-status="ready"]       { background: #d1fae5; color: #065f46; }
-      .status-badge[data-status="ready"] .status-dot       { background: #10b981; animation: none; }
-      .status-badge[data-status="archived"]    { background: #f4f4f5; color: #52525b; }
-      .status-badge[data-status="archived"] .status-dot    { background: #a1a1aa; animation: none; }
+      .status-badge[data-status="concept"]       { background: #e0e7ff; color: #3730a3; }
+      .status-badge[data-status="in-progress"]   { background: #fef3c7; color: #92400e; }
+      .status-badge[data-status="review"]        { background: #dbeafe; color: #1e40af; }
+      .status-badge[data-status="ready"]         { background: #d1fae5; color: #065f46; }
+      .status-badge[data-status="archived"]      { background: #f4f4f5; color: #52525b; }
       .status-badge[data-status="ready-for-dev"] { background: #cffafe; color: #155e75; }
-      .status-badge[data-status="ready-for-dev"] .status-dot { background: #06b6d4; animation: none; }
 
-      /* "Last updated" line + status pill, side by side on the right of the card
-         top — timestamp to the LEFT of the pill. */
-      .card-status-group {
-        display: flex; flex-direction: row; align-items: center; gap: 10px; flex-shrink: 0;
-      }
+      /* "Last updated" line, right-aligned in the meta row. */
       .card-updated {
         display: inline-flex; align-items: center; gap: 5px; font-family: var(--display);
         font-size: 11px; font-weight: 500; color: var(--text-muted); white-space: nowrap;
       }
       .card-updated i { font-size: 10px; opacity: 0.7; }
+      /* Recent: light-purple pill, "Updated" label on the left, time on the right. */
+      .card-updated--recent {
+        gap: 10px; padding: 3px 10px; border-radius: 999px;
+        background: #f5f3ff; color: #6d28d9;
+      }
+      .updated-label {
+        display: inline-flex; align-items: center; gap: 5px;
+        font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+      }
+      .updated-time { font-size: 11px; font-weight: 600; color: #7c3aed; }
 
-      /* "Jira ticket needed" badge — shown when a mock has no ticket linked yet. */
+      /* "Jira link needed" badge — shown when a mock has no ticket linked yet.
+         Neutral gray, no warning icon — informational, not an alert. */
       .ticket-badge--missing {
-        color: #92400e; background: #fef3c7; font-family: var(--display);
+        color: #52525b; background: #e4e4e7; font-family: var(--display);
         font-size: 10.5px; font-weight: 600; letter-spacing: 0.2px;
       }
-      .ticket-badge--missing i { font-size: 9px; }
 
       /* Per-card activity log — this prototype's own commit history, collapsed. */
       .card-log { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
@@ -1181,7 +1290,15 @@
       }
       .card-log > summary::-webkit-details-marker { display: none; }
       .card-log > summary:hover { color: var(--text); }
-      .card-log > summary > i:first-child { color: var(--accent); font-size: 12px; }
+      .log-icon-wrap { position: relative; display: inline-flex; }
+      .log-icon-wrap > i { color: var(--accent); font-size: 12px; }
+      /* Violet push-notification dot on the LOG icon (no number) — signals changes
+         within the last 24h. */
+      .log-notif {
+        position: absolute; top: -3px; right: -4px; width: 8px; height: 8px; border-radius: 50%;
+        background: #7c3aed; border: 1.5px solid var(--card-bg);
+        box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.5); animation: notif-pulse 2s ease-in-out infinite;
+      }
       .log-count {
         font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--accent-deep);
         background: var(--accent-soft); padding: 1px 7px; border-radius: 999px; letter-spacing: 0;
@@ -1196,15 +1313,23 @@
       .log-item:hover { background: var(--code-bg); }
       .log-date { font-family: var(--display); font-weight: 600; color: var(--text-muted); font-size: 11.5px; white-space: nowrap; }
       .log-summary { color: var(--text-soft); line-height: 1.45; min-width: 0; }
-      .log-more {
-        display: inline-flex; align-items: center; margin: 4px 0 0; padding: 5px 8px;
-        border: none; background: none; cursor: pointer; border-radius: 6px;
-        font-family: var(--display); font-size: 11.5px; font-weight: 600;
+      /* The changes within the last 24h — emphasized with a violet bar + tint, the
+         same notification violet as the LOG dot. */
+      .log-item--recent {
+        background: #f5f3ff;
+        box-shadow: inset 3px 0 0 #7c3aed;
+      }
+      .log-item--recent:hover { background: #ede9fe; }
+      .log-item--recent .log-date { color: #6d28d9; }
+      .log-item--recent .log-summary { color: var(--text); font-weight: 600; }
+      .log-more-item { margin-top: 4px; border-top: 1px dashed var(--border); padding-top: 6px; }
+      .log-more-link {
+        display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 6px;
+        font-family: var(--display); font-size: 11.5px; font-weight: 600; text-decoration: none;
         color: var(--accent-deep); transition: background 0.12s ease, color 0.12s ease;
       }
-      .log-more:hover { background: var(--accent-soft); color: var(--accent); }
-      .log-extra { display: block; }
-      .log-extra .log-list { margin-top: 1px; }
+      .log-more-link:hover { background: var(--accent-soft); color: var(--accent); }
+      .log-more-link i { font-size: 9px; opacity: 0.8; }
 
       .card-description {
         font-size: 13.5px; color: var(--text-soft); margin: 0; line-height: 1.55;
@@ -1289,8 +1414,10 @@
         padding: 1px 6px; border-radius: 4px; font-size: 11.5px;
       }
 
-      .toolbar { max-width: 1400px; margin: -8px auto 28px; padding: 0 32px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
-      .search-wrapper { position: relative; flex: 1 1 280px; min-width: 240px; }
+      .toolbar { max-width: 1400px; margin: -8px auto 28px; padding: 0 32px; display: flex; flex-direction: column; gap: 14px; }
+      /* Row 1: search grows and pushes sort + view switcher to the right. */
+      .toolbar-row { display: flex; align-items: center; gap: 14px; }
+      .search-wrapper { position: relative; flex: 1 1 auto; min-width: 200px; }
       .search-wrapper i.fa-magnifying-glass {
         position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
         color: var(--text-muted); font-size: 13px; pointer-events: none;
@@ -1318,6 +1445,12 @@
         display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
       }
       .filter-chip:hover { border-color: var(--accent); color: var(--accent-deep); transform: translateY(-1px); }
+      /* Empty statuses: visible for reference, but dimmed and non-interactive. */
+      .filter-chip[data-empty="true"] {
+        opacity: 0.5; cursor: default; border-style: dashed; background: transparent;
+      }
+      .filter-chip[data-empty="true"]:hover { border-color: var(--border-strong); color: var(--text-soft); transform: none; }
+      .filter-chip[data-empty="true"] .chip-dot { opacity: 0.5; }
       .filter-chip .chip-count {
         font-size: 11px; font-weight: 700; color: var(--text-muted); background: var(--code-bg);
         padding: 1px 7px; border-radius: 999px; min-width: 22px; text-align: center;
@@ -1341,8 +1474,26 @@
       .filter-chip[data-status="ready-for-dev"] .chip-dot { background: #06b6d4; }
 
       /* View switcher — icon buttons that flip between the card and list layouts. */
+      /* Sort dropdown — sits with the view switcher on the right of the toolbar. */
+      .sort-control {
+        display: inline-flex; align-items: center; gap: 7px; margin-left: auto;
+        background: var(--card-bg); border: 1px solid var(--border-strong);
+        border-radius: 9px; padding: 4px 10px; height: 34px;
+      }
+      .sort-icon { color: var(--text-muted); font-size: 12px; }
+      .sort-label {
+        font-family: var(--display); font-size: 12px; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.5px;
+      }
+      .sort-select {
+        border: none; background: none; font-family: var(--display); font-size: 13px;
+        font-weight: 600; color: var(--text); cursor: pointer; outline: none;
+        padding-right: 2px; max-width: 160px;
+      }
+      .sort-select:focus-visible { outline: 2px solid var(--accent); border-radius: 4px; }
+
       .view-switcher {
-        display: inline-flex; margin-left: auto; background: var(--card-bg);
+        display: inline-flex; background: var(--card-bg);
         border: 1px solid var(--border-strong); border-radius: 9px; padding: 2px; gap: 2px;
       }
       .view-toggle {
@@ -1403,7 +1554,7 @@
       .no-results .clear-filters-btn:hover { background: var(--accent-soft); }
 
       .section-header .status-badge { padding: 4px 12px; }
-      .section-header .status-badge .status-dot { width: 7px; height: 7px; }
+      .section-header .status-badge .status-icon { font-size: 9px; }
   `;
 
   // Kick off — STYLES is now defined, so injectHead() inside boot() is safe.

@@ -106,6 +106,13 @@ function gitRecentChanges(productSlug) {
     const [date, subject] = head.split(SEP_FLD);
     if (!date) continue;
 
+    // Skip automated dashboard-maintenance commits — they aren't real design
+    // activity and would otherwise flood the log (and falsely trigger the
+    // "recently updated" highlight). Covers the build script's own regenerate
+    // commits and anything tagged [skip ci].
+    const subj = (subject || '').trim();
+    if (/^chore\(dashboards\)/i.test(subj) || /\[skip ci\]/i.test(subj)) continue;
+
     const files = body.split('\n').map(f => f.trim()).filter(Boolean);
     // First changed file under this product that isn't in the dashboard folder.
     const file = files.find(f => f.startsWith(productPrefix) && !f.startsWith(productPrefix + 'dashboard/'));
@@ -114,7 +121,7 @@ function gitRecentChanges(productSlug) {
     changes.push({
       date,
       path: file.slice(productPrefix.length),
-      summary: (subject || '').trim(),
+      summary: subj,
     });
     if (changes.length >= MAX_RECENT) break;
   }
