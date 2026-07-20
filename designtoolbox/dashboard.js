@@ -27,13 +27,13 @@
 
    To theme a new product, add an entry to PRODUCT_THEMES below.
 
-   CARD DESCRIPTIONS — KEEP THEM TO TWO SHORT SENTENCES (~220 chars max).
+   CARD DESCRIPTIONS — ONE TIGHT SENTENCE, ~150 CHARS MAX (fits two lines).
    A card's `description` comes from the mock's `desc` field in products.json
    (via meta.json), falling back to the auto-derived describe() guess. Author it
-   as two factual sentences: what the design shows, then what's notable in it.
-   Longer than that makes the cards uneven and buries the link/status — the card
-   clamps `.card-description` to 3 lines as a backstop. This applies to EVERY
-   product (SafeLMS, Scheduling, and any added later).
+   as one factual sentence saying what the design shows and its key interaction.
+   Longer than that gets cut off — the card clamps `.card-description` to 2
+   lines as a backstop. This applies to EVERY product (SafeLMS, Scheduling, and
+   any added later).
    ========================================================================= */
 
 (function () {
@@ -1335,9 +1335,9 @@
 
       .card-description {
         font-size: 13.5px; color: var(--text-soft); margin: 0; line-height: 1.55;
-        /* Keep cards uniform: descriptions are meant to be one short sentence;
+        /* Keep cards uniform: descriptions are meant to fit two lines;
            clamp as a safety net so a stray long one can't blow out the card. */
-        display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
       }
 
       .url-list {
