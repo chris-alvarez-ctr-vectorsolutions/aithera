@@ -28,11 +28,12 @@
     />
     <style>
         /* ════════════════════════════════════════════════════════════════
-           EHS-21765 — Customize Which Form Content Prints to PDF
-           Layout: the existing EHS web form (background context) plus a
-           full-screen print-customization overlay: live paginated PDF
-           preview on the left, selection panel on the right (the pattern
-           used by modern print editors such as the browser print dialog).
+           EHS-21765 — Customize Which Form Content Prints to PDF (V1.1)
+           V1 base plus: separate image toggle + size control, description
+           captions, report logo (from the account's configured report
+           logo), configurable checklist statuses with non-hardcoded
+           colors, linked titles and corrective actions, and new tasks /
+           events / claims / email notification sections with toggles.
            ════════════════════════════════════════════════════════════════ */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -149,13 +150,28 @@
         .web-photo { width: 86px; }
         .web-photo svg { width: 86px; height: 60px; border-radius: 3px; border: 1px solid #cfd6df; display: block; }
         .web-photo-name { font-size: 9.5px; color: #777; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .web-files { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 0 32px; }
+        .web-file {
+            display: flex; align-items: center; gap: 8px; width: fit-content;
+            border: 1px solid #d7dde4; border-radius: 3px; background: #fafbfc;
+            padding: 6px 10px; font-size: 12px; color: #333;
+        }
+        .web-file .fa-file-pdf { color: #c0392b; }
+        .web-file .fa-file-excel { color: #1d7a36; }
+        .web-file .fa-file-image { color: #3d6fb4; }
+        .web-file .wf-meta { color: #999; font-size: 11px; }
+        .web-att-root .web-photos, .web-att-root .web-files { margin-left: 0; }
+        /* status chip colors come from the account's checklist status
+           configuration (tone classes), never from hardcoded status names */
         .resp-chip {
             flex-shrink: 0; padding: 3px 10px; border-radius: 999px;
             font-size: 11px; font-weight: 600; border: 1px solid transparent;
         }
-        .resp-chip.sat { background: #e7f4ea; color: #1d7a36; border-color: #bfe3c8; }
-        .resp-chip.def { background: #fdebea; color: #b3261e; border-color: #f3c1bd; }
-        .resp-chip.na  { background: #eef1f5; color: #5b6675; border-color: #d7dde4; }
+        .resp-chip.tone-green { background: #e7f4ea; color: #1d7a36; border-color: #bfe3c8; }
+        .resp-chip.tone-red   { background: #fdebea; color: #b3261e; border-color: #f3c1bd; }
+        .resp-chip.tone-gray  { background: #eef1f5; color: #5b6675; border-color: #d7dde4; }
+        .resp-chip.tone-blue  { background: #eaf1fb; color: #245ba7; border-color: #c4d7ef; }
+        .resp-chip.tone-amber { background: #fff4e0; color: #92600f; border-color: #f0d3a8; }
         .web-cat { font-size: 12.5px; font-weight: 700; color: #33415a; margin: 14px 0 8px; }
         .web-cat:first-child { margin-top: 0; }
 
@@ -269,12 +285,19 @@
         /* ── Printed document styles (shared by pages + hidden measurer) ── */
         .pd-root { font-family: 'Open Sans', Arial, sans-serif; color: #1c2430; }
         .pd-header { border-bottom: 2px solid #3d5267; padding-bottom: 12px; margin-bottom: 14px; }
-        .pd-brandrow { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
-        .pd-brand { font-size: 10px; font-weight: 700; color: #3d5267; letter-spacing: 0.2px; }
-        .pd-brand .vs-mark { color: #ff6a13; font-weight: 800; }
+        .pd-brandrow { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        /* report logo: the account's configured report logo (system settings),
+           the same asset used across the account's printed EHS reports */
+        .pd-logo { height: 30px; width: auto; display: block; }
         .pd-gen { font-size: 8.5px; color: #8a94a6; }
         .pd-titlerow { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
         .pd-doctitle { font-size: 19px; font-weight: 700; color: #16202c; line-height: 1.25; }
+        /* form title links back to the report; links stay live in the PDF */
+        a.pd-doctitle { color: #0b5cd5; text-decoration: none; }
+        a.pd-doctitle:hover { text-decoration: underline; }
+        /* record links (form title, corrective actions, tasks, events, claims)
+           are underlined so they read unambiguously as links in the PDF */
+        .pd-link { color: #0b5cd5; text-decoration: underline; }
         .pd-docid { font-size: 10.5px; color: #5b6675; margin-top: 2px; }
         .pd-chips { display: flex; gap: 6px; flex-shrink: 0; padding-top: 3px; }
         .pd-chip { padding: 2px 10px; border-radius: 999px; font-size: 9.5px; font-weight: 700; border: 1px solid; white-space: nowrap; }
@@ -316,34 +339,43 @@
         }
         .pd-item-text { flex: 1; font-size: 10px; color: #1c2430; line-height: 1.4; padding-top: 2px; }
         .pd-item-chip { flex-shrink: 0; padding: 2px 8px; border-radius: 999px; font-size: 8.5px; font-weight: 700; border: 1px solid; }
-        .pd-item-chip.sat { background: #e7f4ea; color: #1d7a36; border-color: #c4e5cc; }
-        .pd-item-chip.def { background: #fdebea; color: #b3261e; border-color: #f3c8c4; }
-        .pd-item-chip.na  { background: #eef1f5; color: #5b6675; border-color: #dde3ea; }
+        .pd-item-chip.tone-green { background: #e7f4ea; color: #1d7a36; border-color: #c4e5cc; }
+        .pd-item-chip.tone-red   { background: #fdebea; color: #b3261e; border-color: #f3c8c4; }
+        .pd-item-chip.tone-gray  { background: #eef1f5; color: #5b6675; border-color: #dde3ea; }
+        .pd-item-chip.tone-blue  { background: #eaf1fb; color: #245ba7; border-color: #c4d7ef; }
+        .pd-item-chip.tone-amber { background: #fff4e0; color: #92600f; border-color: #f0d3a8; }
         .pd-item-comment { margin: 5px 0 0 25px; font-size: 9.5px; color: #45505f; line-height: 1.45; }
         .pd-item-comment b { font-weight: 600; color: #33404f; }
         .pd-item-ca { margin: 4px 0 0 25px; font-size: 9px; color: #245ba7; }
         .pd-item-ca .fa-arrow-rotate-right { font-size: 8px; }
         .pd-photos { display: flex; gap: 8px; margin: 7px 0 1px 25px; flex-wrap: wrap; }
-        .pd-photo { width: 138px; }
-        .pd-photo svg { width: 138px; height: 96px; border-radius: 3px; border: 1px solid #dde3ea; display: block; }
-        .pd-photo-cap {
-            display: flex; align-items: center; gap: 4px; margin-top: 3px;
-            font-size: 8px; color: #6b7686;
-        }
-        .pd-photo-cap .fname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .heic-chip {
-            flex-shrink: 0; padding: 0 5px; border-radius: 3px;
-            background: #eef2ff; border: 1px solid #c3cdf2; color: #3450a3;
-            font-size: 7px; font-weight: 700; line-height: 1.5;
-        }
-        .pd-photo-time { font-size: 7.5px; color: #9aa3b2; margin-top: 1px; }
+        .pd-photo { /* width set per the image-size control */ }
+        .pd-photo svg { width: 100%; height: auto; border-radius: 3px; border: 1px solid #dde3ea; display: block; }
+        /* description defaults to the file name; shows in full, never truncated */
+        .pd-photo-desc { font-size: 8px; color: #45505f; margin-top: 3px; line-height: 1.4; word-break: break-word; }
         .pd-general-note { font-size: 9px; color: #6b7686; margin: 2px 0 4px; }
+
+        /* non-photo attachments always list as file names (never rendered inline) */
+        .pd-files { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 1px 25px; }
+        .pd-file {
+            display: flex; align-items: flex-start; gap: 6px;
+            border: 1px solid #e3e8ef; border-radius: 3px; background: #fbfcfe;
+            padding: 3px 8px; max-width: 380px;
+        }
+        .pd-file i { font-size: 10px; flex-shrink: 0; margin-top: 1px; }
+        .pd-file .fa-file-pdf { color: #c0392b; }
+        .pd-file .fa-file-excel { color: #1d7a36; }
+        .pd-file .fa-file-image { color: #3d6fb4; }
+        /* descriptions display in full; rows grow instead of truncating */
+        .pd-file .fname { font-size: 8.5px; color: #1c2430; line-height: 1.4; word-break: break-word; }
+        .pd-file .fmeta { margin-left: auto; padding-left: 10px; font-size: 7.5px; color: #8a94a6; white-space: nowrap; }
+        .pd-att-root .pd-photos, .pd-att-root .pd-files { margin-left: 0; }
 
         .pd-table { width: 100%; border-collapse: collapse; font-size: 9.5px; }
         .pd-table th {
             background: #f1f4f8; border: 1px solid #d9dfe7;
             padding: 4px 8px; text-align: left; font-weight: 700; color: #33404f;
-            font-size: 8.5px;
+            font-size: 8.5px; white-space: nowrap;
         }
         .pd-table td { border: 1px solid #e5eaf0; padding: 5px 8px; color: #1c2430; vertical-align: top; }
         .pd-ca-pri { font-weight: 700; }
@@ -391,8 +423,6 @@
         .pd-root.compact .pd-item-comment { margin-top: 3px; }
         .pd-root.compact .pd-item-ca { margin-top: 2px; }
         .pd-root.compact .pd-photos { margin-top: 5px; gap: 6px; }
-        .pd-root.compact .pd-photo { width: 116px; }
-        .pd-root.compact .pd-photo svg { width: 116px; height: 80px; }
         .pd-root.compact .pd-table th { padding: 3px 7px; }
         .pd-root.compact .pd-table td { padding: 3px 7px; }
         .pd-root.compact .pd-sig-grid { gap: 12px; }
@@ -430,7 +460,7 @@
             display: flex; align-items: center; justify-content: space-between; gap: 10px;
             margin-bottom: 10px; min-height: 22px;
         }
-        .panel-summary-text { font-size: 12px; color: #33404f; }
+        .panel-summary-text { font-size: 12px; color: #33404f; flex: 1; min-width: 0; }
         .panel-summary-text .all-in { color: #1d7a36; font-weight: 600; }
         .panel-summary-text .excl { font-weight: 600; color: #16202c; }
         .panel-reset {
@@ -469,12 +499,18 @@
         }
         .panel-divider { border-top: 1px solid #e7ebf1; margin: 14px -16px; }
 
-        /* Tree */
+        /* Tree — nested fields step in under their section, with a vertical
+           guide line the way V3's outline shows hierarchy */
         .tree-row { display: flex; align-items: center; gap: 2px; border-radius: 5px; padding: 0 4px; }
         .tree-row:hover { background: #f4f7fa; }
         .tree-row.sec { min-height: 34px; }
-        .tree-row.field { min-height: 28px; margin-left: 24px; }
+        .tree-row.field { min-height: 28px; margin-left: 38px; }
         .tree-row.disabled { opacity: 0.45; pointer-events: none; }
+        .tree-fields { position: relative; }
+        .tree-fields::before {
+            content: ''; position: absolute; left: 17px; top: 2px; bottom: 9px;
+            width: 1px; background: #dde3ea;
+        }
         .tw-expander {
             flex-shrink: 0; width: 22px; height: 22px; border-radius: 4px;
             border: none; background: transparent; color: #7d8a9c;
@@ -534,6 +570,17 @@
         .switch[aria-checked="true"] { background: #0066cc; }
         .switch[aria-checked="true"] .knob { transform: translateX(16px); }
 
+        /* dependent controls gray out when their parent toggle is off */
+        .opt-row.disabled, .setup-row.disabled { opacity: 0.45; pointer-events: none; }
+
+        /* persistent reset control for the print settings */
+        .reset-defaults-btn {
+            display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; white-space: nowrap;
+            border: none; background: none; color: #0066cc; font-size: 12px; font-weight: 600;
+            cursor: pointer; padding: 3px 6px; border-radius: 4px;
+        }
+        .reset-defaults-btn:hover { background: #f0f6ff; }
+
         /* Page setup */
         .setup-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 4px; }
         .setup-label { font-size: 12.5px; color: #16202c; font-weight: 600; }
@@ -568,11 +615,10 @@
         .po-panel-footer {
             flex-shrink: 0; border-top: 1px solid #dde3ea;
             padding: 12px 16px;
-            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            display: flex; align-items: center; justify-content: flex-end; gap: 12px;
             background: #fff;
         }
-        .footer-info { font-size: 11.5px; color: #7d8a9c; white-space: nowrap; }
-        .footer-actions { display: flex; gap: 8px; }
+        .footer-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
         /* Toast */
         .toast {
@@ -647,6 +693,10 @@
         <a href="#sec-details">Inspection details</a><span>|</span>
         <a href="#sec-checklist">Checklist</a><span>|</span>
         <a href="#sec-cas">Corrective actions</a><span>|</span>
+        <a href="#sec-tasks">Tasks</a><span>|</span>
+        <a href="#sec-events">Events</a><span>|</span>
+        <a href="#sec-claims">Claims</a><span>|</span>
+        <a href="#sec-emails">Email notifications</a><span>|</span>
         <a href="#sec-signatures">Signatures</a><span>|</span>
         <a href="#sec-history">History</a>
     </div>
@@ -701,7 +751,9 @@
 
                 <div class="panel-summary">
                     <span class="panel-summary-text" id="summaryText"><span class="all-in"><i class="fa-solid fa-circle-check"></i> Everything included</span></span>
-                    <button class="panel-reset" id="summaryReset">Reset</button>
+                    <button class="reset-defaults-btn" id="btnResetDefaults">
+                        <i class="fa-solid fa-rotate-left"></i> Reset to defaults
+                    </button>
                 </div>
 
                 <div class="tree-search">
@@ -710,7 +762,7 @@
                     <button class="search-clear" id="searchClear" aria-label="Clear search"><i class="fa-solid fa-xmark"></i></button>
                 </div>
 
-                <div class="panel-group-label">Sections and fields</div>
+                <div class="panel-group-label">Form Fields</div>
                 <div id="tree"></div>
                 <div class="search-empty" id="searchEmpty"></div>
 
@@ -730,6 +782,60 @@
                         <div class="opt-sub">3 corrective actions linked to this report</div>
                     </div>
                     <button class="switch" id="swCas" role="switch" aria-checked="true" aria-label="Include corrective actions"><span class="knob"></span></button>
+                </div>
+                <div class="opt-row">
+                    <div class="opt-text">
+                        <div class="opt-title">Tasks</div>
+                        <div class="opt-sub">3 tasks linked to this report</div>
+                    </div>
+                    <button class="switch" id="swTasks" role="switch" aria-checked="true" aria-label="Include tasks"><span class="knob"></span></button>
+                </div>
+                <div class="opt-row">
+                    <div class="opt-text">
+                        <div class="opt-title">Events</div>
+                        <div class="opt-sub">2 events linked to this report</div>
+                    </div>
+                    <button class="switch" id="swEvents" role="switch" aria-checked="true" aria-label="Include events"><span class="knob"></span></button>
+                </div>
+                <div class="opt-row">
+                    <div class="opt-text">
+                        <div class="opt-title">Claims</div>
+                        <div class="opt-sub">1 claim linked to this report</div>
+                    </div>
+                    <button class="switch" id="swClaims" role="switch" aria-checked="true" aria-label="Include claims"><span class="knob"></span></button>
+                </div>
+                <div class="opt-row">
+                    <div class="opt-text">
+                        <div class="opt-title">Email notifications</div>
+                        <div class="opt-sub">3 email notifications sent</div>
+                    </div>
+                    <button class="switch" id="swEmails" role="switch" aria-checked="true" aria-label="Include email notifications"><span class="knob"></span></button>
+                </div>
+
+                <div class="panel-divider"></div>
+
+                <div class="panel-group-label">Attachments</div>
+                <div class="opt-row">
+                    <div class="opt-text">
+                        <div class="opt-title">Attachments</div>
+                        <div class="opt-sub">Photos and files attached to checklist items</div>
+                    </div>
+                    <button class="switch" id="swAttachments" role="switch" aria-checked="true" aria-label="Include attachments"><span class="knob"></span></button>
+                </div>
+                <div class="opt-row" id="rowImages">
+                    <div class="opt-text">
+                        <div class="opt-title">Images</div>
+                        <div class="opt-sub">Render photos as images, otherwise list by file name</div>
+                    </div>
+                    <button class="switch" id="swImages" role="switch" aria-checked="true" aria-label="Render photo attachments as images"><span class="knob"></span></button>
+                </div>
+                <div class="setup-row" id="rowImageSize">
+                    <span class="setup-label" id="imgSizeLabel">Image size</span>
+                    <div class="orient-group" role="group" aria-labelledby="imgSizeLabel">
+                        <button class="orient-btn" id="imgSmall" aria-pressed="false">Small</button>
+                        <button class="orient-btn on" id="imgMedium" aria-pressed="true">Medium</button>
+                        <button class="orient-btn" id="imgLarge" aria-pressed="false">Large</button>
+                    </div>
                 </div>
 
                 <div class="panel-divider"></div>
@@ -781,22 +887,12 @@
                         <button class="orient-btn" id="orientLandscape" aria-pressed="false"><i class="fa-regular fa-file" style="transform: rotate(90deg);"></i> Landscape</button>
                     </div>
                 </div>
-                <div class="format-note">
-                    <i class="fa-solid fa-image"></i>
-                    <span>Photos print beneath the checklist item they document. Use the formatting controls above to adjust spacing, layout, and page breaks.</span>
-                </div>
-
-                <div class="persist-note">
-                    <i class="fa-solid fa-user-check"></i>
-                    <span>Your selections are saved to your profile and applied the next time you print this form.</span>
-                </div>
             </div>
 
             <div class="po-panel-footer">
-                <span class="footer-info" id="footerInfo">1 page · Letter · Portrait</span>
                 <div class="footer-actions">
                     <vaadin-button theme="secondary" id="btnCancel">Cancel</vaadin-button>
-                    <vaadin-button theme="primary" id="btnPrint"><i class="fa-solid fa-print" slot="prefix"></i> Print PDF</vaadin-button>
+                    <vaadin-button theme="primary" id="btnPrint"><i class="fa-solid fa-file-arrow-down" slot="prefix"></i> Export to PDF</vaadin-button>
                 </div>
             </div>
         </div>
@@ -864,7 +960,6 @@ const SECTIONS = [
         id: 'checklist', label: 'Checklist', count: '10 items',
         fields: [
             { id: 'comments', label: 'Item comments' },
-            { id: 'photos',   label: 'Item photos' },
             { id: 'na',       label: 'Not applicable items' }
         ]
     },
@@ -873,6 +968,21 @@ const SECTIONS = [
         fields: []
     }
 ];
+/* Tasks, events, claims, and email notifications are related records rather
+   than form fields, so they live in Report content as their own toggles
+   (like signatures and corrective actions), not in the Form Fields tree. */
+
+/* Checklist statuses come from the account's checklist configuration.
+   Accounts can define any number of statuses; each carries its own
+   configured color tone. Nothing in the render path assumes the classic
+   Satisfactory / Deficient / N/A trio. */
+const STATUSES = {
+    sat:    { label: 'Satisfactory',     tone: 'green' },
+    def:    { label: 'Deficient',        tone: 'red' },
+    na:     { label: 'Not applicable',   tone: 'gray', naLike: true },
+    repair: { label: 'Repaired on site', tone: 'blue' },
+    notobs: { label: 'Not observed',     tone: 'amber' }
+};
 
 const CHECKLIST = [
     {
@@ -880,17 +990,17 @@ const CHECKLIST = [
         items: [
             { num: 1, text: 'Fire extinguishers charged, mounted, and inspected within the last month', resp: 'sat', comment: 'All units tagged current through July.' },
             { num: 2, text: 'Exit routes and doors clear of obstructions', resp: 'def', comment: 'Pallet staged in front of exit door 4B. Moved during inspection; flagged as a recurring staging issue.', ca: 'CA-04121',
-              photos: [ { file: 'IMG_2041.heic', kind: 'exit', time: '9 Jul, 10:42 AM', heic: true }, { file: 'IMG_2042.jpg', kind: 'exit2', time: '9 Jul, 10:44 AM' } ] },
+              atts: [ { file: 'IMG_2041.heic', type: 'photo', kind: 'exit', size: '3.1 MB', desc: 'Pallet staged in front of exit door 4B, taken from the receiving aisle before it was moved' }, { file: 'IMG_2042.jpg', type: 'photo', kind: 'exit2', size: '2.6 MB' } ] },
             { num: 3, text: 'Emergency lighting operational in all egress paths', resp: 'sat' },
             { num: 4, text: 'Sprinkler heads unobstructed with 18 inches of clearance', resp: 'def', comment: 'Boxes stacked within 12 inches of sprinkler heads in aisle D.', ca: 'CA-04122',
-              photos: [ { file: 'IMG_2050.heic', kind: 'sprinkler', time: '9 Jul, 11:03 AM', heic: true } ] }
+              atts: [ { file: 'IMG_2050.heic', type: 'photo', kind: 'sprinkler', size: '2.9 MB' }, { file: 'sprinkler_clearance_spec.pdf', type: 'file', size: '2.4 MB', pages: 6 } ] }
         ]
     },
     {
         category: 'Housekeeping and storage',
         items: [
-            { num: 5, text: 'Aisles clear, dry, and free of trip hazards', resp: 'sat',
-              photos: [ { file: 'dock_area_02.jpg', kind: 'aisle', time: '9 Jul, 9:20 AM' } ] },
+            { num: 5, text: 'Aisles clear, dry, and free of trip hazards', resp: 'repair', comment: 'Loose strapping debris in aisle C cleared during the walkthrough.',
+              atts: [ { file: 'dock_area_02.jpg', type: 'photo', kind: 'aisle', size: '2.2 MB' } ] },
             { num: 6, text: 'Racking secure with load limits posted', resp: 'sat' },
             { num: 7, text: 'Chemical containers labeled and stored with compatible materials', resp: 'na', comment: 'No chemical storage in scope this month.' }
         ]
@@ -898,22 +1008,46 @@ const CHECKLIST = [
     {
         category: 'PPE and equipment',
         items: [
-            { num: 8, text: 'Required PPE available and in serviceable condition', resp: 'sat' },
-            { num: 9, text: 'Forklift daily checks completed and logged', resp: 'def', comment: 'Unit FL-7 is missing three daily check entries from last week.', ca: 'CA-04123' },
+            { num: 8, text: 'Required PPE available and in serviceable condition', resp: 'notobs', comment: 'Area occupied during the walkthrough; recheck on the next visit.' },
+            { num: 9, text: 'Forklift daily checks completed and logged', resp: 'def', comment: 'Unit FL-7 is missing three daily check entries from last week.', ca: 'CA-04123',
+              atts: [ { file: 'FL-7_daily_check_log.pdf', type: 'file', size: '1.1 MB', pages: 12 } ] },
             { num: 10, text: 'Battery charging station ventilation and eyewash accessible', resp: 'na', comment: 'Station offline for scheduled maintenance.' }
         ]
     }
 ];
 
-const GENERAL_PHOTOS = [
-    { file: 'site_overview.jpg', kind: 'overview', time: '9 Jul, 8:18 AM' },
-    { file: 'dock_exterior.heic', kind: 'dock', time: '9 Jul, 8:22 AM', heic: true }
+const GENERAL_ATTS = [
+    { file: 'site_overview.jpg', type: 'photo', kind: 'overview', size: '3.4 MB', desc: 'Warehouse floor overview from the mezzanine with aisles A through F visible' },
+    { file: 'dock_exterior.heic', type: 'photo', kind: 'dock', size: '2.7 MB' },
+    { file: 'floor_plan_egress_routes.pdf', type: 'file', size: '3.8 MB', pages: 1 },
+    { file: 'june_ca_backlog_review.xlsx', type: 'file', size: '640 KB' }
 ];
 
 const CAS = [
-    { id: 'CA-04121', desc: 'Retrain dock team on exit door staging policy and add floor marking at door 4B', who: 'M. Otero', due: '7/23/2026', pri: 'High', status: 'Open' },
-    { id: 'CA-04122', desc: 'Clear overstacked boxes in aisle D and post maximum stack height signage', who: 'R. Patel', due: '7/18/2026', pri: 'High', status: 'In progress' },
-    { id: 'CA-04123', desc: 'Coach forklift operators on daily check logging and audit weekly for one month', who: 'J. Kim', due: '7/31/2026', pri: 'Medium', status: 'Open' }
+    { id: 'CA-04121', rec: 'Retrain the dock team on exit door staging policy and add floor marking at door 4B', who: 'M. Otero', due: '7/23/2026', status: 'Open' },
+    { id: 'CA-04122', rec: 'Clear overstacked boxes in aisle D and post maximum stack height signage', who: 'R. Patel', due: '7/18/2026', status: 'In progress' },
+    { id: 'CA-04123', rec: 'Coach forklift operators on daily check logging and audit weekly for one month', who: 'J. Kim', due: '7/31/2026', status: 'Open' }
+];
+
+const TASKS = [
+    { id: 'TSK-2201', task: 'Schedule dock staging retraining session', who: 'M. Otero', due: '7/22/2026', status: 'Open' },
+    { id: 'TSK-2202', task: 'Post maximum stack height signage in aisle D', who: 'R. Patel', due: '7/18/2026', status: 'In progress' },
+    { id: 'TSK-2203', task: 'Audit forklift daily check log for unit FL-7', who: 'J. Kim', due: '7/24/2026', status: 'Open' }
+];
+
+const EVENTS = [
+    { id: 'EVT-1104', event: 'Safety stand-down briefing, dock team', date: '7/22/2026, 7:00 AM', location: 'Dock office', status: 'Scheduled' },
+    { id: 'EVT-1105', event: 'Follow-up walkthrough, aisles A-F', date: '7/29/2026, 8:00 AM', location: 'Warehouse floor 1', status: 'Scheduled' }
+];
+
+const CLAIMS = [
+    { id: 'CLM-2026-0032', type: 'Property damage', claimant: 'Northeast Distribution Co.', filed: '7/10/2026', status: 'Under review' }
+];
+
+const EMAILS = [
+    { to: 'M. Otero', subject: 'Inspection INS-2026-00187 assigned for review', sent: '9 Jul 2026, 11:32 AM' },
+    { to: 'EHS distribution list', subject: 'Deficient items summary: INS-2026-00187', sent: '9 Jul 2026, 11:35 AM' },
+    { to: 'R. Patel', subject: 'Corrective action CA-04122 assigned', sent: '9 Jul 2026, 11:36 AM' }
 ];
 
 const SIGNATURES = [
@@ -938,11 +1072,20 @@ function defaultState() {
         fields[sec.id] = {};
         sec.fields.forEach(f => { fields[sec.id][f.id] = true; });
     });
+    const sections = {};
+    SECTIONS.forEach(s => { sections[s.id] = true; });
     return {
-        sections: { basic: true, details: true, checklist: true, history: true },
+        sections,
         fields,
         signatures: true,
         cas: true,
+        tasks: true,
+        events: true,
+        claims: true,
+        emails: true,
+        attachments: true,
+        images: true,
+        imageSize: 'medium',
         paper: 'letter',
         orient: 'portrait',
         format: { density: 'comfortable', columns: 2, sectionBreaks: false, keepTogether: true }
@@ -950,7 +1093,8 @@ function defaultState() {
 }
 let state = defaultState();
 const DEFAULT_JSON = JSON.stringify(defaultState());
-const PREFS_KEY = 'ehs-print-prefs:facility-safety-inspection';
+const PREFS_KEY = 'ehs-print-prefs:facility-safety-inspection:v1';
+const IMG_SIZES = { small: 96, medium: 150, large: 240 };
 
 /* ── tiny helpers ── */
 const $ = (sel, root) => (root || document).querySelector(sel);
@@ -961,6 +1105,13 @@ const el = (tag, cls, html) => {
     return n;
 };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fileIcon = name => {
+    const ext = name.split('.').pop().toLowerCase();
+    if (ext === 'pdf') return 'fa-file-pdf';
+    if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') return 'fa-file-excel';
+    if (['jpg', 'jpeg', 'png', 'heic', 'gif'].includes(ext)) return 'fa-file-image';
+    return 'fa-file';
+};
 
 /* ════════════════════════════════════════════════════════════════════
    Placeholder photo art — simple flat SVG scenes standing in for
@@ -1043,7 +1194,6 @@ function photoSvg(kind) {
    ════════════════════════════════════════════════════════════════════ */
 function renderWebForm() {
     const host = $('#webForm');
-    const respLabel = { sat: 'Satisfactory', def: 'Deficient', na: 'N/A' };
     let html = '';
 
     const sectionShell = (id, title, inner) => `
@@ -1066,7 +1216,18 @@ function renderWebForm() {
         html += sectionShell(sec.id, sec.label, `<div class="form-grid">${fields}</div>`);
     });
 
-    // Checklist
+    // Checklist (attachments render as photo thumbnails plus file rows)
+    const webAtts = atts => {
+        if (!atts || !atts.length) return '';
+        const photos = atts.filter(a => a.type === 'photo');
+        const files = atts.filter(a => a.type !== 'photo');
+        let h = '';
+        if (photos.length) h += `<div class="web-photos">${photos.map(p => `
+            <div class="web-photo">${photoSvg(p.kind)}<div class="web-photo-name">${esc(p.file)}</div></div>`).join('')}</div>`;
+        if (files.length) h += `<div class="web-files">${files.map(a => `
+            <div class="web-file"><i class="fa-solid ${fileIcon(a.file)}"></i><span>${esc(a.file)}</span><span class="wf-meta">${esc(a.size)}</span></div>`).join('')}</div>`;
+        return h;
+    };
     let cl = '';
     CHECKLIST.forEach(cat => {
         cl += `<div class="web-cat">${esc(cat.category)}</div>`;
@@ -1075,32 +1236,62 @@ function renderWebForm() {
                 <div class="web-item-top">
                     <span class="web-item-num">${item.num}</span>
                     <span class="web-item-text">${esc(item.text)}</span>
-                    <span class="resp-chip ${item.resp}">${respLabel[item.resp]}</span>
+                    <span class="resp-chip tone-${STATUSES[item.resp].tone}">${esc(STATUSES[item.resp].label)}</span>
                 </div>
                 ${item.comment ? `<div class="web-item-comment"><b>Comment:</b> ${esc(item.comment)}</div>` : ''}
-                ${item.photos ? `<div class="web-photos">${item.photos.map(p => `
-                    <div class="web-photo">${photoSvg(p.kind)}<div class="web-photo-name">${esc(p.file)}</div></div>`).join('')}</div>` : ''}
+                ${webAtts(item.atts)}
             </div>`;
         });
     });
-    cl += `<div class="web-cat">General photos</div><div class="web-photos" style="margin-left: 0;">${GENERAL_PHOTOS.map(p => `
-        <div class="web-photo">${photoSvg(p.kind)}<div class="web-photo-name">${esc(p.file)}</div></div>`).join('')}</div>`;
+    cl += `<div class="web-cat">General attachments</div><div class="web-att-root">${webAtts(GENERAL_ATTS)}</div>`;
     html += sectionShell('checklist', 'Checklist', cl);
 
     // Corrective actions
     const caRows = CAS.map(ca => `
         <tr>
             <td style="white-space: nowrap;"><a href="#" style="color: #0066cc; text-decoration: none;">${ca.id}</a></td>
-            <td>${esc(ca.desc)}</td>
+            <td>${esc(ca.rec)}</td>
             <td style="white-space: nowrap;">${esc(ca.who)}</td>
             <td style="white-space: nowrap;">${ca.due}</td>
-            <td>${ca.pri}</td>
             <td style="white-space: nowrap;">${ca.status}</td>
         </tr>`).join('');
     html += sectionShell('cas', 'Corrective actions', `
         <table class="plain-table">
-            <thead><tr><th>ID</th><th>Description</th><th>Assigned to</th><th>Due date</th><th>Priority</th><th>Status</th></tr></thead>
+            <thead><tr><th>ID</th><th>Recommendation</th><th>Responsible Party</th><th>Due date</th><th>Status</th></tr></thead>
             <tbody>${caRows}</tbody>
+        </table>`);
+
+    // Tasks, events, claims, email notifications
+    html += sectionShell('tasks', 'Tasks', `
+        <table class="plain-table">
+            <thead><tr><th>ID</th><th>Task</th><th>Responsible Party</th><th>Due date</th><th>Status</th></tr></thead>
+            <tbody>${TASKS.map(t => `
+                <tr><td style="white-space: nowrap;"><a href="#" style="color: #0066cc; text-decoration: none;">${t.id}</a></td>
+                <td>${esc(t.task)}</td><td style="white-space: nowrap;">${esc(t.who)}</td>
+                <td style="white-space: nowrap;">${t.due}</td><td style="white-space: nowrap;">${t.status}</td></tr>`).join('')}</tbody>
+        </table>`);
+    html += sectionShell('events', 'Events', `
+        <table class="plain-table">
+            <thead><tr><th>ID</th><th>Event</th><th>Date</th><th>Location</th><th>Status</th></tr></thead>
+            <tbody>${EVENTS.map(e => `
+                <tr><td style="white-space: nowrap;"><a href="#" style="color: #0066cc; text-decoration: none;">${e.id}</a></td>
+                <td>${esc(e.event)}</td><td style="white-space: nowrap;">${e.date}</td>
+                <td>${esc(e.location)}</td><td style="white-space: nowrap;">${e.status}</td></tr>`).join('')}</tbody>
+        </table>`);
+    html += sectionShell('claims', 'Claims', `
+        <table class="plain-table">
+            <thead><tr><th>Claim number</th><th>Type</th><th>Claimant</th><th>Filed</th><th>Status</th></tr></thead>
+            <tbody>${CLAIMS.map(c => `
+                <tr><td style="white-space: nowrap;"><a href="#" style="color: #0066cc; text-decoration: none;">${c.id}</a></td>
+                <td>${esc(c.type)}</td><td>${esc(c.claimant)}</td>
+                <td style="white-space: nowrap;">${c.filed}</td><td style="white-space: nowrap;">${c.status}</td></tr>`).join('')}</tbody>
+        </table>`);
+    html += sectionShell('emails', 'Email notifications', `
+        <table class="plain-table">
+            <thead><tr><th>Sent to</th><th>Subject</th><th>Sent</th></tr></thead>
+            <tbody>${EMAILS.map(m => `
+                <tr><td style="white-space: nowrap;">${esc(m.to)}</td>
+                <td>${esc(m.subject)}</td><td style="white-space: nowrap;">${m.sent}</td></tr>`).join('')}</tbody>
         </table>`);
 
     // Signatures
@@ -1265,6 +1456,12 @@ function updateSummary() {
     if (fieldsOff) parts.push(fieldsOff + (fieldsOff === 1 ? ' field' : ' fields'));
     if (!state.signatures) parts.push('signatures');
     if (!state.cas) parts.push('corrective actions');
+    if (!state.tasks) parts.push('tasks');
+    if (!state.events) parts.push('events');
+    if (!state.claims) parts.push('claims');
+    if (!state.emails) parts.push('email notifications');
+    if (!state.attachments) parts.push('attachments');
+    else if (!state.images) parts.push('images (file names only)');
 
     const target = $('#summaryText');
     if (!parts.length) {
@@ -1272,7 +1469,6 @@ function updateSummary() {
     } else {
         target.innerHTML = 'Excluding <span class="excl">' + parts.join(' · ') + '</span>';
     }
-    $('#summaryReset').classList.toggle('show', parts.length > 0 || JSON.stringify({ ...state, paper: 'letter', orient: 'portrait' }) !== DEFAULT_JSON);
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -1332,18 +1528,24 @@ function highlight(text, q) {
 function buildPrintBlocks() {
     const blocks = [];
     const push = (node, keepNext, breakBefore) => blocks.push({ el: node, keepNext: !!keepNext, breakBefore: !!breakBefore });
-    const respLabel = { sat: 'Satisfactory', def: 'Deficient', na: 'Not applicable' };
 
     // Document header (always prints)
     const genStamp = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+    // Top-left: the account's configured report logo (system settings);
+    // placeholder mark stands in for the uploaded asset
     push(el('div', 'pd-header', `
         <div class="pd-brandrow">
-            <span class="pd-brand"><span class="vs-mark">V</span> Vector Solutions · IndustrySafe EHS</span>
+            <svg class="pd-logo" viewBox="0 0 220 32" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Northeast Distribution Co. logo">
+                <rect x="0" y="2" width="28" height="28" rx="6" fill="#1f4596"/>
+                <text x="14" y="21.5" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" font-family="Open Sans, Arial, sans-serif">ND</text>
+                <text x="36" y="15" font-size="11" font-weight="700" fill="#16202c" font-family="Open Sans, Arial, sans-serif">Northeast Distribution Co.</text>
+                <text x="36" y="27" font-size="7.5" fill="#6b7686" font-family="Open Sans, Arial, sans-serif">Environmental health and safety</text>
+            </svg>
             <span class="pd-gen">Generated ${genStamp} · Printed by Andy Xia</span>
         </div>
         <div class="pd-titlerow">
             <div>
-                <div class="pd-doctitle">${FORM.title}</div>
+                <a class="pd-doctitle" href="#" onclick="return false;" title="Open this report in Vector EHS">${FORM.title}</a>
                 <div class="pd-docid">${FORM.id}</div>
             </div>
             <div class="pd-chips">
@@ -1408,54 +1610,52 @@ function buildPrintBlocks() {
         const opts = state.fields.checklist;
         pushTitle('Checklist');
 
-        const counts = { sat: 0, def: 0, na: 0 };
-        CHECKLIST.forEach(cat => cat.items.forEach(i => counts[i.resp]++));
-        const total = counts.sat + counts.def + counts.na;
-        const naPart = opts.na
-            ? `<span><b>${counts.na}</b> not applicable</span>`
-            : `<span><b>${counts.na}</b> not applicable (hidden from print)</span>`;
-        push(el('div', 'pd-clsummary', `
-            <span><b>${total}</b> items</span>
-            <span><b>${counts.sat}</b> satisfactory</span>
-            <span><b>${counts.def}</b> deficient</span>
-            ${naPart}`));
+        // summary strip is built from the account's status list, in order
+        const counts = {};
+        let total = 0;
+        CHECKLIST.forEach(cat => cat.items.forEach(i => { counts[i.resp] = (counts[i.resp] || 0) + 1; total++; }));
+        const statusParts = Object.entries(STATUSES)
+            .filter(([id]) => counts[id])
+            .map(([id, st]) => `<span><b>${counts[id]}</b> ${esc(st.label)}${st.naLike && !opts.na ? ' (hidden from print)' : ''}</span>`)
+            .join('');
+        push(el('div', 'pd-clsummary', `<span><b>${total}</b> items</span>${statusParts}`));
 
         CHECKLIST.forEach(cat => {
-            const items = cat.items.filter(i => opts.na || i.resp !== 'na');
+            const items = cat.items.filter(i => opts.na || !STATUSES[i.resp].naLike);
             if (!items.length) return;
             push(el('div', 'pd-cat', esc(cat.category)), true);
             items.forEach(item => {
+                const st = STATUSES[item.resp];
                 let inner = `
                     <div class="pd-item-top">
                         <span class="pd-item-num">${item.num}</span>
                         <span class="pd-item-text">${esc(item.text)}</span>
-                        <span class="pd-item-chip ${item.resp}">${respLabel[item.resp]}</span>
+                        <span class="pd-item-chip tone-${st.tone}">${esc(st.label)}</span>
                     </div>`;
                 if (opts.comments && item.comment) {
                     inner += `<div class="pd-item-comment"><b>Comment:</b> ${esc(item.comment)}</div>`;
                 }
                 if (state.cas && item.ca) {
-                    inner += `<div class="pd-item-ca"><i class="fa-solid fa-arrow-rotate-right"></i> Corrective action ${item.ca}</div>`;
+                    inner += `<div class="pd-item-ca"><a class="pd-link" href="#" onclick="return false;"><i class="fa-solid fa-arrow-rotate-right"></i> Corrective action ${item.ca}</a></div>`;
                 }
-                const withPhotos = opts.photos && item.photos;
-                if (withPhotos && state.format.keepTogether) {
-                    inner += `<div class="pd-photos">${item.photos.map(photoNode).join('')}</div>`;
+                const attHtml = attachmentsHtml(item.atts);
+                if (attHtml && state.format.keepTogether) {
+                    inner += attHtml;
                 }
                 push(el('div', 'pd-item', inner));
-                if (withPhotos && !state.format.keepTogether) {
-                    // photos flow as their own block and may break to the next page
+                if (attHtml && !state.format.keepTogether) {
+                    // attachments flow as their own block and may break to the next page
                     push(el('div', 'pd-photos-block', `
-                        <div class="pd-photos-cap">Item ${item.num} photos</div>
-                        <div class="pd-photos">${item.photos.map(photoNode).join('')}</div>`));
+                        <div class="pd-photos-cap">Item ${item.num} attachments</div>${attHtml}`));
                 }
             });
         });
 
-        if (opts.photos && GENERAL_PHOTOS.length) {
-            push(el('div', 'pd-cat', 'General photos'), true);
-            push(el('div', '', `
-                <div class="pd-general-note">Photos not tied to a specific checklist item.</div>
-                <div class="pd-photos" style="margin-left: 0;">${GENERAL_PHOTOS.map(photoNode).join('')}</div>`));
+        const generalHtml = attachmentsHtml(GENERAL_ATTS);
+        if (generalHtml) {
+            push(el('div', 'pd-cat', 'General attachments'), true);
+            push(el('div', 'pd-att-root', `
+                <div class="pd-general-note">Attachments not tied to a specific checklist item.</div>${generalHtml}`));
         }
     }
 
@@ -1464,15 +1664,74 @@ function buildPrintBlocks() {
         pushTitle('Corrective actions');
         push(el('div', '', `
             <table class="pd-table">
-                <thead><tr><th style="width: 62px;">ID</th><th>Description</th><th style="width: 66px;">Assigned to</th><th style="width: 62px;">Due date</th><th style="width: 52px;">Priority</th><th style="width: 68px;">Status</th></tr></thead>
+                <thead><tr><th style="width: 62px;">ID</th><th>Recommendation</th><th style="width: 96px;">Responsible Party</th><th style="width: 62px;">Due date</th><th style="width: 68px;">Status</th></tr></thead>
                 <tbody>${CAS.map(ca => `
                     <tr>
-                        <td>${ca.id}</td>
-                        <td>${esc(ca.desc)}</td>
+                        <td><a class="pd-link" href="#" onclick="return false;">${ca.id}</a></td>
+                        <td>${esc(ca.rec)}</td>
                         <td>${esc(ca.who)}</td>
                         <td>${ca.due}</td>
-                        <td class="pd-ca-pri ${ca.pri === 'High' ? 'high' : 'med'}">${ca.pri}</td>
                         <td>${ca.status}</td>
+                    </tr>`).join('')}</tbody>
+            </table>`));
+    }
+
+    // Tasks, events, claims, and email notifications, each with its own toggle
+    if (state.tasks) {
+        pushTitle('Tasks');
+        push(el('div', '', `
+            <table class="pd-table">
+                <thead><tr><th style="width: 62px;">ID</th><th>Task</th><th style="width: 96px;">Responsible Party</th><th style="width: 62px;">Due date</th><th style="width: 68px;">Status</th></tr></thead>
+                <tbody>${TASKS.map(t => `
+                    <tr>
+                        <td><a class="pd-link" href="#" onclick="return false;">${t.id}</a></td>
+                        <td>${esc(t.task)}</td>
+                        <td>${esc(t.who)}</td>
+                        <td>${t.due}</td>
+                        <td>${t.status}</td>
+                    </tr>`).join('')}</tbody>
+            </table>`));
+    }
+    if (state.events) {
+        pushTitle('Events');
+        push(el('div', '', `
+            <table class="pd-table">
+                <thead><tr><th style="width: 62px;">ID</th><th>Event</th><th style="width: 96px;">Date</th><th style="width: 84px;">Location</th><th style="width: 62px;">Status</th></tr></thead>
+                <tbody>${EVENTS.map(e => `
+                    <tr>
+                        <td><a class="pd-link" href="#" onclick="return false;">${e.id}</a></td>
+                        <td>${esc(e.event)}</td>
+                        <td>${e.date}</td>
+                        <td>${esc(e.location)}</td>
+                        <td>${e.status}</td>
+                    </tr>`).join('')}</tbody>
+            </table>`));
+    }
+    if (state.claims) {
+        pushTitle('Claims');
+        push(el('div', '', `
+            <table class="pd-table">
+                <thead><tr><th style="width: 88px;">Claim number</th><th style="width: 90px;">Type</th><th>Claimant</th><th style="width: 62px;">Filed</th><th style="width: 76px;">Status</th></tr></thead>
+                <tbody>${CLAIMS.map(c => `
+                    <tr>
+                        <td><a class="pd-link" href="#" onclick="return false;">${c.id}</a></td>
+                        <td>${esc(c.type)}</td>
+                        <td>${esc(c.claimant)}</td>
+                        <td>${c.filed}</td>
+                        <td>${c.status}</td>
+                    </tr>`).join('')}</tbody>
+            </table>`));
+    }
+    if (state.emails) {
+        pushTitle('Email notifications');
+        push(el('div', '', `
+            <table class="pd-table">
+                <thead><tr><th style="width: 110px;">Sent to</th><th>Subject</th><th style="width: 110px;">Sent</th></tr></thead>
+                <tbody>${EMAILS.map(m => `
+                    <tr>
+                        <td>${esc(m.to)}</td>
+                        <td>${esc(m.subject)}</td>
+                        <td>${m.sent}</td>
                     </tr>`).join('')}</tbody>
             </table>`));
     }
@@ -1509,20 +1768,51 @@ function buildPrintBlocks() {
     }
 
     // Nothing selected at all
-    const nothing = !state.sections.basic && !state.sections.details && !state.sections.checklist
-        && !state.sections.history && !state.signatures && !state.cas;
+    const nothing = SECTIONS.every(s => !state.sections[s.id])
+        && !state.signatures && !state.cas && !state.tasks && !state.events && !state.claims && !state.emails;
     if (nothing) {
         push(el('div', 'pd-empty', 'No content is selected. Choose sections in the panel to include them in the PDF.'));
     }
 
     return blocks;
 
+    /* image with description caption: defaults to the file name, shows a
+       custom description when one is set (up to 250 characters), and is
+       always displayed in full */
     function photoNode(p) {
-        return `<div class="pd-photo">
+        const w = IMG_SIZES[state.imageSize] || IMG_SIZES.medium;
+        return `<div class="pd-photo" style="width: ${w}px;">
             ${photoSvg(p.kind)}
-            <div class="pd-photo-cap"><span class="fname">${esc(p.file)}</span>${p.heic ? '<span class="heic-chip">HEIC</span>' : ''}</div>
-            <div class="pd-photo-time">${esc(p.time)}</div>
+            <div class="pd-photo-desc">${esc(p.desc || p.file)}</div>
         </div>`;
+    }
+
+    /* one file-name line per attachment; large files like PDFs never render inline */
+    function fileNode(a) {
+        const ext = a.file.split('.').pop().toUpperCase();
+        const pages = a.pages ? ' · ' + a.pages + (a.pages === 1 ? ' page' : ' pages') : '';
+        return `<div class="pd-file">
+            <i class="fa-solid ${fileIcon(a.file)}"></i>
+            <span class="fname">${esc(a.desc || a.file)}</span>
+            <span class="fmeta">${ext}${pages} · ${esc(a.size)}</span>
+        </div>`;
+    }
+
+    /* attachment area for one owner:
+       Attachments off = nothing at all; Images off = every attachment as a
+       file-name line; Images on = photos render as images at the chosen
+       size, other file types always list by name */
+    function attachmentsHtml(atts) {
+        if (!atts || !atts.length || !state.attachments) return '';
+        if (!state.images) {
+            return `<div class="pd-files">${atts.map(fileNode).join('')}</div>`;
+        }
+        const photos = atts.filter(a => a.type === 'photo');
+        const files = atts.filter(a => a.type !== 'photo');
+        let h = '';
+        if (photos.length) h += `<div class="pd-photos">${photos.map(photoNode).join('')}</div>`;
+        if (files.length) h += `<div class="pd-files">${files.map(fileNode).join('')}</div>`;
+        return h;
     }
 }
 
@@ -1606,9 +1896,6 @@ function rebuildPreview() {
 
     applyZoom();
     updatePageIndicator();
-    $('#footerInfo').textContent = pages.length + (pages.length === 1 ? ' page' : ' pages')
-        + ' · ' + PAPERS[state.paper].label
-        + ' · ' + (state.orient === 'portrait' ? 'Portrait' : 'Landscape');
 }
 
 function applyZoom() {
@@ -1668,6 +1955,7 @@ function loadPrefs() {
     }));
     if (typeof s.signatures === 'boolean') d.signatures = s.signatures;
     if (typeof s.cas === 'boolean') d.cas = s.cas;
+    ['tasks', 'events', 'claims', 'emails'].forEach(k => { if (typeof s[k] === 'boolean') d[k] = s[k]; });
     if (s.paper in PAPERS) d.paper = s.paper;
     if (s.orient === 'portrait' || s.orient === 'landscape') d.orient = s.orient;
     if (s.format) {
@@ -1676,6 +1964,9 @@ function loadPrefs() {
         if (typeof s.format.sectionBreaks === 'boolean') d.format.sectionBreaks = s.format.sectionBreaks;
         if (typeof s.format.keepTogether === 'boolean') d.format.keepTogether = s.format.keepTogether;
     }
+    if (typeof s.attachments === 'boolean') d.attachments = s.attachments;
+    if (typeof s.images === 'boolean') d.images = s.images;
+    if (['small', 'medium', 'large'].includes(s.imageSize)) d.imageSize = s.imageSize;
     state = d;
 
     if (JSON.stringify(state) !== DEFAULT_JSON) {
@@ -1695,6 +1986,7 @@ function resetToDefaults() {
     syncSwitches();
     syncPageSetup();
     syncFormat();
+    syncAttachments();
     syncTreeVisuals();
     rebuildPreview();
 }
@@ -1705,6 +1997,10 @@ function resetToDefaults() {
 function syncSwitches() {
     $('#swSignatures').setAttribute('aria-checked', String(state.signatures));
     $('#swCas').setAttribute('aria-checked', String(state.cas));
+    $('#swTasks').setAttribute('aria-checked', String(state.tasks));
+    $('#swEvents').setAttribute('aria-checked', String(state.events));
+    $('#swClaims').setAttribute('aria-checked', String(state.claims));
+    $('#swEmails').setAttribute('aria-checked', String(state.emails));
 }
 function syncPageSetup() {
     $('#paperSelect').value = state.paper;
@@ -1732,6 +2028,15 @@ function setFormat(key, val) {
     updateSummary();
     onSelectionChanged();
 }
+function syncAttachments() {
+    $('#swAttachments').setAttribute('aria-checked', String(state.attachments));
+    $('#swImages').setAttribute('aria-checked', String(state.images));
+    $('#rowImages').classList.toggle('disabled', !state.attachments);
+    $('#rowImageSize').classList.toggle('disabled', !state.attachments || !state.images);
+    setChip('imgSmall', state.imageSize === 'small');
+    setChip('imgMedium', state.imageSize === 'medium');
+    setChip('imgLarge', state.imageSize === 'large');
+}
 
 let lastFocus = null;
 function openPrint(trigger) {
@@ -1755,6 +2060,7 @@ function boot() {
     syncSwitches();
     syncPageSetup();
     syncFormat();
+    syncAttachments();
     rebuildPreview();
 
     // Entry points
@@ -1775,6 +2081,12 @@ function boot() {
         state.cas = !state.cas;
         syncSwitches(); updateSummary(); onSelectionChanged();
     });
+    [['swTasks', 'tasks'], ['swEvents', 'events'], ['swClaims', 'claims'], ['swEmails', 'emails']].forEach(([id, key]) => {
+        $('#' + id).addEventListener('click', () => {
+            state[key] = !state[key];
+            syncSwitches(); updateSummary(); onSelectionChanged();
+        });
+    });
 
     // Page setup
     $('#paperSelect').addEventListener('change', e => {
@@ -1791,6 +2103,23 @@ function boot() {
     $('#colsOne').addEventListener('click', () => setFormat('columns', 1));
     $('#swSectionBreaks').addEventListener('click', () => setFormat('sectionBreaks', !state.format.sectionBreaks));
     $('#swKeepTogether').addEventListener('click', () => setFormat('keepTogether', !state.format.keepTogether));
+
+    // Attachments and images
+    $('#swAttachments').addEventListener('click', () => {
+        state.attachments = !state.attachments;
+        syncAttachments(); updateSummary(); onSelectionChanged();
+    });
+    $('#swImages').addEventListener('click', () => {
+        state.images = !state.images;
+        syncAttachments(); updateSummary(); onSelectionChanged();
+    });
+    const setImageSize = size => {
+        state.imageSize = size;
+        syncAttachments(); updateSummary(); onSelectionChanged();
+    };
+    $('#imgSmall').addEventListener('click', () => setImageSize('small'));
+    $('#imgMedium').addEventListener('click', () => setImageSize('medium'));
+    $('#imgLarge').addEventListener('click', () => setImageSize('large'));
 
     // Zoom
     $('#zoomIn').addEventListener('click', () => {
@@ -1816,7 +2145,7 @@ function boot() {
     });
 
     // Reset affordances
-    $('#summaryReset').addEventListener('click', resetToDefaults);
+    $('#btnResetDefaults').addEventListener('click', resetToDefaults);
     $('#restoreReset').addEventListener('click', e => { e.preventDefault(); resetToDefaults(); });
     $('#restoreDismiss').addEventListener('click', () => $('#restoreBanner').classList.remove('show'));
 
@@ -1825,11 +2154,11 @@ function boot() {
         const btn = $('#btnPrint');
         if (btn.disabled) return;
         btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" slot="prefix"></i> Preparing PDF';
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" slot="prefix"></i> Exporting PDF';
         savePrefs();
         setTimeout(() => {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-print" slot="prefix"></i> Print PDF';
+            btn.innerHTML = '<i class="fa-solid fa-file-arrow-down" slot="prefix"></i> Export to PDF';
             closePrint();
             const toast = $('#toast');
             toast.classList.add('show');
