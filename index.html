@@ -214,9 +214,22 @@
     function flattenItems(items) {
         return (items || []).flatMap(it => it.items ? flattenItems(it.items) : [it]);
     }
+    // Curated fallback: the hand-set `modified` field in products.json. Only used
+    // when a product has no generated dashboard/meta.json to read a live date from.
     function latestModified(items) {
         return flattenItems(items).reduce((max, it) =>
             (it.modified && it.modified > max) ? it.modified : max, '');
+    }
+
+    // Live date: the newest real design change from a product's generated
+    // dashboard/meta.json (git-derived, auto-updated on every push — the SAME
+    // source the per-product dashboard uses). Returns a YYYY-MM-DD string or ''.
+    function latestFromMeta(meta) {
+        const arr = (meta && Array.isArray(meta.recentChanges)) ? meta.recentChanges : [];
+        return arr.reduce((max, e) => {
+            const d = (e && e.date) ? String(e.date).slice(0, 10) : '';
+            return d > max ? d : max;
+        }, '');
     }
 
     function renderLanding() {
@@ -225,7 +238,8 @@
         PRODUCTS.forEach(product => {
             const leaves  = flattenItems(product.items);
             const count   = leaves.length;
-            const latest  = latestModified(product.items);
+            // Prefer the live git-derived date; fall back to the curated field.
+            const latest  = product._latest || latestModified(product.items);
             const dashHref = `products/${product.folder}/dashboard/`;
             const haystack = (product.label + ' ' + leaves.map(l => l.name).join(' ')).toLowerCase();
 
@@ -273,6 +287,18 @@
         .then(r => { if (!r.ok) throw new Error('products.json ' + r.status); return r.json(); })
         .then(data => {
             PRODUCTS = Array.isArray(data.products) ? data.products : [];
+            // Overlay each product's live git-derived date from its generated
+            // dashboard/meta.json (auto-updated on push). Per-fetch failures fall
+            // back to the curated `modified` field, so a product without a
+            // dashboard still shows a date.
+            return Promise.all(PRODUCTS.map(p =>
+                fetch(`products/${p.folder}/dashboard/meta.json`, { cache: 'no-cache' })
+                    .then(r => r.ok ? r.json() : null)
+                    .then(meta => { p._latest = latestFromMeta(meta); })
+                    .catch(() => { p._latest = ''; })
+            ));
+        })
+        .then(() => {
             renderLanding();
             applyFilter();
         })
