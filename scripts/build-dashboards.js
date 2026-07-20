@@ -114,15 +114,20 @@ function gitRecentChanges(productSlug) {
     if (/^chore\(dashboards\)/i.test(subj) || /\[skip ci\]/i.test(subj)) continue;
 
     const files = body.split('\n').map(f => f.trim()).filter(Boolean);
-    // First changed file under this product that isn't in the dashboard folder.
-    const file = files.find(f => f.startsWith(productPrefix) && !f.startsWith(productPrefix + 'dashboard/'));
-    if (!file) continue; // commit only touched dashboard/ — skip
+    // Every changed file under this product that isn't in the dashboard folder.
+    // One entry per file so a commit touching several mocks credits ALL of them
+    // (the dashboard dedupes same-commit rows within a single card's log).
+    const matched = files.filter(f => f.startsWith(productPrefix) && !f.startsWith(productPrefix + 'dashboard/'));
+    if (!matched.length) continue; // commit only touched dashboard/ — skip
 
-    changes.push({
-      date,
-      path: file.slice(productPrefix.length),
-      summary: subj,
-    });
+    for (const file of matched) {
+      changes.push({
+        date,
+        path: file.slice(productPrefix.length),
+        summary: subj,
+      });
+      if (changes.length >= MAX_RECENT) break;
+    }
     if (changes.length >= MAX_RECENT) break;
   }
 
@@ -152,6 +157,9 @@ function buildProduct(product, jiraBase) {
     if (it.desc) entry.description = it.desc;
     if (it.jira) entry.ticket = it.jira;
     if (it.status) entry.status = it.status;
+    // Curated last-modified date — the dashboard's fallback when no commit in
+    // recentChanges can be attributed to this mock.
+    if (it.modified) entry.modified = it.modified;
 
     // Auto-manage devHandoff from the file actually present on disk.
     const dev = detectDevHandoff(productDir, it.rel);

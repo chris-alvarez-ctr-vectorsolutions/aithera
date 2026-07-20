@@ -310,7 +310,7 @@
   // Font Awesome icon per status — shown in the status pill instead of a dot.
   const STATUS_ICONS = {
     'concept': 'fa-lightbulb',
-    'in-progress': 'fa-pen-ruler',
+    'in-progress': 'fa-pencil',
     'review': 'fa-eye',
     'ready': 'fa-circle-check',
     'ready-for-dev': 'fa-code',
@@ -463,6 +463,7 @@
         ticket,
         ticketUrl,
         description: m.description || describe(folder, parent),
+        modified: m.modified || null,
         status: m.status || (devHandoff ? 'ready-for-dev' : DEFAULT_STATUS),
         blobUrl,
         pagesUrl,
@@ -830,7 +831,12 @@
         if (m.relKey.endsWith('.html')) return p === m.relKey;   // standalone-file mock
         return p === m.relKey || p.startsWith(m.relKey + '/');   // folder mock
       });
-      if (owner) owner.changes.push(entry);
+      if (owner) {
+        // One commit may emit several file entries under the same mock —
+        // collapse them so the card's log shows the commit once.
+        const dup = owner.changes.some(c => c.date === entry.date && c.summary === entry.summary);
+        if (!dup) owner.changes.push(entry);
+      }
     });
 
     // "Recent" is measured against when the user opens the page, so the highlight
@@ -840,7 +846,9 @@
     const WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
     mocks.forEach(m => {
       m.changes.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-      m.lastUpdated = m.changes.length ? m.changes[0].date : null;
+      // Prefer the newest attributed commit; fall back to the curated
+      // `modified` date from products.json when git history has nothing.
+      m.lastUpdated = m.changes.length ? m.changes[0].date : (m.modified || null);
       const newest = parseDate(m.lastUpdated);
       const oldest = m.changes.length ? parseDate(m.changes[m.changes.length - 1].date) : null;
       m.recentlyUpdated = !!newest && (now - newest.getTime()) <= WINDOW_MS;
