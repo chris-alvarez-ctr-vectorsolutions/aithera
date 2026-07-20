@@ -149,6 +149,7 @@ function buildProduct(product, jiraBase) {
   for (const it of flattenItems(product.items)) {
     const entry = {};
     if (it.name) entry.title = it.name;
+    if (it.desc) entry.description = it.desc;
     if (it.jira) entry.ticket = it.jira;
     if (it.status) entry.status = it.status;
 

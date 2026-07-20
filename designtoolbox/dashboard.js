@@ -27,12 +27,12 @@
 
    To theme a new product, add an entry to PRODUCT_THEMES below.
 
-   CARD DESCRIPTIONS — KEEP THEM TO ONE SHORT SENTENCE.
-   A card's `description` (the `meta.json` field, or the auto-derived fallback in
-   describe()) is a quick "what this design is" — ONE short sentence, not a
-   feature list or a paragraph. Long descriptions make the cards uneven and bury
-   the link/status, so the card clamps `.card-description` to 3 lines as a
-   backstop — but author them short in the first place. This applies to EVERY
+   CARD DESCRIPTIONS — KEEP THEM TO TWO SHORT SENTENCES (~220 chars max).
+   A card's `description` comes from the mock's `desc` field in products.json
+   (via meta.json), falling back to the auto-derived describe() guess. Author it
+   as two factual sentences: what the design shows, then what's notable in it.
+   Longer than that makes the cards uneven and buries the link/status — the card
+   clamps `.card-description` to 3 lines as a backstop. This applies to EVERY
    product (SafeLMS, Scheduling, and any added later).
    ========================================================================= */
 
