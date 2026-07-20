@@ -200,6 +200,13 @@
     const CATALOG_URL = 'products.json';
     let PRODUCTS = [];
 
+    // Cache-bust token. GitHub Pages edge-caches every file for 10 min and
+    // ignores custom cache headers, so a changing query string is the only
+    // reliable way to show just-pushed data instead of a stale cached copy.
+    // One token per page load.
+    const CB = 'cb=' + Date.now();
+    const bust = url => url + (url.includes('?') ? '&' : '?') + CB;
+
     const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
     // "2026-06-23" -> "Jun 23, 2026" (parsed manually to avoid timezone shifts)
@@ -283,7 +290,7 @@
 
     // ── Bootstrap ──────────────────────────────────────────────────────────────
     document.getElementById('searchInput').addEventListener('input', applyFilter);
-    fetch(CATALOG_URL, { cache: 'no-cache' })
+    fetch(bust(CATALOG_URL), { cache: 'no-cache' })
         .then(r => { if (!r.ok) throw new Error('products.json ' + r.status); return r.json(); })
         .then(data => {
             PRODUCTS = Array.isArray(data.products) ? data.products : [];
@@ -292,7 +299,7 @@
             // back to the curated `modified` field, so a product without a
             // dashboard still shows a date.
             return Promise.all(PRODUCTS.map(p =>
-                fetch(`products/${p.folder}/dashboard/meta.json`, { cache: 'no-cache' })
+                fetch(bust(`products/${p.folder}/dashboard/meta.json`), { cache: 'no-cache' })
                     .then(r => r.ok ? r.json() : null)
                     .then(meta => { p._latest = latestFromMeta(meta); })
                     .catch(() => { p._latest = ''; })

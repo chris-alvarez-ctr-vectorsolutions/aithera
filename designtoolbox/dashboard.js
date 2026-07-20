@@ -378,7 +378,10 @@
     byId('loadingState').hidden = false;
 
     try {
-      const res = await fetch('./meta.json', { cache: 'no-cache' });
+      // Cache-bust: GitHub Pages edge-caches meta.json for 10 min and ignores
+      // custom headers, so a changing query string is the only reliable way to
+      // show a just-pushed date/status/dev-handoff instead of a stale copy.
+      const res = await fetch('./meta.json?cb=' + Date.now(), { cache: 'no-cache' });
       if (!res.ok) throw new Error(`meta.json returned ${res.status} ${res.statusText}`);
       const meta = await res.json();
       if (!meta || typeof meta.mocks !== 'object' || meta.mocks === null) {
