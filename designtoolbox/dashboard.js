@@ -301,18 +301,16 @@
     'concept': 'Concept',
     'in-progress': 'In Progress',
     'review': 'In Review',
-    'ready': 'Ready',
     'ready-for-dev': 'Ready for Dev',
     'archived': 'Archived',
   };
   const DEFAULT_STATUS = 'in-progress';
-  const STATUS_ORDER = ['ready-for-dev', 'ready', 'review', 'in-progress', 'concept', 'archived'];
+  const STATUS_ORDER = ['ready-for-dev', 'review', 'in-progress', 'concept', 'archived'];
   // Font Awesome icon per status — shown in the status pill instead of a dot.
   const STATUS_ICONS = {
     'concept': 'fa-lightbulb',
     'in-progress': 'fa-pencil',
     'review': 'fa-eye',
-    'ready': 'fa-circle-check',
     'ready-for-dev': 'fa-code',
     'archived': 'fa-box-archive',
   };
@@ -320,8 +318,9 @@
 
   const VIEW_KEY = 'designlab-view';
   const SORT_KEY = 'designlab-sort';
+  // Cards are ALWAYS grouped by status; the sort controls ordering WITHIN each
+  // status group (there is no standalone "by status" sort — grouping is implicit).
   const SORTS = {
-    status:  'Status',
     updated: 'Recently updated',
     oldest:  'Oldest updated',
     az:      'Name (A–Z)',
@@ -343,13 +342,12 @@
   function readStoredSort() {
     try {
       const s = localStorage.getItem(SORT_KEY);
-      return SORTS[s] ? s : 'status';
-    } catch { return 'status'; }
+      return SORTS[s] ? s : 'updated';
+    } catch { return 'updated'; }
   }
 
-  // Comparator for the current sort. "status" is handled by grouping in the card
-  // view, but still used as a flat comparator (status order, then name) in the
-  // list view and as the fallback tiebreaker everywhere.
+  // Comparator for the current sort — applied WITHIN each status group (both
+  // views always group by status first). Defaults to newest-updated.
   function mockComparator(sort) {
     const byName = (a, b) => a.title.localeCompare(b.title);
     // Newest first / oldest first; mocks with no history sort last either way.
@@ -363,13 +361,9 @@
     switch (sort) {
       case 'az': return byName;
       case 'za': return (a, b) => byName(b, a);
-      case 'updated': return byDate('desc');
       case 'oldest': return byDate('asc');
-      case 'status':
-      default: return (a, b) => {
-        const d = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
-        return d !== 0 ? d : byName(a, b);
-      };
+      case 'updated':
+      default: return byDate('desc');
     }
   }
 
@@ -549,57 +543,55 @@
     else renderCardView(filtered, root);
   }
 
-  function renderCardView(filtered, root) {
-    // "Status" sort keeps the grouped-by-status sections; any other sort renders
-    // one flat grid ordered by the chosen comparator.
-    if (state.sort !== 'status') {
-      const wrap = document.createElement('section');
-      wrap.className = 'section';
-      const grid = document.createElement('div');
-      grid.className = 'card-grid';
-      [...filtered].sort(mockComparator(state.sort)).forEach((m, i) => grid.appendChild(buildCard(m, i)));
-      wrap.appendChild(grid);
-      root.appendChild(wrap);
-      return;
-    }
-
+  // Group the filtered mocks by status, in STATUS_ORDER, with each group's
+  // members ordered by the active within-group sort. Shared by both views.
+  function groupByStatus(filtered) {
     const grouped = {};
     filtered.forEach(m => { (grouped[m.status] = grouped[m.status] || []).push(m); });
+    const cmp = mockComparator(state.sort);
+    return STATUS_ORDER
+      .filter(status => grouped[status])
+      .map(status => ({ status, mocks: grouped[status].slice().sort(cmp) }));
+  }
 
+  function renderCardView(filtered, root) {
     let cardIdx = 0;
-    STATUS_ORDER.forEach(status => {
-      if (!grouped[status]) return;
+    groupByStatus(filtered).forEach(({ status, mocks }) => {
       const wrap = document.createElement('section');
       wrap.className = 'section';
-      wrap.appendChild(statusSectionHeader(status, grouped[status].length));
+      wrap.appendChild(statusSectionHeader(status, mocks.length));
       const grid = document.createElement('div');
       grid.className = 'card-grid';
-      grouped[status].sort((a, b) => a.title.localeCompare(b.title)).forEach(m => grid.appendChild(buildCard(m, cardIdx++)));
+      mocks.forEach(m => grid.appendChild(buildCard(m, cardIdx++)));
       wrap.appendChild(grid);
       root.appendChild(wrap);
     });
   }
 
-  // Compact table layout mirroring the top-level product index list. Rows follow
-  // the active sort (defaulting to status order, then name).
+  // Compact table layout mirroring the top-level product index list — also
+  // grouped by status, with rows inside each group following the active sort.
   function renderListView(filtered, root) {
-    const rows = [...filtered].sort(mockComparator(state.sort));
-
-    const wrap = document.createElement('div');
-    wrap.className = 'proto-table-wrap';
-    wrap.innerHTML = `
-      <table class="proto-table">
-        <thead>
-          <tr>
-            <th>Prototype</th>
-            <th class="col-status">Status</th>
-            <th class="col-jira">Jira</th>
-            <th class="col-date">Last updated</th>
-          </tr>
-        </thead>
-        <tbody>${rows.map(listRow).join('')}</tbody>
-      </table>`;
-    root.appendChild(wrap);
+    groupByStatus(filtered).forEach(({ status, mocks }) => {
+      const wrap = document.createElement('section');
+      wrap.className = 'section';
+      wrap.appendChild(statusSectionHeader(status, mocks.length));
+      const tableWrap = document.createElement('div');
+      tableWrap.className = 'proto-table-wrap';
+      tableWrap.innerHTML = `
+        <table class="proto-table">
+          <thead>
+            <tr>
+              <th>Prototype</th>
+              <th class="col-status">Status</th>
+              <th class="col-jira">Jira</th>
+              <th class="col-date">Last updated</th>
+            </tr>
+          </thead>
+          <tbody>${mocks.map(listRow).join('')}</tbody>
+        </table>`;
+      wrap.appendChild(tableWrap);
+      root.appendChild(wrap);
+    });
   }
 
   function listRow(mock) {
