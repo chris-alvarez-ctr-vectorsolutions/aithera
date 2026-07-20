@@ -165,9 +165,9 @@
   const PRODUCT_THEMES = {
     'aithera': {
       label: 'Aithera', emoji: '🧠',
-      accent: '#e3a02f', accentSoft: '#faeed3', accentDeep: '#a56a10',
+      accent: '#916213', accentSoft: '#faeed3', accentDeep: '#7b4f0c',
       accentGlow: 'rgba(227, 160, 47, 0.20)',
-      gradStart: '#f1b34a', gradMid: '#e3a02f', gradEnd: '#4b63e6',
+      gradStart: '#a26b0d', gradMid: '#916213', gradEnd: '#4b63e6',
     },
     'Bridge': {
       label: 'Bridge', emoji: '🌉',
@@ -177,55 +177,55 @@
     },
     'check-it': {
       label: 'Check It', emoji: '✅',
-      accent: '#6366f1', accentSoft: '#e0e7ff', accentDeep: '#4338ca',
+      accent: '#4e51ef', accentSoft: '#e0e7ff', accentDeep: '#4338ca',
       accentGlow: 'rgba(99, 102, 241, 0.18)',
-      gradStart: '#6366f1', gradMid: '#4338ca', gradEnd: '#34d399',
+      gradStart: '#6164f1', gradMid: '#4338ca', gradEnd: '#23a475',
     },
     'Convergence': {
       label: 'Convergence', emoji: '🔀',
-      accent: '#2563eb', accentSoft: '#dbeafe', accentDeep: '#1d4ed8',
+      accent: '#1c5cea', accentSoft: '#dbeafe', accentDeep: '#1d4ed8',
       accentGlow: 'rgba(37, 99, 235, 0.18)',
-      gradStart: '#3b82f6', gradMid: '#2563eb', gradEnd: '#7c3aed',
+      gradStart: '#1e6ff5', gradMid: '#2563eb', gradEnd: '#7c3aed',
     },
     'design-system': {
       label: 'Design System', emoji: '🎨',
       accent: '#475569', accentSoft: '#f1f5f9', accentDeep: '#1e293b',
       accentGlow: 'rgba(100, 116, 139, 0.16)',
-      gradStart: '#64748b', gradMid: '#475569', gradEnd: '#0ea5e9',
+      gradStart: '#64748b', gradMid: '#475569', gradEnd: '#0d99d8',
     },
     'EHS': {
       label: 'EHS', emoji: '🦺',
-      accent: '#0271ce', accentSoft: '#d7e9fb', accentDeep: '#0065ba',
+      accent: '#0267bc', accentSoft: '#d7e9fb', accentDeep: '#00549b',
       accentGlow: 'rgba(2, 113, 206, 0.18)',
-      gradStart: '#4d8bf0', gradMid: '#0271ce', gradEnd: '#0a7637',
+      gradStart: '#2571ed', gradMid: '#0271ce', gradEnd: '#0a7637',
     },
     'Evaluations': {
       label: 'Evaluations', emoji: '📋',
       accent: '#8a6500', accentSoft: '#f7edc9', accentDeep: '#6b4e00',
       accentGlow: 'rgba(240, 192, 64, 0.24)',
-      gradStart: '#f0c040', gradMid: '#c9981e', gradEnd: '#8a6500',
+      gradStart: '#95700c', gradMid: '#8a6500', gradEnd: '#6b4e00',
     },
     'Keystone-Tenants': {
       label: 'Keystone Tenants', emoji: '🏢',
       accent: '#1e40af', accentSoft: '#dbeafe', accentDeep: '#1e3a8a',
       accentGlow: 'rgba(30, 64, 175, 0.18)',
-      gradStart: '#3b82f6', gradMid: '#1e40af', gradEnd: '#1e3a8a',
+      gradStart: '#1e6ff5', gradMid: '#1e40af', gradEnd: '#1e3a8a',
     },
     'LearningStudio': {
       label: 'LearningStudio', emoji: '📐',
-      accent: '#0ea5e9', accentSoft: '#e0f2fe', accentDeep: '#0369a1',
+      accent: '#0a74a3', accentSoft: '#e0f2fe', accentDeep: '#035f92',
       accentGlow: 'rgba(14, 165, 233, 0.18)',
-      gradStart: '#0ea5e9', gradMid: '#1676f3', gradEnd: '#7c3aed',
+      gradStart: '#0b7eb2', gradMid: '#0c70f2', gradEnd: '#7c3aed',
     },
     'Pathways': {
       label: 'Pathways', emoji: '🧭',
-      accent: '#b35500', accentSoft: '#f3e9cf', accentDeep: '#8a4000',
+      accent: '#a95000', accentSoft: '#f3e9cf', accentDeep: '#8a4000',
       accentGlow: 'rgba(179, 85, 0, 0.18)',
-      gradStart: '#e4cd96', gradMid: '#b35500', gradEnd: '#8a4000',
+      gradStart: '#907125', gradMid: '#b35500', gradEnd: '#8a4000',
     },
     'SafeLMS': {
       label: 'SafeLMS', emoji: '🛡️',
-      accent: '#155dfc', accentSoft: '#dce7ff', accentDeep: '#1f4596',
+      accent: '#0b56fc', accentSoft: '#dce7ff', accentDeep: '#1f4596',
       accentGlow: 'rgba(21, 93, 252, 0.18)',
       gradStart: '#155dfc', gradMid: '#1447e6', gradEnd: '#21a366',
     },
@@ -237,9 +237,9 @@
     },
     'target-solutions': {
       label: 'Target Solutions', emoji: '🎯',
-      accent: '#007bff', accentSoft: '#d9ebff', accentDeep: '#0056b3',
+      accent: '#0065d1', accentSoft: '#d9ebff', accentDeep: '#0056b3',
       accentGlow: 'rgba(0, 123, 255, 0.18)',
-      gradStart: '#4da3ff', gradMid: '#007bff', gradEnd: '#0056b3',
+      gradStart: '#0072eb', gradMid: '#0065d1', gradEnd: '#0056b3',
     },
   };
 
@@ -248,7 +248,7 @@
     label: PRODUCT, emoji: '🧩',
     accent: '#4338ca', accentSoft: '#e0e7ff', accentDeep: '#3730a3',
     accentGlow: 'rgba(99, 102, 241, 0.18)',
-    gradStart: '#6366f1', gradMid: '#8b5cf6', gradEnd: '#ec4899',
+    gradStart: '#5558ef', gradMid: '#7c3aed', gradEnd: '#ec4899',
   };
 
   // ----------------------------------------------------------------------
@@ -1050,8 +1050,8 @@
         --accent-soft: #e0e7ff;
         --accent-deep: #3730a3;
         --accent-glow: rgba(99, 102, 241, 0.18);
-        --gradient-start: #6366f1;
-        --gradient-mid: #8b5cf6;
+        --gradient-start: #5558ef;
+        --gradient-mid: #7c3aed;
         --gradient-end: #ec4899;
 
         --bg: #fafafa;
