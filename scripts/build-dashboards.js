@@ -53,11 +53,20 @@ const MAX_RECENT = 300;
 // prototypes, preserving each one's curated fields. Returns [{ rel, name, jira,
 // status }]. `rel` is the mock key: "." for the product root, "foo" for a folder
 // mock, or "path/foo.html" for a standalone-file mock.
-function flattenItems(items) {
+//
+// Each leaf also carries `_folder`: the display name of the enclosing curated
+// `folder` group ("Content Portal", "Phase 2", …), or null when the mock sits at
+// the product's top level. Nested folder groups join with " / ". The dashboard
+// uses this to render folders as one expandable unit instead of flattening them.
+function flattenItems(items, folderPath = []) {
   const out = [];
   for (const it of items || []) {
-    if (it && Array.isArray(it.items)) out.push(...flattenItems(it.items));
-    else if (it && it.rel) out.push(it);
+    if (it && Array.isArray(it.items)) {
+      const next = it.folder ? folderPath.concat(it.folder) : folderPath;
+      out.push(...flattenItems(it.items, next));
+    } else if (it && it.rel) {
+      out.push({ ...it, _folder: folderPath.length ? folderPath.join(' / ') : null });
+    }
   }
   return out;
 }
@@ -155,6 +164,7 @@ function buildProduct(product, jiraBase) {
     const entry = {};
     if (it.name) entry.title = it.name;
     if (it.desc) entry.description = it.desc;
+    if (it._folder) entry.folder = it._folder;
     if (it.jira) entry.ticket = it.jira;
     if (it.status) entry.status = it.status;
     // Curated last-modified date — the dashboard's fallback when no commit in

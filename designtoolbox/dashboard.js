@@ -81,18 +81,23 @@
   const MARKUP = `
     <header class="page-header">
       <div class="header-inner">
-        <span class="product-tag">
-          <span class="emoji" id="productEmoji">🎨</span>
-          <span id="productName">Product</span>
-        </span>
+        <div class="header-top">
+          <span class="product-tag">
+            <span class="emoji" id="productEmoji">🎨</span>
+            <span id="productName">Product</span>
+          </span>
+          <div class="meta-bar">
+            <span class="live-indicator"><span class="live-dot"></span> Auto-updated on every push</span>
+            <span class="dot-sep">·</span>
+            <span id="lastUpdated"></span>
+          </div>
+        </div>
         <h1 class="page-title">Design <em>Lab</em></h1>
-        <p class="page-subtitle">
-          Every in-progress prototype, one click away. Bookmark this page — it stays in sync as the design team ships new work.
-        </p>
-        <div class="meta-bar">
-          <span class="live-indicator"><span class="live-dot"></span> Auto-updated on every push</span>
-          <span class="dot-sep">·</span>
-          <span id="lastUpdated"></span>
+        <div class="header-bottom">
+          <p class="page-subtitle">
+            Every in-progress prototype, one click away. Bookmark this page — it stays in sync as the design team ships new work.
+          </p>
+          <nav class="folder-tabs" id="folderTabs" role="tablist" aria-label="Design folders" hidden></nav>
         </div>
       </div>
     </header>
@@ -332,6 +337,7 @@
     statuses: new Set(),
     view: readStoredView(), // 'card' | 'list' — persisted per browser
     sort: readStoredSort(), // one of SORTS keys — persisted per browser
+    tab: null,              // active folder tab; null = the "Main" (top-level) tab
   };
 
   function readStoredView() {
@@ -374,6 +380,7 @@
     byId('errorState').hidden = true;
     byId('emptyState').hidden = true;
     byId('toolbar').hidden = true;
+    byId('folderTabs').hidden = true;
     byId('contentRoot').innerHTML = '';
     byId('loadingState').hidden = false;
 
@@ -401,9 +408,8 @@
       }
 
       byId('loadingState').hidden = true;
-      renderFilterChips();
       byId('toolbar').hidden = false;
-      applyFiltersAndRender();
+      applyFiltersAndRender(); // renders the filter chips (tab-scoped counts) too
       updateLastFetched();
     } catch (err) {
       showError(err);
@@ -461,6 +467,9 @@
         ticketUrl,
         description: m.description || describe(folder, parent),
         modified: m.modified || null,
+        // Curated display folder ("Content Portal", "Phase 2", …) or null for a
+        // top-level mock. Foldered mocks render as one expandable folder unit.
+        group: m.folder || null,
         status: m.status || (devHandoff ? 'ready-for-dev' : DEFAULT_STATUS),
         blobUrl,
         pagesUrl,
@@ -485,15 +494,19 @@
   // ----------------------------------------------------------------------
   // Toolbar
   // ----------------------------------------------------------------------
-  function renderFilterChips() {
+  // Chip counts describe the mocks the toolbar currently operates on — the
+  // active folder tab's subset (or the search results while searching) — so
+  // they always agree with the sections rendered below.
+  function renderFilterChips(baseMocks) {
+    const base = baseMocks || state.allMocks;
     const counts = {};
-    state.allMocks.forEach(m => { counts[m.status] = (counts[m.status] || 0) + 1; });
+    base.forEach(m => { counts[m.status] = (counts[m.status] || 0) + 1; });
     const chipsEl = byId('filterChips');
     // Show EVERY status so the team can see the full set of stages at a glance,
     // even ones with no prototypes yet. Empty statuses render dimmed + disabled
     // (a "0" that can't be clicked into an empty view).
     const chips = [
-      { status: 'all', label: 'All', count: state.allMocks.length },
+      { status: 'all', label: 'All', count: base.length },
       ...STATUS_ORDER.map(s => ({ status: s, label: STATUS_LABELS[s], count: counts[s] || 0 })),
     ];
     chipsEl.innerHTML = chips.map(c => {
@@ -528,18 +541,42 @@
     const search = state.search.toLowerCase().trim();
     const statusFilter = state.statuses;
 
-    let filtered = state.allMocks;
-    if (statusFilter.size > 0) filtered = filtered.filter(m => statusFilter.has(m.status));
+    // 1) Structure first: the folder tab bar is built from the UNFILTERED mock
+    //    set, so tab counts and status pills describe each folder's actual
+    //    contents. The toolbar (search / filter / sort) applies WITHIN the
+    //    active tab, below.
+    const { folders, loose } = partitionFolders(state.allMocks);
+    renderTabBar(folders, loose, !!search);
+
+    // 2) Pick the active tab's subset. While searching, look across ALL tabs
+    //    so matches can't hide behind an unselected tab (the bar dims to show
+    //    it's bypassed).
+    const subset = search ? state.allMocks
+      : (state.tab && folders.has(state.tab)) ? folders.get(state.tab)
+      : loose;
+
+    // 3) Apply the toolbar filters to that subset. Search first, so the chip
+    //    counts (rendered from the pre-status-filter set) match what's below.
+    let filtered = subset;
     if (search) {
       filtered = filtered.filter(m =>
         m.title.toLowerCase().includes(search) ||
         (m.description || '').toLowerCase().includes(search) ||
         (m.ticket || '').toLowerCase().includes(search) ||
+        (m.group || '').toLowerCase().includes(search) ||
         m.relKey.toLowerCase().includes(search)
       );
     }
+    renderFilterChips(filtered);
+    if (statusFilter.size > 0) filtered = filtered.filter(m => statusFilter.has(m.status));
 
-    if (filtered.length === 0) { renderNoResults(); return; }
+    if (filtered.length === 0) {
+      // Global no-results while searching (or when there are no folder tabs);
+      // a lighter "check the other tabs" note when only this tab came up empty.
+      if (search || !folders.size) renderNoResults();
+      else renderTabEmpty(root);
+      return;
+    }
 
     // Same filtered set, two layouts — the view switcher just picks the renderer.
     if (state.view === 'list') renderListView(filtered, root);
@@ -617,27 +654,250 @@
       .map(status => ({ status, mocks: grouped[status].slice().sort(cmp) }));
   }
 
-  function renderCardView(filtered, root) {
-    let cardIdx = 0;
-    groupByStatus(filtered).forEach(({ status, mocks }) => {
-      const wrap = document.createElement('section');
-      wrap.className = 'section';
-      wrap.appendChild(statusSectionHeader(status, mocks.length));
-      const grid = document.createElement('div');
-      grid.className = 'card-grid';
-      mocks.forEach(m => grid.appendChild(buildCard(m, cardIdx++)));
-      wrap.appendChild(grid);
-      root.appendChild(wrap);
+  // Split the filtered mocks into curated folder groups (the ones nested under a
+  // `folder` in products.json) and loose top-level mocks. Folders render as one
+  // expandable unit; loose mocks keep the status-grouped layout.
+  function partitionFolders(filtered) {
+    const folders = new Map(); // folder name -> mocks[]
+    const loose = [];
+    filtered.forEach(m => {
+      if (m.group) {
+        if (!folders.has(m.group)) folders.set(m.group, []);
+        folders.get(m.group).push(m);
+      } else {
+        loose.push(m);
+      }
+    });
+    return { folders, loose };
+  }
+
+  // Row of mini status pills (icon + count) summarizing a folder's contents,
+  // ordered by STATUS_ORDER so it reads highest-status-first.
+  function statusSummary(mocks) {
+    const counts = {};
+    mocks.forEach(m => { counts[m.status] = (counts[m.status] || 0) + 1; });
+    return STATUS_ORDER.filter(s => counts[s]).map(s =>
+      `<span class="status-badge status-badge--mini" data-status="${s}" title="${escapeHtml(STATUS_LABELS[s] || s)}"><i class="fa-solid ${statusIcon(s)} status-icon"></i>${counts[s]}</span>`
+    ).join('');
+  }
+
+  // Folder TAB BAR — one tab per curated folder plus a leading "Main" tab for
+  // the top-level designs. Each folder tab carries its count and per-status
+  // summary pills so a folder's state is visible without opening it. Selecting
+  // a tab swaps the content below to that subset, rendered exactly like the
+  // main dashboard (status-grouped sections of full cards / table rows).
+  //
+  // While a SEARCH is active the tab bar is bypassed: results from every tab
+  // render together (each section still status-grouped) so matches can't hide
+  // behind an unselected tab.
+  // Folder TAB BAR — renders into the fixed #folderTabs strip that sits ABOVE
+  // the toolbar: a leading "Main" tab (top-level designs) plus one tab per
+  // curated folder. Tabs are structural navigation, so counts and status pills
+  // always describe the folder's FULL contents; the toolbar below filters
+  // within the active tab. While a search is active the bar dims — results
+  // come from every tab so matches can't hide behind an unselected one.
+  // The tab row adapts to the browser width in two stages: long folder names
+  // truncate first (progressively tighter, down to a still-readable minimum),
+  // and only when that isn't enough do trailing folders collapse into a "+N
+  // more" dropdown. Selecting a hidden folder activates it AND swaps it into
+  // the visible row, so the active tab is never buried in the dropdown.
+  const TAB_NAME_CLAMPS = ['none', '150px', '115px', '90px'];
+
+  // The overflow dropdown lives on <body> with position:fixed — the header has
+  // overflow:hidden, so an absolutely-positioned child would get clipped. It
+  // opens on hover OR click of the "more" button and stays open while the
+  // pointer is over either; a short grace timer bridges the gap between them.
+  let tabMenuEl = null;
+  let tabMoreBtn = null;
+  let tabMenuCloseTimer = null;
+  function cancelMenuClose() { clearTimeout(tabMenuCloseTimer); tabMenuCloseTimer = null; }
+  function scheduleMenuClose() {
+    cancelMenuClose();
+    tabMenuCloseTimer = setTimeout(closeTabMenu, 200);
+  }
+  function closeTabMenu() {
+    cancelMenuClose();
+    if (tabMenuEl) { tabMenuEl.remove(); tabMenuEl = null; }
+    if (tabMoreBtn) tabMoreBtn.dataset.open = 'false';
+  }
+  document.addEventListener('click', e => {
+    if (tabMenuEl && !tabMenuEl.contains(e.target) && !e.target.closest('.folder-tab-more')) closeTabMenu();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTabMenu(); });
+
+  function selectTab(tabKey) {
+    closeTabMenu();
+    if (state.tab === tabKey && !state.search) return;
+    state.tab = tabKey;
+    // Selecting a tab while searching exits the search into that tab.
+    if (state.search) {
+      state.search = '';
+      const input = byId('searchInput');
+      input.value = '';
+      byId('searchWrapper').classList.remove('has-value');
+    }
+    applyFiltersAndRender();
+  }
+
+  function openTabMenu(anchor, overflowNames, folders) {
+    closeTabMenu();
+    const menu = document.createElement('div');
+    menu.className = 'folder-tab-menu';
+    menu.setAttribute('role', 'menu');
+    overflowNames.forEach(name => {
+      const mocks = folders.get(name);
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'folder-tab-menu-item';
+      item.setAttribute('role', 'menuitem');
+      item.innerHTML = `
+        <i class="fa-solid fa-folder folder-tab-icon"></i>
+        <span class="folder-tab-name">${escapeHtml(name)}</span>
+        <span class="folder-tab-pills">${statusSummary(mocks)}</span>`;
+      item.addEventListener('click', () => selectTab(name));
+      menu.appendChild(item);
+    });
+    // Keep the menu open while hovering it; leaving schedules the close.
+    menu.addEventListener('mouseenter', cancelMenuClose);
+    menu.addEventListener('mouseleave', scheduleMenuClose);
+    document.body.appendChild(menu);
+    const r = anchor.getBoundingClientRect();
+    const mw = menu.offsetWidth;
+    menu.style.top = (r.bottom + 6) + 'px';
+    menu.style.left = Math.max(8, Math.min(r.left, window.innerWidth - mw - 8)) + 'px';
+    tabMenuEl = menu;
+    anchor.dataset.open = 'true';
+  }
+
+  // Remembered so the bar can re-fit itself on window resize / font load.
+  let lastTabRender = null;
+
+  function renderTabBar(folders, loose, searching) {
+    lastTabRender = { folders, loose, searching };
+    const bar = byId('folderTabs');
+    closeTabMenu();
+    if (!folders.size) { bar.hidden = true; bar.innerHTML = ''; return; }
+
+    const names = [...folders.keys()].sort((a, b) => a.localeCompare(b));
+    // Reset a stale selection (e.g. the folder disappeared from products.json).
+    if (state.tab && !folders.has(state.tab)) state.tab = null;
+
+    bar.hidden = false;
+    bar.dataset.searching = searching ? 'true' : 'false';
+    bar.title = searching ? 'Search looks across all tabs' : '';
+
+    const tabBtn = (label, mocks, tabKey, iconClass) => {
+      const active = !searching && state.tab === tabKey;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'folder-tab';
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-selected', active ? 'true' : 'false');
+      btn.dataset.active = active ? 'true' : 'false';
+      btn.title = label; // full name when the label is truncated
+      btn.innerHTML = `
+        <i class="fa-solid ${iconClass} folder-tab-icon"></i>
+        <span class="folder-tab-name">${escapeHtml(label)}</span>
+        <span class="folder-tab-pills">${statusSummary(mocks)}</span>`;
+      btn.addEventListener('click', () => selectTab(tabKey));
+      return btn;
+    };
+
+    const build = (visible, overflow) => {
+      bar.innerHTML = '';
+      bar.appendChild(tabBtn('Main', loose, null, 'fa-house'));
+      visible.forEach(name => bar.appendChild(tabBtn(name, folders.get(name), name, (!searching && state.tab === name) ? 'fa-folder-open' : 'fa-folder')));
+      if (overflow.length) {
+        // Floating nav button (NOT a tab): hover or click opens the folder
+        // dropdown; the chevron flips while it's open.
+        const more = document.createElement('button');
+        more.type = 'button';
+        more.className = 'folder-tab-more';
+        more.setAttribute('aria-haspopup', 'menu');
+        more.dataset.open = 'false';
+        more.title = overflow.join(' · ');
+        more.innerHTML = `
+          <span>${overflow.length} more</span>
+          <i class="fa-solid fa-chevron-down folder-tab-more-chev"></i>`;
+        more.addEventListener('click', () => {
+          if (tabMenuEl) closeTabMenu();
+          else openTabMenu(more, overflow, folders);
+        });
+        more.addEventListener('mouseenter', () => {
+          cancelMenuClose();
+          if (!tabMenuEl) openTabMenu(more, overflow, folders);
+        });
+        more.addEventListener('mouseleave', scheduleMenuClose);
+        tabMoreBtn = more;
+        bar.appendChild(more);
+      }
+    };
+
+    // Fit pass. The bar is flex-wrap, so "doesn't fit" = the row wrapped =
+    // scrollHeight taller than a single tab row.
+    const fitsOneRow = () => bar.scrollHeight <= 58;
+
+    // Stage 0: everything inline at natural width.
+    let visible = names.slice();
+    let overflow = [];
+    bar.style.setProperty('--tab-name-max', TAB_NAME_CLAMPS[0]);
+    build(visible, overflow);
+
+    // Stage 1: progressively truncate long names until the row fits.
+    for (let i = 1; !fitsOneRow() && i < TAB_NAME_CLAMPS.length; i++) {
+      bar.style.setProperty('--tab-name-max', TAB_NAME_CLAMPS[i]);
+    }
+
+    // Stage 2: still too wide at the smallest readable clamp — collapse
+    // trailing folders into the "+N more" dropdown (keeping the active one).
+    while (!fitsOneRow() && visible.length > 0) {
+      let idx = visible.length - 1;
+      if (visible[idx] === state.tab) idx--;
+      if (idx < 0) break;
+      overflow.unshift(visible.splice(idx, 1)[0]);
+      overflow.sort((a, b) => a.localeCompare(b));
+      build(visible, overflow);
+    }
+  }
+
+  // Re-fit the tab row when the viewport or loaded fonts change its metrics.
+  let tabResizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (!lastTabRender) return;
+    clearTimeout(tabResizeTimer);
+    tabResizeTimer = setTimeout(() => {
+      renderTabBar(lastTabRender.folders, lastTabRender.loose, lastTabRender.searching);
+    }, 150);
+  });
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => {
+      if (lastTabRender) renderTabBar(lastTabRender.folders, lastTabRender.loose, lastTabRender.searching);
     });
   }
 
-  // Compact table layout mirroring the top-level product index list — also
-  // grouped by status, with rows inside each group following the active sort.
-  function renderListView(filtered, root) {
-    groupByStatus(filtered).forEach(({ status, mocks }) => {
+  // Status-grouped sections of FULL cards — used for the main (loose) area and,
+  // via renderFolders, inside each opened folder. `sub` shrinks the headers a
+  // notch when nested in a folder.
+  function statusGroupedCards(mocks, container, sub) {
+    let cardIdx = 0;
+    groupByStatus(mocks).forEach(({ status, mocks: group }) => {
       const wrap = document.createElement('section');
-      wrap.className = 'section';
-      wrap.appendChild(statusSectionHeader(status, mocks.length));
+      wrap.className = 'section' + (sub ? ' section--sub' : '');
+      wrap.appendChild(statusSectionHeader(status, group.length));
+      const grid = document.createElement('div');
+      grid.className = 'card-grid';
+      group.forEach(m => grid.appendChild(buildCard(m, cardIdx++)));
+      wrap.appendChild(grid);
+      container.appendChild(wrap);
+    });
+  }
+
+  // Status-grouped tables — same shape for the list view.
+  function statusGroupedTables(mocks, container, sub) {
+    groupByStatus(mocks).forEach(({ status, mocks: group }) => {
+      const wrap = document.createElement('section');
+      wrap.className = 'section' + (sub ? ' section--sub' : '');
+      wrap.appendChild(statusSectionHeader(status, group.length));
       const tableWrap = document.createElement('div');
       tableWrap.className = 'proto-table-wrap';
       tableWrap.innerHTML = `
@@ -650,11 +910,34 @@
               <th class="col-date">Last updated</th>
             </tr>
           </thead>
-          <tbody>${mocks.map(listRow).join('')}</tbody>
+          <tbody>${group.map(listRow).join('')}</tbody>
         </table>`;
       wrap.appendChild(tableWrap);
-      root.appendChild(wrap);
+      container.appendChild(wrap);
     });
+  }
+
+  // Resolve the folder tab bar + active subset, shared by both views.
+  // Returns the mocks the active tab should show (or everything while
+  // searching), after rendering the tab bar itself.
+  // Small in-tab empty note — shown when the ACTIVE tab has no mocks left under
+  // the current status filter (other tabs still have matches, so the global
+  // no-results state doesn't apply).
+  function renderTabEmpty(root) {
+    const el = document.createElement('p');
+    el.className = 'tab-empty';
+    el.innerHTML = 'Nothing in this tab matches the active filters — check the other tabs or clear the status filter.';
+    root.appendChild(el);
+  }
+
+  function renderCardView(filtered, root) {
+    statusGroupedCards(filtered, root, false);
+  }
+
+  // Compact table layout mirroring the top-level product index list — same
+  // status-grouped tables below the folder tabs.
+  function renderListView(filtered, root) {
+    statusGroupedTables(filtered, root, false);
   }
 
   function listRow(mock) {
@@ -1162,8 +1445,9 @@
 
       body {
         font-family: var(--body);
+        /* Keep the page below the header FLAT — the banner glow lives inside
+           .page-header::before so it can't bleed into the toolbar/content. */
         background:
-          radial-gradient(circle at top right, var(--accent-glow), transparent 45%),
           radial-gradient(circle at 0% 80%, rgba(236, 72, 153, 0.06), transparent 40%),
           var(--bg);
         background-attachment: fixed;
@@ -1171,10 +1455,15 @@
         min-height: 100vh;
       }
 
-      .page-header { position: relative; padding: 56px 32px 48px; overflow: hidden; }
+      /* Bottom padding is just 2px: the folder-tab baseline IS the header's
+         bottom edge, so the active tab can drop over the line and visually
+         connect to the flat content zone below. */
+      .page-header { position: relative; padding: 56px 32px 2px; overflow: hidden; }
       .page-header::before {
         content: ''; position: absolute; inset: 0;
-        background: linear-gradient(135deg, rgba(99, 102, 241, 0.10) 0%, rgba(139, 92, 246, 0.06) 50%, rgba(236, 72, 153, 0.04) 100%);
+        background:
+          radial-gradient(circle at top right, var(--accent-glow), transparent 45%),
+          linear-gradient(135deg, rgba(99, 102, 241, 0.10) 0%, rgba(139, 92, 246, 0.06) 50%, rgba(236, 72, 153, 0.04) 100%);
         pointer-events: none;
       }
       .page-header::after {
@@ -1188,6 +1477,11 @@
 
       .header-inner { max-width: 1400px; margin: 0 auto; position: relative; z-index: 1; }
 
+      /* Product pill + live/refreshed meta on one row: pill left, meta right. */
+      .header-top {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px 24px; flex-wrap: wrap; margin-bottom: 18px;
+      }
       .product-tag {
         display: inline-flex; align-items: center; gap: 8px;
         background: rgba(255, 255, 255, 0.7);
@@ -1196,7 +1490,7 @@
         font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px;
         padding: 6px 14px; border-radius: 999px;
         border: 1px solid rgba(255, 255, 255, 0.9);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04); margin-bottom: 18px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
       }
       .product-tag .emoji { font-size: 14px; line-height: 1; }
 
@@ -1210,10 +1504,10 @@
         -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
         font-variation-settings: "opsz" 144;
       }
-      .page-subtitle { font-size: 14px; color: var(--text-soft); margin: 0; max-width: none; line-height: 1.5; white-space: nowrap; }
+      .page-subtitle { font-size: 14px; color: var(--text-soft); margin: 0; max-width: none; line-height: 1.5; }
 
       .meta-bar {
-        margin-top: 24px; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center;
+        display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center;
         font-size: 13px; color: var(--text-muted); font-family: var(--display); font-weight: 500;
       }
       .meta-bar .dot-sep { opacity: 0.4; }
@@ -1331,6 +1625,101 @@
       .status-badge[data-status="ready"]         { background: #d1fae5; color: #065f46; }
       .status-badge[data-status="archived"]      { background: #f4f4f5; color: #52525b; }
       .status-badge[data-status="ready-for-dev"] { background: #cffafe; color: #155e75; }
+      /* ── Folder tabs ─────────────────────────────────────────────────────
+         Curated folder groups render as file-folder-style tabs INSIDE the
+         header, bottom-aligned on the description line: a "Main" tab
+         (top-level designs) plus one tab per folder, each carrying its count
+         and per-status summary pills. Glassy rounded-top tabs on the header
+         gradient — deliberately nothing like the toolbar's rounded chips. */
+      /* Tabs sit LEFT-ALIGNED under the subtitle, adjacent like browser tabs
+         (2px apart), resting on a full-width baseline rule that doubles as the
+         header's bottom edge. The active tab drops over the line (opaque bg +
+         negative margin) so it reads as "open" — switching tabs visibly swaps
+         what's connected to the flat content zone below. */
+      .header-bottom { display: block; }
+      .page-subtitle { padding-bottom: 24px; }
+      .folder-tabs {
+        display: flex; flex-wrap: wrap; align-items: flex-end; gap: 2px;
+        border-bottom: 2px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+        transition: opacity 0.15s ease;
+      }
+      .folder-tabs[hidden] { display: none; }
+      .folder-tabs[data-searching="true"] { opacity: 0.45; }
+      .folder-tab {
+        position: relative;
+        display: inline-flex; align-items: center; gap: 8px;
+        background: rgba(255, 255, 255, 0.5);
+        backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.9); border-bottom: none;
+        border-radius: 10px 10px 0 0; padding: 9px 15px 11px; cursor: pointer;
+        font-family: var(--display); font-size: 13px; font-weight: 600; color: var(--text-soft);
+        transition: background 0.12s ease, color 0.12s ease;
+      }
+      .folder-tab:hover { background: rgba(255, 255, 255, 0.8); color: var(--text); }
+      .folder-tab[data-active="true"] {
+        background: var(--card-bg); color: var(--accent-deep); font-weight: 700;
+        margin-bottom: -2px; padding-bottom: 13px; z-index: 1;
+        box-shadow: inset 0 -3px 0 var(--accent), 0 -6px 16px -8px rgba(0, 0, 0, 0.12);
+      }
+      .folder-tab-icon { font-size: 12px; color: var(--text-muted); }
+      .folder-tab[data-active="true"] .folder-tab-icon { color: var(--accent); }
+      /* Names truncate before tabs collapse into the "+N more" dropdown; the
+         fit pass sets --tab-name-max on the bar (none → 150 → 115 → 90px). */
+      .folder-tab-name {
+        letter-spacing: 0; max-width: var(--tab-name-max, none);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .folder-tab-count {
+        font-family: var(--mono); font-size: 10.5px; font-weight: 700;
+        padding: 1px 7px; border-radius: 4px;
+        background: var(--accent-soft); color: var(--accent-deep);
+      }
+      .folder-tab-pills { display: inline-flex; gap: 5px; }
+      .status-badge--mini { padding: 2px 7px; font-size: 10px; gap: 4px; }
+      .status-badge--mini .status-icon { font-size: 9px; }
+
+      /* Overflow "N more" — a floating nav button beside the tabs (NOT a tab):
+         fully rounded, centered on the row, dropdown opens on hover or click. */
+      .folder-tab-more {
+        display: inline-flex; align-items: center; gap: 7px;
+        align-self: center; margin: 0 0 7px 10px;
+        background: var(--card-bg); border: 1px solid var(--border-strong);
+        border-radius: 999px; padding: 7px 14px; cursor: pointer;
+        font-family: var(--display); font-size: 12.5px; font-weight: 700; color: var(--text-soft);
+        box-shadow: var(--shadow-sm);
+        transition: border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+      }
+      .folder-tab-more:hover, .folder-tab-more[data-open="true"] {
+        border-color: var(--accent); color: var(--accent-deep); box-shadow: var(--shadow-md);
+      }
+      .folder-tab-more-chev { font-size: 10px; transition: transform 0.15s ease; }
+      .folder-tab-more[data-open="true"] .folder-tab-more-chev { transform: rotate(180deg); }
+
+      /* The dropdown itself — fixed-position panel on <body> (escapes the
+         header's overflow:hidden) listing every folder that didn't fit on the
+         bar, with full names and status pills. */
+      .folder-tab-menu {
+        position: fixed; z-index: 6000; min-width: 300px; max-width: 420px;
+        background: var(--card-bg); border: 1px solid var(--border-strong);
+        border-radius: 12px; box-shadow: var(--shadow-lg); padding: 6px;
+        display: flex; flex-direction: column; gap: 2px;
+      }
+      .folder-tab-menu-item {
+        display: flex; align-items: center; gap: 10px; width: 100%;
+        background: none; border: none; cursor: pointer; text-align: left;
+        padding: 10px 12px; border-radius: 8px;
+        font-family: var(--display); font-size: 13px; font-weight: 600; color: var(--text);
+        transition: background 0.1s ease, color 0.1s ease;
+      }
+      .folder-tab-menu-item:hover { background: var(--accent-soft); color: var(--accent-deep); }
+      .folder-tab-menu-item .folder-tab-icon { color: var(--accent); }
+      .folder-tab-menu-item .folder-tab-name { flex: 1; white-space: normal; }
+      .folder-tab-menu-item .folder-tab-pills { margin-left: auto; }
+
+      .tab-empty { color: var(--text-muted); font-size: 13.5px; padding: 18px 2px; }
+
+      /* kept for potential nested sections; unused by the tab layout */
+      .section--sub .section-title { font-size: 18px; }
 
       /* "Jira link needed" badge — shown when a mock has no ticket linked yet.
          Neutral gray, no warning icon — informational, not an alert. */
@@ -1524,7 +1913,7 @@
         padding: 1px 6px; border-radius: 4px; font-size: 11.5px;
       }
 
-      .toolbar { max-width: 1400px; margin: -8px auto 28px; padding: 0 32px; display: flex; flex-direction: column; gap: 14px; }
+      .toolbar { max-width: 1400px; margin: 26px auto 28px; padding: 0 32px; display: flex; flex-direction: column; gap: 14px; }
       /* Row 1: search grows and pushes sort + view switcher to the right. */
       .toolbar-row { display: flex; align-items: center; gap: 14px; }
       .search-wrapper { position: relative; flex: 1 1 auto; min-width: 200px; }
