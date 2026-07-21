@@ -703,14 +703,17 @@
 
     let boxHtml;
     if (devHandoff) {
-      // Ready-for-dev card: the dev-handoff duplicates are the primary links (in
-      // a labelled box); the working designer file collapses into a drawer.
+      // Ready-for-dev card: two separate boxes. The dev-handoff duplicates are
+      // the primary links (in a labelled cyan box); the working designer file
+      // sits in its own box below, collapsed into a drawer.
       const devPages = urlRow('fa-solid fa-globe', 'Pages', devPagesUrl, 'url-row--dev');
       const devGithub = urlRow('fa-brands fa-github', 'GitHub', devBlobUrl, 'url-row--dev');
       boxHtml = `
       <div class="url-list url-list--dev">
         <div class="url-list-header">For Dev — Ready-for-Dev Duplicates</div>
         ${devPages}${devGithub}
+      </div>
+      <div class="url-list url-list--designer">
         <details class="design-links-drawer">
           <summary><i class="fa-solid fa-chevron-right drawer-chevron"></i> Designer Versions <span class="drawer-note">working files — Pages only</span></summary>
           <div class="drawer-rows">${designPages}
@@ -1417,6 +1420,11 @@
       .url-row--dev .url-copy:hover { border-color: #06b6d4; color: #0e7490; }
       .url-row--dev .url-open { background: #0891b2; }
       .url-row--dev .url-open:hover { background: #0e7490; }
+
+      /* Designer working-file box — its own separate container below the dev
+         box. The drawer inside is borderless so the box provides the one frame. */
+      .url-list--designer { background: #fff; }
+      .url-list--designer .design-links-drawer { border: none; padding: 0; background: transparent; }
 
       .design-links-drawer { border: 1px dashed var(--border-strong); border-radius: 6px; padding: 2px 8px; background: #fff; }
       .design-links-drawer > summary {
