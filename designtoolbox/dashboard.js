@@ -1220,6 +1220,10 @@
       .card-title {
         font-family: var(--serif); font-size: 20px; font-weight: 700; margin: 0;
         line-height: 1.25; color: var(--text); letter-spacing: -0.01em;
+        /* Reserve two lines so a single-line title leaves the same gap before the
+           body as a two-line title — keeps the body / Pages box aligned across a
+           row instead of the shorter-title cards riding up. */
+        min-height: 2.5em;
       }
 
       /* Recency label — deliberately NOT a filled pill, so it doesn't read as a
@@ -1348,9 +1352,11 @@
 
       .card-description {
         font-size: 13.5px; color: var(--text-soft); margin: 0; line-height: 1.55;
-        /* Keep cards uniform: descriptions are meant to fit two lines;
-           clamp as a safety net so a stray long one can't blow out the card. */
+        /* Keep cards uniform: descriptions are meant to fit two lines; clamp as a
+           safety net so a stray long one can't blow out the card, and reserve two
+           lines so a one-line description still aligns the Pages box across a row. */
         display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        min-height: 3.1em;
       }
 
       .url-list {
