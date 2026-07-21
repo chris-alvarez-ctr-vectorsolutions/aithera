@@ -697,15 +697,16 @@
       ticketHtml = `<span class="ticket-badge ticket-badge--missing" title="No Jira ticket is linked to this prototype yet">Jira link needed</span>`;
     }
 
-    // The click-to-copy Pages / GitHub rows for the designer's working file.
+    // The click-to-copy Pages row for the designer's working file. Only
+    // ready-for-dev cards expose the GitHub source link (see below) — before
+    // then, developers don't need the code, only the live Pages preview.
     const designPages = urlRow('fa-solid fa-globe', 'Pages', pagesUrl);
-    const designGithub = urlRow('fa-brands fa-github', 'GitHub', blobUrl);
 
     let boxHtml;
     if (devHandoff) {
       // Ready-for-dev card: two separate boxes. The dev-handoff duplicates are
-      // the primary links (in a labelled cyan box); the working designer file
-      // sits in its own box below, collapsed into a drawer.
+      // the primary links (Pages + GitHub, in a labelled cyan box); the working
+      // designer file sits in its own box below, collapsed into a drawer.
       const devPages = urlRow('fa-solid fa-globe', 'Pages', devPagesUrl, 'url-row--dev');
       const devGithub = urlRow('fa-brands fa-github', 'GitHub', devBlobUrl, 'url-row--dev');
       boxHtml = `
@@ -721,7 +722,9 @@
         </details>
       </div>`;
     } else {
-      boxHtml = `<div class="url-list">${designPages}${designGithub}</div>`;
+      // Not yet ready for dev (concept / in progress / review / archived):
+      // Pages preview only — the GitHub source link appears at the dev handoff.
+      boxHtml = `<div class="url-list">${designPages}</div>`;
     }
 
     // Extra curated links (rare) — their own click-to-copy / Open rows.
