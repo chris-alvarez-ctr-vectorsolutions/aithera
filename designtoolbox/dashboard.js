@@ -543,7 +543,67 @@
 
     // Same filtered set, two layouts — the view switcher just picks the renderer.
     if (state.view === 'list') renderListView(filtered, root);
-    else renderCardView(filtered, root);
+    else { renderCardView(filtered, root); scheduleAlign(); }
+  }
+
+  // --------------------------------------------------------------------------
+  // Dynamic row alignment (card view)
+  // --------------------------------------------------------------------------
+  // Instead of statically reserving two lines on every title/description, we
+  // equalize per VISUAL ROW: a card's title only grows to two lines when another
+  // card sharing its row wraps to two lines. A row of all-single-line titles
+  // stays compact. Same idea for the description so the Pages box lines up.
+  // Recomputed on every render and (debounced) on resize, since the column count
+  // reflows responsively.
+  let alignRAF = 0, alignResizeT = 0;
+  function scheduleAlign() {
+    cancelAnimationFrame(alignRAF);
+    alignRAF = requestAnimationFrame(alignCardRows);
+    // Fonts (Fraunces/Space Grotesk) load async and change wrapping — realign
+    // once they're ready so first paint isn't measured against fallback metrics.
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => requestAnimationFrame(alignCardRows));
+    }
+  }
+
+  function alignCardRows() {
+    if (state.view !== 'card') return;
+    document.querySelectorAll('.card-grid').forEach(grid => {
+      const cards = Array.from(grid.children).filter(c => c.classList.contains('mock-card'));
+      if (cards.length < 2) {
+        // Single card in the grid — clear any prior reserve so it's natural.
+        cards.forEach(clearReserve);
+        return;
+      }
+      // Reset first so we measure each element's natural height.
+      cards.forEach(clearReserve);
+      // Group cards into visual rows by their top offset (grid cells in one row
+      // share the same top regardless of their content height).
+      const rows = new Map();
+      cards.forEach(card => {
+        const top = Math.round(card.offsetTop);
+        (rows.get(top) || rows.set(top, []).get(top)).push(card);
+      });
+      rows.forEach(rowCards => {
+        if (rowCards.length < 2) return; // nothing to match against
+        equalize(rowCards, '.card-title');
+        equalize(rowCards, '.card-description');
+      });
+    });
+  }
+
+  function clearReserve(card) {
+    const t = card.querySelector('.card-title');
+    const d = card.querySelector('.card-description');
+    if (t) t.style.minHeight = '';
+    if (d) d.style.minHeight = '';
+  }
+
+  function equalize(rowCards, selector) {
+    const els = rowCards.map(c => c.querySelector(selector)).filter(Boolean);
+    if (els.length < 2) return;
+    const max = els.reduce((m, el) => Math.max(m, el.offsetHeight), 0);
+    els.forEach(el => { el.style.minHeight = max + 'px'; });
   }
 
   // Group the filtered mocks by status, in STATUS_ORDER, with each group's
@@ -1031,6 +1091,12 @@
     });
     updateViewToggle();
 
+    // Recompute per-row title/description alignment when the grid reflows.
+    window.addEventListener('resize', () => {
+      clearTimeout(alignResizeT);
+      alignResizeT = setTimeout(alignCardRows, 120);
+    });
+
     loadMocks();
   }
 
@@ -1220,10 +1286,8 @@
       .card-title {
         font-family: var(--serif); font-size: 20px; font-weight: 700; margin: 0;
         line-height: 1.25; color: var(--text); letter-spacing: -0.01em;
-        /* Reserve two lines so a single-line title leaves the same gap before the
-           body as a two-line title — keeps the body / Pages box aligned across a
-           row instead of the shorter-title cards riding up. */
-        min-height: 2.5em;
+        /* Row alignment is dynamic — alignCardRows() sets a min-height per row so
+           titles only grow when another card in the SAME row wraps to two lines. */
       }
 
       /* Recency label — deliberately NOT a filled pill, so it doesn't read as a
@@ -1352,11 +1416,11 @@
 
       .card-description {
         font-size: 13.5px; color: var(--text-soft); margin: 0; line-height: 1.55;
-        /* Keep cards uniform: descriptions are meant to fit two lines; clamp as a
-           safety net so a stray long one can't blow out the card, and reserve two
-           lines so a one-line description still aligns the Pages box across a row. */
+        /* Two-line clamp as a safety net so a stray long one can't blow out the
+           card. Row alignment (the Pages box lining up) is dynamic — see
+           alignCardRows(); no static reserve, so a whole row of one-line
+           descriptions stays compact. */
         display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-        min-height: 3.1em;
       }
 
       .url-list {
@@ -1431,9 +1495,12 @@
       .url-row--dev .url-open:hover { background: #0e7490; }
 
       /* Designer working-file box — its own separate container below the dev
-         box. The drawer inside is borderless so the box provides the one frame. */
-      .url-list--designer { background: #fff; }
+         box. The drawer inside is borderless so the box provides the one frame.
+         Tight vertical padding keeps the collapsed box short (it's a secondary
+         link, not a primary action). */
+      .url-list--designer { background: #fff; padding: 2px 10px; }
       .url-list--designer .design-links-drawer { border: none; padding: 0; background: transparent; }
+      .url-list--designer .design-links-drawer > summary { padding: 5px 2px; }
 
       .design-links-drawer { border: 1px dashed var(--border-strong); border-radius: 6px; padding: 2px 8px; background: #fff; }
       .design-links-drawer > summary {
