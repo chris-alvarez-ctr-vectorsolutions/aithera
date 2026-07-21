@@ -667,82 +667,84 @@
   // ----------------------------------------------------------------------
   // Card construction
   // ----------------------------------------------------------------------
+
+  // A single link row: a click-to-copy field (a dark "Copy" chip appears over
+  // its right edge on hover) plus a dedicated Open button that opens the link in
+  // a new tab. Used for every Pages / GitHub / dev / extra link on a card.
+  function urlRow(icon, label, url, extraClass) {
+    const u = escapeHtml(url);
+    return `
+        <div class="url-row${extraClass ? ' ' + extraClass : ''}">
+          <span class="url-label"><i class="${icon}"></i> ${escapeHtml(label)}</span>
+          <button class="url-copy" type="button" data-copy="${u}" title="Click to copy this link">
+            <span class="url-copy-text">${u}</span>
+            <span class="url-copy-chip"><i class="fa-regular fa-copy"></i> Copy</span>
+          </button>
+          <a class="url-open" href="${u}" target="_blank" rel="noopener" title="Open in a new tab">Open <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+        </div>`;
+  }
+
   function buildCard(mock, idx) {
     const { title, ticket, ticketUrl, description, status, blobUrl, pagesUrl, devHandoff, devBlobUrl, devPagesUrl, extraLinks } = mock;
     const statusLabel = STATUS_LABELS[status] || STATUS_LABELS[DEFAULT_STATUS];
 
     let ticketHtml = '';
     if (ticket && ticketUrl) {
-      ticketHtml = `<a class="ticket-badge ticket-badge--link" href="${escapeHtml(ticketUrl)}" target="_blank" rel="noopener" title="Open ${escapeHtml(ticket)} in Jira">${escapeHtml(ticket)}<i class="fa-solid fa-arrow-up-right-from-square ticket-link-icon"></i></a>`;
+      ticketHtml = `<a class="ticket-badge ticket-badge--link" href="${escapeHtml(ticketUrl)}" target="_blank" rel="noopener" title="Open ${escapeHtml(ticket)} in Jira"><i class="fa-solid fa-link ticket-link-icon"></i>${escapeHtml(ticket)}</a>`;
     } else if (ticket) {
-      ticketHtml = `<span class="ticket-badge">${escapeHtml(ticket)}</span>`;
+      ticketHtml = `<span class="ticket-badge"><i class="fa-solid fa-link ticket-link-icon"></i>${escapeHtml(ticket)}</span>`;
     } else {
       ticketHtml = `<span class="ticket-badge ticket-badge--missing" title="No Jira ticket is linked to this prototype yet">Jira link needed</span>`;
     }
 
-    const designRows = `
-        <div class="url-row">
-          <span class="url-label"><i class="fa-solid fa-globe"></i> Pages</span>
-          <a class="url-value" href="${pagesUrl}" target="_blank" rel="noopener" title="${pagesUrl}">${pagesUrl}</a>
-          <button class="copy-btn" data-copy="${pagesUrl}"><i class="fa-regular fa-copy"></i> Copy</button>
-        </div>
-        <div class="url-row">
-          <span class="url-label"><i class="fa-brands fa-github"></i> GitHub</span>
-          <a class="url-value" href="${blobUrl}" target="_blank" rel="noopener" title="${blobUrl}">${blobUrl}</a>
-          <button class="copy-btn" data-copy="${blobUrl}"><i class="fa-regular fa-copy"></i> Copy</button>
-        </div>`;
+    // The click-to-copy Pages / GitHub rows for the designer's working file.
+    const designPages = urlRow('fa-solid fa-globe', 'Pages', pagesUrl);
+    const designGithub = urlRow('fa-brands fa-github', 'GitHub', blobUrl);
 
-    const devRows = `
-        <div class="url-row url-row--dev">
-          <span class="url-label"><i class="fa-solid fa-code"></i> Dev Page</span>
-          <a class="url-value" href="${devPagesUrl}" target="_blank" rel="noopener" title="${devPagesUrl}">${devPagesUrl}</a>
-          <button class="copy-btn" data-copy="${devPagesUrl}"><i class="fa-regular fa-copy"></i> Copy</button>
-        </div>
-        <div class="url-row url-row--dev">
-          <span class="url-label"><i class="fa-brands fa-github"></i> Dev HTML</span>
-          <a class="url-value" href="${devBlobUrl}" target="_blank" rel="noopener" title="${devBlobUrl}">${devBlobUrl}</a>
-          <button class="copy-btn" data-copy="${devBlobUrl}"><i class="fa-regular fa-copy"></i> Copy</button>
-        </div>`;
-
-    const urlListInner = devHandoff
-      ? `${devRows}
+    let boxHtml;
+    if (devHandoff) {
+      // Ready-for-dev card: the dev-handoff duplicates are the primary links (in
+      // a labelled box); the working designer file collapses into a drawer.
+      const devPages = urlRow('fa-solid fa-globe', 'Pages', devPagesUrl, 'url-row--dev');
+      const devGithub = urlRow('fa-brands fa-github', 'GitHub', devBlobUrl, 'url-row--dev');
+      boxHtml = `
+      <div class="url-list url-list--dev">
+        <div class="url-list-header">For Dev — Ready-for-Dev Duplicates</div>
+        ${devPages}${devGithub}
         <details class="design-links-drawer">
-          <summary><i class="fa-solid fa-chevron-right drawer-chevron"></i> Designer file <span class="drawer-note">— prototype with review comments</span></summary>
-          <div class="drawer-rows">${designRows}
+          <summary><i class="fa-solid fa-chevron-right drawer-chevron"></i> Designer Versions <span class="drawer-note">working files — Pages only</span></summary>
+          <div class="drawer-rows">${designPages}
           </div>
-        </details>`
-      : designRows;
+        </details>
+      </div>`;
+    } else {
+      boxHtml = `<div class="url-list">${designPages}${designGithub}</div>`;
+    }
 
-    const primaryBtn = devHandoff
-      ? `<a class="view-btn" href="${devPagesUrl}" target="_blank" rel="noopener" title="Clean, comment-widget-free build for developers">
-          <i class="fa-solid fa-code"></i>
-          View Dev Build
-        </a>`
-      : `<a class="view-btn" href="${pagesUrl}" target="_blank" rel="noopener">
-          View Design
-          <i class="fa-solid fa-arrow-up-right-from-square"></i>
-        </a>`;
-
-    // "Last updated" line — right-aligned. When the prototype changed within the
-    // last 24h it becomes a light-purple pill with a "New/Updated" label on the
-    // left and the timestamp on the right; otherwise it's a plain clock + time.
-    const updatedHtml = mock.lastUpdated
-      ? (mock.recentlyUpdated
-          ? `<span class="card-updated card-updated--recent" title="Changed in the last 24 hours">
-               <span class="updated-label"><span class="recency-dot"></span>${mock.isNew ? 'New' : 'Updated'}</span>
-               <span class="updated-time">${escapeHtml(formatDateTime(mock.lastUpdated))}</span>
-             </span>`
-          : `<span class="card-updated" title="Most recent change to this prototype"><i class="fa-regular fa-clock"></i> ${escapeHtml(formatDateTime(mock.lastUpdated))}</span>`)
+    // Extra curated links (rare) — their own click-to-copy / Open rows.
+    const extras = extraLinks || [];
+    const extraBox = extras.length
+      ? `<div class="url-list">${extras.map(l => urlRow('fa-solid fa-eye', l.label, l.pagesUrl)).join('')}</div>`
       : '';
 
-    // Per-card log: this prototype's own commit history, collapsed by default.
-    // Capped at the 10 most recent so it never scrolls forever; anything older is
-    // one click away in the full GitHub history (opens in a new tab).
+    // --- Footer: LOG + last-updated -----------------------------------------
+    // The "Updated" timestamp lives in the log header row (always visible, even
+    // when the log is collapsed). Within the last 24h it becomes a highlighted
+    // violet pill; otherwise a plain clock + time. Cards with no git history
+    // still show the header row so the timestamp is never lost.
     const changes = mock.changes || [];
     const LOG_SHOWN = 10;
-    // Entries inside the 24h window are the recent changes — emphasize them in
-    // the same red as the LOG's notification dot so it's obvious what's new.
     const recentCount = changes.filter(c => isWithin24h(c.date)).length;
+    const logNotif = recentCount
+      ? `<span class="log-notif" title="${recentCount} change${recentCount !== 1 ? 's' : ''} in the last 24 hours"></span>`
+      : '';
+
+    const updatedPill = mock.lastUpdated
+      ? (mock.recentlyUpdated
+          ? `<span class="log-updated log-updated--recent" title="Changed in the last 24 hours"><span class="recency-dot"></span>${mock.isNew ? 'New' : 'Updated'} ${escapeHtml(formatDateTime(mock.lastUpdated))}</span>`
+          : `<span class="log-updated" title="Most recent change to this prototype"><i class="fa-regular fa-clock"></i> Updated ${escapeHtml(formatDateTime(mock.lastUpdated))}</span>`)
+      : '';
+
     const logRow = entry => `
           <li class="log-item${isWithin24h(entry.date) ? ' log-item--recent' : ''}">
             <span class="log-date">${escapeHtml(formatDate(entry.date))}</span>
@@ -750,56 +752,47 @@
           </li>`;
     const shownRows = changes.slice(0, LOG_SHOWN).map(logRow).join('');
     const hiddenCount = Math.max(0, changes.length - LOG_SHOWN);
-    const moreLink = hiddenCount
-      ? `<li class="log-more-item">
-          <a class="log-more-link" href="${mock.historyUrl}" target="_blank" rel="noopener">
-            + ${hiddenCount} more — full history on GitHub <i class="fa-solid fa-arrow-up-right-from-square"></i>
-          </a>
-        </li>`
-      : '';
-    // Violet push-notification dot (no number) on the LOG label when there are
-    // changes within the last 24h — the "this was just updated" signal.
-    const logNotif = recentCount
-      ? `<span class="log-notif" title="${recentCount} change${recentCount !== 1 ? 's' : ''} in the last 24 hours"></span>`
-      : '';
-    const logHtml = changes.length
-      ? `<details class="card-log">
-          <summary><span class="log-icon-wrap"><i class="fa-solid fa-clock-rotate-left"></i>${logNotif}</span> Log <span class="log-count">${changes.length}</span><i class="fa-solid fa-chevron-right log-chevron"></i></summary>
-          <ul class="log-list">${shownRows}${moreLink}
-          </ul>
-        </details>`
-      : '';
+    const fullLogLabel = hiddenCount ? `View full log (${hiddenCount} more)` : 'View full log';
 
-    const extras = extraLinks || [];
-    const extraRows = extras.map(l => `
-        <div class="url-row">
-          <span class="url-label"><i class="fa-solid fa-eye"></i> ${escapeHtml(l.label)}</span>
-          <a class="url-value" href="${l.pagesUrl}" target="_blank" rel="noopener" title="${l.pagesUrl}">${l.pagesUrl}</a>
-          <button class="copy-btn" data-copy="${l.pagesUrl}"><i class="fa-regular fa-copy"></i> Copy</button>
-        </div>`).join('');
-    const extraBtns = extras.map(l => `
-        <a class="view-btn view-btn--secondary" href="${l.pagesUrl}" target="_blank" rel="noopener">
-          ${escapeHtml(l.label)} <i class="fa-solid fa-arrow-up-right-from-square"></i>
-        </a>`).join('');
+    let logHtml;
+    if (changes.length) {
+      logHtml = `
+      <details class="card-log">
+        <summary>
+          <span class="log-icon-wrap"><i class="fa-solid fa-clock-rotate-left"></i>${logNotif}</span>
+          <span class="log-title">Log</span>
+          <span class="log-count">${changes.length}</span>
+          ${updatedPill}
+          <i class="fa-solid fa-chevron-right log-chevron"></i>
+        </summary>
+        <ul class="log-list">${shownRows}
+        </ul>
+        <a class="log-full-btn" href="${mock.historyUrl}" target="_blank" rel="noopener">${escapeHtml(fullLogLabel)} <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+      </details>`;
+    } else {
+      // No git history for this mock — static header row, no expander.
+      logHtml = `
+      <div class="card-log card-log--empty">
+        <span class="log-icon-wrap"><i class="fa-solid fa-clock-rotate-left"></i></span>
+        <span class="log-title">Log</span>
+        ${updatedPill || '<span class="log-updated">No recorded changes yet</span>'}
+      </div>`;
+    }
 
     const card = document.createElement('div');
     card.className = 'mock-card' + (mock.recentlyUpdated ? ' mock-card--recent' : '');
     card.style.animationDelay = `${Math.min(idx * 0.05, 0.5)}s`;
     card.innerHTML = `
       <div class="card-header">
-        ${updatedHtml ? `<div class="card-meta-row">${updatedHtml}</div>` : ''}
-        <h2 class="card-title">${escapeHtml(title)}</h2>
-        <div class="card-ticket-row">
-          <div class="card-badges">${ticketHtml}</div>
+        <div class="card-badge-row">
           <span class="status-badge" data-status="${escapeHtml(status)}"><i class="fa-solid ${statusIcon(status)} status-icon"></i>${escapeHtml(statusLabel)}</span>
+          ${ticketHtml}
         </div>
+        <h2 class="card-title">${escapeHtml(title)}</h2>
       </div>
       <p class="card-description">${escapeHtml(description)}</p>
-      <div class="url-list">${urlListInner}${extraRows}
-      </div>
-      <div class="card-actions">
-        ${primaryBtn}${extraBtns}
-      </div>
+      ${boxHtml}
+      ${extraBox}
       ${logHtml}
     `;
     return card;
@@ -960,8 +953,23 @@
     // Retry button
     byId('retryBtn').addEventListener('click', loadMocks);
 
-    // Copy handlers (delegated)
+    // Copy handlers (delegated). New card layout: the URL field itself copies —
+    // its "Copy" chip flips to "Copied!" briefly. (Legacy .copy-btn kept as a
+    // fallback in case any older markup remains.)
     document.addEventListener('click', (e) => {
+      const field = e.target.closest('.url-copy');
+      if (field) {
+        navigator.clipboard.writeText(field.dataset.copy).then(() => {
+          const chip = field.querySelector('.url-copy-chip');
+          if (!chip) return;
+          if (!field._orig) field._orig = chip.innerHTML;
+          chip.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+          field.classList.add('copied');
+          clearTimeout(field._t);
+          field._t = setTimeout(() => { chip.innerHTML = field._orig; field.classList.remove('copied'); }, 1500);
+        });
+        return;
+      }
       const btn = e.target.closest('.copy-btn');
       if (!btn) return;
       const text = btn.dataset.copy;
@@ -1200,25 +1208,13 @@
          spot in the grid — the same notification violet as the LOG dot + hot rows. */
       .mock-card--recent { border-color: #a78bfa; box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.15), var(--shadow-sm); }
 
-      /* Card header stacks in three tight rows: meta (time + status), then the
-         title on its own full-width row (room for long titles), then the Jira
-         ticket. Kept as one flex child so the card's gap only separates the
-         header from the body — the rows themselves sit close together. */
+      /* Card header: a badge row (status pill + Jira ticket) sits above the
+         title on its own full-width row (room for long titles). */
       .card-header { display: block; }
-      /* Timestamp sits on the right of its own row (whether or not it's recent). */
-      .card-meta-row {
-        display: flex; justify-content: flex-end; align-items: center; margin-bottom: 4px;
-      }
       .card-title {
         font-family: var(--serif); font-size: 20px; font-weight: 700; margin: 0;
         line-height: 1.25; color: var(--text); letter-spacing: -0.01em;
       }
-      /* Jira ticket on the left, status pill pushed to the far right. */
-      .card-ticket-row {
-        display: flex; justify-content: space-between; align-items: center; gap: 12px;
-        margin-top: 6px;
-      }
-      .card-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 
       /* Recency label — deliberately NOT a filled pill, so it doesn't read as a
          workflow status. Just the pulsing violet dot + uppercase text. */
@@ -1261,23 +1257,6 @@
       .status-badge[data-status="ready"]         { background: #d1fae5; color: #065f46; }
       .status-badge[data-status="archived"]      { background: #f4f4f5; color: #52525b; }
       .status-badge[data-status="ready-for-dev"] { background: #cffafe; color: #155e75; }
-
-      /* "Last updated" line, right-aligned in the meta row. */
-      .card-updated {
-        display: inline-flex; align-items: center; gap: 5px; font-family: var(--display);
-        font-size: 11px; font-weight: 500; color: var(--text-muted); white-space: nowrap;
-      }
-      .card-updated i { font-size: 10px; opacity: 0.7; }
-      /* Recent: light-purple pill, "Updated" label on the left, time on the right. */
-      .card-updated--recent {
-        gap: 10px; padding: 3px 10px; border-radius: 999px;
-        background: #f5f3ff; color: #6d28d9;
-      }
-      .updated-label {
-        display: inline-flex; align-items: center; gap: 5px;
-        font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
-      }
-      .updated-time { font-size: 11px; font-weight: 600; color: #7c3aed; }
 
       /* "Jira link needed" badge — shown when a mock has no ticket linked yet.
          Neutral gray, no warning icon — informational, not an alert. */
@@ -1336,6 +1315,31 @@
       .log-more-link:hover { background: var(--accent-soft); color: var(--accent); }
       .log-more-link i { font-size: 9px; opacity: 0.8; }
 
+      /* Log header row: "LOG" title + count + the always-visible Updated pill. */
+      .card-log--empty { display: flex; align-items: center; gap: 8px; }
+      .log-title { flex-shrink: 0; }
+      /* The "Updated <time>" indicator that now lives in the log header. Reset the
+         summary's uppercase transform so the timestamp reads in normal case. */
+      .log-updated {
+        display: inline-flex; align-items: center; gap: 6px; font-family: var(--display);
+        font-size: 11px; font-weight: 500; color: var(--text-muted);
+        text-transform: none; letter-spacing: 0;
+      }
+      .log-updated i { font-size: 10px; opacity: 0.7; }
+      /* Recent (within 24h): highlighted violet pill with a pulsing dot. */
+      .log-updated--recent {
+        padding: 3px 10px; border-radius: 999px; background: #f5f3ff; color: #6d28d9; font-weight: 700;
+      }
+      /* "View full log" button inside the expanded log. */
+      .log-full-btn {
+        display: inline-flex; align-items: center; gap: 7px; margin-top: 12px;
+        padding: 7px 14px; border: 1px solid var(--border-strong); border-radius: 8px; background: #fff;
+        font-family: var(--display); font-size: 12px; font-weight: 600; color: var(--text-soft);
+        text-decoration: none; cursor: pointer; transition: all 0.15s ease;
+      }
+      .log-full-btn:hover { border-color: var(--accent); color: var(--accent-deep); background: var(--accent-soft); }
+      .log-full-btn i { font-size: 10px; opacity: 0.8; }
+
       .card-description {
         font-size: 13.5px; color: var(--text-soft); margin: 0; line-height: 1.55;
         /* Keep cards uniform: descriptions are meant to fit two lines;
@@ -1352,13 +1356,8 @@
         font-family: var(--display); font-size: 10px; font-weight: 700; color: var(--text-muted);
         text-transform: uppercase; letter-spacing: 0.7px; min-width: 70px; display: flex; align-items: center; gap: 5px;
       }
-      .url-value {
-        flex: 1; font-family: var(--mono); font-size: 11.5px; color: var(--text); background: #fff;
-        border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; white-space: nowrap;
-        overflow: hidden; text-overflow: ellipsis; text-decoration: none;
-        transition: border-color 0.15s ease, color 0.15s ease;
-      }
-      .url-value:hover { border-color: var(--accent); color: var(--accent); }
+      /* .copy-btn is kept only as a fallback for any legacy markup — the current
+         card uses the .url-copy click-to-copy field defined below. */
       .copy-btn {
         background: #fff; border: 1px solid var(--border-strong); border-radius: 6px; padding: 6px 12px;
         font-size: 11.5px; font-weight: 600; cursor: pointer; color: var(--text-soft);
@@ -1368,21 +1367,56 @@
       .copy-btn:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-deep); transform: translateY(-1px); }
       .copy-btn.copied { background: #d1fae5; border-color: #10b981; color: #065f46; }
 
-      .card-actions { margin-top: auto; padding-top: 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-
-      .url-row--dev .url-label { color: #0e7490; }
-      .url-row--dev .url-value { border-color: #a5f3fc; }
-      .url-row--dev .url-value:hover { border-color: #06b6d4; color: #0e7490; }
-
-      .dev-btn {
-        display: inline-flex; align-items: center; gap: 9px; background: #fff; color: #0e7490;
-        border: 1.5px solid #06b6d4; border-radius: 8px; padding: 10px 18px; font-size: 13.5px;
-        font-weight: 600; cursor: pointer; text-decoration: none; font-family: var(--display);
-        transition: transform 0.2s ease, background 0.15s ease, box-shadow 0.2s ease;
+      /* ---- Card header: status + ticket badges above the title ------------ */
+      .card-badge-row {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;
       }
-      .dev-btn:hover { background: #cffafe; transform: translateY(-2px); box-shadow: 0 8px 20px -6px rgba(6, 182, 212, 0.4); }
-      .dev-btn i { transition: transform 0.2s ease; }
-      .dev-btn:hover i { transform: translate(2px, -2px); }
+
+      /* ---- Link rows: click-to-copy field + Open button ------------------- */
+      .url-list-header {
+        font-family: var(--display); font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.7px; color: var(--text-muted); margin-bottom: 2px;
+      }
+      .url-copy {
+        flex: 1; min-width: 0; position: relative; text-align: left; cursor: pointer;
+        font-family: var(--mono); font-size: 11.5px; color: var(--text); background: #fff;
+        border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px;
+        transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+      }
+      .url-copy-text { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .url-copy:hover { border-color: var(--accent); color: var(--accent); }
+      .url-copy:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+      /* Dark "Copy" chip, revealed over the right edge on hover / focus. */
+      .url-copy-chip {
+        position: absolute; top: 50%; right: 5px; transform: translateY(-50%);
+        display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+        background: #18181b; color: #fff; font-family: var(--display); font-size: 11px; font-weight: 600;
+        padding: 4px 9px; border-radius: 6px; opacity: 0; pointer-events: none;
+        transition: opacity 0.12s ease; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+      }
+      .url-copy-chip i { font-size: 10px; }
+      .url-copy:hover .url-copy-chip, .url-copy:focus-visible .url-copy-chip { opacity: 1; }
+      .url-copy.copied { border-color: #10b981; background: #ecfdf5; color: #065f46; }
+      .url-copy.copied .url-copy-chip { opacity: 1; background: #059669; box-shadow: none; }
+
+      .url-open {
+        flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+        background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 7px 14px;
+        font-family: var(--display); font-size: 12px; font-weight: 600; cursor: pointer;
+        transition: background 0.15s ease, transform 0.15s ease;
+      }
+      .url-open:hover { background: var(--accent-deep); transform: translateY(-1px); }
+      .url-open i { font-size: 10px; transition: transform 0.2s ease; }
+      .url-open:hover i { transform: translate(1px, -1px); }
+
+      /* Ready-for-dev box: cyan tint matching the "Ready for Dev" status pill. */
+      .url-list--dev { background: #ecfeff; border-color: #a5f3fc; }
+      .url-list--dev .url-list-header { color: #0e7490; }
+      .url-row--dev .url-label { color: #0e7490; }
+      .url-row--dev .url-copy { border-color: #a5f3fc; }
+      .url-row--dev .url-copy:hover { border-color: #06b6d4; color: #0e7490; }
+      .url-row--dev .url-open { background: #0891b2; }
+      .url-row--dev .url-open:hover { background: #0e7490; }
 
       .design-links-drawer { border: 1px dashed var(--border-strong); border-radius: 6px; padding: 2px 8px; background: #fff; }
       .design-links-drawer > summary {
@@ -1396,19 +1430,6 @@
       .drawer-chevron { transition: transform 0.2s ease; font-size: 10px; }
       .design-links-drawer[open] > summary .drawer-chevron { transform: rotate(90deg); }
       .drawer-rows { display: flex; flex-direction: column; gap: 8px; padding: 6px 0 8px; }
-
-      .view-btn {
-        display: inline-flex; align-items: center; gap: 10px;
-        background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid)); color: #fff;
-        border: none; border-radius: 8px; padding: 11px 20px; font-size: 13.5px; font-weight: 600;
-        cursor: pointer; text-decoration: none; font-family: var(--display);
-        transition: transform 0.2s ease, box-shadow 0.2s ease; box-shadow: 0 4px 12px -4px var(--accent-glow);
-      }
-      .view-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px -4px var(--accent-glow); }
-      .view-btn i { transition: transform 0.2s ease; }
-      .view-btn:hover i { transform: translate(2px, -2px); }
-      .view-btn--secondary { background: #fff; color: var(--text); border: 1.5px solid var(--border); box-shadow: none; }
-      .view-btn--secondary:hover { background: var(--bg-subtle, #f4f4f5); box-shadow: 0 6px 16px -8px rgba(0,0,0,0.25); }
 
       .page-footer {
         max-width: 1400px; margin: 56px auto 0; padding: 24px 32px 32px; border-top: 1px solid var(--border);
