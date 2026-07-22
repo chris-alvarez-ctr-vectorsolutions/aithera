@@ -1310,6 +1310,7 @@
     <script src="js/sim-context.js?v=1"></script>
     <script src="js/sim-debrief.js?v=5"></script>
     <script src="js/sim-chat-history.js?v=5"></script>
+    <script src="js/sim-coach-sheet.js?v=2"></script>
 
     <script>
     /* =====================================================================
@@ -2085,19 +2086,12 @@ You didn't carry this alone, and you didn't ask her to either.` },
       messages.forEach((m) => { if (m._enter) m._enter = false; });
 
       manageFocus(trap);
-      // Coach thread: grow the sheet smoothly (tweenCoachHeight pins the newest
-      // bubble to the bottom itself); once maxed out, glide the scroll to the new
-      // bottom instead of snapping — instant fallback when motion is reduced or the
-      // tab is backgrounded (where smooth scroll silently no-ops).
-      if (coachUp) {
-        if (!tweenCoachHeight()) {
-          const canGlide = !reducedMotion() && document.visibilityState === 'visible';
-          if (canGlide) coachPanelBody.scrollTo({ top: coachPanelBody.scrollHeight, behavior: 'smooth' });
-          else coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
-        }
-      } else {
-        lastCoachH = null;
-      }
+      // Coach thread: grow the sheet smoothly (which pins the newest bubble to the
+      // bottom itself); once maxed out, glide the scroll to the new bottom instead
+      // of snapping — instant fallback when motion is reduced or the tab is
+      // backgrounded (where smooth scroll silently no-ops).
+      if (coachUp) coachSheet.follow({ nearBottom: true, delivering: state.delivering });
+      else coachSheet.reset();
       // The scene stage follows only when fresh scene content arrived.
       requestAnimationFrame(() => {
         if (followStage) { stage.scrollTop = stage.scrollHeight; followStage = false; }
@@ -2107,46 +2101,10 @@ You didn't carry this alone, and you didn't ask her to either.` },
     // set true right before a render that appends scene content, so it follows down
     let followStage = false;
 
-    /* —— Raise the coach sheet as ONE piece ————————————————————————————————
-       The sheet is bottom-anchored (it sits on the input bar). New content used
-       to snap the sheet taller and PIN the newest bubble to the bottom while the
-       height tweened — so only the header (riding the top edge) visibly moved,
-       arriving ~300ms late and reading as out-of-sync with the thread. Instead we
-       now lay the sheet out at its final height immediately, then ease the WHOLE
-       sheet — header + thread together — up into place from a dropped start: we
-       translateY it down by exactly how much it grew (the extra height tucks
-       behind the input bar, and the header lands where the shorter sheet's top
-       was), then animate that transform back to 0. Header and messages share one
-       motion, so nothing lags. Once the sheet is at its max height it stops
-       growing and the body scrolls (render()/showTyping() glide that scroll).
-       Returns true if it animated. */
-    let lastCoachH = null;      // sheet height we last painted, = the rise's start point
-    let coachGrowRAF = 0;       // in-flight rise, so a fresh one can cancel it
-    function tweenCoachHeight() {
-      if (!app.classList.contains('coach-up')) { lastCoachH = null; return false; }
-      if (coachGrowRAF) { cancelAnimationFrame(coachGrowRAF); coachGrowRAF = 0; }
-      coachPanel.style.transition = 'none';             // we drive the transform ourselves this beat
-      coachPanel.style.transform = '';                  // sit at the resting position to measure
-      const target = coachPanel.offsetHeight;           // forces layout → true post-render height
-      const from = lastCoachH;
-      lastCoachH = target;
-      coachPanelBody.scrollTop = coachPanelBody.scrollHeight;   // newest bubble to the bottom (layout is final now)
-      if (from == null || reducedMotion() || Math.abs(target - from) < 2) { coachPanel.style.transition = ''; return false; }
-      const delta = target - from;                      // how much taller we grew = how far to rise
-      const dur = 300;
-      const ease = (t) => 1 - Math.pow(1 - t, 3);       // easeOutCubic
-      let t0 = null;
-      const step = (ts) => {
-        if (t0 == null) t0 = ts;
-        const p = Math.min(1, (ts - t0) / dur);
-        coachPanel.style.transform = 'translateY(' + (delta * (1 - ease(p))) + 'px)';   // header + thread, one block
-        if (p < 1) { coachGrowRAF = requestAnimationFrame(step); }
-        else { coachGrowRAF = 0; coachPanel.style.transform = ''; coachPanel.style.transition = ''; }  // release to CSS
-      };
-      coachPanel.style.transform = 'translateY(' + delta + 'px)';   // start dropped, synchronously
-      coachGrowRAF = requestAnimationFrame(step);
-      return true;
-    }
+    /* Coach-sheet rise + follow-scroll motion — shared in js/sim-coach-sheet.js.
+       coachSheet.follow({nearBottom,delivering}) from render(); .pin() for the
+       typing dots; .reset() when the sheet lowers. */
+    const coachSheet = SimCoachSheet.create({ app, panel: coachPanel, body: coachPanelBody });
 
     /* ---- typing indicator (in the right world) ------------------------ */
     function showTyping(label) {
@@ -2159,8 +2117,8 @@ You didn't carry this alone, and you didn't ask her to either.` },
       if (coachUp) { typingHost = coachPanelBody; coachPanelBody.appendChild(node); }
       else { typingHost = stageInner; stageInner.appendChild(node); }
       if (typingHost === coachPanelBody) {
-        // the dots grow the sheet too — tween it (which pins the thread); pin instantly if already maxed
-        if (!tweenCoachHeight()) coachPanelBody.scrollTop = coachPanelBody.scrollHeight;
+        // the dots grow the sheet too — grow-or-pin the thread to the bottom
+        coachSheet.pin();
       } else {
         requestAnimationFrame(() => { stage.scrollTop = 1e9; });
       }
