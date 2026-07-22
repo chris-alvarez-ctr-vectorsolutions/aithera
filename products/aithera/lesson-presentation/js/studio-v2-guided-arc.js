@@ -42,7 +42,7 @@
     group: 'learn',
     title: 'Topic turns',
     lead: 'The coached turns of the Learn section, in order. Each turn hands the learner a topic to reason about, lets them commit, then the coach lands the point — steered by your guidance for that topic.',
-    bridgeTitle: 'Each turn is Practice → Learn',
+    bridgeTitle: 'Each turn is a topic',
     bridge: 'The <b>signpost</b> and <b>task prompt</b> are delivered VERBATIM. While the learner works it, the coach holds its teaching to one probe; then it opens the teach turn with your exact <b>talk it through</b> line and lands the point. Flag <b>has a right answer</b> for a graded turn (like a legal one) and give its <b>through-line</b>.',
   });
   Object.assign(byId('scene'), {
