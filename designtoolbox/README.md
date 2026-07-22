@@ -335,6 +335,31 @@ The only product-specific data is `dashboard/meta.json` next to the shell — an
 Improve `dashboard.js` once and **every** product's dashboard updates — no more
 copy-paste drift between product dashboards.
 
+### Folders, scope, and favorites
+
+Curated `{ "folder": "Group Name", "items": [ … ] }` groups in `products.json`
+render as **real folders on the dashboard**: a left "Folders" rail (sticky,
+independently scrollable) listing **Main** (the product's top-level mocks) and
+one entry per folder, each with per-status pill counts. The selected entry is
+the **scope** — the status chips and their counts apply within it. The banner
+search is the opposite: it's **global**, looking across every folder (the rail
+dims while a query is active; picking a folder exits the search into it).
+
+- **Favorites** — hovering a folder row reveals a star; starring pins the
+  folder above the others. Saved per browser per product in
+  `localStorage["designlab-fav-folders:<Product>"]` — personal, not shared.
+- **Narrow widths** — the rail becomes a wrapping row above the content, and
+  the status chips collapse into one multi-select "Status: …" dropdown the
+  moment they can't share a line with the sort/view controls (measured, not a
+  fixed breakpoint).
+- **Tabs variant** — a complete alternative presentation (folder tabs on the
+  header baseline with a "N more ⌄" overflow) is kept working behind the
+  `FOLDER_NAV_STYLE` constant at the top of `dashboard.js` ('sidebar' | 'tabs').
+  Don't delete it as dead code.
+
+So: to give a set of related mocks this experience, just group them under a
+`folder` in `products.json` — no dashboard changes needed.
+
 ### Auto-updating meta.json (nobody maintains it)
 
 `meta.json` is regenerated on every push by `scripts/build-dashboards.js`

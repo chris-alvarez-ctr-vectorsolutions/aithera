@@ -117,7 +117,17 @@ products/<Product>/<feature>/
 3. Create **`versions.json`** with the single `ver1` entry shown above.
 4. Create the **`ver1/`** folder and copy **`base-template/version.html`** (the blank Vector canvas) to `ver1/index.html`. **Do all design work here, not in the root loader `index.html`.**
 5. If no mock description is given, scaffold these files and then ask where to start with the design in `ver1/index.html`.
-6. **Always add the new prototype to the `PRODUCTS` array in `/index.html`** so it appears in the shareable index, pointing at the **feature folder** (the loader): `{ name: 'Display Name', href: 'products/ProductName/feature-folder/' }`. Add it under the correct product block; if it belongs in a sub-folder group, add it inside the matching `{ folder: '...', items: [...] }` entry, or create a new one.
+6. **Always add the new prototype to `products.json`** (repo root) — the single curated source for BOTH the landing index and every product dashboard. Add an item under the correct product's `items`, pointing `rel` at the **feature folder** (the loader), relative to `products/<Product>/`:
+
+   ```json
+   { "name": "Display Name", "rel": "feature-folder", "modified": "YYYY-MM-DD",
+     "desc": "One tight sentence (~150 chars max): what the design shows + its key interaction.",
+     "jira": "TICKET-123", "status": "in-progress" }
+   ```
+
+   `jira` and `status` are optional. Valid statuses: `ready-for-dev`, `in-progress` (the default), `archived`.
+
+   **Folder groups are a first-class dashboard experience — use them deliberately.** Wrapping items in `{ "folder": "Group Name", "items": [ … ] }` makes that group render as a real **folder in the product dashboard**: an entry in the left "Folders" rail with per-status pill counts, selectable as a scope, and **favoritable** (designers can star folders to pin them; saved per browser). Group a workstream's related mocks into a folder (e.g. "Content Portal", "Qualifications"); leave one-off mocks at the top level — they show under the dashboard's "Main" entry. Always give every item a `desc`, including items inside folders.
 
 **Adding another version later** (do NOT add a hide/unhide switcher inside a design file):
 

@@ -86,63 +86,86 @@
             <span class="emoji" id="productEmoji">🎨</span>
             <span id="productName">Product</span>
           </span>
+        </div>
+        <h1 class="page-title">Design <em>Lab</em></h1>
+        <div class="header-bottom">
           <div class="meta-bar">
             <span class="live-indicator"><span class="live-dot"></span> Auto-updated on every push</span>
             <span class="dot-sep">·</span>
             <span id="lastUpdated"></span>
           </div>
-        </div>
-        <h1 class="page-title">Design <em>Lab</em></h1>
-        <div class="header-bottom">
-          <p class="page-subtitle">
-            Every in-progress prototype, one click away. Bookmark this page — it stays in sync as the design team ships new work.
-          </p>
+          <!-- Global search lives in the banner — it looks across ALL folders,
+               unlike the folder-scoped chips in the content column below. -->
+          <div class="header-search" id="headerSearch" hidden>
+            <div class="search-wrapper" id="searchWrapper">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="search" class="search-input" id="searchInput" placeholder="Search prototypes by name, description, or ticket…" autocomplete="off" spellcheck="false" />
+              <button class="search-clear" id="searchClear" type="button" aria-label="Clear search">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
           <nav class="folder-tabs" id="folderTabs" role="tablist" aria-label="Design folders" hidden></nav>
         </div>
       </div>
     </header>
 
-    <div class="toolbar" id="toolbar" hidden>
-      <div class="toolbar-row">
-        <div class="search-wrapper" id="searchWrapper">
-          <i class="fa-solid fa-magnifying-glass"></i>
-          <input type="search" class="search-input" id="searchInput" placeholder="Search prototypes by name, description, or ticket…" autocomplete="off" spellcheck="false" />
-          <button class="search-clear" id="searchClear" type="button" aria-label="Clear search">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-        <div class="sort-control">
-          <i class="fa-solid fa-arrow-down-wide-short sort-icon"></i>
-          <label class="sort-label" for="sortSelect">Sort</label>
-          <select class="sort-select" id="sortSelect" aria-label="Sort prototypes"></select>
-        </div>
-        <div class="view-switcher" id="viewSwitcher" role="group" aria-label="Switch layout">
-          <button class="view-toggle" type="button" data-view="card" title="Card view" aria-label="Card view" aria-pressed="true"><i class="fa-solid fa-table-cells-large"></i></button>
-          <button class="view-toggle" type="button" data-view="list" title="List view" aria-label="List view" aria-pressed="false"><i class="fa-solid fa-list"></i></button>
-        </div>
-      </div>
-      <div class="filter-chips" id="filterChips" role="group" aria-label="Filter by status"></div>
-    </div>
-
     <main class="content">
-      <div class="state" id="loadingState">
-        <div class="spinner"></div>
-        <p style="margin-top: 18px;">Loading the prototype index…</p>
-      </div>
+      <div class="content-columns">
+        <nav class="folder-nav" id="folderNav" aria-label="Design folders" hidden></nav>
+        <div class="content-main">
+          <!-- Toolbar lives INSIDE the content column: folder = scope (picked
+               in the rail), status chips = refinement within it. Search sits
+               up in the banner and looks across all folders. -->
+          <div class="toolbar" id="toolbar" hidden>
+            <div class="toolbar-row">
+              <div class="filter-chips" id="filterChips" role="group" aria-label="Filter by status"></div>
+              <!-- Compact multi-select replacement for the chips — only shown
+                   at narrow widths (the chips hide via media query). -->
+              <div class="status-dd" id="statusDd">
+                <button class="status-dd-btn" id="statusDdBtn" type="button" aria-haspopup="listbox" aria-expanded="false">
+                  <i class="fa-solid fa-filter"></i>
+                  <span id="statusDdLabel">Status: All</span>
+                  <i class="fa-solid fa-chevron-down status-dd-chev"></i>
+                </button>
+                <div class="status-dd-panel" id="statusDdPanel" role="listbox" aria-multiselectable="true" hidden></div>
+              </div>
+              <!-- Sort + view switch wrap BELOW as one unit when the column
+                   narrows — the status chips keep their line. -->
+              <div class="toolbar-controls">
+                <div class="sort-control">
+                  <i class="fa-solid fa-arrow-down-wide-short sort-icon"></i>
+                  <label class="sort-label" for="sortSelect">Sort</label>
+                  <select class="sort-select" id="sortSelect" aria-label="Sort prototypes"></select>
+                </div>
+                <div class="view-switcher" id="viewSwitcher" role="group" aria-label="Switch layout">
+                  <button class="view-toggle" type="button" data-view="card" title="Card view" aria-label="Card view" aria-pressed="true"><i class="fa-solid fa-table-cells-large"></i></button>
+                  <button class="view-toggle" type="button" data-view="list" title="List view" aria-label="List view" aria-pressed="false"><i class="fa-solid fa-list"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
 
-      <div id="contentRoot"></div>
+          <div class="state" id="loadingState">
+            <div class="spinner"></div>
+            <p style="margin-top: 18px;">Loading the prototype index…</p>
+          </div>
 
-      <div class="state" id="errorState" hidden>
-        <i class="fa-solid fa-circle-exclamation"></i>
-        <h3>Couldn't load the prototype index</h3>
-        <p id="errorMessage"></p>
-        <button class="retry" id="retryBtn" type="button">Try again</button>
-      </div>
+          <div id="contentRoot"></div>
 
-      <div class="state" id="emptyState" hidden>
-        <i class="fa-regular fa-folder-open"></i>
-        <h3>No prototypes yet</h3>
-        <p id="emptyMessage"></p>
+          <div class="state" id="errorState" hidden>
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <h3>Couldn't load the prototype index</h3>
+            <p id="errorMessage"></p>
+            <button class="retry" id="retryBtn" type="button">Try again</button>
+          </div>
+
+          <div class="state" id="emptyState" hidden>
+            <i class="fa-regular fa-folder-open"></i>
+            <h3>No prototypes yet</h3>
+            <p id="emptyMessage"></p>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -303,23 +326,27 @@
   }
 
   const STATUS_LABELS = {
-    'concept': 'Concept',
     'in-progress': 'In Progress',
-    'review': 'In Review',
     'ready-for-dev': 'Ready for Dev',
     'archived': 'Archived',
   };
   const DEFAULT_STATUS = 'in-progress';
-  const STATUS_ORDER = ['ready-for-dev', 'review', 'in-progress', 'concept', 'archived'];
+  const STATUS_ORDER = ['ready-for-dev', 'in-progress', 'archived'];
   // Font Awesome icon per status — shown in the status pill instead of a dot.
   const STATUS_ICONS = {
-    'concept': 'fa-lightbulb',
     'in-progress': 'fa-pencil',
-    'review': 'fa-eye',
     'ready-for-dev': 'fa-code',
     'archived': 'fa-box-archive',
   };
   function statusIcon(status) { return STATUS_ICONS[status] || 'fa-circle'; }
+
+  // How folder groups are presented: 'sidebar' (left folder panel with
+  // favorites) or 'tabs' (file-folder tabs in the header). Both implementations
+  // are kept working — flip this one constant to switch back.
+  const FOLDER_NAV_STYLE = 'sidebar';
+  // Sidebar-mode sentinel for state.tab. In tabs mode, null means the "Main"
+  // tab; folder names select a folder in both modes.
+  const MAIN_KEY = '__main__';
 
   const VIEW_KEY = 'designlab-view';
   const SORT_KEY = 'designlab-sort';
@@ -337,7 +364,9 @@
     statuses: new Set(),
     view: readStoredView(), // 'card' | 'list' — persisted per browser
     sort: readStoredSort(), // one of SORTS keys — persisted per browser
-    tab: null,              // active folder tab; null = the "Main" (top-level) tab
+    // Active folder selection. Sidebar mode: MAIN_KEY (default) or a folder
+    // name. Tabs mode: null = "Main" tab, or a folder name.
+    tab: FOLDER_NAV_STYLE === 'sidebar' ? MAIN_KEY : null,
   };
 
   function readStoredView() {
@@ -380,7 +409,9 @@
     byId('errorState').hidden = true;
     byId('emptyState').hidden = true;
     byId('toolbar').hidden = true;
+    byId('headerSearch').hidden = true;
     byId('folderTabs').hidden = true;
+    byId('folderNav').hidden = true;
     byId('contentRoot').innerHTML = '';
     byId('loadingState').hidden = false;
 
@@ -409,7 +440,8 @@
 
       byId('loadingState').hidden = true;
       byId('toolbar').hidden = false;
-      applyFiltersAndRender(); // renders the filter chips (tab-scoped counts) too
+      byId('headerSearch').hidden = false;
+      applyFiltersAndRender(); // renders the filter chips (scope-aware counts) too
       updateLastFetched();
     } catch (err) {
       showError(err);
@@ -519,6 +551,63 @@
       </button>`;
     }).join('');
     updateChipActiveState();
+
+    // Mirror the same data into the narrow-width multi-select dropdown, then
+    // decide which of the two representations fits.
+    renderStatusDd(chips);
+    fitToolbar();
+  }
+
+  // Compact-or-chips decision: measured, not a viewport breakpoint — the chip
+  // row collapses into the status dropdown the moment chips + sort/view
+  // controls can't share one line of the content column.
+  function fitToolbar() {
+    const toolbar = byId('toolbar');
+    if (toolbar.hidden) return;
+    const row = toolbar.querySelector('.toolbar-row');
+    const chips = byId('filterChips');
+    const ctrl = row.querySelector('.toolbar-controls');
+    // Natural single-line chip width (chips wrap internally, so force nowrap
+    // for the measurement, then restore).
+    chips.style.flexWrap = 'nowrap';
+    const natural = chips.scrollWidth;
+    chips.style.flexWrap = '';
+    const fits = natural + 14 + ctrl.offsetWidth <= row.clientWidth;
+    toolbar.classList.toggle('toolbar--compact', !fits);
+  }
+  let toolbarResizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(toolbarResizeTimer);
+    toolbarResizeTimer = setTimeout(fitToolbar, 120);
+  });
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => fitToolbar());
+  }
+
+  // Compact status dropdown (shown instead of the chips at narrow widths).
+  // Same semantics: "All" clears the set, statuses toggle independently.
+  function renderStatusDd(chips) {
+    const panel = byId('statusDdPanel');
+    const noneSelected = state.statuses.size === 0;
+    panel.innerHTML = chips.map(c => {
+      const active = c.status === 'all' ? noneSelected : state.statuses.has(c.status);
+      const empty = c.status !== 'all' && c.count === 0;
+      return `
+      <button class="status-dd-item" type="button" role="option" data-status="${escapeHtml(c.status)}"
+        aria-selected="${active ? 'true' : 'false'}"${empty ? ' disabled' : ''}>
+        <i class="fa-solid fa-check status-dd-check" data-on="${active ? 'true' : 'false'}"></i>
+        <span class="status-dd-name">${escapeHtml(c.label)}</span>
+        <span class="chip-count">${c.count}</span>
+      </button>`;
+    }).join('');
+
+    const label = byId('statusDdLabel');
+    if (noneSelected) {
+      label.textContent = 'Status: All';
+    } else {
+      const names = STATUS_ORDER.filter(s => state.statuses.has(s)).map(s => STATUS_LABELS[s]);
+      label.textContent = names.length === 1 ? `Status: ${names[0]}` : `Status: ${names.length} selected`;
+    }
   }
 
   function updateChipActiveState() {
@@ -546,13 +635,21 @@
     //    contents. The toolbar (search / filter / sort) applies WITHIN the
     //    active tab, below.
     const { folders, loose } = partitionFolders(state.allMocks);
-    renderTabBar(folders, loose, !!search);
+    const sidebar = FOLDER_NAV_STYLE === 'sidebar';
+    if (sidebar) {
+      renderFolderNav(folders, loose, !!search);
+      byId('folderTabs').hidden = true;
+    } else {
+      renderTabBar(folders, loose, !!search);
+      byId('folderNav').hidden = true;
+    }
 
-    // 2) Pick the active tab's subset. While searching, look across ALL tabs
-    //    so matches can't hide behind an unselected tab (the bar dims to show
-    //    it's bypassed).
+    // 2) Pick the active selection's subset. The banner search is GLOBAL: while
+    //    a query is active it looks across every folder (the rail dims to show
+    //    the folder scope is bypassed). The status chips below stay scoped to
+    //    whatever the results are.
     const subset = search ? state.allMocks
-      : (state.tab && folders.has(state.tab)) ? folders.get(state.tab)
+      : (state.tab && state.tab !== MAIN_KEY && folders.has(state.tab)) ? folders.get(state.tab)
       : loose;
 
     // 3) Apply the toolbar filters to that subset. Search first, so the chip
@@ -571,9 +668,11 @@
     if (statusFilter.size > 0) filtered = filtered.filter(m => statusFilter.has(m.status));
 
     if (filtered.length === 0) {
-      // Global no-results while searching (or when there are no folder tabs);
-      // a lighter "check the other tabs" note when only this tab came up empty.
-      if (search || !folders.size) renderNoResults();
+      // Full no-results state when everything was in scope (global search or
+      // no folders); a lighter "check another folder" note when only the
+      // selected folder came up empty.
+      const wholeScope = !folders.size || search;
+      if (wholeScope) renderNoResults();
       else renderTabEmpty(root);
       return;
     }
@@ -729,7 +828,8 @@
     closeTabMenu();
     if (state.tab === tabKey && !state.search) return;
     state.tab = tabKey;
-    // Selecting a tab while searching exits the search into that tab.
+    // The banner search is global (spans all folders) — picking a folder while
+    // a query is active exits the search into that folder's scope.
     if (state.search) {
       state.search = '';
       const input = byId('searchInput');
@@ -875,6 +975,86 @@
     });
   }
 
+  // ----------------------------------------------------------------------
+  // Folder SIDEBAR (FOLDER_NAV_STYLE === 'sidebar') — the left panel
+  // alternative to the header tabs. "All designs" and "Main" pinned on top,
+  // then favorited folders (star, persisted per browser), then the rest.
+  // ----------------------------------------------------------------------
+  const FAV_KEY = 'designlab-fav-folders:' + PRODUCT;
+  function readFavFolders() {
+    try {
+      const a = JSON.parse(localStorage.getItem(FAV_KEY));
+      return Array.isArray(a) ? a : [];
+    } catch { return []; }
+  }
+  function toggleFavFolder(name) {
+    const favs = readFavFolders();
+    const i = favs.indexOf(name);
+    if (i === -1) favs.push(name); else favs.splice(i, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch { /* private mode */ }
+  }
+
+  function renderFolderNav(folders, loose, searching) {
+    const nav = byId('folderNav');
+    if (!folders.size) { nav.hidden = true; nav.innerHTML = ''; return; }
+
+    // Reset a stale selection (e.g. the folder disappeared from products.json).
+    if (state.tab !== MAIN_KEY && !folders.has(state.tab)) {
+      state.tab = MAIN_KEY;
+    }
+
+    nav.hidden = false;
+    nav.innerHTML = '';
+    nav.dataset.searching = searching ? 'true' : 'false';
+    nav.title = searching ? 'Search looks across all folders' : '';
+
+    const favs = readFavFolders().filter(n => folders.has(n));
+    const names = [...folders.keys()].sort((a, b) => a.localeCompare(b));
+    const favNames = names.filter(n => favs.includes(n));
+    const restNames = names.filter(n => !favs.includes(n));
+
+    const row = (label, mocks, key, iconClass, favoritable) => {
+      const active = !searching && state.tab === key;
+      const isFav = favoritable && favs.includes(label);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'fnav-item';
+      btn.dataset.active = active ? 'true' : 'false';
+      btn.title = label;
+      btn.innerHTML = `
+        <span class="fnav-name">
+          <i class="fa-solid ${iconClass} fnav-icon"></i>
+          <span class="fnav-text">${escapeHtml(label)}</span>
+        </span>
+        ${favoritable ? `<span class="fnav-star" data-fav="${isFav ? 'true' : 'false'}" role="button" tabindex="0" title="${isFav ? 'Unfavorite folder' : 'Favorite folder'}" aria-label="${isFav ? 'Unfavorite' : 'Favorite'} ${escapeHtml(label)}"><i class="fa-${isFav ? 'solid' : 'regular'} fa-star"></i></span>` : ''}
+        <span class="fnav-pills">${statusSummary(mocks)}</span>`;
+      btn.addEventListener('click', e => {
+        const star = e.target.closest('.fnav-star');
+        if (star) {
+          toggleFavFolder(label);
+          renderFolderNav(folders, loose, searching); // reorder in place
+          return;
+        }
+        selectTab(key);
+      });
+      return btn;
+    };
+
+    const label = document.createElement('div');
+    label.className = 'fnav-label';
+    label.textContent = 'Folders';
+    nav.appendChild(label);
+
+    nav.appendChild(row('Main', loose, MAIN_KEY, 'fa-house', false));
+
+    const divider = document.createElement('div');
+    divider.className = 'fnav-divider';
+    nav.appendChild(divider);
+
+    favNames.forEach(n => nav.appendChild(row(n, folders.get(n), n, (!searching && state.tab === n) ? 'fa-folder-open' : 'fa-folder', true)));
+    restNames.forEach(n => nav.appendChild(row(n, folders.get(n), n, (!searching && state.tab === n) ? 'fa-folder-open' : 'fa-folder', true)));
+  }
+
   // Status-grouped sections of FULL cards — used for the main (loose) area and,
   // via renderFolders, inside each opened folder. `sub` shrinks the headers a
   // notch when nested in a folder.
@@ -926,7 +1106,7 @@
   function renderTabEmpty(root) {
     const el = document.createElement('p');
     el.className = 'tab-empty';
-    el.innerHTML = 'Nothing in this tab matches the active filters — check the other tabs or clear the status filter.';
+    el.innerHTML = 'Nothing in this folder matches — try another folder, or clear the search / status filter.';
     root.appendChild(el);
   }
 
@@ -1348,15 +1528,49 @@
       applyFiltersAndRender();
       searchInput.focus();
     });
-    byId('filterChips').addEventListener('click', (e) => {
-      const chip = e.target.closest('.filter-chip');
-      if (!chip) return;
-      const status = chip.dataset.status;
+    const toggleStatusFilter = (status) => {
       if (status === 'all') state.statuses.clear();
       else if (state.statuses.has(status)) state.statuses.delete(status);
       else state.statuses.add(status);
       updateChipActiveState();
       applyFiltersAndRender();
+    };
+
+    byId('filterChips').addEventListener('click', (e) => {
+      const chip = e.target.closest('.filter-chip');
+      if (!chip) return;
+      toggleStatusFilter(chip.dataset.status);
+    });
+
+    // Narrow-width status dropdown: the trigger toggles the panel; options
+    // multi-select WITHOUT closing it (re-renders keep it open). Closes on
+    // outside click or Escape.
+    const statusDdBtn = byId('statusDdBtn');
+    const statusDdPanel = byId('statusDdPanel');
+    statusDdBtn.addEventListener('click', () => {
+      const open = statusDdPanel.hidden;
+      statusDdPanel.hidden = !open;
+      statusDdBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    statusDdPanel.addEventListener('click', (e) => {
+      const item = e.target.closest('.status-dd-item');
+      if (!item) return;
+      // Stop the bubble: the re-render below detaches the clicked node, which
+      // would make the document-level outside-click check close the panel.
+      e.stopPropagation();
+      toggleStatusFilter(item.dataset.status); // panel innerHTML refreshes; stays open
+    });
+    document.addEventListener('click', (e) => {
+      if (!statusDdPanel.hidden && !e.target.closest('.status-dd')) {
+        statusDdPanel.hidden = true;
+        statusDdBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !statusDdPanel.hidden) {
+        statusDdPanel.hidden = true;
+        statusDdBtn.setAttribute('aria-expanded', 'false');
+      }
     });
 
     // Sort dropdown
@@ -1518,7 +1732,7 @@
       }
       @keyframes live-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); } 50% { box-shadow: 0 0 0 5px rgba(16, 185, 129, 0); } }
 
-      .content { max-width: 1400px; margin: 0 auto; padding: 0 32px 64px; }
+      .content { max-width: 1400px; margin: 0 auto; padding: 28px 32px 64px; }
 
       .state { text-align: center; padding: 64px 24px; color: var(--text-muted); }
       .state h3 { font-family: var(--serif); font-size: 22px; font-weight: 700; color: var(--text); margin: 16px 0 8px; }
@@ -1619,10 +1833,7 @@
       /* Status icon (Font Awesome) — inherits the pill's text color per status. */
       .status-icon { font-size: 10px; }
 
-      .status-badge[data-status="concept"]       { background: #e0e7ff; color: #3730a3; }
       .status-badge[data-status="in-progress"]   { background: #fef3c7; color: #92400e; }
-      .status-badge[data-status="review"]        { background: #dbeafe; color: #1e40af; }
-      .status-badge[data-status="ready"]         { background: #d1fae5; color: #065f46; }
       .status-badge[data-status="archived"]      { background: #f4f4f5; color: #52525b; }
       .status-badge[data-status="ready-for-dev"] { background: #cffafe; color: #155e75; }
       /* ── Folder tabs ─────────────────────────────────────────────────────
@@ -1636,8 +1847,15 @@
          header's bottom edge. The active tab drops over the line (opaque bg +
          negative margin) so it reads as "open" — switching tabs visibly swaps
          what's connected to the flat content zone below. */
-      .header-bottom { display: block; }
-      .page-subtitle { padding-bottom: 24px; }
+      .header-bottom {
+        display: flex; align-items: flex-end; justify-content: space-between;
+        flex-wrap: wrap; gap: 12px 32px;
+      }
+      /* The meta line sits where the subtitle copy used to be. */
+      .header-bottom .meta-bar { padding-bottom: 22px; }
+      /* Banner search — global, right-aligned on the meta line. */
+      .header-search { flex: 0 1 460px; min-width: 280px; margin-bottom: 16px; }
+      .header-search[hidden] { display: none; }
       .folder-tabs {
         display: flex; flex-wrap: wrap; align-items: flex-end; gap: 2px;
         border-bottom: 2px solid color-mix(in srgb, var(--accent) 35%, var(--border));
@@ -1715,6 +1933,67 @@
       .folder-tab-menu-item .folder-tab-icon { color: var(--accent); }
       .folder-tab-menu-item .folder-tab-name { flex: 1; white-space: normal; }
       .folder-tab-menu-item .folder-tab-pills { margin-left: auto; }
+
+      /* ── Folder sidebar (FOLDER_NAV_STYLE === 'sidebar') ─────────────────
+         Sticky left panel: All designs / Main pinned, then favorited folders
+         (star, persisted per browser), then the rest alphabetically. */
+      .content-columns { display: flex; align-items: flex-start; gap: 28px; }
+      .content-main { flex: 1 1 auto; min-width: 0; }
+      .folder-nav {
+        flex: 0 0 250px; width: 250px; position: sticky; top: 18px;
+        /* Scroll independently when the folder list outgrows the viewport. */
+        max-height: calc(100vh - 36px); overflow-y: auto;
+        background: var(--card-bg); border: 1px solid var(--border);
+        border-radius: 14px; padding: 14px 10px; box-shadow: var(--shadow-sm);
+        display: flex; flex-direction: column; gap: 2px;
+        transition: opacity 0.15s ease;
+      }
+      .folder-nav[hidden] { display: none; }
+      .folder-nav[data-searching="true"] { opacity: 0.45; }
+      .fnav-label {
+        font-family: var(--display); font-size: 11px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 1.4px; color: var(--text-muted);
+        padding: 2px 12px 10px;
+      }
+      .fnav-divider { border-top: 1px solid var(--border); margin: 8px 10px; }
+      .fnav-item {
+        display: flex; align-items: center; gap: 8px; width: 100%;
+        background: none; border: none; cursor: pointer; text-align: left;
+        padding: 9px 12px; border-radius: 10px;
+        font-family: var(--display); font-size: 13.5px; font-weight: 600; color: var(--text-soft);
+        transition: background 0.1s ease, color 0.1s ease;
+      }
+      .fnav-item:hover { background: var(--accent-soft); color: var(--text); }
+      .fnav-item[data-active="true"] { background: var(--accent); color: #fff; }
+      .fnav-item[data-active="true"] .fnav-icon { color: #fff; }
+      .fnav-name { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }
+      .fnav-icon { font-size: 12px; color: var(--text-muted); width: 14px; text-align: center; }
+      .fnav-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .fnav-pills { display: inline-flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+      /* Star: hidden until the row is hovered, always visible when favorited. */
+      .fnav-star {
+        display: inline-flex; align-items: center; padding: 2px 3px;
+        color: var(--text-muted); font-size: 11.5px; opacity: 0; cursor: pointer;
+        transition: opacity 0.1s ease, color 0.1s ease, transform 0.1s ease;
+      }
+      .fnav-item:hover .fnav-star { opacity: 0.75; }
+      .fnav-star:hover { opacity: 1 !important; transform: scale(1.15); }
+      .fnav-star[data-fav="true"] { opacity: 1; color: #f59e0b; }
+      .fnav-item[data-active="true"] .fnav-star { color: rgba(255,255,255,0.85); }
+      .fnav-item[data-active="true"] .fnav-star[data-fav="true"] { color: #fde68a; }
+
+      /* Narrow screens: the sidebar becomes a wrapping row above the content. */
+      @media (max-width: 980px) {
+        .content-columns { display: block; }
+        .folder-nav {
+          position: static; width: auto; flex-direction: row; flex-wrap: wrap;
+          align-items: center; gap: 4px; margin-bottom: 20px; padding: 10px;
+        }
+        .fnav-label { width: 100%; padding-bottom: 6px; }
+        .fnav-item { width: auto; }
+        .fnav-item .fnav-pills { display: none; }
+        .fnav-divider { display: none; }
+      }
 
       .tab-empty { color: var(--text-muted); font-size: 13.5px; padding: 18px 2px; }
 
@@ -1913,9 +2192,56 @@
         padding: 1px 6px; border-radius: 4px; font-size: 11.5px;
       }
 
-      .toolbar { max-width: 1400px; margin: 26px auto 28px; padding: 0 32px; display: flex; flex-direction: column; gap: 14px; }
+      /* In-column toolbar: spans the content column (right of the rail). */
+      .toolbar { margin: 0 0 24px; display: flex; flex-direction: column; gap: 14px; }
       /* Row 1: search grows and pushes sort + view switcher to the right. */
-      .toolbar-row { display: flex; align-items: center; gap: 14px; }
+      /* Chips refuse to compress (flex-shrink 0), so when the column narrows
+         the controls group wraps to its own line first; only on very tight
+         widths (max-width cap) do the chips themselves start wrapping. */
+      .toolbar-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; position: relative; }
+      .filter-chips { flex: 1 0 auto; max-width: 100%; }
+      .toolbar-controls { display: flex; align-items: center; gap: 14px; margin-left: auto; flex: 0 0 auto; }
+      /* Compact mode (set by fitToolbar() whenever chips + controls can't
+         share one line): the chip row hides (kept measurable off-flow) and
+         the multi-select status dropdown takes its place. */
+      .toolbar--compact .filter-chips { position: absolute; visibility: hidden; pointer-events: none; }
+      .toolbar--compact .status-dd { display: inline-flex; }
+
+      /* ── Narrow-width status dropdown ────────────────────────────────────
+         Below the sidebar-collapse breakpoint the chip row swaps for one
+         compact multi-select "Status: …" dropdown. */
+      .status-dd { display: none; position: relative; flex: 1 1 auto; }
+      .status-dd-btn {
+        display: inline-flex; align-items: center; gap: 9px;
+        background: var(--card-bg); border: 1px solid var(--border-strong);
+        border-radius: 999px; padding: 9px 16px; cursor: pointer;
+        font-family: var(--display); font-size: 13px; font-weight: 600; color: var(--text-soft);
+        transition: border-color 0.12s ease, color 0.12s ease;
+      }
+      .status-dd-btn:hover, .status-dd-btn[aria-expanded="true"] { border-color: var(--accent); color: var(--accent-deep); }
+      .status-dd-btn .fa-filter { font-size: 11px; }
+      .status-dd-chev { font-size: 10px; transition: transform 0.15s ease; }
+      .status-dd-btn[aria-expanded="true"] .status-dd-chev { transform: rotate(180deg); }
+      .status-dd-panel {
+        position: absolute; top: calc(100% + 6px); left: 0; z-index: 5000;
+        min-width: 240px; background: var(--card-bg);
+        border: 1px solid var(--border-strong); border-radius: 12px;
+        box-shadow: var(--shadow-lg); padding: 6px;
+        display: flex; flex-direction: column; gap: 2px;
+      }
+      .status-dd-panel[hidden] { display: none; }
+      .status-dd-item {
+        display: flex; align-items: center; gap: 10px; width: 100%;
+        background: none; border: none; cursor: pointer; text-align: left;
+        padding: 9px 12px; border-radius: 8px;
+        font-family: var(--display); font-size: 13px; font-weight: 600; color: var(--text);
+      }
+      .status-dd-item:hover { background: var(--accent-soft); }
+      .status-dd-item[disabled] { opacity: 0.45; cursor: default; }
+      .status-dd-check { font-size: 11px; color: var(--accent); width: 13px; }
+      .status-dd-check[data-on="false"] { visibility: hidden; }
+      .status-dd-name { flex: 1; }
+
       .search-wrapper { position: relative; flex: 1 1 auto; min-width: 200px; }
       .search-wrapper i.fa-magnifying-glass {
         position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
@@ -1957,18 +2283,12 @@
       .filter-chip[data-active="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-deep); box-shadow: 0 2px 6px var(--accent-glow); }
       .filter-chip[data-active="true"] .chip-count { background: rgba(255, 255, 255, 0.6); color: var(--accent-deep); }
 
-      .filter-chip[data-status="concept"][data-active="true"]     { border-color: #6366f1; background: #e0e7ff; color: #3730a3; }
       .filter-chip[data-status="in-progress"][data-active="true"] { border-color: #f59e0b; background: #fef3c7; color: #92400e; }
-      .filter-chip[data-status="review"][data-active="true"]      { border-color: #3b82f6; background: #dbeafe; color: #1e40af; }
-      .filter-chip[data-status="ready"][data-active="true"]       { border-color: #10b981; background: #d1fae5; color: #065f46; }
       .filter-chip[data-status="archived"][data-active="true"]    { border-color: #a1a1aa; background: #f4f4f5; color: #52525b; }
       .filter-chip[data-status="ready-for-dev"][data-active="true"] { border-color: #06b6d4; background: #cffafe; color: #155e75; }
 
       .filter-chip .chip-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }
-      .filter-chip[data-status="concept"] .chip-dot     { background: #6366f1; }
       .filter-chip[data-status="in-progress"] .chip-dot { background: #f59e0b; }
-      .filter-chip[data-status="review"] .chip-dot      { background: #3b82f6; }
-      .filter-chip[data-status="ready"] .chip-dot       { background: #10b981; }
       .filter-chip[data-status="archived"] .chip-dot    { background: #a1a1aa; }
       .filter-chip[data-status="ready-for-dev"] .chip-dot { background: #06b6d4; }
 
