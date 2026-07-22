@@ -578,6 +578,7 @@ CRAFT EXEMPLAR (shipped gold standard — match craft, NOT topic):
   /* ---- the spec ----------------------------------------------------------- */
   T.wizard = {
     title: 'Start from scratch — Guided Arc',
+    tagline: 'Coached topic turns in Learn, then a live Practice scene — the Marshall format.',
     intro: 'A short brief, an interview in your own words, then an AI-drafted scenario lands in the editor.',
 
     derive(intake) {

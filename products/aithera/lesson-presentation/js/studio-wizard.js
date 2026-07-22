@@ -164,6 +164,28 @@
   .wiz-btn.primary:hover:not(:disabled) { filter: brightness(1.06); color: var(--on-accent); }
   .wiz-reqnote { font-size: 11.5px; color: var(--ink-faint); }
 
+  /* type chooser (step 0) — mirrors the editor's core-interaction cards */
+  .wiz-types { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; max-width: 680px; }
+  @media (max-width: 720px) { .wiz-types { grid-template-columns: 1fr; } }
+  .wiz-typecard {
+    display: flex; gap: 12px; align-items: flex-start; text-align: left;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+    padding: 13px 14px; cursor: pointer; font: inherit; color: var(--ink);
+    transition: border-color .12s, background .12s, box-shadow .12s;
+  }
+  .wiz-typecard:hover:not(:disabled) { border-color: var(--accent); }
+  .wiz-typecard.is-on { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+  .wiz-typecard.is-off { opacity: .55; cursor: default; }
+  .wiz-typecard .ic {
+    flex: 0 0 auto; width: 32px; height: 32px; border-radius: 9px;
+    display: grid; place-items: center; background: var(--surface-2); color: var(--accent); font-size: 14px;
+  }
+  .wiz-typecard.is-on .ic { background: var(--accent); color: var(--on-accent); }
+  .wiz-typecard .tx { min-width: 0; }
+  .wiz-typecard .nm { display: block; font-size: 14px; font-weight: 700; }
+  .wiz-typecard .tg { display: block; font-size: 12px; color: var(--ink-faint); margin-top: 2px; line-height: 1.45; }
+  .wiz-typecard .ck { margin-left: auto; color: var(--accent); font-size: 14px; align-self: center; }
+
   @media (max-width: 720px) {
     .wiz-overlay { padding: 0; }
     .wiz-modal { height: 100%; border-radius: 0; }
@@ -219,22 +241,31 @@
 
   /* ---- the wizard component ---------------------------------------------- */
   function open(ctx) {
-    const type = ctx.type;
-    const spec = type.wizard;
-    if (!spec) return null;
+    /* Every registered type with a `wizard` spec is buildable here — the
+       author picks WHICH on the first step, exactly like the editor's
+       core-interaction templates. The chosen type drives the interview,
+       the generation plan, and where the draft lands. */
+    const registry = (window.AitheraStudio && window.AitheraStudio.list) ? window.AitheraStudio.list() : [ctx.type];
+    if (!registry.some((t) => t && t.wizard)) return null;
 
-    const intakeKey = `aithera.writerStudio.wizard.${type.id}.v1`;
-
-    /* intake: restore a half-finished interview from this browser */
-    let intake = {};
-    try { intake = JSON.parse(localStorage.getItem(intakeKey)) || {}; } catch (e) { intake = {}; }
+    let chosen, spec, intakeKey, intake, gen;
+    function loadChosen(t) {
+      chosen = t;
+      spec = t.wizard;
+      intakeKey = `aithera.writerStudio.wizard.${t.id}.v1`;
+      /* intake: restore a half-finished interview (kept PER TYPE, so
+         switching the choice never loses another interview's answers) */
+      try { intake = JSON.parse(localStorage.getItem(intakeKey)) || {}; } catch (e) { intake = {}; }
+      /* generation state resets with the choice */
+      gen = { running: false, done: false, draft: null, acc: { results: {} }, tasks: [], status: {} };
+    }
+    loadChosen((ctx.type && ctx.type.wizard) ? ctx.type : registry.find((t) => t && t.wizard));
     const persistIntake = () => { try { localStorage.setItem(intakeKey, JSON.stringify(intake)); } catch (e) { /* full/blocked storage is fine */ } };
 
-    /* generation state */
-    const gen = { running: false, done: false, draft: null, acc: { results: {} }, tasks: [], status: {} };
-
     let stepIdx = 0;
-    const steps = spec.steps.concat([{ id: '__generate', title: 'Generate', sub: '' }]);
+    // Step 0 is the type choice; the rest belong to the CHOSEN spec.
+    const steps = () => [{ id: '__type', title: 'What are you building?', sub: '' }]
+      .concat(spec.steps, [{ id: '__generate', title: 'Generate', sub: '' }]);
 
     /* ---- shell DOM ---- */
     if (!document.getElementById('wizStyles')) {
@@ -250,8 +281,8 @@
         <div class="wiz-head">
           <span class="wiz-logo"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
           <span class="wiz-titles">
-            <span class="wiz-title">${esc(spec.title)}</span><br>
-            <span class="wiz-sub">${esc(spec.intro || '')}</span>
+            <span class="wiz-title" id="wizTitle">${esc(spec.title)}</span><br>
+            <span class="wiz-sub" id="wizSub">${esc(spec.intro || '')}</span>
           </span>
           <button class="wiz-close" id="wizClose"><i class="fa-solid fa-xmark"></i> Close</button>
         </div>
@@ -273,9 +304,36 @@
 
     /* ---- step rail ---- */
     function renderSteps() {
-      $w('#wizSteps').innerHTML = steps.map((s, i) =>
+      $w('#wizSteps').innerHTML = steps().map((s, i) =>
         `<span class="wiz-step${i === stepIdx ? ' is-active' : ''}${i < stepIdx ? ' is-done' : ''}">
           <span class="n">${i < stepIdx ? '<i class="fa-solid fa-check"></i>' : i + 1}</span> ${esc(s.title)}</span>`).join('');
+    }
+
+    /* ---- step 0: the type chooser ---- */
+    function renderTypeStep() {
+      const body = $w('#wizBody');
+      body.innerHTML = `<h2 class="wiz-step-title">What are you building?</h2>
+        <p class="wiz-step-sub">Pick the core interaction — the interview and the generated draft are shaped by it, just like the editor's interaction templates. Each choice keeps its own saved answers, so switching loses nothing.</p>`;
+      const grid = document.createElement('div');
+      grid.className = 'wiz-types';
+      registry.forEach((t) => {
+        if (!t) return;
+        const has = !!t.wizard;
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'wiz-typecard' + (t.id === chosen.id ? ' is-on' : '') + (has ? '' : ' is-off');
+        card.disabled = !has;
+        card.innerHTML = `<span class="ic"><i class="fa-solid ${esc(t.icon || 'fa-cube')}"></i></span>
+          <span class="tx"><span class="nm">${esc(t.label)}</span>
+          <span class="tg">${esc(has ? (t.wizard.tagline || t.wizard.intro || '') : 'Guided setup isn’t built for this mode yet.')}</span></span>
+          ${t.id === chosen.id ? '<span class="ck"><i class="fa-solid fa-circle-check"></i></span>' : ''}`;
+        if (has) card.addEventListener('click', () => {
+          if (t.id !== chosen.id) loadChosen(t);
+          renderAll();
+        });
+        grid.appendChild(card);
+      });
+      body.appendChild(grid);
     }
 
     /* ---- field renderers ---- */
@@ -412,7 +470,7 @@
     /* ---- generation step body ---- */
     function renderGenerateStep() {
       if (spec.derive) spec.derive(intake);
-      gen.tasks = spec.plan(intake, type);
+      gen.tasks = spec.plan(intake, chosen);
       const body = $w('#wizBody');
       const savedUrl = localStorage.getItem(ctx.workerUrlKey) || DEFAULT_WORKER;
       body.innerHTML = `
@@ -454,7 +512,7 @@
       gen.running = true;
       renderFoot();
       // First run (not a resume): start from the type's complete blank skeleton.
-      if (!gen.draft) gen.draft = spec.start(type);
+      if (!gen.draft) gen.draft = spec.start(chosen);
       for (const t of gen.tasks) {
         const st = gen.status[t.id] || {};
         if (st.state === 'ok') continue;   // resume: keep what already landed
@@ -480,17 +538,38 @@
 
     function landDraft() {
       if (!gen.done || !gen.draft) return;
-      ctx.replaceScenario(type.normalize(gen.draft));
+      const normalized = chosen.normalize(gen.draft);
       try { localStorage.removeItem(intakeKey); } catch (e) { /* nothing to clean */ }
-      ctx.toast(spec.landNote ? spec.landNote(intake) : 'Draft generated — review it section by section, then playtest.');
-      overlay.remove();
-      document.removeEventListener('keydown', onKey);
+
+      // Same type as the open studio → land in place, like always.
+      if (ctx.type && chosen.id === ctx.type.id) {
+        ctx.replaceScenario(normalized);
+        ctx.toast(spec.landNote ? spec.landNote(intake) : 'Draft generated — review it section by section, then playtest.');
+        overlay.remove();
+        document.removeEventListener('keydown', onKey);
+        return;
+      }
+
+      // CROSS-TYPE landing: write the draft into the CHOSEN type's own slot
+      // (each type has its own draft/published/library), snapshotting that
+      // type's existing draft to its Library first, then reload the studio
+      // into the chosen mode — it boots straight into the new draft.
+      try {
+        const prevRaw = localStorage.getItem(chosen.store.keys.draft);
+        if (prevRaw) {
+          const prev = JSON.parse(prevRaw);
+          if (prev && typeof prev === 'object') chosen.store.saveToLibrary(prev);
+        }
+      } catch (e) { /* snapshot is best-effort */ }
+      localStorage.setItem(chosen.store.keys.draft, JSON.stringify(normalized));
+      location.search = '?type=' + encodeURIComponent(chosen.id);
     }
 
     /* ---- footer ---- */
     function renderFoot() {
       const foot = $w('#wizFoot');
-      const isGen = steps[stepIdx].id === '__generate';
+      const stepList = steps();
+      const isGen = stepList[stepIdx].id === '__generate';
       foot.innerHTML = '';
 
       const back = document.createElement('button');
@@ -509,9 +588,9 @@
         note.textContent = 'Answers save as you type — closing loses nothing.';
         const next = document.createElement('button');
         next.className = 'wiz-btn primary';
-        next.innerHTML = `Next: ${esc(steps[stepIdx + 1].title)} <i class="fa-solid fa-arrow-right"></i>`;
+        next.innerHTML = `Next: ${esc(stepList[stepIdx + 1].title)} <i class="fa-solid fa-arrow-right"></i>`;
         next.addEventListener('click', () => {
-          const missing = firstMissing(steps[stepIdx]);
+          const missing = firstMissing(steps()[stepIdx]);
           if (missing) {
             ctx.toast(`“${val(missing.label, intake)}” is needed before the draft can be generated.`);
             const el = overlay.querySelector(`[data-wiz-key="${missing.key}"], [data-wizKey="${missing.key}"]`) ||
@@ -543,13 +622,17 @@
     }
 
     function renderBody() {
-      const step = steps[stepIdx];
+      const step = steps()[stepIdx];
       if (spec.derive) spec.derive(intake);
-      if (step.id === '__generate') renderGenerateStep();
+      if (step.id === '__type') renderTypeStep();
+      else if (step.id === '__generate') renderGenerateStep();
       else renderIntakeStep(step);
     }
 
     function renderAll() {
+      // The header names the CHOSEN build, so switching types re-labels it.
+      const t = $w('#wizTitle'); if (t) t.textContent = spec.title;
+      const s = $w('#wizSub'); if (s) s.textContent = spec.intro || '';
       renderSteps();
       renderBody();
       renderFoot();
