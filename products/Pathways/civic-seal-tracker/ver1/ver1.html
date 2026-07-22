@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seal Tracker · NY Seal of Civic Readiness</title>
+
+    <!--
+    ══════════════════════════════════════════════════════════════════════════
+    PathwayOS · Student seal tracker detail page (/student/civic-seal) · V1
+    Targeted refinement of the existing page. Same layout, same visual system.
+
+    ASSUMPTIONS ABOUT THE CURRENT IMPLEMENTATION (flagged for the team):
+    1. The page is composed of: SealHeaderBanner, SealSummaryCard (ring
+       counters), RequirementsAccordion, and per-category stacks of
+       CriterionRow components. Each CriterionRow owns a StatusIcon, a
+       title/limit block, an EvidenceList, a HowToEarnPanel, and a
+       right-aligned PointsColumn.
+    2. Criterion rows are already data-driven per state config (NY = 2
+       categories); nothing below assumes exactly two sections. Everything
+       new hangs off the criterion record (parts, maxEarnCount, linkedBadge,
+       selfReportEligible), not the category.
+    3. Progress increments (credits, exam scores, approved activities)
+       already exist as discrete records, since evidence bullets render per
+       increment today. The "3 of 4" count reuses those records.
+    4. The linked badge and the criterion are separate objects today with a
+       join between them (the "You may also earn…" string implies one).
+       Merging their presentation assumes that join is queryable.
+    5. A student activity upload/attest + admin approval flow already exists
+       via the badge path; "Submit evidence" routes into it unchanged.
+    6. District flag for student self-reporting exists (mock assumes ON).
+    AMBIGUOUS / TO CONFIRM:
+    - Whether repeatable criteria have a max (limit 2x) vs unlimited affects
+      whether ticks render; unlimited repeatables get "Earned N times" text
+      with no ticks (shown on the Mastery/Proficiency rows).
+    - Whether points can be fractional in rollups (donuts here show 2.5).
+    - Exact copy approval for the NY regulation microcopy.
+    ══════════════════════════════════════════════════════════════════════════
+    -->
+
+    <script
+    type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+    </script>
+    <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+    </script>
+    <link
+    rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+    />
+    <!-- Roboto: PathwayOS's existing type family (keeping the page's current look) -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"/>
+    <!-- Font Awesome 6 Icons -->
+    <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    />
+
+<style>
+/* ─── Tokens (existing PathwayOS palette, unchanged) ─────────────────── */
+:root{
+  --navy:#1c2b4a;            /* header banner */
+  --ink:#1f2937;             /* headings */
+  --body:#4b5563;            /* body text */
+  --muted:#6b7280;           /* secondary text */
+  --line:#e5e7eb;            /* card borders */
+  --panel:#f4f5f7;           /* "How to earn" panel */
+  --page:#f6f7f9;            /* page background */
+  --green:#2e7d32;           /* earned */
+  --green-soft:#e8f5e9;
+  --blue:#3949ab;            /* links, primary actions */
+  --blue-soft:#eef2ff;
+  --blue-line:#c7d2fe;
+  --gold:#d4a72c;            /* summary "in progress toward requirement" arcs */
+  --gold-ink:#8a6116;
+  --amber:#d97706;           /* NEW state: pending approval (matches the
+                                dashboard "In Progress" chip family) */
+  --amber-ink:#92500a;
+  --amber-soft:#fef3e2;
+  --amber-line:#f3d9ae;
+  --track:#e0e3e8;           /* empty ring / bar track */
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Roboto','Open Sans',sans-serif;background:var(--page);color:var(--body);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.page{max-width:1120px;margin:0 auto;padding:20px 24px 64px}
+h1,h2,h3{color:var(--ink)}
+button{font:inherit;cursor:pointer;background:none;border:none;color:inherit}
+
+/* ─── Wayfinding (NEW: back-context above the page title) ────────────── */
+.backlink{display:inline-flex;align-items:center;gap:8px;color:var(--blue);font-size:13px;font-weight:500;text-decoration:none;margin-bottom:6px;border-radius:4px;padding:2px 4px 2px 0}
+.backlink:hover{text-decoration:underline}
+.page-title{font-size:20px;font-weight:500;margin-bottom:14px}
+
+/* ─── SealHeaderBanner (unchanged) ───────────────────────────────────── */
+.banner{background:var(--navy);border-radius:8px;display:flex;align-items:center;gap:16px;padding:20px 24px;margin-bottom:16px}
+.banner .emblem{width:52px;height:52px;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;color:#cfd8e6;font-size:20px;flex-shrink:0}
+.banner .who{color:#fff}
+.banner .who .name{font-size:19px;font-weight:700;letter-spacing:.2px}
+.banner .who .sub{font-size:12.5px;color:#b9c4d6;margin-top:2px}
+
+/* ─── SealSummaryCard + ProgressDonut (MODIFIED) ─────────────────────────
+     Change: each donut gains (a) a thin secondary arc for points that are
+     in progress or pending, and (b) a small flag line under the status
+     text. Donuts render from the category list, so any category count
+     (NY=2, Indiana=3) lays out the same way. ──────────────────────────── */
+.summary{background:#fff;border:1px solid var(--line);border-radius:8px;padding:26px 24px;margin-bottom:16px;display:flex;justify-content:center;gap:72px;flex-wrap:wrap}
+.donut{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:150px}
+.donut .ring{position:relative;width:84px;height:84px}
+.donut .ring svg{width:84px;height:84px;display:block}
+.donut .ring .num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:700;color:var(--ink)}
+.donut .label{font-weight:700;color:var(--ink);font-size:14px;margin-top:10px}
+.donut .status{font-size:13px;color:var(--muted);margin-top:2px}
+.donut .status.met{color:var(--green)}
+.donut .flag{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--gold-ink);margin-top:5px;background:#faf4e2;border-radius:999px;padding:2px 10px}
+.donut .flag.pend{color:var(--amber-ink);background:var(--amber-soft)}
+.donut .flag .dotring{width:9px;height:9px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;transform:rotate(45deg);flex-shrink:0}
+
+/* ─── RequirementsAccordion (unchanged pattern, reused) ──────────────── */
+.reqcard{background:#fff;border:1px solid var(--line);border-radius:8px;margin-bottom:26px;overflow:hidden}
+.reqcard>button{display:flex;align-items:center;gap:14px;width:100%;padding:16px 20px;text-align:left}
+.reqcard>button:hover{background:#fafbfc}
+.reqcard .emblem{width:38px;height:38px;border-radius:50%;background:var(--navy);color:#d9c789;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.reqcard .t{font-weight:700;color:var(--ink);font-size:15px}
+.reqcard .d{font-size:13px;color:var(--muted)}
+.reqcard .chev{margin-left:auto;color:var(--muted);transition:transform .15s}
+.reqcard.open .chev{transform:rotate(90deg)}
+.reqcard .reqbody{display:none;border-top:1px solid var(--line);padding:16px 20px 18px;font-size:13.5px}
+.reqcard.open .reqbody{display:block}
+.reqcard .reqbody ul{margin:8px 0 0 18px}
+.reqcard .reqbody li{margin-top:4px}
+
+/* ─── Category section (agnostic: renders per category record) ──────── */
+.cat{margin-bottom:30px}
+.cat-head{display:flex;align-items:baseline;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.cat-head h2{font-size:19px;font-weight:500}
+.cat-head .cat-sub{font-size:12.5px;color:var(--muted)}
+
+/* ─── CriterionRow (MODIFIED) ────────────────────────────────────────── */
+.crit{background:#fff;border:1px solid var(--line);border-left:4px solid transparent;border-radius:8px;padding:14px 18px 14px 16px;margin-bottom:10px}
+.crit[data-state="complete"]{border-left-color:var(--green)}
+.crit[data-state="repeat-earned"]{border-left-color:var(--green)}
+.crit[data-state="pending"]{border-left-color:var(--amber)}
+.crit-head{display:flex;align-items:flex-start;gap:12px}
+.crit-main{flex:1;min-width:0}
+.crit-title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.crit-title{font-size:15px;font-weight:700}
+.crit-limit{font-size:12.5px;color:var(--muted);margin-top:2px}
+.crit-points{text-align:right;flex-shrink:0;min-width:172px}
+.crit-points .p1{font-weight:700;font-size:13.5px;color:var(--ink)}
+.crit-points .p1.earned{color:var(--green)}
+.crit-points .p1.pending{color:var(--amber-ink)}
+.crit-points .p2{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* StatusIcon (MODIFIED: three read-only states + pending variant).
+   Deliberately NOT hoverable/clickable: default cursor, no hover state,
+   so it no longer reads as a checkbox. */
+.sicon{display:flex;align-items:center;justify-content:center;width:22px;height:22px;flex-shrink:0;margin-top:1px;cursor:default}
+.sicon.none{border:2px solid #b6bcc6;border-radius:50%}
+.sicon.done{background:var(--green);border-radius:50%;color:#fff;font-size:11px}
+.sicon.pend{border:2px solid var(--amber);border-radius:50%;background:var(--amber-soft);color:var(--amber-ink);font-size:10px}
+.sicon.ringy svg{display:block}
+
+/* ProgressCount + SegmentTicks (NEW, inline in the title row) */
+.pcount{font-size:12.5px;font-weight:500;color:var(--body);background:var(--panel);border-radius:999px;padding:2px 10px;white-space:nowrap}
+.ticks{display:inline-flex;gap:3px;align-items:center}
+.ticks i{width:18px;height:6px;border-radius:3px;background:var(--track)}
+.ticks i.done{background:var(--green)}
+.ticks i.pend{background:repeating-linear-gradient(45deg,var(--amber),var(--amber) 3px,#f6c98a 3px,#f6c98a 6px)}
+
+/* Pending-approval chip (matches the dashboard "In Progress" chip family) */
+.chip-pend{display:none;font-size:11.5px;font-weight:500;color:var(--amber-ink);background:var(--amber-soft);border:1px solid var(--amber-line);border-radius:999px;padding:1px 9px;white-space:nowrap}
+.crit[data-state="pending"] .chip-pend{display:inline-block}
+
+/* Expand toggle (NEW, reuses the Requirements-accordion chevron affordance) */
+.crit-toggle{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--muted);flex-shrink:0;margin-top:-2px}
+.crit-toggle:hover{background:#f0f1f4;color:var(--ink)}
+.crit-toggle i{transition:transform .15s}
+.crit.open .crit-toggle i{transform:rotate(180deg)}
+.crit--expandable .crit-body{display:none}
+.crit--expandable.open .crit-body{display:block}
+.crit-body{padding:4px 0 2px 34px}
+
+/* EvidenceList (existing bullets; for multi-part rows they now live inside
+   the expanded SubRequirementList below) */
+.evid{list-style:none;margin-top:6px;padding-left:34px}
+.crit-body .evid{padding-left:0}
+.evid li{display:flex;align-items:baseline;gap:8px;font-size:13px;margin-top:3px}
+.evid li::before{content:"";width:5px;height:5px;border-radius:50%;background:#4c3a8f;flex-shrink:0;transform:translateY(-2px)}
+.evid b{color:var(--ink);font-weight:500}
+
+/* SubRequirementList (NEW: itemized parts, each with its own status) */
+.sublist{list-style:none;margin:8px 0 4px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.sublist li{display:flex;align-items:center;gap:10px;padding:9px 14px;font-size:13px}
+.sublist li+li{border-top:1px solid #f0f1f4}
+.sublist .mi{width:16px;height:16px;border-radius:50%;flex-shrink:0;cursor:default}
+.sublist .mi.done{background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:8px}
+.sublist .mi.none{border:2px solid #b6bcc6}
+.sublist .part{color:var(--ink);font-weight:500}
+.sublist .pmeta{margin-left:auto;color:var(--muted);font-size:12.5px;white-space:nowrap;padding-left:12px}
+.sublist .pmeta.ok{color:var(--green)}
+
+/* HowToEarnPanel (MODIFIED: regulation note + linked-badge chip) */
+.howto{background:var(--panel);border-radius:8px;padding:11px 14px;margin-top:10px;font-size:13px}
+.howto .lbl{color:var(--blue);font-weight:700}
+.howto .regnote{display:flex;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);color:var(--body)}
+.howto .regnote i{color:var(--gold-ink);margin-top:2px}
+.howto .regnote b{color:var(--ink);font-weight:500}
+.badge-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+
+/* LinkedBadgeChip (NEW: replaces the dead "You may also earn…" text) */
+.badge-chip{display:inline-flex;align-items:center;gap:7px;background:var(--blue-soft);border:1px solid var(--blue-line);color:var(--blue);border-radius:999px;padding:3px 11px;font-size:12.5px;font-weight:500}
+.badge-chip:hover{background:#e3e9ff}
+.badge-chip .fa-chevron-down{font-size:9px;transition:transform .15s}
+.badge-chip[aria-expanded="true"] .fa-chevron-down{transform:rotate(180deg)}
+
+/* BadgeDetailPanel (NEW: the merged, single presentation of the linked
+   badge, expanded inline: no separate modal, no second status) */
+.badge-panel{display:none;border:1px solid var(--blue-line);background:#f8faff;border-radius:8px;padding:12px 14px;margin-top:8px}
+.badge-panel.open{display:block}
+.badge-panel .bp-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.badge-panel .bp-head i.fa-medal{color:var(--blue)}
+.badge-panel .bp-name{font-weight:700;color:var(--ink);font-size:13.5px}
+.badge-panel .bp-status{font-size:11.5px;font-weight:500;border-radius:999px;padding:1px 9px}
+.badge-panel .bp-status.none{background:#eceef1;color:var(--muted)}
+.badge-panel .bp-status.prog{background:#faf4e2;color:var(--gold-ink)}
+.badge-panel p{font-size:12.5px;margin-top:6px}
+.badge-panel .bp-crumb{font-size:11.5px;color:var(--muted);margin-top:8px}
+.badge-panel .bp-crumb i{font-size:10px;margin-right:4px}
+
+/* Self-report action (NEW) */
+.crit-actions{margin-top:10px}
+.btn-evidence{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--blue);color:var(--blue);border-radius:6px;padding:6px 14px;font-size:13px;font-weight:500;background:#fff}
+.btn-evidence:hover{background:var(--blue-soft)}
+.crit[data-state="pending"] .btn-evidence{display:none}
+.pending-note{display:none;font-size:12.5px;color:var(--amber-ink);margin-top:8px}
+.pending-note i{margin-right:6px}
+.crit[data-state="pending"] .pending-note{display:block}
+
+/* Swappable bits: elements carrying data-when list the row states they
+   are visible in; the demo script toggles them when a row's data-state
+   changes (e.g. after submitting evidence). Variants that start hidden
+   carry an inline display:none so the markup holds every state. */
+
+/* ─── Demo dividers + dashboard widget strip ─────────────────────────── */
+.demo-div{display:flex;align-items:center;gap:12px;margin:44px 0 14px;color:var(--muted);font-size:12px;font-weight:500}
+.demo-div::before,.demo-div::after{content:"";flex:1;border-top:1px dashed #c9ced6}
+.dash{background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px 20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.dash .emblem{width:40px;height:40px;border-radius:50%;background:#eceef1;color:#9aa2ad;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dash .dt{font-weight:700;color:var(--ink);font-size:15px;min-width:210px}
+.dash .bars{display:flex;gap:26px;flex:1;min-width:420px;flex-wrap:wrap}
+.dash .bar-group{flex:1;min-width:120px}
+.dash .bar-lbl{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-bottom:5px}
+.dash .bar-lbl b{color:var(--ink);font-weight:500}
+.dash .bar{height:6px;border-radius:3px;background:var(--track);overflow:hidden;display:flex}
+.dash .bar .fill{background:var(--gold)}
+.dash .bar .fill.met{background:var(--green)}
+.dash .bar .soon{background:repeating-linear-gradient(45deg,#e4cd96,#e4cd96 3px,#f3e8cd 3px,#f3e8cd 6px)}
+.dash .right{display:flex;flex-direction:column;align-items:flex-end;gap:8px;margin-left:auto}
+.dash .chip-prog{font-size:11.5px;font-weight:500;color:var(--amber-ink);background:var(--amber-soft);border:1px solid var(--amber-line);border-radius:999px;padding:2px 10px}
+.dash .btn-view{border:1px solid var(--blue);color:var(--blue);border-radius:6px;padding:5px 14px;font-size:13px;font-weight:500;background:#fff}
+.dash .btn-view:hover{background:var(--blue-soft)}
+.dash-legend{font-size:11.5px;color:var(--muted);margin-top:8px}
+.dash-legend .sw{display:inline-block;width:14px;height:6px;border-radius:3px;vertical-align:middle;margin:0 4px 0 10px}
+
+/* ─── Implementation notes (annotation only, not product UI) ─────────── */
+.notes{background:#fffdf5;border:1px dashed #d9c789;border-radius:8px;padding:18px 22px;font-size:13px}
+.notes h2{font-size:14px;margin-bottom:8px}
+.notes ol{margin-left:18px}
+.notes li{margin-top:7px}
+.notes b{color:var(--ink);font-weight:500}
+.notes .small{font-size:12px;color:var(--muted);margin-top:10px}
+
+/* ─── SubmitEvidenceModal (routes into the existing upload/attest flow).
+       Fixed width: never resizes with content state. ──────────────────── */
+.modal-scrim{display:none;position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:50;align-items:center;justify-content:center}
+.modal-scrim.open{display:flex}
+.modal{width:480px;max-width:calc(100vw - 32px);background:#fff;border-radius:10px;padding:22px 24px;box-shadow:0 18px 44px rgba(0,0,0,.25)}
+.modal h3{font-size:16px}
+.modal .m-sub{font-size:12.5px;color:var(--muted);margin:2px 0 14px}
+.modal .drop{border:1.5px dashed #b6bcc6;border-radius:8px;padding:18px;text-align:center;color:var(--muted);font-size:13px;background:#fafbfc}
+.modal .drop i{font-size:18px;color:var(--blue);display:block;margin-bottom:6px}
+.modal textarea{width:100%;margin-top:12px;border:1px solid var(--line);border-radius:6px;padding:9px 11px;font:inherit;font-size:13px;resize:vertical;min-height:64px}
+.modal .attest{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;margin-top:12px;color:var(--body)}
+.modal .attest input{margin-top:3px}
+.modal .m-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+.btn-plain{color:var(--body);padding:7px 14px;border-radius:6px;font-weight:500;font-size:13px}
+.btn-plain:hover{background:var(--panel)}
+.btn-primary{background:var(--blue);color:#fff;border-radius:6px;padding:7px 16px;font-weight:500;font-size:13px}
+.btn-primary:hover{background:#303f9f}
+
+/* Toast */
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,16px);background:var(--navy);color:#fff;font-size:13px;border-radius:999px;padding:9px 18px;opacity:0;pointer-events:none;transition:all .25s;z-index:60}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media (max-width:760px){
+  .summary{gap:36px}
+  .crit-points{min-width:120px}
+  .dash .bars{min-width:0;width:100%}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Wayfinding (NEW): back-context so the drill-down from the dashboard
+       widget or badge views always shows where you are -->
+  <a class="backlink" href="#"><i class="fa-solid fa-arrow-left"></i> Achievements</a>
+  <h1 class="page-title">NY Seal of Civic Readiness</h1>
+
+  <!-- ═ SealHeaderBanner · unchanged ═ -->
+  <header class="banner">
+    <div class="emblem"><i class="fa-solid fa-landmark-dome"></i></div>
+    <div class="who">
+      <div class="name">Emily Growler</div>
+      <div class="sub">Grade 11 · NY Seal of Civic Readiness</div>
+    </div>
+  </header>
+
+  <!-- ═ SealSummaryCard · MODIFIED ═
+       Each ProgressDonut adds a thin outer arc for in-progress / pending
+       points, plus a flag line so partial work never reads as flat zero.
+       Solid arc = earned points (green once the requirement is met, gold
+       while short of it, same as today). Thin arc = points in flight. -->
+  <section class="summary" aria-label="Progress summary">
+
+    <!-- Civic Knowledge: 1 earned of min 2 · 1 pt in progress -->
+    <div class="donut">
+      <div class="ring">
+        <svg viewBox="0 0 84 84" aria-hidden="true">
+          <circle cx="42" cy="42" r="34" fill="none" stroke="var(--track)" stroke-width="7"/>
+          <circle cx="42" cy="42" r="34" fill="none" stroke="var(--gold)" stroke-width="7"
+                  stroke-linecap="round" stroke-dasharray="106.8 213.6" transform="rotate(-90 42 42)"/>
+          <!-- NEW thin secondary arc: +1 pt in progress -->
+          <circle cx="42" cy="42" r="34" fill="none" stroke="#e4cd96" stroke-width="3"
+                  stroke-linecap="round" stroke-dasharray="104 213.6" transform="rotate(92 42 42)"/>
+        </svg>
+        <div class="num">1</div>
+      </div>
+      <div class="label">Civic Knowledge</div>
+      <div class="status">1 more needed</div>
+      <span class="flag"><span class="dotring"></span> 1 pt in progress</span>
+    </div>
+
+    <!-- Civic Participation: 1.5 earned of min 2 · 1 pt pending approval -->
+    <div class="donut">
+      <div class="ring">
+        <svg viewBox="0 0 84 84" aria-hidden="true">
+          <circle cx="42" cy="42" r="34" fill="none" stroke="var(--track)" stroke-width="7"/>
+          <circle cx="42" cy="42" r="34" fill="none" stroke="var(--gold)" stroke-width="7"
+                  stroke-linecap="round" stroke-dasharray="160.2 213.6" transform="rotate(-90 42 42)"/>
+          <circle cx="42" cy="42" r="34" fill="none" stroke="#e4cd96" stroke-width="3"
+                  stroke-linecap="round" stroke-dasharray="50.4 213.6" transform="rotate(182 42 42)"/>
+        </svg>
+        <div class="num">1.5</div>
+      </div>
+      <div class="label">Civic Participation</div>
+      <div class="status">0.5 more needed</div>
+      <span class="flag pend"><span class="dotring"></span> 1 pt pending approval</span>
+    </div>
+
+    <!-- Total: 2.5 earned of 6 · 2 pts in progress or pending -->
+    <div class="donut">
+      <div class="ring">
+        <svg viewBox="0 0 84 84" aria-hidden="true">
+          <circle cx="42" cy="42" r="34" fill="none" stroke="var(--track)" stroke-width="7"/>
+          <circle cx="42" cy="42" r="34" fill="none" stroke="var(--gold)" stroke-width="7"
+                  stroke-linecap="round" stroke-dasharray="89 213.6" transform="rotate(-90 42 42)"/>
+          <circle cx="42" cy="42" r="34" fill="none" stroke="#e4cd96" stroke-width="3"
+                  stroke-linecap="round" stroke-dasharray="68.4 213.6" transform="rotate(62 42 42)"/>
+        </svg>
+        <div class="num">2.5</div>
+      </div>
+      <div class="label">Total Points</div>
+      <div class="status">3.5 more needed</div>
+      <span class="flag"><span class="dotring"></span> 2 pts in progress</span>
+    </div>
+  </section>
+
+  <!-- ═ RequirementsAccordion · unchanged pattern ═ -->
+  <section class="reqcard" id="reqcard">
+    <button type="button" aria-expanded="false" onclick="toggleReq(this)">
+      <span class="emblem"><i class="fa-solid fa-stamp"></i></span>
+      <span>
+        <span class="t">NY Seal of Civic Readiness Requirements</span><br>
+        <span class="d">Criteria and point requirements for this seal</span>
+      </span>
+      <i class="fa-solid fa-chevron-right chev"></i>
+    </button>
+    <div class="reqbody">
+      To earn the NY Seal of Civic Readiness you need <b>6 total points</b>, with minimums in each area:
+      <ul>
+        <li>At least <b>2 points</b> in Civic Knowledge</li>
+        <li>At least <b>2 points</b> in Civic Participation</li>
+        <li><b>6 points</b> overall</li>
+      </ul>
+      <p style="margin-top:10px">Per New York State regulation, each criterion awards its points only when it is fully complete. Partial work is tracked on this page so you always know where you stand, but the points land all at once.</p>
+    </div>
+  </section>
+
+  <!-- ════════════════════ Category: Civic Knowledge ════════════════════
+       Sections render from the state's category list; the layout is
+       category-count agnostic (NY shows 2, Indiana would show 3). -->
+  <section class="cat" aria-label="Civic Knowledge">
+    <div class="cat-head">
+      <h2>Civic Knowledge</h2>
+      <span class="cat-sub">Minimum 2 points · 1 pt earned · 1 pt in progress</span>
+    </div>
+
+    <!-- ─ CriterionRow · IN PROGRESS (multi-part, expanded by default) ─
+         New pieces: three-state StatusIcon (progress ring), ProgressCount
+         + SegmentTicks in the title row, expand chevron (reuses the
+         accordion affordance), SubRequirementList as the itemized
+         evidence log, regulation microcopy, merged LinkedBadgeChip. -->
+    <article class="crit crit--expandable open" data-state="in-progress" id="crit-credits">
+      <div class="crit-head">
+        <span class="sicon ringy" role="img" aria-label="In progress: 3 of 4 credits">
+          <svg width="22" height="22" viewBox="0 0 22 22">
+            <circle cx="11" cy="11" r="9" fill="none" stroke="var(--track)" stroke-width="2.5"/>
+            <circle cx="11" cy="11" r="9" fill="none" stroke="var(--green)" stroke-width="3"
+                    stroke-linecap="round" stroke-dasharray="42.4 56.5" transform="rotate(-90 11 11)"/>
+          </svg>
+        </span>
+        <div class="crit-main">
+          <div class="crit-title-row">
+            <h3 class="crit-title">4 Credits of Social Studies</h3>
+            <span class="pcount">3 of 4 credits</span>
+            <span class="ticks" aria-hidden="true"><i class="done"></i><i class="done"></i><i class="done"></i><i></i></span>
+          </div>
+        </div>
+        <div class="crit-points">
+          <div class="p1">0 pts earned</div>
+          <div class="p2">1 pt at completion</div>
+        </div>
+        <button class="crit-toggle" aria-expanded="true" aria-controls="body-credits" onclick="toggleCrit(this)" title="Show credit details">
+          <i class="fa-solid fa-chevron-down"></i>
+        </button>
+      </div>
+
+      <div class="crit-body" id="body-credits">
+        <!-- SubRequirementList: per-increment status doubles as the
+             itemized evidence log (was flat evidence bullets) -->
+        <ul class="sublist">
+          <li>
+            <span class="mi done" role="img" aria-label="Earned"><i class="fa-solid fa-check"></i></span>
+            <span class="part">Global History &amp; Geography I</span>
+            <span class="pmeta ok">Credit earned · Jun 2024 · final grade 91</span>
+          </li>
+          <li>
+            <span class="mi done" role="img" aria-label="Earned"><i class="fa-solid fa-check"></i></span>
+            <span class="part">Global History &amp; Geography II</span>
+            <span class="pmeta ok">Credit earned · Jun 2025 · final grade 88</span>
+          </li>
+          <li>
+            <span class="mi done" role="img" aria-label="Earned"><i class="fa-solid fa-check"></i></span>
+            <span class="part">US History &amp; Government</span>
+            <span class="pmeta ok">Credit earned · Jan 2026 · final grade 94</span>
+          </li>
+          <li>
+            <span class="mi none" role="img" aria-label="Not yet earned"></span>
+            <span class="part">Participation in Government &amp; Economics</span>
+            <span class="pmeta">Not yet earned · scheduled spring 2027</span>
+          </li>
+        </ul>
+
+        <div class="howto">
+          <span class="lbl">How to earn:</span> Complete 4 credits of high school social studies coursework.
+          <!-- Regulation microcopy: frames all-or-nothing as state rule -->
+          <div class="regnote">
+            <i class="fa-solid fa-circle-info"></i>
+            <span><b>Points are awarded only when all 4 credits are complete.</b> You have 3 of 4. This all-or-nothing scoring comes from New York State's Seal of Civic Readiness rules, so partial credits show progress here but no points yet.</span>
+          </div>
+          <!-- LinkedBadgeChip: the badge is merged into this row (one
+               status, one place), replacing the dead "You may also
+               earn…" sentence and the separate badge-modal card -->
+          <div class="badge-line">
+            <span>Also tracked as a linked badge:</span>
+            <button class="badge-chip" aria-expanded="false" aria-controls="bp-credits" onclick="toggleBadge(this)">
+              <i class="fa-solid fa-medal"></i> Social Studies Credits · 1 pt <i class="fa-solid fa-chevron-down"></i>
+            </button>
+          </div>
+          <div class="badge-panel" id="bp-credits">
+            <div class="bp-head">
+              <i class="fa-solid fa-medal"></i>
+              <span class="bp-name">Social Studies Credits · 1 pt</span>
+              <span class="bp-status prog">In progress · 3 of 4</span>
+            </div>
+            <p>This badge tracks the same 4 credits as this criterion. Progress on either updates both, so you will only ever see one status. When the fourth credit posts, the badge and this criterion complete together and the 1 pt is awarded.</p>
+            <div class="bp-crumb"><i class="fa-solid fa-arrow-left"></i> Part of: NY Seal of Civic Readiness · Civic Knowledge</div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- ─ CriterionRow · NOT STARTED, repeatable, linked badge chip demo ─ -->
+    <article class="crit" data-state="not-started">
+      <div class="crit-head">
+        <span class="sicon none" role="img" aria-label="Not started"></span>
+        <div class="crit-main">
+          <div class="crit-title-row">
+            <h3 class="crit-title">Mastery Level on Social Studies Regents Exam</h3>
+          </div>
+        </div>
+        <div class="crit-points">
+          <div class="p1">1.5 pts available</div>
+          <div class="p2">Can earn multiple times</div>
+        </div>
+      </div>
+      <div class="crit-body" style="padding-left:34px">
+        <div class="howto">
+          <span class="lbl">How to earn:</span> Score at the mastery level (85+) on any Social Studies Regents exam.
+          <div class="badge-line">
+            <span>Also tracked as a linked badge:</span>
+            <button class="badge-chip" aria-expanded="false" aria-controls="bp-mastery" onclick="toggleBadge(this)">
+              <i class="fa-solid fa-medal"></i> Mastery Level Regents Exam · 1.5 pts <i class="fa-solid fa-chevron-down"></i>
+            </button>
+          </div>
+          <div class="badge-panel" id="bp-mastery">
+            <div class="bp-head">
+              <i class="fa-solid fa-medal"></i>
+              <span class="bp-name">Mastery Level Regents Exam · 1.5 pts</span>
+              <span class="bp-status none">Not started</span>
+            </div>
+            <p>This badge and this criterion are the same requirement. Earning the badge (a Regents score of 85 or higher) completes this row and awards 1.5 pts toward the seal. Each additional qualifying score earns it again.</p>
+            <div class="bp-crumb"><i class="fa-solid fa-arrow-left"></i> Part of: NY Seal of Civic Readiness · Civic Knowledge</div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- ─ CriterionRow · NOT STARTED ─ -->
+    <article class="crit" data-state="not-started">
+      <div class="crit-head">
+        <span class="sicon none" role="img" aria-label="Not started"></span>
+        <div class="crit-main">
+          <div class="crit-title-row">
+            <h3 class="crit-title">Proficiency Level on Social Studies Regents Exam</h3>
+          </div>
+        </div>
+        <div class="crit-points">
+          <div class="p1">1 pt available</div>
+          <div class="p2">Can earn multiple times</div>
+        </div>
+      </div>
+      <div class="crit-body" style="padding-left:34px">
+        <div class="howto">
+          <span class="lbl">How to earn:</span> Score at the proficiency level (65+) on any Social Studies Regents exam.
+          <div class="badge-line">
+            <span>Also tracked as a linked badge:</span>
+            <button class="badge-chip" aria-expanded="false" aria-controls="bp-prof" onclick="toggleBadge(this)">
+              <i class="fa-solid fa-medal"></i> Proficiency Level Regents Exam · 1 pt <i class="fa-solid fa-chevron-down"></i>
+            </button>
+          </div>
+          <div class="badge-panel" id="bp-prof">
+            <div class="bp-head">
+              <i class="fa-solid fa-medal"></i>
+              <span class="bp-name">Proficiency Level Regents Exam · 1 pt</span>
+              <span class="bp-status none">Not started</span>
+            </div>
+            <p>This badge and this criterion are the same requirement. A Regents score of 65 or higher completes both at once.</p>
+            <div class="bp-crumb"><i class="fa-solid fa-arrow-left"></i> Part of: NY Seal of Civic Readiness · Civic Knowledge</div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- ─ CriterionRow · COMPLETE (unchanged presentation) ─ -->
+    <article class="crit" data-state="complete">
+      <div class="crit-head">
+        <span class="sicon done" role="img" aria-label="Complete"><i class="fa-solid fa-check"></i></span>
+        <div class="crit-main">
+          <div class="crit-title-row">
+            <h3 class="crit-title">Research Project</h3>
+          </div>
+        </div>
+        <div class="crit-points">
+          <div class="p1 earned">1 pt earned</div>
+        </div>
+      </div>
+      <ul class="evid">
+        <li>Completed activity: <b>Research Project · Marivette</b></li>
+      </ul>
+    </article>
+  </section>
+
+  <!-- ════════════════ Category: Civic Participation ════════════════ -->
+  <section class="cat" aria-label="Civic Participation">
+    <div class="cat-head">
+      <h2>Civic Participation</h2>
+      <span class="cat-sub">Minimum 2 points · 1.5 pts earned · 1 pt pending approval</span>
+    </div>
+
+    <!-- ─ CriterionRow · REPEATABLE with progress ("1 of 2 earned, max 2").
+         Green edge because points are banked; the half ring + ticks say
+         one more is available. Submitting evidence flips the second tick
+         to a striped pending segment (try it). ─ -->
+    <article class="crit" data-state="repeat-earned" id="crit-civics">
+      <div class="crit-head">
+        <span class="sicon ringy" data-when="repeat-earned pending" role="img" aria-label="1 of 2 earned">
+          <svg width="22" height="22" viewBox="0 0 22 22">
+            <circle cx="11" cy="11" r="9" fill="none" stroke="var(--track)" stroke-width="2.5"/>
+            <circle cx="11" cy="11" r="9" fill="none" stroke="var(--green)" stroke-width="3"
+                    stroke-linecap="round" stroke-dasharray="28.3 56.5" transform="rotate(-90 11 11)"/>
+          </svg>
+        </span>
+        <div class="crit-main">
+          <div class="crit-title-row">
+            <h3 class="crit-title">High School Civics Project</h3>
+            <span class="pcount countv" data-when="repeat-earned">1 of 2 earned (max 2)</span>
+            <span class="pcount countv" data-when="pending" style="display:none">1 of 2 earned · 1 pending</span>
+            <span class="ticks" aria-hidden="true"><i class="done"></i><i id="civics-tick2"></i></span>
+            <span class="chip-pend">Pending approval</span>
+          </div>
+          <div class="crit-limit">Limit 2x during grades 9-12</div>
+        </div>
+        <div class="crit-points">
+          <div class="p1 earned">1.5 pts earned</div>
+          <div class="p2 pointsv" data-when="repeat-earned">1.5 more available</div>
+          <div class="p2 pointsv" data-when="pending" style="display:none;color:var(--amber-ink)">+1.5 pts pending review</div>
+        </div>
+      </div>
+      <ul class="evid">
+        <li><b>Nov 2025</b> · Voter registration drive · approved by Ms. Alvarez</li>
+      </ul>
+      <div class="crit-body" style="padding-left:34px">
+        <div class="howto">
+          <span class="lbl">How to earn:</span> Complete a civics project such as a voter registration drive, town hall simulation, or civic action campaign.
+          <div class="badge-line">
+            <span>Also tracked as a linked badge:</span>
+            <button class="badge-chip" aria-expanded="false" aria-controls="bp-civics" onclick="toggleBadge(this)">
+              <i class="fa-solid fa-medal"></i> H.S. Civics Project · 1.5 pts <i class="fa-solid fa-chevron-down"></i>
+            </button>
+          </div>
+          <div class="badge-panel" id="bp-civics">
+            <div class="bp-head">
+              <i class="fa-solid fa-medal"></i>
+              <span class="bp-name">H.S. Civics Project · 1.5 pts</span>
+              <span class="bp-status prog">Earned 1 time</span>
+            </div>
+            <p>This badge and this criterion are the same requirement. Each approved project earns both together, up to twice during grades 9-12.</p>
+            <div class="bp-crumb"><i class="fa-solid fa-arrow-left"></i> Part of: NY Seal of Civic Readiness · Civic Participation</div>
+          </div>
+        </div>
+        <div class="crit-actions">
+          <!-- Self-report at the point of progress (district flag ON) -->
+          <button class="btn-evidence" onclick="openModal('High School Civics Project','crit-civics')">
+            <i class="fa-solid fa-arrow-up-from-bracket"></i> Submit evidence for a 2nd project
+          </button>
+          <div class="pending-note"><i class="fa-solid fa-clock"></i> Submitted for review. Your counselor will approve or return it; points are added once approved.</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- ─ CriterionRow · PENDING APPROVAL ─
+         Distinct third state: amber outlined icon + chip, amber left
+         edge. Not complete, not empty; consistent with the dashboard
+         "In Progress" chip family. -->
+    <article class="crit" data-state="pending">
+      <div class="crit-head">
+        <span class="sicon pend" role="img" aria-label="Pending approval"><i class="fa-solid fa-hourglass-half"></i></span>
+        <div class="crit-main">
+          <div class="crit-title-row">
+            <h3 class="crit-title">Service-Learning Project</h3>
+            <span class="chip-pend">Pending approval</span>
+          </div>
+          <div class="crit-limit">Min 25 hrs + reflective essay/presentation/product</div>
+        </div>
+        <div class="crit-points">
+          <div class="p1 pending">1 pt pending review</div>
+          <div class="p2">0 pts earned until approved</div>
+        </div>
+      </div>
+      <ul class="evid">
+        <li><b>Jul 10, 2026</b> · Submitted: 26 hrs at Northside Food Bank + reflective essay · awaiting counselor review</li>
+      </ul>
+    </article>
+
+    <!-- ─ CriterionRow · NOT STARTED + Submit evidence (primary demo) ─ -->
+    <article class="crit" data-state="not-started" id="crit-wbl">
+      <div class="crit-head">
+        <span class="sicon none" data-when="not-started" role="img" aria-label="Not started"></span>
+        <span class="sicon pend" data-when="pending" style="display:none" role="img" aria-label="Pending approval"><i class="fa-solid fa-hourglass-half"></i></span>
+        <div class="crit-main">
+          <div class="crit-title-row">
+            <h3 class="crit-title">Extracurricular Program or Work-Based Learning Experience</h3>
+            <span class="chip-pend">Pending approval</span>
+          </div>
+          <div class="crit-limit">Min 40 hrs</div>
+        </div>
+        <div class="crit-points">
+          <div class="p1 pointsv" data-when="not-started">0.5 pts available</div>
+          <div class="p1 pending pointsv" data-when="pending" style="display:none">0.5 pts pending review</div>
+          <div class="p2 pointsv" data-when="not-started">Can earn multiple times</div>
+          <div class="p2 pointsv" data-when="pending" style="display:none">0 pts earned until approved</div>
+        </div>
+      </div>
+      <ul class="evid" id="wbl-evid" style="display:none"></ul>
+      <div class="crit-body" style="padding-left:34px">
+        <div class="howto">
+          <span class="lbl">How to earn:</span> Participate in a school extracurricular program or a work-based learning experience for at least 40 hours.
+        </div>
+        <div class="crit-actions">
+          <button class="btn-evidence" onclick="openModal('Extracurricular Program or Work-Based Learning Experience','crit-wbl')">
+            <i class="fa-solid fa-arrow-up-from-bracket"></i> Submit evidence
+          </button>
+          <div class="pending-note"><i class="fa-solid fa-clock"></i> Submitted for review. Your counselor will approve or return it; points are added once approved.</div>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ═ Companion change: dashboard "Achievements you are working on"
+       widget seal row. Bars gain a striped segment for in-progress or
+       pending points so partial work never shows a flat zero. ═ -->
+  <div class="demo-div">Companion change · student dashboard widget (seal rows only)</div>
+  <section class="dash" aria-label="Dashboard widget preview">
+    <div class="emblem"><i class="fa-solid fa-landmark-dome"></i></div>
+    <div class="dt">NY Seal of Civic Readiness</div>
+    <div class="bars">
+      <div class="bar-group">
+        <div class="bar-lbl"><span>Knowledge</span><b>1/2</b></div>
+        <div class="bar"><span class="fill" style="width:50%"></span><span class="soon" style="width:50%"></span></div>
+      </div>
+      <div class="bar-group">
+        <div class="bar-lbl"><span>Participation</span><b>1.5/2</b></div>
+        <div class="bar"><span class="fill" style="width:75%"></span><span class="soon" style="width:25%"></span></div>
+      </div>
+      <div class="bar-group">
+        <div class="bar-lbl"><span>Total</span><b>2.5/6</b></div>
+        <div class="bar"><span class="fill" style="width:42%"></span><span class="soon" style="width:33%"></span></div>
+      </div>
+    </div>
+    <div class="right">
+      <span class="chip-prog">In Progress</span>
+      <button class="btn-view">View Details</button>
+    </div>
+  </section>
+  <div class="dash-legend">
+    Bar segments:<span class="sw" style="background:var(--gold)"></span>earned
+    <span class="sw" style="background:repeating-linear-gradient(45deg,#e4cd96,#e4cd96 3px,#f3e8cd 3px,#f3e8cd 6px)"></span>in progress or pending approval
+  </div>
+
+  <!-- ═ Annotation only · not product UI ═ -->
+  <div class="demo-div">Implementation notes for the team · not part of the product UI</div>
+  <section class="notes">
+    <h2>What changed, mapped to existing components</h2>
+    <ol>
+      <li><b>StatusIcon (in CriterionRow)</b>: two states become four: empty circle, progress ring (new, echoes the summary donuts), amber pending, green check. Read-only styling: no hover, default cursor, so it stops reading as a checkbox. Small effort.</li>
+      <li><b>CriterionRow title row</b>: new ProgressCount pill ("3 of 4 credits", "1 of 2 earned (max 2)") + SegmentTicks for small discrete counts. Driven by the increment records that already power evidence bullets. Small-medium effort.</li>
+      <li><b>PointsColumn</b>: two new states: in progress ("0 pts earned · 1 pt at completion") and pending ("1 pt pending review · 0 pts earned until approved"). The all-or-nothing point rule itself is unchanged. Small effort.</li>
+      <li><b>Row expansion</b>: reuses the RequirementsAccordion chevron pattern. Expanded body hosts the SubRequirementList (per-part status + evidence in one line each), replacing flat evidence bullets on multi-part rows. Medium effort.</li>
+      <li><b>HowToEarnPanel</b>: gains a regulation microcopy slot (framed as NY State rule, not a system limitation) and the LinkedBadgeChip replacing the dead "You may also earn…" sentence. Small effort.</li>
+      <li><b>LinkedBadgeChip + BadgeDetailPanel</b>: the linked badge renders merged into the criterion row (one status, inline expand, back-context line). The separate badge-modal card for seal-linked badges is retired from the student view. Medium effort, mostly data join.</li>
+      <li><b>Submit evidence</b>: row-level button (shown only where the district allows self-report) opens the existing activity upload/attest flow and flips the row to the pending state on submit. No change to the approval workflow itself. Medium effort.</li>
+      <li><b>SummaryDonut</b>: thin secondary arc + flag line for in-flight points. Category-count agnostic. Small effort.</li>
+      <li><b>DashboardSealRow (widget)</b>: striped bar segment for in-flight points. Small effort.</li>
+      <li><b>False-affordance fix</b>: "Can earn multiple times" is plain muted text (it was blue link-styled); everything clickable now has hover + focus affordances, and nothing read-only does.</li>
+    </ol>
+    <p class="small">Try it: expand rows with the chevron, open a linked-badge chip, and use "Submit evidence" on the last row (or the civics row) to see the pending-approval state apply, including the striped repeatable tick.</p>
+  </section>
+</div>
+
+<!-- ═ SubmitEvidenceModal · wraps the existing upload/attest flow ═ -->
+<div class="modal-scrim" id="scrim">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-title">
+    <h3 id="m-title">Submit evidence</h3>
+    <div class="m-sub" id="m-sub">NY Seal of Civic Readiness · your counselor reviews every submission</div>
+    <div class="drop"><i class="fa-solid fa-arrow-up-from-bracket"></i>Drag a file here or <b style="color:var(--blue)">browse</b> to upload (log, essay, certificate, photo)</div>
+    <textarea placeholder="Describe what you did, where, and roughly how many hours."></textarea>
+    <label class="attest"><input type="checkbox"> I attest that this evidence is accurate and my own work.</label>
+    <div class="m-actions">
+      <button class="btn-plain" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="submitEvidence()">Submit for approval</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Evidence submitted · pending counselor approval</div>
+
+<script>
+// ── Requirements accordion (existing pattern) ──
+function toggleReq(btn){
+  const card = btn.closest('.reqcard');
+  const open = card.classList.toggle('open');
+  btn.setAttribute('aria-expanded', open);
+}
+
+// ── Criterion row expand/collapse ──
+function toggleCrit(btn){
+  const row = btn.closest('.crit');
+  const open = row.classList.toggle('open');
+  btn.setAttribute('aria-expanded', open);
+}
+
+// ── Linked-badge chip → inline BadgeDetailPanel ──
+function toggleBadge(chip){
+  const panel = document.getElementById(chip.getAttribute('aria-controls'));
+  const open = panel.classList.toggle('open');
+  chip.setAttribute('aria-expanded', open);
+}
+
+// ── Submit evidence → existing upload/attest flow (mocked) ──
+let modalTargetRow = null;
+function openModal(criterionName, rowId){
+  modalTargetRow = rowId;
+  document.getElementById('m-title').textContent = 'Submit evidence · ' + criterionName;
+  document.getElementById('scrim').classList.add('open');
+}
+function closeModal(){
+  document.getElementById('scrim').classList.remove('open');
+}
+document.getElementById('scrim').addEventListener('click', e => {
+  if(e.target === e.currentTarget) closeModal();
+});
+
+// On submit, the row flips to the pending-approval state. State-dependent
+// markup (icons, counts, points) is toggled purely via data-state so the
+// visual variants all live in the HTML above.
+function submitEvidence(){
+  const row = document.getElementById(modalTargetRow);
+  if(row){
+    row.dataset.state = 'pending';
+    // swap the [data-when] variants: each lists the states it shows in
+    row.querySelectorAll('[data-when]').forEach(el => {
+      const show = el.getAttribute('data-when').split(' ').includes('pending');
+      if(show) el.style.removeProperty('display');
+      else el.style.display = 'none';
+    });
+    // repeatable demo: second tick becomes a striped pending segment
+    const tick = row.querySelector('#civics-tick2');
+    if(tick) tick.className = 'pend';
+    // add today's submission to the evidence log
+    const evid = row.querySelector('#wbl-evid');
+    if(evid){
+      evid.style.display = '';
+      evid.innerHTML = '<li><b>Jul 14, 2026</b> · Submitted: evidence uploaded · awaiting counselor review</li>';
+    }
+  }
+  closeModal();
+  const toast = document.getElementById('toast');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3200);
+}
+</script>
+</body>
+</html>

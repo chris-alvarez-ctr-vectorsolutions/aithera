@@ -53,10 +53,17 @@
     m.style.display = 'flex';
   }
 
+  // Cache-bust token. GitHub Pages edge-caches every file for 10 min and ignores
+  // custom cache headers, so a changing query string is the only reliable way to
+  // pull a just-pushed version instead of a stale cached one. One token per load
+  // (so switching back to an already-seen version reuses it within the session).
+  const CB = 'cb=' + Date.now();
+  const bust = url => url + (url.includes('?') ? '&' : '?') + CB;
+
   // --- Load the manifest -------------------------------------------------
   let versions;
   try {
-    const res = await fetch('./versions.json', { cache: 'no-store' });
+    const res = await fetch(bust('./versions.json'), { cache: 'no-store' });
     if (!res.ok) throw new Error('http');
     versions = await res.json();
   } catch (e) {
@@ -115,7 +122,10 @@
       stage.appendChild(f);
     }
     f.title = v.label;
-    if (f.getAttribute('src') !== v.path) f.setAttribute('src', v.path);
+    // Cache-bust the version file so a just-pushed mock loads fresh, not the
+    // edge-cached copy. Compared against the busted URL so we don't reload it.
+    const src = bust(v.path);
+    if (f.getAttribute('src') !== src) f.setAttribute('src', src);
     setUrl(v.id);
     markActive(v.id);
   }

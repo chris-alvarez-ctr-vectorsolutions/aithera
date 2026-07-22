@@ -18,6 +18,19 @@
 
     <style>
         *, *::before, *::after { box-sizing: border-box; }
+
+        /* ── Layout tokens ──
+           The Fin FAB (see ../ai-chat-widget/fin-widget.js) floats bottom-right,
+           ABOVE the locked wizard footer, vertically centered on the pagination
+           row — it nestles into that row's empty right side instead of covering
+           the footer, the pager controls, or any table row. */
+        :root {
+            --wiz-footer-h: 62px;   /* locked footer (Cancel / Previous / Go to…) */
+            --wiz-pager-h: 64px;    /* pagination row between table and footer */
+            --fin-fab-bottom: calc(var(--wiz-footer-h) + (var(--wiz-pager-h) - var(--fin-fab-size, 60px)) / 2);
+        }
+
+        html, body { height: 100%; overflow: hidden; }
         body {
             margin: 0;
             font-family: 'Open Sans', sans-serif;
@@ -84,10 +97,10 @@
             color: #1a1a1a;
         }
 
-        /* ── App shell ── */
+        /* ── App shell (locked: only designated regions scroll) ── */
         .shell {
             display: flex;
-            min-height: calc(100vh - 56px);
+            height: calc(100vh - 56px);
         }
 
         /* ── Sidenav ── */
@@ -97,6 +110,7 @@
             border-right: 1px solid #e2e4e8;
             padding: 14px 0;
             flex-shrink: 0;
+            overflow-y: auto;
         }
         .sidenav-search {
             display: flex;
@@ -345,11 +359,124 @@
             .step-label { display: none; }
         }
 
-        /* ── Page content ── */
-        .content-wrap {
-            padding: 22px 28px 40px;
+        /* ── Page content ──
+           .wiz-body is the flexible middle band: [table column | Selected
+           Training panel]. Below it sit the pagination row and the locked
+           footer. Only .content-wrap and .sel-list scroll. */
+        .wiz-body {
             flex: 1;
+            display: flex;
+            min-height: 0;
         }
+        .wiz-left {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .content-wrap {
+            padding: 22px 28px 26px;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+        }
+
+        /* ── Pagination row ──
+           Pinned between the table area and the locked footer. Controls are
+           LEFT-aligned on purpose: the row's empty right side is where the
+           Fin FAB nestles — no added row, no extra height (row height stays
+           --wiz-pager-h regardless of the FAB). */
+        .pager-row {
+            height: var(--wiz-pager-h);
+            flex-shrink: 0;
+            background: #fff;
+            border-top: 1px solid #e2e4e8;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 18px;
+            padding: 0 28px;
+            font-size: 13px;
+            color: #4a5060;
+        }
+        .pager-size { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: #4a5060; }
+        .pager-size select { border: 1px solid #d0d3d9; border-radius: 6px; padding: 5px 8px; font: 13px 'Open Sans'; background: #fff; }
+        .pager-range { color: #6b7280; }
+        .pager-nav { display: flex; align-items: center; gap: 4px; }
+        .pager-page { font-size: 12.5px; color: #4a5060; padding: 0 8px; }
+        .pager-btn {
+            width: 30px; height: 30px;
+            border: 1px solid #d0d3d9;
+            background: #fff;
+            border-radius: 6px;
+            color: #4a5060;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .pager-btn:hover:not(:disabled) { background: #f4f5f7; }
+        .pager-btn:disabled { opacity: 0.45; cursor: default; }
+
+        /* ── Selected Training side panel ──
+           Appears when rows are checked; scrolls independently of the table.
+           The list reserves --fin-fab-clearance of BOTTOM scroll padding so the
+           last item can scroll clear of the FAB. That padding is scroll room
+           only — it is invisible until you reach the end of the list. */
+        .sel-panel {
+            width: 320px;
+            flex-shrink: 0;
+            background: #fff;
+            border-left: 1px solid #e2e4e8;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .sel-panel[hidden] { display: none; }
+        .sel-head {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 16px 18px 12px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #1a1a2e;
+            border-bottom: 1px solid #eef0f3;
+            flex-shrink: 0;
+        }
+        .sel-count {
+            background: #0066cc;
+            color: #fff;
+            font-size: 11.5px;
+            font-weight: 700;
+            min-width: 22px;
+            height: 22px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 7px;
+        }
+        .sel-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 14px var(--fin-fab-clearance, 84px);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .sel-item {
+            border: 1px solid #e2e4e8;
+            border-radius: 8px;
+            padding: 10px 12px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            background: #fff;
+        }
+        .sel-item .si-icon { color: #0066cc; font-size: 13px; margin-top: 2px; }
+        .sel-item .si-name { flex: 1; font-size: 12.5px; font-weight: 600; color: #2c3142; line-height: 1.4; }
+        .sel-item .si-type { display: block; font-size: 11px; font-weight: 400; color: #9aa0ac; margin-top: 2px; }
+        .sel-item .si-remove { border: none; background: none; color: #9aa0ac; cursor: pointer; font-size: 12px; width: 24px; height: 24px; border-radius: 5px; flex-shrink: 0; }
+        .sel-item .si-remove:hover { background: #fde7e7; color: #b3261e; }
         .card {
             background: #fff;
             border: 1px solid #e2e4e8;
@@ -444,13 +571,17 @@
             width: 16px; height: 16px;
         }
 
-        /* Footer */
+        /* Footer — locked action bar. The Fin FAB floats ABOVE this bar
+           (see --fin-fab-bottom) and must never overlap or push it. */
         .wizard-footer {
             background: #fff;
             border-top: 1px solid #e2e4e8;
             display: flex;
             justify-content: space-between;
-            padding: 12px 28px;
+            align-items: center;
+            padding: 0 28px;
+            height: var(--wiz-footer-h);
+            flex-shrink: 0;
         }
         .btn {
             font: 600 13.5px 'Open Sans';
@@ -467,10 +598,11 @@
         }
         .btn.ghost { border-color: #d0d3d9; color: #4a5060; }
 
-        /* ── Mode toggle (UX team only) ── */
+        /* ── Mode toggle (UX team only) ──
+           Sits ABOVE the locked footer so it never covers the Cancel button. */
         .mode-toggle {
             position: fixed;
-            bottom: 16px;
+            bottom: calc(var(--wiz-footer-h) + 12px);
             left: 16px;
             z-index: 2147483000;
             background: #fff;
@@ -714,9 +846,12 @@
                 </div>
             </div>
 
-            <!-- Content -->
-            <div class="content-wrap">
-                <div class="card">
+            <!-- Body band: [table column | Selected Training panel] -->
+            <div class="wiz-body">
+                <div class="wiz-left">
+                    <!-- Content (scrolls) -->
+                    <div class="content-wrap">
+                        <div class="card">
                     <h2>Select Training</h2>
                     <p class="sub">Select what training you want to assign to your learners.</p>
 
@@ -756,9 +891,54 @@
                             <tr><td><input type="checkbox"></td><td>Industrial Equipment Operation</td><td>9 of 10</td><td>Any Order</td><td>10</td><td><a class="view-link" href="#">View Details</a></td></tr>
                             <tr><td><input type="checkbox"></td><td>Industrial Hygiene Practices</td><td>All Items</td><td>Specific Order</td><td>1</td><td><a class="view-link" href="#">View Details</a></td></tr>
                             <tr><td><input type="checkbox"></td><td>Industrial Hygiene Practices</td><td>All Items</td><td>Any Order</td><td>1</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                            <tr><td><input type="checkbox"></td><td>Machine Guarding Awareness</td><td>All Items</td><td>Any Order</td><td>5</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                            <tr><td><input type="checkbox"></td><td>Overhead Crane and Rigging</td><td>2 of 4</td><td>Specific Order</td><td>4</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                            <tr><td><input type="checkbox"></td><td>Respiratory Protection Fit</td><td>All Items</td><td>Any Order</td><td>3</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                            <tr><td><input type="checkbox"></td><td>Hazardous Waste Handling (RCRA)</td><td>All Items</td><td>Specific Order</td><td>6</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                            <tr><td><input type="checkbox"></td><td>Hot Work and Fire Watch</td><td>All Items</td><td>Any Order</td><td>2</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                            <tr><td><input type="checkbox"></td><td>Powered Industrial Trucks Refresher</td><td>1 of 2</td><td>Any Order</td><td>2</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                            <tr><td><input type="checkbox"></td><td>Electrical Safety (NFPA 70E)</td><td>All Items</td><td>Specific Order</td><td>7</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                            <tr><td><input type="checkbox"></td><td>Working at Heights</td><td>All Items</td><td>Any Order</td><td>4</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                            <tr><td><input type="checkbox"></td><td>Confined Space Attendant</td><td>All Items</td><td>Specific Order</td><td>5</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                            <tr><td><input type="checkbox"></td><td>Emergency Response Team Basics</td><td>3 of 6</td><td>Any Order</td><td>6</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                            <tr><td><input type="checkbox"></td><td>Chemical Spill Response</td><td>All Items</td><td>Any Order</td><td>3</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                            <tr><td><input type="checkbox"></td><td>First Aid, CPR, and AED</td><td>All Items</td><td>Any Order</td><td>3</td><td><a class="view-link" href="#">View Details</a></td></tr>
+                            <tr><td><input type="checkbox"></td><td>Job Hazard Analysis Fundamentals</td><td>All Items</td><td>Any Order</td><td>2</td><td><a class="view-link" href="#">View Details</a></td></tr>
                         </tbody>
                     </table>
+                        </div>
+                    </div>
+
+                    <!-- Pagination row: pager controls left-aligned; the empty right
+                         side is the reserved nook where the Fin FAB floats. -->
+                    <div class="pager-row">
+                        <label class="pager-size">Rows per page
+                            <select>
+                                <option>20</option>
+                                <option>50</option>
+                                <option>100</option>
+                            </select>
+                        </label>
+                        <span class="pager-range">1–20 of 128</span>
+                        <div class="pager-nav">
+                            <button class="pager-btn" type="button" aria-label="First page" disabled><i class="fa-solid fa-angles-left"></i></button>
+                            <button class="pager-btn" type="button" aria-label="Previous page" disabled><i class="fa-solid fa-angle-left"></i></button>
+                            <span class="pager-page">Page 1 of 7</span>
+                            <button class="pager-btn" type="button" aria-label="Next page"><i class="fa-solid fa-angle-right"></i></button>
+                            <button class="pager-btn" type="button" aria-label="Last page"><i class="fa-solid fa-angles-right"></i></button>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- Selected Training side panel (scrolls independently; opens
+                     when rows are checked) -->
+                <aside class="sel-panel" id="selPanel" hidden>
+                    <div class="sel-head">
+                        <span>Selected Training</span>
+                        <span class="sel-count" id="selCount">0</span>
+                    </div>
+                    <div class="sel-list" id="selList"></div>
+                </aside>
             </div>
 
             <!-- Footer -->
@@ -909,6 +1089,59 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') closeAudit();
         });
+
+        // ── Selected Training panel ─────────────────────────────────────────
+        // Checking table rows collects them into the right-side panel. The
+        // panel is hidden at 0 selections (so the pager row's right side is
+        // the FAB's nook); it scrolls independently once open.
+        const selPanel = document.getElementById('selPanel');
+        const selList  = document.getElementById('selList');
+        const selCount = document.getElementById('selCount');
+        const headerCheck = document.querySelector('.qual-table thead input[type="checkbox"]');
+        const rowChecks = Array.from(document.querySelectorAll('.qual-table tbody input[type="checkbox"]'));
+
+        function rowName(check) {
+            const cell = check.closest('tr').children[1].cloneNode(true);
+            cell.querySelectorAll('.new-tag').forEach(t => t.remove());
+            return cell.textContent.trim();
+        }
+
+        function renderSelected() {
+            const checked = rowChecks.filter(c => c.checked);
+            selCount.textContent = checked.length;
+            selPanel.hidden = checked.length === 0;
+            selList.innerHTML = '';
+            checked.forEach(c => {
+                const item = document.createElement('div');
+                item.className = 'sel-item';
+                item.innerHTML =
+                    '<i class="si-icon fa-solid fa-award"></i>' +
+                    '<span class="si-name">' + rowName(c) +
+                    '<span class="si-type">Qualification</span></span>' +
+                    '<button class="si-remove" type="button" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>';
+                item.querySelector('.si-remove').addEventListener('click', () => {
+                    c.checked = false;
+                    headerCheck.checked = false;
+                    renderSelected();
+                });
+                selList.appendChild(item);
+            });
+        }
+
+        rowChecks.forEach(c => c.addEventListener('change', () => {
+            headerCheck.checked = rowChecks.every(x => x.checked);
+            renderSelected();
+        }));
+        headerCheck.addEventListener('change', () => {
+            rowChecks.forEach(c => c.checked = headerCheck.checked);
+            renderSelected();
+        });
     </script>
+
+    <!-- Vectoria / Intercom Fin FAB (shared rollout include).
+         Positioning: --fin-fab-bottom (set in :root above) floats it over the
+         pagination row's empty right side, clear of the locked footer. -->
+    <script>window.FIN_WIDGET = { qualListHref: '../Qualification-Builder/Manage-Qualifications.html' };</script>
+    <script src="../ai-chat-widget/fin-widget.js"></script>
 </body>
 </html>

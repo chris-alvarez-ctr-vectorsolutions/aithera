@@ -207,8 +207,17 @@
 .cw-panel-thumb { margin: 8px 0; cursor: zoom-in; max-width: 100%; border-radius: 10px; border: 1px solid #e5e7eb; overflow: hidden; transition: transform .15s var(--cw-ease), box-shadow .15s; }
 .cw-panel-thumb:hover { transform: scale(1.01); box-shadow: 0 4px 12px rgba(0,0,0,.12); }
 .cw-panel-thumb img { display: block; max-width: 100%; max-height: 120px; }
-.cw-panel-close { position: absolute; top: 8px; right: 10px; background: transparent; border: 0; cursor: pointer; font-size: 18px; color: #92400e; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background .15s, transform .15s var(--cw-ease); }
+.cw-panel-close { position: absolute; top: 8px; right: 10px; background: transparent; border: 0; cursor: pointer; font-size: 18px; color: #92400e; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background .15s, transform .15s var(--cw-ease); z-index: 1; }
 .cw-panel-close:hover { background: rgba(146,64,14,.1); transform: rotate(90deg); }
+
+/* Drag grip — a title-bar handle at the top of a floating surface (panel/popup).
+   Grab it to move the sticky note out of the way of the design. Sits above the
+   content and clears the top-right close button. */
+.cw-grip { display: flex; align-items: center; justify-content: center; height: 14px; margin: -8px -10px 8px; border-radius: 10px 10px 0 0; cursor: grab; color: #d8bd6c; user-select: none; touch-action: none; transition: background .15s, color .15s; }
+.cw-grip::before { content: "\\2022\\2022\\2022\\2022\\2022\\2022"; letter-spacing: 2px; font-size: 9px; line-height: 1; transform: translateY(-1px); }
+.cw-grip:hover { background: rgba(146,64,14,.06); color: #b8912f; }
+.cw-floater--dragging { cursor: grabbing; box-shadow: 0 26px 60px rgba(146,94,12,.3), 0 8px 20px rgba(0,0,0,.16); transition: none; }
+.cw-floater--dragging .cw-grip { cursor: grabbing; background: rgba(146,64,14,.06); }
 
 /* Thread */
 .cw-thread { border-top: 1px dashed var(--cw-paper-edge); padding-top: 10px; }
@@ -949,8 +958,8 @@
     var bannerKids = [
       document.createTextNode('Click any element to leave feedback'),
       el('button', {
-        type: 'button', class: 'cw-banner-gear', title: 'Settings & admin controls',
-        'aria-label': 'Settings',
+        type: 'button', class: 'cw-banner-gear', title: 'Comment settings',
+        'aria-label': 'Comment settings',
         onclick: () => { becomeAdmin(); openAdminPanel(); },
       }, ['⚙']),
     ];
@@ -1000,43 +1009,31 @@
     // "place a new pin" and the toggles would never get the click.
     exitPickMode();
 
-    const visitorToggle = makeToggle(
-      () => state.settings.visitorMode,
-      (next) => saveSetting({ visitorMode: next }, next ? 'Visitor mode on' : 'Visitor mode off'),
-    );
     const disabledToggle = makeToggle(
       () => state.settings.commentsDisabled,
-      (next) => saveSetting({ commentsDisabled: next }, next ? 'Comments disabled' : 'Comments enabled'),
+      (next) => saveSetting({ commentsDisabled: next }, next ? 'Comments hidden' : 'Comments shown'),
     );
 
+    // Kept intentionally minimal: just the hide-comments toggle and a link to
+    // the activity log. (Other admin options were removed by request.)
     adminPanel = el('div', { class: 'cw-admin-panel' }, [
       el('div', { class: 'cw-admin-head' }, [
-        el('span', { class: 'cw-admin-title' }, ['⚙ Admin controls']),
+        el('span', { class: 'cw-admin-title' }, ['⚙ Comment settings']),
         el('button', { class: 'cw-panel-close', onclick: closeAdminPanel, 'aria-label': 'Close' }, ['×']),
       ]),
       el('div', { class: 'cw-admin-row' }, [
         el('div', { class: 'cw-admin-label' }, [
-          el('strong', {}, ['Visitor mode']),
-          el('span', {}, ['Visitors only see their own comments, in a minimal panel: just the Done / Edit / Delete (and Save) buttons, the comment text, and replies. The author header, screenshot, Claude Code prompt, and Open-in-VS-Code button are all hidden.']),
-        ]),
-        visitorToggle.el,
-      ]),
-      el('div', { class: 'cw-admin-row' }, [
-        el('div', { class: 'cw-admin-label' }, [
-          el('strong', {}, ['Disable comments']),
+          el('strong', {}, ['Hide comments']),
           el('span', {}, ['Hides every pin and disables the bubble for non-admins. Admins still see and can manage everything.']),
         ]),
         disabledToggle.el,
       ]),
       el('a', { class: 'cw-admin-link', href: LOG_URL, target: '_blank', rel: 'noopener' }, ['🗒️ View activity log ↗']),
-      el('div', { class: 'cw-admin-footer' }, [
-        `You are admin on this browser. Open comment mode and click the ⚙ button any time to reopen these controls.`
-      ]),
     ]);
     document.body.appendChild(adminPanel);
     bindOutsideClose(adminPanel, closeAdminPanel);
 
-    function syncToggles() { visitorToggle.render(); disabledToggle.render(); }
+    function syncToggles() { disabledToggle.render(); }
 
     async function saveSetting(patch, successMsg) {
       const prev = { ...state.settings };
@@ -1374,6 +1371,7 @@
     }
 
     popup = el('div', { class: 'cw-popup' }, [
+      gripHandle(),
       el('h4', {}, ['New feedback']),
       authorRow.row,
       el('div', { class: 'cw-row' }, [el('label', {}, ['Comment']), textArea]),
@@ -1381,6 +1379,7 @@
     ]);
     positionFloater(popup, ctx.clickX, ctx.clickY);
     document.body.appendChild(popup);
+    makeFloaterDraggable(popup, popup.querySelector('.cw-grip'));
     if (state.author) setTimeout(() => textArea.focus(), 0);
     bindOutsideClose(popup, () => { closePopup(); enterPickMode(); });
   }
@@ -1417,6 +1416,50 @@
     const top = Math.min(Math.max(window.scrollY + 8, y + 16), window.scrollY + window.innerHeight - H);
     node.style.left = left + 'px';
     node.style.top = top + 'px';
+  }
+
+  // The little dotted title-bar handle at the top of a floating surface. Grab it
+  // to drag the whole card around (see makeFloaterDraggable).
+  function gripHandle() {
+    return el('div', { class: 'cw-grip', title: 'Drag to move' }, []);
+  }
+
+  // Lets the user drag a floating surface (comment panel / new-pin popup) around
+  // by its grip handle so it doesn't cover the part of the design being reviewed.
+  // The surface is position:absolute with page-coordinate left/top (set by
+  // positionFloater), so we move it by the pointer delta and clamp it on screen.
+  function makeFloaterDraggable(surface, handle) {
+    if (!surface || !handle) return;
+    handle.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;          // left button only
+      e.preventDefault();
+      const startX = e.clientX, startY = e.clientY;
+      const origLeft = parseFloat(surface.style.left) || 0;
+      const origTop = parseFloat(surface.style.top) || 0;
+      let moved = false;
+      surface.classList.add('cw-floater--dragging');
+      try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+      const move = (ev) => {
+        moved = true;
+        const w = surface.offsetWidth, h = surface.offsetHeight;
+        const maxLeft = window.scrollX + window.innerWidth - w - 8;
+        const maxTop = window.scrollY + window.innerHeight - 40; // keep the grip reachable
+        const nx = Math.max(window.scrollX + 8, Math.min(origLeft + (ev.clientX - startX), maxLeft));
+        const ny = Math.max(window.scrollY + 8, Math.min(origTop + (ev.clientY - startY), maxTop));
+        surface.style.left = nx + 'px';
+        surface.style.top = ny + 'px';
+      };
+      const up = () => {
+        surface.classList.remove('cw-floater--dragging');
+        try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+        document.removeEventListener('pointermove', move, true);
+        document.removeEventListener('pointerup', up, true);
+        // Swallow the click that follows a real drag so it doesn't fall through.
+        if (moved) handle.addEventListener('click', (c) => c.stopPropagation(), { capture: true, once: true });
+      };
+      document.addEventListener('pointermove', move, true);
+      document.addEventListener('pointerup', up, true);
+    });
   }
 
   // Returns the pins this user is allowed to see right now.
@@ -2178,16 +2221,24 @@
     if (opts.editing) panelEditing = true;
     state.openPanelPinId = pin.id;
     panel = renderPanel(pin);
-    let x, y;
-    if (opts.stranded || !findPinEl(pin)) {
-      x = window.scrollX + window.innerWidth - 400;
-      y = window.scrollY + 80;
+    if (opts.keepPos) {
+      // Re-render (edit / reply / done) of the same pin — stay where the user
+      // left it rather than snapping back to the pin.
+      panel.style.left = opts.keepPos.left;
+      panel.style.top = opts.keepPos.top;
     } else {
-      x = pin.x * window.innerWidth;
-      y = pin.y * window.innerHeight;
+      let x, y;
+      if (opts.stranded || !findPinEl(pin)) {
+        x = window.scrollX + window.innerWidth - 400;
+        y = window.scrollY + 80;
+      } else {
+        x = pin.x * window.innerWidth;
+        y = pin.y * window.innerHeight;
+      }
+      positionFloater(panel, x, y);
     }
-    positionFloater(panel, x, y);
     document.body.appendChild(panel);
+    makeFloaterDraggable(panel, panel.querySelector('.cw-grip'));
     bindOutsideClose(panel, () => closePanel());
   }
 
@@ -2291,15 +2342,18 @@
     // header (avatar / name / timestamp) is dropped too, on top of the
     // screenshot, Claude Code prompt, and Open-in-VS-Code button already left out.
     if (stripped) {
-      return el('div', { class: 'cw-panel cw-panel--mini' }, [closeBtn, actions, body, thread]);
+      return el('div', { class: 'cw-panel cw-panel--mini' }, [gripHandle(), closeBtn, actions, body, thread]);
     }
 
-    return el('div', { class: 'cw-panel' }, [closeBtn, head, actions, body, ...extras, thread]);
+    return el('div', { class: 'cw-panel' }, [gripHandle(), closeBtn, head, actions, body, ...extras, thread]);
   }
 
   function reopenPanel(pin, opts = {}) {
+    // Preserve the current on-screen position so an edit/reply/done re-render
+    // keeps the panel where the user dragged it instead of snapping to the pin.
+    const keepPos = (panel && !opts.stranded) ? { left: panel.style.left, top: panel.style.top } : null;
     closePanel();
-    openPanel(pin, opts);
+    openPanel(pin, keepPos ? { keepPos, ...opts } : opts);
   }
 
   function buildReplyForm(pin) {

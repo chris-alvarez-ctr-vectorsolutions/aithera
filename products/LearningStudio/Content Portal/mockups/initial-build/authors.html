@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authors — Content Portal (Initial Build)</title>
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Open Sans', -apple-system, sans-serif;
+            font-size: 13px;
+            color: #0f2e3d;
+            background: #ffffff;
+            min-height: 100vh;
+        }
+
+        vwc-topnav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+        }
+
+        .app-body {
+            display: flex;
+            padding-top: 56px;
+            height: 100vh;
+        }
+
+        vwc-sidenav {
+            --vwc-sidenav-width: 240px;
+            --vwc-sidenav-max-width: 240px;
+            --offset: 56px;
+            flex-shrink: 0;
+            z-index: 10;
+            background: var(--lumo-base-color);
+            border-right: 1px solid rgba(28,55,90,0.1);
+        }
+        vwc-sidenav[collapsed] {
+            --vwc-sidenav-width: 56px;
+            --vwc-sidenav-max-width: 56px;
+        }
+
+        .main-content {
+            flex: 1;
+            min-width: 0;
+            overflow-y: auto;
+        }
+
+        .content-inner {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 28px 32px;
+        }
+
+        /* Page header */
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .page-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f2e3d;
+        }
+
+        /* Search & filter */
+        .search-filter-bar {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        vaadin-text-field { width: 100%; }
+
+        .filter-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .filter-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--lumo-secondary-text-color);
+        }
+        .filter-row select {
+            height: 32px;
+            padding: 0 26px 0 10px;
+            border: 1px solid var(--lumo-contrast-20pct);
+            border-radius: 6px;
+            font-family: 'Open Sans', sans-serif;
+            font-size: 12px;
+            color: #0f2e3d;
+            background: var(--lumo-base-color) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23555' d='M1 1l4 4 4-4'/%3E%3C/svg%3E") no-repeat right 8px center;
+            appearance: none;
+            cursor: pointer;
+            transition: border-color 0.12s, box-shadow 0.12s;
+        }
+        .filter-row select:focus {
+            outline: none;
+            border-color: #0ea5e9;
+            box-shadow: 0 0 0 3px rgba(14,165,233,0.1);
+        }
+
+        .results-summary {
+            font-size: 12px;
+            color: var(--lumo-secondary-text-color);
+            margin-bottom: 12px;
+        }
+
+        .pagination-row {
+            margin-top: 18px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        /* ── Add Author overlay panel (simple/quick add only) ── */
+        .aa-scrim {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 46, 61, 0.55);
+            z-index: 999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.18s ease;
+        }
+        .aa-scrim.open { opacity: 1; pointer-events: auto; }
+        .aa-panel {
+            position: fixed;
+            top: 0; right: 0; bottom: 0;
+            width: 460px;
+            max-width: 100vw;
+            background: var(--lumo-base-color);
+            z-index: 1000;
+            box-shadow: -6px 0 30px rgba(0,0,0,0.18);
+            display: flex;
+            flex-direction: column;
+            transform: translateX(100%);
+            transition: transform 0.22s ease;
+        }
+        .aa-panel.open { transform: translateX(0); }
+        .aa-drawer-header {
+            padding: 18px 24px 14px;
+            border-bottom: 1px solid rgba(28,55,90,0.08);
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        .aa-drawer-header-body { flex: 1; min-width: 0; }
+        .aa-drawer-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f2e3d;
+            margin-bottom: 4px;
+        }
+        .aa-drawer-subtitle {
+            font-size: 12.5px;
+            color: var(--lumo-secondary-text-color);
+            line-height: 1.5;
+        }
+        .aa-close-btn {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            width: 32px; height: 32px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 5px;
+            color: var(--lumo-secondary-text-color);
+            flex-shrink: 0;
+            transition: background 0.1s;
+        }
+        .aa-close-btn:hover { background: rgba(28,55,90,0.06); color: #0f2e3d; }
+        .aa-drawer-content {
+            padding: 18px 24px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .aa-field { display: flex; flex-direction: column; gap: 4px; }
+        .aa-label {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: #0f2e3d;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .aa-helper {
+            font-size: 11.5px;
+            color: var(--lumo-secondary-text-color);
+            line-height: 1.4;
+            margin-top: 4px;
+        }
+        .aa-photo-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-top: 4px;
+        }
+        .aa-photo-placeholder {
+            width: 64px; height: 64px;
+            border-radius: 50%;
+            background: rgba(28,55,90,0.08);
+            color: var(--lumo-secondary-text-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+        .aa-drawer-footer {
+            flex-shrink: 0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 16px 24px;
+            border-top: 1px solid rgba(28,55,90,0.08);
+            background: var(--lumo-base-color);
+        }
+
+        /* Highlight newly-created row */
+        @keyframes aa-flash {
+            0% { background: rgba(46,125,50,0.12); }
+            100% { background: transparent; }
+        }
+        vaadin-grid#authors-grid::part(just-added-cell) {
+            animation: aa-flash 2.4s ease-out;
+        }
+
+        /* ── vaadin-grid container ── */
+        vaadin-grid#authors-grid {
+            background: var(--lumo-base-color);
+            border: 1px solid rgba(28,55,90,0.1);
+            border-radius: 8px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.03);
+            font-size: 13px;
+            min-height: 300px;
+        }
+        vaadin-grid#authors-grid::part(first-column-cell),
+        vaadin-grid#authors-grid::part(last-column-cell),
+        vaadin-grid#authors-grid::part(cell) {
+            padding-left: 14px;
+            padding-right: 14px;
+        }
+        vaadin-grid#authors-grid::part(last-column-cell) {
+            padding-right: 20px;
+        }
+        vaadin-grid#authors-grid::part(cell),
+        vaadin-grid#authors-grid::part(body-cell) {
+            cursor: pointer;
+            background-color: transparent;
+        }
+        vaadin-grid#authors-grid::part(row):hover {
+            background-color: rgba(14,165,233,0.10);
+        }
+
+        /* Name cell — avatar + author name */
+        .name-cell {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+        .author-avatar {
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            color: #fff;
+            flex-shrink: 0;
+            background-size: cover;
+            background-position: center;
+        }
+        .name-cell-body { min-width: 0; }
+        .author-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #0f2e3d;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        /* Inactive rows are de-emphasized */
+        .author-name.is-inactive { color: var(--lumo-secondary-text-color); }
+
+        /* Status badge (Active / Inactive) */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 2px 10px;
+            border-radius: 11px;
+            font-size: 11.5px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .status-badge .status-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .status-active { background: #e6f4ea; color: #2e7d32; }
+        .status-active .status-dot { background: #2e7d32; }
+        .status-inactive { background: #eceff1; color: #546e7a; }
+        .status-inactive .status-dot { background: #546e7a; }
+    </style>
+</head>
+<body>
+
+    <vwc-topnav id="topnav" sidenav-id="sidenav"></vwc-topnav>
+
+    <div class="app-body">
+        <vwc-sidenav id="sidenav" active-item-id="authors"></vwc-sidenav>
+
+        <main class="main-content">
+        <div class="content-inner">
+
+            <div class="page-header">
+                <div class="page-title">Authors</div>
+                <!-- Initial build: a single "Add author" button opening the simple add drawer.
+                     No split button / full-profile path in the scaled-back scope. -->
+                <vaadin-button id="open-add-author" theme="primary">
+                    <i class="fa-solid fa-plus" slot="prefix"></i>
+                    Add author
+                </vaadin-button>
+            </div>
+
+            <div class="search-filter-bar">
+                <vaadin-text-field
+                    id="search-field"
+                    theme="outlined"
+                    label="Search"
+                    placeholder="Search by author name…"
+                    clear-button-visible>
+                    <vwc-icon class="indicator" slot="suffix" path="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"></vwc-icon>
+                </vaadin-text-field>
+
+                <!-- Scaled-back filters: Status only (Active / Inactive). -->
+                <div class="filter-row">
+                    <span class="filter-label">Filters:</span>
+                    <select id="filter-status" aria-label="Status">
+                        <option value="">All Statuses</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="results-summary">Showing authors</div>
+
+            <!-- Scaled-back columns: Author (avatar + name) and Status only. -->
+            <vaadin-grid id="authors-grid" theme="no-border" all-rows-visible aria-label="Authors">
+                <vaadin-grid-sort-column id="col-name" path="name" header="Author" flex-grow="3"></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column id="col-status" path="status" header="Status" width="150px" flex-grow="0" text-align="end"></vaadin-grid-sort-column>
+            </vaadin-grid>
+
+            <div class="pagination-row">
+                <vwc-paginator id="paginator" total="0" page="0" page-size="10"></vwc-paginator>
+            </div>
+
+        </div><!-- /.content-inner -->
+        </main>
+    </div>
+
+    <!-- Add Author overlay (simple add: photo, name, bio) -->
+    <div class="aa-scrim" id="aa-scrim" aria-hidden="true"></div>
+    <aside class="aa-panel" id="aa-panel" role="dialog" aria-labelledby="aa-title" aria-hidden="true">
+        <div class="aa-drawer-header">
+            <div class="aa-drawer-header-body">
+                <div class="aa-drawer-title" id="aa-title">Add author</div>
+                <div class="aa-drawer-subtitle">
+                    Add an author with a photo, name, and short bio. You can edit these on the author's profile at any time.
+                </div>
+            </div>
+            <button class="aa-close-btn" id="aa-close" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="aa-drawer-content">
+
+            <div class="aa-field">
+                <label class="aa-label">Photo</label>
+                <div class="aa-photo-row">
+                    <div class="aa-photo-placeholder" id="aa-photo-preview">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                    <div>
+                        <vaadin-button theme="secondary">
+                            <i class="fa-solid fa-arrow-up-from-bracket" slot="prefix"></i>
+                            Upload photo
+                        </vaadin-button>
+                        <div class="aa-helper">JPG or PNG, recommended 400×400. Optional.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="aa-field">
+                <vaadin-text-field
+                    id="aa-name"
+                    theme="outlined"
+                    label="Author Name"
+                    required
+                    error-message="Author name is required"
+                    placeholder="e.g., Dr. Sarah Mitchell"
+                    style="width:100%">
+                </vaadin-text-field>
+            </div>
+
+            <div class="aa-field">
+                <vaadin-text-area
+                    id="aa-bio"
+                    theme="outlined"
+                    label="Bio"
+                    rows="4"
+                    helper-text="Optional. A short professional description."
+                    style="width:100%">
+                </vaadin-text-area>
+            </div>
+
+        </div><!-- /.aa-drawer-content -->
+
+        <div class="aa-drawer-footer">
+            <vaadin-button id="aa-cancel" theme="secondary">Cancel</vaadin-button>
+            <vaadin-button id="aa-submit" theme="primary">Add author</vaadin-button>
+        </div>
+    </aside>
+
+<script>
+customElements.whenDefined('vwc-sidenav').then(() => {
+    const topnav = document.getElementById('topnav');
+    topnav.logo = { src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 32'><rect x='0' y='4' width='24' height='24' rx='4' fill='%230f2e3d'/><text x='32' y='22' font-family='Open Sans,sans-serif' font-size='16' font-weight='700' fill='%230f2e3d'>LOGO</text></svg>", alt: 'Logo' };
+
+    const sidenav = document.getElementById('sidenav');
+    sidenav.items = [
+        { type: 'link', id: 'library',  text: 'Content Library', href: '#', icon: { type: 'svg', path: 'M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z' } },
+        { type: 'link', id: 'authors',  text: 'Authors', href: 'authors.html', icon: { type: 'svg', path: 'M16,2L14.6,3.43L18.57,7.41L20,6M13.89,4.14L4,14.03V18H7.97L17.86,8.11L13.89,4.14M4,20V22H20V20H4Z' } },
+        { type: 'divider' },
+        { type: 'link', id: 'assets',   text: 'Assets', href: '#', icon: { type: 'svg', path: 'M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z' } },
+        { type: 'link', id: 'settings', text: 'Settings', href: '#', icon: { type: 'svg', path: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.11-.22.06-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z' } }
+    ];
+
+    sidenav.addEventListener('collapsed-changed', () => {
+        document.querySelector('.main-content').classList.toggle('sidenav-collapsed', sidenav.collapsed);
+    });
+
+    const AVATAR_COLORS = ['#1976d2', '#388e3c', '#e64a19', '#6a1b9a', '#00838f', '#c62828', '#f9a825', '#5e35b1', '#00695c', '#283593', '#bf360c', '#4527a0'];
+
+    // Scaled-back data model: name, photo, bio, status only.
+    const authors = [
+        {"initials":"SM","color":"#1976d2","name":"Dr. Sarah Mitchell","status":"active","href":"author-profile.html"},
+        {"initials":"JK","color":"#388e3c","name":"James Kowalski","status":"active","href":"author-profile.html"},
+        {"initials":"TR","color":"#e64a19","name":"Teresa Ramos","status":"inactive","href":"author-profile.html"},
+        {"initials":"LN","color":"#6a1b9a","name":"Dr. Linda Nguyen","status":"active","href":"author-profile.html"},
+        {"initials":"MO","color":"#00838f","name":"Marcus Okafor","status":"inactive","href":"author-profile.html"},
+        {"initials":"AC","color":"#c62828","name":"Amanda Chen","status":"active","href":"author-profile.html"},
+        {"initials":"DP","color":"#f9a825","name":"David Park","status":"active","href":"author-profile.html"},
+        {"initials":"RH","color":"#5e35b1","name":"Rachel Hernandez","status":"active","href":"author-profile.html"},
+        {"initials":"BM","color":"#00695c","name":"Brian Murphy","status":"inactive","href":"author-profile.html"},
+        {"initials":"EJ","color":"#283593","name":"Dr. Emily Johnson","status":"active","href":"author-profile.html"},
+        {"initials":"CW","color":"#bf360c","name":"Carlos Williams","status":"active","href":"author-profile.html"},
+        {"initials":"KT","color":"#4527a0","name":"Kim Tanaka","status":"inactive","href":"author-profile.html"},
+        {"initials":"AR","color":"#1976d2","name":"Aisha Robinson","status":"active","href":"author-profile.html"},
+        {"initials":"NG","color":"#388e3c","name":"Dr. Nathan Garcia","status":"active","href":"author-profile.html"},
+        {"initials":"PL","color":"#e64a19","name":"Priya Lakshmi","status":"active","href":"author-profile.html"}
+    ];
+
+    const grid = document.getElementById('authors-grid');
+    const resultsSummary = document.querySelector('.results-summary');
+    const statusFilter = document.getElementById('filter-status');
+    const searchField = document.getElementById('search-field');
+    const paginator = document.getElementById('paginator');
+    paginator.pageSizeOptions = [10, 25, 50];
+
+    let paginationState = { page: 0, pageSize: 10 };
+    let justAddedId = null;
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
+    // Two-state status: Active / Inactive.
+    const STATUS_DEFS = {
+        active:   { label: 'Active',   cls: 'status-active' },
+        inactive: { label: 'Inactive', cls: 'status-inactive' }
+    };
+
+    // ── Grid column renderers ──
+    document.getElementById('col-name').renderer = (root, _col, model) => {
+        root.innerHTML = '';
+        const a = model.item;
+        const inactive = a.status === 'inactive';
+        const wrap = document.createElement('div');
+        wrap.className = 'name-cell';
+        const avatarBg = a.photo ? `background-image:url('${a.photo}')` : `background:${a.color}`;
+        wrap.innerHTML = `
+            <div class="author-avatar" style="${avatarBg}">${a.photo ? '' : escapeHtml(a.initials)}</div>
+            <div class="name-cell-body">
+                <div class="author-name${inactive ? ' is-inactive' : ''}">${escapeHtml(a.name)}</div>
+            </div>
+        `;
+        root.appendChild(wrap);
+    };
+
+    document.getElementById('col-status').renderer = (root, _col, model) => {
+        root.innerHTML = '';
+        const def = STATUS_DEFS[model.item.status] || STATUS_DEFS.active;
+        const span = document.createElement('span');
+        span.className = 'status-badge ' + def.cls;
+        span.innerHTML = `<span class="status-dot"></span> ${def.label}`;
+        root.appendChild(span);
+    };
+
+    // Whole row navigates to the author's detail view.
+    grid.addEventListener('active-item-changed', (e) => {
+        const item = e.detail.value;
+        if (item && item.href) window.location = item.href;
+    });
+
+    grid.cellPartNameGenerator = (_col, model) => {
+        if (model.item && model.item.id && model.item.id === justAddedId) return 'just-added-cell';
+        return '';
+    };
+
+    function getFiltered() {
+        const statusValue = statusFilter.value;
+        const q = (searchField.value || '').trim().toLowerCase();
+        return authors.filter(a => {
+            if (statusValue && (a.status || 'active') !== statusValue) return false;
+            if (q && !a.name.toLowerCase().includes(q)) return false;
+            return true;
+        });
+    }
+
+    function renderAuthors() {
+        const filtered = getFiltered();
+        const totalPages = Math.max(1, Math.ceil(filtered.length / paginationState.pageSize));
+        if (paginationState.page >= totalPages) paginationState.page = 0;
+
+        paginator.total = filtered.length;
+        if (paginator.page !== paginationState.page) paginator.page = paginationState.page;
+        if (paginator.pageSize !== paginationState.pageSize) paginator.pageSize = paginationState.pageSize;
+
+        const start = paginationState.page * paginationState.pageSize;
+        const pageItems = filtered.slice(start, start + paginationState.pageSize);
+
+        grid.items = pageItems;
+        grid.requestContentUpdate();
+
+        const showingFrom = filtered.length === 0 ? 0 : start + 1;
+        const showingTo = Math.min(start + paginationState.pageSize, filtered.length);
+        resultsSummary.textContent = filtered.length === 0
+            ? 'No authors match the current filters'
+            : `Showing ${showingFrom}–${showingTo} of ${filtered.length} ${filtered.length === authors.length ? 'authors' : `(${authors.length} total)`}`;
+    }
+
+    statusFilter.addEventListener('change', () => { paginationState.page = 0; renderAuthors(); });
+    searchField.addEventListener('input', () => { paginationState.page = 0; renderAuthors(); });
+
+    paginator.addEventListener('page-change', (e) => {
+        paginationState.page = e.detail.page;
+        paginationState.pageSize = e.detail.pageSize;
+        renderAuthors();
+    });
+
+    renderAuthors();
+
+    // ── Add Author overlay wiring ──
+    const scrim = document.getElementById('aa-scrim');
+    const panel = document.getElementById('aa-panel');
+    const openBtn = document.getElementById('open-add-author');
+    const closeBtn = document.getElementById('aa-close');
+    const cancelBtn = document.getElementById('aa-cancel');
+    const submitBtn = document.getElementById('aa-submit');
+    const aaName = document.getElementById('aa-name');
+    const aaBio = document.getElementById('aa-bio');
+
+    function openOverlay() {
+        resetDrawer();
+        scrim.classList.add('open');
+        panel.classList.add('open');
+        scrim.setAttribute('aria-hidden', 'false');
+        panel.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => aaName.focus(), 220);
+    }
+    function closeOverlay() {
+        scrim.classList.remove('open');
+        panel.classList.remove('open');
+        scrim.setAttribute('aria-hidden', 'true');
+        panel.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+    }
+    function resetDrawer() {
+        aaName.value = '';
+        aaName.invalid = false;
+        aaBio.value = '';
+    }
+
+    openBtn.addEventListener('click', openOverlay);
+    cancelBtn.addEventListener('click', closeOverlay);
+    closeBtn.addEventListener('click', closeOverlay);
+    scrim.addEventListener('click', closeOverlay);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && panel.classList.contains('open')) closeOverlay();
+    });
+
+    function initialsFor(name) {
+        const parts = name.trim().split(/\s+/).filter(p => !/^(dr\.?|mr\.?|mrs\.?|ms\.?|prof\.?)$/i.test(p));
+        if (parts.length === 0) return '?';
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+
+    submitBtn.addEventListener('click', () => {
+        const name = aaName.value.trim();
+        if (!name) {
+            aaName.invalid = true;
+            aaName.focus();
+            return;
+        }
+        const color = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+        const id = 'author-' + Date.now();
+        const newAuthor = {
+            id,
+            initials: initialsFor(name),
+            color,
+            name,
+            bio: aaBio.value.trim(),
+            status: 'active',
+            href: 'author-profile.html'
+        };
+
+        authors.unshift(newAuthor);
+        justAddedId = id;
+
+        statusFilter.value = '';
+        searchField.value = '';
+        paginationState.page = 0;
+
+        closeOverlay();
+        renderAuthors();
+        showToast(`<strong>${escapeHtml(name)}</strong> added.`);
+        setTimeout(() => { justAddedId = null; }, 2500);
+    });
+
+    function showToast(html) {
+        const note = document.createElement('vaadin-notification');
+        note.position = 'bottom-center';
+        note.duration = 4000;
+        note.renderer = (root) => {
+            root.innerHTML = `<span style="display:inline-flex; align-items:center; gap:8px;"><i class="fa-solid fa-circle-check" style="color:#2e7d32"></i> ${html}</span>`;
+        };
+        document.body.appendChild(note);
+        note.opened = true;
+        note.addEventListener('opened-changed', e => { if (!e.detail.value) note.remove(); });
+    }
+
+}); // end whenDefined
+</script>
+</body>
+</html>

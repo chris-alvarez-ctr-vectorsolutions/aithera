@@ -361,12 +361,6 @@
         @media (max-width: 900px) {
             .topbar { flex-wrap: wrap; row-gap: 8px; }
             .topbar-divider { display: none; }
-            /* On small screens the absolutely-centered timer would overlap the
-               wrapped rows — drop it back into normal flow, full width. */
-            .form-timer {
-                position: static; transform: none;
-                order: 3; margin: 0 auto;
-            }
         }
 
         /* ─── Placeholder form header (form name + subject/evaluator meta) ───
@@ -1213,7 +1207,7 @@
         .floating-cart {
             position: fixed;
             right: 20px;
-            bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+            bottom: calc(20px + env(safe-area-inset-bottom, 0px));
             z-index: 30;
             display: inline-flex; align-items: center; gap: 12px;
             background: #fff; border: 1px solid var(--border-soft);
@@ -1249,6 +1243,35 @@
         @media (max-width: 720px) {
             .floating-cart { left: 12px; right: 12px; justify-content: space-between; }
         }
+
+        /* ─── Back-to-top button ───
+           Small horizontally-centered pill ("↑ Top"). Sits on the same visual
+           row as the right-aligned floating cart, near the bottom of the viewport.
+           The +6px over the cart's bottom offset roughly centers this shorter pill
+           against the taller cart pill so they read as one row. Hidden until the
+           user scrolls down; clicking smooth-scrolls to the top of the form.
+           Centered via translateX(-50%), so the show/hide slide is baked into the
+           same transform to keep it centered while animating. */
+        .back-to-top {
+            position: fixed;
+            left: 50%;
+            bottom: calc(26px + env(safe-area-inset-bottom, 0px));
+            z-index: 40;
+            border-radius: 999px;
+            border: 1px solid var(--border-soft);
+            background: #fff; color: var(--text-strong);
+            cursor: pointer;
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px;
+            font-family: inherit; font-size: 12px; font-weight: 600;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.16), 0 2px 5px rgba(0,0,0,0.06);
+            /* Hidden by default; fade/slide in when .visible is set (centered). */
+            opacity: 0; transform: translateX(-50%) translateY(12px); pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease, background 0.15s;
+        }
+        .back-to-top i { font-size: 11px; }
+        .back-to-top.visible { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+        .back-to-top:hover { background: var(--page-bg); }
 
         /* ── Heading (title-only, no details body, no answer control) ── */
         .q-heading .q-title {
@@ -1570,6 +1593,117 @@
         .q-video-upload-option-sub { display: block; font-size: 12px; color: var(--text-muted); }
         .q-video-upload-hint { font-size: 12px; color: var(--text-muted); font-style: italic; }
 
+        /* ─── Step action bar (Add Tags / Add attachment) ───
+           A reusable action bar appended to certain question types (Rating, Text
+           Entry). The button row holds Add Tags + Add attachment side by side;
+           Add Tags opens a multi-select search dropdown (stays open across picks).
+           Selected tag chips and compact attachment cards render below the row.
+           State is keyed per question in `stepExtras`. */
+        .q-actionbar {
+            margin-top: 14px;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        /* Add Tags + Add attachment sit next to each other in their own row. */
+        .q-actionbar-actions {
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        }
+        .q-actionbar-wrap { position: relative; }
+        /* Both triggers are design-system secondary vaadin-buttons — size their
+           FA slot icons to sit with the label so the two buttons match. */
+        .q-add-tags-btn i[slot="prefix"],
+        .q-add-attachment i[slot="prefix"] { font-size: 13px; }
+        .q-add-tags-btn i[slot="suffix"] { font-size: 11px; }
+
+        /* ── Add Tags: search dropdown + chips below the button row ── */
+        /* position:fixed so the menu escapes .form-list's overflow clip. */
+        .q-tag-menu {
+            position: fixed; top: 0; left: 0;
+            width: 280px; background: #fff;
+            border: 1px solid var(--border-soft); border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12); padding: 6px; z-index: 290;
+        }
+        .q-tag-menu[hidden] { display: none; }
+        .q-tag-menu-search {
+            display: flex; align-items: center; gap: 8px;
+            border: 1px solid var(--border-soft); border-radius: 6px;
+            padding: 6px 10px; margin-bottom: 6px;
+        }
+        .q-tag-menu-search:focus-within { border-color: var(--brand); }
+        .q-tag-menu-search i { color: var(--text-muted); font-size: 12px; }
+        .q-tag-search-input {
+            flex: 1; min-width: 0; border: none; outline: none;
+            font-family: inherit; font-size: 13px; background: transparent;
+        }
+        .q-tag-menu-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; }
+        .q-tag-option {
+            display: flex; align-items: center; gap: 10px; width: 100%;
+            padding: 8px 10px; background: transparent; border: none;
+            border-radius: 6px; cursor: pointer; text-align: left;
+            font-family: inherit; font-size: 13px; color: var(--text-strong);
+        }
+        .q-tag-option:hover { background: var(--page-bg); }
+        .q-tag-option-check {
+            width: 18px; height: 18px; flex-shrink: 0; border-radius: 4px;
+            border: 1px solid var(--border-soft);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 10px; color: #fff;
+        }
+        .q-tag-option.selected .q-tag-option-check {
+            background: var(--brand); border-color: var(--brand);
+        }
+        .q-tag-option:not(.selected) .q-tag-option-check i { display: none; }
+        .q-tag-menu-empty {
+            padding: 10px; font-size: 12px; color: var(--text-muted);
+            font-style: italic; text-align: center;
+        }
+        /* Tag chips, below the button row (gap handled by .q-actionbar). Wrap
+           across the full step width, same as the attachment cards. */
+        .q-tag-custom-chips {
+            display: flex; flex-wrap: wrap; gap: 6px;
+        }
+        .q-tag-custom-chips:empty { display: none; }
+        .q-tag-custom-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #eef2ff; color: #3730a3;
+            border: 1px solid #c7d2fe; border-radius: 999px;
+            padding: 3px 6px 3px 10px; font-size: 12px; font-weight: 600;
+        }
+        .q-tag-custom-chip-x {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 15px; height: 15px; border-radius: 999px; cursor: pointer;
+            color: #6366f1; font-size: 10px;
+        }
+        .q-tag-custom-chip-x:hover { background: #c7d2fe; }
+
+        /* Attachment cards — compact chips that lay out inline and WRAP (no
+           longer full-width stacked). Long names truncate with an ellipsis. */
+        .q-attachments {
+            display: flex; flex-wrap: wrap; gap: 8px;
+        }
+        .q-attachments:empty { display: none; }
+        .q-attachment-card {
+            display: inline-flex; align-items: center; gap: 8px;
+            border: 1px solid var(--border-soft); border-radius: 8px;
+            background: #fff; padding: 5px 6px 5px 8px;
+            max-width: 220px;            /* keeps any single card from getting wide */
+        }
+        .q-attachment-thumb {
+            width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: var(--page-bg); color: var(--brand); font-size: 12px;
+        }
+        .q-attachment-name {
+            min-width: 0; flex: 1;
+            font-size: 12px; font-weight: 600; color: var(--text-strong);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .q-attachment-remove {
+            flex-shrink: 0; background: none; border: none; cursor: pointer;
+            color: var(--text-muted); font-size: 11px; padding: 3px; border-radius: 5px;
+            line-height: 1;
+        }
+        .q-attachment-remove:hover { color: #dc2626; background: var(--page-bg); }
+
         /* Player state — simulated stage (poster) + custom scrubber */
         .q-video-stage {
             position: relative;
@@ -1865,7 +1999,15 @@
             display: grid;
             grid-template-columns: 28px 1fr;
             gap: 10px; align-items: start;
+            /* Light default surface so each message reads as its own card against
+               the log; hovering swaps to the (darker) page-bg gray so it's clear
+               which message the visible action icons belong to. */
+            background: #fff;
+            border-radius: 8px;
+            padding: 8px 10px;
+            transition: background 0.12s;
         }
+        .q-script-row:hover { background: var(--page-bg); }
         /* Speaker avatar — a colored initial disc. Ties the entry to its speaker
            by color, the same identity signal used in the composer pill/legend. */
         .q-script-avatar {
@@ -1886,21 +2028,55 @@
             color: var(--spk-accent, var(--text-strong));
         }
         .q-script-time { font-variant-numeric: tabular-nums; }
-        /* Push the delete to the far right of the header. */
-        .q-script-meta .q-script-row-del { margin-left: auto; }
+        /* Row actions (edit + delete) sit at the far right of the header. */
+        .q-script-row-actions { margin-left: auto; display: inline-flex; gap: 2px; }
         /* The note text — plain threaded comment body, full available width. */
         .q-script-text {
             font-size: 13px; line-height: 1.5; color: var(--text-strong);
             white-space: pre-wrap; word-break: break-word;
         }
-        /* Per-row delete affordance, revealed on hover. */
-        .q-script-row-del {
+        /* Per-row edit/delete affordances — always visible. */
+        .q-script-row-btn {
             background: none; border: none; cursor: pointer; padding: 2px 4px;
             color: var(--text-muted); font-size: 11px; border-radius: 4px;
-            opacity: 0; transition: opacity 0.12s;
+            transition: color 0.12s;
         }
-        .q-script-row:hover .q-script-row-del { opacity: 1; }
+        .q-script-row-edit:hover { color: var(--brand); }
         .q-script-row-del:hover { color: #dc2626; }
+
+        /* ── Inline edit mode for a saved line ── */
+        .q-script-edit { display: flex; flex-direction: column; gap: 8px; }
+        /* Speaker reassignment chips (mirrors the composer tag colors). */
+        .q-script-edit-speakers { display: flex; flex-wrap: wrap; gap: 6px; }
+        .q-script-edit-spk {
+            display: inline-flex; align-items: center; gap: 5px;
+            border: 1px solid var(--border-soft); background: #fff;
+            border-radius: 999px; padding: 3px 10px; cursor: pointer;
+            font-family: inherit; font-size: 12px; font-weight: 600;
+            color: var(--text-muted);
+        }
+        .q-script-edit-spk i { font-size: 10px; }
+        .q-script-edit-spk.active {
+            color: #fff; border-color: var(--spk-accent, var(--brand));
+            background: var(--spk-accent, var(--brand));
+        }
+        .q-script-edit-input {
+            border: 1px solid var(--brand); border-radius: 8px;
+            padding: 8px 10px; font-family: inherit; font-size: 13px;
+            line-height: 1.5; resize: vertical; min-height: 56px; outline: none;
+            box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.12);
+        }
+        .q-script-edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
+        .q-script-edit-btn {
+            border: 1px solid var(--border-soft); background: #fff;
+            border-radius: 8px; padding: 5px 12px; cursor: pointer;
+            font-family: inherit; font-size: 12px; font-weight: 600;
+            color: var(--text-strong);
+        }
+        .q-script-edit-btn.save {
+            background: var(--brand); border-color: var(--brand); color: #fff;
+        }
+        .q-script-edit-btn.save:disabled { opacity: 0.5; cursor: default; }
 
         /* ── Composer: a text row with an inline speaker pill (the "tag") ── */
         .q-script-composer {
@@ -2055,74 +2231,133 @@
         /* Sticky footer actions — horizontal padding matches the topbar gutter
            (24px) so the buttons hug the viewport edges as app chrome rather
            than aligning to the form's content column. */
-        .workspace-actions {
-            position: fixed;
-            left: 0; right: 0; bottom: 0;
-            z-index: 20;
-            display: flex; justify-content: space-between; align-items: center;
-            gap: 12px;
-            padding: 14px 24px;
-            background: rgba(255, 255, 255, 0.96);
-            backdrop-filter: saturate(140%) blur(8px);
-            -webkit-backdrop-filter: saturate(140%) blur(8px);
-            border-top: 1px solid var(--border-soft);
-            box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.04);
+        /* ─── ⋯ menu: checkbox-style item (Enable timer) ─── */
+        .actions-menu-check .actions-menu-check-box {
+            margin-left: auto;
+            width: 16px; height: 16px; border-radius: 4px;
+            border: 1px solid var(--border-soft);
+            display: inline-flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 9px;
         }
-        .workspace-actions-inner {
-            width: 100%;
-            display: flex; justify-content: space-between; align-items: center;
-            gap: 12px;
+        .actions-menu-check[aria-checked="true"] .actions-menu-check-box {
+            background: var(--brand); border-color: var(--brand);
         }
-        .workspace-actions-left { color: var(--text-muted); font-size: 13px; }
-        .workspace-actions-right { display: flex; gap: 8px; }
+        .actions-menu-check:not([aria-checked="true"]) .actions-menu-check-box i { display: none; }
+        .actions-menu-item:disabled { opacity: 0.4; cursor: default; }
+        .actions-menu-item:disabled:hover { background: transparent; }
 
-        /* ─── Form-level session timer ───
-           A global stopwatch, distinct from the per-step timer question. Lives
-           in the center of the pinned topbar so it stays visible at all scroll
-           positions (the topbar itself is sticky). Absolutely centered within
-           the topbar regardless of the left/right zone widths. */
-        .form-timer {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            display: flex; align-items: center; gap: 10px;
+        /* ─── Standalone draggable session-timer widget ───
+           A global stopwatch (distinct from the per-step timer question), shown
+           only when "Enable timer" is checked. Floats above the page and can be
+           dragged anywhere by its header. Distinct from the pinned topbar so it
+           stays wherever the user parks it, at any scroll position. */
+        .timer-widget {
+            position: fixed;
+            top: 120px; left: 24px;
+            z-index: 200;
+            width: 200px;
+            background: #fff;
+            border: 1px solid var(--border-soft);
+            border-radius: 12px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.06);
+            overflow: hidden;
+            user-select: none;
         }
-        .form-timer-dot {
-            width: 8px; height: 8px; border-radius: 50%;
-            background: var(--text-muted); flex-shrink: 0;
+        .timer-widget[hidden] { display: none; }
+        .timer-widget-head {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 10px;
+            background: var(--page-bg);
+            border-bottom: 1px solid var(--border-soft);
+            cursor: grab;
         }
-        .form-timer.running .form-timer-dot {
-            background: #16a34a;
-            animation: form-timer-pulse 1.4s ease-in-out infinite;
-        }
-        @keyframes form-timer-pulse {
-            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5); }
-            50% { opacity: 0.5; box-shadow: 0 0 0 5px rgba(22, 163, 74, 0); }
-        }
-        .form-timer-label {
-            font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+        .timer-widget.dragging .timer-widget-head { cursor: grabbing; }
+        .timer-widget-grip { color: var(--text-muted); font-size: 11px; }
+        .timer-widget-label {
+            font-size: 11px; font-weight: 700; letter-spacing: 0.4px;
             text-transform: uppercase; color: var(--text-muted);
         }
-        .form-timer-readout {
-            font-family: 'SF Mono', 'Courier New', monospace;
-            font-size: 16px; font-weight: 700;
-            font-variant-numeric: tabular-nums;
-            color: var(--text-strong);
-            line-height: 1;
+        .timer-widget-close {
+            margin-left: auto;
+            background: none; border: none; cursor: pointer;
+            color: var(--text-muted); font-size: 13px; padding: 2px 4px; border-radius: 5px;
         }
-        .form-timer-controls { display: flex; gap: 2px; margin-left: 2px; }
-        .form-timer-btn {
-            width: 28px; height: 28px; border-radius: 50%;
-            border: none; background: none; cursor: pointer;
+        .timer-widget-close:hover { color: var(--text-strong); background: #fff; }
+        .timer-widget-body {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px; padding: 12px;
+        }
+        .timer-widget-readout {
+            font-family: 'SF Mono', 'Courier New', monospace;
+            font-size: 22px; font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            color: var(--text-strong); line-height: 1;
+        }
+        .timer-widget.running .timer-widget-readout { color: #16a34a; }
+        .timer-widget-controls { display: flex; gap: 4px; }
+        .timer-widget-btn {
+            width: 30px; height: 30px; border-radius: 50%;
+            border: none; background: var(--page-bg); cursor: pointer;
             color: var(--text-muted); font-size: 12px;
             display: inline-flex; align-items: center; justify-content: center;
         }
-        .form-timer-btn:hover { background: #fff; color: var(--text-strong); }
-        .form-timer-btn.primary { color: var(--brand); }
-        /* Reset is only meaningful once time has accrued */
-        .form-timer-btn.reset:disabled { opacity: 0.35; cursor: default; }
-        .form-timer-btn.reset:disabled:hover { background: none; color: var(--text-muted); }
+        .timer-widget-btn:hover { color: var(--text-strong); }
+        .timer-widget-btn.primary { background: var(--brand); color: #fff; }
+        .timer-widget-btn.reset:disabled { opacity: 0.35; cursor: default; }
+
+        /* ─── Share dialog ─── */
+        .share-overlay {
+            position: fixed; inset: 0;
+            background: rgba(15, 23, 42, 0.5);
+            z-index: 330;
+            display: flex; align-items: center; justify-content: center;
+            padding: 24px;
+        }
+        .share-overlay[hidden] { display: none; }
+        .share-modal {
+            background: #fff; border-radius: 14px;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.25);
+            width: min(440px, 100%);
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .share-modal-head {
+            display: flex; align-items: center; gap: 12px;
+            padding: 18px 20px 14px;
+            border-bottom: 1px solid var(--border-soft);
+        }
+        .share-modal-title {
+            flex: 1; margin: 0;
+            font-size: 17px; font-weight: 700; color: var(--text-strong);
+            display: inline-flex; align-items: center; gap: 9px;
+        }
+        .share-modal-title i { color: var(--brand); font-size: 15px; }
+        .share-modal-x {
+            background: none; border: none; cursor: pointer;
+            color: var(--text-muted); font-size: 16px; padding: 4px; border-radius: 6px;
+        }
+        .share-modal-x:hover { color: var(--text-strong); background: var(--page-bg); }
+        .share-modal-body { padding: 18px 20px; }
+        .share-modal-intro { margin: 0 0 12px; font-size: 13px; color: var(--text-muted); }
+        .share-party-list { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+        .share-party { display: flex; align-items: center; gap: 12px; }
+        .share-party-avatar {
+            width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+            display: inline-flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 14px; background: var(--p-accent, var(--text-muted));
+        }
+        .share-party-meta { display: flex; flex-direction: column; }
+        .share-party-name { font-size: 14px; font-weight: 700; color: var(--text-strong); }
+        .share-party-role { font-size: 12px; color: var(--text-muted); }
+        .share-modal-warning {
+            display: flex; align-items: flex-start; gap: 10px;
+            background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px;
+            padding: 10px 12px; font-size: 13px; color: #92400e; line-height: 1.45;
+        }
+        .share-modal-warning i { color: #d97706; margin-top: 2px; }
+        .share-modal-actions {
+            display: flex; justify-content: flex-end; gap: 8px;
+            padding: 14px 20px; border-top: 1px solid var(--border-soft);
+        }
 
         /* ─── Assign assignment modal ─── */
         .assign-overlay {
@@ -2576,30 +2811,11 @@
         </div>
     </div>
 
-    <!-- Center: form-level session timer (moved out of the bottom-left pill) -->
-    <div class="form-timer" id="formTimer">
-        <span class="form-timer-dot"></span>
-        <div>
-            <div class="form-timer-label">Session time</div>
-            <div class="form-timer-readout" id="formTimerReadout">00:00:00</div>
-        </div>
-        <div class="form-timer-controls">
-            <button type="button" class="form-timer-btn primary" id="formTimerToggle" aria-label="Start timer" title="Start">
-                <i class="fa-solid fa-play"></i>
-            </button>
-            <button type="button" class="form-timer-btn reset" id="formTimerReset" aria-label="Reset timer" title="Reset" disabled>
-                <i class="fa-solid fa-arrow-rotate-left"></i>
-            </button>
-        </div>
-    </div>
-
-    <span class="meta-chip share-chip">
-        <i class="fa-solid fa-share-nodes"></i>
-        Share
-        <vwc-switch id="shareSwitch"></vwc-switch>
-    </span>
-
     <div class="topbar-actions">
+        <!-- Cancel: pre-creation escape hatch only. Hidden after the first edit
+             (the form is then officially created; deletion moves to the ⋯ menu). -->
+        <vaadin-button theme="tertiary" id="cancelFormBtn">Cancel</vaadin-button>
+
         <div class="actions-menu-wrap" id="compareMenuWrap">
             <vaadin-button theme="secondary" id="compareFormsBtn" aria-haspopup="true" aria-expanded="false">
                 <i class="fa-solid fa-code-compare" style="margin-right:6px;"></i>
@@ -2639,10 +2855,21 @@
             </div>
         </div>
 
+        <!-- Save (secondary). This is a living document — there is no "submit";
+             it's shared with the included parties externally (Share, next). -->
+        <vaadin-button theme="secondary" id="saveFormBtn">
+            <i class="fa-solid fa-floppy-disk" slot="prefix"></i> Save
+        </vaadin-button>
+
+        <!-- Share (primary) — the form is "submitted" by sharing it with the
+             included parties. Irreversible; opens the share dialog. -->
+        <vaadin-button theme="primary" id="shareFormBtn">
+            <i class="fa-solid fa-share-nodes" slot="prefix"></i> Share
+        </vaadin-button>
+
         <div class="actions-menu-wrap">
-            <vaadin-button theme="secondary" id="actionsMenuBtn" aria-haspopup="true" aria-expanded="false">
-                Actions
-                <i class="fa-solid fa-caret-down" style="margin-left:6px;"></i>
+            <vaadin-button theme="icon secondary" id="actionsMenuBtn" aria-haspopup="true" aria-expanded="false" aria-label="More actions" title="More actions">
+                <i class="fa-solid fa-ellipsis"></i>
             </vaadin-button>
             <div class="actions-menu" id="actionsMenu" role="menu" hidden>
                 <button class="actions-menu-item" type="button" role="menuitem">
@@ -2661,10 +2888,95 @@
                     <i class="fa-solid fa-clock-rotate-left"></i> Log
                 </button>
                 <div class="actions-menu-divider"></div>
-                <button class="actions-menu-item danger" type="button" role="menuitem">
+                <!-- Enable timer: toggles the standalone draggable timer widget.
+                     Checkbox-style item (stays open on click so state is visible). -->
+                <button class="actions-menu-item actions-menu-check" type="button" role="menuitemcheckbox" aria-checked="false" id="timerToggleItem" data-no-close="true">
+                    <i class="fa-solid fa-stopwatch"></i>
+                    <span>Enable timer</span>
+                    <span class="actions-menu-check-box"><i class="fa-solid fa-check"></i></span>
+                </button>
+                <div class="actions-menu-divider"></div>
+                <!-- Delete lives here (friction to avoid accidental deletes).
+                     Disabled until the form is officially created (first edit). -->
+                <button class="actions-menu-item danger" type="button" role="menuitem" id="deleteFormItem" disabled>
                     <i class="fa-solid fa-trash"></i> Delete
                 </button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Standalone session timer — a floating, draggable widget shown only when
+     "Enable timer" is checked in the ⋯ menu. Drag by its header to reposition.
+     Placed before the scripts so its controls exist when the timer wires up. -->
+<div class="timer-widget" id="timerWidget" hidden>
+    <div class="timer-widget-head" id="timerWidgetHead">
+        <span class="timer-widget-grip"><i class="fa-solid fa-grip-vertical"></i></span>
+        <span class="timer-widget-label">Session time</span>
+        <button type="button" class="timer-widget-close" id="timerWidgetClose" aria-label="Disable timer" title="Disable timer">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+    <div class="timer-widget-body">
+        <div class="timer-widget-readout" id="formTimerReadout">00:00:00</div>
+        <div class="timer-widget-controls">
+            <button type="button" class="timer-widget-btn primary" id="formTimerToggle" aria-label="Start timer" title="Start">
+                <i class="fa-solid fa-play"></i>
+            </button>
+            <button type="button" class="timer-widget-btn reset" id="formTimerReset" aria-label="Reset timer" title="Reset" disabled>
+                <i class="fa-solid fa-arrow-rotate-left"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Share dialog — sharing is a one-way action (access can't be revoked). Lists
+     the pre-determined parties who will gain access to this form instance. -->
+<div class="share-overlay" id="shareOverlay" hidden>
+    <div class="share-modal" role="dialog" aria-modal="true" aria-labelledby="shareModalTitle">
+        <div class="share-modal-head">
+            <h2 class="share-modal-title" id="shareModalTitle">
+                <i class="fa-solid fa-share-nodes"></i> Share this evaluation
+            </h2>
+            <button type="button" class="share-modal-x" id="shareModalX" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="share-modal-body">
+            <p class="share-modal-intro">Sharing gives the following people access to this evaluation:</p>
+            <ul class="share-party-list">
+                <li class="share-party">
+                    <span class="share-party-avatar" style="--p-accent:#0066cc;"><i class="fa-solid fa-clipboard-user"></i></span>
+                    <span class="share-party-meta">
+                        <span class="share-party-name">Vincent Martinez</span>
+                        <span class="share-party-role">Evaluator</span>
+                    </span>
+                </li>
+                <li class="share-party">
+                    <span class="share-party-avatar" style="--p-accent:#b45309;"><i class="fa-solid fa-user"></i></span>
+                    <span class="share-party-meta">
+                        <span class="share-party-name">Austin Smith</span>
+                        <span class="share-party-role">Evaluee</span>
+                    </span>
+                </li>
+                <li class="share-party">
+                    <span class="share-party-avatar" style="--p-accent:#6d28d9;"><i class="fa-solid fa-user-tie"></i></span>
+                    <span class="share-party-meta">
+                        <span class="share-party-name">Dana Whitfield</span>
+                        <span class="share-party-role">Reviewer / Supervisor</span>
+                    </span>
+                </li>
+            </ul>
+            <div class="share-modal-warning">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span><strong>This can't be undone.</strong> Once shared, access is permanent — it cannot be revoked.</span>
+            </div>
+        </div>
+        <div class="share-modal-actions">
+            <vaadin-button theme="tertiary" id="shareCancelBtn">Cancel</vaadin-button>
+            <vaadin-button theme="primary" id="shareConfirmBtn">
+                <i class="fa-solid fa-share-nodes" slot="prefix"></i> Share now
+            </vaadin-button>
         </div>
     </div>
 </div>
@@ -2770,18 +3082,6 @@
     </div>
 </div>
 
-<!-- Sticky footer actions (spans full width) -->
-<div class="workspace-actions">
-    <div class="workspace-actions-inner">
-        <div class="workspace-actions-left">
-            <vaadin-button theme="tertiary" id="cancelFormBtn">Cancel</vaadin-button>
-        </div>
-        <div class="workspace-actions-right">
-            <vaadin-button theme="secondary" id="saveDraftBtn">Save</vaadin-button>
-            <vaadin-button theme="primary" id="submitEvaluationBtn">Submit evaluation</vaadin-button>
-        </div>
-    </div>
-</div>
 
 <!-- Global video review panel — a page-level overlay drawer opened from a video
      step's thumbnail. Player up top, annotation + notes below. Resizable by
@@ -3432,6 +3732,76 @@ function scriptSpeakerById(id) {
 }
 // Per-step in-memory transcript store, keyed by the step's data-script-id.
 const scriptLogs = {};
+
+// ── Step action-bar state (Add tags / Add attachment) ──
+// Keyed per question by a stable extrasId (assigned at build time, since rating
+// questions can share a componentId and text-entry has no id of its own).
+// Shape: { [extrasId]: { tags: string[], attachments: [{id,name,source}] } }
+const stepExtras = {};
+let extrasSeq = 0;
+function nextExtrasId() { return 'x' + (++extrasSeq); }
+function ensureExtras(id) {
+    stepExtras[id] = stepExtras[id] || { tags: [], attachments: [] };
+    return stepExtras[id];
+}
+// Tag catalog — the searchable list shown in the Add Tags dropdown.
+const TAG_CATALOG = ['Evidence', 'Follow-up', 'Strength', 'Growth area', 'Coaching', 'PD needed', 'Exemplary', 'Revisit next cycle'];
+// Reusable action-bar markup. `extrasId` keys the state. Two triggers sit side
+// by side in one button row: Add Tags (opens a multi-select search dropdown) and
+// Add attachment (file/Google Drive source menu). Selected tag chips and
+// attachment cards render below the row, populated by renderExtras() on wiring.
+function actionBarHtml(extrasId) {
+    return `
+        <div class="q-actionbar" data-extras-id="${extrasId}">
+            <!-- Button row: Add Tags + Add attachment, side by side -->
+            <div class="q-actionbar-actions">
+                <div class="q-actionbar-wrap">
+                    <vaadin-button theme="secondary" class="q-add-tags-btn" aria-haspopup="true" aria-expanded="false">
+                        <i class="fa-solid fa-tag" slot="prefix"></i> Add Tags
+                        <i class="fa-solid fa-caret-down" slot="suffix"></i>
+                    </vaadin-button>
+                    <!-- Search dropdown: search box + checkable, multi-select list.
+                         Stays open across selections. -->
+                    <div class="q-tag-menu" role="menu" hidden>
+                        <div class="q-tag-menu-search">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" class="q-tag-search-input" placeholder="Search tags…" aria-label="Search tags" />
+                        </div>
+                        <div class="q-tag-menu-list" role="listbox" aria-multiselectable="true"></div>
+                        <div class="q-tag-menu-empty" hidden>No matching tags</div>
+                    </div>
+                </div>
+
+                <div class="q-actionbar-wrap">
+                    <vaadin-button theme="secondary" class="q-add-attachment" aria-haspopup="true" aria-expanded="false">
+                        <i class="fa-solid fa-paperclip" slot="prefix"></i> Add attachment
+                    </vaadin-button>
+                    <!-- Same file/Google Drive source menu as the video step -->
+                    <div class="q-video-upload-menu q-attach-menu" role="menu" hidden>
+                        <button type="button" class="q-video-upload-option q-attach-option" role="menuitem" data-source="computer">
+                            <i class="fa-solid fa-laptop"></i>
+                            <span>
+                                <span class="q-video-upload-option-title">Upload from computer</span>
+                                <span class="q-video-upload-option-sub">Choose a file from this device</span>
+                            </span>
+                        </button>
+                        <button type="button" class="q-video-upload-option q-attach-option" role="menuitem" data-source="google">
+                            <i class="fa-brands fa-google-drive"></i>
+                            <span>
+                                <span class="q-video-upload-option-title">Add Google Drive link</span>
+                                <span class="q-video-upload-option-sub">Paste a shared Google Drive URL</span>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Added media, below the button row: tag chips then attachment cards -->
+            <div class="q-tag-custom-chips"></div>
+            <div class="q-attachments"></div>
+        </div>
+    `;
+}
 let recommendationsGenerated = false;
 
 const formList = document.getElementById('formList');
@@ -3459,6 +3829,11 @@ function renderFormList() {
     //   layout   : 'under' (default) or 'next-to' (title-left / content-right)
     //   divided  : whether to show a dividing line above
     //   detailsHtml : optional rich-text body (paragraphs, links, images)
+    // Reset the extras-id counter so action-bar ids are DETERMINISTIC across
+    // re-renders (x1, x2… in DOM order). The item set is fixed, so each question
+    // keeps its id every render — letting stepExtras state persist through the
+    // renderFormList() that Fill all triggers.
+    extrasSeq = 0;
     const items = [];
 
     // Just one domain header + one rating question to represent the rubric type.
@@ -3484,7 +3859,8 @@ function renderFormList() {
         component: sampleComponent,
         divided: true,
         layout: 'under',
-        bg: ''
+        bg: '',
+        extras: true          // step-level Add tag / Add attachment action bar
     });
 
     // Signature steps
@@ -3532,7 +3908,8 @@ function renderFormList() {
         title: 'Text Entry',
         detailsHtml: `<p>Free-text response from the evaluator. Use for narrative comments, evidence summaries, or rationale.</p>`,
         multiline: true,
-        placeholder: 'Type your response…'
+        placeholder: 'Type your response…',
+        extras: true          // step-level Add tag / Add attachment action bar
     });
 
     items.push({
@@ -3808,6 +4185,9 @@ function renderFormList() {
     // Script steps — tagged-speaker conversational transcript
     formList.querySelectorAll('.q-script').forEach(wireScriptStep);
 
+    // Step action bars — Add tag / Add attachment (Rating, Text Entry)
+    formList.querySelectorAll('.q-actionbar').forEach(wireActionBar);
+
     // Reapply rating visual states
     Object.entries(ratings).forEach(([cid, r]) => {
         if (typeof r.selected !== 'number') return;
@@ -3860,7 +4240,8 @@ function renderQuestion(item) {
         const input = item.multiline
             ? `<vaadin-text-area theme="outlined" placeholder="${escapeHtml(item.placeholder || '')}"></vaadin-text-area>`
             : `<vaadin-text-field theme="outlined" placeholder="${escapeHtml(item.placeholder || '')}"></vaadin-text-field>`;
-        return wrapStandard(item, input);
+        const extras = item.extras ? actionBarHtml(item.extrasId = nextExtrasId()) : '';
+        return wrapStandard(item, input + extras);
     }
     if (item.type === 'choose-one') {
         if (item.variant === 'dropdown') {
@@ -4222,6 +4603,7 @@ function renderRatingQuestion(item) {
                         class="notes-input" data-component-id="${c.id}"></vaadin-text-area>
                 </div>
                 `}
+                ${item.extras ? actionBarHtml(item.extrasId = nextExtrasId()) : ''}
             </div>
         </div>
     `;
@@ -5165,6 +5547,194 @@ function clearSignature(block) {
     block.querySelector('.sig-signed-stamp').textContent = '';
 }
 
+// ─── Step action bar: Add Tags / Add attachment ───
+// Wires one action bar. Add Tags opens a multi-select search dropdown (stays open
+// across selections); Add attachment reuses the video step's file/Google Drive
+// source menu. Selected tag chips + attachment cards render below the button row.
+// All state lives in stepExtras[extrasId] so Fill all can seed it and re-renders
+// restore it.
+function wireActionBar(bar) {
+    const extrasId = bar.dataset.extrasId;
+    ensureExtras(extrasId);
+
+    // ── Add Tags: button → search dropdown (multi-select, stays open) ──
+    const tagsBtn = bar.querySelector('.q-add-tags-btn');
+    const tagsMenu = bar.querySelector('.q-tag-menu');
+    const tagSearch = bar.querySelector('.q-tag-search-input');
+    const tagListEl = bar.querySelector('.q-tag-menu-list');
+    const tagEmptyEl = bar.querySelector('.q-tag-menu-empty');
+
+    // Build the checkable option list, filtered by the search term. Reflects the
+    // current selection so re-opening shows what's already chosen.
+    function renderTagOptions(filter = '') {
+        const sel = stepExtras[extrasId].tags;
+        const q = filter.trim().toLowerCase();
+        const matches = TAG_CATALOG.filter(t => t.toLowerCase().includes(q));
+        tagEmptyEl.hidden = matches.length > 0;
+        tagListEl.innerHTML = matches.map(t => `
+            <button type="button" class="q-tag-option${sel.includes(t) ? ' selected' : ''}"
+                    role="option" aria-selected="${sel.includes(t)}" data-tag="${escapeHtml(t)}">
+                <span class="q-tag-option-check"><i class="fa-solid fa-check"></i></span>
+                <span class="q-tag-option-label">${escapeHtml(t)}</span>
+            </button>
+        `).join('');
+    }
+    function positionMenu() {
+        const b = tagsBtn.getBoundingClientRect();
+        const m = tagsMenu.getBoundingClientRect();
+        const gap = 6;
+        const spaceBelow = window.innerHeight - b.bottom;
+        let top = (spaceBelow < m.height + gap && b.top > m.height + gap)
+            ? b.top - m.height - gap : b.bottom + gap;
+        let left = Math.max(8, Math.min(b.left, window.innerWidth - m.width - 8));
+        tagsMenu.style.top = top + 'px';
+        tagsMenu.style.left = left + 'px';
+    }
+    function openTagsMenu() {
+        tagsMenu.hidden = false;
+        tagsBtn.setAttribute('aria-expanded', 'true');
+        renderTagOptions(tagSearch.value);
+        positionMenu();
+        tagSearch.focus();
+    }
+    function closeTagsMenu() { tagsMenu.hidden = true; tagsBtn.setAttribute('aria-expanded', 'false'); }
+    tagsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        tagsMenu.hidden ? openTagsMenu() : closeTagsMenu();
+    });
+    tagSearch.addEventListener('input', () => { renderTagOptions(tagSearch.value); positionMenu(); });
+    tagSearch.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeTagsMenu(); });
+    // Toggle a tag on option click; keep the menu open for multi-pick.
+    tagListEl.addEventListener('click', (e) => {
+        const opt = e.target.closest('.q-tag-option');
+        if (!opt) return;
+        // Keep the menu open for multi-pick. renderTagOptions() rebuilds the list
+        // HTML, detaching the clicked node — so if this click reached the
+        // document close-listener, its `menu.contains(target)` check would fail
+        // (target is now orphaned) and wrongly close the menu. Stop it here.
+        e.stopPropagation();
+        const t = opt.dataset.tag;
+        const sel = stepExtras[extrasId].tags;
+        const i = sel.indexOf(t);
+        if (i >= 0) sel.splice(i, 1); else sel.push(t);
+        renderTagOptions(tagSearch.value);
+        renderCustomTagChips(bar);
+        positionMenu();
+    });
+    document.addEventListener('click', (e) => { if (!tagsMenu.contains(e.target) && e.target !== tagsBtn && !tagsBtn.contains(e.target)) closeTagsMenu(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !tagsMenu.hidden) closeTagsMenu(); });
+    // Delegated removal for the chips below the button.
+    bar.querySelector('.q-tag-custom-chips').addEventListener('click', (e) => {
+        const x = e.target.closest('.q-tag-custom-chip-x');
+        if (!x) return;
+        const t = x.dataset.tag;
+        stepExtras[extrasId].tags = stepExtras[extrasId].tags.filter(v => v !== t);
+        renderCustomTagChips(bar);
+        if (!tagsMenu.hidden) renderTagOptions(tagSearch.value);
+    });
+
+    // ── Add attachment: file/Google Drive source menu (video-step pattern) ──
+    const attachBtn = bar.querySelector('.q-add-attachment');
+    const attachMenu = bar.querySelector('.q-attach-menu');
+    function closeMenu() { attachMenu.hidden = true; attachBtn.setAttribute('aria-expanded', 'false'); }
+    function openMenu() {
+        attachMenu.hidden = false;
+        attachBtn.setAttribute('aria-expanded', 'true');
+        // position:fixed so it escapes .form-list's overflow clip; place from btn.
+        const b = attachBtn.getBoundingClientRect();
+        const m = attachMenu.getBoundingClientRect();
+        const gap = 6;
+        const spaceBelow = window.innerHeight - b.bottom;
+        let top = (spaceBelow < m.height + gap && b.top > m.height + gap)
+            ? b.top - m.height - gap : b.bottom + gap;
+        let left = Math.max(8, Math.min(b.left, window.innerWidth - m.width - 8));
+        attachMenu.style.top = top + 'px';
+        attachMenu.style.left = left + 'px';
+    }
+    attachBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        attachMenu.hidden ? openMenu() : closeMenu();
+    });
+    document.addEventListener('click', (e) => { if (!attachMenu.contains(e.target) && e.target !== attachBtn && !attachBtn.contains(e.target)) closeMenu(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !attachMenu.hidden) closeMenu(); });
+    bar.querySelectorAll('.q-attach-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+            addSampleAttachment(extrasId, opt.dataset.source);
+            closeMenu();
+            renderExtras(bar);
+        });
+    });
+
+    // ── Delegated removal for attachment cards ──
+    bar.querySelector('.q-attachments').addEventListener('click', (e) => {
+        const rm = e.target.closest('.q-attachment-remove');
+        if (!rm) return;
+        stepExtras[extrasId].attachments = stepExtras[extrasId].attachments.filter(a => a.id !== rm.dataset.attId);
+        renderExtras(bar);
+    });
+
+    renderExtras(bar);
+}
+
+// Add a sample attachment for the chosen source. No real file browser in the
+// prototype — both sources jump straight to a representative attachment.
+function addSampleAttachment(extrasId, source) {
+    const list = stepExtras[extrasId].attachments;
+    const isGoogle = source === 'google';
+    const n = list.length + 1;
+    list.push({
+        id: 'att-' + Math.random().toString(36).slice(2),
+        name: isGoogle ? `Shared document ${n}` : `evidence-${n}.pdf`,
+        source: isGoogle ? 'Google Drive' : 'Uploaded'
+    });
+}
+
+// File-type → icon for the attachment thumbnail tile.
+function attachmentIcon(a) {
+    if (a.source === 'Google Drive') return 'fa-brands fa-google-drive';
+    const ext = (a.name.split('.').pop() || '').toLowerCase();
+    if (['png','jpg','jpeg','gif','webp'].includes(ext)) return 'fa-solid fa-file-image';
+    if (['pdf'].includes(ext)) return 'fa-solid fa-file-pdf';
+    if (['doc','docx'].includes(ext)) return 'fa-solid fa-file-word';
+    if (['xls','xlsx','csv'].includes(ext)) return 'fa-solid fa-file-excel';
+    return 'fa-solid fa-file';
+}
+
+// Render the attachment cards for one action bar from its state. Cards are
+// compact and lay out inline-and-wrapping; long names truncate with an ellipsis
+// (full name on hover). Also refreshes the tag chips below the button row.
+function renderExtras(bar) {
+    const extrasId = bar.dataset.extrasId;
+    const state = ensureExtras(extrasId);
+
+    bar.querySelector('.q-attachments').innerHTML = state.attachments.map(a => `
+        <div class="q-attachment-card" title="${escapeHtml(a.name)} · ${escapeHtml(a.source)}">
+            <span class="q-attachment-thumb"><i class="${attachmentIcon(a)}"></i></span>
+            <span class="q-attachment-name">${escapeHtml(a.name)}</span>
+            <button type="button" class="q-attachment-remove" data-att-id="${a.id}" aria-label="Remove attachment ${escapeHtml(a.name)}" title="Remove">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+    `).join('');
+
+    renderCustomTagChips(bar);
+}
+
+// Render the tag chips below the button row from state.tags.
+function renderCustomTagChips(bar) {
+    const state = ensureExtras(bar.dataset.extrasId);
+    const host = bar.querySelector('.q-tag-custom-chips');
+    if (!host) return;
+    host.innerHTML = state.tags.map(t => `
+        <span class="q-tag-custom-chip">
+            ${escapeHtml(t)}
+            <span class="q-tag-custom-chip-x" role="button" aria-label="Remove tag ${escapeHtml(t)}" title="Remove" data-tag="${escapeHtml(t)}">
+                <i class="fa-solid fa-xmark"></i>
+            </span>
+        </span>
+    `).join('');
+}
+
 // ─── Script step: tagged-speaker conversational transcript ───
 // Replaces the legacy hidden-syntax note field (a leading "T"/"S" letter that
 // silently applied an indent) with an explicit, discoverable tagging model:
@@ -5279,13 +5849,74 @@ function wireScriptStep(stepEl) {
     tagX.addEventListener('click', () => { setTag(null); input.focus(); });
     sendBtn.addEventListener('click', saveLine);
 
-    // Delegated delete for saved rows.
-    stepEl.querySelector('.q-script-log-body').addEventListener('click', (e) => {
+    const body = stepEl.querySelector('.q-script-log-body');
+
+    // Delegated actions for saved rows: delete, enter edit, and (in edit mode)
+    // reassign speaker, save, or cancel. `editingId` on the step tracks which
+    // row is open for editing; renderScriptLog reads it to draw that row's form.
+    body.addEventListener('click', (e) => {
+        // Delete
         const del = e.target.closest('.q-script-row-del');
-        if (!del) return;
-        const rowId = del.dataset.rowId;
-        scriptLogs[sid] = scriptLogs[sid].filter(l => l.id !== rowId);
-        renderScriptLog(stepEl);
+        if (del) {
+            scriptLogs[sid] = scriptLogs[sid].filter(l => l.id !== del.dataset.rowId);
+            if (stepEl.dataset.editingId === del.dataset.rowId) delete stepEl.dataset.editingId;
+            renderScriptLog(stepEl);
+            return;
+        }
+        // Enter edit mode
+        const edit = e.target.closest('.q-script-row-edit');
+        if (edit) {
+            stepEl.dataset.editingId = edit.dataset.rowId;
+            renderScriptLog(stepEl);
+            const ta = body.querySelector('.q-script-edit-input');
+            if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+            return;
+        }
+        // Reassign speaker (edit mode) — updates the draft on the row element
+        const spkBtn = e.target.closest('.q-script-edit-spk');
+        if (spkBtn) {
+            const rowEl = spkBtn.closest('.q-script-row');
+            rowEl.dataset.draftSpeaker = spkBtn.dataset.speakerId;
+            rowEl.querySelectorAll('.q-script-edit-spk').forEach(b =>
+                b.classList.toggle('active', b === spkBtn));
+            const spk = scriptSpeakerById(spkBtn.dataset.speakerId);
+            rowEl.style.setProperty('--spk-accent', spk.accent);
+            return;
+        }
+        // Cancel edit
+        if (e.target.closest('.q-script-edit-cancel')) {
+            delete stepEl.dataset.editingId;
+            renderScriptLog(stepEl);
+            return;
+        }
+        // Save edit
+        const saveBtn = e.target.closest('.q-script-edit-save');
+        if (saveBtn) {
+            const rowEl = saveBtn.closest('.q-script-row');
+            const ta = rowEl.querySelector('.q-script-edit-input');
+            const newText = ta.value.trim();
+            if (!newText) return;                 // don't allow emptying a line
+            const line = scriptLogs[sid].find(l => l.id === stepEl.dataset.editingId);
+            if (line) {
+                line.text = newText;
+                line.speakerId = rowEl.dataset.draftSpeaker || line.speakerId;
+            }
+            delete stepEl.dataset.editingId;
+            renderScriptLog(stepEl);
+        }
+    });
+    // Enter saves the edit (Shift+Enter = newline); Esc cancels.
+    body.addEventListener('keydown', (e) => {
+        const ta = e.target.closest('.q-script-edit-input');
+        if (!ta) return;
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            ta.closest('.q-script-row').querySelector('.q-script-edit-save').click();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            delete stepEl.dataset.editingId;
+            renderScriptLog(stepEl);
+        }
     });
 
     renderScriptLog(stepEl);
@@ -5294,6 +5925,7 @@ function wireScriptStep(stepEl) {
 function renderScriptLog(stepEl) {
     const sid = stepEl.dataset.scriptId;
     const lines = scriptLogs[sid] || [];
+    const editingId = stepEl.dataset.editingId || null;
     const body = stepEl.querySelector('.q-script-log-body');
     const countEl = stepEl.querySelector('.q-script-count');
     countEl.textContent = lines.length;
@@ -5303,8 +5935,36 @@ function renderScriptLog(stepEl) {
         return;
     }
 
+    // Speakers the edit form can reassign to (configured speakers + General).
+    const editSpeakers = [...scriptSpeakers, scriptGeneral];
+
     body.innerHTML = lines.map(l => {
         const spk = scriptSpeakerById(l.speakerId);
+        // Editing row: speaker chips + textarea + Save/Cancel in place of text.
+        if (l.id === editingId) {
+            const chips = editSpeakers.map(s => `
+                <button type="button" class="q-script-edit-spk${s.id === l.speakerId ? ' active' : ''}"
+                        style="--spk-accent:${s.accent};" data-speaker-id="${s.id}">
+                    <i class="fa-solid ${s.icon}"></i>${escapeHtml(s.label)}
+                </button>
+            `).join('');
+            return `
+                <div class="q-script-row editing" style="--spk-accent:${spk.accent};" data-draft-speaker="${l.speakerId}">
+                    <span class="q-script-avatar"><i class="fa-solid ${spk.icon}"></i></span>
+                    <div class="q-script-body">
+                        <div class="q-script-edit">
+                            <div class="q-script-edit-speakers">${chips}</div>
+                            <textarea class="q-script-edit-input" aria-label="Edit note">${escapeHtml(l.text)}</textarea>
+                            <div class="q-script-edit-actions">
+                                <button type="button" class="q-script-edit-btn q-script-edit-cancel">Cancel</button>
+                                <button type="button" class="q-script-edit-btn save q-script-edit-save">Save</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        // Normal row
         return `
             <div class="q-script-row" style="--spk-accent:${spk.accent};">
                 <span class="q-script-avatar"><i class="fa-solid ${spk.icon}"></i></span>
@@ -5312,9 +5972,14 @@ function renderScriptLog(stepEl) {
                     <div class="q-script-meta">
                         <span class="q-script-speaker">${escapeHtml(spk.label)}</span>
                         <span class="q-script-time">${escapeHtml(l.time)}</span>
-                        <button type="button" class="q-script-row-del" data-row-id="${l.id}" aria-label="Delete note" title="Delete note">
-                            <i class="fa-solid fa-trash-can"></i>
-                        </button>
+                        <span class="q-script-row-actions">
+                            <button type="button" class="q-script-row-btn q-script-row-edit" data-row-id="${l.id}" aria-label="Edit note" title="Edit note">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button type="button" class="q-script-row-btn q-script-row-del" data-row-id="${l.id}" aria-label="Delete note" title="Delete note">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </span>
                     </div>
                     <div class="q-script-text">${escapeHtml(l.text)}</div>
                 </div>
@@ -5322,8 +5987,9 @@ function renderScriptLog(stepEl) {
         `;
     }).join('');
 
-    // Keep the newest entry in view as the thread grows.
-    body.scrollTop = body.scrollHeight;
+    // Keep the newest entry in view as the thread grows (skip while editing so
+    // the open form doesn't jump out of view).
+    if (!editingId) body.scrollTop = body.scrollHeight;
 }
 
 // ─── Video step: upload, playback, and timestamped annotations ───
@@ -5975,22 +6641,144 @@ function handleSaveDraft() {
     });
 }
 
-document.getElementById('submitEvaluationBtn').addEventListener('click', handleSubmit);
-document.getElementById('saveDraftBtn').addEventListener('click', handleSaveDraft);
+document.getElementById('saveFormBtn').addEventListener('click', handleSaveDraft);
 
-// ─── Actions dropdown ───
+// ─── Actions (⋯) dropdown ───
 (() => {
     const btn = document.getElementById('actionsMenuBtn');
     const menu = document.getElementById('actionsMenu');
     if (!btn || !menu) return;
     function open() { menu.hidden = false; btn.setAttribute('aria-expanded', 'true'); }
     function close() { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+    // vaadin-button clicks retarget to the host; contains() handles the check.
     btn.addEventListener('click', (e) => { e.stopPropagation(); menu.hidden ? open() : close(); });
-    document.addEventListener('click', (e) => { if (!menu.contains(e.target) && e.target !== btn) close(); });
+    document.addEventListener('click', (e) => { if (!menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) close(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
-    menu.querySelectorAll('.actions-menu-item').forEach(item => {
-        item.addEventListener('click', () => close());
+
+    // ── Enable-timer checkbox item — toggles the draggable timer widget. Stays
+    //    open on click (data-no-close) so the checked state is visible. ──
+    const timerItem = document.getElementById('timerToggleItem');
+    const timerWidget = document.getElementById('timerWidget');
+    function setTimerEnabled(on) {
+        timerItem.setAttribute('aria-checked', on ? 'true' : 'false');
+        timerWidget.hidden = !on;
+    }
+    timerItem.addEventListener('click', () => {
+        setTimerEnabled(timerItem.getAttribute('aria-checked') !== 'true');
     });
+    // The widget's own close (×) unchecks the menu item.
+    document.getElementById('timerWidgetClose').addEventListener('click', () => setTimerEnabled(false));
+
+    // ── Delete (post-creation only; disabled until first edit) ──
+    document.getElementById('deleteFormItem').addEventListener('click', (e) => {
+        if (e.currentTarget.disabled) return;
+        close();
+        showValidationModal({
+            tone: 'error',
+            title: 'Delete this evaluation?',
+            bodyHtml: '<p style="margin-bottom:0;">This permanently deletes the evaluation and all of its content. This cannot be undone.</p>',
+            confirmLabel: 'Delete',
+            cancelLabel: 'Keep editing',
+            onConfirm: () => { window.location.href = (window.__returnHref || 'evaluation-users.html'); }
+        });
+    });
+
+    // Close after a normal item click; leave open for checkbox-style items.
+    menu.querySelectorAll('.actions-menu-item').forEach(item => {
+        item.addEventListener('click', () => { if (!item.dataset.noClose) close(); });
+    });
+})();
+
+// ─── Living-document lifecycle: Cancel (pre-creation) → Delete (post-creation) ───
+// The form is "officially created" on the FIRST edit. Before that, Cancel is a
+// throwaway escape hatch; after, Cancel disappears and Delete (in the ⋯ menu)
+// becomes the way out. `markFormCreated` is idempotent and called from the first
+// meaningful interaction with the form body.
+let formCreated = false;
+function markFormCreated() {
+    if (formCreated) return;
+    formCreated = true;
+    const cancelBtn = document.getElementById('cancelFormBtn');
+    if (cancelBtn) cancelBtn.style.display = 'none';
+    const del = document.getElementById('deleteFormItem');
+    if (del) del.disabled = false;
+}
+// Any input/change/click within the form list counts as the first edit. (Pointer
+// clicks cover the rubric tiles / toggles that don't emit input events.)
+(() => {
+    const list = document.getElementById('formList');
+    if (!list) return;
+    ['input', 'change', 'click'].forEach(evt =>
+        list.addEventListener(evt, markFormCreated, { once: false }));
+})();
+
+// ─── Share dialog ───
+// Sharing is irreversible (access can't be revoked). Opens from the header's
+// primary Share button; lists the pre-determined parties who gain access.
+(() => {
+    const overlay = document.getElementById('shareOverlay');
+    const openBtn = document.getElementById('shareFormBtn');
+    if (!overlay || !openBtn) return;
+    const close = () => { overlay.hidden = true; };
+    openBtn.addEventListener('click', () => { overlay.hidden = false; });
+    document.getElementById('shareModalX').addEventListener('click', close);
+    document.getElementById('shareCancelBtn').addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !overlay.hidden) close(); });
+    document.getElementById('shareConfirmBtn').addEventListener('click', () => {
+        close();
+        showValidationModal({
+            tone: 'warn',
+            title: 'Evaluation shared',
+            bodyHtml: '<p style="margin-bottom:0;">[Prototype] Access has been granted to the evaluator, evaluee, and reviewer. This can no longer be revoked.</p>',
+            confirmLabel: 'OK',
+            cancelLabel: 'Close',
+            onConfirm: null
+        });
+    });
+})();
+
+// ─── Draggable timer widget ───
+// Drag by the header to reposition anywhere on screen. Uses pointer events so it
+// works for mouse and touch; clamps within the viewport.
+(() => {
+    const widget = document.getElementById('timerWidget');
+    const handle = document.getElementById('timerWidgetHead');
+    if (!widget || !handle) return;
+    let dragging = false, startX = 0, startY = 0, baseLeft = 0, baseTop = 0;
+    handle.addEventListener('pointerdown', (e) => {
+        // Ignore drags that start on the close button.
+        if (e.target.closest('.timer-widget-close')) return;
+        dragging = true;
+        widget.classList.add('dragging');
+        const r = widget.getBoundingClientRect();
+        baseLeft = r.left; baseTop = r.top;
+        startX = e.clientX; startY = e.clientY;
+        // Switch to explicit left/top (drop any right/bottom anchoring).
+        widget.style.left = baseLeft + 'px';
+        widget.style.top = baseTop + 'px';
+        handle.setPointerCapture(e.pointerId);
+        e.preventDefault();
+    });
+    handle.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        const w = widget.getBoundingClientRect();
+        let left = baseLeft + (e.clientX - startX);
+        let top = baseTop + (e.clientY - startY);
+        // Clamp within the viewport.
+        left = Math.max(8, Math.min(left, window.innerWidth - w.width - 8));
+        top = Math.max(8, Math.min(top, window.innerHeight - w.height - 8));
+        widget.style.left = left + 'px';
+        widget.style.top = top + 'px';
+    });
+    const end = (e) => {
+        if (!dragging) return;
+        dragging = false;
+        widget.classList.remove('dragging');
+        try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+    };
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
 })();
 
 // ─── Compare Forms dropdown + split view ───
@@ -6187,8 +6975,29 @@ function protoFillAll() {
     // (choose one/any, dropdown, date/time, pass/fail, duration, text entry)
     // plus the conditional rating's required inputs.
     fillExampleQuestions();
+    // Seed the step action bars (tags + attachments) so those examples read as
+    // filled. Runs post-render: the bars now carry their assigned extras ids.
+    seedExtrasExamples();
     updateProgress();
     renderRecommendations();
+}
+
+// Seed each action bar with a sample tag + attachment so the Add tag / Add
+// attachment examples read as filled. Post-render: reads the extras id off each
+// rendered bar, populates stepExtras, and re-renders that bar. Idempotent.
+function seedExtrasExamples() {
+    document.querySelectorAll('#formList .q-actionbar').forEach(bar => {
+        const id = bar.dataset.extrasId;
+        const state = ensureExtras(id);
+        if (!state.tags.length) state.tags = ['Evidence', 'Follow-up', 'Coaching'];
+        if (!state.attachments.length) {
+            state.attachments = [
+                { id: id + '-a0', name: 'lesson-plan-and-reflection-notes.pdf', source: 'Uploaded' },
+                { id: id + '-a1', name: 'Observation notes', source: 'Google Drive' }
+            ];
+        }
+        renderExtras(bar); // renders tag chips + attachment cards below the row
+    });
 }
 
 // Seed the videoNotes store for every video step (state only — the DOM is
@@ -6309,6 +7118,7 @@ function protoClearAll() {
     Object.keys(ratings).forEach(k => delete ratings[k]);
     Object.keys(videoNotes).forEach(k => { videoNotes[k] = []; });
     Object.keys(scriptLogs).forEach(k => { scriptLogs[k] = []; });
+    Object.keys(stepExtras).forEach(k => delete stepExtras[k]);
     recommendationsGenerated = false;
     cart.clear();
     discarded.clear();
@@ -6375,7 +7185,7 @@ setTimeout(syncStickyHeights, 500);
 // per-tick counter) so it stays accurate even if the tab is throttled. State is
 // kept in module scope so submit could read total elapsed time.
 const formTimer = (() => {
-    const el = document.getElementById('formTimer');
+    const el = document.getElementById('timerWidget');
     const readout = document.getElementById('formTimerReadout');
     const toggleBtn = document.getElementById('formTimerToggle');
     const resetBtn = document.getElementById('formTimerReset');
@@ -6440,25 +7250,63 @@ renderRecommendations();
 </script>
 
 <script>
-    // ── Back routing — if we arrived from evaluation-users, surface a Back button and reroute Cancel ──
+    // ── Back routing — reroute Back + Cancel + Delete to the origin list ──
     (function() {
         const params = new URLSearchParams(window.location.search);
         const from = params.get('from');
         const returnPaths = {
             'evaluation-users': 'evaluation-users.html',
         };
-        const returnHref = returnPaths[from];
-        if (!returnHref) return;
+        // Default to the users list; the Delete handler reads this too.
+        const returnHref = returnPaths[from] || 'evaluation-users.html';
+        window.__returnHref = returnHref;
 
-        const backBtn = document.getElementById('topbarBackBtn');
-        if (backBtn) {
-            backBtn.classList.add('is-visible');
-            backBtn.addEventListener('click', () => { window.location.href = returnHref; });
+        // The Back button is only surfaced when we know where we came from.
+        if (returnPaths[from]) {
+            const backBtn = document.getElementById('topbarBackBtn');
+            if (backBtn) {
+                backBtn.classList.add('is-visible');
+                backBtn.addEventListener('click', () => { window.location.href = returnHref; });
+            }
         }
+        // Cancel (pre-creation escape hatch) always routes back.
         const cancelBtn = document.getElementById('cancelFormBtn');
         if (cancelBtn) {
             cancelBtn.addEventListener('click', () => { window.location.href = returnHref; });
         }
+    })();
+</script>
+
+<!-- Back-to-top: appears after scrolling, jumps to the top of the form -->
+<button type="button" class="back-to-top" id="backToTop" aria-label="Back to top" title="Back to top">
+    <i class="fa-solid fa-arrow-up"></i> Top
+</button>
+<script>
+    (function () {
+        const btn = document.getElementById('backToTop');
+        if (!btn) return;
+        // Show once scrolled past ~400px. In compare mode each pane scrolls
+        // independently, so watch whichever pane is active; otherwise the window.
+        const SHOW_AT = 400;
+        function activeScroller() {
+            const active = document.querySelector('.split.compare-active .split-pane');
+            return active || window;
+        }
+        function scrollTopOf(el) {
+            return el === window ? window.scrollY : el.scrollTop;
+        }
+        function update() {
+            btn.classList.toggle('visible', scrollTopOf(activeScroller()) > SHOW_AT);
+        }
+        function scrollToTop() {
+            const el = activeScroller();
+            (el === window ? el : el).scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        window.addEventListener('scroll', update, { passive: true });
+        // Capture scrolls from inner panes (compare mode) too.
+        document.addEventListener('scroll', update, { passive: true, capture: true });
+        btn.addEventListener('click', scrollToTop);
+        update();
     })();
 </script>
 
