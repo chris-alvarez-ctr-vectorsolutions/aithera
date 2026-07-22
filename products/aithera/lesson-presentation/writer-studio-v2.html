@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Writer Studio — Conversation Practice</title>
+    <title>Writer Studio V2 — Scenario Simulator</title>
 
     <!-- Vector Web Components: Core -->
     <script type="module"
@@ -20,6 +20,29 @@
     <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
 
+    <!-- ====================================================================
+         WRITER STUDIO V2 — the next iteration of the authoring tool.
+         V1 (writer-studio.html) is UNTOUCHED and stays shareable; this page
+         explores two things on top of the same engine, types, and storage
+         (a draft made here opens in V1, and publishing feeds the same live
+         pages):
+
+           1. LEARN / PRACTICE nomenclature on the rail. For Guided Arc the
+              old ② Interaction bucket splits into ② Learn (the reflection
+              warm-up + the coached TOPIC TURNS), ③ Practice (the live
+              scene), and ④ Voice & Tone (the coach persona) — see
+              js/studio-v2-guided-arc.js. Other modes keep their single
+              Interaction step.
+
+           2. START FROM SCRATCH — a guided wizard (brief → plain-language
+              SME interview → staged AI generation through the same Worker
+              proxy the playtest uses) that drafts a complete scenario,
+              including the coach-facing guidance fields that used to need
+              prompt-engineering craft. Generic engine: js/studio-wizard.js;
+              the per-type spec lives on type.wizard.
+
+         Everything below this block is the V1 shell unless marked [V2].
+         ==================================================================== -->
     <!-- ====================================================================
          WRITER STUDIO — the content writer's side of the Scenario Simulator.
 
@@ -183,6 +206,12 @@
         width: 28px; height: 28px; border-radius: 8px;
         display: inline-flex; align-items: center; justify-content: center;
         background: var(--accent); color: var(--on-accent); font-size: 13px;
+      }
+      /* [V2] version tag next to the brand */
+      .topbar .brand .v2tag {
+        font-size: 10px; font-weight: 800; letter-spacing: .08em;
+        background: var(--accent-soft); color: var(--accent-strong);
+        border: 1px solid var(--accent); border-radius: 999px; padding: 2px 8px;
       }
       .topbar .sub {
         color: var(--ink-faint); font-size: 12.5px; white-space: nowrap;
@@ -834,7 +863,7 @@
 
   <!-- ===== Top bar ====================================================== -->
   <header class="topbar">
-    <span class="brand"><span class="logo"><i class="fa-solid fa-pen-nib"></i></span> Writer Studio</span>
+    <span class="brand"><span class="logo"><i class="fa-solid fa-pen-nib"></i></span> Writer Studio <span class="v2tag">V2</span></span>
     <span class="sub" id="subTitle">Conversation practice</span>
     <span class="spacer"></span>
     <span class="save-status" id="saveStatus"></span>
@@ -844,7 +873,10 @@
         <button class="tbtn" id="libraryBtn" aria-haspopup="true" aria-expanded="false"><i class="fa-solid fa-folder-open"></i> Library <i class="fa-solid fa-chevron-down" style="font-size:9px;opacity:.6"></i></button>
         <div class="libpanel" id="libPanel" hidden role="menu" aria-label="Scenario library"><!-- built by JS --></div>
       </span>
-      <button class="tbtn" id="freshBtn"><i class="fa-solid fa-file-circle-plus"></i> Start fresh</button>
+      <!-- [V2] the guided front door — the wizard drafts a scenario from a
+           brief + interview; "Blank canvas" stays as the manual path. -->
+      <button class="tbtn" id="wizardBtn" style="border-color: var(--accent); color: var(--accent)"><i class="fa-solid fa-wand-magic-sparkles"></i> Start from scratch</button>
+      <button class="tbtn" id="freshBtn"><i class="fa-solid fa-file-circle-plus"></i> Blank canvas</button>
       <button class="tbtn" id="resetBtn"><i class="fa-solid fa-clock-rotate-left"></i> Reset to shipped</button>
       <button class="tbtn" id="importBtn"><i class="fa-solid fa-file-import"></i> Import JSON</button>
       <button class="tbtn" id="exportBtn"><i class="fa-solid fa-file-export"></i> Export JSON</button>
@@ -934,6 +966,12 @@
   <script src="js/scenario-types/guided-arc.js?v=14"></script>
   <script src="js/scenario-types/observe-react.js?v=4"></script>
   <script src="js/scenario-types/teach-back.js?v=5"></script>
+  <!-- [V2] the start-from-scratch wizard engine + the guided-arc V2
+       presentation (Learn/Practice/Voice & Tone regroup, topic-turn
+       language, and the wizard's interview + generation spec). Loaded
+       AFTER the type modules so they can re-present the registered type. -->
+  <script src="js/studio-wizard.js?v=2"></script>
+  <script src="js/studio-v2-guided-arc.js?v=3"></script>
 
   <script>
   /* =======================================================================
@@ -948,7 +986,9 @@
      absent/unknown falls back to action-practice so old bookmarks keep
      working. Everything below talks to `type`, never to one pedagogy. */
   const TYPE_ID = new URLSearchParams(location.search).get('type');
-  const type = window.AitheraStudio.get(TYPE_ID) || window.AitheraStudio.get('action-practice');
+  // [V2] defaults to Guided Arc — the mode the Learn/Practice split and the
+  // start-from-scratch wizard are built for. ?type= still picks any mode.
+  const type = window.AitheraStudio.get(TYPE_ID) || window.AitheraStudio.get('guided-arc');
 
   /* ---- draft state ------------------------------------------------------ */
   const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -1088,24 +1128,46 @@
      that mirror the LEARNER's experience. A phase only appears if the current
      mode actually uses it (Start always does), so e.g. Teach-Back — which has
      no intro modality — shows Start → ② Interaction → ③ Debrief, skipping ①. */
+  /* [V2] The rail speaks Learn/Practice. A mode whose sections use the new
+     groups (guided-arc, re-presented by js/studio-v2-guided-arc.js) gets
+     ② Learn / ③ Practice / ④ Voice & Tone; a mode still on the generic
+     'interaction' group keeps its single Interaction step. computePhases()
+     filters to whichever groups the current mode actually uses, and badge
+     numbers are POSITIONAL (phaseBadge below), not hardcoded. */
   const ALL_PHASES = [
     { id: 'start',       icon: 'fa-wand-magic-sparkles', title: 'Start',            rail: 'Interaction + basics',
       eyebrow: 'First — what are you building?',
       sub: 'Choose the core interaction, then the basics. This shapes every field that follows.',
       groups: ['meta'], isStart: true },
-    { id: 'context',     badge: '①', title: 'Scenario Context', rail: 'How the scene is set',
+    { id: 'context',     title: 'Scenario Context', rail: 'How the scene is set',
       eyebrow: 'The learner’s opening',
-      sub: 'How the scene is set before the interaction begins — the intro modality.',
+      sub: 'How the scene is set before the coaching begins — the intro modality.',
       groups: ['context'] },
-    { id: 'interaction', badge: '②', title: 'Interaction',      rail: 'The core loop',
+    { id: 'learn',       title: 'Learn',            rail: 'Warm-up + topic turns',
+      eyebrow: 'The learner thinks it through',
+      sub: 'The coached side of the arc: an optional gut-reaction warm-up, then topic turns — the learner commits to an answer, the coach lands the point.',
+      groups: ['learn'] },
+    { id: 'practice',    title: 'Practice',         rail: 'The live scene',
+      eyebrow: 'The learner steps in',
+      sub: 'The live moment the arc ends in — the learner acts, the scene reacts, the coach debriefs after.',
+      groups: ['practice'] },
+    { id: 'interaction', title: 'Interaction',      rail: 'The core loop',
       eyebrow: 'The learner’s core loop',
       sub: 'ENTER → (ENGAGE · REACT · COACH) ×N ↺ GATE → EXIT.',
       groups: ['interaction'] },
-    { id: 'debrief',     badge: '③', title: 'Debrief & Close',  rail: 'Results & takeaways',
+    { id: 'voicetone',   title: 'Voice & Tone',     rail: 'How the coach sounds',
+      eyebrow: 'The coach, tuned',
+      sub: 'Who the coach is and how it sounds — one stance carried through Learn and Practice. The detailed voice rules stay locked.',
+      groups: ['voicetone'] },
+    { id: 'debrief',     title: 'Debrief & Close',  rail: 'Results & takeaways',
       eyebrow: 'The learner’s close',
       sub: 'Results and the guaranteed takeaways — plus reference material and the locked engine.',
       groups: ['debrief', 'reference'] },
   ];
+  // Badge by POSITION in the filtered list (Start shows its icon instead),
+  // so hiding a step never leaves a numbering gap.
+  const PHASE_NUMS = ['①', '②', '③', '④', '⑤', '⑥', '⑦'];
+  const phaseBadge = (i) => PHASE_NUMS[i - 1] || '•';
   // Platform-level context fields live on the scenario; the shell owns their
   // authoring UI (the Start step) and defaults them so every mode inherits them.
   function ensureCtx() {
@@ -1130,11 +1192,11 @@
   // One-line descriptor per mode, shown on the Interaction phase's chooser.
   const MODE_BLURB = {
     'action-practice': 'Rehearse a hard conversation with a simulated person.',
-    'guided-arc':      'Walk a scripted arc, observe a moment, then reflect.',
+    'guided-arc':      'Coached Learn turns, then a live Practice scene.',
     'observe-react':   'Review footage one beat at a time with a coach.',
     'teach-back':      'Explain the required topics back from memory.',
   };
-  const PHASE_KEY = 'aithera.writerStudio.phase';
+  const PHASE_KEY = 'aithera.writerStudio.v2.phase';   // [V2] own key — V1's stored step ids don't all exist here
 
   // -1 when this section's phase isn't currently shown (e.g. a context section
   // while context is inherited) — such sections render in NO phase, rather than
@@ -1268,7 +1330,7 @@
     header.className = 'phase-header';
     header.innerHTML =
       `<p class="ph-eyebrow">${esc(p.eyebrow || '')}</p>` +
-      `<h1><span class="badge">${p.badge || `<i class="fa-solid ${esc(p.icon || 'fa-play')}"></i>`}</span> ${esc(p.title)}</h1>` +
+      `<h1><span class="badge">${p.isStart ? `<i class="fa-solid ${esc(p.icon || 'fa-play')}"></i>` : phaseBadge(activePhase)}</span> ${esc(p.title)}</h1>` +
       `<p>${esc(p.sub)}</p>`;
     form.appendChild(header);
 
@@ -1339,7 +1401,7 @@
       btn.className = 'phase-step' + (i === activePhase ? ' is-active' : '');
       btn.dataset.phase = String(i);
       btn.innerHTML =
-        `<span class="pnum">${p.isStart ? `<i class="fa-solid ${esc(p.icon || 'fa-play')}"></i>` : p.badge}</span>` +
+        `<span class="pnum">${p.isStart ? `<i class="fa-solid ${esc(p.icon || 'fa-play')}"></i>` : phaseBadge(i)}</span>` +
         `<span class="pt"><span class="ptt">${esc(p.title)}</span><span class="pdesc">${esc(p.rail)}</span></span>` +
         `<span class="pstatus" data-phasedot="${p.id}"></span>`;
       btn.addEventListener('click', () => setPhase(i));
@@ -1690,6 +1752,35 @@
     toast('Fresh scenario — fill it in from the top');
   });
 
+  /* [V2] Start from scratch — the guided wizard (js/studio-wizard.js).
+     Brief → interview → staged generation; the drafted scenario lands here
+     as the working draft. Non-destructive: whatever was in the editor is
+     snapshotted to the Library first. Modes without a wizard spec fall back
+     to a pointer at Blank canvas. */
+  function openWizard() {
+    if (!(window.AitheraStudioWizard && type.wizard)) {
+      toast(`Guided setup isn't built for ${type.label} yet — Blank canvas is the manual path.`);
+      return;
+    }
+    window.AitheraStudioWizard.open({
+      type, toast, esc,
+      workerUrlKey: type.store.keys.workerUrl,
+      getScenario: () => scenario,
+      replaceScenario: (next) => {
+        try {
+          const pristine = JSON.stringify(type.normalize(clone(type.DEFAULT))) === JSON.stringify(scenario);
+          if (!pristine) type.store.saveToLibrary(clone(scenario));   // never eat an in-progress draft
+        } catch (e) { /* snapshot is best-effort */ }
+        scenario = next;
+        PHASES = computePhases();
+        setPhase(0);
+        update();
+        if (playtestHandle) playtestHandle.reset();
+      },
+    });
+  }
+  $('#wizardBtn').addEventListener('click', openWizard);
+
   $('#exportBtn').addEventListener('click', () => {
     const blob = new Blob([JSON.stringify(scenario, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
@@ -1853,6 +1944,8 @@
   buildPlaytest();
   buildSplitSandbox();
   update();
+  // [V2] deep link: ?wizard=1 opens the start-from-scratch wizard directly.
+  if (new URLSearchParams(location.search).get('wizard') === '1') openWizard();
   </script>
 </body>
 </html>
