@@ -88,7 +88,9 @@
           <div class="header-id">
             <span class="dash-eyebrow">Design <em>Dashboard</em></span>
             <h1 class="page-title">
-              <span class="title-emoji" id="productEmoji">🎨</span>
+              <!-- Boots with the theme emoji; swaps to the landing page's
+                   icon tile (same FA icon + brand color) once meta.json loads. -->
+              <span class="title-icon" id="productIcon"><span id="productEmoji">🎨</span></span>
               <span id="productName">Product</span>
             </h1>
           </div>
@@ -431,6 +433,7 @@
         throw new Error('meta.json is missing a "mocks" object.');
       }
 
+      applyProductBranding(meta.product);
       state.allMocks = computeMocks(meta);
       attachChanges(state.allMocks, meta);
 
@@ -450,6 +453,26 @@
       updateLastFetched();
     } catch (err) {
       showError(err);
+    }
+  }
+
+  // Banner identity from meta.json's `product` block — the SAME Font Awesome
+  // icon + brand color the landing page card shows, so the dashboard header
+  // matches its card. Icon/color are validated before they touch class/style;
+  // anything unexpected keeps the theme-emoji fallback.
+  function applyProductBranding(product) {
+    if (!product) return;
+    if (product.label) {
+      byId('productName').textContent = product.label;
+      document.title = `${product.label} — Prototype Index`;
+    }
+    const icon = (typeof product.icon === 'string' && /^fa-[a-z0-9-]+$/.test(product.icon)) ? product.icon : null;
+    const color = (typeof product.color === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(product.color)) ? product.color : null;
+    if (icon && color) {
+      const tile = byId('productIcon');
+      tile.classList.add('title-icon--tile');
+      tile.style.background = color;
+      tile.innerHTML = `<i class="fa-solid ${icon}" aria-hidden="true"></i>`;
     }
   }
 
@@ -1979,18 +2002,28 @@
         text-transform: uppercase; letter-spacing: 1.8px; color: var(--accent-deep);
         margin-bottom: 6px;
       }
-      .dash-eyebrow em {
-        font-style: normal;
-        background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid), var(--gradient-end));
-        -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-      }
+      /* Solid, not gradient text: 12px type needs 4.5:1 contrast, and every
+         theme's accent-deep is dark enough — the banner stays colorful via
+         the glow gradients and the product icon tile instead. */
+      .dash-eyebrow em { font-style: normal; }
       /* The PRODUCT is the headline. */
       .page-title {
         display: flex; align-items: center; gap: 13px;
         font-family: var(--serif); font-size: clamp(30px, 4vw, 44px); font-weight: 900;
         margin: 0; line-height: 1.05; letter-spacing: -0.02em; font-variation-settings: "opsz" 96;
       }
-      .title-emoji { font-size: 0.78em; line-height: 1; }
+      /* Product icon beside the name. Boots as the theme emoji, then becomes
+         the landing page's tile — white FA icon on the product's brand color
+         (all brand colors are dark enough for white glyphs). */
+      .title-icon {
+        display: inline-flex; align-items: center; justify-content: center;
+        flex: 0 0 auto; font-size: 0.78em; line-height: 1;
+      }
+      .title-icon--tile {
+        width: 42px; height: 42px; border-radius: 11px;
+        color: #fff; font-size: 19px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+      }
 
       /* Right column: search on top, meta line under it — both right-flush
          with the page gutter so their edges align with the content below. */

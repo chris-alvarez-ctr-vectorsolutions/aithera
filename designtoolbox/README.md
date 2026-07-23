@@ -303,10 +303,14 @@ code changes — the card rendering keys off `dashboardHref`.
 
 `dashboard.js` is the **single shared implementation** of the per-product
 "Design Dashboard" — the status board a product links its index card to
-(above). The banner leads with the **product name** (emoji + name as the
-headline, a small "Design Dashboard" eyebrow over it) with the global search
-and the auto-updated/refreshed meta stacked on the right; header, content,
-and footer all share the same max-width + 32px gutter so every edge aligns.
+(above). The banner leads with the **product identity**: the SAME icon tile
+the landing page card shows (Font Awesome icon on the product's brand color,
+carried into meta.json as `product.icon`/`product.color` from products.json)
+plus the product's landing `label` as the headline, under a small solid-color
+"Design Dashboard" eyebrow (solid, not gradient text, for 4.5:1 contrast).
+The global search and the auto-updated/refreshed meta stack on the right;
+header, content, and footer all share the same max-width + 32px gutter so
+every edge aligns.
 It renders cards for every prototype in a product, each with its **GitHub
 Pages URL, GitHub source link, dev-handoff build, status, and Jira ticket**,
 plus a recent-activity log. SafeLMS and Scheduling were the first two
