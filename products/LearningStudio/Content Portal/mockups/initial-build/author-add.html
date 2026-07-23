@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Author — Content Portal (Initial Build)</title>
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Open Sans', -apple-system, sans-serif;
+            font-size: 13px;
+            color: #0f2e3d;
+            background: #ffffff;
+            min-height: 100vh;
+        }
+
+        vwc-topnav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+        }
+
+        .app-body {
+            display: flex;
+            padding-top: 56px;
+            height: 100vh;
+        }
+
+        vwc-sidenav {
+            --vwc-sidenav-width: 240px;
+            --vwc-sidenav-max-width: 240px;
+            --offset: 56px;
+            flex-shrink: 0;
+            z-index: 10;
+            background: var(--lumo-base-color);
+            border-right: 1px solid rgba(28,55,90,0.1);
+        }
+        vwc-sidenav[collapsed] {
+            --vwc-sidenav-width: 56px;
+            --vwc-sidenav-max-width: 56px;
+        }
+
+        .main-content {
+            flex: 1;
+            min-width: 0;
+            overflow-y: auto;
+        }
+
+        .content-inner {
+            max-width: 640px;
+            margin: 0 auto;
+            padding: 24px 32px 120px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--lumo-primary-color);
+            text-decoration: none;
+            margin-bottom: 16px;
+        }
+        .back-link:hover { text-decoration: underline; }
+
+        .create-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #0f2e3d;
+            margin-bottom: 4px;
+        }
+        .create-subtitle {
+            font-size: 13px;
+            color: var(--lumo-secondary-text-color);
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .form-section {
+            background: var(--lumo-base-color);
+            border: 1px solid rgba(28,55,90,0.1);
+            border-radius: 8px;
+            padding: 18px 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        }
+
+        .form-row { margin-bottom: 14px; }
+        .form-row:last-child { margin-bottom: 0; }
+        vaadin-text-field, vaadin-text-area { width: 100%; }
+
+        .edit-field-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #0f2e3d;
+            margin-bottom: 8px;
+        }
+
+        .photo-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .big-avatar {
+            width: 72px; height: 72px;
+            border-radius: 50%;
+            background: #e3eaf0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            font-weight: 700;
+            color: #90a4ae;
+            flex-shrink: 0;
+        }
+        .big-avatar.has-photo {
+            background-size: cover;
+            background-position: center;
+            color: transparent;
+        }
+        .photo-helper {
+            font-size: 11.5px;
+            color: var(--lumo-secondary-text-color);
+            line-height: 1.4;
+            margin-top: 6px;
+        }
+
+        /* Sticky action bar */
+        .create-actions {
+            position: fixed;
+            bottom: 0;
+            left: 240px;
+            right: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 32px;
+            background: #ffffff;
+            border-top: 1px solid rgba(28,55,90,0.12);
+            box-shadow: 0 -2px 8px rgba(15,46,61,0.06);
+            transition: left 0.2s ease;
+        }
+        body.sidenav-collapsed .create-actions { left: 56px; }
+        .create-actions .actions-hint {
+            flex: 1;
+            font-size: 12px;
+            color: var(--lumo-secondary-text-color);
+        }
+        .create-actions .required-star { color: #c62828; }
+    </style>
+</head>
+<body>
+
+    <vwc-topnav id="topnav" sidenav-id="sidenav"></vwc-topnav>
+
+    <div class="app-body">
+        <vwc-sidenav id="sidenav" active-item-id="authors"></vwc-sidenav>
+
+        <main class="main-content">
+        <div class="content-inner">
+
+            <a class="back-link" href="authors.html">
+                <i class="fa-solid fa-arrow-left"></i> Back to Authors
+            </a>
+
+            <div class="create-title">Add author</div>
+            <div class="create-subtitle">
+                Add an author with a photo, name, and short bio. Only the author name is required — everything else can be added now or later on their profile.
+            </div>
+
+            <!-- Simple add: photo, name, bio only (scaled-back scope). -->
+            <div class="form-section">
+                <div class="form-row">
+                    <label class="edit-field-label">Profile Photo</label>
+                    <div class="photo-row">
+                        <div class="big-avatar" id="create-avatar"><i class="fa-solid fa-user"></i></div>
+                        <div>
+                            <vaadin-button theme="secondary" id="upload-photo-btn">
+                                <i class="fa-solid fa-arrow-up-from-bracket" slot="prefix"></i> Upload photo
+                            </vaadin-button>
+                            <div class="photo-helper">JPG or PNG, recommended 400×400. Optional.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <vaadin-text-field id="create-name" theme="outlined" label="Author Name" required
+                        error-message="Author name is required" placeholder="e.g., Dr. Sarah Mitchell"></vaadin-text-field>
+                </div>
+
+                <div class="form-row">
+                    <vaadin-text-area id="create-bio" theme="outlined" label="Bio" rows="5"
+                        helper-text="Optional. A short professional description."
+                        placeholder="Professional background, experience, and areas of focus…"></vaadin-text-area>
+                </div>
+            </div>
+
+        </div><!-- /.content-inner -->
+        </main>
+
+        <div class="create-actions" id="create-actions">
+            <div class="actions-hint">
+                <span class="required-star">*</span> Author name is required. All other fields are optional.
+            </div>
+            <vaadin-button theme="secondary" id="create-cancel">Cancel</vaadin-button>
+            <vaadin-button theme="primary" id="create-submit">
+                <i class="fa-solid fa-check" slot="prefix"></i> Add author
+            </vaadin-button>
+        </div>
+    </div>
+
+<script>
+customElements.whenDefined('vwc-sidenav').then(() => {
+    const topnav = document.getElementById('topnav');
+    topnav.logo = { src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 32'><rect x='0' y='4' width='24' height='24' rx='4' fill='%230f2e3d'/><text x='32' y='22' font-family='Open Sans,sans-serif' font-size='16' font-weight='700' fill='%230f2e3d'>LOGO</text></svg>", alt: 'Logo' };
+
+    const sidenav = document.getElementById('sidenav');
+    sidenav.items = [
+        { type: 'link', id: 'library',  text: 'Content Library', href: '#', icon: { type: 'svg', path: 'M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z' } },
+        { type: 'link', id: 'authors',  text: 'Authors', href: 'authors.html', icon: { type: 'svg', path: 'M16,2L14.6,3.43L18.57,7.41L20,6M13.89,4.14L4,14.03V18H7.97L17.86,8.11L13.89,4.14M4,20V22H20V20H4Z' } },
+        { type: 'divider' },
+        { type: 'link', id: 'assets',   text: 'Assets', href: '#', icon: { type: 'svg', path: 'M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z' } },
+        { type: 'link', id: 'settings', text: 'Settings', href: '#', icon: { type: 'svg', path: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.11-.22.06-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z' } }
+    ];
+
+    sidenav.addEventListener('collapsed-changed', () => {
+        document.body.classList.toggle('sidenav-collapsed', sidenav.collapsed);
+        document.querySelector('.main-content').classList.toggle('sidenav-collapsed', sidenav.collapsed);
+    });
+
+    // ── Live initials in the photo placeholder as the name is typed ──
+    const avatar = document.getElementById('create-avatar');
+    const nameField = document.getElementById('create-name');
+    nameField.addEventListener('input', () => {
+        if (avatar.classList.contains('has-photo')) return;
+        const name = nameField.value.trim();
+        if (!name) { avatar.innerHTML = '<i class="fa-solid fa-user"></i>'; return; }
+        const parts = name.split(/\s+/).filter(p => !/^(dr\.?|mr\.?|mrs\.?|ms\.?|prof\.?)$/i.test(p));
+        if (parts.length === 0) { avatar.innerHTML = '<i class="fa-solid fa-user"></i>'; return; }
+        const initials = parts.length === 1 ? parts[0].slice(0, 2).toUpperCase()
+            : (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        avatar.textContent = initials;
+        avatar.style.color = '#546e7a';
+    });
+
+    function showToast(message, type = 'success') {
+        const note = document.createElement('vaadin-notification');
+        note.position = 'bottom-center';
+        note.duration = 3000;
+        const ok = type !== 'error';
+        const icon = ok ? 'fa-circle-check' : 'fa-circle-exclamation';
+        const color = ok ? '#2e7d32' : '#c62828';
+        note.renderer = (root) => {
+            root.innerHTML = `<span style="display:inline-flex; align-items:center; gap:8px;"><i class="fa-solid ${icon}" style="color:${color}"></i> ${message}</span>`;
+        };
+        document.body.appendChild(note);
+        note.opened = true;
+        note.addEventListener('opened-changed', e => { if (!e.detail.value) note.remove(); });
+    }
+
+    document.getElementById('create-cancel').addEventListener('click', () => {
+        window.location.href = 'authors.html';
+    });
+    document.getElementById('create-submit').addEventListener('click', () => {
+        const name = nameField.value.trim();
+        if (!name) {
+            nameField.invalid = true;
+            nameField.focus();
+            showToast('Author name is required.', 'error');
+            return;
+        }
+        showToast(`“${name}” added.`);
+        setTimeout(() => { window.location.href = 'authors.html'; }, 900);
+    });
+
+}); // end whenDefined
+</script>
+</body>
+</html>

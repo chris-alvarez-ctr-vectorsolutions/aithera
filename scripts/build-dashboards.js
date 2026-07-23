@@ -5,19 +5,21 @@
 
    The product dashboards (designtoolbox/dashboard.js) render from a per-product
    `dashboard/meta.json`. Because the repo is private, the browser can't list
-   folders — so meta.json has to carry the list. This script keeps that list (and
-   more) CURRENT AUTOMATICALLY so nobody hand-maintains it:
+   folders — so meta.json has to carry the list. This script regenerates every
+   enrolled product's meta.json from the CURATED source, `products.json` at the
+   repo root, so nobody hand-maintains meta.json:
 
-     • Mock folders   — discovered by scanning products/<Product>/ for index.html
-                        (added when created, removed when deleted/renamed).
+     • Mock list      — the prototypes listed for each product in products.json
+                        (rel key + name + optional jira/status). products.json is
+                        also what the landing page renders, so cards and dashboards
+                        always agree.
      • Dev handoffs   — set `devHandoff` automatically when a dev_handoff.html
-                        exists next to a mock's index.html (cleared when removed).
+                        exists in a folder mock (cleared when removed).
      • Recent activity — rebuilt from `git log` (date + path + commit subject).
 
-   It is ADDITIVE / non-destructive for human-curated fields: any `title`,
-   `description`, `status`, `ticket`, `ticketUrl`, or `extraLinks` already set on
-   a mock in meta.json is preserved. So designers never have to touch meta.json,
-   but may optionally enrich a card and the script won't clobber it.
+   meta.json is fully derived — DO NOT hand-edit it. To add/rename/retitle a
+   prototype, or set a status, edit products.json; the change flows to both the
+   product card and the dashboard on the next push.
 
    Usage:  node scripts/build-dashboards.js
    Runs in CI on every push (see .github/workflows/dashboards.yml) and can be run
@@ -32,57 +34,51 @@ const { execFileSync } = require('child_process');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 
-// Products that use the shared product dashboard. Add a slug here to enroll one.
-const ENROLLED = ['SafeLMS', 'Scheduling'];
+// The curated prototype list lives in products.json at the repo root — the SINGLE
+// source of truth shared by the landing page (index.html) and every dashboard.
+// Every product listed there gets a dashboard; add/rename a prototype in one
+// place and both the landing card and its dashboard update on the next push.
+const PRODUCTS_JSON = path.join(REPO_ROOT, 'products.json');
 
-const MAX_RECENT = 20;
+// Each dashboard card now shows its OWN commit log, so we keep a deeper history
+// than the old single bottom-of-page list needed — enough that every mock has a
+// meaningful per-card log. The card UI caps how many it shows at once.
+const MAX_RECENT = 300;
 
 // ---------------------------------------------------------------------------
-// Filesystem discovery
+// Curated list (products.json)
 // ---------------------------------------------------------------------------
 
-// Recursively collect every directory that contains an index.html, returned as
-// keys relative to the product directory (forward slashes). The product's own
-// `dashboard/` folder is excluded — it isn't a tracked mock.
-function discoverMockKeys(productDir) {
-  const keys = [];
-
-  function walk(absDir, relParts) {
-    let entries;
-    try {
-      entries = fs.readdirSync(absDir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-
-    // A directory with an index.html is a mock (unless it's the dashboard).
-    const rel = relParts.join('/');
-    if (rel && rel !== 'dashboard' && entries.some(e => e.isFile() && e.name === 'index.html')) {
-      keys.push(rel);
-    }
-
-    for (const e of entries) {
-      if (!e.isDirectory()) continue;
-      if (e.name.startsWith('.')) continue;           // skip hidden
-      if (relParts.length === 0 && e.name === 'dashboard') continue; // skip dashboard subtree
-      walk(path.join(absDir, e.name), relParts.concat(e.name));
+// Flatten a product's items (which may contain `folder` groups) into the leaf
+// prototypes, preserving each one's curated fields. Returns [{ rel, name, jira,
+// status }]. `rel` is the mock key: "." for the product root, "foo" for a folder
+// mock, or "path/foo.html" for a standalone-file mock.
+//
+// Each leaf also carries `_folder`: the display name of the enclosing curated
+// `folder` group ("Content Portal", "Phase 2", …), or null when the mock sits at
+// the product's top level. Nested folder groups join with " / ". The dashboard
+// uses this to render folders as one expandable unit instead of flattening them.
+function flattenItems(items, folderPath = []) {
+  const out = [];
+  for (const it of items || []) {
+    if (it && Array.isArray(it.items)) {
+      const next = it.folder ? folderPath.concat(it.folder) : folderPath;
+      out.push(...flattenItems(it.items, next));
+    } else if (it && it.rel) {
+      out.push({ ...it, _folder: folderPath.length ? folderPath.join(' / ') : null });
     }
   }
-
-  walk(productDir, []);
-  return keys.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  return out;
 }
 
-// Detect a dev-handoff file for a mock. Honors a custom filename if the existing
-// entry specified one as a string; otherwise looks for the default.
-function detectDevHandoff(productDir, key, existing) {
-  const custom = (existing && typeof existing.devHandoff === 'string' && existing.devHandoff.trim())
-    ? existing.devHandoff.trim()
-    : null;
-  const candidate = custom || 'dev_handoff.html';
-  const exists = fs.existsSync(path.join(productDir, key, candidate));
-  if (!exists) return null;
-  return custom || true; // preserve a custom filename, else `true`
+// Detect a dev-handoff file for a mock — the artifact the dev-handoff process
+// produces. Only folder-style mocks (product root "." or a folder key) can have
+// one; standalone-file mocks (rel ends in .html) never do.
+function detectDevHandoff(productDir, rel) {
+  if (rel.endsWith('.html')) return null;
+  const dir = rel === '.' ? productDir : path.join(productDir, rel);
+  const candidate = 'dev_handoff.html';
+  return fs.existsSync(path.join(dir, candidate)) ? true : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -99,8 +95,8 @@ function gitRecentChanges(productSlug) {
     out = execFileSync('git', [
       'log',
       '--no-merges',
-      '-n', '80',
-      '--date=short',
+      '-n', '400',
+      '--date=iso-strict',
       `--pretty=format:${SEP_REC}%ad${SEP_FLD}%s`,
       '--name-only',
       '--', `products/${productSlug}`,
@@ -119,16 +115,28 @@ function gitRecentChanges(productSlug) {
     const [date, subject] = head.split(SEP_FLD);
     if (!date) continue;
 
-    const files = body.split('\n').map(f => f.trim()).filter(Boolean);
-    // First changed file under this product that isn't in the dashboard folder.
-    const file = files.find(f => f.startsWith(productPrefix) && !f.startsWith(productPrefix + 'dashboard/'));
-    if (!file) continue; // commit only touched dashboard/ — skip
+    // Skip automated dashboard-maintenance commits — they aren't real design
+    // activity and would otherwise flood the log (and falsely trigger the
+    // "recently updated" highlight). Covers the build script's own regenerate
+    // commits and anything tagged [skip ci].
+    const subj = (subject || '').trim();
+    if (/^chore\(dashboards\)/i.test(subj) || /\[skip ci\]/i.test(subj)) continue;
 
-    changes.push({
-      date,
-      path: file.slice(productPrefix.length),
-      summary: (subject || '').trim(),
-    });
+    const files = body.split('\n').map(f => f.trim()).filter(Boolean);
+    // Every changed file under this product that isn't in the dashboard folder.
+    // One entry per file so a commit touching several mocks credits ALL of them
+    // (the dashboard dedupes same-commit rows within a single card's log).
+    const matched = files.filter(f => f.startsWith(productPrefix) && !f.startsWith(productPrefix + 'dashboard/'));
+    if (!matched.length) continue; // commit only touched dashboard/ — skip
+
+    for (const file of matched) {
+      changes.push({
+        date,
+        path: file.slice(productPrefix.length),
+        summary: subj,
+      });
+      if (changes.length >= MAX_RECENT) break;
+    }
     if (changes.length >= MAX_RECENT) break;
   }
 
@@ -139,47 +147,42 @@ function gitRecentChanges(productSlug) {
 // Per-product build
 // ---------------------------------------------------------------------------
 
-function buildProduct(productSlug) {
-  const productDir = path.join(REPO_ROOT, 'products', productSlug);
+function buildProduct(product, jiraBase) {
+  const folder = product.folder;
+  const productDir = path.join(REPO_ROOT, 'products', folder);
   const metaPath = path.join(productDir, 'dashboard', 'meta.json');
 
   if (!fs.existsSync(productDir)) {
-    console.warn(`! ${productSlug}: products/${productSlug} not found — skipping.`);
+    console.warn(`! ${folder}: products/${folder} not found — skipping.`);
     return null;
   }
 
-  // Load existing meta to preserve human-curated fields + jiraBaseUrl.
-  let prev = {};
-  if (fs.existsSync(metaPath)) {
-    try {
-      prev = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-    } catch (e) {
-      console.warn(`! ${productSlug}: existing meta.json is invalid JSON — rebuilding from scratch. (${e.message})`);
-      prev = {};
-    }
-  }
-  const prevMocks = (prev && typeof prev.mocks === 'object' && prev.mocks) || {};
-
-  const keys = discoverMockKeys(productDir);
-
+  // Build the mock map straight from the curated items — products.json is the
+  // source of truth for the list, titles, tickets, and any hand-set status.
   const mocks = {};
-  for (const key of keys) {
-    // Start from any curated entry so titles/descriptions/statuses survive.
-    const entry = { ...(prevMocks[key] || {}) };
+  for (const it of flattenItems(product.items)) {
+    const entry = {};
+    if (it.name) entry.title = it.name;
+    if (it.desc) entry.description = it.desc;
+    if (it._folder) entry.folder = it._folder;
+    if (it.jira) entry.ticket = it.jira;
+    if (it.status) entry.status = it.status;
+    // Curated last-modified date — the dashboard's fallback when no commit in
+    // recentChanges can be attributed to this mock.
+    if (it.modified) entry.modified = it.modified;
 
-    // Auto-manage devHandoff based on whether the file actually exists.
-    const dev = detectDevHandoff(productDir, key, prevMocks[key]);
+    // Auto-manage devHandoff from the file actually present on disk.
+    const dev = detectDevHandoff(productDir, it.rel);
     if (dev) entry.devHandoff = dev;
-    else delete entry.devHandoff;
 
-    mocks[key] = entry;
+    mocks[it.rel] = entry;
   }
 
   const meta = {
     version: 1,
-    _generated: 'Auto-generated by scripts/build-dashboards.js — do not edit the folder list or recentChanges by hand. Curated per-mock fields (title/description/status/ticket/extraLinks) are preserved across regenerations.',
-    jiraBaseUrl: typeof prev.jiraBaseUrl === 'string' ? prev.jiraBaseUrl : '',
-    recentChanges: gitRecentChanges(productSlug),
+    _generated: 'Auto-generated by scripts/build-dashboards.js from products.json (the curated source). Do not edit by hand — edit products.json instead.',
+    jiraBaseUrl: jiraBase || '',
+    recentChanges: gitRecentChanges(folder),
     mocks,
   };
 
@@ -192,8 +195,8 @@ function buildProduct(productSlug) {
   }
 
   return {
-    product: productSlug,
-    mockCount: keys.length,
+    product: folder,
+    mockCount: Object.keys(mocks).length,
     devCount: Object.values(mocks).filter(m => m.devHandoff).length,
     recentCount: meta.recentChanges.length,
     changed: before !== json,
@@ -204,9 +207,20 @@ function buildProduct(productSlug) {
 // Main
 // ---------------------------------------------------------------------------
 
+let catalog;
+try {
+  catalog = JSON.parse(fs.readFileSync(PRODUCTS_JSON, 'utf8'));
+} catch (e) {
+  console.error(`Could not read products.json at ${PRODUCTS_JSON}: ${e.message}`);
+  process.exit(1);
+}
+const jiraBase = typeof catalog.jiraBase === 'string' ? catalog.jiraBase : '';
+const productList = Array.isArray(catalog.products) ? catalog.products : [];
+
 let anyChanged = false;
-for (const slug of ENROLLED) {
-  const r = buildProduct(slug);
+for (const product of productList) {
+  if (!product || !product.folder) continue;
+  const r = buildProduct(product, jiraBase);
   if (!r) continue;
   anyChanged = anyChanged || r.changed;
   console.log(
