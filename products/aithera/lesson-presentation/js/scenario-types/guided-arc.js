@@ -770,7 +770,7 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
       lead: 'What this arc is called, the course and premise it lives in, and the role the learner plays.' },
 
     { id: 'intro', group: 'context', icon: 'fa-film', title: 'Intro & situation',
-      lead: 'How the scene is set before the coaching begins — one modality (video / audio / reading / none) — plus the establishing card and the situation the coach grounds on.',
+      lead: 'How the scene is set before coaching begins — the modality (video, audio, reading, or none), the establishing card, and the situation the coach grounds on.',
       bridgeTitle: 'One door in, and the coach\'s only window',
       bridge: 'The intro modality is swappable. The <b>situation text</b> doubles as the read-along/narration script AND the coach\'s grounding — it never sees the video, so write there what it needs to know. Use <b>{{character}}</b> so a rename propagates.' },
 
@@ -788,7 +788,7 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
       lead: 'A short persona and working style for the coach. The detailed voice rules (short bubbles, banned phrases) are locked; this tunes the stance.' },
 
     { id: 'playbook', group: 'debrief', stage: 'TAKEAWAYS', icon: 'fa-list-check', title: 'The playbook',
-      lead: 'The expert-validated components EVERY learner leaves with, identically, however the conversation went. Shown after the personal results — guaranteed, never AI-generated.',
+      lead: 'The expert-validated points every learner leaves with, identically, however the conversation went. Shown after the personal results — never AI-generated.',
       bridgeTitle: 'From your old craft: your SME-validated teaching points',
       bridge: 'The conversation personalizes; the playbook standardizes — that pairing is what makes completion mean consistent coverage.' },
     { id: 'resources', group: 'debrief', stage: 'TAKEAWAYS', icon: 'fa-hand-holding-medical', title: 'Resources',

@@ -36,24 +36,24 @@
   Object.assign(byId('reflection'), {
     group: 'learn',
     title: 'Reflection — the warm-up',
-    lead: 'OPTIONAL first coach turn: a non-evaluated gut check. Its prompt is delivered verbatim; the coach calibrates the reaction — it never grades it. Leave the prompt blank to open on the first topic turn instead.',
+    lead: 'An optional warm-up — a gut check the coach reacts to but never grades. Leave the prompt blank to skip it and open on the first topic turn.',
   });
   Object.assign(byId('phases'), {
     group: 'learn',
     title: 'Topic turns',
-    lead: 'The coached turns of the Learn section, in order. Each turn hands the learner a topic to reason about, lets them commit, then the coach lands the point — steered by your guidance for that topic.',
+    lead: 'The coached turns of the Learn section, in order. Each hands the learner a topic to reason about, lets them commit, then the coach lands the point.',
     bridgeTitle: 'Each turn is a topic',
     bridge: 'The <b>signpost</b> and <b>task prompt</b> are delivered VERBATIM. While the learner works it, the coach holds its teaching to one probe; then it opens the teach turn with your exact <b>talk it through</b> line and lands the point. Flag <b>has a right answer</b> for a graded turn (like a legal one) and give its <b>through-line</b>.',
   });
   Object.assign(byId('scene'), {
     group: 'practice',
     title: 'The live scene',
-    lead: 'The Practice section: an optional live action console the arc ends in. The learner steps in and decides what to DO; the coach voices the scene, narrates a calibrated consequence, then debriefs. Toggle it on to author it.',
+    lead: 'An optional live scene the arc ends in. The learner decides what to DO; the coach voices the scene, narrates the consequence, then debriefs. Toggle it on to author it.',
   });
   Object.assign(byId('voice'), {
     group: 'voicetone',
     title: 'Voice and tone',
-    lead: 'Who the coach is and how it sounds — one stance carried through every Learn turn and the Practice debrief. The detailed voice rules (short bubbles, banned phrases) are locked; this tunes the persona.',
+    lead: 'Who the coach is and how it sounds, carried through every turn. The detailed rules (short bubbles, banned phrases) are locked; this just tunes the persona.',
   });
 
   /* =======================================================================
@@ -579,7 +579,7 @@ CRAFT EXEMPLAR (shipped gold standard — match craft, NOT topic):
   T.wizard = {
     title: 'Start from scratch — Guided Arc',
     tagline: 'Coached topic turns in Learn, then a live Practice scene — the Marshall format.',
-    intro: 'A short brief, a few questions in your own words, then an AI-drafted scenario lands in the editor.',
+    intro: 'A few quick questions, then an AI-drafted scenario lands in the editor.',
     describePlaceholder: 'e.g. A 10-minute scenario for our harassment-prevention training: an employee watches a coworker get demeaned in meetings and practices stepping in as a bystander.',
 
     derive(intake) {
@@ -591,15 +591,15 @@ CRAFT EXEMPLAR (shipped gold standard — match craft, NOT topic):
       {
         id: 'brief',
         title: 'The brief',
-        sub: 'The high-level shape. Everything here can be changed in the editor afterwards.',
+        sub: 'The high-level shape. You can change any of this later in the editor.',
         fields: [
           { key: 'topic', kind: 'text', required: true, label: 'What is this scenario about?',
             placeholder: 'e.g. Bystander intervention in workplace harassment',
-            helper: 'One line. This is the spine every generated field hangs on.' },
+            helper: 'One line. Everything else builds on this.' },
           { key: 'title', kind: 'text', label: 'Working title (optional)',
             helper: 'Leave blank and the draft proposes one.' },
           { key: 'course', kind: 'text', label: 'The training it lives inside (optional)',
-            placeholder: 'e.g. Harassment Prevention for Employees', helper: 'Grounds the coach\'s register.' },
+            placeholder: 'e.g. Harassment Prevention for Employees', helper: 'Sets the coach\'s tone.' },
           { key: 'time', kind: 'chips', label: 'Target time on task', default: 10,
             options: [
               { value: 5, label: '~5 minutes', desc: 'Warm-up + 1 topic turn' },
@@ -608,28 +608,28 @@ CRAFT EXEMPLAR (shipped gold standard — match craft, NOT topic):
             ] },
           { key: 'sourceText', kind: 'source', minRows: 7, label: 'Source material — paste anything (optional)',
             placeholder: 'An outline, slide text, a policy excerpt, SME notes, an old training script…',
-            helper: 'The generator mines this for specifics instead of inventing them. More source = truer draft.' },
+            helper: 'We’ll pull specifics from this instead of inventing them. More source, closer draft.' },
         ],
       },
       {
         id: 'interview',
         title: 'Scenario shape',
-        sub: 'Answer like you\'d brief a colleague — plain language, no prompt-writing. Your answers become the coaching guidance behind every turn.',
+        sub: 'Answer like you\'re briefing a colleague. Plain language — no prompt-writing.',
         fields: [
           { key: 'story', kind: 'area', required: true, minRows: 6, label: 'Tell the story the learner walks into',
-            helper: 'Who\'s involved, what\'s been happening, how it\'s escalated. This becomes the situation the coach grounds every reply in.' },
+            helper: 'Who\'s involved, what\'s been happening, how it\'s escalated.' },
           { key: 'learnerRole', kind: 'text', required: true, label: 'Who is the learner in this story?',
             placeholder: 'e.g. a co-worker who has watched it build for months' },
           { key: 'characters', kind: 'text', label: 'Who else is in the story? (comma-separated, main person first)',
             placeholder: 'e.g. Jake, Marshall' },
           { key: 'mustKnows', kind: 'lines', required: true, minRows: 4, label: 'What must every learner walk away knowing?',
-            helper: 'One per line, 3–5. These become the through-lines the coach always lands and the closing playbook.' },
+            helper: 'One per line, 3–5.' },
           { key: 'misconceptions', kind: 'area', required: true, minRows: 3, label: 'What do people commonly get wrong or minimize?',
-            helper: 'The wrong takes you\'ve actually heard. These become the coaching guidance for weak answers.' },
+            helper: 'The wrong takes you\'ve actually heard.' },
           { key: 'strongAnswer', kind: 'area', minRows: 3, label: 'What would a sharp, experienced person say or do?',
-            helper: 'The bar for a strong answer — the coach affirms and extends it.' },
+            helper: 'The bar for a strong answer.' },
           { key: 'topics', kind: 'lines', required: true, minRows: 3, label: 'The coached turns — what should the coach walk through, in order?',
-            helper: (intake) => `One per line; each line becomes one coached turn (the learner works it, then the coach lands it). For ~${intake.time || 10} minutes we suggest ${intake._suggestTurns || 2} — e.g. “Does this legally qualify?”, “What is it doing to the person?”`,
+            helper: (intake) => `One per line — each becomes one coached turn. For ~${intake.time || 10} minutes we suggest ${intake._suggestTurns || 2}. e.g. “Does this legally qualify?”, “What is it doing to the person?”`,
           },
           { key: 'includeReflection', kind: 'toggle', default: true, label: 'Open with a gut-reaction warm-up (recommended)' },
           { key: 'includeScene', kind: 'toggle', default: (intake) => (intake.time || 10) >= 10,
@@ -637,9 +637,9 @@ CRAFT EXEMPLAR (shipped gold standard — match craft, NOT topic):
           { key: 'sceneWho', kind: 'text', showIf: (i) => !!i.includeScene, label: 'Who does the learner face in the scene?',
             placeholder: 'e.g. Jake — with Marshall present' },
           { key: 'sceneMoment', kind: 'area', minRows: 2, showIf: (i) => !!i.includeScene, label: 'The moment they walk into',
-            helper: 'Where it happens and what\'s just been said or done.' },
+            helper: 'Where it happens, and what\'s just been said or done.' },
           { key: 'scenePushback', kind: 'area', minRows: 2, showIf: (i) => !!i.includeScene, label: 'How does that person push back when challenged?',
-            helper: 'The escalation between the learner\'s first and second move.' },
+            helper: 'What happens between the learner\'s first and second move.' },
           { key: 'coachVibe', kind: 'text', label: 'How should the coach come across? (optional)',
             placeholder: 'e.g. warm but direct; knows employment law cold' },
           { key: 'elevatedStakes', kind: 'toggle', default: false,

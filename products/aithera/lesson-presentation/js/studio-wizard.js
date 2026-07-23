@@ -313,12 +313,12 @@
       return {
         id: '__describe',
         title: 'Describe it',
-        sub: 'The one question that matters. A sentence is enough — “Create outline” drafts every field that follows for your review. The more you give it (audience, the real story, must-knows, tone), the truer the draft.',
+        sub: 'One sentence is enough to start. The more you add — the audience, the real story, the tone — the closer the first draft.',
         fields: [
           { key: 'describe', kind: 'area', required: true, minRows: 5,
-            label: 'Describe the scenario simulation you want to build',
+            label: 'What do you want to build?',
             placeholder: t.wizard.describePlaceholder || 'The topic, who it’s for, and anything else that matters…',
-            helper: 'Minimum one sentence — everything else can be drafted. More context here means fewer edits later.' },
+            helper: 'One sentence minimum. More detail here means fewer edits later.' },
         ].concat(srcField ? [srcField] : []),
       };
     }
@@ -422,7 +422,7 @@
     function renderTypeStep() {
       const body = $w('#wizBody');
       body.innerHTML = `<h2 class="wiz-step-title">What are you building?</h2>
-        <p class="wiz-step-sub">Pick the core interaction — the questions and the generated draft are shaped by it, just like the editor's interaction templates. Each choice keeps its own saved answers, so switching loses nothing.</p>`;
+        <p class="wiz-step-sub">Pick the core interaction. You can switch between types without losing progress.</p>`;
       const grid = document.createElement('div');
       grid.className = 'wiz-types';
       registry.forEach((t) => {
@@ -434,7 +434,7 @@
         card.disabled = !has;
         card.innerHTML = `<span class="ic"><i class="fa-solid ${esc(t.icon || 'fa-cube')}"></i></span>
           <span class="tx"><span class="nm">${esc(t.label)}</span>
-          <span class="tg">${esc(has ? (t.wizard.tagline || t.wizard.intro || '') : 'Guided setup isn’t built for this mode yet.')}</span></span>
+          <span class="tg">${esc(has ? (t.wizard.tagline || t.wizard.intro || '') : 'Guided setup isn’t ready for this type yet.')}</span></span>
           ${t.id === chosen.id ? '<span class="ck"><i class="fa-solid fa-circle-check"></i></span>' : ''}`;
         if (has) card.addEventListener('click', () => {
           if (t.id !== chosen.id) loadChosen(t);
@@ -451,10 +451,10 @@
       modes.innerHTML = '<span class="wiz-chips-label">How do you want to start?</span>';
       const mrow = document.createElement('div');
       mrow.className = 'row';
-      [{ id: 'basic', ic: 'fa-bolt', t: 'Basic — describe it, we draft the outline',
-         d: 'One sentence minimum. “Create outline” fills every field for you — you review and edit before anything is generated.' },
+      [{ id: 'basic', ic: 'fa-bolt', t: 'Basic — we draft it for you',
+         d: 'Describe it in a sentence. We draft every field for you to review and edit.' },
        { id: 'advanced', ic: 'fa-sliders', t: 'Advanced — fill it in yourself',
-         d: 'Answer every design question yourself, brief-a-colleague style. Best when you already know the story, the misconceptions and the bar.' }]
+         d: 'Answer every question yourself. Best when you already know the story.' }]
       .forEach((m) => {
         const b = document.createElement('button');
         b.type = 'button';
@@ -531,7 +531,7 @@
         ta.addEventListener('input', () => { intake[f.key] = ta.value; persistIntake(); renderMeta(); });
         const drop = document.createElement('div');
         drop.className = 'wiz-drop';
-        drop.innerHTML = '<i class="fa-solid fa-file-arrow-up"></i><span><b>Drop a .txt / .md file</b> or click to pick one. From PowerPoint: View → Outline, select all, copy — then paste above.</span>';
+        drop.innerHTML = '<i class="fa-solid fa-file-arrow-up"></i><span><b>Drop a .txt or .md file</b>, or click to pick one. From PowerPoint, copy the outline (View → Outline) and paste above.</span>';
         const file = document.createElement('input');
         file.type = 'file';
         file.accept = '.txt,.md,.markdown,text/plain,text/markdown';
@@ -557,7 +557,7 @@
         meta.className = 'wiz-srcmeta';
         const renderMeta = () => {
           const n = String(intake[f.key] || '').length;
-          meta.innerHTML = n ? `<b><i class="fa-solid fa-circle-check"></i></b> ${n.toLocaleString()} characters of source material captured.` : 'Nothing pasted yet — the draft still works from your answers alone.';
+          meta.innerHTML = n ? `<b><i class="fa-solid fa-circle-check"></i></b> ${n.toLocaleString()} characters captured.` : 'Optional — the draft works fine without it.';
         };
         renderMeta();
         wrap.append(ta, drop, file, meta);
@@ -586,7 +586,7 @@
       const drafted = mode() === 'basic' && intake._outlined && step.id !== '__describe';
       body.innerHTML = `<h2 class="wiz-step-title">${esc(step.title)}</h2>
         <p class="wiz-step-sub">${esc(val(step.sub, intake) || '')}</p>` +
-        (drafted ? `<span class="wiz-ai-pill"><i class="fa-solid fa-wand-magic-sparkles"></i> Drafted from your description — edit anything; nothing is final until Generate.
+        (drafted ? `<span class="wiz-ai-pill"><i class="fa-solid fa-wand-magic-sparkles"></i> Drafted from your description. Edit anything — nothing’s final yet.
           <button type="button" class="wiz-pill-btn" id="wizJumpDescribe"><i class="fa-solid fa-rotate-left"></i> Add context &amp; redraft</button></span>` : '');
       const box = document.createElement('div');
       box.className = 'wiz-fields';
@@ -709,7 +709,7 @@ No markdown fences, no commentary — start with { and end with }. Never emit a 
       if (outlining) return;
       const missing = firstMissing(describeStep);
       if (missing) {
-        ctx.toast('Describe the scenario simulation first — one sentence is enough.');
+        ctx.toast('Add a description first — one sentence is enough.');
         const el = Array.from(overlay.querySelectorAll('vaadin-text-field,vaadin-text-area')).find((n) => n.dataset.wizKey === missing.key);
         if (el && el.focus) el.focus();
         return;
@@ -738,7 +738,7 @@ No markdown fences, no commentary — start with { and end with }. Never emit a 
         outlining = false;
         stepIdx = 2;   // land on the first interview step (0 = type, 1 = describe)
         renderAll();
-        ctx.toast('Outline drafted — every field is editable. The last step still generates the full scenario.');
+        ctx.toast('Outline drafted. Edit any field, then generate the full scenario.');
       } catch (err) {
         outlining = false;
         outlineErr = String((err && err.message) || err);
@@ -754,13 +754,13 @@ No markdown fences, no commentary — start with { and end with }. Never emit a 
       const savedUrl = localStorage.getItem(ctx.workerUrlKey) || DEFAULT_WORKER;
       body.innerHTML = `
         <h2 class="wiz-step-title">Generate the draft</h2>
-        <p class="wiz-step-sub">${gen.tasks.length} model calls translate your answers into the full scenario — every verbatim coach line, the coaching guidance behind each turn, and the close. It lands in the editor as a normal draft: review it, run the guardrails, playtest it, then publish.</p>
+        <p class="wiz-step-sub">${gen.tasks.length} steps turn your answers into the full scenario. It lands in the editor as a draft — review it, then playtest and publish.</p>
         <div class="wiz-fields" style="margin-top:16px">
           <vaadin-text-field theme="outlined" id="wizWorker" label="Worker proxy URL" value="${esc(savedUrl)}"
             helper-text="The same Cloudflare Worker the playtest and live pages use. Model: ${esc(MODEL)}."></vaadin-text-field>
         </div>
         <div class="wiz-gen" id="wizGen"></div>
-        <div class="wiz-note"><i class="fa-solid fa-shield-halved"></i><span>Generated content is a <b>first draft by design</b> — the guardrails tab and a playtest are still the quality gate before publishing. Your current editor draft is snapshotted to the Library before this one lands.</span></div>`;
+        <div class="wiz-note"><i class="fa-solid fa-shield-halved"></i><span>This is a <b>first draft</b> — check the guardrails and playtest before publishing. Your current draft is saved to the Library first.</span></div>`;
       renderTasks();
     }
 
@@ -823,7 +823,7 @@ No markdown fences, no commentary — start with { and end with }. Never emit a 
       // Same type as the open studio → land in place, like always.
       if (ctx.type && chosen.id === ctx.type.id) {
         ctx.replaceScenario(normalized);
-        ctx.toast(spec.landNote ? spec.landNote(intake) : 'Draft generated — review it section by section, then playtest.');
+        ctx.toast(spec.landNote ? spec.landNote(intake) : 'Draft generated — review it, then playtest.');
         overlay.remove();
         document.removeEventListener('keydown', onKey);
         return;
@@ -870,10 +870,10 @@ No markdown fences, no commentary — start with { and end with }. Never emit a 
         const note = document.createElement('span');
         note.className = 'wiz-reqnote';
         note.textContent = changed
-          ? 'The description changed — Redraft rewrites every field from it.'
+          ? 'Description changed — Redraft rewrites every field from it.'
           : intake._outlined
-            ? 'Redrafting rewrites every drafted field from the description.'
-            : 'One model call drafts every field in the wizard — you review everything before the scenario is generated.';
+            ? 'Redrafting rewrites every field from your description.'
+            : 'We draft every field for you to review before anything is generated.';
         foot.append(note);
         const spin = '<i class="fa-solid fa-spinner" style="animation:wiz-spin 1s linear infinite"></i>';
         if (intake._outlined) {
@@ -907,7 +907,7 @@ No markdown fences, no commentary — start with { and end with }. Never emit a 
         next.addEventListener('click', () => {
           const missing = firstMissing(steps()[stepIdx]);
           if (missing) {
-            ctx.toast(`“${val(missing.label, intake)}” is needed before the draft can be generated.`);
+            ctx.toast(`“${val(missing.label, intake)}” is required.`);
             const el = overlay.querySelector(`[data-wiz-key="${missing.key}"], [data-wizKey="${missing.key}"]`) ||
                        Array.from(overlay.querySelectorAll('vaadin-text-field,vaadin-text-area')).find((n) => n.dataset.wizKey === missing.key);
             if (el && el.focus) el.focus();

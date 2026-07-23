@@ -785,11 +785,11 @@
     // ② Interaction — ENGAGE (a line) → the character REACTs → the coach reads &
     // nudges → a GATE holds or advances → completion EXITs to the debrief.
     { id: 'character', group: 'interaction', stage: 'REACT', icon: 'fa-masks-theater', title: 'Character card',
-      lead: 'Who the character is — the one artifact that drives every REACT: their situation, how they react, and how they talk.',
+      lead: 'Who the character is — their situation, how they react, and how they talk.',
       bridgeTitle: 'From your old craft: this replaces per-answer feedback',
       bridge: 'The character’s believable reaction <b>is</b> the feedback; the coach names the lesson after.' },
     { id: 'dimensions', group: 'interaction', stage: 'COACH', icon: 'fa-scale-balanced', title: 'Assessment dimensions',
-      lead: '2–4 things each line is silently scored on — they steer the character and aim the coach. Never shown to the learner.',
+      lead: '2–4 things each line is silently scored on. Never shown to the learner.',
       bridgeTitle: 'From your old craft: right answers and distractors',
       bridge: '“Strong” is the right answer; <b>“weak” is your distractors</b> — name the tempting mistakes and the AI spots them in free text.' },
     { id: 'misconceptions', group: 'interaction', stage: 'COACH', icon: 'fa-lightbulb', title: 'Misconceptions',

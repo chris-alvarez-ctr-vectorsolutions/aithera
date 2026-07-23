@@ -487,7 +487,7 @@
       bridgeTitle: 'From your old craft: right answers and distractors',
       bridge: 'In multiple choice you wrote one right answer and three wrong ones. Here, <b>"what strong looks like"</b> is the sound read and <b>"what weak looks like"</b> is the read the footage should disprove — describe the tempting misreads and the coach recognizes them in anything a learner types.' },
     { id: 'gate', group: 'interaction', stage: 'GATE', icon: 'fa-flag-checkered', title: 'The synthesis gate',
-      lead: 'The final beat and how strictly it holds — nudge-then-advance, then soft (accept the fallback) or hard (keep probing).' },
+      lead: 'The final beat and how strictly it holds — soft (nudge, then accept) or hard (keep probing).' },
     { id: 'completion', group: 'interaction', stage: 'EXIT', icon: 'fa-flag-checkered', title: 'Completion & close',
       lead: 'What ends the run and how the coach signs off.' },
 
