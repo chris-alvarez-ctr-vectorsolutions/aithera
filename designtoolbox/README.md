@@ -345,16 +345,29 @@ the **scope** — the status chips and their counts apply within it. The banner
 search is the opposite: it's **global**, looking across every folder (the rail
 dims while a query is active; picking a folder exits the search into it).
 
+- **Nesting (n levels)** — `folder` groups can contain further `folder`
+  groups; the rail renders them as a collapsible **tree** (chevron per branch,
+  collapsed branches saved per browser in
+  `localStorage["designlab-closed-folders:<Product>"]`). A parent folder's
+  pill counts cover its **whole subtree**, and selecting it scopes to every
+  mock beneath it; the content column shows a clickable **breadcrumb** of the
+  active path. The build script carries the path into `meta.json` as an
+  **array of names** (`"folder": ["Phase 2", "Content Workflow"]`) — never a
+  joined string, because a folder name may itself contain `" / "` (e.g.
+  "AI Chat Widget (Vectoria / Fin)").
 - **Favorites** — hovering a folder row reveals a star; starring pins the
-  folder above the others. Saved per browser per product in
+  folder above the tree (nested pins show their full "A / B" path; the folder
+  also stays in the tree, star filled). Saved per browser per product in
   `localStorage["designlab-fav-folders:<Product>"]` — personal, not shared.
-- **Narrow widths** — the rail becomes a wrapping row above the content, and
+- **Narrow widths** — the rail becomes a wrapping row above the content
+  (tree indent/chevrons drop; every folder shows as a flat chip), and
   the status chips collapse into one multi-select "Status: …" dropdown the
   moment they can't share a line with the sort/view controls (measured, not a
   fixed breakpoint).
 - **Tabs variant** — a complete alternative presentation (folder tabs on the
   header baseline with a "N more ⌄" overflow) is kept working behind the
   `FOLDER_NAV_STYLE` constant at the top of `dashboard.js` ('sidebar' | 'tabs').
+  Tabs can't nest, so nested paths aggregate into their top-level folder's tab.
   Don't delete it as dead code.
 
 So: to give a set of related mocks this experience, just group them under a

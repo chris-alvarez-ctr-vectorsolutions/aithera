@@ -127,7 +127,21 @@ products/<Product>/<feature>/
 
    `jira` and `status` are optional. Valid statuses: `ready-for-dev`, `in-progress` (the default), `archived`.
 
-   **Folder groups are a first-class dashboard experience — use them deliberately.** Wrapping items in `{ "folder": "Group Name", "items": [ … ] }` makes that group render as a real **folder in the product dashboard**: an entry in the left "Folders" rail with per-status pill counts, selectable as a scope, and **favoritable** (designers can star folders to pin them; saved per browser). Group a workstream's related mocks into a folder (e.g. "Content Portal", "Qualifications"); leave one-off mocks at the top level — they show under the dashboard's "Main" entry. Always give every item a `desc`, including items inside folders.
+   **Folder groups are a first-class dashboard experience — use them deliberately.** Wrapping items in `{ "folder": "Group Name", "items": [ … ] }` makes that group render as a real **folder in the product dashboard**: an entry in the left "Folders" rail with per-status pill counts, selectable as a scope, and **favoritable** (designers can star folders to pin them; saved per browser). **Folders nest to any depth** — a `folder` group's `items` may contain further `folder` groups, rendered as a collapsible tree in the rail; selecting a parent scopes to its whole subtree and the content column shows a breadcrumb of the active path. To put a mock in a nested folder, just nest the groups in `products.json` — nothing else to wire up:
+
+   ```json
+   { "folder": "Phase 2", "items": [
+     { "folder": "Content Workflow", "items": [
+       { "folder": "Experiments", "items": [
+         { "name": "Deep Mock", "rel": "Phase2/content-workflow/experiments/deep-mock", "modified": "YYYY-MM-DD", "desc": "…" }
+       ] },
+       { "name": "Nested Mock", "rel": "Phase2/content-workflow", "modified": "YYYY-MM-DD", "desc": "…" }
+     ] },
+     { "name": "Top-of-group Mock", "rel": "Phase2/foo.html", "modified": "YYYY-MM-DD", "desc": "…" }
+   ] }
+   ```
+
+   A group's placement in `products.json` is what creates the dashboard folder — the `rel` paths don't have to mirror the folder names (though keeping the disk layout parallel, e.g. `Phase2/content-workflow/…`, is good practice). Folder display names may even contain `" / "` (e.g. "AI Chat Widget (Vectoria / Fin)") — that renders as ONE folder, never fake nesting, because the build pipeline carries paths as arrays. Group a workstream's related mocks into a folder (e.g. "Content Portal", "Qualifications"); leave one-off mocks at the top level — they show under the dashboard's "Main" entry. Always give every item a `desc`, including items inside folders.
 
 **Adding another version later** (do NOT add a hide/unhide switcher inside a design file):
 

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+  /* Stage holds the full-page version iframe */
+  #stage { position: fixed; inset: 0; }
+  #stage iframe { width: 100%; height: 100%; border: 0; display: block; }
+
+  /* Centered plain-language message for error/empty states */
+  #msg { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 24px; text-align: center; color: #4a5568; font-size: 15px; line-height: 1.5; }
+
+  /* ---- Version switcher ---------------------------------------------------
+     Matches the Design Toolbox dock: a dark, bottom-CENTER pill (same #18181b
+     rounded pill the toolbox and the legacy in-mock `.version-switcher` use),
+     so the version control reads as one family with the design tools instead of
+     a separate widget in its own corner. Bottom-center is the team's reserved
+     "chrome" lane — it stays clear of the bottom-RIGHT area where mocks put
+     their own floating action buttons. */
+  #switcher { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 2147483000; display: none; align-items: center; gap: 6px; background: #18181b; padding: 6px 8px 6px 14px; border-radius: 999px; box-shadow: 0 6px 20px rgba(0,0,0,.28); font-family: "Open Sans", system-ui, sans-serif; }
+  #switcher .vs-label { color: #a1a1aa; font-size: 11px; font-weight: 700; letter-spacing: .4px; margin-right: 2px; }
+  #switcher .vs-btn { background: transparent; border: 0; color: #d4d4d8; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 999px; cursor: pointer; font-family: inherit; white-space: nowrap; transition: background .15s ease, color .15s ease; }
+  #switcher .vs-btn:hover { color: #fff; }
+  #switcher .vs-btn.active { background: #1f4596; color: #fff; }
+  :focus-visible { outline: 2px solid #4d8bf0; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="msg"></div>
+<!-- The switcher is a plain dark pill of segmented version buttons. When the
+     loaded version runs the Design Toolbox, the loader instead docks these same
+     buttons INTO that toolbox pill (see adoptIntoDock) so there is one pill. -->
+<div id="switcher" role="group" aria-label="Switch version">
+  <span class="vs-label">VERSION</span>
+</div>
+
+<script>
+(async function () {
+  const stage = document.getElementById('stage');
+  const switcher = document.getElementById('switcher');
+
+  function showMessage(text) {
+    stage.style.display = 'none';
+    const m = document.getElementById('msg');
+    m.textContent = text;
+    m.style.display = 'flex';
+  }
+
+  // --- Load the manifest -------------------------------------------------
+  let versions;
+  try {
+    const res = await fetch('./versions.json', { cache: 'no-store' });
+    if (!res.ok) throw new Error('http');
+    versions = await res.json();
+  } catch (e) {
+    return showMessage("Couldn't load versions.json. Check that it sits next to this file, and that you're viewing this over http (not by opening the file directly).");
+  }
+  if (!Array.isArray(versions) || versions.length === 0) {
+    return showMessage("versions.json has no versions in it. Add at least one entry like { \"id\": \"ver1\", \"label\": \"V1\", \"path\": \"ver1/ver1.html\" }.");
+  }
+
+  const byId = id => versions.find(v => v.id === id);
+  const params = new URLSearchParams(location.search);
+  let currentId = null;
+
+  function setUrl(id) {
+    const p = new URLSearchParams();
+    p.set('v', id);
+    history.replaceState(null, '', location.pathname + '?' + p.toString());
+  }
+
+  // --- Segmented version buttons (built once, reused) --------------------
+  // One button per version. They live in the loader's #switcher by default,
+  // but get MOVED into the iframe's toolbox dock when one is present, so the
+  // same button elements are reused either way (no duplicate handlers).
+  const buttons = versions.map(v => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'vs-btn';
+    b.dataset.id = v.id;
+    b.textContent = v.label;
+    if (v.title) b.title = v.title;
+    b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', () => showVersion(v.id));
+    return b;
+  });
+  buttons.forEach(b => switcher.appendChild(b));
+
+  function markActive(id) {
+    buttons.forEach(b => {
+      const on = b.dataset.id === id;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+  }
+
+  // --- Load a version (reuses one iframe so the src swaps in place) -------
+  function showVersion(id) {
+    const v = byId(id) || versions[0];
+    currentId = v.id;
+    let f = stage.querySelector('iframe');
+    if (!f) {
+      f = document.createElement('iframe');
+      // Every time the frame finishes loading a version, re-attempt docking
+      // into that version's toolbox pill (the previous frame's dock, if any,
+      // was torn down with it).
+      f.addEventListener('load', () => adoptIntoDock(f));
+      stage.appendChild(f);
+    }
+    f.title = v.label;
+    if (f.getAttribute('src') !== v.path) f.setAttribute('src', v.path);
+    setUrl(v.id);
+    markActive(v.id);
+  }
+
+  // --- Connect to the Design Toolbox dock --------------------------------
+  // If the loaded version runs toolbox.js, it exposes window.ToolboxDock — the
+  // shared bottom-center pill. We add a version group to that pill (via its
+  // documented .add()) and hide the loader's own pill, so the version controls
+  // and the tool launchers share ONE dock. If there's no toolbox (the common
+  // case for a plain mock), we just show the loader's own dark pill.
+  //
+  // The version buttons in the dock are built FRESH in the iframe's own
+  // document each load — never the parent's button elements. Moving one element
+  // across the iframe boundary and re-adopting it after each navigation orphans
+  // it in the torn-down document (which broke switching back). Fresh per-load
+  // buttons are destroyed with the iframe and rebuilt cleanly next load; their
+  // click handlers just call the parent's showVersion. Best-effort + guarded.
+  function adoptIntoDock(frame) {
+    let tries = 0;
+    (function attempt() {
+      let docked = false;
+      try {
+        const win = frame.contentWindow;
+        if (win && win.ToolboxDock && typeof win.ToolboxDock.add === 'function') {
+          const idoc = win.document;
+          if (!idoc.querySelector('#loader-version-group')) {
+            // NB: deliberately NOT class "version-switcher" — that class is the
+            // toolbox's own "adopt me as the dock" signal, and tagging our group
+            // with it would make the toolbox nest its launchers inside us.
+            const group = idoc.createElement('span');
+            group.id = 'loader-version-group';
+            group.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:transparent;box-shadow:none;padding:0;position:static;transform:none;';
+            const label = idoc.createElement('span');
+            label.textContent = 'VERSION';
+            label.style.cssText = 'color:#a1a1aa;font-size:11px;font-weight:700;letter-spacing:.4px;font-family:"Open Sans",system-ui,sans-serif;';
+            group.appendChild(label);
+            versions.forEach(v => {
+              const b = idoc.createElement('button');
+              b.type = 'button';
+              b.textContent = v.label;
+              if (v.title) b.title = v.title;
+              const on = v.id === currentId;
+              b.style.cssText = 'border:0;font-size:12px;font-weight:700;padding:6px 14px;border-radius:999px;cursor:pointer;white-space:nowrap;font-family:"Open Sans",system-ui,sans-serif;' +
+                (on ? 'background:#1f4596;color:#fff;' : 'background:transparent;color:#d4d4d8;');
+              b.addEventListener('click', () => showVersion(v.id));
+              group.appendChild(b);
+            });
+            win.ToolboxDock.add(group);
+          }
+          docked = true;
+        }
+      } catch (e) { /* cross-origin or not ready — fall through to loader pill */ }
+
+      if (docked) {
+        switcher.style.display = 'none';          // merged into the toolbox pill
+      } else if (tries++ < 8) {
+        setTimeout(attempt, 200);                 // dock may mount just after load
+      }
+      // No dock found: the loader's own pill is already showing (set at boot),
+      // so there is nothing to do — a plain mock keeps its dark bottom-center
+      // pill without any delay.
+    })();
+  }
+
+  // --- Boot --------------------------------------------------------------
+  // The switcher only matters with 2+ versions. Show the loader's own pill
+  // right away (no wait); adoptIntoDock hides/merges it only if the loaded
+  // version turns out to run the toolbox.
+  if (versions.length > 1) switcher.style.display = 'inline-flex';
+  const want = params.get('v');
+  showVersion(byId(want) ? want : versions[0].id);
+})();
+</script>
+</body>
+</html>

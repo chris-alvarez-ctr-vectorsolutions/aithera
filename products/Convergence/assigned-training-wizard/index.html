@@ -20,14 +20,18 @@
         *, *::before, *::after { box-sizing: border-box; }
 
         /* ── Layout tokens ──
-           The Fin FAB (see ../ai-chat-widget/fin-widget.js) floats bottom-right,
-           ABOVE the locked wizard footer, vertically centered on the pagination
-           row — it nestles into that row's empty right side instead of covering
-           the footer, the pager controls, or any table row. */
+           The Fin FAB (see ../ai-chat-widget/fin-widget.js) is a 32px button in the
+           built-in 48px side gutter, floating ABOVE the locked footer in the
+           bottom-right. When the Selected Training side panel opens, the FAB is
+           pushed LEFT of it (see body:has rule below) so it stays in the main
+           content's gutter rather than over the panel. */
         :root {
             --wiz-footer-h: 62px;   /* locked footer (Cancel / Previous / Go to…) */
-            --wiz-pager-h: 64px;    /* pagination row between table and footer */
-            --fin-fab-bottom: calc(var(--wiz-footer-h) + (var(--wiz-pager-h) - var(--fin-fab-size, 60px)) / 2);
+            --fin-fab-bottom: calc(var(--wiz-footer-h) + var(--fin-fab-margin, 8px));
+        }
+        /* Push the FAB left of the Selected Training panel (320px) when it's open. */
+        body:has(.sel-panel:not([hidden])) {
+            --fin-fab-right: calc(320px + var(--fin-fab-margin, 8px));
         }
 
         html, body { height: 100%; overflow: hidden; }
@@ -317,42 +321,22 @@
         .step.active .step-label { font-weight: 600; }
         .step-label .req { color: #e53935; margin-left: 2px; }
 
-        /* ── Audit button (full + icon-only variants) ── */
-        .audit-btn {
+        /* ── Kebab "more options" button (Figma: ⋮ at the stepper's right) ──
+           Opens the Audit History modal. */
+        .kebab-btn {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            background: #fff;
-            color: #0066cc;
-            border: 1.5px solid #0066cc;
-            border-radius: 8px;
-            padding: 8px 14px;
-            font: 600 13px 'Open Sans', sans-serif;
-            cursor: pointer;
-        }
-        .audit-btn:hover { background: #eef5ff; }
-        .audit-btn i { font-size: 13px; }
-
-        .audit-icon-btn {
-            display: none;
-            background: #fff;
-            border: 1.5px solid #0066cc;
-            border-radius: 8px;
+            justify-content: center;
             width: 36px;
             height: 36px;
-            color: #0066cc;
-            font-size: 14px;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            color: #5a6068;
+            font-size: 18px;
             cursor: pointer;
-            align-items: center;
-            justify-content: center;
         }
-        .audit-icon-btn:hover { background: #eef5ff; }
-
-        /* JS-driven swap: when the full button no longer fits next to the stepper
-           with the required gap, .wizard-header gets .icon-mode and the full button
-           is replaced by the icon-only variant. */
-        .wizard-header.icon-mode .audit-btn { display: none; }
-        .wizard-header.icon-mode .audit-icon-btn { display: inline-flex; }
+        .kebab-btn:hover { background: #f0f1f3; color: #1a1a1a; }
 
         /* Last-resort small-screen tweak — hide step labels so the circles fit. */
         @media (max-width: 720px) {
@@ -374,47 +358,52 @@
             display: flex;
             flex-direction: column;
         }
+        /* content-wrap is a flex column that hosts the fixed-height card. The
+           card scrolls its table internally, so content-wrap itself doesn't
+           scroll. 48px side gutter keeps the FAB lane clear on the right. */
         .content-wrap {
-            padding: 22px 28px 26px;
+            padding: 22px var(--fin-gutter, 48px) 22px;
             flex: 1;
             min-height: 0;
-            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
 
-        /* ── Pagination row ──
-           Pinned between the table area and the locked footer. Controls are
-           LEFT-aligned on purpose: the row's empty right side is where the
-           Fin FAB nestles — no added row, no extra height (row height stays
-           --wiz-pager-h regardless of the FAB). */
-        .pager-row {
-            height: var(--wiz-pager-h);
+        /* Table scroll region inside the card: fills the space between the card
+           header and the pinned pager, scrolling both axes. min-width makes the
+           table scroll sideways (instead of crushing columns) when too narrow. */
+        .table-scroll { flex: 1; min-height: 0; overflow: auto; }
+        .table-scroll table.qual-table { min-width: 720px; }
+
+        /* ── Pagination — lives INSIDE the Select Training card (Figma) ──
+           Pinned at the card bottom, right-aligned, with a top divider. Page
+           size selector + range + first/prev/page/next/last nav. */
+        .card-pager {
             flex-shrink: 0;
-            background: #fff;
-            border-top: 1px solid #e2e4e8;
             display: flex;
             align-items: center;
-            justify-content: flex-start;
-            gap: 18px;
-            padding: 0 28px;
-            font-size: 13px;
-            color: #4a5060;
+            justify-content: flex-end;
+            gap: 24px;
+            padding: 10px 24px;
+            border-top: 1px solid #dde2eb;
+            font-size: 14px;
+            color: #00000099;
         }
-        .pager-size { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: #4a5060; }
-        .pager-size select { border: 1px solid #d0d3d9; border-radius: 6px; padding: 5px 8px; font: 13px 'Open Sans'; background: #fff; }
-        .pager-range { color: #6b7280; }
-        .pager-nav { display: flex; align-items: center; gap: 4px; }
-        .pager-page { font-size: 12.5px; color: #4a5060; padding: 0 8px; }
-        .pager-btn {
+        .pg-size { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+        .pg-select { border: 1px solid #1c304a85; border-radius: 4px; padding: 5px 26px 5px 8px; font: 14px 'Open Sans'; color: #000000de; background: #fff; cursor: pointer;
+            appearance: none; background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%23666' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
+        .pg-range { white-space: nowrap; }
+        .pg-nav { display: flex; align-items: center; gap: 2px; }
+        .pg-page { color: #000000de; margin: 0 6px; white-space: nowrap; }
+        .pg-btn {
             width: 30px; height: 30px;
-            border: 1px solid #d0d3d9;
-            background: #fff;
-            border-radius: 6px;
-            color: #4a5060;
-            cursor: pointer;
-            font-size: 12px;
+            border: none; background: transparent; border-radius: 4px;
+            color: #0066cc; cursor: pointer; font-size: 13px;
+            display: inline-flex; align-items: center; justify-content: center;
         }
-        .pager-btn:hover:not(:disabled) { background: #f4f5f7; }
-        .pager-btn:disabled { opacity: 0.45; cursor: default; }
+        .pg-btn:hover:not(:disabled) { background: #eef5ff; }
+        .pg-btn:disabled { color: #00000042; cursor: default; }
 
         /* ── Selected Training side panel ──
            Appears when rows are checked; scrolls independently of the table.
@@ -456,9 +445,11 @@
             padding: 0 7px;
         }
         .sel-list {
+            /* No FAB clearance needed: when this panel is open the FAB is pushed
+               left of it, so nothing here sits under the FAB. */
             flex: 1;
             overflow-y: auto;
-            padding: 10px 14px var(--fin-fab-clearance, 84px);
+            padding: 10px 14px 14px;
             display: flex;
             flex-direction: column;
             gap: 8px;
@@ -477,79 +468,109 @@
         .sel-item .si-type { display: block; font-size: 11px; font-weight: 400; color: #9aa0ac; margin-top: 2px; }
         .sel-item .si-remove { border: none; background: none; color: #9aa0ac; cursor: pointer; font-size: 12px; width: 24px; height: 24px; border-radius: 5px; flex-shrink: 0; }
         .sel-item .si-remove:hover { background: #fde7e7; color: #b3261e; }
+        /* Card = fixed-height container: header block (fixed) + scrolling table
+           + pinned pager. Shadow S from the Figma tokens. */
         .card {
             background: #fff;
             border: 1px solid #e2e4e8;
             border-radius: 10px;
-            padding: 28px;
+            box-shadow: 0 2px 4px -1px #1c375a29, 0 3px 12px -1px #1c375a29;
+            width: 100%;
             max-width: 1194px;
             margin: 0 auto;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
+        /* Fixed header block: title, sub, filters, view row (does not scroll). */
+        .card-head-block { flex-shrink: 0; padding: 22px 24px 14px; }
         .card h2 {
-            font-size: 19px;
-            font-weight: 700;
-            margin: 0 0 6px;
+            font-size: 24px;
+            font-weight: 600;
+            line-height: 28px;
+            color: rgba(0,0,0,0.87);
+            margin: 0 0 4px;
         }
         .card .sub {
-            color: #4a5060;
-            font-size: 13.5px;
-            margin-bottom: 22px;
+            color: rgba(0,0,0,0.6);
+            font-size: 14px;
+            line-height: 20px;
+            margin-bottom: 20px;
         }
 
         .filter-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 24px;
-            margin-bottom: 18px;
+            margin-bottom: 16px;
         }
+        .card.filters-collapsed .filter-row { display: none; }
         .field-label {
-            font-size: 12.5px;
-            color: #4a5060;
-            margin-bottom: 6px;
-            font-weight: 600;
+            font-size: 14px;
+            color: rgba(0,0,0,0.6);
+            margin-bottom: 4px;
+            font-weight: 400;
         }
         .input, .select {
             width: 100%;
-            border: 1px solid #d0d3d9;
+            border: 1px solid #1c304a85;
             border-radius: 6px;
             padding: 9px 12px;
-            font: 14px 'Open Sans';
+            font: 16px 'Open Sans';
             background: #fff;
         }
         .select { appearance: none; background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%23666' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 32px; }
 
+        /* View row: collapse toggle + View All pill (Figma). */
+        .view-row { display: flex; align-items: center; gap: 10px; }
+        .collapse-chevron {
+            width: 32px; height: 32px; flex-shrink: 0;
+            border: 1px solid #d0d3d9; border-radius: 6px;
+            background: #fff; color: #5a6068; cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 12px; transition: transform .15s;
+        }
+        .collapse-chevron:hover { background: #f4f5f7; }
+        .card.filters-collapsed .collapse-chevron { transform: rotate(-90deg); }
         .view-pill {
             display: inline-flex;
             align-items: center;
             gap: 7px;
-            padding: 5px 11px;
+            padding: 6px 12px;
             border: 1.5px solid #0066cc;
             color: #0066cc;
             border-radius: 999px;
             font-size: 12.5px;
             font-weight: 600;
-            margin-bottom: 14px;
             background: #fff;
         }
         .view-pill i { font-size: 11px; }
 
-        /* Table */
+        /* Table — AG-grid styling from Figma tokens: 48px header (#f8f8f8),
+           42px rows, 18px cell padding, #dde2eb dividers, sticky header. */
         table.qual-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 13.5px;
+            font-size: 14px;
         }
         .qual-table th, .qual-table td {
-            padding: 12px 10px;
-            border-bottom: 1px solid #e2e4e8;
+            padding: 11px 18px;
+            border-bottom: 1px solid #dde2eb;
             text-align: left;
         }
-        .qual-table th {
-            background: #fafbfc;
-            font-weight: 700;
-            color: #2c3142;
-            font-size: 12.5px;
+        .qual-table thead th {
+            position: sticky;
+            top: 0;
+            background: #f8f8f8;
+            font-weight: 600;
+            color: #181d1f;
+            font-size: 13px;
+            height: 48px;
+            z-index: 1;
         }
+        .qual-table td { color: #181d1f; }
         .qual-table th i { color: #9aa0ac; font-size: 10px; margin-left: 4px; }
         .qual-table td .new-tag {
             display: inline-block;
@@ -597,41 +618,6 @@
             color: #fff;
         }
         .btn.ghost { border-color: #d0d3d9; color: #4a5060; }
-
-        /* ── Mode toggle (UX team only) ──
-           Sits ABOVE the locked footer so it never covers the Cancel button. */
-        .mode-toggle {
-            position: fixed;
-            bottom: calc(var(--wiz-footer-h) + 12px);
-            left: 16px;
-            z-index: 2147483000;
-            background: #fff;
-            border: 1px solid #d0d3d9;
-            border-radius: 999px;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.18);
-            padding: 6px;
-            display: inline-flex;
-            gap: 4px;
-            font: 600 12px 'SF Mono', Menlo, monospace;
-        }
-        .mode-toggle button {
-            border: none;
-            background: transparent;
-            color: #4a5060;
-            padding: 8px 14px;
-            border-radius: 999px;
-            cursor: pointer;
-        }
-        .mode-toggle button.active {
-            background: #0066cc;
-            color: #fff;
-        }
-        .mode-toggle .lbl {
-            font-size: 10.5px;
-            color: #9aa0ac;
-            align-self: center;
-            padding: 0 8px;
-        }
 
         /* ── Audit modal ── */
         .modal-backdrop {
@@ -833,14 +819,10 @@
                         </div>
                     </div>
 
-                    <!-- Audit slot (full button OR icon-only depending on viewport) -->
+                    <!-- Kebab "more options" (Figma) — opens Audit History -->
                     <div class="audit-slot">
-                        <button class="audit-btn" id="auditBtn" type="button">
-                            <i class="fa-solid fa-clock-rotate-left"></i>
-                            View Audit History
-                        </button>
-                        <button class="audit-icon-btn" id="auditIconBtn" type="button" aria-label="View Audit History" title="View Audit History">
-                            <i class="fa-solid fa-clock-rotate-left"></i>
+                        <button class="kebab-btn" id="auditBtn" type="button" aria-label="More options" title="View Audit History">
+                            <i class="fa-solid fa-ellipsis-vertical"></i>
                         </button>
                     </div>
                 </div>
@@ -852,26 +834,33 @@
                     <!-- Content (scrolls) -->
                     <div class="content-wrap">
                         <div class="card">
-                    <h2>Select Training</h2>
-                    <p class="sub">Select what training you want to assign to your learners.</p>
+                        <!-- Fixed header block (title, sub, filters, view row) -->
+                        <div class="card-head-block">
+                            <h2>Select Training</h2>
+                            <p class="sub">Select what training you want to assign to your learners.</p>
 
-                    <div class="filter-row">
-                        <div>
-                            <div class="field-label">Search</div>
-                            <input class="input" type="text" placeholder="" />
+                            <div class="filter-row">
+                                <div>
+                                    <div class="field-label">Search</div>
+                                    <input class="input" type="text" placeholder="" />
+                                </div>
+                                <div>
+                                    <div class="field-label">View by Training Type</div>
+                                    <select class="select">
+                                        <option>Qualification</option>
+                                        <option>Course</option>
+                                        <option>Learning Path</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="view-row">
+                                <button class="collapse-chevron" id="filterToggle" type="button" aria-label="Collapse filters" title="Collapse filters"><i class="fa-solid fa-chevron-down"></i></button>
+                                <div class="view-pill"><i class="fa-solid fa-globe"></i> View All</div>
+                            </div>
                         </div>
-                        <div>
-                            <div class="field-label">View by Training Type</div>
-                            <select class="select">
-                                <option>Qualification</option>
-                                <option>Course</option>
-                                <option>Learning Path</option>
-                            </select>
-                        </div>
-                    </div>
 
-                    <div class="view-pill"><i class="fa-solid fa-globe"></i> View All</div>
-
+                        <div class="table-scroll">
                     <table class="qual-table">
                         <thead>
                             <tr>
@@ -906,29 +895,29 @@
                             <tr><td><input type="checkbox"></td><td>Job Hazard Analysis Fundamentals</td><td>All Items</td><td>Any Order</td><td>2</td><td><a class="view-link" href="#">View Details</a></td></tr>
                         </tbody>
                     </table>
-                        </div>
-                    </div>
+                    </div><!-- /.table-scroll -->
 
-                    <!-- Pagination row: pager controls left-aligned; the empty right
-                         side is the reserved nook where the Fin FAB floats. -->
-                    <div class="pager-row">
-                        <label class="pager-size">Rows per page
-                            <select>
-                                <option>20</option>
-                                <option>50</option>
-                                <option>100</option>
-                            </select>
-                        </label>
-                        <span class="pager-range">1–20 of 128</span>
-                        <div class="pager-nav">
-                            <button class="pager-btn" type="button" aria-label="First page" disabled><i class="fa-solid fa-angles-left"></i></button>
-                            <button class="pager-btn" type="button" aria-label="Previous page" disabled><i class="fa-solid fa-angle-left"></i></button>
-                            <span class="pager-page">Page 1 of 7</span>
-                            <button class="pager-btn" type="button" aria-label="Next page"><i class="fa-solid fa-angle-right"></i></button>
-                            <button class="pager-btn" type="button" aria-label="Last page"><i class="fa-solid fa-angles-right"></i></button>
+                        <!-- Pagination — lives INSIDE the Select Training card (Figma) -->
+                        <div class="card-pager">
+                            <label class="pg-size">Page Size:
+                                <select class="pg-select">
+                                    <option>20</option>
+                                    <option>50</option>
+                                    <option>100</option>
+                                </select>
+                            </label>
+                            <span class="pg-range">1 to 20 of 8,618</span>
+                            <div class="pg-nav">
+                                <button class="pg-btn" type="button" aria-label="First page" disabled><i class="fa-solid fa-angles-left"></i></button>
+                                <button class="pg-btn" type="button" aria-label="Previous page" disabled><i class="fa-solid fa-angle-left"></i></button>
+                                <span class="pg-page">Page 1 of 431</span>
+                                <button class="pg-btn" type="button" aria-label="Next page"><i class="fa-solid fa-angle-right"></i></button>
+                                <button class="pg-btn" type="button" aria-label="Last page"><i class="fa-solid fa-angles-right"></i></button>
+                            </div>
                         </div>
-                    </div>
-                </div>
+                        </div><!-- /.card -->
+                    </div><!-- /.content-wrap -->
+                </div><!-- /.wiz-left -->
 
                 <!-- Selected Training side panel (scrolls independently; opens
                      when rows are checked) -->
@@ -1002,92 +991,26 @@
         </div>
     </div>
 
-    <!-- Mode toggle (prototype-only) -->
-    <div class="mode-toggle" aria-label="Right-side layout mode">
-        <span class="lbl">Audit btn layout</span>
-        <button type="button" data-mode="right-aligned" class="active">Right-aligned (always)</button>
-        <button type="button" data-mode="sticky">Sticky (max-width)</button>
-    </div>
-
     <script>
-        // Mode toggle
-        const wizardHeader = document.getElementById('wizardHeader');
-        document.querySelectorAll('.mode-toggle button').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.mode-toggle button').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                wizardHeader.dataset.mode = btn.dataset.mode;
-                // Re-measure right away since layout changed.
-                evaluateAuditFit();
-            });
-        });
-
-        // ── Dynamic icon-mode swap ───────────────────────────────────────────
-        // We swap the full audit button for the icon-only variant whenever the
-        // stepper would run within MIN_GAP px of the full button. Because the
-        // stepper is centered in the inner box, the available "side gutter" is
-        // (innerW - stepperW)/2 — we need that >= (full button width + MIN_GAP).
-        const MIN_GAP = 8;
-        const innerEl   = wizardHeader.querySelector('.wizard-header-inner');
-        const stepperEl = wizardHeader.querySelector('.stepper');
-        const auditBtnEl = document.getElementById('auditBtn');
-
-        // Measure the full button's width even when it's hidden so we know the
-        // threshold at which we should swap back to it.
-        let measuredBtnWidth = 0;
-        function measureButtonWidth() {
-            const wasIcon = wizardHeader.classList.contains('icon-mode');
-            if (wasIcon) wizardHeader.classList.remove('icon-mode');
-            measuredBtnWidth = auditBtnEl.getBoundingClientRect().width || measuredBtnWidth;
-            if (wasIcon) wizardHeader.classList.add('icon-mode');
-        }
-
-        function evaluateAuditFit() {
-            if (!measuredBtnWidth) measureButtonWidth();
-            const innerW = innerEl.getBoundingClientRect().width;
-            // Stepper natural width is harder to know while it's flex-stretched,
-            // but the centered stepper has max-width 900 and shrinks below that
-            // when the inner is narrower. Use the rendered width as truth.
-            const stepperW = stepperEl.getBoundingClientRect().width;
-            const sideGutter = (innerW - stepperW) / 2;
-            const needed = measuredBtnWidth + MIN_GAP;
-
-            if (sideGutter < needed) {
-                wizardHeader.classList.add('icon-mode');
-            } else {
-                wizardHeader.classList.remove('icon-mode');
-            }
-        }
-
-        // Watch the header's size for changes (viewport resize, sidenav collapse, etc.)
-        const ro = new ResizeObserver(() => evaluateAuditFit());
-        ro.observe(wizardHeader);
-        ro.observe(stepperEl);
-        window.addEventListener('load', () => {
-            measureButtonWidth();
-            evaluateAuditFit();
-        });
-        // Initial pass in case load already fired.
-        requestAnimationFrame(() => {
-            measureButtonWidth();
-            evaluateAuditFit();
-        });
-        // Late re-check after fonts/components settle.
-        setTimeout(() => { measureButtonWidth(); evaluateAuditFit(); }, 300);
-
-        // Audit modal open/close
+        // ── Kebab (⋮) → Audit History modal ──
         const auditModal = document.getElementById('auditModal');
         const openAudit = () => auditModal.classList.add('open');
         const closeAudit = () => auditModal.classList.remove('open');
 
         document.getElementById('auditBtn').addEventListener('click', openAudit);
-        document.getElementById('auditIconBtn').addEventListener('click', openAudit);
         document.getElementById('modalClose').addEventListener('click', closeAudit);
         auditModal.addEventListener('click', (e) => {
             if (e.target === auditModal) closeAudit();
         });
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') closeAudit();
+        });
+
+        // Collapse / expand the search + filter row (chevron in the view row).
+        const filterToggle = document.getElementById('filterToggle');
+        const cardEl = document.querySelector('.card');
+        filterToggle.addEventListener('click', () => {
+            cardEl.classList.toggle('filters-collapsed');
         });
 
         // ── Selected Training panel ─────────────────────────────────────────
