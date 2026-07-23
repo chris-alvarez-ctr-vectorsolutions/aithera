@@ -88,9 +88,17 @@
           <div class="header-id">
             <span class="dash-eyebrow">Design <em>Dashboard</em></span>
             <h1 class="page-title">
-              <span class="title-emoji" id="productEmoji">🎨</span>
+              <!-- Boots with the theme emoji; swaps to the landing page's
+                   icon tile (same FA icon + brand color) once meta.json loads. -->
+              <span class="title-icon" id="productIcon"><span id="productEmoji">🎨</span></span>
               <span id="productName">Product</span>
             </h1>
+            <div class="meta-bar">
+              <span class="live-indicator"><span class="live-dot"></span> Auto-updated on every push</span>
+              <span class="dot-sep">·</span>
+              <span id="lastUpdated"></span>
+            </div>
+            <p class="page-subtitle">Bookmark this page — it stays in sync as the design team ships new work.</p>
           </div>
           <div class="header-side">
             <!-- Global search lives in the banner — it looks across ALL folders,
@@ -103,11 +111,6 @@
                   <i class="fa-solid fa-xmark"></i>
                 </button>
               </div>
-            </div>
-            <div class="meta-bar">
-              <span class="live-indicator"><span class="live-dot"></span> Auto-updated on every push</span>
-              <span class="dot-sep">·</span>
-              <span id="lastUpdated"></span>
             </div>
           </div>
         </div>
@@ -431,6 +434,7 @@
         throw new Error('meta.json is missing a "mocks" object.');
       }
 
+      applyProductBranding(meta.product);
       state.allMocks = computeMocks(meta);
       attachChanges(state.allMocks, meta);
 
@@ -450,6 +454,26 @@
       updateLastFetched();
     } catch (err) {
       showError(err);
+    }
+  }
+
+  // Banner identity from meta.json's `product` block — the SAME Font Awesome
+  // icon + brand color the landing page card shows, so the dashboard header
+  // matches its card. Icon/color are validated before they touch class/style;
+  // anything unexpected keeps the theme-emoji fallback.
+  function applyProductBranding(product) {
+    if (!product) return;
+    if (product.label) {
+      byId('productName').textContent = product.label;
+      document.title = `${product.label} — Prototype Index`;
+    }
+    const icon = (typeof product.icon === 'string' && /^fa-[a-z0-9-]+$/.test(product.icon)) ? product.icon : null;
+    const color = (typeof product.color === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(product.color)) ? product.color : null;
+    if (icon && color) {
+      const tile = byId('productIcon');
+      tile.classList.add('title-icon--tile');
+      tile.style.background = color;
+      tile.innerHTML = `<i class="fa-solid ${icon}" aria-hidden="true"></i>`;
     }
   }
 
@@ -671,16 +695,15 @@
 
     // 3) Apply the toolbar filters to that subset. Search first, so the chip
     //    counts (rendered from the pre-status-filter set) match what's below.
+    const matchesSearch = m =>
+      m.title.toLowerCase().includes(search) ||
+      (m.description || '').toLowerCase().includes(search) ||
+      (m.ticket || '').toLowerCase().includes(search) ||
+      (m.group || '').toLowerCase().includes(search) ||
+      m.relKey.toLowerCase().includes(search);
+
     let filtered = subset;
-    if (search) {
-      filtered = filtered.filter(m =>
-        m.title.toLowerCase().includes(search) ||
-        (m.description || '').toLowerCase().includes(search) ||
-        (m.ticket || '').toLowerCase().includes(search) ||
-        (m.group || '').toLowerCase().includes(search) ||
-        m.relKey.toLowerCase().includes(search)
-      );
-    }
+    if (search) filtered = filtered.filter(matchesSearch);
     renderFilterChips(filtered);
     if (statusFilter.size > 0) filtered = filtered.filter(m => statusFilter.has(m.status));
 
@@ -688,7 +711,19 @@
     // path (each ancestor clickable) so nested selections are legible.
     if (sidebar && inFolder) renderFolderBreadcrumb(root, state.tab, filtered.length);
 
-    if (filtered.length === 0) {
+    // Favorites are CROSS-FOLDER: pinned mocks follow you into every scope —
+    // that's the point of pinning (instant access from anywhere, including
+    // the Main landing view). Search and status filters still apply; the
+    // folder scope does not. In-scope pins are HOISTED out of the sections
+    // below so nothing renders twice; each pinned card shows a folder chip
+    // naming where it lives.
+    const favSet = new Set(readFavMocks());
+    let favMocks = state.allMocks.filter(m => favSet.has(m.relKey));
+    if (search) favMocks = favMocks.filter(matchesSearch);
+    if (statusFilter.size > 0) favMocks = favMocks.filter(m => statusFilter.has(m.status));
+    const rest = filtered.filter(m => !favSet.has(m.relKey));
+
+    if (filtered.length === 0 && favMocks.length === 0) {
       // Full no-results state when everything was in scope (global search or
       // no folders); a lighter "check another folder" note when only the
       // selected folder came up empty.
@@ -697,13 +732,6 @@
       else renderTabEmpty(root);
       return;
     }
-
-    // Pinned mocks are HOISTED into a collapsible "Favorites" section above
-    // the status sections (not duplicated below — each card lives in exactly
-    // one place; its status badge still shows on the card itself).
-    const favSet = new Set(readFavMocks());
-    const favMocks = filtered.filter(m => favSet.has(m.relKey));
-    const rest = filtered.filter(m => !favSet.has(m.relKey));
 
     if (favMocks.length) renderFavoritesSection(favMocks, root);
 
@@ -747,11 +775,11 @@
               <th class="col-date">Last updated</th>
             </tr>
           </thead>
-          <tbody>${sorted.map(listRow).join('')}</tbody>
+          <tbody>${sorted.map(m => listRow(m, true)).join('')}</tbody>
         </table>`;
     } else {
       body.className = 'card-grid';
-      sorted.forEach((m, i) => body.appendChild(buildCard(m, i)));
+      sorted.forEach((m, i) => body.appendChild(buildCard(m, i, true)));
     }
     det.appendChild(body);
     det.addEventListener('toggle', () => {
@@ -1381,7 +1409,7 @@
     statusGroupedTables(filtered, root, false);
   }
 
-  function listRow(mock) {
+  function listRow(mock, showFolder) {
     const statusLabel = STATUS_LABELS[mock.status] || STATUS_LABELS[DEFAULT_STATUS];
     const href = mock.devHandoff ? mock.devPagesUrl : mock.pagesUrl;
 
@@ -1405,6 +1433,7 @@
                   ${mock.devHandoff ? '<span class="proto-dev-tag">Dev</span>' : ''}
                   <i class="fa-solid fa-arrow-up-right-from-square ext-icon"></i>
                 </a>
+                ${showFolder ? folderChipHtml(mock) : ''}
                 ${mockStar(mock)}
               </div>
             </td>
@@ -1471,6 +1500,21 @@
         </div>`;
   }
 
+  // "Where it lives" chip shown on Favorites-section cards/rows — pins are
+  // cross-folder, so each names its home folder. Clicking jumps there (the
+  // delegated handler below; the key is URI-encoded because it contains the
+  // FOLDER_SEP control character).
+  function folderChipHtml(mock) {
+    const label = mock.groupKey ? folderDisplay(mock.groupKey) : 'Main';
+    return `<span class="card-folder-chip" role="button" tabindex="0" data-key="${encodeURIComponent(mock.groupKey || MAIN_KEY)}" title="Open ${escapeHtml(label)}"><i class="fa-solid ${mock.groupKey ? 'fa-folder' : 'fa-house'}"></i><span class="cfc-text">${escapeHtml(label)}</span></span>`;
+  }
+  document.addEventListener('click', e => {
+    const chip = e.target.closest('.card-folder-chip');
+    if (!chip) return;
+    e.preventDefault();
+    selectTab(decodeURIComponent(chip.dataset.key));
+  });
+
   // Pin/unpin star for one mock — shared by the card header and list rows.
   // Toggling is handled by the delegated .mock-star click listener.
   function mockStar(mock) {
@@ -1478,7 +1522,7 @@
     return `<span class="mock-star" data-rel="${escapeHtml(mock.relKey)}" data-fav="${isFav ? 'true' : 'false'}" role="button" tabindex="0" title="${isFav ? 'Unpin from Favorites' : 'Pin to Favorites'}" aria-label="${isFav ? 'Unpin' : 'Pin'} ${escapeHtml(mock.title)}"><i class="fa-${isFav ? 'solid' : 'regular'} fa-star"></i></span>`;
   }
 
-  function buildCard(mock, idx) {
+  function buildCard(mock, idx, showFolder) {
     const { title, ticket, ticketUrl, description, status, blobUrl, pagesUrl, devHandoff, devBlobUrl, devPagesUrl, extraLinks } = mock;
     const statusLabel = STATUS_LABELS[status] || STATUS_LABELS[DEFAULT_STATUS];
 
@@ -1587,6 +1631,7 @@
         <div class="card-badge-row">
           <span class="status-badge" data-status="${escapeHtml(status)}"><i class="fa-solid ${statusIcon(status)} status-icon"></i>${escapeHtml(statusLabel)}</span>
           ${ticketHtml}
+          ${showFolder ? folderChipHtml(mock) : ''}
           ${mockStar(mock)}
         </div>
         <h2 class="card-title">${escapeHtml(title)}</h2>
@@ -1966,38 +2011,68 @@
 
       .header-inner { max-width: 1400px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
 
-      /* One banner row: product identity left, search + freshness meta right.
-         align-items: flex-end drops both onto a shared baseline so the meta
-         line reads level with the product name. */
+      /* One banner row: product identity (eyebrow, name, freshness meta,
+         bookmark note) stacked on the left; ONLY the global search on the
+         right, vertically centered against the stack. */
       .header-main {
-        display: flex; align-items: flex-end; justify-content: space-between;
-        gap: 16px 32px; flex-wrap: wrap; padding-bottom: 18px;
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 16px 32px; flex-wrap: wrap; padding-bottom: 16px;
       }
       .header-id { min-width: 0; }
+      .header-id .meta-bar { margin-top: 9px; }
+      .header-id .page-subtitle { margin-top: 4px; }
       .dash-eyebrow {
         display: block; font-family: var(--display); font-size: 12px; font-weight: 700;
         text-transform: uppercase; letter-spacing: 1.8px; color: var(--accent-deep);
         margin-bottom: 6px;
       }
-      .dash-eyebrow em {
-        font-style: normal;
-        background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid), var(--gradient-end));
-        -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-      }
-      /* The PRODUCT is the headline. */
+      /* Solid, not gradient text: 12px type needs 4.5:1 contrast, and every
+         theme's accent-deep is dark enough — the banner stays colorful via
+         the glow gradients and the product icon tile instead. */
+      .dash-eyebrow em { font-style: normal; }
+      /* The PRODUCT is the headline — same face as the section titles
+         ("In Progress", …): Fraunces 700 italic, just larger. */
       .page-title {
         display: flex; align-items: center; gap: 13px;
-        font-family: var(--serif); font-size: clamp(30px, 4vw, 44px); font-weight: 900;
-        margin: 0; line-height: 1.05; letter-spacing: -0.02em; font-variation-settings: "opsz" 96;
+        font-family: var(--serif); font-size: clamp(27px, 3.6vw, 38px);
+        font-weight: 700; font-style: italic;
+        margin: 0; line-height: 1.1; letter-spacing: -0.01em;
       }
-      .title-emoji { font-size: 0.78em; line-height: 1; }
+      /* Gradient product name, verified accessible: every stop measures
+         ≥ 4.5:1 against pure WHITE across all 14 themes (the header bg is
+         darker than white, so real contrast is higher) — the start/mid stops
+         pass on their own and the end stop is the theme's end hue darkened
+         toward accent-deep. @supports-guarded so a browser without color-mix
+         keeps solid dark text rather than transparent (invisible) text. */
+      @supports (color: color-mix(in srgb, red 50%, blue)) {
+        .page-title #productName {
+          background: linear-gradient(105deg,
+            var(--gradient-start),
+            var(--gradient-mid) 55%,
+            color-mix(in srgb, var(--gradient-end) 55%, var(--accent-deep)));
+          -webkit-background-clip: text; background-clip: text;
+          -webkit-text-fill-color: transparent;
+          /* Italic Fraunces overhangs its box slightly — keep the clip from
+             shaving the last glyph. */
+          padding-right: 0.06em;
+        }
+      }
+      /* Product icon beside the name. Boots as the theme emoji, then becomes
+         the landing page's tile — white FA icon on the product's brand color
+         (all brand colors are dark enough for white glyphs). */
+      .title-icon {
+        display: inline-flex; align-items: center; justify-content: center;
+        flex: 0 0 auto; font-size: 0.78em; line-height: 1;
+      }
+      .title-icon--tile {
+        width: 42px; height: 42px; border-radius: 11px;
+        color: #fff; font-size: 19px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+      }
 
-      /* Right column: search on top, meta line under it — both right-flush
-         with the page gutter so their edges align with the content below. */
-      .header-side {
-        display: flex; flex-direction: column; align-items: flex-end; gap: 9px;
-        flex: 0 1 460px; min-width: 280px;
-      }
+      /* Right column: just the search, right-flush with the page gutter so
+         its edge aligns with the content below. */
+      .header-side { flex: 0 1 460px; min-width: 280px; }
       .header-search { width: 100%; }
       .header-search[hidden] { display: none; }
 
@@ -2270,11 +2345,9 @@
 
       /* Narrow screens: the sidebar becomes a wrapping row above the content. */
       @media (max-width: 980px) {
-        /* Banner stacks: identity on top, search full-width under it, meta
-           line left-aligned beneath the search. */
+        /* Banner stacks: identity block on top, search full-width under it. */
         .header-main { align-items: stretch; }
-        .header-side { flex: 1 1 100%; align-items: stretch; }
-        .header-side .meta-bar { justify-content: flex-start; }
+        .header-side { flex: 1 1 100%; }
         .content-columns { display: block; }
         .folder-nav {
           position: static; width: auto; flex-direction: row; flex-wrap: wrap;
@@ -2328,6 +2401,19 @@
       .card-badge-row .mock-star { margin-left: auto; }
       .proto-cell { display: flex; align-items: center; gap: 8px; }
       .proto-cell .proto-name { flex: 1 1 auto; min-width: 0; }
+
+      /* Home-folder chip on Favorites cards/rows — pins are cross-folder, so
+         each names (and links to) the folder it lives in. */
+      .card-folder-chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-family: var(--display); font-size: 11px; font-weight: 600;
+        color: var(--text-muted); border: 1px solid var(--border);
+        padding: 3px 10px; border-radius: 999px; cursor: pointer;
+        max-width: 240px; flex: 0 0 auto;
+        transition: color 0.1s ease, border-color 0.1s ease, background 0.1s ease;
+      }
+      .card-folder-chip .cfc-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .card-folder-chip:hover { color: var(--accent-deep); border-color: var(--accent); background: var(--accent-soft); }
 
       /* Favorites section — a collapsible <details> styled like the status
          sections, always rendered ABOVE them. */
