@@ -54,10 +54,12 @@ const MAX_RECENT = 300;
 // status }]. `rel` is the mock key: "." for the product root, "foo" for a folder
 // mock, or "path/foo.html" for a standalone-file mock.
 //
-// Each leaf also carries `_folder`: the display name of the enclosing curated
-// `folder` group ("Content Portal", "Phase 2", …), or null when the mock sits at
-// the product's top level. Nested folder groups join with " / ". The dashboard
-// uses this to render folders as one expandable unit instead of flattening them.
+// Each leaf also carries `_folder`: the path of enclosing curated `folder`
+// groups as an ARRAY of display names (["Phase 2", "Content Workflow"]), or
+// null when the mock sits at the product's top level. It stays an array all
+// the way into meta.json — folder names may themselves contain " / " (e.g.
+// "AI Chat Widget (Vectoria / Fin)"), so a joined string would be ambiguous.
+// The dashboard renders these paths as a collapsible folder tree.
 function flattenItems(items, folderPath = []) {
   const out = [];
   for (const it of items || []) {
@@ -65,7 +67,7 @@ function flattenItems(items, folderPath = []) {
       const next = it.folder ? folderPath.concat(it.folder) : folderPath;
       out.push(...flattenItems(it.items, next));
     } else if (it && it.rel) {
-      out.push({ ...it, _folder: folderPath.length ? folderPath.join(' / ') : null });
+      out.push({ ...it, _folder: folderPath.length ? folderPath.slice() : null });
     }
   }
   return out;

@@ -484,6 +484,14 @@
       const ticket = m.ticket || auto.ticket;
       const ticketUrl = m.ticketUrl || (ticket && jiraBaseNorm ? jiraBaseNorm + ticket : null);
 
+      // Curated folder path as an array of display names (["Phase 2",
+      // "Content Workflow"]) — meta.json sends an array because folder names
+      // may themselves contain " / ", which a joined string couldn't encode.
+      // A legacy string value is treated as one (unsplit) folder name.
+      const groupSegs = Array.isArray(m.folder) ? m.folder.map(String)
+        : (typeof m.folder === 'string' && m.folder) ? [m.folder]
+        : null;
+
       // Dev handoff only applies to folder/root mocks (a folder that can hold a
       // dev_handoff.html); file mocks never carry one.
       const devHandoff = !isFile && !!m.devHandoff;
@@ -499,9 +507,12 @@
         ticketUrl,
         description: m.description || describe(folder, parent),
         modified: m.modified || null,
-        // Curated display folder ("Content Portal", "Phase 2", …) or null for a
-        // top-level mock. Foldered mocks render as one expandable folder unit.
-        group: m.folder || null,
+        // Curated folder, or null for a top-level mock. `group` is the
+        // human-readable path ("Phase 2 / Content Workflow") used for display
+        // and search; `groupKey` joins the same segments with an unambiguous
+        // separator and is what the folder tree/selection state keys on.
+        group: groupSegs ? groupSegs.join(' / ') : null,
+        groupKey: groupSegs ? groupSegs.join(FOLDER_SEP) : null,
         status: m.status || (devHandoff ? 'ready-for-dev' : DEFAULT_STATUS),
         blobUrl,
         pagesUrl,
@@ -648,8 +659,9 @@
     //    a query is active it looks across every folder (the rail dims to show
     //    the folder scope is bypassed). The status chips below stay scoped to
     //    whatever the results are.
+    const inFolder = !search && state.tab && state.tab !== MAIN_KEY && folderExists(folders, state.tab);
     const subset = search ? state.allMocks
-      : (state.tab && state.tab !== MAIN_KEY && folders.has(state.tab)) ? folders.get(state.tab)
+      : inFolder ? descendantMocks(folders, state.tab)
       : loose;
 
     // 3) Apply the toolbar filters to that subset. Search first, so the chip
@@ -666,6 +678,10 @@
     }
     renderFilterChips(filtered);
     if (statusFilter.size > 0) filtered = filtered.filter(m => statusFilter.has(m.status));
+
+    // Name the active scope in the content column: a breadcrumb of the folder
+    // path (each ancestor clickable) so nested selections are legible.
+    if (sidebar && inFolder) renderFolderBreadcrumb(root, state.tab, filtered.length);
 
     if (filtered.length === 0) {
       // Full no-results state when everything was in scope (global search or
@@ -757,17 +773,74 @@
   // `folder` in products.json) and loose top-level mocks. Folders render as one
   // expandable unit; loose mocks keep the status-grouped layout.
   function partitionFolders(filtered) {
-    const folders = new Map(); // folder name -> mocks[]
+    const folders = new Map(); // folder key -> mocks[] (direct members only)
     const loose = [];
     filtered.forEach(m => {
-      if (m.group) {
-        if (!folders.has(m.group)) folders.set(m.group, []);
-        folders.get(m.group).push(m);
+      if (m.groupKey) {
+        if (!folders.has(m.groupKey)) folders.set(m.groupKey, []);
+        folders.get(m.groupKey).push(m);
       } else {
         loose.push(m);
       }
     });
     return { folders, loose };
+  }
+
+  // ── Nested folders ─────────────────────────────────────────────────────
+  // Curated `folder` groups in products.json can nest to any depth; each
+  // mock's `groupKey` joins its path segments with FOLDER_SEP (a control
+  // character no folder NAME can contain — names may legitimately include
+  // " / "). These helpers treat those keys as a tree so the sidebar can
+  // render n levels and selecting a folder scopes to its whole subtree.
+  const FOLDER_SEP = '\u001F'; // ASCII unit separator; never present in a folder name
+  // Human-readable form of a folder key, for labels and tooltips.
+  function folderDisplay(key) { return key.split(FOLDER_SEP).join(' / '); }
+
+  // A path is a valid selection if any mock lives at it OR below it (a parent
+  // folder may hold only subfolders, never a direct mock).
+  function folderExists(folders, path) {
+    const prefix = path + FOLDER_SEP;
+    for (const k of folders.keys()) if (k === path || k.startsWith(prefix)) return true;
+    return false;
+  }
+
+  // Every mock at this path and in every folder nested below it — selecting a
+  // parent shows its whole subtree, so nothing hides behind a collapsed child.
+  function descendantMocks(folders, path) {
+    const prefix = path + FOLDER_SEP;
+    const out = [];
+    folders.forEach((mocks, k) => { if (k === path || k.startsWith(prefix)) out.push(...mocks); });
+    return out;
+  }
+
+  // Display tree: one node per path segment, including intermediate folders
+  // with no direct mocks. Siblings come out A→Z because the paths are sorted
+  // before insertion.
+  function buildFolderTree(folders) {
+    const root = { name: '', path: '', children: new Map() };
+    [...folders.keys()].sort((a, b) => a.localeCompare(b)).forEach(path => {
+      const segs = path.split(FOLDER_SEP);
+      let node = root;
+      segs.forEach((seg, i) => {
+        if (!node.children.has(seg)) {
+          node.children.set(seg, { name: seg, path: segs.slice(0, i + 1).join(FOLDER_SEP), children: new Map() });
+        }
+        node = node.children.get(seg);
+      });
+    });
+    return root;
+  }
+
+  // Tabs mode can't nest, so nested paths aggregate up to their TOP-LEVEL
+  // folder: one tab per top folder, counting (and opening into) its subtree.
+  function topLevelFolders(folders) {
+    const tops = new Map();
+    folders.forEach((mocks, path) => {
+      const top = path.split(FOLDER_SEP)[0];
+      if (!tops.has(top)) tops.set(top, []);
+      tops.get(top).push(...mocks);
+    });
+    return tops;
   }
 
   // Row of mini status pills (icon + count) summarizing a folder's contents,
@@ -874,6 +947,9 @@
 
   function renderTabBar(folders, loose, searching) {
     lastTabRender = { folders, loose, searching };
+    // A flat tab row can't nest — collapse nested folder paths into their
+    // top-level folder (tab counts and selection cover the whole subtree).
+    folders = topLevelFolders(folders);
     const bar = byId('folderTabs');
     closeTabMenu();
     if (!folders.size) { bar.hidden = true; bar.innerHTML = ''; return; }
@@ -987,11 +1063,42 @@
       return Array.isArray(a) ? a : [];
     } catch { return []; }
   }
-  function toggleFavFolder(name) {
+  function toggleFavFolder(path) {
     const favs = readFavFolders();
-    const i = favs.indexOf(name);
-    if (i === -1) favs.push(name); else favs.splice(i, 1);
+    const i = favs.indexOf(path);
+    if (i === -1) favs.push(path); else favs.splice(i, 1);
     try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch { /* private mode */ }
+  }
+
+  // Collapsed tree branches, persisted per browser. Stored as the CLOSED set
+  // (not the open set) so newly added folders default to expanded.
+  const CLOSED_KEY = 'designlab-closed-folders:' + PRODUCT;
+  function readClosedFolders() {
+    try {
+      const a = JSON.parse(localStorage.getItem(CLOSED_KEY));
+      return Array.isArray(a) ? a : [];
+    } catch { return []; }
+  }
+  function writeClosedFolders(closed) {
+    try { localStorage.setItem(CLOSED_KEY, JSON.stringify(closed)); } catch { /* private mode */ }
+  }
+  function toggleClosedFolder(path) {
+    const closed = readClosedFolders();
+    const i = closed.indexOf(path);
+    if (i === -1) closed.push(path); else closed.splice(i, 1);
+    writeClosedFolders(closed);
+  }
+  // Un-collapse every ancestor of a path so a selection made from a pinned
+  // favorite (or a deep link) is visible in the tree.
+  function openAncestors(path) {
+    const closed = readClosedFolders();
+    const segs = path.split(FOLDER_SEP);
+    let changed = false;
+    for (let i = 1; i < segs.length; i++) {
+      const idx = closed.indexOf(segs.slice(0, i).join(FOLDER_SEP));
+      if (idx !== -1) { closed.splice(idx, 1); changed = true; }
+    }
+    if (changed) writeClosedFolders(closed);
   }
 
   function renderFolderNav(folders, loose, searching) {
@@ -999,7 +1106,7 @@
     if (!folders.size) { nav.hidden = true; nav.innerHTML = ''; return; }
 
     // Reset a stale selection (e.g. the folder disappeared from products.json).
-    if (state.tab !== MAIN_KEY && !folders.has(state.tab)) {
+    if (state.tab !== MAIN_KEY && !folderExists(folders, state.tab)) {
       state.tab = MAIN_KEY;
     }
 
@@ -1008,20 +1115,30 @@
     nav.dataset.searching = searching ? 'true' : 'false';
     nav.title = searching ? 'Search looks across all folders' : '';
 
-    const favs = readFavFolders().filter(n => folders.has(n));
-    const names = [...folders.keys()].sort((a, b) => a.localeCompare(b));
-    const favNames = names.filter(n => favs.includes(n));
-    const restNames = names.filter(n => !favs.includes(n));
+    const favs = readFavFolders().filter(p => folderExists(folders, p));
+    const closed = new Set(readClosedFolders());
+    const tree = buildFolderTree(folders);
+    // The chevron column only exists when something can actually expand —
+    // products with flat folders keep the original row layout.
+    const hasBranches = [...tree.children.values()].some(n => n.children.size);
 
-    const row = (label, mocks, key, iconClass, favoritable) => {
+    // One nav row. `depth` indents tree rows; `childCount` adds the
+    // expand/collapse chevron; `pathLabel` renders the full "A / B" path
+    // (pinned favorites, where tree position isn't visible).
+    const row = (label, mocks, key, iconClass, opts = {}) => {
+      const { favoritable = false, depth = 0, childCount = 0, isOpen = true } = opts;
       const active = !searching && state.tab === key;
-      const isFav = favoritable && favs.includes(label);
+      const isFav = favoritable && favs.includes(key);
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'fnav-item';
       btn.dataset.active = active ? 'true' : 'false';
-      btn.title = label;
+      btn.style.setProperty('--fnav-depth', depth);
+      btn.title = key === MAIN_KEY ? label : folderDisplay(key);
       btn.innerHTML = `
+        ${childCount
+          ? `<span class="fnav-chevron" role="button" tabindex="0" data-open="${isOpen ? 'true' : 'false'}" title="${isOpen ? 'Collapse' : 'Expand'} ${escapeHtml(label)}" aria-label="${isOpen ? 'Collapse' : 'Expand'} ${escapeHtml(label)}"><i class="fa-solid fa-chevron-right"></i></span>`
+          : hasBranches ? '<span class="fnav-chevron fnav-chevron--none" aria-hidden="true"></span>' : ''}
         <span class="fnav-name">
           <i class="fa-solid ${iconClass} fnav-icon"></i>
           <span class="fnav-text">${escapeHtml(label)}</span>
@@ -1029,12 +1146,19 @@
         ${favoritable ? `<span class="fnav-star" data-fav="${isFav ? 'true' : 'false'}" role="button" tabindex="0" title="${isFav ? 'Unfavorite folder' : 'Favorite folder'}" aria-label="${isFav ? 'Unfavorite' : 'Favorite'} ${escapeHtml(label)}"><i class="fa-${isFav ? 'solid' : 'regular'} fa-star"></i></span>` : ''}
         <span class="fnav-pills">${statusSummary(mocks)}</span>`;
       btn.addEventListener('click', e => {
+        const chev = e.target.closest('.fnav-chevron');
+        if (chev && childCount) {
+          toggleClosedFolder(key);
+          renderFolderNav(folders, loose, searching); // redraw the branch in place
+          return;
+        }
         const star = e.target.closest('.fnav-star');
         if (star) {
-          toggleFavFolder(label);
+          toggleFavFolder(key);
           renderFolderNav(folders, loose, searching); // reorder in place
           return;
         }
+        if (key !== MAIN_KEY) openAncestors(key); // keep the selection visible in the tree
         selectTab(key);
       });
       return btn;
@@ -1045,14 +1169,36 @@
     label.textContent = 'Folders';
     nav.appendChild(label);
 
-    nav.appendChild(row('Main', loose, MAIN_KEY, 'fa-house', false));
+    nav.appendChild(row('Main', loose, MAIN_KEY, 'fa-house'));
 
     const divider = document.createElement('div');
     divider.className = 'fnav-divider';
     nav.appendChild(divider);
 
-    favNames.forEach(n => nav.appendChild(row(n, folders.get(n), n, (!searching && state.tab === n) ? 'fa-folder-open' : 'fa-folder', true)));
-    restNames.forEach(n => nav.appendChild(row(n, folders.get(n), n, (!searching && state.tab === n) ? 'fa-folder-open' : 'fa-folder', true)));
+    // Pinned favorites: flat quick links above the tree (full path as the
+    // label so nested pins stay unambiguous). The folder also remains in the
+    // tree below, star filled.
+    if (favs.length) {
+      favs.slice().sort((a, b) => a.localeCompare(b)).forEach(p => {
+        nav.appendChild(row(folderDisplay(p), descendantMocks(folders, p), p,
+          (!searching && state.tab === p) ? 'fa-folder-open' : 'fa-folder', { favoritable: true }));
+      });
+      const d = document.createElement('div');
+      d.className = 'fnav-divider';
+      nav.appendChild(d);
+    }
+
+    // The folder tree — n levels deep, chevrons collapse a branch, counts and
+    // pills on a parent describe its whole subtree.
+    const renderNode = (node, depth) => {
+      const kids = [...node.children.values()];
+      const isOpen = !closed.has(node.path);
+      nav.appendChild(row(node.name, descendantMocks(folders, node.path), node.path,
+        (!searching && state.tab === node.path) ? 'fa-folder-open' : 'fa-folder',
+        { favoritable: true, depth, childCount: kids.length, isOpen }));
+      if (kids.length && isOpen) kids.forEach(k => renderNode(k, depth + 1));
+    };
+    [...tree.children.values()].forEach(n => renderNode(n, 0));
   }
 
   // Status-grouped sections of FULL cards — used for the main (loose) area and,
@@ -1107,6 +1253,26 @@
     const el = document.createElement('p');
     el.className = 'tab-empty';
     el.innerHTML = 'Nothing in this folder matches — try another folder, or clear the search / status filter.';
+    root.appendChild(el);
+  }
+
+  // Breadcrumb naming the active folder scope, shown above the sections in
+  // sidebar mode. Ancestor segments are buttons that jump up the tree.
+  function renderFolderBreadcrumb(root, path, count) {
+    const segs = path.split(FOLDER_SEP);
+    const el = document.createElement('div');
+    el.className = 'folder-breadcrumb';
+    const crumbs = segs.map((seg, i) => {
+      const last = i === segs.length - 1;
+      return last
+        ? `<span class="crumb crumb--current">${escapeHtml(seg)}</span>`
+        : `<button class="crumb crumb-link" type="button" data-path="${escapeHtml(segs.slice(0, i + 1).join(FOLDER_SEP))}">${escapeHtml(seg)}</button>`;
+    }).join('<i class="fa-solid fa-chevron-right crumb-sep"></i>');
+    el.innerHTML = `
+      <i class="fa-solid fa-folder-open crumb-icon"></i>${crumbs}
+      <span class="crumb-count">${count} design${count === 1 ? '' : 's'}</span>`;
+    el.querySelectorAll('.crumb-link').forEach(b =>
+      b.addEventListener('click', () => selectTab(b.dataset.path)));
     root.appendChild(el);
   }
 
@@ -1959,13 +2125,27 @@
       .fnav-item {
         display: flex; align-items: center; gap: 8px; width: 100%;
         background: none; border: none; cursor: pointer; text-align: left;
-        padding: 9px 12px; border-radius: 10px;
+        /* Nested folders indent by depth (see --fnav-depth set per row). */
+        padding: 9px 12px 9px calc(10px + var(--fnav-depth, 0) * 16px); border-radius: 10px;
         font-family: var(--display); font-size: 13.5px; font-weight: 600; color: var(--text-soft);
         transition: background 0.1s ease, color 0.1s ease;
       }
       .fnav-item:hover { background: var(--accent-soft); color: var(--text); }
       .fnav-item[data-active="true"] { background: var(--accent); color: #fff; }
       .fnav-item[data-active="true"] .fnav-icon { color: #fff; }
+      /* Expand/collapse chevron on folders that have subfolders; rows without
+         children keep an empty spacer so icons align down the column. */
+      .fnav-chevron {
+        display: inline-flex; align-items: center; justify-content: center;
+        flex: 0 0 14px; width: 14px; height: 14px; border-radius: 4px;
+        color: var(--text-muted); font-size: 9px; cursor: pointer;
+        transition: transform 0.12s ease, background 0.1s ease, color 0.1s ease;
+      }
+      .fnav-chevron[data-open="true"] { transform: rotate(90deg); }
+      .fnav-chevron:not(.fnav-chevron--none):hover { background: rgba(0,0,0,0.1); color: var(--text); }
+      .fnav-chevron--none { cursor: inherit; }
+      .fnav-item[data-active="true"] .fnav-chevron { color: rgba(255,255,255,0.85); }
+      .fnav-item[data-active="true"] .fnav-chevron:not(.fnav-chevron--none):hover { background: rgba(255,255,255,0.2); color: #fff; }
       .fnav-name { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }
       .fnav-icon { font-size: 12px; color: var(--text-muted); width: 14px; text-align: center; }
       .fnav-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1990,12 +2170,35 @@
           align-items: center; gap: 4px; margin-bottom: 20px; padding: 10px;
         }
         .fnav-label { width: 100%; padding-bottom: 6px; }
-        .fnav-item { width: auto; }
+        /* The row layout has no tree geometry — drop indent + chevrons and
+           show every folder as a flat chip (nested ones keep their tooltip). */
+        .fnav-item { width: auto; padding-left: 12px; }
         .fnav-item .fnav-pills { display: none; }
+        .fnav-chevron { display: none; }
         .fnav-divider { display: none; }
       }
 
       .tab-empty { color: var(--text-muted); font-size: 13.5px; padding: 18px 2px; }
+
+      /* ── Active-folder breadcrumb (sidebar mode) ─────────────────────────
+         Names the folder scope above the sections; ancestors are clickable. */
+      .folder-breadcrumb {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 7px;
+        margin: 2px 0 18px; font-family: var(--display);
+        font-size: 13.5px; font-weight: 600; color: var(--text-soft);
+      }
+      .crumb-icon { color: var(--accent); font-size: 13px; margin-right: 2px; }
+      .crumb-link {
+        background: none; border: none; padding: 0; cursor: pointer;
+        font: inherit; font-family: inherit; color: var(--text-muted);
+      }
+      .crumb-link:hover { color: var(--accent); text-decoration: underline; }
+      .crumb--current { color: var(--text); }
+      .crumb-sep { font-size: 9px; color: var(--text-muted); }
+      .crumb-count {
+        margin-left: 4px; padding: 3px 9px; border-radius: 999px;
+        font-size: 11.5px; color: var(--text-muted); background: var(--accent-soft);
+      }
 
       /* kept for potential nested sections; unused by the tab layout */
       .section--sub .section-title { font-size: 18px; }
