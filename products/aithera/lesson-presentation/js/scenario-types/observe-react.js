@@ -63,6 +63,15 @@
     type: 'observe-react',
     title: 'Hazmat Scene Size-Up: I-65 Tanker Rollover',
 
+    // The pre-entry ESTABLISHING CARD — the beat shown before the first
+    // segment plays. Authored content: the live page renders these fields
+    // verbatim (title falls back to the practice title when blank).
+    establishing: {
+      eyebrow: 'Scene size-up',
+      title: 'I-65 Tanker Rollover',
+      sub: 'A tanker went over on the interstate — and the scene you\'re about to watch was not run by the book. Watch how it really unfolded, then tell your AI coach what you saw: what was right, what wasn\'t, and what you\'d do differently.',
+    },
+
     // The coach's opening line — on screen the moment the first (cold-open)
     // segment ends. Segment 1 has no opener; this carries its return.
     openingQuestion: 'What you just watched is how this scene actually unfolded — and parts of it should bother you. We\'ll get to that. First, the basics: what did you see on the tank\'s placard?',
@@ -316,6 +325,8 @@
     out.type = 'observe-react';
     if (typeof out.title !== 'string') out.title = '';
     if (typeof out.openingQuestion !== 'string') out.openingQuestion = '';
+    // Neutral shape only — normalize never back-fills the shipped copy.
+    out.establishing = { eyebrow: 'Scene size-up', title: '', sub: '', ...((out.establishing && typeof out.establishing === 'object') ? out.establishing : {}) };
 
     out.segments = (Array.isArray(out.segments) ? out.segments : [])
       .map((sc) => ({ src: '', label: '', caption: '', ...(sc || {}) }));
@@ -345,6 +356,7 @@
       v: 1,
       type: 'observe-react',
       title: '',
+      establishing: { eyebrow: 'Scene size-up', title: '', sub: '' },
       openingQuestion: '',
       segments: [{ src: '', label: '', caption: '' }],
       openers: [],
@@ -380,6 +392,7 @@
 
     // Intro — opening question
     if (empty(s.openingQuestion)) add('err', 'intro', 'Write the coach\'s opening question.', 'It\'s on screen the moment the first (cold-open) segment ends.');
+    if (empty((s.establishing || {}).sub)) add('info', 'intro', 'The establishing card has no teaser.', 'The pre-entry card falls back to the practice title alone — a line about what the footage shows sets the frame better.');
     else if (!/\?\s*$/.test(s.openingQuestion.trim())) add('info', 'intro', 'The opening line isn\'t a question.', 'A question invites the learner to give a first read before the coach reacts.');
 
     // Segments
@@ -508,6 +521,15 @@
       box.append(
         guidance('The cold open sets the scene', 'fa-clapperboard',
           'There\'s no separate backstory to write. Segment 1 plays first — the learner walks in on the scene — and this question opens the first React beat the moment it ends. The footage and the rubric carry the rest of the context.'),
+        // The pre-entry establishing card — the last thing the learner sees
+        // before pressing "Watch the scene".
+        tf('establishing.title', 'Establishing card — the title', {
+          placeholder: 'e.g. I-65 Tanker Rollover',
+          helper: 'The big line on the pre-entry card. Leave blank to fall back to the practice title.' }),
+        tf('establishing.sub', 'Establishing card — the teaser', { area: true, minRows: 2,
+          helper: 'One or two short lines: what the footage shows and what the learner will do with it.' }),
+        tf('establishing.eyebrow', 'Establishing card — eyebrow', { placeholder: 'Scene size-up',
+          helper: 'The small label over the title.' }),
         tf('openingQuestion', 'The coach\'s opening question', { area: true, minRows: 2,
           helper: 'On screen the moment the first segment ends. It should invite a first read, not test.' }),
       );

@@ -29,7 +29,7 @@
     title: 'Applying HazCom: The Teach Me Exercise',
 
     // Named in the calibration prompt: "The learner has just finished {subject}."
-    subject: 'a Hazard Communication (HazCom) course',
+    subject: 'a Hazard Communication (HazCom) training',
 
     // The required topics the learner must teach back. `short` labels the tile
     // and the closing list; `full` is what the grader matches on; `synonyms`

@@ -1091,7 +1091,7 @@
          When nothing is published the inline scenario below is used unchanged. -->
     <script src="js/studio-engine.js?v=1"></script>
     <script src="js/scenario.js?v=13"></script>
-    <script src="js/scenario-types/observe-react.js?v=4"></script>
+    <script src="js/scenario-types/observe-react.js?v=5"></script>
 
     <script>
     /* =====================================================================
@@ -1136,6 +1136,9 @@
         .map((r) => ({ icon: 'fa-circle-info', title: r.title || '', body: r.body || '' }));
       return {
         title: s.title || 'Observe / React',
+        // Pre-entry establishing card — authored content; a pre-field publish
+        // gets a neutral shape (the card then falls back to the title alone).
+        establishing: { eyebrow: 'Scene size-up', title: '', sub: '', ...((s.establishing && typeof s.establishing === 'object') ? s.establishing : {}) },
         system: compile(s),                                   // → SYSTEM_PROMPT
         scenes: (s.segments || [])                            // → OBSERVE_SCENES
           .filter((sc) => sc && (sc.src || sc.caption || sc.label))
@@ -1161,6 +1164,15 @@
     const SCENARIO = {
       title: PUBLISHED ? PUBLISHED.title : 'Hazmat Scene Size-Up: I-65 Tanker Rollover',
     };
+    // Reflect a published scenario in the chrome — the top bar, the tab and
+    // the screen-reader heading all carried the shipped demo's name before.
+    if (PUBLISHED) {
+      const nameEl = document.getElementById('scenarioName');
+      if (nameEl) nameEl.textContent = SCENARIO.title;
+      const srH1 = document.querySelector('h1.sr-only');
+      if (srH1) srH1.textContent = 'Practice: ' + SCENARIO.title;
+      document.title = SCENARIO.title + ' — Observe / React Coach';
+    }
 
     /* The Observe scene — told in THREE segments, each its own clip, each
        followed by a React (coaching) chapter before the next one plays. The
@@ -1608,10 +1620,17 @@ Nothing about that tank got safer today. The difference is you'd have kept every
           wireVideoControls();
         } else {
           const est = el('div', 'establishing');
+          // Authored content when published (scenario.establishing); the
+          // shipped demo keeps its inline copy when nothing is published.
+          const EST = PUBLISHED ? PUBLISHED.establishing : {
+            eyebrow: 'Scene size-up',
+            title: 'I-65 Tanker Rollover',
+            sub: 'A tanker went over on the interstate — and the scene you\'re about to watch was not run by the book. Watch how it really unfolded, then tell your AI coach what you saw: what was right, what wasn\'t, and what you\'d do differently.',
+          };
           est.innerHTML =
-            `<div class="est-eyebrow">Scene size-up</div>
-             <h2 class="est-title">I-65 Tanker Rollover</h2>
-             <p class="est-sub">A tanker went over on the interstate — and the scene you're about to watch was not run by the book. Watch how it really unfolded, then tell your AI coach what you saw: what was right, what wasn't, and what you'd do differently.</p>`;
+            `<div class="est-eyebrow">${esc(EST.eyebrow || 'Scene size-up')}</div>
+             <h2 class="est-title">${esc(EST.title || SCENARIO.title)}</h2>
+             ${EST.sub ? `<p class="est-sub">${esc(EST.sub)}</p>` : ''}`;
           stageInner.appendChild(est);
         }
       }

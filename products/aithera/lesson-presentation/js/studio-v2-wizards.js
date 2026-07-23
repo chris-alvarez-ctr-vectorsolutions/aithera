@@ -442,6 +442,7 @@ CRAFT EXEMPLARS (shipped build — match craft, NOT topic):
     const D = T.DEFAULT;
     const EX = {
       segments: JSON.stringify((D.segments || []).map((s) => ({ label: s.label, caption: s.caption })), null, 1),
+      establishing: JSON.stringify(D.establishing),
       openers: JSON.stringify(D.openers, null, 1),
       dimensions: JSON.stringify((D.dimensions || []).slice(0, 2), null, 1),
       gate: JSON.stringify(D.gate, null, 1),
@@ -506,6 +507,8 @@ ${CRAFT_COMMON}`;
 YOUR TASK — the FOOTAGE SPINE. Return this exact JSON shape:
 {
  "title": "learner-facing title, short",
+ "establishingTitle": "2-4 words for the pre-entry card: the incident/scene name (e.g. 'I-65 Tanker Rollover')",
+ "establishingSub": "1-2 short sentences under it: what the footage shows and what the learner will do with it — second person",
  "openingQuestion": "the coach's first on-screen line after the cold-open segment — set the stakes plainly, then ask the first concrete observation question",
  "segments": [ {"label": "Segment N: what is literally on screen (grounds the coach — it reacts ONLY to this)", "caption": "the narration read over the clip — the coach's spoken voice, 1-2 sentences"} ],
  "openers": [ {"segment": 2, "line": "verbatim coach line on returning from that segment"} ]
@@ -513,6 +516,7 @@ YOUR TASK — the FOOTAGE SPINE. Return this exact JSON shape:
 One segments[] entry per designer segment, SAME order and count. Openers: one for each segment AFTER the first (the first's return is the openingQuestion) — make one of them an affective beat ("how did that feel to watch?") and the LAST one deliver the synthesis ask verbatim-ish from the designer's final ask.
 
 CRAFT EXEMPLARS (shipped build — match craft, NOT topic; it predates the voice rules, so do NOT copy its "Sit with that" opener — the banned list wins):
+- establishing card: ${EX.establishing}
 - openingQuestion: ${JSON.stringify(EX.openingQuestion)}
 - segments: ${EX.segments}
 - openers: ${EX.openers}`,
@@ -521,6 +525,7 @@ CRAFT EXEMPLARS (shipped build — match craft, NOT topic; it predates the voice
             apply(json, draft, ik) {
               const urls = lines(ik.videoUrls);
               draft.title = str(ik.title).trim() || str(json.title);
+              draft.establishing = { eyebrow: 'Scene size-up', title: depunct(json.establishingTitle), sub: str(json.establishingSub) };
               draft.openingQuestion = str(json.openingQuestion);
               draft.segments = Array.isArray(json.segments) ? json.segments.map((s, i) => ({ src: urls[i] || '', label: str((s || {}).label), caption: str((s || {}).caption) })) : [];
               draft.openers = Array.isArray(json.openers) ? json.openers.map((o) => ({ segment: Number((o || {}).segment) || 0, line: str((o || {}).line) })).filter((o) => o.segment >= 2 && o.line) : [];
