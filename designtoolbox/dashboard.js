@@ -85,15 +85,11 @@
              small "Design Dashboard" eyebrow above it. Search + the freshness
              meta stack on the right, both flush with the page's right gutter. -->
         <div class="header-main">
+          <!-- Two columns on one shared baseline (align-items: flex-end):
+               left = eyebrow → wordmark → subtitle, right = search → tiny
+               status/refresh line. Nothing floats mid-air. -->
           <div class="header-id">
-            <div class="header-eyebrow-row">
-              <span class="dash-eyebrow">Design <em>Dashboard</em></span>
-              <div class="meta-bar">
-                <span class="live-indicator"><span class="live-dot"></span> Auto-updated on every push</span>
-                <span class="dot-sep">·</span>
-                <span id="lastUpdated"></span>
-              </div>
-            </div>
+            <span class="dash-eyebrow">Design <em>Dashboard</em></span>
             <h1 class="page-title">
               <!-- Boots with the theme emoji; swaps to the landing page's
                    icon tile (same FA icon + brand color) once meta.json loads. -->
@@ -113,6 +109,11 @@
                   <i class="fa-solid fa-xmark"></i>
                 </button>
               </div>
+            </div>
+            <div class="meta-bar">
+              <span class="live-indicator"><span class="live-dot"></span> Auto-updated on every push</span>
+              <span class="dot-sep">·</span>
+              <span id="lastUpdated"></span>
             </div>
           </div>
         </div>
@@ -2013,21 +2014,15 @@
 
       .header-inner { max-width: 1400px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
 
-      /* One banner row: product identity (eyebrow, name, freshness meta,
-         bookmark note) stacked on the left; ONLY the global search on the
-         right, vertically centered against the stack. */
+      /* Two columns, ONE shared baseline (align-items: flex-end): the left
+         stack's subtitle and the right stack's status line both sit on the
+         banner's bottom edge, so neither column floats. */
       .header-main {
-        display: flex; align-items: center; justify-content: space-between;
+        display: flex; align-items: flex-end; justify-content: space-between;
         gap: 16px 32px; flex-wrap: wrap; padding-bottom: 16px;
       }
       .header-id { min-width: 0; }
       .header-id .page-subtitle { margin-top: 8px; }
-      /* Eyebrow row: the white "Design Dashboard" pill with the freshness
-         meta sitting inline beside it. */
-      .header-eyebrow-row {
-        display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-        margin-bottom: 10px;
-      }
       .dash-eyebrow {
         /* gap, not a space: flex drops whitespace-only text nodes, so the
            word gap between "Design" and the <em> is set here instead. */
@@ -2038,6 +2033,7 @@
         backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
         border: 1px solid rgba(255, 255, 255, 0.9); border-radius: 999px;
         padding: 6px 14px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+        margin-bottom: 10px;
       }
       /* Solid, not gradient text: 12px type needs 4.5:1 contrast, and every
          theme's accent-deep is dark enough — the banner stays colorful via
@@ -2083,9 +2079,14 @@
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
       }
 
-      /* Right column: just the search, right-flush with the page gutter so
-         its edge aligns with the content below. */
-      .header-side { flex: 0 1 460px; min-width: 280px; }
+      /* Right column: search on top, tiny status/refresh line beneath —
+         both right-flush with the page gutter so their edges align with
+         the content below. */
+      .header-side {
+        display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+        flex: 0 1 460px; min-width: 280px;
+      }
+      .header-side .meta-bar { font-size: 12px; }
       .header-search { width: 100%; }
       .header-search[hidden] { display: none; }
 
@@ -2358,9 +2359,10 @@
 
       /* Narrow screens: the sidebar becomes a wrapping row above the content. */
       @media (max-width: 980px) {
-        /* Banner stacks: identity block on top, search full-width under it. */
+        /* Banner stacks: identity block on top, search full-width under it,
+           status line left-aligned beneath the search. */
         .header-main { align-items: stretch; }
-        .header-side { flex: 1 1 100%; }
+        .header-side { flex: 1 1 100%; align-items: flex-start; }
         .content-columns { display: block; }
         .folder-nav {
           position: static; width: auto; flex-direction: row; flex-wrap: wrap;
