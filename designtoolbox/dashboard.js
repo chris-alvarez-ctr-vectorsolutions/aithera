@@ -2040,12 +2040,12 @@
          theme's accent-deep is dark enough — the banner stays colorful via
          the glow gradients and the product icon tile instead. */
       .dash-eyebrow em { font-style: normal; }
-      /* The PRODUCT is the headline — same face as the section titles
-         ("In Progress", …): Fraunces 700 italic, just larger. */
+      /* The PRODUCT is the headline — same face as the card titles:
+         Fraunces 700 upright, just larger. */
       .page-title {
         display: flex; align-items: center; gap: 13px;
         font-family: var(--serif); font-size: clamp(27px, 3.6vw, 38px);
-        font-weight: 700; font-style: italic;
+        font-weight: 700;
         margin: 0; line-height: 1.1; letter-spacing: -0.01em;
       }
       /* Gradient product name, verified accessible: every stop measures
@@ -2062,8 +2062,8 @@
             color-mix(in srgb, var(--gradient-end) 55%, var(--accent-deep)));
           -webkit-background-clip: text; background-clip: text;
           -webkit-text-fill-color: transparent;
-          /* Italic Fraunces overhangs its box slightly — keep the clip from
-             shaving the last glyph. */
+          /* Fraunces can overhang its box slightly — keep the background
+             clip from shaving the last glyph. */
           padding-right: 0.06em;
         }
       }
