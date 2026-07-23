@@ -85,11 +85,11 @@
              small "Design Dashboard" eyebrow above it. Search + the freshness
              meta stack on the right, both flush with the page's right gutter. -->
         <div class="header-main">
-          <!-- Two columns on one shared baseline (align-items: flex-end):
-               left = eyebrow → wordmark → subtitle, right = search → tiny
-               status/refresh line. Nothing floats mid-air. -->
+          <!-- Left = eyebrow pill → wordmark → subtitle; right = search.
+               The freshness status lives INSIDE the pill, so all system
+               telemetry reads as one chip. -->
           <div class="header-id">
-            <span class="dash-eyebrow">Design <em>Dashboard</em></span>
+            <span class="dash-eyebrow">Design <em>Dashboard</em><span class="dot-sep">·</span><span class="meta-bar"><span class="live-indicator"><span class="live-dot"></span> Auto-updated on every push</span><span class="dot-sep">·</span><span id="lastUpdated"></span></span></span>
             <h1 class="page-title">
               <!-- Boots with the theme emoji; swaps to the landing page's
                    icon tile (same FA icon + brand color) once meta.json loads. -->
@@ -109,11 +109,6 @@
                   <i class="fa-solid fa-xmark"></i>
                 </button>
               </div>
-            </div>
-            <div class="meta-bar">
-              <span class="live-indicator"><span class="live-dot"></span> Auto-updated on every push</span>
-              <span class="dot-sep">·</span>
-              <span id="lastUpdated"></span>
             </div>
           </div>
         </div>
@@ -2014,11 +2009,10 @@
 
       .header-inner { max-width: 1400px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
 
-      /* Two columns, ONE shared baseline (align-items: flex-end): the left
-         stack's subtitle and the right stack's status line both sit on the
-         banner's bottom edge, so neither column floats. */
+      /* Two columns: identity stack left, search right (centered against
+         the stack). System telemetry all lives in the eyebrow pill. */
       .header-main {
-        display: flex; align-items: flex-end; justify-content: space-between;
+        display: flex; align-items: center; justify-content: space-between;
         gap: 16px 32px; flex-wrap: wrap; padding-bottom: 16px;
       }
       .header-id { min-width: 0; }
@@ -2033,7 +2027,14 @@
         backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
         border: 1px solid rgba(255, 255, 255, 0.9); border-radius: 999px;
         padding: 6px 14px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-        margin-bottom: 10px;
+        margin-bottom: 10px; max-width: 100%;
+      }
+      .dash-eyebrow .dot-sep { opacity: 0.35; margin: 0 3px; }
+      /* The freshness status inside the pill sheds the label styling —
+         sentence case, no tracking, a step smaller. */
+      .dash-eyebrow .meta-bar {
+        font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none;
+        gap: 4px 8px;
       }
       /* Solid, not gradient text: 12px type needs 4.5:1 contrast, and every
          theme's accent-deep is dark enough — the banner stays colorful via
@@ -2079,14 +2080,9 @@
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
       }
 
-      /* Right column: search on top, tiny status/refresh line beneath —
-         both right-flush with the page gutter so their edges align with
-         the content below. */
-      .header-side {
-        display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
-        flex: 0 1 460px; min-width: 280px;
-      }
-      .header-side .meta-bar { font-size: 12px; }
+      /* Right column: just the search, right-flush with the page gutter so
+         its edge aligns with the content below. */
+      .header-side { flex: 0 1 460px; min-width: 280px; }
       .header-search { width: 100%; }
       .header-search[hidden] { display: none; }
 
@@ -2359,10 +2355,12 @@
 
       /* Narrow screens: the sidebar becomes a wrapping row above the content. */
       @media (max-width: 980px) {
-        /* Banner stacks: identity block on top, search full-width under it,
-           status line left-aligned beneath the search. */
+        /* Banner stacks: identity block on top, search full-width under it.
+           The pill may wrap to two lines — soften the radius so it still
+           reads as one chip. */
         .header-main { align-items: stretch; }
-        .header-side { flex: 1 1 100%; align-items: flex-start; }
+        .header-side { flex: 1 1 100%; }
+        .dash-eyebrow { flex-wrap: wrap; row-gap: 3px; border-radius: 16px; }
         .content-columns { display: block; }
         .folder-nav {
           position: static; width: auto; flex-direction: row; flex-wrap: wrap;
