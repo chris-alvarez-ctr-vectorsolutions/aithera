@@ -86,18 +86,20 @@
              meta stack on the right, both flush with the page's right gutter. -->
         <div class="header-main">
           <div class="header-id">
-            <span class="dash-eyebrow">Design <em>Dashboard</em></span>
+            <div class="header-eyebrow-row">
+              <span class="dash-eyebrow">Design <em>Dashboard</em></span>
+              <div class="meta-bar">
+                <span class="live-indicator"><span class="live-dot"></span> Auto-updated on every push</span>
+                <span class="dot-sep">·</span>
+                <span id="lastUpdated"></span>
+              </div>
+            </div>
             <h1 class="page-title">
               <!-- Boots with the theme emoji; swaps to the landing page's
                    icon tile (same FA icon + brand color) once meta.json loads. -->
               <span class="title-icon" id="productIcon"><span id="productEmoji">🎨</span></span>
               <span id="productName">Product</span>
             </h1>
-            <div class="meta-bar">
-              <span class="live-indicator"><span class="live-dot"></span> Auto-updated on every push</span>
-              <span class="dot-sep">·</span>
-              <span id="lastUpdated"></span>
-            </div>
             <p class="page-subtitle">Bookmark this page — it stays in sync as the design team ships new work.</p>
           </div>
           <div class="header-side">
@@ -2019,12 +2021,23 @@
         gap: 16px 32px; flex-wrap: wrap; padding-bottom: 16px;
       }
       .header-id { min-width: 0; }
-      .header-id .meta-bar { margin-top: 9px; }
-      .header-id .page-subtitle { margin-top: 4px; }
+      .header-id .page-subtitle { margin-top: 8px; }
+      /* Eyebrow row: the white "Design Dashboard" pill with the freshness
+         meta sitting inline beside it. */
+      .header-eyebrow-row {
+        display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+        margin-bottom: 10px;
+      }
       .dash-eyebrow {
-        display: block; font-family: var(--display); font-size: 12px; font-weight: 700;
+        /* gap, not a space: flex drops whitespace-only text nodes, so the
+           word gap between "Design" and the <em> is set here instead. */
+        display: inline-flex; align-items: center; gap: 5px;
+        font-family: var(--display); font-size: 12px; font-weight: 700;
         text-transform: uppercase; letter-spacing: 1.8px; color: var(--accent-deep);
-        margin-bottom: 6px;
+        background: rgba(255, 255, 255, 0.72);
+        backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.9); border-radius: 999px;
+        padding: 6px 14px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
       }
       /* Solid, not gradient text: 12px type needs 4.5:1 contrast, and every
          theme's accent-deep is dark enough — the banner stays colorful via
