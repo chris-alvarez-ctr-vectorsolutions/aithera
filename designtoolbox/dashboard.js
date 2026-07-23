@@ -2006,12 +2006,12 @@
          theme's accent-deep is dark enough — the banner stays colorful via
          the glow gradients and the product icon tile instead. */
       .dash-eyebrow em { font-style: normal; }
-      /* The PRODUCT is the headline. Space Grotesk (not the Fraunces serif):
-         product names are often camelcase coinages ("LearningStudio") that
-         read much easier in a clean geometric sans. */
+      /* The PRODUCT is the headline — same face as the section titles
+         ("In Progress", …): Fraunces 700 italic, just larger. */
       .page-title {
         display: flex; align-items: center; gap: 13px;
-        font-family: var(--display); font-size: clamp(27px, 3.6vw, 38px); font-weight: 700;
+        font-family: var(--serif); font-size: clamp(27px, 3.6vw, 38px);
+        font-weight: 700; font-style: italic;
         margin: 0; line-height: 1.1; letter-spacing: -0.01em;
       }
       /* Product icon beside the name. Boots as the theme emoji, then becomes
