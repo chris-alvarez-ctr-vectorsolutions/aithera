@@ -579,7 +579,8 @@ CRAFT EXEMPLAR (shipped gold standard — match craft, NOT topic):
   T.wizard = {
     title: 'Start from scratch — Guided Arc',
     tagline: 'Coached topic turns in Learn, then a live Practice scene — the Marshall format.',
-    intro: 'A short brief, an interview in your own words, then an AI-drafted scenario lands in the editor.',
+    intro: 'A short brief, a few questions in your own words, then an AI-drafted scenario lands in the editor.',
+    describePlaceholder: 'e.g. A 10-minute scenario for our harassment-prevention training: an employee watches a coworker get demeaned in meetings and practices stepping in as a bystander.',
 
     derive(intake) {
       if (!intake.time) intake.time = 10;
@@ -597,7 +598,7 @@ CRAFT EXEMPLAR (shipped gold standard — match craft, NOT topic):
             helper: 'One line. This is the spine every generated field hangs on.' },
           { key: 'title', kind: 'text', label: 'Working title (optional)',
             helper: 'Leave blank and the draft proposes one.' },
-          { key: 'course', kind: 'text', label: 'The course it lives inside (optional)',
+          { key: 'course', kind: 'text', label: 'The training it lives inside (optional)',
             placeholder: 'e.g. Harassment Prevention for Employees', helper: 'Grounds the coach\'s register.' },
           { key: 'time', kind: 'chips', label: 'Target time on task', default: 10,
             options: [
@@ -606,13 +607,13 @@ CRAFT EXEMPLAR (shipped gold standard — match craft, NOT topic):
               { value: 15, label: '~15 minutes', desc: 'Warm-up + 3 turns + live practice' },
             ] },
           { key: 'sourceText', kind: 'source', minRows: 7, label: 'Source material — paste anything (optional)',
-            placeholder: 'An outline, slide text, a policy excerpt, SME notes, an old course script…',
+            placeholder: 'An outline, slide text, a policy excerpt, SME notes, an old training script…',
             helper: 'The generator mines this for specifics instead of inventing them. More source = truer draft.' },
         ],
       },
       {
         id: 'interview',
-        title: 'The interview',
+        title: 'Scenario shape',
         sub: 'Answer like you\'d brief a colleague — plain language, no prompt-writing. Your answers become the coaching guidance behind every turn.',
         fields: [
           { key: 'story', kind: 'area', required: true, minRows: 6, label: 'Tell the story the learner walks into',

@@ -61,6 +61,7 @@ OUTPUT — return ONLY one JSON object matching the requested shape: no markdown
     const D = T.DEFAULT;
     const EX = {
       setup: str(D.setup),
+      establishing: JSON.stringify(D.establishing),
       openingQuestion: str(D.openingQuestion),
       coachVoice: JSON.stringify(D.coachVoice, null, 1),
       dimensions: JSON.stringify(D.dimensions, null, 1),
@@ -108,7 +109,8 @@ CHARACTER REALISM RULES: the character never capitulates in one line and never m
     T.wizard = {
       title: 'Start from scratch — Roleplay',
       tagline: 'Rehearse a hard conversation line-by-line with a simulated person — reactions are the feedback.',
-      intro: 'A short brief, an interview in your own words, then an AI-drafted roleplay lands in the editor.',
+      intro: 'A short brief, a few questions in your own words, then an AI-drafted roleplay lands in the editor.',
+      describePlaceholder: 'e.g. College students practice checking in on a friend whose drinking has changed — a warm peer coach, and it shouldn’t end until they make a real plan to connect.',
 
       derive(intake) {
         if (!intake.time) intake.time = 10;
@@ -123,8 +125,8 @@ CHARACTER REALISM RULES: the character never capitulates in one line and never m
             { key: 'topic', kind: 'text', required: true, label: 'What is this conversation practice about?',
               placeholder: 'e.g. Checking in on a friend whose drinking has changed', helper: 'One line — the spine every generated field hangs on.' },
             { key: 'title', kind: 'text', label: 'Working title (optional)', helper: 'Leave blank and the draft proposes one.' },
-            { key: 'course', kind: 'text', label: 'The course it lives inside (optional)',
-              placeholder: 'e.g. a college alcohol & substance education course', helper: 'Grounds the register. Start with "a …".' },
+            { key: 'course', kind: 'text', label: 'The training it lives inside (optional)',
+              placeholder: 'e.g. a college alcohol & substance education program', helper: 'Grounds the register. Start with "a …".' },
             { key: 'time', kind: 'chips', label: 'Target time on task', default: 10,
               options: [
                 { value: 5, label: '~5 minutes', desc: '3-4 scene lines' },
@@ -135,7 +137,7 @@ CHARACTER REALISM RULES: the character never capitulates in one line and never m
               placeholder: 'An outline, slide text, a policy excerpt, SME notes…',
               helper: 'The generator mines this for specifics instead of inventing them.' },
           ] },
-        { id: 'interview', title: 'The interview', sub: 'Answer like you\'d brief a colleague — plain language, no prompt-writing. Your answers become the rubric, the character\'s reaction map, and the gate.',
+        { id: 'interview', title: 'Scenario shape', sub: 'Answer like you\'d brief a colleague — plain language, no prompt-writing. Your answers become the rubric, the character\'s reaction map, and the gate.',
           fields: [
             { key: 'story', kind: 'area', required: true, minRows: 6, label: 'Who is the person, and what\'s true when the scene opens?',
               helper: 'The situation as it stands — history, what\'s changed, why it matters now. This becomes the locked canon the character and coach never contradict.' },
@@ -190,6 +192,8 @@ YOUR TASK — the roleplay's FOUNDATION. Return this exact JSON shape:
  "courseContext": "lowercase phrase starting 'a …' naming the course register",
  "setupText": "150-250 words, present tense, addressed to the AI as canon: who the character is, the history, what's changed, what's true when the scene opens, and why the LEARNER is the one standing there. This is the locked do-not-contradict canon. Escape paragraph breaks as \\n\\n.",
  "openingImage": "one line: what the learner sees walking in — the model's first narration beat paints this",
+ "establishingTitle": "2-4 words: WHERE the learner is about to step in, shown big on the pre-entry card (e.g. 'Kendra's room')",
+ "establishingSub": "1-2 short sentences under it: what's true + what the learner is about to do — second person, present tense",
  "openingQuestion": "the coach's prep question, on screen before the scene — invites reflection about approach, ends in a question mark",
  "reflectionFocus": ["2-3 short phrases — ideas the coach draws out pre-scene if the learner misses them"],
  "introEyebrow": "small label over the situation card", "introTitle": "3-6 human words",
@@ -200,6 +204,7 @@ YOUR TASK — the roleplay's FOUNDATION. Return this exact JSON shape:
 
 CRAFT EXEMPLARS (the shipped gold-standard build — match craft and density, NOT topic):
 - setup: """${EX.setup}"""
+- establishing card: ${EX.establishing}
 - openingQuestion: ${JSON.stringify(EX.openingQuestion)}
 - coachVoice: ${EX.coachVoice}`,
                 user: `${briefBlock(ik)}\n\n${interviewBlock(ik)}\n\n${sourceBlock(ik, 6000)}\n\nWrite the foundation JSON now.` };
@@ -211,6 +216,7 @@ CRAFT EXEMPLARS (the shipped gold-standard build — match craft and density, NO
               draft.courseContext = str(ik.course).trim() || depunct(json.courseContext);
               draft.setup = str(json.setupText);
               draft.openingImage = depunct(json.openingImage);
+              draft.establishing = { eyebrow: 'The scene', title: depunct(json.establishingTitle), sub: str(json.establishingSub) };
               draft.openingQuestion = str(json.openingQuestion);
               draft.reflectionFocus = Array.isArray(json.reflectionFocus) ? json.reflectionFocus.map(str).filter(Boolean) : [];
               draft.pacing = { ...(ik.pacing || { sceneLines: '4-6', duration: '10-minute' }) };
@@ -334,7 +340,8 @@ ${CRAFT_COMMON}`;
     T.wizard = {
       title: 'Start from scratch — Teach-Back',
       tagline: 'The learner teaches required topics back from memory while an AI grades coverage live.',
-      intro: 'Name the course, list (or let the draft propose) the required topics, and the exercise lands in the editor.',
+      intro: 'Name the training, list (or let the draft propose) the required topics, and the exercise lands in the editor.',
+      describePlaceholder: 'e.g. Learners just finished our HazCom training — have them teach back the required elements (labels, SDS, routes of exposure…) from memory.',
 
       steps: [
         { id: 'brief', title: 'The brief', sub: 'What the learner just finished, and the material the topic list comes from.',
@@ -342,9 +349,9 @@ ${CRAFT_COMMON}`;
             { key: 'topic', kind: 'text', required: true, label: 'What did the learner just finish learning?',
               placeholder: 'e.g. Hazard Communication (HazCom) employee training', helper: 'One line — the exercise checks they can teach it back.' },
             { key: 'title', kind: 'text', label: 'Working title (optional)', helper: 'Leave blank and the draft proposes one.' },
-            { key: 'subject', kind: 'text', label: 'The course, as the coach should say it (optional)',
-              placeholder: 'e.g. a Hazard Communication (HazCom) course', helper: 'Start with "a …". Leave blank and the draft phrases it.' },
-            { key: 'sourceText', kind: 'source', minRows: 7, label: 'Source material — paste the course outline or standard (optional, but this is where a great topic list comes from)',
+            { key: 'subject', kind: 'text', label: 'The training, as the coach should say it (optional)',
+              placeholder: 'e.g. a Hazard Communication (HazCom) training', helper: 'Start with "a …". Leave blank and the draft phrases it.' },
+            { key: 'sourceText', kind: 'source', minRows: 7, label: 'Source material — paste the training outline or standard (optional, but this is where a great topic list comes from)',
               placeholder: 'The training outline, the regulation\'s required-elements list, slide text…' },
           ] },
         { id: 'interview', title: 'The topics', sub: 'The required list is the whole exercise — what must a complete answer cover?',
@@ -450,6 +457,7 @@ ${CRAFT_COMMON}`;
       title: 'Start from scratch — Observe / React',
       tagline: 'The learner reviews footage segment by segment; a coach probes what they caught.',
       intro: 'Describe the footage and what a trained eye should catch — the narration, rubric, and synthesis land in the editor.',
+      describePlaceholder: 'e.g. New firefighters review footage of a hazmat tanker rollover size-up, segment by segment, and get probed on what a first-arriving officer should catch.',
 
       steps: [
         { id: 'brief', title: 'The brief', sub: 'What the footage shows, at the highest level.',
@@ -464,7 +472,7 @@ ${CRAFT_COMMON}`;
           fields: [
             { key: 'segmentsList', kind: 'lines', required: true, minRows: 4, label: 'The footage — one segment per line, in viewing order',
               helper: 'What\'s on screen in each segment. No clips yet? Fine — the page shows placeholder frames until URLs are added.' },
-            { key: 'videoUrls', kind: 'lines', minRows: 2, label: 'Video URLs in the same order (optional)',
+            { key: 'videoUrls', kind: 'lines', minRows: 2, noSeed: true, label: 'Video URLs in the same order (optional)',
               helper: 'e.g. ../assets/videos/my-clip.mp4 — leave blank lines for segments without footage yet.' },
             { key: 'expertEye', kind: 'area', required: true, minRows: 4, label: 'What should a trained eye catch — and what does a weak read miss?',
               helper: 'Becomes the rubric the coach silently probes against (strong vs. weak reads).' },
