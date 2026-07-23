@@ -27,7 +27,8 @@
                helper|placeholder|minRows|options|default, required,
                showIf(intake), noSeed } — helper/label may be fn(intake).
 
-   TWO INTAKE MODES, chosen on step 0 and remembered per type:
+   TWO INTAKE MODES, chosen on step 0 — BASIC is the default every time the
+   wizard opens; an Advanced pick lasts for that open only (never persisted):
    - ADVANCED — the designer answers the full interview themselves (the
      classic flow above, unchanged).
    - BASIC — the designer writes ONE free-form description (a sentence is
@@ -42,8 +43,9 @@
      context & redraft" link, enrich the description, and Redraft — it
      becomes the primary CTA whenever the description has changed, and the
      overwrite confirm only fires when drafted answers were hand-edited
-     (tracked by `_outlineSig`). The intake keys `describe`, `_mode`,
-     `_outlined`, `_outlinedFrom` and `_outlineSig` are reserved for this.
+     (tracked by `_outlineSig`). The intake keys `describe`, `_outlined`,
+     `_outlinedFrom` and `_outlineSig` are reserved for this (a legacy
+     stored `_mode` may exist in old intakes and is ignored).
    Task:     { id, label, build(intake, acc, type) -> {system,user,maxTokens},
                apply(json, draft, intake, acc) }
    Tasks run SEQUENTIALLY (later ones read earlier results via acc.results);
@@ -356,11 +358,12 @@
     const outlineSig = () => JSON.stringify(seedableFields().map((f) => [f.key, intake[f.key] ?? '']));
     const describeChanged = () => String(intake.describe || '').trim() !== String(intake._outlinedFrom || '').trim();
 
-    /* BASIC unless chosen otherwise — but an interview already in progress
-       from before this mode existed keeps the classic flow (its steps would
-       otherwise vanish behind an un-clicked "Create outline"). */
-    const mode = () => (intake._mode === 'advanced' || intake._mode === 'basic') ? intake._mode
-      : (intake._outlined || !hasInterviewAnswers()) ? 'basic' : 'advanced';
+    /* BASIC is the default EVERY time the wizard opens — the Advanced pick
+       lasts for this open only (it survives type switches, but is never
+       persisted; a legacy stored `_mode` is ignored). Answers typed in
+       Advanced stay saved either way — switching modes reveals them. */
+    let modeChoice = 'basic';
+    const mode = () => (modeChoice === 'advanced' ? 'advanced' : 'basic');
 
     let stepIdx = 0;
     // Step 0 is the type choice; the rest belong to the CHOSEN spec.
@@ -459,9 +462,8 @@
         b.innerHTML = `<span class="t"><i class="fa-solid ${m.ic}"></i> ${esc(m.t)}</span><span class="d">${esc(m.d)}</span>`;
         b.addEventListener('click', () => {
           if (mode() === m.id) return;
-          intake._mode = m.id;
-          persistIntake();
-          renderAll();   // the step rail changes shape with the mode
+          modeChoice = m.id;   // session choice — next open starts on Basic again
+          renderAll();         // the step rail changes shape with the mode
         });
         mrow.appendChild(b);
       });
@@ -730,7 +732,6 @@ No markdown fences, no commentary — start with { and end with }. Never emit a 
         const json = await generateJson(workerUrl, buildOutlineReq());
         applyOutline(json);
         intake._outlined = true;
-        intake._mode = 'basic';   // pre-filled answers must not flip the default back to advanced
         intake._outlinedFrom = String(intake.describe || '').trim();   // Redraft turns primary when this drifts
         intake._outlineSig = outlineSig();                             // hand-edits after this point re-arm the confirm
         persistIntake();
