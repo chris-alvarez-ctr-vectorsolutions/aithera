@@ -164,6 +164,8 @@
       report: REPORT_CAPS,
       deliver: null,
       action: false,         // accept "probe"|"teach" intent (guided arc phase engine)
+      tier: null,            // (t) => t|null — accept a calibration-tier label on
+                             // teach turns (branching arc records it as ladder state)
       sceneHints: false,
       observeNext: null,
       fallbackText: FALLBACK_TEXT,
@@ -233,10 +235,23 @@
           // The app, not the model, owns WHEN to advance and WHICH locked beat to
           // show; action just tells it what the model meant. Item-level flags
           // hoist here too (a model sometimes puts it on the last bubble).
-          const OK = { probe: 1, teach: 1, redirect: 1 };
+          // "continue" is the branching arc's stay-in-phase intent (a character
+          // reaction or an in-phase probe — multi-turn phases, unlike the guided
+          // arc's single probe); modes that never prompt for it never see it.
+          const OK = { probe: 1, teach: 1, redirect: 1, continue: 1 };
           const itemAction = obj.turn.map((m) => m && m.action).find((a) => OK[a]);
           const a = OK[obj.action] ? obj.action : itemAction;
           if (a) out.action = a;
+        }
+
+        if (o.tier) {
+          // A calibration-tier label the model reports when it closes a phase
+          // ("teach"). The page supplies the validator — unknown labels drop to
+          // null so authored transitions never key off a hallucinated tier.
+          const rawTier = typeof obj.tier === 'string' ? obj.tier
+            : obj.turn.map((m) => m && m.tier).find((t) => typeof t === 'string');
+          const t = o.tier(rawTier || '');
+          if (t) out.tier = t;
         }
 
         if (o.sceneHints) {
