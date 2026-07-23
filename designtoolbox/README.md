@@ -302,10 +302,15 @@ code changes — the card rendering keys off `dashboardHref`.
 ## Product dashboard (shared + auto-updating)
 
 `dashboard.js` is the **single shared implementation** of the per-product
-"Design Lab" — the status board a product links its index card to (above). It
-renders cards for every prototype in a product, each with its **GitHub Pages
-URL, GitHub source link, dev-handoff build, status, and Jira ticket**, plus a
-recent-activity log. SafeLMS and Scheduling are the first two consumers.
+"Design Dashboard" — the status board a product links its index card to
+(above). The banner leads with the **product name** (emoji + name as the
+headline, a small "Design Dashboard" eyebrow over it) with the global search
+and the auto-updated/refreshed meta stacked on the right; header, content,
+and footer all share the same max-width + 32px gutter so every edge aligns.
+It renders cards for every prototype in a product, each with its **GitHub
+Pages URL, GitHub source link, dev-handoff build, status, and Jira ticket**,
+plus a recent-activity log. SafeLMS and Scheduling were the first two
+consumers.
 
 ### How a product enrolls (two files, no rebuild)
 
@@ -359,6 +364,13 @@ dims while a query is active; picking a folder exits the search into it).
   folder above the tree (nested pins show their full "A / B" path; the folder
   also stays in the tree, star filled). Saved per browser per product in
   `localStorage["designlab-fav-folders:<Product>"]` — personal, not shared.
+- **Card favorites** — every card (and list row) has its own hover star;
+  pinning HOISTS the mock into a collapsible **Favorites** section that
+  renders above the status sections (no duplicate below — the card keeps its
+  status badge). The section respects the active scope/search/status filters,
+  sorts by the active sort, and its open/closed state persists. Stored in
+  `localStorage["designlab-fav-mocks:<Product>"]` (pins, keyed by `rel`) and
+  `"designlab-favs-open:<Product>"` (section state).
 - **Narrow widths** — the rail becomes a wrapping row above the content
   (tree indent/chevrons drop; every folder shows as a flat chip), and
   the status chips collapse into one multi-select "Status: …" dropdown the

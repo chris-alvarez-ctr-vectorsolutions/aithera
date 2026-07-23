@@ -2,7 +2,7 @@
    Product Dashboard — shared, drop-in prototype index
    =========================================================================
 
-   ONE shared implementation of the per-product "Design Lab" dashboard. A
+   ONE shared implementation of the per-product "Design Dashboard". A
    product enrolls by dropping a tiny shell into `products/<Product>/dashboard/`:
 
        <!DOCTYPE html><html lang="en"><head>
@@ -81,32 +81,37 @@
   const MARKUP = `
     <header class="page-header">
       <div class="header-inner">
-        <div class="header-top">
-          <span class="product-tag">
-            <span class="emoji" id="productEmoji">🎨</span>
-            <span id="productName">Product</span>
-          </span>
-        </div>
-        <h1 class="page-title">Design <em>Lab</em></h1>
-        <div class="header-bottom">
-          <div class="meta-bar">
-            <span class="live-indicator"><span class="live-dot"></span> Auto-updated on every push</span>
-            <span class="dot-sep">·</span>
-            <span id="lastUpdated"></span>
+        <!-- Compact banner: the PRODUCT is the headline (emoji + name), with a
+             small "Design Dashboard" eyebrow above it. Search + the freshness
+             meta stack on the right, both flush with the page's right gutter. -->
+        <div class="header-main">
+          <div class="header-id">
+            <span class="dash-eyebrow">Design <em>Dashboard</em></span>
+            <h1 class="page-title">
+              <span class="title-emoji" id="productEmoji">🎨</span>
+              <span id="productName">Product</span>
+            </h1>
           </div>
-          <!-- Global search lives in the banner — it looks across ALL folders,
-               unlike the folder-scoped chips in the content column below. -->
-          <div class="header-search" id="headerSearch" hidden>
-            <div class="search-wrapper" id="searchWrapper">
-              <i class="fa-solid fa-magnifying-glass"></i>
-              <input type="search" class="search-input" id="searchInput" placeholder="Search prototypes by name, description, or ticket…" autocomplete="off" spellcheck="false" />
-              <button class="search-clear" id="searchClear" type="button" aria-label="Clear search">
-                <i class="fa-solid fa-xmark"></i>
-              </button>
+          <div class="header-side">
+            <!-- Global search lives in the banner — it looks across ALL folders,
+                 unlike the folder-scoped chips in the content column below. -->
+            <div class="header-search" id="headerSearch" hidden>
+              <div class="search-wrapper" id="searchWrapper">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="search" class="search-input" id="searchInput" placeholder="Search prototypes by name, description, or ticket…" autocomplete="off" spellcheck="false" />
+                <button class="search-clear" id="searchClear" type="button" aria-label="Clear search">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+            </div>
+            <div class="meta-bar">
+              <span class="live-indicator"><span class="live-dot"></span> Auto-updated on every push</span>
+              <span class="dot-sep">·</span>
+              <span id="lastUpdated"></span>
             </div>
           </div>
-          <nav class="folder-tabs" id="folderTabs" role="tablist" aria-label="Design folders" hidden></nav>
         </div>
+        <nav class="folder-tabs" id="folderTabs" role="tablist" aria-label="Design folders" hidden></nav>
       </div>
     </header>
 
@@ -693,9 +698,68 @@
       return;
     }
 
-    // Same filtered set, two layouts — the view switcher just picks the renderer.
-    if (state.view === 'list') renderListView(filtered, root);
-    else { renderCardView(filtered, root); scheduleAlign(); }
+    // Pinned mocks are HOISTED into a collapsible "Favorites" section above
+    // the status sections (not duplicated below — each card lives in exactly
+    // one place; its status badge still shows on the card itself).
+    const favSet = new Set(readFavMocks());
+    const favMocks = filtered.filter(m => favSet.has(m.relKey));
+    const rest = filtered.filter(m => !favSet.has(m.relKey));
+
+    if (favMocks.length) renderFavoritesSection(favMocks, root);
+
+    // Same set, two layouts — the view switcher just picks the renderer.
+    if (rest.length) {
+      if (state.view === 'list') renderListView(rest, root);
+      else renderCardView(rest, root);
+    }
+    if (state.view === 'card') scheduleAlign();
+  }
+
+  // Collapsible Favorites section — pinned cards sorted by the active sort,
+  // not status-grouped (each card carries its own status badge). Open/closed
+  // state persists per browser.
+  function renderFavoritesSection(mocks, root) {
+    const wrap = document.createElement('section');
+    wrap.className = 'section fav-section';
+    const det = document.createElement('details');
+    det.className = 'fav-details';
+    det.open = readFavsOpen();
+
+    const sorted = mocks.slice().sort(mockComparator(state.sort));
+    const summary = document.createElement('summary');
+    summary.className = 'section-header fav-header';
+    summary.innerHTML = `
+      <i class="fa-solid fa-chevron-right fav-chevron"></i>
+      <h2 class="section-title"><i class="fa-solid fa-star fav-title-star"></i> Favorites</h2>
+      <span class="section-count">${sorted.length}</span>`;
+    det.appendChild(summary);
+
+    const body = document.createElement('div');
+    if (state.view === 'list') {
+      body.className = 'proto-table-wrap';
+      body.innerHTML = `
+        <table class="proto-table">
+          <thead>
+            <tr>
+              <th>Prototype</th>
+              <th class="col-status">Status</th>
+              <th class="col-jira">Jira</th>
+              <th class="col-date">Last updated</th>
+            </tr>
+          </thead>
+          <tbody>${sorted.map(listRow).join('')}</tbody>
+        </table>`;
+    } else {
+      body.className = 'card-grid';
+      sorted.forEach((m, i) => body.appendChild(buildCard(m, i)));
+    }
+    det.appendChild(body);
+    det.addEventListener('toggle', () => {
+      try { localStorage.setItem(FAVS_OPEN_KEY, det.open ? 'true' : 'false'); } catch { /* private mode */ }
+      if (det.open && state.view === 'card') scheduleAlign();
+    });
+    wrap.appendChild(det);
+    root.appendChild(wrap);
   }
 
   // --------------------------------------------------------------------------
@@ -1070,6 +1134,37 @@
     try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch { /* private mode */ }
   }
 
+  // Favorited MOCKS (cards) — separate from folder favorites. The star on a
+  // card/row pins it into the collapsible "Favorites" section that renders
+  // above the status sections. Keyed by relKey, per browser per product.
+  const MOCK_FAV_KEY = 'designlab-fav-mocks:' + PRODUCT;
+  function readFavMocks() {
+    try {
+      const a = JSON.parse(localStorage.getItem(MOCK_FAV_KEY));
+      return Array.isArray(a) ? a : [];
+    } catch { return []; }
+  }
+  function toggleFavMock(relKey) {
+    const favs = readFavMocks();
+    const i = favs.indexOf(relKey);
+    if (i === -1) favs.push(relKey); else favs.splice(i, 1);
+    try { localStorage.setItem(MOCK_FAV_KEY, JSON.stringify(favs)); } catch { /* private mode */ }
+  }
+  // Favorites section open/closed, persisted. Defaults to open.
+  const FAVS_OPEN_KEY = 'designlab-favs-open:' + PRODUCT;
+  function readFavsOpen() {
+    try { return localStorage.getItem(FAVS_OPEN_KEY) !== 'false'; } catch { return true; }
+  }
+  // One delegated handler covers stars in both views (cards are rebuilt on
+  // every render, so per-element listeners would need constant rebinding).
+  document.addEventListener('click', e => {
+    const star = e.target.closest('.mock-star');
+    if (!star) return;
+    e.preventDefault();
+    toggleFavMock(star.dataset.rel);
+    applyFiltersAndRender();
+  });
+
   // Collapsed tree branches, persisted per browser. Stored as the CLOSED set
   // (not the open set) so newly added folders default to expanded.
   const CLOSED_KEY = 'designlab-closed-folders:' + PRODUCT;
@@ -1302,13 +1397,16 @@
     return `
           <tr class="proto-row">
             <td>
-              <a class="proto-name" href="${href}" target="_blank" rel="noopener">
-                <i class="fa-regular fa-file-lines file-icon"></i>
-                <span>${escapeHtml(mock.title)}</span>
-                ${recencyTag(mock)}
-                ${mock.devHandoff ? '<span class="proto-dev-tag">Dev</span>' : ''}
-                <i class="fa-solid fa-arrow-up-right-from-square ext-icon"></i>
-              </a>
+              <div class="proto-cell">
+                <a class="proto-name" href="${href}" target="_blank" rel="noopener">
+                  <i class="fa-regular fa-file-lines file-icon"></i>
+                  <span>${escapeHtml(mock.title)}</span>
+                  ${recencyTag(mock)}
+                  ${mock.devHandoff ? '<span class="proto-dev-tag">Dev</span>' : ''}
+                  <i class="fa-solid fa-arrow-up-right-from-square ext-icon"></i>
+                </a>
+                ${mockStar(mock)}
+              </div>
             </td>
             <td><span class="status-badge" data-status="${escapeHtml(mock.status)}"><i class="fa-solid ${statusIcon(mock.status)} status-icon"></i>${escapeHtml(statusLabel)}</span></td>
             <td>${jiraCell}</td>
@@ -1371,6 +1469,13 @@
           </button>
           <a class="url-open" href="${u}" target="_blank" rel="noopener" title="Open in a new tab">Open <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
         </div>`;
+  }
+
+  // Pin/unpin star for one mock — shared by the card header and list rows.
+  // Toggling is handled by the delegated .mock-star click listener.
+  function mockStar(mock) {
+    const isFav = readFavMocks().includes(mock.relKey);
+    return `<span class="mock-star" data-rel="${escapeHtml(mock.relKey)}" data-fav="${isFav ? 'true' : 'false'}" role="button" tabindex="0" title="${isFav ? 'Unpin from Favorites' : 'Pin to Favorites'}" aria-label="${isFav ? 'Unpin' : 'Pin'} ${escapeHtml(mock.title)}"><i class="fa-${isFav ? 'solid' : 'regular'} fa-star"></i></span>`;
   }
 
   function buildCard(mock, idx) {
@@ -1482,6 +1587,7 @@
         <div class="card-badge-row">
           <span class="status-badge" data-status="${escapeHtml(status)}"><i class="fa-solid ${statusIcon(status)} status-icon"></i>${escapeHtml(statusLabel)}</span>
           ${ticketHtml}
+          ${mockStar(mock)}
         </div>
         <h2 class="card-title">${escapeHtml(title)}</h2>
       </div>
@@ -1837,8 +1943,11 @@
 
       /* Bottom padding is just 2px: the folder-tab baseline IS the header's
          bottom edge, so the active tab can drop over the line and visually
-         connect to the flat content zone below. */
-      .page-header { position: relative; padding: 56px 32px 2px; overflow: hidden; }
+         connect to the flat content zone below. The banner background bleeds
+         full-width, but the CONTENT box uses the exact same geometry as
+         .content and .page-footer (max-width 1400 with the 32px gutter
+         INSIDE it, border-box) so every block's left/right edges line up. */
+      .page-header { position: relative; padding: 26px 0 2px; overflow: hidden; }
       .page-header::before {
         content: ''; position: absolute; inset: 0;
         background:
@@ -1855,36 +1964,42 @@
       }
       @keyframes float { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-30px, 20px) scale(1.1); } }
 
-      .header-inner { max-width: 1400px; margin: 0 auto; position: relative; z-index: 1; }
+      .header-inner { max-width: 1400px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
 
-      /* Product pill + live/refreshed meta on one row: pill left, meta right. */
-      .header-top {
-        display: flex; align-items: center; justify-content: space-between;
-        gap: 12px 24px; flex-wrap: wrap; margin-bottom: 18px;
+      /* One banner row: product identity left, search + freshness meta right.
+         align-items: flex-end drops both onto a shared baseline so the meta
+         line reads level with the product name. */
+      .header-main {
+        display: flex; align-items: flex-end; justify-content: space-between;
+        gap: 16px 32px; flex-wrap: wrap; padding-bottom: 18px;
       }
-      .product-tag {
-        display: inline-flex; align-items: center; gap: 8px;
-        background: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-        color: var(--accent-deep); font-family: var(--display);
-        font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px;
-        padding: 6px 14px; border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.9);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+      .header-id { min-width: 0; }
+      .dash-eyebrow {
+        display: block; font-family: var(--display); font-size: 12px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 1.8px; color: var(--accent-deep);
+        margin-bottom: 6px;
       }
-      .product-tag .emoji { font-size: 14px; line-height: 1; }
-
-      .page-title {
-        font-family: var(--serif); font-size: clamp(40px, 6vw, 64px); font-weight: 900;
-        margin: 0 0 12px; line-height: 1.0; letter-spacing: -0.02em; font-variation-settings: "opsz" 96;
-      }
-      .page-title em {
-        font-style: italic; font-weight: 700;
+      .dash-eyebrow em {
+        font-style: normal;
         background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid), var(--gradient-end));
         -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-        font-variation-settings: "opsz" 144;
       }
-      .page-subtitle { font-size: 14px; color: var(--text-soft); margin: 0; max-width: none; line-height: 1.5; }
+      /* The PRODUCT is the headline. */
+      .page-title {
+        display: flex; align-items: center; gap: 13px;
+        font-family: var(--serif); font-size: clamp(30px, 4vw, 44px); font-weight: 900;
+        margin: 0; line-height: 1.05; letter-spacing: -0.02em; font-variation-settings: "opsz" 96;
+      }
+      .title-emoji { font-size: 0.78em; line-height: 1; }
+
+      /* Right column: search on top, meta line under it — both right-flush
+         with the page gutter so their edges align with the content below. */
+      .header-side {
+        display: flex; flex-direction: column; align-items: flex-end; gap: 9px;
+        flex: 0 1 460px; min-width: 280px;
+      }
+      .header-search { width: 100%; }
+      .header-search[hidden] { display: none; }
 
       .meta-bar {
         display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center;
@@ -2013,15 +2128,6 @@
          header's bottom edge. The active tab drops over the line (opaque bg +
          negative margin) so it reads as "open" — switching tabs visibly swaps
          what's connected to the flat content zone below. */
-      .header-bottom {
-        display: flex; align-items: flex-end; justify-content: space-between;
-        flex-wrap: wrap; gap: 12px 32px;
-      }
-      /* The meta line sits where the subtitle copy used to be. */
-      .header-bottom .meta-bar { padding-bottom: 22px; }
-      /* Banner search — global, right-aligned on the meta line. */
-      .header-search { flex: 0 1 460px; min-width: 280px; margin-bottom: 16px; }
-      .header-search[hidden] { display: none; }
       .folder-tabs {
         display: flex; flex-wrap: wrap; align-items: flex-end; gap: 2px;
         border-bottom: 2px solid color-mix(in srgb, var(--accent) 35%, var(--border));
@@ -2164,6 +2270,11 @@
 
       /* Narrow screens: the sidebar becomes a wrapping row above the content. */
       @media (max-width: 980px) {
+        /* Banner stacks: identity on top, search full-width under it, meta
+           line left-aligned beneath the search. */
+        .header-main { align-items: stretch; }
+        .header-side { flex: 1 1 100%; align-items: stretch; }
+        .header-side .meta-bar { justify-content: flex-start; }
         .content-columns { display: block; }
         .folder-nav {
           position: static; width: auto; flex-direction: row; flex-wrap: wrap;
@@ -2199,6 +2310,36 @@
         margin-left: 4px; padding: 3px 9px; border-radius: 999px;
         font-size: 11.5px; color: var(--text-muted); background: var(--accent-soft);
       }
+
+      /* ── Card-level favorites ────────────────────────────────────────────
+         Star on each card/row pins the mock into the Favorites section.
+         Hidden until hover (like the folder stars), always visible when on. */
+      .mock-star {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 26px; height: 26px; border-radius: 8px; flex: 0 0 auto;
+        color: var(--text-muted); font-size: 13px; opacity: 0; cursor: pointer;
+        transition: opacity 0.1s ease, color 0.1s ease, transform 0.1s ease, background 0.1s ease;
+      }
+      .mock-card:hover .mock-star, .proto-row:hover .mock-star { opacity: 0.7; }
+      .mock-star:hover { opacity: 1 !important; transform: scale(1.12); background: rgba(0, 0, 0, 0.05); }
+      .mock-star[data-fav="true"] { opacity: 1; color: #f59e0b; }
+      /* Touch screens have no hover — keep unpinned stars faintly visible. */
+      @media (hover: none) { .mock-star, .fnav-star { opacity: 0.55; } }
+      .card-badge-row .mock-star { margin-left: auto; }
+      .proto-cell { display: flex; align-items: center; gap: 8px; }
+      .proto-cell .proto-name { flex: 1 1 auto; min-width: 0; }
+
+      /* Favorites section — a collapsible <details> styled like the status
+         sections, always rendered ABOVE them. */
+      .fav-details > summary { cursor: pointer; list-style: none; user-select: none; }
+      .fav-details > summary::-webkit-details-marker { display: none; }
+      .fav-header { align-items: center; }
+      .fav-chevron {
+        font-size: 12px; color: var(--text-muted);
+        transition: transform 0.15s ease;
+      }
+      .fav-details[open] .fav-chevron { transform: rotate(90deg); }
+      .fav-title-star { color: #f59e0b; font-size: 17px; margin-right: 4px; }
 
       /* kept for potential nested sections; unused by the tab layout */
       .section--sub .section-title { font-size: 18px; }
