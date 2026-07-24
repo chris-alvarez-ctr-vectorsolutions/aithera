@@ -19,6 +19,14 @@
      • MAXED OUT (sheet at max height) — nothing to grow, so the body scrolls.
        `follow()` GLIDES that scroll smoothly to the new bottom.
 
+   RESERVED FLOOR (the sheet never shrinks): coach lines arrive as a typing
+   bubble that is then REMOVED a beat before its message lands. Left alone, the
+   sheet would collapse by a bubble's height and immediately re-grow — the
+   "jumping" as messages come in. So `rise()` holds a min-height floor that snaps
+   up to content instantly but only relaxes down to within one typing-bubble of
+   it: the dots' space stays reserved for the message that replaces them. Growth
+   is unchanged — only the between-beats SHRINK is removed. `reset()` releases it.
+
    THE SNAP BUG this module was extracted to kill: the old inline `rise()` ran
    `body.scrollTop = body.scrollHeight` (an instant jump) UNCONDITIONALLY, then
    decided whether it had grown. On the maxed-out path it had already snapped
@@ -55,28 +63,54 @@
     const body  = opts.body;    // its .coach-panel-body
 
     let lastH = null;   // sheet height we last painted, = the rise's start point
+    let floor = 0;      // reserved height — the sheet never shrinks below this
     let raf   = 0;      // in-flight rise, so a fresh one can cancel it
     let scrollRAF = 0;  // in-flight scroll glide, so a fresh one can re-target it
+
+    // RESERVE — how much empty space the sheet is allowed to HOLD above its
+    // current content. This is what bridges the beat where the typing dots are
+    // removed just before their message lands: instead of the thread collapsing
+    // by a bubble's worth and then re-growing (the "jumping"), the space stays
+    // reserved and the message drops into it. The floor relaxes back toward real
+    // content beyond this window, so an intentional big reduction (a fresh run
+    // replacing an old one) never leaves a large gap. ≈ one typing bubble + air.
+    const RESERVE = 96;
+    function releaseFloor() { floor = 0; if (panel.style.minHeight) panel.style.minHeight = ''; }
 
     /* Raise the sheet as ONE piece. Returns true if it actually animated a
        growth (so callers know whether the body still needs a scroll follow). */
     function rise() {
-      if (!app.classList.contains('coach-up')) { lastH = null; return false; }
+      if (!app.classList.contains('coach-up')) { lastH = null; releaseFloor(); return false; }
+      // The "Full conversation" overlay (sim-chat-history) drives its OWN
+      // min/max-height while it's open — don't fight it; just resync our height.
+      if (panel.classList.contains('sim-history-open')) { lastH = panel.offsetHeight; return false; }
       if (raf) { cancelAnimationFrame(raf); raf = 0; }
       panel.style.transition = 'none';   // we drive the transform ourselves this beat
       panel.style.transform = '';        // sit at the resting position to measure
-      const target = panel.offsetHeight; // forces layout → true post-render height
+      // RESERVE SPACE so the sheet never shrinks mid-conversation. Measure the
+      // TRUE content height (floor lifted first), then hold a min-height floor.
+      // The floor snaps UP to content instantly, but only relaxes DOWN to within
+      // one RESERVE window of it — so removing the typing dots (or landing a
+      // short line) leaves the space reserved instead of collapsing the thread,
+      // while a genuine big reduction still settles close to its real content.
+      panel.style.minHeight = '';
+      const content = panel.offsetHeight;                       // forces layout → true content height
+      floor = Math.max(content, Math.min(floor, content + RESERVE));
+      panel.style.minHeight = floor + 'px';
+      const target = panel.offsetHeight; // = max(content, floor), capped by CSS max-height
       const from = lastH;
       lastH = target;
       // First paint or reduced-motion: settle the newest bubble at the bottom
       // instantly — there's no rise to animate, and reduced-motion wants no
       // scroll animation either.
       if (from == null || reducedMotion()) { body.scrollTop = body.scrollHeight; panel.style.transition = ''; return false; }
-      // Already at max height — no rise to animate. Do NOT pin the scroll here;
-      // return false so follow() can GLIDE the thread down smoothly instead.
-      // Pinning here is exactly what made the thread SNAP once the sheet stopped
-      // growing.
-      if (Math.abs(target - from) < 2) { panel.style.transition = ''; return false; }
+      // No growth — the floor held the height steady (dots removed, short line),
+      // or we're maxed out. Don't animate and don't pin the scroll here; return
+      // false so follow() can GLIDE the thread down smoothly instead. Pinning
+      // here is exactly what made the thread SNAP once the sheet stopped growing.
+      // The floor guarantees `target` never drops below `from`, so this is the
+      // only non-growth case — there is no shrink to animate.
+      if (target - from < 2) { panel.style.transition = ''; return false; }
       // Growing: lay out at final height with the newest bubble pinned to the
       // bottom, then ease the WHOLE sheet (header + thread) up from a dropped
       // start.
@@ -151,7 +185,7 @@
     /* Forget the last painted height and stop any in-flight glide — call when the
        sheet lowers, so the next time it rises it treats that as a first paint
        (instant, no stray tween). */
-    function reset() { lastH = null; if (scrollRAF) { cancelAnimationFrame(scrollRAF); scrollRAF = 0; } }
+    function reset() { lastH = null; releaseFloor(); if (scrollRAF) { cancelAnimationFrame(scrollRAF); scrollRAF = 0; } }
 
     return { rise, follow, pin, reset };
   }
